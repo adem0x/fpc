@@ -65,6 +65,13 @@ uses
 *****************************************************************************}
 
    const
+      { Size of the instruction table converted by nasmconv.pas }
+{$ifdef x86_64}
+      instabentries = {$i x8664nop.inc}
+{$else x86_64}
+      instabentries = {$i i386nop.inc}
+{$endif x86_64}
+
       { Invalid register number }
       RS_INVALID    = $ff;
 

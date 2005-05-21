@@ -252,11 +252,9 @@ interface
                      begin
                        { remove cached insentry, because the new code can
                          require an other less optimized instruction }
-{$ifdef i386}
-{$ifndef NOAG386BIN}
+{$ifndef NOAGBIN}
                        taicpu(hp2).ResetPass1;
-{$endif}
-{$endif}
+{$endif NOAGBIN}
                        { fixup the references }
                        for i:=1 to taicpu(hp2).ops do
                         begin

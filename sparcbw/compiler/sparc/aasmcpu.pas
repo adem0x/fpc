@@ -66,14 +66,21 @@ uses
 
          { register spilling code }
          function spilling_get_operation_type(opnr: longint): topertype;override;
+
+         { assembler }
+         procedure ResetPass1;override;
+         procedure ResetPass2;override;
+         function  CheckIfValid:boolean;
+         function  Pass1(offset:longint):longint;override;
+         procedure Pass2(objdata:TAsmObjectdata);override;
       end;
 
       tai_align = class(tai_align_abstract)
         { nothing to add }
       end;
 
-    procedure InitAsm;
-    procedure DoneAsm;
+    procedure InitCPUAsm;
+    procedure DoneCPUAsm;
 
     function spilling_create_load(const ref:treference;r:tregister): tai;
     function spilling_create_store(r:tregister; const ref:treference): tai;
@@ -253,6 +260,37 @@ implementation
       end;
 
 
+    { the next will reset all instructions that can change in pass 2 }
+    procedure taicpu.ResetPass1;
+      begin
+      end;
+
+
+    procedure taicpu.ResetPass2;
+      begin
+      end;
+
+
+    function  taicpu.CheckIfValid:boolean;
+      begin
+      end;
+
+
+    function  taicpu.Pass1(offset:longint):longint;
+      begin
+        result:=4;
+      end;
+
+
+    procedure taicpu.Pass2(objdata:TAsmObjectdata);
+      var
+        instr : dword;
+      begin
+        instr:=0;
+        objdata.writebytes(instr,4);
+      end;
+
+
     function spilling_create_load(const ref:treference;r:tregister): tai;
       begin
         case getregtype(r) of
@@ -297,12 +335,12 @@ implementation
       end;
 
 
-    procedure InitAsm;
+    procedure InitCPUAsm;
       begin
       end;
 
 
-    procedure DoneAsm;
+    procedure DoneCPUAsm;
       begin
       end;
 

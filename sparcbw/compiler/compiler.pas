@@ -238,7 +238,7 @@ uses
 {$IFDEF USE_SYSUTILS}
   SysUtils,
 {$ENDIF USE_SYSUTILS}
-  aasmcpu;
+  aasmtai,aasmcpu;
 
 {$ifdef EXTDEBUG}
   {$define SHOWUSEDMEM}
@@ -274,7 +274,7 @@ begin
      DoneImport;
      DoneExport;
      DoneLinker;
-     DoneAssembler;
+     DoneCPUAsm;
      DoneAsm;
    end;
 { Free memory for the others }
@@ -315,8 +315,8 @@ begin
   InitImport;
   InitExport;
   InitLinker;
-  InitAssembler;
   InitAsm;
+  InitCPUAsm;
   CompilerInitedAfterArgs:=true;
 end;
 

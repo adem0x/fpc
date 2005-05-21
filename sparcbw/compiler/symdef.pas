@@ -1892,6 +1892,9 @@ implementation
            begin
               rttiList.concat(Tai_const.Create_8bit(length(hp.realname)));
               rttiList.concat(Tai_string.Create(hp.realname));
+{$ifdef cpurequiresproperalignment}
+              rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+{$endif cpurequiresproperalignment}
               hp:=hp.nextenum;
            end;
          rttiList.concat(Tai_const.Create_8bit(0));

@@ -44,7 +44,13 @@ interface
 
        TAsmsymtype=(AT_NONE,AT_FUNCTION,AT_DATA,AT_SECTION);
 
-       TAsmRelocationType = (RELOC_ABSOLUTE,RELOC_RELATIVE,RELOC_RVA);
+       TAsmRelocationType = (
+         RELOC_ABSOLUTE,RELOC_RELATIVE,RELOC_RVA,
+         { sparc specific relocs }
+         RELOC_SPARC_HI32,
+         RELOC_SPARC_LO10,
+         RELOC_SPARC_WDISP30,
+         RELOC_SPARC_32);
 
        TAsmSectionType=(sec_none,
          sec_code,sec_data,sec_rodata,sec_bss,
@@ -243,7 +249,6 @@ interface
 
     var
       objectlibrary : tasmlibrarydata;
-
 
 implementation
 

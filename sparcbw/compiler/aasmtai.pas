@@ -37,9 +37,12 @@ interface
        cpuinfo,cpubase,
        cgbase,cgutils,
        symtype,
-       aasmbase;
+       aasmbase,aasmitab;
 
     type
+       TInsTabCache = array[TasmOp] of longint;
+       PInsTabCache = ^TInsTabCache;
+
        taitype = (
           ait_none,
           ait_align,
@@ -604,6 +607,8 @@ interface
       cai_align : tai_align_class;
       cai_cpu   : tai_cpu_class;
 
+      InsTabCache : PInsTabCache;
+
     function  use_smartlink_section:boolean;
     function  maybe_smartlink_symbol:boolean;
     procedure maybe_new_object_file(list:taasmoutput);
@@ -612,6 +617,8 @@ interface
     function ppuloadai(ppufile:tcompilerppufile):tai;
     procedure ppuwriteai(ppufile:tcompilerppufile;n:tai);
 
+    procedure InitAsm;
+    procedure DoneAsm;
 
 implementation
 

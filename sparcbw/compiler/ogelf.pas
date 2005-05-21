@@ -126,6 +126,11 @@ implementation
       R_386_GOTOFF = 9;                { an offset from GOT base }
       R_386_GOTPC = 10;                { a PC-relative offset _to_ GOT }
 
+      R_SPARC_32 = 3;
+      R_SPARC_WDISP30 = 7;
+      R_SPARC_HI22 = 9;
+      R_SPARC_LO10 = 12;
+
       SHN_UNDEF     = 0;
       SHN_ABS       = $fff1;
       SHN_COMMON    = $fff2;
@@ -209,6 +214,75 @@ implementation
           nother  : byte;
           ndesc   : word;
           nvalue  : longint;
+        end;
+
+
+      function MayBeSwapHeader(h : telf32header) : telf32header;
+        begin
+          result:=h;
+          if source_info.endian<>target_info.endian then
+            with h do
+              begin
+                result.e_type:=swapword(e_type);
+                result.e_machine:=swapword(e_machine);
+                result.e_version:=swaplong(e_version);
+                result.e_entry:=swaplong(e_entry);
+                result.e_phoff:=swaplong(e_phoff);
+                result.e_shoff:=swaplong(e_shoff);
+                result.e_flags:=swaplong(e_flags);
+                result.e_ehsize:=swapword(e_ehsize);
+                result.e_phentsize:=swapword(e_phentsize);
+                result.e_phnum:=swapword(e_phnum);
+                result.e_shentsize:=swapword(e_shentsize);
+                result.e_shnum:=swapword(e_shnum);
+                result.e_shstrndx:=swapword(e_shstrndx);
+              end;
+        end;
+
+
+      function MaybeSwapSecHeader(h : telf32sechdr) : telf32sechdr;
+        begin
+          result:=h;
+          if source_info.endian<>target_info.endian then
+            with h do
+              begin
+                result.sh_name:=SwapLong(sh_name);
+                result.sh_type:=SwapLong(sh_type);
+                result.sh_flags:=SwapLong(sh_flags);
+                result.sh_addr:=SwapLong(sh_addr);
+                result.sh_offset:=SwapLong(sh_offset);
+                result.sh_size:=SwapLong(sh_size);
+                result.sh_link:=SwapLong(sh_link);
+                result.sh_info:=SwapLong(sh_info);
+                result.sh_addralign:=SwapLong(sh_addralign);
+                result.sh_entsize:=SwapLong(sh_entsize);
+              end;
+        end;
+
+
+      function MaybeSwapElfSymbol(h : telf32symbol) : telf32symbol;
+        begin
+          result:=h;
+          if source_info.endian<>target_info.endian then
+            with h do
+              begin
+                result.st_name:=SwapLong(st_name);
+                result.st_value:=SwapLong(st_value);
+                result.st_size:=SwapLong(st_size);
+                result.st_shndx:=SwapWord(st_shndx);
+              end;
+        end;
+
+
+      function MaybeSwapElfReloc(h : telf32reloc) : telf32reloc;
+        begin
+          result:=h;
+          if source_info.endian<>target_info.endian then
+            with h do
+              begin
+                result.address:=SwapLong(address);
+                result.info:=SwapLong(info);
+              end;
         end;
 
 
@@ -449,10 +523,10 @@ implementation
       begin
         fillchar(stab,sizeof(telf32stab),0);
         if assigned(p) and (p[0]<>#0) then
-         begin
-           stab.strpos:=stabstrsec.datasize;
-           stabstrsec.write(p^,strlen(p)+1);
-         end;
+          begin
+            stab.strpos:=stabstrsec.datasize;
+            stabstrsec.write(p^,strlen(p)+1);
+          end;
         stab.ntype:=nidx;
         stab.ndesc:=line;
         stab.nother:=nother;
@@ -461,7 +535,7 @@ implementation
         { when the offset is not 0 then write a relocation, take also the
           hdrstab into account with the offset }
         if reloc then
-         stabssec.addsymreloc(stabssec.datasize-4,ps,RELOC_ABSOLUTE);
+          stabssec.addsymreloc(stabssec.datasize-4,ps,RELOC_ABSOLUTE);
       end;
 
 
@@ -519,7 +593,11 @@ implementation
              end;
 {$endif userodata}
            { create the reloc section }
+{$ifdef i386}
            s.relocsect:=telf32section.create_ext('.rel'+s.name,sec_custom,9,0,symtabsect.secshidx,s.secshidx,4,8);
+{$else i386}
+           s.relocsect:=telf32section.create_ext('.rel'+s.name,sec_custom,4,0,symtabsect.secshidx,s.secshidx,4,8);
+{$endif i386}
            { add the relocations }
            r:=TasmRelocation(s.relocations.first);
            while assigned(r) do
@@ -542,15 +620,32 @@ implementation
                 relsym:=r.section.secsymidx
                else
                 relsym:=SHN_UNDEF;
+
+              { when things settle down, we can create processor specific
+                derived classes
+              }
+{$ifdef i386}
               case r.typ of
                 RELOC_RELATIVE :
                   reltyp:=R_386_PC32;
                 RELOC_ABSOLUTE :
                   reltyp:=R_386_32;
               end;
+{$endif i386}
+{$ifdef sparc}
+              case r.typ of
+{                RELOC_RELATIVE :
+                  reltyp:=R_386_PC32;
+}
+                RELOC_ABSOLUTE :
+                  reltyp:=R_SPARC_32;
+                else
+                  internalerror(200410201);
+              end;
+{$endif sparc}
               rel.info:=(relsym shl 8) or reltyp;
               { write reloc }
-              s.relocsect.write(rel,sizeof(rel));
+              s.relocsect.write(MaybeSwapElfReloc(rel),sizeof(rel));
               r:=TAsmRelocation(r.next);
             end;
          end;
@@ -565,7 +660,7 @@ implementation
         elfsym.st_name:=telf32section(p).shstridx;
         elfsym.st_info:=STT_SECTION;
         elfsym.st_shndx:=telf32section(p).secshidx;
-        elf32data.symtabsect.write(elfsym,sizeof(elfsym));
+        elf32data.symtabsect.write(MaybeSwapElfSymbol(elfsym),sizeof(elfsym));
         { increase locals count }
         inc(plongint(arg)^);
       end;
@@ -582,12 +677,12 @@ implementation
            locals:=2;
            { empty entry }
            fillchar(elfsym,sizeof(elfsym),0);
-           symtabsect.write(elfsym,sizeof(elfsym));
+           symtabsect.write(MaybeSwapElfSymbol(elfsym),sizeof(elfsym));
            { filename entry }
            elfsym.st_name:=1;
            elfsym.st_info:=STT_FILE;
            elfsym.st_shndx:=SHN_ABS;
-           symtabsect.write(elfsym,sizeof(elfsym));
+           symtabsect.write(MaybeSwapElfSymbol(elfsym),sizeof(elfsym));
            { section }
            sects.foreach(@section_write_symbol,@locals);
            { symbols }
@@ -634,7 +729,7 @@ implementation
                 elfsym.st_shndx:=telf32section(sym.section).secshidx
                else
                 elfsym.st_shndx:=SHN_UNDEF;
-              symtabsect.write(elfsym,sizeof(elfsym));
+              symtabsect.write(MaybeSwapElfSymbol(elfsym),sizeof(elfsym));
               sym:=tasmsymbol(sym.indexnext);
             end;
            { update the .symtab section header }
@@ -682,7 +777,7 @@ implementation
         sechdr.sh_info:=s.shinfo;
         sechdr.sh_addralign:=s.addralign;
         sechdr.sh_entsize:=s.entsize;
-        writer.write(sechdr,sizeof(sechdr));
+        writer.write(MaybeSwapSecHeader(sechdr),sizeof(sechdr));
       end;
 
 
@@ -832,17 +927,41 @@ implementation
            fillchar(header,sizeof(header),0);
            header.magic0123:=$464c457f; { = #127'ELF' }
            header.file_class:=1;
-           header.data_encoding:=1;
+
+           if target_info.endian=endian_big then
+             header.data_encoding:=2
+           else
+             header.data_encoding:=1;
+
            header.file_version:=1;
            header.e_type:=1;
+{$ifdef sparc}
+           header.e_machine:=2;
+{$endif sparc}
+{$ifdef i386}
            header.e_machine:=3;
+{$endif i386}
+{$ifdef m68k}
+           header.e_machine:=4;
+{$endif m68k}
+{$ifdef powerpc}
+           header.e_machine:=20;
+{$endif powerpc}
+{$ifdef arm}
+           header.e_machine:=40;
+{$endif arm}
+{$ifdef x86_64}
+           header.e_machine:=62;
+{$endif x86_64}
            header.e_version:=1;
            header.e_shoff:=shoffset;
            header.e_shstrndx:=shstrtabsect.secshidx;
            header.e_shnum:=nsects;
            header.e_ehsize:=sizeof(telf32header);
            header.e_shentsize:=sizeof(telf32sechdr);
-           writer.write(header,sizeof(header));
+
+           writer.write(MaybeSwapHeader(header),sizeof(header));
+
            writer.write(empty,$40-sizeof(header)); { align }
          { Sections }
            sects.foreach(@section_write_data,nil);
@@ -895,6 +1014,24 @@ implementation
           );
 
 
+       as_sparc_elf32_info : tasminfo =
+          (
+            id     : as_sparc_elf32;
+            idtxt  : 'ELF';
+            asmbin : '';
+            asmcmd : '';
+            supported_target : system_any;  //target_i386_linux;
+//            flags : [af_outputbinary,af_smartlink_sections];
+            flags : [af_outputbinary];
+            labelprefix : '.L';
+            comment : '';
+          );
+
 initialization
+{$ifdef i386}
   RegisterAssembler(as_i386_elf32_info,TElf32Assembler);
+{$endif i386}
+{$ifdef sparc}
+  RegisterAssembler(as_sparc_elf32_info,TElf32Assembler);
+{$endif sparc}
 end.

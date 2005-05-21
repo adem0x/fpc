@@ -133,6 +133,7 @@ interface
              ,as_m68k_mit
              ,as_powerpc_mpw
              ,as_darwin
+             ,as_sparc_elf32
        );
 
        tar = (ar_none

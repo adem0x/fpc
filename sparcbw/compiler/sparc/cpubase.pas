@@ -38,7 +38,7 @@ uses
       { don't change the order of these opcodes! }
       TAsmOp=({$i opcode.inc});
 
-      {# This should define the array of instructions as string }
+      { # This should define the array of instructions as string }
       op2strtable=array[tasmop] of string[11];
 
     Const

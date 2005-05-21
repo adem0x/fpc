@@ -1033,13 +1033,11 @@ Implementation
                objectdata.alloc(Tai_string(hp).len);
              ait_instruction :
                begin
-{$ifdef i386}
-{$ifndef NOAG386BIN}
+{$ifndef NOAGBIN}
                  { reset instructions which could change in pass 2 }
                  Taicpu(hp).resetpass2;
                  objectdata.alloc(Taicpu(hp).Pass1(objectdata.currsec.datasize));
-{$endif NOAG386BIN}
-{$endif i386}
+{$endif NOAGBIN}
                end;
              ait_cutobject :
                if SmartAsm then
@@ -1055,11 +1053,9 @@ Implementation
       var
         InlineLevel,
         l : longint;
-{$ifdef i386}
-{$ifndef NOAG386BIN}
+{$ifndef NOAGBIN}
         i : longint;
-{$endif NOAG386BIN}
-{$endif i386}
+{$endif NOAGBIN}
       begin
         inlinelevel:=0;
         while assigned(hp) do
@@ -1189,8 +1185,7 @@ Implementation
                objectdata.alloc(Tai_string(hp).len);
              ait_instruction :
                begin
-{$ifdef i386}
-{$ifndef NOAG386BIN}
+{$ifndef NOAGBIN}
                  objectdata.alloc(Taicpu(hp).Pass1(objectdata.currsec.datasize));
                  { fixup the references }
                  for i:=1 to Taicpu(hp).ops do
@@ -1208,8 +1203,7 @@ Implementation
                        end;
                      end;
                   end;
-{$endif NOAG386BIN}
-{$endif i386}
+{$endif NOAGBIN}
                end;
              ait_direct :
                Message(asmw_f_direct_not_supported);
@@ -1340,12 +1334,10 @@ Implementation
                    but it's better to be on the safe side (PFV) }
                  objectoutput.exportsymbol(Tai_label(hp).l);
                end;
-{$ifdef i386}
-{$ifndef NOAG386BIN}
+{$ifndef NOAGBIN}
              ait_instruction :
                Taicpu(hp).Pass2(objectdata);
-{$endif NOAG386BIN}
-{$endif i386}
+{$endif NOAGBIN}
 {$ifdef GDB}
              ait_stabn :
                convertstabs(Tai_stabn(hp).str);
@@ -1669,9 +1661,6 @@ Implementation
 
     procedure InitAssembler;
       begin
-        { target_asm is already set by readarguments }
-        initoutputformat:=target_asm.id;
-        aktoutputformat:=target_asm.id;
       end;
 
 

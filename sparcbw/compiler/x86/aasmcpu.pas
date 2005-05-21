@@ -232,14 +232,14 @@ interface
       private
          FOperandOrder : TOperandOrder;
          procedure init(_size : topsize); { this need to be called by all constructor }
-    {$ifndef NOAG386BIN}
+    {$ifndef NOAGBIN}
       public
          { the next will reset all instructions that can change in pass 2 }
-         procedure ResetPass1;
-         procedure ResetPass2;
+         procedure ResetPass1;override;
+         procedure ResetPass2;override;
          function  CheckIfValid:boolean;
-         function  Pass1(offset:longint):longint;virtual;
-         procedure Pass2(objdata:TAsmObjectdata);virtual;
+         function  Pass1(offset:longint):longint;override;
+         procedure Pass2(objdata:TAsmObjectdata);override;
          procedure SetOperandOrder(order:TOperandOrder);
          function is_same_reg_move(regtype: Tregistertype):boolean;override;
          { register spilling code }
@@ -489,7 +489,7 @@ implementation
          FOperandOrder:=op_att;
          segprefix:=NR_NO;
          opsize:=_size;
-{$ifndef NOAG386BIN}
+{$ifndef NOAGBIN}
          insentry:=nil;
          LastInsOffset:=-1;
          InsOffset:=0;
@@ -2061,54 +2061,19 @@ implementation
       end;
 
 
-{*****************************************************************************
-                              Instruction table
-*****************************************************************************}
-
-    procedure BuildInsTabCache;
-{$ifndef NOAG386BIN}
-      var
-        i : longint;
-{$endif}
-      begin
-{$ifndef NOAG386BIN}
-        new(instabcache);
-        FillChar(instabcache^,sizeof(tinstabcache),$ff);
-        i:=0;
-        while (i<InsTabEntries) do
-         begin
-           if InsTabCache^[InsTab[i].OPcode]=-1 then
-            InsTabCache^[InsTab[i].OPcode]:=i;
-           inc(i);
-         end;
-{$endif NOAG386BIN}
-      end;
-
-
-    procedure InitAsm;
+    procedure InitCPUAsm;
       begin
         build_spilling_operation_type_table;
-{$ifndef NOAG386BIN}
-        if not assigned(instabcache) then
-          BuildInsTabCache;
-{$endif NOAG386BIN}
       end;
 
 
-    procedure DoneAsm;
+    procedure DoneCPUAsm;
       begin
         if assigned(operation_type_table) then
           begin
             dispose(operation_type_table);
             operation_type_table:=nil;
           end;
-{$ifndef NOAG386BIN}
-        if assigned(instabcache) then
-          begin
-            dispose(instabcache);
-            instabcache:=nil;
-          end;
-{$endif NOAG386BIN}
       end;
 
 

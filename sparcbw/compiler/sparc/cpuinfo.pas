@@ -38,7 +38,7 @@ type
   pbestreal=^bestreal;
 
   { possible supported processors for this target }
-  tprocessors=(no_processor,SPARC_V7,SPARC_V8,SPARC_V9);
+  tprocessors=(no_processor,SPARC_V6,SPARC_V7,SPARC_V8,SPARC_V9);
 
   tfputype =(no_fpu,fpu_soft,fpu_hard);
 
@@ -55,6 +55,7 @@ const
   ];
 
    processorsstr : array[tprocessors] of string[10] = ('',
+     'SPARC V6',
      'SPARC V7',
      'SPARC V8',
      'SPARC V9'

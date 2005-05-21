@@ -50,8 +50,8 @@ implementation
              Assemblers
 **************************************}
 
-      ,CpuGas
-
+      ,cpugas
+      ,ogelf
       ;
 
 end.
