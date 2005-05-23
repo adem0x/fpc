@@ -50,7 +50,8 @@ interface
          RELOC_SPARC_HI32,
          RELOC_SPARC_LO10,
          RELOC_SPARC_WDISP30,
-         RELOC_SPARC_32);
+         RELOC_SPARC_32
+       );
 
        TAsmSectionType=(sec_none,
          sec_code,sec_data,sec_rodata,sec_bss,
