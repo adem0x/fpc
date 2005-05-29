@@ -29,7 +29,8 @@ interface
     uses
        node,cpubase,
        aasmbase,aasmtai,aasmcpu,symnot,
-       symtype,symbase,symdef,symsym;
+       symtype,symbase,symdef,symsym,
+       optunrol;
 
     type
        { flags used by loop nodes }
@@ -84,6 +85,7 @@ interface
        tifnodeclass = class of tifnode;
 
        tfornode = class(tloopnode)
+          unrollinfo : tunrollinfo;
           loopvar_notid:cardinal;
           constructor create(l,r,_t1,_t2 : tnode;back : boolean);virtual;
           procedure loop_var_access(not_type:Tnotification_flag;symbol:Tsym);
@@ -116,7 +118,8 @@ interface
        tcontinuenodeclass = class of tcontinuenode;
 
        tgotonode = class(tnode)
-          labsym : tlabelsym;
+          // labsym : tlabelsym;
+          labelnode : tlabelnode;
           labsymderef : tderef;
           exceptionblock : integer;
 {          internlab : tinterngotolabel;}
@@ -135,9 +138,11 @@ interface
 
        tlabelnode = class(tunarynode)
           labelnr : tasmlabel;
-          labsym : tlabelsym;
-          labsymderef : tderef;
           exceptionblock : integer;
+          { when copying trees, this points to the newly created copy of a label }
+          copiedto : tlabelnode;
+          { contains all goto nodesrefering to this label }
+          referinggotonodes : tlist;
           constructor createcase(p : tasmlabel;l:tnode);virtual;
           constructor create(p : tlabelsym;l:tnode);virtual;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
@@ -355,14 +360,14 @@ implementation
          resulttypepass(left);
          {A not node can be removed.}
          if left.nodetype=notn then
-            begin
-                t:=Tunarynode(left);
-                left:=Tunarynode(left).left;
-                t.left:=nil;
-                t.destroy;
-                {Symdif operator, in case you are wondering:}
-                loopflags:=loopflags >< [lnf_checknegate];
-            end;
+           begin
+             t:=Tunarynode(left);
+             left:=Tunarynode(left).left;
+             t.left:=nil;
+             t.destroy;
+             {Symdif operator, in case you are wondering:}
+             loopflags:=loopflags >< [lnf_checknegate];
+           end;
          { loop instruction }
          if assigned(right) then
            resulttypepass(right);
@@ -671,9 +676,20 @@ implementation
     end;
 
     function tfornode.det_resulttype:tnode;
+      var
+        unrollres : tnode;
       begin
          result:=nil;
          resulttype:=voidtype;
+
+         { loop unrolling }
+         unrollres:=unroll_loop(self);
+         if assigned(unrollres) then
+           begin
+             resulttypepass(unrollres);
+             result:=unrollres;
+             exit;
+           end;
 
          { process the loopvar, from and to, varstates are already set }
          resulttypepass(left);
@@ -937,11 +953,33 @@ implementation
 
    function tgotonode.getcopy : tnode;
      var
-        p : tgotonode;
+       p : tgotonode;
+       i : aint;
      begin
         p:=tgotonode(inherited getcopy);
         p.labsym:=labsym;
         p.exceptionblock:=exceptionblock;
+        { When we copying, we do an ugly trick to determine if the label used
+          by the current goto node is already copied: if the referinggotonodes
+          contains the current label, it isn't copied yet, so copy also the
+          label node and set the copiedto field to the newly created node.
+
+          If a label to copy is reached the copiedto field is checked. If it's non nil
+          the copiedto field is returned and the copiedto field is reset to nil.
+        }
+        { assume no copying }
+        newlabelnode:=labelnode;
+        for i:=0 to labelnode.copiedto.referingotonodes.count-1 do
+          begin
+            { copy labelnode? }
+            if labelnode.copiedto.referinggotonodes[i]=self then
+              begin
+                oldlabelnode.copiedto:=newlabelnode;
+              end;
+          end;
+        p.labelnode:=newlabelnode;
+        p.labelnode.referinggotonodes.add(self);
+
         result:=p;
      end;
 
@@ -1041,8 +1079,12 @@ implementation
         p : tlabelnode;
      begin
         p:=tlabelnode(inherited getcopy);
-        p.labelnr:=labelnr;
+        { experimental, let's see if it breaks,
+          at least it makes no sense to have one asm label twice (FK)
+        p.labelnr:=labelnr;   }
+        p.labelnr:=
         p.exceptionblock:=exceptionblock;
+
         p.labsym:=labsym;
         result:=p;
      end;
