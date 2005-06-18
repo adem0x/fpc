@@ -7,15 +7,7 @@ unit optunrol;
     uses
       node;
 
-    type
-      tunrollinfo = record
-        { if count isn divisable by unrolls then
-          the for loop must jump to this label to get the correct
-          number of executions }
-        entrylabel : tnode;
-      end;
-
-    function unroll_loop(node : tnode;out unrollinfo : tunrollinfo) : tnode;
+    function unroll_loop(node : tnode) : tnode;
 
   implementation
 
@@ -70,7 +62,6 @@ unit optunrol;
           exit;
         if not(node.nodetype in [forn]) then
           exit;
-        fillchar(tfornode(node).unrollinfo,sizeof(tunrollinfo),0);
         unrolls:=number_unrolls(tfornode(node).t2);
         if unrolls>1 then
           begin
@@ -96,7 +87,7 @@ unit optunrol;
                     if (counts mod unrolls<>0) and
                       ((counts mod unrolls)=unrolls-i+1) then
                       begin
-                        tfornode(node).unrollinfo.entrylabel:=clabelnode.createcase(
+                        //!!!! tfornode(node).entrylabel:=clabelnode.createcase(
                       end;
                     { create and insert copy of the statement block }
                     addstatement(unrollstatement,tfornode(tfornode(node).t2).getcopy);

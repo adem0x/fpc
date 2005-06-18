@@ -27,10 +27,11 @@ unit nflw;
 interface
 
     uses
-       node,cpubase,
-       aasmbase,aasmtai,aasmcpu,symnot,
-       symtype,symbase,symdef,symsym,
-       optunrol;
+      classes,
+      node,cpubase,
+      symnot,
+      symtype,symbase,symdef,symsym,
+      optunrol;
 
     type
        { flags used by loop nodes }
@@ -52,12 +53,14 @@ interface
          loopflagsequal = [lnf_backward];
 
     type
+       tlabelnode = class;
+
        tloopnode = class(tbinarynode)
           t1,t2 : tnode;
           loopflags : tloopflags;
           constructor create(tt : tnodetype;l,r,_t1,_t2 : tnode);virtual;
           destructor destroy;override;
-          function getcopy : tnode;override;
+          function _getcopy : tnode;override;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
@@ -85,7 +88,10 @@ interface
        tifnodeclass = class of tifnode;
 
        tfornode = class(tloopnode)
-          unrollinfo : tunrollinfo;
+          { if count isn divisable by unrolls then
+            the for loop must jump to this label to get the correct
+            number of executions }
+          entrylabel : tnode;
           loopvar_notid:cardinal;
           constructor create(l,r,_t1,_t2 : tnode;back : boolean);virtual;
           procedure loop_var_access(not_type:Tnotification_flag;symbol:Tsym);
@@ -118,18 +124,20 @@ interface
        tcontinuenodeclass = class of tcontinuenode;
 
        tgotonode = class(tnode)
-          // labsym : tlabelsym;
+          { we still need this for resolving forward gotos }
+          labelsym : tlabelsym;
           labelnode : tlabelnode;
-          labsymderef : tderef;
           exceptionblock : integer;
 {          internlab : tinterngotolabel;}
-          constructor create(p : tlabelsym);virtual;
+          constructor create(p : tlabelnode);virtual;
+          { as long as we don't know the label node we can't resolve it }
+          constructor create_sym(p : tlabelsym);virtual;
 {          constructor createintern(g:tinterngotolabel);}
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function getcopy : tnode;override;
+          function _getcopy : tnode;override;
           function det_resulttype:tnode;override;
           function pass_1 : tnode;override;
           function docompare(p: tnode): boolean; override;
@@ -137,19 +145,17 @@ interface
        tgotonodeclass = class of tgotonode;
 
        tlabelnode = class(tunarynode)
-          labelnr : tasmlabel;
           exceptionblock : integer;
           { when copying trees, this points to the newly created copy of a label }
           copiedto : tlabelnode;
           { contains all goto nodesrefering to this label }
           referinggotonodes : tlist;
-          constructor createcase(p : tasmlabel;l:tnode);virtual;
-          constructor create(p : tlabelsym;l:tnode);virtual;
+          constructor create(l:tnode);virtual;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function getcopy : tnode;override;
+          function _getcopy : tnode;override;
           function det_resulttype:tnode;override;
           function pass_1 : tnode;override;
           function docompare(p: tnode): boolean; override;
@@ -163,7 +169,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function getcopy : tnode;override;
+          function _getcopy : tnode;override;
           procedure insertintolist(l : tnodelist);override;
           function det_resulttype:tnode;override;
           function pass_1 : tnode;override;
@@ -195,7 +201,7 @@ interface
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           function det_resulttype:tnode;override;
           function pass_1 : tnode;override;
-          function getcopy : tnode;override;
+          function _getcopy : tnode;override;
           function docompare(p: tnode): boolean; override;
        end;
        tonnodeclass = class of tonnode;
@@ -287,23 +293,23 @@ implementation
       end;
 
 
-    function tloopnode.getcopy : tnode;
+    function tloopnode._getcopy : tnode;
 
       var
          p : tloopnode;
 
       begin
-         p:=tloopnode(inherited getcopy);
+         p:=tloopnode(inherited _getcopy);
          if assigned(t1) then
-           p.t1:=t1.getcopy
+           p.t1:=t1._getcopy
          else
            p.t1:=nil;
          if assigned(t2) then
-           p.t2:=t2.getcopy
+           p.t2:=t2._getcopy
          else
            p.t2:=nil;
          p.loopflags:=loopflags;
-         getcopy:=p;
+         _getcopy:=p;
       end;
 
     procedure tloopnode.insertintolist(l : tnodelist);
@@ -894,18 +900,31 @@ implementation
                              TGOTONODE
 *****************************************************************************}
 
-    constructor tgotonode.create(p : tlabelsym);
+    constructor tgotonode.create(p : tlabelnode);
       begin
         inherited create(goton);
         exceptionblock:=aktexceptblock;
-        labsym:=p;
+        labelnode:=p;
+        labelsym:=nil;
+      end;
+
+
+    constructor tgotonode.create_sym(p : tlabelsym);
+      begin
+        inherited create(goton);
+        exceptionblock:=aktexceptblock;
+        if assigned(p.code) then
+          labelnode:=tlabelnode(p.code)
+        else
+          labelnode:=nil;
+        labelsym:=p;
       end;
 
 
     constructor tgotonode.ppuload(t:tnodetype;ppufile:tcompilerppufile);
       begin
         inherited ppuload(t,ppufile);
-        ppufile.getderef(labsymderef);
+        labelnode:=tlabelnode(ppuloadnoderef(ppufile));
         exceptionblock:=ppufile.getbyte;
       end;
 
@@ -913,7 +932,7 @@ implementation
     procedure tgotonode.ppuwrite(ppufile:tcompilerppufile);
       begin
         inherited ppuwrite(ppufile);
-        ppufile.putderef(labsymderef);
+        ppuwritenoderef(ppufile,labelnode);
         ppufile.putbyte(exceptionblock);
       end;
 
@@ -921,14 +940,14 @@ implementation
     procedure tgotonode.buildderefimpl;
       begin
         inherited buildderefimpl;
-        labsymderef.build(labsym);
+        //!!! deref(labelnode);
       end;
 
 
     procedure tgotonode.derefimpl;
       begin
         inherited derefimpl;
-        labsym:=tlabelsym(labsymderef.resolve);
+        //!!! deref(labelnode);
       end;
 
 
@@ -936,28 +955,36 @@ implementation
       begin
         result:=nil;
         resulttype:=voidtype;
+
+        if not(assigned(labelnode)) then
+          begin
+            if assigned(labelsym.code) then
+              labelnode:=tlabelnode(labelsym.code)
+            else
+              internalerror(200506183);
+          end;
       end;
 
 
     function tgotonode.pass_1 : tnode;
       begin
-         result:=nil;
-         expectloc:=LOC_VOID;
-         { check if }
-         if assigned(labsym) and
-            assigned(labsym.code) and
-            (exceptionblock<>tlabelnode(labsym.code).exceptionblock) then
+        result:=nil;
+        expectloc:=LOC_VOID;
+
+         { check if we don't mess with exception blocks }
+         if assigned(labelnode) and
+            (exceptionblock<>labelnode.exceptionblock) then
            CGMessage(cg_e_goto_inout_of_exception_block);
       end;
 
 
-   function tgotonode.getcopy : tnode;
+   function tgotonode._getcopy : tnode;
      var
        p : tgotonode;
        i : aint;
      begin
-        p:=tgotonode(inherited getcopy);
-        p.labsym:=labsym;
+        p:=tgotonode(inherited _getcopy);
+        {
         p.exceptionblock:=exceptionblock;
         { When we copying, we do an ugly trick to determine if the label used
           by the current goto node is already copied: if the referinggotonodes
@@ -979,7 +1006,7 @@ implementation
           end;
         p.labelnode:=newlabelnode;
         p.labelnode.referinggotonodes.add(self);
-
+        }
         result:=p;
      end;
 
@@ -994,32 +1021,16 @@ implementation
                              TLABELNODE
 *****************************************************************************}
 
-    constructor tlabelnode.createcase(p : tasmlabel;l:tnode);
-      begin
-        inherited create(labeln,l);
-        { it shouldn't be possible to jump to case labels using goto }
-        exceptionblock:=-1;
-        labsym:=nil;
-        labelnr:=p;
-      end;
-
-
-    constructor tlabelnode.create(p : tlabelsym;l:tnode);
+    constructor tlabelnode.create(l:tnode);
       begin
         inherited create(labeln,l);
         exceptionblock:=aktexceptblock;
-        labsym:=p;
-        labelnr:=p.lab;
-        { save the current labelnode in the labelsym }
-        p.code:=self;
       end;
 
 
     constructor tlabelnode.ppuload(t:tnodetype;ppufile:tcompilerppufile);
       begin
         inherited ppuload(t,ppufile);
-        ppufile.getderef(labsymderef);
-        labelnr:=tasmlabel(ppufile.getasmsymbol);
         exceptionblock:=ppufile.getbyte;
       end;
 
@@ -1027,8 +1038,6 @@ implementation
     procedure tlabelnode.ppuwrite(ppufile:tcompilerppufile);
       begin
         inherited ppuwrite(ppufile);
-        ppufile.putderef(labsymderef);
-        ppufile.putasmsymbol(labelnr);
         ppufile.putbyte(exceptionblock);
       end;
 
@@ -1036,15 +1045,12 @@ implementation
     procedure tlabelnode.buildderefimpl;
       begin
         inherited buildderefimpl;
-        labsymderef.build(labsym);
       end;
 
 
     procedure tlabelnode.derefimpl;
       begin
         inherited derefimpl;
-        labsym:=tlabelsym(labsymderef.resolve);
-        objectlibrary.derefasmsymbol(tasmsymbol(labelnr));
       end;
 
 
@@ -1074,18 +1080,13 @@ implementation
       end;
 
 
-   function tlabelnode.getcopy : tnode;
+   function tlabelnode._getcopy : tnode;
      var
         p : tlabelnode;
      begin
-        p:=tlabelnode(inherited getcopy);
-        { experimental, let's see if it breaks,
-          at least it makes no sense to have one asm label twice (FK)
-        p.labelnr:=labelnr;   }
-        p.labelnr:=
+        p:=tlabelnode(inherited _getcopy);
         p.exceptionblock:=exceptionblock;
 
-        p.labsym:=labsym;
         result:=p;
      end;
 
@@ -1137,16 +1138,16 @@ implementation
       end;
 
 
-    function traisenode.getcopy : tnode;
+    function traisenode._getcopy : tnode;
       var
          n : traisenode;
       begin
-         n:=traisenode(inherited getcopy);
+         n:=traisenode(inherited _getcopy);
          if assigned(frametree) then
-           n.frametree:=frametree.getcopy
+           n.frametree:=frametree._getcopy
          else
            n.frametree:=nil;
-         getcopy:=n;
+         _getcopy:=n;
       end;
 
 
@@ -1356,11 +1357,11 @@ implementation
       end;
 
 
-    function tonnode.getcopy : tnode;
+    function tonnode._getcopy : tnode;
       var
          n : tonnode;
       begin
-         n:=tonnode(inherited getcopy);
+         n:=tonnode(inherited _getcopy);
          n.exceptsymtable:=exceptsymtable.getcopy;
          n.excepttype:=excepttype;
          result:=n;
