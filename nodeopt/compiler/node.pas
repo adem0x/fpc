@@ -822,7 +822,7 @@ implementation
 
     function tnode.getcopy : tnode;
       begin
-        result:=getcopy;
+        result:=_getcopy;
       end;
 
 
@@ -928,9 +928,9 @@ implementation
       var
          p : tunarynode;
       begin
-         p:=tunarynode(inherited getcopy);
+         p:=tunarynode(inherited _getcopy);
          if assigned(left) then
-           p.left:=left.getcopy
+           p.left:=left._getcopy
          else
            p.left:=nil;
          result:=p;
@@ -1059,9 +1059,9 @@ implementation
       var
          p : tbinarynode;
       begin
-         p:=tbinarynode(inherited getcopy);
+         p:=tbinarynode(inherited _getcopy);
          if assigned(right) then
-           p.right:=right.getcopy
+           p.right:=right._getcopy
          else
            p.right:=nil;
          result:=p;

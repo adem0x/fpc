@@ -955,14 +955,6 @@ implementation
       begin
         result:=nil;
         resulttype:=voidtype;
-
-        if not(assigned(labelnode)) then
-          begin
-            if assigned(labelsym.code) then
-              labelnode:=tlabelnode(labelsym.code)
-            else
-              internalerror(200506183);
-          end;
       end;
 
 
@@ -971,10 +963,18 @@ implementation
         result:=nil;
         expectloc:=LOC_VOID;
 
-         { check if we don't mess with exception blocks }
-         if assigned(labelnode) and
-            (exceptionblock<>labelnode.exceptionblock) then
-           CGMessage(cg_e_goto_inout_of_exception_block);
+        if not(assigned(labelnode)) then
+          begin
+            if assigned(labelsym.code) then
+              labelnode:=tlabelnode(labelsym.code)
+            else
+              internalerror(200506183);
+          end;
+
+        { check if we don't mess with exception blocks }
+        if assigned(labelnode) and
+           (exceptionblock<>labelnode.exceptionblock) then
+          CGMessage(cg_e_goto_inout_of_exception_block);
       end;
 
 
