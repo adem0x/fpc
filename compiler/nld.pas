@@ -574,8 +574,8 @@ implementation
           end;
 
         resulttypepass(right);
-        set_varstate(left,vs_assigned,[]);
-        set_varstate(right,vs_used,[vsf_must_be_valid]);
+        set_varstate(left,vs_written,[]);
+        set_varstate(right,vs_read,[vsf_must_be_valid]);
         if codegenerror then
           exit;
 
@@ -833,8 +833,8 @@ implementation
         result:=nil;
         resulttypepass(left);
         resulttypepass(right);
-        set_varstate(left,vs_used,[vsf_must_be_valid]);
-        set_varstate(right,vs_used,[vsf_must_be_valid]);
+        set_varstate(left,vs_read,[vsf_must_be_valid]);
+        set_varstate(right,vs_read,[vsf_must_be_valid]);
         if codegenerror then
          exit;
         resulttype:=left.resulttype;
@@ -898,7 +898,7 @@ implementation
            while assigned(hp) do
             begin
               resulttypepass(hp.left);
-              set_varstate(hp.left,vs_used,[vsf_must_be_valid]);
+              set_varstate(hp.left,vs_read,[vsf_must_be_valid]);
               if (htype.def=nil) then
                htype:=hp.left.resulttype
               else

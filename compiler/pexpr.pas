@@ -677,7 +677,10 @@ implementation
               p2:=nil;
               repeat
                 p1:=comp_expr(true);
-                set_varstate(p1,vs_used,[vsf_must_be_valid]);
+                if assigned(p2) then
+                  set_varstate(p1,vs_read,[vsf_must_be_valid])
+                else
+                  set_varstate(p1,vs_readwritten,[vsf_must_be_valid]);
                 if not((p1.resulttype.def.deftype=stringdef) or
                        ((p1.resulttype.def.deftype=orddef) and
                         (torddef(p1.resulttype.def).typ=uchar))) then

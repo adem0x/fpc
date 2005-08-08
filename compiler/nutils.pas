@@ -208,7 +208,7 @@ implementation
 
     function foreachnodestatic(var n: tnode; f: staticforeachnodefunction; arg: pointer): boolean;
       begin
-        foreachnodestatic(pm_postprocess,n,f,arg);
+        result := foreachnodestatic(pm_postprocess,n,f,arg);
       end;
 
 
