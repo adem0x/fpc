@@ -57,6 +57,7 @@ var
 function towlower(__wc:wint_t):wint_t;cdecl;external libiconvname name 'towlower';
 function towupper(__wc:wint_t):wint_t;cdecl;external libiconvname name 'towupper';
 function wcscoll (__s1:pwchar_t; __s2:pwchar_t):cint;cdecl;external libiconvname name 'wcscoll';
+function strcoll (__s1:pchar; __s2:pchar):cint;cdecl;external libiconvname name 'strcoll';
 
 const
 {$ifdef linux}
@@ -101,6 +102,8 @@ function iconv_close(__cd:iconv_t):cint;cdecl;external libiconvname name 'libico
 {$endif}
 
 var
+  iconv_ansi2ucs4,
+  iconv_ucs42ansi,
   iconv_ansi2wide,
   iconv_wide2ansi : iconv_t;
 
@@ -149,7 +152,7 @@ procedure Wide2AnsiMove(source:pwidechar;var dest:ansistring;len:SizeInt);
               destpos:=pchar(dest)+outoffset;
             end;
           else
-            raise EConvertError.Create('iconv error');
+            raise EConvertError.Create('iconv error '+IntToStr(fpgetCerrno));
         end;
       end;
     // truncate string
@@ -179,6 +182,16 @@ procedure Ansi2WideMove(source:pchar;var dest:widestring;len:SizeInt);
     while iconv(iconv_ansi2wide,@srcpos,@len,@destpos,@outleft)=size_t(-1) do
       begin
         case fpgetCerrno of
+         ESysEILSEQ:
+            begin
+              { skip and set to '?' }
+              inc(srcpos);
+              pwidechar(destpos)^:='?';
+              inc(destpos,2);
+              dec(outleft,2);
+              { reset }
+              iconv(iconv_wide2ansi,@mynil,@my0,@mynil,@my0);
+            end;
           ESysE2BIG:
             begin
               outoffset:=destpos-pchar(dest);
@@ -190,7 +203,7 @@ procedure Ansi2WideMove(source:pchar;var dest:widestring;len:SizeInt);
               destpos:=pchar(dest)+outoffset;
             end;
           else
-            raise EConvertError.Create('iconv error');
+            raise EConvertError.Create('iconv error '+IntToStr(fpgetCerrno));
         end;
       end;
     // truncate string
@@ -218,20 +231,72 @@ function UpperWideString(const s : WideString) : WideString;
   end;
 
 
-function CompareWideString(const s1, s2 : WideString) : PtrInt;
+procedure Ansi2UCS4Move(source:pchar;var dest:UCS4String;len:SizeInt);
+  var
+    outlength,
+    outoffset,
+    outleft : size_t;
+    srcpos,
+    destpos: pchar;
+    mynil : pchar;
+    my0 : size_t;
   begin
+    mynil:=nil;
+    my0:=0;
+    // extra space
+    outlength:=len+1;
+    setlength(dest,outlength);
+    outlength:=len+1;
+    srcpos:=source;
+    destpos:=pchar(dest);
+    outleft:=outlength*4;
+    while iconv(iconv_ansi2ucs4,@srcpos,@len,@destpos,@outleft)=size_t(-1) do
+      begin
+        case fpgetCerrno of
+          ESysE2BIG:
+            begin
+              outoffset:=destpos-pchar(dest);
+              { extend }
+              setlength(dest,outlength+len);
+              inc(outleft,len*4);
+              inc(outlength,len);
+              { string could have been moved }
+              destpos:=pchar(dest)+outoffset;
+            end;
+          else
+            raise EConvertError.Create('iconv error '+IntToStr(fpgetCerrno));
+        end;
+      end;
+    // truncate string
+    setlength(dest,length(dest)-outleft div 4);
+  end;
+
+
+function CompareWideString(const s1, s2 : WideString) : PtrInt;
+  var
+    hs1,hs2 : UCS4String;
+  begin
+    hs1:=WideStringToUCS4String(s1);
+    hs2:=WideStringToUCS4String(s2);
+    result:=wcscoll(pwchar_t(hs1),pwchar_t(hs2));
   end;
 
 
 function CompareTextWideString(const s1, s2 : WideString): PtrInt;
   begin
+    result:=CompareWideString(UpperWideString(s1),UpperWideString(s2));
   end;
 
-Var
-  CWideStringManager : TWideStringManager;
+
+function StrCompAnsi(s1,s2 : PChar): PtrInt;
+  begin
+    result:=strcoll(s1,s2);
+  end;
+
 
 Procedure SetCWideStringManager;
-
+Var
+  CWideStringManager : TWideStringManager;
 begin
   CWideStringManager:=widestringmanager;
   With CWideStringManager do
@@ -241,16 +306,19 @@ begin
 
       UpperWideStringProc:=@UpperWideString;
       LowerWideStringProc:=@LowerWideString;
+
+      CompareWideStringProc:=@CompareWideString;
+      CompareTextWideStringProc:=@CompareTextWideString;
       {
-      CompareWideStringProc
-      CompareTextWideStringProc
       CharLengthPCharProc
 
       UpperAnsiStringProc
       LowerAnsiStringProc
       CompareStrAnsiStringProc
       CompareTextAnsiStringProc
-      StrCompAnsiStringProc
+      }
+      StrCompAnsiStringProc:=@StrCompAnsi;
+      {
       StrICompAnsiStringProc
       StrLCompAnsiStringProc
       StrLICompAnsiStringProc
@@ -267,6 +335,8 @@ initialization
   { init conversion tables }
   iconv_wide2ansi:=iconv_open(nl_langinfo(CODESET),unicode_encoding);
   iconv_ansi2wide:=iconv_open(unicode_encoding,nl_langinfo(CODESET));
+  iconv_ucs42ansi:=iconv_open(nl_langinfo(CODESET),'UCS4');
+  iconv_ansi2ucs4:=iconv_open('UCS4',nl_langinfo(CODESET));
 finalization
   iconv_close(iconv_ansi2wide);
 end.

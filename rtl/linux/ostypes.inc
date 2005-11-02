@@ -31,10 +31,16 @@ CONST
     {$endif}
 
    FD_MAXFDSET     = 1024;
-   BITSINWORD      = 8*sizeof(longint);
+   BITSINWORD      = 8*sizeof(cuLong);
    wordsinsigset   = SIG_MAXSIG DIV BITSINWORD;         // words in sigset_t
    wordsinfdset    = FD_MAXFDSET DIV BITSINWORD;        // words in fdset_t
-   ln2bitsinword   = 5;         { 32bit : ln(32)/ln(2)=5 }
+   {$ifdef cpu32}
+   ln2bitsinword   = 5;                                 { 32bit : ln(32)/ln(2)=5 }
+   {$else cpu32}
+   {$ifdef cpu64}
+   ln2bitsinword   = 6;                                 { 64bit : ln(64)/ln(2)=6 }
+   {$endif cpu64}
+   {$endif cpu32}
    ln2bitmask      = 1 shl ln2bitsinword - 1;
 
 
@@ -72,6 +78,14 @@ TYPE
 { see kernel/include/asm-<cpu>/stat.h, include/linux/types.h and }
 { include /include/asm-<cpu>/posix-types.h                       }
 
+const
+  _STAT_VER_LINUX_OLD = 1;
+  _STAT_VER_KERNEL = 1;
+  _STAT_VER_SVR4 = 2;
+  _STAT_VER_LINUX = 3;
+  _STAT_VER = _STAT_VER_LINUX;
+
+type
 {$i stat.inc}
 
   TStat      = Stat;
@@ -199,7 +213,7 @@ TYPE
    TTms      = tms;
    PTms      = ^tms;
 
- TFDSet    = ARRAY[0..(FD_MAXFDSET div 32)-1] of Cardinal;
+ TFDSet    = ARRAY[0..(FD_MAXFDSET div BITSINWORD)-1] of cLong;
  pFDSet    = ^TFDSet;
 
   timezone = packed record

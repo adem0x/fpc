@@ -65,7 +65,7 @@ interface
        gpcmodeswitches    : tmodeswitches=
          [m_gpc,m_all,m_tp_procvar];
        macmodeswitches : tmodeswitches=
-         [m_mac,m_all,m_result,m_cvar_support,m_tp_procvar];
+         [m_mac,m_all,m_result,m_cvar_support,m_mac_procvar];
 
 
        { maximum nesting of routines }
@@ -136,6 +136,9 @@ interface
        outputunitdir     : dirstr;
 
        { things specified with parameters }
+       paratarget        : tsystem;
+       paratargetdbg     : tdbg;
+       paratargetasm     : tasm;
        paralinkoptions,
        paradynamiclinker : string;
        paraprintnodetree : byte;
@@ -216,7 +219,6 @@ interface
        initfputype        : tfputype;
        initasmmode        : tasmmode;
        initinterfacetype  : tinterfacetypes;
-       initoutputformat   : tasm;
        initdefproccall    : tproccalloption;
        initsourcecodepage : tcodepagestring;
 
@@ -242,7 +244,6 @@ interface
        aktfputype        : tfputype;
        aktasmmode         : tasmmode;
        aktinterfacetype   : tinterfacetypes;
-       aktoutputformat    : tasm;
        aktdefproccall     : tproccalloption;
        aktsourcecodepage : tcodepagestring;
 
@@ -339,7 +340,6 @@ interface
     procedure SetFPUExceptionMask(const Mask: TFPUExceptionMask);
     function is_number_float(d : double) : boolean;
 
-    Function SetCompileMode(const s:string; changeInit: boolean):boolean;
     function SetAktProcCall(const s:string; changeInit: boolean):boolean;
     function SetProcessor(const s:string; changeInit: boolean):boolean;
     function SetFpuType(const s:string; changeInit: boolean):boolean;
@@ -1351,31 +1351,34 @@ implementation
         startpc,pc : pchar;
         sepch : char;
      begin
+       FindFilePchar:=false;
+       if Assigned (Path) then
+        begin
 {$ifdef Unix}
-       sepch:=':';
+          sepch:=':';
 {$else}
 {$ifdef macos}
-       sepch:=',';
+          sepch:=',';
 {$else}
-       sepch:=';';
+          sepch:=';';
 {$endif macos}
 {$endif Unix}
-       FindFilePchar:=false;
-       pc:=path;
-       repeat
-          startpc:=pc;
-          while (pc^<>sepch) and (pc^<>';') and (pc^<>#0) do
-           inc(pc);
-          move(startpc^,singlepathstring[1],pc-startpc);
-          singlepathstring[0]:=char(longint(pc-startpc));
-          singlepathstring:=FixPath(singlepathstring,false);
-          result:=FileExistsNonCase(singlepathstring,f,FoundFile);
-          if result then
-            exit;
-          if (pc^=#0) then
-            break;
-          inc(pc);
-       until false;
+          pc:=path;
+          repeat
+             startpc:=pc;
+             while (pc^<>sepch) and (pc^<>';') and (pc^<>#0) do
+              inc(pc);
+             move(startpc^,singlepathstring[1],pc-startpc);
+             singlepathstring[0]:=char(longint(pc-startpc));
+             singlepathstring:=FixPath(singlepathstring,false);
+             result:=FileExistsNonCase(singlepathstring,f,FoundFile);
+             if result then
+               exit;
+             if (pc^=#0) then
+               break;
+             inc(pc);
+          until false;
+        end;
        foundfile:=f;
      end;
 
@@ -1826,75 +1829,6 @@ end;
       end;
 
 
-      Function SetCompileMode(const s:string; changeInit: boolean):boolean;
-      var
-        b : boolean;
-      begin
-        b:=true;
-        if s='DEFAULT' then
-          aktmodeswitches:=initmodeswitches
-        else
-         if s='DELPHI' then
-          aktmodeswitches:=delphimodeswitches
-        else
-         if s='TP' then
-          aktmodeswitches:=tpmodeswitches
-        else
-         if s='FPC' then
-          aktmodeswitches:=fpcmodeswitches
-        else
-         if s='OBJFPC' then
-          aktmodeswitches:=objfpcmodeswitches
-        else
-         if s='GPC' then
-          aktmodeswitches:=gpcmodeswitches
-        else
-         if s='MACPAS' then
-          aktmodeswitches:=macmodeswitches
-        else
-         b:=false;
-
-        if b and changeInit then
-          initmodeswitches := aktmodeswitches;
-
-        if b then
-         begin
-           { turn ansistrings on by default ? }
-           if (m_delphi in aktmodeswitches) then
-            begin
-              include(aktlocalswitches,cs_ansistrings);
-              if changeinit then
-               include(initlocalswitches,cs_ansistrings);
-            end
-           else
-            begin
-              exclude(aktlocalswitches,cs_ansistrings);
-              if changeinit then
-               exclude(initlocalswitches,cs_ansistrings);
-            end;
-           { Default enum packing for delphi/tp7 }
-           if (m_tp7 in aktmodeswitches) or
-              (m_delphi in aktmodeswitches) or
-              (m_mac in aktmodeswitches) then
-             aktpackenum:=1
-           else
-             aktpackenum:=4;
-           if changeinit then
-             initpackenum:=aktpackenum;
-{$ifdef i386}
-           { Default to intel assembler for delphi/tp7 on i386 }
-           if (m_delphi in aktmodeswitches) or
-              (m_tp7 in aktmodeswitches) then
-             aktasmmode:=asmmode_i386_intel;
-           if changeinit then
-             initasmmode:=aktasmmode;
-{$endif i386}
-         end;
-
-        SetCompileMode:=b;
-      end;
-
-
     function SetAktProcCall(const s:string; changeInit:boolean):boolean;
       const
         DefProcCallName : array[tproccalloption] of string[12] = ('',
@@ -2184,6 +2118,9 @@ end;
         resolving_forward:=false;
         make_ref:=false;
         LinkTypeSetExplicitly:=false;
+        paratarget:=system_none;
+        paratargetasm:=as_none;
+        paratargetdbg:=dbg_none;
 
       { Output }
         OutputFile:='';
@@ -2229,7 +2166,6 @@ end;
         initmoduleswitches:=[cs_extsyntax,cs_implicit_exceptions];
         initsourcecodepage:='8859-1';
         initglobalswitches:=[cs_check_unit_name,cs_link_static{$ifdef INTERNALLINKER},cs_link_internal,cs_link_map{$endif}];
-        initoutputformat:=target_asm.id;
         fillchar(initalignment,sizeof(talignmentinfo),0);
         { might be overridden later }
         initasmmode:=asmmode_standard;
@@ -2260,6 +2196,14 @@ end;
         {$ENDIF}
         initfputype:=fpu_standard;
 {$endif powerpc}
+{$ifdef POWERPC64}
+        initoptprocessor:=PPC970;
+        initpackenum:=4;
+        {$IFDEF testvarsets}
+         initsetalloc:=0;
+        {$ENDIF}
+        initfputype:=fpu_standard;
+{$endif POWERPC64}
 {$ifdef sparc}
         initoptprocessor:=SPARC_V8;
         initpackenum:=4;

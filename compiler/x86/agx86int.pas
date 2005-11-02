@@ -60,15 +60,15 @@ implementation
 
       secnames : array[TAsmSectionType] of string[4] = ('',
         'CODE','DATA','DATA','BSS','',
-        '','','','','','',
-        '','','','','',''
+        '','','','','','','',
+        '','','','','','',''
       );
 
       secnamesml64 : array[TAsmSectionType] of string[7] = ('',
         '_TEXT','_DATE','_DATA','_BSS','',
-        '','','','',
+        '','','','','',
         'idata$2','idata$4','idata$5','idata$6','idata$7','edata',
-        '',''
+        '','',''
       );
 
     function single2str(d : single) : string;
@@ -174,7 +174,7 @@ implementation
             AsmWrite('[');
            if assigned(symbol) then
             begin
-              if (aktoutputformat = as_i386_tasm) then
+              if (target_asm.id = as_i386_tasm) then
                 AsmWrite('dword ptr ');
               AsmWrite(symbol.name);
               first:=false;
@@ -306,7 +306,7 @@ implementation
           begin
             if o.ref^.refaddr=addr_no then
               begin
-                if (aktoutputformat <> as_i386_tasm) then
+                if (target_asm.id <> as_i386_tasm) then
                   begin
                     if s=S_FAR then
                       AsmWrite('far ptr ')
@@ -387,10 +387,10 @@ implementation
     begin
       if not assigned(p) then
        exit;
-      { lineinfo is only needed for codesegment (PFV) }
+      { lineinfo is only needed for al_procedures (PFV) }
       do_line:=((cs_asm_source in aktglobalswitches) or
                 (cs_lineinfo in aktmoduleswitches))
-                 and (p=asmlist[codesegment]);
+                 and (p=asmlist[al_procedures]);
       InlineLevel:=0;
       DoNotSplitLine:=false;
       hp:=tai(p.first);
@@ -476,7 +476,7 @@ implementation
              begin
                if tai_section(hp).sectype<>sec_none then
                 begin
-                  if aktoutputformat=as_x86_64_masm then
+                  if target_asm.id=as_x86_64_masm then
                     begin
                       if LasTSecType<>sec_none then
                         AsmWriteLn(secnamesml64[LasTSecType]+#9#9'ENDS');
@@ -643,11 +643,6 @@ implementation
                    DoNotSplitLine:=true;
                 end;
              end;
-           ait_direct :
-             begin
-               AsmWritePChar(tai_direct(hp).str);
-               AsmLn;
-             end;
            ait_symbol :
              begin
                if tai_symbol(hp).is_global then
@@ -703,7 +698,7 @@ implementation
                   { nasm prefers prefix on a line alone
                   AsmWriteln(#9#9+prefix); but not masm PM
                   prefix:=''; }
-                  if aktoutputformat in [as_i386_nasmcoff,as_i386_nasmwin32,as_i386_nasmwdosx,
+                  if target_asm.id in [as_i386_nasmcoff,as_i386_nasmwin32,as_i386_nasmwdosx,
                     as_i386_nasmelf,as_i386_nasmobj,as_i386_nasmbeos] then
                      begin
                        AsmWriteln(prefix);
@@ -712,7 +707,7 @@ implementation
                 end
                else
                 prefix:= '';
-               if (aktoutputformat = as_i386_wasm) and
+               if (target_asm.id = as_i386_wasm) and
                  (taicpu(hp).opsize=S_W) and
                  (taicpu(hp).opcode=A_PUSH) and
                  (taicpu(hp).oper[0]^.typ=top_const) then
@@ -720,7 +715,7 @@ implementation
                    AsmWriteln(#9#9'DB 66h,68h ; pushw imm16');
                    AsmWrite(#9#9'DW');
                  end
-               else if (aktoutputformat=as_x86_64_masm) and
+               else if (target_asm.id=as_x86_64_masm) and
                  (taicpu(hp).opcode=A_MOVQ) then
                  AsmWrite(#9#9'mov')
                else
@@ -746,13 +741,11 @@ implementation
                 end;
                AsmLn;
              end;
-{$ifdef GDB}
-           ait_stabn,
-           ait_stabs,
+
+           ait_stab,
            ait_force_line,
-           ait_stab_function_name :
-             ;
-{$endif GDB}
+           ait_function_name : ;
+
            ait_cutobject :
              begin
                { only reset buffer if nothing has changed }
@@ -794,6 +787,22 @@ implementation
                else if tai_marker(hp).kind=InlineEnd then
                  dec(InlineLevel);
              end;
+
+           ait_directive :
+             begin
+               case tai_directive(hp).directive of
+                 asd_nasm_import :
+                   AsmWrite('import ');
+                 asd_extern :
+                   AsmWrite('EXTRN ');
+                 else
+                   internalerror(200509192);
+               end;
+               if assigned(tai_directive(hp).name) then
+                 AsmWrite(tai_directive(hp).name^);
+               AsmLn;
+             end;
+
            else
             internalerror(10000);
          end;
@@ -808,7 +817,7 @@ implementation
       begin
         if tasmsymbol(p).defbind=AB_EXTERNAL then
           begin
-            case aktoutputformat of
+            case target_asm.id of
               as_i386_masm,as_i386_wasm:
                 currentasmlist.AsmWriteln(#9'EXTRN'#9+p.name
                   +': NEAR');
@@ -833,7 +842,7 @@ implementation
     begin
       DoAssemble:=Inherited DoAssemble;
       { masm does not seem to recognize specific extensions and uses .obj allways PM }
-      if (aktoutputformat in [as_i386_masm,as_i386_wasm]) then
+      if (target_asm.id in [as_i386_masm,as_i386_wasm]) then
         begin
           if not(cs_asm_extern in aktglobalswitches) then
             begin
@@ -851,17 +860,19 @@ implementation
 
 
     procedure tx86IntelAssembler.WriteAsmList;
+    var
+      hal : tasmlist;
     begin
 {$ifdef EXTDEBUG}
       if assigned(current_module.mainsource) then
        comment(v_info,'Start writing intel-styled assembler output for '+current_module.mainsource^);
 {$endif}
       LasTSecType:=sec_none;
-      if aktoutputformat<>as_x86_64_masm then
+      if target_asm.id<>as_x86_64_masm then
         begin
           AsmWriteLn(#9'.386p');
           { masm 6.11 does not seem to like LOCALS PM }
-          if (aktoutputformat = as_i386_tasm) then
+          if (target_asm.id = as_i386_tasm) then
             begin
               AsmWriteLn(#9'LOCALS '+target_asm.labelprefix);
             end;
@@ -872,21 +883,12 @@ implementation
 
       WriteExternals;
 
-    { INTEL ASM doesn't support stabs
-      WriteTree(debuglist);}
-
-      WriteTree(asmlist[codesegment]);
-      WriteTree(asmlist[datasegment]);
-      WriteTree(asmlist[consts]);
-      WriteTree(asmlist[rttilist]);
-      WriteTree(asmlist[resourcestrings]);
-      WriteTree(asmlist[bsssegment]);
-      WriteTree(asmlist[threadvarsegment]);
-      Writetree(asmlist[importsection]);
-      { exports are written by DLLTOOL
-        if we use it so don't insert it twice (PM) }
-      if not UseDeffileForExports and assigned(asmlist[exportsection]) then
-        Writetree(asmlist[exportsection]);
+      for hal:=low(Tasmlist) to high(Tasmlist) do
+        begin
+          AsmWriteLn(target_asm.comment+'Begin asmlist '+TasmlistStr[hal]);
+          writetree(asmlist[hal]);
+          AsmWriteLn(target_asm.comment+'End asmlist '+TasmlistStr[hal]);
+        end;
 
       AsmWriteLn(#9'END');
       AsmLn;

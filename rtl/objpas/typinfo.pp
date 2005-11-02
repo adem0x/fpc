@@ -44,7 +44,8 @@ unit typinfo;
        TFloatType = (ftSingle,ftDouble,ftExtended,ftComp,ftCurr);
        TMethodKind = (mkProcedure,mkFunction,mkConstructor,mkDestructor,
                       mkClassProcedure, mkClassFunction);
-       TParamFlags    = set of (pfVar,pfConst,pfArray,pfAddress,pfReference,pfOut);
+       TParamFlag     = (pfVar,pfConst,pfArray,pfAddress,pfReference,pfOut);
+       TParamFlags    = set of TParamFlag;
        TIntfFlag      = (ifHasGuid,ifDispInterface,ifDispatch,ifHasStrGUID);
        TIntfFlags     = set of TIntfFlag;
        TIntfFlagsBase = set of TIntfFlag;
@@ -308,13 +309,13 @@ type
   ---------------------------------------------------------------------}
 
 function aligntoptr(p : pointer) : pointer;
-  begin
+   begin
 {$ifdef FPC_REQUIRES_PROPER_ALIGNMENT}
-    if (ptrint(p) mod sizeof(ptrint))<>0 then
-      inc(ptrint(p),sizeof(ptrint)-ptrint(p) mod sizeof(ptrint));
+     if (ptruint(p) and (sizeof(ptruint)-1))<>0 then
+	  ptruint(p) := (ptruint(p) + sizeof(ptruint) - 1) and not (sizeof(ptruint) - 1);
 {$endif FPC_REQUIRES_PROPER_ALIGNMENT}
-    result:=p;
-  end;
+     aligntoptr:=p;
+   end;
 
 
 Function GetEnumName(TypeInfo : PTypeInfo;Value : Integer) : string;
@@ -725,6 +726,10 @@ begin
   Signed := false;
   DataSize := 4;
   case TypeInfo^.Kind of
+{$ifdef cpu64}
+    tkClass:
+      DataSize:=8;
+{$endif cpu64}
     tkChar, tkBool:
       DataSize:=1;
     tkWChar:
@@ -811,7 +816,12 @@ var
   DataSize: Integer;
   AMethod : TMethod;
 begin
-  if PropInfo^.PropType^.Kind in [tkInt64,tkQword] then
+  if PropInfo^.PropType^.Kind in [tkInt64,tkQword
+  { why do we have to handle classes here, see also below? (FK) }
+{$ifdef cpu64}
+    ,tkClass
+{$endif cpu64}
+    ] then
     DataSize := 8
   else
     DataSize := 4;

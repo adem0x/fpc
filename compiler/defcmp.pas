@@ -49,6 +49,7 @@ interface
           tc_pchar_2_string,
           tc_cchar_2_pchar,
           tc_cstring_2_pchar,
+          tc_cstring_2_int,
           tc_ansistring_2_pchar,
           tc_string_2_chararray,
           tc_chararray_2_string,
@@ -113,7 +114,7 @@ interface
     { True if a function can be assigned to a procvar }
     { changed first argument type to pabstractprocdef so that it can also be }
     { used to test compatibility between two pprocvardefs (JM)               }
-    function proc_to_procvar_equal(def1:tabstractprocdef;def2:tprocvardef;methoderr:boolean):tequaltype;
+    function proc_to_procvar_equal(def1:tabstractprocdef;def2:tprocvardef):tequaltype;
 
 
 implementation
@@ -266,6 +267,15 @@ implementation
                          doconv:=tc_int_2_int;
                       end;
                    end;
+                 arraydef :
+                   begin
+                     if (m_mac in aktmodeswitches) and
+                        (fromtreetype=stringconstn) then
+                       begin
+                         eq:=te_convert_l3;
+                         doconv:=tc_cstring_2_int;
+                       end;
+                   end;
                end;
              end;
 
@@ -277,7 +287,9 @@ implementation
                      { Constant string }
                      if (fromtreetype=stringconstn) then
                       begin
-                        if (tstringdef(def_from).string_typ=tstringdef(def_to).string_typ) then
+                        { we can change the stringconst node }
+                        if (tstringdef(def_from).string_typ=st_conststring) or
+                           (tstringdef(def_from).string_typ=tstringdef(def_to).string_typ) then
                           eq:=te_equal
                         else
                          begin
@@ -285,14 +297,11 @@ implementation
                            { Don't prefer conversions from widestring to a
                              normal string as we can loose information }
                            if tstringdef(def_from).string_typ=st_widestring then
-                             eq:=te_convert_l1
+                             eq:=te_convert_l3
+                           else if tstringdef(def_to).string_typ=st_widestring then
+                             eq:=te_convert_l2
                            else
-                             begin
-                               if tstringdef(def_to).string_typ=st_widestring then
-                                 eq:=te_convert_l1
-                               else
-                                 eq:=te_equal; { we can change the stringconst node }
-                             end;
+                             eq:=te_equal;
                          end;
                       end
                      else
@@ -304,23 +313,35 @@ implementation
                      else
                        begin
                          doconv:=tc_string_2_string;
-                         if tstringdef(def_from).string_typ=st_widestring then
-                           begin
-                             { Prefer conversions to shortstring over other
-                               conversions. This is compatible with Delphi (PFV) }
-                             if tstringdef(def_to).string_typ=st_shortstring then
-                               eq:=te_convert_l3
-                             else
-                               eq:=te_convert_l2;
-                           end
-                         else
-                           { Prefer shortstrings of different length or conversions
-                             from shortstring to ansistring }
-                           if (tstringdef(def_from).string_typ=st_shortstring) and
-                              (tstringdef(def_to).string_typ in [st_shortstring,st_ansistring]) then
-                           eq:=te_convert_l1
-                         else
-                           eq:=te_convert_l2;
+                         case tstringdef(def_from).string_typ of
+                           st_widestring :
+                             begin
+                               { Prefer conversions to ansistring }
+                               if tstringdef(def_to).string_typ=st_ansistring then
+                                 eq:=te_convert_l2
+                               else
+                                 eq:=te_convert_l3;
+                             end;
+                           st_shortstring :
+                             begin
+                               { Prefer shortstrings of different length or conversions
+                                 from shortstring to ansistring }
+                               if (tstringdef(def_to).string_typ=st_shortstring) then
+                                 eq:=te_convert_l1
+                               else if tstringdef(def_to).string_typ=st_ansistring then
+                                 eq:=te_convert_l2
+                               else
+                                 eq:=te_convert_l3;
+                             end;
+                           st_ansistring :
+                             begin
+                               { Prefer conversion to widestrings }
+                               if (tstringdef(def_to).string_typ=st_widestring) then
+                                 eq:=te_convert_l2
+                               else
+                                 eq:=te_convert_l3;
+                             end;
+                         end;
                        end;
                    end;
                  orddef :
@@ -338,34 +359,55 @@ implementation
                      { array of char to string, the length check is done by the firstpass of this node }
                      if is_chararray(def_from) or is_open_chararray(def_from) then
                       begin
-                        doconv:=tc_chararray_2_string;
-                        if is_open_array(def_from) then
+                        { "Untyped" stringconstn is an array of char }
+                        if fromtreetype=stringconstn then
                           begin
-                            if is_ansistring(def_to) then
-                              eq:=te_convert_l1
-                            else if is_widestring(def_to) then
-                              eq:=te_convert_l2
+                            doconv:=tc_string_2_string;
+                            { prefered string type depends on the $H switch }
+                            if not(cs_ansistrings in aktlocalswitches) and
+                               (tstringdef(def_to).string_typ=st_shortstring) then
+                              eq:=te_equal
+                            else if (cs_ansistrings in aktlocalswitches) and
+                               (tstringdef(def_to).string_typ=st_ansistring) then
+                              eq:=te_equal
+                            else if tstringdef(def_to).string_typ=st_widestring then
+                              eq:=te_convert_l3
                             else
-                              eq:=te_convert_l2;
+                              eq:=te_convert_l1;
                           end
                         else
                           begin
-                            if is_shortstring(def_to) then
-                              begin
-                                { Only compatible with arrays that fit
-                                  smaller than 255 chars }
-                                if (def_from.size <= 255) then
-                                  eq:=te_convert_l1;
-                              end
-                            else if is_ansistring(def_to) then
-                              begin
-                                if (def_from.size > 255) then
-                                  eq:=te_convert_l1
-                                else
-                                  eq:=te_convert_l2;
-                              end
-                            else
-                              eq:=te_convert_l2;
+                          doconv:=tc_chararray_2_string;
+                          if is_open_array(def_from) then
+                            begin
+                              if is_ansistring(def_to) then
+                                eq:=te_convert_l1
+                              else if is_widestring(def_to) then
+                                eq:=te_convert_l3
+                              else
+                                eq:=te_convert_l2;
+                            end
+                          else
+                            begin
+                              if is_shortstring(def_to) then
+                                begin
+                                  { Only compatible with arrays that fit
+                                    smaller than 255 chars }
+                                  if (def_from.size <= 255) then
+                                    eq:=te_convert_l1;
+                                end
+                              else if is_ansistring(def_to) then
+                                begin
+                                  if (def_from.size > 255) then
+                                    eq:=te_convert_l1
+                                  else
+                                    eq:=te_convert_l2;
+                                end
+                              else if is_widestring(def_to) then
+                                eq:=te_convert_l3
+                              else
+                                eq:=te_convert_l2;
+                            end;
                           end;
                       end
                      else
@@ -378,7 +420,9 @@ implementation
                          else
                            { size of widechar array is double due the sizeof a widechar }
                            if not(is_shortstring(def_to) and (def_from.size>255*sizeof(widechar))) then
-                             eq:=te_convert_l3;
+                             eq:=te_convert_l3
+                         else
+                           eq:=te_convert_l2;
                        end;
                    end;
                  pointerdef :
@@ -614,6 +658,15 @@ implementation
                               end;
                           end
                         else
+                          { to array of char, from "Untyped" stringconstn (array of char) }
+                          if (fromtreetype=stringconstn) and
+                             (is_chararray(def_to) or
+                              is_widechararray(def_to)) then
+                            begin
+                              eq:=te_convert_l1;
+                              doconv:=tc_string_2_chararray;
+                            end
+                        else
                          { other arrays }
                           begin
                             { open array -> array }
@@ -736,7 +789,7 @@ implementation
                         (is_pchar(def_to) or is_pwidechar(def_to)) then
                       begin
                         doconv:=tc_cstring_2_pchar;
-                        eq:=te_convert_l1;
+                        eq:=te_convert_l2;
                       end
                      else
                       if cdo_explicit in cdoptions then
@@ -795,21 +848,35 @@ implementation
                    end;
                  arraydef :
                    begin
-                     { chararray to pointer }
-                     if (is_zero_based_array(def_from) or
-                         is_open_array(def_from)) and
-                        equal_defs(tarraydef(def_from).elementtype.def,tpointerdef(def_to).pointertype.def) then
+                     { string constant (which can be part of array constructor)
+                       to zero terminated string constant }
+                     if (fromtreetype in [arrayconstructorn,stringconstn]) and
+                        (is_pchar(def_to) or is_pwidechar(def_to)) then
                       begin
-                        doconv:=tc_array_2_pointer;
-                        eq:=te_convert_l1;
+                        doconv:=tc_cstring_2_pchar;
+                        eq:=te_convert_l2;
                       end
                      else
-                      { dynamic array to pointer, delphi only }
-                      if (m_delphi in aktmodeswitches) and
-                         is_dynamic_array(def_from) then
-                       begin
-                         eq:=te_equal;
-                       end;
+                      { chararray to pointer }
+                      if (is_zero_based_array(def_from) or
+                          is_open_array(def_from)) and
+                          equal_defs(tarraydef(def_from).elementtype.def,tpointerdef(def_to).pointertype.def) then
+                        begin
+                          doconv:=tc_array_2_pointer;
+                          { don't prefer the pchar overload when a constant
+                            string was passed }
+                          if fromtreetype=stringconstn then
+                            eq:=te_convert_l2
+                          else
+                            eq:=te_convert_l1;
+                        end
+                     else
+                       { dynamic array to pointer, delphi only }
+                       if (m_delphi in aktmodeswitches) and
+                          is_dynamic_array(def_from) then
+                        begin
+                          eq:=te_equal;
+                        end;
                    end;
                  pointerdef :
                    begin
@@ -877,11 +944,23 @@ implementation
                    begin
                      { procedure variable can be assigned to an void pointer,
                        this not allowed for methodpointers }
-                     if is_void(tpointerdef(def_to).pointertype.def) and
+                     if (is_void(tpointerdef(def_to).pointertype.def) or
+                         (m_mac_procvar in aktmodeswitches)) and
                         tprocvardef(def_from).is_addressonly then
                       begin
                         doconv:=tc_equal;
                         eq:=te_convert_l1;
+                      end;
+                   end;
+                 procdef :
+                   begin
+                     { procedure variable can be assigned to an void pointer,
+                       this not allowed for methodpointers }
+                     if (m_mac_procvar in aktmodeswitches) and
+                        tprocdef(def_from).is_addressonly then
+                      begin
+                        doconv:=tc_proc_2_procvar;
+                        eq:=te_convert_l2;
                       end;
                    end;
                  classrefdef,
@@ -938,9 +1017,10 @@ implementation
                  procdef :
                    begin
                      { proc -> procvar }
-                     if (m_tp_procvar in aktmodeswitches) then
+                     if (m_tp_procvar in aktmodeswitches) or
+                        (m_mac_procvar in aktmodeswitches) then
                       begin
-                        subeq:=proc_to_procvar_equal(tprocdef(def_from),tprocvardef(def_to),true);
+                        subeq:=proc_to_procvar_equal(tprocdef(def_from),tprocvardef(def_to));
                         if subeq>te_incompatible then
                          begin
                            doconv:=tc_proc_2_procvar;
@@ -951,7 +1031,7 @@ implementation
                  procvardef :
                    begin
                      { procvar -> procvar }
-                     eq:=proc_to_procvar_equal(tprocvardef(def_from),tprocvardef(def_to),false);
+                     eq:=proc_to_procvar_equal(tprocvardef(def_from),tprocvardef(def_to));
                    end;
                  pointerdef :
                    begin
@@ -1015,7 +1095,8 @@ implementation
                              if hd3.implementedinterfaces.searchintf(def_to)<>-1 then
                                begin
                                   doconv:=tc_class_2_intf;
-                                  eq:=te_convert_l1;
+                                  { don't prefer this over objectdef->objectdef }
+                                  eq:=te_convert_l2;
                                   break;
                                end;
                              hd3:=hd3.childof;
@@ -1033,7 +1114,7 @@ implementation
                    else if (def_from.deftype=variantdef) and is_interface(def_to) then
                      begin
                        doconv:=tc_variant_2_interface;
-                       eq:=te_convert_l1;
+                       eq:=te_convert_l2;
                      end
                    { ugly, but delphi allows it }
                    else if (eq=te_incompatible) and
@@ -1374,7 +1455,7 @@ implementation
       end;
 
 
-    function proc_to_procvar_equal(def1:tabstractprocdef;def2:tprocvardef;methoderr:boolean):tequaltype;
+    function proc_to_procvar_equal(def1:tabstractprocdef;def2:tprocvardef):tequaltype;
       var
         eq : tequaltype;
         po_comp : tprocoptions;
@@ -1385,11 +1466,7 @@ implementation
          { check for method pointer }
          if (def1.is_methodpointer xor def2.is_methodpointer) or
             (def1.is_addressonly xor def2.is_addressonly) then
-          begin
-            if methoderr then
-              Message(type_e_no_method_and_procedure_not_compatible);
-            exit;
-          end;
+           exit;
          { check return value and options, methodpointer is already checked }
          po_comp:=[po_staticmethod,po_interrupt,
                    po_iocheck,po_varargs];

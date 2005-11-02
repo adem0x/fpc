@@ -101,6 +101,11 @@ begin
     end;
 end;
 
+function LowerCase(const V: variant): string; overload;{$ifdef SYSUTILSINLINE}inline;{$endif}
+  begin
+    result:=LowerCase(ansistring(V));
+  end;
+
 
 {   CompareStr compares S1 and S2, the result is the based on
     substraction of the ascii values of the characters in S1 and S2
@@ -285,20 +290,25 @@ begin
   Result:=0;
   If S1=Nil then
     begin
-    If S2=Nil Then Exit;
-    result:=-1;
-    exit;
+      If S2=Nil Then Exit;
+      result:=-1;
+      exit;
     end;
   If S2=Nil then
     begin
-    Result:=1;
-    exit;
+      Result:=1;
+      exit;
     end;
   Repeat
-    Result:=Ord(S1[0])-Ord(S2[0]); //!! Must be replaced by ansi characters !!
+    Result:=Ord(S1^)-Ord(S2^); //!! Must be replaced by ansi characters !!
     Inc(S1);
     Inc(S2);
-  Until (Result<>0) or ((S1[0]=#0) or (S2[0]=#0))
+  Until (Result<>0) or (S1^=#0) or (S2^=#0);
+  if (Result=0) and (S1^<>S2^) then // loop ended because exactly one has #0
+    if S1^=#0 then // shorter string is smaller
+      result:=-1
+    else
+      result:=1;
 end;
 
 
@@ -929,6 +939,7 @@ Function TextToFloat(Buffer: PChar; Var Value; ValueType: TFloatValue): Boolean;
 Var
   E,P : Integer;
   S : String;
+  TempValue: extended;
 
 Begin
   S:=StrPas(Buffer);
@@ -943,7 +954,11 @@ Begin
     S[P] := '.';
   case ValueType of
     fvCurrency:
-      Val(S,Currency(Value),E);
+      begin
+        // needed for platforms where Currency = Int64
+        Val(S,TempValue,E);
+        Currency(Value) := TempValue;
+      end;
     fvExtended:
       Val(S,Extended(Value),E);
     fvDouble:
@@ -1138,6 +1153,11 @@ Begin
       End;
   End;
 End;
+
+Function CurrToStrF(Value: Currency; Format: TFloatFormat; Digits: Integer): string;
+  begin
+    result:=FloatToStrF(Value,Format,19,Digits);
+  end;
 
 Function FloatToDateTime (Const Value : Extended) : TDateTime;
 begin
@@ -2197,7 +2217,7 @@ function sscanf(const s: string; const fmt : string;const Pointers : array of Po
             begin
               if GetInt>0 then
                 begin
-                  plongint(Pointers[i])^:=StrToInt(s1);
+                  pPtrInt(Pointers[i])^:=StrToInt(s1);
                   inc(Result);
                 end
               else

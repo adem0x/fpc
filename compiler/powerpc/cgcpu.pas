@@ -365,33 +365,29 @@ const
         if assigned(result) then
           exit;
 
-        if asmlist[importsection]=nil then
-          asmlist[importsection]:=TAAsmoutput.create;
+        if asmlist[al_imports]=nil then
+          asmlist[al_imports]:=TAAsmoutput.create;
 
-        asmlist[importsection].concat(Tai_section.Create(sec_data,'',0));
-        asmlist[importsection].concat(Tai_direct.create(strpnew('.section __TEXT,__symbol_stub1,symbol_stubs,pure_instructions,16')));
-        asmlist[importsection].concat(Tai_align.Create(4));
+        asmlist[al_imports].concat(Tai_section.Create(sec_data,'',0));
+        asmlist[al_imports].concat(Tai_section.create(sec_stub,'',0));
+        asmlist[al_imports].concat(Tai_align.Create(4));
         result := objectlibrary.newasmsymbol(stubname,AB_EXTERNAL,AT_FUNCTION);
-        asmlist[importsection].concat(Tai_symbol.Create(result,0));
-        asmlist[importsection].concat(Tai_direct.create(strpnew((#9+'.indirect_symbol ')+s)));
+        asmlist[al_imports].concat(Tai_symbol.Create(result,0));
+        asmlist[al_imports].concat(tai_directive.create(asd_indirect_symbol,s));
         l1 := objectlibrary.newasmsymbol('L'+s+'$lazy_ptr',AB_EXTERNAL,AT_FUNCTION);
         reference_reset_symbol(href,l1,0);
-{$ifdef powerpc}
         href.refaddr := addr_hi;
-        asmlist[importsection].concat(taicpu.op_reg_ref(A_LIS,NR_R11,href));
+        asmlist[al_imports].concat(taicpu.op_reg_ref(A_LIS,NR_R11,href));
         href.refaddr := addr_lo;
         href.base := NR_R11;
-        asmlist[importsection].concat(taicpu.op_reg_ref(A_LWZU,NR_R12,href));
-        asmlist[importsection].concat(taicpu.op_reg(A_MTCTR,NR_R12));
-        asmlist[importsection].concat(taicpu.op_none(A_BCTR));
-{$else powerpc}
-        internalerror(2004010502);
-{$endif powerpc}
-        asmlist[importsection].concat(Tai_section.Create(sec_data,'',0));
-        asmlist[importsection].concat(Tai_direct.create(strpnew('.lazy_symbol_pointer')));
-        asmlist[importsection].concat(Tai_symbol.Create(l1,0));
-        asmlist[importsection].concat(Tai_direct.create(strpnew((#9+'.indirect_symbol ')+s)));
-        asmlist[importsection].concat(tai_const.createname(strpnew('dyld_stub_binding_helper'),AT_FUNCTION,0));
+        asmlist[al_imports].concat(taicpu.op_reg_ref(A_LWZU,NR_R12,href));
+        asmlist[al_imports].concat(taicpu.op_reg(A_MTCTR,NR_R12));
+        asmlist[al_imports].concat(taicpu.op_none(A_BCTR));
+        asmlist[al_imports].concat(Tai_section.Create(sec_data,'',0));
+        asmlist[al_imports].concat(tai_directive.create(asd_lazy_symbol_pointer,''));
+        asmlist[al_imports].concat(Tai_symbol.Create(l1,0));
+        asmlist[al_imports].concat(tai_directive.create(asd_indirect_symbol,s));
+        asmlist[al_imports].concat(tai_const.createname(strpnew('dyld_stub_binding_helper'),AT_FUNCTION,0));
       end;
 
 
@@ -1883,7 +1879,7 @@ const
             { explicitely allocate R_0 since it can be used safely here }
             { (for holding date that's being copied)                    }
             a_reg_alloc(list,NR_F0);
-            objectlibrary.getlabel(lab);
+            objectlibrary.getjumplabel(lab);
             a_label(list, lab);
             list.concat(taicpu.op_reg_reg_const(A_SUBIC_,countreg,countreg,1));
             list.concat(taicpu.op_reg_ref(A_LFDU,NR_F0,src));
@@ -1935,7 +1931,7 @@ const
             { explicitely allocate R_0 since it can be used safely here }
             { (for holding date that's being copied)                    }
             a_reg_alloc(list,NR_R0);
-            objectlibrary.getlabel(lab);
+            objectlibrary.getjumplabel(lab);
             a_label(list, lab);
             list.concat(taicpu.op_reg_reg_const(A_SUBIC_,countreg,countreg,1));
             list.concat(taicpu.op_reg_ref(A_LWZU,NR_R0,src));
@@ -1987,7 +1983,7 @@ const
       begin
          if not(cs_check_overflow in aktlocalswitches) then
           exit;
-         objectlibrary.getlabel(hl);
+         objectlibrary.getjumplabel(hl);
          if not ((def.deftype=pointerdef) or
                 ((def.deftype=orddef) and
                  (torddef(def).typ in [u64bit,u16bit,u32bit,u8bit,uchar,
@@ -2100,7 +2096,7 @@ const
          if (ref.base = NR_NO) then
            begin
              ref.base := ref.index;
-             ref.base := NR_NO;
+             ref.index := NR_NO;
            end;
          if (ref.base <> NR_NO) then
            begin
@@ -2289,7 +2285,7 @@ const
         p: taicpu;
 
       begin
-        p := taicpu.op_sym(op,objectlibrary.newasmsymbol(l.name,AB_EXTERNAL,AT_FUNCTION));
+        p := taicpu.op_sym(op,l);
         if op <> A_B then
           create_cond_norm(c,crval,p.condition);
         p.is_jmp := true;

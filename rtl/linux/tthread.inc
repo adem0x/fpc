@@ -79,8 +79,17 @@ begin
 end;
 
 procedure SemaphorePost(const FSem: Pointer);
+{$ifdef VER2_0}
+var
+  b : byte;
+{$endif}
 begin
+{$ifdef VER2_0}
+  b:=0;
+  fpwrite(PFilDes(FSem)^[1], b, 1);
+{$else}
   fpwrite(PFilDes(FSem)^[1], #0, 1);
+{$endif}
 end;
 
 procedure SemaphoreDestroy(const FSem: Pointer);
@@ -158,7 +167,7 @@ begin
       LThread.FFatalException :=  TObject(AcquireExceptionObject);
       // not sure if we should really do this...
       // but .Destroy was called, so why not try FreeOnTerminate?
-      if e is EThreadDestroyCalled then 
+      if e is EThreadDestroyCalled then
         LThread.FFreeOnTerminate := true;
     end;
   end;
@@ -176,7 +185,8 @@ begin
 end;
 
 { TThread }
-constructor TThread.Create(CreateSuspended: Boolean);
+constructor TThread.Create(CreateSuspended: Boolean;
+                           const StackSize: DWord = DefaultStackSize);
 begin
   // lets just hope that the user doesn't create a thread
   // via BeginThread and creates the first TThread Object in there!
@@ -187,8 +197,8 @@ begin
   FSuspendedExternal := false;
   FInitialSuspended := CreateSuspended;
   FFatalException := nil;
-  WRITE_DEBUG('creating thread, self = ',longint(self));
-  FHandle:= BeginThread(@ThreadFunc, Pointer(Self), FThreadID);
+  WRITE_DEBUG('creating thread, self = ', PtrInt(self));
+  FHandle:= BeginThread(@ThreadFunc, Pointer(Self), FThreadID, StackSize);
   WRITE_DEBUG('TThread.Create done');
 end;
 

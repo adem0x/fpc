@@ -635,6 +635,7 @@ implementation
 
     function parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean;
       var
+        hs       : string;
         orgsp,sp : stringid;
         sym : tsym;
         srsym : tsym;
@@ -690,9 +691,11 @@ implementation
            if (i=-1) then
              Message(parser_e_interface_id_expected);
            consume(_ID);
+           { Create unique name <interface>.<method> }
+           hs:=sp+'.'+pattern;
            consume(_EQUAL);
            if (token=_ID) then
-             aclass.implementedinterfaces.addmappings(i,sp,pattern);
+             aclass.implementedinterfaces.addmappings(i,hs,pattern);
            consume(_ID);
            result:=true;
            exit;
@@ -1985,7 +1988,7 @@ const
           end;
 
         { Public/exported alias names }
-        if (po_public in pd.procoptions) and
+        if (([po_public,po_exports]*pd.procoptions)<>[]) and
            not(po_has_public_name in pd.procoptions) then
           begin
             case pd.proccalloption of

@@ -40,9 +40,9 @@ Const
 
 { generic call that handles all IPC calls }
 
-function ipccall(Call,First,Second,Third : cint; P : Pointer) : cint;
+function ipccall(Call,First,Second,Third : cint; P : Pointer) : ptrint;
 begin
- ipccall:=do_syscall(syscall_nr_ipc,call,first,second,third,cint(P));
+ ipccall:=do_syscall(syscall_nr_ipc,call,first,second,third,ptrint(P));
 // ipcerror:=fpgetErrno;
 end;
 
@@ -53,7 +53,7 @@ end;
 
 Function shmat (shmid:cint; shmaddr:pointer; shmflg:cint):pointer;
 Var raddr : pchar;
-    error : cint;
+    error : ptrint;
 begin
   error:=ipccall(CALL_SHMAT,shmid,shmflg,cint(@raddr),shmaddr);
   If Error<0 then

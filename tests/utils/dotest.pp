@@ -498,7 +498,11 @@ begin
 {$ifdef unix}
   { Add runtime library path to current dir to find .so files }
   if Config.NeedLibrary then
+{$ifndef darwin}
    args:=args+' -Fl'+TestOutputDir+' ''-k-rpath .''';
+{$else darwin}
+   args:=args+' -Fl'+TestOutputDir;
+{$endif darwin}
 {$endif unix}
   if Config.NeedOptions<>'' then
    args:=args+' '+Config.NeedOptions;
@@ -542,7 +546,7 @@ begin
       AddLog(LongLogFile,Config.Note);
      CopyFile(CompilerLogFile,LongLogFile,true);
      { avoid to try again }
-     AddLog(ExeLogFile,'Failed to compile '++PPFileInfo);
+     AddLog(ExeLogFile,'Failed to compile '+PPFileInfo);
      Verbose(V_Abort,'Internal error in compiler');
      exit;
    end;
@@ -873,7 +877,7 @@ begin
            DelExecutable:=true;
 
          'U' :
-           RemotePara:=+RemotePara+' '+Para;
+           RemotePara:=RemotePara+' '+Para;
 
          'V' : DoVerbose:=true;
 

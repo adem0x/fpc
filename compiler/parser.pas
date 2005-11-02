@@ -35,7 +35,9 @@ interface
 implementation
 
     uses
+{$IFNDEF MACOS_USE_FAKE_SYSUTILS}
       sysutils,
+{$ENDIF MACOS_USE_FAKE_SYSUTILS}
       cutils,cclasses,
       globtype,version,tokens,systems,globals,verbose,
       symbase,symtable,symsym,
@@ -49,9 +51,6 @@ implementation
 {$ifdef BrowserLog}
       browlog,
 {$endif BrowserLog}
-{$ifdef GDB}
-      gdb,
-{$endif GDB}
       comphook,
       scanner,scandir,
       pbase,ptype,psystem,pmodules,psub,
@@ -245,24 +244,22 @@ implementation
 *****************************************************************************}
 
     procedure init_module;
-
-      var to_create:set of Tasmlist;
-          i:Tasmlist;
+      var
+        i : Tasmlist;
       begin
          exprasmlist:=taasmoutput.create;
-         { Create assembler output lists for CG }
-         to_create:=[datasegment,codesegment,bsssegment,debuglist,
-                     threadvarsegment,withdebuglist,consts,rttilist,picdata];
          for i:=low(Tasmlist) to high(Tasmlist) do
-           if i in to_create then
-             asmlist[i]:=Taasmoutput.create
-           else
-             asmlist[i]:=nil;
+           asmlist[i]:=Taasmoutput.create;
 
+         { PIC data }
+{$ifdef powerpc}
          if target_info.system=system_powerpc_darwin then
-           asmlist[picdata].concat(tai_simple.create(ait_non_lazy_symbol_pointer));
+           asmlist[al_picdata].concat(tai_directive.create(asd_non_lazy_symbol_pointer,''));
+{$endif powerpc}
+
          { Resource strings }
-         cresstr.ResourceStrings:=TResourceStrings.Create;
+         cresstr.resourcestrings:=Tresourcestrings.Create;
+
          { use the librarydata from current_module }
          objectlibrary:=current_module.librarydata;
       end;
@@ -319,8 +316,8 @@ implementation
           oldexprasmlist:Taasmoutput;
           oldasmlist:array[Tasmlist] of Taasmoutput;
           oldobjectlibrary : tasmlibrarydata;
-        { resourcestrings }
-          OldResourceStrings : tResourceStrings;
+        { al_resourcestrings }
+          Oldresourcestrings : tresourcestrings;
         { akt.. things }
           oldaktlocalswitches  : tlocalswitches;
           oldaktmoduleswitches : tmoduleswitches;
@@ -329,7 +326,6 @@ implementation
           oldaktpackenum       : shortint;
           oldaktmaxfpuregisters : longint;
           oldaktalignment  : talignmentinfo;
-          oldaktoutputformat : tasm;
           oldaktspecificoptprocessor,
           oldaktoptprocessor : tprocessors;
           oldaktfputype      : tfputype;
@@ -340,9 +336,6 @@ implementation
           oldcurrent_procinfo : tprocinfo;
           oldaktdefproccall : tproccalloption;
           oldsourcecodepage : tcodepagestring;
-{$ifdef GDB}
-          store_dbx : plongint;
-{$endif GDB}
         end;
 
       var
@@ -380,7 +373,7 @@ implementation
             oldasmlist:=asmlist;
             oldexprasmlist:=exprasmlist;
             oldobjectlibrary:=objectlibrary;
-            OldResourceStrings:=ResourceStrings;
+            Oldresourcestrings:=resourcestrings;
           { save akt... state }
           { handle the postponed case first }
            if localswitcheschanged then
@@ -395,17 +388,12 @@ implementation
             oldaktpackrecords:=aktpackrecords;
             oldaktfputype:=aktfputype;
             oldaktmaxfpuregisters:=aktmaxfpuregisters;
-            oldaktoutputformat:=aktoutputformat;
             oldaktoptprocessor:=aktoptprocessor;
             oldaktspecificoptprocessor:=aktspecificoptprocessor;
             oldaktasmmode:=aktasmmode;
             oldaktinterfacetype:=aktinterfacetype;
             oldaktfilepos:=aktfilepos;
             oldaktmodeswitches:=aktmodeswitches;
-{$ifdef GDB}
-            store_dbx:=dbx_counter;
-            dbx_counter:=nil;
-{$endif GDB}
           end;
        { show info }
          Message1(parser_i_compiling,filename);
@@ -453,8 +441,6 @@ implementation
          aktfputype:=initfputype;
          aktpackenum:=initpackenum;
          aktpackrecords:=0;
-         aktoutputformat:=initoutputformat;
-         set_target_asm(aktoutputformat);
          aktoptprocessor:=initoptprocessor;
          aktspecificoptprocessor:=initspecificoptprocessor;
          aktasmmode:=initasmmode;
@@ -543,7 +529,7 @@ implementation
                    exprasmlist:=oldexprasmlist;
                    asmlist:=oldasmlist;
                    { object data }
-                   ResourceStrings:=OldResourceStrings;
+                   resourcestrings:=oldresourcestrings;
                    objectlibrary:=oldobjectlibrary;
                    { restore previous scanner }
                    if assigned(old_compiled_module) then
@@ -567,8 +553,6 @@ implementation
                    aktpackenum:=oldaktpackenum;
                    aktpackrecords:=oldaktpackrecords;
                    aktmaxfpuregisters:=oldaktmaxfpuregisters;
-                   aktoutputformat:=oldaktoutputformat;
-                   set_target_asm(aktoutputformat);
                    aktoptprocessor:=oldaktoptprocessor;
                    aktspecificoptprocessor:=oldaktspecificoptprocessor;
                    aktfputype:=oldaktfputype;
@@ -578,9 +562,6 @@ implementation
                    aktmodeswitches:=oldaktmodeswitches;
                    aktexceptblock:=0;
                    exceptblockcounter:=0;
-  {$ifdef GDB}
-                   dbx_counter:=store_dbx;
-  {$endif GDB}
                  end;
              end
            else

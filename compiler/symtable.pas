@@ -78,10 +78,6 @@ interface
           procedure checklabels;
           function  needs_init_final : boolean;
           procedure unchain_overloaded;
-{$ifdef GDB}
-          procedure concatstabto(asmlist : taasmoutput);virtual;
-          function  getnewtypecount : word; override;
-{$endif GDB}
           procedure testfordefaultproperty(p : TNamedIndexItem;arg:pointer);
        end;
 
@@ -132,15 +128,7 @@ interface
 
        tabstractunitsymtable = class(tstoredsymtable)
        public
-{$ifdef GDB}
-          dbx_count : longint;
-          prev_dbx_counter : plongint;
-          dbx_count_ok : boolean;
-{$endif GDB}
           constructor create(const n : string;id:word);
-{$ifdef GDB}
-          procedure concattypestabto(asmlist : taasmoutput);
-{$endif GDB}
           function iscurrentunit:boolean;override;
        end;
 
@@ -153,9 +141,6 @@ interface
           procedure load_references(ppufile:tcompilerppufile;locals:boolean);override;
           procedure write_references(ppufile:tcompilerppufile;locals:boolean);override;
           procedure insert(sym : tsymentry);override;
-{$ifdef GDB}
-          function getnewtypecount : word; override;
-{$endif}
        end;
 
        tstaticsymtable = class(tabstractunitsymtable)
@@ -227,6 +212,7 @@ interface
     {Name can be given in any case (it will be converted to upper case).}
     procedure def_system_macro(const name : string);
     procedure set_system_macro(const name, value : string);
+    procedure set_system_compvar(const name, value : string);
     procedure undef_system_macro(const name : string);
 
 {*** symtable stack ***}
@@ -278,9 +264,6 @@ implementation
       symutil,defcmp,
       { module }
       fmodule,
-{$ifdef GDB}
-      gdb,
-{$endif GDB}
       { codegen }
       procinfo
       ;
@@ -709,10 +692,12 @@ implementation
            tprocsym(sym).check_forward
          { check also object method table            }
          { we needn't to test the def list          }
-         { because each object has to have a type sym }
+         { because each object has to have a type sym,
+           only test objects declarations, not type renamings }
          else
           if (tsym(sym).typ=typesym) and
              assigned(ttypesym(sym).restype.def) and
+             (ttypesym(sym).restype.def.typesym=ttypesym(sym)) and
              (ttypesym(sym).restype.def.deftype=objectdef) then
            tobjectdef(ttypesym(sym).restype.def).check_forwards;
       end;
@@ -834,15 +819,6 @@ implementation
       end;
 
 
-{$ifdef GDB}
-   function tstoredsymtable.getnewtypecount : word;
-      begin
-         getnewtypecount:=pglobaltypecount^;
-         inc(pglobaltypecount^);
-      end;
-{$endif GDB}
-
-
 {***********************************************
            Process all entries
 ***********************************************}
@@ -882,32 +858,6 @@ implementation
       begin
          foreach(@unchain_overloads,nil);
       end;
-
-
-{$ifdef GDB}
-    procedure tstoredsymtable.concatstabto(asmlist : taasmoutput);
-      var
-        stabstr : Pchar;
-        p : tsym;
-      begin
-        p:=tsym(symindex.first);
-        while assigned(p) do
-          begin
-            { Procsym and typesym are already written }
-            if not(Tsym(p).typ in [procsym,typesym]) then
-              begin
-                if not Tsym(p).isstabwritten then
-                  begin
-                    stabstr:=Tsym(p).stabstring;
-                    if stabstr<>nil then
-                      asmlist.concat(Tai_stabs.create(stabstr));
-                    Tsym(p).isstabwritten:=true;
-                  end;
-              end;
-            p:=tsym(p.indexnext);
-          end;
-      end;
-{$endif}
 
 
     procedure TStoredSymtable._needs_init_final(p : tnamedindexitem;arg:pointer);
@@ -1059,6 +1009,10 @@ implementation
                fieldalignment:=4
               else if (varalign>1) and (fieldalignment<2) then
                fieldalignment:=2;
+              { darwin/x86 aligns long doubles on 16 bytes }
+              if (target_info.system = system_i386_darwin) and
+                 (fieldalignment = 12) then
+                fieldalignment := 16;
             end;
            fieldalignment:=min(fieldalignment,aktalignment.maxCrecordalign);
          end;
@@ -1346,12 +1300,6 @@ implementation
         inherited create(n);
         moduleid:=id;
         symsearch.usehash;
-{$ifdef GDB}
-         { reset GDB things }
-         prev_dbx_counter := dbx_counter;
-         dbx_counter := nil;
-         dbx_count := -1;
-{$endif GDB}
       end;
 
 
@@ -1363,85 +1311,6 @@ implementation
                  (current_module.localsymtable=self)
                 );
       end;
-
-
-{$ifdef GDB}
-      procedure tabstractunitsymtable.concattypestabto(asmlist : taasmoutput);
-
-         procedure dowritestabs(asmlist:taasmoutput;st:tsymtable);
-           var
-             p : tstoreddef;
-           begin
-             p:=tstoreddef(st.defindex.first);
-             while assigned(p) do
-               begin
-                 { also insert local types for the current unit }
-                 if iscurrentunit then
-                   begin
-                     case p.deftype of
-                       procdef :
-                         if assigned(tprocdef(p).localst) then
-                           dowritestabs(asmlist,tprocdef(p).localst);
-                       objectdef :
-                         dowritestabs(asmlist,tobjectdef(p).symtable);
-                     end;
-                   end;
-                 if (p.stab_state=stab_state_used) then
-                   p.concatstabto(asmlist);
-                 p:=tstoreddef(p.indexnext);
-               end;
-           end;
-
-        var
-          old_writing_def_stabs : boolean;
-          prev_dbx_count : plongint;
-        begin
-           if not assigned(name) then
-             name := stringdup('Main_program');
-           asmList.concat(tai_comment.Create(strpnew('Begin unit '+name^+' has index '+tostr(moduleid))));
-           if cs_gdb_dbx in aktglobalswitches then
-             begin
-                if dbx_count_ok then
-                  begin
-                     asmList.concat(tai_comment.Create(strpnew('"repeated" unit '+name^
-                              +' has index '+tostr(moduleid)+' dbx count = '+tostr(dbx_count))));
-                     asmList.concat(Tai_stabs.Create(strpnew('"'+name^+'",'
-                       +tostr(N_EXCL)+',0,0,'+tostr(dbx_count))));
-                     exit;
-                  end
-                else if not iscurrentunit then
-                  begin
-                    prev_dbx_count := dbx_counter;
-                    dbx_counter := nil;
-                    do_count_dbx:=false;
-                    if (symtabletype = globalsymtable) then
-                      asmList.concat(Tai_stabs.Create(strpnew('"'+name^+'",'+tostr(N_BINCL)+',0,0,0')));
-                    dbx_counter := @dbx_count;
-                    dbx_count:=0;
-                    do_count_dbx:=assigned(dbx_counter);
-                  end;
-             end;
-
-           old_writing_def_stabs:=writing_def_stabs;
-           writing_def_stabs:=true;
-           dowritestabs(asmlist,self);
-           writing_def_stabs:=old_writing_def_stabs;
-
-           if cs_gdb_dbx in aktglobalswitches then
-             begin
-                if not iscurrentunit then
-                  begin
-                    dbx_counter := prev_dbx_count;
-                    do_count_dbx:=false;
-                    asmList.concat(Tai_stabs.Create(strpnew('"'+name^+'",'
-                      +tostr(N_EINCL)+',0,0,0')));
-                    do_count_dbx:=assigned(dbx_counter);
-                    dbx_count_ok := {true}false;
-                  end;
-             end;
-           asmList.concat(tai_comment.Create(strpnew('End unit '+name^+' has index '+tostr(moduleid))));
-        end;
-{$endif GDB}
 
 
 {****************************************************************************
@@ -1525,40 +1394,11 @@ implementation
          inherited create(n,id);
          symtabletype:=globalsymtable;
          symtablelevel:=main_program_level;
-{$ifdef GDB}
-         if cs_gdb_dbx in aktglobalswitches then
-           begin
-             dbx_count := 0;
-             unittypecount:=1;
-             pglobaltypecount := @unittypecount;
-             {moduleid:=current_module.unitcount;}
-             {debugList.concat(tai_comment.Create(strpnew('Global '+name^+' has index '+tostr(moduleid))));
-             debugList.concat(Tai_stabs.Create(strpnew('"'+name^+'",'+tostr(N_BINCL)+',0,0,0')));}
-             {inc(current_module.unitcount);}
-             { we can't use dbx_vcount, because we don't know
-               if the object file will be loaded before or afeter PM }
-             dbx_count_ok:=false;
-             dbx_counter:=@dbx_count;
-             do_count_dbx:=true;
-           end;
-{$endif GDB}
       end;
 
 
     procedure tglobalsymtable.ppuload(ppufile:tcompilerppufile);
-{$ifdef GDB}
-      var
-        b : byte;
-{$endif GDB}
       begin
-{$ifdef GDB}
-         if cs_gdb_dbx in aktglobalswitches then
-           begin
-              UnitTypeCount:=1;
-              PglobalTypeCount:=@UnitTypeCount;
-           end;
-{$endif GDB}
-
          next:=symtablestack;
          symtablestack:=self;
 
@@ -1569,29 +1409,6 @@ implementation
 
          { restore symtablestack }
          symtablestack:=next;
-
-         { read dbx count }
-{$ifdef GDB}
-        if (current_module.flags and uf_has_dbx)<>0 then
-         begin
-           b:=ppufile.readentry;
-           if b<>ibdbxcount then
-             Message(unit_f_ppu_dbx_count_problem)
-           else
-             dbx_count:=ppufile.getlongint;
-{$IfDef EXTDEBUG}
-           writeln('Read dbx_count ',dbx_count,' in unit ',name^,'.ppu');
-{$ENDIF EXTDEBUG}
-           { we can't use dbx_vcount, because we don't know
-             if the object file will be loaded before or afeter PM }
-           dbx_count_ok := {true}false;
-         end
-        else
-         begin
-           dbx_count:=-1;
-           dbx_count_ok:=false;
-         end;
-{$endif GDB}
       end;
 
 
@@ -1599,20 +1416,6 @@ implementation
       begin
         { write the symtable entries }
         inherited ppuwrite(ppufile);
-
-        { write dbx count }
-{$ifdef GDB}
-        if cs_gdb_dbx in aktglobalswitches then
-         begin
-{$IfDef EXTDEBUG}
-           writeln('Writing dbx_count ',dbx_count,' in unit ',name^,'.ppu');
-{$ENDIF EXTDEBUG}
-           ppufile.do_crc:=false;
-           ppufile.putlongint(dbx_count);
-           ppufile.writeentry(ibdbxcount);
-           ppufile.do_crc:=true;
-         end;
-{$endif GDB}
       end;
 
 
@@ -1647,20 +1450,6 @@ implementation
 
          inherited insert(sym);
       end;
-
-
-{$ifdef GDB}
-   function tglobalsymtable.getnewtypecount : word;
-      begin
-         if not (cs_gdb_dbx in aktglobalswitches) then
-           getnewtypecount:=inherited getnewtypecount
-         else
-           begin
-              getnewtypecount:=unittypecount;
-              inc(unittypecount);
-           end;
-      end;
-{$endif}
 
 
 {****************************************************************************
@@ -2058,11 +1847,15 @@ implementation
     var st:Tsymtable;
         sym:Tprocsym;
         sv:cardinal;
-        besteq:tequaltype;
-
+        curreq,
+        besteq : tequaltype;
+        currpd,
+        bestpd : tprocdef;
     begin
       st:=symtablestack;
       sv:=getspeedvalue('assign');
+      besteq:=te_incompatible;
+      bestpd:=nil;
       while st<>nil do
         begin
           sym:=Tprocsym(st.speedsearch('assign',sv));
@@ -2072,12 +1865,18 @@ implementation
                 internalerror(200402031);
               { if the source type is an alias then this is only the second choice,
                 if you mess with this code, check tw4093 }
-              search_assignment_operator:=sym.search_procdef_assignment_operator(from_def,to_def,besteq);
-              if (search_assignment_operator<>nil) and (besteq=te_exact) then
-                break;
+              currpd:=sym.search_procdef_assignment_operator(from_def,to_def,curreq);
+              if curreq>besteq then
+                begin
+                  besteq:=curreq;
+                  bestpd:=currpd;
+                  if (besteq=te_exact) then
+                    break;
+                end;
             end;
           st:=st.next;
         end;
+      result:=bestpd;
     end;
 
     function searchsystype(const s: stringid; var srsym: ttypesym): boolean;
@@ -2321,6 +2120,37 @@ implementation
          mac.defined:=true;
       end;
 
+    procedure set_system_compvar(const name, value : string);
+      var
+        mac : tmacro;
+        s: string;
+      begin
+        if name = '' then
+          internalerror(2004121201);
+         s:= upper(name);
+         mac:=tmacro(search_macro(s));
+         if not assigned(mac) then
+           begin
+             mac:=tmacro.create(s);
+             mac.is_compiler_var:=true;
+             if macrosymtablestack.symtabletype=localmacrosymtable then
+               macrosymtablestack.insert(mac)
+             else
+               macrosymtablestack.next.insert(mac)
+           end
+         else
+           begin
+             mac.is_compiler_var:=true;
+             if assigned(mac.buftext) then
+               freemem(mac.buftext,mac.buflen);
+           end;
+         Message2(parser_c_macro_set_to,mac.name,value);
+         mac.buflen:=length(value);
+         getmem(mac.buftext,mac.buflen);
+         move(value[1],mac.buftext^,mac.buflen);
+         mac.defined:=true;
+      end;
+
     procedure undef_system_macro(const name : string);
       var
         mac : tmacro;
@@ -2441,10 +2271,6 @@ implementation
        symtablestack:=nil;
        macrosymtablestack:=nil;
        systemunit:=nil;
-{$ifdef GDB}
-       globaltypecount:=1;
-       pglobaltypecount:=@globaltypecount;
-{$endif GDB}
        { create error syms and def }
        generrorsym:=terrorsym.create;
        generrortype.setdef(terrordef.create);

@@ -59,9 +59,9 @@ _start:
         fwait
         fldcw   ___fpucw
 
-        /* Initialize gs for thread local storage */
-        pushw   %ds
-        popw    %gs
+#        /* Initialize gs for thread local storage */
+#        movw    %ds,%ax
+#        movw    %ax,%gs
 
         xorl    %ebp,%ebp
         call    PASCALMAIN
@@ -70,8 +70,10 @@ _start:
         .type   _haltproc,@function
 _haltproc:
 _haltproc2:             # GAS <= 2.15 bug: generates larger jump if a label is exported
-        xorl    %eax,%eax
-        incl    %eax                    /* eax=1, exit call */
+	movl    $252,%eax                /* exit_group */
+        movzwl  operatingsystem_result,%ebx
+        int     $0x80
+        movl    $1,%eax                /* exit */
         movzwl  operatingsystem_result,%ebx
         int     $0x80
         jmp     _haltproc2

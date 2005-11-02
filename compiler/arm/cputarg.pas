@@ -41,6 +41,9 @@ implementation
     {$ifndef NOTARGETWINCE}
       ,t_win
     {$endif}
+    {$ifndef NOTARGETGBA}
+      ,t_gba
+    {$endif}
 
 {**************************************
              Assemblers
@@ -49,6 +52,27 @@ implementation
     {$ifndef NOAGARMGAS}
       ,agarmgas
     {$endif}
+
+      ,ogcoff
+
+{**************************************
+        Assembler Readers
+**************************************}
+
+  {$ifndef NoRaarmgas}
+       ,raarmgas
+  {$endif NoRaarmgas}
+
+{**************************************
+             Debuginfo
+**************************************}
+
+  {$ifndef NoDbgStabs}
+      ,dbgstabs
+  {$endif NoDbgStabs}
+  {$ifndef NoDbgDwarf}
+      ,dbgdwarf
+  {$endif NoDbgDwarf}
       ;
 
 end.

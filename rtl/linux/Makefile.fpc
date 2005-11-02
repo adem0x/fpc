@@ -10,14 +10,14 @@ loaders=prt0 dllprt0 cprt0 gprt0 $(CRT21)
 units=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil \
       heaptrc lineinfo \
       $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) \
-       crt  printer ggigraph \
+       crt  printer $(GGIGRAPH_UNIT) \
       sysutils typinfo math matrix varutils \
       charset ucomplex getopts \
       errors sockets gpm ipc serial terminfo dl dynlibs \
       video mouse keyboard variants types dateutils sysconst \
-      cthreads classes strutils rtlconsts dos objects cwstring
+      cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 
-rsts=math varutils typinfo variants sysconst rtlconsts
+rsts=math varutils typinfo variants sysconst rtlconsts fpmkunit
 
 [require]
 nortl=y
@@ -34,7 +34,7 @@ target=linux
 
 [compiler]
 includedir=$(INC) $(PROCINC) $(UNIXINC) $(CPU_TARGET)
-sourcedir=$(INC) $(PROCINC) $(UNIXINC) $(CPU_TARGET)
+sourcedir=$(INC) $(PROCINC) $(UNIXINC) $(CPU_TARGET) $(COMMON)
 targetdir=.
 
 [lib]
@@ -50,8 +50,15 @@ libunits=$(SYSTEMUNIT) objpas strings \
 [prerules]
 RTL=..
 INC=$(RTL)/inc
+COMMON=$(RTL)/common
 PROCINC=$(RTL)/$(CPU_TARGET)
 UNIXINC=$(RTL)/unix
+
+ifneq ($(CPU_TARGET),powerpc64)
+GGIGRAPH_UNIT=ggigraph
+else
+GGIGRAPH_UNIT=
+endif
 
 ifeq ($(CPU_TARGET),i386)
 CRT21=cprt21 gprt21
@@ -118,6 +125,9 @@ ifeq ($(CPU_TARGET),i386)
 endif
 ifeq ($(CPU_TARGET),x86_64)
   ASTARGET=--64
+endif
+ifeq ($(CPU_TARGET),powerpc64)
+  ASTARGET=-a64
 endif
 
 #
@@ -205,6 +215,7 @@ graph$(PPUEXT) : graph.pp unix$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT) \
                  $(GRAPHINCDEPS) $(UNIXINC)/graph16.inc
         $(COMPILER) -I$(GRAPHDIR) $(UNIXINC)/graph.pp
 
+
 ggigraph$(PPUEXT) : $(UNIXINC)/ggigraph.pp unix$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT) \
                  $(GRAPHINCDEPS)
         $(COMPILER) -I$(GRAPHDIR) $(UNIXINC)/ggigraph.pp
@@ -276,6 +287,8 @@ charset$(PPUEXT) : $(INC)/charset.pp $(SYSTEMUNIT)$(PPUEXT)
 
 ucomplex$(PPUEXT) : $(INC)/ucomplex.pp math$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
 
+fpmkunit$(PPUEXT) : $(COMMON)/fpmkunit.pp classes$(PPUEXT)
+
 #
 # Other $(SYSTEMUNIT)-dependent RTL Units
 #
@@ -301,3 +314,4 @@ gpm$(PPUEXT): gpm.pp unix$(PPUEXT) baseunix$(PPUEXT) sockets$(PPUEXT)
 
 ctypes$(PPUEXT) :  $(INC)/ctypes.pp $(SYSTEMUNIT)$(PPUEXT)
 
+fpcylix$(PPUEXT) :  fpcylix.pp $(SYSTEMUNIT)$(PPUEXT) dynlibs$(PPUEXT) objpas$(PPUEXT)

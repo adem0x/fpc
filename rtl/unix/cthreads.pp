@@ -93,6 +93,10 @@ Type  PINTRTLEvent = ^TINTRTLEvent;
         threadvarblocksize:=align(threadvarblocksize,16);
         {$endif cpux86_64}
 
+        {$ifdef cpupowerpc64}
+        threadvarblocksize:=align(threadvarblocksize,16);
+        {$endif cpupowerpc64}
+
         offset:=threadvarblocksize;
 
         inc(threadvarblocksize,size);
@@ -340,6 +344,11 @@ Type  PINTRTLEvent = ^TINTRTLEvent;
 
     procedure CDoneCriticalSection(var CS);
       begin
+         { unlock as long as unlocking works to unlock it if it is recursive
+           some Delphi code might call this function with a locked mutex      }
+         while pthread_mutex_unlock(@CS)=0 do
+           ;
+
          if pthread_mutex_destroy(@CS) <> 0 then
            runerror(6);
       end;

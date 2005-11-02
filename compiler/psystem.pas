@@ -45,9 +45,6 @@ implementation
       systems,
       symconst,symtype,symsym,symdef,symtable,
       aasmtai,aasmcpu,ncgutil,fmodule,
-{$ifdef GDB}
-      gdb,
-{$endif GDB}
       node,nbas,nflw,nset,ncon,ncnv,nld,nmem,ncal,nmat,nadd,ninl,nopt
       ;
 
@@ -68,6 +65,7 @@ implementation
         p.insert(tsyssym.create('TypeOf',in_typeof_x));
         p.insert(tsyssym.create('Low',in_low_x));
         p.insert(tsyssym.create('High',in_high_x));
+        p.insert(tsyssym.create('Slice',in_slice_x));
         p.insert(tsyssym.create('Seg',in_seg_x));
         p.insert(tsyssym.create('Ord',in_ord_x));
         p.insert(tsyssym.create('Pred',in_pred_x));
@@ -126,6 +124,8 @@ implementation
 
 {$ifdef cpufpemu}
         { Normal types }
+        (* we use the same types as without emulator, the only
+          difference is that direct calls to the emulator are generated
         if (cs_fp_emulation in aktmoduleswitches) then
           begin
             addtype('Single',s32floattype);
@@ -136,6 +136,7 @@ implementation
             addtype('Extended',pbestrealtype^);
           end
         else
+        *)
 {$endif cpufpemu}
           begin
             addtype('Single',s32floattype);
@@ -374,6 +375,12 @@ implementation
         s80floattype.setdef(tfloatdef.create(s80real));
         s64currencytype.setdef(torddef.create(scurrency,low(int64),high(int64)));
 {$endif powerpc}
+{$ifdef POWERPC64}
+        s32floattype.setdef(tfloatdef.create(s32real));
+        s64floattype.setdef(tfloatdef.create(s64real));
+        s80floattype.setdef(tfloatdef.create(s80real));
+        s64currencytype.setdef(torddef.create(scurrency,low(int64),high(int64)));
+{$endif POWERPC64}
 {$ifdef sparc}
         s32floattype.setdef(tfloatdef.create(s32real));
         s64floattype.setdef(tfloatdef.create(s64real));
@@ -505,12 +512,12 @@ implementation
         aiclass[ait_align]:=tai_align;
         aiclass[ait_section]:=tai_section;
         aiclass[ait_comment]:=tai_comment;
-        aiclass[ait_direct]:=tai_direct;
         aiclass[ait_string]:=tai_string;
         aiclass[ait_instruction]:=taicpu;
         aiclass[ait_datablock]:=tai_datablock;
         aiclass[ait_symbol]:=tai_symbol;
         aiclass[ait_symbol_end]:=tai_symbol_end;
+        aiclass[ait_directive]:=tai_directive;
         aiclass[ait_label]:=tai_label;
         aiclass[ait_const_64bit]:=tai_const;
         aiclass[ait_const_32bit]:=tai_const;
@@ -522,12 +529,9 @@ implementation
         aiclass[ait_real_64bit]:=tai_real_64bit;
         aiclass[ait_real_80bit]:=tai_real_80bit;
         aiclass[ait_comp_64bit]:=tai_comp_64bit;
-{$ifdef GDB}
-        aiclass[ait_stabn]:=tai_stabn;
-        aiclass[ait_stabs]:=tai_stabs;
+        aiclass[ait_stab]:=tai_stab;
         aiclass[ait_force_line]:=tai_force_line;
-        aiclass[ait_stab_function_name]:=tai_stab_function_name;
-{$endif GDB}
+        aiclass[ait_function_name]:=tai_function_name;
 {$ifdef alpha}
           { the follow is for the DEC Alpha }
         aiclass[ait_frame]:=tai_frame;

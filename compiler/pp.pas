@@ -22,15 +22,15 @@
 program pp;
 
 {
-  possible compiler switches (* marks a currently required switch):
+  possible compiler switches:
   -----------------------------------------------------------------
-  GDB*                support of the GNU Debugger
   CMEM                use cmem unit for better memory debugging
   I386                generate a compiler for the Intel i386+
   x86_64              generate a compiler for the AMD x86-64 architecture
   M68K                generate a compiler for the M68000
   SPARC               generate a compiler for SPARC
   POWERPC             generate a compiler for the PowerPC
+  POWERPC64           generate a compiler for the PowerPC64 architecture
   VIS                 generate a compile for the VIS
   DEBUG               version with debug code is generated
   EXTDEBUG            some extra debug code is executed
@@ -39,10 +39,6 @@ program pp;
                       MMX instructions
   EXTERN_MSG          Don't compile the msgfiles in the compiler, always
                       use external messagefiles, default for TP
-  NOAG386INT          no Intel Assembler output
-  NOAG386NSM          no NASM output
-  NOAG386BIN          leaves out the binary writer, default for TP
-  NORA386DIR          No direct i386 assembler reader
   TEST_GENERIC        Test Generic version of code generator
                       (uses generic RTL calls)
   -----------------------------------------------------------------
@@ -53,16 +49,12 @@ program pp;
   -----------------------------------------------------------------
 
   Required switches for a i386 compiler be compiled by Free Pascal Compiler:
-  GDB;I386
+  I386
 }
 
 {$i fpcdefs.inc}
 
 {$ifdef FPC}
-   {$ifndef GDB}
-      { people can try to compile without GDB }
-      { $error The compiler switch GDB must be defined}
-   {$endif GDB}
    { exactly one target CPU must be defined }
    {$ifdef I386}
      {$ifdef CPUDEFINED}
@@ -100,6 +92,12 @@ program pp;
      {$endif CPUDEFINED}
      {$define CPUDEFINED}
    {$endif POWERPC}
+   {$ifdef POWERPC64}
+     {$ifdef CPUDEFINED}
+        {$fatal ONLY one of the switches for the CPU type must be defined}
+     {$endif CPUDEFINED}
+     {$define CPUDEFINED}
+   {$endif POWERPC64}
    {$ifdef ALPHA}
      {$ifdef CPUDEFINED}
         {$fatal ONLY one of the switches for the CPU type must be defined}

@@ -53,6 +53,8 @@ const
       menu_file_saveas       = 'Save ~a~s...';
       menu_file_saveall      = 'Save a~l~l';
       menu_file_reload       = '~R~eload';
+      menu_file_print        = '~P~rint';
+      menu_file_printsetup   = 'Print s~e~tup';
       menu_file_changedir    = '~C~hange dir...';
       menu_file_dosshell     = 'Comman~d~ shell';
       menu_file_exit         = 'E~x~it';
@@ -269,6 +271,8 @@ const
 
       msg_quitconfirm         = 'Do You really want to quit?';
 
+      msg_printerror = 'Error while printing';
+
       { CodeComplete dialog }
       dialog_codecomplete     = 'CodeComplete';
       label_codecomplete_keywords = '~K~eywords';
@@ -361,6 +365,9 @@ const
 
       dialog_programparameters = 'Program parameters';
       label_parameters_parameter = '~P~arameter';
+
+      dialog_setupprinter = 'Setup printer';
+      label_setupprinter_device = '~D~evice';
 
       dialog_openoptions = 'Open Options';
       msg_cantopenconfigfile = 'Can''t open config file.';
@@ -502,7 +509,7 @@ const
       dialog_debugger = 'Browsing/Debugging/Profiling';
       label_debugger_debuginfo = 'Debugging information';
       label_debugger_profileswitches = 'Profiling Switches';
-      label_debugger_compilerargs = '~A~dditional compiler args';
+      label_debugger_compilerargs = 'Additional ~c~ompiler args';
       label_debugger_useanotherconsole = '~U~se another console';
       label_debugger_redirection = 'Debuggee ~R~edirection';
       label_debugger_useanothertty = '~U~se Another tty for Debuggee';
@@ -796,7 +803,8 @@ const
       opt_level2optimizations = 'Level ~2~ optimizations';
       opt_i386486 = 'i~3~86/i486';
       opt_pentiumandmmx = 'Pentium/PentiumMM~X~ (tm)';
-      opt_pentiumpro = 'P~P~ro/PII/c6x86/K6 (tm)';
+      opt_pentiumpro = '~P~entium2/PentiumM/AMD';
+      opt_pentiumiv = 'Pentium~4~';
       opt_m68000 = 'm~6~8000';
       opt_m68020 = 'm680~2~0';
       { Assembler options }
@@ -844,6 +852,7 @@ const
       opt_nogendebugsymbolinfo = 'Skip ~d~ebug information generation';
       opt_gendebugsymbolinfo = 'Generate ~d~ebug symbol information';
       opt_gensymbolandbacktraceinfo = 'Generate also backtrace ~l~ine information';
+      opt_valgrindinfo = 'Generate ~v~algrind compatible debug info';
       { Link after options }
       opt_linkafter = 'Call ~l~inker after';
       { Profiling options }
@@ -934,6 +943,8 @@ const
       hint_filesave          = 'Save the file in the active edit window';
       hint_filesaveas        = 'Save the current file under a different name, directory or drive';
       hint_filesaveall       = 'Save all modified files';
+      hint_print             = 'Print current file';
+      hint_printersetup      = 'Setup printer output device';
       hint_changedir         = 'Choose a new default directory';
       hint_dosshell          = 'Temporarily exit to shell';
       hint_exit              = 'Exit the IDE';

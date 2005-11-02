@@ -42,7 +42,7 @@ interface
 
        TAsmsymbind=(AB_NONE,AB_EXTERNAL,AB_COMMON,AB_LOCAL,AB_GLOBAL);
 
-       TAsmsymtype=(AT_NONE,AT_FUNCTION,AT_DATA,AT_SECTION);
+       TAsmsymtype=(AT_NONE,AT_FUNCTION,AT_DATA,AT_SECTION,AT_LABEL);
 
        TAsmRelocationType = (RELOC_ABSOLUTE,RELOC_RELATIVE,RELOC_RVA);
 
@@ -50,6 +50,7 @@ interface
          sec_code,sec_data,sec_rodata,sec_bss,sec_threadvar,
          sec_common, { used for executable creation }
          sec_custom, { custom section, no prefix }
+         sec_stub,   { used for darwin import stubs }
          { stabs }
          sec_stab,sec_stabstr,
          { win32 }
@@ -57,7 +58,9 @@ interface
          { C++ exception handling unwinding (uses dwarf) }
          sec_eh_frame,
          { dwarf }
-         sec_debug_frame
+         sec_debug_frame,
+         { ELF resources }
+         sec_fpc
        );
 
        TAsmSectionOption = (aso_alloconly,aso_executable);
@@ -95,16 +98,17 @@ interface
          procedure setaddress(_pass:byte;sec:TAsmSection;offset,len:aint);
        end;
 
+       { is the label only there for getting an address (e.g. for i/o
+         checks -> alt_addr) or is it a jump target (alt_jump), for debug
+         info alt_dbgline and alt_dbgfile }
+       TAsmLabelType = (alt_jump,alt_addr,alt_data,alt_dbgline,alt_dbgfile,alt_dbgtype);
+
        TAsmLabel = class(TAsmSymbol)
-         { this is set by the tai_label.Init }
-         is_set,
-         { is the label only there for getting an address (e.g. for i/o }
-         { checks -> true) or is it a jump target (false)               }
-         is_addr : boolean;
-         labelnr : longint;
-         constructor create(nr:longint);
-         constructor createdata(const modulename:string;nr:longint);
-         constructor createaddr(nr:longint);
+         labelnr   : longint;
+         labeltype : TAsmLabelType;
+         is_set    : boolean;
+         constructor createlocal(nr:longint;ltyp:TAsmLabelType);
+         constructor createglobal(const modulename:string;nr:longint;ltyp:TAsmLabelType);
          function getname:string;override;
        end;
 
@@ -152,9 +156,12 @@ interface
 
        TAsmObjectData = class(TLinkedListItem)
        private
-         FName      : string{$ifndef VER1_9_4}[80]{$endif};
+         FName      : string[80];
          FCurrSec   : TAsmSection;
-         FSects     : TDictionary;
+         { Sections will be stored in order in SectsIndex, this is at least
+           required for stabs debuginfo. The SectsDict is only used for lookups (PFV) }
+         FSectsDict   : TDictionary;
+         FSectsIndex  : TIndexArray;
          FCAsmSection : TAsmSectionClass;
          { Symbols that will be defined in this object file }
          FSymbols   : TIndexArray;
@@ -177,23 +184,22 @@ interface
          procedure setsection(asec:tasmsection);
          procedure alloc(len:aint);
          procedure allocalign(len:longint);
-         procedure allocstabs(p:pchar);
+         procedure allocstab(p:pchar);
          procedure allocsymbol(currpass:byte;p:tasmsymbol;len:aint);
          procedure writebytes(var data;len:aint);
          procedure writereloc(data,len:aint;p:tasmsymbol;relative:TAsmRelocationType);virtual;abstract;
          procedure writesymbol(p:tasmsymbol);virtual;abstract;
-         procedure writestabs(offset:aint;p:pchar;nidx,nother,line:longint;reloc:boolean);virtual;abstract;
-         procedure writesymstabs(offset:aint;p:pchar;ps:tasmsymbol;nidx,nother,line:longint;reloc:boolean);virtual;abstract;
+         procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother,line:longint;p:pchar);virtual;abstract;
          procedure beforealloc;virtual;
          procedure beforewrite;virtual;
          procedure afteralloc;virtual;
          procedure afterwrite;virtual;
          procedure resetsections;
          procedure fixuprelocs;
-         property Name:string{$ifndef VER1_9_4}[80]{$endif} read FName;
+         property Name:string[80] read FName;
          property CurrSec:TAsmSection read FCurrSec;
          property Symbols:TindexArray read FSymbols;
-         property Sects:TDictionary read FSects;
+         property Sects:TIndexArray read FSectsIndex;
        end;
        TAsmObjectDataClass = class of TAsmObjectData;
 
@@ -203,7 +209,7 @@ interface
        TAsmLibraryData = class(TLinkedListItem)
        private
          nextaltnr   : longint;
-         nextlabelnr : longint;
+         nextlabelnr : array[Tasmlabeltype] of longint;
        public
          name,
          realname     : string[80];
@@ -220,15 +226,16 @@ interface
          function  newasmsymbol(const s : string;_bind:TAsmSymBind;_typ:TAsmsymtype) : tasmsymbol;
          function  getasmsymbol(const s : string) : tasmsymbol;
          function  renameasmsymbol(const sold, snew : string):tasmsymbol;
-         function  newasmlabel(nr:longint;is_addr,is_data:boolean) : tasmlabel;
+         function  newasmlabel(nr:longint;alt:tasmlabeltype;is_global:boolean) : tasmlabel;
          {# create a new assembler label }
-         procedure getlabel(var l : tasmlabel);
+         procedure getlabel(var l : tasmlabel;alt:tasmlabeltype);
+         {# create a new assembler label for jumps }
+         procedure getjumplabel(var l : tasmlabel);
          { make l as a new label and flag is_addr }
          procedure getaddrlabel(var l : tasmlabel);
          { make l as a new label and flag is_data }
          procedure getdatalabel(var l : tasmlabel);
          {# return a label number }
-         procedure getlabelnr(var l : longint);
          procedure CreateUsedAsmSymbolList;
          procedure DestroyUsedAsmSymbolList;
          procedure UsedAsmSymbolListInsert(p:tasmsymbol);
@@ -240,6 +247,9 @@ interface
          procedure UsedAsmSymbolListCheckUndefined;
        end;
 
+    const
+      { alt_jump,alt_addr,alt_data,alt_dbgline,alt_dbgfile }
+      asmlabeltypeprefix : array[tasmlabeltype] of char = ('j','a','d','l','f','t');
 
     var
       objectlibrary : tasmlibrarydata;
@@ -252,6 +262,7 @@ implementation
       verbose;
 
     const
+      sectsgrow   = 100;
       symbolsgrow = 100;
 
 
@@ -268,7 +279,7 @@ implementation
         inusedlist:=false;
         pass:=255;
         ppuidx:=-1;
-        { mainly used to remove unused labels from the codesegment }
+        { mainly used to remove unused labels from the al_procedures }
         refs:=0;
       end;
 
@@ -335,30 +346,23 @@ implementation
                                  TAsmLabel
 *****************************************************************************}
 
-    constructor tasmlabel.create(nr:longint);
+    constructor tasmlabel.createlocal(nr:longint;ltyp:TAsmLabelType);
       begin;
+        inherited create(target_asm.labelprefix+asmlabeltypeprefix[ltyp]+tostr(nr),AB_LOCAL,AT_LABEL);
         labelnr:=nr;
-        inherited create(target_asm.labelprefix+tostr(labelnr),AB_LOCAL,AT_FUNCTION);
+        labeltype:=ltyp;
         is_set:=false;
-        is_addr := false;
       end;
 
 
-    constructor tasmlabel.createdata(const modulename:string;nr:longint);
+    constructor tasmlabel.createglobal(const modulename:string;nr:longint;ltyp:TAsmLabelType);
       begin;
+        inherited create('_$'+modulename+'$_L'+asmlabeltypeprefix[ltyp]+tostr(nr),AB_GLOBAL,AT_DATA);
         labelnr:=nr;
-        inherited create('_$'+modulename+'$_L'+tostr(labelnr),AB_GLOBAL,AT_DATA);
+        labeltype:=ltyp;
         is_set:=false;
-        is_addr := false;
         { write it always }
         increfs;
-      end;
-
-
-    constructor tasmlabel.createaddr(nr:longint);
-      begin;
-        self.create(nr);
-        is_addr := true;
       end;
 
 
@@ -549,8 +553,11 @@ implementation
       begin
         inherited create;
         FName:=n;
-        { sections }
-        FSects:=tdictionary.create;
+        { sections, the SectsIndex owns the items, the FSectsDict
+          is only used for lookups }
+        FSectsDict:=tdictionary.create;
+        FSectsDict.noclear:=true;
+        FSectsIndex:=tindexarray.create(sectsgrow);
         FStabsRecSize:=1;
         FStabsSec:=nil;
         FStabStrSec:=nil;
@@ -564,7 +571,8 @@ implementation
 
     destructor TAsmObjectData.destroy;
       begin
-        FSects.free;
+        FSectsDict.free;
+        FSectsIndex.free;
         FSymbols.free;
       end;
 
@@ -575,10 +583,12 @@ implementation
           'code','data','rodata','bss','threadvar',
           'common',
           'note',
+          'text',
           'stab','stabstr',
           'idata2','idata4','idata5','idata6','idata7','edata',
           'eh_frame',
-          'debug_frame'
+          'debug_frame',
+          'fpc'
         );
       begin
         if aname<>'' then
@@ -593,14 +603,15 @@ implementation
         secname : string;
       begin
         secname:=sectionname(atype,aname);
-        result:=TasmSection(FSects.search(secname));
+        result:=TasmSection(FSectsDict.search(secname));
         if not assigned(result) then
           begin
 {$warning TODO make alloconly configurable}
             if atype=sec_bss then
               include(aoptions,aso_alloconly);
             result:=CAsmSection.create(secname,atype,aalign,aoptions);
-            FSects.Insert(result);
+            FSectsDict.Insert(result);
+            FSectsIndex.Insert(result);
             result.owner:=self;
           end;
         FCurrSec:=result;
@@ -649,7 +660,7 @@ implementation
       end;
 
 
-    procedure TAsmObjectData.allocstabs(p:pchar);
+    procedure TAsmObjectData.allocstab(p:pchar);
       begin
         if not(assigned(FStabsSec) and assigned(FStabStrSec)) then
           internalerror(200402254);
@@ -697,13 +708,13 @@ implementation
 
     procedure TAsmObjectData.resetsections;
       begin
-        FSects.foreach(@section_reset,nil);
+        FSectsDict.foreach(@section_reset,nil);
       end;
 
 
     procedure TAsmObjectData.fixuprelocs;
       begin
-        FSects.foreach(@section_fixuprelocs,nil);
+        FSectsDict.foreach(@section_fixuprelocs,nil);
       end;
 
 
@@ -712,6 +723,8 @@ implementation
 ****************************************************************************}
 
     constructor TAsmLibraryData.create(const n:string);
+      var
+        alt : TAsmLabelType;
       begin
         inherited create;
         realname:=n;
@@ -721,7 +734,8 @@ implementation
         symbolsearch.usehash;
         { labels }
         nextaltnr:=1;
-        nextlabelnr:=1;
+        for alt:=low(TAsmLabelType) to high(TAsmLabelType) do
+          nextlabelnr[alt]:=1;
         { ppu }
         asmsymbolppuidx:=0;
         asmsymbolidx:=nil;
@@ -891,49 +905,47 @@ implementation
       end;
 
 
-    function  TAsmLibraryData.newasmlabel(nr:longint;is_addr,is_data:boolean) : tasmlabel;
+    function  TAsmLibraryData.newasmlabel(nr:longint;alt:tasmlabeltype;is_global:boolean) : tasmlabel;
       var
         hp : tasmlabel;
       begin
-        if is_addr then
-         hp:=tasmlabel.createaddr(nr)
-        else if is_data then
-         hp:=tasmlabel.createdata(name,nr)
-        else
-         hp:=tasmlabel.create(nr);
+        if is_global then
+         hp:=tasmlabel.createglobal(name,nr,alt)
+       else
+         hp:=tasmlabel.createlocal(nr,alt);
         symbolsearch.insert(hp);
         newasmlabel:=hp;
       end;
 
 
-    procedure TAsmLibraryData.getlabel(var l : tasmlabel);
+    procedure TAsmLibraryData.getlabel(var l : tasmlabel;alt:tasmlabeltype);
       begin
-        l:=tasmlabel.create(nextlabelnr);
-        inc(nextlabelnr);
+        l:=tasmlabel.createlocal(nextlabelnr[alt],alt);
+        inc(nextlabelnr[alt]);
+        symbolsearch.insert(l);
+      end;
+
+    procedure TAsmLibraryData.getjumplabel(var l : tasmlabel);
+      begin
+        l:=tasmlabel.createlocal(nextlabelnr[alt_jump],alt_jump);
+        inc(nextlabelnr[alt_jump]);
         symbolsearch.insert(l);
       end;
 
 
     procedure TAsmLibraryData.getdatalabel(var l : tasmlabel);
       begin
-        l:=tasmlabel.createdata(name,nextlabelnr);
-        inc(nextlabelnr);
+        l:=tasmlabel.createglobal(name,nextlabelnr[alt_data],alt_data);
+        inc(nextlabelnr[alt_data]);
         symbolsearch.insert(l);
       end;
 
 
     procedure TAsmLibraryData.getaddrlabel(var l : tasmlabel);
       begin
-        l:=tasmlabel.createaddr(nextlabelnr);
-        inc(nextlabelnr);
+        l:=tasmlabel.createlocal(nextlabelnr[alt_addr],alt_addr);
+        inc(nextlabelnr[alt_addr]);
         symbolsearch.insert(l);
-      end;
-
-
-    procedure TAsmLibraryData.getlabelnr(var l : longint);
-      begin
-         l:=nextlabelnr;
-         inc(nextlabelnr);
       end;
 
 

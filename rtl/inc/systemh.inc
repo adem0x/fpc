@@ -37,10 +37,10 @@
   {$maxfpuregisters 0}
 {$endif CPUI386}
 
-{ the assembler helpers need this }
-{$ifdef POWERPC}
+{ the assembler helpers need this}
+{$ifdef CPUPOWERPC}
   {$goto+}
-{$endif POWERPC}
+{$endif CPUPOWERPC}
 
 
 { needed for insert,delete,readln }
@@ -287,7 +287,7 @@ type
   PointerArray = array [0..512*1024*1024 - 2] of Pointer;
   PPointerArray = ^PointerArray;
 
-  TBoundArray = array of Integer;
+  TBoundArray = array of SizeInt;
 
   TPCharArray = packed array[0..(MaxLongint div SizeOf(PChar))-1] of PChar;
   PPCharArray = ^TPCharArray;
@@ -457,6 +457,7 @@ Procedure Insert(const source:shortstring;Var s:shortstring;index:SizeInt);
 Procedure Insert(source:Char;Var s:shortstring;index:SizeInt);
 Function  Pos(const substr:shortstring;const s:shortstring):SizeInt;
 Function  Pos(C:Char;const s:shortstring):SizeInt;
+Function  Pos (Const Substr : ShortString; Const Source : AnsiString) : SizeInt;
 Procedure SetString (Var S : Shortstring; Buf : PChar; Len : SizeInt);
 Procedure SetString (Var S : AnsiString; Buf : PChar; Len : SizeInt);
 Function  upCase(const s:shortstring):shortstring;
@@ -682,6 +683,11 @@ const
 { Generic threadmanager }
 {$i threadh.inc}
 
+{*****************************************************************************
+                          Resources support
+*****************************************************************************}
+
+{$i resh.inc}
 
 {*****************************************************************************
                    FPDoc phony declarations.

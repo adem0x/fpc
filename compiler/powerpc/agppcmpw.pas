@@ -39,10 +39,6 @@ interface
         procedure WriteAsmList;override;
         Function  DoAssemble:boolean;override;
         procedure WriteExternals;
-{$ifdef GDB}
-        procedure WriteFileLineInfo(var fileinfo : tfileposinfo);
-        procedure WriteFileEndInfo;
-{$endif}
         procedure WriteAsmFileHeader;
       private
         procedure WriteInstruction(hp : tai);
@@ -77,19 +73,8 @@ interface
         'csect', {data}
         'csect', {read only data}
         'csect', {bss} 'csect',
-        'csect','csect','csect','csect','','','','','','','',''
+        'csect','csect','csect','csect','','','','','','','','','',''
       );
-
-{$ifdef GDB}
-var
-      n_line       : byte;     { different types of source lines }
-      linecount,
-      includecount : longint;
-      funcname     : pchar;
-      stabslastfileinfo : tfileposinfo;
-      isInFunction: Boolean;
-      firstLineInFunction: longint;
-{$endif}
 
     type
       t64bitarray = array[0..7] of byte;
@@ -559,7 +544,7 @@ var
               GetAdjacentTaiSymbol:= true;
               Break;
             end;
-          ait_stab_function_name:
+          ait_function_name:
             hp:=tai(hp.next);
           else
             begin
@@ -610,16 +595,6 @@ var
       AsmWrite(s);
       AsmWriteLn('[PR]');
 
-      {$ifdef GDB}
-      if ((cs_debuginfo in aktmoduleswitches) or
-           (cs_gdb_lineinfo in aktglobalswitches)) then
-        begin
-          //info for debuggers:
-          firstLineInFunction:= stabslastfileinfo.line;
-          AsmWriteLn(#9'beginf ' + tostr(firstLineInFunction));
-          isInFunction:= true;
-        end;
-      {$endif}
       {Write all labels: }
       hp:= first;
       repeat
@@ -697,85 +672,6 @@ var
         (#9'dc.l'#9,#9'dc.w'#9,#9'dc.b'#9);
 
 
-{$ifdef GDB}
-    procedure TPPCMPWAssembler.WriteFileLineInfo(var fileinfo : tfileposinfo);
-        var
-          curr_n : byte;
-        begin
-          if not ((cs_debuginfo in aktmoduleswitches) or
-             (cs_gdb_lineinfo in aktglobalswitches)) then
-           exit;
-        { file changed ? (must be before line info) }
-          if (fileinfo.fileindex<>0) and
-             (stabslastfileinfo.fileindex<>fileinfo.fileindex) then
-           begin
-             infile:=current_module.sourcefiles.get_file(fileinfo.fileindex);
-             if assigned(infile) then
-              begin
-              (*
-                if includecount=0 then
-                 curr_n:=n_sourcefile
-                else
-                 curr_n:=n_includefile;
-                if (infile.path^<>'') then
-                 begin
-                   AsmWriteLn(#9'.stabs "'+lower(BsToSlash(FixPath(infile.path^,false)))+'",'+
-                     tostr(curr_n)+',0,0,'+target_asm.labelprefix+'text'+ToStr(IncludeCount));
-                 end;
-
-                AsmWriteLn(#9'.stabs "'+lower(FixFileName(infile.name^))+'",'+
-                  tostr(curr_n)+',0,0,'+target_asm.labelprefix+'text'+ToStr(IncludeCount));
-              *)
-              AsmWriteLn(#9'file '''+lower(FixFileName(infile.name^))+'''');
-
-              (*
-                AsmWriteLn(target_asm.labelprefix+'text'+ToStr(IncludeCount)+':');
-              *)
-
-                inc(includecount);
-                { force new line info }
-                stabslastfileinfo.line:=-1;
-              end;
-           end;
-        { line changed ? }
-          if (stabslastfileinfo.line<>fileinfo.line) and (fileinfo.line<>0) then
-           begin
-            (*
-             if (n_line=n_textline) and assigned(funcname) and
-                (target_info.use_function_relative_addresses) then
-              begin
-                AsmWriteLn(target_asm.labelprefix+'l'+tostr(linecount)+':');
-                AsmWrite(#9'.stabn '+tostr(n_line)+',0,'+tostr(fileinfo.line)+','+
-                           target_asm.labelprefix+'l'+tostr(linecount)+' - ');
-                AsmWritePChar(FuncName);
-                AsmLn;
-                inc(linecount);
-              end
-             else
-              AsmWriteLn(#9'.stabd'#9+tostr(n_line)+',0,'+tostr(fileinfo.line));
-            *)
-            if isInFunction then
-              AsmWriteln(#9'line '+ tostr(fileinfo.line - firstLineInFunction + 1));
-          end;
-          stabslastfileinfo:=fileinfo;
-        end;
-
-      procedure TPPCMPWAssembler.WriteFileEndInfo;
-
-        begin
-          if not ((cs_debuginfo in aktmoduleswitches) or
-             (cs_gdb_lineinfo in aktglobalswitches)) then
-           exit;
-          AsmLn;
-          (*
-          AsmWriteLn(ait_section2str(sec_code));
-          AsmWriteLn(#9'.stabs "",'+tostr(n_sourcefile)+',0,0,'+target_asm.labelprefix+'etext');
-          AsmWriteLn(target_asm.labelprefix+'etext:');
-          *)
-        end;
-
-{$endif}
-
     procedure TPPCMPWAssembler.WriteTree(p:TAAsmoutput);
     var
       s,
@@ -800,10 +696,10 @@ var
       if not assigned(p) then
        exit;
       InlineLevel:=0;
-      { lineinfo is only needed for codesegment (PFV) }
+      { lineinfo is only needed for al_procedures (PFV) }
       do_line:=((cs_asm_source in aktglobalswitches) or
                 (cs_lineinfo in aktmoduleswitches))
-                 and (p=asmlist[codesegment]);
+                 and (p=asmlist[al_procedures]);
       DoNotSplitLine:=false;
       hp:=tai(p.first);
       while assigned(hp) do
@@ -812,13 +708,6 @@ var
             not DoNotSplitLine then
            begin
              hp1 := hp as tailineinfo;
-
-{$ifdef GDB}
-             { write debug info }
-             if (cs_debuginfo in aktmoduleswitches) or
-                (cs_gdb_lineinfo in aktglobalswitches) then
-               WriteFileLineInfo(hp1.fileinfo);
-{$endif GDB}
 
              if do_line then
               begin
@@ -899,9 +788,6 @@ var
 
                     AsmLn;
                     AsmWriteLn(#9+secnames[tai_section(hp).sectype]+' '+cur_CSECT_name+cur_CSECT_class);
-{$ifdef GDB}
-                    lastfileinfo.line:=-1;
-{$endif GDB}
                   end;
                  LasTSec:=tai_section(hp).sectype;
                end;
@@ -1185,11 +1071,6 @@ var
                       end;
                   end;
                end;
-             ait_direct:
-               begin
-                  AsmWritePChar(tai_direct(hp).str);
-                  AsmLn;
-               end;
              ait_symbol:
                begin
                   if tai_symbol(hp).sym.typ=AT_FUNCTION then
@@ -1208,28 +1089,12 @@ var
                     InternalError(2003071301);
                 end;
               ait_symbol_end:
-{$ifdef GDB}
-                if isInFunction then
-                  if ((cs_debuginfo in aktmoduleswitches) or
-                       (cs_gdb_lineinfo in aktglobalswitches)) then
-                    begin
-                      //info for debuggers:
-                      AsmWriteLn(#9'endf ' + tostr(stabslastfileinfo.line));
-                      isInFunction:= false;
-                    end
-{$endif GDB}
                 ;
               ait_instruction:
                 WriteInstruction(hp);
-{$ifdef GDB}
-              ait_stabn: ;
-              ait_stabs: ;
-
-              ait_force_line :
-                 stabslastfileinfo.line:=0;
-
-              ait_stab_function_name: ;
-{$endif GDB}
+              ait_stab,
+              ait_force_line,
+              ait_function_name : ;
               ait_cutobject :
                 begin
                   InternalError(2004101101);  {Smart linking is done transparently by the MPW linker.}
@@ -1342,7 +1207,7 @@ var
       DoAssemble:=Inherited DoAssemble;
       (*
       { masm does not seem to recognize specific extensions and uses .obj allways PM }
-      if (aktoutputformat = as_i386_masm) then
+      if (target_asm.id = as_i386_masm) then
         begin
           if not(cs_asm_extern in aktglobalswitches) then
             begin
@@ -1365,7 +1230,7 @@ var
       (*
       AsmWriteLn(#9'.386p');
       { masm 6.11 does not seem to like LOCALS PM }
-      if (aktoutputformat = as_i386_tasm) then
+      if (target_asm.id = as_i386_tasm) then
         begin
           AsmWriteLn(#9'LOCALS '+target_asm.labelprefix);
         end;
@@ -1380,55 +1245,24 @@ var
     end;
 
     procedure TPPCMPWAssembler.WriteAsmList;
-
-
-{$ifdef GDB}
     var
-      fileinfo : tfileposinfo;
-{$endif GDB}
-
+      hal : tasmlist;
     begin
 {$ifdef EXTDEBUG}
       if assigned(current_module.mainsource) then
        comment(v_info,'Start writing MPW-styled assembler output for '+current_module.mainsource^);
 {$endif}
       LasTSec:=sec_none;
-{$ifdef GDB}
-      FillChar(stabslastfileinfo,sizeof(stabslastfileinfo),0);
-{$endif GDB}
-{$ifdef GDB}
-      //n_line:=n_bssline;
-      funcname:=nil;
-      linecount:=1;
-      includecount:=0;
-      fileinfo.fileindex:=1;
-      fileinfo.line:=1;
-
-      isInFunction:= false;
-      firstLineInFunction:= 0;
-
-      { Write main file }
-      WriteFileLineInfo(fileinfo);
-
-{$endif GDB}
 
       WriteAsmFileHeader;
       WriteExternals;
 
-      { PowerPC MPW ASM doesn't support stabs, at the moment:}
-(*
-      If (cs_debuginfo in aktmoduleswitches) then
-        WriteTree(debuglist);
-*)
-      WriteTree(asmlist[codesegment]);
-      WriteTree(asmlist[datasegment]);
-      WriteTree(asmlist[consts]);
-      WriteTree(asmlist[rttilist]);
-      WriteTree(asmlist[resourcestrings]);
-      WriteTree(asmlist[bsssegment]);
-      {$ifdef GDB}
-      WriteFileEndInfo;
-      {$ENDIF}
+      for hal:=low(Tasmlist) to high(Tasmlist) do
+        begin
+          AsmWriteLn(target_asm.comment+'Begin asmlist '+TasmlistStr[hal]);
+          writetree(asmlist[hal]);
+          AsmWriteLn(target_asm.comment+'End asmlist '+TasmlistStr[hal]);
+        end;
 
       AsmWriteLn(#9'end');
       AsmLn;

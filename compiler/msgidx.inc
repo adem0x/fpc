@@ -87,6 +87,7 @@ const
   scan_e_utf8_bigger_than_65535=02069;
   scan_e_utf8_malformed=02070;
   scan_c_switching_to_utf8=02071;
+  scan_e_compile_time_typeerror=02072;
   parser_e_syntax_error=03000;
   parser_e_dont_nest_interrupt=03004;
   parser_w_proc_directive_ignored=03005;
@@ -284,6 +285,9 @@ const
   parser_e_no_static_method_in_interfaces=03212;
   parser_e_arithmetic_operation_overflow=03213;
   parser_e_protected_or_private_expected=03214;
+  parser_e_illegal_slice=03215;
+  parser_e_dispinterface_cant_have_parent=03216;
+  parser_e_dispinterface_needs_a_guid=03217;
   type_e_mismatch=04000;
   type_e_incompatible_types=04001;
   type_e_not_equal_types=04002;
@@ -410,6 +414,7 @@ const
   cg_e_localsize_too_big=06043;
   cg_e_break_not_allowed=06044;
   cg_e_continue_not_allowed=06045;
+  cg_f_unknown_compilerproc=06046;
   asmr_d_start_reading=07000;
   asmr_d_finish_reading=07001;
   asmr_e_none_label_contain_at=07002;
@@ -658,9 +663,9 @@ const
   option_info=11024;
   option_help_pages=11025;
 
-  MsgTxtSize = 38837;
+  MsgTxtSize = 39281;
 
   MsgIdxMax : array[1..20] of longint=(
-    19,72,215,59,59,46,100,20,135,60,
+    19,73,218,59,59,47,100,20,135,60,
     40,1,1,1,1,1,1,1,1,1
   );

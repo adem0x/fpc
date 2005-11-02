@@ -204,7 +204,6 @@ implementation
                    sym:=ttypedconstsym.createtype(orgname,tt,(cs_typed_const_writable in aktlocalswitches));
                    akttokenpos:=storetokenpos;
                    symtablestack.insert(sym);
-                   insertconstdata(ttypedconstsym(sym));
                    { procvar can have proc directives, but not type references }
                    if (tt.def.deftype=procvardef) and
                       (tt.sym=nil) then
@@ -280,9 +279,6 @@ implementation
         again  : boolean;
         srsym  : tsym;
         srsymtable : tsymtable;
-      {$ifdef gdb_notused}
-        stab_str:Pchar;
-      {$endif gdb_notused}
 
       begin
          { Check only typesyms or record/object fields }
@@ -333,27 +329,6 @@ implementation
                        tpointerdef(pd).pointertype.setsym(srsym);
                        { avoid wrong unused warnings web bug 801 PM }
                        inc(ttypesym(srsym).refs);
-{$ifdef GDB_UNUSED}
-                       if (cs_debuginfo in aktmoduleswitches) and assigned(debuglist) and
-                          (tsym(p).owner.symtabletype in [globalsymtable,staticsymtable]) then
-                        begin
-                          ttypesym(p).isusedinstab:=true;
-{                          ttypesym(p).concatstabto(debuglist);}
-                          {not stabs for forward defs }
-                          if not Ttypesym(p).isstabwritten then
-                            begin
-                              if Ttypesym(p).restype.def.typesym=p then
-                                Tstoreddef(Ttypesym(p).restype.def).concatstabto(debuglist)
-                              else
-                                begin
-                                  stab_str:=Ttypesym(p).stabstring;
-                                  if assigned(stab_str) then
-                                    debuglist.concat(Tai_stabs.create(stab_str));
-                                  Ttypesym(p).isstabwritten:=true;
-                                end;
-                            end;
-                        end;
-{$endif GDB_UNUSED}
                        { we need a class type for classrefdef }
                        if (pd.deftype=classrefdef) and
                           not(is_class(ttypesym(srsym).restype.def)) then

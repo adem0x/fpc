@@ -16,10 +16,12 @@
 
 { These things are set in the makefile, }
 { But you can override them here.}
-
-
 { If you use an aout system, set the conditional AOUT}
 { $Define AOUT}
+
+{$ifdef i386}
+{$DEFINE ELFRES32}
+{$endif}
 
 Unit System;
 
@@ -33,6 +35,12 @@ Interface
 
 Implementation
 
+{ Include ELF resources }
+
+{$ifdef ELFRES32}
+{$define HAS_RESOURCES}
+{$i elfres32.inc}
+{$endif}
 
 {$I system.inc}
 
@@ -103,8 +111,8 @@ begin
   fillchar(e,sizeof(e),#0);
   { set is 1 based PM }
   dec(sig);
-  i:=sig mod 32;
-  j:=sig div 32;
+  i:=sig mod (sizeof(cuLong) * 8);
+  j:=sig div (sizeof(cuLong) * 8);
   e[j]:=1 shl i;
   fpsigprocmask(SIG_UNBLOCK,@e,nil);
   reenable_signal:=geterrno=0;

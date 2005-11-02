@@ -20,6 +20,9 @@ Function Pos (Const Substr : WideString; Const Source : WideString) : SizeInt;
 Function Pos (c : Char; Const s : WideString) : SizeInt;
 Function Pos (c : WideChar; Const s : WideString) : SizeInt;
 Function Pos (c : WideChar; Const s : AnsiString) : SizeInt;
+Function Pos (c : AnsiString; Const s : WideString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
+Function Pos (c : WideString; Const s : AnsiString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
+Function Pos (c : ShortString; Const s : WideString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
 
 Function UpCase(const s : WideString) : WideString;
 
@@ -53,18 +56,18 @@ Type
     CompUTF8 : function(p1,p2:PUTF8String) : shortint;
     CompUCS2 : function(p1,p2:PUCS2Char) : shortint;
     CompUCS4 : function(p1,p2:PUC42Char) : shortint;
-}    
+}
     CompareWideStringProc : function(const s1, s2 : WideString) : PtrInt;
     CompareTextWideStringProc : function(const s1, s2 : WideString): PtrInt;
     CharLengthPCharProc : function(const Str: PChar): PtrInt;
-    
+
     UpperAnsiStringProc : function(const s : ansistring) : ansistring;
     LowerAnsiStringProc : function(const s : ansistring) : ansistring;
     CompareStrAnsiStringProc : function(const S1, S2: ansistring): PtrInt;
     CompareTextAnsiStringProc : function(const S1, S2: ansistring): PtrInt;
     StrCompAnsiStringProc : function(S1, S2: PChar): PtrInt;
-    StrICompAnsiStringProc : function(S1, S2: PChar): PtrInt;  
-    StrLCompAnsiStringProc : function(S1, S2: PChar; MaxLen: PtrUInt): PtrInt;  
+    StrICompAnsiStringProc : function(S1, S2: PChar): PtrInt;
+    StrLCompAnsiStringProc : function(S1, S2: PChar; MaxLen: PtrUInt): PtrInt;
     StrLICompAnsiStringProc : function(S1, S2: PChar; MaxLen: PtrUInt): PtrInt;
     StrLowerAnsiStringProc : function(Str: PChar): PChar;
     StrUpperAnsiStringProc : function(Str: PChar): PChar;
@@ -79,6 +82,13 @@ function UTF8Encode(const s : WideString) : UTF8String;
 function UTF8Decode(const s : UTF8String): WideString;
 function AnsiToUtf8(const s : ansistring): UTF8String;{$ifdef SYSTEMINLINE}inline;{$endif}
 function Utf8ToAnsi(const s : UTF8String) : ansistring;{$ifdef SYSTEMINLINE}inline;{$endif}
+function WideStringToUCS4String(const s : WideString) : UCS4String;
+function UCS4StringToWideString(const s : UCS4String) : WideString;
+
+{$ifdef MSWINDOWS}
+const
+  winwidestringalloc : boolean = true;
+{$endif MSWINDOWS}
 
 var
   widestringmanager : TWideStringManager;

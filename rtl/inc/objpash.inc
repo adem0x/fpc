@@ -127,12 +127,12 @@
           procedure Free;
           class function InitInstance(instance : pointer) : tobject;
           procedure CleanupInstance;
-          class function ClassType : tclass;
+          class function ClassType : tclass;{$ifdef SYSTEMINLINE}inline;{$endif}
           class function ClassInfo : pointer;
           class function ClassName : shortstring;
           class function ClassNameIs(const name : string) : boolean;
-          class function ClassParent : tclass;
-          class function InstanceSize : longint;
+          class function ClassParent : tclass;{$ifdef SYSTEMINLINE}inline;{$endif}
+          class function InstanceSize : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
           class function InheritsFrom(aclass : tclass) : boolean;
           class function StringMessageTable : pstringmessagetable;
           { message handling routines }
@@ -275,12 +275,13 @@
       PVarRec = ^TVarRec;
       TVarRec = record
          case VType : Ptrint of
-           vtInteger    : (VInteger: Longint);
 {$ifdef ENDIAN_BIG}
-           vtBoolean    : (booldummy1,booldummy2,booldummy3: byte; VBoolean: Boolean);
-           vtChar       : (chardummy1,chardummy2,chardummy3: byte; VChar: Char);
-           vtWideChar   : (wchardummy1,VWideChar: WideChar);
+           vtInteger    : ({$IFDEF CPU64}integerdummy1 : Longint;{$ENDIF CPU64}VInteger: Longint);
+           vtBoolean    : ({$IFDEF CPU64}booldummy : Longint;{$ENDIF CPU64}booldummy1,booldummy2,booldummy3: byte; VBoolean: Boolean);
+           vtChar       : ({$IFDEF CPU64}chardummy : Longint;{$ENDIF CPU64}chardummy1,chardummy2,chardummy3: byte; VChar: Char);
+           vtWideChar   : ({$IFDEF CPU64}widechardummy : Longint;{$ENDIF CPU64}wchardummy1,VWideChar: WideChar);
 {$else ENDIAN_BIG}
+           vtInteger    : (VInteger: Longint);
            vtBoolean    : (VBoolean: Boolean);
            vtChar       : (VChar: Char);
            vtWideChar   : (VWideChar: WideChar);

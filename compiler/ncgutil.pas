@@ -71,6 +71,7 @@ interface
 
     procedure gen_external_stub(list:taasmoutput;pd:tprocdef;const externalname:string);
     procedure gen_intf_wrappers(list:taasmoutput;st:tsymtable);
+    procedure gen_load_vmt_register(list:taasmoutput;objdef:tobjectdef;selfloc:tlocation;var vmtreg:tregister);
 
    {#
       Allocate the buffers for exception management and setjmp environment.
@@ -103,15 +104,10 @@ interface
     procedure new_exception(list:TAAsmoutput;const t:texceptiontemps;exceptlabel:tasmlabel);
     procedure free_exception(list:TAAsmoutput;const t:texceptiontemps;a:aint;endexceptlabel:tasmlabel;onlyfree:boolean);
 
-    procedure insertconstdata(sym : ttypedconstsym);
     procedure insertbssdata(sym : tglobalvarsym);
 
     procedure gen_alloc_symtable(list:TAAsmoutput;st:tsymtable);
     procedure gen_free_symtable(list:TAAsmoutput;st:tsymtable);
-{$ifdef PASS2INLINE}
-    procedure gen_alloc_inline_parast(list:TAAsmoutput;pd:tprocdef);
-    procedure gen_alloc_inline_funcret(list:TAAsmoutput;pd:tprocdef);
-{$endif PASS2INLINE}
 
     { rtti and init/final }
     procedure generate_rtti(p:Ttypesym);
@@ -122,15 +118,12 @@ interface
 implementation
 
   uses
-    strings,
+    version,
     cutils,cclasses,
     globals,systems,verbose,
     ppu,defutil,
     procinfo,paramgr,fmodule,
-    regvars,dwarf,
-{$ifdef GDB}
-    gdb,
-{$endif GDB}
+    regvars,dwarf,dbgbase,
     pass_1,pass_2,
     ncon,nld,nutils,
     tgobj,cgobj;
@@ -430,7 +423,7 @@ implementation
                   begin
                     cg.a_label(list,truelabel);
                     cg.a_load_const_reg(list,OS_INT,1,hregister);
-                    objectlibrary.getlabel(hl);
+                    objectlibrary.getjumplabel(hl);
                     cg.a_jmp_always(list,hl);
                     cg.a_label(list,falselabel);
                     cg.a_load_const_reg(list,OS_INT,0,hregister);
@@ -516,7 +509,7 @@ implementation
                begin
                  cg.a_label(list,truelabel);
                  cg.a_load_const_reg(list,dst_size,1,hregister);
-                 objectlibrary.getlabel(hl);
+                 objectlibrary.getjumplabel(hl);
                  cg.a_jmp_always(list,hl);
                  cg.a_label(list,falselabel);
                  cg.a_load_const_reg(list,dst_size,0,hregister);
@@ -579,7 +572,7 @@ implementation
             begin
               cg.a_label(list,truelabel);
               cg.a_load_const_reg(list,dst_size,1,hregister);
-              objectlibrary.getlabel(hl);
+              objectlibrary.getjumplabel(hl);
               cg.a_jmp_always(list,hl);
               cg.a_label(list,falselabel);
               cg.a_load_const_reg(list,dst_size,0,hregister);
@@ -1009,7 +1002,6 @@ implementation
         if not is_class_or_interface(tparavarsym(p).vartype.def) and
            tparavarsym(p).vartype.def.needs_inittable then
          begin
-           location_get_data_ref(list,tparavarsym(p).localloc,href,is_open_array(tparavarsym(p).vartype.def));
            if (tparavarsym(p).varspez=vs_value) then
             begin
               include(current_procinfo.flags,pi_needs_implicit_finally);
@@ -1415,26 +1407,39 @@ implementation
                   if (currpara.paraloc[calleeside].size in [OS_64,OS_S64]) and
                      is_64bit(currpara.vartype.def) then
                     begin
-                      if not assigned(paraloc^.next) then
-                        internalerror(200410104);
-                      if (target_info.endian=ENDIAN_BIG) then
-                        begin
-                          { paraloc^ -> high
-                            paraloc^.next -> low }
-                          unget_para(paraloc^);
-                          gen_load_reg(paraloc^,currpara.localloc.register64.reghi);
-                          unget_para(paraloc^.next^);
-                          gen_load_reg(paraloc^.next^,currpara.localloc.register64.reglo);
-                        end
-                      else
-                        begin
-                          { paraloc^ -> low
-                            paraloc^.next -> high }
-                          unget_para(paraloc^);
-                          gen_load_reg(paraloc^,currpara.localloc.register64.reglo);
-                          unget_para(paraloc^.next^);
-                          gen_load_reg(paraloc^.next^,currpara.localloc.register64.reghi);
-                        end;
+                      case paraloc^.loc of
+                        LOC_REGISTER:
+                          begin
+                            if not assigned(paraloc^.next) then
+                              internalerror(200410104);
+                            if (target_info.endian=ENDIAN_BIG) then
+                              begin
+                                { paraloc^ -> high
+                                  paraloc^.next -> low }
+                                unget_para(paraloc^);
+                                gen_load_reg(paraloc^,currpara.localloc.register64.reghi);
+                                unget_para(paraloc^.next^);
+                                gen_load_reg(paraloc^.next^,currpara.localloc.register64.reglo);
+                              end
+                            else
+                              begin
+                                { paraloc^ -> low
+                                  paraloc^.next -> high }
+                                unget_para(paraloc^);
+                                gen_load_reg(paraloc^,currpara.localloc.register64.reglo);
+                                unget_para(paraloc^.next^);
+                                gen_load_reg(paraloc^.next^,currpara.localloc.register64.reghi);
+                              end;
+                          end;
+                        LOC_REFERENCE:
+                          begin
+                            reference_reset_base(href,paraloc^.reference.index,paraloc^.reference.offset);
+                            cg64.a_load64_ref_reg(list,href,currpara.localloc.register64);
+                            unget_para(paraloc^);
+                          end;
+                        else
+                          internalerror(2005101501);
+                      end
                     end
                   else
 {$endif cpu64bit}
@@ -1492,6 +1497,11 @@ implementation
         { which is used to access the parameters in their original callee-side location  }
         cg.a_reg_dealloc(list,NR_R12);
 {$endif powerpc}
+{$ifdef powerpc64}
+        { unget the register that contains the stack pointer before the procedure entry, }
+        { which is used to access the parameters in their original callee-side location  }
+        cg.a_reg_dealloc(list, NR_OLD_STACK_POINTER_REG);
+{$endif powerpc64}
       end;
 
 
@@ -1568,11 +1578,8 @@ implementation
 
     procedure gen_entry_code(list:TAAsmoutput);
       var
-        href : treference;
         paraloc1,
-        paraloc2,
-        paraloc3 : tcgpara;
-        hp   : tused_unit;
+        paraloc2 : tcgpara;
       begin
         paraloc1.init;
         paraloc2.init;
@@ -1597,58 +1604,20 @@ implementation
         { call startup helpers from main program }
         if (current_procinfo.procdef.proctypeoption=potype_proginit) then
          begin
-           { initialize profiling for win32 }
-           if (target_info.system in [system_i386_win32,system_i386_wdosx]) and
-              (cs_profile in aktmoduleswitches) then
-            begin
-              reference_reset_symbol(href,objectlibrary.newasmsymbol('etext',AB_EXTERNAL,AT_DATA),0);
-              paramanager.getintparaloc(pocall_default,1,paraloc1);
-              paramanager.getintparaloc(pocall_default,2,paraloc2);
-              paramanager.allocparaloc(list,paraloc2);
-              cg.a_paramaddr_ref(list,href,paraloc2);
-              reference_reset_symbol(href,objectlibrary.newasmsymbol('__image_base__',AB_EXTERNAL,AT_DATA),0);
-              paramanager.allocparaloc(list,paraloc1);
-              cg.a_paramaddr_ref(list,href,paraloc1);
-              paramanager.freeparaloc(list,paraloc2);
-              paramanager.freeparaloc(list,paraloc1);
-              cg.allocallcpuregisters(list);
-              cg.a_call_name(list,'_monstartup');
-              cg.deallocallcpuregisters(list);
-            end;
-
-           if (target_info.system = system_powerpc_darwin) then
+           if (target_info.system = system_powerpc_darwin) or
+              (target_info.system = system_powerpc_macos) then
              begin
               { the parameters are already in the right registers }
               cg.a_call_name(list,target_info.cprefix+'FPC_SYSTEMMAIN');
              end;
-           
+
            { initialize units }
            cg.allocallcpuregisters(list);
            cg.a_call_name(list,'FPC_INITIALIZEUNITS');
            cg.deallocallcpuregisters(list);
-
-{$ifdef GDB}
-           if (cs_debuginfo in aktmoduleswitches) then
-            if target_info.system <> system_powerpc_macos then
-             begin
-               { include reference to all debuginfo sections of used units }
-               hp:=tused_unit(usedunits.first);
-               while assigned(hp) do
-                 begin
-                   If (hp.u.flags and uf_has_debuginfo)=uf_has_debuginfo then
-                     current_procinfo.aktlocaldata.concat(Tai_const.Createname(make_mangledname('DEBUGINFO',hp.u.globalsymtable,''),AT_DATA,0));
-                   hp:=tused_unit(hp.next);
-                 end;
-               { include reference to debuginfo for this program }
-               current_procinfo.aktlocaldata.concat(Tai_const.Createname(make_mangledname('DEBUGINFO',current_module.localsymtable,''),AT_DATA,0));
-             end;
-{$endif GDB}
          end;
 
-{$ifdef GDB}
-        if (cs_debuginfo in aktmoduleswitches) then
-         list.concat(Tai_force_line.Create);
-{$endif GDB}
+        list.concat(Tai_force_line.Create);
 
 {$ifdef OLDREGVARS}
         load_regvars(list,nil);
@@ -1676,121 +1645,44 @@ implementation
       var
         hs : string;
       begin
-        { add symbol entry point as well as debug information                 }
-        { will be inserted in front of the rest of this list.                 }
-        { Insert alignment and assembler names }
-        { Align, gprof uses 16 byte granularity }
-        if (cs_profile in aktmoduleswitches) then
-          list.concat(Tai_align.create(16))
-        else
-          list.concat(Tai_align.create(aktalignment.procalign));
-
-{$ifdef GDB}
-        if (cs_debuginfo in aktmoduleswitches) then
-          begin
-            if (po_global in current_procinfo.procdef.procoptions) then
-              Tprocsym(current_procinfo.procdef.procsym).is_global:=true;
-            current_procinfo.procdef.concatstabto(list);
-            Tprocsym(current_procinfo.procdef.procsym).isstabwritten:=true;
-          end;
-{$endif GDB}
-
         repeat
           hs:=current_procinfo.procdef.aliasnames.getfirst;
           if hs='' then
             break;
-{$ifdef GDB}
-          if (cs_debuginfo in aktmoduleswitches) and
-             target_info.use_function_relative_addresses then
-          list.concat(Tai_stab_function_name.create(strpnew(hs)));
-{$endif GDB}
           if (cs_profile in aktmoduleswitches) or
              (po_global in current_procinfo.procdef.procoptions) then
             list.concat(Tai_symbol.createname_global(hs,AT_FUNCTION,0))
           else
             list.concat(Tai_symbol.createname(hs,AT_FUNCTION,0));
+          if target_info.use_function_relative_addresses then
+            list.concat(Tai_function_name.create(hs));
         until false;
+
+        current_procinfo.procdef.procstarttai:=tai(list.last);
       end;
 
 
 
     procedure gen_proc_symbol_end(list:Taasmoutput);
-{$ifdef GDB}
-      var
-        stabsendlabel : tasmlabel;
-        mangled_length : longint;
-        p : pchar;
-{$endif GDB}
       begin
-        list.concat(Tai_symbol_end.Createname(current_procinfo.procdef.mangledname));
-{$ifdef GDB}
-        if (cs_debuginfo in aktmoduleswitches) then
+        if (current_procinfo.procdef.proctypeoption=potype_proginit) then
           begin
-            objectlibrary.getlabel(stabsendlabel);
-            cg.a_label(list,stabsendlabel);
-            { define calling EBP as pseudo local var PM }
-            { this enables test if the function is a local one !! }
-            {if  assigned(current_procinfo.parent) and
-                (current_procinfo.procdef.parast.symtablelevel>normal_function_level) then
-              list.concat(Tai_stabs.Create(strpnew(
-               '"parent_ebp:'+tstoreddef(voidpointertype.def).numberstring+'",'+
-               tostr(N_LSYM)+',0,0,'+tostr(current_procinfo.parent_framepointer_offset)))); }
+            { Insert Ident of the compiler in the main .text section }
+            if (not (cs_create_smart in aktmoduleswitches)) then
+             begin
+               list.insert(Tai_align.Create(const_align(32)));
+               list.insert(Tai_string.Create('FPC '+full_version_string+
+                 ' ['+date_string+'] for '+target_cpu_string+' - '+target_info.shortname));
+             end;
 
-            if assigned(current_procinfo.procdef.funcretsym) and
-               (tabstractnormalvarsym(current_procinfo.procdef.funcretsym).refs>0) then
-              begin
-                if tabstractnormalvarsym(current_procinfo.procdef.funcretsym).localloc.loc=LOC_REFERENCE then
-                  begin
-{$warning Need to add gdb support for ret in param register calling}
-                    if paramanager.ret_in_param(current_procinfo.procdef.rettype.def,current_procinfo.procdef.proccalloption) then
-                      begin
-                        list.concat(Tai_stabs.Create(strpnew(
-                           '"'+current_procinfo.procdef.procsym.name+':X*'+tstoreddef(current_procinfo.procdef.rettype.def).numberstring+'",'+
-                           tostr(N_tsym)+',0,0,'+tostr(tabstractnormalvarsym(current_procinfo.procdef.funcretsym).localloc.reference.offset))));
-                        if (m_result in aktmodeswitches) then
-                          list.concat(Tai_stabs.Create(strpnew(
-                             '"RESULT:X*'+tstoreddef(current_procinfo.procdef.rettype.def).numberstring+'",'+
-                             tostr(N_tsym)+',0,0,'+tostr(tabstractnormalvarsym(current_procinfo.procdef.funcretsym).localloc.reference.offset))))
-                      end
-                    else
-                      begin
-                        list.concat(Tai_stabs.Create(strpnew(
-                           '"'+current_procinfo.procdef.procsym.name+':X'+tstoreddef(current_procinfo.procdef.rettype.def).numberstring+'",'+
-                           tostr(N_tsym)+',0,0,'+tostr(tabstractnormalvarsym(current_procinfo.procdef.funcretsym).localloc.reference.offset))));
-                        if (m_result in aktmodeswitches) then
-                          list.concat(Tai_stabs.Create(strpnew(
-                             '"RESULT:X'+tstoreddef(current_procinfo.procdef.rettype.def).numberstring+'",'+
-                             tostr(N_tsym)+',0,0,'+tostr(tabstractnormalvarsym(current_procinfo.procdef.funcretsym).localloc.reference.offset))));
-                       end;
-                  end;
-              end;
-            mangled_length:=length(current_procinfo.procdef.mangledname);
-            getmem(p,2*mangled_length+50);
-            strpcopy(p,'192,0,0,');
-            strpcopy(strend(p),current_procinfo.procdef.mangledname);
-            if (target_info.use_function_relative_addresses) then
-              begin
-                strpcopy(strend(p),'-');
-                strpcopy(strend(p),current_procinfo.procdef.mangledname);
-              end;
-            list.concat(Tai_stabn.Create(strnew(p)));
-            {List.concat(Tai_stabn.Create(strpnew('192,0,0,'
-             +current_procinfo.procdef.mangledname))));
-            p[0]:='2';p[1]:='2';p[2]:='4';
-            strpcopy(strend(p),'_end');}
-            strpcopy(p,'224,0,0,'+stabsendlabel.name);
-            if (target_info.use_function_relative_addresses) then
-              begin
-                strpcopy(strend(p),'-');
-                strpcopy(strend(p),current_procinfo.procdef.mangledname);
-              end;
-            list.concatlist(asmlist[withdebuglist]);
-            list.concat(Tai_stabn.Create(strnew(p)));
-             { strpnew('224,0,0,'
-             +current_procinfo.procdef.mangledname+'_end'))));}
-            freemem(p,2*mangled_length+50);
+            { Reference all DEBUGINFO sections from the main .text section }
+            if (cs_debuginfo in aktmoduleswitches) then
+              debuginfo.referencesections(list);
           end;
-{$endif GDB}
+
+        list.concat(Tai_symbol_end.Createname(current_procinfo.procdef.mangledname));
+
+        current_procinfo.procdef.procendtai:=tai(list.last);
       end;
 
 
@@ -1911,7 +1803,7 @@ implementation
 
     procedure gen_external_stub(list:taasmoutput;pd:tprocdef;const externalname:string);
       begin
-        { add the procedure to the codesegment }
+        { add the procedure to the al_procedures }
         maybe_new_object_file(list);
         new_section(list,sec_code,lower(pd.mangledname),aktalignment.procalign);
         list.concat(Tai_align.create(aktalignment.procalign));
@@ -1926,42 +1818,6 @@ implementation
                                Const Data
 ****************************************************************************}
 
-    procedure insertconstdata(sym : ttypedconstsym);
-    { this does not affect the local stack space, since all
-      typed constansts and initialized variables are always
-      put in the .data / .rodata section
-    }
-      var
-        storefilepos : tfileposinfo;
-        curconstsegment : taasmoutput;
-        l : longint;
-      begin
-        storefilepos:=aktfilepos;
-        aktfilepos:=sym.fileinfo;
-        if sym.is_writable then
-          curconstsegment:=asmlist[datasegment]
-        else
-          curconstsegment:=asmlist[consts];
-        l:=sym.getsize;
-        { insert cut for smartlinking or alignment }
-        maybe_new_object_file(curconstSegment);
-        new_section(curconstSegment,sec_rodata,lower(sym.mangledname),const_align(l));
-{$ifdef GDB}
-        if (cs_debuginfo in aktmoduleswitches) then
-          sym.concatstabto(curconstSegment);
-{$endif GDB}
-        if (sym.owner.symtabletype=globalsymtable) or
-           maybe_smartlink_symbol or
-           (assigned(current_procinfo) and
-            (po_inline in current_procinfo.procdef.procoptions)) or
-           DLLSource then
-          curconstSegment.concat(Tai_symbol.Createname_global(sym.mangledname,AT_DATA,l))
-        else
-          curconstSegment.concat(Tai_symbol.Createname(sym.mangledname,AT_DATA,l));
-        aktfilepos:=storefilepos;
-      end;
-
-
     procedure insertbssdata(sym : tglobalvarsym);
       var
         l,varalign : longint;
@@ -1975,27 +1831,23 @@ implementation
      {$ifndef segment_threadvars}
         if (vo_is_thread_var in sym.varoptions) then
           inc(l,sizeof(aint));
-        list:=asmlist[bsssegment];
+        list:=asmlist[al_globals];
         sectype:=sec_bss;
      {$else}
         if (vo_is_thread_var in sym.varoptions) then
           begin
-            list:=asmlist[threadvarsegment];
+            list:=asmlist[al_threadvars];
             sectype:=sec_threadvar;
           end
         else
           begin
-            list:=asmlist[bsssegment];
+            list:=asmlist[al_globals];
             sectype:=sec_bss;
           end;
      {$endif}
         varalign:=var_align(l);
         maybe_new_object_file(list);
         new_section(list,sectype,lower(sym.mangledname),varalign);
-{$ifdef GDB}
-        if (cs_debuginfo in aktmoduleswitches) then
-          sym.concatstabto(list);
-{$endif GDB}
         if (sym.owner.symtabletype=globalsymtable) or
            maybe_smartlink_symbol or
            DLLSource or
@@ -2192,139 +2044,6 @@ implementation
       end;
 
 
-{$ifdef PASS2INLINE}
-    procedure gen_alloc_inline_parast(list:TAAsmoutput;pd:tprocdef);
-      var
-        sym : tsym;
-        calleeparaloc,
-        callerparaloc : pcgparalocation;
-      begin
-        if (po_assembler in pd.procoptions) then
-          exit;
-        sym:=tsym(pd.parast.symindex.first);
-        while assigned(sym) do
-          begin
-            if sym.typ=paravarsym then
-              begin
-                with tparavarsym(sym) do
-                  begin
-                    { for localloc <> LOC_REFERENCE, we need regvar support inside inlined procedures }
-                    localloc.loc:=LOC_REFERENCE;
-                    localloc.size:=int_cgsize(paramanager.push_size(varspez,vartype.def,pd.proccalloption));
-                    tg.GetLocal(list,tcgsize2size[localloc.size],vartype.def,localloc.reference);
-                    calleeparaloc:=paraloc[calleeside].location;
-                    callerparaloc:=paraloc[callerside].location;
-                    while assigned(calleeparaloc) do
-                      begin
-                        if not assigned(callerparaloc) then
-                          internalerror(200408281);
-                        if calleeparaloc^.loc<>callerparaloc^.loc then
-                          internalerror(200408282);
-                        case calleeparaloc^.loc of
-                          LOC_FPUREGISTER:
-                            begin
-                              calleeparaloc^.register:=cg.getfpuregister(list,calleeparaloc^.size);
-                              callerparaloc^.register:=calleeparaloc^.register;
-                            end;
-                          LOC_REGISTER:
-                            begin
-                              calleeparaloc^.register:=cg.getintregister(list,calleeparaloc^.size);
-                              callerparaloc^.register:=calleeparaloc^.register;
-                            end;
-                          LOC_MMREGISTER:
-                            begin
-                              calleeparaloc^.register:=cg.getmmregister(list,calleeparaloc^.size);
-                              callerparaloc^.register:=calleeparaloc^.register;
-                            end;
-                          LOC_REFERENCE:
-                            begin
-                              calleeparaloc^.reference.offset := localloc.reference.offset;
-                              calleeparaloc^.reference.index := localloc.reference.base;
-                              callerparaloc^.reference.offset := localloc.reference.offset;
-                              callerparaloc^.reference.index := localloc.reference.base;
-                            end;
-                        end;
-                        calleeparaloc:=calleeparaloc^.next;
-                        callerparaloc:=callerparaloc^.next;
-                      end;
-                    if cs_asm_source in aktglobalswitches then
-                      begin
-                        case localloc.loc of
-                          LOC_REFERENCE :
-                            list.concat(Tai_comment.Create(strpnew('Para '+realname+' allocated at '+
-                                std_regname(localloc.reference.base)+tostr_with_plus(localloc.reference.offset))));
-                        end;
-                      end;
-                  end;
-              end;
-            sym:=tsym(sym.indexnext);
-          end;
-      end;
-
-
-    procedure gen_alloc_inline_funcret(list:TAAsmoutput;pd:tprocdef);
-      var
-        callerparaloc : tlocation;
-      begin
-        if not assigned(pd.funcretsym) or
-           (po_assembler in pd.procoptions) then
-          exit;
-        { for localloc <> LOC_REFERENCE, we need regvar support inside inlined procedures }
-        with tabstractnormalvarsym(pd.funcretsym) do
-          begin
-            localloc.loc:=LOC_REFERENCE;
-            localloc.size:=int_cgsize(paramanager.push_size(varspez,vartype.def,pd.proccalloption));
-            tg.GetLocal(list,tcgsize2size[localloc.size],vartype.def,localloc.reference);
-            callerparaloc:=pd.funcretloc[callerside];
-            case pd.funcretloc[calleeside].loc of
-              LOC_FPUREGISTER:
-                begin
-                  pd.funcretloc[calleeside].register:=cg.getfpuregister(list,pd.funcretloc[calleeside].size);
-                  pd.funcretloc[callerside].register:=pd.funcretloc[calleeside].register;
-                end;
-              LOC_REGISTER:
-                begin
-  {$ifndef cpu64bit}
-                  if callerparaloc.size in [OS_64,OS_S64] then
-                    begin
-                    end
-                  else
-  {$endif cpu64bit}
-                    begin
-                      pd.funcretloc[calleeside].register:=cg.getintregister(list,pd.funcretloc[calleeside].size);
-                      pd.funcretloc[callerside].register:=pd.funcretloc[calleeside].register;
-                    end;
-                end;
-              LOC_MMREGISTER:
-                begin
-                  pd.funcretloc[calleeside].register:=cg.getmmregister(list,pd.funcretloc[calleeside].size);
-                  pd.funcretloc[callerside].register:=pd.funcretloc[calleeside].register;
-                end;
-              LOC_REFERENCE:
-                begin
-                  pd.funcretloc[calleeside].reference.offset := localloc.reference.offset;
-                  pd.funcretloc[calleeside].reference.index := localloc.reference.base;
-                  pd.funcretloc[callerside].reference.offset := localloc.reference.offset;
-                  pd.funcretloc[callerside].reference.index := localloc.reference.base;
-                end;
-              LOC_VOID:
-                ;
-              else
-                internalerror(200411191);
-            end;
-            if cs_asm_source in aktglobalswitches then
-              begin
-                case localloc.loc of
-                  LOC_REFERENCE :
-                    list.concat(Tai_comment.Create(strpnew('Funcret '+realname+' allocated at '+
-                        std_regname(localloc.reference.base)+tostr_with_plus(localloc.reference.offset))));
-                end;
-              end;
-          end;
-      end;
-{$endif PASS2INLINE}
-
-
     { persistent rtti generation }
     procedure generate_rtti(p:Ttypesym);
       var
@@ -2350,11 +2069,11 @@ implementation
            def.rttitablesym:=rsym;
            { write rtti data }
            def.write_child_rtti_data(fullrtti);
-           maybe_new_object_file(asmlist[rttilist]);
-           new_section(asmlist[rttilist],sec_rodata,rsym.get_label.name,const_align(sizeof(aint)));
-           asmlist[rttilist].concat(Tai_symbol.Create_global(rsym.get_label,0));
+           maybe_new_object_file(asmlist[al_rtti]);
+           new_section(asmlist[al_rtti],sec_rodata,rsym.get_label.name,const_align(sizeof(aint)));
+           asmlist[al_rtti].concat(Tai_symbol.Create_global(rsym.get_label,0));
            def.write_rtti_data(fullrtti);
-           asmlist[rttilist].concat(Tai_symbol_end.Create(rsym.get_label));
+           asmlist[al_rtti].concat(Tai_symbol_end.Create(rsym.get_label));
          end;
       end;
 
@@ -2390,11 +2109,11 @@ implementation
            def.inittablesym:=rsym;
            { write inittable data }
            def.write_child_rtti_data(initrtti);
-           maybe_new_object_file(asmlist[rttilist]);
-           new_section(asmlist[rttilist],sec_rodata,rsym.get_label.name,const_align(sizeof(aint)));
-           asmlist[rttilist].concat(Tai_symbol.Create_global(rsym.get_label,0));
+           maybe_new_object_file(asmlist[al_rtti]);
+           new_section(asmlist[al_rtti],sec_rodata,rsym.get_label.name,const_align(sizeof(aint)));
+           asmlist[al_rtti].concat(Tai_symbol.Create_global(rsym.get_label,0));
            def.write_rtti_data(initrtti);
-           asmlist[rttilist].concat(Tai_symbol_end.Create(rsym.get_label));
+           asmlist[al_rtti].concat(Tai_symbol_end.Create(rsym.get_label));
          end;
       end;
 
@@ -2437,6 +2156,55 @@ implementation
               gen_intf_wrapper(list,tobjectdef(def));
             def:=tstoreddef(def.indexnext);
           end;
+      end;
+
+
+    procedure gen_load_vmt_register(list:taasmoutput;objdef:tobjectdef;selfloc:tlocation;var vmtreg:tregister);
+      var
+        href : treference;
+      begin
+        if is_object(objdef) then
+          begin
+            case selfloc.loc of
+              LOC_CREFERENCE,
+              LOC_REFERENCE:
+                begin
+                  reference_reset_base(href,cg.getaddressregister(list),objdef.vmt_offset);
+                  cg.a_loadaddr_ref_reg(list,selfloc.reference,href.base);
+                end;
+              else
+                internalerror(200305056);
+            end;
+          end
+        else
+          begin
+            case selfloc.loc of
+              LOC_REGISTER:
+                begin
+{$ifdef cpu_uses_separate_address_registers}
+                  if getregtype(left.location.register)<>R_ADDRESSREGISTER then
+                    begin
+                      reference_reset_base(href,cg.getaddressregister(list),objdef.vmt_offset);
+                      cg.a_load_reg_reg(list,OS_ADDR,OS_ADDR,selfloc.register,href.base);
+                    end
+                  else
+{$endif cpu_uses_separate_address_registers}
+                    reference_reset_base(href,selfloc.register,objdef.vmt_offset);
+                end;
+              LOC_CREGISTER,
+              LOC_CREFERENCE,
+              LOC_REFERENCE:
+                begin
+                    reference_reset_base(href,cg.getaddressregister(list),objdef.vmt_offset);
+                    cg.a_load_loc_reg(list,OS_ADDR,selfloc,href.base);
+                end;
+              else
+                internalerror(200305057);
+            end;
+          end;
+        vmtreg:=cg.getaddressregister(list);
+        cg.g_maybe_testself(list,href.base);
+        cg.a_load_ref_reg(list,OS_ADDR,OS_ADDR,href,vmtreg);
       end;
 
 end.

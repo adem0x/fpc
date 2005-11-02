@@ -147,7 +147,7 @@ implementation
         else
           begin
             objectlibrary.getdatalabel(l1);
-            objectlibrary.getlabel(l2);
+            objectlibrary.getjumplabel(l2);
             reference_reset_symbol(href,l1,0);
             hregister:=cg.getintregister(exprasmlist,OS_32);
             cg.a_load_loc_reg(exprasmlist,OS_32,left.location,hregister);
@@ -169,11 +169,11 @@ implementation
                s64real:
                  begin
                    hregister:=cg.getfpuregister(exprasmlist,OS_F64);
-                   asmlist[consts].concat(tai_align.create(const_align(8)));
-                   asmlist[consts].concat(Tai_label.Create(l1));
+                   asmlist[al_typedconsts].concat(tai_align.create(const_align(8)));
+                   asmlist[al_typedconsts].concat(Tai_label.Create(l1));
                    { I got this constant from a test program (FK) }
-                   asmlist[consts].concat(Tai_const.Create_32bit($41f00000));
-                   asmlist[consts].concat(Tai_const.Create_32bit(0));
+                   asmlist[al_typedconsts].concat(Tai_const.Create_32bit($41f00000));
+                   asmlist[al_typedconsts].concat(Tai_const.Create_32bit(0));
 
                    cg.a_loadfpu_ref_reg(exprasmlist,OS_F64,href,hregister);
                    exprasmlist.concat(taicpu.op_reg_reg_reg(A_FADDD,location.register,hregister,location.register));
@@ -228,8 +228,8 @@ implementation
       begin
         oldtruelabel:=truelabel;
         oldfalselabel:=falselabel;
-        objectlibrary.getlabel(truelabel);
-        objectlibrary.getlabel(falselabel);
+        objectlibrary.getjumplabel(truelabel);
+        objectlibrary.getjumplabel(falselabel);
         secondpass(left);
         if codegenerror then
           exit;
@@ -279,7 +279,7 @@ implementation
           LOC_JUMP :
             begin
               hreg1:=cg.getintregister(exprasmlist,OS_INT);
-              objectlibrary.getlabel(hlabel);
+              objectlibrary.getjumplabel(hlabel);
               cg.a_label(exprasmlist,truelabel);
               cg.a_load_const_reg(exprasmlist,OS_INT,1,hreg1);
               cg.a_jmp_always(exprasmlist,hlabel);

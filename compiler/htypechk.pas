@@ -715,7 +715,8 @@ implementation
       begin
         result:=false;
         { remove voidpointer typecast for tp procvars }
-        if (m_tp_procvar in aktmodeswitches) and
+        if ((m_tp_procvar in aktmodeswitches) or
+            (m_mac_procvar in aktmodeswitches)) and
            (p.nodetype=typeconvn) and
            is_voidpointer(p.resulttype.def) then
           p:=tunarynode(p).left;
@@ -1172,6 +1173,7 @@ implementation
                      begin
                        { loop counter? }
                        if not(Valid_Const in opts) and
+                          not gotderef and
                           (vo_is_loop_counter in tabstractvarsym(tloadnode(hp).symtableentry).varoptions) then
                          if report_errors then
                           CGMessage1(parser_e_illegal_assignment_to_count_var,tloadnode(hp).symtableentry.realname)
@@ -1401,10 +1403,15 @@ implementation
           procvardef :
             begin
               { in tp7 mode proc -> procvar is allowed }
-              if (m_tp_procvar in aktmodeswitches) and
+              if ((m_tp_procvar in aktmodeswitches) or
+                  (m_mac_procvar in aktmodeswitches)) and
                  (p.left.nodetype=calln) and
-                 (proc_to_procvar_equal(tprocdef(tcallnode(p.left).procdefinition),tprocvardef(def_to),true)>=te_equal) then
-               eq:=te_equal;
+                 (proc_to_procvar_equal(tprocdef(tcallnode(p.left).procdefinition),tprocvardef(def_to))>=te_equal) then
+                eq:=te_equal
+              else
+                if (m_mac_procvar in aktmodeswitches) and
+                   is_procvar_load(p.left) then
+                  eq:=te_convert_l2;
             end;
         end;
       end;
@@ -1769,6 +1776,7 @@ implementation
         paraidx  : integer;
         currparanr : byte;
         rfh,rth  : bestreal;
+        objdef   : tobjectdef;
         def_from,
         def_to   : tdef;
         currpt,
@@ -1866,7 +1874,7 @@ implementation
                  end
               else
               { for value and const parameters check precision of real, give
-                penalty for loosing of precision }
+                penalty for loosing of precision. var and out parameters must match exactly }
                if not(currpara.varspez in [vs_var,vs_out]) and
                   is_real(def_from) and
                   is_real(def_to) then
@@ -1892,6 +1900,25 @@ implementation
                    else
                      rfh:=rth-rfh;
                    hp^.ordinal_distance:=hp^.ordinal_distance+rfh;
+                 end
+              else
+              { related object parameters also need to determine the distance between the current
+                object and the object we are comparing with. var and out parameters must match exactly }
+               if not(currpara.varspez in [vs_var,vs_out]) and
+                  (def_from.deftype=objectdef) and
+                  (def_to.deftype=objectdef) and
+                  (tobjectdef(def_from).objecttype=tobjectdef(def_to).objecttype) and
+                  tobjectdef(def_from).is_related(tobjectdef(def_to)) then
+                 begin
+                   eq:=te_convert_l1;
+                   objdef:=tobjectdef(def_from);
+                   while assigned(objdef) do
+                     begin
+                       if objdef=def_to then
+                         break;
+                       hp^.ordinal_distance:=hp^.ordinal_distance+1;
+                       objdef:=objdef.childof;
+                     end;
                  end
               else
               { generic type comparision }

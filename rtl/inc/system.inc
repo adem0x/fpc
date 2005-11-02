@@ -81,13 +81,21 @@ var
   {$define SYSPROCDEFINED}
 {$endif cpux86_64}
 
-{$ifdef cpupowerpc}
+{$ifdef cpupowerpc32}
   {$ifdef SYSPROCDEFINED}
     {$Error Can't determine processor type !}
   {$endif}
   {$i powerpc.inc}  { Case dependent, don't change }
   {$define SYSPROCDEFINED}
-{$endif cpupowerpc}
+{$endif cpupowerpc32}
+
+{$ifdef cpupowerpc64}
+  {$ifdef SYSPROCDEFINED}
+    {$Error Can't determine processor type !}
+  {$endif}
+  {$i powerpc64.inc}  { Case dependent, don't change }
+  {$define SYSPROCDEFINED}
+{$endif cpupowerpc64}
 
 {$ifdef cpualpha}
   {$ifdef SYSPROCDEFINED}
@@ -741,23 +749,27 @@ var
   caller_frame,
   caller_addr : Pointer;
 Begin
-  prevbp:=bp-1;
-  i:=0;
-  is_dev:=do_isdevice(textrec(f).Handle);
-  while bp > prevbp Do
-   Begin
-     caller_addr := get_caller_addr(bp);
-     caller_frame := get_caller_frame(bp);
-     if (caller_addr=nil) or
-        (caller_frame=nil) then
-       break;
-     Writeln(f,BackTraceStrFunc(caller_addr));
-     Inc(i);
-     If ((i>max_frame_dump) and is_dev) or (i>256) Then
-       break;
-     prevbp:=bp;
-     bp:=caller_frame;
-   End;
+  try
+    prevbp:=bp-1;
+    i:=0;
+    is_dev:=do_isdevice(textrec(f).Handle);
+    while bp > prevbp Do
+     Begin
+       caller_addr := get_caller_addr(bp);
+       caller_frame := get_caller_frame(bp);
+       if (caller_addr=nil) or
+          (caller_frame=nil) then
+         break;
+       Writeln(f,BackTraceStrFunc(caller_addr));
+       Inc(i);
+       If ((i>max_frame_dump) and is_dev) or (i>256) Then
+         break;
+       prevbp:=bp;
+       bp:=caller_frame;
+     End;
+   except
+     { prevent endless dump if an exception occured }
+   end;
 End;
 
 
@@ -1012,4 +1024,17 @@ end;
 { OS dependent dir functions }
 {$i sysdir.inc}
 
+{*****************************************************************************
+                            Resources support
+*****************************************************************************}
 
+
+{$ifndef HAS_RESOURCES}
+{$i sysres.inc}
+{$endif}
+
+Function FindResource(ModuleHandle: HMODULE; ResourceName, ResourceType: AnsiString): TResourceHandle;
+
+begin
+  Result:=FindResource(ModuleHandle,PChar(ResourceName),PChar(ResourceType));
+end;

@@ -85,28 +85,43 @@ implementation
 
     function tarminlinenode.first_abs_real : tnode;
       begin
-        expectloc:=LOC_FPUREGISTER;
-        registersint:=left.registersint;
-        registersfpu:=max(left.registersfpu,1);
-        first_abs_real := nil;
+        if cs_fp_emulation in aktmoduleswitches then
+          result:=inherited first_abs_real
+        else
+          begin
+            expectloc:=LOC_FPUREGISTER;
+            registersint:=left.registersint;
+            registersfpu:=max(left.registersfpu,1);
+            first_abs_real:=nil;
+          end;
       end;
 
 
     function tarminlinenode.first_sqr_real : tnode;
       begin
-        expectloc:=LOC_FPUREGISTER;
-        registersint:=left.registersint;
-        registersfpu:=max(left.registersfpu,1);
-        first_sqr_real:=nil;
+        if cs_fp_emulation in aktmoduleswitches then
+          result:=inherited first_sqr_real
+        else
+          begin
+            expectloc:=LOC_FPUREGISTER;
+            registersint:=left.registersint;
+            registersfpu:=max(left.registersfpu,1);
+            first_sqr_real:=nil;
+          end;
       end;
 
 
     function tarminlinenode.first_sqrt_real : tnode;
       begin
-        expectloc:=LOC_FPUREGISTER;
-        registersint:=left.registersint;
-        registersfpu:=max(left.registersfpu,1);
-        first_sqrt_real := nil;
+        if cs_fp_emulation in aktmoduleswitches then
+          result:=inherited first_sqrt_real
+        else
+          begin
+            expectloc:=LOC_FPUREGISTER;
+            registersint:=left.registersint;
+                    registersfpu:=max(left.registersfpu,1);
+            first_sqrt_real := nil;
+          end;
       end;
 
 

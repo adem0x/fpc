@@ -41,6 +41,7 @@ type
   TSQLCursor = Class(TSQLHandle)
   public
     FPrepared      : Boolean;
+    FInitFieldDef  : Boolean;
     FStatementType : TStatementType;
   end;
 
@@ -56,6 +57,9 @@ const
 
 { TSQLConnection }
 type
+
+  { TSQLConnection }
+
   TSQLConnection = class (TDatabase)
   private
     FPassword            : string;
@@ -66,6 +70,7 @@ type
     FRole                : String;
 
     procedure SetTransaction(Value : TSQLTransaction);
+    procedure GetDBInfo(const SchemaType : TSchemaType; const SchemaObjectName, ReturnField : string; List: TStrings);
   protected
     FConnOptions         : TConnOptions;
 
@@ -83,7 +88,6 @@ type
     procedure Execute(cursor: TSQLCursor;atransaction:tSQLtransaction; AParams : TParams); virtual; abstract;
     function Fetch(cursor : TSQLCursor) : boolean; virtual; abstract;
     procedure AddFieldDefs(cursor: TSQLCursor; FieldDefs : TfieldDefs); virtual; abstract;
-    procedure CloseStatement(cursor : TSQLCursor); virtual; abstract;
     procedure UnPrepareStatement(cursor : TSQLCursor); virtual; abstract;
 
     procedure FreeFldBuffers(cursor : TSQLCursor); virtual; abstract;
@@ -91,7 +95,7 @@ type
     function GetTransactionHandle(trans : TSQLHandle): pointer; virtual; abstract;
     function Commit(trans : TSQLHandle) : boolean; virtual; abstract;
     function RollBack(trans : TSQLHandle) : boolean; virtual; abstract;
-    function StartdbTransaction(trans : TSQLHandle) : boolean; virtual; abstract;
+    function StartdbTransaction(trans : TSQLHandle; aParams : string) : boolean; virtual; abstract;
     procedure CommitRetaining(trans : TSQLHandle); virtual; abstract;
     procedure RollBackRetaining(trans : TSQLHandle); virtual; abstract;
     procedure UpdateIndexDefs(var IndexDefs : TIndexDefs;TableName : string); virtual;
@@ -101,6 +105,11 @@ type
     property Handle: Pointer read GetHandle;
     destructor Destroy; override;
     property ConnOptions: TConnOptions read FConnOptions;
+    procedure ExecuteDirect(SQL : String); overload; virtual;
+    procedure ExecuteDirect(SQL : String; Transaction : TSQLTransaction); overload; virtual;
+    procedure GetTableNames(List : TStrings; SystemTables : Boolean = false); virtual;
+    procedure GetProcedureNames(List : TStrings); virtual;
+    procedure GetFieldNames(const TableName : string; List :  TStrings); virtual;
   published
     property Password : string read FPassword write FPassword;
     property Transaction : TSQLTransaction read FTransaction write SetTransaction;
@@ -126,6 +135,7 @@ type
   private
     FTrans               : TSQLHandle;
     FAction              : TCommitRollbackAction;
+    FParams              : TStringList;
   protected
     function GetHandle : Pointer; virtual;
     Procedure SetDatabase (Value : TDatabase); override;
@@ -142,6 +152,7 @@ type
   published
     property Action : TCommitRollbackAction read FAction write FAction;
     property Database;
+    property Params : TStringList read FParams write FParams;
   end;
 
 { TSQLQuery }
@@ -166,7 +177,6 @@ type
     FParseSQL            : boolean;
 //    FSchemaInfo          : TSchemaInfo;
 
-    procedure CloseStatement;
     procedure FreeFldBuffers;
     procedure InitUpdates(SQL : string);
     function GetIndexDefs : TIndexDefs;
@@ -180,6 +190,7 @@ type
 
     procedure Execute;
     Procedure SQLParser(var SQL : string);
+    procedure ApplyFilter;
     Function AddFilter(SQLstr : string) : string;
   protected
     // abstract & virtual methods of TBufDataset
@@ -191,13 +202,13 @@ type
     Procedure SetTransaction(Value : TDBTransaction); override;
     procedure InternalAddRecord(Buffer: Pointer; AAppend: Boolean); override;
     procedure InternalClose; override;
-    procedure InternalHandleException; override;
     procedure InternalInitFieldDefs; override;
     procedure InternalOpen; override;
     function  GetCanModify: Boolean; override;
     function ApplyRecUpdate(UpdateKind : TUpdateKind) : boolean; override;
     Function IsPrepared : Boolean; virtual;
     procedure SetFiltered(Value: Boolean); override;
+    procedure SetFilterText(const Value: string); override;
   public
     procedure Prepare; virtual;
     procedure UnPrepare; virtual;
@@ -299,6 +310,84 @@ begin
   inherited Destroy;
 end;
 
+Procedure TSQLConnection.ExecuteDirect(SQL: String);
+
+begin
+  ExecuteDirect(SQL,FTransaction);
+end;
+
+Procedure TSQLConnection.ExecuteDirect(SQL: String; Transaction : TSQLTransaction);
+
+var Cursor : TSQLCursor;
+
+begin
+  if not assigned(Transaction) then
+    DatabaseError(SErrTransactionnSet);
+
+  if not Connected then Open;
+  if not Transaction.Active then Transaction.StartTransaction;
+
+  try
+    Cursor := AllocateCursorHandle;
+
+    SQL := TrimRight(SQL);
+
+    if SQL = '' then
+      DatabaseError(SErrNoStatement);
+
+    Cursor.FStatementType := stNone;
+
+    PrepareStatement(cursor,Transaction,SQL,Nil);
+    execute(cursor,Transaction, Nil);
+    UnPrepareStatement(Cursor);
+  finally;
+    DeAllocateCursorHandle(Cursor);
+  end;
+end;
+
+procedure TSQLConnection.GetDBInfo(const SchemaType : TSchemaType; const SchemaObjectName, ReturnField : string; List: TStrings);
+
+var qry : TSQLQuery;
+
+begin
+  if not assigned(Transaction) then
+    DatabaseError(SErrConnTransactionnSet);
+
+  qry := tsqlquery.Create(nil);
+  qry.transaction := Transaction;
+  qry.database := Self;
+  with qry do
+    begin
+    ParseSQL := False;
+    SetSchemaInfo(SchemaType,SchemaObjectName,'');
+    open;
+    List.Clear;
+    while not eof do
+      begin
+      List.Append(fieldbyname(ReturnField).asstring);
+      Next;
+      end;
+    end;
+  qry.free;
+end;
+
+
+procedure TSQLConnection.GetTableNames(List: TStrings; SystemTables: Boolean);
+begin
+  if not systemtables then GetDBInfo(stTables,'','table_name',List)
+    else GetDBInfo(stSysTables,'','table_name',List);
+end;
+
+procedure TSQLConnection.GetProcedureNames(List: TStrings);
+begin
+  GetDBInfo(stProcedures,'','proc_name',List);
+end;
+
+procedure TSQLConnection.GetFieldNames(const TableName: string; List: TStrings);
+begin
+  GetDBInfo(stColumns,TableName,'column_name',List);
+end;
+
 function TSQLConnection.GetAsSQLText(Field : TField) : string;
 
 begin
@@ -387,17 +476,19 @@ begin
     Db.Open;
   if not assigned(FTrans) then FTrans := Db.AllocateTransactionHandle;
 
-  if Db.StartdbTransaction(FTrans) then OpenTrans;
+  if Db.StartdbTransaction(FTrans,FParams.CommaText) then OpenTrans;
 end;
 
 constructor TSQLTransaction.Create(AOwner : TComponent);
 begin
   inherited Create(AOwner);
+  FParams := TStringList.Create;
 end;
 
 destructor TSQLTransaction.Destroy;
 begin
   Rollback;
+  FreeAndNil(FParams);
   inherited Destroy;
 end;
 
@@ -460,17 +551,12 @@ begin
   if (Database <> Value) then
     begin
     UnPrepare;
+    if assigned(FCursor) then (Database as TSQLConnection).DeAllocateCursorHandle(FCursor);
     db := value as tsqlconnection;
     inherited setdatabase(value);
     if assigned(value) and (Transaction = nil) and (Assigned(db.Transaction)) then
       transaction := Db.Transaction;
     end;
-end;
-
-procedure TSQLQuery.CloseStatement;
-begin
-  if assigned(FCursor) then
-    (Database as tsqlconnection).CloseStatement(FCursor);
 end;
 
 Function TSQLQuery.IsPrepared : Boolean;
@@ -491,29 +577,45 @@ begin
   Result := SQLstr;
 end;
 
-procedure TSQLQuery.SetFiltered(Value: Boolean);
+procedure TSQLQuery.ApplyFilter;
 
 var S : String;
 
 begin
+  FreeFldBuffers;
+  (Database as tsqlconnection).UnPrepareStatement(FCursor);
+  FIsEOF := False;
+  inherited internalclose;
+
+  s := FSQLBuf;
+
+  if Filtered then s := AddFilter(s);
+
+  (Database as tsqlconnection).PrepareStatement(Fcursor,(transaction as tsqltransaction),S,FParams);
+
+  Execute;
+  inherited InternalOpen;
+  First;
+end;
+
+procedure TSQLQuery.SetFiltered(Value: Boolean);
+
+begin
   if Value and not FParseSQL then DatabaseErrorFmt(SNoParseSQL,['Filtering ']);
-  if (Filtered <> Value) and Active then
+  if (Filtered <> Value) then
     begin
-    CloseStatement;
-    FIsEOF := False;
-    inherited internalclose;
-
-    s := FSQLBuf;
-
-    if Value then s := AddFilter(s);
-
-    (Database as tsqlconnection).PrepareStatement(Fcursor,(transaction as tsqltransaction),S,FParams);
-
-    Execute;
-    inherited InternalOpen;
-    First;
+    inherited setfiltered(Value);
+    if active then ApplyFilter;
     end;
-  inherited setfiltered(Value);
+end;
+
+procedure TSQLQuery.SetFilterText(const Value: string);
+begin
+  if Value <> Filter then
+    begin
+    inherited SetFilterText(Value);
+    if active then ApplyFilter;
+    end;
 end;
 
 procedure TSQLQuery.Prepare;
@@ -534,8 +636,9 @@ begin
     if not Db.Connected then db.Open;
     if not sqltr.Active then sqltr.StartTransaction;
 
-    if assigned(fcursor) then FreeAndNil(fcursor);
-    FCursor := Db.AllocateCursorHandle;
+//    if assigned(fcursor) then FreeAndNil(fcursor);
+    if not assigned(fcursor) then
+      FCursor := Db.AllocateCursorHandle;
 
     FSQLBuf := TrimRight(FSQL.Text);
     
@@ -549,8 +652,11 @@ begin
     else
       Db.PrepareStatement(Fcursor,sqltr,FSQLBuf,FParams);
 
-    if (FCursor.FStatementType = stSelect) and not ReadOnly then
-      InitUpdates(FSQLBuf);
+    if (FCursor.FStatementType = stSelect) then
+      begin
+      FCursor.FInitFieldDef := True;
+      if not ReadOnly then InitUpdates(FSQLBuf);
+      end;
     end;
 end;
 
@@ -559,10 +665,7 @@ procedure TSQLQuery.UnPrepare;
 begin
   CheckInactive;
   if IsPrepared then with Database as TSQLConnection do
-    begin
     UnPrepareStatement(FCursor);
-    DeAllocateCursorHandle(FCursor);
-    end;
 end;
 
 procedure TSQLQuery.FreeFldBuffers;
@@ -597,17 +700,13 @@ end;
 
 procedure TSQLQuery.InternalClose;
 begin
-  FreeFldBuffers;
-  CloseStatement;
+  if StatementType = stSelect then FreeFldBuffers;
+  if not IsPrepared then (database as TSQLconnection).UnPrepareStatement(FCursor);
   if DefaultFields then
     DestroyFields;
   FIsEOF := False;
 //  FRecordSize := 0;
   inherited internalclose;
-end;
-
-procedure TSQLQuery.InternalHandleException;
-begin
 end;
 
 procedure TSQLQuery.InternalInitFieldDefs;
@@ -745,15 +844,13 @@ procedure TSQLQuery.InternalOpen;
 var tel         : integer;
     f           : TField;
     s           : string;
-    WasPrepared : boolean;
 begin
   try
-    WasPrepared := IsPrepared;
     Prepare;
     if FCursor.FStatementType in [stSelect] then
       begin
       Execute;
-      if not WasPrepared then InternalInitFieldDefs; // if query was prepared before opening, fields are already created
+      if FCursor.FInitFieldDef then InternalInitFieldDefs;
       if DefaultFields then
         begin
         CreateFields;
@@ -792,7 +889,7 @@ begin
     Prepare;
     Execute;
   finally
-    CloseStatement;
+    if not IsPrepared then (database as TSQLConnection).UnPrepareStatement(Fcursor);
   end;
 end;
 
@@ -815,6 +912,8 @@ destructor TSQLQuery.Destroy;
 begin
   if Active then Close;
   UnPrepare;
+  if assigned(FCursor) then (Database as TSQLConnection).DeAllocateCursorHandle(FCursor);
+  FreeAndNil(FParams);
   FreeAndNil(FSQL);
   FreeAndNil(FIndexDefs);
   inherited Destroy;
@@ -947,22 +1046,19 @@ var
   end;
 
 begin
-  Result := False;
-  with tsqlquery.Create(nil) do
-    begin
-    DataBase := self.Database;
-    transaction := self.transaction;
-    sql.clear;
+  Result := True;
     case UpdateKind of
       ukModify : s := ModifyRecQuery;
       ukInsert : s := InsertRecQuery;
       ukDelete : s := DeleteRecQuery;
     end; {case}
-    sql.add(s);
-    ExecSQL;
-    Result := true;
-    Free;
-    end;
+  try
+    (Database as TSQLConnection).ExecuteDirect(s,Transaction as TSQLTransaction);
+  except
+    on EDatabaseError do Result := False
+  else
+    raise;
+  end;
 end;
 
 
@@ -996,6 +1092,7 @@ end;
 procedure TSQLQuery.SetSchemaInfo( SchemaType : TSchemaType; SchemaObjectName, SchemaPattern : string);
 
 begin
+  ReadOnly := True;
   SQL.Clear;
   SQL.Add((DataBase as tsqlconnection).GetSchemaInfoSQL(SchemaType, SchemaObjectName, SchemaPattern));
 end;

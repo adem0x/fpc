@@ -21,7 +21,9 @@
   a pwidechar that points to :
 
   @-8  : SizeInt for reference count;
-  @-4  : SizeInt for size;
+  @-4  : SizeInt for size; size=number of bytes, not the number of chars. Divide or multiply
+         with sizeof(WideChar) to convert. This is needed to be compatible with Delphi and
+         Windows COM BSTR.
   @    : String + Terminating #0;
   Pwidechar(Widestring) is a valid typecast.
   So WS[i] is converted to the address @WS+i-1.
@@ -122,8 +124,8 @@ procedure WideStringError;
   begin
     HandleErrorFrame(204,get_frame);
   end;
-  
-  
+
+
 {$ifdef WideStrDebug}
 Procedure DumpWideRec(S : Pointer);
 begin
@@ -151,10 +153,11 @@ Var
   P : Pointer;
 begin
 {$ifdef MSWINDOWS}
-  P:=SysAllocStringLen(nil,Len*sizeof(WideChar)+WideRecLen);
-{$else MSWINDOWS}
-  GetMem(P,Len*sizeof(WideChar)+WideRecLen);
+  if winwidestringalloc then
+    P:=SysAllocStringLen(nil,Len*sizeof(WideChar)+WideRecLen)
+  else
 {$endif MSWINDOWS}
+    GetMem(P,Len*sizeof(WideChar)+WideRecLen);
   If P<>Nil then
     begin
      PWideRec(P)^.Len:=0;         { Initial length }
@@ -177,10 +180,11 @@ begin
     exit;
   Dec (S,WideFirstOff);
 {$ifdef MSWINDOWS}
-  SysFreeString(S);
-{$else MSWINDOWS}
-  FreeMem (S);
+  if winwidestringalloc then
+    SysFreeString(S)
+  else
 {$endif MSWINDOWS}
+    FreeMem (S);
   S:=Nil;
 end;
 
@@ -627,15 +631,17 @@ begin
       { windows doesn't support reallocing widestrings, this code
         is anyways subject to be removed because widestrings shouldn't be
         ref. counted anymore (FK) }
-{$ifndef MSWINDOWS}       
-      else if (PWideRec(Pointer(S)-WideFirstOff)^.Ref = 1) then
+      else if
+{$ifdef MSWINDOWS}
+              not winwidestringalloc and
+{$endif MSWINDOWS}
+              (PWideRec(Pointer(S)-WideFirstOff)^.Ref = 1) then
         begin
           Dec(Pointer(S),WideFirstOff);
           if L*sizeof(WideChar)+WideRecLen>MemSize(Pointer(S)) then
               reallocmem(pointer(S), L*sizeof(WideChar)+WideRecLen);
           Inc(Pointer(S), WideFirstOff);
         end
-{$endif MSWINDOWS}        
       else
         begin
           { Reallocation is needed... }
@@ -653,7 +659,7 @@ begin
        end;
       { Force nil termination in case it gets shorter }
       PWord(Pointer(S)+l*sizeof(WideChar))^:=0;
-      PWideRec(Pointer(S)-FirstOff)^.Len:=l;
+      PWideRec(Pointer(S)-FirstOff)^.Len:=l*sizeof(WideChar);
     end
   else
     begin
@@ -682,9 +688,11 @@ function StringToWideChar(const Src : AnsiString;Dest : PWideChar;DestSize : Siz
   begin
      widestringmanager.Ansi2WideMoveProc(PChar(Src),temp,Length(Src));
      if Length(temp)<DestSize then
-       move(temp[1],Dest^,Length(temp))
+       move(temp[1],Dest^,Length(temp)*SizeOf(WideChar))
      else
-       move(temp[1],Dest^,destsize);
+       move(temp[1],Dest^,(DestSize-1)*SizeOf(WideChar));
+
+     Dest[DestSize-1]:=#0;
 
      result:=Dest;
 
@@ -723,10 +731,10 @@ begin
     exit;
   if PWideRec(Pointer(S)-WideFirstOff)^.Ref<>1 then
    begin
-     L:=PWideRec(Pointer(S)-WideFirstOff)^.len;
+     L:=PWideRec(Pointer(S)-WideFirstOff)^.len div sizeof(WideChar);
      SNew:=NewWideString (L);
      Move (PWideChar(S)^,SNew^,(L+1)*sizeof(WideChar));
-     PWideRec(SNew-WideFirstOff)^.len:=L;
+     PWideRec(SNew-WideFirstOff)^.len:=L * sizeof(WideChar);
      fpc_widestr_decr_ref (Pointer(S));  { Thread safe }
      pointer(S):=SNew;
      pointer(result):=SNew;
@@ -755,7 +763,7 @@ begin
      if ResultAddress<>Nil then
       begin
         Move (PWideChar(S)[Index],ResultAddress^,Size*sizeof(WideChar));
-        PWideRec(ResultAddress-WideFirstOff)^.Len:=Size;
+        PWideRec(ResultAddress-WideFirstOff)^.Len:=Size*sizeof(WideChar);
         PWideChar(ResultAddress+Size*sizeof(WideChar))^:=#0;
       end;
    end;
@@ -828,6 +836,22 @@ begin
 end;
 
 
+Function Pos (c : AnsiString; Const s : WideString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    result:=Pos(WideString(c),s);
+  end;
+
+
+Function Pos (c : ShortString; Const s : WideString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    result:=Pos(WideString(c),s);
+  end;
+
+
+Function Pos (c : WideString; Const s : AnsiString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    result:=Pos(c,WideString(s));
+  end;
 
 { Faster version for a char alone. Must be implemented because   }
 { pos(c: char; const s: shortstring) also exists, so otherwise   }
@@ -863,7 +887,7 @@ begin
    exit;
   if index<=0 then
    exit;
-  LS:=PWideRec(Pointer(S)-WideFirstOff)^.Len;
+  LS:=PWideRec(Pointer(S)-WideFirstOff)^.Len div sizeof(WideChar);
   if (Index<=LS) and (Size>0) then
    begin
      UniqueString (S);
@@ -1280,6 +1304,27 @@ function AnsiToUtf8(const s : ansistring): UTF8String;{$ifdef SYSTEMINLINE}inlin
 function Utf8ToAnsi(const s : UTF8String) : ansistring;{$ifdef SYSTEMINLINE}inline;{$endif}
   begin
     Result:=Utf8Decode(s);
+  end;
+
+
+function WideStringToUCS4String(const s : WideString) : UCS4String;
+  var
+    i : SizeInt;
+  begin
+    setlength(result,length(s)+1);
+    for i:=1 to length(s) do
+      result[i-1]:=UCS4Char(s[i]);
+    result[length(s)]:=UCS4Char(0);
+  end;
+
+
+function UCS4StringToWideString(const s : UCS4String) : WideString;
+  var
+    i : SizeInt;
+  begin
+    setlength(result,length(s)-1);
+    for i:=1 to length(s)-1 do
+      result[i]:=WideChar(s[i-1]);
   end;
 
 

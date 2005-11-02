@@ -338,7 +338,7 @@ interface
         if nf_block_with_exit in flags then
           begin
             oldexitlabel:=current_procinfo.aktexitlabel;
-            objectlibrary.getlabel(current_procinfo.aktexitlabel);
+            objectlibrary.getjumplabel(current_procinfo.aktexitlabel);
           end;
 
         { do second pass on left node }
@@ -486,6 +486,17 @@ interface
               if release_to_normal then
                 tempinfo^.location.loc := LOC_REGISTER;
             end;
+          LOC_CFPUREGISTER,
+          LOC_FPUREGISTER:
+            begin
+              { make sure the register allocator doesn't reuse the }
+              { register e.g. in the middle of a loop              }
+              cg.a_reg_sync(exprasmlist,tempinfo^.location.register);
+              if release_to_normal then
+                tempinfo^.location.loc := LOC_FPUREGISTER;
+            end;
+          else
+            internalerror(200507161);
         end;
       end;
 

@@ -23,10 +23,11 @@ Type
 {$ifdef unix}
     FindHandle : Pointer;
     Mode : TMode;
+    PathOnly : AnsiString;
 {$else unix}
     FindHandle : THandle;
 {$endif unix}
-{$ifdef Win32}
+{$if defined(Win32) or defined(WinCE)}
     FindData : TWin32FindData;
 {$endif}
 {$ifdef netware_clib}
@@ -48,6 +49,7 @@ Const
   faVolumeId  = $00000008;
   faDirectory = $00000010;
   faArchive   = $00000020;
+  faSymLink   = $00000040;
   faAnyFile   = $0000003f;
 
   { File open modes }

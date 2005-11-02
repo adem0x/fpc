@@ -1,10 +1,10 @@
-{ %target=i386 }
+{ %cpu=i386 }
 
 { Source provided for Free Pascal Bug Report 3274 }
 { Submitted by "Frank Kintrup" on  2004-08-27 }
 { e-mail: frank.kintrup@gmx.de }
 {$MODE Delphi}
-{$ASMODE Intel}
+{$ASMMODE Intel}
 
 var
   X : Integer;

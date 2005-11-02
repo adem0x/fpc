@@ -65,6 +65,9 @@ procedure AssignStr(var P: PString; const S: string);
 procedure AppendStr(var Dest: String; const S: string);
 function UpperCase(const s: string): string;
 function LowerCase(const s: string): string; overload;
+{ the compiler can't decide else if it should use the char or the ansistring
+  version for a variant } 
+function LowerCase(const V: variant): string; overload;{$ifdef SYSUTILSINLINE}inline;{$endif}
 function CompareStr(const S1, S2: string): Integer;
 function CompareMemRange(P1, P2: Pointer; Length: cardinal): integer;
 function CompareMem(P1, P2: Pointer; Length: cardinal): Boolean;
@@ -114,6 +117,7 @@ Function StrFmt(Buffer,Fmt : PChar; Const args: Array of const) : Pchar;
 Function StrLFmt(Buffer : PCHar; Maxlen : Cardinal;Fmt : PChar; Const args: Array of const) : Pchar;
 Procedure FmtStr(Var Res: String; Const Fmt : String; Const args: Array of const);
 Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: Integer): String;
+Function CurrToStrF(Value: Currency; Format: TFloatFormat; Digits: Integer): string;
 Function FloatToStr(Value: Extended): String;
 Function StrToFloat(Const S : String) : Extended;
 Function StrToFloatDef(Const S: String; Const Default: Extended): Extended;

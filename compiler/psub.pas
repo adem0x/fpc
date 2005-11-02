@@ -95,9 +95,9 @@ implementation
        scanner,import,gendef,
        pbase,pstatmnt,pdecl,pdecsub,pexports,
        { codegen }
-       tgobj,cgobj,
+       tgobj,cgobj,dbgbase,
        ncgutil,regvars
-{$ifdef arm}
+{$if defined(arm) or defined(powerpc) or defined(powerpc64)}
        ,aasmcpu
 {$endif arm}
        {$ifndef NOOPT}
@@ -610,6 +610,7 @@ implementation
         oldfilepos : tfileposinfo;
         templist : Taasmoutput;
         headertai : tai;
+        curralign : longint;
       begin
         { the initialization procedure can be empty, then we
           don't need to generate anything. When it was an empty
@@ -845,27 +846,35 @@ implementation
             aktproccode.concatlist(templist);
 
 {$ifdef ARM}
+            { because of the limited constant size of the arm, all data access is done pc relative }
             insertpcrelativedata(aktproccode,aktlocaldata);
 {$endif ARM}
 
+{$ifdef POWERPC}
+            fixup_jmps(aktproccode);
+{$endif POWERPC}
+{$ifdef POWERPC64}
+            fixup_jmps(aktproccode);
+{$endif POWERPC64}
+            { insert line debuginfo }
+            if (cs_debuginfo in aktmoduleswitches) or
+               (cs_use_lineinfo in aktglobalswitches) then
+              debuginfo.insertlineinfo(aktproccode);
+
+            { gprof uses 16 byte granularity }
+            if (cs_profile in aktmoduleswitches) then
+              curralign:=16
+            else
+              curralign:=aktalignment.procalign;
+
+            { add the procedure to the al_procedures }
+            maybe_new_object_file(asmlist[al_procedures]);
+            new_section(asmlist[al_procedures],sec_code,lower(procdef.mangledname),curralign);
+            asmlist[al_procedures].concatlist(aktproccode);
             { save local data (casetable) also in the same file }
             if assigned(aktlocaldata) and
                (not aktlocaldata.empty) then
-             begin
-               { because of the limited constant size of the arm, all data access is done pc relative }
-               if target_info.cpu=cpu_arm then
-                 aktproccode.concatlist(aktlocaldata)
-               else
-                 begin
-                   new_section(aktproccode,sec_data,lower(procdef.mangledname),0);
-                   aktproccode.concatlist(aktlocaldata);
-                 end;
-            end;
-
-            { add the procedure to the codesegment }
-            maybe_new_object_file(asmlist[codesegment]);
-            new_section(asmlist[codesegment],sec_code,lower(procdef.mangledname),aktalignment.procalign);
-            asmlist[codesegment].concatlist(aktproccode);
+              asmlist[al_procedures].concatlist(aktlocaldata);
 
             { only now we can remove the temps }
             tg.resettempgen;
@@ -963,7 +972,7 @@ implementation
             { we can't handle formaldefs and special arrays (the latter may need a    }
             { re-basing of the index, i.e. if you pass an array[1..10] as open array, }
             { you have to add 1 to all index operations if you directly inline it     }
-            if ((currpara.varspez in [vs_out,vs_var]) and
+            if ((currpara.varspez in [vs_out,vs_var,vs_const]) and
                 (currpara.vartype.def.deftype=formaldef)) or
                is_special_array(currpara.vartype.def)  then
               exit;
@@ -1301,7 +1310,7 @@ implementation
                    begin
                      s:=proc_get_importname(pd);
                      if s<>'' then
-                       gen_external_stub(asmlist[codesegment],pd,s);
+                       gen_external_stub(asmlist[al_procedures],pd,{$IFDEF POWERPC64}'.'+{$ENDIF}s);
                    end;
 
                  { Import DLL specified? }
@@ -1375,14 +1384,13 @@ implementation
               _EXPORTS:
                 begin
                    if not(assigned(current_procinfo.procdef.localst)) or
-                      (current_procinfo.procdef.localst.symtablelevel>main_program_level) or
-                      (current_module.is_unit) then
+                      (current_procinfo.procdef.localst.symtablelevel>main_program_level) then
                      begin
                         Message(parser_e_syntax_error);
                         consume_all_until(_SEMICOLON);
                      end
                    else if islibrary or
-                           (target_info.system in [system_i386_WIN32,system_i386_wdosx,system_i386_Netware,system_i386_netwlibc,system_arm_wince]) then
+                     (target_info.system in system_unit_program_exports) then
                      read_exports
                    else
                      begin

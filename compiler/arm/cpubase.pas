@@ -43,24 +43,7 @@ unit cpubase;
 *****************************************************************************}
 
     type
-      TAsmOp=(A_None,A_ADC,A_ADD,A_AND,A_N,A_BIC,A_BKPT,A_B,A_BL,A_BLX,A_BX,
-              A_CDP,A_CDP2,A_CLZ,A_CMN,A_CMP,A_EOR,A_LDC,_A_LDC2,
-              A_LDM,A_LDR,A_LDRB,A_LDRD,A_LDRBT,A_LDRH,A_LDRSB,
-              A_LDRSH,A_LDRT,A_MCR,A_MCR2,A_MCRR,A_MLA,A_MOV,
-              A_MRC,A_MRC2,A_MRRC,A_RS,A_MSR,A_MUL,A_MVN,
-              A_ORR,A_PLD,A_QADD,A_QDADD,A_QDSUB,A_QSUB,A_RSB,A_RSC,
-              A_SBC,A_SMLAL,A_SMULL,A_SMUL,
-              A_SMULW,A_STC,A_STC2,A_STM,A_STR,A_STRB,A_STRBT,A_STRD,
-              A_STRH,A_STRT,A_SUB,A_SWI,A_SWP,A_SWPB,A_TEQ,A_TST,
-              A_UMLAL,A_UMULL,
-              { FPA coprocessor instructions }
-              A_LDF,A_STF,A_LFM,A_SFM,A_FLT,A_FIX,A_WFS,A_RFS,A_RFC,
-              A_ADF,A_DVF,A_FDV,A_FML,A_FRD,A_MUF,A_POL,A_PW,A_RDF,
-              A_RMF,A_RPW,A_RSF,A_SUF,A_ABS,A_ACS,A_ASN,A_ATN,A_COS,
-              A_EXP,A_LOG,A_LGN,A_MVF,A_MNF,A_NRM,A_RND,A_SIN,A_SQT,A_TAN,A_URD,
-              A_CMF,A_CMFE,A_CNF
-              { VPA coprocessor codes }
-              );
+      TAsmOp= {$i armop.inc}
 
       { This should define the array of instructions as string }
       op2strtable=array[tasmop] of string[11];
@@ -386,6 +369,8 @@ unit cpubase;
     procedure shifterop_reset(var so : tshifterop);
     function is_pc(const r : tregister) : boolean;
 
+    function is_shifter_const(d : aint;var imm_shift : byte) : boolean;
+
   implementation
 
     uses
@@ -509,5 +494,27 @@ unit cpubase;
         result := c1 = c2;
       end;
 
+
+    function rotl(d : dword;b : byte) : dword;
+      begin
+         result:=(d shr (32-b)) or (d shl b);
+      end;
+
+
+    function is_shifter_const(d : aint;var imm_shift : byte) : boolean;
+      var
+         i : longint;
+      begin
+         for i:=0 to 15 do
+           begin
+              if (dword(d) and not(rotl($ff,i*2)))=0 then
+                begin
+                   imm_shift:=i*2;
+                   result:=true;
+                   exit;
+                end;
+           end;
+         result:=false;
+      end;
 
 end.

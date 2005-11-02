@@ -80,8 +80,17 @@ begin
 end;
 
 procedure SemaphorePost(const FSem: Pointer);
+{$ifdef VER2_0}
+var
+  b : byte;
+{$endif}
 begin
+{$ifdef VER2_0}
+  b:=0;
+  fpwrite(PFilDes(FSem)^[1], b, 1);
+{$else}
   fpwrite(PFilDes(FSem)^[1], #0, 1);
+{$endif}
 end;
 
 procedure SemaphoreDestroy(const FSem: Pointer);
@@ -195,7 +204,7 @@ end;
 
 destructor TThread.Destroy;
 begin
-  if FThreadID = GetCurrentThreadID then begin
+  if (FThreadID = GetCurrentThreadID) and not(FFreeOnTerminate) then begin
     raise EThreadDestroyCalled.Create('A thread cannot destroy itself except by setting FreeOnTerminate and leaving!');
   end;
   // if someone calls .Free on a thread with

@@ -67,8 +67,17 @@
   {$define cpumm}
 {$endif powerpc}
 
+{$ifdef powerpc64}
+  {$define cpu64bit}
+  {$define cpuflags}
+  {$define cputargethasfixedstack}
+  {$define cpumm}  
+  {$define cpurequiresproperalignment}
+{$endif powerpc64}
+
 {$ifdef arm}
   {$define cpuflags}
+  {$define cpufpemu}
   {$define cpuneedsdiv32helper}
   {$define cputargethasfixedstack}
   {$define cpurequiresproperalignment}

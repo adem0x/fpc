@@ -40,6 +40,7 @@ unit nppcld;
     uses
       verbose,
       systems,
+      globtype,globals,
       cpubase,
       cgutils,cgobj,
       aasmbase,aasmtai,
@@ -67,9 +68,9 @@ unit nppcld;
                   if not(assigned(l)) then
                     begin
                       l:=objectlibrary.newasmsymbol('L'+tprocsym(symtableentry).procdef[1].mangledname+'$non_lazy_ptr',AB_COMMON,AT_DATA);
-                      asmlist[picdata].concat(tai_symbol.create(l,0));
-                      asmlist[picdata].concat(tai_const.create_indirect_sym(objectlibrary.newasmsymbol(tprocsym(symtableentry).procdef[1].mangledname,AB_EXTERNAL,AT_DATA)));
-                      asmlist[picdata].concat(tai_const.create_32bit(0));
+                      asmlist[al_picdata].concat(tai_symbol.create(l,0));
+                      asmlist[al_picdata].concat(tai_const.create_indirect_sym(objectlibrary.newasmsymbol(tprocsym(symtableentry).procdef[1].mangledname,AB_EXTERNAL,AT_DATA)));
+                      asmlist[al_picdata].concat(tai_const.create_32bit(0));
                     end;
                   reference_reset_symbol(ref,l,0);
                   reference_reset_base(location.reference,cg.getaddressregister(exprasmlist),0);
@@ -93,15 +94,16 @@ unit nppcld;
             begin
               if ([vo_is_dll_var,vo_is_external] * tglobalvarsym(symtableentry).varoptions <> []) or
                  ((tglobalvarsym(symtableentry).owner.symtabletype in [staticsymtable,globalsymtable]) and
-                  not(tglobalvarsym(symtableentry).owner.iscurrentunit)) then
+                  (not(tglobalvarsym(symtableentry).owner.iscurrentunit) or
+                   (cs_create_pic in aktmoduleswitches))) then
                 begin
                   l:=objectlibrary.getasmsymbol('L'+tglobalvarsym(symtableentry).mangledname+'$non_lazy_ptr');
                   if not(assigned(l)) then
                     begin
                       l:=objectlibrary.newasmsymbol('L'+tglobalvarsym(symtableentry).mangledname+'$non_lazy_ptr',AB_COMMON,AT_DATA);
-                      asmlist[picdata].concat(tai_symbol.create(l,0));
-                      asmlist[picdata].concat(tai_const.create_indirect_sym(objectlibrary.newasmsymbol(tglobalvarsym(symtableentry).mangledname,AB_EXTERNAL,AT_DATA)));
-                      asmlist[picdata].concat(tai_const.create_32bit(0));
+                      asmlist[al_picdata].concat(tai_symbol.create(l,0));
+                      asmlist[al_picdata].concat(tai_const.create_indirect_sym(objectlibrary.newasmsymbol(tglobalvarsym(symtableentry).mangledname,AB_EXTERNAL,AT_DATA)));
+                      asmlist[al_picdata].concat(tai_const.create_32bit(0));
                     end;
 
                   reference_reset_symbol(ref,l,0);

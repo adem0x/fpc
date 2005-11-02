@@ -33,7 +33,7 @@ implementation
     uses
       cutils,
       globtype,globals,systems,widestr,
-      verbose,comphook,
+      verbose,comphook,ppu,
       scanner,switches,
       fmodule,
       symtable,
@@ -182,6 +182,26 @@ implementation
          end;
       end;
 
+    procedure dir_a1;
+      begin
+        aktpackrecords:=1;
+      end;
+
+    procedure dir_a2;
+      begin
+        aktpackrecords:=2;
+      end;
+
+    procedure dir_a4;
+      begin
+        aktpackrecords:=4;
+      end;
+
+    procedure dir_a8;
+      begin
+        aktpackrecords:=8;
+      end;
+
     procedure dir_asmmode;
       var
         s : string;
@@ -223,7 +243,7 @@ implementation
       var
          hs : string;
       begin
-        if not (target_info.system in [system_i386_win32,system_i386_os2,
+        if not (target_info.system in system_all_windows + [system_i386_os2,
                                        system_i386_emx, system_powerpc_macos]) then
           Message(scan_w_app_type_not_support);
         if not current_module.in_global then
@@ -236,6 +256,8 @@ implementation
                apptype:=app_gui
              else if hs='CONSOLE' then
                apptype:=app_cui
+             else if (hs='NATIVE') and (target_info.system in system_windows) then
+               apptype:=app_native
              else if (hs='FS') and (target_info.system in [system_i386_os2,
                                                          system_i386_emx]) then
                apptype:=app_fs
@@ -669,20 +691,6 @@ implementation
         do_delphiswitch('P');
       end;
 
-    procedure dir_output_format;
-      begin
-        if not current_module.in_global then
-         Message(scan_w_switch_is_global)
-        else
-          begin
-            current_scanner.skipspace;
-            if set_target_asm_by_string(current_scanner.readid) then
-             aktoutputformat:=target_asm.id
-            else
-             Message1(scan_w_illegal_switch,pattern);
-          end;
-      end;
-
     procedure dir_overflowchecks;
       begin
         do_delphiswitch('Q');
@@ -842,15 +850,21 @@ implementation
           if Assigned(Current_Module) then
             begin
               delete(S,1,1);
-              insert(lower(current_module.modulename^),S,1);
+              if m_delphi in aktmodeswitches then
+                insert(current_module.realmodulename^,S,1)
+              else
+                insert(lower(current_module.modulename^),S,1);
             end;
         s:=AddExtension(FixFileName(s),target_info.resext);
         if target_info.res<>res_none then
+          begin
+          current_module.flags:=current_module.flags or uf_has_resourcefiles;
           if (target_info.res = res_emxbind) and
                                  not (Current_module.ResourceFiles.Empty) then
             Message(scan_w_only_one_resourcefile_supported)
           else
-            current_module.resourcefiles.insert(FixFileName(s))
+            current_module.resourcefiles.insert(FixFileName(s));
+          end
         else
           Message(scan_e_resourcefiles_not_supported);
       end;
@@ -1052,6 +1066,15 @@ implementation
       begin
       end;
 
+    procedure dir_codealign;
+      var
+        s : string;
+      begin
+        current_scanner.skipspace;
+        s:=current_scanner.readcomment;
+        UpdateAlignmentStr(s,aktalignment);
+      end;
+
     procedure dir_codepage;
       var
          s : string;
@@ -1083,6 +1106,10 @@ implementation
 
     procedure InitScannerDirectives;
       begin
+        AddDirective('A1',directive_all, @dir_a1);
+        AddDirective('A2',directive_all, @dir_a2);
+        AddDirective('A4',directive_all, @dir_a4);
+        AddDirective('A8',directive_all, @dir_a8);
         AddDirective('ALIGN',directive_all, @dir_align);
 {$ifdef m68k}
         AddDirective('APPID',directive_all, @dir_appid);
@@ -1094,6 +1121,7 @@ implementation
         AddDirective('BOOLEVAL',directive_all, @dir_booleval);
         AddDirective('CALLING',directive_all, @dir_calling);
         AddDirective('CHECKPOINTER',directive_all, @dir_checkpointer);
+        AddDirective('CODEALIGN',directive_all, @dir_codealign);
         AddDirective('CODEPAGE',directive_all, @dir_codepage);
         AddDirective('COPERATORS',directive_all, @dir_coperators);
         AddDirective('COPYRIGHT',directive_all, @dir_copyright);
@@ -1137,7 +1165,6 @@ implementation
         AddDirective('OBJECTCHECKS',directive_all, @dir_objectchecks);
         AddDirective('OBJECTPATH',directive_all, @dir_objectpath);
         AddDirective('OPENSTRINGS',directive_all, @dir_openstrings);
-        AddDirective('OUTPUT_FORMAT',directive_all, @dir_output_format);
         AddDirective('OVERFLOWCHECKS',directive_all, @dir_overflowchecks);
         AddDirective('PACKENUM',directive_all, @dir_packenum);
         AddDirective('PACKRECORDS',directive_all, @dir_packrecords);

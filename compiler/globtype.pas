@@ -79,7 +79,7 @@ than 255 characters. That's why using Ansi Strings}
          cs_check_overflow,cs_check_range,cs_check_object,
          cs_check_io,cs_check_stack,
          cs_checkpointer,
-         cs_omitstackframe,cs_do_assertion,cs_generate_rtti,
+         cs_generate_stackframes,cs_do_assertion,cs_generate_rtti,
          cs_full_boolean_eval,cs_typed_const_writable,cs_allow_enum_calc,
          { mmx }
          cs_mmx,cs_mmx_saturation,
@@ -113,14 +113,15 @@ than 255 characters. That's why using Ansi Strings}
          { units }
          cs_load_objpas_unit,
          cs_load_gpc_unit,
+         cs_load_fpcylix_unit,
          { optimizer }
          cs_regvars,cs_no_regalloc,cs_uncertainopts,cs_littlesize,
          cs_optimize,cs_fastoptimize,cs_slowoptimize,cs_align,cs_loopunroll,
          { browser }
          cs_browser_log,
-         { debugger }
-         cs_gdb_dbx,cs_gdb_gsym,cs_gdb_heaptrc,cs_gdb_lineinfo,
-         cs_gdb_valgrind,cs_gdb_dwarf,
+         { debuginfo }
+         cs_use_heaptrc,cs_use_lineinfo,
+         cs_gdb_valgrind,
          { assembling }
          cs_asm_leave,cs_asm_extern,cs_asm_pipe,cs_asm_source,
          cs_asm_regalloc,cs_asm_tempalloc,cs_asm_nodes,
@@ -143,6 +144,7 @@ than 255 characters. That's why using Ansi Strings}
          m_cvar_support,        { cvar variable directive }
          m_nested_comment,      { nested comments }
          m_tp_procvar,          { tp style procvars (no @ needed) }
+         m_mac_procvar,         { macpas style procvars }
          m_repeat_forward,      { repeating forward declarations is needed }
          m_pointer_2_procedure, { allows the assignement of pointers to
                                   procedure variables                     }
@@ -160,6 +162,7 @@ than 255 characters. That's why using Ansi Strings}
        { Win32, OS/2 & MacOS application types }
        tapptype = (
          app_none,
+         app_native,
          app_gui,               { graphic user-interface application}
          app_cui,       { console application}
          app_fs,        { full-screen type application (OS/2 and EMX only) }

@@ -16,7 +16,7 @@
 
 var
    variantmanager : tvariantmanager;
-   
+
 procedure printmissingvariantunit;
   begin
     writeln(stderr);
@@ -25,8 +25,8 @@ procedure printmissingvariantunit;
     writeln(stderr,'as one of the first units.');
     writeln(stderr);
   end;
-  
-  
+
+
 procedure invalidvariantop;
   begin
      printmissingvariantunit;
@@ -39,8 +39,8 @@ procedure invalidvariantopnovariants;
     printmissingvariantunit;
     HandleErrorFrame(221,get_frame);
   end;
-  
-  
+
+
 procedure vardisperror;
   begin
     printmissingvariantunit;
@@ -120,6 +120,7 @@ procedure fpc_vararray_put(var d : variant;const s : variant;indices : psizeint;
 
 function fpc_variant_to_dynarray(const v : variant;typeinfo : pointer) : pointer;compilerproc;
   begin
+    result:=nil;
     variantmanager.vartodynarray(result,v,typeinfo);
   end;
 
@@ -150,21 +151,18 @@ function fpc_interface_to_variant(const i : iinterface) : variant;compilerproc;
 { Integer }
 
 operator :=(const source : byte) dest : variant;{$ifdef SYSTEMINLINE}inline;{$endif}
-
 begin
   Variantmanager.varfromInt(Dest,Source,1);
 end;
 
 
 operator :=(const source : shortint) dest : variant;{$ifdef SYSTEMINLINE}inline;{$endif}
-
 begin
   Variantmanager.varfromInt(Dest,Source,-1);
 end;
 
 
 operator :=(const source : word) dest : variant;{$ifdef SYSTEMINLINE}inline;{$endif}
-
 begin
   Variantmanager.varfromInt(Dest,Source,2);
 end;
@@ -304,6 +302,12 @@ operator :=(const source : tdatetime) dest : variant;{$ifdef SYSTEMINLINE}inline
     VariantManager.VarFromTDateTime(Dest,Source);
   end;
 
+
+operator :=(const source : error) dest : variant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    Variantmanager.varfromInt(Dest,Source,-sizeof(error));
+  end;
+  
 {**********************************************************************
                        from Variant assignments
  **********************************************************************}
@@ -318,38 +322,33 @@ end;
 
 
 operator :=(const source : variant) dest : shortint;{$ifdef SYSTEMINLINE}inline;{$endif}
-
-begin
-  dest:=variantmanager.vartoint(source);
-end;
+  begin
+    dest:=variantmanager.vartoint(source);
+  end;
 
 
 operator :=(const source : variant) dest : word;{$ifdef SYSTEMINLINE}inline;{$endif}
-
-begin
-  dest:=variantmanager.vartoint(source);
-end;
+  begin
+    dest:=variantmanager.vartoint(source);
+  end;
 
 
 operator :=(const source : variant) dest : smallint;{$ifdef SYSTEMINLINE}inline;{$endif}
-
-begin
-  dest:=variantmanager.vartoint(source);
-end;
+  begin
+    dest:=variantmanager.vartoint(source);
+  end;
 
 
 operator :=(const source : variant) dest : dword;{$ifdef SYSTEMINLINE}inline;{$endif}
-
-begin
-  dest:=variantmanager.vartoint(source);
-end;
+  begin
+    dest:=variantmanager.vartoint(source);
+  end;
 
 
 operator :=(const source : variant) dest : longint;{$ifdef SYSTEMINLINE}inline;{$endif}
-
-begin
-  dest:=variantmanager.vartoint(source);
-end;
+  begin
+    dest:=variantmanager.vartoint(source);
+  end;
 
 
 operator :=(const source : variant) dest : qword;{$ifdef SYSTEMINLINE}inline;{$endif}
@@ -471,28 +470,33 @@ end;
 
 { Misc. }
 operator :=(const source : variant) dest : currency;{$ifdef SYSTEMINLINE}inline;{$endif}
-begin
-  dest:=variantmanager.vartocurr(source);
-end;
+  begin
+    dest:=variantmanager.vartocurr(source);
+  end;
 
 
 operator :=(const source : variant) dest : tdatetime;{$ifdef SYSTEMINLINE}inline;{$endif}
-begin
-  dest:=variantmanager.vartotdatetime(source);
-end;
+  begin
+    dest:=variantmanager.vartotdatetime(source);
+  end;
 
 
 operator :=(const source : olevariant) dest : variant;{$ifdef SYSTEMINLINE}inline;{$endif}
   begin
     tvardata(result):=tvardata(source);
   end;
-  
-    
+
+
 operator :=(const source : variant) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
   begin
     variantmanager.olevarfromvar(dest,source);
   end;
 
+
+operator :=(const source : variant) dest : error;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoint(source);
+  end;
 {**********************************************************************
                                Operators
  **********************************************************************}
@@ -618,6 +622,326 @@ procedure VarCast(var dest : variant;const source : variant;vartype : longint);
   end;
 
 
+{**********************************************************************
+                        from OLEVariant assignments
+ **********************************************************************}
+{ Integer }
+operator :=(const source : olevariant) dest : byte;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    { cast away olevar to var conversion and avoid
+      endless recursion }
+    dest:=variantmanager.vartoint(variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : shortint;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoint(variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : word;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoint(variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : smallint;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoint(variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : dword;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoint(variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : longint;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoint(variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : qword;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoint64(variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : int64;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoword64(variant(tvardata(source)));
+  end;
+
+
+{ Boolean }
+operator :=(const source : olevariant) dest : boolean;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartobool(variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : wordbool;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartobool(variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : longbool;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartobool(variant(tvardata(source)));
+  end;
+
+
+{ Chars }
+operator :=(const source : olevariant) dest : char;{$ifdef SYSTEMINLINE}inline;{$endif}
+  var
+    S : String;
+  begin
+    VariantManager.VarToPStr(S,Source);
+    If Length(S)>0 then
+      Dest:=S[1]
+    else
+      Dest:=#0;
+  end;
+
+
+operator :=(const source : olevariant) dest : widechar;{$ifdef SYSTEMINLINE}inline;{$endif}
+  Var
+    WS : WideString;
+  begin
+    VariantManager.VarToWStr(WS,Source);
+    If Length(WS)>0 then
+      Dest:=WS[1]
+    else
+      Dest:=#0;
+  end;
+
+
+{ Strings }
+operator :=(const source : olevariant) dest : shortstring;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.vartopstr(dest,variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : ansistring;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.vartolstr(dest,variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : widestring;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.vartowstr(dest,variant(tvardata(source)));
+  end;
+
+
+{ Floats }
+{$ifdef SUPPORT_SINGLE}
+operator :=(const source : olevariant) dest : single;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoreal(variant(tvardata(source)));
+  end;
+{$endif SUPPORT_SINGLE}
+
+
+{$ifdef SUPPORT_DOUBLE}
+operator :=(const source : olevariant) dest : double;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoreal(variant(tvardata(source)));
+  end;
+{$endif SUPPORT_DOUBLE}
+
+
+{$ifdef SUPPORT_EXTENDED}
+operator :=(const source : olevariant) dest : extended;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoreal(variant(tvardata(source)));
+  end;
+{$endif SUPPORT_EXTENDED}
+
+
+{$ifdef SUPPORT_COMP}
+operator :=(const source : olevariant) dest : comp;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoreal(variant(tvardata(source)));
+  end;
+{$endif SUPPORT_COMP}
+
+
+{ Misc. }
+operator :=(const source : olevariant) dest : currency;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartocurr(variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : tdatetime;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartotdatetime(variant(tvardata(source)));
+  end;
+
+
+operator :=(const source : olevariant) dest : error;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    dest:=variantmanager.vartoint(variant(tvardata(source)));
+  end;
+
+{**********************************************************************
+                          to OLEVariant assignments
+ **********************************************************************}
+
+operator :=(const source : byte) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfromint(dest,source,1);
+  end;
+
+
+operator :=(const source : shortint) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfromint(dest,source,-1);
+  end;
+
+
+operator :=(const source : word) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfromint(dest,source,2);
+  end;
+
+
+operator :=(const source : smallint) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfromint(dest,source,-2);
+  end;
+
+
+operator :=(const source : dword) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfromint(dest,source,4);
+  end;
+
+
+operator :=(const source : longint) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfromint(dest,source,-4);
+  end;
+
+
+operator :=(const source : qword) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfromint(dest,source,8);
+  end;
+
+
+operator :=(const source : int64) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfromint(dest,source,-8);
+  end;
+
+{ Boolean }
+operator :=(const source : boolean) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.varfromBool(variant(tvardata(dest)),Source);
+   end;
+
+
+operator :=(const source : wordbool) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.varfromBool(variant(tvardata(Dest)),Source);
+   end;
+
+
+operator :=(const source : longbool) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.varfromBool(variant(tvardata(Dest)),Source);
+   end;
+
+
+{ Chars }
+operator :=(const source : char) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfrompstr(dest,source);
+  end;
+
+
+operator :=(const source : widechar) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.varfromwstr(variant(tvardata(dest)),source);
+  end;
+
+
+{ Strings }
+operator :=(const source : shortstring) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfrompstr(dest,source);
+  end;
+
+
+operator :=(const source : ansistring) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfromlstr(dest,source);
+  end;
+
+
+operator :=(const source : widestring) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.varfromwstr(variant(tvardata(dest)),source);
+  end;
+
+
+{ Floats }
+{$ifdef SUPPORT_SINGLE}
+operator :=(const source : single) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.varfromreal(variant(tvardata(dest)),source);
+  end;
+{$endif SUPPORT_SINGLE}
+
+
+{$ifdef SUPPORT_DOUBLE}
+operator :=(const source : double) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.varfromreal(variant(tvardata(dest)),source);
+  end;
+{$endif SUPPORT_DOUBLE}
+
+
+{$ifdef SUPPORT_EXTENDED}
+operator :=(const source : extended) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.varfromreal(variant(tvardata(dest)),source);
+  end;
+{$endif SUPPORT_EXTENDED}
+
+
+{$ifdef SUPPORT_COMP}
+operator :=(const source : comp) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.varfromreal(variant(tvardata(dest)),source);
+  end;
+{$endif SUPPORT_COMP}
+
+
+{ Misc. }
+operator :=(const source : currency) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.varfromcurr(variant(tvardata(dest)),source);
+  end;
+
+
+operator :=(const source : tdatetime) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.varfromtdatetime(variant(tvardata(dest)),source);
+  end;
+
+
+operator :=(const source : error) dest : olevariant;{$ifdef SYSTEMINLINE}inline;{$endif}
+  begin
+    variantmanager.olevarfromint(dest,source,-sizeof(error));
+  end;
 {**********************************************************************
                       Variant manager functions
  **********************************************************************}

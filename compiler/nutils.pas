@@ -111,9 +111,6 @@ implementation
           begin
             { not in one statement, won't work because of b- }
             result := foreachnode(tcallnode(n).methodpointer,f,arg) or result;
-{$ifdef PASS2INLINE}
-            result := foreachnode(tcallnode(n).inlinecode,f,arg) or result;
-{$endif PASS2INLINE}
           end;
         ifn, whilerepeatn, forn:
           begin
@@ -152,9 +149,6 @@ implementation
           calln:
             begin
               result := foreachnodestatic(procmethod,tcallnode(n).methodpointer,f,arg) or result;
-{$ifdef PASS2INLINE}
-              result := foreachnodestatic(procmethod,tcallnode(n).inlinecode,f,arg) or result;
-{$endif PASS2INLINE}
             end;
           ifn, whilerepeatn, forn:
             begin
@@ -208,7 +202,7 @@ implementation
 
     function foreachnodestatic(var n: tnode; f: staticforeachnodefunction; arg: pointer): boolean;
       begin
-        result := foreachnodestatic(pm_postprocess,n,f,arg);
+        result:=foreachnodestatic(pm_postprocess,n,f,arg);
       end;
 
 
@@ -265,7 +259,7 @@ implementation
           end;
         until false;
         { a tempref is used when it is loaded from a withsymtable }
-        if (hp.nodetype in [loadn,temprefn]) then
+        if (hp.nodetype in [calln,loadn,temprefn]) then
           begin
             hp:=ccallnode.create_procvar(nil,p1);
             resulttypepass(hp);

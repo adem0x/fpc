@@ -37,6 +37,7 @@ type
   private
     function SqliteExec(AHandle: Pointer; ASql:PChar):Integer;override;
     function GetSqliteHandle: Pointer; override;
+    function GetSqliteVersion: String; override;
     procedure SqliteClose(AHandle: Pointer);override;
     procedure BuildLinkedList; override;
   protected
@@ -44,6 +45,7 @@ type
   public
     function SqliteReturnString: String; override;
     function TableExists: Boolean;override;
+    function QuickQuery(const ASql:String;const AStrList: TStrings;FillObjects:Boolean):String;override;
   end;
 
 implementation
@@ -101,7 +103,11 @@ begin
    if (ColumnStr = 'INTEGER') then
    begin
      AType:= ftInteger;
-     FieldSize:=SizeOf(Integer);
+     FieldSize:=SizeOf(LongInt);
+   end else if (ColumnStr = 'VARCHAR') then
+   begin
+     AType:= ftString;
+     FieldSize:=10;//??
    end else if (ColumnStr = 'BOOLEAN') then
    begin
      AType:= ftBoolean;
@@ -122,6 +128,14 @@ begin
    begin
      AType:= ftDate;
      FieldSize:=SizeOf(TDateTime);
+   end else if (ColumnStr = 'LARGEINT') then
+   begin
+     AType:= ftLargeInt;
+     FieldSize:=SizeOf(Int64);
+   end else if (ColumnStr = 'CURRENCY') then
+   begin
+     AType:= ftCurrency;
+     FieldSize:=SizeOf(Double);
    end else if (ColumnStr = 'TIME') then
    begin
      AType:= ftTime;
@@ -138,8 +152,7 @@ begin
        FAutoIncFieldNo:= Counter;
    end else
    begin
-     AType:= ftString;
-     FieldSize:=10; //??
+     DatabaseError('Field type "'+ColumnStr+'" not recognized',Self);
    end;
    FieldDefs.Add(StrPas(sqlite3_column_name(vm,Counter)), AType, FieldSize, False);
    {$ifdef DEBUG}
@@ -285,6 +298,63 @@ begin
  end;
 end;
 
+function TSqlite3Dataset.GetSqliteVersion: String;
+begin
+  Result:=StrPas(sqlite3_version);
+end;
+
+function TSqlite3Dataset.QuickQuery(const ASql:String;const AStrList: TStrings;FillObjects:Boolean):String;
+var
+  vm,AHandle:Pointer;
+    
+  procedure FillStrings;
+  begin
+    while FSqliteReturnId = SQLITE_ROW do
+    begin
+      AStrList.Add(StrPas(sqlite3_column_text(vm,0)));
+      FSqliteReturnId:=sqlite3_step(vm);  
+    end;
+  end;
+  procedure FillStringsAndObjects;
+  begin
+    while FSqliteReturnId = SQLITE_ROW do
+    begin
+      AStrList.AddObject(StrPas(sqlite3_column_text(vm,0)),TObject(PtrInt(sqlite3_column_int(vm,1))));
+      FSqliteReturnId:=sqlite3_step(vm);  
+    end;
+  end;    
+begin
+  if FSqliteHandle <> nil then
+    AHandle:=FSqliteHandle
+  else
+    if FileExists(FFileName) then
+      AHandle:=GetSqliteHandle
+    else
+      DatabaseError('File "'+FFileName+'" not Exists',Self);    
+  Result:='';
+  // It's up to the caller clear or not the list
+  //if AStrList <> nil then
+  //  AStrList.Clear;
+  FSqliteReturnId:=sqlite3_prepare(AHandle,Pchar(ASql),-1,@vm,nil);
+  if FSqliteReturnId <> SQLITE_OK then
+    DatabaseError('Error returned by sqlite in QuickQuery: '+SqliteReturnString,Self);
+    
+  FSqliteReturnId:=sqlite3_step(vm);
+  if (FSqliteReturnId = SQLITE_ROW) and (sqlite3_column_count(vm) > 0) then
+  begin
+    Result:=StrPas(sqlite3_column_text(vm,0));
+    if AStrList <> nil then
+    begin   
+      if FillObjects and (sqlite3_column_count(vm) > 1) then
+        FillStringsAndObjects
+      else
+        FillStrings;
+    end;          
+  end;  
+  sqlite3_finalize(vm); 
+  if FSqliteHandle = nil then
+    sqlite3_close(AHandle);
+end;
 
 end.
 

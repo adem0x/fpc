@@ -1,7 +1,7 @@
 {
-    Copyright (c) 1998-2002 by Florian Klaempfl
-
     This file implements the node for sub procedure calling.
+
+    Copyright (c) 1998-2002 by Florian Klaempfl
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -86,10 +86,6 @@ interface
           methodpointerinit,
           methodpointerdone : tblocknode;
           methodpointer  : tnode;
-{$ifdef PASS2INLINE}
-          { inline function body }
-          inlinecode : tnode;
-{$endif PASS2INLINE}
           { varargs parasyms }
           varargsparas : tvarargsparalist;
           { node that specifies where the result should be put for calls }
@@ -320,24 +316,49 @@ type
             begin
               if (paradef.deftype<>arraydef) then
                 internalerror(200405241);
+              { passing a string to an array of char }
+              if (p.nodetype=stringconstn) then
+                begin
+                  len:=str_length(p);
+                  if len>0 then
+                   dec(len);
+                end
+              else
               { handle special case of passing an single array to an array of array }
               if compare_defs(tarraydef(paradef).elementtype.def,p.resulttype.def,nothingn)>=te_equal then
                 len:=0
               else
                 begin
-                  maybe_load_para_in_temp(p);
                   { handle via a normal inline in_high_x node }
-                  loadconst := false;
-                  hightree := geninlinenode(in_high_x,false,p.getcopy);
-                  resulttypepass(hightree);
-                  { only substract low(array) if it's <> 0 }
-                  temp := geninlinenode(in_low_x,false,p.getcopy);
-                  resulttypepass(temp);
-                  if (temp.nodetype <> ordconstn) or
-                     (tordconstnode(temp).value <> 0) then
-                    hightree := caddnode.create(subn,hightree,temp)
+                  loadconst:=false;
+                  { slice? }
+                  if (p.nodetype=inlinen) and (tinlinenode(p).inlinenumber=in_slice_x) then
+                    begin
+                      hightree:=tcallparanode(tcallparanode(tinlinenode(p).left).right).left;
+                      hightree:=caddnode.create(subn,hightree,genintconstnode(1));
+                      tcallparanode(tcallparanode(tinlinenode(p).left).right).left:=nil;
+
+                      temp:=p;
+                      p:=tcallparanode(tinlinenode(p).left).left;
+                      tcallparanode(tinlinenode(temp).left).left:=nil;
+                      temp.free;
+
+                      resulttypepass(hightree);
+                    end
                   else
-                    temp.free;
+                    begin
+                      maybe_load_para_in_temp(p);
+                      hightree:=geninlinenode(in_high_x,false,p.getcopy);
+                      resulttypepass(hightree);
+                      { only substract low(array) if it's <> 0 }
+                      temp:=geninlinenode(in_low_x,false,p.getcopy);
+                      resulttypepass(temp);
+                      if (temp.nodetype <> ordconstn) or
+                         (tordconstnode(temp).value <> 0) then
+                        hightree := caddnode.create(subn,hightree,temp)
+                      else
+                        temp.free;
+                    end;
                 end;
             end;
           stringdef :
@@ -362,7 +383,7 @@ type
                    begin
                      maybe_load_para_in_temp(p);
                      hightree:=caddnode.create(subn,geninlinenode(in_length_x,false,p.getcopy),
-                                               cordconstnode.create(1,s32inttype,false));
+                                               cordconstnode.create(1,sinttype,false));
                      loadconst:=false;
                    end;
                end;
@@ -371,13 +392,13 @@ type
           len:=0;
         end;
         if loadconst then
-          hightree:=cordconstnode.create(len,s32inttype,true)
+          hightree:=cordconstnode.create(len,sinttype,true)
         else
           begin
             if not assigned(hightree) then
               internalerror(200304071);
             { Need to use explicit, because it can also be a enum }
-            hightree:=ctypeconvnode.create_internal(hightree,s32inttype);
+            hightree:=ctypeconvnode.create_internal(hightree,sinttype);
           end;
         result:=hightree;
       end;
@@ -472,7 +493,8 @@ type
 
     procedure tcallparanode.insert_typeconv(do_count : boolean);
       var
-        oldtype     : ttype;
+        oldtype  : ttype;
+        hp       : tnode;
 {$ifdef extdebug}
         store_count_ref : boolean;
 {$endif def extdebug}
@@ -500,6 +522,21 @@ type
                begin
                  if maybe_call_procvar(left,true) then
                    resulttype:=left.resulttype;
+               end;
+
+             { Remove implicitly inserted typecast to pointer for
+               @procvar in macpas }
+             if (m_mac_procvar in aktmodeswitches) and
+                (parasym.vartype.def.deftype=procvardef) and
+                (left.nodetype=typeconvn) and
+                is_voidpointer(left.resulttype.def) and
+                (ttypeconvnode(left).left.nodetype=typeconvn) and
+                (ttypeconvnode(ttypeconvnode(left).left).convtype=tc_proc_2_procvar) then
+               begin
+                 hp:=left;
+                 left:=ttypeconvnode(left).left;
+                 ttypeconvnode(hp).left:=nil;
+                 hp.free;
                end;
 
              { Handle varargs and hidden paras directly, no typeconvs or }
@@ -613,7 +650,8 @@ type
                  if (parasym.vartype.def.deftype=formaldef) then
                    begin
                      { load procvar if a procedure is passed }
-                     if (m_tp_procvar in aktmodeswitches) and
+                     if ((m_tp_procvar in aktmodeswitches) or
+                         (m_mac_procvar in aktmodeswitches)) and
                         (left.nodetype=calln) and
                         (is_void(left.resulttype.def)) then
                        load_procvar_from_calln(left);
@@ -751,9 +789,6 @@ type
          methodpointerdone:=nil;
          procdefinition:=nil;
          _funcretnode:=nil;
-{$ifdef PASS2INLINE}
-         inlinecode:=nil;
-{$endif PASS2INLINE}
          paralength:=-1;
          varargsparas:=nil;
       end;
@@ -770,9 +805,6 @@ type
          procdefinition:=nil;
          callnodeflags:=[cnf_return_value_used];
          _funcretnode:=nil;
-{$ifdef PASS2INLINE}
-         inlinecode:=nil;
-{$endif PASS2INLINE}
          paralength:=-1;
          varargsparas:=nil;
       end;
@@ -795,13 +827,8 @@ type
                searchsym(upper(name),srsym,symowner);
            end;
          if not assigned(srsym) or
-            (srsym.typ <> procsym) then
-           begin
-{$ifdef EXTDEBUG}
-             Comment(V_Error,'unknown compilerproc '+name);
-{$endif EXTDEBUG}
-             internalerror(200107271);
-           end;
+            (srsym.typ<>procsym) then
+           Message1(cg_f_unknown_compilerproc,name);
          self.create(params,tprocsym(srsym),symowner,nil,[]);
        end;
 
@@ -871,9 +898,6 @@ type
          methodpointerinit.free;
          methodpointerdone.free;
          _funcretnode.free;
-{$ifdef PASS2INLINE}
-         inlinecode.free;
-{$endif PASS2INLINE}
          if assigned(varargsparas) then
            begin
              for i:=0 to varargsparas.count-1 do
@@ -898,9 +922,6 @@ type
         methodpointerinit:=tblocknode(ppuloadnode(ppufile));
         methodpointerdone:=tblocknode(ppuloadnode(ppufile));
         _funcretnode:=ppuloadnode(ppufile);
-{$ifdef PASS2INLINE}
-        inlinecode:=ppuloadnode(ppufile);
-{$endif PASS2INLINE}
       end;
 
 
@@ -914,9 +935,6 @@ type
         ppuwritenode(ppufile,methodpointerinit);
         ppuwritenode(ppufile,methodpointerdone);
         ppuwritenode(ppufile,_funcretnode);
-{$ifdef PASS2INLINE}
-        ppuwritenode(ppufile,inlinecode);
-{$endif PASS2INLINE}
       end;
 
 
@@ -933,10 +951,6 @@ type
           methodpointerdone.buildderefimpl;
         if assigned(_funcretnode) then
           _funcretnode.buildderefimpl;
-{$ifdef PASS2INLINE}
-        if assigned(inlinecode) then
-          inlinecode.buildderefimpl;
-{$endif PASS2INLINE}
       end;
 
 
@@ -958,10 +972,6 @@ type
           methodpointerdone.derefimpl;
         if assigned(_funcretnode) then
           _funcretnode.derefimpl;
-{$ifdef PASS2INLINE}
-        if assigned(inlinecode) then
-          inlinecode.derefimpl;
-{$endif PASS2INLINE}
         { Connect parasyms }
         pt:=tcallparanode(left);
         while assigned(pt) and
@@ -1020,12 +1030,7 @@ type
          n._funcretnode:=_funcretnode._getcopy
         else
          n._funcretnode:=nil;
-{$ifdef PASS2INLINE}
-        if assigned(inlinecode) then
-         n.inlinecode:=inlinecode._getcopy
-        else
-         n.inlinecode:=nil;
-{$endif PASS2INLINE}
+
         if assigned(varargsparas) then
          begin
            n.varargsparas:=tvarargsparalist.create;
@@ -1654,7 +1659,8 @@ type
                             loadnode will give a strange error }
                           if not(assigned(left)) and
                              not(cnf_inherited in callnodeflags) and
-                             (m_tp_procvar in aktmodeswitches) and
+                             ((m_tp_procvar in aktmodeswitches) or
+                              (m_mac_procvar in aktmodeswitches)) and
                              (symtableprocentry.procdef_count=1) then
                             begin
                               hpt:=cloadnode.create(tprocsym(symtableprocentry),symtableproc);
@@ -1911,22 +1917,6 @@ type
 
          { bind parasyms to the callparanodes and insert hidden parameters }
          bind_parasym;
-
-         { methodpointer needs to be a pointer to the VMT for virtual calls.
-           Note: We need to keep the methodpointer in the callnode for TP
-           procvar support, because this calln still maybe converted to a loadn,
-           see tw3499 }
-         if (po_virtualmethod in procdefinition.procoptions) then
-          begin
-            if not assigned(methodpointer) then
-              internalerror(200305063);
-            if (methodpointer.nodetype<>typen) and
-               (methodpointer.resulttype.def.deftype<>classrefdef) then
-              begin
-                methodpointer:=cloadvmtaddrnode.create(methodpointer);
-                resulttypepass(methodpointer);
-              end;
-          end;
 
          { insert type conversions for parameters }
          if assigned(left) then
@@ -2227,6 +2217,7 @@ type
                           funcretnode := ctemprefnode.create(tempnode);
                         para.left.free;
                         para.left := ctemprefnode.create(tempnode);
+
                         addstatement(deletestatement,ctempdeletenode.create_normal_temp(tempnode));
                       end
                   end
@@ -2243,8 +2234,8 @@ type
                     para.left := ctypeconvnode.create_internal(cderefnode.create(ctemprefnode.create(tempnode)),para.left.resulttype);
                     addstatement(deletestatement,ctempdeletenode.create(tempnode));
                   end;
-                para := tcallparanode(para.right);
               end;
+            para := tcallparanode(para.right);
           end;
         { local variables }
         if not assigned(tprocdef(procdefinition).localst) or
@@ -2305,6 +2296,7 @@ type
         if assigned(funcretnode) and
            (cnf_return_value_used in callnodeflags) then
           addstatement(createstatement,funcretnode.getcopy);
+
         { consider it must not be inlined if called
           again inside the args or itself }
         exclude(procdefinition.procoptions,po_inline);
@@ -2386,53 +2378,10 @@ type
 
          { procedure variable ? }
          if assigned(right) then
-           begin
-              firstpass(right);
+           firstpass(right);
 
-              { procedure does a call }
-              if not (block_type in [bt_const,bt_type]) then
-                include(current_procinfo.flags,pi_do_call);
-           end
-         else
-         { not a procedure variable }
-           begin
-              if procdefinition.deftype<>procdef then
-                internalerror(200411071);
-{$ifdef PASS2INLINE}
-              { calc the correture value for the register }
-              { handle predefined procedures }
-              if (po_inline in procdefinition.procoptions) then
-                begin
-                   { inherit flags }
-                   current_procinfo.flags := current_procinfo.flags + (tprocdef(procdefinition).inlininginfo^.flags*inherited_inlining_flags);
-
-                   if assigned(methodpointer) then
-                     CGMessage(cg_e_unable_inline_object_methods);
-                   if assigned(right) then
-                     CGMessage(cg_e_unable_inline_procvar);
-                   if not assigned(inlinecode) then
-                     begin
-                       if assigned(tprocdef(procdefinition).inlininginfo^.code) then
-                         inlinecode:=tprocdef(procdefinition).inlininginfo^.code.getcopy
-                       else
-                         CGMessage(cg_e_no_code_for_inline_stored);
-                       if assigned(inlinecode) then
-                         begin
-                           { consider it has not inlined if called
-                             again inside the args }
-                           procdefinition.proccalloption:=pocall_default;
-                           firstpass(inlinecode);
-                         end;
-                     end;
-                end
-              else
-{$endif PASS2INLINE}
-                begin
-                  if not (block_type in [bt_const,bt_type]) then
-                    include(current_procinfo.flags,pi_do_call);
-                end;
-
-           end;
+         if not (block_type in [bt_const,bt_type]) then
+           include(current_procinfo.flags,pi_do_call);
 
          { implicit finally needed ? }
          if resulttype.def.needs_inittable and
@@ -2535,18 +2484,6 @@ type
                end;
            end;
 
-{$ifdef PASS2INLINE}
-         { determine the registers of the procedure variable }
-         { is this OK for inlined procs also ?? (PM)     }
-         if assigned(inlinecode) then
-           begin
-              registersfpu:=max(inlinecode.registersfpu,registersfpu);
-              registersint:=max(inlinecode.registersint,registersint);
-  {$ifdef SUPPORT_MMX}
-              registersmmx:=max(inlinecode.registersmmx,registersmmx);
-  {$endif SUPPORT_MMX}
-           end;
-{$endif PASS2INLINE}
          { determine the registers of the procedure variable }
          { is this OK for inlined procs also ?? (PM)     }
          if assigned(right) then
@@ -2566,10 +2503,6 @@ type
               registersmmx:=max(left.registersmmx,registersmmx);
 {$endif SUPPORT_MMX}
            end;
-{$ifdef PASS2INLINE}
-         if assigned(inlinecode) then
-           include(procdefinition.procoptions,po_inline);
-{$endif PASS2INLINE}
       end;
 
 {$ifdef state_tracking}

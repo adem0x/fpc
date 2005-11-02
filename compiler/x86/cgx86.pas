@@ -536,8 +536,17 @@ unit cgx86;
 
 
     procedure tcgx86.a_call_name(list : taasmoutput;const s : string);
+      var
+        sym : tasmsymbol;
+        r : treference;
       begin
-        list.concat(taicpu.op_sym(A_CALL,S_NO,objectlibrary.newasmsymbol(s,AB_EXTERNAL,AT_FUNCTION)));
+        sym:=objectlibrary.newasmsymbol(s,AB_EXTERNAL,AT_FUNCTION);
+        reference_reset_symbol(r,sym,0);
+        if cs_create_pic in aktmoduleswitches then
+          r.refaddr:=addr_pic
+        else
+          r.refaddr:=addr_full;
+        list.concat(taicpu.op_ref(A_CALL,S_NO,r));
       end;
 
 
@@ -934,7 +943,10 @@ unit cgx86;
           internalerror(200312215);
         case loc.loc of
           LOC_CREFERENCE,LOC_REFERENCE:
-            list.concat(taicpu.op_ref_reg(asmop,S_NO,loc.reference,resultreg));
+            begin
+              make_simple_ref(exprasmlist,loc.reference);
+              list.concat(taicpu.op_ref_reg(asmop,S_NO,loc.reference,resultreg));
+            end;
           LOC_CMMREGISTER,LOC_MMREGISTER:
             list.concat(taicpu.op_reg_reg(asmop,S_NO,loc.register,resultreg));
           else
@@ -1728,7 +1740,7 @@ unit cgx86;
                  end
                else
                  begin
-                    objectlibrary.getlabel(again);
+                    objectlibrary.getjumplabel(again);
                     getcpuregister(list,NR_EDI);
                     list.concat(Taicpu.op_const_reg(A_MOV,S_L,localsize div winstackpagesize,NR_EDI));
                     a_label(list,again);
@@ -1814,7 +1826,7 @@ unit cgx86;
       begin
          if not(cs_check_overflow in aktlocalswitches) then
           exit;
-         objectlibrary.getlabel(hl);
+         objectlibrary.getjumplabel(hl);
          if not ((def.deftype=pointerdef) or
                 ((def.deftype=orddef) and
                  (torddef(def).typ in [u64bit,u16bit,u32bit,u8bit,uchar,

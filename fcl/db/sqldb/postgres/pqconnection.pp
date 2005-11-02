@@ -30,6 +30,8 @@ type
     Nr        : string;
   end;
 
+  { TPQConnection }
+
   TPQConnection = class (TSQLConnection)
   private
     FCursorCount         : word;
@@ -45,7 +47,6 @@ type
     Procedure DeAllocateCursorHandle(var cursor : TSQLCursor); override;
     Function AllocateTransactionHandle : TSQLHandle; override;
 
-    procedure CloseStatement(cursor : TSQLCursor); override;
     procedure PrepareStatement(cursor: TSQLCursor;ATransaction : TSQLTransaction;buf : string; AParams : TParams); override;
     procedure FreeFldBuffers(cursor : TSQLCursor); override;
     procedure Execute(cursor: TSQLCursor;atransaction:tSQLtransaction; AParams : TParams); override;
@@ -57,9 +58,10 @@ type
     function RollBack(trans : TSQLHandle) : boolean; override;
     function Commit(trans : TSQLHandle) : boolean; override;
     procedure CommitRetaining(trans : TSQLHandle); override;
-    function StartdbTransaction(trans : TSQLHandle) : boolean; override;
+    function StartdbTransaction(trans : TSQLHandle; AParams : string) : boolean; override;
     procedure RollBackRetaining(trans : TSQLHandle); override;
     procedure UpdateIndexDefs(var IndexDefs : TIndexDefs;TableName : string); override;
+    function GetSchemaInfoSQL(SchemaType : TSchemaType; SchemaObjectName, SchemaPattern : string) : string; override;
   public
     constructor Create(AOwner : TComponent); override;
   published
@@ -86,12 +88,14 @@ ResourceString
 
 const Oid_Bool     = 16;
       Oid_Text     = 25;
+      Oid_Oid      = 26;
       Oid_Name     = 19;
       Oid_Int8     = 20;
       Oid_int2     = 21;
       Oid_Int4     = 23;
       Oid_Float4   = 700;
       Oid_Float8   = 701;
+      Oid_Unknown  = 705;
       Oid_bpchar   = 1042;
       Oid_varchar  = 1043;
       Oid_timestamp = 1114;
@@ -159,7 +163,7 @@ begin
     end;
 end;
 
-function TPQConnection.StartdbTransaction(trans : TSQLHandle) : boolean;
+function TPQConnection.StartdbTransaction(trans : TSQLHandle; AParams : string) : boolean;
 var
   res : PPGresult;
   tr  : TPQTrans;
@@ -301,6 +305,7 @@ begin
     Oid_varchar,Oid_bpchar,
     Oid_name               : Result := ftstring;
     Oid_text               : REsult := ftmemo;
+    Oid_oid                : Result := ftInteger;
     Oid_int8               : Result := ftLargeInt;
     Oid_int4               : Result := ftInteger;
     Oid_int2               : Result := ftSmallInt;
@@ -311,6 +316,9 @@ begin
     Oid_Time               : Result := ftTime;
     Oid_Bool               : Result := ftBoolean;
     Oid_Numeric            : Result := ftBCD;
+    Oid_Unknown            : Result := ftUnknown;
+  else
+    Result := ftUnknown;
   end;
 end;
 
@@ -347,7 +355,7 @@ const TypeStrings : array[TFieldType] of string =
       'numeric',
       'date',
       'time',
-      'datetime',
+      'timestamp',
       'Unknown',
       'Unknown',
       'Unknown',
@@ -420,26 +428,6 @@ begin
     end;
 end;
 
-procedure TPQConnection.CloseStatement(cursor : TSQLCursor);
-
-begin
-  with cursor as TPQCursor do
-   if (PQresultStatus(res) <> PGRES_FATAL_ERROR) then //Don't try to do anything if the transaction has already encountered an error.
-    begin
-    if FStatementType = stselect then
-      begin
-      Res := pqexec(tr,pchar('CLOSE slctst' + name + nr));
-      if (PQresultStatus(res) <> PGRES_COMMAND_OK) then
-        begin
-        pqclear(res);
-        DatabaseError(SErrClearSelection + ' (PostgreSQL: ' + PQerrorMessage(tr) + ')',self)
-        end
-      end;
-    pqclear(baseres);
-    pqclear(res);
-    end;
-end;
-
 procedure TPQConnection.UnPrepareStatement(cursor : TSQLCursor);
 
 begin
@@ -459,14 +447,28 @@ end;
 procedure TPQConnection.FreeFldBuffers(cursor : TSQLCursor);
 
 begin
-// Do nothing
+  with cursor as TPQCursor do
+   if (PQresultStatus(res) <> PGRES_FATAL_ERROR) then //Don't try to do anything if the transaction has already encountered an error.
+    begin
+    if FStatementType = stselect then
+      begin
+      Res := pqexec(tr,pchar('CLOSE slctst' + name + nr));
+      if (PQresultStatus(res) <> PGRES_COMMAND_OK) then
+        begin
+        pqclear(res);
+        DatabaseError(SErrClearSelection + ' (PostgreSQL: ' + PQerrorMessage(tr) + ')',self)
+        end
+      end;
+    pqclear(baseres);
+    pqclear(res);
+    end;
 end;
 
 procedure TPQConnection.Execute(cursor: TSQLCursor;atransaction:tSQLtransaction;AParams : TParams);
 
-var ar : array of pchar;
-    i  : integer;
-    s  : string;
+var ar  : array of pointer;
+    i   : integer;
+    s   : string;
 
 begin
   with cursor as TPQCursor do
@@ -477,8 +479,18 @@ begin
         begin
         setlength(ar,Aparams.count);
         for i := 0 to AParams.count -1 do
-          ar[i] := pchar(AParams[i].asstring);
-        res := PQexecPrepared(tr,pchar('prepst'+nr),Aparams.count,@Ar[0],nil,nil,0)
+          begin
+          case AParams[i].DataType of
+            ftdatetime : s := formatdatetime('YYYY-MM-DD',AParams[i].AsDateTime);
+          else
+            s := AParams[i].asstring;
+          end; {case}
+          GetMem(ar[i],length(s)+1);
+          StrMove(PChar(ar[i]),Pchar(s),Length(S)+1);
+          end;
+        res := PQexecPrepared(tr,pchar('prepst'+nr),Aparams.count,@Ar[0],nil,nil,0);
+        for i := 0 to AParams.count -1 do
+          FreeMem(ar[i]);
         end
       else
         res := PQexecPrepared(tr,pchar('prepst'+nr),0,nil,nil,nil,0);
@@ -532,7 +544,10 @@ begin
       fieldtype := TranslateFldType(PQftype(BaseRes, i));
 
       if (fieldtype = ftstring) and (size = -1) then
+        begin
         size := pqfmod(baseres,i)-3;
+        if size = -4 then size := dsMaxStringSize;
+        end;
       if fieldtype = ftdate  then
         size := sizeof(double);
 
@@ -689,6 +704,42 @@ begin
     end;
   qry.close;
   qry.free;
+end;
+
+function TPQConnection.GetSchemaInfoSQL(SchemaType: TSchemaType;
+  SchemaObjectName, SchemaPattern: string): string;
+
+var s : string;
+
+begin
+  case SchemaType of
+    stTables     : s := 'select '+
+                          'relfilenode              as recno, '+
+                          '''' + DatabaseName + ''' as catalog_name, '+
+                          '''''                     as schema_name, '+
+                          'relname                  as table_name, '+
+                          '0                        as table_type '+
+                        'from '+
+                          'pg_class '+
+                        'where '+
+                          '(relowner > 1) and relkind=''r''' +
+                        'order by relname';
+
+    stSysTables  : s := 'select '+
+                          'relfilenode              as recno, '+
+                          '''' + DatabaseName + ''' as catalog_name, '+
+                          '''''                     as schema_name, '+
+                          'relname                  as table_name, '+
+                          '0                        as table_type '+
+                        'from '+
+                          'pg_class '+
+                        'where '+
+                          'relkind=''r''' +
+                        'order by relname';
+  else
+    DatabaseError(SMetadataUnavailable)
+  end; {case}
+  result := s;
 end;
 
 

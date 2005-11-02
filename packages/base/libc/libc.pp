@@ -9,6 +9,8 @@ uses kerneldefs;
 
 Const
   clib = 'c';
+  dllib = 'dl';
+  cryptlib = 'crypt';
   threadslib = 'pthread';
 
 {$i glue.inc}           // C to Pascal type mappings
@@ -225,7 +227,8 @@ Implementation
 
 uses kernelioctl;
 
-{$i cerrno.inc}        // errno.h asm/errno.h bits/errno.h macros.
+{$i types.inc}         // types.h macros.
+{$i cerrno.inc}       // errno.h asm/errno.h bits/errno.h macros.
 {$i time.inc}         // bits/time.h macros.
 {$i stime.inc}        // sys/time.h macros.
 {$i dirent.inc}       // dirent.h macros.
@@ -248,5 +251,6 @@ uses kernelioctl;
 {$i nif_ether.inc}    // netinet/if_ether.h macros.
 {$i nicmp6.inc}       // netinet/icmp6.h macros.
 {$i nip_icmp.inc}     // netinet/ip_icmp.h macros.
+{$i pthread.inc}      // pthread.h Kylix compatibility.
 
 end.

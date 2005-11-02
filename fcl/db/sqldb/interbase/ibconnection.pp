@@ -15,19 +15,11 @@ uses
 {$EndIf}
 
 type
-  TAccessMode = (amReadWrite, amReadOnly);
-  TIsolationLevel = (ilConcurrent, ilConsistent, ilReadCommittedRecV,
-    ilReadCommitted);
-  TLockResolution = (lrWait, lrNoWait);
-  TTableReservation = (trNone, trSharedLockRead, trSharedLockWrite,
-    trProtectedLockRead, trProtectedLockWrite);
 
   TIBCursor = Class(TSQLCursor)
     protected
     Status               : array [0..19] of ISC_STATUS;
     Statement            : pointer;
-    FFieldFlag           : array of shortint;
-    FinFieldFlag         : array of shortint;
     SQLDA                : PXSQLDA;
     in_SQLDA             : PXSQLDA;
     ParamBinding         : array of integer;
@@ -38,10 +30,6 @@ type
     TransactionHandle   : pointer;
     TPB                 : string;                // Transaction parameter buffer
     Status              : array [0..19] of ISC_STATUS;
-    AccessMode          : TAccessMode;
-    IsolationLevel      : TIsolationLevel;
-    LockResolution      : TLockResolution;
-    TableReservation    : TTableReservation;
   end;
 
   TIBConnection = class (TSQLConnection)
@@ -54,13 +42,14 @@ type
     procedure AllocSQLDA(var aSQLDA : PXSQLDA;Count : integer);
     procedure TranslateFldType(SQLType, SQLLen, SQLScale : integer; var LensSet : boolean;
       var TrType : TFieldType; var TrLen : word);
-    procedure SetTPB(trans : TIBtrans);
     // conversion methods
     procedure GetDateTime(CurrBuff, Buffer : pointer; AType : integer);
+    procedure SetDateTime(CurrBuff: pointer; PTime : TDateTime; AType : integer);
     procedure GetFloat(CurrBuff, Buffer : pointer; Field : TFieldDef);
     procedure CheckError(ProcName : string; Status : array of ISC_STATUS);
     function getMaxBlobSize(blobHandle : TIsc_Blob_Handle) : longInt;
     procedure SetParameters(cursor : TSQLCursor;AParams : TParams);
+    procedure FreeSQLDABuffer(var aSQLDA : PXSQLDA);
   protected
     procedure DoInternalConnect; override;
     procedure DoInternalDisconnect; override;
@@ -70,8 +59,8 @@ type
     Procedure DeAllocateCursorHandle(var cursor : TSQLCursor); override;
     Function AllocateTransactionHandle : TSQLHandle; override;
 
-    procedure CloseStatement(cursor : TSQLCursor); override;
     procedure PrepareStatement(cursor: TSQLCursor;ATransaction : TSQLTransaction;buf : string; AParams : TParams); override;
+    procedure UnPrepareStatement(cursor : TSQLCursor); override;
     procedure FreeFldBuffers(cursor : TSQLCursor); override;
     procedure Execute(cursor: TSQLCursor;atransaction:tSQLtransaction; AParams : TParams); override;
     procedure AddFieldDefs(cursor: TSQLCursor;FieldDefs : TfieldDefs); override;
@@ -80,7 +69,7 @@ type
     function GetTransactionHandle(trans : TSQLHandle): pointer; override;
     function Commit(trans : TSQLHandle) : boolean; override;
     function RollBack(trans : TSQLHandle) : boolean; override;
-    function StartdbTransaction(trans : TSQLHandle) : boolean; override;
+    function StartdbTransaction(trans : TSQLHandle; AParams : string) : boolean; override;
     procedure CommitRetaining(trans : TSQLHandle); override;
     procedure RollBackRetaining(trans : TSQLHandle); override;
     procedure UpdateIndexDefs(var IndexDefs : TIndexDefs;TableName : string); override;
@@ -135,43 +124,6 @@ begin
   end;
 end;
 
-procedure TIBConnection.SetTPB(trans : TIBtrans);
-begin
-  with trans do
-    begin
-    TPB := chr(isc_tpb_version3);
-
-    case AccessMode of
-      amReadWrite : TPB := TPB + chr(isc_tpb_write);
-      amReadOnly  : TPB := TPB + chr(isc_tpb_read);
-    end;
-
-    case IsolationLevel of
-      ilConsistent        : TPB := TPB + chr(isc_tpb_consistency);
-      ilConcurrent        : TPB := TPB + chr(isc_tpb_concurrency);
-      ilReadCommittedRecV : TPB := TPB + chr(isc_tpb_read_committed) +
-        chr(isc_tpb_rec_version);
-      ilReadCommitted     : TPB := TPB + chr(isc_tpb_read_committed) +
-        chr(isc_tpb_no_rec_version);
-    end;
-
-    case LockResolution of
-      lrWait   : TPB := TPB + chr(isc_tpb_wait);
-      lrNoWait : TPB := TPB + chr(isc_tpb_nowait);
-    end;
-
-    case TableReservation of
-      trSharedLockRead     : TPB := TPB + chr(isc_tpb_shared) +
-        chr(isc_tpb_lock_read);
-      trSharedLockWrite    : TPB := TPB + chr(isc_tpb_shared) +
-        chr(isc_tpb_lock_write);
-      trProtectedLockRead  : TPB := TPB + chr(isc_tpb_protected) +
-        chr(isc_tpb_lock_read);
-      trProtectedLockWrite : TPB := TPB + chr(isc_tpb_protected) +
-        chr(isc_tpb_lock_write);
-    end;
-    end;
-end;
 
 constructor TIBConnection.Create(AOwner : TComponent);
 
@@ -203,18 +155,49 @@ begin
   else result := true;
 end;
 
-function TIBConnection.StartDBTransaction(trans : TSQLHandle) : boolean;
+function TIBConnection.StartDBTransaction(trans : TSQLHandle;AParams : String) : boolean;
 var
   DBHandle : pointer;
   tr       : TIBTrans;
+  i        : integer;
+  s        : string;
 begin
   result := false;
 
   DBHandle := GetHandle;
   tr := trans as TIBtrans;
-  SetTPB(tr);
   with tr do
     begin
+    TPB := chr(isc_tpb_version3);
+
+    i := 1;
+    s := ExtractSubStr(AParams,i,stdWordDelims);
+    while s <> '' do
+      begin
+      if s='isc_tpb_write' then TPB := TPB + chr(isc_tpb_write)
+      else if s='isc_tpb_read' then TPB := TPB + chr(isc_tpb_read)
+      else if s='isc_tpb_consistency' then TPB := TPB + chr(isc_tpb_consistency)
+      else if s='isc_tpb_concurrency' then TPB := TPB + chr(isc_tpb_concurrency)
+      else if s='isc_tpb_read_committed' then TPB := TPB + chr(isc_tpb_read_committed)
+      else if s='isc_tpb_rec_version' then TPB := TPB + chr(isc_tpb_rec_version)
+      else if s='isc_tpb_no_rec_version' then TPB := TPB + chr(isc_tpb_no_rec_version)
+      else if s='isc_tpb_wait' then TPB := TPB + chr(isc_tpb_wait)
+      else if s='isc_tpb_nowait' then TPB := TPB + chr(isc_tpb_nowait)
+      else if s='isc_tpb_shared' then TPB := TPB + chr(isc_tpb_shared)
+      else if s='isc_tpb_protected' then TPB := TPB + chr(isc_tpb_protected)
+      else if s='isc_tpb_exclusive' then TPB := TPB + chr(isc_tpb_exclusive)
+      else if s='isc_tpb_lock_read' then TPB := TPB + chr(isc_tpb_lock_read)
+      else if s='isc_tpb_lock_write' then TPB := TPB + chr(isc_tpb_lock_write)
+      else if s='isc_tpb_verb_time' then TPB := TPB + chr(isc_tpb_verb_time)
+      else if s='isc_tpb_commit_time' then TPB := TPB + chr(isc_tpb_commit_time)
+      else if s='isc_tpb_ignore_limbo' then TPB := TPB + chr(isc_tpb_ignore_limbo)
+      else if s='isc_tpb_autocommit' then TPB := TPB + chr(isc_tpb_autocommit)
+      else if s='isc_tpb_restart_requests' then TPB := TPB + chr(isc_tpb_restart_requests)
+      else if s='isc_tpb_no_auto_undo' then TPB := TPB + chr(isc_tpb_no_auto_undo);
+      s := ExtractSubStr(AParams,i,stdWordDelims);
+
+      end;
+
     TransactionHandle := nil;
 
     if isc_start_transaction(@Status, @TransactionHandle, 1,
@@ -313,16 +296,25 @@ begin
     end;
 end;
 
-
 procedure TIBConnection.AllocSQLDA(var aSQLDA : PXSQLDA;Count : integer);
 
+var x : shortint;
+
 begin
-  reAllocMem(aSQLDA, XSQLDA_Length(Count));
+  FreeSQLDABuffer(aSQLDA);
+
+  if count > -1 then
+    begin
+    reAllocMem(aSQLDA, XSQLDA_Length(Count));
     { Zero out the memory block to avoid problems with exceptions within the
       constructor of this class. }
-  FillChar(aSQLDA^, XSQLDA_Length(Count), 0);
-  aSQLDA^.Version := sqlda_version1;
-  aSQLDA^.SQLN := Count;
+    FillChar(aSQLDA^, XSQLDA_Length(Count), 0);
+
+    aSQLDA^.Version := sqlda_version1;
+    aSQLDA^.SQLN := Count;
+    end
+  else
+    reAllocMem(aSQLDA,0);
 end;
 
 procedure TIBConnection.TranslateFldType(SQLType, SQLLen, SQLScale : integer; var LensSet : boolean;
@@ -406,8 +398,9 @@ begin
   curs := TIBCursor.create;
   curs.sqlda := nil;
   curs.statement := nil;
-  AllocSQLDA(curs.SQLDA,1);
-  AllocSQLDA(curs.in_SQLDA,1);
+  curs.FPrepared := False;
+  AllocSQLDA(curs.SQLDA,0);
+  AllocSQLDA(curs.in_SQLDA,0);
   result := curs;
 end;
 
@@ -416,8 +409,8 @@ procedure TIBConnection.DeAllocateCursorHandle(var cursor : TSQLCursor);
 begin
   if assigned(cursor) then with cursor as TIBCursor do
     begin
-    reAllocMem(SQLDA,0);
-    reAllocMem(in_SQLDA,0);
+    AllocSQLDA(SQLDA,-1);
+    AllocSQLDA(in_SQLDA,-1);
     end;
   FreeAndNil(cursor);
 end;
@@ -426,16 +419,6 @@ Function TIBConnection.AllocateTransactionHandle : TSQLHandle;
 
 begin
   result := TIBTrans.create;
-end;
-
-procedure TIBConnection.CloseStatement(cursor : TSQLCursor);
-begin
-  with cursor as TIBcursor do
-    begin
-    if isc_dsql_free_statement(@Status, @Statement, DSQL_Drop) <> 0 then
-      CheckError('FreeStatement', Status);
-    Statement := nil;
-    end;
 end;
 
 procedure TIBConnection.PrepareStatement(cursor: TSQLCursor;ATransaction : TSQLTransaction;buf : string; AParams : TParams);
@@ -447,7 +430,6 @@ var dh    : pointer;
     i     : integer;
 
 begin
-//  ObtainSQLStatementType(cursor,buf);
   with cursor as TIBcursor do
     begin
     dh := GetHandle;
@@ -480,6 +462,7 @@ begin
 
     if isc_dsql_prepare(@Status, @tr, @Statement, 0, @Buf[1], Dialect, nil) <> 0 then
       CheckError('PrepareStatement', Status);
+    FPrepared := True;
     if assigned(AParams) and (AParams.count > 0) then
       begin
       AllocSQLDA(in_SQLDA,Length(ParamBinding));
@@ -488,19 +471,19 @@ begin
       if in_SQLDA^.SQLD > in_SQLDA^.SQLN then
         DatabaseError(SParameterCountIncorrect,self);
       {$R-}
-      SetLength(FinFieldFlag,in_SQLDA^.SQLD);
       for x := 0 to in_SQLDA^.SQLD - 1 do with in_SQLDA^.SQLVar[x] do
         begin
         if ((SQLType and not 1) = SQL_VARYING) then
           SQLData := AllocMem(in_SQLDA^.SQLVar[x].SQLLen+2)
         else
           SQLData := AllocMem(in_SQLDA^.SQLVar[x].SQLLen);
-        SQLInd  := @FinFieldFlag[x];
+        if (sqltype and 1) = 1 then New(SQLInd);
         end;
       {$R+}
       end;
     if FStatementType = stselect then
       begin
+      FPrepared := False;
       if isc_dsql_describe(@Status, @Statement, 1, SQLDA) <> 0 then
         CheckError('PrepareSelect', Status);
       if SQLDA^.SQLD > SQLDA^.SQLN then
@@ -510,29 +493,59 @@ begin
           CheckError('PrepareSelect', Status);
         end;
       {$R-}
-      SetLength(FFieldFlag,SQLDA^.SQLD);
       for x := 0 to SQLDA^.SQLD - 1 do with SQLDA^.SQLVar[x] do
         begin
         if ((SQLType and not 1) = SQL_VARYING) then
           SQLData := AllocMem(SQLDA^.SQLVar[x].SQLLen+2)
         else
           SQLData := AllocMem(SQLDA^.SQLVar[x].SQLLen);
-        SQLInd  := @FFieldFlag[x];
+        if (SQLType and 1) = 1 then New(SQLInd);
         end;
       {$R+}
       end;
     end;
 end;
 
-procedure TIBConnection.FreeFldBuffers(cursor : TSQLCursor);
-var
-  x  : shortint;
+procedure TIBConnection.UnPrepareStatement(cursor : TSQLCursor);
+
 begin
-  {$R-}
+  with cursor as TIBcursor do
+    begin
+    if isc_dsql_free_statement(@Status, @Statement, DSQL_Drop) <> 0 then
+      CheckError('FreeStatement', Status);
+    Statement := nil;
+    FPrepared := False;
+    end;
+end;
+
+procedure TIBConnection.FreeSQLDABuffer(var aSQLDA : PXSQLDA);
+
+var x : shortint;
+
+begin
+{$R-}
+  if assigned(aSQLDA) then
+    for x := 0 to aSQLDA^.SQLN - 1 do
+      begin
+      reAllocMem(aSQLDA^.SQLVar[x].SQLData,0);
+      if assigned(aSQLDA^.SQLVar[x].sqlind) then
+        begin
+        Dispose(aSQLDA^.SQLVar[x].sqlind);
+        aSQLDA^.SQLVar[x].sqlind := nil;
+        end
+        
+      end;
+{$R+}
+end;
+
+procedure TIBConnection.FreeFldBuffers(cursor : TSQLCursor);
+
+begin
   with cursor as TIBCursor do
-    for x := 0 to SQLDA^.SQLD - 1 do
-      reAllocMem(SQLDA^.SQLVar[x].SQLData,0);
-  {$R+}
+    begin
+    FreeSQLDABuffer(SQLDA);
+    FreeSQLDABuffer(in_SQLDA);
+    end;
 end;
 
 procedure TIBConnection.Execute(cursor: TSQLCursor;atransaction:tSQLtransaction; AParams : TParams);
@@ -606,13 +619,15 @@ begin
       in_sqlda^.SQLvar[SQLVarNr].SQLInd^ := -1
     else
       begin
-      in_sqlda^.SQLvar[SQLVarNr].SQLInd^ := 0;
+      if assigned(in_sqlda^.SQLvar[SQLVarNr].SQLInd) then in_sqlda^.SQLvar[SQLVarNr].SQLInd^ := 0;
 
       case AParams[ParNr].DataType of
         ftInteger :
           begin
           i := AParams[ParNr].AsInteger;
+          {$R-}
           Move(i, in_sqlda^.SQLvar[SQLVarNr].SQLData^, in_SQLDA^.SQLVar[SQLVarNr].SQLLen);
+          {$R+}
           end;
         ftString  :
           begin
@@ -622,15 +637,21 @@ begin
           if ((in_sqlda^.SQLvar[SQLVarNr].SQLType and not 1) = SQL_VARYING) then
             begin
             in_sqlda^.SQLvar[SQLVarNr].SQLLen := w;
-            in_sqlda^.SQLvar[SQLVarNr].SQLData := AllocMem(in_SQLDA^.SQLVar[SQLVarNr].SQLLen+2)
-            end;
+            ReAllocMem(in_sqlda^.SQLvar[SQLVarNr].SQLData,in_SQLDA^.SQLVar[SQLVarNr].SQLLen+2);
+            CurrBuff := in_sqlda^.SQLvar[SQLVarNr].SQLData;
+            move(w,CurrBuff^,sizeof(w));
+            inc(CurrBuff,2);
+            end
+          else
+            CurrBuff := in_sqlda^.SQLvar[SQLVarNr].SQLData;
 
-          CurrBuff := in_sqlda^.SQLvar[SQLVarNr].SQLData;
-          move(w,CurrBuff^,sizeof(w));
-          inc(CurrBuff,2);
           Move(s[1], CurrBuff^, length(s));
           {$R+}
           end;
+        ftDate, ftTime, ftDateTime:
+          {$R-}
+          SetDateTime(in_sqlda^.SQLvar[SQLVarNr].SQLData, AParams[ParNr].AsDateTime, in_SQLDA^.SQLVar[SQLVarNr].SQLType);
+          {$R+}
       else
         begin
         DatabaseError('This kind of parameter in not (yet) supported.',self);
@@ -660,8 +681,7 @@ begin
 
     if SQLDA^.SQLVar[x].AliasName <> FieldDef.Name then
       DatabaseErrorFmt(SFieldNotFound,[FieldDef.Name],self);
-
-    if SQLDA^.SQLVar[x].SQLInd^ = -1 then
+    if assigned(SQLDA^.SQLVar[x].SQLInd) and (SQLDA^.SQLVar[x].SQLInd^ = -1) then
       result := false
     else
       begin
@@ -752,6 +772,30 @@ begin
   Move(PTime, Buffer^, SizeOf(PTime));
 end;
 
+procedure TIBConnection.SetDateTime(CurrBuff: pointer; PTime : TDateTime; AType : integer);
+var
+  CTime : TTm;          // C struct time
+  STime : TSystemTime;  // System time
+begin
+  DateTimeToSystemTime(PTime,STime);
+  
+  CTime.tm_year := STime.Year - 1900;
+  CTime.tm_mon  := STime.Month -1;
+  CTime.tm_mday := STime.Day;
+  CTime.tm_hour := STime.Hour;
+  CTime.tm_min  := STime.Minute;
+  CTime.tm_sec  := STime.Second;
+
+  case (AType and not 1) of
+    SQL_TYPE_DATE :
+      isc_encode_sql_date(@CTime, PISC_DATE(CurrBuff));
+    SQL_TYPE_TIME :
+      isc_encode_sql_time(@CTime, PISC_TIME(CurrBuff));
+    SQL_TIMESTAMP :
+      isc_encode_timestamp(@CTime, PISC_TIMESTAMP(CurrBuff));
+  end;
+end;
+
 function TIBConnection.GetSchemaInfoSQL(SchemaType : TSchemaType; SchemaObjectName, SchemaPattern : string) : string;
 
 var s : string;
@@ -767,7 +811,9 @@ begin
                         'from '+
                           'rdb$relations '+
                         'where '+
-                          '(rdb$system_flag = 0 or rdb$system_flag is null)'; // and rdb$view_blr is null
+                          '(rdb$system_flag = 0 or rdb$system_flag is null) ' + // and rdb$view_blr is null
+                        'order by rdb$relation_name';
+
     stSysTables  : s := 'select '+
                           'rdb$relation_id          as recno, '+
                           '''' + DatabaseName + ''' as catalog_name, '+
@@ -777,7 +823,9 @@ begin
                         'from '+
                           'rdb$relations '+
                         'where '+
-                          '(rdb$system_flag > 0)'; // and rdb$view_blr is null
+                          '(rdb$system_flag > 0) ' + // and rdb$view_blr is null
+                        'order by rdb$relation_name';
+
     stProcedures : s := 'select '+
                            'rdb$procedure_id        as recno, '+
                           '''' + DatabaseName + ''' as catalog_name, '+
@@ -791,11 +839,11 @@ begin
                         'WHERE '+
                           '(rdb$system_flag = 0 or rdb$system_flag is null)';
     stColumns    : s := 'select '+
-                           'rdb$procedure_id        as recno, '+
+                           'rdb$field_id            as recno, '+
                           '''' + DatabaseName + ''' as catalog_name, '+
                           '''''                     as schema_name, '+
                           'rdb$relation_name        as table_name, '+
-                          'rdb$field_name           as column name, '+
+                          'rdb$field_name           as column_name, '+
                           'rdb$field_position       as column_position, '+
                           '0                        as column_type, '+
                           '0                        as column_datatype, '+
@@ -808,7 +856,8 @@ begin
                         'from '+
                           'rdb$relation_fields '+
                         'WHERE '+
-                          '(rdb$system_flag = 0 or rdb$system_flag is null)';
+                          '(rdb$system_flag = 0 or rdb$system_flag is null) and (rdb$relation_name = ''' + Uppercase(SchemaObjectName) + ''') ' +
+                        'order by rdb$field_name';
   else
     DatabaseError(SMetadataUnavailable)
   end; {case}

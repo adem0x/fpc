@@ -176,7 +176,8 @@ begin
 end;
 
 { TThread }
-constructor TThread.Create(CreateSuspended: Boolean);
+constructor TThread.Create(CreateSuspended: Boolean;
+                           const StackSize: DWord = DefaultStackSize);
 begin
   // lets just hope that the user doesn't create a thread
   // via BeginThread and creates the first TThread Object in there!
@@ -188,14 +189,14 @@ begin
   FInitialSuspended := CreateSuspended;
   FFatalException := nil;
   WRITE_DEBUG('creating thread, self = ',longint(self));
-  FHandle:= BeginThread(@ThreadFunc, Pointer(Self), FThreadID);
+  FHandle:= BeginThread(@ThreadFunc, Pointer(Self), FThreadID, StackSize);
   WRITE_DEBUG('TThread.Create done');
 end;
 
 
 destructor TThread.Destroy;
 begin
-  if FThreadID = GetCurrentThreadID then begin
+  if (FThreadID = GetCurrentThreadID) and not(FFreeOnTerminate) then begin
     raise EThreadDestroyCalled.Create('A thread cannot destroy itself except by setting FreeOnTerminate and leaving!');
   end;
   // if someone calls .Free on a thread with

@@ -23,7 +23,7 @@ program fpc;
 {$mode objfpc}{$H+}
 
   uses
-     Sysutils,dos;
+     Sysutils;
 
   const
 {$ifdef UNIX}
@@ -65,13 +65,11 @@ program fpc;
 
   function FileExists ( Const F : String) : Boolean;
     var
-      Info : SearchRec;
+      Info : TSearchRec;
     begin
-      findfirst(F,readonly+archive+hidden,info);
-      FileExists:=(doserror=0);
+      FileExists:= findfirst(F,fareadonly+faarchive+fahidden,info)=0;
       findclose(Info);
     end;
-
 
   procedure findexe(var ppcbin:string);
     var
@@ -86,12 +84,12 @@ program fpc;
        ppcbin:=path+ppcbin
       else
        begin
-         path:=FSearch(ppcbin,getenv('PATH'));
+         path:=FileSearch(ppcbin,getenvironmentvariable('PATH'));
          if path<>'' then
           ppcbin:=path;
+
        end;
     end;
-
 
   var
      s              : ansistring;
@@ -120,6 +118,10 @@ program fpc;
      ppcbin:='ppcppc';
      processorname:='powerpc';
 {$endif powerpc}
+{$ifdef powerpc64}
+     ppcbin:='ppcppc64';
+     processorname:='powerpc64';
+{$endif powerpc64}
 {$ifdef arm}
      ppcbin:='ppcarm';
      processorname:='arm';
@@ -174,6 +176,8 @@ program fpc;
                        ppcbin:='ppcapx'
                      else if processorstr='powerpc' then
                        ppcbin:='ppcppc'
+                     else if processorstr='powerpc64' then
+                       ppcbin:='ppcppc64'
                      else if processorstr='arm' then
                        ppcbin:='ppcarm'
                      else if processorstr='sparc' then

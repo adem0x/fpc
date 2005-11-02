@@ -116,10 +116,10 @@
              self.destroy;
         end;
 
-      class function TObject.InstanceSize : LongInt;
+      class function TObject.InstanceSize : SizeInt;
 
         begin
-           InstanceSize:=plongint(pointer(self)+vmtInstanceSize)^;
+           InstanceSize:=pSizeInt(pointer(self)+vmtInstanceSize)^;
         end;
 
       procedure InitInterfacePointers(objclass: tclass;instance : pointer);
@@ -153,7 +153,7 @@
 
         begin
            { the size is saved at offset 0 }
-           fillchar(instance^,plongint(pointer(self)+vmtInstanceSize)^,0);
+           fillchar(instance^, InstanceSize, 0);
            { insert VMT pointer into the new created memory area }
            { (in class methods self contains the VMT!)           }
            ppointer(instance)^:=pointer(self);
@@ -175,7 +175,7 @@
            p : pointer;
 
         begin
-           getmem(p,plongint(pointer(self)+vmtInstanceSize)^);
+           getmem(p, InstanceSize);
            if p <> nil then
               InitInstance(p);
            NewInstance:=TObject(p);
@@ -413,9 +413,9 @@
              begin
                 // See if we have messages at all in this class.
                 p:=pointer(vmt)+vmtDynamicTable;
-                If Assigned(p) and (Pdword(p)^<>0) then
+                If assigned(PPointer(p)^) then
                   begin
-                     msgtable:=pmsgtable(PtrInt(p^)+4);
+                     msgtable:=pmsgtable(Pointer(p^)+4);
                      count:=pdword(p^)^;
                   end
                 else

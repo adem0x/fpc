@@ -169,9 +169,9 @@ scan_f_cannot_open_includefile=02013_F_Can't open include file "$1"
 % statement.
 scan_e_illegal_pack_records=02015_E_Illegal record alignment specifier "$1"
 % You are specifying the \var{\{\$PACKRECORDS n\} } or \var{\{\$ALIGN n\} }
-% with an illegal value for \var{n}. For $PACKRECORDS valid alignments are 1, 2, 4, 8, 16, 32, C,
-% NORMAL, DEFAULT, and for $ALIGN valid alignment are 1, 2, 4, 8, 16, 32, ON,
-% OFF. Under mode MacPas $ALIGN also supports MAC68K, POWER and RESET.
+% with an illegal value for \var{n}. For \$PACKRECORDS valid alignments are 1, 2, 4, 8, 16, 32, C,
+% NORMAL, DEFAULT, and for \$ALIGN valid alignment are 1, 2, 4, 8, 16, 32, ON,
+% OFF. Under mode MacPas \$ALIGN also supports MAC68K, POWER and RESET.
 scan_e_illegal_pack_enum=02016_E_Illegal enum minimum-size specifier "$1"
 % You are specifying the \var{\{\$PACKENUM n\}} with an illegal value for
 % \var{n}. Only 1,2,4, NORMAL or DEFAULT are valid here.
@@ -267,7 +267,7 @@ scan_e_illegal_asmmode_specifier=02050_E_Illegal assembler style specified "$1"
 % the compiler didn't recognize the mode you specified.
 scan_w_no_asm_reader_switch_inside_asm=02051_W_ASM reader switch is not possible inside asm statement, "$1" will be effective only for next
 % It is not possible to switch from one assembler reader to another
-% inside an assmebler block. The new reader will be used for next
+% inside an assembler block. The new reader will be used for next
 % assembler statements only.
 scan_e_wrong_switch_toggle=02052_E_Wrong switch toggle, use ON/OFF or +/-
 % You need to use ON or OFF or a + or - to toggle the switch
@@ -309,15 +309,17 @@ scan_e_wrong_switch_toggle_default=02066_E_Wrong switch toggle, use ON/OFF/DEFAU
 scan_e_mode_switch_not_allowed=02067_E_Mode switch "$1" not allowed here
 % A mode switch has already been encountered, or, in case of option -Mmacpas,
 % a mode switch occur after UNIT.
-scan_e_error_macro_undefined=02068_E_Compile time variable "$1" is not defined.
-% Thus the conditional compile time expression cannot be evaluated.
+scan_e_error_macro_undefined=02068_E_Compile time variable or macro "$1" is not defined.
+% Thus the conditional compile time expression cannot be evaluated. Only in mode MacPas.
 scan_e_utf8_bigger_than_65535=02069_E_UTF-8 code greater than 65535 found
 % \fpc handles utf-8 strings internally as widestrings e.g. the char codes are limited to 65535
 scan_e_utf8_malformed=02070_E_Malformed UTF-8 string
 % The given string isn't a valid UTF-8 string
 scan_c_switching_to_utf8=02071_C_UTF-8 signature found, using UTF-8 encoding
-% The compiler found an UTF-8 encoding signature ($ef, $bb, $bf) at the beginning of a file,
+% The compiler found an UTF-8 encoding signature (\$ef, \$bb, \$bf) at the beginning of a file,
 % so it interprets it as an UTF-8 file
+scan_e_compile_time_typeerror=02072_E_Compile time expression: Wanted $1 but got $2 at $3
+% Type check of a compile time expression failed.
 % \end{description}
 #
 # Parser
@@ -509,12 +511,12 @@ parser_e_nothing_to_be_overridden=03058_E_There is no method in an ancestor clas
 % not exist.
 parser_e_no_procedure_to_access_property=03059_E_No member is provided to access property
 % You specified no \var{read} directive for a property.
-parser_w_stored_not_implemented=03060_W_Stored prorperty directive is not yet implemented
+parser_w_stored_not_implemented=03060_W_Stored property directive is not yet implemented
 % The \var{stored} directive is not yet implemented
 parser_e_ill_property_access_sym=03061_E_Illegal symbol for property access
 % There is an error in the \var{read} or \var{write} directives for an array
 % property. When you declare an array property, you can only access it with
-% procedures and functions. The following code woud cause such an error.
+% procedures and functions. The following code would cause such an error.
 % \begin{verbatim}
 % tmyobject = class
 %   i : integer;
@@ -523,7 +525,7 @@ parser_e_ill_property_access_sym=03061_E_Illegal symbol for property access
 %
 parser_e_cant_access_protected_member=03062_E_Cannot access a protected field of an object here
 % Fields that are declared in a \var{protected} section of an object or class
-% declaration cannot be accessed outside the module wher the object is
+% declaration cannot be accessed outside the module where the object is
 % defined, or outside descendent object methods.
 parser_e_cant_access_private_member=03063_E_Cannot access a private field of an object here
 % Fields that are declared in a \var{private} section of an object or class
@@ -679,7 +681,7 @@ parser_d_compiling_second_time=03107_DL_Compiling $1 for the second time
 % When you request debug messages (\var{-vd}) the compiler tells you what
 % units it recompiles for the second time.
 parser_e_no_property_found_to_override=03109_E_No property found to override
-% You want to overrride a property of a parent class, when there is, in fact,
+% You want to override a property of a parent class, when there is, in fact,
 % no such property in the parent class.
 parser_e_only_one_default_property=03110_E_Only one default property is allowed
 % You specified a property as \var{Default}, but the class already has a
@@ -761,7 +763,7 @@ parser_e_cant_publish_that_property=03134_E_That kind of property can't be publi
 parser_e_empty_import_name=03136_E_An import name is required
 % Some targets need a name for the imported procedure or a \var{cdecl} specifier
 parser_e_division_by_zero=03138_E_Division by zero
-% There is a divsion by zero encounted
+% There is a division by zero encounted
 parser_e_invalid_float_operation=03139_E_Invalid floating point operation
 % An operation on two real type values produced an overflow or a division
 % by zero.
@@ -1012,6 +1014,12 @@ parser_e_arithmetic_operation_overflow=03213_E_Overflow in arithmetic operation
 % An operation on two integers values produced an overflow
 parser_e_protected_or_private_expected=03214_E_Protected or private expected
 % \var{strict} can be only used together with \var{protected} or \var{private}.
+parser_e_illegal_slice=03215_E_SLICE can't be used outside of parameter list
+% \var{slice} can be used only for arguments accepting an open array parameter
+parser_e_dispinterface_cant_have_parent=03216_E_A DISPINTERFACE can't have a parent class
+% A DISPINMTERFACE is a special type of interface which can't have a parent class
+parser_e_dispinterface_needs_a_guid=03217_E_A DISPINTERFACE needs a guid
+% A DISPINMTERFACE needs always an interface identification
 % \end{description}
 #
 # Type Checking
@@ -1493,15 +1501,20 @@ cg_w_parasize_too_big=06041_W_Parameters size exceeds limit for certain cpu's
 % This indicates that you are declaring more than 64K of parameters, which
 % might not be supported on other processor targets.
 cg_w_localsize_too_big=06042_W_Local variable size exceed limit for certain cpu's
-% This indicates that you are declaring more than 32K of lcoal variables, which
+% This indicates that you are declaring more than 32K of local variables, which
 % might not be supported on other processor targets.
 cg_e_localsize_too_big=06043_E_Local variables size exceeds supported limit
-% This indicates that you are declaring more than 32K of lcoal variables, which
+% This indicates that you are declaring more than 32K of local variables, which
 % is not supported by this processor.
 cg_e_break_not_allowed=06044_E_BREAK not allowed
 % You're trying to use \var{break} outside a loop construction.
 cg_e_continue_not_allowed=06045_E_CONTINUE not allowed
 % You're trying to use \var{continue} outside a loop construction.
+cg_f_unknown_compilerproc=06046_F_Unknown compilerproc "$1". Check if you use the correct run time library.
+% The compiler expects that the runtime library contains some subrountines. If you see this error
+% and you didn't mess with the runtime library, it's very likely that the runtime library
+% you're using doesn't match the used compiler. If you changed the runtime library this error means
+% that you removed a subroutine which the compiler needs for internal use.
 % \end{description}
 # EndOfTeX
 
@@ -1547,8 +1560,8 @@ asmr_e_relocatable_symbol_not_allowed=07013_E_Relocatable symbol is not allowed
 asmr_e_invalid_reference_syntax=07014_E_Invalid reference syntax
 % There is an error in the reference.
 asmr_e_local_para_unreachable=07015_E_You can not reach $1 from that code
-% You can not read directly the value of local or para
-% of a higher level in assembler code (except for
+% You can not read directly the value of a local variable or parameter
+% of a higher level procedure in assembler code (except for
 % local assembler code without parameter nor locals).
 asmr_e_local_label_not_allowed_as_ref=07016_E_Local symbols/labels aren't allowed as references
 % You can't use local symbols/labels as references
@@ -1767,7 +1780,7 @@ asmw_e_invalid_register=08019_E_Asm: Invalid register $1
 % \begin{description}
 exec_w_source_os_redefined=09000_W_Source operating system redefined
 exec_i_assembling_pipe=09001_I_Assembling (pipe) $1
-exec_d_cant_create_asmfile=09002_E_Can't create assember file: $1
+exec_d_cant_create_asmfile=09002_E_Can't create assembler file: $1
 % The mentioned file can't be created. Check if you have got
 % access permissions to create this file
 exec_e_cant_create_objectfile=09003_E_Can't create object file: $1
@@ -1861,7 +1874,7 @@ unit_u_ppu_invalid_target=10010_U_PPU is compiled for an other target
 % This unit file was compiled for a different target, and
 % cannot be read
 unit_u_ppu_source=10011_U_PPU Source: $1
-% When you use the \var{-vu} flag, the unit CRC check is shown.
+% When you use the \var{-vu} flag, the unit source file name is shown.
 unit_u_ppu_write=10012_U_Writing $1
 % When you specify the \var{-vu} switch, the compiler will tell you where it
 % writes the unit file.
@@ -2265,6 +2278,7 @@ S*2Aas_assemble using GNU AS
 **2Nu_unroll loops
 **1o<x>_change the name of the executable produced to <x>
 **1O<x>_optimizations:
+3*2Oa_<type>=<values> set alignment
 3*2Og_generate smaller code
 3*2OG_generate faster code (default)
 **2Or_keep certain variables in registers
@@ -2300,6 +2314,7 @@ S*2Aas_assemble using GNU AS
 **2Sg_allow LABEL and GOTO
 **2Sh_Use ansistrings
 **2Si_support C++ styled INLINE
+**2Sk_load fpcylix unit
 **2SI<x>_set interface style to <x>
 **3SIcom_COM compatible interface (default)
 **3SIcorba_CORBA compatible interface
@@ -2326,6 +2341,7 @@ S*2Aas_assemble using GNU AS
 3*2Twatcom_Watcom compatible DOS extender
 3*2Twdosx_WDOSX DOS extender
 3*2Twin32_Windows 32 Bit
+3*2Twince_Windows CE
 4*2Tlinux_Linux
 6*2Tamiga_Commodore Amiga
 6*2Tatari_Atari ST/STe/TT
@@ -2333,6 +2349,7 @@ S*2Aas_assemble using GNU AS
 6*2Tmacos_Macintosh m68k (not supported)
 6*2Tpalmos_PalmOS
 A*2Tlinux_Linux
+A*2Twince_Windows CE
 P*2Tdarwin_Darwin and MacOS X on PowerPC
 P*2Tlinux_Linux on PowerPC
 P*2Tmacos_MacOS (classic) on PowerPC
@@ -2351,6 +2368,7 @@ S*2Tlinux_Linux
 **2*_i : Show general info           d : Show debug info
 **2*_l : Show linenumbers            r : Rhide/GCC compatibility mode
 **2*_a : Show everything             x : Executable info (Win32 only)
+**2*_b : Write file names messages with full path
 **2*_v : write fpcdebug.txt with     p : Write tree.log with parse tree
 **2*_    lots of debugging info
 3*1W<x>_Win32-like target options

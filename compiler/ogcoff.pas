@@ -70,8 +70,7 @@ interface
          function  sectionname(atype:tasmsectiontype;const aname:string):string;override;
          procedure writereloc(data,len:aint;p:tasmsymbol;relative:TAsmRelocationType);override;
          procedure writesymbol(p:tasmsymbol);override;
-         procedure writestabs(offset:aint;p:pchar;nidx,nother,line:longint;reloc:boolean);override;
-         procedure writesymstabs(offset:aint;p:pchar;ps:tasmsymbol;nidx,nother,line:longint;reloc:boolean);override;
+         procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother,line:longint;p:pchar);override;
          procedure beforealloc;override;
          procedure beforewrite;override;
          procedure afteralloc;override;
@@ -536,7 +535,7 @@ const go32v2stub : array[0..2047] of byte=(
         createsection(sec_code,'',0,[]);
         createsection(sec_data,'',0,[]);
         createsection(sec_bss,'',0,[]);
-        if (cs_gdb_lineinfo in aktglobalswitches) or
+        if (cs_use_lineinfo in aktglobalswitches) or
            (cs_debuginfo in aktmoduleswitches) then
          begin
            stabssec:=createsection(sec_stab,'',0,[]);
@@ -557,10 +556,12 @@ const go32v2stub : array[0..2047] of byte=(
           '.text','.data','.data','.bss','.threadvar',
           'common',
           '.note',
+          '.text',
           '.stab','.stabstr',
           '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
           '.eh_frame',
-          '.debug_frame'
+          '.debug_frame',
+          '.fpc'
         );
       begin
         { No support for named sections, because section names are limited to 8 chars }
@@ -659,74 +660,16 @@ const go32v2stub : array[0..2047] of byte=(
       end;
 
 
-    procedure tcoffobjectdata.writestabs(offset:aint;p:pchar;nidx,nother,line:longint;reloc : boolean);
+    procedure tcoffobjectdata.writestab(offset:aint;ps:tasmsymbol;nidx,nother,line:longint;p:pchar);
       var
         stab : coffstab;
         curraddr : longint;
       begin
-        { local var can be at offset -1 !! PM }
-        if reloc then
-         begin
-           if (offset=-1) then
-            begin
-              if currsec=nil then
-               offset:=0
-              else
-               offset:=currsec.datasize;
-            end;
-           if (currsec<>nil) then
-            inc(offset,currsec.datapos);
-         end;
-        if assigned(p) and (p[0]<>#0) then
-         begin
-           stab.strpos:=stabstrsec.datasize;
-           stabstrsec.write(p^,strlen(p)+1);
-         end
-        else
-         stab.strpos:=0;
-        stab.ntype:=nidx;
-        stab.ndesc:=line;
-        stab.nother:=nother;
-        stab.nvalue:=offset;
-        StabsSec.write(stab,sizeof(stab));
-        { when the offset is not 0 then write a relocation, take also the
-          hdrstab into account with the offset }
-        if reloc then
-         begin
-           { current address }
-           curraddr:=StabsSec.mempos+StabsSec.datasize;
-           if DLLSource and RelocSection then
-           { avoid relocation in the .stab section
-             because it ends up in the .reloc section instead }
-             StabsSec.addsectionreloc(curraddr-4,currsec,RELOC_RVA)
-           else
-             StabsSec.addsectionreloc(curraddr-4,currsec,RELOC_ABSOLUTE);
-         end;
-      end;
-
-
-    procedure tcoffobjectdata.writesymstabs(offset:aint;p:pchar;ps:tasmsymbol;nidx,nother,line:longint;reloc:boolean);
-      var
-        stab : coffstab;
-        curraddr : longint;
-      begin
-        { do not use the size stored in offset field
-         this is DJGPP specific ! PM }
-        if win32 then
+        { Win32 does not need an offset if a symbol relocation is used }
+        if win32 and
+           assigned(ps) and
+           (ps.currbind<>AB_LOCAL) then
           offset:=0;
-        { local var can be at offset -1 !! PM }
-        if reloc then
-         begin
-           if (offset=-1) then
-            begin
-              if currsec=nil then
-               offset:=0
-              else
-               offset:=currsec.datasize;
-            end;
-           if (currsec<>nil) then
-            inc(offset,currsec.mempos);
-         end;
         if assigned(p) and (p[0]<>#0) then
          begin
            stab.strpos:=StabStrSec.datasize;
@@ -739,10 +682,9 @@ const go32v2stub : array[0..2047] of byte=(
         stab.nother:=nother;
         stab.nvalue:=offset;
         StabsSec.write(stab,sizeof(stab));
-        { when the offset is not 0 then write a relocation, take also the
-          hdrstab into account with the offset }
-        if reloc then
+        if assigned(ps) then
          begin
+           writesymbol(ps);
            { current address }
            curraddr:=StabsSec.mempos+StabsSec.datasize;
            if DLLSource and RelocSection then
@@ -785,7 +727,7 @@ const go32v2stub : array[0..2047] of byte=(
         { create stabs sections if debugging }
         if (cs_debuginfo in aktmoduleswitches) then
          begin
-           writestabs(0,nil,0,0,0,false);
+           writestab(0,nil,0,0,0,nil);
            { write zero pchar and name together (PM) }
            s:=#0+SplitFileName(current_module.mainsource^)+#0;
            stabstrsec.write(s[1],length(s));
@@ -1075,11 +1017,9 @@ const go32v2stub : array[0..2047] of byte=(
            calculated more easily }
            if StabsSec<>nil then
             begin
-              { first stabs for main source }
-              writestabs(0,nil,0,0,0,false);
+              { header stab }
               s:=#0+SplitFileName(current_module.mainsource^)+#0;
               stabstrsec.write(s[1],length(s));
-              { header stab }
               hstab.strpos:=1;
               hstab.ntype:=0;
               hstab.nother:=0;
@@ -1100,7 +1040,12 @@ const go32v2stub : array[0..2047] of byte=(
            sympos:=datapos;
          { COFF header }
            fillchar(header,sizeof(coffheader),0);
+{$ifdef i386}
            header.mach:=$14c;
+{$endif i386}
+{$ifdef arm}
+           header.mach:=$1c0;
+{$endif arm}
            header.nsects:=nsects;
            header.sympos:=sympos;
            header.syms:=symbols.count+initsym;
@@ -1613,7 +1558,12 @@ const go32v2stub : array[0..2047] of byte=(
               Comment(V_Error,'Error reading coff file');
               exit;
             end;
+{$ifdef i386}
            if header.mach<>$14c then
+{$endif i386}
+{$ifdef arm}
+           if header.mach<>$1c0 then
+{$endif arm}
             begin
               Comment(V_Error,'Not a coff file');
               exit;
@@ -1755,7 +1705,6 @@ const go32v2stub : array[0..2047] of byte=(
             comment : '';
           );
 
-    const
        as_i386_pecoff_info : tasminfo =
           (
             id     : as_i386_pecoff;
@@ -1793,9 +1742,26 @@ const go32v2stub : array[0..2047] of byte=(
           );
 
 
+       as_arm_pecoffwince_info : tasminfo =
+          (
+            id     : as_arm_pecoffwince;
+            idtxt  : 'PECOFFWINCE';
+            asmbin : '';
+            asmcmd : '';
+            supported_target : system_arm_wince;
+            flags : [af_outputbinary];
+            labelprefix : '.L';
+            comment : '';
+          );
+
 initialization
+{$ifdef i386}
   RegisterAssembler(as_i386_coff_info,TCoffAssembler);
   RegisterAssembler(as_i386_pecoff_info,TPECoffAssembler);
   RegisterAssembler(as_i386_pecoffwdosx_info,TPECoffAssembler);
   RegisterAssembler(as_i386_pecoffwince_info,TPECoffAssembler);
+{$endif i386}
+{$ifdef arm}
+  RegisterAssembler(as_arm_pecoffwince_info,TPECoffAssembler);
+{$endif arm}
 end.

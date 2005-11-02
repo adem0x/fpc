@@ -655,6 +655,34 @@ implementation
               consume(_RKLAMMER);
             end;
 
+          in_slice_x:
+            begin
+              if not(in_args) then
+                begin
+                  message(parser_e_illegal_slice);
+                  consume(_LKLAMMER);
+                  in_args:=true;
+                  comp_expr(true).free;
+                  if try_to_consume(_COMMA) then
+                    comp_expr(true).free;
+                  statement_syssym:=cerrornode.create;
+                  consume(_RKLAMMER);
+                end
+              else
+                begin
+                  consume(_LKLAMMER);
+                  in_args:=true;
+                  p1:=comp_expr(true);
+                  if try_to_consume(_COMMA) then
+                    p2:=ccallparanode.create(comp_expr(true),nil)
+                  else
+                    p2:=nil;
+                  p2:=ccallparanode.create(p1,p2);
+                  statement_syssym:=geninlinenode(l,false,p2);
+                  consume(_RKLAMMER);
+                end;
+            end;
+
           in_initialize_x:
             begin
               statement_syssym:=inline_initialize;
@@ -674,21 +702,24 @@ implementation
             begin
               consume(_LKLAMMER);
               in_args:=true;
+              { Translate to x:=x+y[+z]. The addnode will do the
+                type checking }
               p2:=nil;
               repeat
                 p1:=comp_expr(true);
-                if assigned(p2) then
-                  set_varstate(p1,vs_read,[vsf_must_be_valid])
-                else
-                  set_varstate(p1,vs_readwritten,[vsf_must_be_valid]);
-                if not((p1.resulttype.def.deftype=stringdef) or
-                       ((p1.resulttype.def.deftype=orddef) and
-                        (torddef(p1.resulttype.def).typ=uchar))) then
-                  Message(parser_e_illegal_parameter_list);
                 if p2<>nil then
                   p2:=caddnode.create(addn,p2,p1)
                 else
-                  p2:=p1;
+                  begin
+                    { Force string type if it isn't yet }
+                    if not(
+                           (p1.resulttype.def.deftype=stringdef) or
+                           is_chararray(p1.resulttype.def) or
+                           is_char(p1.resulttype.def)
+                          ) then
+                      inserttypeconv(p1,cshortstringtype);
+                    p2:=p1;
+                  end;
               until not try_to_consume(_COMMA);
               consume(_RKLAMMER);
               statement_syssym:=p2;
@@ -782,7 +813,7 @@ implementation
               else
                begin
                  { then insert an empty string }
-                 p2:=cstringconstnode.createstr('',st_default);
+                 p2:=cstringconstnode.createstr('',st_conststring);
                end;
               statement_syssym:=geninlinenode(l,false,ccallparanode.create(p1,ccallparanode.create(p2,nil)));
               consume(_RKLAMMER);
@@ -848,7 +879,8 @@ implementation
                getaddr:=true;
              end
             else
-             if (m_tp_procvar in aktmodeswitches) then
+             if (m_tp_procvar in aktmodeswitches) or
+                (m_mac_procvar in aktmodeswitches) then
               begin
                 aprocdef:=Tprocsym(sym).search_procdef_byprocvardef(getprocvardef);
                 if assigned(aprocdef) then
@@ -928,7 +960,8 @@ implementation
       begin
         if not assigned(pv) then
          internalerror(200301121);
-        if (m_tp_procvar in aktmodeswitches) then
+        if (m_tp_procvar in aktmodeswitches) or
+           (m_mac_procvar in aktmodeswitches) then
          begin
            hp:=p2;
            hpp:=@p2;
@@ -1187,9 +1220,14 @@ implementation
               (vo_is_funcret in tabstractvarsym(srsym).varoptions) and
               (
                (token=_LKLAMMER) or
-               (not(m_fpc in aktmodeswitches) and
+               (
+                (
+                 (m_tp7 in aktmodeswitches) or
+                 (m_delphi in aktmodeswitches)
+                ) and
                 (afterassignment or in_args) and
-                not(vo_is_result in tabstractvarsym(srsym).varoptions))
+                not(vo_is_result in tabstractvarsym(srsym).varoptions)
+               )
               ) then
             begin
               storesymtablestack:=symtablestack;
@@ -1390,7 +1428,7 @@ implementation
                           getmem(pc,len+1);
                           move(pchar(tconstsym(srsym).value.valueptr)^,pc^,len);
                           pc[len]:=#0;
-                          p1:=cstringconstnode.createpchar(pc,len);
+                          p1:=cstringconstnode.createpchar(pc,len,st_conststring);
                         end;
                       constwstring :
                         p1:=cstringconstnode.createwstr(pcompilerwidestring(tconstsym(srsym).value.valueptr));
@@ -1669,6 +1707,18 @@ implementation
                _CARET:
                   begin
                     consume(_CARET);
+
+                    { support tp/mac procvar^ if the procvar returns a
+                      pointer type }
+                    if ((m_tp_procvar in aktmodeswitches) or
+                        (m_mac_procvar in aktmodeswitches)) and
+                       (p1.resulttype.def.deftype=procvardef) and
+                       (tprocvardef(p1.resulttype.def).rettype.def.deftype=pointerdef) then
+                      begin
+                        p1:=ccallnode.create_procvar(nil,p1);
+                        resulttypepass(p1);
+                      end;
+
                     if (p1.resulttype.def.deftype<>pointerdef) then
                       begin
                          { ^ as binary operator is a problem!!!! (FK) }
@@ -1679,9 +1729,7 @@ implementation
                          p1:=cerrornode.create;
                       end
                     else
-                      begin
-                         p1:=cderefnode.create(p1);
-                      end;
+                      p1:=cderefnode.create(p1);
                   end;
 
                _LECKKLAMMER:
@@ -2217,7 +2265,7 @@ implementation
 
            _CSTRING :
              begin
-               p1:=cstringconstnode.createstr(pattern,st_default);
+               p1:=cstringconstnode.createstr(pattern,st_conststring);
                consume(_CSTRING);
              end;
 
@@ -2298,6 +2346,9 @@ implementation
              begin
                consume(_PLUS);
                p1:=factor(false);
+               { we must generate a new node to do 0+<p1> otherwise the + will
+                 not be checked }
+               p1:=caddnode.create(addn,genintconstnode(0),p1);
              end;
 
            _MINUS :

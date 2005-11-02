@@ -72,7 +72,7 @@ var
   p, hp: taicpu;
   tmpRef: treference;
   r,regCounter: tsuperregister;
-  opCount: byte;
+  opCount: longint;
   dummy: boolean;
 begin
   modifiesConflictingMemLocation := false;
@@ -409,7 +409,7 @@ var
 
 var
   prevreginfo: toptreginfo;
-  hp2, hp3{, EndMod},highPrev, orgPrev: tai;
+  hp2, hp3{, EndMod},highPrev, orgPrev, pprev: tai;
   {Cnt,} OldNrofMods: Longint;
   startRegInfo, OrgRegInfo, HighRegInfo: toptreginfo;
   regModified, lastregloadremoved: array[RS_EAX..RS_ESP] of boolean;
@@ -439,6 +439,7 @@ begin {CheckSequence}
   regsNotRead := [RS_EAX,RS_EBX,RS_ECX,RS_EDX,RS_ESP,RS_EBP,RS_EDI,RS_ESI];
   regsStillValid := regsNotRead;
   GetLastInstruction(p, prev);
+  pprev := prev;
   tmpreg:=RS_INVALID;
   regCounter := getNextRegToTest(prev,tmpreg);
   while (regcounter <> RS_INVALID) do
@@ -518,17 +519,46 @@ begin {CheckSequence}
             flagResultsNeeded := not instrReadsFlags(hp3);
           if not flagResultsNeeded then
             flagResultsNeeded := ptaiprop(hp3.optinfo)^.FlagsUsed;
-          GetNextInstruction(hp2, hp2);
-          GetNextInstruction(hp3, hp3);
           inc(Found);
+          if (Found <> OldNrofMods) then
+            if not GetNextInstruction(hp2, hp2) or
+               not GetNextInstruction(hp3, hp3) then
+              break;
         end;
+
+      getnextinstruction(hp3,hp3);
+{
+a) movl  -4(%ebp),%edx
+   movl -12(%ebp),%ecx
+   ...
+   movl  -8(%ebp),%eax
+   movl -12(%ebp),%edx (marked as removable)
+   movl  (%eax,%edx),%eax (replaced by "movl (%eax,%ecx),%eax")
+   ...
+   movl  -8(%ebp),%eax
+   movl -12(%ebp),%edx
+   movl  (%eax,%edx),%eax
+   movl  (%edx),%edx
+
+-> the "movl -12(ebp),%edx" can't be removed in the last sequence, because
+   edx has not been replaced with ecx there, and edx is still used after the
+   sequence
+
+b) tests/webtbs/tw4266.pp
+}
 
       for regCounter2 := RS_EAX to RS_EDI do
         if (reginfo.new2OldReg[regCounter2] <> RS_INVALID) and
            (regCounter2 in ptaiprop(hp3.optinfo)^.usedRegs) and
-           not regLoadedWithNewValue(regCounter2,false,hp3) and
-           lastregloadremoved[regcounter2] then
-          found := 0;
+           { case a) above }
+           ((not regLoadedWithNewValue(regCounter2,false,hp3) and
+             lastregloadremoved[regcounter2]) or
+           { case b) above }
+            ((ptaiprop(pprev.optinfo)^.regs[regcounter2].wstate <>
+              ptaiprop(hp2.optinfo)^.regs[regcounter2].wstate))) then
+          begin
+            found := 0;
+          end;
 
       if checkingPrevSequences then
         begin
@@ -890,8 +920,9 @@ begin
   if (newrstate = ptaiprop(p.optinfo)^.Regs[supreg].rState) then
     begin
       incstate(ptaiprop(p.optinfo)^.regs[supreg].rstate,63);
-      if getnextinstruction(p,hp) and
-         (ptaiprop(hp.optinfo)^.regs[supreg].rstate = ptaiprop(p.optinfo)^.regs[supreg].rstate) then
+      if not getnextinstruction(p,hp) then
+        exit;
+      if (ptaiprop(hp.optinfo)^.regs[supreg].rstate = ptaiprop(p.optinfo)^.regs[supreg].rstate) then
         internalerror(2004122710);
      end;
   dummyregs := [supreg];
@@ -995,19 +1026,11 @@ begin
   if getLastInstruction(hp,prev) then
     with ptaiprop(prev.optinfo)^ do
       begin
-{$ifopt r+}
-{$define rangeon}
-{$r-}
-{$endif}
-        newOrgRegRState := regs[orgReg].rState +
-          ptaiprop(hp.optinfo)^.regs[newReg].rState - regs[newReg].rstate;
+        newOrgRegRState := byte(longint(regs[orgReg].rState) +
+          longint(ptaiprop(hp.optinfo)^.regs[newReg].rState) - regs[newReg].rstate);
         if writeStateToo then
-          newOrgRegWState := regs[orgReg].wState +
-            ptaiprop(hp.optinfo)^.regs[newReg].wState - regs[newReg].wstate;
-{$ifdef rangeon}
-{$undef rangeon}
-{$r+}
-{$endif}
+          newOrgRegWState := byte(longint(regs[orgReg].wState) +
+            longint(ptaiprop(hp.optinfo)^.regs[newReg].wState) - regs[newReg].wstate);
       end
   else
     with ptaiprop(hp.optinfo)^.regs[newReg] do
@@ -1066,7 +1089,7 @@ end;
 
 function doReplaceReadReg(p: taicpu; newReg,orgReg: tsuperregister): boolean;
 var
-  opCount: byte;
+  opCount: longint;
 begin
   doReplaceReadReg := false;
   { handle special case }
@@ -1375,7 +1398,8 @@ begin
       replaceReg := true;
       returnEndP := endP;
 
-      getNextInstruction(p,hp);
+      if not getNextInstruction(p,hp) then
+        exit;
       stateChanged := false;
       while hp <> endP do
         begin
@@ -1502,7 +1526,7 @@ begin
           { the contents it had before this instruction                   }
           if getlastinstruction(startmod,beforestartmod) then
             RestoreRegContentsTo(supreg,ptaiprop(beforestartmod.optinfo)^.regs[supreg],
-             startmod,p)
+             startmod,hp1)
           else
             ClearRegContentsFrom(supreg,startmod,hp1);
         end;

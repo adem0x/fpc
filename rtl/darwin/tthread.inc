@@ -54,6 +54,15 @@
   Johannes Berg <johannes@sipsolutions.de>, Sunday, November 16 2003
 }
 
+{ ok, so this is a hack, but it works nicely. Just never use
+  a multiline argument with WRITE_DEBUG! }
+{$MACRO ON}
+{$IFDEF DEBUG_MT}
+{$define WRITE_DEBUG := writeln} // actually write something
+{$ELSE}
+{$define WRITE_DEBUG := //}      // just comment out those lines
+{$ENDIF}
+
 // ========== semaphore stuff ==========
 {
   I don't like this. It eats up 2 filedescriptors for each thread,
@@ -70,22 +79,39 @@ function SemaphoreInit: Pointer;
 begin
   SemaphoreInit := GetMem(SizeOf(TFilDes));
   fppipe(PFilDes(SemaphoreInit)^);
+  WRITE_DEBUG('Opened file descriptor ',PFilDes(SemaphoreInit)^[0]);
 end;
 
 procedure SemaphoreWait(const FSem: Pointer);
 var
   b: byte;
 begin
-  fpread(PFilDes(FSem)^[0], b, 1);
+  WRITE_DEBUG('Waiting for file descriptor ',PFilDes(FSem)^[0]);
+  repeat
+    if fpread(PFilDes(FSem)^[0], b, 1) = -1 then
+      WRITE_DEBUG('Error reading from semaphore ',PFilDes(FSem)^[0],' error = ',fpgeterrno);
+  until fpgeterrno <> ESysEIntr;
 end;
 
 procedure SemaphorePost(const FSem: Pointer);
+{$ifdef VER2_0}
+var
+  b : byte;
+{$endif}
 begin
-  fpwrite(PFilDes(FSem)^[1], #0, 1);
+  WRITE_DEBUG('Activating file descriptor ',PFilDes(FSem)^[0]);
+{$ifdef VER2_0}
+  b:=0;
+  fpwrite(PFilDes(FSem)^[1], b, 1);
+{$else}
+  if fpwrite(PFilDes(FSem)^[1], #0, 1) = -1 then
+    WRITE_DEBUG('Error writing file descriptor ',PFilDes(FSem)^[0],' error = ',fpgeterrno);
+{$endif}
 end;
 
 procedure SemaphoreDestroy(const FSem: Pointer);
 begin
+  WRITE_DEBUG('Closing file descriptor ',PFilDes(FSem)^[0]);
   fpclose(PFilDes(FSem)^[0]);
   fpclose(PFilDes(FSem)^[1]);
   FreeMemory(FSem);
@@ -111,15 +137,6 @@ procedure DoneThreads;
 begin
   ThreadsInited := false;
 end;
-
-{ ok, so this is a hack, but it works nicely. Just never use
-  a multiline argument with WRITE_DEBUG! }
-{$MACRO ON}
-{$IFDEF DEBUG_MT}
-{$define WRITE_DEBUG := writeln} // actually write something
-{$ELSE}
-{$define WRITE_DEBUG := //}      // just comment out those lines
-{$ENDIF}
 
 function ThreadFunc(parameter: Pointer): LongInt;
 var
@@ -163,7 +180,8 @@ begin
 end;
 
 { TThread }
-constructor TThread.Create(CreateSuspended: Boolean);
+constructor TThread.Create(CreateSuspended: Boolean;
+                           const StackSize: DWord = DefaultStackSize);
 begin
   // lets just hope that the user doesn't create a thread
   // via BeginThread and creates the first TThread Object in there!
@@ -175,14 +193,14 @@ begin
   FInitialSuspended := CreateSuspended;
   FFatalException := nil;
   WRITE_DEBUG('creating thread, self = ',longint(self));
-  FHandle:= BeginThread(@ThreadFunc, Pointer(Self), FThreadID);
+  FHandle:= BeginThread(@ThreadFunc, Pointer(Self), FThreadID, StackSize);
   WRITE_DEBUG('TThread.Create done');
 end;
 
 
 destructor TThread.Destroy;
 begin
-  if FThreadID = GetCurrentThreadID then begin
+  if (FThreadID = GetCurrentThreadID) and not(FFreeOnTerminate) then begin
     raise EThreadDestroyCalled.Create('A thread cannot destroy itself except by setting FreeOnTerminate and leaving!');
   end;
   // if someone calls .Free on a thread with
@@ -247,7 +265,7 @@ end;
 
 function TThread.WaitFor: Integer;
 begin
-  WRITE_DEBUG('waiting for thread ',FHandle);
+  WRITE_DEBUG('waiting for thread ',ptrint(FHandle));
   WaitFor := WaitForThreadTerminate(FHandle, 0);
   WRITE_DEBUG('thread terminated');
 end;

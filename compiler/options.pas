@@ -78,7 +78,7 @@ uses
   version,
   cutils,cmsgs,
   comphook,
-  symtable
+  symtable,scanner
 {$ifdef BrowserLog}
   ,browlog
 {$endif BrowserLog}
@@ -90,9 +90,7 @@ const
 var
   option     : toption;
   read_configfile,        { read config file, set when a cfgfile is found }
-  disable_configfile,
-  target_is_set : boolean;  { do not allow contradictory target settings }
-  asm_is_set  : boolean; { -T also change initoutputformat if not set idrectly }
+  disable_configfile : boolean;
   fpcdir,
   ppccfg,
   ppcaltcfg,
@@ -263,7 +261,7 @@ begin
       '6',
 {$endif}
 {$ifdef arm}
-      'S',
+      'A',
 {$endif}
 {$ifdef powerpc}
       'P',
@@ -279,9 +277,7 @@ begin
      if show then
       begin
         case s[2] of
-{$ifdef GDB}
          'g',
-{$endif}
 {$ifdef Unix}
          'L',
 {$endif}
@@ -388,7 +384,6 @@ var
   d    : DirStr;
   e    : ExtStr;
   s    : string;
-  forceasm : tasm;
 begin
   if opt='' then
    exit;
@@ -453,10 +448,9 @@ begin
 
            'A' :
              begin
-               if set_target_asm_by_string(More) then
-                asm_is_set:=true
-               else
-                IllegalPara(opt);
+               paratargetasm:=find_asm_by_string(More);
+               if paratargetasm=as_none then
+                 IllegalPara(opt);
              end;
 
            'b' :
@@ -603,8 +597,13 @@ begin
 
            'd' :
              if more <> '' then
-               def_system_macro(more);
-
+               begin
+                 l:=Pos(':=',more);
+                 if l>0 then
+                   set_system_compvar(Copy(more,1,l-1),Copy(more,l+2,255))
+                 else
+                   def_system_macro(more);
+               end;
            'D' :
              begin
                include(initglobalswitches,cs_link_deffile);
@@ -744,62 +743,48 @@ begin
                if UnsetBool(More, 0) then
                 begin
                   exclude(initmoduleswitches,cs_debuginfo);
-                  exclude(initglobalswitches,cs_gdb_dbx);
-                  exclude(initglobalswitches,cs_gdb_gsym);
-                  exclude(initglobalswitches,cs_gdb_heaptrc);
-                  exclude(initglobalswitches,cs_gdb_lineinfo);
+                  exclude(initglobalswitches,cs_use_heaptrc);
+                  exclude(initglobalswitches,cs_use_lineinfo);
                   exclude(initlocalswitches,cs_checkpointer);
                 end
                else
                 begin
-{$ifdef GDB}
                   include(initmoduleswitches,cs_debuginfo);
-{$else GDB}
-                  Message(option_no_debug_support);
-                  Message(option_no_debug_support_recompile_fpc);
-{$endif GDB}
                 end;
-{$ifdef GDB}
                if not RelocSectionSetExplicitly then
                  RelocSection:=false;
                j:=1;
                while j<=length(more) do
                  begin
                    case more[j] of
-                     'd' :
-                       begin
-                         if UnsetBool(More, j) then
-                           exclude(initglobalswitches,cs_gdb_dbx)
-                         else
-                           include(initglobalswitches,cs_gdb_dbx);
-                       end;
-                    'g' :
-                       begin
-                         if UnsetBool(More, j) then
-                           exclude(initglobalswitches,cs_gdb_gsym)
-                         else
-                           include(initglobalswitches,cs_gdb_gsym);
-                       end;
-                     'h' :
-                       begin
-                         if UnsetBool(More, j) then
-                           exclude(initglobalswitches,cs_gdb_heaptrc)
-                         else
-                           include(initglobalswitches,cs_gdb_heaptrc);
-                       end;
-                     'l' :
-                       begin
-                         if UnsetBool(More, j) then
-                           exclude(initglobalswitches,cs_gdb_lineinfo)
-                         else
-                           include(initglobalswitches,cs_gdb_lineinfo);
-                       end;
                      'c' :
                        begin
                          if UnsetBool(More, j) then
                            exclude(initlocalswitches,cs_checkpointer)
                          else
                            include(initlocalswitches,cs_checkpointer);
+                       end;
+                     'd' :
+                       begin
+                         paratargetdbg:=dbg_dwarf;
+                       end;
+                     'h' :
+                       begin
+                         if UnsetBool(More, j) then
+                           exclude(initglobalswitches,cs_use_heaptrc)
+                         else
+                           include(initglobalswitches,cs_use_heaptrc);
+                       end;
+                     'l' :
+                       begin
+                         if UnsetBool(More, j) then
+                           exclude(initglobalswitches,cs_use_lineinfo)
+                         else
+                           include(initglobalswitches,cs_use_lineinfo);
+                       end;
+                     's' :
+                       begin
+                         paratargetdbg:=dbg_stabs;
                        end;
                      'v' :
                        begin
@@ -808,19 +793,11 @@ begin
                          else
                            include(initglobalswitches,cs_gdb_valgrind);
                        end;
-                     'w' :
-                       begin
-                         if UnsetBool(More, j) then
-                           exclude(initglobalswitches,cs_gdb_dwarf)
-                         else
-                           include(initglobalswitches,cs_gdb_dwarf);
-                       end;
                      else
                        IllegalPara(opt);
                    end;
                    inc(j);
                  end;
-{$endif GDB}
              end;
 
            'h' :
@@ -992,6 +969,8 @@ begin
                          include(initlocalswitches,cs_ansistrings);
                        'i' :
                          include(initmoduleswitches,cs_support_inline);
+                       'k' :
+                         include(initglobalswitches,cs_load_fpcylix_unit);
                        'm' :
                          include(initmoduleswitches,cs_support_macro);
                        'o' : //an alternative to -Mtp
@@ -1021,22 +1000,18 @@ begin
            'T' :
              begin
                more:=Upper(More);
-               if not target_is_set then
+               if paratarget=system_none then
                 begin
                   { remove old target define }
                   TargetDefines(false);
-                  { Save assembler if set }
-                  if asm_is_set then
-                   forceasm:=target_asm.id;
                   { load new target }
-                  if not(set_target_by_string(More)) then
+                  paratarget:=find_system_by_string(More);
+                  if paratarget<>system_none then
+                    set_target(paratarget)
+                  else
                     IllegalPara(opt);
-                  { also initialize assembler if not explicitly set }
-                  if asm_is_set then
-                   set_target_asm(forceasm);
                   { set new define }
                   TargetDefines(true);
-                  target_is_set:=true;
                 end
                else
                 if More<>upper(target_info.shortname) then
@@ -1096,6 +1071,13 @@ begin
                while j<=length(More) do
                 begin
                   case More[j] of
+                    'A':
+                      begin
+                        if UnsetBool(More, j) then
+                          apptype:=app_native
+                        else
+                          apptype:=app_cui;
+                      end;
                     'B':
                       begin
                         {  -WB200000 means set trefered base address
@@ -1781,6 +1763,10 @@ begin
     end;
   option.firstpass:=false;
 
+{ target is set here, for wince the default app type is gui }
+  if target_info.system in system_wince then
+    apptype:=app_gui;
+
 { default defines }
   def_system_macro(target_info.shortname);
   def_system_macro('FPC');
@@ -1813,6 +1799,7 @@ begin
   def_system_macro('FPC_HAS_TYPE_EXTENDED');
   def_system_macro('FPC_HAS_TYPE_DOUBLE');
   def_system_macro('FPC_HAS_TYPE_SINGLE');
+  def_system_macro('FPC_HAS_RESOURCES');
 {$endif}
 {$ifdef m68k}
   def_system_macro('CPU68K');
@@ -1834,6 +1821,17 @@ begin
   def_system_macro('FPC_INCLUDE_SOFTWARE_INT64_TO_DOUBLE');
   def_system_macro('FPC_CURRENCY_IS_INT64');
   def_system_macro('FPC_COMP_IS_INT64');
+{$endif}
+{$ifdef POWERPC64}
+  def_system_macro('CPUPOWERPC');
+  def_system_macro('CPUPOWERPC64');
+  def_system_macro('CPU64');
+  def_system_macro('FPC_HAS_TYPE_DOUBLE');
+  def_system_macro('FPC_HAS_TYPE_SINGLE');
+  def_system_macro('FPC_INCLUDE_SOFTWARE_INT64_TO_DOUBLE');
+  def_system_macro('FPC_CURRENCY_IS_INT64');
+  def_system_macro('FPC_COMP_IS_INT64');
+  def_system_macro('FPC_REQUIRES_PROPER_ALIGNMENT');
 {$endif}
 {$ifdef iA64}
   def_system_macro('CPUIA64');
@@ -1906,8 +1904,6 @@ begin
     read_configfile := false;
 
 { Read commandline and configfile }
-  target_is_set:=false;
-  asm_is_set:=false;
   param_file:='';
 
   { read configfile }
@@ -2070,6 +2066,14 @@ begin
   objectsearchpath.AddList(unitsearchpath,false);
   librarysearchpath.AddList(unitsearchpath,false);
 
+  { maybe override debug info format }
+  if (paratargetdbg<>dbg_none) then
+    set_target_dbg(paratargetdbg);
+
+  { maybe override assembler }
+  if (paratargetasm<>as_none) then
+    set_target_asm(paratargetasm);
+
   { switch assembler if it's binary and we got -a on the cmdline }
   if (cs_asm_leave in initglobalswitches) and
      (af_outputbinary in target_asm.flags) then
@@ -2090,6 +2094,10 @@ begin
   if (cs_debuginfo in initmoduleswitches) or
      (cs_profile in initmoduleswitches) then
     exclude(initglobalswitches,cs_link_strip);
+
+  { force fpu emulation on arm/wince }
+  if target_info.system=system_arm_wince then
+    include(initmoduleswitches,cs_fp_emulation);
 
 {$ifdef x86_64}
   {$warning HACK: turn off smartlinking}

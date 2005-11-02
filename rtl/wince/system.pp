@@ -56,12 +56,11 @@ var
 { C compatible arguments }
   argc : longint;
   argv : ppchar;
-{ Win32 Info }
+{ WinCE Info }
   hprevinst,
-  HInstance,
   MainInstance,
   DLLreason,DLLparam:longint;
-  Win32StackTop : Dword;
+  Win32StackTop : Dword; // Used by heaptrc unit
 
 type
   TDLL_Process_Entry_Hook = function (dllparam : longint) : longbool;
@@ -73,8 +72,11 @@ const
   Dll_Thread_Attach_Hook : TDLL_Entry_Hook = nil;
   Dll_Thread_Detach_Hook : TDLL_Entry_Hook = nil;
 
-type
-  HMODULE = THandle;
+{ ANSI <-> Wide }
+function AnsiToWideBuf(AnsiBuf: PChar; AnsiBufLen: longint; WideBuf: PWideChar; WideBufLen: longint): longint;
+function WideToAnsiBuf(WideBuf: PWideChar; WideBufLen: longint; AnsiBuf: PChar; AnsiBufLen: longint): longint;
+function PCharToPWideChar(str: PChar; strlen: longint = -1; outlen: PLongInt = nil): PWideChar;
+function StringToPWideChar(const s: AnsiString; outlen: PLongInt = nil): PWideChar;
 
 { Wrappers for some WinAPI calls }
 function  CreateEvent(lpEventAttributes:pointer;bManualReset:longbool;bInitialState:longbool;lpName:pchar): THandle; stdcall;
@@ -95,23 +97,164 @@ function CreateFile(lpFileName:pchar; dwDesiredAccess:DWORD; dwShareMode:DWORD;
 function CreateDirectory(name : pointer;sec : pointer) : longbool; stdcall;
 function RemoveDirectory(name:pointer):longbool; stdcall;
 
+
+{$ifdef CPUARM}
+{ the external directive isn't really necessary here because it is overriden by external (FK) }
+
+function addd(d1,d2 : double) : double; compilerproc;
+   cdecl;external 'coredll' name '__addd';
+
+function subd(d1,d2 : double) : double; compilerproc;
+   cdecl;external 'coredll' name '__subd';
+
+function muld(d1,d2 : double) : double; compilerproc;
+   cdecl;external 'coredll' name '__muld';
+
+function divd(d1,d2 : double) : double; compilerproc;
+   cdecl;external 'coredll' name '__divd';
+
+function eqd(d1,d2 : double) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__eqd';
+
+function ned(d1,d2 : double) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__ned';
+
+function ltd(d1,d2 : double) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__ltd';
+
+function gtd(d1,d2 : double) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__gtd';
+
+function ged(d1,d2 : double) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__ged';
+
+function led(d1,d2 : double) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__led';
+
+{ ***************** single ******************** }
+
+function eqs(d1,d2 : single) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__eqs';
+
+function nes(d1,d2 : single) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__nes';
+
+function lts(d1,d2 : single) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__lts';
+
+function gts(d1,d2 : single) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__gts';
+
+function ges(d1,d2 : single) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__ges';
+
+function les(d1,d2 : single) : boolean; compilerproc;
+   cdecl;external 'coredll' name '__les';
+
+function dtos(d : double) : single; compilerproc;
+   cdecl;external 'coredll' name '__dtos';
+
+function stod(d : single) : double; compilerproc;
+   cdecl;external 'coredll' name '__stod';
+
+function negs(d : single) : single; compilerproc;
+   cdecl;external 'coredll' name '__negs';
+
+function negd(d : double) : double; compilerproc;
+   cdecl;external 'coredll' name '__negd';
+
+function utod(i : dword) : double; compilerproc;
+   cdecl;external 'coredll' name '__utod';
+
+function itod(i : longint) : double; compilerproc;
+   cdecl;external 'coredll' name '__itod';
+
+function ui64tod(i : qword) : double; compilerproc;
+   cdecl;external 'coredll' name '__u64tod';
+
+function i64tod(i : int64) : double; compilerproc;
+   cdecl;external 'coredll' name '__i64tod';
+
+function adds(s1,s2 : single) : single; compilerproc;
+function subs(s1,s2 : single) : single; compilerproc;
+function muls(s1,s2 : single) : single; compilerproc;
+function divs(s1,s2 : single) : single; compilerproc;
+{$endif CPUARM}
+
 implementation
 
-{ used by wstrings.inc because wstrings.inc is included before sysos.inc
-  this is put here (FK) }
-(*
-function SysAllocStringLen(psz:pointer;len:dword):pointer;stdcall;
- external 'oleaut32.dll' name 'SysAllocStringLen';
+var
+  SysInstance : Longint;
 
-procedure SysFreeString(bstr:pointer);stdcall;
- external 'oleaut32.dll' name 'SysFreeString';
-
-function SysReAllocStringLen(var bstr:pointer;psz: pointer;
-  len:dword): Integer; stdcall;external 'oleaut32.dll' name 'SysReAllocStringLen';
-*)
+{$define HAS_RESOURCES}
+{$i winres.inc}
 
 function MessageBox(w1:longint;l1,l2:PWideChar;w2:longint):longint;
    stdcall;external 'coredll' name 'MessageBoxW';
+
+{*****************************************************************************}
+
+{$define FPC_SYSTEM_HAS_MOVE}
+procedure memmove(dest, src: pointer; count: longint);
+   cdecl; external 'coredll' name 'memmove';
+
+procedure Move(const source;var dest;count:SizeInt);[public, alias: 'FPC_MOVE'];
+begin
+  memmove(@dest, @source, count);
+end;
+
+{$define FPC_SYSTEM_HAS_COMPAREBYTE}
+function memcmp(buf1, buf2: pointer; count: longint): longint;
+   cdecl; external 'coredll' name 'memcmp';
+
+function CompareByte(Const buf1,buf2;len:SizeInt):SizeInt;
+begin
+  CompareByte := memcmp(@buf1, @buf2, len);
+end;
+
+{$ifdef CPUARM}
+
+{$define FPC_SYSTEM_HAS_INT}
+function fpc_int_real(d: ValReal): ValReal;compilerproc;
+begin
+  fpc_int_real := i64tod(trunc(d));
+end;
+
+{$define FPC_SYSTEM_HAS_TRUNC}
+function fpc_trunc_real(d : ValReal) : int64;compilerproc;
+   external 'coredll' name '__dtoi64';
+
+{$define FPC_SYSTEM_HAS_ABS}
+function fpc_abs_real(d : ValReal) : ValReal;compilerproc;
+   external 'coredll' name 'fabs';
+
+{$define FPC_SYSTEM_HAS_SQRT}
+function fpc_sqrt_real(d : ValReal) : ValReal;compilerproc;
+   external 'coredll' name 'sqrt';
+   
+function adds(s1,s2 : single) : single;
+begin
+  adds := addd(s1, s2);
+end;
+
+function subs(s1,s2 : single) : single;
+begin
+  subs := subd(s1, s2);
+end;
+
+function muls(s1,s2 : single) : single;
+begin
+  muls := muld(s1, s2);
+end;
+
+function divs(s1,s2 : single) : single;
+begin
+  divs := divd(s1, s2);
+end;
+
+{$endif CPUARM}
+
+{*****************************************************************************}
 
 { include system independent routines }
 {$I system.inc}
@@ -135,12 +278,93 @@ function WideCharToMultiByte(CodePage:UINT; dwFlags:DWORD; lpWideCharStr:PWideCh
 
 function AnsiToWideBuf(AnsiBuf: PChar; AnsiBufLen: longint; WideBuf: PWideChar; WideBufLen: longint): longint;
 begin
-  Result := MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, AnsiBuf, AnsiBufLen, WideBuf, WideBufLen);
+  Result := MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, AnsiBuf, AnsiBufLen, WideBuf, WideBufLen div SizeOf(WideChar));
+  if ((AnsiBufLen <> -1) or (Result = 0)) and (WideBuf <> nil) then
+  begin
+    if (Result + 1)*SizeOf(WideChar) > WideBufLen then
+    begin
+      Result := 0;
+      if WideBufLen < SizeOf(WideChar) then
+        exit;
+    end;
+    WideBuf[Result] := #0;
+    if (Result <> 0) or (AnsiBufLen = 0) then
+      Inc(Result);
+  end;
+  Result:=Result*SizeOf(WideChar);
 end;
 
 function WideToAnsiBuf(WideBuf: PWideChar; WideBufLen: longint; AnsiBuf: PChar; AnsiBufLen: longint): longint;
 begin
   Result := WideCharToMultiByte(CP_ACP, 0, WideBuf, WideBufLen, AnsiBuf, AnsiBufLen, nil, nil);
+  if ((WideBufLen <> -1) or (Result = 0)) and (AnsiBuf <> nil) then
+  begin
+    if Result + 1 > AnsiBufLen then
+    begin
+      Result := 0;
+      if AnsiBufLen < 1 then
+        exit;
+    end;
+    AnsiBuf[Result] := #0;
+    if (Result <> 0) or (WideBufLen = 0) then
+      Inc(Result);
+  end;
+end;
+
+function PCharToPWideChar(str: PChar; strlen: longint = -1; outlen: PLongInt = nil): PWideChar;
+var
+  len: longint;
+begin
+  while True do begin
+    if strlen <> -1 then
+      len:=(strlen + 1)
+    else
+      len:=AnsiToWideBuf(str, -1, nil, 0);
+    if len > 0 then
+    begin
+      len:=len*SizeOf(WideChar);
+      GetMem(Result, len);
+      if (AnsiToWideBuf(str, -1, Result, len) = 0) and (strlen <> -1) then
+      begin
+        strlen:=-1;
+        continue;
+      end;
+    end
+    else begin
+      GetMem(Result, SizeOf(WideChar));
+      Inc(len);
+      Result^:=#0;
+    end;
+    break;
+  end;
+  if outlen <> nil then
+    outlen^:=(len - 1)*SizeOf(WideChar);
+end;
+
+function StringToPWideChar(const s: AnsiString; outlen: PLongInt = nil): PWideChar;
+var
+  len, wlen: longint;
+begin
+  len:=Length(s);
+  wlen:=(len + 1)*SizeOf(WideChar);
+  GetMem(Result, wlen);
+  wlen:=AnsiToWideBuf(PChar(s), len, Result, wlen);
+  if wlen = 0 then
+  begin
+    wlen:=AnsiToWideBuf(PChar(s), len, nil, 0);
+    if wlen > 0 then
+    begin
+      ReAllocMem(Result, wlen);
+      wlen:=AnsiToWideBuf(PChar(s), len, Result, wlen);
+    end
+    else
+    begin
+      Result^:=#0;
+      wlen:=SizeOf(WideChar);
+    end;
+  end;
+  if outlen <> nil then
+    outlen^:=(wlen - 1) div SizeOf(WideChar);
 end;
 
 {*****************************************************************************
@@ -301,17 +525,14 @@ var
 
 function GetCommandFile:pchar;
 var
-  buf: PWideChar;
+  buf: array[0..MaxPathLen] of WideChar;
 begin
   if ModuleName[0] = #0 then begin
-    GetMem(buf, SizeOf(ModuleName)*2);
-    GetModuleFileName(0,buf,SizeOf(ModuleName)*2);
+    GetModuleFileName(0, @buf, SizeOf(buf));
     WideToAnsiBuf(buf, -1, @ModuleName, SizeOf(ModuleName));
-    FreeMem(buf);
   end;
   GetCommandFile:=@ModuleName;
 end;
-
 
 procedure setup_arguments;
 var
@@ -341,7 +562,7 @@ var
 
 begin
   { create commandline, it starts with the executed filename which is argv[0] }
-  { Win32 passes the command NOT via the args, but via getmodulefilename}
+  { WinCE passes the command NOT via the args, but via getmodulefilename}
   argv:=nil;
   argvlen:=0;
   pc:=getcommandfile;
@@ -353,7 +574,7 @@ begin
   { Setup cmdline variable }
   arg:=PChar(GetCommandLine);
   count:=WideToAnsiBuf(PWideChar(arg), -1, nil, 0);
-  GetMem(cmdline, arglen + count + 3);
+  cmdline:=SysGetMem(arglen + count + 3);
   cmdline^:='"';
   move(pc^, (cmdline + 1)^, arglen);
   (cmdline + arglen + 1)^:='"';
@@ -363,7 +584,7 @@ begin
   count:=0;
   pc:=cmdline;
 {$IfDef SYSTEM_DEBUG_STARTUP}
-  Writeln(stderr,'Win32 GetCommandLine is #',pc,'#');
+  Writeln(stderr,'WinCE GetCommandLine is #',pc,'#');
 {$EndIf }
   while pc^<>#0 do
    begin
@@ -540,19 +761,17 @@ procedure asm_exit(Exitcode : longint);external name 'asm_exit';
 
 Procedure system_exit;
 begin
-  FreeMem(cmdline);
+  SysFreeMem(cmdline);
   { don't call ExitProcess inside
     the DLL exit code !!
     This crashes Win95 at least PM }
   if IsLibrary then
     ExitDLL(ExitCode);
-  if not IsConsole then
-   begin
-     Close(stderr);
-     Close(stdout);
-     { what about Input and Output ?? PM }
-   end;
-
+  if not IsConsole then begin
+    Close(stderr);
+    Close(stdout);
+    { what about Input and Output ?? PM }
+  end;
   { call exitprocess, with cleanup as required }
   asm_exit(exitcode);
 end;
@@ -639,7 +858,7 @@ end;
 //
 
 {
-  Error code definitions for the Win32 API functions
+  Error code definitions for the WinCE API functions
 
 
   Values are 32 bit values layed out as follows:
@@ -704,11 +923,7 @@ const
   STATUS_FLOAT_MULTIPLE_FAULTS            = $C00002B4;
   STATUS_FLOAT_MULTIPLE_TRAPS             = $C00002B5;
   STATUS_REG_NAT_CONSUMPTION              = $C00002C9;
-{
-  EXCEPTION_EXECUTE_HANDLER               = 1;
-  EXCEPTION_CONTINUE_EXECUTION    = -1;
-  EXCEPTION_CONTINUE_SEARCH               = 0;
-}
+
 const
   ExceptionContinueExecution = 0;
   ExceptionContinueSearch = 1;
@@ -730,7 +945,7 @@ const
   CONTEXT_EXTENDED_REGISTERS      = CONTEXT_ARM or $00000020;
 
   CONTEXT_FULL                    = CONTEXT_CONTROL or CONTEXT_INTEGER or CONTEXT_SEGMENTS;
-  
+
   EXCEPTION_MAXIMUM_PARAMETERS    = 15;
 
   NUM_VFP_REGS = 32;
@@ -778,10 +993,10 @@ const
   CONTEXT_FLOATING_POINT          = CONTEXT_X86 or $00000008;
   CONTEXT_DEBUG_REGISTERS         = CONTEXT_X86 or $00000010;
   CONTEXT_EXTENDED_REGISTERS      = CONTEXT_X86 or $00000020;
-  
+
   MAXIMUM_SUPPORTED_EXTENSION     = 512;
   EXCEPTION_MAXIMUM_PARAMETERS    = 15;
-  
+
 type
   PFloatingSaveArea = ^TFloatingSaveArea;
   TFloatingSaveArea = packed record
@@ -795,7 +1010,7 @@ type
     RegisterArea : array[0..79] of Byte;
     Cr0NpxState : Cardinal;
   end;
-  
+
   PContext = ^TContext;
   TContext = packed record
       //
@@ -877,7 +1092,7 @@ end;
 
 function ReadProcessMemory(process : dword;address : pointer;dest : pointer;size : dword;bytesread : pdword) :  longbool;
  stdcall;external 'coredll' name 'ReadProcessMemory';
- 
+
 function is_prefetch(p : pointer) : boolean;
 var
   a : array[0..15] of byte;
@@ -1055,7 +1270,7 @@ begin
             res := 255;
         end;
     end;
-    
+
     if (res >= 200) and (exceptLevel < MaxExceptionLevel) then begin
       exceptEip[exceptLevel] := ContextRecord^.Eip;
       exceptError[exceptLevel] := res;
@@ -1142,13 +1357,15 @@ begin
       res := 216;
     STATUS_ACCESS_VIOLATION:
       res := 216;
+    STATUS_DATATYPE_MISALIGNMENT:
+      res := 214;
     STATUS_CONTROL_C_EXIT:
       res := 217;
     STATUS_PRIVILEGED_INSTRUCTION:
       res := 218;
     else
       begin
-        if ((ExceptionRecord^.ExceptionCode and SEVERITY_ERROR) = SEVERITY_ERROR) then
+        if ((cardinal(ExceptionRecord^.ExceptionCode) and SEVERITY_ERROR) = SEVERITY_ERROR) then
           res := 217
         else
           res := 255;
@@ -1186,7 +1403,13 @@ begin
 {$ifdef CPUARM}
   asm
     mov fp,#0
+    ldr r12,.LPWin32StackTop
+    str sp,[r12]
     bl PASCALMAIN;
+    b .Lend
+.LPWin32StackTop:
+    .long Win32StackTop
+.Lend:
   end;
 {$endif CPUARM}
 
@@ -1225,7 +1448,45 @@ function CharUpperBuff(lpsz:LPWSTR; cchLength:DWORD):DWORD; stdcall; external Ke
 function CharLowerBuff(lpsz:LPWSTR; cchLength:DWORD):DWORD; stdcall; external KernelDLL name 'CharLowerBuffW';
 
 
-function Win32WideUpper(const s : WideString) : WideString;
+procedure WinCEWide2AnsiMove(source:pwidechar;var dest:ansistring;len:SizeInt);
+  var
+    i: integer;
+  begin
+    if len = 0 then
+      dest:=''
+    else
+    begin
+      for i:=1 to 2 do begin
+        setlength(dest, len);
+        len:=WideCharToMultiByte(CP_ACP, 0, source, len, @dest[1], len, nil, nil);
+        if len > 0 then
+          break;
+        len:=WideCharToMultiByte(CP_ACP, 0, source, len, nil, 0, nil, nil);
+      end;
+      setlength(dest, len);
+    end;
+  end;
+
+procedure WinCEAnsi2WideMove(source:pchar;var dest:widestring;len:SizeInt);
+  var
+    i: integer;
+  begin
+    if len = 0 then
+      dest:=''
+    else
+    begin
+      for i:=1 to 2 do begin
+        setlength(dest, len);
+        len:=MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, source, len, @dest[1], len);
+        if len > 0 then
+          break;
+        len:=MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, source, len, nil, 0);
+      end;
+      setlength(dest, len);
+    end;
+  end;
+
+function WinCEWideUpper(const s : WideString) : WideString;
   begin
     result:=s;
     UniqueString(result);
@@ -1234,7 +1495,7 @@ function Win32WideUpper(const s : WideString) : WideString;
   end;
 
 
-function Win32WideLower(const s : WideString) : WideString;
+function WinCEWideLower(const s : WideString) : WideString;
   begin
     result:=s;
     UniqueString(result);
@@ -1245,10 +1506,12 @@ function Win32WideLower(const s : WideString) : WideString;
 
 { there is a similiar procedure in sysutils which inits the fields which
   are only relevant for the sysutils units }
-procedure InitWin32Widestrings;
+procedure InitWinCEWidestrings;
   begin
-    widestringmanager.UpperWideStringProc:=@Win32WideUpper;
-    widestringmanager.LowerWideStringProc:=@Win32WideLower;
+    widestringmanager.Wide2AnsiMoveProc:=@WinCEWide2AnsiMove;
+    widestringmanager.Ansi2WideMoveProc:=@WinCEAnsi2WideMove;
+    widestringmanager.UpperWideStringProc:=@WinCEWideUpper;
+    widestringmanager.LowerWideStringProc:=@WinCEWideLower;
   end;
 
 
@@ -1334,16 +1597,32 @@ begin
   Rewrite(T);
 end;
 
+function _getstdfilex(fd: integer): pointer; cdecl; external 'coredll';
+function _fileno(fd: pointer): THandle; cdecl; external 'coredll';
+function _controlfp(new: DWORD; mask: DWORD): DWORD; cdecl; external 'coredll';
 
 procedure SysInitStdIO;
 begin
   { Setup stdin, stdout and stderr, for GUI apps redirect stderr,stdout to be
     displayed in and messagebox }
-  AssignError(stderr);
-  AssignError(stdout);
-  Assign(Output,'');
-  Assign(Input,'');
-  Assign(ErrOutput,'');
+  if not IsConsole then begin
+    AssignError(stderr);
+    AssignError(stdout);
+    Assign(Output,'');
+    Assign(Input,'');
+    Assign(ErrOutput,'');
+  end
+  else begin
+    StdInputHandle:=_fileno(_getstdfilex(0));
+    StdOutputHandle:=_fileno(_getstdfilex(1));
+    StdErrorHandle:=_fileno(_getstdfilex(2));
+
+    OpenStdIO(Input,fmInput,StdInputHandle);
+    OpenStdIO(Output,fmOutput,StdOutputHandle);
+    OpenStdIO(ErrOutput,fmOutput,StdErrorHandle);
+    OpenStdIO(StdOut,fmOutput,StdOutputHandle);
+    OpenStdIO(StdErr,fmOutput,StdErrorHandle);
+  end;
 end;
 
 (* ProcessID cached to avoid repeated calls to GetCurrentProcess. *)
@@ -1356,14 +1635,6 @@ begin
  GetProcessID := ProcessID;
 end;
 
-procedure GetLibraryInstance;
-var
-  buf: array[0..MaxPathLen] of WideChar;
-begin
-  GetModuleFileName(0, @buf, SizeOf(buf));
-  HInstance:=GetModuleHandle(@buf);
-end;
-
 const
    Exe_entry_code : pointer = @Exe_entry;
    Dll_entry_code : pointer = @Dll_entry;
@@ -1371,11 +1642,13 @@ const
 begin
   StackLength := InitialStkLen;
   StackBottom := Sptr - StackLength;
-  { some misc Win32 stuff }
+  { Enable FPU exceptions }
+  _controlfp(1, $0008001F);
+  { some misc stuff }
   hprevinst:=0;
   if not IsLibrary then
-    GetLibraryInstance;
-  MainInstance:=HInstance;
+    SysInstance:=GetModuleHandle(nil);
+  MainInstance:=SysInstance;
   { Setup heap }
   InitHeap;
   SysInitExceptions;
@@ -1391,5 +1664,5 @@ begin
   errno:=0;
   initvariantmanager;
   initwidestringmanager;
-  InitWin32Widestrings
+  InitWinCEWidestrings
 end.

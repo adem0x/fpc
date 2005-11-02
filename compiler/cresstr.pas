@@ -40,7 +40,7 @@ Type
     procedure CalcHash;
   end;
 
-  TResourceStrings=class
+  Tresourcestrings=class
   private
     List : TLinkedList;
   public
@@ -53,7 +53,7 @@ Type
   end;
 
 var
-  ResourceStrings : TResourceStrings;
+  resourcestrings : Tresourcestrings;
 
 
 implementation
@@ -113,17 +113,17 @@ end;
 
 
 { ---------------------------------------------------------------------
-                          TRESOURCESTRINGS
+                          Tresourcestrings
   ---------------------------------------------------------------------}
 
-Constructor TResourceStrings.Create;
+Constructor Tresourcestrings.Create;
 begin
   List:=TStringList.Create;
   ResStrCount:=0;
 end;
 
 
-Destructor TResourceStrings.Destroy;
+Destructor Tresourcestrings.Destroy;
 begin
   List.Free;
 end;
@@ -133,7 +133,7 @@ end;
     Create the full asmlist for resourcestrings.
   ---------------------------------------------------------------------}
 
-procedure TResourceStrings.CreateResourceStringList;
+procedure Tresourcestrings.CreateResourceStringList;
 
   Procedure AppendToAsmResList (P : TResourceStringItem);
   Var
@@ -144,59 +144,60 @@ procedure TResourceStrings.CreateResourceStringList;
     with p Do
      begin
        if (Value=nil) or (len=0) then
-         asmlist[aasmtai.resourcestrings].concat(tai_const.create_sym(nil))
+         asmlist[al_resourcestrings].concat(tai_const.create_sym(nil))
        else
          begin
             objectlibrary.getdatalabel(l1);
-            asmlist[aasmtai.resourcestrings].concat(tai_const.create_sym(l1));
-            maybe_new_object_file(asmlist[consts]);
-            asmlist[consts].concat(tai_align.Create(const_align(sizeof(aint))));
-            asmlist[consts].concat(tai_const.create_aint(-1));
-            asmlist[consts].concat(tai_const.create_aint(len));
-            asmlist[consts].concat(tai_label.create(l1));
+            asmlist[al_resourcestrings].concat(tai_const.create_sym(l1));
+            maybe_new_object_file(asmlist[al_const]);
+            asmlist[al_const].concat(tai_align.Create(const_align(sizeof(aint))));
+            asmlist[al_const].concat(tai_const.create_aint(-1));
+            asmlist[al_const].concat(tai_const.create_aint(len));
+            asmlist[al_const].concat(tai_label.create(l1));
             getmem(s,len+1);
             move(value^,s^,len);
             s[len]:=#0;
-            asmlist[consts].concat(tai_string.create_length_pchar(s,len));
-            asmlist[consts].concat(tai_const.create_8bit(0));
+            asmlist[al_const].concat(tai_string.create_pchar(s,len));
+            asmlist[al_const].concat(tai_const.create_8bit(0));
          end;
        { append Current value (nil) and hash...}
-       asmlist[aasmtai.resourcestrings].concat(tai_const.create_sym(nil));
-       asmlist[aasmtai.resourcestrings].concat(tai_const.create_32bit(longint(hash)));
+       asmlist[al_resourcestrings].concat(tai_const.create_sym(nil));
+       asmlist[al_resourcestrings].concat(tai_const.create_32bit(longint(hash)));
        { Append the name as a ansistring. }
        objectlibrary.getdatalabel(l1);
        l:=length(name);
-       asmlist[aasmtai.resourcestrings].concat(tai_const.create_sym(l1));
-       maybe_new_object_file(asmlist[consts]);
-       asmlist[consts].concat(tai_align.create(const_align(sizeof(aint))));
-       asmlist[consts].concat(tai_const.create_aint(-1));
-       asmlist[consts].concat(tai_const.create_aint(l));
-       asmlist[consts].concat(tai_label.create(l1));
+       asmlist[al_resourcestrings].concat(tai_const.create_sym(l1));
+       maybe_new_object_file(asmlist[al_const]);
+       asmlist[al_const].concat(tai_align.create(const_align(sizeof(aint))));
+       asmlist[al_const].concat(tai_const.create_aint(-1));
+       asmlist[al_const].concat(tai_const.create_aint(l));
+       asmlist[al_const].concat(tai_label.create(l1));
        getmem(s,l+1);
        move(Name[1],s^,l);
        s[l]:=#0;
-       asmlist[consts].concat(tai_string.create_length_pchar(s,l));
-       asmlist[consts].concat(tai_const.create_8bit(0));
+       asmlist[al_const].concat(tai_string.create_pchar(s,l));
+       asmlist[al_const].concat(tai_const.create_8bit(0));
      end;
   end;
 
 Var
   R : tresourceStringItem;
 begin
-  if asmlist[aasmtai.resourcestrings]=nil then
-    asmlist[aasmtai.resourcestrings]:=taasmoutput.create;
-  maybe_new_object_file(asmlist[aasmtai.resourcestrings]);
-  asmlist[aasmtai.resourcestrings].concat(tai_align.create(const_align(sizeof(aint))));
-  asmlist[aasmtai.resourcestrings].concat(tai_symbol.createname_global(
+  if asmlist[al_resourcestrings]=nil then
+    asmlist[al_resourcestrings]:=taasmoutput.create;
+  maybe_new_object_file(asmlist[al_resourcestrings]);
+  new_section(asmlist[al_resourcestrings],sec_data,'',4);
+  asmlist[al_resourcestrings].concat(tai_align.create(const_align(sizeof(aint))));
+  asmlist[al_resourcestrings].concat(tai_symbol.createname_global(
     make_mangledname('RESOURCESTRINGLIST',current_module.localsymtable,''),AT_DATA,0));
-  asmlist[aasmtai.resourcestrings].concat(tai_const.create_32bit(resstrcount));
+  asmlist[al_resourcestrings].concat(tai_const.create_32bit(resstrcount));
   R:=TResourceStringItem(List.First);
   while assigned(R) do
    begin
      AppendToAsmResList(R);
      R:=TResourceStringItem(R.Next);
    end;
-  asmlist[aasmtai.resourcestrings].concat(tai_symbol_end.createname(
+  asmlist[al_resourcestrings].concat(tai_symbol_end.createname(
     current_module.modulename^+'_'+'RESOURCESTRINGLIST'));
 end;
 
@@ -205,7 +206,7 @@ end;
     Insert 1 resource string in all tables.
   ---------------------------------------------------------------------}
 
-function  TResourceStrings.Register(const name : string;p : pchar;len : longint) : longint;
+function  Tresourcestrings.Register(const name : string;p : pchar;len : longint) : longint;
 begin
   List.Concat(tResourceStringItem.Create(lower(current_module.modulename^+'.'+Name),p,len));
   Register:=ResStrCount;
@@ -213,7 +214,7 @@ begin
 end;
 
 
-Procedure TResourceStrings.WriteResourceFile(const FileName : String);
+Procedure Tresourcestrings.WriteResourceFile(const FileName : String);
 Type
   TMode = (quoted,unquoted);
 Var

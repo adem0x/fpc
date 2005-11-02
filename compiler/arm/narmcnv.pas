@@ -57,7 +57,7 @@ interface
 implementation
 
    uses
-      verbose,globals,systems,
+      verbose,globtype,globals,systems,
       symconst,symdef,aasmbase,aasmtai,
       defutil,
       cgbase,cgutils,
@@ -76,37 +76,77 @@ implementation
       var
         fname: string[19];
       begin
-        { converting a 64bit integer to a float requires a helper }
-        if is_64bitint(left.resulttype.def) or
-          is_currency(left.resulttype.def) then
+        if cs_fp_emulation in aktmoduleswitches then
           begin
-            { hack to avoid double division by 10000, as it's
-              already done by resulttypepass.resulttype_int_to_real }
-            if is_currency(left.resulttype.def) then
-              left.resulttype := s64inttype;
-            if is_signed(left.resulttype.def) then
-              fname := 'fpc_int64_to_double'
+            if target_info.system in system_wince then
+              begin
+                { converting a 64bit integer to a float requires a helper }
+                if is_64bitint(left.resulttype.def) or
+                  is_currency(left.resulttype.def) then
+                  begin
+                    { hack to avoid double division by 10000, as it's
+                      already done by resulttypepass.resulttype_int_to_real }
+                    if is_currency(left.resulttype.def) then
+                      left.resulttype := s64inttype;
+                    if is_signed(left.resulttype.def) then
+                      fname:='I64TOD'
+                    else
+                      fname:='UI64TOD';
+                  end
+                else
+                  { other integers are supposed to be 32 bit }
+                  begin
+                    if is_signed(left.resulttype.def) then
+                      fname:='ITOD'
+                    else
+                      fname:='UTOD';
+                    firstpass(left);
+                  end;
+                result:=ccallnode.createintern(fname,ccallparanode.create(
+                  left,nil));
+                left:=nil;
+                firstpass(result);
+                exit;
+              end
             else
-              fname := 'fpc_qword_to_double';
-            result := ccallnode.createintern(fname,ccallparanode.create(
-              left,nil));
-            left:=nil;
-            firstpass(result);
-            exit;
+              begin
+                internalerror(2005082803);
+              end;
           end
         else
-          { other integers are supposed to be 32 bit }
           begin
-            if is_signed(left.resulttype.def) then
-              inserttypeconv(left,s32inttype)
+            { converting a 64bit integer to a float requires a helper }
+            if is_64bitint(left.resulttype.def) or
+              is_currency(left.resulttype.def) then
+              begin
+                { hack to avoid double division by 10000, as it's
+                  already done by resulttypepass.resulttype_int_to_real }
+                if is_currency(left.resulttype.def) then
+                  left.resulttype := s64inttype;
+                if is_signed(left.resulttype.def) then
+                  fname := 'fpc_int64_to_double'
+                else
+                  fname := 'fpc_qword_to_double';
+                result := ccallnode.createintern(fname,ccallparanode.create(
+                  left,nil));
+                left:=nil;
+                firstpass(result);
+                exit;
+              end
             else
-              inserttypeconv(left,u32inttype);
-            firstpass(left);
+              { other integers are supposed to be 32 bit }
+              begin
+                if is_signed(left.resulttype.def) then
+                  inserttypeconv(left,s32inttype)
+                else
+                  inserttypeconv(left,u32inttype);
+                firstpass(left);
+              end;
+            result := nil;
+            if registersfpu<1 then
+              registersfpu:=1;
+            expectloc:=LOC_FPUREGISTER;
           end;
-        result := nil;
-        if registersfpu<1 then
-          registersfpu:=1;
-        expectloc:=LOC_FPUREGISTER;
       end;
 
 
@@ -132,8 +172,8 @@ implementation
       begin
          oldtruelabel:=truelabel;
          oldfalselabel:=falselabel;
-         objectlibrary.getlabel(truelabel);
-         objectlibrary.getlabel(falselabel);
+         objectlibrary.getjumplabel(truelabel);
+         objectlibrary.getjumplabel(falselabel);
          secondpass(left);
          if codegenerror then
           exit;
@@ -197,7 +237,7 @@ implementation
             LOC_JUMP :
               begin
                 hregister:=cg.getintregister(exprasmlist,OS_INT);
-                objectlibrary.getlabel(hlabel);
+                objectlibrary.getjumplabel(hlabel);
                 cg.a_label(exprasmlist,truelabel);
                 cg.a_load_const_reg(exprasmlist,OS_INT,1,hregister);
                 cg.a_jmp_always(exprasmlist,hlabel);

@@ -358,10 +358,12 @@ interface
           '.text','.data','.rodata','.bss','.tbss',
           'common',
           '.note',
+          '.text',
           '.stab','.stabstr',
           '.idata2','.idata4','.idata5','.idata6','.idata7','.edata',
           '.eh_frame',
-          '.debug_frame'
+          '.debug_frame',
+          '.fpc'
         );
       begin
         AsmLn;
@@ -379,9 +381,6 @@ interface
       end;
 
     procedure T386NasmAssembler.WriteTree(p:taasmoutput);
-    const
-      regallocstr : array[tregalloctype] of string[10]=(' allocated',' released',' sync',' resized');
-      tempallocstr : array[boolean] of string[10]=(' released',' allocated');
     var
       s : string;
       hp       : tai;
@@ -398,10 +397,10 @@ interface
       if not assigned(p) then
        exit;
       InlineLevel:=0;
-      { lineinfo is only needed for codesegment (PFV) }
+      { lineinfo is only needed for al_procedures (PFV) }
       do_line:=(cs_asm_source in aktglobalswitches) or
                ((cs_lineinfo in aktmoduleswitches)
-                 and (p=asmlist[codesegment]));
+                 and (p=asmlist[al_procedures]));
       hp:=tai(p.first);
       while assigned(hp) do
        begin
@@ -643,12 +642,6 @@ interface
                 AsmWriteLn(tai_label(hp).l.name+':');
              end;
 
-           ait_direct :
-             begin
-               AsmWritePChar(tai_direct(hp).str);
-               AsmLn;
-             end;
-
            ait_symbol :
              begin
                if tai_symbol(hp).is_global then
@@ -718,12 +711,10 @@ interface
                   AsmLn;
                 end;
              end;
-{$ifdef GDB}
-           ait_stabn,
-           ait_stabs,
+
+           ait_stab,
            ait_force_line,
-           ait_stab_function_name : ;
-{$endif GDB}
+           ait_function_name : ;
 
            ait_cutobject :
              begin
@@ -754,6 +745,21 @@ interface
              else if tai_marker(hp).kind=InlineEnd then
                dec(InlineLevel);
 
+           ait_directive :
+             begin
+               case tai_directive(hp).directive of
+                 asd_nasm_import :
+                   AsmWrite('import ');
+                 asd_extern :
+                   AsmWrite('EXTERN ');
+                 else
+                   internalerror(200509191);
+               end;
+               if assigned(tai_directive(hp).name) then
+                 AsmWrite(tai_directive(hp).name^);
+               AsmLn;
+             end;
+
            else
              internalerror(10000);
          end;
@@ -779,6 +785,8 @@ interface
 
 
     procedure T386NasmAssembler.WriteAsmList;
+    var
+      hal : tasmlist;
     begin
 {$ifdef EXTDEBUG}
       if assigned(current_module.mainsource) then
@@ -794,22 +802,12 @@ interface
 
       WriteExternals;
 
-    { Nasm doesn't support stabs
-      WriteTree(debuglist);}
-
-      WriteTree(asmlist[codesegment]);
-      WriteTree(asmlist[datasegment]);
-      WriteTree(asmlist[consts]);
-      WriteTree(asmlist[rttilist]);
-      WriteTree(asmlist[resourcestrings]);
-      WriteTree(asmlist[bsssegment]);
-      WriteTree(asmlist[threadvarsegment]);
-      Writetree(asmlist[importsection]);
-      { exports are written by DLLTOOL
-        if we use it so don't insert it twice (PM) }
-      if not UseDeffileForExports and assigned(asmlist[exportsection]) then
-        Writetree(asmlist[exportsection]);
-      Writetree(asmlist[resourcesection]);
+      for hal:=low(Tasmlist) to high(Tasmlist) do
+        begin
+          AsmWriteLn(target_asm.comment+'Begin asmlist '+TasmlistStr[hal]);
+          writetree(asmlist[hal]);
+          AsmWriteLn(target_asm.comment+'End asmlist '+TasmlistStr[hal]);
+        end;
 
       AsmLn;
 {$ifdef EXTDEBUG}

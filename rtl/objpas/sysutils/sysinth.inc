@@ -127,8 +127,15 @@ Const
   { Currency notation. Default is $ for dollars. }
   CurrencyString : String[7] = '$';
 
+  ListSeparator: Char = ',';
+
 type
   TSysLocale = record
+    { Delphi compat fields}
+    DefaultLCID,
+    PriLangID,
+    SubLangID  : Integer;
+
     case byte of
       { win32 names }
       1 : (FarEast: boolean; MiddleEast: Boolean);

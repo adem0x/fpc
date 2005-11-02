@@ -27,14 +27,6 @@ unit i_win;
        systems;
 
     const
-      res_gnu_windres_info : tresinfo =
-          (
-            id     : res_gnu_windres;
-            resbin : 'windres';
-            rescmd : '--include $INC -O coff -o $OBJ $RES'
-          );
-
-    const
        system_i386_win32_info : tsysteminfo =
           (
             system       : system_i386_WIN32;
@@ -73,6 +65,7 @@ unit i_win;
             linkextern   : nil;
             ar           : ar_gnu_ar;
             res          : res_gnu_windres;
+            dbg          : dbg_stabs;
             script       : script_dos;
             endian       : endian_little;
             alignment    :
@@ -81,11 +74,11 @@ unit i_win;
                 loopalign       : 4;
                 jumpalign       : 0;
                 constalignmin   : 0;
-                constalignmax   : 4;
+                constalignmax   : 16;
                 varalignmin     : 0;
-                varalignmax     : 4;
+                varalignmax     : 16;
                 localalignmin   : 4;
-                localalignmax   : 4;
+                localalignmax   : 8;
                 recordalignmin  : 0;
                 recordalignmax  : 4;
                 maxCrecordalign : 16
@@ -134,6 +127,7 @@ unit i_win;
             linkextern   : nil;
             ar           : ar_gnu_ar;
             res          : res_gnu_windres;
+            dbg          : dbg_stabs;
             script       : script_dos;
             endian       : endian_little;
             alignment    :
@@ -142,11 +136,11 @@ unit i_win;
                 loopalign       : 8;
                 jumpalign       : 0;
                 constalignmin   : 0;
-                constalignmax   : 8;
+                constalignmax   : 16;
                 varalignmin     : 0;
-                varalignmax     : 8;
+                varalignmax     : 16;
                 localalignmin   : 8;
-                localalignmax   : 8;
+                localalignmax   : 16;
                 recordalignmin  : 0;
                 recordalignmax  : 8;
                 maxCrecordalign : 16
@@ -194,7 +188,8 @@ unit i_win;
             link         : nil;
             linkextern   : nil;
             ar           : ar_gnu_ar;
-            res          : res_gnu_windres;
+            res          : res_gnu_wince_windres;
+            dbg          : dbg_stabs;
             script       : script_dos;
             endian       : endian_little;
             alignment    :
@@ -217,7 +212,7 @@ unit i_win;
             DllScanSupported:false;
             use_function_relative_addresses : true
           );
-          
+
        system_i386_wince_info : tsysteminfo =
           (
             system       : system_i386_wince;
@@ -256,6 +251,7 @@ unit i_win;
             linkextern   : nil;
             ar           : ar_gnu_ar;
             res          : res_gnu_windres;
+            dbg          : dbg_stabs;
             script       : script_dos;
             endian       : endian_little;
             alignment    :
@@ -279,7 +275,7 @@ unit i_win;
             use_function_relative_addresses : true
           );
 
-          
+
   implementation
 
 initialization

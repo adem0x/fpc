@@ -1,9 +1,9 @@
 {
-    This file is part of the Free Pascal run time library.
-    Copyright (c) 2001 by the Free Pascal development team
+    This include file contains the variants
+    support for FPC
 
-    This include file contains the declarations for variants
-    support in FPC
+    This file is part of the Free Pascal run time library.
+    Copyright (c) 2001-2005 by the Free Pascal development team
 
     See the file COPYING.FPC, included in this distribution,
     for details about the copyright.
@@ -87,9 +87,13 @@ function VarFromDateTime(const DateTime: TDateTime): Variant;
 function VarInRange(const AValue, AMin, AMax: Variant): Boolean;
 function VarEnsureRange(const AValue, AMin, AMax: Variant): Variant;
 
+function VarSameValue(const A, B: Variant): Boolean;
+function VarCompareValue(const A, B: Variant): TVariantRelationship;
+
 function VarIsEmptyParam(const V: Variant): Boolean;
 
 procedure VarClear(var V: Variant);{$ifdef VARIANTINLINE}inline;{$endif VARIANTINLINE}
+procedure VarClear(var V: OleVariant);{$ifdef VARIANTINLINE}inline;{$endif VARIANTINLINE}
 
 procedure SetClearVarToEmptyParam(var V: TVarData);
 
@@ -106,6 +110,7 @@ procedure VarCopyNoInd(var Dest: Variant; const Source: Variant);
 { Variant array support procedures and functions }
 
 function VarArrayCreate(const Bounds: array of SizeInt; AVarType: TVarType): Variant;
+function VarArrayCreate(const Bounds: pvararrayboundarray; Dims : SizeInt; AVarType: TVarType): Variant;
 function VarArrayOf(const Values: array of Variant): Variant;
 
 function VarArrayAsPSafeArray(const A: Variant): PVarArray;
@@ -283,7 +288,7 @@ procedure VarUnexpectedError;
 procedure VarRangeCheckError(const AType: TVarType);
 procedure VarRangeCheckError(const ASourceType, ADestType: TVarType);
 procedure VarArrayCreateError;
-procedure VarResultCheck(AResult: HRESULT);
+procedure VarResultCheck(AResult: HRESULT);{$ifdef VARIANTINLINE}inline;{$endif VARIANTINLINE}
 procedure VarResultCheck(AResult: HRESULT; ASourceType, ADestType: TVarType);
 procedure HandleConversionException(const ASourceType, ADestType: TVarType);
 function VarTypeAsText(const AType: TVarType): string;
@@ -299,11 +304,7 @@ Function  GetVariantProp(Instance: TObject; const PropName: string): Variant;
 Procedure SetVariantProp(Instance: TObject; const PropName: string; const Value: Variant);
 Procedure SetVariantProp(Instance: TObject; PropInfo : PPropInfo; const Value: Variant);
 
-
-
-
 implementation
-
 
 uses
   math,varutils;
@@ -313,6 +314,17 @@ uses
     customvarianttypelock : trtlcriticalsection;
 
 procedure sysvarclearproc(var v : tvardata);forward;
+
+
+function aligntoptr(p : pointer) : pointer;inline;
+  begin
+{$ifdef FPC_REQUIRES_PROPER_ALIGNMENT}
+    if (ptrint(p) mod sizeof(ptrint))<>0 then
+      inc(ptrint(p),sizeof(ptrint)-ptrint(p) mod sizeof(ptrint));
+{$endif FPC_REQUIRES_PROPER_ALIGNMENT}
+    result:=p;
+  end;
+
 
 { ---------------------------------------------------------------------
     String Messages
@@ -337,6 +349,151 @@ begin
   Raise EVariantError.CreateFmt('Method %s not yet supported.',[Meth]);
 end;
 
+type
+  tvariantarrayiter = object
+    bounds : pvararrayboundarray;
+    coords : pvararraycoorarray;
+    dims : SizeInt;
+    constructor init(d: SizeInt;b : pvararrayboundarray);
+    function next : boolean;
+    destructor done;
+  end;
+
+
+constructor tvariantarrayiter.init(d: SizeInt;b : pvararrayboundarray);
+  var
+    i : sizeint;
+  begin
+    bounds:=b;
+    dims:=d;
+    getmem(coords,sizeof(Sizeint)*dims);
+    { initialize coordinate counter }
+    for i:=0 to dims-1 do
+      coords^[i]:=bounds^[i].lowbound;
+  end;
+
+
+function tvariantarrayiter.next : boolean;
+  var
+    finished : boolean;
+
+  procedure incdim(d : SizeInt);
+    begin
+      if finished then
+        exit;
+      inc(coords^[d]);
+      if coords^[d]>=bounds^[d].lowbound+bounds^[d].elementcount then
+        begin
+          coords^[d]:=bounds^[d].lowbound;
+          if d>0 then
+            incdim(d-1)
+          else
+            finished:=true;
+        end;
+    end;
+
+  begin
+    finished:=false;
+    incdim(dims-1);
+    result:=not(finished);
+  end;
+
+
+destructor tvariantarrayiter.done;
+  begin
+    freemem(coords);
+  end;
+
+
+type
+  tdynarraybounds = array of SizeInt;
+  tdynarraycoords = tdynarraybounds;
+  tdynarrayelesize = tdynarraybounds;
+  tdynarraypositions = array of pointer;
+  tdynarrayiter = object
+    bounds : tdynarraybounds;
+    coords : tdynarraycoords;
+    elesize : tdynarrayelesize;
+    positions : tdynarraypositions;
+    dims : SizeInt;
+    data : pointer;
+    constructor init(d : pointer;p : pdynarraytypeinfo;_dims: SizeInt;b : tdynarraybounds);
+    function next : boolean;
+    destructor done;
+  end;
+
+
+constructor tdynarrayiter.init(d : pointer;p : pdynarraytypeinfo;_dims: SizeInt;b : tdynarraybounds);
+  var
+    i : sizeint;
+  begin
+    bounds:=b;
+    dims:=_dims;
+    SetLength(coords,dims);
+    SetLength(elesize,dims);
+    SetLength(positions,dims);
+    positions[0]:=d;
+    { initialize coordinate counter and elesize }
+    for i:=0 to dims-1 do
+      begin
+        coords[i]:=0;
+        if i>0 then
+          positions[i]:=pointer(positions[i-1]^);
+        { skip kind and name }
+        inc(pointer(p),ord(pdynarraytypeinfo(p)^.namelen)+2);
+
+        p:=aligntoptr(p);
+
+        elesize[i]:=psizeint(p)^;
+
+        { skip elesize }
+        inc(pointer(p),sizeof(sizeint));
+
+        p:=pdynarraytypeinfo(ppointer(p)^);
+      end;
+    data:=positions[dims-1];
+  end;
+
+
+function tdynarrayiter.next : boolean;
+  var
+    finished : boolean;
+
+  procedure incdim(d : SizeInt);
+    begin
+      if finished then
+        exit;
+      inc(coords[d]);
+      inc(pointer(positions[d]),elesize[d]);
+
+      if coords[d]>=bounds[d] then
+        begin
+          coords[d]:=0;
+          if d>0 then
+            begin
+              incdim(d-1);
+              positions[d]:=pointer(positions[d-1]^);
+            end
+          else
+            finished:=true;
+        end;
+    end;
+
+  begin
+    finished:=false;
+    incdim(dims-1);
+    data:=positions[dims-1];
+    result:=not(finished);
+  end;
+
+
+destructor tdynarrayiter.done;
+  begin
+    bounds:=nil;
+    coords:=nil;
+    elesize:=nil;
+    positions:=nil;
+  end;
 
 { ---------------------------------------------------------------------
     VariantManager support
@@ -450,16 +607,6 @@ begin
 end;
 
 
-function aligntoptr(p : pointer) : pointer;inline;
-  begin
-{$ifdef FPC_REQUIRES_PROPER_ALIGNMENT}
-    if (ptrint(p) mod sizeof(ptrint))<>0 then
-      inc(ptrint(p),sizeof(ptrint)-ptrint(p) mod sizeof(ptrint));
-{$endif FPC_REQUIRES_PROPER_ALIGNMENT}
-    result:=p;
-  end;
-
-
 {$ifdef dummy}
 function DynamicArrayDimensions(const p : pointer) : sizeint;
   begin
@@ -488,7 +635,7 @@ function DynamicArrayIsRectangular(p : pointer;typeinfo : pointer) : boolean;
     { get typeinfo of second level }
     { skip kind and name }
     inc(pointer(typeinfo),ord(pdynarraytypeinfo(typeinfo)^.namelen)+2);
-    p:=aligntoptr(typeinfo);
+    typeinfo:=aligntoptr(typeinfo);
     typeinfo:=ppointer(typeinfo+sizeof(sizeint))^;
 
     { check recursively? }
@@ -512,23 +659,23 @@ function DynamicArrayIsRectangular(p : pointer;typeinfo : pointer) : boolean;
 
 
 procedure sysvartodynarray (var dynarr : pointer;const v : variant; typeinfo : pointer);
-begin
-  DynArrayFromVariant(dynarr,v,typeinfo);
-  if not(assigned(dynarr)) then
-    VarCastError;
-end;
+  begin
+    DynArrayFromVariant(dynarr,v,typeinfo);
+    if not(assigned(dynarr)) then
+      VarCastError;
+  end;
+
 
 procedure sysvarfrombool (var dest : variant;const source : Boolean);
-
-begin
-  if TVarData(Dest).VType>=varOleStr then
-    sysvarclear(Dest);
-  With TVarData(dest) do
-    begin
-      VType:=varBoolean;
-      VBoolean:=Source;
-    end;
-end;
+  begin
+    if TVarData(Dest).VType>=varOleStr then
+      sysvarclear(Dest);
+    With TVarData(dest) do
+      begin
+        VType:=varBoolean;
+        VBoolean:=Source;
+      end;
+  end;
 
 
 procedure sysvarfromint (var dest : variant;const source,range : longint);
@@ -1322,62 +1469,6 @@ procedure sysvarnot (var v : variant);
   end;
 
 
-type
-  tvariantarrayiter = object
-    bounds : pvararrayboundarray;
-    coords : pvararraycoorarray;
-    dims : SizeInt;
-    constructor init(d: SizeInt;b : pvararrayboundarray);
-    function next : boolean;
-    destructor done;
-  end;
-
-
-constructor tvariantarrayiter.init(d: SizeInt;b : pvararrayboundarray);
-  var
-    i : sizeint;
-  begin
-    bounds:=b;
-    dims:=d;
-    getmem(coords,sizeof(Sizeint)*dims);
-    { initialize coordinate counter }
-    for i:=0 to dims-1 do
-      coords^[i]:=bounds^[i].lowbound;
-  end;
-
-
-function tvariantarrayiter.next : boolean;
-  var
-    finished : boolean;
-
-  procedure incdim(d : SizeInt);
-    begin
-      if finished then
-        exit;
-      inc(coords^[d]);
-      if coords^[d]>=bounds^[d].lowbound+bounds^[d].elementcount then
-        begin
-          coords^[d]:=bounds^[d].lowbound;
-          if d>0 then
-            incdim(d-1)
-          else
-            finished:=true;
-        end;
-    end;
-
-  begin
-    finished:=false;
-    incdim(dims-1);
-    result:=not(finished);
-  end;
-
-
-destructor tvariantarrayiter.done;
-  begin
-    freemem(coords);
-  end;
-
-
 procedure sysvarclearproc(var v : tvardata);
   var
     customvarianttype : tcustomvarianttype;
@@ -1651,25 +1742,40 @@ procedure sysvarfromdynarray(var dest : variant;const source : pointer; typeinfo
 
 procedure sysolevarfrompstr(var dest : olevariant; const source : shortstring);
   begin
-    NotSupported('VariantManager.sysolevarfrompstr');
+    sysvarfromwstr(variant(tvardata(dest)),source);
   end;
 
 
 procedure sysolevarfromlstr(var dest : olevariant; const source : ansistring);
   begin
-    NotSupported('VariantManager.sysolevarfromlstr');
+    sysvarfromwstr(variant(tvardata(dest)),source);
   end;
 
 
 procedure sysolevarfromvar(var dest : olevariant; const source : variant);
   begin
-    NotSupported('VariantManager.sysolevarfromvar');
+    if tvardata(source).vtype=varVariant or varByRef then
+      sysolevarfromvar(dest,source)
+    else
+      begin
+        case tvardata(source).vtype of
+          varWord,varShortInt,varByte:
+            sysvarcast(variant(tvardata(dest)),source,varInteger);
+          varString:
+            sysolevarfromlstr(dest,source);
+        else
+          VarCastError;
+        end;
+      end;
   end;
 
 
 procedure sysolevarfromint(var dest : olevariant; const source : longint;const range : shortint);
   begin
-    NotSupported('VariantManager.sysolevarfromint');
+    if TVarData(Dest).VType>=varOleStr then
+      sysvarclear(variant(tvardata(Dest)));
+    tvardata(dest).vtype:=varInteger;
+    tvardata(dest).vinteger:=source;
   end;
 
 
@@ -1991,6 +2097,13 @@ begin
 end;
 
 
+procedure VarClear(var V: OleVariant);{$ifdef VARIANTINLINE}inline;{$endif VARIANTINLINE}
+begin
+  { strange casting using TVarData to avoid call of helper olevariant->variant }
+  sysvarclear(Variant(TVarData(v)));
+end;
+
+
 function VarIsNull(const V: Variant): Boolean;
 begin
   Result:=TVarData(V).vtype=varNull;
@@ -2123,6 +2236,43 @@ begin
 end;
 
 
+function VarSameValue(const A, B: Variant): Boolean;
+  var
+    v1,v2 : tvardata;
+  begin
+    v1:=FindVarData(a)^;
+    v2:=FindVarData(b)^;
+    if v1.vtype in [VarEmpty,VarNull] then
+      result:=v1.vtype=v2.vtype
+    else if v2.vtype in [VarEmpty,VarNull] then
+      result:=false
+    else
+      result:=A=B;
+  end;
+
+
+function VarCompareValue(const A, B: Variant): TVariantRelationship;
+  var
+    v1,v2 : tvardata;
+    variantmanager : tvariantmanager;
+  begin
+    result:=vrNotEqual;
+    v1:=FindVarData(a)^;
+    v2:=FindVarData(b)^;
+    if (v1.vtype in [VarEmpty,VarNull]) and (v1.vtype=v2.vtype) then
+      result:=vrEqual
+    else if not(v2.vtype in [VarEmpty,VarNull]) then
+      begin
+        if a=b then
+          result:=vrEqual
+        else if a>b then
+          result:=vrGreaterThan
+        else
+          result:=vrLessThan;
+      end;
+  end;
+
+
 function VarIsEmptyParam(const V: Variant): Boolean;
 begin
   Result:=(TVarData(V).vtype = varerror) and
@@ -2213,6 +2363,23 @@ function VarArrayCreate(const Bounds: array of SizeInt; AVarType: TVarType): Var
   end;
 
 
+function VarArrayCreate(const Bounds: pvararrayboundarray; Dims : SizeInt; AVarType: TVarType): Variant;
+  var
+    p : pvararray;
+  begin
+    if not(VarTypeIsValidArrayType(AVarType)) then
+      VarArrayCreateError;
+    SysVarClear(result);
+
+    p:=SafeArrayCreate(AVarType,Dims,Bounds^);
+
+    if not(assigned(p)) then
+      VarArrayCreateError;
+
+    tvardata(result).vtype:=AVarType or varArray;
+    tvardata(result).varray:=p;
+  end;
+
 function VarArrayOf(const Values: array of Variant): Variant;
   var
     i : SizeInt;
@@ -2255,16 +2422,16 @@ function VarArrayDimCount(const A: Variant) : SizeInt;
   var
     hv : tvardata;
   begin
-      hv:=tvardata(a);
+    hv:=tvardata(a);
 
-      { get final variant }
-      while hv.vtype=varByRef or varVariant do
-        hv:=tvardata(hv.vpointer^);
+    { get final variant }
+    while hv.vtype=varByRef or varVariant do
+      hv:=tvardata(hv.vpointer^);
 
-      if (hv.vtype and varArray)<>0 then
-        result:=hv.varray^.DimCount
-      else
-        result:=0;
+    if (hv.vtype and varArray)<>0 then
+      result:=hv.varray^.DimCount
+    else
+      result:=0;
   end;
 
 
@@ -2350,17 +2517,224 @@ function VarTypeIsValidElementType(const AVarType: TVarType): Boolean;
     Variant <-> Dynamic arrays support
   ---------------------------------------------------------------------}
 
+function DynArrayGetVariantInfo(p : pointer;var dims : sizeint) : sizeint;
+  begin
+    result:=varNull;
+    { skip kind and name }
+    inc(pointer(p),ord(pdynarraytypeinfo(p)^.namelen)+2);
+
+    p:=aligntoptr(p);
+
+    { skip elesize }
+    inc(p,sizeof(sizeint));
+
+    { search recursive? }
+    if pdynarraytypeinfo(ppointer(p)^)^.kind=21{tkDynArr} then
+      result:=DynArrayGetVariantInfo(ppointer(p)^,dims)
+    else
+      begin
+        { skip dynarraytypeinfo }
+        inc(p,sizeof(pdynarraytypeinfo));
+        result:=plongint(p)^;
+      end;
+    inc(dims);
+  end;
+
 
 procedure DynArrayToVariant(var V: Variant; const DynArray: Pointer; TypeInfo: Pointer);
-begin
-  NotSupported('DynArrayToVariant');
-end;
+  var
+    i,
+    dims           : sizeint;
+    vararrtype,
+    dynarrvartype  : longint;
+    vararraybounds : pvararrayboundarray;
+    iter : tvariantarrayiter;
+    dynarriter : tdynarrayiter;
+    p : Pointer;
+    temp : variant;
+    variantmanager : tvariantmanager;
+    dynarraybounds : tdynarraybounds;
+  type
+    TDynArray = array of pointer;
+  begin
+    sysvarclearproc(tvardata(v));
+
+    dims:=0;
+    dynarrvartype:=DynArrayGetVariantInfo(TypeInfo,dims);
+
+    vararrtype:=dynarrvartype;
+
+    if (dims>1) and not(DynamicArrayIsRectangular(DynArray,TypeInfo)) then
+      exit;
+
+    GetVariantManager(variantmanager);
+
+    { retrieve bounds array }
+    Setlength(dynarraybounds,dims);
+    getmem(vararraybounds,dims*sizeof(TVarArrayBound));
+    try
+      p:=DynArray;
+      for i:=0 to dims-1 do
+        begin
+          vararraybounds^[i].lowbound:=0;
+          vararraybounds^[i].elementcount:=length(TDynArray(p));
+          dynarraybounds[i]:=length(TDynArray(p));
+          { we checked that the array is rectangular }
+          p:=TDynArray(p)[0];
+        end;
+      { .. create variant array }
+      V:=VarArrayCreate(vararraybounds,dims,vararrtype);
+
+      VarArrayLock(V);
+      try
+        iter.init(dims,pvararrayboundarray(vararraybounds));
+        dynarriter.init(DynArray,TypeInfo,dims,dynarraybounds);
+        repeat
+          case vararrtype of
+            varsmallint:
+              temp:=PSmallInt(dynarriter.data)^;
+            varinteger:
+              temp:=PInteger(dynarriter.data)^;
+            varsingle:
+              temp:=PSingle(dynarriter.data)^;
+            vardouble:
+              temp:=PDouble(dynarriter.data)^;
+            varcurrency:
+              temp:=PCurrency(dynarriter.data)^;
+            vardate:
+              temp:=PDouble(dynarriter.data)^;
+            varolestr:
+              temp:=PWideString(dynarriter.data)^;
+            vardispatch:
+              temp:=PDispatch(dynarriter.data)^;
+            varerror:
+              temp:=PError(dynarriter.data)^;
+            varboolean:
+              temp:=PBoolean(dynarriter.data)^;
+            varvariant:
+              temp:=PVariant(dynarriter.data)^;
+            varunknown:
+              temp:=PUnknown(dynarriter.data)^;
+            varshortint:
+              temp:=PShortInt(dynarriter.data)^;
+            varbyte:
+              temp:=PByte(dynarriter.data)^;
+            varword:
+              temp:=PWord(dynarriter.data)^;
+            varlongword:
+              temp:=PLongWord(dynarriter.data)^;
+            varint64:
+              temp:=PInt64(dynarriter.data)^;
+            varqword:
+              temp:=PQWord(dynarriter.data)^;
+            else
+              VarClear(temp);
+          end;
+          dynarriter.next;
+          variantmanager.VarArrayPut(V,temp,dims,PSizeInt(iter.coords));
+        until not(iter.next);
+      finally
+        iter.done;
+        dynarriter.done;
+        VarArrayUnlock(V);
+      end;
+    finally
+      freemem(vararraybounds);
+    end;
+  end;
 
 
 procedure DynArrayFromVariant(var DynArray: Pointer; const V: Variant; TypeInfo: Pointer);
-begin
-  NotSupported('DynArrayFromVariant');
-end;
+  var
+    DynArrayDims,
+    VarArrayDims : SizeInt;
+    iter : tvariantarrayiter;
+    dynarriter : tdynarrayiter;
+    temp : variant;
+    dynarrvartype : longint;
+    variantmanager : tvariantmanager;
+    vararraybounds : pvararrayboundarray;
+    dynarraybounds : tdynarraybounds;
+    i : SizeInt;
+    p : Pointer;
+  type
+    TDynArray = array of pointer;
+  begin
+    VarArrayDims:=VarArrayDimCount(V);
+
+    dynarrvartype:=DynArrayGetVariantInfo(TypeInfo,DynArrayDims);
+
+    if (VarArrayDims=0) or (VarArrayDims<>DynArrayDims) then
+      VarResultCheck(VAR_INVALIDARG);
+
+    { retrieve bounds array }
+    Setlength(dynarraybounds,VarArrayDims);
+    getmem(vararraybounds,VarArrayDims*sizeof(TVarArrayBound));
+    try
+      p:=DynArray;
+      for i:=0 to VarArrayDims-1 do
+        begin
+          vararraybounds^[i].lowbound:=0;
+          vararraybounds^[i].elementcount:=length(TDynArray(p));
+          dynarraybounds[i]:=length(TDynArray(p));
+        end;
+      DynArraySetLength(DynArray,TypeInfo,VarArrayDims,PSizeInt(dynarraybounds));
+      GetVariantManager(variantmanager);
+      VarArrayLock(V);
+      try
+        iter.init(VarArrayDims,pvararrayboundarray(vararraybounds));
+        dynarriter.init(DynArray,TypeInfo,VarArrayDims,dynarraybounds);
+        repeat
+          temp:=variantmanager.VarArrayGet(V,VarArrayDims,PSizeInt(iter.coords));
+          case dynarrvartype of
+            varsmallint:
+              PSmallInt(dynarriter.data)^:=temp;
+            varinteger:
+              PInteger(dynarriter.data)^:=temp;
+            varsingle:
+              PSingle(dynarriter.data)^:=temp;
+            vardouble:
+              PDouble(dynarriter.data)^:=temp;
+            varcurrency:
+              PCurrency(dynarriter.data)^:=temp;
+            vardate:
+              PDouble(dynarriter.data)^:=temp;
+            varolestr:
+              PWideString(dynarriter.data)^:=temp;
+            vardispatch:
+              PDispatch(dynarriter.data)^:=temp;
+            varerror:
+              PError(dynarriter.data)^:=temp;
+            varboolean:
+              PBoolean(dynarriter.data)^:=temp;
+            varvariant:
+              PVariant(dynarriter.data)^:=temp;
+            varunknown:
+              PUnknown(dynarriter.data)^:=temp;
+            varshortint:
+              PShortInt(dynarriter.data)^:=temp;
+            varbyte:
+              PByte(dynarriter.data)^:=temp;
+            varword:
+              PWord(dynarriter.data)^:=temp;
+            varlongword:
+              PLongWord(dynarriter.data)^:=temp;
+            varint64:
+              PInt64(dynarriter.data)^:=temp;
+            varqword:
+              PQWord(dynarriter.data)^:=temp;
+          end;
+          dynarriter.next;
+        until not(iter.next);
+      finally
+        iter.done;
+        dynarriter.done;
+        VarArrayUnlock(V);
+      end;
+    finally
+      freemem(vararraybounds);
+    end;
+  end;
 
 
 function FindCustomVariantType(const AVarType: TVarType; out CustomVariantType: TCustomVariantType): Boolean; overload;
@@ -2398,10 +2772,10 @@ end;
 
 
 function Null: Variant;       // Null standard constant
-begin
-  SysVarClear(Result);
-  TVarData(Result).VType := varnull;
-end;
+  begin
+    SysVarClear(Result);
+    TVarData(Result).VType := varnull;
+  end;
 
 
 { ---------------------------------------------------------------------
@@ -2409,32 +2783,27 @@ end;
   ---------------------------------------------------------------------}
 
 function TCustomVariantType.QueryInterface(const IID: TGUID; out Obj): HResult;  stdcall;
-
-begin
-  NotSupported('TCustomVariantType.QueryInterface');
-end;
+  begin
+    NotSupported('TCustomVariantType.QueryInterface');
+  end;
 
 
 function TCustomVariantType._AddRef: Integer; stdcall;
-
-begin
-  NotSupported('TCustomVariantType._AddRef');
-end;
+  begin
+    NotSupported('TCustomVariantType._AddRef');
+  end;
 
 
 function TCustomVariantType._Release: Integer; stdcall;
-
-begin
-  NotSupported('TCustomVariantType._Release');
-end;
-
+  begin
+    NotSupported('TCustomVariantType._Release');
+  end;
 
 
 procedure TCustomVariantType.SimplisticClear(var V: TVarData);
-
-begin
-  NotSupported('TCustomVariantType.SimplisticClear');
-end;
+  begin
+    NotSupported('TCustomVariantType.SimplisticClear');
+  end;
 
 
 procedure TCustomVariantType.SimplisticCopy(var Dest: TVarData; const Source: TVarData;  const Indirect: Boolean = False);
@@ -2897,7 +3266,7 @@ procedure RaiseVarException(res : HRESULT);
   end;
 
 
-procedure VarResultCheck(AResult: HRESULT);
+procedure VarResultCheck(AResult: HRESULT);{$ifdef VARIANTINLINE}inline;{$endif VARIANTINLINE}
   begin
     if AResult<>VAR_OK then
       RaiseVarException(AResult);
@@ -2964,7 +3333,9 @@ function VarTypeAsText(const AType: TVarType): string;
 
 function FindVarData(const V: Variant): PVarData;
   begin
-    NotSupported('FindVarData');
+    result:=@V;
+    while result^.vtype=varVariant or VarByRef do
+      result:=PVarData(result^.VPointer);
   end;
 
 { ---------------------------------------------------------------------

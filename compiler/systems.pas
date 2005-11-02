@@ -50,7 +50,8 @@ interface
              cpu_iA64,                     { 7 }
              cpu_x86_64,                   { 8 }
              cpu_mips,                     { 9 }
-             cpu_arm                       { 10 }
+             cpu_arm,                      { 10 }
+             cpu_powerpc64                 { 11 }
        );
 
        tasmmode= (asmmode_none
@@ -117,7 +118,10 @@ interface
              system_arm_wince,          { 38 }
              system_ia64_win64,         { 39 }
              system_i386_wince,         { 40 }
-             system_x86_6432_linux      { 41 }
+             system_x86_6432_linux,     { 41 }
+             system_arm_gba,            { 42 }
+             system_powerpc64_linux,    { 43 }
+             system_i386_darwin         { 44 }
        );
 
        tasm = (as_none
@@ -142,6 +146,7 @@ interface
              ,as_x86_64_masm
              ,as_x86_64_pecoff
              ,as_i386_pecoffwince
+             ,as_arm_pecoffwince
        );
 
        tar = (ar_none
@@ -151,7 +156,12 @@ interface
        tres = (res_none
             ,res_gnu_windres,res_emxbind
             ,res_m68k_palmos,res_m68k_mpw
-            ,res_powerpc_mpw
+            ,res_powerpc_mpw,res_elf
+            ,res_gnu_wince_windres
+       );
+
+       tdbg = (dbg_none
+            ,dbg_stabs,dbg_dwarf
        );
 
        tscripttype = (script_none
@@ -208,7 +218,7 @@ interface
        pasminfo = ^tasminfo;
        tasminfo = record
           id          : tasm;
-          idtxt       : string[9];
+          idtxt       : string[12];
           asmbin      : string[8];
           asmcmd      : string[50];
           supported_target : tsystem;
@@ -230,6 +240,12 @@ interface
           rescmd  : string[50];
        end;
 
+       pdbginfo = ^tdbginfo;
+       tdbginfo = record
+          id      : tdbg;
+          idtxt   : string[12];
+       end;
+
        tsystemflags = (tf_none,
             tf_under_development,
             tf_need_export,tf_needs_isconsole,
@@ -239,7 +255,8 @@ interface
             tf_needs_dwarf_cfi,
             tf_use_8_3,
             tf_pic_uses_got,
-            tf_library_needs_pic
+            tf_library_needs_pic,
+            tf_needs_symbol_type
        );
 
        psysteminfo = ^tsysteminfo;
@@ -281,6 +298,7 @@ interface
           linkextern   : tabstractlinkerclass;  { external linker, used by -s }
           ar           : tar;
           res          : tres;
+          dbg          : tdbg;
           script       : tscripttype;
           endian       : tendian;
           alignment    : talignmentinfo;
@@ -301,15 +319,35 @@ interface
        { alias for supported_target field in tasminfo }
        system_any = system_none;
 
+       system_wince : set of tsystem = [system_arm_wince,system_i386_wince];
+       system_linux = [system_i386_linux,system_x86_64_linux,system_powerpc_linux,
+                       system_arm_linux,system_sparc_linux,system_alpha_linux,system_m68k_linux,
+                       system_x86_6432_linux];
+       { all real windows systems, no cripple ones like wince, wdosx et. al. }
+       system_windows : set of tsystem = [system_i386_win32,system_x86_64_win64,system_ia64_win64];
+       { all windows systems }
+       system_all_windows : set of tsystem = [system_i386_win32,system_x86_64_win64,system_ia64_win64,
+                                              system_arm_wince,system_i386_wince];
+
+       { all systems supporting exports from programs or units }
+       system_unit_program_exports : set of tsystem = [system_i386_win32,
+                                         system_i386_wdosx,
+                                         system_i386_Netware,
+                                         system_i386_netwlibc,
+                                         system_arm_wince,
+                                         system_x86_64_win64,
+                                         system_ia64_win64]+system_linux;
+
        cpu2str : array[TSystemCpu] of string =
             ('','i386','m68k','alpha','powerpc','sparc','vm','ia64','x86_64',
-             'mips','arm');
+             'mips','arm', 'powerpc64');
 
     var
        targetinfos   : array[tsystem] of psysteminfo;
        arinfos       : array[tar] of parinfo;
        resinfos      : array[tres] of presinfo;
        asminfos      : array[tasm] of pasminfo;
+       dbginfos      : array[tdbg] of pdbginfo;
 
        source_info : tsysteminfo;
        target_cpu  : tsystemcpu;
@@ -317,6 +355,7 @@ interface
        target_asm  : tasminfo;
        target_ar   : tarinfo;
        target_res  : tresinfo;
+       target_dbg  : tdbginfo;
        target_cpu_string,
        target_os_string   : string[12]; { for rtl/<X>/,fcl/<X>/, etc. }
        target_full_string : string[24];
@@ -325,9 +364,11 @@ interface
     function set_target_asm(t:tasm):boolean;
     function set_target_ar(t:tar):boolean;
     function set_target_res(t:tres):boolean;
+    function set_target_dbg(t:tdbg):boolean;
 
-    function set_target_by_string(const s : string) : boolean;
-    function set_target_asm_by_string(const s : string) : boolean;
+    function find_system_by_string(const s : string) : tsystem;
+    function find_asm_by_string(const s : string) : tasm;
+    function find_dbg_by_string(const s : string) : tdbg;
 
     procedure set_source_info(const ti : tsysteminfo);
 
@@ -409,6 +450,7 @@ begin
      set_target_asm(target_info.assem);
      set_target_ar(target_info.ar);
      set_target_res(target_info.res);
+     set_target_dbg(target_info.dbg);
      target_cpu:=target_info.cpu;
      target_os_string:=lower(target_info.shortname);
      target_cpu_string:=cpu2str[target_cpu];
@@ -435,11 +477,11 @@ end;
 
 function set_target_ar(t:tar):boolean;
 begin
-  set_target_ar:=false;
+  result:=false;
   if assigned(arinfos[t]) then
    begin
      target_ar:=arinfos[t]^;
-     set_target_ar:=true;
+     result:=true;
      exit;
    end;
 end;
@@ -447,47 +489,74 @@ end;
 
 function set_target_res(t:tres):boolean;
 begin
-  set_target_res:=false;
+  result:=false;
   if assigned(resinfos[t]) then
    begin
      target_res:=resinfos[t]^;
-     set_target_res:=true;
+     result:=true;
      exit;
    end;
 end;
 
 
-function set_target_by_string(const s : string) : boolean;
+function set_target_dbg(t:tdbg):boolean;
+begin
+  result:=false;
+  if assigned(dbginfos[t]) then
+   begin
+     target_dbg:=dbginfos[t]^;
+     result:=true;
+     exit;
+   end;
+end;
+
+
+function find_system_by_string(const s : string) : tsystem;
 var
   hs : string;
   t  : tsystem;
 begin
-  set_target_by_string:=false;
-  { this should be case insensitive !! PM }
+  result:=system_none;
   hs:=upper(s);
   for t:=low(tsystem) to high(tsystem) do
    if assigned(targetinfos[t]) and
       (upper(targetinfos[t]^.shortname)=hs) then
     begin
-      set_target_by_string:=set_target(t);
+      result:=t;
       exit;
     end;
 end;
 
 
-function set_target_asm_by_string(const s : string) : boolean;
+function find_asm_by_string(const s : string) : tasm;
 var
   hs : string;
   t  : tasm;
 begin
-  set_target_asm_by_string:=false;
-  { this should be case insensitive !! PM }
+  result:=as_none;
   hs:=upper(s);
   for t:=low(tasm) to high(tasm) do
    if assigned(asminfos[t]) and
       (asminfos[t]^.idtxt=hs) then
     begin
-      set_target_asm_by_string:=set_target_asm(t);
+      result:=t;
+      exit;
+    end;
+end;
+
+
+function find_dbg_by_string(const s : string) : tdbg;
+var
+  hs : string;
+  t  : tdbg;
+begin
+  result:=dbg_none;
+  hs:=upper(s);
+  for t:=low(tdbg) to high(tdbg) do
+   if assigned(dbginfos[t]) and
+      (dbginfos[t]^.idtxt=hs) then
+    begin
+      result:=t;
       exit;
     end;
 end;
@@ -701,6 +770,13 @@ begin
     default_target(system_powerpc_linux);
   {$endif cpupowerpc}
 {$endif powerpc}
+{$ifdef POWERPC64}
+  {$ifdef cpupowerpc64}
+    default_target(source_info.system);
+  {$else cpupowerpc64}
+    default_target(system_powerpc64_linux);
+  {$endif cpupowerpc64}
+{$endif POWERPC64}
 {$ifdef sparc}
   {$ifdef cpusparc}
     default_target(source_info.system);

@@ -48,7 +48,7 @@ interface
           { only implements "muln" nodes, the rest always has to be done in }
           { the code generator for performance reasons (JM)                 }
           function first_add64bitint: tnode; virtual;
-{$ifdef cpufpemu}
+
           { This routine calls internal runtime library helpers
             for all floating point arithmetic in the case
             where the emulation switches is on. Otherwise
@@ -56,7 +56,6 @@ interface
             the code generation phase.
           }
           function first_addfloat : tnode; virtual;
-{$endif cpufpemu}
        end;
        taddnodeclass = class of taddnode;
 
@@ -559,7 +558,7 @@ implementation
           begin
              case nodetype of
                 addn :
-                  t:=cstringconstnode.createpchar(concatansistrings(s1,s2,l1,l2),l1+l2);
+                  t:=cstringconstnode.createpchar(concatansistrings(s1,s2,l1,l2),l1+l2,st_conststring);
                 ltn :
                   t:=cordconstnode.create(byte(compareansistrings(s1,s2,l1,l2)<0),booltype,true);
                 lten :
@@ -1035,7 +1034,8 @@ implementation
          { if both are floatdefs, conversion is already done before constant folding }
          else if (ld.deftype=floatdef) then
            begin
-             { already converted }
+             if not(nodetype in [addn,subn,muln,slashn,equaln,unequaln,ltn,lten,gtn,gten]) then
+               CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),ld.typename,rd.typename);
            end
 
          { left side a setdef, must be before string processing,
@@ -1086,20 +1086,32 @@ implementation
                 inserttypeconv(right,left.resulttype);
              end;
           end
-
-         { compare pchar to char arrays by addresses like BP/Delphi }
-         else if ((is_pchar(ld) or (lt=niln)) and is_chararray(rd)) or
-                 ((is_pchar(rd) or (rt=niln)) and is_chararray(ld)) then
-           begin
-             if is_chararray(rd) then
-              inserttypeconv(right,charpointertype)
-             else
-              inserttypeconv(left,charpointertype);
-           end
-
          { pointer comparision and subtraction }
-         else if (rd.deftype=pointerdef) and (ld.deftype=pointerdef) then
+         else if (
+                  (rd.deftype=pointerdef) and (ld.deftype=pointerdef)
+                 ) or
+                 { compare/add pchar to variable (not stringconst) char arrays
+                   by addresses like BP/Delphi }
+                 (
+                  (nodetype in [equaln,unequaln,subn,addn]) and
+                  (
+                   ((is_pchar(ld) or (lt=niln)) and is_chararray(rd) and (rt<>stringconstn)) or
+                   ((is_pchar(rd) or (rt=niln)) and is_chararray(ld) and (lt<>stringconstn))
+                  )
+                 ) then
           begin
+            { convert char array to pointer }
+            if is_chararray(rd) then
+              begin
+                inserttypeconv(right,charpointertype);
+                rd:=right.resulttype.def;
+              end
+            else if is_chararray(ld) then
+              begin
+                inserttypeconv(left,charpointertype);
+                ld:=left.resulttype.def;
+              end;
+
             case nodetype of
                equaln,unequaln :
                  begin
@@ -1322,16 +1334,16 @@ implementation
             if not assigned(hsym) then
               internalerror(200412043);
             { For methodpointers compare only tmethodpointer.proc }
-	    if (rd.deftype=procvardef) and
+            if (rd.deftype=procvardef) and
                (not tprocvardef(rd).is_addressonly) then
-	      begin
+              begin
                 right:=csubscriptnode.create(
                            hsym,
                            ctypeconvnode.create_internal(right,methodpointertype));
-	       end;
-	    if (ld.deftype=procvardef) and
-	       (not tprocvardef(ld).is_addressonly) then
-	      begin
+               end;
+            if (ld.deftype=procvardef) and
+               (not tprocvardef(ld).is_addressonly) then
+              begin
                 left:=csubscriptnode.create(
                           hsym,
                           ctypeconvnode.create_internal(left,methodpointertype));
@@ -1789,12 +1801,9 @@ implementation
       end;
 
 
-{$ifdef cpufpemu}
-    function taddnode.first_addfloat: tnode;
+    function taddnode.first_addfloat : tnode;
       var
         procname: string[31];
-        temp: tnode;
-        power: longint;
         { do we need to reverse the result ? }
         notnode : boolean;
       begin
@@ -1806,43 +1815,102 @@ implementation
         if not (cs_fp_emulation in aktmoduleswitches) then
           exit;
 
-        case nodetype of
-          addn : procname := 'fpc_single_add';
-          muln : procname := 'fpc_single_mul';
-          subn : procname := 'fpc_single_sub';
-          slashn : procname := 'fpc_single_div';
-          ltn : procname := 'fpc_single_lt';
-          lten: procname := 'fpc_single_le';
-          gtn:
-            begin
-             procname := 'fpc_single_le';
-             notnode := true;
+        if not(target_info.system in system_wince) then
+          begin
+            case tfloatdef(left.resulttype.def).typ of
+              s32real:
+                procname:='float32';
+              s64real:
+                procname:='float64';
+              {!!! not yet implemented
+              s128real:
+              }
+              else
+                internalerror(2005082601);
             end;
-          gten:
-            begin
-              procname := 'fpc_single_lt';
-              notnode := true;
+
+            case nodetype of
+              addn:
+                procname:=procname+'_add';
+              muln:
+                procname:=procname+'_mul';
+              subn:
+                procname:=procname+'_sub';
+              slashn:
+                procname:=procname+'_div';
+              ltn:
+                procname:=procname+'_lt';
+              lten:
+                procname:=procname+'_le';
+              gtn:
+                begin
+                  procname:=procname+'_le';
+                  notnode:=true;
+                end;
+              gten:
+                begin
+                  procname:=procname+'_lt';
+                  notnode:=true;
+                end;
+              equaln:
+                procname:=procname+'_eq';
+              unequaln:
+                begin
+                  procname:=procname+'_eq';
+                  notnode:=true;
+                end;
+              else
+                CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),left.resulttype.def.typename,right.resulttype.def.typename);
             end;
-          equaln: procname := 'fpc_single_eq';
-          unequaln :
-            begin
-              procname := 'fpc_single_eq';
-              notnode := true;
+          end
+        else
+          begin
+            case nodetype of
+              addn:
+                procname:='ADD';
+              muln:
+                procname:='MUL';
+              subn:
+                procname:='SUB';
+              slashn:
+                procname:='DIV';
+              ltn:
+                procname:='LT';
+              lten:
+                procname:='LE';
+              gtn:
+                procname:='GT';
+              gten:
+                procname:='GE';
+              equaln:
+                procname:='EQ';
+              unequaln:
+                procname:='NE';
+              else
+                CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),left.resulttype.def.typename,right.resulttype.def.typename);
             end;
-          else
-            CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),left.resulttype.def.typename,right.resulttype.def.typename);
-        end;
-        { convert the arguments (explicitely) to fpc_normal_set's }
-        result := ccallnode.createintern(procname,ccallparanode.create(right,
+            case tfloatdef(left.resulttype.def).typ of
+              s32real:
+                procname:=procname+'S';
+              s64real:
+                procname:=procname+'D';
+              {!!! not yet implemented
+              s128real:
+              }
+              else
+                internalerror(2005082602);
+            end;
+
+          end;
+        result:=ccallnode.createintern(procname,ccallparanode.create(right,
            ccallparanode.create(left,nil)));
         left:=nil;
         right:=nil;
 
         { do we need to reverse the result }
         if notnode then
-           result := cnotnode.create(result);
+          result:=cnotnode.create(result);
       end;
-{$endif cpufpemu}
 
 
     function taddnode.pass_1 : tnode;
@@ -1871,9 +1939,12 @@ implementation
          if nodetype=slashn then
            begin
 {$ifdef cpufpemu}
-             result := first_addfloat;
-             if assigned(result) then
-               exit;
+             if (aktfputype=fpu_soft) or (cs_fp_emulation in aktmoduleswitches) then
+               begin
+                 result:=first_addfloat;
+                 if assigned(result) then
+                   exit;
+               end;
 {$endif cpufpemu}
              expectloc:=LOC_FPUREGISTER;
              { maybe we need an integer register to save }
@@ -2076,9 +2147,12 @@ implementation
          else if (rd.deftype=floatdef) or (ld.deftype=floatdef) then
             begin
 {$ifdef cpufpemu}
-              result := first_addfloat;
-              if assigned(result) then
-                exit;
+             if (aktfputype=fpu_soft) or (cs_fp_emulation in aktmoduleswitches) then
+               begin
+                 result:=first_addfloat;
+                 if assigned(result) then
+                   exit;
+               end;
 {$endif cpufpemu}
               if nodetype in [addn,subn,muln,andn,orn,xorn] then
                 expectloc:=LOC_FPUREGISTER

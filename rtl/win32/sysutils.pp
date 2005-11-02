@@ -29,6 +29,7 @@ uses
 {$DEFINE HAS_OSERROR}
 {$DEFINE HAS_OSCONFIG}
 {$DEFINE HAS_CREATEGUID}
+
 { Include platform independent interface part }
 {$i sysutilh.inc}
 
@@ -57,8 +58,20 @@ implementation
 {$define HASCREATEGUID}
 {$define HASEXPANDUNCFILENAME}
 
+{$DEFINE FPC_NOGENERICANSIROUTINES}
+
 { Include platform independent implementation part }
 {$i sysutils.inc}
+
+Function SysGetTempFileName(lpPathName:LPCSTR; lpPrefixString:LPCSTR; uUnique:UINT; lpTempFileName:LPSTR):UINT; external 'kernel32' name 'GetTempFileNameA';
+
+function GetTempFileName(Dir,Prefix: PChar; uUnique: DWORD; TempFileName: PChar):DWORD;
+
+begin
+  Result:=SysGetTempFileName(Dir,Prefix,uUnique,TempFileName);
+end;
+
+
 
 { UUID generation. }
 
@@ -234,28 +247,25 @@ end;
 
 Function FileExists (Const FileName : String) : Boolean;
 var
-  Handle: THandle;
-  FindData: TWin32FindData;
+  Attr:Dword;
 begin
-  Handle := FindFirstFile(Pchar(FileName), FindData);
-  Result:=Handle <> INVALID_HANDLE_VALUE;
-  If Result then
-    Windows.FindClose(Handle);
+  Attr:=GetFileAttributes(PChar(FileName));
+  if Attr <> $ffffffff then
+    Result:= (Attr and FILE_ATTRIBUTE_DIRECTORY) = 0
+  else
+    Result:=False;
 end;
 
 
 Function DirectoryExists (Const Directory : String) : Boolean;
 var
-  Handle: THandle;
-  FindData: TWin32FindData;
+  Attr:Dword;
 begin
-  Result:=False;
-  Handle := FindFirstFile(Pchar(Directory), FindData);
-  If (Handle <> INVALID_HANDLE_VALUE) then
-    begin
-    Result:=((FindData.dwFileAttributes and FILE_ATTRIBUTE_DIRECTORY) = FILE_ATTRIBUTE_DIRECTORY);
-    Windows.FindClose(Handle);
-    end;
+  Attr:=GetFileAttributes(PChar(Directory));
+  if Attr <> $ffffffff then
+    Result:= (Attr and FILE_ATTRIBUTE_DIRECTORY) > 0
+  else
+    Result:=False;
 end;
 
 
@@ -344,16 +354,16 @@ end;
 
 Function FileSetAttr (Const Filename : String; Attr: longint) : Longint;
 begin
-  if not SetFileAttributes(PChar(FileName), Attr) then
-    Result := GetLastError
+  if SetFileAttributes(PChar(FileName), Attr) then
+    Result:=0
   else
-    Result:=0;
+    Result := GetLastError;    
 end;
 
 
 Function DeleteFile (Const FileName : String) : Boolean;
 begin
-  DeleteFile:=Windows.DeleteFile(Pchar(FileName));
+  Result:=Windows.DeleteFile(Pchar(FileName));
 end;
 
 
@@ -458,28 +468,19 @@ end;
 
 Function SetCurrentDir (Const NewDir : String) : Boolean;
 begin
-  {$I-}
-   ChDir(NewDir);
-  {$I+}
-  result := (IOResult = 0);
+  Result:=SetCurrentDirectory(PChar(NewDir));
 end;
 
 
 Function CreateDir (Const NewDir : String) : Boolean;
 begin
-  {$I-}
-   MkDir(NewDir);
-  {$I+}
-  result := (IOResult = 0);
+  Result:=CreateDirectory(PChar(NewDir),nil);
 end;
 
 
 Function RemoveDir (Const Dir : String) : Boolean;
 begin
-  {$I-}
-   RmDir(Dir);
-  {$I+}
-  result := (IOResult = 0);
+  Result:=RemoveDirectory(PChar(Dir));
 end;
 
 
@@ -643,6 +644,11 @@ begin
   old8087CW:=Get8087CW;
   SysLocale.MBCS:=GetSystemMetrics(SM_DBCSENABLED)<>0;
   SysLocale.RightToLeft:=GetSystemMetrics(SM_MIDEASTENABLED)<>0;
+  SysLocale.DefaultLCID := $0409;
+  SysLocale.PriLangID := LANG_ENGLISH;
+  SysLocale.SubLangID := SUBLANG_ENGLISH_US;
+  // probably needs update with getthreadlocale. post 2.0.2
+
   Set8087CW(old8087CW);
   InitAnsi;
   GetFormatSettings;
@@ -1122,8 +1128,17 @@ procedure InitWin32Widestrings;
   begin
     widestringmanager.CompareWideStringProc:=@Win32CompareWideString;
     widestringmanager.CompareTextWideStringProc:=@Win32CompareTextWideString;
+    widestringmanager.UpperAnsiStringProc:=@Win32AnsiUpperCase;
+    widestringmanager.LowerAnsiStringProc:=@Win32AnsiLowerCase;
+    widestringmanager.CompareStrAnsiStringProc:=@Win32AnsiCompareStr;
+    widestringmanager.CompareTextAnsiStringProc:=@Win32AnsiCompareText;
+    widestringmanager.StrCompAnsiStringProc:=@Win32AnsiStrComp;
+    widestringmanager.StrICompAnsiStringProc:=@Win32AnsiStrIComp;
+    widestringmanager.StrLCompAnsiStringProc:=@Win32AnsiStrLComp;
+    widestringmanager.StrLICompAnsiStringProc:=@Win32AnsiStrLIComp;
+    widestringmanager.StrLowerAnsiStringProc:=@Win32AnsiStrLower;
+    widestringmanager.StrUpperAnsiStringProc:=@Win32AnsiStrUpper;
   end;
-
 
 
 Initialization

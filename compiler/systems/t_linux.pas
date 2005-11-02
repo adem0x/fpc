@@ -27,7 +27,7 @@ unit t_linux;
 interface
 
   uses
-    symsym,symdef,
+    symsym,symdef,ppu,
     import,export,link;
 
   type
@@ -54,6 +54,7 @@ interface
       procedure SetDefaultInfo;override;
       function  MakeExecutable:boolean;override;
       function  MakeSharedLibrary:boolean;override;
+      function  postprocessexecutable(const fn : string;isdll:boolean):boolean;
     end;
 
 
@@ -63,9 +64,10 @@ implementation
     cutils,cclasses,
     verbose,systems,globtype,globals,
     symconst,script,
-    fmodule,dos
-    ,aasmbase,aasmtai,aasmcpu,cpubase,cgobj
-    ,i_linux
+    fmodule,dos,
+    aasmbase,aasmtai,aasmcpu,cpubase,
+    cgbase,cgobj,cgutils,
+    i_linux
     ;
 
 {*****************************************************************************
@@ -155,8 +157,10 @@ end;
 procedure texportliblinux.generatelib;
 var
   hp2 : texported_item;
+  sym : tasmsymbol;
+  r : treference;
 begin
-  new_section(asmlist[codesegment],sec_code,'',0);
+  new_section(asmlist[al_procedures],sec_code,'',0);
   hp2:=texported_item(current_module._exports.first);
   while assigned(hp2) do
    begin
@@ -167,11 +171,26 @@ begin
           is declared with cdecl }
         if tprocsym(hp2.sym).first_procdef.mangledname<>hp2.name^ then
          begin
-           { place jump in codesegment }
-           asmlist[codesegment].concat(tai_align.create(target_info.alignment.procalign));
-           asmlist[codesegment].concat(Tai_symbol.Createname_global(hp2.name^,AT_FUNCTION,0));
-           cg.a_jmp_name(asmlist[codesegment],tprocsym(hp2.sym).first_procdef.mangledname);
-           asmlist[codesegment].concat(Tai_symbol_end.Createname(hp2.name^));
+           { place jump in al_procedures }
+           asmlist[al_procedures].concat(tai_align.create(target_info.alignment.procalign));
+           asmlist[al_procedures].concat(Tai_symbol.Createname_global(hp2.name^,AT_FUNCTION,0));
+           if (cs_create_pic in aktmoduleswitches) and
+             { other targets need to be checked how it works }
+             (target_info.system in [system_x86_64_linux]) then
+             begin
+{$ifdef x86_64}
+               sym:=objectlibrary.newasmsymbol(hp2.name^,AB_EXTERNAL,AT_FUNCTION);
+               reference_reset_symbol(r,sym,0);
+               if cs_create_pic in aktmoduleswitches then
+                 r.refaddr:=addr_pic
+               else
+                 r.refaddr:=addr_full;
+               asmlist[al_procedures].concat(taicpu.op_ref(A_JMP,S_NO,r));
+{$endif x86_64}
+             end
+           else
+             cg.a_jmp_name(asmlist[al_procedures],tprocsym(hp2.sym).first_procdef.mangledname);
+           asmlist[al_procedures].concat(Tai_symbol_end.Createname(hp2.name^));
          end;
       end
      else
@@ -192,7 +211,11 @@ begin
 {$ifdef x86_64}
    LibrarySearchPath.AddPath('/lib64;/usr/lib64;/usr/X11R6/lib64',true);
 {$else}
+{$ifdef powerpc64}
+   LibrarySearchPath.AddPath('/lib64;/usr/lib64;/usr/X11R6/lib64',true);
+{$else powerpc64}
    LibrarySearchPath.AddPath('/lib;/usr/lib;/usr/X11R6/lib',true);
+{$endif powerpc64}
 {$endif x86_64}
 end;
 
@@ -203,11 +226,13 @@ procedure TLinkerLinux.SetDefaultInfo;
 }
 
 const
-{$ifdef i386}   platform_select='-b elf32-i386 -m elf_i386';{$endif} 
+{$ifdef i386}   platform_select='-b elf32-i386 -m elf_i386';{$endif}
 {$ifdef x86_64} platform_select='-b elf64-x86-64 -m elf_x86_64';{$endif}
 {$ifdef powerpc}platform_select='-b elf32-powerpc -m elf32ppclinux';{$endif}
+{$ifdef POWERPC64}  platform_select='-b elf64-powerpc -m elf64ppc';{$endif}
 {$ifdef sparc}  platform_select='-b elf32-sparc -m elf32_sparc';{$endif}
 {$ifdef arm}    platform_select='';{$endif} {unknown :( }
+{$ifdef m68k}    platform_select='';{$endif} {unknown :( }
 
 {$ifdef m68k}
 var
@@ -216,8 +241,8 @@ var
 begin
   with Info do
    begin
-     ExeCmd[1]:='ld '+platform_select+' $OPT $DYNLINK $STATIC $GCSECTIONS $STRIP -L. -o $EXE -T $RES';
-     DllCmd[1]:='ld '+platform_select+' $OPT $INIT $FINI $SONAME -shared -L. -o $EXE -T $RES';
+     ExeCmd[1]:='ld '+platform_select+' $OPT $DYNLINK $STATIC $GCSECTIONS $STRIP -L. -o $EXE $RES';
+     DllCmd[1]:='ld '+platform_select+' $OPT $INIT $FINI $SONAME -shared -L. -o $EXE $RES';
      DllCmd[2]:='strip --strip-unneeded $EXE';
 {$ifdef m68k}
      libctype:=glibc2;
@@ -251,8 +276,10 @@ begin
            libctype:=uclibc;
            dynamiclinker:='/lib/ld-uClibc.so.0';
          end
+       else if fileexists('/lib/ld-linux.so.1') then
+         DynamicLinker:='/lib/ld-linux.so.1'
        else
-         DynamicLinker:='/lib/ld-linux.so.1';
+         libctype:=glibc21;
 {$endif i386}
 
 {$ifdef x86_64}
@@ -269,6 +296,11 @@ begin
      DynamicLinker:='/lib/ld.so.1';
      libctype:=glibc2;
 {$endif powerpc}
+
+{$ifdef powerpc64}
+     DynamicLinker:='/lib64/ld64.so.1';
+     libctype:=glibc2;
+{$endif powerpc64}
 
 {$ifdef arm}
      DynamicLinker:='/lib/ld-linux.so.2';
@@ -431,6 +463,8 @@ begin
   linkres.add('ENTRY(_start)');
 
   {Sections.}
+{
+  commented out because it cause problems on several machines with different ld versions (FK)
   linkres.add('SECTIONS');
   linkres.add('{');
   {Read-only sections, merged into text segment:}
@@ -527,6 +561,7 @@ begin
   linkres.add('  .stab          0 : { *(.stab) }');
   linkres.add('  .stabstr       0 : { *(.stabstr) }');
   linkres.add('}');
+}
 
 { Write and Close response }
   LinkRes.writetodisk;
@@ -558,7 +593,7 @@ begin
    StaticStr:='-static';
   if (cs_link_strip in aktglobalswitches) then
    StripStr:='-s';
-  if (cs_link_smart in aktglobalswitches) and
+  if (af_smartlink_sections in target_asm.flags) and
      (tf_smartlink_sections in target_info.flags) then
    GCSectionsStr:='--gc-sections';
   If (cs_profile in aktmoduleswitches) or
@@ -588,6 +623,10 @@ begin
 { Remove ReponseFile }
   if (success) and not(cs_link_extern in aktglobalswitches) then
    RemoveFile(outputexedir+Info.ResName);
+
+  if (success) then
+    success:=PostProcessExecutable(current_module.exefilename^,false);
+
 
   MakeExecutable:=success;   { otherwise a recursive call to link method }
 end;
@@ -627,6 +666,8 @@ begin
 { Strip the library ? }
   if success and (cs_link_strip in aktglobalswitches) then
    begin
+     { only remove non global symbols and debugging info for a library }
+     Info.DllCmd[2]:='strip --discard-all --strip-debug $EXE';
      SplitBinCmd(Info.DllCmd[2],binstr,cmdstr);
      Replace(cmdstr,'$EXE',maybequoted(current_module.sharedlibfilename^));
      success:=DoExec(FindUtil(utilsprefix+binstr),cmdstr,true,false);
@@ -637,6 +678,35 @@ begin
    RemoveFile(outputexedir+Info.ResName);
 
   MakeSharedLibrary:=success;   { otherwise a recursive call to link method }
+end;
+
+function tlinkerLinux.postprocessexecutable(const fn : string;isdll:boolean):boolean;
+
+Var
+  cmdstr: string;
+  found : boolean;
+  hp    : tused_unit;
+
+begin
+  postprocessexecutable:=True;
+  if target_res.id=res_elf then
+    begin
+    found:=((current_module.flags and uf_has_resourcefiles)=uf_has_resourcefiles);
+    if not found then
+      begin
+      hp:=tused_unit(usedunits.first);
+      While Assigned(hp) and not Found do
+        begin
+        Found:=((hp.u.flags and uf_has_resourcefiles)=uf_has_resourcefiles);
+        hp:=tused_unit(hp.next);
+        end;
+      end;
+    if found then
+      begin
+      cmdstr:=' -f -i '+maybequoted(fn);
+      postprocessexecutable:=DoExec(FindUtil(utilsprefix+'fpcres'),cmdstr,false,false);
+      end;
+    end;
 end;
 
 
@@ -650,6 +720,7 @@ initialization
   RegisterImport(system_i386_linux,timportliblinux);
   RegisterExport(system_i386_linux,texportliblinux);
   RegisterTarget(system_i386_linux_info);
+  RegisterRes(res_elf32_info);
 
   RegisterExternalLinker(system_x86_6432_linux_info,TLinkerLinux);
   RegisterImport(system_x86_6432_linux,timportliblinux);
@@ -668,6 +739,12 @@ initialization
   RegisterExport(system_powerpc_linux,texportliblinux);
   RegisterTarget(system_powerpc_linux_info);
 {$endif powerpc}
+{$ifdef powerpc64}
+  RegisterExternalLinker(system_powerpc64_linux_info,TLinkerLinux);
+  RegisterImport(system_powerpc64_linux,timportliblinux);
+  RegisterExport(system_powerpc64_linux,texportliblinux);
+  RegisterTarget(system_powerpc64_linux_info);
+{$endif powerpc64}
 {$ifdef alpha}
   RegisterExternalLinker(system_alpha_linux_info,TLinkerLinux);
   RegisterImport(system_alpha_linux,timportliblinux);
@@ -679,6 +756,7 @@ initialization
   RegisterImport(system_x86_64_linux,timportliblinux);
   RegisterExport(system_x86_64_linux,texportliblinux);
   RegisterTarget(system_x86_64_linux_info);
+  RegisterRes(res_elf64_info);
 {$endif x86_64}
 {$ifdef SPARC}
   RegisterExternalLinker(system_sparc_linux_info,TLinkerLinux);

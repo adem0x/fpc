@@ -62,7 +62,7 @@ implementation
       cpubase,parabase,
       tgobj,ncgutil,
       cgutils,cgobj,
-      ncgbas;
+      ncgbas,ncgflw;
 
 {*****************************************************************************
                              SecondLoad
@@ -155,8 +155,8 @@ implementation
                          call and then the address load to be sure that the
                          register that is used for returning is the same (PFV)
                        }
-                       objectlibrary.getlabel(norelocatelab);
-                       objectlibrary.getlabel(endrelocatelab);
+                       objectlibrary.getjumplabel(norelocatelab);
+                       objectlibrary.getjumplabel(endrelocatelab);
                        { make sure hregister can't allocate the register necessary for the parameter }
                        paraloc1.init;
                        paramanager.getintparaloc(pocall_default,1,paraloc1);
@@ -167,7 +167,7 @@ implementation
                        { don't save the allocated register else the result will be destroyed later }
                        reference_reset_symbol(href,objectlibrary.newasmsymbol(tglobalvarsym(symtableentry).mangledname,AB_EXTERNAL,AT_DATA),0);
                        paramanager.allocparaloc(exprasmlist,paraloc1);
-                       cg.a_param_ref(exprasmlist,OS_ADDR,href,paraloc1);
+                       cg.a_param_ref(exprasmlist,OS_32,href,paraloc1);
                        paramanager.freeparaloc(exprasmlist,paraloc1);
                        paraloc1.done;
                        cg.allocallcpuregisters(exprasmlist);
@@ -365,14 +365,10 @@ implementation
                     end;
                end;
             typedconstsym :
-               begin
-                  location.reference.symbol:=objectlibrary.newasmsymbol(ttypedconstsym(symtableentry).mangledname,AB_EXTERNAL,AT_DATA);
-               end;
+              location.reference.symbol:=objectlibrary.newasmsymbol(ttypedconstsym(symtableentry).mangledname,AB_EXTERNAL,AT_DATA);
             labelsym :
-               begin
-                  location.reference.symbol:=objectlibrary.newasmsymbol(tlabelsym(symtableentry).mangledname,AB_EXTERNAL,AT_FUNCTION);
-               end;
-            else internalerror(4);
+              location.reference.symbol:=tcglabelnode((tlabelsym(symtableentry).code)).getasmlabel;
+            else internalerror(200510032);
          end;
       end;
 
@@ -395,8 +391,8 @@ implementation
 
         otlabel:=truelabel;
         oflabel:=falselabel;
-        objectlibrary.getlabel(truelabel);
-        objectlibrary.getlabel(falselabel);
+        objectlibrary.getjumplabel(truelabel);
+        objectlibrary.getjumplabel(falselabel);
 
         {
           in most cases we can process first the right node which contains
@@ -670,7 +666,7 @@ implementation
                 end;
               LOC_JUMP :
                 begin
-                  objectlibrary.getlabel(hlabel);
+                  objectlibrary.getjumplabel(hlabel);
                   cg.a_label(exprasmlist,truelabel);
                   cg.a_load_const_loc(exprasmlist,1,left.location);
                   cg.a_jmp_always(exprasmlist,hlabel);
@@ -782,6 +778,8 @@ implementation
                        if is_64bit(lt) then
                          begin
                             case torddef(lt).typ of
+                              scurrency:
+                                vtype:=vtCurrency;
                               s64bit:
                                 vtype:=vtInt64;
                               u64bit:
@@ -852,24 +850,10 @@ implementation
                         end
                        else
                         if is_ansistring(lt) then
-                        {$ifdef ansistring_bits}
-                         begin
-                           case Tstringdef(lt).string_typ of
-                             st_ansistring16:
-                               vtype:=vtAnsiString16;
-                             st_ansistring32:
-                               vtype:=vtAnsiString32;
-                             st_ansistring64:
-                               vtype:=vtAnsiString64;
-                           end;
-                           freetemp:=false;
-                         end
-                        {$else}
                          begin
                            vtype:=vtAnsiString;
                            freetemp:=false;
                          end
-                        {$endif}
                        else
                         if is_widestring(lt) then
                          begin
@@ -900,9 +884,7 @@ implementation
               else
               { normal array constructor of the same type }
                begin
-                 if (is_ansistring(left.resulttype.def) or
-                     is_widestring(left.resulttype.def) or
-                     (left.resulttype.def.deftype=variantdef)) then
+                 if resulttype.def.needs_inittable then
                    freetemp:=false;
                  case hp.left.location.loc of
                    LOC_FPUREGISTER,

@@ -35,7 +35,7 @@ Unit aopt;
       TAsmOptimizer = class(TAoptObj)
 
         { _AsmL is the PAasmOutpout list that has to be optimized }
-        Constructor create(_AsmL: taasmoutput);
+        Constructor create(_AsmL: taasmoutput); virtual;
 
         { call the necessary optimizer procedures }
         Procedure Optimize;
@@ -219,7 +219,9 @@ Unit aopt;
               End;
             { more peephole optimizations }
       {      PeepHoleOptPass2;}
-            { free memory }
+            { if pass = last_pass then }
+            PostPeepHoleOpts;
+            { free memory }
             clear;
             { continue where we left off, BlockEnd is either the start of an }
             { assembler block or nil}
@@ -262,6 +264,4 @@ Unit aopt;
       end;
 
 
-begin
-  casmoptimizer:=TAsmOptimizer;
 end.

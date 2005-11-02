@@ -739,10 +739,23 @@ type
 
 { TResourceStream }
 
+{$ifdef UNICODE}
   TResourceStream = class(TCustomMemoryStream)
   private
-    HResInfo: HRSRC;
-    HGlobal: THandle;
+    Res: HRSRC;
+    Handle: THandle;
+    procedure Initialize(Instance: THandle; Name, ResType: PWideChar);
+  public
+    constructor Create(Instance: THandle; const ResName: WideString; ResType: PWideChar);
+    constructor CreateFromID(Instance: THandle; ResID: Integer; ResType: PWideChar);
+    destructor Destroy; override;
+    function Write(const Buffer; Count: Longint): Longint; override;
+  end;
+{$else}
+  TResourceStream = class(TCustomMemoryStream)
+  private
+    Res: HRSRC;
+    Handle: THandle;
     procedure Initialize(Instance: THandle; Name, ResType: PChar);
   public
     constructor Create(Instance: THandle; const ResName: string; ResType: PChar);
@@ -750,6 +763,7 @@ type
     destructor Destroy; override;
     function Write(const Buffer; Count: Longint): Longint; override;
   end;
+{$endif UNICODE}
 
 { TStreamAdapter }
 { Implements OLE IStream on VCL TStream }
@@ -1231,7 +1245,8 @@ type
     FPid: LongInt;
 {$endif}
   public
-    constructor Create(CreateSuspended: Boolean);
+    constructor Create(CreateSuspended: Boolean;
+                       const StackSize: DWord = DefaultStackSize);
     destructor Destroy; override;
     procedure Resume;
     procedure Suspend;
@@ -1649,6 +1664,7 @@ procedure NotifyGlobalLoading;
 procedure EndGlobalLoading;
 
 function CollectionsEqual(C1, C2: TCollection): Boolean;
+function CollectionsEqual(C1, C2: TCollection; Owner1, Owner2: TComponent): Boolean;
 
 { Object conversion routines }
 
