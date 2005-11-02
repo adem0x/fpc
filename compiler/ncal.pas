@@ -2134,6 +2134,7 @@ type
                 n := para.left.getcopy;
                 para.left.free;
                 para.left := n;
+                firstpass(para.left);
 
                 { create temps for value parameters, function result and also for    }
                 { const parameters which are passed by value instead of by reference }
@@ -2144,57 +2145,60 @@ type
                 { contents to that temp and then substitute the paramter    }
                 { with the temp everywhere in the function                  }
                 if
+                  ((tparavarsym(para.parasym).varregable = vr_none) and
+                   not(para.left.expectloc in [LOC_REFERENCE,LOC_CREFERENCE]))  or
                   { we can't assign to formaldef temps }
-                  (para.parasym.vartype.def.deftype<>formaldef) and
-                  (
-                   { if paracomplexity > 1, we normally take the address of   }
-                   { the parameter expression, store it in a temp and         }
-                   { substitute the dereferenced temp in the inlined function }
-                   { We can't do this if we can't take the address of the     }
-                   { parameter expression, so in that case assign to a temp   }
-                   ((paracomplexity > 1) and
-                    (not valid_for_addr(para.left,false) or
-                     (para.left.nodetype = calln) or
-                     is_constnode(para.left))) or
-                   { the problem is that we can't take the address of a function result :( }
-                   (vo_is_funcret in tparavarsym(para.parasym).varoptions) or
-                   { avoid cases where we could modify part of the parameter we are inlining }
-                   (((para.parasym.varspez = vs_value) or
-                     { in case of const, this is only necessary if the     }
-                     { variable would be passed by value normally, or if   }
-                     { there is such a variable somewhere in an expression }
-                      ((para.parasym.varspez = vs_const) and
-                       (not paramanager.push_addr_param(vs_const,para.parasym.vartype.def,procdefinition.proccalloption) or
-                        (paracomplexity > 1)))) and
-                    foreachnodestatic(para.left,@nonlocalvars,pointer(symtableproc))) or
-                   { we do not need to create a temp for value parameters }
-                   { which are not modified in the inlined function       }
-                   { const parameters can get vs_readwritten if their     }
-                   ((para.parasym.varspez = vs_value) and
-                    not(para.parasym.varstate in [vs_initialised,vs_declared,vs_read])) or
-                   { the compiler expects that it can take the address of parameters passed by reference in
-                     the case of const so we can't replace the node simply by a constant node
-                     When playing with this code, ensure that
-                     function f(const a,b  : longint) : longint;inline;
-                       begin
-                         result:=a*b;
-                       end;
+                  ((para.parasym.vartype.def.deftype<>formaldef) and
+                   (
+                    { if paracomplexity > 1, we normally take the address of   }
+                    { the parameter expression, store it in a temp and         }
+                    { substitute the dereferenced temp in the inlined function }
+                    { We can't do this if we can't take the address of the     }
+                    { parameter expression, so in that case assign to a temp   }
+                    ((paracomplexity > 1) and
+                     (not valid_for_addr(para.left,false) or
+                      (para.left.nodetype = calln) or
+                      is_constnode(para.left))) or
+                    { the problem is that we can't take the address of a function result :( }
+                    (vo_is_funcret in tparavarsym(para.parasym).varoptions) or
+                    { avoid cases where we could modify part of the parameter we are inlining }
+                    (((para.parasym.varspez = vs_value) or
+                      { in case of const, this is only necessary if the     }
+                      { variable would be passed by value normally, or if   }
+                      { there is such a variable somewhere in an expression }
+                       ((para.parasym.varspez = vs_const) and
+                        (not paramanager.push_addr_param(vs_const,para.parasym.vartype.def,procdefinition.proccalloption) or
+                         (paracomplexity > 1)))) and
+                     foreachnodestatic(para.left,@nonlocalvars,pointer(symtableproc))) or
+                    { we do not need to create a temp for value parameters }
+                    { which are not modified in the inlined function       }
+                    { const parameters can get vs_readwritten if their     }
+                    ((para.parasym.varspez = vs_value) and
+                     not(para.parasym.varstate in [vs_initialised,vs_declared,vs_read])) or
+                    { the compiler expects that it can take the address of parameters passed by reference in
+                      the case of const so we can't replace the node simply by a constant node
+                      When playing with this code, ensure that
+                      function f(const a,b  : longint) : longint;inline;
+                        begin
+                          result:=a*b;
+                        end;
 
-                     [...]
-                     ...:=f(10,20));
-                     [...]
+                      [...]
+                      ...:=f(10,20));
+                      [...]
 
-                     is still folded. (FK)
-                     }
-                   ((para.parasym.varspez = vs_const) and
-                    { const para's can get vs_readwritten if their address }
-                    { is taken                                             }
-                    ((para.parasym.varstate = vs_readwritten) or
-                     { call-by-reference const's may need to be passed by }
-                     { reference to function called in the inlined code   }
-                     (paramanager.push_addr_param(vs_const,para.parasym.vartype.def,procdefinition.proccalloption) and
-                      (not valid_for_addr(para.left,false) or
-                       is_constnode(para.left)))))
+                      is still folded. (FK)
+                      }
+                    ((para.parasym.varspez = vs_const) and
+                     { const para's can get vs_readwritten if their address }
+                     { is taken                                             }
+                     ((para.parasym.varstate = vs_readwritten) or
+                      { call-by-reference const's may need to be passed by }
+                      { reference to function called in the inlined code   }
+                      (paramanager.push_addr_param(vs_const,para.parasym.vartype.def,procdefinition.proccalloption) and
+                       (not valid_for_addr(para.left,false) or
+                        is_constnode(para.left)))))
+                   )
                   ) then
                   begin
                     { in theory, this is always regable, but ncgcall can't }
