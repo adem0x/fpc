@@ -99,9 +99,9 @@ interface
         if isjump then
           begin
              otl:=truelabel;
-             objectlibrary.getjumplabel(truelabel);
+             objectlibrary.getlabel(truelabel);
              ofl:=falselabel;
-             objectlibrary.getjumplabel(falselabel);
+             objectlibrary.getlabel(falselabel);
           end;
         secondpass(left);
         if left.location.loc in [LOC_FLAGS,LOC_JUMP] then
@@ -121,9 +121,9 @@ interface
         if isjump then
           begin
              otl:=truelabel;
-             objectlibrary.getjumplabel(truelabel);
+             objectlibrary.getlabel(truelabel);
              ofl:=falselabel;
-             objectlibrary.getjumplabel(falselabel);
+             objectlibrary.getlabel(falselabel);
           end;
         secondpass(right);
         if right.location.loc in [LOC_FLAGS,LOC_JUMP] then
@@ -386,7 +386,7 @@ interface
               andn :
                 begin
                    otl:=truelabel;
-                   objectlibrary.getjumplabel(truelabel);
+                   objectlibrary.getlabel(truelabel);
                    secondpass(left);
                    maketojumpbool(exprasmlist,left,lr_load_regvars);
                    cg.a_label(exprasmlist,truelabel);
@@ -395,7 +395,7 @@ interface
               orn :
                 begin
                    ofl:=falselabel;
-                   objectlibrary.getjumplabel(falselabel);
+                   objectlibrary.getlabel(falselabel);
                    secondpass(left);
                    maketojumpbool(exprasmlist,left,lr_load_regvars);
                    cg.a_label(exprasmlist,falselabel);

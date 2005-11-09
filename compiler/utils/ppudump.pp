@@ -27,7 +27,7 @@ uses
   ppu;
 
 const
-  Version   = 'Version 2.0.0';
+  Version   = 'Version 1.9.8';
   Title     = 'PPU-Analyser';
   Copyright = 'Copyright (c) 1998-2005 by the Free Pascal Development Team';
 
@@ -137,14 +137,7 @@ type
              target_i386_watcom,        { 32 }
              target_powerpc_MorphOS,    { 33 }
              target_x86_64_freebsd,     { 34 }
-             target_i386_netwlibc,      { 35 }
-             system_powerpc_Amiga,      { 36 }
-             system_x86_64_win64,       { 37 }
-             system_arm_wince,          { 38 }
-             system_ia64_win64,         { 39 }
-             system_i386_wince,         { 40 }
-             system_x86_6432_linux,     { 41 }
-             system_arm_gba             { 42 }
+             target_i386_netwlibc       { 35 }
        );
 const
   Targets : array[ttarget] of string[17]=(
@@ -183,14 +176,7 @@ const
   { 32 }  'Watcom-i386',
   { 33 }  'MorphOS-powerpc',
   { 34 }  'FreeBSD-x86-64',
-  { 35 }  'Netware-i386-libc',
-  { 36 }  'Amiga-PowerPC',
-  { 37 }  'Win64-x64',
-  { 38 }  'WinCE-ARM',
-  { 39 }  'Win64-iA64',
-  { 40 }  'WinCE-i386',
-  { 41 }  'Linux-x64',
-  { 42 }  'GBA-ARM'
+  { 35 }  'Netware-i386-libc'
   );
 begin
   if w<=ord(high(ttarget)) then
@@ -452,7 +438,7 @@ Procedure ReadAsmSymbols;
 type
   { Copied from aasmbase.pas }
   TAsmsymbind=(AB_NONE,AB_EXTERNAL,AB_COMMON,AB_LOCAL,AB_GLOBAL);
-  TAsmsymtype=(AT_NONE,AT_FUNCTION,AT_DATA,AT_SECTION,AT_LABEL);
+  TAsmsymtype=(AT_NONE,AT_FUNCTION,AT_DATA,AT_SECTION);
 var
   s,
   bindstr,
@@ -483,8 +469,6 @@ begin
          typestr:='Data';
        AT_SECTION :
          typestr:='Section';
-       AT_LABEL :
-         typestr:='Label';
        else
          typestr:='<Error !!>'
      end;
@@ -1415,7 +1399,7 @@ type
     u8bit,u16bit,u32bit,u64bit,
     s8bit,s16bit,s32bit,s64bit,
     bool8bit,bool16bit,bool32bit,
-    uchar,uwidechar,scurrency
+    uchar,uwidechar
   );
   tobjectdeftype = (odt_none,
     odt_class,
@@ -1486,7 +1470,6 @@ begin
                bool32bit : writeln('bool32bit');
                uchar     : writeln('uchar');
                uwidechar : writeln('uwidechar');
-               scurrency : writeln('ucurrency');
                else        writeln('!! Warning: Invalid base type ',b);
              end;
              writeln(space,'            Range : ',getint64,' to ',getint64);
@@ -1548,13 +1531,12 @@ begin
              readdefinitions('parast',false);
              readsymbols('parast');
              { localst }
-             if (po_has_inlininginfo in procoptions) or
-               ((ppufile.header.flags and uf_local_browser)<>0) then
+             if (po_inline in procoptions) then
               begin
                 readdefinitions('localst',false);
                 readsymbols('localst');
               end;
-             if (po_has_inlininginfo in procoptions) then
+             if (po_inline in procoptions) then
                readnodetree;
              delete(space,1,4);
            end;

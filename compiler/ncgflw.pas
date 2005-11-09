@@ -109,9 +109,9 @@ implementation
       begin
          location_reset(location,LOC_VOID,OS_NO);
 
-         objectlibrary.getjumplabel(lloop);
-         objectlibrary.getjumplabel(lcont);
-         objectlibrary.getjumplabel(lbreak);
+         objectlibrary.getlabel(lloop);
+         objectlibrary.getlabel(lcont);
+         objectlibrary.getlabel(lbreak);
          { arrange continue and breaklabels: }
          oldflowcontrol:=flowcontrol;
          oldclabel:=aktcontinuelabel;
@@ -192,8 +192,8 @@ implementation
 
          otlabel:=truelabel;
          oflabel:=falselabel;
-         objectlibrary.getjumplabel(truelabel);
-         objectlibrary.getjumplabel(falselabel);
+         objectlibrary.getlabel(truelabel);
+         objectlibrary.getlabel(falselabel);
          secondpass(left);
 
 (*
@@ -237,7 +237,7 @@ implementation
            begin
               if assigned(right) then
                 begin
-                   objectlibrary.getjumplabel(hl);
+                   objectlibrary.getlabel(hl);
                    { do go back to if line !! }
 (*
                    if not(cs_regvars in aktglobalswitches) then
@@ -345,22 +345,17 @@ implementation
          oldflowcontrol:=flowcontrol;
          oldclabel:=aktcontinuelabel;
          oldblabel:=aktbreaklabel;
-         objectlibrary.getjumplabel(aktcontinuelabel);
-         objectlibrary.getjumplabel(aktbreaklabel);
-         objectlibrary.getjumplabel(l3);
+         objectlibrary.getlabel(aktcontinuelabel);
+         objectlibrary.getlabel(aktbreaklabel);
+         objectlibrary.getlabel(l3);
 
          { only calculate reference }
          opsize := def_cgsize(left.resulttype.def);
          count_var_is_signed:=is_signed(left.resulttype.def);
 
          { first set the to value
-           because the count var can be in the expression ! }
-         do_loopvar_at_end:=(lnf_dont_mind_loopvar_on_exit in loopflags)
-         { if the loop is unrolled and there is a jump into the loop,
-           then we can't do the trick with incrementing the loop var only at the
-           end
-         }
-           and not(assigned(entrylabel));
+           because the count var can be in the expression !! }
+         do_loopvar_at_end:=lnf_dont_mind_loopvar_on_exit in loopflags;
 
          secondpass(t1);
          { calculate pointer value and check if changeable and if so }
@@ -768,7 +763,7 @@ implementation
     function tcglabelnode.getasmlabel : tasmlabel;
       begin
         if not(assigned(asmlabel)) then
-          objectlibrary.getjumplabel(asmlabel);
+          objectlibrary.getlabel(asmlabel);
         result:=asmlabel
       end;
 
@@ -850,16 +845,16 @@ implementation
               paramanager.freeparaloc(exprasmlist,paraloc1);
               paramanager.freeparaloc(exprasmlist,paraloc2);
               paramanager.freeparaloc(exprasmlist,paraloc3);
-              cg.allocallcpuregisters(exprasmlist);
+              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.a_call_name(exprasmlist,'FPC_RAISEEXCEPTION');
-              cg.deallocallcpuregisters(exprasmlist);
+              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
            end
          else
            begin
-              cg.allocallcpuregisters(exprasmlist);
+              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.a_call_name(exprasmlist,'FPC_POPADDRSTACK');
               cg.a_call_name(exprasmlist,'FPC_RERAISE');
-              cg.deallocallcpuregisters(exprasmlist);
+              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
            end;
          paraloc1.done;
          paraloc2.done;
@@ -881,17 +876,17 @@ implementation
       var
         paraloc1 : tcgpara;
       begin
-         cg.allocallcpuregisters(exprasmlist);
+         cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
          cg.a_call_name(exprasmlist,'FPC_POPOBJECTSTACK');
-         cg.deallocallcpuregisters(exprasmlist);
+         cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
          paraloc1.init;
          paramanager.getintparaloc(pocall_default,1,paraloc1);
          paramanager.allocparaloc(exprasmlist,paraloc1);
          cg.a_param_reg(exprasmlist,OS_ADDR,NR_FUNCTION_RESULT_REG,paraloc1);
          paramanager.freeparaloc(exprasmlist,paraloc1);
-         cg.allocallcpuregisters(exprasmlist);
+         cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
          cg.a_call_name(exprasmlist,'FPC_DESTROYEXCEPTION');
-         cg.deallocallcpuregisters(exprasmlist);
+         cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
          paraloc1.done;
       end;
 
@@ -938,20 +933,20 @@ implementation
            end;
 
          { get new labels for the control flow statements }
-         objectlibrary.getjumplabel(exittrylabel);
-         objectlibrary.getjumplabel(exitexceptlabel);
+         objectlibrary.getlabel(exittrylabel);
+         objectlibrary.getlabel(exitexceptlabel);
          if assigned(aktbreaklabel) then
            begin
-              objectlibrary.getjumplabel(breaktrylabel);
-              objectlibrary.getjumplabel(continuetrylabel);
-              objectlibrary.getjumplabel(breakexceptlabel);
-              objectlibrary.getjumplabel(continueexceptlabel);
+              objectlibrary.getlabel(breaktrylabel);
+              objectlibrary.getlabel(continuetrylabel);
+              objectlibrary.getlabel(breakexceptlabel);
+              objectlibrary.getlabel(continueexceptlabel);
            end;
 
-         objectlibrary.getjumplabel(exceptlabel);
-         objectlibrary.getjumplabel(doexceptlabel);
-         objectlibrary.getjumplabel(endexceptlabel);
-         objectlibrary.getjumplabel(lastonlabel);
+         objectlibrary.getlabel(exceptlabel);
+         objectlibrary.getlabel(doexceptlabel);
+         objectlibrary.getlabel(endexceptlabel);
+         objectlibrary.getlabel(lastonlabel);
 
          get_exception_temps(exprasmlist,excepttemps);
          new_exception(exprasmlist,excepttemps,exceptlabel);
@@ -1003,15 +998,15 @@ implementation
               paramanager.allocparaloc(exprasmlist,paraloc1);
               cg.a_param_const(exprasmlist,OS_ADDR,-1,paraloc1);
               paramanager.freeparaloc(exprasmlist,paraloc1);
-              cg.allocallcpuregisters(exprasmlist);
+              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.a_call_name(exprasmlist,'FPC_CATCHES');
-              cg.deallocallcpuregisters(exprasmlist);
+              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               paraloc1.done;
 
               { the destruction of the exception object must be also }
               { guarded by an exception frame                        }
-              objectlibrary.getjumplabel(doobjectdestroy);
-              objectlibrary.getjumplabel(doobjectdestroyandreraise);
+              objectlibrary.getlabel(doobjectdestroy);
+              objectlibrary.getlabel(doobjectdestroyandreraise);
 
               get_exception_temps(exprasmlist,destroytemps);
               new_exception(exprasmlist,destroytemps,doobjectdestroyandreraise);
@@ -1025,18 +1020,18 @@ implementation
 
               free_exception(exprasmlist,destroytemps,0,doobjectdestroy,false);
 
-              cg.allocallcpuregisters(exprasmlist);
+              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.a_call_name(exprasmlist,'FPC_POPSECONDOBJECTSTACK');
-              cg.deallocallcpuregisters(exprasmlist);
+              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
 
               paraloc1.init;
               paramanager.getintparaloc(pocall_default,1,paraloc1);
               paramanager.allocparaloc(exprasmlist,paraloc1);
               cg.a_param_reg(exprasmlist, OS_ADDR, NR_FUNCTION_RESULT_REG, paraloc1);
               paramanager.freeparaloc(exprasmlist,paraloc1);
-              cg.allocallcpuregisters(exprasmlist);
+              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.a_call_name(exprasmlist,'FPC_DESTROYEXCEPTION');
-              cg.deallocallcpuregisters(exprasmlist);
+              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               paraloc1.done;
               { we don't need to restore esi here because reraise never }
               { returns                                                 }
@@ -1059,9 +1054,9 @@ implementation
               cg.a_label(exprasmlist,exitexceptlabel);
               { we must also destroy the address frame which guards }
               { exception object                                    }
-              cg.allocallcpuregisters(exprasmlist);
+              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.a_call_name(exprasmlist,'FPC_POPADDRSTACK');
-              cg.deallocallcpuregisters(exprasmlist);
+              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.g_exception_reason_load(exprasmlist,excepttemps.reasonbuf);
               cleanupobjectstack;
               cg.a_jmp_always(exprasmlist,oldaktexitlabel);
@@ -1072,9 +1067,9 @@ implementation
               cg.a_label(exprasmlist,breakexceptlabel);
               { we must also destroy the address frame which guards }
               { exception object                                    }
-              cg.allocallcpuregisters(exprasmlist);
+              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.a_call_name(exprasmlist,'FPC_POPADDRSTACK');
-              cg.deallocallcpuregisters(exprasmlist);
+              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.g_exception_reason_load(exprasmlist,excepttemps.reasonbuf);
               cleanupobjectstack;
               cg.a_jmp_always(exprasmlist,oldaktbreaklabel);
@@ -1085,9 +1080,9 @@ implementation
               cg.a_label(exprasmlist,continueexceptlabel);
               { we must also destroy the address frame which guards }
               { exception object                                    }
-              cg.allocallcpuregisters(exprasmlist);
+              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.a_call_name(exprasmlist,'FPC_POPADDRSTACK');
-              cg.deallocallcpuregisters(exprasmlist);
+              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.g_exception_reason_load(exprasmlist,excepttemps.reasonbuf);
               cleanupobjectstack;
               cg.a_jmp_always(exprasmlist,oldaktcontinuelabel);
@@ -1097,9 +1092,9 @@ implementation
            begin
               { do some magic for exit in the try block }
               cg.a_label(exprasmlist,exittrylabel);
-              cg.allocallcpuregisters(exprasmlist);
+              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.a_call_name(exprasmlist,'FPC_POPADDRSTACK');
-              cg.deallocallcpuregisters(exprasmlist);
+              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.g_exception_reason_load(exprasmlist,excepttemps.reasonbuf);
               cg.a_jmp_always(exprasmlist,oldaktexitlabel);
            end;
@@ -1107,9 +1102,9 @@ implementation
          if fc_break in tryflowcontrol then
            begin
               cg.a_label(exprasmlist,breaktrylabel);
-              cg.allocallcpuregisters(exprasmlist);
+              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.a_call_name(exprasmlist,'FPC_POPADDRSTACK');
-              cg.deallocallcpuregisters(exprasmlist);
+              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.g_exception_reason_load(exprasmlist,excepttemps.reasonbuf);
               cg.a_jmp_always(exprasmlist,oldaktbreaklabel);
            end;
@@ -1117,9 +1112,9 @@ implementation
          if fc_continue in tryflowcontrol then
            begin
               cg.a_label(exprasmlist,continuetrylabel);
-              cg.allocallcpuregisters(exprasmlist);
+              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.a_call_name(exprasmlist,'FPC_POPADDRSTACK');
-              cg.deallocallcpuregisters(exprasmlist);
+              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               cg.g_exception_reason_load(exprasmlist,excepttemps.reasonbuf);
               cg.a_jmp_always(exprasmlist,oldaktcontinuelabel);
            end;
@@ -1166,7 +1161,7 @@ implementation
 
          oldflowcontrol:=flowcontrol;
          flowcontrol:=[];
-         objectlibrary.getjumplabel(nextonlabel);
+         objectlibrary.getlabel(nextonlabel);
 
          { send the vmt parameter }
          reference_reset_symbol(href2,objectlibrary.newasmsymbol(excepttype.vmt_mangledname,AB_EXTERNAL,AT_DATA),0);
@@ -1174,9 +1169,9 @@ implementation
          paramanager.allocparaloc(exprasmlist,paraloc1);
          cg.a_paramaddr_ref(exprasmlist,href2,paraloc1);
          paramanager.freeparaloc(exprasmlist,paraloc1);
-         cg.allocallcpuregisters(exprasmlist);
+         cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
          cg.a_call_name(exprasmlist,'FPC_CATCHES');
-         cg.deallocallcpuregisters(exprasmlist);
+         cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
 
          { is it this catch? No. go to next onlabel }
          cg.a_cmp_const_reg_label(exprasmlist,OS_ADDR,OC_EQ,0,NR_FUNCTION_RESULT_REG,nextonlabel);
@@ -1198,7 +1193,7 @@ implementation
 
          { in the case that another exception is risen
            we've to destroy the old one                }
-         objectlibrary.getjumplabel(doobjectdestroyandreraise);
+         objectlibrary.getlabel(doobjectdestroyandreraise);
 
          { call setjmp, and jump to finally label on non-zero result }
          get_exception_temps(exprasmlist,excepttemps);
@@ -1209,37 +1204,37 @@ implementation
          if assigned(right) then
            begin
               oldaktexitlabel:=current_procinfo.aktexitlabel;
-              objectlibrary.getjumplabel(exitonlabel);
+              objectlibrary.getlabel(exitonlabel);
               current_procinfo.aktexitlabel:=exitonlabel;
               if assigned(aktbreaklabel) then
                begin
                  oldaktcontinuelabel:=aktcontinuelabel;
                  oldaktbreaklabel:=aktbreaklabel;
-                 objectlibrary.getjumplabel(breakonlabel);
-                 objectlibrary.getjumplabel(continueonlabel);
+                 objectlibrary.getlabel(breakonlabel);
+                 objectlibrary.getlabel(continueonlabel);
                  aktcontinuelabel:=continueonlabel;
                  aktbreaklabel:=breakonlabel;
                end;
 
               secondpass(right);
            end;
-         objectlibrary.getjumplabel(doobjectdestroy);
+         objectlibrary.getlabel(doobjectdestroy);
          cg.a_label(exprasmlist,doobjectdestroyandreraise);
 
          free_exception(exprasmlist,excepttemps,0,doobjectdestroy,false);
 
-         cg.allocallcpuregisters(exprasmlist);
+         cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
          cg.a_call_name(exprasmlist,'FPC_POPSECONDOBJECTSTACK');
-         cg.deallocallcpuregisters(exprasmlist);
+         cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
          paramanager.getintparaloc(pocall_default,1,paraloc1);
          paramanager.allocparaloc(exprasmlist,paraloc1);
          cg.a_param_reg(exprasmlist, OS_ADDR, NR_FUNCTION_RESULT_REG, paraloc1);
          paramanager.freeparaloc(exprasmlist,paraloc1);
-         cg.allocallcpuregisters(exprasmlist);
+         cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
          cg.a_call_name(exprasmlist,'FPC_DESTROYEXCEPTION');
-         cg.deallocallcpuregisters(exprasmlist);
-         { we don't need to store/restore registers here because reraise never
-           returns                                                             }
+         cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
+         { we don't need to restore esi here because reraise never }
+         { returns                                                 }
          cg.a_call_name(exprasmlist,'FPC_RERAISE');
 
          cg.a_label(exprasmlist,doobjectdestroy);
@@ -1320,9 +1315,9 @@ implementation
          { check if child nodes do a break/continue/exit }
          oldflowcontrol:=flowcontrol;
          flowcontrol:=[];
-         objectlibrary.getjumplabel(finallylabel);
-         objectlibrary.getjumplabel(endfinallylabel);
-         objectlibrary.getjumplabel(reraiselabel);
+         objectlibrary.getlabel(finallylabel);
+         objectlibrary.getlabel(endfinallylabel);
+         objectlibrary.getlabel(reraiselabel);
 
          { the finally block must catch break, continue and exit }
          { statements                                            }
@@ -1330,7 +1325,7 @@ implementation
          if implicitframe then
            exitfinallylabel:=finallylabel
          else
-           objectlibrary.getjumplabel(exitfinallylabel);
+           objectlibrary.getlabel(exitfinallylabel);
          current_procinfo.aktexitlabel:=exitfinallylabel;
          if assigned(aktbreaklabel) then
           begin
@@ -1343,8 +1338,8 @@ implementation
               end
             else
               begin
-                objectlibrary.getjumplabel(breakfinallylabel);
-                objectlibrary.getjumplabel(continuefinallylabel);
+                objectlibrary.getlabel(breakfinallylabel);
+                objectlibrary.getlabel(continuefinallylabel);
               end;
             aktcontinuelabel:=continuefinallylabel;
             aktbreaklabel:=breakfinallylabel;

@@ -118,7 +118,7 @@ interface
 {$endif WITHDMT}
         { interfaces }
         function  genintftable: tasmlabel;
-        { write the VMT to al_globals }
+        { write the VMT to datasegment }
         procedure writevmt;
         procedure writeinterfaceids;
       end;
@@ -129,8 +129,10 @@ implementation
     uses
        strings,
        globals,verbose,systems,
-       symtable,symconst,symtype,defcmp,
-       dbgbase
+       symtable,symconst,symtype,defcmp
+{$ifdef GDB}
+       ,gdb
+{$endif GDB}
        ;
 
 
@@ -261,13 +263,13 @@ implementation
          objectlibrary.getdatalabel(p^.nl);
          if assigned(p^.l) then
            writenames(p^.l);
-         asmlist[al_globals].concat(cai_align.create(const_align(sizeof(aint))));
-         asmlist[al_globals].concat(Tai_label.Create(p^.nl));
+         datasegment.concat(cai_align.create(const_align(sizeof(aint))));
+         dataSegment.concat(Tai_label.Create(p^.nl));
          len:=strlen(p^.data.messageinf.str);
-         asmlist[al_globals].concat(tai_const.create_8bit(len));
+         datasegment.concat(tai_const.create_8bit(len));
          getmem(ca,len+1);
          move(p^.data.messageinf.str^,ca^,len+1);
-         asmlist[al_globals].concat(Tai_string.Create_pchar(ca,len));
+         dataSegment.concat(Tai_string.Create_pchar(ca));
          if assigned(p^.r) then
            writenames(p^.r);
       end;
@@ -279,8 +281,8 @@ implementation
            writestrentry(p^.l);
 
          { write name label }
-         asmlist[al_globals].concat(Tai_const.Create_sym(p^.nl));
-         asmlist[al_globals].concat(Tai_const.Createname(p^.data.mangledname,AT_FUNCTION,0));
+         dataSegment.concat(Tai_const.Create_sym(p^.nl));
+         dataSegment.concat(Tai_const.Createname(p^.data.mangledname,AT_FUNCTION,0));
 
          if assigned(p^.r) then
            writestrentry(p^.r);
@@ -303,10 +305,10 @@ implementation
 
          { now start writing of the message string table }
          objectlibrary.getdatalabel(r);
-         asmlist[al_globals].concat(cai_align.create(const_align(sizeof(aint))));
-         asmlist[al_globals].concat(Tai_label.Create(r));
+         datasegment.concat(cai_align.create(const_align(sizeof(aint))));
+         dataSegment.concat(Tai_label.Create(r));
          genstrmsgtab:=r;
-         asmlist[al_globals].concat(Tai_const.Create_32bit(count));
+         dataSegment.concat(Tai_const.Create_32bit(count));
          if assigned(root) then
            begin
               writestrentry(root);
@@ -321,8 +323,8 @@ implementation
            writeintentry(p^.l);
 
          { write name label }
-         asmlist[al_globals].concat(Tai_const.Create_32bit(p^.data.messageinf.i));
-         asmlist[al_globals].concat(Tai_const.Createname(p^.data.mangledname,AT_FUNCTION,0));
+         dataSegment.concat(Tai_const.Create_32bit(p^.data.messageinf.i));
+         dataSegment.concat(Tai_const.Createname(p^.data.mangledname,AT_FUNCTION,0));
 
          if assigned(p^.r) then
            writeintentry(p^.r);
@@ -341,10 +343,10 @@ implementation
 
          { now start writing of the message string table }
          objectlibrary.getdatalabel(r);
-         asmlist[al_globals].concat(cai_align.create(const_align(sizeof(aint))));
-         asmlist[al_globals].concat(Tai_label.Create(r));
+         datasegment.concat(cai_align.create(const_align(sizeof(aint))));
+         dataSegment.concat(Tai_label.Create(r));
          genintmsgtab:=r;
-         asmlist[al_globals].concat(Tai_const.Create_32bit(count));
+         dataSegment.concat(Tai_const.Create_32bit(count));
          if assigned(root) then
            begin
               writeintentry(root);
@@ -388,7 +390,7 @@ implementation
       begin
          if assigned(p^.l) then
            writedmtindexentry(p^.l);
-         al_globals.concat(Tai_const.Create_32bit(p^.data.messageinf.i));
+         dataSegment.concat(Tai_const.Create_32bit(p^.data.messageinf.i));
          if assigned(p^.r) then
            writedmtindexentry(p^.r);
       end;
@@ -398,7 +400,7 @@ implementation
       begin
          if assigned(p^.l) then
            writedmtaddressentry(p^.l);
-         al_globals.concat(Tai_const_symbol.Createname(p^.data.mangledname,AT_FUNCTION,0));
+         dataSegment.concat(Tai_const_symbol.Createname(p^.data.mangledname,AT_FUNCTION,0));
          if assigned(p^.r) then
            writedmtaddressentry(p^.r);
       end;
@@ -419,13 +421,13 @@ implementation
            begin
               objectlibrary.getdatalabel(r);
               gendmt:=r;
-              al_globals.concat(cai_align.create(const_align(sizeof(aint))));
-              al_globals.concat(Tai_label.Create(r));
+              datasegment.concat(cai_align.create(const_align(sizeof(aint))));
+              dataSegment.concat(Tai_label.Create(r));
               { entries for caching }
-              al_globals.concat(Tai_const.Create_ptr(0));
-              al_globals.concat(Tai_const.Create_ptr(0));
+              dataSegment.concat(Tai_const.Create_ptr(0));
+              dataSegment.concat(Tai_const.Create_ptr(0));
 
-              al_globals.concat(Tai_const.Create_32bit(count));
+              dataSegment.concat(Tai_const.Create_32bit(count));
               if assigned(root) then
                 begin
                    writedmtindexentry(root);
@@ -475,16 +477,16 @@ implementation
                    begin
                      objectlibrary.getdatalabel(l);
 
-                     asmlist[al_typedconsts].concat(cai_align.create(const_align(sizeof(aint))));
-                     asmlist[al_typedconsts].concat(Tai_label.Create(l));
-                     asmlist[al_typedconsts].concat(Tai_const.Create_8bit(length(tsym(p).realname)));
-                     asmlist[al_typedconsts].concat(Tai_string.Create(tsym(p).realname));
+                     consts.concat(cai_align.create(const_align(sizeof(aint))));
+                     Consts.concat(Tai_label.Create(l));
+                     Consts.concat(Tai_const.Create_8bit(length(tsym(p).realname)));
+                     Consts.concat(Tai_string.Create(tsym(p).realname));
 
-                     asmlist[al_globals].concat(Tai_const.Create_sym(l));
+                     dataSegment.concat(Tai_const.Create_sym(l));
                      if po_abstractmethod in pd.procoptions then
-                       asmlist[al_globals].concat(Tai_const.Create_sym(nil))
+                       dataSegment.concat(Tai_const.Create_sym(nil))
                      else
-                       asmlist[al_globals].concat(Tai_const.Createname(pd.mangledname,AT_FUNCTION,0));
+                       dataSegment.concat(Tai_const.Createname(pd.mangledname,AT_FUNCTION,0));
                    end;
                 end;
            end;
@@ -503,9 +505,9 @@ implementation
          if count>0 then
            begin
               objectlibrary.getdatalabel(l);
-              asmlist[al_globals].concat(cai_align.create(const_align(sizeof(aint))));
-              asmlist[al_globals].concat(Tai_label.Create(l));
-              asmlist[al_globals].concat(Tai_const.Create_32bit(count));
+              datasegment.concat(cai_align.create(const_align(sizeof(aint))));
+              dataSegment.concat(Tai_label.Create(l));
+              dataSegment.concat(Tai_const.Create_32bit(count));
               _class.symtable.foreach(@do_gen_published_methods,nil);
               genpublishedmethodstable:=l;
            end
@@ -866,8 +868,11 @@ implementation
       begin
         implintf:=_class.implementedinterfaces;
         curintf:=implintf.interfaces(intfindex);
-
-        section_symbol_start(rawdata,gintfgetvtbllabelname(intfindex),AT_DATA,true,sec_data,const_align(sizeof(aint)));
+        rawdata.concat(cai_align.create(const_align(sizeof(aint))));
+        if maybe_smartlink_symbol then
+         rawdata.concat(Tai_symbol.Createname_global(gintfgetvtbllabelname(intfindex),AT_DATA ,0))
+        else
+         rawdata.concat(Tai_symbol.Createname(gintfgetvtbllabelname(intfindex),AT_DATA,0));
         proccount:=implintf.implproccount(intfindex);
         for i:=1 to proccount do
           begin
@@ -877,7 +882,6 @@ implementation
             { create reference }
             rawdata.concat(Tai_const.Createname(tmps,AT_FUNCTION,0));
           end;
-        section_symbol_end(rawdata,gintfgetvtbllabelname(intfindex));
       end;
 
 
@@ -902,17 +906,17 @@ implementation
             rawdata.concat(Tai_const.Create_16bit(curintf.iidguid^.D3));
             for i:=Low(curintf.iidguid^.D4) to High(curintf.iidguid^.D4) do
               rawdata.concat(Tai_const.Create_8bit(curintf.iidguid^.D4[i]));
-            asmlist[al_globals].concat(Tai_const.Create_sym(tmplabel));
+            dataSegment.concat(Tai_const.Create_sym(tmplabel));
           end
         else
           begin
             { nil for Corba interfaces }
-            asmlist[al_globals].concat(Tai_const.Create_sym(nil));
+            dataSegment.concat(Tai_const.Create_sym(nil));
           end;
         { VTable }
-        asmlist[al_globals].concat(Tai_const.Createname(gintfgetvtbllabelname(contintfindex),AT_DATA,0));
+        dataSegment.concat(Tai_const.Createname(gintfgetvtbllabelname(contintfindex),AT_DATA,0));
         { IOffset field }
-        asmlist[al_globals].concat(Tai_const.Create_32bit(implintf.ioffsets(contintfindex)));
+        dataSegment.concat(Tai_const.Create_32bit(implintf.ioffsets(contintfindex)));
         { IIDStr }
         objectlibrary.getdatalabel(tmplabel);
         rawdata.concat(cai_align.create(const_align(sizeof(aint))));
@@ -922,7 +926,7 @@ implementation
           rawdata.concat(Tai_string.Create(upper(curintf.iidstr^)))
         else
           rawdata.concat(Tai_string.Create(curintf.iidstr^));
-        asmlist[al_globals].concat(Tai_const.Create_sym(tmplabel));
+        dataSegment.concat(Tai_const.Create_sym(tmplabel));
       end;
 
 
@@ -1033,7 +1037,7 @@ implementation
         max:=_class.implementedinterfaces.count;
 
         rawdata:=TAAsmOutput.Create;
-        asmlist[al_globals].concat(Tai_const.Create_16bit(max));
+        dataSegment.concat(Tai_const.Create_16bit(max));
         { Two pass, one for allocation and vtbl creation }
         for i:=1 to max do
           begin
@@ -1058,7 +1062,7 @@ implementation
               _class.implementedinterfaces.setioffsets(i,_class.implementedinterfaces.ioffsets(j));
             gintfgenentry(i,j,rawdata);
           end;
-        asmlist[al_globals].concatlist(rawdata);
+        dataSegment.concatlist(rawdata);
         rawdata.free;
       end;
 
@@ -1158,8 +1162,8 @@ implementation
         { 2. step calc required fieldcount and their offsets in the object memory map
              and write data }
         objectlibrary.getdatalabel(intftable);
-        asmlist[al_globals].concat(cai_align.create(const_align(sizeof(aint))));
-        asmlist[al_globals].concat(Tai_label.Create(intftable));
+        dataSegment.concat(cai_align.create(const_align(sizeof(aint))));
+        dataSegment.concat(Tai_label.Create(intftable));
         { Optimize interface tables to reuse wrappers }
         gintfoptimizevtbls;
         { Write interface tables }
@@ -1177,21 +1181,21 @@ implementation
       if assigned(_class.iidguid) then
         begin
           s:=make_mangledname('IID',_class.owner,_class.objname^);
-          maybe_new_object_file(asmlist[al_globals]);
-          new_section(asmlist[al_globals],sec_rodata,s,const_align(sizeof(aint)));
-          asmlist[al_globals].concat(Tai_symbol.Createname_global(s,AT_DATA,0));
-          asmlist[al_globals].concat(Tai_const.Create_32bit(longint(_class.iidguid^.D1)));
-          asmlist[al_globals].concat(Tai_const.Create_16bit(_class.iidguid^.D2));
-          asmlist[al_globals].concat(Tai_const.Create_16bit(_class.iidguid^.D3));
+          maybe_new_object_file(dataSegment);
+          new_section(dataSegment,sec_rodata,s,const_align(sizeof(aint)));
+          dataSegment.concat(Tai_symbol.Createname_global(s,AT_DATA,0));
+          dataSegment.concat(Tai_const.Create_32bit(longint(_class.iidguid^.D1)));
+          dataSegment.concat(Tai_const.Create_16bit(_class.iidguid^.D2));
+          dataSegment.concat(Tai_const.Create_16bit(_class.iidguid^.D3));
           for i:=Low(_class.iidguid^.D4) to High(_class.iidguid^.D4) do
-            asmlist[al_globals].concat(Tai_const.Create_8bit(_class.iidguid^.D4[i]));
+            dataSegment.concat(Tai_const.Create_8bit(_class.iidguid^.D4[i]));
         end;
-      maybe_new_object_file(asmlist[al_globals]);
+      maybe_new_object_file(dataSegment);
       s:=make_mangledname('IIDSTR',_class.owner,_class.objname^);
-      new_section(asmlist[al_globals],sec_rodata,s,0);
-      asmlist[al_globals].concat(Tai_symbol.Createname_global(s,AT_DATA,0));
-      asmlist[al_globals].concat(Tai_const.Create_8bit(length(_class.iidstr^)));
-      asmlist[al_globals].concat(Tai_string.Create(_class.iidstr^));
+      new_section(dataSegment,sec_rodata,s,0);
+      dataSegment.concat(Tai_symbol.Createname_global(s,AT_DATA,0));
+      dataSegment.concat(Tai_const.Create_8bit(length(_class.iidstr^)));
+      dataSegment.concat(Tai_string.Create(_class.iidstr^));
     end;
 
 
@@ -1256,8 +1260,8 @@ implementation
          if is_class(_class) then
           begin
             objectlibrary.getdatalabel(classnamelabel);
-            maybe_new_object_file(asmlist[al_globals]);
-            new_section(asmlist[al_globals],sec_rodata,classnamelabel.name,const_align(sizeof(aint)));
+            maybe_new_object_file(dataSegment);
+            new_section(dataSegment,sec_rodata,classnamelabel.name,const_align(sizeof(aint)));
 
             { interface table }
             if _class.implementedinterfaces.count>0 then
@@ -1266,9 +1270,9 @@ implementation
             methodnametable:=genpublishedmethodstable;
             fieldtablelabel:=_class.generate_field_table;
             { write class name }
-            asmlist[al_globals].concat(Tai_label.Create(classnamelabel));
-            asmlist[al_globals].concat(Tai_const.Create_8bit(length(_class.objrealname^)));
-            asmlist[al_globals].concat(Tai_string.Create(_class.objrealname^));
+            dataSegment.concat(Tai_label.Create(classnamelabel));
+            dataSegment.concat(Tai_const.Create_8bit(length(_class.objrealname^)));
+            dataSegment.concat(Tai_string.Create(_class.objrealname^));
 
             { generate message and dynamic tables }
             if (oo_has_msgstr in _class.objectoptions) then
@@ -1278,21 +1282,30 @@ implementation
           end;
 
         { write debug info }
-        maybe_new_object_file(asmlist[al_globals]);
-        new_section(asmlist[al_globals],sec_rodata,_class.vmt_mangledname,const_align(sizeof(aint)));
-        asmlist[al_globals].concat(Tai_symbol.Createname_global(_class.vmt_mangledname,AT_DATA,0));
+        maybe_new_object_file(dataSegment);
+        new_section(dataSegment,sec_rodata,_class.vmt_mangledname,const_align(sizeof(aint)));
+{$ifdef GDB}
+        if (cs_debuginfo in aktmoduleswitches) then
+         begin
+           do_count_dbx:=true;
+           if assigned(_class.owner) and assigned(_class.owner.name) then
+             dataSegment.concat(Tai_stabs.Create(strpnew('"vmt_'+_class.owner.name^+_class.name+':S'+
+               tstoreddef(vmttype.def).numberstring+'",'+tostr(N_STSYM)+',0,0,'+_class.vmt_mangledname)));
+         end;
+{$endif GDB}
+         dataSegment.concat(Tai_symbol.Createname_global(_class.vmt_mangledname,AT_DATA,0));
 
          { determine the size with symtable.datasize, because }
          { size gives back 4 for classes                    }
-         asmlist[al_globals].concat(Tai_const.Create(ait_const_ptr,tobjectsymtable(_class.symtable).datasize));
-         asmlist[al_globals].concat(Tai_const.Create(ait_const_ptr,-int64(tobjectsymtable(_class.symtable).datasize)));
+         dataSegment.concat(Tai_const.Create(ait_const_ptr,tobjectsymtable(_class.symtable).datasize));
+         dataSegment.concat(Tai_const.Create(ait_const_ptr,-int64(tobjectsymtable(_class.symtable).datasize)));
 {$ifdef WITHDMT}
          if _class.classtype=ct_object then
            begin
               if assigned(dmtlabel) then
-                asmlist[al_globals].concat(Tai_const_symbol.Create(dmtlabel)))
+                dataSegment.concat(Tai_const_symbol.Create(dmtlabel)))
               else
-                asmlist[al_globals].concat(Tai_const.Create_ptr(0));
+                dataSegment.concat(Tai_const.Create_ptr(0));
            end;
 {$endif WITHDMT}
          { write pointer to parent VMT, this isn't implemented in TP }
@@ -1301,52 +1314,52 @@ implementation
          { it is not written for parents that don't have any vmt !! }
          if assigned(_class.childof) and
             (oo_has_vmt in _class.childof.objectoptions) then
-           asmlist[al_globals].concat(Tai_const.Createname(_class.childof.vmt_mangledname,AT_DATA,0))
+           dataSegment.concat(Tai_const.Createname(_class.childof.vmt_mangledname,AT_DATA,0))
          else
-           asmlist[al_globals].concat(Tai_const.Create_sym(nil));
+           dataSegment.concat(Tai_const.Create_sym(nil));
 
          { write extended info for classes, for the order see rtl/inc/objpash.inc }
          if is_class(_class) then
           begin
             { pointer to class name string }
-            asmlist[al_globals].concat(Tai_const.Create_sym(classnamelabel));
+            dataSegment.concat(Tai_const.Create_sym(classnamelabel));
             { pointer to dynamic table or nil }
             if (oo_has_msgint in _class.objectoptions) then
-              asmlist[al_globals].concat(Tai_const.Create_sym(intmessagetable))
+              dataSegment.concat(Tai_const.Create_sym(intmessagetable))
             else
-              asmlist[al_globals].concat(Tai_const.Create_sym(nil));
+              dataSegment.concat(Tai_const.Create_sym(nil));
             { pointer to method table or nil }
-            asmlist[al_globals].concat(Tai_const.Create_sym(methodnametable));
+            dataSegment.concat(Tai_const.Create_sym(methodnametable));
             { pointer to field table }
-            asmlist[al_globals].concat(Tai_const.Create_sym(fieldtablelabel));
+            dataSegment.concat(Tai_const.Create_sym(fieldtablelabel));
             { pointer to type info of published section }
             if (oo_can_have_published in _class.objectoptions) then
-              asmlist[al_globals].concat(Tai_const.Create_sym(_class.get_rtti_label(fullrtti)))
+              dataSegment.concat(Tai_const.Create_sym(_class.get_rtti_label(fullrtti)))
             else
-              asmlist[al_globals].concat(Tai_const.Create_sym(nil));
+              dataSegment.concat(Tai_const.Create_sym(nil));
             { inittable for con-/destruction }
             if _class.members_need_inittable then
-              asmlist[al_globals].concat(Tai_const.Create_sym(_class.get_rtti_label(initrtti)))
+              dataSegment.concat(Tai_const.Create_sym(_class.get_rtti_label(initrtti)))
             else
-              asmlist[al_globals].concat(Tai_const.Create_sym(nil));
+              dataSegment.concat(Tai_const.Create_sym(nil));
             { auto table }
-            asmlist[al_globals].concat(Tai_const.Create_sym(nil));
+            dataSegment.concat(Tai_const.Create_sym(nil));
             { interface table }
             if _class.implementedinterfaces.count>0 then
-              asmlist[al_globals].concat(Tai_const.Create_sym(interfacetable))
+              dataSegment.concat(Tai_const.Create_sym(interfacetable))
             else
-              asmlist[al_globals].concat(Tai_const.Create_sym(nil));
+              dataSegment.concat(Tai_const.Create_sym(nil));
             { table for string messages }
             if (oo_has_msgstr in _class.objectoptions) then
-              asmlist[al_globals].concat(Tai_const.Create_sym(strmessagetable))
+              dataSegment.concat(Tai_const.Create_sym(strmessagetable))
             else
-              asmlist[al_globals].concat(Tai_const.Create_sym(nil));
+              dataSegment.concat(Tai_const.Create_sym(nil));
           end;
          { write virtual methods }
-         writevirtualmethods(asmlist[al_globals]);
-         asmlist[al_globals].concat(Tai_const.create(ait_const_ptr,0));
+         writevirtualmethods(dataSegment);
+         datasegment.concat(Tai_const.create(ait_const_ptr,0));
          { write the size of the VMT }
-         asmlist[al_globals].concat(Tai_symbol_end.Createname(_class.vmt_mangledname));
+         dataSegment.concat(Tai_symbol_end.Createname(_class.vmt_mangledname));
       end;
 
 

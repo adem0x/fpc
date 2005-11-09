@@ -41,7 +41,7 @@ unit cpupi;
 
     uses
       cutils,
-      systems,globals,
+      globals,
       tgobj,
       cpubase;
 
@@ -56,10 +56,7 @@ unit cpupi;
       begin
         { align to 4 bytes at least
           otherwise all those subl $2,%esp are meaningless PM }
-        if (target_info.system <> system_i386_darwin) then
-          result:=Align(tg.direction*tg.lasttemp,min(aktalignment.localalignmin,4))
-        else
-          result:=Align(tg.direction*tg.lasttemp,min(aktalignment.localalignmin,16));
+        result:=Align(tg.direction*tg.lasttemp,min(aktalignment.localalignmin,4));
       end;
 
 

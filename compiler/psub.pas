@@ -95,9 +95,9 @@ implementation
        scanner,import,gendef,
        pbase,pstatmnt,pdecl,pdecsub,pexports,
        { codegen }
-       tgobj,cgobj,dbgbase,
+       tgobj,cgobj,
        ncgutil,regvars
-{$if defined(arm) or defined(powerpc) or defined(powerpc64)}
+{$if defined(arm) or defined(powerpc)}
        ,aasmcpu
 {$endif arm}
        {$ifndef NOOPT}
@@ -610,7 +610,6 @@ implementation
         oldfilepos : tfileposinfo;
         templist : Taasmoutput;
         headertai : tai;
-        curralign : longint;
       begin
         { the initialization procedure can be empty, then we
           don't need to generate anything. When it was an empty
@@ -846,35 +845,30 @@ implementation
             aktproccode.concatlist(templist);
 
 {$ifdef ARM}
-            { because of the limited constant size of the arm, all data access is done pc relative }
             insertpcrelativedata(aktproccode,aktlocaldata);
 {$endif ARM}
 
 {$ifdef POWERPC}
             fixup_jmps(aktproccode);
 {$endif POWERPC}
-{$ifdef POWERPC64}
-            fixup_jmps(aktproccode);
-{$endif POWERPC64}
-            { insert line debuginfo }
-            if (cs_debuginfo in aktmoduleswitches) or
-               (cs_use_lineinfo in aktglobalswitches) then
-              debuginfo.insertlineinfo(aktproccode);
-
-            { gprof uses 16 byte granularity }
-            if (cs_profile in aktmoduleswitches) then
-              curralign:=16
-            else
-              curralign:=aktalignment.procalign;
-
-            { add the procedure to the al_procedures }
-            maybe_new_object_file(asmlist[al_procedures]);
-            new_section(asmlist[al_procedures],sec_code,lower(procdef.mangledname),curralign);
-            asmlist[al_procedures].concatlist(aktproccode);
             { save local data (casetable) also in the same file }
             if assigned(aktlocaldata) and
                (not aktlocaldata.empty) then
-              asmlist[al_procedures].concatlist(aktlocaldata);
+             begin
+               { because of the limited constant size of the arm, all data access is done pc relative }
+               if target_info.cpu=cpu_arm then
+                 aktproccode.concatlist(aktlocaldata)
+               else
+                 begin
+                   new_section(aktproccode,sec_data,lower(procdef.mangledname),0);
+                   aktproccode.concatlist(aktlocaldata);
+                 end;
+            end;
+
+            { add the procedure to the codesegment }
+            maybe_new_object_file(codesegment);
+            new_section(codesegment,sec_code,lower(procdef.mangledname),aktalignment.procalign);
+            codesegment.concatlist(aktproccode);
 
             { only now we can remove the temps }
             tg.resettempgen;
@@ -1305,12 +1299,12 @@ implementation
                     not(
                         assigned(pd.import_dll) and
                         (target_info.system in [system_i386_win32,system_i386_wdosx,
-                                                system_i386_emx,system_i386_os2,system_arm_wince,system_i386_wince])
+                                                system_i386_emx,system_i386_os2])
                        ) then
                    begin
                      s:=proc_get_importname(pd);
                      if s<>'' then
-                       gen_external_stub(asmlist[al_procedures],pd,{$IFDEF POWERPC64}'.'+{$ENDIF}s);
+                       gen_external_stub(codesegment,pd,s);
                    end;
 
                  { Import DLL specified? }

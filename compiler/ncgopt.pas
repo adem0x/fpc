@@ -135,7 +135,7 @@ begin
   if checklength then
     begin
       { is it already maximal? }
-      objectlibrary.getjumplabel(l);
+      objectlibrary.getlabel(l);
       if tg.istemp(left.location.reference) then
         len:=255
       else

@@ -813,7 +813,7 @@ implementation
               else
                begin
                  { then insert an empty string }
-                 p2:=cstringconstnode.createstr('',st_conststring);
+                 p2:=cstringconstnode.createstr('',st_default);
                end;
               statement_syssym:=geninlinenode(l,false,ccallparanode.create(p1,ccallparanode.create(p2,nil)));
               consume(_RKLAMMER);
@@ -1428,7 +1428,7 @@ implementation
                           getmem(pc,len+1);
                           move(pchar(tconstsym(srsym).value.valueptr)^,pc^,len);
                           pc[len]:=#0;
-                          p1:=cstringconstnode.createpchar(pc,len,st_conststring);
+                          p1:=cstringconstnode.createpchar(pc,len);
                         end;
                       constwstring :
                         p1:=cstringconstnode.createwstr(pcompilerwidestring(tconstsym(srsym).value.valueptr));
@@ -2265,7 +2265,7 @@ implementation
 
            _CSTRING :
              begin
-               p1:=cstringconstnode.createstr(pattern,st_conststring);
+               p1:=cstringconstnode.createstr(pattern,st_default);
                consume(_CSTRING);
              end;
 

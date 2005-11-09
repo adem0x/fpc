@@ -31,6 +31,9 @@ interface
 implementation
 
   uses
+{$ifdef gdb}
+    gdb,
+{$endif gdb}
     cutils,cclasses,
 {$ifdef USE_SYSUTILS}
     sysutils,
@@ -90,8 +93,8 @@ implementation
 
     procedure timportlibdarwin.preparelib(const s : string);
       begin
-         if asmlist[al_imports]=nil then
-           asmlist[al_imports]:=TAAsmoutput.create;
+         if not(assigned(importssection)) then
+           importssection:=TAAsmoutput.create;
       end;
 
 
@@ -221,17 +224,17 @@ begin
         if tprocsym(hp2.sym).first_procdef.mangledname<>hp2.name^ then
          begin
 {$ifdef i386}
-           { place jump in al_procedures }
-           asmlist[al_procedures].concat(Tai_align.Create_op(4,$90));
-           asmlist[al_procedures].concat(Tai_symbol.Createname_global(hp2.name^,AT_FUNCTION,0));
-           asmlist[al_procedures].concat(Taicpu.Op_sym(A_JMP,S_NO,objectlibrary.newasmsymbol(tprocsym(hp2.sym).first_procdef.mangledname,AB_EXTERNAL,AT_FUNCTION)));
-           asmlist[al_procedures].concat(Tai_symbol_end.Createname(hp2.name^));
+           { place jump in codesegment }
+           codesegment.concat(Tai_align.Create_op(4,$90));
+           codeSegment.concat(Tai_symbol.Createname_global(hp2.name^,AT_FUNCTION,0));
+           codeSegment.concat(Taicpu.Op_sym(A_JMP,S_NO,objectlibrary.newasmsymbol(tprocsym(hp2.sym).first_procdef.mangledname,AB_EXTERNAL,AT_FUNCTION)));
+           codeSegment.concat(Tai_symbol_end.Createname(hp2.name^));
 {$endif i386}
 {$ifdef powerpc}
-           asmlist[al_procedures].concat(Tai_align.create(16));
-           asmlist[al_procedures].concat(Tai_symbol.Createname_global(hp2.name^,AT_FUNCTION,0));
-           asmlist[al_procedures].concat(Taicpu.Op_sym(A_B,objectlibrary.newasmsymbol(tprocsym(hp2.sym).first_procdef.mangledname,AB_EXTERNAL,AT_FUNCTION)));
-           asmlist[al_procedures].concat(Tai_symbol_end.Createname(hp2.name^));
+           codesegment.concat(Tai_align.create(16));
+           codesegment.concat(Tai_symbol.Createname_global(hp2.name^,AT_FUNCTION,0));
+           codeSegment.concat(Taicpu.Op_sym(A_B,objectlibrary.newasmsymbol(tprocsym(hp2.sym).first_procdef.mangledname,AB_EXTERNAL,AT_FUNCTION)));
+           codeSegment.concat(Tai_symbol_end.Createname(hp2.name^));
 {$endif powerpc}
          end;
       end

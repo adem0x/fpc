@@ -41,7 +41,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
           function docompare(p: tnode) : boolean; override;
@@ -62,7 +62,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
           function docompare(p: tnode) : boolean; override;
@@ -78,7 +78,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
           function docompare(p: tnode) : boolean; override;
@@ -91,19 +91,18 @@ interface
           lab_str : tasmlabel;
           st_type : tstringtype;
           constructor createstr(const s : string;st:tstringtype);virtual;
-          constructor createpchar(s : pchar;l : longint;st:tstringtype);virtual;
+          constructor createpchar(s : pchar;l : longint);virtual;
           constructor createwstr(w : pcompilerwidestring);virtual;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
           destructor destroy;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
           function getpcharcopy : pchar;
           function docompare(p: tnode) : boolean; override;
-          procedure changestringtype(const newtype:ttype);
        end;
        tstringconstnodeclass = class of tstringconstnode;
 
@@ -117,7 +116,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
           function docompare(p: tnode) : boolean; override;
@@ -136,7 +135,7 @@ interface
           constructor create(const g:tguid);virtual;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
           function docompare(p: tnode) : boolean; override;
@@ -238,10 +237,12 @@ implementation
           conststring :
             begin
               len:=p.value.len;
+              if not(cs_ansistrings in aktlocalswitches) and (len>255) then
+               len:=255;
               getmem(pc,len+1);
               move(pchar(p.value.valueptr)^,pc^,len);
               pc[len]:=#0;
-              p1:=cstringconstnode.createpchar(pc,len,st_conststring);
+              p1:=cstringconstnode.createpchar(pc,len);
             end;
           constreal :
             p1:=crealconstnode.create(pbestreal(p.value.valueptr)^,pbestrealtype^);
@@ -305,16 +306,16 @@ implementation
       end;
 
 
-    function trealconstnode._getcopy : tnode;
+    function trealconstnode.getcopy : tnode;
 
       var
          n : trealconstnode;
 
       begin
-         n:=trealconstnode(inherited _getcopy);
+         n:=trealconstnode(inherited getcopy);
          n.value_real:=value_real;
          n.lab_real:=lab_real;
-         _getcopy:=n;
+         getcopy:=n;
       end;
 
     function trealconstnode.det_resulttype:tnode;
@@ -397,16 +398,16 @@ implementation
       end;
 
 
-    function tordconstnode._getcopy : tnode;
+    function tordconstnode.getcopy : tnode;
 
       var
          n : tordconstnode;
 
       begin
-         n:=tordconstnode(inherited _getcopy);
+         n:=tordconstnode(inherited getcopy);
          n.value:=value;
          n.restype := restype;
-         _getcopy:=n;
+         getcopy:=n;
       end;
 
     function tordconstnode.det_resulttype:tnode;
@@ -482,16 +483,16 @@ implementation
       end;
 
 
-    function tpointerconstnode._getcopy : tnode;
+    function tpointerconstnode.getcopy : tnode;
 
       var
          n : tpointerconstnode;
 
       begin
-         n:=tpointerconstnode(inherited _getcopy);
+         n:=tpointerconstnode(inherited getcopy);
          n.value:=value;
          n.restype := restype;
-         _getcopy:=n;
+         getcopy:=n;
       end;
 
     function tpointerconstnode.det_resulttype:tnode;
@@ -519,8 +520,10 @@ implementation
 *****************************************************************************}
 
     constructor tstringconstnode.createstr(const s : string;st:tstringtype);
+
       var
          l : longint;
+
       begin
          inherited create(stringconstn);
          l:=length(s);
@@ -530,11 +533,30 @@ implementation
          move(s[1],value_str^,l);
          value_str[l]:=#0;
          lab_str:=nil;
-         st_type:=st;
+         if st=st_default then
+          begin
+            if cs_ansistrings in aktlocalswitches then
+            {$ifdef ansistring_bits}
+              case aktansistring_bits of
+                sb_16:
+                  st_type:=st_ansistring16;
+                sb_32:
+                  st_type:=st_ansistring32;
+                sb_64:
+                  st_type:=st_ansistring64;
+              end
+            {$else}
+              st_type:=st_ansistring
+            {$endif}
+            else
+              st_type:=st_shortstring;
+          end
+         else
+          st_type:=st;
       end;
 
-
     constructor tstringconstnode.createwstr(w : pcompilerwidestring);
+
       begin
          inherited create(stringconstn);
          len:=getlengthwidestring(w);
@@ -544,13 +566,28 @@ implementation
          st_type:=st_widestring;
       end;
 
+    constructor tstringconstnode.createpchar(s : pchar;l : longint);
 
-    constructor tstringconstnode.createpchar(s : pchar;l : longint;st:tstringtype);
       begin
          inherited create(stringconstn);
          len:=l;
          value_str:=s;
-         st_type:=st;
+         if (cs_ansistrings in aktlocalswitches) or
+            (len>255) then
+          {$ifdef ansistring_bits}
+            case aktansistring_bits of
+              sb_16:
+                st_type:=st_ansistring16;
+              sb_32:
+                st_type:=st_ansistring32;
+              sb_64:
+                st_type:=st_ansistring64;
+            end
+          {$else}
+            st_type:=st_ansistring
+          {$endif}
+         else
+          st_type:=st_shortstring;
          lab_str:=nil;
       end;
 
@@ -615,13 +652,13 @@ implementation
       end;
 
 
-    function tstringconstnode._getcopy : tnode;
+    function tstringconstnode.getcopy : tnode;
 
       var
          n : tstringconstnode;
 
       begin
-         n:=tstringconstnode(inherited _getcopy);
+         n:=tstringconstnode(inherited getcopy);
          n.st_type:=st_type;
          n.len:=len;
          n.lab_str:=lab_str;
@@ -632,29 +669,26 @@ implementation
            end
          else
            n.value_str:=getpcharcopy;
-         _getcopy:=n;
+         getcopy:=n;
       end;
 
     function tstringconstnode.det_resulttype:tnode;
-      var
-        l : aint;
       begin
         result:=nil;
         case st_type of
-          st_conststring :
-            begin
-              { handle and store as array[0..len-1] of char }
-              if len>0 then
-                l:=len-1
-              else
-                l:=0;
-              resulttype.setdef(tarraydef.create(0,l,s32inttype));
-              tarraydef(resulttype.def).setelementtype(cchartype);
-            end;
           st_shortstring :
             resulttype:=cshortstringtype;
+        {$ifdef ansistring_bits}
+          st_ansistring16:
+            resulttype:=cansistringtype16;
+          st_ansistring32:
+            resulttype:=cansistringtype32;
+          st_ansistring64:
+            resulttype:=cansistringtype64;
+        {$else}
           st_ansistring :
             resulttype:=cansistringtype;
+        {$endif}
           st_widestring :
             resulttype:=cwidestringtype;
           st_longstring :
@@ -665,13 +699,16 @@ implementation
     function tstringconstnode.pass_1 : tnode;
       begin
         result:=nil;
+      {$ifdef ansistring_bits}
+        if (st_type in [st_ansistring16,st_ansistring32,st_ansistring64,st_widestring]) and
+      {$else}
         if (st_type in [st_ansistring,st_widestring]) and
+      {$endif}
            (len=0) then
          expectloc:=LOC_CONSTANT
         else
          expectloc:=LOC_CREFERENCE;
       end;
-
 
     function tstringconstnode.getpcharcopy : pchar;
       var
@@ -695,39 +732,6 @@ implementation
           { label, the following compare should be enough (JM)          }
           (lab_str = tstringconstnode(p).lab_str);
       end;
-
-
-    procedure tstringconstnode.changestringtype(const newtype:ttype);
-      var
-        pw : pcompilerwidestring;
-        pc : pchar;
-      begin
-        if newtype.def.deftype<>stringdef then
-          internalerror(200510011);
-        { convert ascii 2 unicode }
-        if (tstringdef(newtype.def).string_typ=st_widestring) and
-           (st_type<>st_widestring) then
-          begin
-            initwidestring(pw);
-            ascii2unicode(value_str,len,pw);
-            ansistringdispose(value_str,len);
-            pcompilerwidestring(value_str):=pw;
-          end
-        else
-          { convert unicode 2 ascii }
-          if (st_type=st_widestring) and
-            (tstringdef(newtype.def).string_typ<>st_widestring) then
-            begin
-              pw:=pcompilerwidestring(value_str);
-              getmem(pc,getlengthwidestring(pw)+1);
-              unicode2ascii(pw,pc);
-              donewidestring(pw);
-              value_str:=pc;
-            end;
-        st_type:=tstringdef(newtype.def).string_typ;
-        resulttype:=newtype;
-      end;
-
 
 {*****************************************************************************
                              TSETCONSTNODE
@@ -786,13 +790,13 @@ implementation
       end;
 
 
-    function tsetconstnode._getcopy : tnode;
+    function tsetconstnode.getcopy : tnode;
 
       var
          n : tsetconstnode;
 
       begin
-         n:=tsetconstnode(inherited _getcopy);
+         n:=tsetconstnode(inherited getcopy);
          if assigned(value_set) then
            begin
               new(n.value_set);
@@ -802,7 +806,7 @@ implementation
            n.value_set:=nil;
          n.restype := restype;
          n.lab_set:=lab_set;
-         _getcopy:=n;
+         getcopy:=n;
       end;
 
     function tsetconstnode.det_resulttype:tnode;
@@ -875,15 +879,15 @@ implementation
       end;
 
 
-    function tguidconstnode._getcopy : tnode;
+    function tguidconstnode.getcopy : tnode;
 
       var
          n : tguidconstnode;
 
       begin
-         n:=tguidconstnode(inherited _getcopy);
+         n:=tguidconstnode(inherited getcopy);
          n.value:=value;
-         _getcopy:=n;
+         getcopy:=n;
       end;
 
     function tguidconstnode.det_resulttype:tnode;

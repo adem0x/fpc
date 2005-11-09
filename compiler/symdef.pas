@@ -63,9 +63,13 @@ interface
 {$ifdef EXTDEBUG}
           fileinfo   : tfileposinfo;
 {$endif}
+{$ifdef GDB}
+          globalnb   : word;
+          stab_state : tdefstabstatus;
+{$endif GDB}
           constructor create;
           constructor ppuloaddef(ppufile:tcompilerppufile);
-          procedure reset;virtual;
+          procedure reset;
           function getcopy : tstoreddef;virtual;
           procedure ppuwritedef(ppufile:tcompilerppufile);
           procedure ppuwrite(ppufile:tcompilerppufile);virtual;abstract;
@@ -78,6 +82,16 @@ interface
           function  alignment:longint;override;
           function  is_publishable : boolean;override;
           function  needs_inittable : boolean;override;
+          { debug }
+{$ifdef GDB}
+          function get_var_value(const s:string):string;
+          function stabstr_evaluate(const s:string;const vars:array of string):Pchar;
+          function  stabstring : pchar;virtual;
+          procedure concatstabto(asmlist : taasmoutput);virtual;
+          function  numberstring:string;virtual;
+          procedure set_globalnb;virtual;
+          function  allstabstring : pchar;virtual;
+{$endif GDB}
           { rtti generation }
           procedure write_rtti_name;
           procedure write_rtti_data(rt:trttitype);virtual;
@@ -106,6 +120,11 @@ interface
           function  gettypename:string;override;
           function  getmangledparaname:string;override;
           procedure setsize;
+          { debug }
+{$ifdef GDB}
+          function  stabstring : pchar;override;
+          procedure concatstabto(asmlist : taasmoutput);override;
+{$endif GDB}
        end;
 
        tvariantdef = class(tstoreddef)
@@ -119,6 +138,11 @@ interface
           function is_publishable : boolean;override;
           function needs_inittable : boolean;override;
           procedure write_rtti_data(rt:trttitype);override;
+{$ifdef GDB}
+          function  numberstring:string;override;
+          function  stabstring : pchar;override;
+          procedure concatstabto(asmlist : taasmoutput);override;
+{$endif GDB}
        end;
 
        tformaldef = class(tstoreddef)
@@ -126,6 +150,11 @@ interface
           constructor ppuload(ppufile:tcompilerppufile);
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           function  gettypename:string;override;
+{$ifdef GDB}
+          function  numberstring:string;override;
+          function  stabstring : pchar;override;
+          procedure concatstabto(asmlist : taasmoutput);override;
+{$endif GDB}
        end;
 
        tforwarddef = class(tstoreddef)
@@ -141,6 +170,11 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           function  gettypename:string;override;
           function  getmangledparaname : string;override;
+          { debug }
+{$ifdef GDB}
+          function  stabstring : pchar;override;
+          procedure concatstabto(asmlist : taasmoutput);override;
+{$endif GDB}
        end;
 
        { tpointerdef and tclassrefdef should get a common
@@ -159,18 +193,31 @@ interface
           procedure buildderef;override;
           procedure deref;override;
           function  gettypename:string;override;
+          { debug }
+{$ifdef GDB}
+          function  stabstring : pchar;override;
+          procedure concatstabto(asmlist : taasmoutput);override;
+{$endif GDB}
+       end;
+
+       Trecord_stabgen_state=record
+          stabstring:Pchar;
+          stabsize,staballoc,recoffset:integer;
        end;
 
        tabstractrecorddef= class(tstoreddef)
        private
           Count         : integer;
           FRTTIType     : trttitype;
+{$ifdef GDB}
+          procedure field_addname(p:Tnamedindexitem;arg:pointer);
+          procedure field_concatstabto(p:Tnamedindexitem;arg:pointer);
+{$endif}
           procedure count_field_rtti(sym : tnamedindexitem;arg:pointer);
           procedure write_field_rtti(sym : tnamedindexitem;arg:pointer);
           procedure generate_field_rtti(sym : tnamedindexitem;arg:pointer);
        public
           symtable : tsymtable;
-          procedure reset;override;
           function  getsymtable(t:tgetsymtable):tsymtable;override;
        end;
 
@@ -189,6 +236,10 @@ interface
           function  padalignment: longint;
           function  gettypename:string;override;
           { debug }
+{$ifdef GDB}
+          function  stabstring : pchar;override;
+          procedure concatstabto(asmlist:taasmoutput);override;
+{$endif GDB}
           function  needs_inittable : boolean;override;
           { rtti }
           procedure write_child_rtti_data(rt:trttitype);override;
@@ -213,6 +264,10 @@ interface
 
        tobjectdef = class(tabstractrecorddef)
        private
+{$ifdef GDB}
+          procedure proc_addname(p :tnamedindexitem;arg:pointer);
+          procedure proc_concatstabto(p :tnamedindexitem;arg:pointer);
+{$endif GDB}
           procedure count_published_properties(sym:tnamedindexitem;arg:pointer);
           procedure write_property_info(sym : tnamedindexitem;arg:pointer);
           procedure generate_published_child_rtti(sym : tnamedindexitem;arg:pointer);
@@ -227,7 +282,9 @@ interface
           { to be able to have a variable vmt position }
           { and no vmt field for objects without virtuals }
           vmt_offset : longint;
+{$ifdef GDB}
           writing_class_record_stab : boolean;
+{$endif GDB}
           objecttype : tobjectdeftype;
           iidguid: pguid;
           iidstr: pstring;
@@ -259,6 +316,14 @@ interface
           procedure insertvmt;
           procedure set_parent(c : tobjectdef);
           function searchdestructor : tprocdef;
+          { debug }
+{$ifdef GDB}
+          function  stabstring : pchar;override;
+          procedure set_globalnb;override;
+          function  classnumberstring : string;
+          procedure concatstabto(asmlist : taasmoutput);override;
+          function  allstabstring : pchar;override;
+{$endif GDB}
           { rtti }
           procedure write_child_rtti_data(rt:trttitype);override;
           procedure write_rtti_data(rt:trttitype);override;
@@ -305,6 +370,10 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           function gettypename:string;override;
           function  is_publishable : boolean;override;
+          { debug }
+{$ifdef GDB}
+          function stabstring : pchar;override;
+{$endif GDB}
        end;
 
        tarraydef = class(tstoreddef)
@@ -329,6 +398,10 @@ interface
           function  gettypename:string;override;
           function  getmangledparaname : string;override;
           procedure setelementtype(t: ttype);
+{$ifdef GDB}
+          function  stabstring : pchar;override;
+          procedure concatstabto(asmlist : taasmoutput);override;
+{$endif GDB}
           procedure buildderef;override;
           procedure deref;override;
           function size : aint;override;
@@ -351,6 +424,10 @@ interface
           function  gettypename:string;override;
           procedure setsize;
           function getvartype : longint;override;
+          { debug }
+{$ifdef GDB}
+          function  stabstring : pchar;override;
+{$endif GDB}
           { rtti }
           procedure write_rtti_data(rt:trttitype);override;
        end;
@@ -365,6 +442,11 @@ interface
           function  is_publishable : boolean;override;
           procedure setsize;
           function  getvartype:longint;override;
+          { debug }
+{$ifdef GDB}
+          function stabstring : pchar;override;
+          procedure concatstabto(asmlist:taasmoutput);override;
+{$endif GDB}
           { rtti }
           procedure write_rtti_data(rt:trttitype);override;
        end;
@@ -398,6 +480,10 @@ interface
           procedure test_if_fpu_result;
           function  is_methodpointer:boolean;virtual;
           function  is_addressonly:boolean;virtual;
+          { debug }
+{$ifdef GDB}
+          function  stabstring : pchar;override;
+{$endif GDB}
        private
           procedure count_para(p:tnamedindexitem;arg:pointer);
           procedure insert_para(p:tnamedindexitem;arg:pointer);
@@ -417,6 +503,11 @@ interface
           function  is_methodpointer:boolean;override;
           function  is_addressonly:boolean;override;
           function  getmangledparaname:string;override;
+          { debug }
+{$ifdef GDB}
+          function stabstring : pchar;override;
+          procedure concatstabto(asmlist:taasmoutput);override;
+{$endif GDB}
           { rtti }
           procedure write_rtti_data(rt:trttitype);override;
        end;
@@ -452,6 +543,9 @@ interface
        tprocdef = class(tabstractprocdef)
        private
           _mangledname : pstring;
+{$ifdef GDB}
+          isstabwritten : boolean;
+{$endif GDB}
        public
           extnumber      : word;
           messageinf : tmessageinf;
@@ -503,9 +597,6 @@ interface
 {$ifdef oldregvars}
           regvarinfo: pregvarinfo;
 {$endif oldregvars}
-          { position in aasmoutput list }
-          procstarttai,
-          procendtai   : tai;
           constructor create(level:byte);
           constructor ppuload(ppufile:tcompilerppufile);
           destructor  destroy;override;
@@ -514,7 +605,6 @@ interface
           procedure buildderefimpl;override;
           procedure deref;override;
           procedure derefimpl;override;
-          procedure reset;override;
           function  getsymtable(t:tgetsymtable):tsymtable;override;
           function gettypename : string;override;
           function  mangledname : string;
@@ -531,6 +621,12 @@ interface
           function  is_methodpointer:boolean;override;
           function  is_addressonly:boolean;override;
           function  is_visible_for_object(currobjdef:tobjectdef):boolean;
+          { debug }
+{$ifdef GDB}
+          function  numberstring:string;override;
+          function  stabstring : pchar;override;
+          procedure concatstabto(asmlist : taasmoutput);override;
+{$endif GDB}
        end;
 
        { single linked list of overloaded procs }
@@ -563,6 +659,11 @@ interface
           function  gettypename:string;override;
           function  getmangledparaname:string;override;
           function  is_publishable : boolean;override;
+          { debug }
+{$ifdef GDB}
+          function  stabstring : pchar;override;
+          procedure concatstabto(asmlist : taasmoutput);override;
+{$endif GDB}
           function alignment : longint;override;
           { init/final }
           function  needs_inittable : boolean;override;
@@ -593,6 +694,10 @@ interface
           procedure setmin(_min:aint);
           function  min:aint;
           function  max:aint;
+          { debug }
+{$ifdef GDB}
+          function stabstring : pchar;override;
+{$endif GDB}
           { rtti }
           procedure write_rtti_data(rt:trttitype);override;
           procedure write_child_rtti_data(rt:trttitype);override;
@@ -614,6 +719,11 @@ interface
           procedure deref;override;
           function  gettypename:string;override;
           function  is_publishable : boolean;override;
+          { debug }
+{$ifdef GDB}
+          function  stabstring : pchar;override;
+          procedure concatstabto(asmlist : taasmoutput);override;
+{$endif GDB}
           { rtti }
           procedure write_rtti_data(rt:trttitype);override;
           procedure write_child_rtti_data(rt:trttitype);override;
@@ -623,6 +733,12 @@ interface
 
     var
        aktobjectdef : tobjectdef;  { used for private functions check !! }
+{$ifdef GDB}
+       writing_def_stabs : boolean;
+       { for STAB debugging }
+       globaltypecount  : word;
+       pglobaltypecount : pword;
+{$endif GDB}
 
     { default types }
        generrortype,              { error in definition }
@@ -701,9 +817,6 @@ interface
 {$ifdef powerpc}
        pbestrealtype : ^ttype = @s64floattype;
 {$endif}
-{$ifdef POWERPC64}
-       pbestrealtype : ^ttype = @s64floattype;
-{$endif}
 {$ifdef ia64}
        pbestrealtype : ^ttype = @s64floattype;
 {$endif}
@@ -732,10 +845,6 @@ interface
     function is_class_or_interface(def: tdef): boolean;
 
 
-{$ifdef x86}
-    function use_sse(def : tdef) : boolean;
-{$endif x86}
-
 implementation
 
     uses
@@ -747,6 +856,9 @@ implementation
       { symtable }
       symsym,symtable,symutil,defutil,
       { module }
+{$ifdef GDB}
+      gdb,
+{$endif GDB}
       fmodule,
       { other }
       gendef,
@@ -894,6 +1006,10 @@ implementation
 {$endif}
          if registerdef then
            symtablestack.registerdef(self);
+{$ifdef GDB}
+         stab_state:=stab_state_unused;
+         globalnb := 0;
+{$endif GDB}
          fillchar(localrttilab,sizeof(localrttilab),0);
       end;
 
@@ -904,6 +1020,10 @@ implementation
 {$ifdef EXTDEBUG}
          fillchar(fileinfo,sizeof(fileinfo),0);
 {$endif}
+{$ifdef GDB}
+         stab_state:=stab_state_unused;
+         globalnb := 0;
+{$endif GDB}
          fillchar(localrttilab,sizeof(localrttilab),0);
       { load }
          indexnr:=ppufile.getword;
@@ -918,6 +1038,9 @@ implementation
 
     procedure Tstoreddef.reset;
       begin
+{$ifdef GDB}
+        stab_state:=stab_state_unused;
+{$endif GDB}
         if assigned(rttitablesym) then
           trttisym(rttitablesym).lab := nil;
         if assigned(inittablesym) then
@@ -943,6 +1066,16 @@ implementation
          ppufile.putderef(rttitablesymderef);
         if df_has_inittable in defoptions then
          ppufile.putderef(inittablesymderef);
+{$ifdef GDB}
+        if globalnb=0 then
+          begin
+            if (cs_gdb_dbx in aktglobalswitches) and
+               assigned(owner) then
+              globalnb := owner.getnewtypecount
+            else
+              set_globalnb;
+          end;
+{$endif GDB}
       end;
 
 
@@ -993,6 +1126,125 @@ implementation
       end;
 
 
+{$ifdef GDB}
+    procedure tstoreddef.set_globalnb;
+      begin
+        globalnb:=PGlobalTypeCount^;
+        inc(PglobalTypeCount^);
+      end;
+
+
+    function Tstoreddef.get_var_value(const s:string):string;
+      begin
+        if s='numberstring' then
+          get_var_value:=numberstring
+        else if s='sym_name' then
+          if assigned(typesym) then
+             get_var_value:=Ttypesym(typesym).name
+          else
+             get_var_value:=' '
+        else if s='N_LSYM' then
+          get_var_value:=tostr(N_LSYM)
+        else if s='savesize' then
+          get_var_value:=tostr(savesize);
+      end;
+
+
+    function Tstoreddef.stabstr_evaluate(const s:string;const vars:array of string):Pchar;
+      begin
+        stabstr_evaluate:=string_evaluate(s,@get_var_value,vars);
+      end;
+
+
+    function tstoreddef.stabstring : pchar;
+      begin
+        stabstring:=stabstr_evaluate('t${numberstring};',[]);
+      end;
+
+
+    function tstoreddef.numberstring : string;
+      begin
+        { Stab must already be written, or we must be busy writing it }
+        if writing_def_stabs and
+           not(stab_state in [stab_state_writing,stab_state_written]) then
+          internalerror(200403091);
+        { Keep track of used stabs, this info is only usefull for stabs
+          referenced by the symbols. Definitions will always include all
+          required stabs }
+        if stab_state=stab_state_unused then
+          stab_state:=stab_state_used;
+        { Need a new number? }
+        if globalnb=0 then
+          begin
+            if (cs_gdb_dbx in aktglobalswitches) and
+               assigned(owner) then
+              globalnb := owner.getnewtypecount
+            else
+              set_globalnb;
+          end;
+        if (cs_gdb_dbx in aktglobalswitches) and
+           assigned(typesym) and
+           (ttypesym(typesym).owner.symtabletype in [staticsymtable,globalsymtable]) and
+           (ttypesym(typesym).owner.iscurrentunit) then
+          result:='('+tostr(tabstractunitsymtable(ttypesym(typesym).owner).moduleid)+','+tostr(tstoreddef(ttypesym(typesym).restype.def).globalnb)+')'
+        else
+          result:=tostr(globalnb);
+      end;
+
+
+    function tstoreddef.allstabstring : pchar;
+      var
+        stabchar : string[2];
+        ss,st,su : pchar;
+      begin
+        ss := stabstring;
+        stabchar := 't';
+        if deftype in tagtypes then
+          stabchar := 'Tt';
+        { Here we maybe generate a type, so we have to use numberstring }
+        st:=stabstr_evaluate('"${sym_name}:$1$2=',[stabchar,numberstring]);
+        reallocmem(st,strlen(ss)+512);
+        { line info is set to 0 for all defs, because the def can be in an other
+          unit and then the linenumber is invalid in the current sourcefile }
+        su:=stabstr_evaluate('",${N_LSYM},0,0,0',[]);
+        strcopy(strecopy(strend(st),ss),su);
+        reallocmem(st,strlen(st)+1);
+        allstabstring:=st;
+        strdispose(ss);
+        strdispose(su);
+      end;
+
+
+    procedure tstoreddef.concatstabto(asmlist : taasmoutput);
+      var
+        stab_str : pchar;
+      begin
+        if (stab_state in [stab_state_writing,stab_state_written]) then
+          exit;
+        If cs_gdb_dbx in aktglobalswitches then
+          begin
+            { otherwise you get two of each def }
+            If assigned(typesym) then
+              begin
+                if (ttypesym(typesym).owner = nil) or
+                   ((ttypesym(typesym).owner.symtabletype = globalsymtable) and
+                    tglobalsymtable(ttypesym(typesym).owner).dbx_count_ok)  then
+                  begin
+                    {with DBX we get the definition from the other objects }
+                    stab_state := stab_state_written;
+                    exit;
+                  end;
+              end;
+          end;
+        { to avoid infinite loops }
+        stab_state := stab_state_writing;
+        stab_str := allstabstring;
+        asmList.concat(Tai_stabs.Create(stab_str));
+        stab_state := stab_state_written;
+      end;
+{$endif GDB}
+
+
     procedure tstoreddef.write_rtti_name;
       var
          str : string;
@@ -1001,16 +1253,16 @@ implementation
          if assigned(typesym) then
            begin
               str:=ttypesym(typesym).realname;
-              asmlist[al_rtti].concat(Tai_string.Create(chr(length(str))+str));
+              rttiList.concat(Tai_string.Create(chr(length(str))+str));
            end
          else
-           asmlist[al_rtti].concat(Tai_string.Create(#0))
+           rttiList.concat(Tai_string.Create(#0))
       end;
 
 
     procedure tstoreddef.write_rtti_data(rt:trttitype);
       begin
-        asmlist[al_rtti].concat(tai_const.create_8bit(tkUnknown));
+        rttilist.concat(tai_const.create_8bit(tkUnknown));
         write_rtti_name;
       end;
 
@@ -1034,11 +1286,11 @@ implementation
              begin
                objectlibrary.getdatalabel(localrttilab[rt]);
                write_child_rtti_data(rt);
-               maybe_new_object_file(asmlist[al_rtti]);
-               new_section(asmlist[al_rtti],sec_rodata,localrttilab[rt].name,const_align(sizeof(aint)));
-               asmlist[al_rtti].concat(Tai_symbol.Create_global(localrttilab[rt],0));
+               maybe_new_object_file(rttiList);
+               new_section(rttiList,sec_rodata,localrttilab[rt].name,const_align(sizeof(aint)));
+               rttiList.concat(Tai_symbol.Create_global(localrttilab[rt],0));
                write_rtti_data(rt);
-               asmlist[al_rtti].concat(Tai_symbol_end.Create(localrttilab[rt]));
+               rttiList.concat(Tai_symbol_end.Create(localrttilab[rt]));
              end;
             get_rtti_label:=localrttilab[rt];
           end;
@@ -1080,9 +1332,9 @@ implementation
    function tstoreddef.is_fpuregable : boolean;
      begin
 {$ifdef x86}
-       result:=use_sse(self);
+       result:=false;
 {$else x86}
-       result:=(deftype=floatdef) and not(cs_fp_emulation in aktmoduleswitches);
+       result:=(deftype=floatdef);
 {$endif x86}
      end;
 
@@ -1260,6 +1512,98 @@ implementation
       end;
 
 
+{$ifdef GDB}
+    function tstringdef.stabstring : pchar;
+      var
+        bytest,charst,longst : string;
+        slen : aint;
+      begin
+        case string_typ of
+           st_shortstring:
+             begin
+               charst:=tstoreddef(cchartype.def).numberstring;
+               { this is what I found in stabs.texinfo but
+                 gdb 4.12 for go32 doesn't understand that !! }
+             {$IfDef GDBknowsstrings}
+                stabstring:=stabstr_evaluate('n$1;$2',[charst,tostr(len)]);
+             {$else}
+               { fix length of openshortstring }
+               slen:=len;
+               if slen=0 then
+                 slen:=255;
+               bytest:=tstoreddef(u8inttype.def).numberstring;
+               stabstring:=stabstr_evaluate('s$1length:$2,0,8;st:ar$2;1;$3;$4,8,$5;;',
+                           [tostr(slen+1),bytest,tostr(slen),charst,tostr(slen*8)]);
+             {$EndIf}
+             end;
+           st_longstring:
+             begin
+               charst:=tstoreddef(cchartype.def).numberstring;
+               { this is what I found in stabs.texinfo but
+                 gdb 4.12 for go32 doesn't understand that !! }
+             {$IfDef GDBknowsstrings}
+               stabstring:=stabstr_evaluate('n$1;$2',[charst,tostr(len)]);
+             {$else}
+               bytest:=tstoreddef(u8inttype.def).numberstring;
+               longst:=tstoreddef(u32inttype.def).numberstring;
+               stabstring:=stabstr_evaluate('s$1length:$2,0,32;dummy:$6,32,8;st:ar$2;1;$3;$4,40,$5;;',
+                            [tostr(len+5),longst,tostr(len),charst,tostr(len*8),bytest]);
+              {$EndIf}
+             end;
+         {$ifdef ansistring_bits}
+           st_ansistring16,st_ansistring32,st_ansistring64:
+         {$else}
+           st_ansistring:
+         {$endif}
+             begin
+               { an ansi string looks like a pchar easy !! }
+               charst:=tstoreddef(cchartype.def).numberstring;
+               stabstring:=strpnew('*'+charst);
+             end;
+           st_widestring:
+             begin
+               { an ansi string looks like a pwidechar easy !! }
+               charst:=tstoreddef(cwidechartype.def).numberstring;
+               stabstring:=strpnew('*'+charst);
+             end;
+        end;
+      end;
+
+
+    procedure tstringdef.concatstabto(asmlist:taasmoutput);
+      begin
+        if (stab_state in [stab_state_writing,stab_state_written]) then
+          exit;
+        case string_typ of
+           st_shortstring:
+             begin
+               tstoreddef(cchartype.def).concatstabto(asmlist);
+             {$IfNDef GDBknowsstrings}
+               tstoreddef(u8inttype.def).concatstabto(asmlist);
+             {$EndIf}
+             end;
+           st_longstring:
+             begin
+               tstoreddef(cchartype.def).concatstabto(asmlist);
+             {$IfNDef GDBknowsstrings}
+               tstoreddef(u8inttype.def).concatstabto(asmlist);
+               tstoreddef(u32inttype.def).concatstabto(asmlist);
+             {$EndIf}
+             end;
+         {$ifdef ansistring_bits}
+           st_ansistring16,st_ansistring32,st_ansistring64:
+         {$else}
+           st_ansistring:
+         {$endif}
+             tstoreddef(cchartype.def).concatstabto(asmlist);
+           st_widestring:
+             tstoreddef(cwidechartype.def).concatstabto(asmlist);
+        end;
+        inherited concatstabto(asmlist);
+      end;
+{$endif GDB}
+
+
     function tstringdef.needs_inittable : boolean;
       begin
       {$ifdef ansistring_bits}
@@ -1311,43 +1655,43 @@ implementation
           {$ifdef ansistring_bits}
             st_ansistring16:
               begin
-                 asmlist[al_rtti].concat(Tai_const.Create_8bit(tkA16String));
+                 rttiList.concat(Tai_const.Create_8bit(tkA16String));
                  write_rtti_name;
               end;
             st_ansistring32:
               begin
-                 asmlist[al_rtti].concat(Tai_const.Create_8bit(tkA32String));
+                 rttiList.concat(Tai_const.Create_8bit(tkA32String));
                  write_rtti_name;
               end;
             st_ansistring64:
               begin
-                 asmlist[al_rtti].concat(Tai_const.Create_8bit(tkA64String));
+                 rttiList.concat(Tai_const.Create_8bit(tkA64String));
                  write_rtti_name;
               end;
           {$else}
             st_ansistring:
               begin
-                 asmlist[al_rtti].concat(Tai_const.Create_8bit(tkAString));
+                 rttiList.concat(Tai_const.Create_8bit(tkAString));
                  write_rtti_name;
               end;
           {$endif}
             st_widestring:
               begin
-                 asmlist[al_rtti].concat(Tai_const.Create_8bit(tkWString));
+                 rttiList.concat(Tai_const.Create_8bit(tkWString));
                  write_rtti_name;
               end;
             st_longstring:
               begin
-                 asmlist[al_rtti].concat(Tai_const.Create_8bit(tkLString));
+                 rttiList.concat(Tai_const.Create_8bit(tkLString));
                  write_rtti_name;
               end;
             st_shortstring:
               begin
-                 asmlist[al_rtti].concat(Tai_const.Create_8bit(tkSString));
+                 rttiList.concat(Tai_const.Create_8bit(tkSString));
                  write_rtti_name;
-                 asmlist[al_rtti].concat(Tai_const.Create_8bit(len));
+                 rttiList.concat(Tai_const.Create_8bit(len));
 {$ifdef cpurequiresproperalignment}
-                 asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+                 rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
               end;
          end;
@@ -1534,6 +1878,43 @@ implementation
 
 
 
+{$ifdef GDB}
+    function tenumdef.stabstring : pchar;
+
+    var st:Pchar;
+        p:Tenumsym;
+        s:string;
+        memsize,stl:cardinal;
+
+    begin
+      memsize:=memsizeinc;
+      getmem(st,memsize);
+      { we can specify the size with @s<size>; prefix PM }
+      if savesize <> std_param_align then
+        strpcopy(st,'@s'+tostr(savesize*8)+';e')
+      else
+        strpcopy(st,'e');
+      p := tenumsym(firstenum);
+      stl:=strlen(st);
+      while assigned(p) do
+        begin
+          s :=p.name+':'+tostr(p.value)+',';
+          { place for the ending ';' also }
+          if (stl+length(s)+1>=memsize) then
+            begin
+              inc(memsize,memsizeinc);
+              reallocmem(st,memsize);
+            end;
+          strpcopy(st+stl,s);
+          inc(stl,length(s));
+          p:=p.nextenum;
+        end;
+      st[stl]:=';';
+      st[stl+1]:=#0;
+      reallocmem(st,stl+2);
+      stabstring:=st;
+    end;
+{$endif GDB}
 
 
     procedure tenumdef.write_child_rtti_data(rt:trttitype);
@@ -1547,36 +1928,36 @@ implementation
       var
          hp : tenumsym;
       begin
-         asmlist[al_rtti].concat(Tai_const.Create_8bit(tkEnumeration));
+         rttiList.concat(Tai_const.Create_8bit(tkEnumeration));
          write_rtti_name;
 {$ifdef cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+         rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
          case longint(savesize) of
             1:
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(otUByte));
+              rttiList.concat(Tai_const.Create_8bit(otUByte));
             2:
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(otUWord));
+              rttiList.concat(Tai_const.Create_8bit(otUWord));
             4:
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(otULong));
+              rttiList.concat(Tai_const.Create_8bit(otULong));
          end;
 {$ifdef cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_align.Create(4));
+         rttilist.concat(Tai_align.Create(4));
 {$endif cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_const.Create_32bit(min));
-         asmlist[al_rtti].concat(Tai_const.Create_32bit(max));
+         rttiList.concat(Tai_const.Create_32bit(min));
+         rttiList.concat(Tai_const.Create_32bit(max));
          if assigned(basedef) then
-           asmlist[al_rtti].concat(Tai_const.Create_sym(basedef.get_rtti_label(rt)))
+           rttiList.concat(Tai_const.Create_sym(basedef.get_rtti_label(rt)))
          else
-           asmlist[al_rtti].concat(Tai_const.create_sym(nil));
+           rttiList.concat(Tai_const.create_sym(nil));
          hp:=tenumsym(firstenum);
          while assigned(hp) do
            begin
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(length(hp.realname)));
-              asmlist[al_rtti].concat(Tai_string.Create(hp.realname));
+              rttiList.concat(Tai_const.Create_8bit(length(hp.realname)));
+              rttiList.concat(Tai_string.Create(hp.realname));
               hp:=hp.nextenum;
            end;
-         asmlist[al_rtti].concat(Tai_const.Create_8bit(0));
+         rttiList.concat(Tai_const.Create_8bit(0));
       end;
 
 
@@ -1681,6 +2062,54 @@ implementation
       end;
 
 
+{$ifdef GDB}
+    function torddef.stabstring : pchar;
+      begin
+        if cs_gdb_valgrind in aktglobalswitches then
+          begin
+            case typ of
+              uvoid :
+                stabstring := strpnew(numberstring);
+              bool8bit,
+              bool16bit,
+              bool32bit :
+                stabstring := stabstr_evaluate('r${numberstring};0;255;',[]);
+              u32bit,
+              s64bit,
+              u64bit :
+                stabstring:=stabstr_evaluate('r${numberstring};0;-1;',[]);
+              else
+                stabstring:=stabstr_evaluate('r${numberstring};$1;$2;',[tostr(longint(low)),tostr(longint(high))]);
+            end;
+          end
+        else
+          begin
+            case typ of
+              uvoid :
+                stabstring := strpnew(numberstring);
+              uchar :
+                stabstring := strpnew('-20;');
+              uwidechar :
+                stabstring := strpnew('-30;');
+              bool8bit :
+                stabstring := strpnew('-21;');
+              bool16bit :
+                stabstring := strpnew('-22;');
+              bool32bit :
+                stabstring := strpnew('-23;');
+              u64bit :
+                stabstring := strpnew('-32;');
+              s64bit :
+                stabstring := strpnew('-31;');
+              {u32bit : stabstring := tstoreddef(s32inttype.def).numberstring+';0;-1;'); }
+              else
+                stabstring:=stabstr_evaluate('r${numberstring};$1;$2;',[tostr(longint(low)),tostr(longint(high))]);
+            end;
+         end;
+      end;
+{$endif GDB}
+
+
     procedure torddef.write_rtti_data(rt:trttitype);
 
         procedure dointeger;
@@ -1694,60 +2123,60 @@ implementation
         begin
           write_rtti_name;
 {$ifdef cpurequiresproperalignment}
-          asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+          rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
-          asmlist[al_rtti].concat(Tai_const.Create_8bit(byte(trans[typ])));
+          rttiList.concat(Tai_const.Create_8bit(byte(trans[typ])));
 {$ifdef cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_align.Create(4));
+         rttilist.concat(Tai_align.Create(4));
 {$endif cpurequiresproperalignment}
-          asmlist[al_rtti].concat(Tai_const.Create_32bit(longint(low)));
-          asmlist[al_rtti].concat(Tai_const.Create_32bit(longint(high)));
+          rttiList.concat(Tai_const.Create_32bit(longint(low)));
+          rttiList.concat(Tai_const.Create_32bit(longint(high)));
         end;
 
       begin
         case typ of
           s64bit :
             begin
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(tkInt64));
+              rttiList.concat(Tai_const.Create_8bit(tkInt64));
               write_rtti_name;
 {$ifdef cpurequiresproperalignment}
-              asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+              rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
               { low }
-              asmlist[al_rtti].concat(Tai_const.Create_64bit(int64($80000000) shl 32));
+              rttiList.concat(Tai_const.Create_64bit(int64($80000000) shl 32));
               { high }
-              asmlist[al_rtti].concat(Tai_const.Create_64bit((int64($7fffffff) shl 32) or int64($ffffffff)));
+              rttiList.concat(Tai_const.Create_64bit((int64($7fffffff) shl 32) or int64($ffffffff)));
             end;
           u64bit :
             begin
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(tkQWord));
+              rttiList.concat(Tai_const.Create_8bit(tkQWord));
               write_rtti_name;
 {$ifdef cpurequiresproperalignment}
-              asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+              rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
               { low }
-              asmlist[al_rtti].concat(Tai_const.Create_64bit(0));
+              rttiList.concat(Tai_const.Create_64bit(0));
               { high }
-              asmlist[al_rtti].concat(Tai_const.Create_64bit(int64((int64($ffffffff) shl 32) or int64($ffffffff))));
+              rttiList.concat(Tai_const.Create_64bit(int64((int64($ffffffff) shl 32) or int64($ffffffff))));
             end;
           bool8bit:
             begin
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(tkBool));
+              rttiList.concat(Tai_const.Create_8bit(tkBool));
               dointeger;
             end;
           uchar:
             begin
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(tkChar));
+              rttiList.concat(Tai_const.Create_8bit(tkChar));
               dointeger;
             end;
           uwidechar:
             begin
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(tkWChar));
+              rttiList.concat(Tai_const.Create_8bit(tkWChar));
               dointeger;
             end;
           else
             begin
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(tkInteger));
+              rttiList.concat(Tai_const.Create_8bit(tkInteger));
               dointeger;
             end;
         end;
@@ -1842,18 +2271,42 @@ implementation
       end;
 
 
+{$ifdef GDB}
+    function Tfloatdef.stabstring:Pchar;
+      begin
+        case typ of
+          s32real,s64real,s80real:
+            stabstring:=stabstr_evaluate('r$1;${savesize};0;',[tstoreddef(s32inttype.def).numberstring]);
+          s64currency,s64comp:
+            stabstring:=stabstr_evaluate('r$1;-${savesize};0;',[tstoreddef(s32inttype.def).numberstring]);
+          else
+            internalerror(10005);
+        end;
+      end;
+
+
+    procedure tfloatdef.concatstabto(asmlist:taasmoutput);
+      begin
+        if (stab_state in [stab_state_writing,stab_state_written]) then
+          exit;
+        tstoreddef(s32inttype.def).concatstabto(asmlist);
+        inherited concatstabto(asmlist);
+      end;
+{$endif GDB}
+
+
     procedure tfloatdef.write_rtti_data(rt:trttitype);
       const
          {tfloattype = (s32real,s64real,s80real,s64bit,s128bit);}
          translate : array[tfloattype] of byte =
            (ftSingle,ftDouble,ftExtended,ftComp,ftCurr,ftFloat128);
       begin
-         asmlist[al_rtti].concat(Tai_const.Create_8bit(tkFloat));
+         rttiList.concat(Tai_const.Create_8bit(tkFloat));
          write_rtti_name;
 {$ifdef cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+         rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_const.Create_8bit(translate[typ]));
+         rttiList.concat(Tai_const.Create_8bit(translate[typ]));
       end;
 
 
@@ -1955,16 +2408,10 @@ implementation
 {$ifdef cpu64bit}
         case filetyp of
           ft_text :
-            if target_info.system in [system_x86_64_win64,system_ia64_win64] then
-              savesize:=632
-            else
-              savesize:=628;
+            savesize:=628;
           ft_typed,
           ft_untyped :
-            if target_info.system in [system_x86_64_win64,system_ia64_win64] then
-              savesize:=372
-            else
-              savesize:=368;
+            savesize:=368;
         end;
 {$else cpu64bit}
         case filetyp of
@@ -1986,6 +2433,63 @@ implementation
            ppufile.puttype(typedfiletype);
          ppufile.writeentry(ibfiledef);
       end;
+
+
+{$ifdef GDB}
+    function tfiledef.stabstring : pchar;
+      begin
+   {$IfDef GDBknowsfiles}
+      case filetyp of
+        ft_typed :
+          stabstring := strpnew('d'+typedfiletype.def.numberstring{+';'});
+        ft_untyped :
+          stabstring := strpnew('d'+voiddef.numberstring{+';'});
+        ft_text :
+          stabstring := strpnew('d'+cchartype^.numberstring{+';'});
+      end;
+   {$Else}
+{$ifdef cpu64bit}
+      stabstring:=stabstr_evaluate('s${savesize}HANDLE:$1,0,32;MODE:$1,32,32;RECSIZE:$2,64,64;'+
+                                   '_PRIVATE:ar$1;1;64;$3,128,256;USERDATA:ar$1;1;16;$3,384,128;'+
+                                   'NAME:ar$1;0;255;$4,512,2048;;',[tstoreddef(s32inttype.def).numberstring,
+                                   tstoreddef(s64inttype.def).numberstring,
+                                   tstoreddef(u8inttype.def).numberstring,
+                                   tstoreddef(cchartype.def).numberstring]);
+{$else cpu64bit}
+      stabstring:=stabstr_evaluate('s${savesize}HANDLE:$1,0,32;MODE:$1,32,32;RECSIZE:$1,64,32;'+
+                                   '_PRIVATE:ar$1;1;32;$3,96,256;USERDATA:ar$1;1;16;$2,352,128;'+
+                                   'NAME:ar$1;0;255;$3,480,2048;;',[tstoreddef(s32inttype.def).numberstring,
+                                   tstoreddef(u8inttype.def).numberstring,
+                                   tstoreddef(cchartype.def).numberstring]);
+{$endif cpu64bit}
+   {$EndIf}
+      end;
+
+
+    procedure tfiledef.concatstabto(asmlist:taasmoutput);
+      begin
+        if (stab_state in [stab_state_writing,stab_state_written]) then
+          exit;
+  {$IfDef GDBknowsfiles}
+        case filetyp of
+          ft_typed :
+            tstoreddef(typedfiletype.def).concatstabto(asmlist);
+          ft_untyped :
+            tstoreddef(voidtype.def).concatstabto(asmlist);
+          ft_text :
+            tstoreddef(cchartype.def).concatstabto(asmlist);
+        end;
+  {$Else}
+        tstoreddef(s32inttype.def).concatstabto(asmlist);
+{$ifdef cpu64bit}
+        tstoreddef(s64inttype.def).concatstabto(asmlist);
+{$endif cpu64bit}
+        tstoreddef(u8inttype.def).concatstabto(asmlist);
+        tstoreddef(cchartype.def).concatstabto(asmlist);
+  {$EndIf}
+        inherited concatstabto(asmlist);
+      end;
+{$endif GDB}
 
 
     function tfiledef.gettypename : string;
@@ -2069,7 +2573,7 @@ implementation
 
     procedure tvariantdef.write_rtti_data(rt:trttitype);
       begin
-         asmlist[al_rtti].concat(Tai_const.Create_8bit(tkVariant));
+         rttiList.concat(Tai_const.Create_8bit(tkVariant));
       end;
 
 
@@ -2077,6 +2581,25 @@ implementation
       begin
          needs_inittable:=true;
       end;
+
+{$ifdef GDB}
+    function tvariantdef.stabstring : pchar;
+      begin
+        stabstring:=stabstr_evaluate('formal${numberstring};',[]);
+      end;
+
+
+    function tvariantdef.numberstring:string;
+      begin
+        result:=tstoreddef(voidtype.def).numberstring;
+      end;
+
+
+    procedure tvariantdef.concatstabto(asmlist : taasmoutput);
+      begin
+        { don't know how to handle this }
+      end;
+{$endif GDB}
 
 
     function tvariantdef.is_publishable : boolean;
@@ -2150,6 +2673,59 @@ implementation
       end;
 
 
+{$ifdef GDB}
+    function tpointerdef.stabstring : pchar;
+      begin
+        stabstring := strpnew('*'+tstoreddef(pointertype.def).numberstring);
+      end;
+
+
+    procedure tpointerdef.concatstabto(asmlist : taasmoutput);
+      var st,nb : string;
+
+      begin
+        if (stab_state in [stab_state_writing,stab_state_written]) then
+          exit;
+        stab_state:=stab_state_writing;
+
+        tstoreddef(pointertype.def).concatstabto(asmlist);
+
+        if (pointertype.def.deftype in [recorddef,objectdef]) then
+          begin
+            if pointertype.def.deftype=objectdef then
+              nb:=tobjectdef(pointertype.def).classnumberstring
+            else
+              nb:=tstoreddef(pointertype.def).numberstring;
+            {to avoid infinite recursion in record with next-like fields }
+            if tstoreddef(pointertype.def).stab_state=stab_state_writing then
+              begin
+                if assigned(pointertype.def.typesym) then
+                  begin
+                    if assigned(typesym) then
+                      st := ttypesym(typesym).name
+                    else
+                      st := ' ';
+                    asmlist.concat(Tai_stabs.create(stabstr_evaluate(
+                            '"$1:t${numberstring}=*$2=xs$3:",${N_LSYM},0,0,0',
+                            [st,nb,pointertype.def.typesym.name])));
+                  end;
+                stab_state:=stab_state_written;
+              end
+            else
+              begin
+                stab_state:=stab_state_used;
+                inherited concatstabto(asmlist);
+              end;
+          end
+        else
+          begin
+            stab_state:=stab_state_used;
+            inherited concatstabto(asmlist);
+          end;
+      end;
+{$endif GDB}
+
+
     function tpointerdef.gettypename : string;
       begin
          if is_far then
@@ -2188,6 +2764,14 @@ implementation
          ppufile.puttype(pointertype);
          ppufile.writeentry(ibclassrefdef);
       end;
+
+
+{$ifdef GDB}
+    function tclassrefdef.stabstring : pchar;
+      begin
+         stabstring:=strpnew(tstoreddef(pvmttype.def).numberstring);
+      end;
+{$endif GDB}
 
 
     function tclassrefdef.gettypename : string;
@@ -2292,6 +2876,23 @@ implementation
       end;
 
 
+{$ifdef GDB}
+    function tsetdef.stabstring : pchar;
+      begin
+        stabstring:=stabstr_evaluate('@s$1;S$2',[tostr(savesize*8),tstoreddef(elementtype.def).numberstring]);
+      end;
+
+
+    procedure tsetdef.concatstabto(asmlist:taasmoutput);
+      begin
+        if (stab_state in [stab_state_writing,stab_state_written]) then
+          exit;
+        tstoreddef(elementtype.def).concatstabto(asmlist);
+        inherited concatstabto(asmlist);
+      end;
+{$endif GDB}
+
+
     procedure tsetdef.buildderef;
       begin
         inherited buildderef;
@@ -2314,16 +2915,16 @@ implementation
 
     procedure tsetdef.write_rtti_data(rt:trttitype);
       begin
-         asmlist[al_rtti].concat(Tai_const.Create_8bit(tkSet));
+         rttiList.concat(Tai_const.Create_8bit(tkSet));
          write_rtti_name;
 {$ifdef cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+         rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_const.Create_8bit(otULong));
+         rttiList.concat(Tai_const.Create_8bit(otULong));
 {$ifdef cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+         rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_const.Create_sym(tstoreddef(elementtype.def).get_rtti_label(rt)));
+         rttiList.concat(Tai_const.Create_sym(tstoreddef(elementtype.def).get_rtti_label(rt)));
       end;
 
 
@@ -2378,6 +2979,26 @@ implementation
          inherited ppuwritedef(ppufile);
          ppufile.writeentry(ibformaldef);
       end;
+
+
+{$ifdef GDB}
+    function tformaldef.stabstring : pchar;
+      begin
+        stabstring:=stabstr_evaluate('formal${numberstring};',[]);
+      end;
+
+
+    function tformaldef.numberstring:string;
+      begin
+        result:=tstoreddef(voidtype.def).numberstring;
+      end;
+
+
+    procedure tformaldef.concatstabto(asmlist : taasmoutput);
+      begin
+        { formaldef can't be stab'ed !}
+      end;
+{$endif GDB}
 
 
     function tformaldef.gettypename : string;
@@ -2469,6 +3090,25 @@ implementation
          ppufile.putbyte(byte(IsDynamicArray));
          ppufile.writeentry(ibarraydef);
       end;
+
+
+{$ifdef GDB}
+    function tarraydef.stabstring : pchar;
+      begin
+        stabstring:=stabstr_evaluate('ar$1;$2;$3;$4',[Tstoreddef(rangetype.def).numberstring,
+                    tostr(lowrange),tostr(highrange),Tstoreddef(_elementtype.def).numberstring]);
+      end;
+
+
+    procedure tarraydef.concatstabto(asmlist:taasmoutput);
+      begin
+        if (stab_state in [stab_state_writing,stab_state_written]) then
+          exit;
+        tstoreddef(rangetype.def).concatstabto(asmlist);
+        tstoreddef(_elementtype.def).concatstabto(asmlist);
+        inherited concatstabto(asmlist);
+      end;
+{$endif GDB}
 
 
     function tarraydef.elesize : aint;
@@ -2571,21 +3211,21 @@ implementation
     procedure tarraydef.write_rtti_data(rt:trttitype);
       begin
          if IsDynamicArray then
-           asmlist[al_rtti].concat(Tai_const.Create_8bit(tkdynarray))
+           rttiList.concat(Tai_const.Create_8bit(tkdynarray))
          else
-           asmlist[al_rtti].concat(Tai_const.Create_8bit(tkarray));
+           rttiList.concat(Tai_const.Create_8bit(tkarray));
          write_rtti_name;
 {$ifdef cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+         rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
          { size of elements }
-         asmlist[al_rtti].concat(Tai_const.Create_aint(elesize));
+         rttiList.concat(Tai_const.Create_aint(elesize));
          if not(IsDynamicArray) then
-           asmlist[al_rtti].concat(Tai_const.Create_aint(elecount));
+           rttiList.concat(Tai_const.Create_aint(elecount));
          { element type }
-         asmlist[al_rtti].concat(Tai_const.Create_sym(tstoreddef(elementtype.def).get_rtti_label(rt)));
+         rttiList.concat(Tai_const.Create_sym(tstoreddef(elementtype.def).get_rtti_label(rt)));
          { variant type }
-         asmlist[al_rtti].concat(Tai_const.Create_32bit(tstoreddef(elementtype.def).getvartype));
+         rttilist.concat(Tai_const.Create_32bit(tstoreddef(elementtype.def).getvartype));
       end;
 
 
@@ -2636,10 +3276,53 @@ implementation
       end;
 
 
-    procedure tabstractrecorddef.reset;
+{$ifdef GDB}
+    procedure tabstractrecorddef.field_addname(p:Tnamedindexitem;arg:pointer);
+      var
+        newrec:Pchar;
+        spec:string[3];
+        varsize : aint;
+        state   : ^Trecord_stabgen_state;
       begin
-        tstoredsymtable(symtable).reset_all_defs;
+        state:=arg;
+        { static variables from objects are like global objects }
+        if (Tsym(p).typ=fieldvarsym) and not (sp_static in Tsym(p).symoptions) then
+          begin
+            if ([sp_protected,sp_strictprotected]*tsym(p).symoptions)<>[] then
+              spec:='/1'
+            else if ([sp_private,sp_strictprivate]*tsym(p).symoptions)<>[] then
+              spec:='/0'
+            else
+              spec:='';
+            varsize:=tfieldvarsym(p).vartype.def.size;
+            { open arrays made overflows !! }
+            if varsize>$fffffff then
+              varsize:=$fffffff;
+            newrec:=stabstr_evaluate('$1:$2,$3,$4;',[p.name,
+                                     spec+tstoreddef(tfieldvarsym(p).vartype.def).numberstring,
+                                     tostr(tfieldvarsym(p).fieldoffset*8),tostr(varsize*8)]);
+            if state^.stabsize+strlen(newrec)>=state^.staballoc-256 then
+              begin
+                inc(state^.staballoc,memsizeinc);
+                reallocmem(state^.stabstring,state^.staballoc);
+              end;
+            strcopy(state^.stabstring+state^.stabsize,newrec);
+            inc(state^.stabsize,strlen(newrec));
+            strdispose(newrec);
+            {This should be used for case !!}
+            inc(state^.recoffset,Tfieldvarsym(p).vartype.def.size);
+          end;
       end;
+
+
+    procedure tabstractrecorddef.field_concatstabto(p:Tnamedindexitem;arg:pointer);
+      begin
+        if (Tsym(p).typ=fieldvarsym) and not (sp_static in Tsym(p).symoptions) then
+          tstoreddef(tfieldvarsym(p).vartype.def).concatstabto(taasmoutput(arg));
+      end;
+
+
+{$endif GDB}
 
 
     procedure tabstractrecorddef.count_field_rtti(sym : tnamedindexitem;arg:pointer);
@@ -2666,8 +3349,8 @@ implementation
             ((tsym(sym).typ=fieldvarsym) and
              tfieldvarsym(sym).vartype.def.needs_inittable) then
           begin
-            asmlist[al_rtti].concat(Tai_const.Create_sym(tstoreddef(tfieldvarsym(sym).vartype.def).get_rtti_label(FRTTIType)));
-            asmlist[al_rtti].concat(Tai_const.Create_32bit(tfieldvarsym(sym).fieldoffset));
+            rttiList.concat(Tai_const.Create_sym(tstoreddef(tfieldvarsym(sym).vartype.def).get_rtti_label(FRTTIType)));
+            rttiList.concat(Tai_const.Create_32bit(tfieldvarsym(sym).fieldoffset));
           end;
       end;
 
@@ -2785,6 +3468,33 @@ implementation
         padalignment := trecordsymtable(symtable).padalignment;
       end;
 
+{$ifdef GDB}
+    function trecorddef.stabstring : pchar;
+      var
+        state:Trecord_stabgen_state;
+      begin
+        getmem(state.stabstring,memsizeinc);
+        state.staballoc:=memsizeinc;
+        strpcopy(state.stabstring,'s'+tostr(size));
+        state.recoffset:=0;
+        state.stabsize:=strlen(state.stabstring);
+        symtable.foreach(@field_addname,@state);
+        state.stabstring[state.stabsize]:=';';
+        state.stabstring[state.stabsize+1]:=#0;
+        reallocmem(state.stabstring,state.stabsize+2);
+        stabstring:=state.stabstring;
+      end;
+
+
+    procedure trecorddef.concatstabto(asmlist:taasmoutput);
+      begin
+        if (stab_state in [stab_state_writing,stab_state_written]) then
+          exit;
+        symtable.foreach(@field_concatstabto,asmlist);
+        inherited concatstabto(asmlist);
+      end;
+{$endif GDB}
+
 
     procedure trecorddef.write_child_rtti_data(rt:trttitype);
       begin
@@ -2795,16 +3505,16 @@ implementation
 
     procedure trecorddef.write_rtti_data(rt:trttitype);
       begin
-         asmlist[al_rtti].concat(Tai_const.Create_8bit(tkrecord));
+         rttiList.concat(Tai_const.Create_8bit(tkrecord));
          write_rtti_name;
 {$ifdef cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+         rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_const.Create_32bit(size));
+         rttiList.concat(Tai_const.Create_32bit(size));
          Count:=0;
          FRTTIType:=rt;
          symtable.foreach(@count_field_rtti,nil);
-         asmlist[al_rtti].concat(Tai_const.Create_32bit(Count));
+         rttiList.concat(Tai_const.Create_32bit(Count));
          symtable.foreach(@write_field_rtti,nil);
       end;
 
@@ -3126,6 +3836,14 @@ implementation
       end;
 
 
+{$ifdef GDB}
+    function tabstractprocdef.stabstring : pchar;
+      begin
+        stabstring := strpnew('abstractproc'+numberstring+';');
+      end;
+{$endif GDB}
+
+
 {***************************************************************************
                                   TPROCDEF
 ***************************************************************************}
@@ -3157,6 +3875,9 @@ implementation
          import_name:=nil;
          import_nr:=0;
          inlininginfo:=nil;
+{$ifdef GDB}
+         isstabwritten := false;
+{$endif GDB}
       end;
 
 
@@ -3227,6 +3948,9 @@ implementation
          lastwritten:=nil;
          defref:=nil;
          refcount:=0;
+{$ifdef GDB}
+         isstabwritten := false;
+{$endif GDB}
          { Disable po_has_inlining until the derefimpl is done }
          exclude(procoptions,po_has_inlininginfo);
       end;
@@ -3349,14 +4073,6 @@ implementation
 
          aktparasymtable:=oldparasymtable;
          aktlocalsymtable:=oldlocalsymtable;
-      end;
-
-
-    procedure tprocdef.reset;
-      begin
-        inherited reset;
-        procstarttai:=nil;
-        procendtai:=nil;
       end;
 
 
@@ -3610,6 +4326,76 @@ implementation
         aktparasymtable:=oldparasymtable;
         aktlocalsymtable:=oldlocalsymtable;
       end;
+
+{$ifdef GDB}
+    function tprocdef.numberstring : string;
+      begin
+        { procdefs are always available }
+        stab_state:=stab_state_written;
+        result:=inherited numberstring;
+      end;
+
+
+    function tprocdef.stabstring: pchar;
+      Var
+        RType : Char;
+        Obj,Info : String;
+        stabsstr : string;
+        p : pchar;
+      begin
+        obj := procsym.name;
+        info := '';
+        if tprocsym(procsym).is_global then
+          RType := 'F'
+        else
+          RType := 'f';
+        if assigned(owner) then
+         begin
+           if (owner.symtabletype = objectsymtable) then
+             obj := owner.name^+'__'+procsym.name;
+           if not(cs_gdb_valgrind in aktglobalswitches) and
+              (owner.symtabletype=localsymtable) and
+              assigned(owner.defowner) and
+              assigned(tprocdef(owner.defowner).procsym) then
+             info := ','+procsym.name+','+tprocdef(owner.defowner).procsym.name;
+         end;
+        stabsstr:=mangledname;
+        getmem(p,length(stabsstr)+255);
+        strpcopy(p,'"'+obj+':'+RType
+              +tstoreddef(rettype.def).numberstring+info+'",'+tostr(n_function)
+              +',0,'+
+              tostr(fileinfo.line)
+              +',');
+        strpcopy(strend(p),stabsstr);
+        stabstring:=strnew(p);
+        freemem(p,length(stabsstr)+255);
+      end;
+
+
+    procedure tprocdef.concatstabto(asmlist : taasmoutput);
+      begin
+        { released procdef? }
+        if not assigned(parast) then
+          exit;
+        if (proccalloption=pocall_internproc) then
+          exit;
+        { be sure to have a number assigned for this def }
+        numberstring;
+        { write stabs }
+        stab_state:=stab_state_writing;
+        asmList.concat(Tai_stabs.Create(stabstring));
+        if not(po_external in procoptions) then
+          begin
+            tparasymtable(parast).concatstabto(asmlist);
+            { local type defs and vars should not be written
+              inside the main proc stab }
+            if assigned(localst) and
+               (localst.symtabletype=localsymtable) then
+              tlocalsymtable(localst).concatstabto(asmlist);
+          end;
+        stab_state:=stab_state_written;
+      end;
+{$endif GDB}
 
 
     procedure tprocdef.buildderef;
@@ -4056,6 +4842,54 @@ implementation
       end;
 
 
+{$ifdef GDB}
+    function tprocvardef.stabstring : pchar;
+      var
+         nss : pchar;
+        { i   : longint; }
+      begin
+        { i := maxparacount; }
+        getmem(nss,1024);
+        { it is not a function but a function pointer !! (PM) }
+
+        strpcopy(nss,'*f'+tstoreddef(rettype.def).numberstring{+','+tostr(i)});
+        { this confuses gdb !!
+          we should use 'F' instead of 'f' but
+          as we use c++ language mode
+          it does not like that either
+          Please do not remove this part
+          might be used once
+          gdb for pascal is ready PM }
+      {$ifdef disabled}
+        param := para1;
+        i := 0;
+        while assigned(param) do
+          begin
+            inc(i);
+            if param^.paratyp = vs_value then vartyp := '1' else vartyp := '0';
+            {Here we have lost the parameter names !!}
+            pst := strpnew('p'+tostr(i)+':'+param^.vartype.def.numberstring+','+vartyp+';');
+            strcat(nss,pst);
+            strdispose(pst);
+            param := param^.next;
+          end;
+      {$endif}
+        {strpcopy(strend(nss),';');}
+        stabstring := strnew(nss);
+        freemem(nss,1024);
+      end;
+
+
+    procedure tprocvardef.concatstabto(asmlist : taasmoutput);
+      begin
+        if (stab_state in [stab_state_writing,stab_state_written]) then
+          exit;
+        tstoreddef(rettype.def).concatstabto(asmlist);
+        inherited concatstabto(asmlist);
+      end;
+{$endif GDB}
+
+
     procedure tprocvardef.write_rtti_data(rt:trttitype);
 
          procedure write_para(parasym:tparavarsym);
@@ -4072,10 +4906,10 @@ implementation
                  vs_out  : paraspec := pfOut;
                end;
                { write flags for current parameter }
-               asmlist[al_rtti].concat(Tai_const.Create_8bit(paraspec));
+               rttiList.concat(Tai_const.Create_8bit(paraspec));
                { write name of current parameter }
-               asmlist[al_rtti].concat(Tai_const.Create_8bit(length(parasym.realname)));
-               asmlist[al_rtti].concat(Tai_string.Create(parasym.realname));
+               rttiList.concat(Tai_const.Create_8bit(length(parasym.realname)));
+               rttiList.concat(Tai_string.Create(parasym.realname));
 
                { write name of type of current parameter }
                tstoreddef(parasym.vartype.def).write_rtti_name;
@@ -4089,21 +4923,21 @@ implementation
         if po_methodpointer in procoptions then
           begin
              { write method id and name }
-             asmlist[al_rtti].concat(Tai_const.Create_8bit(tkmethod));
+             rttiList.concat(Tai_const.Create_8bit(tkmethod));
              write_rtti_name;
 
 {$ifdef cpurequiresproperalignment}
-             asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+             rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
              { write kind of method (can only be function or procedure)}
              if rettype.def = voidtype.def then
                methodkind := mkProcedure
              else
                methodkind := mkFunction;
-             asmlist[al_rtti].concat(Tai_const.Create_8bit(methodkind));
+             rttiList.concat(Tai_const.Create_8bit(methodkind));
 
              { get # of parameters }
-             asmlist[al_rtti].concat(Tai_const.Create_8bit(maxparacount));
+             rttiList.concat(Tai_const.Create_8bit(maxparacount));
 
              { write parameter info. The parameters must be written in reverse order
                if this method uses right to left parameter pushing! }
@@ -4123,7 +4957,7 @@ implementation
           end
         else
           begin
-            asmlist[al_rtti].concat(Tai_const.Create_8bit(tkprocvar));
+            rttilist.concat(Tai_const.Create_8bit(tkprocvar));
             write_rtti_name;
           end;
       end;
@@ -4193,7 +5027,10 @@ implementation
           implementedinterfaces:=timplementedinterfaces.create
         else
           implementedinterfaces:=nil;
+
+{$ifdef GDB}
         writing_class_record_stab:=false;
+{$endif GDB}
      end;
 
 
@@ -4254,7 +5091,9 @@ implementation
             (objecttype=odt_interfacecom) and
             (objname^='IUNKNOWN') then
            interface_iunknown:=self;
+{$ifdef GDB}
          writing_class_record_stab:=false;
+{$endif GDB}
        end;
 
     destructor tobjectdef.destroy;
@@ -4285,7 +5124,9 @@ implementation
           { to be able to have a variable vmt position }
           { and no vmt field for objects without virtuals }
           vmt_offset : longint;
+{$ifdef GDB}
           writing_class_record_stab : boolean;
+{$endif GDB}
           objecttype : tobjectdeftype;
           iidguid: pguid;
           iidstr: pstring;
@@ -4374,9 +5215,9 @@ implementation
       begin
 {$warning TODO Remove getparentdef hack}
         { With 2 forward declared classes with the child class before the
-          parent class the child class is written earlier to the ppu. Leaving it
-          possible to have a reference to the parent class for property overriding,
-          but the parent class still has the childof not resolved yet (PFV) }
+	  parent class the child class is written earlier to the ppu. Leaving it
+	  possible to have a reference to the parent class for property overriding,
+	  but the parent class still has the childof not resolved yet (PFV) }
         if childof=nil then
           childof:=tobjectdef(childofderef.resolve);
         result:=childof;
@@ -4590,6 +5431,251 @@ implementation
       end;
 
 
+{$ifdef GDB}
+    procedure tobjectdef.proc_addname(p :tnamedindexitem;arg:pointer);
+      var virtualind,argnames : string;
+          newrec : pchar;
+          pd     : tprocdef;
+          lindex : longint;
+          arglength : byte;
+          sp : char;
+          state:^Trecord_stabgen_state;
+          olds:integer;
+          i : integer;
+          parasym : tparavarsym;
+      begin
+        state:=arg;
+        if tsym(p).typ = procsym then
+         begin
+           pd := tprocsym(p).first_procdef;
+           if (po_virtualmethod in pd.procoptions) then
+             begin
+               lindex := pd.extnumber;
+               {doesnt seem to be necessary
+               lindex := lindex or $80000000;}
+               virtualind := '*'+tostr(lindex)+';'+pd._class.classnumberstring+';'
+             end
+            else
+             virtualind := '.';
+
+            { used by gdbpas to recognize constructor and destructors }
+            if (pd.proctypeoption=potype_constructor) then
+              argnames:='__ct__'
+            else if (pd.proctypeoption=potype_destructor) then
+              argnames:='__dt__'
+            else
+              argnames := '';
+
+           { arguments are not listed here }
+           {we don't need another definition}
+            for i:=0 to pd.paras.count-1 do
+              begin
+                parasym:=tparavarsym(pd.paras[i]);
+                if Parasym.vartype.def.deftype = formaldef then
+                  begin
+                    case Parasym.varspez of
+                      vs_var :
+                        argnames := argnames+'3var';
+                      vs_const :
+                        argnames:=argnames+'5const';
+                      vs_out :
+                        argnames:=argnames+'3out';
+                    end;
+                  end
+                else
+                  begin
+                    { if the arg definition is like (v: ^byte;..
+                    there is no sym attached to data !!! }
+                    if assigned(Parasym.vartype.def.typesym) then
+                      begin
+                        arglength := length(Parasym.vartype.def.typesym.name);
+                        argnames := argnames + tostr(arglength)+Parasym.vartype.def.typesym.name;
+                      end
+                    else
+                      argnames:=argnames+'11unnamedtype';
+                  end;
+              end;
+           { here 2A must be changed for private and protected }
+           { 0 is private 1 protected and 2 public }
+           if ([sp_private,sp_strictprivate]*tsym(p).symoptions)<>[] then
+             sp:='0'
+           else if ([sp_protected,sp_strictprotected]*tsym(p).symoptions)<>[] then
+             sp:='1'
+           else
+             sp:='2';
+           newrec:=stabstr_evaluate('$1::$2=##$3;:$4;$5A$6;',[p.name,pd.numberstring,
+                                    Tstoreddef(pd.rettype.def).numberstring,argnames,sp,
+                                    virtualind]);
+           { get spare place for a string at the end }
+           olds:=state^.stabsize;
+           inc(state^.stabsize,strlen(newrec));
+           if state^.stabsize>=state^.staballoc-256 then
+             begin
+                inc(state^.staballoc,memsizeinc);
+                reallocmem(state^.stabstring,state^.staballoc);
+             end;
+           strcopy(state^.stabstring+olds,newrec);
+           strdispose(newrec);
+           {This should be used for case !!
+           RecOffset := RecOffset + pd.size;}
+         end;
+      end;
+
+
+    procedure tobjectdef.proc_concatstabto(p :tnamedindexitem;arg:pointer);
+      var
+        pd : tprocdef;
+      begin
+        if tsym(p).typ = procsym then
+          begin
+            pd := tprocsym(p).first_procdef;
+            tstoreddef(pd.rettype.def).concatstabto(taasmoutput(arg));
+          end;
+      end;
+
+
+    function tobjectdef.stabstring : pchar;
+      var anc : tobjectdef;
+          state:Trecord_stabgen_state;
+          ts : string;
+      begin
+        if not (objecttype=odt_class) or writing_class_record_stab then
+          begin
+            state.staballoc:=memsizeinc;
+            getmem(state.stabstring,state.staballoc);
+            strpcopy(state.stabstring,'s'+tostr(tobjectsymtable(symtable).datasize));
+            if assigned(childof) then
+              begin
+                {only one ancestor not virtual, public, at base offset 0 }
+                {       !1           ,    0       2         0    ,       }
+                strpcopy(strend(state.stabstring),'!1,020,'+childof.classnumberstring+';');
+              end;
+            {virtual table to implement yet}
+            state.recoffset:=0;
+            state.stabsize:=strlen(state.stabstring);
+            symtable.foreach(@field_addname,@state);
+            if (oo_has_vmt in objectoptions) then
+              if not assigned(childof) or not(oo_has_vmt in childof.objectoptions) then
+                 begin
+                    ts:='$vf'+classnumberstring+':'+tstoreddef(vmtarraytype.def).numberstring+','+tostr(vmt_offset*8)+';';
+                    strpcopy(state.stabstring+state.stabsize,ts);
+                    inc(state.stabsize,length(ts));
+                 end;
+            symtable.foreach(@proc_addname,@state);
+            if (oo_has_vmt in objectoptions) then
+              begin
+                 anc := self;
+                 while assigned(anc.childof) and (oo_has_vmt in anc.childof.objectoptions) do
+                   anc := anc.childof;
+                 { just in case anc = self }
+                 ts:=';~%'+anc.classnumberstring+';';
+              end
+            else
+              ts:=';';
+            strpcopy(state.stabstring+state.stabsize,ts);
+            inc(state.stabsize,length(ts));
+            reallocmem(state.stabstring,state.stabsize+1);
+            stabstring:=state.stabstring;
+          end
+        else
+          begin
+            stabstring:=strpnew('*'+classnumberstring);
+          end;
+      end;
+
+   procedure tobjectdef.set_globalnb;
+     begin
+         globalnb:=PglobalTypeCount^;
+         inc(PglobalTypeCount^);
+         { classes need two type numbers, the globalnb is set to the ptr }
+         if objecttype=odt_class then
+           begin
+             globalnb:=PGlobalTypeCount^;
+             inc(PglobalTypeCount^);
+           end;
+     end;
+
+
+   function tobjectdef.classnumberstring : string;
+     begin
+       if objecttype=odt_class then
+         begin
+           if globalnb=0 then
+             numberstring;
+           dec(globalnb);
+           classnumberstring:=numberstring;
+           inc(globalnb);
+         end
+       else
+         classnumberstring:=numberstring;
+     end;
+
+
+    function tobjectdef.allstabstring : pchar;
+      var
+        stabchar : string[2];
+        ss,st : pchar;
+        sname : string;
+      begin
+        ss := stabstring;
+        getmem(st,strlen(ss)+512);
+        stabchar := 't';
+        if deftype in tagtypes then
+          stabchar := 'Tt';
+        if assigned(typesym) then
+          sname := typesym.name
+        else
+          sname := ' ';
+        if writing_class_record_stab then
+          strpcopy(st,'"'+sname+':'+stabchar+classnumberstring+'=')
+        else
+          strpcopy(st,'"'+sname+':'+stabchar+numberstring+'=');
+        strpcopy(strecopy(strend(st),ss),'",'+tostr(N_LSYM)+',0,0,0');
+        allstabstring := strnew(st);
+        freemem(st,strlen(ss)+512);
+        strdispose(ss);
+      end;
+
+
+    procedure tobjectdef.concatstabto(asmlist : taasmoutput);
+      var
+        oldtypesym : tsym;
+        stab_str   : pchar;
+        anc        : tobjectdef;
+      begin
+        if (stab_state in [stab_state_writing,stab_state_written]) then
+          exit;
+        stab_state:=stab_state_writing;
+        tstoreddef(vmtarraytype.def).concatstabto(asmlist);
+        { first the parents }
+        anc:=self;
+        while assigned(anc.childof) do
+          begin
+            anc:=anc.childof;
+            anc.concatstabto(asmlist);
+          end;
+        symtable.foreach(@field_concatstabto,asmlist);
+        symtable.foreach(@proc_concatstabto,asmlist);
+        stab_state:=stab_state_used;
+        if objecttype=odt_class then
+          begin
+            { Write the record class itself }
+            writing_class_record_stab:=true;
+            inherited concatstabto(asmlist);
+            writing_class_record_stab:=false;
+            { Write the invisible pointer class }
+            oldtypesym:=typesym;
+            typesym:=nil;
+            stab_str := allstabstring;
+            asmList.concat(Tai_stabs.Create(stab_str));
+            typesym:=oldtypesym;
+          end
+        else
+          inherited concatstabto(asmlist);
+      end;
+{$endif GDB}
+
+
     function tobjectdef.needs_inittable : boolean;
       begin
          case objecttype of
@@ -4635,7 +5721,7 @@ implementation
         begin
            if not(assigned(proc) and assigned(proc.firstsym))  then
              begin
-                asmlist[al_rtti].concat(Tai_const.create(ait_const_ptr,1));
+                rttiList.concat(Tai_const.create(ait_const_ptr,1));
                 typvalue:=3;
              end
            else if proc.firstsym^.sym.typ=fieldvarsym then
@@ -4668,7 +5754,7 @@ implementation
                      end;
                      hp:=hp^.next;
                   end;
-                asmlist[al_rtti].concat(Tai_const.create(ait_const_ptr,address));
+                rttiList.concat(Tai_const.create(ait_const_ptr,address));
                 typvalue:=0;
              end
            else
@@ -4678,13 +5764,13 @@ implementation
                   exit;
                 if not(po_virtualmethod in tprocdef(proc.procdef).procoptions) then
                   begin
-                     asmlist[al_rtti].concat(Tai_const.createname(tprocdef(proc.procdef).mangledname,AT_FUNCTION,0));
+                     rttiList.concat(Tai_const.createname(tprocdef(proc.procdef).mangledname,AT_FUNCTION,0));
                      typvalue:=1;
                   end
                 else
                   begin
                      { virtual method, write vmt offset }
-                     asmlist[al_rtti].concat(Tai_const.create(ait_const_ptr,
+                     rttiList.concat(Tai_const.create(ait_const_ptr,
                        tprocdef(proc.procdef)._class.vmtmethodoffset(tprocdef(proc.procdef).extnumber)));
                      typvalue:=2;
                   end;
@@ -4703,20 +5789,20 @@ implementation
                      internalerror(1509992);
                    { access to implicit class property as field }
                    proctypesinfo:=(0 shl 0) or (0 shl 2) or (0 shl 4);
-                   asmlist[al_rtti].concat(Tai_const_symbol.Createname(tvarsym(sym.vartype.def.get_rtti_label),AT_DATA,0));
-                   asmlist[al_rtti].concat(Tai_const.create(ait_const_ptr,tvarsym(sym.address)));
-                   asmlist[al_rtti].concat(Tai_const.create(ait_const_ptr,tvarsym(sym.address)));
+                   rttiList.concat(Tai_const_symbol.Createname(tvarsym(sym.vartype.def.get_rtti_label),AT_DATA,0));
+                   rttiList.concat(Tai_const.create(ait_const_ptr,tvarsym(sym.address)));
+                   rttiList.concat(Tai_const.create(ait_const_ptr,tvarsym(sym.address)));
                    { by default stored }
-                   asmlist[al_rtti].concat(Tai_const.Create_32bit(1));
+                   rttiList.concat(Tai_const.Create_32bit(1));
                    { index as well as ... }
-                   asmlist[al_rtti].concat(Tai_const.Create_32bit(0));
+                   rttiList.concat(Tai_const.Create_32bit(0));
                    { default value are zero }
-                   asmlist[al_rtti].concat(Tai_const.Create_32bit(0));
-                   asmlist[al_rtti].concat(Tai_const.Create_16bit(count));
+                   rttiList.concat(Tai_const.Create_32bit(0));
+                   rttiList.concat(Tai_const.Create_16bit(count));
                    inc(count);
-                   asmlist[al_rtti].concat(Tai_const.Create_8bit(proctypesinfo));
-                   asmlist[al_rtti].concat(Tai_const.Create_8bit(length(tvarsym(sym.realname))));
-                   asmlist[al_rtti].concat(Tai_string.Create(tvarsym(sym.realname)));
+                   rttiList.concat(Tai_const.Create_8bit(proctypesinfo));
+                   rttiList.concat(Tai_const.Create_8bit(length(tvarsym(sym.realname))));
+                   rttiList.concat(Tai_string.Create(tvarsym(sym.realname)));
 {$endif dummy}
                 end;
               propertysym:
@@ -4725,26 +5811,26 @@ implementation
                      proctypesinfo:=$40
                    else
                      proctypesinfo:=0;
-                   asmlist[al_rtti].concat(Tai_const.Create_sym(tstoreddef(tpropertysym(sym).proptype.def).get_rtti_label(fullrtti)));
+                   rttiList.concat(Tai_const.Create_sym(tstoreddef(tpropertysym(sym).proptype.def).get_rtti_label(fullrtti)));
                    writeproc(tpropertysym(sym).readaccess,0);
                    writeproc(tpropertysym(sym).writeaccess,2);
                    { isn't it stored ? }
                    if not(ppo_stored in tpropertysym(sym).propoptions) then
                      begin
-                        asmlist[al_rtti].concat(Tai_const.create_sym(nil));
+                        rttiList.concat(Tai_const.create_sym(nil));
                         proctypesinfo:=proctypesinfo or (3 shl 4);
                      end
                    else
                      writeproc(tpropertysym(sym).storedaccess,4);
-                   asmlist[al_rtti].concat(Tai_const.Create_32bit(tpropertysym(sym).index));
-                   asmlist[al_rtti].concat(Tai_const.Create_32bit(tpropertysym(sym).default));
-                   asmlist[al_rtti].concat(Tai_const.Create_16bit(count));
+                   rttiList.concat(Tai_const.Create_32bit(tpropertysym(sym).index));
+                   rttiList.concat(Tai_const.Create_32bit(tpropertysym(sym).default));
+                   rttiList.concat(Tai_const.Create_16bit(count));
                    inc(count);
-                   asmlist[al_rtti].concat(Tai_const.Create_8bit(proctypesinfo));
-                   asmlist[al_rtti].concat(Tai_const.Create_8bit(length(tpropertysym(sym).realname)));
-                   asmlist[al_rtti].concat(Tai_string.Create(tpropertysym(sym).realname));
+                   rttiList.concat(Tai_const.Create_8bit(proctypesinfo));
+                   rttiList.concat(Tai_const.Create_8bit(length(tpropertysym(sym).realname)));
+                   rttiList.concat(Tai_string.Create(tpropertysym(sym).realname));
 {$ifdef cpurequiresproperalignment}
-                   asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+                   rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
                 end;
               else internalerror(1509992);
@@ -4842,15 +5928,15 @@ implementation
           (tsym(sym).typ=fieldvarsym) then
           begin
 {$ifdef cpurequiresproperalignment}
-             asmlist[al_rtti].concat(Tai_align.Create(sizeof(AInt)));
+             rttilist.concat(Tai_align.Create(sizeof(AInt)));
 {$endif cpurequiresproperalignment}
-             asmlist[al_rtti].concat(Tai_const.Create_aint(tfieldvarsym(sym).fieldoffset));
+             rttiList.concat(Tai_const.Create_aint(tfieldvarsym(sym).fieldoffset));
              hp:=searchclasstablelist(tobjectdef(tfieldvarsym(sym).vartype.def));
              if not(assigned(hp)) then
                internalerror(0206002);
-             asmlist[al_rtti].concat(Tai_const.Create_16bit(hp.index));
-             asmlist[al_rtti].concat(Tai_const.Create_8bit(length(tfieldvarsym(sym).realname)));
-             asmlist[al_rtti].concat(Tai_string.Create(tfieldvarsym(sym).realname));
+             rttiList.concat(Tai_const.Create_16bit(hp.index));
+             rttiList.concat(Tai_const.Create_8bit(length(tfieldvarsym(sym).realname)));
+             rttiList.concat(Tai_string.Create(tfieldvarsym(sym).realname));
           end;
       end;
 
@@ -4867,29 +5953,29 @@ implementation
          objectlibrary.getdatalabel(classtable);
          count:=0;
          tablecount:=0;
-         maybe_new_object_file(asmlist[al_rtti]);
-         new_section(asmlist[al_rtti],sec_rodata,classtable.name,const_align(sizeof(aint)));
+         maybe_new_object_file(rttiList);
+         new_section(rttiList,sec_rodata,classtable.name,const_align(sizeof(aint)));
          { fields }
          symtable.foreach({$ifdef FPC}@{$endif}count_published_fields,nil);
-         asmlist[al_rtti].concat(Tai_label.Create(fieldtable));
-         asmlist[al_rtti].concat(Tai_const.Create_16bit(count));
+         rttiList.concat(Tai_label.Create(fieldtable));
+         rttiList.concat(Tai_const.Create_16bit(count));
 {$ifdef cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+         rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_const.Create_sym(classtable));
+         rttiList.concat(Tai_const.Create_sym(classtable));
          symtable.foreach({$ifdef FPC}@{$endif}writefields,nil);
 
          { generate the class table }
-         asmlist[al_rtti].concat(tai_align.create(const_align(sizeof(aint))));
-         asmlist[al_rtti].concat(Tai_label.Create(classtable));
-         asmlist[al_rtti].concat(Tai_const.Create_16bit(tablecount));
+         rttilist.concat(tai_align.create(const_align(sizeof(aint))));
+         rttiList.concat(Tai_label.Create(classtable));
+         rttiList.concat(Tai_const.Create_16bit(tablecount));
 {$ifdef cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+         rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
          hp:=tclasslistitem(classtablelist.first);
          while assigned(hp) do
            begin
-              asmlist[al_rtti].concat(Tai_const.Createname(tobjectdef(hp.p).vmt_mangledname,AT_DATA,0));
+              rttiList.concat(Tai_const.Createname(tobjectdef(hp.p).vmt_mangledname,AT_DATA,0));
               hp:=tclasslistitem(hp.next);
            end;
 
@@ -4918,33 +6004,33 @@ implementation
       begin
          case objecttype of
             odt_class:
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(tkclass));
+              rttiList.concat(Tai_const.Create_8bit(tkclass));
             odt_object:
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(tkobject));
+              rttiList.concat(Tai_const.Create_8bit(tkobject));
             odt_interfacecom:
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(tkinterface));
+              rttiList.concat(Tai_const.Create_8bit(tkinterface));
             odt_interfacecorba:
-              asmlist[al_rtti].concat(Tai_const.Create_8bit(tkinterfaceCorba));
+              rttiList.concat(Tai_const.Create_8bit(tkinterfaceCorba));
           else
             exit;
           end;
 
          { generate the name }
-         asmlist[al_rtti].concat(Tai_const.Create_8bit(length(objrealname^)));
-         asmlist[al_rtti].concat(Tai_string.Create(objrealname^));
+         rttiList.concat(Tai_const.Create_8bit(length(objrealname^)));
+         rttiList.concat(Tai_string.Create(objrealname^));
 {$ifdef cpurequiresproperalignment}
-         asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+         rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
          case rt of
            initrtti :
              begin
-               asmlist[al_rtti].concat(Tai_const.Create_32bit(size));
+               rttiList.concat(Tai_const.Create_32bit(size));
                if objecttype in [odt_class,odt_object] then
                 begin
                   count:=0;
                   FRTTIType:=rt;
                   symtable.foreach(@count_field_rtti,nil);
-                  asmlist[al_rtti].concat(Tai_const.Create_32bit(count));
+                  rttiList.concat(Tai_const.Create_32bit(count));
                   symtable.foreach(@write_field_rtti,nil);
                 end;
              end;
@@ -4953,17 +6039,17 @@ implementation
                if not(objecttype in [odt_interfacecom,odt_interfacecorba]) then
                  begin
                    if (oo_has_vmt in objectoptions) then
-                     asmlist[al_rtti].concat(Tai_const.Createname(vmt_mangledname,AT_DATA,0))
+                     rttiList.concat(Tai_const.Createname(vmt_mangledname,AT_DATA,0))
                    else
-                     asmlist[al_rtti].concat(Tai_const.create_sym(nil));
+                     rttiList.concat(Tai_const.create_sym(nil));
                  end;
 
                { write parent typeinfo }
                if assigned(childof) and ((oo_can_have_published in childof.objectoptions) or
                  (objecttype in [odt_interfacecom,odt_interfacecorba])) then
-                 asmlist[al_rtti].concat(Tai_const.Create_sym(childof.get_rtti_label(fullrtti)))
+                 rttiList.concat(Tai_const.Create_sym(childof.get_rtti_label(fullrtti)))
                else
-                 asmlist[al_rtti].concat(Tai_const.create_sym(nil));
+                 rttiList.concat(Tai_const.create_sym(nil));
 
                if objecttype in [odt_object,odt_class] then
                  begin
@@ -4975,12 +6061,12 @@ implementation
 
                    { write it }
                    symtable.foreach(@count_published_properties,nil);
-                   asmlist[al_rtti].concat(Tai_const.Create_16bit(count));
+                   rttiList.concat(Tai_const.Create_16bit(count));
                  end
                else
                  { interface: write flags, iid and iidstr }
                  begin
-                   asmlist[al_rtti].concat(Tai_const.Create_32bit(
+                   rttiList.concat(Tai_const.Create_32bit(
                      { ugly, but working }
                      longint([
                        TCompilerIntfFlag(ord(ifHasGuid)*ord(assigned(iidguid))),
@@ -4991,21 +6077,21 @@ implementation
                      ifDispatch, }
                      ));
 {$ifdef cpurequiresproperalignment}
-                   asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+                   rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
-                   asmlist[al_rtti].concat(Tai_const.Create_32bit(longint(iidguid^.D1)));
-                   asmlist[al_rtti].concat(Tai_const.Create_16bit(iidguid^.D2));
-                   asmlist[al_rtti].concat(Tai_const.Create_16bit(iidguid^.D3));
+                   rttilist.concat(Tai_const.Create_32bit(longint(iidguid^.D1)));
+                   rttilist.concat(Tai_const.Create_16bit(iidguid^.D2));
+                   rttilist.concat(Tai_const.Create_16bit(iidguid^.D3));
                    for i:=Low(iidguid^.D4) to High(iidguid^.D4) do
-                     asmlist[al_rtti].concat(Tai_const.Create_8bit(iidguid^.D4[i]));
+                     rttilist.concat(Tai_const.Create_8bit(iidguid^.D4[i]));
                  end;
 
                { write unit name }
-               asmlist[al_rtti].concat(Tai_const.Create_8bit(length(current_module.realmodulename^)));
-               asmlist[al_rtti].concat(Tai_string.Create(current_module.realmodulename^));
+               rttiList.concat(Tai_const.Create_8bit(length(current_module.realmodulename^)));
+               rttiList.concat(Tai_string.Create(current_module.realmodulename^));
 
 {$ifdef cpurequiresproperalignment}
-               asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+               rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
 
                { write iidstr }
@@ -5013,13 +6099,13 @@ implementation
                  begin
                    if assigned(iidstr) then
                      begin
-                       asmlist[al_rtti].concat(Tai_const.Create_8bit(length(iidstr^)));
-                       asmlist[al_rtti].concat(Tai_string.Create(iidstr^));
+                       rttiList.concat(Tai_const.Create_8bit(length(iidstr^)));
+                       rttiList.concat(Tai_string.Create(iidstr^));
                      end
                    else
-                     asmlist[al_rtti].concat(Tai_const.Create_8bit(0));
+                     rttiList.concat(Tai_const.Create_8bit(0));
 {$ifdef cpurequiresproperalignment}
-                   asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+                   rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
                  end;
 
@@ -5028,10 +6114,10 @@ implementation
                    { write published properties count }
                    count:=0;
                    symtable.foreach(@count_published_properties,nil);
-                   asmlist[al_rtti].concat(Tai_const.Create_16bit(count));
+                   rttiList.concat(Tai_const.Create_16bit(count));
 
 {$ifdef cpurequiresproperalignment}
-                   asmlist[al_rtti].concat(Tai_align.Create(sizeof(TConstPtrUInt)));
+                   rttilist.concat(Tai_align.Create(sizeof(TConstPtrUInt)));
 {$endif cpurequiresproperalignment}
                  end;
 
@@ -5386,11 +6472,11 @@ implementation
                                   TERRORDEF
 ****************************************************************************}
 
-    constructor terrordef.create;
-      begin
+   constructor terrordef.create;
+     begin
         inherited create;
         deftype:=errordef;
-      end;
+     end;
 
 
     procedure terrordef.ppuwrite(ppufile:tcompilerppufile);
@@ -5400,15 +6486,29 @@ implementation
       end;
 
 
-    function terrordef.gettypename:string;
+{$ifdef GDB}
+    function terrordef.stabstring : pchar;
       begin
-        gettypename:='<erroneous type>';
+         stabstring:=strpnew('error'+numberstring);
       end;
 
+    procedure terrordef.concatstabto(asmlist : taasmoutput);
+      begin
+        { No internal error needed, an normal error is already
+          thrown }
+      end;
+{$endif GDB}
+
+    function terrordef.gettypename:string;
+
+      begin
+         gettypename:='<erroneous type>';
+      end;
 
     function terrordef.getmangledparaname:string;
+
       begin
-        getmangledparaname:='error';
+         getmangledparaname:='error';
       end;
 
 
@@ -5472,14 +6572,5 @@ implementation
           (def.deftype=objectdef) and
           (tobjectdef(def).objecttype in [odt_class,odt_interfacecom,odt_interfacecorba]);
       end;
-
-
-{$ifdef x86}
-    function use_sse(def : tdef) : boolean;
-      begin
-        use_sse:=(is_single(def) and (aktfputype in sse_singlescalar)) or
-          (is_double(def) and (aktfputype in sse_doublescalar));
-      end;
-{$endif x86}
 
 end.

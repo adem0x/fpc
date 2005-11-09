@@ -243,7 +243,7 @@ implementation
       var
          hs : string;
       begin
-        if not (target_info.system in system_all_windows + [system_i386_os2,
+        if not (target_info.system in [system_i386_win32,system_i386_os2,
                                        system_i386_emx, system_powerpc_macos]) then
           Message(scan_w_app_type_not_support);
         if not current_module.in_global then
@@ -256,8 +256,6 @@ implementation
                apptype:=app_gui
              else if hs='CONSOLE' then
                apptype:=app_cui
-             else if (hs='NATIVE') and (target_info.system in system_windows) then
-               apptype:=app_native
              else if (hs='FS') and (target_info.system in [system_i386_os2,
                                                          system_i386_emx]) then
                apptype:=app_fs
@@ -691,6 +689,20 @@ implementation
         do_delphiswitch('P');
       end;
 
+    procedure dir_output_format;
+      begin
+        if not current_module.in_global then
+         Message(scan_w_switch_is_global)
+        else
+          begin
+            current_scanner.skipspace;
+            if set_target_asm_by_string(current_scanner.readid) then
+             aktoutputformat:=target_asm.id
+            else
+             Message1(scan_w_illegal_switch,pattern);
+          end;
+      end;
+
     procedure dir_overflowchecks;
       begin
         do_delphiswitch('Q');
@@ -864,7 +876,7 @@ implementation
             Message(scan_w_only_one_resourcefile_supported)
           else
             current_module.resourcefiles.insert(FixFileName(s));
-          end
+          end 
         else
           Message(scan_e_resourcefiles_not_supported);
       end;
@@ -1182,6 +1194,7 @@ implementation
         AddDirective('OBJECTCHECKS',directive_all, @dir_objectchecks);
         AddDirective('OBJECTPATH',directive_all, @dir_objectpath);
         AddDirective('OPENSTRINGS',directive_all, @dir_openstrings);
+        AddDirective('OUTPUT_FORMAT',directive_all, @dir_output_format);
         AddDirective('OVERFLOWCHECKS',directive_all, @dir_overflowchecks);
         AddDirective('PACKENUM',directive_all, @dir_packenum);
         AddDirective('PACKRECORDS',directive_all, @dir_packrecords);

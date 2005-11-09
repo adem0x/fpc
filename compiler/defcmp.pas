@@ -267,7 +267,7 @@ implementation
                          doconv:=tc_int_2_int;
                       end;
                    end;
-                 arraydef :
+                 stringdef :
                    begin
                      if (m_mac in aktmodeswitches) and
                         (fromtreetype=stringconstn) then
@@ -287,9 +287,7 @@ implementation
                      { Constant string }
                      if (fromtreetype=stringconstn) then
                       begin
-                        { we can change the stringconst node }
-                        if (tstringdef(def_from).string_typ=st_conststring) or
-                           (tstringdef(def_from).string_typ=tstringdef(def_to).string_typ) then
+                        if (tstringdef(def_from).string_typ=tstringdef(def_to).string_typ) then
                           eq:=te_equal
                         else
                          begin
@@ -660,8 +658,7 @@ implementation
                         else
                           { to array of char, from "Untyped" stringconstn (array of char) }
                           if (fromtreetype=stringconstn) and
-                             (is_chararray(def_to) or
-                              is_widechararray(def_to)) then
+                             is_chararray(def_to) then
                             begin
                               eq:=te_convert_l1;
                               doconv:=tc_string_2_chararray;

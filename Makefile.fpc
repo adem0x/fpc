@@ -4,7 +4,7 @@
 
 [package]
 name=fpc
-version=2.1.1
+version=2.0.1
 
 [target]
 dirs=compiler rtl utils fcl fv packages ide installer
@@ -47,9 +47,6 @@ PPSUF=sparc
 endif
 ifeq ($(CPU_TARGET),powerpc)
 PPSUF=ppc
-endif
-ifeq ($(CPU_TARGET),powerpc64)
-PPSUF=ppc64
 endif
 ifeq ($(CPU_TARGET),alpha)
 PPSUF=axp

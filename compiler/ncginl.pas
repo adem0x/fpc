@@ -196,8 +196,8 @@ implementation
        paramanager.getintparaloc(pocall_default,4,paraloc4);
        otlabel:=truelabel;
        oflabel:=falselabel;
-       objectlibrary.getjumplabel(truelabel);
-       objectlibrary.getjumplabel(falselabel);
+       objectlibrary.getlabel(truelabel);
+       objectlibrary.getlabel(falselabel);
        secondpass(tcallparanode(left).left);
        maketojumpbool(exprasmlist,tcallparanode(left).left,lr_load_regvars);
        cg.a_label(exprasmlist,falselabel);
@@ -231,9 +231,9 @@ implementation
        paramanager.freeparaloc(exprasmlist,paraloc2);
        paramanager.freeparaloc(exprasmlist,paraloc3);
        paramanager.freeparaloc(exprasmlist,paraloc4);
-       cg.allocallcpuregisters(exprasmlist);
+       cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
        cg.a_call_name(exprasmlist,'FPC_ASSERT');
-       cg.deallocallcpuregisters(exprasmlist);
+       cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
        location_freetemp(exprasmlist,hp3.location);
        location_freetemp(exprasmlist,hp2.location);
        cg.a_label(exprasmlist,truelabel);
@@ -345,7 +345,7 @@ implementation
          begin
            { length in ansi/wide strings is at offset -sizeof(aint) }
            location_force_reg(exprasmlist,left.location,OS_ADDR,false);
-           objectlibrary.getjumplabel(lengthlab);
+           objectlibrary.getlabel(lengthlab);
            cg.a_cmp_const_reg_label(exprasmlist,OS_ADDR,OC_EQ,0,left.location.register,lengthlab);
            reference_reset_base(href,left.location.register,-sizeof(aint));
            hregister:=cg.makeregsize(exprasmlist,left.location.register,OS_INT);

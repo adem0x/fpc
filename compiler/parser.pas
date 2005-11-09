@@ -51,6 +51,9 @@ implementation
 {$ifdef BrowserLog}
       browlog,
 {$endif BrowserLog}
+{$ifdef GDB}
+      gdb,
+{$endif GDB}
       comphook,
       scanner,scandir,
       pbase,ptype,psystem,pmodules,psub,
@@ -244,45 +247,61 @@ implementation
 *****************************************************************************}
 
     procedure init_module;
-      var
-        i : Tasmlist;
       begin
+         { Create assembler output lists for CG }
          exprasmlist:=taasmoutput.create;
-         for i:=low(Tasmlist) to high(Tasmlist) do
-           asmlist[i]:=Taasmoutput.create;
-
-         { PIC data }
-{$ifdef powerpc}
+         datasegment:=taasmoutput.create;
+         codesegment:=taasmoutput.create;
+         bsssegment:=taasmoutput.create;
+         debuglist:=taasmoutput.create;
+         withdebuglist:=taasmoutput.create;
+         consts:=taasmoutput.create;
+         rttilist:=taasmoutput.create;
+         picdata:=taasmoutput.create;
          if target_info.system=system_powerpc_darwin then
-           asmlist[al_picdata].concat(tai_directive.create(asd_non_lazy_symbol_pointer,''));
-{$endif powerpc}
-
+           picdata.concat(tai_simple.create(ait_non_lazy_symbol_pointer));
+         ResourceStringList:=Nil;
+         importssection:=nil;
+         exportssection:=nil;
+         resourcesection:=nil;
          { Resource strings }
-         cresstr.resourcestrings:=Tresourcestrings.Create;
-
+         ResourceStrings:=TResourceStrings.Create;
          { use the librarydata from current_module }
          objectlibrary:=current_module.librarydata;
       end;
 
 
     procedure done_module;
-      var
 {$ifdef MEMDEBUG}
+      var
         d : tmemdebug;
 {$endif}
-        i:Tasmlist;
       begin
 {$ifdef MEMDEBUG}
          d:=tmemdebug.create(current_module.modulename^+' - asmlists');
 {$endif}
-         for i:=low(Tasmlist) to high(Tasmlist) do
-           if asmlist[i]<>nil then
-             asmlist[i].free;
+         exprasmlist.free;
+         codesegment.free;
+         bsssegment.free;
+         datasegment.free;
+         debuglist.free;
+         withdebuglist.free;
+         consts.free;
+         rttilist.free;
+         picdata.free;
+         if assigned(ResourceStringList) then
+          ResourceStringList.free;
+         if assigned(importssection) then
+          importssection.free;
+         if assigned(exportssection) then
+          exportssection.free;
+         if assigned(resourcesection) then
+          resourcesection.free;
 {$ifdef MEMDEBUG}
          d.free;
 {$endif}
          { resource strings }
-         cresstr.resourcestrings.free;
+         ResourceStrings.free;
          objectlibrary:=nil;
       end;
 
@@ -313,11 +332,22 @@ implementation
         { cg }
           oldparse_only  : boolean;
         { asmlists }
-          oldexprasmlist:Taasmoutput;
-          oldasmlist:array[Tasmlist] of Taasmoutput;
+          oldimports,
+          oldexports,
+          oldresource,
+          oldrttilist,
+          oldpicdata,
+          oldresourcestringlist,
+          oldbsssegment,
+          olddatasegment,
+          oldcodesegment,
+          oldexprasmlist,
+          olddebuglist,
+          oldwithdebuglist,
+          oldconsts     : taasmoutput;
           oldobjectlibrary : tasmlibrarydata;
-        { al_resourcestrings }
-          Oldresourcestrings : tresourcestrings;
+        { resourcestrings }
+          OldResourceStrings : tResourceStrings;
         { akt.. things }
           oldaktlocalswitches  : tlocalswitches;
           oldaktmoduleswitches : tmoduleswitches;
@@ -326,6 +356,7 @@ implementation
           oldaktpackenum       : shortint;
           oldaktmaxfpuregisters : longint;
           oldaktalignment  : talignmentinfo;
+          oldaktoutputformat : tasm;
           oldaktspecificoptprocessor,
           oldaktoptprocessor : tprocessors;
           oldaktfputype      : tfputype;
@@ -336,6 +367,9 @@ implementation
           oldcurrent_procinfo : tprocinfo;
           oldaktdefproccall : tproccalloption;
           oldsourcecodepage : tcodepagestring;
+{$ifdef GDB}
+          store_dbx : plongint;
+{$endif GDB}
         end;
 
       var
@@ -370,10 +404,21 @@ implementation
           { save cg }
             oldparse_only:=parse_only;
           { save assembler lists }
-            oldasmlist:=asmlist;
+            olddatasegment:=datasegment;
+            oldbsssegment:=bsssegment;
+            oldcodesegment:=codesegment;
+            olddebuglist:=debuglist;
+            oldwithdebuglist:=withdebuglist;
+            oldconsts:=consts;
+            oldrttilist:=rttilist;
+            oldpicdata:=picdata;
             oldexprasmlist:=exprasmlist;
+            oldimports:=importssection;
+            oldexports:=exportssection;
+            oldresource:=resourcesection;
+            oldresourcestringlist:=resourcestringlist;
             oldobjectlibrary:=objectlibrary;
-            Oldresourcestrings:=resourcestrings;
+            OldResourceStrings:=ResourceStrings;
           { save akt... state }
           { handle the postponed case first }
            if localswitcheschanged then
@@ -388,12 +433,17 @@ implementation
             oldaktpackrecords:=aktpackrecords;
             oldaktfputype:=aktfputype;
             oldaktmaxfpuregisters:=aktmaxfpuregisters;
+            oldaktoutputformat:=aktoutputformat;
             oldaktoptprocessor:=aktoptprocessor;
             oldaktspecificoptprocessor:=aktspecificoptprocessor;
             oldaktasmmode:=aktasmmode;
             oldaktinterfacetype:=aktinterfacetype;
             oldaktfilepos:=aktfilepos;
             oldaktmodeswitches:=aktmodeswitches;
+{$ifdef GDB}
+            store_dbx:=dbx_counter;
+            dbx_counter:=nil;
+{$endif GDB}
           end;
        { show info }
          Message1(parser_i_compiling,filename);
@@ -441,6 +491,8 @@ implementation
          aktfputype:=initfputype;
          aktpackenum:=initpackenum;
          aktpackrecords:=0;
+         aktoutputformat:=initoutputformat;
+         set_target_asm(aktoutputformat);
          aktoptprocessor:=initoptprocessor;
          aktspecificoptprocessor:=initspecificoptprocessor;
          aktasmmode:=initasmmode;
@@ -527,9 +579,20 @@ implementation
                    parse_only:=oldparse_only;
                    { restore asmlists }
                    exprasmlist:=oldexprasmlist;
-                   asmlist:=oldasmlist;
+                   datasegment:=olddatasegment;
+                   bsssegment:=oldbsssegment;
+                   codesegment:=oldcodesegment;
+                   consts:=oldconsts;
+                   debuglist:=olddebuglist;
+                   withdebuglist:=oldwithdebuglist;
+                   importssection:=oldimports;
+                   exportssection:=oldexports;
+                   resourcesection:=oldresource;
+                   rttilist:=oldrttilist;
+                   picdata:=oldpicdata;
+                   resourcestringlist:=oldresourcestringlist;
                    { object data }
-                   resourcestrings:=oldresourcestrings;
+                   ResourceStrings:=OldResourceStrings;
                    objectlibrary:=oldobjectlibrary;
                    { restore previous scanner }
                    if assigned(old_compiled_module) then
@@ -553,6 +616,8 @@ implementation
                    aktpackenum:=oldaktpackenum;
                    aktpackrecords:=oldaktpackrecords;
                    aktmaxfpuregisters:=oldaktmaxfpuregisters;
+                   aktoutputformat:=oldaktoutputformat;
+                   set_target_asm(aktoutputformat);
                    aktoptprocessor:=oldaktoptprocessor;
                    aktspecificoptprocessor:=oldaktspecificoptprocessor;
                    aktfputype:=oldaktfputype;
@@ -562,6 +627,9 @@ implementation
                    aktmodeswitches:=oldaktmodeswitches;
                    aktexceptblock:=0;
                    exceptblockcounter:=0;
+  {$ifdef GDB}
+                   dbx_counter:=store_dbx;
+  {$endif GDB}
                  end;
              end
            else

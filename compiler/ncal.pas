@@ -1,7 +1,7 @@
 {
-    This file implements the node for sub procedure calling.
-
     Copyright (c) 1998-2002 by Florian Klaempfl
+
+    This file implements the node for sub procedure calling.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -86,6 +86,10 @@ interface
           methodpointerinit,
           methodpointerdone : tblocknode;
           methodpointer  : tnode;
+{$ifdef PASS2INLINE}
+          { inline function body }
+          inlinecode : tnode;
+{$endif PASS2INLINE}
           { varargs parasyms }
           varargsparas : tvarargsparalist;
           { node that specifies where the result should be put for calls }
@@ -111,7 +115,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function  _getcopy : tnode;override;
+          function  getcopy : tnode;override;
           { Goes through all symbols in a class and subclasses and calls
             verify abstract for each .
           }
@@ -152,7 +156,7 @@ interface
           destructor destroy;override;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           procedure insertintolist(l : tnodelist);override;
           procedure get_paratype;
           procedure insert_typeconv(do_count : boolean);
@@ -383,7 +387,7 @@ type
                    begin
                      maybe_load_para_in_temp(p);
                      hightree:=caddnode.create(subn,geninlinenode(in_length_x,false,p.getcopy),
-                                               cordconstnode.create(1,sinttype,false));
+                                               cordconstnode.create(1,s32inttype,false));
                      loadconst:=false;
                    end;
                end;
@@ -392,13 +396,13 @@ type
           len:=0;
         end;
         if loadconst then
-          hightree:=cordconstnode.create(len,sinttype,true)
+          hightree:=cordconstnode.create(len,s32inttype,true)
         else
           begin
             if not assigned(hightree) then
               internalerror(200304071);
             { Need to use explicit, because it can also be a enum }
-            hightree:=ctypeconvnode.create_internal(hightree,sinttype);
+            hightree:=ctypeconvnode.create_internal(hightree,s32inttype);
           end;
         result:=hightree;
       end;
@@ -454,13 +458,13 @@ type
       end;
 
 
-    function tcallparanode._getcopy : tnode;
+    function tcallparanode.getcopy : tnode;
 
       var
          n : tcallparanode;
 
       begin
-         n:=tcallparanode(inherited _getcopy);
+         n:=tcallparanode(inherited getcopy);
          n.callparaflags:=callparaflags;
          n.parasym:=parasym;
          result:=n;
@@ -789,6 +793,9 @@ type
          methodpointerdone:=nil;
          procdefinition:=nil;
          _funcretnode:=nil;
+{$ifdef PASS2INLINE}
+         inlinecode:=nil;
+{$endif PASS2INLINE}
          paralength:=-1;
          varargsparas:=nil;
       end;
@@ -805,6 +812,9 @@ type
          procdefinition:=nil;
          callnodeflags:=[cnf_return_value_used];
          _funcretnode:=nil;
+{$ifdef PASS2INLINE}
+         inlinecode:=nil;
+{$endif PASS2INLINE}
          paralength:=-1;
          varargsparas:=nil;
       end;
@@ -827,8 +837,8 @@ type
                searchsym(upper(name),srsym,symowner);
            end;
          if not assigned(srsym) or
-            (srsym.typ<>procsym) then
-           Message1(cg_f_unknown_compilerproc,name);
+            (srsym.typ <> procsym) then
+           Message1(cg_f_unknown_compiler,name);
          self.create(params,tprocsym(srsym),symowner,nil,[]);
        end;
 
@@ -898,6 +908,9 @@ type
          methodpointerinit.free;
          methodpointerdone.free;
          _funcretnode.free;
+{$ifdef PASS2INLINE}
+         inlinecode.free;
+{$endif PASS2INLINE}
          if assigned(varargsparas) then
            begin
              for i:=0 to varargsparas.count-1 do
@@ -922,6 +935,9 @@ type
         methodpointerinit:=tblocknode(ppuloadnode(ppufile));
         methodpointerdone:=tblocknode(ppuloadnode(ppufile));
         _funcretnode:=ppuloadnode(ppufile);
+{$ifdef PASS2INLINE}
+        inlinecode:=ppuloadnode(ppufile);
+{$endif PASS2INLINE}
       end;
 
 
@@ -935,6 +951,9 @@ type
         ppuwritenode(ppufile,methodpointerinit);
         ppuwritenode(ppufile,methodpointerdone);
         ppuwritenode(ppufile,_funcretnode);
+{$ifdef PASS2INLINE}
+        ppuwritenode(ppufile,inlinecode);
+{$endif PASS2INLINE}
       end;
 
 
@@ -951,6 +970,10 @@ type
           methodpointerdone.buildderefimpl;
         if assigned(_funcretnode) then
           _funcretnode.buildderefimpl;
+{$ifdef PASS2INLINE}
+        if assigned(inlinecode) then
+          inlinecode.buildderefimpl;
+{$endif PASS2INLINE}
       end;
 
 
@@ -972,6 +995,10 @@ type
           methodpointerdone.derefimpl;
         if assigned(_funcretnode) then
           _funcretnode.derefimpl;
+{$ifdef PASS2INLINE}
+        if assigned(inlinecode) then
+          inlinecode.derefimpl;
+{$endif PASS2INLINE}
         { Connect parasyms }
         pt:=tcallparanode(left);
         while assigned(pt) and
@@ -989,7 +1016,7 @@ type
       end;
 
 
-    function tcallnode._getcopy : tnode;
+    function tcallnode.getcopy : tnode;
       var
         n : tcallnode;
         i : integer;
@@ -1001,7 +1028,7 @@ type
           the can reference methodpointer }
         oldleft:=left;
         left:=nil;
-        n:=tcallnode(inherited _getcopy);
+        n:=tcallnode(inherited getcopy);
         left:=oldleft;
         n.symtableprocentry:=symtableprocentry;
         n.symtableproc:=symtableproc;
@@ -1009,28 +1036,33 @@ type
         n.restype := restype;
         n.callnodeflags := callnodeflags;
         if assigned(methodpointerinit) then
-         n.methodpointerinit:=tblocknode(methodpointerinit._getcopy)
+         n.methodpointerinit:=tblocknode(methodpointerinit.getcopy)
         else
          n.methodpointerinit:=nil;
         { methodpointerinit is copied, now references to the temp will also be copied
           correctly. We can now copy the parameters and methodpointer }
         if assigned(left) then
-         n.left:=left._getcopy
+         n.left:=left.getcopy
         else
          n.left:=nil;
         if assigned(methodpointer) then
-         n.methodpointer:=methodpointer._getcopy
+         n.methodpointer:=methodpointer.getcopy
         else
          n.methodpointer:=nil;
         if assigned(methodpointerdone) then
-         n.methodpointerdone:=tblocknode(methodpointerdone._getcopy)
+         n.methodpointerdone:=tblocknode(methodpointerdone.getcopy)
         else
          n.methodpointerdone:=nil;
         if assigned(_funcretnode) then
-         n._funcretnode:=_funcretnode._getcopy
+         n._funcretnode:=_funcretnode.getcopy
         else
          n._funcretnode:=nil;
-
+{$ifdef PASS2INLINE}
+        if assigned(inlinecode) then
+         n.inlinecode:=inlinecode.getcopy
+        else
+         n.inlinecode:=nil;
+{$endif PASS2INLINE}
         if assigned(varargsparas) then
          begin
            n.varargsparas:=tvarargsparalist.create;
@@ -2171,7 +2203,6 @@ type
                           funcretnode := ctemprefnode.create(tempnode);
                         para.left.free;
                         para.left := ctemprefnode.create(tempnode);
-
                         addstatement(deletestatement,ctempdeletenode.create_normal_temp(tempnode));
                       end
                   end
@@ -2246,13 +2277,9 @@ type
         if assigned(funcretnode) and
            (cnf_return_value_used in callnodeflags) then
           addstatement(createstatement,funcretnode.getcopy);
-
         { consider it must not be inlined if called
           again inside the args or itself }
         exclude(procdefinition.procoptions,po_inline);
-
-        dosimplify(createblock);
-
         firstpass(createblock);
         include(procdefinition.procoptions,po_inline);
         { return inlined block }

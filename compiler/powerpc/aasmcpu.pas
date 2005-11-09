@@ -475,7 +475,7 @@ uses cutils, cclasses;
                            (ptruint(abs(ptrint(labelpositions[tasmlabel(taicpu(p).oper[0]^.ref^.symbol).labelnr]-instrpos)) - (low(smallint) div 4)) > ptruint((high(smallint) - low(smallint)) div 4)) then
                           begin
                             // add a new label after this jump
-                            objectlibrary.getjumplabel(l);
+                            objectlibrary.getlabel(l);
                             list.insertafter(tai_label.create(l),p);
                             // add a new unconditional jump between this jump and the label
                             newjmp := taicpu.op_sym(A_B,taicpu(p).oper[0]^.ref^.symbol);

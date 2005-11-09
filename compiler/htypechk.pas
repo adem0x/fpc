@@ -147,7 +147,6 @@ interface
     function  valid_for_assignment(p:tnode):boolean;
     function  valid_for_addr(p : tnode) : boolean;
 
-    function allowenumop(nt:tnodetype):boolean;
 
 implementation
 
@@ -1377,13 +1376,6 @@ implementation
         end;
       end;
 
-
-    function allowenumop(nt:tnodetype):boolean;
-      begin
-        result:=(nt in [equaln,unequaln,ltn,lten,gtn,gten]) or
-                ((cs_allow_enum_calc in aktlocalswitches) and
-                 (nt in [addn,subn]));
-      end;
 
 
 {****************************************************************************

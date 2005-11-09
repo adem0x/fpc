@@ -891,10 +891,7 @@ implementation
                 result:=int_cgsize(def.size);
             end;
           floatdef:
-            if cs_fp_emulation in aktmoduleswitches then
-              result:=int_cgsize(def.size)
-            else
-              result:=tfloat2tcgsize[tfloatdef(def).typ];
+            result := tfloat2tcgsize[tfloatdef(def).typ];
           recorddef :
             result:=int_cgsize(def.size);
           arraydef :

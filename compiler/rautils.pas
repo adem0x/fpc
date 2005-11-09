@@ -81,9 +81,6 @@ type
 {$ifdef powerpc}
       OPR_COND      : (cond : tasmcond);
 {$endif powerpc}
-{$ifdef POWERPC64}
-      OPR_COND      : (cond : tasmcond);
-{$endif POWERPC64}
 {$ifdef arm}
       OPR_REGSET    : (regset : tcpuregisterset);
       OPR_SHIFTEROP : (shifterop : tshifterop);
@@ -198,6 +195,7 @@ Function SearchIConstant(const s:string; var l:aint): boolean;
 ---------------------------------------------------------------------}
 
   Procedure ConcatPasString(p : TAAsmoutput;s:string);
+  Procedure ConcatDirect(p : TAAsmoutput;s:string);
   Procedure ConcatLabel(p: TAAsmoutput;var l : tasmlabel);
   Procedure ConcatConstant(p : TAAsmoutput;value: aint; constsize:byte);
   Procedure ConcatConstSymbol(p : TAAsmoutput;const sym:string;symtyp:tasmsymtype;l:aint);
@@ -206,6 +204,8 @@ Function SearchIConstant(const s:string; var l:aint): boolean;
   procedure ConcatAlign(p:TAAsmoutput;l:aint);
   Procedure ConcatPublic(p:TAAsmoutput;const s : string);
   Procedure ConcatLocal(p:TAAsmoutput;const s : string);
+  Procedure ConcatGlobalBss(const s : string;size : aint);
+  Procedure ConcatLocalBss(const s : string;size : aint);
 
 
 Implementation
@@ -852,7 +852,7 @@ Begin
           arraydef,
           floatdef :
             SetSize(tabstractvarsym(sym).getsize,false);
-          (* makes no sense when using sse instructions (FK)
+          { makes no sense when using sse instructions (FK)
           arraydef :
             begin
               { for arrays try to get the element size, take care of
@@ -863,7 +863,7 @@ Begin
                harrdef:=tarraydef(harrdef.elementtype.def);
               SetSize(harrdef.elesize,false);
             end;
-          *)
+          }
         end;
         hasvar:=true;
         SetupVar:=true;
@@ -1099,7 +1099,7 @@ function TLocalLabel.Gettasmlabel:tasmlabel;
 begin
   if not assigned(lab) then
    begin
-     objectlibrary.getjumplabel(lab);
+     objectlibrary.getlabel(lab);
      { this label is forced to be used so it's always written }
      lab.increfs;
    end;
@@ -1389,7 +1389,7 @@ Begin
     labelsym :
       begin
         if not(assigned(tlabelsym(sym).asmblocklabel)) then
-          objectlibrary.getjumplabel(tlabelsym(sym).asmblocklabel);
+          objectlibrary.getlabel(tlabelsym(sym).asmblocklabel);
         hl:=tlabelsym(sym).asmblocklabel;
         if emit then
          tlabelsym(sym).defined:=true
@@ -1416,7 +1416,7 @@ end;
    pc: PChar;
   Begin
      getmem(pc,length(s)+1);
-     p.concat(Tai_string.Create_pchar(strpcopy(pc,s),length(s)));
+     p.concat(Tai_string.Create_length_pchar(strpcopy(pc,s),length(s)));
   end;
 
   Procedure ConcatPasString(p : TAAsmoutput;s:string);
@@ -1429,6 +1429,23 @@ end;
   Begin
      p.concat(Tai_string.Create(s));
   end;
+
+  Procedure ConcatDirect(p : TAAsmoutput;s:string);
+  {*********************************************************************}
+  { PROCEDURE ConcatDirect(s:string)                                    }
+  {  Description: This routine output the string directly to the asm    }
+  {  output, it is only sed when writing special labels in AT&T mode,   }
+  {  and should not be used without due consideration, since it may     }
+  {  cause problems.                                                    }
+  {*********************************************************************}
+  Var
+   pc: PChar;
+  Begin
+     getmem(pc,length(s)+1);
+     p.concat(Tai_direct.Create(strpcopy(pc,s)));
+  end;
+
+
 
 
 Procedure ConcatConstant(p: TAAsmoutput; value: aint; constsize:byte);
@@ -1539,7 +1556,7 @@ end;
   {  linked list of instructions.(used by AT&T styled asm)              }
   {*********************************************************************}
    begin
-       p.concat(Tai_symbol.Createname_global(s,AT_LABEL,0));
+       p.concat(Tai_symbol.Createname_global(s,AT_FUNCTION,0));
    end;
 
    procedure ConcatLocal(p:TAAsmoutput;const s : string);
@@ -1549,8 +1566,27 @@ end;
   {  linked list of instructions.                                       }
   {*********************************************************************}
    begin
-       p.concat(Tai_symbol.Createname(s,AT_LABEL,0));
+       p.concat(Tai_symbol.Createname(s,AT_FUNCTION,0));
    end;
 
+  Procedure ConcatGlobalBss(const s : string;size : aint);
+  {*********************************************************************}
+  { PROCEDURE ConcatGlobalBss                                           }
+  {  Description: This routine emits an global  datablock   to the      }
+  {  linked list of instructions.                                       }
+  {*********************************************************************}
+   begin
+       bssSegment.concat(Tai_datablock.Create_global(s,size));
+   end;
+
+  Procedure ConcatLocalBss(const s : string;size : aint);
+  {*********************************************************************}
+  { PROCEDURE ConcatLocalBss                                            }
+  {  Description: This routine emits a local datablcok      to the      }
+  {  linked list of instructions.                                       }
+  {*********************************************************************}
+   begin
+       bssSegment.concat(Tai_datablock.Create(s,size));
+   end;
 
 end.

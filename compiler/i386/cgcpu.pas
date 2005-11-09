@@ -83,7 +83,7 @@ unit cgcpu;
         else
           rg[R_INTREGISTER]:=trgcpu.create(R_INTREGISTER,R_SUBWHOLE,[RS_EAX,RS_EDX,RS_ECX,RS_EBX,RS_ESI,RS_EDI],first_int_imreg,[RS_EBP]);
         rg[R_MMXREGISTER]:=trgcpu.create(R_MMXREGISTER,R_SUBNONE,[RS_XMM0,RS_XMM1,RS_XMM2,RS_XMM3,RS_XMM4,RS_XMM5,RS_XMM6,RS_XMM7],first_mm_imreg,[]);
-        rg[R_MMREGISTER]:=trgcpu.create(R_MMREGISTER,R_SUBWHOLE,[RS_XMM0,RS_XMM1,RS_XMM2,RS_XMM3,RS_XMM4,RS_XMM5,RS_XMM6,RS_XMM7],first_mm_imreg,[]);
+        rg[R_MMREGISTER]:=trgcpu.create(R_MMREGISTER,R_SUBNONE,[RS_XMM0,RS_XMM1,RS_XMM2,RS_XMM3,RS_XMM4,RS_XMM5,RS_XMM6,RS_XMM7],first_mm_imreg,[]);
         rgfpu:=Trgx86fpu.create;
       end;
 
@@ -170,7 +170,7 @@ unit cgcpu;
         if use_push(cgpara) then
           begin
             { Record copy? }
-            if (cgpara.size in [OS_NO,OS_F64]) or (size=OS_NO) then
+            if (cgpara.size=OS_NO) or (size=OS_NO) then
               begin
                 cgpara.check_simple_location;
                 len:=align(cgpara.intsize,cgpara.alignment);
@@ -199,25 +199,23 @@ unit cgcpu;
       begin
         with r do
           begin
-{$ifndef segment_threadvars}
             if (segment<>NR_NO) then
               cgmessage(cg_e_cant_use_far_pointer_there);
-{$endif}
             if use_push(cgpara) then
               begin
                 cgpara.check_simple_location;
                 opsize:=tcgsize2opsize[OS_ADDR];
-                if (segment=NR_NO) and (base=NR_NO) and (index=NR_NO) then
+                if (base=NR_NO) and (index=NR_NO) then
                   begin
                     if assigned(symbol) then
                       list.concat(Taicpu.Op_sym_ofs(A_PUSH,opsize,symbol,offset))
                     else
                       list.concat(Taicpu.Op_const(A_PUSH,opsize,offset));
                   end
-                else if (segment=NR_NO) and (base=NR_NO) and (index<>NR_NO) and
+                else if (base=NR_NO) and (index<>NR_NO) and
                         (offset=0) and (scalefactor=0) and (symbol=nil) then
                   list.concat(Taicpu.Op_reg(A_PUSH,opsize,index))
-                else if (segment=NR_NO) and (base<>NR_NO) and (index=NR_NO) and
+                else if (base<>NR_NO) and (index=NR_NO) and
                         (offset=0) and (symbol=nil) then
                   list.concat(Taicpu.Op_reg(A_PUSH,opsize,base))
                 else
@@ -334,8 +332,8 @@ unit cgcpu;
         { so we have to access every page first              }
         if target_info.system=system_i386_win32 then
           begin
-             objectlibrary.getjumplabel(again);
-             objectlibrary.getjumplabel(ok);
+             objectlibrary.getlabel(again);
+             objectlibrary.getlabel(ok);
              a_label(list,again);
              list.concat(Taicpu.op_const_reg(A_CMP,S_L,winstackpagesize,NR_EDI));
              a_jmp_cond(list,OC_B,ok);

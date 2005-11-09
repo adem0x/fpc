@@ -42,7 +42,7 @@ interface
 
     const
        { maximum of aasmoutput lists there will be }
-       maxoutputlists = 20;
+       maxoutputlists = 10;
        { buffer size for writing the .s file }
        AsmOutSize=32768;
 
@@ -143,7 +143,19 @@ interface
         currlistidx  : byte;
         currlist     : TAAsmoutput;
         currpass     : byte;
-        procedure convertstab(p:pchar);
+{$ifdef GDB}
+        n_line       : byte;     { different types of source lines }
+        linecount,
+        includecount : longint;
+        funcname     : tasmsymbol;
+        stabslastfileinfo : tfileposinfo;
+        procedure convertstabs(p:pchar);
+        procedure emitlineinfostabs(nidx,line : longint);
+        procedure emitstabs(s:string);
+        procedure WriteFileLineInfo(var fileinfo : tfileposinfo);
+        procedure StartFileLineInfo;
+        procedure EndFileLineInfo;
+{$endif}
         function  MaybeNextList(var hp:Tai):boolean;
         function  TreePass0(hp:Tai):Tai;
         function  TreePass1(hp:Tai):Tai;
@@ -176,6 +188,10 @@ Implementation
 {$ifdef memdebug}
       cclasses,
 {$endif memdebug}
+{$ifdef GDB}
+      finput,
+      gdb,
+{$endif GDB}
 {$ifdef m68k}
       cpuinfo,
 {$endif m68k}
@@ -247,7 +263,7 @@ Implementation
       begin
         DoPipe:=(cs_asm_pipe in aktglobalswitches) and
                 not(cs_asm_leave in aktglobalswitches)
-                and ((target_asm.id in [as_gas,as_darwin]));
+                and ((aktoutputformat in [as_gas,as_darwin]));
       end;
 
 
@@ -678,200 +694,271 @@ Implementation
       end;
 
 
-    procedure TInternalAssembler.convertstab(p:pchar);
-
-        function consumecomma(var p:pchar):boolean;
-        begin
-          while (p^=' ') do
-            inc(p);
-          result:=(p^=',');
-          inc(p);
-        end;
-
-        function consumenumber(var p:pchar;out value:longint):boolean;
-        var
-          hs : string;
-          len,
-          code : integer;
-        begin
-          value:=0;
-          while (p^=' ') do
-            inc(p);
-          len:=0;
-          while (p^ in ['0'..'9']) do
-            begin
-              inc(len);
-              hs[len]:=p^;
-              inc(p);
-            end;
-          if len>0 then
-            begin
-              hs[0]:=chr(len);
-              val(hs,value,code);
-            end
-          else
-            code:=-1;
-          result:=(code=0);
-        end;
-
-        function consumeoffset(var p:pchar;out relocsym:tasmsymbol;out value:longint):boolean;
-        var
-          hs        : string;
-          len,
-          code      : integer;
-          pstart    : pchar;
-          sym       : tasmsymbol;
-          exprvalue : longint;
-          gotmin,
-          dosub     : boolean;
-        begin
-          result:=false;
-          value:=0;
-          relocsym:=nil;
-          gotmin:=false;
-          repeat
-            dosub:=false;
-            exprvalue:=0;
-            if gotmin then
-              begin
-                dosub:=true;
-                gotmin:=false;
-              end;
-            while (p^=' ') do
-              inc(p);
-            case p^ of
-              #0 :
-                break;
-              ' ' :
-                inc(p);
-              '0'..'9' :
-                begin
-                  len:=0;
-                  while (p^ in ['0'..'9']) do
-                    begin
-                      inc(len);
-                      hs[len]:=p^;
-                      inc(p);
-                    end;
-                  hs[0]:=chr(len);
-                  val(hs,exprvalue,code);
-                end;
-              '.','_',
-              'A'..'Z',
-              'a'..'z' :
-                begin
-                  pstart:=p;
-                  while not(p^ in [#0,' ','-','+']) do
-                    inc(p);
-                  len:=p-pstart;
-                  if len>255 then
-                    internalerror(200509187);
-                  move(pstart^,hs[1],len);
-                  hs[0]:=chr(len);
-                  sym:=objectlibrary.newasmsymbol(hs,AB_EXTERNAL,AT_NONE);
-                  if not assigned(sym) then
-                    internalerror(200509188);
-                  objectlibrary.UsedAsmSymbolListInsert(sym);
-                  { Second symbol? }
-                  if assigned(relocsym) then
-                    begin
-                      if (relocsym.section<>sym.section) then
-                        internalerror(2005091810);
-                      relocsym:=nil;
-                    end
-                  else
-                    begin
-                      relocsym:=sym;
-                    end;
-                  exprvalue:=sym.address;
-                end;
-              '+' :
-                begin
-                  { nothing, by default addition is done }
-                  inc(p);
-                end;
-              '-' :
-                begin
-                  gotmin:=true;
-                  inc(p);
-                end;
-              else
-                internalerror(200509189);
-            end;
-            if dosub then
-              dec(value,exprvalue)
-            else
-              inc(value,exprvalue);
-          until false;
-          result:=true;
-        end;
-
-      const
-        N_Function = $24; { function or const }
+{$ifdef GDB}
+    procedure TInternalAssembler.convertstabs(p:pchar);
       var
         ofs,
-        nline,
-        nidx,
-        nother,
-        i         : longint;
-        relocsym  : tasmsymbol;
-        pstr,
-        pcurr,
-        pendquote : pchar;
+        nidx,nother,ii,i,line,j : longint;
+        code : integer;
+        hp : pchar;
+        reloc : boolean;
+        ps : tasmsymbol;
+        s : string;
       begin
-        pcurr:=nil;
-        pstr:=nil;
-        pendquote:=nil;
-
-        { Parse string part }
+        ofs:=0;
+        reloc:=true;
+        ps:=nil;
         if p[0]='"' then
-          begin
-            pstr:=@p[1];
-            { Ignore \" inside the string }
-            i:=1;
-            while not((p[i]='"') and (p[i-1]<>'\')) and
-                  (p[i]<>#0) do
-              inc(i);
-            pendquote:=@p[i];
-            pendquote^:=#0;
-            pcurr:=@p[i+1];
-            if not consumecomma(pcurr) then
-              internalerror(200509181);
-          end
+         begin
+           i:=1;
+           { we can have \" inside the string !! PM }
+           while not ((p[i]='"') and (p[i-1]<>'\')) do
+            inc(i);
+           p[i]:=#0;
+           ii:=i;
+           hp:=@p[1];
+           s:=StrPas(@P[i+2]);
+         end
         else
-          pcurr:=p;
-
-        { When in pass 1 then only alloc and leave }
+         begin
+           hp:=nil;
+           s:=StrPas(P);
+           i:=-2; {needed below (PM) }
+         end;
+      { When in pass 1 then only alloc and leave }
         if currpass=1 then
-          objectdata.allocstab(pstr)
-        else
+         begin
+           objectdata.allocstabs(hp);
+           if assigned(hp) then
+            p[i]:='"';
+           exit;
+         end;
+      { Parse the rest of the stabs }
+        if s='' then
+         internalerror(33000);
+        j:=pos(',',s);
+        if j=0 then
+         internalerror(33001);
+        Val(Copy(s,1,j-1),nidx,code);
+        if code<>0 then
+         internalerror(33002);
+        i:=i+2+j;
+        Delete(s,1,j);
+        j:=pos(',',s);
+        if (j=0) then
+         internalerror(33003);
+        Val(Copy(s,1,j-1),nother,code);
+        if code<>0 then
+         internalerror(33004);
+        i:=i+j;
+        Delete(s,1,j);
+        j:=pos(',',s);
+        if j=0 then
+         begin
+           j:=256;
+           ofs:=-1;
+         end;
+        Val(Copy(s,1,j-1),line,code);
+        if code<>0 then
+          internalerror(33005);
+        if ofs=0 then
           begin
-            { Stabs format: nidx,nother,nline[,offset] }
-            if not consumenumber(pcurr,nidx) then
-              internalerror(200509182);
-            if not consumecomma(pcurr) then
-              internalerror(200509183);
-            if not consumenumber(pcurr,nother) then
-              internalerror(200509184);
-            if not consumecomma(pcurr) then
-              internalerror(200509185);
-            if not consumenumber(pcurr,nline) then
-              internalerror(200509186);
-            if consumecomma(pcurr) then
-              consumeoffset(pcurr,relocsym,ofs)
+            Delete(s,1,j);
+            i:=i+j;
+            Val(s,ofs,code);
+            if code=0 then
+              reloc:=false
             else
               begin
                 ofs:=0;
-                relocsym:=nil;
+                s:=strpas(@p[i]);
+                { handle asmsymbol or
+                    asmsymbol - asmsymbol }
+                j:=pos(' ',s);
+                if j=0 then
+                  j:=pos('-',s);
+                { also try to handle
+                  asmsymbol + constant
+                  or
+                  asmsymbol - constant }
+                if j=0 then
+                  j:=pos('+',s);
+
+                if j<>0 then
+                  begin
+                    Val(Copy(s,j+1,255),ofs,code);
+                    if code<>0 then
+                      ofs:=0
+                    else
+                    { constant reading successful,
+                      avoid further treatment by
+                      setting s[j] to '+' }
+                      s[j]:='+';
+                  end
+                else
+                { single asmsymbol }
+                  j:=256;
+                { the symbol can be external
+                  so we must use newasmsymbol and
+                  not getasmsymbol !! PM }
+                ps:=objectlibrary.newasmsymbol(copy(s,1,j-1),AB_EXTERNAL,AT_NONE);
+                if not assigned(ps) then
+                  internalerror(33006)
+                else
+                  begin
+                    ofs:=ofs+ps.address;
+                    reloc:=true;
+                    objectlibrary.UsedAsmSymbolListInsert(ps);
+                  end;
+                if (j<256) and (s[j]<>'+') then
+                  begin
+                    i:=i+j;
+                    s:=strpas(@p[i]);
+                    if (s<>'') and (s[1]=' ') then
+                      begin
+                         j:=0;
+                         while (s[j+1]=' ') do
+                           inc(j);
+                         i:=i+j;
+                         s:=strpas(@p[i]);
+                      end;
+                    ps:=objectlibrary.getasmsymbol(s);
+                    if not assigned(ps) then
+                      internalerror(33007)
+                    else
+                      begin
+                        if ps.section<>objectdata.currsec then
+                          internalerror(33008);
+                        ofs:=ofs-ps.address;
+                        reloc:=false;
+                        objectlibrary.UsedAsmSymbolListInsert(ps);
+                      end;
+                  end;
               end;
-            if (nidx=N_Function) and
-               target_info.use_function_relative_addresses then
-              ofs:=0;
-            objectdata.writestab(ofs,relocsym,nidx,nother,nline,pstr);
           end;
-        if assigned(pendquote) then
-          pendquote^:='"';
+        { External references (AB_EXTERNAL and AB_COMMON) need a symbol relocation }
+        if assigned(ps) and (ps.currbind in [AB_EXTERNAL,AB_COMMON]) then
+          begin
+            if currpass=2 then
+              begin
+                objectdata.writesymbol(ps);
+                objectoutput.exportsymbol(ps);
+              end;
+            objectdata.writeSymStabs(ofs,hp,ps,nidx,nother,line,reloc)
+          end
+        else
+          objectdata.writeStabs(ofs,hp,nidx,nother,line,reloc);
+        if assigned(hp) then
+         p[ii]:='"';
       end;
+
+
+    procedure TInternalAssembler.emitlineinfostabs(nidx,line : longint);
+      begin
+        if currpass=1 then
+          begin
+            objectdata.allocstabs(nil);
+            exit;
+          end;
+
+        if (nidx=n_textline) and assigned(funcname) and
+           (target_info.use_function_relative_addresses) then
+          objectdata.writeStabs(objectdata.currsec.datasize-funcname.address,nil,nidx,0,line,false)
+        else
+          objectdata.writeStabs(objectdata.currsec.datasize,nil,nidx,0,line,true);
+      end;
+
+
+    procedure TInternalAssembler.emitstabs(s:string);
+      begin
+        s:=s+#0;
+        ConvertStabs(@s[1]);
+      end;
+
+
+    procedure TInternalAssembler.WriteFileLineInfo(var fileinfo : tfileposinfo);
+      var
+        curr_n : byte;
+        hp : tasmsymbol;
+        infile : tinputfile;
+      begin
+        if not ((cs_debuginfo in aktmoduleswitches) or
+           (cs_gdb_lineinfo in aktglobalswitches)) then
+         exit;
+
+        { file changed ? (must be before line info) }
+        if (fileinfo.fileindex<>0) and
+           (stabslastfileinfo.fileindex<>fileinfo.fileindex) then
+         begin
+           infile:=current_module.sourcefiles.get_file(fileinfo.fileindex);
+           if assigned(infile) then
+            begin
+              if includecount=0 then
+               curr_n:=n_sourcefile
+              else
+               curr_n:=n_includefile;
+              { get symbol for this includefile }
+              hp:=objectlibrary.newasmsymbol('Ltext'+ToStr(IncludeCount),AB_LOCAL,AT_FUNCTION);
+              if currpass=1 then
+                begin
+                  objectdata.allocsymbol(currpass,hp,0);
+                  objectlibrary.UsedAsmSymbolListInsert(hp);
+                end
+              else
+                objectdata.writesymbol(hp);
+              { emit stabs }
+              if (infile.path^<>'') then
+                EmitStabs('"'+BsToSlash(FixPath(infile.path^,false))+'",'+tostr(curr_n)+
+                          ',0,0,Ltext'+ToStr(IncludeCount));
+              EmitStabs('"'+FixFileName(infile.name^)+'",'+tostr(curr_n)+
+                        ',0,0,Ltext'+ToStr(IncludeCount));
+              inc(includecount);
+              { force new line info }
+              stabslastfileinfo.line:=-1;
+            end;
+         end;
+
+        { line changed ? }
+        if (stabslastfileinfo.line<>fileinfo.line) and (fileinfo.line<>0) then
+          emitlineinfostabs(n_line,fileinfo.line);
+        stabslastfileinfo:=fileinfo;
+      end;
+
+
+    procedure TInternalAssembler.StartFileLineInfo;
+      var
+        fileinfo : tfileposinfo;
+      begin
+        FillChar(stabslastfileinfo,sizeof(stabslastfileinfo),0);
+        n_line:=n_bssline;
+        funcname:=nil;
+        linecount:=1;
+        includecount:=0;
+        fileinfo.fileindex:=1;
+        fileinfo.line:=1;
+        WriteFileLineInfo(fileinfo);
+      end;
+
+
+    procedure TInternalAssembler.EndFileLineInfo;
+      var
+        hp : tasmsymbol;
+      begin
+          if not ((cs_debuginfo in aktmoduleswitches) or
+             (cs_gdb_lineinfo in aktglobalswitches)) then
+           exit;
+        objectdata.createsection(sec_code,'',0,[]);
+        hp:=objectlibrary.newasmsymbol('Letext',AB_LOCAL,AT_FUNCTION);
+        if currpass=1 then
+          begin
+            objectdata.allocsymbol(currpass,hp,0);
+            objectlibrary.UsedAsmSymbolListInsert(hp);
+          end
+        else
+          objectdata.writesymbol(hp);
+        EmitStabs('"",'+tostr(n_sourcefile)+',0,0,Letext');
+      end;
+{$endif GDB}
 
 
     function TInternalAssembler.MaybeNextList(var hp:Tai):boolean;
@@ -953,11 +1040,6 @@ Implementation
                  objectdata.alloc(Taicpu(hp).Pass1(objectdata.currsec.datasize));
 {$endif NOAG386BIN}
 {$endif i386}
-{$ifdef arm}
-                 { reset instructions which could change in pass 2 }
-                 Taicpu(hp).resetpass2;
-                 objectdata.alloc(Taicpu(hp).Pass1(objectdata.currsec.datasize));
-{$endif arm}
                end;
              ait_cutobject :
                if SmartAsm then
@@ -972,12 +1054,27 @@ Implementation
     function TInternalAssembler.TreePass1(hp:Tai):Tai;
       var
         InlineLevel,
-        l,
+        l : longint;
+{$ifdef i386}
+{$ifndef NOAG386BIN}
         i : longint;
+{$endif NOAG386BIN}
+{$endif i386}
       begin
         inlinelevel:=0;
         while assigned(hp) do
          begin
+{$ifdef GDB}
+           { write stabs, no line info for inlined code }
+           if (inlinelevel=0) and
+              ((cs_debuginfo in aktmoduleswitches) or
+               (cs_gdb_lineinfo in aktglobalswitches)) then
+            begin
+              if (objectdata.currsec<>nil) and
+                 not(hp.typ in SkipLineInfo) then
+               WriteFileLineInfo(tailineinfo(hp).fileinfo);
+            end;
+{$endif GDB}
            case hp.typ of
              ait_align :
                begin
@@ -988,23 +1085,23 @@ Implementation
                end;
              ait_datablock :
                begin
-                 if not (objectdata.currsec.sectype in [sec_bss,sec_threadvar]) then
+                 if objectdata.currsec.sectype<>sec_bss then
                    Message(asmw_e_alloc_data_only_in_bss);
                  l:=used_align(size_2_align(Tai_datablock(hp).size),0,objectdata.currsec.addralign);
-{                 if Tai_datablock(hp).is_global and
+                 if Tai_datablock(hp).is_global and
                     not SmartAsm then
-                  begin}
-{                    objectdata.allocsymbol(currpass,Tai_datablock(hp).sym,Tai_datablock(hp).size);}
+                  begin
+                    objectdata.allocsymbol(currpass,Tai_datablock(hp).sym,Tai_datablock(hp).size);
                     { force to be common/external, must be after setaddress as that would
                       set it to AB_GLOBAL }
-{                    Tai_datablock(hp).sym.currbind:=AB_COMMON;
+                    Tai_datablock(hp).sym.currbind:=AB_COMMON;
                   end
                  else
-                  begin}
+                  begin
                     objectdata.allocalign(l);
                     objectdata.allocsymbol(currpass,Tai_datablock(hp).sym,Tai_datablock(hp).size);
                     objectdata.alloc(Tai_datablock(hp).size);
-{                  end;}
+                  end;
                  objectlibrary.UsedAsmSymbolListInsert(Tai_datablock(hp).sym);
                end;
              ait_real_80bit :
@@ -1032,14 +1129,44 @@ Implementation
                begin
                  { use cached value }
                  objectdata.setsection(Tai_section(hp).sec);
+{$ifdef GDB}
+                 case Tai_section(hp).sectype of
+                   sec_code :
+                     n_line:=n_textline;
+                   sec_data :
+                     n_line:=n_dataline;
+                   sec_bss :
+                     n_line:=n_bssline;
+                   else
+                     n_line:=n_dataline;
+                 end;
+                 stabslastfileinfo.line:=-1;
+{$endif GDB}
                end;
-             ait_stab :
+{$ifdef GDB}
+             ait_stabn :
                begin
-                 if assigned(Tai_stab(hp).str) then
-                   convertstab(Tai_stab(hp).str);
+                 if assigned(Tai_stabn(hp).str) then
+                   convertstabs(Tai_stabn(hp).str);
                end;
-             ait_function_name,
-             ait_force_line : ;
+             ait_stabs :
+               begin
+                 if assigned(Tai_stabs(hp).str) then
+                   convertstabs(Tai_stabs(hp).str);
+               end;
+             ait_stab_function_name :
+               begin
+                 if assigned(Tai_stab_function_name(hp).str) then
+                  begin
+                    funcname:=objectlibrary.getasmsymbol(strpas(Tai_stab_function_name(hp).str));
+                    objectlibrary.UsedAsmSymbolListInsert(funcname);
+                  end
+                 else
+                  funcname:=nil;
+               end;
+             ait_force_line :
+               stabslastfileinfo.line:=0;
+{$endif}
              ait_symbol :
                begin
                  objectdata.allocsymbol(currpass,Tai_symbol(hp).sym,0);
@@ -1062,6 +1189,8 @@ Implementation
                objectdata.alloc(Tai_string(hp).len);
              ait_instruction :
                begin
+{$ifdef i386}
+{$ifndef NOAG386BIN}
                  objectdata.alloc(Taicpu(hp).Pass1(objectdata.currsec.datasize));
                  { fixup the references }
                  for i:=1 to Taicpu(hp).ops do
@@ -1079,7 +1208,11 @@ Implementation
                        end;
                      end;
                   end;
+{$endif NOAG386BIN}
+{$endif i386}
                end;
+             ait_direct :
+               Message(asmw_f_direct_not_supported);
              ait_cutobject :
                if SmartAsm then
                 break;
@@ -1109,10 +1242,21 @@ Implementation
         { main loop }
         while assigned(hp) do
          begin
+{$ifdef GDB}
+           { write stabs, no line info for inlined code }
+           if (inlinelevel=0) and
+              ((cs_debuginfo in aktmoduleswitches) or
+               (cs_gdb_lineinfo in aktglobalswitches)) then
+            begin
+              if (objectdata.currsec<>nil) and
+                 not(hp.typ in SkipLineInfo) then
+               WriteFileLineInfo(tailineinfo(hp).fileinfo);
+            end;
+{$endif GDB}
            case hp.typ of
              ait_align :
                begin
-                 if objectdata.currsec.sectype in [sec_bss,sec_threadvar] then
+                 if objectdata.currsec.sectype=sec_bss then
                    objectdata.alloc(Tai_align(hp).fillsize)
                  else
                    objectdata.writebytes(Tai_align(hp).calculatefillbuf(fillbuffer)^,Tai_align(hp).fillsize);
@@ -1121,6 +1265,16 @@ Implementation
                begin
                  { use cached value }
                  objectdata.setsection(Tai_section(hp).sec);
+{$ifdef GDB}
+                 case Tai_section(hp).sectype of
+                  sec_code : n_line:=n_textline;
+                  sec_data : n_line:=n_dataline;
+                   sec_bss : n_line:=n_bssline;
+                 else
+                  n_line:=n_dataline;
+                 end;
+                 stabslastfileinfo.line:=-1;
+{$endif GDB}
                end;
              ait_symbol :
                begin
@@ -1132,11 +1286,11 @@ Implementation
                  l:=used_align(size_2_align(Tai_datablock(hp).size),0,objectdata.currsec.addralign);
                  objectdata.writesymbol(Tai_datablock(hp).sym);
                  objectoutput.exportsymbol(Tai_datablock(hp).sym);
-{                 if SmartAsm or (not Tai_datablock(hp).is_global) then
-                   begin}
+                 if SmartAsm or (not Tai_datablock(hp).is_global) then
+                   begin
                      objectdata.allocalign(l);
                      objectdata.alloc(Tai_datablock(hp).size);
-{                   end;}
+                   end;
                end;
              ait_real_80bit :
                objectdata.writebytes(Tai_real_80bit(hp).value,10);
@@ -1147,7 +1301,11 @@ Implementation
              ait_comp_64bit :
                begin
 {$ifdef x86}
+{$ifdef FPC}
                  co:=comp(Tai_comp_64bit(hp).value);
+{$else}
+                 co:=Tai_comp_64bit(hp).value;
+{$endif}
                  objectdata.writebytes(co,8);
 {$endif x86}
                end;
@@ -1168,8 +1326,7 @@ Implementation
                          objectdata.writebytes(v,tai_const(hp).size);
                        end
                      else
-                       objectdata.writereloc(Tai_const(hp).value,Tai_const(hp).size,
-                                             Tai_const(hp).sym,RELOC_ABSOLUTE);
+                       objectdata.writereloc(Tai_const(hp).value,Tai_const(hp).size,Tai_const(hp).sym,RELOC_ABSOLUTE);
                    end
                  else
                    objectdata.writebytes(Tai_const(hp).value,tai_const(hp).size);
@@ -1183,12 +1340,25 @@ Implementation
                    but it's better to be on the safe side (PFV) }
                  objectoutput.exportsymbol(Tai_label(hp).l);
                end;
+{$ifdef i386}
+{$ifndef NOAG386BIN}
              ait_instruction :
                Taicpu(hp).Pass2(objectdata);
-             ait_stab :
-               convertstab(Tai_stab(hp).str);
-             ait_function_name,
-             ait_force_line : ;
+{$endif NOAG386BIN}
+{$endif i386}
+{$ifdef GDB}
+             ait_stabn :
+               convertstabs(Tai_stabn(hp).str);
+             ait_stabs :
+               convertstabs(Tai_stabs(hp).str);
+             ait_stab_function_name :
+               if assigned(Tai_stab_function_name(hp).str) then
+                 funcname:=objectlibrary.getasmsymbol(strpas(Tai_stab_function_name(hp).str))
+               else
+                 funcname:=nil;
+             ait_force_line :
+               stabslastfileinfo.line:=0;
+{$endif}
              ait_cutobject :
                if SmartAsm then
                 break;
@@ -1237,6 +1407,9 @@ Implementation
         objectdata.resetsections;
         objectdata.beforealloc;
         objectdata.createsection(sec_code,'',0,[]);
+{$ifdef GDB}
+        StartFileLineInfo;
+{$endif GDB}
         { start with list 1 }
         currlistidx:=1;
         currlist:=list[currlistidx];
@@ -1246,7 +1419,9 @@ Implementation
            hp:=TreePass1(hp);
            MaybeNextList(hp);
          end;
-        objectdata.createsection(sec_code,'',0,[]);
+{$ifdef GDB}
+        EndFileLineInfo;
+{$endif GDB}
         objectdata.afteralloc;
         { check for undefined labels and reset }
         objectlibrary.UsedAsmSymbolListCheckUndefined;
@@ -1260,6 +1435,9 @@ Implementation
         objectdata.resetsections;
         objectdata.beforewrite;
         objectdata.createsection(sec_code,'',0,[]);
+{$ifdef GDB}
+        StartFileLineInfo;
+{$endif GDB}
         { start with list 1 }
         currlistidx:=1;
         currlist:=list[currlistidx];
@@ -1269,7 +1447,9 @@ Implementation
            hp:=TreePass2(hp);
            MaybeNextList(hp);
          end;
-        objectdata.createsection(sec_code,'',0,[]);
+{$ifdef GDB}
+        EndFileLineInfo;
+{$endif GDB}
         objectdata.afterwrite;
 
         { don't write the .o file if errors have occured }
@@ -1325,7 +1505,13 @@ Implementation
            objectdata.resetsections;
            objectdata.beforealloc;
            objectdata.createsection(startsectype,'',0,[]);
+{$ifdef GDB}
+           StartFileLineInfo;
+{$endif GDB}
            TreePass1(hp);
+{$ifdef GDB}
+           EndFileLineInfo;
+{$endif GDB}
            objectdata.afteralloc;
            { check for undefined labels }
            objectlibrary.UsedAsmSymbolListCheckUndefined;
@@ -1340,10 +1526,16 @@ Implementation
            objectdata.resetsections;
            objectdata.beforewrite;
            objectdata.createsection(startsectype,'',0,[]);
+{$ifdef GDB}
+           StartFileLineInfo;
+{$endif GDB}
            hp:=TreePass2(hp);
            { save section type for next loop, must be done before EndFileLineInfo
              because that changes the section to sec_code }
            startsectype:=objectdata.currsec.sectype;
+{$ifdef GDB}
+           EndFileLineInfo;
+{$endif GDB}
            objectdata.afterwrite;
            { leave if errors have occured }
            if errorcount>0 then
@@ -1397,9 +1589,6 @@ Implementation
 
     procedure TInternalAssembler.MakeObject;
 
-    var to_do:set of Tasmlist;
-        i:Tasmlist;
-
         procedure addlist(p:TAAsmoutput);
         begin
           inc(lists);
@@ -1407,17 +1596,25 @@ Implementation
         end;
 
       begin
-        to_do:=[low(Tasmlist)..high(Tasmlist)];
-        if usedeffileforexports then
-          exclude(to_do,al_exports);
-        {$warning TODO internal writer support for dwarf}
-        exclude(to_do,al_dwarf);
-{$ifndef segment_threadvars}
-        exclude(to_do,al_threadvars);
-{$endif}
-        for i:=low(Tasmlist) to high(Tasmlist) do
-          if (i in to_do) and (asmlist[i]<>nil) then
-            addlist(asmlist[i]);
+        if cs_debuginfo in aktmoduleswitches then
+          addlist(debuglist);
+        addlist(codesegment);
+        addlist(datasegment);
+        addlist(consts);
+        addlist(rttilist);
+        addlist(picdata);
+        if assigned(resourcestringlist) then
+          addlist(resourcestringlist);
+        addlist(bsssegment);
+        if assigned(importssection) then
+          addlist(importssection);
+        if assigned(exportssection) and not UseDeffileForExports then
+          addlist(exportssection);
+        if assigned(resourcesection) then
+          addlist(resourcesection);
+{$warning TODO internal writer support for dwarf}
+        {if assigned(dwarflist) then
+          addlist(dwarflist);}
 
         if SmartAsm then
           writetreesmart
@@ -1472,6 +1669,9 @@ Implementation
 
     procedure InitAssembler;
       begin
+        { target_asm is already set by readarguments }
+        initoutputformat:=target_asm.id;
+        aktoutputformat:=target_asm.id;
       end;
 
 

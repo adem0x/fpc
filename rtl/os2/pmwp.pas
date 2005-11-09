@@ -231,4 +231,3 @@ Function WinLoadFileIconN(pszFileName: PChar;
                           ulIconIndex: Cardinal): Cardinal; cdecl;
     external 'PMWP' index ???;
 }
-

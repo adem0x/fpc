@@ -36,12 +36,12 @@ interface
           constructor create(number : byte;is_const:boolean;l : tnode);virtual;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
           function docompare(p: tnode): boolean; override;
           { All the following routines currently
-            call compilerprocs, unless they are
+            call compilerproc's, unless they are
             overriden in which case, the code
             generator handles them.
           }
@@ -116,11 +116,11 @@ implementation
       end;
 
 
-    function tinlinenode._getcopy : tnode;
+    function tinlinenode.getcopy : tnode;
       var
          n : tinlinenode;
       begin
-         n:=tinlinenode(inherited _getcopy);
+         n:=tinlinenode(inherited getcopy);
          n.inlinenumber:=inlinenumber;
          result:=n;
       end;

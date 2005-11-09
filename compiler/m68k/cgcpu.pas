@@ -88,8 +88,8 @@ unit cgcpu;
      end;
 
      tcg64f68k = class(tcg64f32)
-       procedure a_op64_reg_reg(list : taasmoutput;op:TOpCG; size: tcgsize; regsrc,regdst : tregister64);override;
-       procedure a_op64_const_reg(list : taasmoutput;op:TOpCG; size: tcgsize; value : int64;regdst : tregister64);override;
+       procedure a_op64_reg_reg(list : taasmoutput;op:TOpCG;regsrc,regdst : tregister64);override;
+       procedure a_op64_const_reg(list : taasmoutput;op:TOpCG;value : int64;regdst : tregister64);override;
      end;
 
      { This function returns true if the reference+offset is valid.
@@ -886,15 +886,13 @@ unit cgcpu;
       begin
          popaddress := false;
 
-//	 writeln('concatcopy:',len);
-
          { this should never occur }
          if len > 65535 then
            internalerror(0);
-	   
-         hregister := getintregister(list,OS_INT);
+         hregister := cg.getintregister(list,OS_INT);
 //         if delsource then
 //            reference_release(list,source);
+
 
          { from 12 bytes movs is being used }
          if {(not loadref) and} ((len<=8) or (not(cs_littlesize in aktglobalswitches) and (len<=12))) then
@@ -905,8 +903,8 @@ unit cgcpu;
               { move a dword x times }
               for i:=1 to helpsize do
                 begin
-                   a_load_ref_reg(list,OS_INT,OS_INT,srcref,hregister);
-                   a_load_reg_ref(list,OS_INT,OS_INT,hregister,dstref);
+                   cg.a_load_ref_reg(list,OS_INT,OS_INT,srcref,hregister);
+                   cg.a_load_reg_ref(list,OS_INT,OS_INT,hregister,dstref);
                    inc(srcref.offset,4);
                    inc(dstref.offset,4);
                    dec(len,4);
@@ -914,8 +912,8 @@ unit cgcpu;
               { move a word }
               if len>1 then
                 begin
-                   a_load_ref_reg(list,OS_16,OS_16,srcref,hregister);
-                   a_load_reg_ref(list,OS_16,OS_16,hregister,dstref);
+                   cg.a_load_ref_reg(list,OS_16,OS_16,srcref,hregister);
+                   cg.a_load_reg_ref(list,OS_16,OS_16,hregister,dstref);
                    inc(srcref.offset,2);
                    inc(dstref.offset,2);
                    dec(len,2);
@@ -923,14 +921,14 @@ unit cgcpu;
               { move a single byte }
               if len>0 then
                 begin
-                   a_load_ref_reg(list,OS_8,OS_8,srcref,hregister);
-                   a_load_reg_ref(list,OS_8,OS_8,hregister,dstref);
+                   cg.a_load_ref_reg(list,OS_8,OS_8,srcref,hregister);
+                   cg.a_load_reg_ref(list,OS_8,OS_8,hregister,dstref);
                 end
            end
          else
            begin
-              iregister:=getaddressregister(list);
-              jregister:=getaddressregister(list);
+              iregister:=cg.getaddressregister(list);
+              jregister:=cg.getaddressregister(list);
               { reference for move (An)+,(An)+ }
               reference_reset(hp1);
               hp1.base := iregister;   { source register }
@@ -944,9 +942,9 @@ unit cgcpu;
 {              if loadref then
                  cg.a_load_ref_reg(list,OS_INT,OS_INT,source,iregister)
               else}
-                 a_loadaddr_ref_reg(list,source,iregister);
+                 cg.a_loadaddr_ref_reg(list,source,iregister);
 
-              a_loadaddr_ref_reg(list,dest,jregister);
+              cg.a_loadaddr_ref_reg(list,dest,jregister);
 
               { double word move only on 68020+ machines }
               { because of possible alignment problems   }
@@ -956,12 +954,12 @@ unit cgcpu;
                    helpsize := len - len mod 4;
                    len := len mod 4;
                    list.concat(taicpu.op_const_reg(A_MOVE,S_L,helpsize div 4,hregister));
-                   objectlibrary.getjumplabel(hl2);
-                   a_jmp_always(list,hl2);
-                   objectlibrary.getjumplabel(hl);
-                   a_label(list,hl);
+                   objectlibrary.getlabel(hl2);
+                   cg.a_jmp_always(list,hl2);
+                   objectlibrary.getlabel(hl);
+                   cg.a_label(list,hl);
                    list.concat(taicpu.op_ref_ref(A_MOVE,S_L,hp1,hp2));
-                   a_label(list,hl2);
+                   cg.a_label(list,hl2);
                    list.concat(taicpu.op_reg_sym(A_DBRA,S_L,hregister,hl));
                    if len > 1 then
                      begin
@@ -976,18 +974,18 @@ unit cgcpu;
                    { Fast 68010 loop mode with no possible alignment problems }
                    helpsize := len;
                    list.concat(taicpu.op_const_reg(A_MOVE,S_L,helpsize,hregister));
-                   objectlibrary.getjumplabel(hl2);
-                   a_jmp_always(list,hl2);
-                   objectlibrary.getjumplabel(hl);
-                   a_label(list,hl);
+                   objectlibrary.getlabel(hl2);
+                   cg.a_jmp_always(list,hl2);
+                   objectlibrary.getlabel(hl);
+                   cg.a_label(list,hl);
                    list.concat(taicpu.op_ref_ref(A_MOVE,S_B,hp1,hp2));
-                   a_label(list,hl2);
+                   cg.a_label(list,hl2);
                    list.concat(taicpu.op_reg_sym(A_DBRA,S_L,hregister,hl));
                 end;
 
               { restore the registers that we have just used olny if they are used! }
-              ungetcpuregister(list, iregister);
-              ungetcpuregister(list, jregister);
+              cg.ungetcpuregister(list, iregister);
+              cg.ungetcpuregister(list, jregister);
               if jregister = NR_A1 then
                 hp2.base := NR_NO;
               if iregister = NR_A0 then
@@ -999,8 +997,7 @@ unit cgcpu;
 //           if delsource then
 //               tg.ungetiftemp(list,source);
 
-// Not needed? (KB)
-//           ungetcpuregister(list,hregister);
+           cg.ungetcpuregister(list,hregister);
     end;
 
     procedure tcg68k.g_overflowcheck(list: taasmoutput; const l:tlocation; def:tdef);
@@ -1096,8 +1093,8 @@ unit cgcpu;
                 { restore the PC counter (push it on the stack)       }
                 reference_reset_base(ref,NR_STACK_POINTER_REG,0);
                 ref.direction:=dir_dec;
-                cg.a_reg_alloc(list,hregister);
                 list.concat(taicpu.op_reg_ref(A_MOVE,S_L,hregister,ref));
+                cg.a_reg_alloc(list,hregister);
                 list.concat(taicpu.op_none(A_RTS,S_NO));
                end;
            end;
@@ -1203,7 +1200,7 @@ unit cgcpu;
 {****************************************************************************}
 {                               TCG64F68K                                    }
 {****************************************************************************}
- procedure tcg64f68k.a_op64_reg_reg(list : taasmoutput;op:TOpCG;size: tcgsize; regsrc,regdst : tregister64);
+ procedure tcg64f68k.a_op64_reg_reg(list : taasmoutput;op:TOpCG;regsrc,regdst : tregister64);
   var
    hreg1, hreg2 : tregister;
    opcode : tasmop;
@@ -1265,7 +1262,7 @@ unit cgcpu;
   end;
 
 
- procedure tcg64f68k.a_op64_const_reg(list : taasmoutput;op:TOpCG;size: tcgsize; value : int64;regdst : tregister64);
+ procedure tcg64f68k.a_op64_const_reg(list : taasmoutput;op:TOpCG;value : int64;regdst : tregister64);
   var
    lowvalue : cardinal;
    highvalue : cardinal;

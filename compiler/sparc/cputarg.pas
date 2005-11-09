@@ -52,25 +52,6 @@ implementation
 
       ,CpuGas
 
-{**************************************
-        Assembler Readers
-**************************************}
-
-  {$ifndef NoSparcgas}
-       ,racpugas
-  {$endif NoSparcgas}
-
-{**************************************
-             Debuginfo
-**************************************}
-
-  {$ifndef NoDbgStabs}
-      ,dbgstabs
-  {$endif NoDbgStabs}
-  {$ifndef NoDbgDwarf}
-      ,dbgdwarf
-  {$endif NoDbgDwarf}
-
       ;
 
 end.

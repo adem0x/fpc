@@ -37,7 +37,6 @@
   {$define cpuextended}
   {$define USECMOV}
   {$define SUPPORT_MMX}
-  {$define cpumm}
 {$endif i386}
 
 {$ifdef x86_64}
@@ -48,7 +47,6 @@
   {$define cpufloat128}
   {$define cputargethasfixedstack}
   {$define USECMOV}
-  {$define cpumm}
 {$endif x86_64}
 
 {$ifdef alpha}
@@ -64,20 +62,10 @@
 {$ifdef powerpc}
   {$define cpuflags}
   {$define cputargethasfixedstack}
-  {$define cpumm}
 {$endif powerpc}
-
-{$ifdef powerpc64}
-  {$define cpu64bit}
-  {$define cpuflags}
-  {$define cputargethasfixedstack}
-  {$define cpumm}  
-  {$define cpurequiresproperalignment}
-{$endif powerpc64}
 
 {$ifdef arm}
   {$define cpuflags}
-  {$define cpufpemu}
   {$define cpuneedsdiv32helper}
   {$define cputargethasfixedstack}
   {$define cpurequiresproperalignment}
@@ -91,3 +79,4 @@
 {$IFDEF MACOS}
 {$DEFINE MACOS_USE_FAKE_SYSUTILS}
 {$ENDIF MACOS}
+

@@ -50,8 +50,8 @@ implementation
     {$ifndef NOTARGETOS2}
       ,t_os2
     {$endif}
-    {$ifndef NOTARGETWIN}
-      ,t_win
+    {$ifndef NOTARGETWIN32}
+      ,t_win32
     {$endif}
     {$ifndef NOTARGETNETWARE}
       ,t_nwm
@@ -83,34 +83,11 @@ implementation
       ,ag386nsm
     {$endif}
     {$ifndef NOAG386INT}
-      ,agx86int
+      ,ag386int
     {$endif}
 
       ,ogcoff
       ,ogelf
-
-{**************************************
-        Assembler Readers
-**************************************}
-
-  {$ifndef NoRa386Int}
-       ,ra386int
-  {$endif NoRa386Int}
-  {$ifndef NoRa386Att}
-       ,ra386att
-  {$endif NoRa386Att}
-
-{**************************************
-             Debuginfo
-**************************************}
-
-  {$ifndef NoDbgStabs}
-      ,dbgstabs
-  {$endif NoDbgStabs}
-  {$ifndef NoDbgDwarf}
-      ,dbgdwarf
-  {$endif NoDbgDwarf}
-
       ;
 
 end.

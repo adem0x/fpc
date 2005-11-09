@@ -262,7 +262,7 @@ begin
   SwapBMPFileHeader(BFH);
   SwapBMPInfoHeader(BFI);
   {$ENDIF}
-  StartPosition:=Stream.Position;
+  Stream.seek(0,soFromBeginning);
   Stream.Write(bfh,sizeof(TBitMapFileHeader));
   Stream.Write(bfi,sizeof(TBitMapInfoHeader));
   {$IFDEF ENDIAN_BIG}

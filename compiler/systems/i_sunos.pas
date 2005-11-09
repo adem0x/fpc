@@ -65,7 +65,6 @@ unit i_sunos;
             linkextern   : nil;
             ar           : ar_gnu_ar;
             res          : res_none;
-            dbg          : dbg_stabs;
             script       : script_unix;
             endian       : endian_little;
             alignment    :
@@ -127,7 +126,6 @@ unit i_sunos;
             linkextern   : nil;
             ar           : ar_gnu_ar;
             res          : res_none;
-            dbg          : dbg_stabs;
             script       : script_unix;
             endian       : endian_big;
             alignment    :

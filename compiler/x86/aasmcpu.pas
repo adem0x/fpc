@@ -238,8 +238,8 @@ interface
          procedure ResetPass1;
          procedure ResetPass2;
          function  CheckIfValid:boolean;
-         function  Pass1(offset:longint):longint;override;
-         procedure Pass2(objdata:TAsmObjectdata);override;
+         function  Pass1(offset:longint):longint;virtual;
+         procedure Pass2(objdata:TAsmObjectdata);virtual;
          procedure SetOperandOrder(order:TOperandOrder);
          function is_same_reg_move(regtype: Tregistertype):boolean;override;
          { register spilling code }
@@ -2039,22 +2039,7 @@ implementation
 
     function taicpu.spilling_get_operation_type(opnr: longint): topertype;
       begin
-        { the information in the instruction table is made for the string copy
-          operation MOVSD so hack here (FK)
-        }
-        if (opcode=A_MOVSD) and (ops=2) then
-          begin
-            case opnr of
-              0:
-                result:=operand_read;
-              1:
-                result:=operand_write;
-              else
-                internalerror(200506055);
-            end
-          end
-        else
-          result:=operation_type_table^[opcode,opnr];
+        result:=operation_type_table^[opcode,opnr];
       end;
 
 
@@ -2064,14 +2049,7 @@ implementation
           R_INTREGISTER :
             result:=taicpu.op_ref_reg(A_MOV,reg2opsize(r),ref,r);
           R_MMREGISTER :
-            case getsubreg(r) of
-              R_SUBMMD:
-                result:=taicpu.op_ref_reg(A_MOVSD,reg2opsize(r),ref,r);
-              R_SUBMMS:
-                result:=taicpu.op_ref_reg(A_MOVSS,reg2opsize(r),ref,r);
-              else
-                internalerror(200506043);
-            end;
+            result:=taicpu.op_ref_reg(A_MOVSD,reg2opsize(r),ref,r);
           else
             internalerror(200401041);
         end;
@@ -2084,14 +2062,7 @@ implementation
           R_INTREGISTER :
             result:=taicpu.op_reg_ref(A_MOV,reg2opsize(r),r,ref);
           R_MMREGISTER :
-            case getsubreg(r) of
-              R_SUBMMD:
-                result:=taicpu.op_reg_ref(A_MOVSD,reg2opsize(r),r,ref);
-              R_SUBMMS:
-                result:=taicpu.op_reg_ref(A_MOVSS,reg2opsize(r),r,ref);
-              else
-                internalerror(200506042);
-            end;
+            result:=taicpu.op_reg_ref(A_MOVSD,reg2opsize(r),r,ref);
           else
             internalerror(200401041);
         end;

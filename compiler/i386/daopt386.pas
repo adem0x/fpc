@@ -57,8 +57,7 @@ const
     OS_F32,OS_F64,OS_F80,OS_C64,OS_F128,
     OS_M32,
     OS_ADDR,OS_NO,OS_NO,
-    OS_NO,
-    OS_NO);
+    OS_NO,OS_NO);
 
 
 
@@ -1090,7 +1089,7 @@ end;
 
 function labelCanBeSkipped(p: tai_label): boolean;
 begin
-  labelCanBeSkipped := not(p.l.is_used) or (p.l.labeltype<>alt_jump);
+  labelCanBeSkipped := not(p.l.is_used) or p.l.is_addr;
 end;
 
 {******************* The Data Flow Analyzer functions ********************}
@@ -1130,7 +1129,7 @@ begin
           ((p.typ in (SkipInstr - [ait_RegAlloc])) or
            ((p.typ = ait_label) and
             labelCanBeSkipped(tai_label(p))) or
-           ((p.typ = ait_marker) and 
+           ((p.typ = ait_marker) and
             (tai_Marker(p).Kind in [AsmBlockend,inlinestart,inlineend]))) do
          p := tai(p.next);
     while assigned(p) and
@@ -2366,7 +2365,9 @@ begin
           end;
 {$endif JumpAnal}
 
-        ait_stab, ait_force_line, ait_function_name:;
+{$ifdef GDB}
+        ait_stabs, ait_stabn, ait_stab_function_name:;
+{$endif GDB}
         ait_align: ; { may destroy flags !!! }
         ait_instruction:
           begin

@@ -53,28 +53,9 @@ interface
          LOC_CMMREGISTER
        );
 
-       { since we have only 16bit offsets, we need to be able to specify the high
-         and lower 16 bits of the address of a symbol of up to 64 bit }
-       trefaddr = (
-         addr_no,
-         addr_full,
-         {$IFNDEF POWERPC64}
-         addr_hi,
-         addr_lo,
-         {$ENDIF}
-         addr_pic
-         {$IFDEF POWERPC64}
-         ,
-         addr_low,         // bits 48-63
-         addr_high,        // bits 32-47
-         addr_higher,      // bits 16-31
-         addr_highest,     // bits 00-15
-         addr_higha,       // bits 16-31, adjusted
-         addr_highera,     // bits 32-47, adjusted
-         addr_highesta     // bits 48-63, adjusted
-         {$ENDIF}
-         );
-
+       { since we have only 16 offsets, we need to be able to specify the high
+         and low 16 bits of the address of a symbol                            }
+       trefaddr = (addr_no,addr_full,addr_hi,addr_lo,addr_pic);
 
        {# Generic opcodes, which must be supported by all processors
        }
@@ -148,9 +129,7 @@ interface
         { For Sparc floats that use F0:F1 to store doubles }
         R_SUBFS,   { = 6; Float that allocates 1 FPU register }
         R_SUBFD,   { = 7; Float that allocates 2 FPU registers }
-        R_SUBFQ,   { = 8; Float that allocates 4 FPU registers }
-        R_SUBMMS,  { = 9; single scalar in multi media register }
-        R_SUBMMD   { = 10; double scalar in multi media register }
+        R_SUBFQ    { = 8; Float that allocates 4 FPU registers }
       );
 
       TSuperRegister = type word;
@@ -518,10 +497,6 @@ implementation
             result:=result+'fs';
           R_SUBFD:
             result:=result+'fd';
-          R_SUBMMD:
-            result:=result+'md';
-          R_SUBMMS:
-            result:=result+'ms';
           else
             internalerror(200308252);
         end;

@@ -69,9 +69,6 @@ interface
 
       tdef = class(tdefentry)
          typesym    : tsym;  { which type the definition was generated this def }
-         { stabs debugging }
-         stab_number : word;
-         stab_state  : tdefstabstatus;
          defoptions : tdefoptions;
          constructor create;
          procedure buildderef;virtual;abstract;
@@ -108,11 +105,15 @@ interface
          defref,
          lastwritten : tref;
          refcount    : longint;
+{$ifdef GDB}
          isstabwritten : boolean;
+         function  get_var_value(const s:string):string;
+         function  stabstr_evaluate(const s:string;vars:array of string):Pchar;
+         function  stabstring : pchar;virtual;
+{$endif GDB}
          constructor create(const n : string);
          destructor destroy;override;
          function  realname:string;
-         function  mangledname:string; virtual;
          procedure buildderef;virtual;
          procedure deref;virtual;
          function  gettypedef:tdef;virtual;
@@ -230,6 +231,9 @@ implementation
     uses
        verbose,
        fmodule
+{$ifdef GDB}
+       ,gdb
+{$endif GDB}
        ;
 
 
@@ -244,8 +248,6 @@ implementation
          owner := nil;
          typesym := nil;
          defoptions:=[];
-         stab_state:=stab_state_unused;
-         stab_number:=0;
       end;
 
 
@@ -324,7 +326,9 @@ implementation
             inc(refcount);
           end;
          lastref:=defref;
+{$ifdef GDB}
          isstabwritten := false;
+{$endif GDB}
          symoptions:=current_object_option;
       end;
 
@@ -351,6 +355,45 @@ implementation
       begin
       end;
 
+{$ifdef GDB}
+    function Tsym.get_var_value(const s:string):string;
+
+    begin
+      if s='name' then
+        get_var_value:=name
+      else if s='ownername' then
+        get_var_value:=owner.name^
+      else if s='line' then
+        get_var_value:=tostr(fileinfo.line)
+      else if s='N_LSYM' then
+        get_var_value:=tostr(N_LSYM)
+      else if s='N_LCSYM' then
+        get_var_value:=tostr(N_LCSYM)
+      else if s='N_RSYM' then
+        get_var_value:=tostr(N_RSYM)
+      else if s='N_TSYM' then
+        get_var_value:=tostr(N_TSYM)
+      else if s='N_STSYM' then
+        get_var_value:=tostr(N_STSYM)
+      else if s='N_FUNCTION' then
+        get_var_value:=tostr(N_FUNCTION)
+      else
+        internalerror(200401152);
+    end;
+
+    function Tsym.stabstr_evaluate(const s:string;vars:array of string):Pchar;
+
+    begin
+      stabstr_evaluate:=string_evaluate(s,@get_var_value,vars);
+    end;
+
+    function Tsym.stabstring : pchar;
+
+    begin
+       stabstring:=nil;
+    end;
+{$endif GDB}
+
 
     function tsym.realname : string;
       begin
@@ -358,12 +401,6 @@ implementation
          realname:=_realname^
         else
          realname:=name;
-      end;
-
-
-    function tsym.mangledname : string;
-      begin
-        internalerror(200204171);
       end;
 
 
@@ -443,7 +480,7 @@ implementation
       end;
 
 
-    function tsym.is_visible_for_object(currobjdef:Tdef;context : tdef):boolean;
+    function Tsym.is_visible_for_object(currobjdef:Tdef;context : tdef):boolean;
       begin
         is_visible_for_object:=false;
 

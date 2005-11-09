@@ -1026,11 +1026,19 @@ begin
   if getLastInstruction(hp,prev) then
     with ptaiprop(prev.optinfo)^ do
       begin
-        newOrgRegRState := byte(longint(regs[orgReg].rState) +
-          longint(ptaiprop(hp.optinfo)^.regs[newReg].rState) - regs[newReg].rstate);
+{$ifopt r+}
+{$define rangeon}
+{$r-}
+{$endif}
+        newOrgRegRState := regs[orgReg].rState +
+          ptaiprop(hp.optinfo)^.regs[newReg].rState - regs[newReg].rstate;
         if writeStateToo then
-          newOrgRegWState := byte(longint(regs[orgReg].wState) +
-            longint(ptaiprop(hp.optinfo)^.regs[newReg].wState) - regs[newReg].wstate);
+          newOrgRegWState := regs[orgReg].wState +
+            ptaiprop(hp.optinfo)^.regs[newReg].wState - regs[newReg].wstate;
+{$ifdef rangeon}
+{$undef rangeon}
+{$r+}
+{$endif}
       end
   else
     with ptaiprop(hp.optinfo)^.regs[newReg] do

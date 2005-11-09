@@ -45,15 +45,12 @@ interface
       fen_norecurse_true
     );
 
-    tforeachprocmethod = (pm_preprocess,pm_postprocess);
-
 
     foreachnodefunction = function(var n: tnode; arg: pointer): foreachnoderesult of object;
     staticforeachnodefunction = function(var n: tnode; arg: pointer): foreachnoderesult;
 
     function foreachnode(var n: tnode; f: foreachnodefunction; arg: pointer): boolean;
     function foreachnodestatic(var n: tnode; f: staticforeachnodefunction; arg: pointer): boolean;
-    function foreachnodestatic(procmethod : tforeachprocmethod;var n: tnode; f: staticforeachnodefunction; arg: pointer): boolean;
 
     procedure load_procvar_from_calln(var p1:tnode);
     function maybe_call_procvar(var p1:tnode;tponly:boolean):boolean;
@@ -70,9 +67,6 @@ interface
 
     function node_complexity(p: tnode): cardinal;
     procedure node_tree_set_filepos(var n:tnode;const filepos:tfileposinfo);
-
-    { tries to simplify the given node }
-    procedure dosimplify(var n : tnode);
 
 
 implementation
@@ -111,6 +105,9 @@ implementation
           begin
             { not in one statement, won't work because of b- }
             result := foreachnode(tcallnode(n).methodpointer,f,arg) or result;
+{$ifdef PASS2INLINE}
+            result := foreachnode(tcallnode(n).inlinecode,f,arg) or result;
+{$endif PASS2INLINE}
           end;
         ifn, whilerepeatn, forn:
           begin
@@ -138,49 +135,13 @@ implementation
     end;
 
 
-  function foreachnodestatic(procmethod : tforeachprocmethod;var n: tnode; f: staticforeachnodefunction; arg: pointer): boolean;
-
-    function process_children(res : boolean) : boolean;
-      var
-        i: longint;
-      begin
-        result:=res;
-        case n.nodetype of
-          calln:
-            begin
-              result := foreachnodestatic(procmethod,tcallnode(n).methodpointer,f,arg) or result;
-            end;
-          ifn, whilerepeatn, forn:
-            begin
-              { not in one statement, won't work because of b- }
-              result := foreachnodestatic(procmethod,tloopnode(n).t1,f,arg) or result;
-              result := foreachnodestatic(procmethod,tloopnode(n).t2,f,arg) or result;
-            end;
-          raisen:
-            result := foreachnodestatic(traisenode(n).frametree,f,arg) or result;
-          casen:
-            begin
-              for i := 0 to tcasenode(n).blocks.count-1 do
-                if assigned(tcasenode(n).blocks[i]) then
-                  result := foreachnodestatic(procmethod,pcaseblock(tcasenode(n).blocks[i])^.statement,f,arg) or result;
-              result := foreachnodestatic(procmethod,tcasenode(n).elseblock,f,arg) or result;
-            end;
-        end;
-        if n.inheritsfrom(tbinarynode) then
-          begin
-            result := foreachnodestatic(procmethod,tbinarynode(n).right,f,arg) or result;
-            result := foreachnodestatic(procmethod,tbinarynode(n).left,f,arg) or result;
-          end
-        else if n.inheritsfrom(tunarynode) then
-          result := foreachnodestatic(procmethod,tunarynode(n).left,f,arg) or result;
-      end;
-
+  function foreachnodestatic(var n: tnode; f: staticforeachnodefunction; arg: pointer): boolean;
+    var
+      i: longint;
     begin
       result := false;
       if not assigned(n) then
         exit;
-      if procmethod=pm_preprocess then
-        result:=process_children(result);
       case f(n,arg) of
         fen_norecurse_false:
           exit;
@@ -195,15 +156,38 @@ implementation
         fen_false:
           result := false; }
       end;
-      if procmethod=pm_postprocess then
-        result:=process_children(result);
-    end;
-
-
-    function foreachnodestatic(var n: tnode; f: staticforeachnodefunction; arg: pointer): boolean;
-      begin
-        result:=foreachnodestatic(pm_postprocess,n,f,arg);
+      case n.nodetype of
+        calln:
+          begin
+            result := foreachnodestatic(tcallnode(n).methodpointer,f,arg) or result;
+{$ifdef PASS2INLINE}
+            result := foreachnodestatic(tcallnode(n).inlinecode,f,arg) or result;
+{$endif PASS2INLINE}
+          end;
+        ifn, whilerepeatn, forn:
+          begin
+            { not in one statement, won't work because of b- }
+            result := foreachnodestatic(tloopnode(n).t1,f,arg) or result;
+            result := foreachnodestatic(tloopnode(n).t2,f,arg) or result;
+          end;
+        raisen:
+          result := foreachnodestatic(traisenode(n).frametree,f,arg) or result;
+        casen:
+          begin
+            for i := 0 to tcasenode(n).blocks.count-1 do
+              if assigned(tcasenode(n).blocks[i]) then
+                result := foreachnodestatic(pcaseblock(tcasenode(n).blocks[i])^.statement,f,arg) or result;
+            result := foreachnodestatic(tcasenode(n).elseblock,f,arg) or result;
+          end;
       end;
+      if n.inheritsfrom(tbinarynode) then
+        begin
+          result := foreachnodestatic(tbinarynode(n).right,f,arg) or result;
+          result := foreachnodestatic(tbinarynode(n).left,f,arg) or result;
+        end
+      else if n.inheritsfrom(tunarynode) then
+        result := foreachnodestatic(tunarynode(n).left,f,arg) or result;
+    end;
 
 
     procedure load_procvar_from_calln(var p1:tnode);
@@ -298,13 +282,10 @@ implementation
           begin
             result:=cloadnode.create(srsym,srsymtable);
             include(result.flags,nf_is_self);
+            resulttypepass(result);
           end
         else
-          begin
-            result:=cerrornode.create;
-            CGMessage(parser_e_illegal_expression);
-          end;
-        resulttypepass(result);
+          CGMessage(parser_e_illegal_expression);
       end;
 
 
@@ -316,13 +297,12 @@ implementation
         result:=nil;
         searchsym('result',srsym,srsymtable);
         if assigned(srsym) then
-          result:=cloadnode.create(srsym,srsymtable)
-        else
           begin
-            result:=cerrornode.create;
-            CGMessage(parser_e_illegal_expression);
-          end;
-        resulttypepass(result);
+            result:=cloadnode.create(srsym,srsymtable);
+            resulttypepass(result);
+          end
+        else
+          CGMessage(parser_e_illegal_expression);
       end;
 
 
@@ -337,13 +317,10 @@ implementation
           begin
             result:=cloadnode.create(srsym,srsymtable);
             include(result.flags,nf_load_self_pointer);
+            resulttypepass(result);
           end
         else
-          begin
-            result:=cerrornode.create;
-            CGMessage(parser_e_illegal_expression);
-          end;
-        resulttypepass(result);
+          CGMessage(parser_e_illegal_expression);
       end;
 
 
@@ -355,13 +332,12 @@ implementation
         result:=nil;
         searchsym('vmt',srsym,srsymtable);
         if assigned(srsym) then
-          result:=cloadnode.create(srsym,srsymtable)
-        else
           begin
-            result:=cerrornode.create;
-            CGMessage(parser_e_illegal_expression);
-          end;
-        resulttypepass(result);
+            result:=cloadnode.create(srsym,srsymtable);
+            resulttypepass(result);
+          end
+        else
+          CGMessage(parser_e_illegal_expression);
       end;
 
 
@@ -581,39 +557,6 @@ implementation
     procedure node_tree_set_filepos(var n:tnode;const filepos:tfileposinfo);
       begin
         foreachnodestatic(n,@setnodefilepos,@filepos);
-      end;
-
-{$ifdef FPCMT}
-    threadvar
-{$else FPCMT}
-    var
-{$endif FPCMT}
-      treechanged : boolean;
-
-    function callsimplify(var n: tnode; arg: pointer): foreachnoderesult;
-      var
-        hn : tnode;
-      begin
-        result:=fen_false;
-
-        do_resulttypepass(n);
-
-        hn:=n.simplify;
-        if assigned(hn) then
-          begin
-            treechanged:=true;
-            n:=hn;
-          end;
-      end;
-
-
-    { tries to simplify the given node calling the simplify method recursively }
-    procedure dosimplify(var n : tnode);
-      begin
-        repeat
-          treechanged:=false;
-          foreachnodestatic(pm_preprocess,n,@callsimplify,nil);
-        until not(treechanged);
       end;
 
 end.

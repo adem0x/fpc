@@ -124,7 +124,7 @@ const
 
 
 type
-  SigSet  =  array[0..wordsinsigset-1] of cuLong;
+  SigSet  =  array[0..wordsinsigset-1] of cint;
   sigset_t= SigSet;
   PSigSet = ^SigSet;
   psigset_t=psigset;
@@ -186,19 +186,15 @@ type
 {$define NEWSIGNAL}
 {$endif CPUx86_64}
 
-{$ifdef CPUPOWERPC64}
-{$define NEWSIGNAL}
-{$endif CPUPOWERPC64}
-
   SigActionRec = packed record  // this is temporary for the migration
     sa_handler : SigActionHandler;
    {$ifdef NEWSIGNAL}
-    Sa_Flags    : culong;
+    Sa_Flags    : cuint;
     Sa_restorer : SignalRestorer; { Obsolete - Don't use }
     Sa_Mask     : SigSet;
    {$else NEWSIGNAL}
     Sa_Mask     : SigSet;
-    Sa_Flags    : cuLong;
+    Sa_Flags    : Longint;
     Sa_restorer : SignalRestorer; { Obsolete - Don't use }
    {$endif NEWSIGNAL}
   end;

@@ -108,6 +108,10 @@ interface
 
     procedure gen_alloc_symtable(list:TAAsmoutput;st:tsymtable);
     procedure gen_free_symtable(list:TAAsmoutput;st:tsymtable);
+{$ifdef PASS2INLINE}
+    procedure gen_alloc_inline_parast(list:TAAsmoutput;pd:tprocdef);
+    procedure gen_alloc_inline_funcret(list:TAAsmoutput;pd:tprocdef);
+{$endif PASS2INLINE}
 
     { rtti and init/final }
     procedure generate_rtti(p:Ttypesym);
@@ -118,12 +122,15 @@ interface
 implementation
 
   uses
-    version,
+    strings,
     cutils,cclasses,
     globals,systems,verbose,
     ppu,defutil,
     procinfo,paramgr,fmodule,
-    regvars,dwarf,dbgbase,
+    regvars,dwarf,
+{$ifdef GDB}
+    gdb,
+{$endif GDB}
     pass_1,pass_2,
     ncon,nld,nutils,
     tgobj,cgobj;
@@ -350,17 +357,17 @@ implementation
         paramanager.freeparaloc(list,paraloc3);
         paramanager.freeparaloc(list,paraloc2);
         paramanager.freeparaloc(list,paraloc1);
-        cg.allocallcpuregisters(list);
+        cg.alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
         cg.a_call_name(list,'FPC_PUSHEXCEPTADDR');
-        cg.deallocallcpuregisters(list);
+        cg.dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
 
         paramanager.getintparaloc(pocall_default,1,paraloc1);
         paramanager.allocparaloc(list,paraloc1);
         cg.a_param_reg(list,OS_ADDR,NR_FUNCTION_RESULT_REG,paraloc1);
         paramanager.freeparaloc(list,paraloc1);
-        cg.allocallcpuregisters(list);
+        cg.alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
         cg.a_call_name(list,'FPC_SETJMP');
-        cg.deallocallcpuregisters(list);
+        cg.dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
 
         cg.g_exception_reason_save(list, t.reasonbuf);
         cg.a_cmp_const_reg_label(list,OS_S32,OC_NE,0,cg.makeregsize(list,NR_FUNCTION_RESULT_REG,OS_S32),exceptlabel);
@@ -372,9 +379,9 @@ implementation
 
     procedure free_exception(list:TAAsmoutput;const t:texceptiontemps;a:aint;endexceptlabel:tasmlabel;onlyfree:boolean);
      begin
-         cg.allocallcpuregisters(list);
+         cg.alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
          cg.a_call_name(list,'FPC_POPADDRSTACK');
-         cg.deallocallcpuregisters(list);
+         cg.dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
 
          if not onlyfree then
           begin
@@ -423,7 +430,7 @@ implementation
                   begin
                     cg.a_label(list,truelabel);
                     cg.a_load_const_reg(list,OS_INT,1,hregister);
-                    objectlibrary.getjumplabel(hl);
+                    objectlibrary.getlabel(hl);
                     cg.a_jmp_always(list,hl);
                     cg.a_label(list,falselabel);
                     cg.a_load_const_reg(list,OS_INT,0,hregister);
@@ -509,7 +516,7 @@ implementation
                begin
                  cg.a_label(list,truelabel);
                  cg.a_load_const_reg(list,dst_size,1,hregister);
-                 objectlibrary.getjumplabel(hl);
+                 objectlibrary.getlabel(hl);
                  cg.a_jmp_always(list,hl);
                  cg.a_label(list,falselabel);
                  cg.a_load_const_reg(list,dst_size,0,hregister);
@@ -572,7 +579,7 @@ implementation
             begin
               cg.a_label(list,truelabel);
               cg.a_load_const_reg(list,dst_size,1,hregister);
-              objectlibrary.getjumplabel(hl);
+              objectlibrary.getlabel(hl);
               cg.a_jmp_always(list,hl);
               cg.a_label(list,falselabel);
               cg.a_load_const_reg(list,dst_size,0,hregister);
@@ -829,14 +836,6 @@ implementation
                cg.a_load_const_reg(taasmoutput(arg),reg_cgsize(tglobalvarsym(p).localloc.register),0,
                    tglobalvarsym(p).localloc.register);
              LOC_REFERENCE : ;
-             LOC_CMMREGISTER :
-               { clear the whole register }
-               cg.a_opmm_reg_reg(taasmoutput(arg),OP_XOR,reg_cgsize(tglobalvarsym(p).localloc.register),
-                 tglobalvarsym(p).localloc.register,
-                 tglobalvarsym(p).localloc.register,
-                 nil);
-             LOC_CFPUREGISTER :
-               ;
              else
                internalerror(200410124);
            end;
@@ -1206,9 +1205,6 @@ implementation
                       cg.getcpuregister(list,funcretloc.register);
                       cg.ungetcpuregister(list,funcretloc.register);
                     end;
-                  { we can't do direct moves between fpu and mm registers }
-                  if restmploc.loc in [LOC_MMREGISTER,LOC_CMMREGISTER] then
-                    location_force_fpureg(list,restmploc,false);
                   cg.a_loadfpu_loc_reg(list,restmploc,funcretloc.register);
                 end;
               LOC_MMREGISTER:
@@ -1479,11 +1475,8 @@ implementation
                 begin
                   unget_para(paraloc^);
                   gen_load_reg(paraloc^,currpara.localloc.register);
-                  { data could come in two memory locations, for now
-                    we simply ignore the sanity check (FK)
                   if assigned(paraloc^.next) then
                     internalerror(200410108);
-                  }
                 end;
             end;
           end;
@@ -1497,11 +1490,6 @@ implementation
         { which is used to access the parameters in their original callee-side location  }
         cg.a_reg_dealloc(list,NR_R12);
 {$endif powerpc}
-{$ifdef powerpc64}
-        { unget the register that contains the stack pointer before the procedure entry, }
-        { which is used to access the parameters in their original callee-side location  }
-        cg.a_reg_dealloc(list, NR_OLD_STACK_POINTER_REG);
-{$endif powerpc64}
       end;
 
 
@@ -1578,8 +1566,11 @@ implementation
 
     procedure gen_entry_code(list:TAAsmoutput);
       var
+        href : treference;
         paraloc1,
-        paraloc2 : tcgpara;
+        paraloc2,
+        paraloc3 : tcgpara;
+        hp   : tused_unit;
       begin
         paraloc1.init;
         paraloc2.init;
@@ -1595,9 +1586,9 @@ implementation
             if not (target_info.system in [system_i386_win32,system_i386_wdosx]) or
                not (current_procinfo.procdef.proctypeoption=potype_proginit) then
               begin
-                cg.allocallcpuregisters(list);
+                cg.alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_cdecl));
                 cg.g_profilecode(list);
-                cg.deallocallcpuregisters(list);
+                cg.dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_cdecl));
               end;
           end;
 
@@ -1610,14 +1601,34 @@ implementation
               { the parameters are already in the right registers }
               cg.a_call_name(list,target_info.cprefix+'FPC_SYSTEMMAIN');
              end;
-
+           
            { initialize units }
-           cg.allocallcpuregisters(list);
+           cg.alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
            cg.a_call_name(list,'FPC_INITIALIZEUNITS');
-           cg.deallocallcpuregisters(list);
+           cg.dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
+
+{$ifdef GDB}
+           if (cs_debuginfo in aktmoduleswitches) then
+            if target_info.system <> system_powerpc_macos then
+             begin
+               { include reference to all debuginfo sections of used units }
+               hp:=tused_unit(usedunits.first);
+               while assigned(hp) do
+                 begin
+                   If (hp.u.flags and uf_has_debuginfo)=uf_has_debuginfo then
+                     current_procinfo.aktlocaldata.concat(Tai_const.Createname(make_mangledname('DEBUGINFO',hp.u.globalsymtable,''),AT_DATA,0));
+                   hp:=tused_unit(hp.next);
+                 end;
+               { include reference to debuginfo for this program }
+               current_procinfo.aktlocaldata.concat(Tai_const.Createname(make_mangledname('DEBUGINFO',current_module.localsymtable,''),AT_DATA,0));
+             end;
+{$endif GDB}
          end;
 
-        list.concat(Tai_force_line.Create);
+{$ifdef GDB}
+        if (cs_debuginfo in aktmoduleswitches) then
+         list.concat(Tai_force_line.Create);
+{$endif GDB}
 
 {$ifdef OLDREGVARS}
         load_regvars(list,nil);
@@ -1645,44 +1656,121 @@ implementation
       var
         hs : string;
       begin
+        { add symbol entry point as well as debug information                 }
+        { will be inserted in front of the rest of this list.                 }
+        { Insert alignment and assembler names }
+        { Align, gprof uses 16 byte granularity }
+        if (cs_profile in aktmoduleswitches) then
+          list.concat(Tai_align.create(16))
+        else
+          list.concat(Tai_align.create(aktalignment.procalign));
+
+{$ifdef GDB}
+        if (cs_debuginfo in aktmoduleswitches) then
+          begin
+            if (po_global in current_procinfo.procdef.procoptions) then
+              Tprocsym(current_procinfo.procdef.procsym).is_global:=true;
+            current_procinfo.procdef.concatstabto(list);
+            Tprocsym(current_procinfo.procdef.procsym).isstabwritten:=true;
+          end;
+{$endif GDB}
+
         repeat
           hs:=current_procinfo.procdef.aliasnames.getfirst;
           if hs='' then
             break;
+{$ifdef GDB}
+          if (cs_debuginfo in aktmoduleswitches) and
+             target_info.use_function_relative_addresses then
+          list.concat(Tai_stab_function_name.create(strpnew(hs)));
+{$endif GDB}
           if (cs_profile in aktmoduleswitches) or
              (po_global in current_procinfo.procdef.procoptions) then
             list.concat(Tai_symbol.createname_global(hs,AT_FUNCTION,0))
           else
             list.concat(Tai_symbol.createname(hs,AT_FUNCTION,0));
-          if target_info.use_function_relative_addresses then
-            list.concat(Tai_function_name.create(hs));
         until false;
-
-        current_procinfo.procdef.procstarttai:=tai(list.last);
       end;
 
 
 
     procedure gen_proc_symbol_end(list:Taasmoutput);
+{$ifdef GDB}
+      var
+        stabsendlabel : tasmlabel;
+        mangled_length : longint;
+        p : pchar;
+{$endif GDB}
       begin
-        if (current_procinfo.procdef.proctypeoption=potype_proginit) then
-          begin
-            { Insert Ident of the compiler in the main .text section }
-            if (not (cs_create_smart in aktmoduleswitches)) then
-             begin
-               list.insert(Tai_align.Create(const_align(32)));
-               list.insert(Tai_string.Create('FPC '+full_version_string+
-                 ' ['+date_string+'] for '+target_cpu_string+' - '+target_info.shortname));
-             end;
-
-            { Reference all DEBUGINFO sections from the main .text section }
-            if (cs_debuginfo in aktmoduleswitches) then
-              debuginfo.referencesections(list);
-          end;
-
         list.concat(Tai_symbol_end.Createname(current_procinfo.procdef.mangledname));
+{$ifdef GDB}
+        if (cs_debuginfo in aktmoduleswitches) then
+          begin
+            objectlibrary.getlabel(stabsendlabel);
+            cg.a_label(list,stabsendlabel);
+            { define calling EBP as pseudo local var PM }
+            { this enables test if the function is a local one !! }
+            {if  assigned(current_procinfo.parent) and
+                (current_procinfo.procdef.parast.symtablelevel>normal_function_level) then
+              list.concat(Tai_stabs.Create(strpnew(
+               '"parent_ebp:'+tstoreddef(voidpointertype.def).numberstring+'",'+
+               tostr(N_LSYM)+',0,0,'+tostr(current_procinfo.parent_framepointer_offset)))); }
 
-        current_procinfo.procdef.procendtai:=tai(list.last);
+            if assigned(current_procinfo.procdef.funcretsym) and
+               (tabstractnormalvarsym(current_procinfo.procdef.funcretsym).refs>0) then
+              begin
+                if tabstractnormalvarsym(current_procinfo.procdef.funcretsym).localloc.loc=LOC_REFERENCE then
+                  begin
+{$warning Need to add gdb support for ret in param register calling}
+                    if paramanager.ret_in_param(current_procinfo.procdef.rettype.def,current_procinfo.procdef.proccalloption) then
+                      begin
+                        list.concat(Tai_stabs.Create(strpnew(
+                           '"'+current_procinfo.procdef.procsym.name+':X*'+tstoreddef(current_procinfo.procdef.rettype.def).numberstring+'",'+
+                           tostr(N_tsym)+',0,0,'+tostr(tabstractnormalvarsym(current_procinfo.procdef.funcretsym).localloc.reference.offset))));
+                        if (m_result in aktmodeswitches) then
+                          list.concat(Tai_stabs.Create(strpnew(
+                             '"RESULT:X*'+tstoreddef(current_procinfo.procdef.rettype.def).numberstring+'",'+
+                             tostr(N_tsym)+',0,0,'+tostr(tabstractnormalvarsym(current_procinfo.procdef.funcretsym).localloc.reference.offset))))
+                      end
+                    else
+                      begin
+                        list.concat(Tai_stabs.Create(strpnew(
+                           '"'+current_procinfo.procdef.procsym.name+':X'+tstoreddef(current_procinfo.procdef.rettype.def).numberstring+'",'+
+                           tostr(N_tsym)+',0,0,'+tostr(tabstractnormalvarsym(current_procinfo.procdef.funcretsym).localloc.reference.offset))));
+                        if (m_result in aktmodeswitches) then
+                          list.concat(Tai_stabs.Create(strpnew(
+                             '"RESULT:X'+tstoreddef(current_procinfo.procdef.rettype.def).numberstring+'",'+
+                             tostr(N_tsym)+',0,0,'+tostr(tabstractnormalvarsym(current_procinfo.procdef.funcretsym).localloc.reference.offset))));
+                       end;
+                  end;
+              end;
+            mangled_length:=length(current_procinfo.procdef.mangledname);
+            getmem(p,2*mangled_length+50);
+            strpcopy(p,'192,0,0,');
+            strpcopy(strend(p),current_procinfo.procdef.mangledname);
+            if (target_info.use_function_relative_addresses) then
+              begin
+                strpcopy(strend(p),'-');
+                strpcopy(strend(p),current_procinfo.procdef.mangledname);
+              end;
+            list.concat(Tai_stabn.Create(strnew(p)));
+            {List.concat(Tai_stabn.Create(strpnew('192,0,0,'
+             +current_procinfo.procdef.mangledname))));
+            p[0]:='2';p[1]:='2';p[2]:='4';
+            strpcopy(strend(p),'_end');}
+            strpcopy(p,'224,0,0,'+stabsendlabel.name);
+            if (target_info.use_function_relative_addresses) then
+              begin
+                strpcopy(strend(p),'-');
+                strpcopy(strend(p),current_procinfo.procdef.mangledname);
+              end;
+            list.concatlist(withdebuglist);
+            list.concat(Tai_stabn.Create(strnew(p)));
+             { strpnew('224,0,0,'
+             +current_procinfo.procdef.mangledname+'_end'))));}
+            freemem(p,2*mangled_length+50);
+          end;
+{$endif GDB}
       end;
 
 
@@ -1766,9 +1854,9 @@ implementation
         paramanager.allocparaloc(list,paraloc1);
         paramanager.freeparaloc(list,paraloc1);
         { Call the helper }
-        cg.allocallcpuregisters(list);
+        cg.alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
         cg.a_call_name(list,'FPC_STACKCHECK');
-        cg.deallocallcpuregisters(list);
+        cg.dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
         paraloc1.done;
       end;
 
@@ -1803,7 +1891,7 @@ implementation
 
     procedure gen_external_stub(list:taasmoutput;pd:tprocdef;const externalname:string);
       begin
-        { add the procedure to the al_procedures }
+        { add the procedure to the codesegment }
         maybe_new_object_file(list);
         new_section(list,sec_code,lower(pd.mangledname),aktalignment.procalign);
         list.concat(Tai_align.create(aktalignment.procalign));
@@ -1822,32 +1910,19 @@ implementation
       var
         l,varalign : longint;
         storefilepos : tfileposinfo;
-        list : Taasmoutput;
-        sectype : Tasmsectiontype;
       begin
         storefilepos:=aktfilepos;
         aktfilepos:=sym.fileinfo;
         l:=sym.getsize;
-     {$ifndef segment_threadvars}
         if (vo_is_thread_var in sym.varoptions) then
           inc(l,sizeof(aint));
-        list:=asmlist[al_globals];
-        sectype:=sec_bss;
-     {$else}
-        if (vo_is_thread_var in sym.varoptions) then
-          begin
-            list:=asmlist[al_threadvars];
-            sectype:=sec_threadvar;
-          end
-        else
-          begin
-            list:=asmlist[al_globals];
-            sectype:=sec_bss;
-          end;
-     {$endif}
         varalign:=var_align(l);
-        maybe_new_object_file(list);
-        new_section(list,sectype,lower(sym.mangledname),varalign);
+        maybe_new_object_file(bssSegment);
+        new_section(bssSegment,sec_bss,lower(sym.mangledname),varalign);
+{$ifdef GDB}
+        if (cs_debuginfo in aktmoduleswitches) then
+          sym.concatstabto(bssSegment);
+{$endif GDB}
         if (sym.owner.symtabletype=globalsymtable) or
            maybe_smartlink_symbol or
            DLLSource or
@@ -1855,9 +1930,9 @@ implementation
             (po_inline in current_procinfo.procdef.procoptions)) or
            (vo_is_exported in sym.varoptions) or
            (vo_is_C_var in sym.varoptions) then
-          list.concat(Tai_datablock.create_global(sym.mangledname,l))
+          bssSegment.concat(Tai_datablock.Create_global(sym.mangledname,l))
         else
-          list.concat(Tai_datablock.create(sym.mangledname,l));
+          bssSegment.concat(Tai_datablock.Create(sym.mangledname,l));
         aktfilepos:=storefilepos;
       end;
 
@@ -1966,8 +2041,8 @@ implementation
                                   { PIC, DLL and Threadvar need extra code and are handled in ncgld }
                                   if not((target_info.system=system_powerpc_darwin) and
                                     (cs_create_pic in aktmoduleswitches)) and
-                                     not(vo_is_dll_var in varoptions) {$ifndef segment_threadvars} and
-                                     not(vo_is_thread_var in varoptions) {$endif} then
+                                     not(vo_is_dll_var in varoptions) and
+                                     not(vo_is_thread_var in varoptions) then
                                     reference_reset_symbol(localloc.reference,objectlibrary.newasmsymbol(mangledname,AB_EXTERNAL,AT_DATA),0);
                                 end;
                               else
@@ -2044,6 +2119,139 @@ implementation
       end;
 
 
+{$ifdef PASS2INLINE}
+    procedure gen_alloc_inline_parast(list:TAAsmoutput;pd:tprocdef);
+      var
+        sym : tsym;
+        calleeparaloc,
+        callerparaloc : pcgparalocation;
+      begin
+        if (po_assembler in pd.procoptions) then
+          exit;
+        sym:=tsym(pd.parast.symindex.first);
+        while assigned(sym) do
+          begin
+            if sym.typ=paravarsym then
+              begin
+                with tparavarsym(sym) do
+                  begin
+                    { for localloc <> LOC_REFERENCE, we need regvar support inside inlined procedures }
+                    localloc.loc:=LOC_REFERENCE;
+                    localloc.size:=int_cgsize(paramanager.push_size(varspez,vartype.def,pd.proccalloption));
+                    tg.GetLocal(list,tcgsize2size[localloc.size],vartype.def,localloc.reference);
+                    calleeparaloc:=paraloc[calleeside].location;
+                    callerparaloc:=paraloc[callerside].location;
+                    while assigned(calleeparaloc) do
+                      begin
+                        if not assigned(callerparaloc) then
+                          internalerror(200408281);
+                        if calleeparaloc^.loc<>callerparaloc^.loc then
+                          internalerror(200408282);
+                        case calleeparaloc^.loc of
+                          LOC_FPUREGISTER:
+                            begin
+                              calleeparaloc^.register:=cg.getfpuregister(list,calleeparaloc^.size);
+                              callerparaloc^.register:=calleeparaloc^.register;
+                            end;
+                          LOC_REGISTER:
+                            begin
+                              calleeparaloc^.register:=cg.getintregister(list,calleeparaloc^.size);
+                              callerparaloc^.register:=calleeparaloc^.register;
+                            end;
+                          LOC_MMREGISTER:
+                            begin
+                              calleeparaloc^.register:=cg.getmmregister(list,calleeparaloc^.size);
+                              callerparaloc^.register:=calleeparaloc^.register;
+                            end;
+                          LOC_REFERENCE:
+                            begin
+                              calleeparaloc^.reference.offset := localloc.reference.offset;
+                              calleeparaloc^.reference.index := localloc.reference.base;
+                              callerparaloc^.reference.offset := localloc.reference.offset;
+                              callerparaloc^.reference.index := localloc.reference.base;
+                            end;
+                        end;
+                        calleeparaloc:=calleeparaloc^.next;
+                        callerparaloc:=callerparaloc^.next;
+                      end;
+                    if cs_asm_source in aktglobalswitches then
+                      begin
+                        case localloc.loc of
+                          LOC_REFERENCE :
+                            list.concat(Tai_comment.Create(strpnew('Para '+realname+' allocated at '+
+                                std_regname(localloc.reference.base)+tostr_with_plus(localloc.reference.offset))));
+                        end;
+                      end;
+                  end;
+              end;
+            sym:=tsym(sym.indexnext);
+          end;
+      end;
+
+
+    procedure gen_alloc_inline_funcret(list:TAAsmoutput;pd:tprocdef);
+      var
+        callerparaloc : tlocation;
+      begin
+        if not assigned(pd.funcretsym) or
+           (po_assembler in pd.procoptions) then
+          exit;
+        { for localloc <> LOC_REFERENCE, we need regvar support inside inlined procedures }
+        with tabstractnormalvarsym(pd.funcretsym) do
+          begin
+            localloc.loc:=LOC_REFERENCE;
+            localloc.size:=int_cgsize(paramanager.push_size(varspez,vartype.def,pd.proccalloption));
+            tg.GetLocal(list,tcgsize2size[localloc.size],vartype.def,localloc.reference);
+            callerparaloc:=pd.funcretloc[callerside];
+            case pd.funcretloc[calleeside].loc of
+              LOC_FPUREGISTER:
+                begin
+                  pd.funcretloc[calleeside].register:=cg.getfpuregister(list,pd.funcretloc[calleeside].size);
+                  pd.funcretloc[callerside].register:=pd.funcretloc[calleeside].register;
+                end;
+              LOC_REGISTER:
+                begin
+  {$ifndef cpu64bit}
+                  if callerparaloc.size in [OS_64,OS_S64] then
+                    begin
+                    end
+                  else
+  {$endif cpu64bit}
+                    begin
+                      pd.funcretloc[calleeside].register:=cg.getintregister(list,pd.funcretloc[calleeside].size);
+                      pd.funcretloc[callerside].register:=pd.funcretloc[calleeside].register;
+                    end;
+                end;
+              LOC_MMREGISTER:
+                begin
+                  pd.funcretloc[calleeside].register:=cg.getmmregister(list,pd.funcretloc[calleeside].size);
+                  pd.funcretloc[callerside].register:=pd.funcretloc[calleeside].register;
+                end;
+              LOC_REFERENCE:
+                begin
+                  pd.funcretloc[calleeside].reference.offset := localloc.reference.offset;
+                  pd.funcretloc[calleeside].reference.index := localloc.reference.base;
+                  pd.funcretloc[callerside].reference.offset := localloc.reference.offset;
+                  pd.funcretloc[callerside].reference.index := localloc.reference.base;
+                end;
+              LOC_VOID:
+                ;
+              else
+                internalerror(200411191);
+            end;
+            if cs_asm_source in aktglobalswitches then
+              begin
+                case localloc.loc of
+                  LOC_REFERENCE :
+                    list.concat(Tai_comment.Create(strpnew('Funcret '+realname+' allocated at '+
+                        std_regname(localloc.reference.base)+tostr_with_plus(localloc.reference.offset))));
+                end;
+              end;
+          end;
+      end;
+{$endif PASS2INLINE}
+
+
     { persistent rtti generation }
     procedure generate_rtti(p:Ttypesym);
       var
@@ -2069,11 +2277,11 @@ implementation
            def.rttitablesym:=rsym;
            { write rtti data }
            def.write_child_rtti_data(fullrtti);
-           maybe_new_object_file(asmlist[al_rtti]);
-           new_section(asmlist[al_rtti],sec_rodata,rsym.get_label.name,const_align(sizeof(aint)));
-           asmlist[al_rtti].concat(Tai_symbol.Create_global(rsym.get_label,0));
+           maybe_new_object_file(rttilist);
+           new_section(rttilist,sec_rodata,rsym.get_label.name,const_align(sizeof(aint)));
+           rttiList.concat(Tai_symbol.Create_global(rsym.get_label,0));
            def.write_rtti_data(fullrtti);
-           asmlist[al_rtti].concat(Tai_symbol_end.Create(rsym.get_label));
+           rttiList.concat(Tai_symbol_end.Create(rsym.get_label));
          end;
       end;
 
@@ -2109,11 +2317,11 @@ implementation
            def.inittablesym:=rsym;
            { write inittable data }
            def.write_child_rtti_data(initrtti);
-           maybe_new_object_file(asmlist[al_rtti]);
-           new_section(asmlist[al_rtti],sec_rodata,rsym.get_label.name,const_align(sizeof(aint)));
-           asmlist[al_rtti].concat(Tai_symbol.Create_global(rsym.get_label,0));
+           maybe_new_object_file(rttilist);
+           new_section(rttilist,sec_rodata,rsym.get_label.name,const_align(sizeof(aint)));
+           rttiList.concat(Tai_symbol.Create_global(rsym.get_label,0));
            def.write_rtti_data(initrtti);
-           asmlist[al_rtti].concat(Tai_symbol_end.Create(rsym.get_label));
+           rttiList.concat(Tai_symbol_end.Create(rsym.get_label));
          end;
       end;
 

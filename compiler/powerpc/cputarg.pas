@@ -58,26 +58,8 @@ implementation
     {$ifndef NOAGPPPCMPW}
       ,agppcmpw
     {$endif}
-
-{**************************************
-        Assembler Readers
-**************************************}
-
-  {$ifndef NoRaPPCGas}
-       ,rappcgas
-  {$endif NoRaPPCGas}
-
-{**************************************
-             Debuginfo
-**************************************}
-
-  {$ifndef NoDbgStabs}
-      ,dbgstabs
-  {$endif NoDbgStabs}
-  {$ifndef NoDbgDwarf}
-      ,dbgdwarf
-  {$endif NoDbgDwarf}
-
+    
+    
 {**************************************
              Optimizer
 **************************************}

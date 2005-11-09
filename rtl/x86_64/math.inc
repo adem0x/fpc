@@ -1,8 +1,8 @@
 {
-    Implementation of mathematical routines for x86_64
-
     This file is part of the Free Pascal run time library.
-    Copyright (c) 1999-2005 by the Free Pascal development team
+    Copyright (c) 1999-2001 by the Free Pascal development team
+
+    Implementation of mathematical routines (for extended type)
 
     See the file COPYING.FPC, included in this distribution,
     for details about the copyright.
@@ -13,30 +13,10 @@
 
  **********************************************************************}
 
-label
-  FPC_ABSMASK_DOUBLE,
-  FPC_ABSMASK_SINGLE;
-
-procedure dummyproc;assembler;
-  asm
-  .data
-    .balign 16
-    .globl FPC_ABSMASK_SINGLE
-FPC_ABSMASK_SINGLE:
-    .quad 0x7FFFFFFF7FFFFFFF
-    .quad 0x7FFFFFFF7FFFFFFF
-    .globl FPC_ABSMASK_DOUBLE
-FPC_ABSMASK_DOUBLE:
-    .quad 0x7FFFFFFFFFFFFFFF
-    .quad 0x7FFFFFFFFFFFFFFF
-  .text
-  end;
-
 {****************************************************************************
                             FPU Control word
  ****************************************************************************}
 
-{$ifndef WIN64}
     procedure Set8087CW(cw:word);assembler;
     asm
       movw cw,%ax
@@ -58,7 +38,6 @@ FPC_ABSMASK_DOUBLE:
       fnstcw (%rsp)
       popq %rax
     end;
-{$endif WIN64}
 
 {****************************************************************************
                        EXTENDED data type routines
@@ -121,7 +100,6 @@ FPC_ABSMASK_DOUBLE:
       result:=0;
     end;
 
-{$ifndef WIN64}
     {$define FPC_SYSTEM_HAS_EXP}
     function fpc_exp_real(d : ValReal) : ValReal;assembler;compilerproc;
        asm
@@ -222,22 +200,22 @@ FPC_ABSMASK_DOUBLE:
 
 
     {$define FPC_SYSTEM_HAS_POWER}
-    function power(bas,expo : extended) : extended;
-      begin
-         if bas=0 then
-           begin
-             if expo<>0 then
-               power:=0.0
-             else
-               HandleError(207);
-           end
-         else if expo=0 then
-          power:=1
+   function power(bas,expo : extended) : extended;
+     begin
+        if bas=0 then
+          begin
+            if expo<>0 then
+              power:=0.0
+            else
+              HandleError(207);
+          end
+        else if expo=0 then
+         power:=1
+        else
+        { bas < 0 is not allowed }
+         if bas<0 then
+          handleerror(207)
          else
-         { bas < 0 is not allowed }
-          if bas<0 then
-           handleerror(207)
-          else
-           power:=exp(ln(bas)*expo);
-      end;
-{$endif WIN64}
+          power:=exp(ln(bas)*expo);
+     end;
+

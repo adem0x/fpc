@@ -111,19 +111,6 @@ unit cpupara;
                   end;
               end;
             end;
-          system_i386_darwin :
-            begin
-              case def.deftype of
-                recorddef : 
-                  begin
-                    if (def.size <= 8) then
-                      begin
-                        result := false;
-                        exit;
-                      end;
-                  end;
-              end;
-            end;
         end;
         result:=inherited ret_in_param(def,calloption);
       end;
@@ -417,23 +404,14 @@ unit cpupara;
                   internalerror(200501163);
                 while (paralen>0) do
                   begin
+                    { We can allocate at maximum 32 bits per location }
+                    if paralen>sizeof(aint) then
+                      l:=sizeof(aint)
+                    else
+                      l:=paralen;
                     paraloc:=hp.paraloc[side].add_location;
                     paraloc^.loc:=LOC_REFERENCE;
-                    { single and double need a single location }
-                    if (paracgsize in [OS_F64,OS_F32]) then
-                      begin
-                        paraloc^.size:=paracgsize;
-                        l:=paralen;
-                      end
-                    else
-                      begin
-                        { We can allocate at maximum 32 bits per location }
-                        if paralen>sizeof(aint) then
-                          l:=sizeof(aint)
-                        else
-                          l:=paralen;
-                        paraloc^.size:=int_cgsize(l);
-                      end;
+                    paraloc^.size:=int_cgsize(l);
                     if side=callerside then
                       paraloc^.reference.index:=NR_STACK_POINTER_REG
                     else
@@ -530,23 +508,14 @@ unit cpupara;
                       internalerror(200501163);
                     while (paralen>0) do
                       begin
+                        { We can allocate at maximum 32 bits per location }
+                        if paralen>sizeof(aint) then
+                          l:=sizeof(aint)
+                        else
+                          l:=paralen;
                         paraloc:=hp.paraloc[side].add_location;
                         paraloc^.loc:=LOC_REFERENCE;
-                        { Extended and double need a single location }
-                        if (paracgsize in [OS_F64,OS_F32]) then
-                          begin
-                            paraloc^.size:=paracgsize;
-                            l:=paralen;
-                          end
-                        else
-                          begin
-                            { We can allocate at maximum 32 bits per location }
-                            if paralen>sizeof(aint) then
-                              l:=sizeof(aint)
-                            else
-                              l:=paralen;
-                            paraloc^.size:=int_cgsize(l);
-                          end;
+                        paraloc^.size:=int_cgsize(l);
                         if side=callerside then
                           paraloc^.reference.index:=NR_STACK_POINTER_REG
                         else

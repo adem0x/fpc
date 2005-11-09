@@ -40,7 +40,7 @@ unit rabase;
        pasmmodeinfo = ^tasmmodeinfo;
        tasmmodeinfo = record
           id    : tasmmode;
-          idtxt : string[12];
+          idtxt : string[8];
           casmreader : tcbaseasmreader;
        end;
 

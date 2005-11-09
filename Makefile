@@ -231,7 +231,7 @@ UNITSDIR:=$(wildcard $(FPCDIR)/units/$(OS_TARGET))
 endif
 PACKAGESDIR:=$(wildcard $(FPCDIR) $(FPCDIR)/packages/base $(FPCDIR)/packages/extra)
 override PACKAGE_NAME=fpc
-override PACKAGE_VERSION=2.1.1
+override PACKAGE_VERSION=2.0.1
 ifndef inOS2
 override FPCDIR:=$(BASEDIR)
 export FPCDIR
@@ -254,9 +254,6 @@ PPSUF=sparc
 endif
 ifeq ($(CPU_TARGET),powerpc)
 PPSUF=ppc
-endif
-ifeq ($(CPU_TARGET),powerpc64)
-PPSUF=ppc64
 endif
 ifeq ($(CPU_TARGET),alpha)
 PPSUF=axp

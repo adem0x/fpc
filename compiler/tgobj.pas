@@ -161,11 +161,7 @@ implementation
 {$ifdef powerpc}
        direction:=1;
 {$else powerpc}
-{$ifdef POWERPC64}
-       direction:=1;
-{$else POWERPC64}
        direction:=-1;
-{$endif POWERPC64}
 {$endif powerpc}
      end;
 

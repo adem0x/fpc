@@ -118,6 +118,8 @@ unit cgcpu;
       OpCmp2AsmCond : Array[topcmp] of TAsmCond = (C_NONE,C_EQ,C_GT,
                            C_LT,C_GE,C_LE,C_NE,C_LS,C_CC,C_CS,C_HI);
 
+    function is_shifter_const(d : aint;var imm_shift : byte) : boolean;
+
     function get_fpu_postfix(def : tdef) : toppostfix;
 
   implementation
@@ -198,43 +200,32 @@ unit cgcpu;
 
     procedure tcgarm.a_param_ref(list : taasmoutput;size : tcgsize;const r : treference;const paraloc : TCGPara);
       var
-        tmpref, ref: treference;
-        location: pcgparalocation;
-        sizeleft: aint;
+        ref: treference;
+        tmpreg: tregister;
       begin
-        location := paraloc.location;
-        tmpref := r;
-        sizeleft := paraloc.intsize;
-        while assigned(location) do
-          begin
-            case location^.loc of
-              LOC_REGISTER,LOC_CREGISTER:
-                a_load_ref_reg(list,location^.size,location^.size,tmpref,location^.register);
-              LOC_REFERENCE:
-                begin
-                   reference_reset_base(ref,location^.reference.index,location^.reference.offset);
-                   g_concatcopy(list,tmpref,ref,sizeleft);
-                   if assigned(location^.next) then
-                     internalerror(2005010710);
-                end;
-              LOC_FPUREGISTER,LOC_CFPUREGISTER:
-                case location^.size of
-                   OS_F32, OS_F64:
-                     a_loadfpu_ref_reg(list,location^.size,tmpref,location^.register);
-                   else
-                     internalerror(2002072801);
-                end;
-              LOC_VOID:
-                begin
-                  // nothing to do
-                end;
-              else
-                internalerror(2002081103);
+        paraloc.check_simple_location;
+        case paraloc.location^.loc of
+          LOC_REGISTER,LOC_CREGISTER:
+            a_load_ref_reg(list,size,size,r,paraloc.location^.register);
+          LOC_REFERENCE:
+            begin
+               reference_reset(ref);
+               ref.base:=paraloc.location^.reference.index;
+               ref.offset:=paraloc.location^.reference.offset;
+               tmpreg := getintregister(list,size);
+               a_load_ref_reg(list,size,size,r,tmpreg);
+               a_load_reg_ref(list,size,size,tmpreg,ref);
             end;
-            inc(tmpref.offset,tcgsize2size[location^.size]);
-            dec(sizeleft,tcgsize2size[location^.size]);
-            location := location^.next;
-          end;
+          LOC_FPUREGISTER,LOC_CFPUREGISTER:
+            case size of
+               OS_F32, OS_F64:
+                 a_loadfpu_ref_reg(list,size,r,paraloc.location^.register);
+               else
+                 internalerror(2002072801);
+            end;
+          else
+            internalerror(2002081103);
+        end;
       end;
 
 
@@ -244,21 +235,21 @@ unit cgcpu;
         tmpreg: tregister;
       begin
         paraloc.check_simple_location;
-        case paraloc.location^.loc of
-          LOC_REGISTER,LOC_CREGISTER:
-            a_loadaddr_ref_reg(list,r,paraloc.location^.register);
-          LOC_REFERENCE:
-            begin
-              reference_reset(ref);
-              ref.base := paraloc.location^.reference.index;
-              ref.offset := paraloc.location^.reference.offset;
-              tmpreg := getintregister(list,OS_ADDR);
-              a_loadaddr_ref_reg(list,r,tmpreg);
-              a_load_reg_ref(list,OS_ADDR,OS_ADDR,tmpreg,ref);
-            end;
-          else
-            internalerror(2002080701);
-        end;
+         case paraloc.location^.loc of
+            LOC_REGISTER,LOC_CREGISTER:
+              a_loadaddr_ref_reg(list,r,paraloc.location^.register);
+            LOC_REFERENCE:
+              begin
+                reference_reset(ref);
+                ref.base := paraloc.location^.reference.index;
+                ref.offset := paraloc.location^.reference.offset;
+                tmpreg := getintregister(list,OS_ADDR);
+                a_loadaddr_ref_reg(list,r,tmpreg);
+                a_load_reg_ref(list,OS_ADDR,OS_ADDR,tmpreg,ref);
+              end;
+            else
+              internalerror(2002080701);
+         end;
       end;
 
 
@@ -544,6 +535,29 @@ unit cgcpu;
       end;
 
 
+     function rotl(d : dword;b : byte) : dword;
+       begin
+          result:=(d shr (32-b)) or (d shl b);
+       end;
+
+
+     function is_shifter_const(d : aint;var imm_shift : byte) : boolean;
+       var
+          i : longint;
+       begin
+          for i:=0 to 15 do
+            begin
+               if (dword(d) and not(rotl($ff,i*2)))=0 then
+                 begin
+                    imm_shift:=i*2;
+                    result:=true;
+                    exit;
+                 end;
+            end;
+          result:=false;
+       end;
+
+
      procedure tcgarm.a_load_const_reg(list : taasmoutput; size: tcgsize; a : aint;reg : tregister);
        var
           imm_shift : byte;
@@ -560,7 +574,7 @@ unit cgcpu;
             begin
                reference_reset(hr);
 
-               objectlibrary.getjumplabel(l);
+               objectlibrary.getlabel(l);
                cg.a_label(current_procinfo.aktlocaldata,l);
                hr.symboldata:=current_procinfo.aktlocaldata.last;
                current_procinfo.aktlocaldata.concat(tai_const.Create_32bit(longint(a)));
@@ -626,7 +640,7 @@ unit cgcpu;
             tmpreg:=getintregister(list,OS_INT);
             if assigned(ref.symbol) then
               begin
-                objectlibrary.getjumplabel(l);
+                objectlibrary.getlabel(l);
                 cg.a_label(current_procinfo.aktlocaldata,l);
                 tmpref.symboldata:=current_procinfo.aktlocaldata.last;
 
@@ -892,7 +906,7 @@ unit cgcpu;
            OS_F80:
              oppostfix:=PF_E;
            else
-             InternalError(200309022);
+             InternalError(200309021);
          end;
          handle_load_store(list,A_STF,oppostfix,reg,ref);
        end;
@@ -936,7 +950,7 @@ unit cgcpu;
 
     procedure tcgarm.a_jmp_always(list : taasmoutput;l: tasmlabel);
       begin
-        list.concat(taicpu.op_sym(A_B,l));
+        list.concat(taicpu.op_sym(A_B,objectlibrary.newasmsymbol(l.name,AB_EXTERNAL,AT_FUNCTION)));
       end;
 
 
@@ -1159,7 +1173,7 @@ unit cgcpu;
         }
         { create consts entry }
         reference_reset(tmpref);
-        objectlibrary.getjumplabel(l);
+        objectlibrary.getlabel(l);
         cg.a_label(current_procinfo.aktlocaldata,l);
         tmpref.symboldata:=current_procinfo.aktlocaldata.last;
 
@@ -1241,7 +1255,7 @@ unit cgcpu;
         var
           l : tasmlabel;
         begin
-          objectlibrary.getjumplabel(l);
+          objectlibrary.getlabel(l);
           a_load_const_reg(list,OS_INT,count,countreg);
           cg.a_label(list,l);
           srcref.addressmode:=AM_POSTINDEXED;
@@ -1359,7 +1373,7 @@ unit cgcpu;
       begin
         if not(cs_check_overflow in aktlocalswitches) then
           exit;
-        objectlibrary.getjumplabel(hl);
+        objectlibrary.getlabel(hl);
         case ovloc.loc of
           LOC_VOID:
             begin

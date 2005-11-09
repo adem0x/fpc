@@ -28,7 +28,7 @@ interface
     const
        { version string }
        version_nr = '2';
-       release_nr = '1';
+       release_nr = '0';
        patch_nr   = '1';
        minorpatch = '';
 
@@ -44,12 +44,9 @@ interface
 {$ifdef cpu86}
         source_cpu_string = 'i386';
 {$endif cpu86}
-{$ifdef cpupowerpc32}
+{$ifdef cpupowerpc}
         source_cpu_string = 'powerpc';
-{$endif cpupowerpc32}
-{$ifdef cpupowerpc64}
-        source_cpu_string = 'powerpc64';
-{$endif cpupowerpc64}
+{$endif cpupowerpc}
 {$ifdef cpum68k}
         source_cpu_string = 'm68k';
 {$endif cpum68k}

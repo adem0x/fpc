@@ -262,9 +262,6 @@ endif
 ifeq ($(FULL_TARGET),i386-netwlibc)
 override TARGET_DIRS+=netwlibc
 endif
-ifeq ($(FULL_TARGET),i386-wince)
-override TARGET_DIRS+=wince
-endif
 ifeq ($(FULL_TARGET),m68k-linux)
 override TARGET_DIRS+=linux
 endif
@@ -304,14 +301,8 @@ endif
 ifeq ($(FULL_TARGET),x86_64-freebsd)
 override TARGET_DIRS+=freebsd
 endif
-ifeq ($(FULL_TARGET),x86_64-win64)
-override TARGET_DIRS+=win64
-endif
 ifeq ($(FULL_TARGET),arm-linux)
 override TARGET_DIRS+=linux
-endif
-ifeq ($(FULL_TARGET),arm-wince)
-override TARGET_DIRS+=wince
 endif
 ifeq ($(FULL_TARGET),powerpc64-linux)
 override TARGET_DIRS+=linux
@@ -1534,9 +1525,6 @@ endif
 ifeq ($(FULL_TARGET),i386-netwlibc)
 TARGET_DIRS_NETWLIBC=1
 endif
-ifeq ($(FULL_TARGET),i386-wince)
-TARGET_DIRS_WINCE=1
-endif
 ifeq ($(FULL_TARGET),m68k-linux)
 TARGET_DIRS_LINUX=1
 endif
@@ -1576,14 +1564,8 @@ endif
 ifeq ($(FULL_TARGET),x86_64-freebsd)
 TARGET_DIRS_FREEBSD=1
 endif
-ifeq ($(FULL_TARGET),x86_64-win64)
-TARGET_DIRS_WIN64=1
-endif
 ifeq ($(FULL_TARGET),arm-linux)
 TARGET_DIRS_LINUX=1
-endif
-ifeq ($(FULL_TARGET),arm-wince)
-TARGET_DIRS_WINCE=1
 endif
 ifeq ($(FULL_TARGET),powerpc64-linux)
 TARGET_DIRS_LINUX=1
@@ -2038,51 +2020,6 @@ netwlibc:
 	$(MAKE) -C netwlibc all
 .PHONY: netwlibc_all netwlibc_debug netwlibc_smart netwlibc_release netwlibc_units netwlibc_examples netwlibc_shared netwlibc_install netwlibc_sourceinstall netwlibc_exampleinstall netwlibc_distinstall netwlibc_zipinstall netwlibc_zipsourceinstall netwlibc_zipexampleinstall netwlibc_zipdistinstall netwlibc_clean netwlibc_distclean netwlibc_cleanall netwlibc_info netwlibc_makefiles netwlibc
 endif
-ifdef TARGET_DIRS_WINCE
-wince_all:
-	$(MAKE) -C wince all
-wince_debug:
-	$(MAKE) -C wince debug
-wince_smart:
-	$(MAKE) -C wince smart
-wince_release:
-	$(MAKE) -C wince release
-wince_units:
-	$(MAKE) -C wince units
-wince_examples:
-	$(MAKE) -C wince examples
-wince_shared:
-	$(MAKE) -C wince shared
-wince_install:
-	$(MAKE) -C wince install
-wince_sourceinstall:
-	$(MAKE) -C wince sourceinstall
-wince_exampleinstall:
-	$(MAKE) -C wince exampleinstall
-wince_distinstall:
-	$(MAKE) -C wince distinstall
-wince_zipinstall:
-	$(MAKE) -C wince zipinstall
-wince_zipsourceinstall:
-	$(MAKE) -C wince zipsourceinstall
-wince_zipexampleinstall:
-	$(MAKE) -C wince zipexampleinstall
-wince_zipdistinstall:
-	$(MAKE) -C wince zipdistinstall
-wince_clean:
-	$(MAKE) -C wince clean
-wince_distclean:
-	$(MAKE) -C wince distclean
-wince_cleanall:
-	$(MAKE) -C wince cleanall
-wince_info:
-	$(MAKE) -C wince info
-wince_makefiles:
-	$(MAKE) -C wince makefiles
-wince:
-	$(MAKE) -C wince all
-.PHONY: wince_all wince_debug wince_smart wince_release wince_units wince_examples wince_shared wince_install wince_sourceinstall wince_exampleinstall wince_distinstall wince_zipinstall wince_zipsourceinstall wince_zipexampleinstall wince_zipdistinstall wince_clean wince_distclean wince_cleanall wince_info wince_makefiles wince
-endif
 ifdef TARGET_DIRS_AMIGA
 amiga_all:
 	$(MAKE) -C amiga all
@@ -2262,51 +2199,6 @@ morphos_makefiles:
 morphos:
 	$(MAKE) -C morphos all
 .PHONY: morphos_all morphos_debug morphos_smart morphos_release morphos_units morphos_examples morphos_shared morphos_install morphos_sourceinstall morphos_exampleinstall morphos_distinstall morphos_zipinstall morphos_zipsourceinstall morphos_zipexampleinstall morphos_zipdistinstall morphos_clean morphos_distclean morphos_cleanall morphos_info morphos_makefiles morphos
-endif
-ifdef TARGET_DIRS_WIN64
-win64_all:
-	$(MAKE) -C win64 all
-win64_debug:
-	$(MAKE) -C win64 debug
-win64_smart:
-	$(MAKE) -C win64 smart
-win64_release:
-	$(MAKE) -C win64 release
-win64_units:
-	$(MAKE) -C win64 units
-win64_examples:
-	$(MAKE) -C win64 examples
-win64_shared:
-	$(MAKE) -C win64 shared
-win64_install:
-	$(MAKE) -C win64 install
-win64_sourceinstall:
-	$(MAKE) -C win64 sourceinstall
-win64_exampleinstall:
-	$(MAKE) -C win64 exampleinstall
-win64_distinstall:
-	$(MAKE) -C win64 distinstall
-win64_zipinstall:
-	$(MAKE) -C win64 zipinstall
-win64_zipsourceinstall:
-	$(MAKE) -C win64 zipsourceinstall
-win64_zipexampleinstall:
-	$(MAKE) -C win64 zipexampleinstall
-win64_zipdistinstall:
-	$(MAKE) -C win64 zipdistinstall
-win64_clean:
-	$(MAKE) -C win64 clean
-win64_distclean:
-	$(MAKE) -C win64 distclean
-win64_cleanall:
-	$(MAKE) -C win64 cleanall
-win64_info:
-	$(MAKE) -C win64 info
-win64_makefiles:
-	$(MAKE) -C win64 makefiles
-win64:
-	$(MAKE) -C win64 all
-.PHONY: win64_all win64_debug win64_smart win64_release win64_units win64_examples win64_shared win64_install win64_sourceinstall win64_exampleinstall win64_distinstall win64_zipinstall win64_zipsourceinstall win64_zipexampleinstall win64_zipdistinstall win64_clean win64_distclean win64_cleanall win64_info win64_makefiles win64
 endif
 all: $(addsuffix _all,$(TARGET_DIRS))
 debug: $(addsuffix _debug,$(TARGET_DIRS))

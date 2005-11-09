@@ -65,7 +65,7 @@ unit nx86add;
       verbose,cutils,
       cpuinfo,
       aasmbase,aasmtai,aasmcpu,
-      symconst,symdef,
+      symconst,
       cgobj,cgx86,cga,cgutils,
       paramgr,tgobj,ncgutil,
       ncon,nset,
@@ -176,7 +176,7 @@ unit nx86add;
          begin
            if cs_check_overflow in aktlocalswitches  then
             begin
-              objectlibrary.getjumplabel(hl4);
+              objectlibrary.getlabel(hl4);
               if unsigned then
                 cg.a_jmp_flags(exprasmlist,F_AE,hl4)
               else

@@ -1016,10 +1016,6 @@ parser_e_protected_or_private_expected=03214_E_Protected or private expected
 % \var{strict} can be only used together with \var{protected} or \var{private}.
 parser_e_illegal_slice=03215_E_SLICE can't be used outside of parameter list
 % \var{slice} can be used only for arguments accepting an open array parameter
-parser_e_dispinterface_cant_have_parent=03216_E_A DISPINTERFACE can't have a parent class
-% A DISPINMTERFACE is a special type of interface which can't have a parent class
-parser_e_dispinterface_needs_a_guid=03217_E_A DISPINTERFACE needs a guid
-% A DISPINMTERFACE needs always an interface identification
 % \end{description}
 #
 # Type Checking
@@ -1510,7 +1506,7 @@ cg_e_break_not_allowed=06044_E_BREAK not allowed
 % You're trying to use \var{break} outside a loop construction.
 cg_e_continue_not_allowed=06045_E_CONTINUE not allowed
 % You're trying to use \var{continue} outside a loop construction.
-cg_f_unknown_compilerproc=06046_F_Unknown compilerproc "$1". Check if you use the correct run time library.
+cg_f_unknown_compiler=06046_F_Unknown compilerproc "$1". Check if you use the correct run time library.
 % The compiler expects that the runtime library contains some subrountines. If you see this error
 % and you didn't mess with the runtime library, it's very likely that the runtime library
 % you're using doesn't match the used compiler. If you changed the runtime library this error means
@@ -2274,8 +2270,6 @@ S*2Aas_assemble using GNU AS
 **2Mgpc_tries to be gpc compatible
 **2Mmacpas_tries to be compatible to the macintosh pascal dialects
 **1n_don't read the default config file
-**1N<x>_node tree optimizations
-**2Nu_unroll loops
 **1o<x>_change the name of the executable produced to <x>
 **1O<x>_optimizations:
 3*2Oa_<type>=<values> set alignment
@@ -2341,7 +2335,6 @@ S*2Aas_assemble using GNU AS
 3*2Twatcom_Watcom compatible DOS extender
 3*2Twdosx_WDOSX DOS extender
 3*2Twin32_Windows 32 Bit
-3*2Twince_Windows CE
 4*2Tlinux_Linux
 6*2Tamiga_Commodore Amiga
 6*2Tatari_Atari ST/STe/TT
@@ -2349,7 +2342,6 @@ S*2Aas_assemble using GNU AS
 6*2Tmacos_Macintosh m68k (not supported)
 6*2Tpalmos_PalmOS
 A*2Tlinux_Linux
-A*2Twince_Windows CE
 P*2Tdarwin_Darwin and MacOS X on PowerPC
 P*2Tlinux_Linux on PowerPC
 P*2Tmacos_MacOS (classic) on PowerPC

@@ -65,7 +65,6 @@ unit i_go32v2;
             linkextern   : nil;
             ar           : ar_gnu_ar;
             res          : res_none;
-            dbg          : dbg_stabs;
             script       : script_dos;
             endian       : endian_little;
             alignment    :

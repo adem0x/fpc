@@ -61,11 +61,11 @@ interface
 
       tdwarf=class
       private
-        Fal_dwarf : TLinkedList;
+        FDwarfList : TLinkedList;
       public
         constructor create;
         destructor destroy;override;
-        property al_dwarf:TlinkedList read Fal_dwarf;
+        property DwarfList:TlinkedList read FDwarfList;
       end;
 
       tdwarfcfi=class(tdwarf)
@@ -133,13 +133,13 @@ implementation
 
     constructor tdwarf.create;
       begin
-        Fal_dwarf:=TLinkedList.Create;
+        FDwarfList:=TLinkedList.Create;
       end;
 
 
     destructor tdwarf.destroy;
       begin
-        Fal_dwarf.Free;
+        FDwarfList.Free;
       end;
 
 
@@ -270,10 +270,10 @@ implementation
            BYTE    return address register
            <...>   start sequence
         }
-        objectlibrary.getjumplabel(cielabel);
+        objectlibrary.getlabel(cielabel);
         list.concat(tai_label.create(cielabel));
-        objectlibrary.getjumplabel(lenstartlabel);
-        objectlibrary.getjumplabel(lenendlabel);
+        objectlibrary.getlabel(lenstartlabel);
+        objectlibrary.getlabel(lenendlabel);
         list.concat(tai_const.create_rel_sym(ait_const_32bit,lenstartlabel,lenendlabel));
         list.concat(tai_label.create(lenstartlabel));
         list.concat(tai_const.create_32bit(longint($ffffffff)));
@@ -298,7 +298,7 @@ implementation
         lenstartlabel:=nil;
         lenendlabel:=nil;
 
-        hp:=TDwarfItem(al_dwarf.first);
+        hp:=TDwarfItem(Dwarflist.first);
         while assigned(hp) do
           begin
             case hp.op of
@@ -309,8 +309,8 @@ implementation
                   if (hp.ops<>1) or
                      (hp.oper[0].typ<>dop_reloffset) then
                     internalerror(200404126);
-                  objectlibrary.getjumplabel(lenstartlabel);
-                  objectlibrary.getjumplabel(lenendlabel);
+                  objectlibrary.getlabel(lenstartlabel);
+                  objectlibrary.getlabel(lenendlabel);
                   { FDE
                      DWORD length
                      DWORD CIE-pointer = cielabel
@@ -341,8 +341,8 @@ implementation
         { Check for open frames }
         if assigned(lenstartlabel) then
           internalerror(2004041210);
-        { al_dwarf is processed, remove items }
-        al_dwarf.Clear;
+        { Dwarflist is processed, remove items }
+        DwarfList.Clear;
       end;
 
 
@@ -350,11 +350,11 @@ implementation
       begin
         if assigned(FFrameStartLabel) then
           internalerror(200404129);
-        objectlibrary.getjumplabel(FFrameStartLabel);
-        objectlibrary.getjumplabel(FFrameEndLabel);
+        objectlibrary.getlabel(FFrameStartLabel);
+        objectlibrary.getlabel(FFrameEndLabel);
         FLastloclabel:=FFrameStartLabel;
         list.concat(tai_label.create(FFrameStartLabel));
-        al_dwarf.concat(tdwarfitem.create_reloffset(DW_CFA_start_frame,doe_32bit,FFrameStartLabel,FFrameEndLabel));
+        dwarflist.concat(tdwarfitem.create_reloffset(DW_CFA_start_frame,doe_32bit,FFrameStartLabel,FFrameEndLabel));
       end;
 
 
@@ -362,7 +362,7 @@ implementation
       begin
         if not assigned(FFrameStartLabel) then
           internalerror(2004041213);
-        al_dwarf.concat(tdwarfitem.create(DW_CFA_end_frame));
+        dwarflist.concat(tdwarfitem.create(DW_CFA_end_frame));
         list.concat(tai_label.create(FFrameEndLabel));
         FFrameStartLabel:=nil;
         FFrameEndLabel:=nil;
@@ -376,9 +376,9 @@ implementation
       begin
         if FLastloclabel=nil then
           internalerror(200404082);
-        objectlibrary.getjumplabel(currloclabel);
+        objectlibrary.getlabel(currloclabel);
         list.concat(tai_label.create(currloclabel));
-        al_dwarf.concat(tdwarfitem.create_reloffset(DW_CFA_advance_loc4,doe_32bit,FLastloclabel,currloclabel));
+        dwarflist.concat(tdwarfitem.create_reloffset(DW_CFA_advance_loc4,doe_32bit,FLastloclabel,currloclabel));
         FLastloclabel:=currloclabel;
       end;
 
@@ -388,28 +388,28 @@ implementation
         cfa_advance_loc(list);
 {$warning TODO check if ref is a temp}
         { offset must be positive }
-        al_dwarf.concat(tdwarfitem.create_reg_const(DW_CFA_offset_extended,doe_uleb,reg,doe_uleb,ofs div data_alignment_factor));
+        dwarflist.concat(tdwarfitem.create_reg_const(DW_CFA_offset_extended,doe_uleb,reg,doe_uleb,ofs div data_alignment_factor));
       end;
 
 
     procedure tdwarfcfi.cfa_restore(list:taasmoutput;reg:tregister);
       begin
         cfa_advance_loc(list);
-        al_dwarf.concat(tdwarfitem.create_reg(DW_CFA_restore_extended,doe_uleb,reg));
+        dwarflist.concat(tdwarfitem.create_reg(DW_CFA_restore_extended,doe_uleb,reg));
       end;
 
 
     procedure tdwarfcfi.cfa_def_cfa_register(list:taasmoutput;reg:tregister);
       begin
         cfa_advance_loc(list);
-        al_dwarf.concat(tdwarfitem.create_reg(DW_CFA_def_cfa_register,doe_uleb,reg));
+        dwarflist.concat(tdwarfitem.create_reg(DW_CFA_def_cfa_register,doe_uleb,reg));
       end;
 
 
     procedure tdwarfcfi.cfa_def_cfa_offset(list:taasmoutput;ofs:longint);
       begin
         cfa_advance_loc(list);
-        al_dwarf.concat(tdwarfitem.create_const(DW_CFA_def_cfa_offset,doe_uleb,ofs));
+        dwarflist.concat(tdwarfitem.create_const(DW_CFA_def_cfa_offset,doe_uleb,ofs));
       end;
 
 

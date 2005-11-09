@@ -116,12 +116,12 @@ than 255 characters. That's why using Ansi Strings}
          cs_load_fpcylix_unit,
          { optimizer }
          cs_regvars,cs_no_regalloc,cs_uncertainopts,cs_littlesize,
-         cs_optimize,cs_fastoptimize,cs_slowoptimize,cs_align,cs_loopunroll,
+         cs_optimize,cs_fastoptimize,cs_slowoptimize,cs_align,
          { browser }
          cs_browser_log,
-         { debuginfo }
-         cs_use_heaptrc,cs_use_lineinfo,
-         cs_gdb_valgrind,
+         { debugger }
+         cs_gdb_dbx,cs_gdb_gsym,cs_gdb_heaptrc,cs_gdb_lineinfo,
+         cs_gdb_valgrind,cs_gdb_dwarf,
          { assembling }
          cs_asm_leave,cs_asm_extern,cs_asm_pipe,cs_asm_source,
          cs_asm_regalloc,cs_asm_tempalloc,cs_asm_nodes,

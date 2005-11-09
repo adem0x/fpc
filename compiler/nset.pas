@@ -82,7 +82,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           procedure insertintolist(l : tnodelist);override;
           function det_resulttype:tnode;override;
           function pass_1 : tnode;override;
@@ -655,15 +655,15 @@ implementation
       end;
 
 
-    function tcasenode._getcopy : tnode;
+    function tcasenode.getcopy : tnode;
 
       var
          n : tcasenode;
          i : longint;
       begin
-         n:=tcasenode(inherited _getcopy);
+         n:=tcasenode(inherited getcopy);
          if assigned(elseblock) then
-           n.elseblock:=elseblock._getcopy
+           n.elseblock:=elseblock.getcopy
          else
            n.elseblock:=nil;
          if assigned(labels) then
@@ -677,12 +677,12 @@ implementation
                begin
                  if not assigned(blocks[i]) then
                    internalerror(200411302);
-                 n.addblock(i,pcaseblock(blocks[i])^.statement._getcopy);
+                 n.addblock(i,pcaseblock(blocks[i])^.statement.getcopy);
                end;
            end
          else
            n.labels:=nil;
-         _getcopy:=n;
+         getcopy:=n;
       end;
 
     procedure tcasenode.insertintolist(l : tnodelist);

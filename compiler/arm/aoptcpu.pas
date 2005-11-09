@@ -28,15 +28,13 @@ Unit aoptcpu;
 
 Interface
 
-uses cpubase, aopt, aoptcpub;
+uses cpubase, aoptobj, aoptcpub;
 
 Type
-  TCpuAsmOptimizer = class(TAsmOptimizer)
+  TAOptCpu = class(TAoptObj)
     { uses the same constructor as TAopObj }
   End;
 
 Implementation
 
-begin
-  casmoptimizer:=TCpuAsmOptimizer;
 End.

@@ -42,43 +42,20 @@ implementation
     {$ifndef NOTARGETFREEBSD}
       ,t_bsd
     {$endif}
-    {$ifndef NOTARGETWIN}
-      ,t_win
+    {$ifndef NOTARGETWIN32}
+      ,t_win32
     {$endif}
 
 {**************************************
              Assemblers
 **************************************}
 
-    {$ifndef NOAGX86_64INT}
-      ,agx86int
-    {$endif}
     {$ifndef NOAGX86_64ATT}
       ,agx86att
     {$endif}
 
       ,ogcoff
       ,ogelf
-
-{**************************************
-        Assembler Readers
-**************************************}
-
-  {$ifndef NoRax64att}
-       ,rax64att
-  {$endif NoRax64att}
-
-{**************************************
-             Debuginfo
-**************************************}
-
-  {$ifndef NoDbgStabs}
-      ,dbgstabs
-  {$endif NoDbgStabs}
-  {$ifndef NoDbgDwarf}
-      ,dbgdwarf
-  {$endif NoDbgDwarf}
-
       ;
 
 end.

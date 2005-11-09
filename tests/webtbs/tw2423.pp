@@ -70,7 +70,7 @@ begin
    begin
     setlength(s,i);
     break;
-   end;
+   end; 
  s:=s+'demo.htm';
  assign(t,s);
  rewrite(t,1);

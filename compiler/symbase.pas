@@ -41,6 +41,11 @@ interface
        hasharraysize    = 256;
        indexgrowsize    = 64;
 
+{$ifdef GDB}
+       memsizeinc = 4096; { for long stabstrings }
+{$endif GDB}
+
+
 {************************************************
             Needed forward pointers
 ************************************************}
@@ -122,6 +127,9 @@ interface
 {$endif EXTDEBUG}
           function  getdefnr(l : longint) : tdefentry;
           function  getsymnr(l : longint) : tsymentry;
+{$ifdef GDB}
+          function getnewtypecount : word; virtual;
+{$endif GDB}
        end;
 
     var
@@ -328,6 +336,14 @@ implementation
          internalerror(10998);
         getdefnr:=hp;
       end;
+
+
+{$ifdef GDB}
+    function tsymtable.getnewtypecount : word;
+      begin
+        getnewtypecount:=0;
+      end;
+{$endif GDB}
 
 
 end.

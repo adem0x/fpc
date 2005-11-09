@@ -11474,7 +11474,7 @@
     flags   : if_x86_64
   ),
   (
-    opcode  : A_CQO;
+    opcode  : A_CDO;
     ops     : 0;
     optypes : (ot_none,ot_none,ot_none);
     code    : #209#1#153;

@@ -27,7 +27,7 @@ unit cpupara;
   interface
 
     uses
-       globtype,globals,
+       globtype,
        aasmtai,
        cpuinfo,cpubase,cgbase,
        symconst,symbase,symtype,symdef,parabase,paramgr;
@@ -107,7 +107,7 @@ unit cpupara;
             orddef:
               getparaloc:=LOC_REGISTER;
             floatdef:
-              if (calloption in [pocall_cdecl,pocall_cppdecl,pocall_softfloat]) or (cs_fp_emulation in aktmoduleswitches) then
+              if calloption in [pocall_cdecl,pocall_cppdecl,pocall_softfloat] then
                 getparaloc:=LOC_REGISTER
               else
                 getparaloc:=LOC_FPUREGISTER;
@@ -275,7 +275,7 @@ unit cpupara;
                end;
 
              paralen:=tcgsize2size[paracgsize];
-             hp.paraloc[side].intsize:=paralen;
+            hp.paraloc[side].intsize:=paralen;
 {$ifdef EXTDEBUG}
              if paralen=0 then
                internalerror(200410311);
@@ -289,14 +289,7 @@ unit cpupara;
                  else if paracgsize in [OS_64,OS_S64] then
                    paraloc^.size:=OS_32
                  else if (loc=LOC_REGISTER) and (paracgsize in [OS_F32,OS_F64,OS_F80]) then
-                   case paracgsize of
-                     OS_F32:
-                       paraloc^.size:=OS_32;
-                     OS_F64:
-                       paraloc^.size:=OS_64;
-                     else
-                       internalerror(2005082901);
-                   end
+                   paraloc^.size:=OS_32
                  else
                    paraloc^.size:=paracgsize;
                  case loc of
@@ -311,14 +304,10 @@ unit cpupara;
                           end
                         else
                           begin
-                            { LOC_REFERENCE covers always the overleft }
                             paraloc^.loc:=LOC_REFERENCE;
-                            paraloc^.size:=int_cgsize(paralen);
-                            if (side=callerside) then
-                              paraloc^.reference.index:=NR_STACK_POINTER_REG;
+                            paraloc^.reference.index:=NR_STACK_POINTER_REG;
                             paraloc^.reference.offset:=stack_offset;
-                            inc(stack_offset,align(paralen,4));
-                            paralen:=0;
+                            inc(stack_offset,4);
                          end;
                       end;
                     LOC_FPUREGISTER:
@@ -376,15 +365,6 @@ unit cpupara;
                    end;
                  dec(paralen,tcgsize2size[paraloc^.size]);
                end;
-             { hack to swap doubles in int registers }
-             if is_double(hp.vartype.def) and (paracgsize=OS_64) and
-               (hp.paraloc[side].location^.loc=LOC_REGISTER) then
-               begin
-                 paraloc:=hp.paraloc[side].location;
-                 hp.paraloc[side].location:=hp.paraloc[side].location^.next;
-                 hp.paraloc[side].location^.next:=paraloc;
-                 paraloc^.next:=nil;
-               end;
           end;
         curintreg:=nextintreg;
         curfloatreg:=nextfloatreg;
@@ -423,34 +403,8 @@ unit cpupara;
         { Return in FPU register? }
         if p.rettype.def.deftype=floatdef then
           begin
-            if (p.proccalloption in [pocall_cdecl,pocall_cppdecl,pocall_softfloat]) or (cs_fp_emulation in aktmoduleswitches) then
-              begin
-                case retcgsize of
-                  OS_64,
-                  OS_F64:
-                    begin
-                      { low }
-                      p.funcretloc[side].loc:=LOC_REGISTER;
-                      p.funcretloc[side].register64.reglo:=NR_FUNCTION_RESULT64_HIGH_REG;
-                      p.funcretloc[side].register64.reghi:=NR_FUNCTION_RESULT64_LOW_REG;
-                      p.funcretloc[side].size:=OS_64;
-                    end;
-                  OS_32,
-                  OS_F32:
-                    begin
-                      p.funcretloc[side].loc:=LOC_REGISTER;
-                      p.funcretloc[side].register:=NR_FUNCTION_RETURN_REG;
-                      p.funcretloc[side].size:=OS_32;
-                    end;
-                  else
-                    internalerror(2005082603);
-                end;
-              end
-            else
-              begin
-                p.funcretloc[side].loc:=LOC_FPUREGISTER;
-                p.funcretloc[side].register:=NR_FPU_RESULT_REG;
-              end;
+            p.funcretloc[side].loc:=LOC_FPUREGISTER;
+            p.funcretloc[side].register:=NR_FPU_RESULT_REG;
           end
           { Return in register? }
         else if not ret_in_param(p.rettype.def,p.proccalloption) then

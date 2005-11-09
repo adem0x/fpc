@@ -73,7 +73,6 @@ unit i_emx;
             linkextern   : nil;
             ar           : ar_gnu_ar;
             res          : res_emxbind;
-            dbg          : dbg_stabs;
             script       : script_dos;
             endian       : endian_little;
             alignment    :

@@ -113,6 +113,8 @@ unit cgutils;
     procedure location_copy(var destloc:tlocation; const sourceloc : tlocation);
     procedure location_swap(var destloc,sourceloc : tlocation);
 
+
+
 implementation
 
 {****************************************************************************

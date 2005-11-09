@@ -233,16 +233,12 @@ PACKAGESDIR:=$(wildcard $(FPCDIR) $(FPCDIR)/packages/base $(FPCDIR)/packages/ext
 override PACKAGE_NAME=compiler
 override PACKAGE_VERSION=2.0.0
 unexport FPC_VERSION FPC_COMPILERINFO
-CYCLETARGETS=i386 powerpc sparc arm x86_64 powerpc64
-ALLTARGETS=$(CYCLETARGETS) m68k
+CYCLETARGETS=i386 powerpc sparc arm x86_64
 ifdef ALPHA
 PPC_TARGET=alpha
 endif
 ifdef POWERPC
 PPC_TARGET=powerpc
-endif
-ifdef POWERPC64
-PPC_TARGET=powerpc64
 endif
 ifdef SPARC
 PPC_TARGET=sparc
@@ -291,9 +287,6 @@ CPUSUF=68k
 endif
 ifeq ($(PPC_TARGET),powerpc)
 CPUSUF=ppc
-endif
-ifeq ($(PPC_TARGET),powerpc64)
-CPUSUF=ppc64
 endif
 ifeq ($(PPC_TARGET),sparc)
 CPUSUF=sparc
@@ -2648,14 +2641,14 @@ tempclean:
 	-$(DEL) $(PPCROSSNAME) $(TEMPNAME) $(TEMPNAME1) $(TEMPNAME2) $(TEMPNAME3) $(MSG2INC)
 execlean :
 	-$(DEL) ppc386$(EXEEXT) ppcaxp$(EXEEXT) ppc68k$(EXEEXT) ppcx64$(EXEEXT) ppcppc$(EXEEXT) ppcsparc$(EXEEXT) $(EXENAME)
-$(addsuffix _clean,$(ALLTARGETS)):
+$(addsuffix _clean,$(CYCLETARGETS)):
 	-$(DELTREE) $(addprefix $(subst _clean,,$@),/units)
 	-$(DEL) $(addprefix $(subst _clean,,$@)/,*$(OEXT) *$(PPUEXT) *$(RSTEXT) *$(ASMEXT) *$(STATICLIBEXT) *$(SHAREDLIBEXT) *$(PPLEXT))
 	-$(DEL) $(addprefix $(subst _clean,,$@)/,ppc386$(EXEEXT) ppcaxp$(EXEEXT) ppc68k$(EXEEXT) ppcx64$(EXEEXT) ppcppc$(EXEEXT) ppcppc$(EXEEXT) $(EXENAME))
 cycleclean: cleanall $(addsuffix _clean,$(PPC_TARGET))
 	-$(DEL) $(EXENAME)
 clean: tempclean execlean cleanall $(addsuffix _clean,$(PPC_TARGET)) $(addsuffix _clean,$(TARGET_DIRS))
-distclean: tempclean execlean cleanall $(addsuffix _clean,$(ALLTARGETS)) $(addsuffix _distclean,$(TARGET_DIRS))
+distclean: tempclean execlean cleanall $(addsuffix _clean,$(CYCLETARGETS)) $(addsuffix _distclean,$(TARGET_DIRS))
 $(MSG2INC): $(COMPILER_TARGETDIR) $(COMPILER_UNITTARGETDIR) $(COMPILERUTILSDIR)/msg2inc.pp
 	$(COMPILER) -FE. $(COMPILERUTILSDIR)/msg2inc.pp
 msgtxt.inc: $(MSGFILE)

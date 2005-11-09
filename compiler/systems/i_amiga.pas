@@ -65,7 +65,6 @@ unit i_amiga;
             linkextern   : nil;
             ar           : ar_gnu_ar;
             res          : res_none;
-            dbg          : dbg_stabs;
             script       : script_amiga;
             endian       : endian_big;
             alignment    :
@@ -86,8 +85,7 @@ unit i_amiga;
             first_parm_offset : 8;
             stacksize    : 262144;
             DllScanSupported:false;
-            use_function_relative_addresses : true;
-	    abi : abi_default;
+            use_function_relative_addresses : true
           );
 
        system_powerpc_amiga_info : tsysteminfo =
@@ -99,6 +97,8 @@ unit i_amiga;
             cpu          : cpu_powerpc;
             unit_env     : '';
             extradefines : '';
+            sourceext    : '.pp';
+            pasext       : '.pas';
             exeext       : '';
             defext       : '.def';
             scriptext    : '.sh';
@@ -117,7 +117,6 @@ unit i_amiga;
             staticClibext : '.a';
             staticClibprefix : 'lib';
             sharedClibprefix : '';
-	    p_ext_support : false;
             Cprefix      : '';
             newline      : #10;
             dirsep       : '/';
@@ -128,7 +127,6 @@ unit i_amiga;
             linkextern   : nil;
             ar           : ar_gnu_ar;
             res          : res_none;
-            dbg          : dbg_stabs;
             script       : script_amiga;
             endian       : endian_big;
             alignment    :
@@ -149,8 +147,7 @@ unit i_amiga;
             first_parm_offset : 8;
             stacksize    : 262144;
             DllScanSupported:false;
-            use_function_relative_addresses : true;
-	    abi : abi_powerpc_sysv;
+            use_function_relative_addresses : true
           );
 
   implementation

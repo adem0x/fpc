@@ -160,7 +160,7 @@ var
   sym : tasmsymbol;
   r : treference;
 begin
-  new_section(asmlist[al_procedures],sec_code,'',0);
+  new_section(codesegment,sec_code,'',0);
   hp2:=texported_item(current_module._exports.first);
   while assigned(hp2) do
    begin
@@ -171,9 +171,9 @@ begin
           is declared with cdecl }
         if tprocsym(hp2.sym).first_procdef.mangledname<>hp2.name^ then
          begin
-           { place jump in al_procedures }
-           asmlist[al_procedures].concat(tai_align.create(target_info.alignment.procalign));
-           asmlist[al_procedures].concat(Tai_symbol.Createname_global(hp2.name^,AT_FUNCTION,0));
+           { place jump in codesegment }
+           codesegment.concat(tai_align.create(target_info.alignment.procalign));
+           codeSegment.concat(Tai_symbol.Createname_global(hp2.name^,AT_FUNCTION,0));
            if (cs_create_pic in aktmoduleswitches) and
              { other targets need to be checked how it works }
              (target_info.system in [system_x86_64_linux]) then
@@ -185,16 +185,16 @@ begin
                  r.refaddr:=addr_pic
                else
                  r.refaddr:=addr_full;
-               asmlist[al_procedures].concat(taicpu.op_ref(A_JMP,S_NO,r));
+               codesegment.concat(taicpu.op_ref(A_JMP,S_NO,r));
 {$endif x86_64}
              end
            else
-             cg.a_jmp_name(asmlist[al_procedures],tprocsym(hp2.sym).first_procdef.mangledname);
-           asmlist[al_procedures].concat(Tai_symbol_end.Createname(hp2.name^));
+             cg.a_jmp_name(codesegment,tprocsym(hp2.sym).first_procdef.mangledname);
+           codeSegment.concat(Tai_symbol_end.Createname(hp2.name^));
          end;
       end
      else
-      message1(parser_e_no_export_of_variables_for_target,'linux');
+      Message1(parser_e_no_export_of_variables_for_target,'linux');
      hp2:=texported_item(hp2.next);
    end;
 end;
@@ -211,11 +211,7 @@ begin
 {$ifdef x86_64}
    LibrarySearchPath.AddPath('/lib64;/usr/lib64;/usr/X11R6/lib64',true);
 {$else}
-{$ifdef powerpc64}
-   LibrarySearchPath.AddPath('/lib64;/usr/lib64;/usr/X11R6/lib64',true);
-{$else powerpc64}
    LibrarySearchPath.AddPath('/lib;/usr/lib;/usr/X11R6/lib',true);
-{$endif powerpc64}
 {$endif x86_64}
 end;
 
@@ -224,16 +220,6 @@ procedure TLinkerLinux.SetDefaultInfo;
 {
   This will also detect which libc version will be used
 }
-
-const
-{$ifdef i386}   platform_select='-b elf32-i386 -m elf_i386';{$endif}
-{$ifdef x86_64} platform_select='-b elf64-x86-64 -m elf_x86_64';{$endif}
-{$ifdef powerpc}platform_select='-b elf32-powerpc -m elf32ppclinux';{$endif}
-{$ifdef POWERPC64}  platform_select='-b elf64-powerpc -m elf64ppc';{$endif}
-{$ifdef sparc}  platform_select='-b elf32-sparc -m elf32_sparc';{$endif}
-{$ifdef arm}    platform_select='';{$endif} {unknown :( }
-{$ifdef m68k}    platform_select='';{$endif} {unknown :( }
-
 {$ifdef m68k}
 var
   St : SearchRec;
@@ -241,8 +227,8 @@ var
 begin
   with Info do
    begin
-     ExeCmd[1]:='ld '+platform_select+' $OPT $DYNLINK $STATIC $GCSECTIONS $STRIP -L. -o $EXE $RES';
-     DllCmd[1]:='ld '+platform_select+' $OPT $INIT $FINI $SONAME -shared -L. -o $EXE $RES';
+     ExeCmd[1]:='ld $OPT $DYNLINK $STATIC $GCSECTIONS $STRIP -L. -o $EXE $RES';
+     DllCmd[1]:='ld $OPT $INIT $FINI $SONAME -shared -L. -o $EXE $RES';
      DllCmd[2]:='strip --strip-unneeded $EXE';
 {$ifdef m68k}
      libctype:=glibc2;
@@ -296,11 +282,6 @@ begin
      DynamicLinker:='/lib/ld.so.1';
      libctype:=glibc2;
 {$endif powerpc}
-
-{$ifdef powerpc64}
-     DynamicLinker:='/lib64/ld64.so.1';
-     libctype:=glibc2;
-{$endif powerpc64}
 
 {$ifdef arm}
      DynamicLinker:='/lib/ld-linux.so.2';
@@ -459,113 +440,9 @@ begin
         LinkRes.Add(')');
       end;
    end;
-  {Entry point.}
-  linkres.add('ENTRY(_start)');
-
-  {Sections.}
-{
-  commented out because it cause problems on several machines with different ld versions (FK)
-  linkres.add('SECTIONS');
-  linkres.add('{');
-  {Read-only sections, merged into text segment:}
-  linkres.add('  PROVIDE (__executable_start = 0x010000); . = 0x010000 +0x100;');
-  linkres.add('  .interp         : { *(.interp) }');
-  linkres.add('  .hash           : { *(.hash) }');
-  linkres.add('  .dynsym         : { *(.dynsym) }');
-  linkres.add('  .dynstr         : { *(.dynstr) }');
-  linkres.add('  .gnu.version    : { *(.gnu.version) }');
-  linkres.add('  .gnu.version_d  : { *(.gnu.version_d) }');
-  linkres.add('  .gnu.version_r  : { *(.gnu.version_r) }');
-  linkres.add('  .rel.dyn        :');
-  linkres.add('    {');
-  linkres.add('      *(.rel.init)');
-  linkres.add('      *(.rel.text .rel.text.* .rel.gnu.linkonce.t.*)');
-  linkres.add('      *(.rel.fini)');
-  linkres.add('      *(.rel.rodata .rel.rodata.* .rel.gnu.linkonce.r.*)');
-  linkres.add('      *(.rel.data.rel.ro*)');
-  linkres.add('      *(.rel.data .rel.data.* .rel.gnu.linkonce.d.*)');
-  linkres.add('      *(.rel.tdata .rel.tdata.* .rel.gnu.linkonce.td.*)');
-  linkres.add('      *(.rel.tbss .rel.tbss.* .rel.gnu.linkonce.tb.*)');
-  linkres.add('      *(.rel.got)');
-  linkres.add('      *(.rel.bss .rel.bss.* .rel.gnu.linkonce.b.*)');
-  linkres.add('    }');
-  linkres.add('  .rela.dyn       :');
-  linkres.add('    {');
-  linkres.add('      *(.rela.init)');
-  linkres.add('      *(.rela.text .rela.text.* .rela.gnu.linkonce.t.*)');
-  linkres.add('      *(.rela.fini)');
-  linkres.add('      *(.rela.rodata .rela.rodata.* .rela.gnu.linkonce.r.*)');
-  linkres.add('      *(.rela.data .rela.data.* .rela.gnu.linkonce.d.*)');
-  linkres.add('      *(.rela.tdata .rela.tdata.* .rela.gnu.linkonce.td.*)');
-  linkres.add('      *(.rela.tbss .rela.tbss.* .rela.gnu.linkonce.tb.*)');
-  linkres.add('      *(.rela.got)');
-  linkres.add('      *(.rela.bss .rela.bss.* .rela.gnu.linkonce.b.*)');
-  linkres.add('    }');
-  linkres.add('  .rel.plt        : { *(.rel.plt) }');
-  linkres.add('  .rela.plt       : { *(.rela.plt) }');
-  linkres.add('  .init           :');
-  linkres.add('  {');
-  linkres.add('    KEEP (*(.init))');
-  linkres.add('  } =0x90909090');
-  linkres.add('  .plt            : { *(.plt) }');
-  linkres.add('  .text           :');
-  linkres.add('  {');
-  linkres.add('    *(.text .stub .text.* .gnu.linkonce.t.*)');
-  linkres.add('    KEEP (*(.text.*personality*))');
-                   {.gnu.warning sections are handled specially by elf32.em.}
-  linkres.add('    *(.gnu.warning)');
-  linkres.add('  } =0x90909090');
-  linkres.add('  .fini           :');
-  linkres.add('  {');
-  linkres.add('    KEEP (*(.fini))');
-  linkres.add('  } =0x90909090');
-  linkres.add('  PROVIDE (_etext = .);');
-  linkres.add('  .rodata         : { *(.rodata .rodata.* .gnu.linkonce.r.*) }');
-  {Adjust the address for the data segment.  We want to adjust up to
-   the same address within the page on the next page up.}
-  linkres.add('  . = ALIGN (0x1000) - ((0x1000 - .) & (0x1000 - 1)); . = DATA_SEGMENT_ALIGN (0x1000, 0x1000);');
-  linkres.add('  .dynamic        : { *(.dynamic) }');
-  linkres.add('  .got            : { *(.got) }');
-  linkres.add('  .got.plt        : { *(.got.plt) }');
-  linkres.add('  .data           :');
-  linkres.add('  {');
-  linkres.add('    *(.data .data.* .gnu.linkonce.d.*)');
-  linkres.add('    KEEP (*(.gnu.linkonce.d.*personality*))');
-  linkres.add('  }');
-  linkres.add('  _edata = .;');
-  linkres.add('  PROVIDE (edata = .);');
-{$ifdef zsegment_threadvars}
-  linkres.add('  _z = .;');
-  linkres.add('  .threadvar 0 : AT (_z) { *(.threadvar .threadvar.* .gnu.linkonce.tv.*) }');
-  linkres.add('  PROVIDE (_threadvar_size = SIZEOF(.threadvar));');
-  linkres.add('  . = _z + SIZEOF (.threadvar);');
-{$else}
-  linkres.add('  .threadvar : { *(.threadvar .threadvar.* .gnu.linkonce.tv.*) }');
-{$endif}
-  linkres.add('  __bss_start = .;');
-  linkres.add('  .bss            :');
-  linkres.add('  {');
-  linkres.add('   *(.dynbss)');
-  linkres.add('   *(.bss .bss.* .gnu.linkonce.b.*)');
-  linkres.add('   *(COMMON)');
-  {Align here to ensure that the .bss section occupies space up to
-   _end.  Align after .bss to ensure correct alignment even if the
-   .bss section disappears because there are no input sections.}
-  linkres.add('   . = ALIGN(32 / 8);');
-  linkres.add('  }');
-  linkres.add('  . = ALIGN(32 / 8);');
-  linkres.add('  _end = .;');
-  linkres.add('  PROVIDE (end = .);');
-  linkres.add('  . = DATA_SEGMENT_END (.);');
-  {Stabs debugging sections.}
-  linkres.add('  .stab          0 : { *(.stab) }');
-  linkres.add('  .stabstr       0 : { *(.stabstr) }');
-  linkres.add('}');
-}
-
 { Write and Close response }
-  LinkRes.writetodisk;
-  LinkRes.Free;
+  linkres.writetodisk;
+  linkres.Free;
 
   WriteResponseFile:=True;
 end;
@@ -593,7 +470,7 @@ begin
    StaticStr:='-static';
   if (cs_link_strip in aktglobalswitches) then
    StripStr:='-s';
-  if (af_smartlink_sections in target_asm.flags) and
+  if (cs_link_smart in aktglobalswitches) and
      (tf_smartlink_sections in target_info.flags) then
    GCSectionsStr:='--gc-sections';
   If (cs_profile in aktmoduleswitches) or
@@ -623,11 +500,11 @@ begin
 { Remove ReponseFile }
   if (success) and not(cs_link_extern in aktglobalswitches) then
    RemoveFile(outputexedir+Info.ResName);
-
+   
   if (success) then
     success:=PostProcessExecutable(current_module.exefilename^,false);
-
-
+    
+ 
   MakeExecutable:=success;   { otherwise a recursive call to link method }
 end;
 
@@ -700,13 +577,13 @@ begin
         Found:=((hp.u.flags and uf_has_resourcefiles)=uf_has_resourcefiles);
         hp:=tused_unit(hp.next);
         end;
-      end;
+      end;  
     if found then
-      begin
+      begin  
       cmdstr:=' -f -i '+maybequoted(fn);
       postprocessexecutable:=DoExec(FindUtil(utilsprefix+'fpcres'),cmdstr,false,false);
       end;
-    end;
+    end;  
 end;
 
 
@@ -739,12 +616,6 @@ initialization
   RegisterExport(system_powerpc_linux,texportliblinux);
   RegisterTarget(system_powerpc_linux_info);
 {$endif powerpc}
-{$ifdef powerpc64}
-  RegisterExternalLinker(system_powerpc64_linux_info,TLinkerLinux);
-  RegisterImport(system_powerpc64_linux,timportliblinux);
-  RegisterExport(system_powerpc64_linux,texportliblinux);
-  RegisterTarget(system_powerpc64_linux_info);
-{$endif powerpc64}
 {$ifdef alpha}
   RegisterExternalLinker(system_alpha_linux_info,TLinkerLinux);
   RegisterImport(system_alpha_linux,timportliblinux);

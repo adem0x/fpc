@@ -249,7 +249,7 @@ Unit AoptObj;
         { that has to be optimized and _LabelInfo a pointer to a       }
         { TLabelInfo record                                            }
         Constructor create(_AsmL: TAasmOutput; _BlockStart, _BlockEnd: Tai;
-                           _LabelInfo: PLabelInfo); virtual;
+                           _LabelInfo: PLabelInfo);
 
         { processor independent methods }
 
@@ -290,15 +290,12 @@ Unit AoptObj;
         function getlabelwithsym(sym: tasmlabel): tai;
 
         { peephole optimizer }
-        procedure PrePeepHoleOpts;
-        procedure PeepHoleOptPass1;
-        procedure PeepHoleOptPass2;
-        procedure PostPeepHoleOpts;
+        procedure PrePeepHoleOpts;virtual;
+        procedure PeepHoleOptPass1;virtual;
+        procedure PeepHoleOptPass2;virtual;
+        procedure PostPeepHoleOpts;virtual;
 
         { processor dependent methods }
-        // if it returns true, perform a "continue"
-        function PeepHoleOptPass1Cpu(var p: tai): boolean; virtual;
-        function PostPeepHoleOptsCpu(var p: tai): boolean; virtual;
       End;
 
        Function ArrayRefsEq(const r1, r2: TReference): Boolean;
@@ -960,7 +957,7 @@ Unit AoptObj;
                       insertllitem(asml,p1,p1.next,tai_comment.Create(
                         strpnew('previous label inserted'))));
       {$endif finaldestdebug}
-                      objectlibrary.getjumplabel(l);
+                      objectlibrary.getlabel(l);
                       insertllitem(p1,p1.next,tai_label.Create(l));
                       tasmlabel(taicpu(hp).oper[0]^.ref^.symbol).decrefs;
                       hp.oper[0]^.ref^.symbol := l;
@@ -1000,8 +997,6 @@ Unit AoptObj;
         while (p <> BlockEnd) Do
           begin
             //!!!! UpDateUsedRegs(UsedRegs, tai(p.next));
-            if PeepHoleOptPass1Cpu(p) then
-              continue;
             case p.Typ Of
               ait_instruction:
                 begin
@@ -1095,31 +1090,8 @@ Unit AoptObj;
 
 
     procedure TAOptObj.PostPeepHoleOpts;
-      var
-        p: tai;
       begin
-        p := BlockStart;
-        //!!!! UsedRegs := [];
-        while (p <> BlockEnd) Do
-          begin
-            //!!!! UpDateUsedRegs(UsedRegs, tai(p.next));
-            if PostPeepHoleOptsCpu(p) then
-              continue;
-            //!!!!!!!! updateUsedRegs(UsedRegs,p);
-            p:=tai(p.next);
-          end;
       end;
 
-
-    function TAOptObj.PeepHoleOptPass1Cpu(var p: tai): boolean;
-      begin
-        result := false;
-      end;
-
-
-    function TAOptObj.PostPeepHoleOptsCpu(var p: tai): boolean;
-      begin
-        result := false;
-      end;
 
 End.

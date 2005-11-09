@@ -238,11 +238,6 @@ INC=$(RTL)/inc
 COMMON=$(RTL)/common
 PROCINC=$(RTL)/$(CPU_TARGET)
 UNIXINC=$(RTL)/unix
-ifneq ($(CPU_TARGET),powerpc64)
-GGIGRAPH_UNIT=ggigraph
-else
-GGIGRAPH_UNIT=
-endif
 ifeq ($(CPU_TARGET),i386)
 CRT21=cprt21 gprt21
 CPU_UNITS=x86 ports cpu mmx graph
@@ -272,115 +267,115 @@ ifndef USELIBGGI
 USELIBGGI=NO
 endif
 ifeq ($(FULL_TARGET),i386-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-go32v2)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-win32)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-os2)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-freebsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-beos)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-netbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-solaris)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-qnx)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-netware)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-openbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-wdosx)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-emx)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-watcom)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-netwlibc)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-wince)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),m68k-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),m68k-freebsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),m68k-netbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),m68k-amiga)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),m68k-atari)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),m68k-openbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),m68k-palmos)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),powerpc-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),powerpc-netbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),powerpc-macos)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),powerpc-darwin)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),powerpc-morphos)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),sparc-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),sparc-netbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),sparc-solaris)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),x86_64-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),x86_64-freebsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),x86_64-win64)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),arm-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),arm-wince)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),powerpc64-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer $(GGIGRAPH_UNIT) sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
+override TARGET_UNITS+=$(SYSTEMUNIT) unixtype ctypes baseunix strings objpas macpas syscall unixutil heaptrc lineinfo $(LINUXUNIT1) termio unix $(LINUXUNIT2) initc cmem $(CPU_UNITS) crt  printer ggigraph sysutils typinfo math matrix varutils charset ucomplex getopts errors sockets gpm ipc serial terminfo dl dynlibs video mouse keyboard variants types dateutils sysconst cthreads classes strutils rtlconsts dos objects cwstring fpcylix fpmkunit
 endif
 ifeq ($(FULL_TARGET),i386-linux)
 override TARGET_LOADERS+=prt0 dllprt0 cprt0 gprt0 $(CRT21)
@@ -2259,27 +2254,18 @@ SYSINCDEPS=$(addprefix $(INC)/,$(SYSINCNAMES))
 include $(PROCINC)/makefile.cpu
 SYSCPUDEPS=$(addprefix $(PROCINC)/,$(CPUINCNAMES))
 SYSDEPS=$(SYSINCDEPS) $(SYSCPUDEPS)
-ifeq ($(CPU_TARGET),i386)
-  ASTARGET=--32
-endif
-ifeq ($(CPU_TARGET),x86_64)
-  ASTARGET=--64
-endif
-ifeq ($(CPU_TARGET),powerpc64)
-  ASTARGET=-a64
-endif
 prt0$(OEXT) : $(CPU_TARGET)/prt0.as
-	$(AS) $(ASTARGET) -o $(UNITTARGETDIRPREFIX)prt0$(OEXT) $(CPU_TARGET)/prt0.as
+	$(AS) -o $(UNITTARGETDIRPREFIX)prt0$(OEXT) $(CPU_TARGET)/prt0.as
 dllprt0$(OEXT) : $(CPU_TARGET)/dllprt0.as
-	$(AS) $(ASTARGET) -o $(UNITTARGETDIRPREFIX)dllprt0$(OEXT) $(CPU_TARGET)/dllprt0.as
+	$(AS) -o $(UNITTARGETDIRPREFIX)dllprt0$(OEXT) $(CPU_TARGET)/dllprt0.as
 gprt0$(OEXT) : $(CPU_TARGET)/gprt0.as
-	$(AS) $(ASTARGET) -o $(UNITTARGETDIRPREFIX)gprt0$(OEXT) $(CPU_TARGET)/gprt0.as
+	$(AS) -o $(UNITTARGETDIRPREFIX)gprt0$(OEXT) $(CPU_TARGET)/gprt0.as
 cprt0$(OEXT) : $(CPU_TARGET)/cprt0.as
-	$(AS) $(ASTARGET) -o $(UNITTARGETDIRPREFIX)cprt0$(OEXT) $(CPU_TARGET)/cprt0.as
+	$(AS) -o $(UNITTARGETDIRPREFIX)cprt0$(OEXT) $(CPU_TARGET)/cprt0.as
 cprt21$(OEXT) : $(CPU_TARGET)/cprt21.as
-	$(AS) $(ASTARGET) -o $(UNITTARGETDIRPREFIX)cprt21$(OEXT) $(CPU_TARGET)/cprt21.as
+	$(AS) -o $(UNITTARGETDIRPREFIX)cprt21$(OEXT) $(CPU_TARGET)/cprt21.as
 gprt21$(OEXT) : $(CPU_TARGET)/gprt21.as
-	$(AS) $(ASTARGET) -o $(UNITTARGETDIRPREFIX)gprt21$(OEXT) $(CPU_TARGET)/gprt21.as
+	$(AS) -o $(UNITTARGETDIRPREFIX)gprt21$(OEXT) $(CPU_TARGET)/gprt21.as
 $(SYSTEMUNIT)$(PPUEXT) : $(SYSTEMUNIT).pp $(SYSDEPS)
 	$(COMPILER) -Us -Sg $(SYSTEMUNIT).pp
 objpas$(PPUEXT): $(OBJPASDIR)/objpas.pp $(INC)/except.inc $(SYSTEMUNIT)$(PPUEXT)

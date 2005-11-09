@@ -47,7 +47,7 @@ interface
           procedure derefimpl;override;
           procedure set_mp(p:tnode);
           function  is_addr_param_load:boolean;
-          function  _getcopy : tnode;override;
+          function  getcopy : tnode;override;
           function  pass_1 : tnode;override;
           function  det_resulttype:tnode;override;
           procedure mark_write;override;
@@ -64,7 +64,7 @@ interface
           constructor create(l,r : tnode);virtual;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
        {$ifdef state_tracking}
@@ -83,7 +83,7 @@ interface
 
        tarrayconstructornode = class(tbinarynode)
           constructor create(l,r : tnode);virtual;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
           function docompare(p: tnode): boolean; override;
@@ -116,7 +116,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function  _getcopy : tnode;override;
+          function  getcopy : tnode;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
           function docompare(p: tnode): boolean; override;
@@ -213,12 +213,12 @@ implementation
       end;
 
 
-    function tloadnode._getcopy : tnode;
+    function tloadnode.getcopy : tnode;
       var
          n : tloadnode;
 
       begin
-         n:=tloadnode(inherited _getcopy);
+         n:=tloadnode(inherited getcopy);
          n.symtable:=symtable;
          n.symtableentry:=symtableentry;
          n.procdef:=procdef;
@@ -478,15 +478,15 @@ implementation
       end;
 
 
-    function tassignmentnode._getcopy : tnode;
+    function tassignmentnode.getcopy : tnode;
 
       var
          n : tassignmentnode;
 
       begin
-         n:=tassignmentnode(inherited _getcopy);
+         n:=tassignmentnode(inherited getcopy);
          n.assigntype:=assigntype;
-         result:=n;
+         getcopy:=n;
       end;
 
 
@@ -863,11 +863,11 @@ implementation
       end;
 
 
-    function tarrayconstructornode._getcopy : tnode;
+    function tarrayconstructornode.getcopy : tnode;
       var
          n : tarrayconstructornode;
       begin
-         n:=tarrayconstructornode(inherited _getcopy);
+         n:=tarrayconstructornode(inherited getcopy);
          result:=n;
       end;
 
@@ -1164,11 +1164,11 @@ implementation
       end;
 
 
-    function trttinode._getcopy : tnode;
+    function trttinode.getcopy : tnode;
       var
          n : trttinode;
       begin
-         n:=trttinode(inherited _getcopy);
+         n:=trttinode(inherited getcopy);
          n.rttidef:=rttidef;
          n.rttitype:=rttitype;
          result:=n;

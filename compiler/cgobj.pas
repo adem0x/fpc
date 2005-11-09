@@ -95,8 +95,6 @@ unit cgobj;
           {# Free multiple registers specified.}
           procedure dealloccpuregisters(list:Taasmoutput;rt:Tregistertype;r:Tcpuregisterset);virtual;
 
-          procedure allocallcpuregisters(list:Taasmoutput);virtual;
-          procedure deallocallcpuregisters(list:Taasmoutput);virtual;
           procedure do_register_allocation(list:Taasmoutput;headertai:tai);virtual;
 
           function makeregsize(list:Taasmoutput;reg:Tregister;size:Tcgsize):Tregister;
@@ -563,7 +561,7 @@ implementation
     function tcg.getmmregister(list:Taasmoutput;size:Tcgsize):Tregister;
       begin
         if not assigned(rg[R_MMREGISTER]) then
-          internalerror(2003121214);
+          internalerror(200312124);
         result:=rg[R_MMREGISTER].getregister(list,cgsize2subreg(size));
       end;
 
@@ -619,36 +617,12 @@ implementation
       end;
 
 
-    procedure tcg.allocallcpuregisters(list:Taasmoutput);
-      begin
-        alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
-{$ifndef i386}
-        alloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
-{$ifdef cpumm}
-        alloccpuregisters(list,R_MMREGISTER,paramanager.get_volatile_registers_mm(pocall_default));
-{$endif cpumm}
-{$endif i386}
-      end;
-
-
     procedure tcg.dealloccpuregisters(list:Taasmoutput;rt:Tregistertype;r:Tcpuregisterset);
       begin
         if assigned(rg[rt]) then
           rg[rt].dealloccpuregisters(list,r)
         else
           internalerror(200310093);
-      end;
-
-
-    procedure tcg.deallocallcpuregisters(list:Taasmoutput);
-      begin
-        dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
-{$ifndef i386}
-        dealloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
-{$ifdef cpumm}
-        dealloccpuregisters(list,R_MMREGISTER,paramanager.get_volatile_registers_mm(pocall_default));
-{$endif cpumm}
-{$endif i386}
       end;
 
 
@@ -1411,9 +1385,11 @@ implementation
         paramanager.freeparaloc(list,cgpara3);
         paramanager.freeparaloc(list,cgpara2);
         paramanager.freeparaloc(list,cgpara1);
-        allocallcpuregisters(list);
+        alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
+        alloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
         a_call_name(list,'FPC_SHORTSTR_ASSIGN');
-        deallocallcpuregisters(list);
+        dealloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
+        dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
         cgpara3.done;
         cgpara2.done;
         cgpara1.done;
@@ -1460,9 +1436,9 @@ implementation
             { these functions get the pointer by value }
             a_param_ref(list,OS_ADDR,ref,cgpara1);
             paramanager.freeparaloc(list,cgpara1);
-            allocallcpuregisters(list);
+            alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
             a_call_name(list,incrfunc);
-            deallocallcpuregisters(list);
+            dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
           end
          else
           begin
@@ -1473,9 +1449,9 @@ implementation
             a_paramaddr_ref(list,ref,cgpara1);
             paramanager.freeparaloc(list,cgpara1);
             paramanager.freeparaloc(list,cgpara2);
-            allocallcpuregisters(list);
+            alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
             a_call_name(list,'FPC_ADDREF');
-            deallocallcpuregisters(list);
+            dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
           end;
          cgpara2.done;
          cgpara1.done;
@@ -1534,9 +1510,9 @@ implementation
             paramanager.freeparaloc(list,cgpara1);
             if needrtti then
               paramanager.freeparaloc(list,cgpara2);
-            allocallcpuregisters(list);
+            alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
             a_call_name(list,decrfunc);
-            deallocallcpuregisters(list);
+            dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
           end
          else
           begin
@@ -1547,9 +1523,9 @@ implementation
             a_paramaddr_ref(list,ref,cgpara1);
             paramanager.freeparaloc(list,cgpara1);
             paramanager.freeparaloc(list,cgpara2);
-            allocallcpuregisters(list);
+            alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
             a_call_name(list,'FPC_DECREF');
-            deallocallcpuregisters(list);
+            dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
          end;
         cgpara2.done;
         cgpara1.done;
@@ -1579,9 +1555,11 @@ implementation
               a_paramaddr_ref(list,ref,cgpara1);
               paramanager.freeparaloc(list,cgpara1);
               paramanager.freeparaloc(list,cgpara2);
-              allocallcpuregisters(list);
+              alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
+              alloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
               a_call_name(list,'FPC_INITIALIZE');
-              deallocallcpuregisters(list);
+              dealloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
+              dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
            end;
         cgpara1.done;
         cgpara2.done;
@@ -1613,9 +1591,11 @@ implementation
               a_paramaddr_ref(list,ref,cgpara1);
               paramanager.freeparaloc(list,cgpara1);
               paramanager.freeparaloc(list,cgpara2);
-              allocallcpuregisters(list);
+              alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
+              alloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
               a_call_name(list,'FPC_FINALIZE');
-              deallocallcpuregisters(list);
+              dealloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
+              dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
            end;
         cgpara1.done;
         cgpara2.done;
@@ -1736,7 +1716,7 @@ implementation
         hreg:=getintregister(list,OS_INT);
         a_load_loc_reg(list,OS_INT,l,hreg);
         a_op_const_reg(list,OP_SUB,OS_INT,aint(lto),hreg);
-        objectlibrary.getjumplabel(neglabel);
+        objectlibrary.getlabel(neglabel);
         {
         if from_signed then
           a_cmp_const_reg_label(list,OS_INT,OC_GTE,aint(hto-lto),hreg,neglabel)
@@ -1778,7 +1758,7 @@ implementation
         if (cs_check_object in aktlocalswitches) or
            (cs_check_range in aktlocalswitches) then
          begin
-           objectlibrary.getjumplabel(oklabel);
+           objectlibrary.getlabel(oklabel);
            a_cmp_const_reg_label(list,OS_ADDR,OC_NE,0,reg,oklabel);
            cgpara1.init;
            paramanager.getintparaloc(pocall_default,1,cgpara1);
@@ -1810,9 +1790,9 @@ implementation
            a_param_reg(list,OS_ADDR,reg,cgpara1);
            paramanager.freeparaloc(list,cgpara1);
            paramanager.freeparaloc(list,cgpara2);
-           allocallcpuregisters(list);
+           alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
            a_call_name(list,'FPC_CHECK_OBJECT_EXT');
-           deallocallcpuregisters(list);
+           dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
          end
         else
          if (cs_check_range in aktlocalswitches) then
@@ -1820,9 +1800,9 @@ implementation
             paramanager.allocparaloc(list,cgpara1);
             a_param_reg(list,OS_ADDR,reg,cgpara1);
             paramanager.freeparaloc(list,cgpara1);
-            allocallcpuregisters(list);
+            alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
             a_call_name(list,'FPC_CHECK_OBJECT');
-            deallocallcpuregisters(list);
+            dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
           end;
         cgpara1.done;
         cgpara2.done;
@@ -1866,9 +1846,11 @@ implementation
         paramanager.allocparaloc(list,cgpara1);
         a_param_reg(list,OS_INT,sizereg,cgpara1);
         paramanager.freeparaloc(list,cgpara1);
-        allocallcpuregisters(list);
+        alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
+        alloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
         a_call_name(list,'FPC_GETMEM');
-        deallocallcpuregisters(list);
+        dealloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
+        dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
         cgpara1.done;
         { return the new address }
         a_load_reg_reg(list,OS_ADDR,OS_ADDR,NR_FUNCTION_RESULT_REG,destreg);
@@ -1892,9 +1874,11 @@ implementation
         paramanager.freeparaloc(list,cgpara3);
         paramanager.freeparaloc(list,cgpara2);
         paramanager.freeparaloc(list,cgpara1);
-        allocallcpuregisters(list);
+        alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
+        alloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
         a_call_name(list,'FPC_MOVE');
-        deallocallcpuregisters(list);
+        dealloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
+        dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
         cgpara3.done;
         cgpara2.done;
         cgpara1.done;
@@ -1912,9 +1896,11 @@ implementation
         paramanager.allocparaloc(list,cgpara1);
         a_param_loc(list,l,cgpara1);
         paramanager.freeparaloc(list,cgpara1);
-        allocallcpuregisters(list);
+        alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
+        alloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
         a_call_name(list,'FPC_FREEMEM');
-        deallocallcpuregisters(list);
+        dealloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
+        dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
         cgpara1.done;
       end;
 

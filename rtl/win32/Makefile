@@ -239,8 +239,13 @@ COMMON=$(RTL)/common
 PROCINC=$(RTL)/$(CPU_TARGET)
 WININC=wininc
 UNITPREFIX=rtl
+ifeq ($(findstring 1.0.,$(FPC_VERSION)),)
 SYSTEMUNIT=system
 PRT0=wprt0
+else
+SYSTEMUNIT=syswin32
+PRT0=wprt0_10
+endif
 ifdef RELEASE
 override FPCOPT+=-Ur
 endif
@@ -2020,8 +2025,8 @@ wprt0$(OEXT) : $(PRT0).as
 gprt0$(OEXT) : gprt0.as
 wdllprt0$(OEXT) : wdllprt0.as
 wcygprt0$(OEXT) : wcygprt0.as
-$(SYSTEMUNIT)$(PPUEXT) : $(SYSTEMUNIT).pp $(SYSDEPS)
-	$(COMPILER) -Us -Sg $(SYSTEMUNIT).pp -Fi../win
+$(SYSTEMUNIT)$(PPUEXT) : $(SYSTEMUNIT).pp win32.inc $(SYSDEPS)
+	$(COMPILER) -Us -Sg $(SYSTEMUNIT).pp
 objpas$(PPUEXT): $(OBJPASDIR)/objpas.pp $(INC)/except.inc $(SYSTEMUNIT)$(PPUEXT)
 	$(COMPILER) -I$(OBJPASDIR) $(OBJPASDIR)/objpas.pp
 strings$(PPUEXT) : $(INC)/strings.pp $(INC)/stringsi.inc\

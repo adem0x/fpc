@@ -867,7 +867,6 @@ begin
   GetAsmReservedWordCount:=ord(lastop) - ord(firstop)
 {$ifndef x86_64}
 {$ifndef powerpc}
-{$ifndef powerpc64}
 {$ifndef arm}
     + CondAsmOps*(ord(high(TasmCond))-ord(low(TasmCond)));
 {$else arm}
@@ -875,9 +874,6 @@ begin
      we've to solve this different }
    ;
 {$endif arm}
-{$else powerpc64}
-   + CondAsmOps*(ord(high(TAsmCondFlag))-ord(low(TAsmCondFlag)));
-{$endif powerpc64}
 {$else powerpc}
    + CondAsmOps*(ord(high(TAsmCondFlag))-ord(low(TAsmCondFlag)));
 {$endif powerpc}

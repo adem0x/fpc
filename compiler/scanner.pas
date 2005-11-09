@@ -2037,7 +2037,7 @@ compile time variables as the old format (0/1), continue to work.
                  preprocstack.accept:=false;
                  preprocstack.typ:=pp_elseif;
                end
-           else if (not(assigned(preprocstack.next)) or (preprocstack.next.accept))
+           else if (not(assigned(preprocstack.next)) or (preprocstack.next.accept)) 
                    and compile_time_predicate(valuedescr) then
                begin
                  preprocstack.name:=valuedescr;

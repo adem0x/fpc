@@ -62,7 +62,6 @@ unit i_palmos;
             linkextern   : ld_m68k_palmos;
             ar           : ar_m68k_ar;
             res          : res_none;
-            dbg          : dbg_stabs;
             script       : script_unix;
             endian       : endian_big;
             stackalignment : 2;

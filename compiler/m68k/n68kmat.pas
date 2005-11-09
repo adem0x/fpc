@@ -114,7 +114,7 @@ implementation
               secondpass(left);
               location_copy(location,left.location);
               location_force_reg(exprasmlist,location,OS_64,false);
-              cg64.a_op64_loc_reg(exprasmlist,OP_NOT,OS_64,location,
+              cg64.a_op64_loc_reg(exprasmlist,OP_NOT,location,
                 joinreg64(location.register64.reglo,location.register64.reghi));
            end
          else
@@ -143,7 +143,7 @@ implementation
      if aktoptprocessor <> MC68000 then
        begin
          { verify if denominator is zero }
-         objectlibrary.getjumplabel(continuelabel);
+         objectlibrary.getlabel(continuelabel);
          { compare against zero, if not zero continue }
          cg.a_cmp_const_reg_label(exprasmlist,OS_S32,OC_NE,0,denum,continuelabel);
 //       paraloc1.init;
@@ -189,7 +189,7 @@ implementation
      if aktoptprocessor <> MC68000 then
        begin
          { verify if denominator is zero }
-         objectlibrary.getjumplabel(continuelabel);
+         objectlibrary.getlabel(continuelabel);
          { compare against zero, if not zero continue }
          cg.a_cmp_const_reg_label(exprasmlist,OS_S32,OC_NE,0,denum,continuelabel);
 //         cg.a_param_const(exprasmlist, OS_S32,200,paramanager.getintparaloc(pocall_default,1));
@@ -204,7 +204,7 @@ implementation
          { we extend the sign to the high doword register by inverting }
          { all the bits.                                             }
          exprasmlist.concat(taicpu.op_reg(A_CLR,S_L,tmpreg));
-         objectlibrary.getjumplabel(signlabel);
+         objectlibrary.getlabel(signlabel);
          exprasmlist.concat(taicpu.op_reg(A_TST,S_L,tmpreg));
          cg.a_cmp_const_reg_label(exprasmlist,OS_S32,OC_A,0,tmpreg,signlabel);
          { its a negative value, therefore change sign }

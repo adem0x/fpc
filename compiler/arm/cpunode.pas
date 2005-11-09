@@ -38,9 +38,7 @@ unit cpunode;
        narmcal,
        narmmat,
        narminl,
-       narmcnv,
-       narmcon
+       narmcnv
        ;
-
 
 end.

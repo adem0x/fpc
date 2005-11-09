@@ -1,5 +1,5 @@
 {
-    Copyright (c) 2000-2005 by Florian Klaempfl
+    Copyright (c) 2000-2002 by Florian Klaempfl
 
     Type checking and register allocation for math nodes
 
@@ -32,7 +32,6 @@ interface
        tmoddivnode = class(tbinopnode)
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
-          function simplify : tnode;override;
          protected
 {$ifndef cpu64bit}
           { override the following if you want to implement }
@@ -47,7 +46,6 @@ interface
        tshlshrnode = class(tbinopnode)
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
-          function simplify : tnode;override;
 {$ifndef cpu64bit}
           { override the following if you want to implement }
           { parts explicitely in the code generator (CEC)
@@ -63,7 +61,6 @@ interface
           constructor create(expr : tnode);virtual;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
-          function simplify : tnode;override;
        end;
        tunaryminusnodeclass = class of tunaryminusnode;
 
@@ -71,7 +68,6 @@ interface
           constructor create(expr : tnode);virtual;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
-          function simplify : tnode;override;
        {$ifdef state_tracking}
           function track_state_pass(exec_known:boolean):boolean;override;
        {$endif}
@@ -83,6 +79,7 @@ interface
        cshlshrnode : tshlshrnodeclass;
        cunaryminusnode : tunaryminusnodeclass;
        cnotnode : tnotnodeclass;
+
 
 implementation
 
@@ -99,47 +96,11 @@ implementation
                               TMODDIVNODE
  ****************************************************************************}
 
-    function tmoddivnode.simplify:tnode;
-      var
-        t : tnode;
-        rd,ld : torddef;
-        rv,lv : tconstexprint;
-      begin
-        result:=nil;
-
-        if is_constintnode(right) and is_constintnode(left) then
-          begin
-            rd:=torddef(right.resulttype.def);
-            ld:=torddef(left.resulttype.def);
-
-            rv:=tordconstnode(right).value;
-            lv:=tordconstnode(left).value;
-
-            case nodetype of
-              modn:
-                if (torddef(ld).typ <> u64bit) or
-                   (torddef(rd).typ <> u64bit) then
-                  t:=genintconstnode(lv mod rv)
-                else
-                  t:=genintconstnode(int64(qword(lv) mod qword(rv)));
-              divn:
-                if (torddef(ld).typ <> u64bit) or
-                   (torddef(rd).typ <> u64bit) then
-                  t:=genintconstnode(lv div rv)
-                else
-                  t:=genintconstnode(int64(qword(lv) div qword(rv)));
-            end;
-            result:=t;
-            exit;
-         end;
-      end;
-
-
     function tmoddivnode.det_resulttype:tnode;
       var
-        hp,t : tnode;
-        rd,ld : torddef;
-        rv : tconstexprint;
+         hp,t : tnode;
+         rd,ld : torddef;
+         rv,lv : tconstexprint;
       begin
          result:=nil;
          resulttypepass(left);
@@ -170,11 +131,28 @@ implementation
                  { recover }
                  rv:=1;
                end;
-            end;
+             if is_constintnode(left) then
+               begin
+                 lv:=tordconstnode(left).value;
 
-         result:=simplify;
-         if assigned(result) then
-           exit;
+                 case nodetype of
+                   modn:
+                     if (torddef(ld).typ <> u64bit) or
+                        (torddef(rd).typ <> u64bit) then
+                       t:=genintconstnode(lv mod rv)
+                     else
+                       t:=genintconstnode(int64(qword(lv) mod qword(rv)));
+                   divn:
+                     if (torddef(ld).typ <> u64bit) or
+                        (torddef(rd).typ <> u64bit) then
+                       t:=genintconstnode(lv div rv)
+                     else
+                       t:=genintconstnode(int64(qword(lv) div qword(rv)));
+                 end;
+                 result:=t;
+                 exit;
+              end;
+            end;
 
          { allow operator overloading }
          t:=self;
@@ -447,27 +425,6 @@ implementation
                               TSHLSHRNODE
  ****************************************************************************}
 
-    function tshlshrnode.simplify:tnode;
-      var
-        t : tnode;
-      begin
-        result:=nil;
-        { constant folding }
-        if is_constintnode(left) and is_constintnode(right) then
-          begin
-             case nodetype of
-                shrn:
-                  t:=genintconstnode(tordconstnode(left).value shr tordconstnode(right).value);
-                shln:
-                  t:=genintconstnode(tordconstnode(left).value shl tordconstnode(right).value);
-             end;
-             result:=t;
-             exit;
-          end;
-
-      end;
-
-
     function tshlshrnode.det_resulttype:tnode;
       var
          t : tnode;
@@ -480,9 +437,18 @@ implementation
          if codegenerror then
            exit;
 
-         result:=simplify;
-         if assigned(result) then
-           exit;
+         { constant folding }
+         if is_constintnode(left) and is_constintnode(right) then
+           begin
+              case nodetype of
+                 shrn:
+                   t:=genintconstnode(tordconstnode(left).value shr tordconstnode(right).value);
+                 shln:
+                   t:=genintconstnode(tordconstnode(left).value shl tordconstnode(right).value);
+              end;
+              result:=t;
+              exit;
+           end;
 
          { allow operator overloading }
          t:=self;
@@ -569,25 +535,6 @@ implementation
       end;
 
 
-    function tunaryminusnode.simplify:tnode;
-      begin
-        result:=nil;
-        { constant folding }
-        if is_constintnode(left) then
-          begin
-             result:=genintconstnode(-tordconstnode(left).value);
-             exit;
-          end;
-        if is_constrealnode(left) then
-          begin
-             trealconstnode(left).value_real:=-trealconstnode(left).value_real;
-             result:=left;
-             left:=nil;
-             exit;
-          end;
-      end;
-
-
     function tunaryminusnode.det_resulttype : tnode;
       var
          t : tnode;
@@ -598,9 +545,19 @@ implementation
          if codegenerror then
            exit;
 
-         result:=simplify;
-         if assigned(result) then
-           exit;
+         { constant folding }
+         if is_constintnode(left) then
+           begin
+              result:=genintconstnode(-tordconstnode(left).value);
+              exit;
+           end;
+         if is_constrealnode(left) then
+           begin
+              trealconstnode(left).value_real:=-trealconstnode(left).value_real;
+              result:=left;
+              left:=nil;
+              exit;
+           end;
 
          resulttype:=left.resulttype;
          if (left.resulttype.def.deftype=floatdef) then
@@ -647,92 +604,50 @@ implementation
     { overridden by:   }
     {   i386           }
     function tunaryminusnode.pass_1 : tnode;
-      var
-        procname: string[31];
-        temp: tnode;
       begin
-        result:=nil;
-        firstpass(left);
-        if codegenerror then
-          exit;
+         result:=nil;
+         firstpass(left);
+         if codegenerror then
+           exit;
 
-        if (cs_fp_emulation in aktmoduleswitches) and (left.resulttype.def.deftype=floatdef) then
-          begin
-            if not(target_info.system in system_wince) then
-              begin
-                case tfloatdef(resulttype.def).typ of
-                  s32real:
-                    procname:='float32_sub';
-                  s64real:
-                    procname:='float64_sub';
-                  {!!! not yet implemented
-                  s128real:
-                  }
-                  else
-                    internalerror(2005082801);
-                end;
-                result:=ccallnode.createintern(procname,ccallparanode.create(crealconstnode.create(0,resulttype),
-                  ccallparanode.create(left,nil)));
-              end
-            else
-              begin
-                case tfloatdef(resulttype.def).typ of
-                  s32real:
-                    procname:='NEGS';
-                  s64real:
-                    procname:='NEGD';
-                  {!!! not yet implemented
-                  s128real:
-                  }
-                  else
-                    internalerror(2005082802);
-                end;
-                result:=ccallnode.createintern(procname,ccallparanode.create(left,nil));
-              end;
-
-            left:=nil;
-          end
-        else
-          begin
-            registersint:=left.registersint;
-            registersfpu:=left.registersfpu;
+         registersint:=left.registersint;
+         registersfpu:=left.registersfpu;
 {$ifdef SUPPORT_MMX}
-            registersmmx:=left.registersmmx;
+         registersmmx:=left.registersmmx;
 {$endif SUPPORT_MMX}
 
-            if (left.resulttype.def.deftype=floatdef) then
-              begin
-                if (left.expectloc<>LOC_REGISTER) and
-                  (registersfpu<1) then
-                  registersfpu:=1;
-                expectloc:=LOC_FPUREGISTER;
-              end
+         if (left.resulttype.def.deftype=floatdef) then
+           begin
+              if (left.expectloc<>LOC_REGISTER) and
+                 (registersfpu<1) then
+                registersfpu:=1;
+              expectloc:=LOC_FPUREGISTER;
+           end
 {$ifdef SUPPORT_MMX}
-             else if (cs_mmx in aktlocalswitches) and
-               is_mmx_able_array(left.resulttype.def) then
-                 begin
-                   if (left.expectloc<>LOC_MMXREGISTER) and
-                      (registersmmx<1) then
-                     registersmmx:=1;
-                 end
+         else if (cs_mmx in aktlocalswitches) and
+           is_mmx_able_array(left.resulttype.def) then
+             begin
+               if (left.expectloc<>LOC_MMXREGISTER) and
+                  (registersmmx<1) then
+                 registersmmx:=1;
+             end
 {$endif SUPPORT_MMX}
 {$ifndef cpu64bit}
-             else if is_64bit(left.resulttype.def) then
-               begin
-                  if (left.expectloc<>LOC_REGISTER) and
-                     (registersint<2) then
-                    registersint:=2;
-                  expectloc:=LOC_REGISTER;
-               end
+         else if is_64bit(left.resulttype.def) then
+           begin
+              if (left.expectloc<>LOC_REGISTER) and
+                 (registersint<2) then
+                registersint:=2;
+              expectloc:=LOC_REGISTER;
+           end
 {$endif cpu64bit}
-             else if (left.resulttype.def.deftype=orddef) then
-               begin
-                  if (left.expectloc<>LOC_REGISTER) and
-                     (registersint<1) then
-                    registersint:=1;
-                  expectloc:=LOC_REGISTER;
-               end;
-          end;
+         else if (left.resulttype.def.deftype=orddef) then
+           begin
+              if (left.expectloc<>LOC_REGISTER) and
+                 (registersint<1) then
+                registersint:=1;
+              expectloc:=LOC_REGISTER;
+           end;
       end;
 
 
@@ -751,78 +666,11 @@ implementation
       end;
 
 
-    function tnotnode.simplify:tnode;
-      var
-        v : tconstexprint;
-        t : tnode;
-        tt : ttype;
-      begin
-        result:=nil;
-        { Try optmimizing ourself away }
-        if left.nodetype=notn then
-          begin
-            { Double not. Remove both }
-            result:=Tnotnode(left).left;
-            tnotnode(left).left:=nil;
-            exit;
-          end;
-
-        if (left.nodetype in [ltn,lten,equaln,unequaln,gtn,gten]) then
-         begin
-           { Not of boolean expression. Turn around the operator and remove
-             the not. This is not allowed for sets with the gten/lten,
-             because there is no ltn/gtn support }
-           if (taddnode(left).left.resulttype.def.deftype<>setdef) or
-              (left.nodetype in [equaln,unequaln]) then
-            begin
-              result:=left;
-              left.nodetype:=boolean_reverse[left.nodetype];
-              left:=nil;
-              exit;
-            end;
-         end;
-
-        { constant folding }
-        if (left.nodetype=ordconstn) then
-          begin
-             v:=tordconstnode(left).value;
-             tt:=left.resulttype;
-             case torddef(left.resulttype.def).typ of
-               bool8bit,
-               bool16bit,
-               bool32bit :
-                 begin
-                   { here we do a boolean(byte(..)) type cast because }
-                   { boolean(<int64>) is buggy in 1.00                }
-                   v:=byte(not(boolean(byte(v))));
-                 end;
-               uchar,
-               uwidechar,
-               u8bit,
-               s8bit,
-               u16bit,
-               s16bit,
-               u32bit,
-               s32bit,
-               s64bit,
-               u64bit :
-                 begin
-                   v:=int64(not int64(v)); { maybe qword is required }
-                   int_to_type(v,tt);
-                 end;
-               else
-                 CGMessage(type_e_mismatch);
-             end;
-             t:=cordconstnode.create(v,tt,true);
-             result:=t;
-             exit;
-          end;
-      end;
-
-
     function tnotnode.det_resulttype : tnode;
       var
          t : tnode;
+         tt : ttype;
+         v : tconstexprint;
       begin
          result:=nil;
          resulttypepass(left);
@@ -832,9 +680,65 @@ implementation
 
          resulttype:=left.resulttype;
 
-         result:=simplify;
-         if assigned(result) then
-           exit;
+         { Try optmimizing ourself away }
+         if left.nodetype=notn then
+           begin
+             { Double not. Remove both }
+             result:=Tnotnode(left).left;
+             Tnotnode(left).left:=nil;
+             exit;
+           end;
+
+         if (left.nodetype in [ltn,lten,equaln,unequaln,gtn,gten]) then
+          begin
+            { Not of boolean expression. Turn around the operator and remove
+              the not. This is not allowed for sets with the gten/lten,
+              because there is no ltn/gtn support }
+            if (taddnode(left).left.resulttype.def.deftype<>setdef) or
+               (left.nodetype in [equaln,unequaln]) then
+             begin
+               result:=left;
+               left.nodetype:=boolean_reverse[left.nodetype];
+               left:=nil;
+               exit;
+             end;
+          end;
+
+         { constant folding }
+         if (left.nodetype=ordconstn) then
+           begin
+              v:=tordconstnode(left).value;
+              tt:=left.resulttype;
+              case torddef(left.resulttype.def).typ of
+                bool8bit,
+                bool16bit,
+                bool32bit :
+                  begin
+                    { here we do a boolean(byte(..)) type cast because }
+                    { boolean(<int64>) is buggy in 1.00                }
+                    v:=byte(not(boolean(byte(v))));
+                  end;
+                uchar,
+                uwidechar,
+                u8bit,
+                s8bit,
+                u16bit,
+                s16bit,
+                u32bit,
+                s32bit,
+                s64bit,
+                u64bit :
+                  begin
+                    v:=int64(not int64(v)); { maybe qword is required }
+                    int_to_type(v,tt);
+                  end;
+                else
+                  CGMessage(type_e_mismatch);
+              end;
+              t:=cordconstnode.create(v,tt,true);
+              result:=t;
+              exit;
+           end;
 
          if is_boolean(resulttype.def) then
            begin

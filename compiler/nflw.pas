@@ -30,8 +30,7 @@ interface
       cclasses,
       node,cpubase,
       symnot,
-      symtype,symbase,symdef,symsym,
-      optunrol;
+      symtype,symbase,symdef,symsym;
 
     type
        { flags used by loop nodes }
@@ -60,7 +59,7 @@ interface
           loopflags : tloopflags;
           constructor create(tt : tnodetype;l,r,_t1,_t2 : tnode);virtual;
           destructor destroy;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
@@ -137,7 +136,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function det_resulttype:tnode;override;
           function pass_1 : tnode;override;
           function docompare(p: tnode): boolean; override;
@@ -155,7 +154,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function det_resulttype:tnode;override;
           function pass_1 : tnode;override;
           function docompare(p: tnode): boolean; override;
@@ -169,7 +168,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           procedure insertintolist(l : tnodelist);override;
           function det_resulttype:tnode;override;
           function pass_1 : tnode;override;
@@ -201,7 +200,7 @@ interface
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           function det_resulttype:tnode;override;
           function pass_1 : tnode;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function docompare(p: tnode): boolean; override;
        end;
        tonnodeclass = class of tonnode;
@@ -293,23 +292,23 @@ implementation
       end;
 
 
-    function tloopnode._getcopy : tnode;
+    function tloopnode.getcopy : tnode;
 
       var
          p : tloopnode;
 
       begin
-         p:=tloopnode(inherited _getcopy);
+         p:=tloopnode(inherited getcopy);
          if assigned(t1) then
-           p.t1:=t1._getcopy
+           p.t1:=t1.getcopy
          else
            p.t1:=nil;
          if assigned(t2) then
-           p.t2:=t2._getcopy
+           p.t2:=t2.getcopy
          else
            p.t2:=nil;
          p.loopflags:=loopflags;
-         _getcopy:=p;
+         getcopy:=p;
       end;
 
     procedure tloopnode.insertintolist(l : tnodelist);
@@ -690,23 +689,9 @@ implementation
     end;
 
     function tfornode.det_resulttype:tnode;
-      var
-        unrollres : tnode;
       begin
          result:=nil;
          resulttype:=voidtype;
-
-         { loop unrolling }
-         if cs_loopunroll in aktglobalswitches then
-           begin
-             unrollres:=unroll_loop(self);
-             if assigned(unrollres) then
-               begin
-                 resulttypepass(unrollres);
-                 result:=unrollres;
-                 exit;
-               end;
-           end;
 
          { process the loopvar, from and to, varstates are already set }
          resulttypepass(left);
@@ -989,12 +974,12 @@ implementation
       end;
 
 
-   function tgotonode._getcopy : tnode;
+   function tgotonode.getcopy : tnode;
      var
        p : tgotonode;
        i : aint;
      begin
-        p:=tgotonode(inherited _getcopy);
+        p:=tgotonode(inherited getcopy);
         {
         p.exceptionblock:=exceptionblock;
         { When we copying, we do an ugly trick to determine if the label used
@@ -1091,11 +1076,11 @@ implementation
       end;
 
 
-   function tlabelnode._getcopy : tnode;
+   function tlabelnode.getcopy : tnode;
      var
         p : tlabelnode;
      begin
-        p:=tlabelnode(inherited _getcopy);
+        p:=tlabelnode(inherited getcopy);
         p.exceptionblock:=exceptionblock;
 
         result:=p;
@@ -1149,16 +1134,16 @@ implementation
       end;
 
 
-    function traisenode._getcopy : tnode;
+    function traisenode.getcopy : tnode;
       var
          n : traisenode;
       begin
-         n:=traisenode(inherited _getcopy);
+         n:=traisenode(inherited getcopy);
          if assigned(frametree) then
-           n.frametree:=frametree._getcopy
+           n.frametree:=frametree.getcopy
          else
            n.frametree:=nil;
-         _getcopy:=n;
+         getcopy:=n;
       end;
 
 
@@ -1368,11 +1353,11 @@ implementation
       end;
 
 
-    function tonnode._getcopy : tnode;
+    function tonnode.getcopy : tnode;
       var
          n : tonnode;
       begin
-         n:=tonnode(inherited _getcopy);
+         n:=tonnode(inherited getcopy);
          n.exceptsymtable:=exceptsymtable.getcopy;
          n.excepttype:=excepttype;
          result:=n;

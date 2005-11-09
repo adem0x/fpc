@@ -189,11 +189,16 @@ type
   );
 
   { string types }
-  tstringtype = (
-    st_conststring,
+  tstringtype = (st_default,
     st_shortstring,
     st_longstring,
+  {$ifndef ansistring_bits}
     st_ansistring,
+  {$else}
+    st_ansistring16,
+    st_ansistring32,
+    st_ansistring64,
+  {$endif}
     st_widestring
   );
 
@@ -393,12 +398,26 @@ type
     te_exact
   );
 
+{$ifdef GDB}
+type
   tdefstabstatus = (
     stab_state_unused,
     stab_state_used,
     stab_state_writing,
     stab_state_written
   );
+
+const
+  tagtypes : Set of tdeftype =
+    [recorddef,enumdef,
+    {$IfNDef GDBKnowsStrings}
+    stringdef,
+    {$EndIf not GDBKnowsStrings}
+    {$IfNDef GDBKnowsFiles}
+    filedef,
+    {$EndIf not GDBKnowsFiles}
+    objectdef];
+{$endif GDB}
 
 
 const

@@ -102,8 +102,8 @@ implementation
       begin
          oldtruelabel:=truelabel;
          oldfalselabel:=falselabel;
-         objectlibrary.getjumplabel(truelabel);
-         objectlibrary.getjumplabel(falselabel);
+         objectlibrary.getlabel(truelabel);
+         objectlibrary.getlabel(falselabel);
          secondpass(left);
          if codegenerror then
           exit;
@@ -161,7 +161,7 @@ implementation
             LOC_JUMP :
               begin
                 hregister:=cg.getintregister(exprasmlist,OS_INT);
-                objectlibrary.getjumplabel(hlabel);
+                objectlibrary.getlabel(hlabel);
                 cg.a_label(exprasmlist,truelabel);
                 cg.a_load_const_reg(exprasmlist,OS_INT,1,hregister);
                 cg.a_jmp_always(exprasmlist,hlabel);
@@ -198,113 +198,14 @@ implementation
          hregister : tregister;
          l1,l2 : tasmlabel;
          signtested : boolean;
-         hreg : tregister;
-         op : tasmop;
       begin
-{$ifdef x86_64}
+      {
         if use_sse(resulttype.def) then
           begin
-            if is_double(resulttype.def) then
-              op:=A_CVTSI2SD
-            else if is_single(resulttype.def) then
-              op:=A_CVTSI2SS
-            else
-              internalerror(200506061);
 
-            location_reset(location,LOC_MMREGISTER,def_cgsize(resulttype.def));
-            location.register:=cg.getmmregister(exprasmlist,def_cgsize(resulttype.def));
-            if (left.location.loc=LOC_REGISTER) and (torddef(left.resulttype.def).typ=u64bit) then
-              begin
-{$ifdef cpu64bit}
-                emit_const_reg(A_BT,S_Q,63,left.location.register);
-{$else cpu64bit}
-                emit_const_reg(A_BT,S_L,31,left.location.register64.reghi);
-{$endif cpu64bit}
-                signtested:=true;
-              end
-            else
-              signtested:=false;
-
-            case torddef(left.resulttype.def).typ of
-              u64bit:
-                begin
-                   { unsigned 64 bit ints are harder to handle:
-                     we load bits 0..62 and then check bit 63:
-                     if it is 1 then we add $80000000 000000000
-                     as double                                  }
-                   objectlibrary.getdatalabel(l1);
-                   objectlibrary.getjumplabel(l2);
-
-                   if not(signtested) then
-                     begin
-                       inc(left.location.reference.offset,4);
-                       emit_const_ref(A_BT,S_L,31,left.location.reference);
-                       dec(left.location.reference.offset,4);
-                     end;
-
-                   exprasmlist.concat(taicpu.op_ref_reg(op,S_Q,left.location.reference,location.register));
-
-                   cg.a_jmp_flags(exprasmlist,F_NC,l2);
-                   asmlist[al_typedconsts].concat(Tai_label.Create(l1));
-                   reference_reset_symbol(href,l1,0);
-
-                   { I got these constant from a test program (FK) }
-                   if is_double(resulttype.def) then
-                     begin
-                       { double (2^64) }
-                       asmlist[al_typedconsts].concat(Tai_const.Create_32bit(0));
-                       asmlist[al_typedconsts].concat(Tai_const.Create_32bit($43f00000));
-                       exprasmlist.concat(taicpu.op_ref_reg(A_ADDSD,S_NO,href,location.register));
-                     end
-                   else if is_single(resulttype.def) then
-                     begin
-                       { single(2^64) }
-                       asmlist[al_typedconsts].concat(Tai_const.Create_32bit($5f800000));
-                       exprasmlist.concat(taicpu.op_ref_reg(A_ADDSS,S_NO,href,location.register));
-                     end
-                   else
-                     internalerror(200506071);
-                   cg.a_label(exprasmlist,l2);
-                end
-              else
-                begin
-                  if (left.resulttype.def.size=4) and not(torddef(left.resulttype.def).typ=u32bit) then
-                    begin
-                      case left.location.loc of
-                        LOC_CREFERENCE,
-                        LOC_REFERENCE :
-                          exprasmList.concat(Taicpu.op_ref_reg(op,S_L,left.location.reference,location.register));
-                        LOC_CREGISTER,
-                        LOC_REGISTER :
-                          exprasmList.concat(Taicpu.op_reg_reg(op,S_L,left.location.register,location.register));
-                        else
-                          internalerror(200506072);
-                      end;
-                    end
-                  else if left.resulttype.def.size=8 then
-                    begin
-                      case left.location.loc of
-                        LOC_CREFERENCE,
-                        LOC_REFERENCE :
-                          exprasmList.concat(Taicpu.op_ref_reg(op,S_Q,left.location.reference,location.register));
-                        LOC_CREGISTER,
-                        LOC_REGISTER :
-                          exprasmList.concat(Taicpu.op_reg_reg(op,S_Q,left.location.register,location.register));
-                        else
-                          internalerror(200506073);
-                      end;
-                    end
-                  else
-                    begin
-                      hreg:=cg.getintregister(exprasmlist,OS_64);
-                      cg.a_load_loc_reg(exprasmlist,OS_64,left.location,hreg);
-                      exprasmList.concat(Taicpu.Op_reg_reg(op,S_NO,hreg,location.register));
-                    end
-                end;
-            end;
           end
         else
-{$endif x86_64}
+      }
           begin
             location_reset(location,LOC_FPUREGISTER,def_cgsize(resulttype.def));
             if (left.location.loc=LOC_REGISTER) and (torddef(left.resulttype.def).typ=u64bit) then
@@ -348,7 +249,7 @@ implementation
                      if it is 1 then we add $80000000 000000000
                      as double                                  }
                    objectlibrary.getdatalabel(l1);
-                   objectlibrary.getjumplabel(l2);
+                   objectlibrary.getlabel(l2);
 
                    if not(signtested) then
                      begin
@@ -359,14 +260,14 @@ implementation
 
                    exprasmlist.concat(taicpu.op_ref(A_FILD,S_IQ,left.location.reference));
                    cg.a_jmp_flags(exprasmlist,F_NC,l2);
-                   asmlist[al_typedconsts].concat(Tai_label.Create(l1));
+                   Consts.concat(Tai_label.Create(l1));
                    { I got this constant from a test program (FK) }
-                   asmlist[al_typedconsts].concat(Tai_const.Create_32bit(0));
-                   asmlist[al_typedconsts].concat(Tai_const.Create_32bit(longint ($80000000)));
-                   asmlist[al_typedconsts].concat(Tai_const.Create_32bit($0000403f));
+                   Consts.concat(Tai_const.Create_32bit(0));
+                   Consts.concat(Tai_const.Create_32bit(longint ($80000000)));
+                   Consts.concat(Tai_const.Create_32bit($0000403f));
                    reference_reset_symbol(href,l1,0);
-                   exprasmlist.concat(Taicpu.Op_ref(A_FLD,S_FX,href));
-                   exprasmlist.concat(Taicpu.Op_reg_reg(A_FADDP,S_NO,NR_ST,NR_ST1));
+                   exprasmList.concat(Taicpu.Op_ref(A_FLD,S_FX,href));
+                   exprasmList.concat(Taicpu.Op_reg_reg(A_FADDP,S_NO,NR_ST,NR_ST1));
                    cg.a_label(exprasmlist,l2);
                 end
               else

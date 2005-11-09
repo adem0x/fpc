@@ -180,7 +180,6 @@ type
     _IOCHECK,
     _LIBRARY,
     _MESSAGE,
-    _PACKAGE,
     _PRIVATE,
     _PROGRAM,
     _R12BASE,
@@ -191,7 +190,6 @@ type
     _ABSOLUTE,
     _ABSTRACT,
     _BASESYSV,
-    _CONTAINS,
     _CONTINUE,
     _CPPCLASS,
     _EXTERNAL,
@@ -204,7 +202,6 @@ type
     _PLATFORM,
     _PROPERTY,
     _REGISTER,
-    _REQUIRES,
     _RESIDENT,
     _SAFECALL,
     _SYSVBASE,
@@ -420,7 +417,6 @@ const
       (str:'IOCHECK'       ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'LIBRARY'       ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'MESSAGE'       ;special:false;keyword:m_none;op:NOTOKEN),
-      (str:'PACKAGE'       ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'PRIVATE'       ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'PROGRAM'       ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'R12BASE'       ;special:false;keyword:m_none;op:NOTOKEN),   { Syscall variation on MorphOS }
@@ -431,7 +427,6 @@ const
       (str:'ABSOLUTE'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'ABSTRACT'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'BASESYSV'      ;special:false;keyword:m_none;op:NOTOKEN),   { Syscall variation on MorphOS }
-      (str:'CONTAINS'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'CONTINUE'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'CPPCLASS'      ;special:false;keyword:m_fpc;op:NOTOKEN),
       (str:'EXTERNAL'      ;special:false;keyword:m_none;op:NOTOKEN),
@@ -444,7 +439,6 @@ const
       (str:'PLATFORM'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'PROPERTY'      ;special:false;keyword:m_class;op:NOTOKEN),
       (str:'REGISTER'      ;special:false;keyword:m_none;op:NOTOKEN),
-      (str:'REQUIRES'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'RESIDENT'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'SAFECALL'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'SYSVBASE'      ;special:false;keyword:m_none;op:NOTOKEN),   { Syscall variation on MorphOS }

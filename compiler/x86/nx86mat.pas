@@ -50,8 +50,7 @@ interface
       globtype,
       systems,
       cutils,verbose,globals,
-      symconst,symdef,
-      aasmbase,aasmtai,defutil,
+      symconst,aasmbase,aasmtai,defutil,
       cgbase,pass_1,pass_2,
       ncon,
       cpubase,
@@ -171,20 +170,20 @@ interface
             location_reset(location,LOC_MMREGISTER,def_cgsize(resulttype.def));
 
             { make life of register allocator easier }
-            location.register:=cg.getmmregister(exprasmlist,def_cgsize(resulttype.def));
+            location.register:=cg.getmmregister(exprasmlist,OS_M128);
             cg.a_loadmm_reg_reg(exprasmlist,def_cgsize(resulttype.def),def_cgsize(resulttype.def),left.location.register,location.register,mms_movescalar);
 
-            reg:=cg.getmmregister(exprasmlist,def_cgsize(resulttype.def));
+            reg:=cg.getmmregister(exprasmlist,OS_M128);
 
             objectlibrary.getdatalabel(l1);
-            asmlist[al_typedconsts].concat(Tai_label.Create(l1));
+            consts.concat(Tai_label.Create(l1));
             case def_cgsize(resulttype.def) of
               OS_F32:
-                asmlist[al_typedconsts].concat(tai_const.create_32bit(longint(1 shl 31)));
+                consts.concat(tai_const.create_32bit(longint(1 shl 31)));
               OS_F64:
                 begin
-                  asmlist[al_typedconsts].concat(tai_const.create_32bit(0));
-                  asmlist[al_typedconsts].concat(tai_const.create_32bit(-(1 shl 31)));
+                  consts.concat(tai_const.create_32bit(0));
+                  consts.concat(tai_const.create_32bit(-(1 shl 31)));
                 end
               else
                 internalerror(2004110215);

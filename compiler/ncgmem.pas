@@ -211,7 +211,7 @@ implementation
             else
               internalerror(200507031);
          end;
-         if (cs_use_heaptrc in aktglobalswitches) and
+         if (cs_gdb_heaptrc in aktglobalswitches) and
             (cs_checkpointer in aktlocalswitches) and
             not(cs_compilesystem in aktmoduleswitches) and
             not(tpointerdef(left.resulttype.def).is_far) and
@@ -223,9 +223,9 @@ implementation
             cg.a_param_reg(exprasmlist, OS_ADDR,location.reference.base,paraloc1);
             paramanager.freeparaloc(exprasmlist,paraloc1);
             paraloc1.done;
-            cg.allocallcpuregisters(exprasmlist);
+            cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
             cg.a_call_name(exprasmlist,'FPC_CHECKPOINTER');
-            cg.deallocallcpuregisters(exprasmlist);
+            cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
           end;
       end;
 
@@ -269,7 +269,7 @@ implementation
                   end;
              end;
              { implicit deferencing }
-             if (cs_use_heaptrc in aktglobalswitches) and
+             if (cs_gdb_heaptrc in aktglobalswitches) and
                 (cs_checkpointer in aktlocalswitches) and
                 not(cs_compilesystem in aktmoduleswitches) then
               begin
@@ -277,9 +277,9 @@ implementation
                 paramanager.allocparaloc(exprasmlist,paraloc1);
                 cg.a_param_reg(exprasmlist, OS_ADDR,location.reference.base,paraloc1);
                 paramanager.freeparaloc(exprasmlist,paraloc1);
-                cg.allocallcpuregisters(exprasmlist);
+                cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
                 cg.a_call_name(exprasmlist,'FPC_CHECKPOINTER');
-                cg.deallocallcpuregisters(exprasmlist);
+                cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               end;
            end
          else if is_interfacecom(left.resulttype.def) then
@@ -287,7 +287,7 @@ implementation
              tg.GetTempTyped(exprasmlist,left.resulttype.def,tt_normal,location.reference);
              cg.a_load_loc_ref(exprasmlist,OS_ADDR,left.location,location.reference);
              { implicit deferencing also for interfaces }
-             if (cs_use_heaptrc in aktglobalswitches) and
+             if (cs_gdb_heaptrc in aktglobalswitches) and
                 (cs_checkpointer in aktlocalswitches) and
                 not(cs_compilesystem in aktmoduleswitches) then
               begin
@@ -295,9 +295,9 @@ implementation
                 paramanager.allocparaloc(exprasmlist,paraloc1);
                 cg.a_param_reg(exprasmlist, OS_ADDR,location.reference.base,paraloc1);
                 paramanager.freeparaloc(exprasmlist,paraloc1);
-                cg.allocallcpuregisters(exprasmlist);
+                cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
                 cg.a_call_name(exprasmlist,'FPC_CHECKPOINTER');
-                cg.deallocallcpuregisters(exprasmlist);
+                cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
               end;
            end
          else
@@ -315,11 +315,70 @@ implementation
 *****************************************************************************}
 
     procedure tcgwithnode.pass_2;
+{$ifdef WITHNODEDEBUG}
+      const
+        withlevel : longint = 0;
+      var
+        withstartlabel,withendlabel : tasmlabel;
+        pp : pchar;
+        mangled_length  : longint;
+        refnode : tnode;
+{$endif WITHNODEDEBUG}
       begin
         location_reset(location,LOC_VOID,OS_NO);
 
+{$ifdef WITHNODEDEBUG}
+        if (cs_debuginfo in aktmoduleswitches) then
+          begin
+            { load reference }
+            if (withrefnode.nodetype=derefn) and
+               (tderefnode(withrefnode).left.nodetype=temprefn) then
+              refnode:=tderefnode(withrefnode).left
+            else
+              refnode:=withrefnode;
+            secondpass(refnode);
+            location_freetemp(exprasmlist,refnode.location);
+            if not(refnode.location.loc in [LOC_REFERENCE,LOC_CREFERENCE]) then
+              internalerror(2003092810);
+
+            inc(withlevel);
+            objectlibrary.getaddrlabel(withstartlabel);
+            objectlibrary.getaddrlabel(withendlabel);
+            cg.a_label(exprasmlist,withstartlabel);
+            withdebugList.concat(Tai_stabs.Create(strpnew(
+               '"with'+tostr(withlevel)+':'+tostr(symtablestack.getnewtypecount)+
+               '=*'+tstoreddef(left.resulttype.def).numberstring+'",'+
+               tostr(N_LSYM)+',0,0,'+tostr(refnode.location.reference.offset))));
+            mangled_length:=length(current_procinfo.procdef.mangledname);
+            getmem(pp,mangled_length+50);
+            strpcopy(pp,'192,0,0,'+withstartlabel.name);
+            if (target_info.use_function_relative_addresses) then
+              begin
+                strpcopy(strend(pp),'-');
+                strpcopy(strend(pp),current_procinfo.procdef.mangledname);
+              end;
+            withdebugList.concat(Tai_stabn.Create(strnew(pp)));
+          end;
+{$endif WITHNODEDEBUG}
+
         if assigned(left) then
           secondpass(left);
+
+{$ifdef WITHNODEDEBUG}
+        if (cs_debuginfo in aktmoduleswitches) then
+          begin
+            cg.a_label(exprasmlist,withendlabel);
+            strpcopy(pp,'224,0,0,'+withendlabel.name);
+           if (target_info.use_function_relative_addresses) then
+             begin
+               strpcopy(strend(pp),'-');
+               strpcopy(strend(pp),current_procinfo.procdef.mangledname);
+             end;
+            withdebugList.concat(Tai_stabn.Create(strnew(pp)));
+            freemem(pp,mangled_length+50);
+            dec(withlevel);
+          end;
+{$endif WITHNODEDEBUG}
        end;
 
 
@@ -410,8 +469,8 @@ implementation
                    hreg:=cg.getintregister(exprasmlist,OS_INT);
                    cg.a_load_loc_reg(exprasmlist,OS_INT,right.location,hreg);
                  end;
-               objectlibrary.getjumplabel(neglabel);
-               objectlibrary.getjumplabel(poslabel);
+               objectlibrary.getlabel(neglabel);
+               objectlibrary.getlabel(poslabel);
                cg.a_cmp_const_reg_label(exprasmlist,OS_INT,OC_LT,0,hreg,poslabel);
                cg.a_cmp_loc_reg_label(exprasmlist,OS_INT,OC_BE,hightree.location,hreg,neglabel);
                cg.a_label(exprasmlist,poslabel);
@@ -432,9 +491,9 @@ implementation
                cg.a_param_loc(exprasmlist,left.location,paraloc1);
                paramanager.freeparaloc(exprasmlist,paraloc1);
                paramanager.freeparaloc(exprasmlist,paraloc2);
-               cg.allocallcpuregisters(exprasmlist);
+               cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
                cg.a_call_name(exprasmlist,'FPC_DYNARRAY_RANGECHECK');
-               cg.deallocallcpuregisters(exprasmlist);
+               cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
             end
          else
            cg.g_rangecheck(exprasmlist,right.location,right.resulttype.def,left.resulttype.def);
@@ -498,9 +557,9 @@ implementation
                    paramanager.allocparaloc(exprasmlist,paraloc1);
                    cg.a_param_reg(exprasmlist,OS_ADDR,location.reference.base,paraloc1);
                    paramanager.freeparaloc(exprasmlist,paraloc1);
-                   cg.allocallcpuregisters(exprasmlist);
+                   cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
                    cg.a_call_name(exprasmlist,'FPC_'+upper(tstringdef(left.resulttype.def).stringtypname)+'_CHECKZERO');
-                   cg.deallocallcpuregisters(exprasmlist);
+                   cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
                 end;
 
               { in ansistrings/widestrings S[1] is p<w>char(S)[0] !! }
@@ -591,9 +650,9 @@ implementation
                               cg.a_param_ref(exprasmlist,OS_INT,href,paraloc1);
                               paramanager.freeparaloc(exprasmlist,paraloc1);
                               paramanager.freeparaloc(exprasmlist,paraloc2);
-                              cg.allocallcpuregisters(exprasmlist);
+                              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
                               cg.a_call_name(exprasmlist,'FPC_'+upper(tstringdef(left.resulttype.def).stringtypname)+'_RANGECHECK');
-                              cg.deallocallcpuregisters(exprasmlist);
+                              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
                            end;
 
                          st_shortstring:
@@ -680,9 +739,9 @@ implementation
               if isjump then
                begin
                  otl:=truelabel;
-                 objectlibrary.getjumplabel(truelabel);
+                 objectlibrary.getlabel(truelabel);
                  ofl:=falselabel;
-                 objectlibrary.getjumplabel(falselabel);
+                 objectlibrary.getlabel(falselabel);
                end;
               secondpass(right);
 
@@ -730,9 +789,9 @@ implementation
                               cg.a_param_ref(exprasmlist,OS_INT,href,paraloc1);
                               paramanager.freeparaloc(exprasmlist,paraloc1);
                               paramanager.freeparaloc(exprasmlist,paraloc2);
-                              cg.allocallcpuregisters(exprasmlist);
+                              cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
                               cg.a_call_name(exprasmlist,'FPC_'+upper(tstringdef(left.resulttype.def).stringtypname)+'_RANGECHECK');
-                              cg.deallocallcpuregisters(exprasmlist);
+                              cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
                            end;
                          st_shortstring:
                            begin

@@ -433,11 +433,6 @@ GCCLIBDIR:=$(shell dirname `gcc -m32 -print-libgcc-file-name`)
 endif
 endif
 endif
-ifeq ($(CPU_TARGET),powerpc64)
-ifeq ($(BINUTILSPREFIX),)
-GCCLIBDIR:=$(shell dirname `gcc -m64 -print-libgcc-file-name`)
-endif
-endif
 endif
 ifndef GCCLIBDIR
 CROSSGCC=$(strip $(wildcard $(addsuffix /$(BINUTILSPREFIX)gcc$(SRCEXEEXT),$(SEARCHPATH))))

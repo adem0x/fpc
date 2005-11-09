@@ -304,10 +304,8 @@ interface
           function pass_1 : tnode;virtual;abstract;
           { dermines the resulttype of the node }
           function det_resulttype : tnode;virtual;abstract;
-
-          { tries to simplify the node, returns a value <>nil if a simplified
-            node has been created }
-          function simplify : tnode;virtual;
+          { dermines the number of necessary temp. locations to evaluate
+            the node }
 {$ifdef state_tracking}
           { Does optimizations by keeping track of the variable states
             in a procedure }
@@ -316,8 +314,6 @@ interface
           { For a t1:=t2 tree, mark the part of the tree t1 that gets
             written to (normally the loadnode) as write access. }
           procedure mark_write;virtual;
-          { dermines the number of necessary temp. locations to evaluate
-            the node }
           procedure det_temp;virtual;abstract;
 
           procedure pass_2;virtual;abstract;
@@ -326,11 +322,8 @@ interface
           function isequal(p : tnode) : boolean;
           { to implement comparisation, override this method }
           function docompare(p : tnode) : boolean;virtual;
-          { wrapper for getcopy }
-          function getcopy : tnode;
-
-          { does the real copying of a node }
-          function _getcopy : tnode;virtual;
+          { gets a copy of the node }
+          function getcopy : tnode;virtual;
 
           procedure insertintolist(l : tnodelist);virtual;
           { writes a node for debugging purpose, shouldn't be called }
@@ -363,7 +356,7 @@ interface
           procedure concattolist(l : tlinkedlist);override;
           function ischild(p : tnode) : boolean;override;
           function docompare(p : tnode) : boolean;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           procedure insertintolist(l : tnodelist);override;
           procedure left_max;
           procedure printnodedata(var t:text);override;
@@ -383,7 +376,7 @@ interface
           function ischild(p : tnode) : boolean;override;
           function docompare(p : tnode) : boolean;override;
           procedure swapleftright;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           procedure insertintolist(l : tnodelist);override;
           procedure left_right_max;
           procedure printnodedata(var t:text);override;
@@ -724,12 +717,6 @@ implementation
       end;
 
 
-    function tnode.simplify : tnode;
-      begin
-        result:=nil;
-      end;
-
-
     destructor tnode.destroy;
       begin
 {$ifdef EXTDEBUG}
@@ -818,12 +805,6 @@ implementation
 
 
     function tnode.getcopy : tnode;
-      begin
-        result:=_getcopy;
-      end;
-
-
-    function tnode._getcopy : tnode;
       var
          p : tnode;
       begin
@@ -848,7 +829,7 @@ implementation
          p.firstpasscount:=firstpasscount;
 {$endif extdebug}
 {         p.list:=list; }
-         result:=p;
+         getcopy:=p;
       end;
 
 
@@ -921,16 +902,16 @@ implementation
       end;
 
 
-    function tunarynode._getcopy : tnode;
+    function tunarynode.getcopy : tnode;
       var
          p : tunarynode;
       begin
-         p:=tunarynode(inherited _getcopy);
+         p:=tunarynode(inherited getcopy);
          if assigned(left) then
-           p.left:=left._getcopy
+           p.left:=left.getcopy
          else
            p.left:=nil;
-         result:=p;
+         getcopy:=p;
       end;
 
 
@@ -1052,16 +1033,16 @@ implementation
       end;
 
 
-    function tbinarynode._getcopy : tnode;
+    function tbinarynode.getcopy : tnode;
       var
          p : tbinarynode;
       begin
-         p:=tbinarynode(inherited _getcopy);
+         p:=tbinarynode(inherited getcopy);
          if assigned(right) then
-           p.right:=right._getcopy
+           p.right:=right.getcopy
          else
            p.right:=nil;
-         result:=p;
+         getcopy:=p;
       end;
 
 

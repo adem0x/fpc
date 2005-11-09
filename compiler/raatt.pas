@@ -276,19 +276,6 @@ unit raatt;
                end
            end;
 {$endif POWERPC}
-{$ifdef POWERPC64}
-           { some PowerPC instructions can have the postfix -, + or .
-             this code could be moved to is_asmopcode but I think
-             it's better to ifdef it here (FK)
-           }
-           case c of
-             '.', '-', '+':
-               begin
-                 actasmpattern:=actasmpattern+c;
-                 c:=current_scanner.asmgetchar;
-               end
-           end;
-{$endif POWERPC64}
            { Opcode ? }
            If is_asmopcode(upper(actasmpattern)) then
             Begin
@@ -1119,7 +1106,7 @@ unit raatt;
                commname:=actasmpattern;
                Consume(AS_ID);
                Consume(AS_COMMA);
-               curList.concat(Tai_datablock.Create(commname,BuildConstExpression(false,false)));
+               ConcatLocalBss(commname,BuildConstExpression(false,false));
                if actasmtoken<>AS_SEPARATOR then
                 Consume(AS_SEPARATOR);
              end;
@@ -1130,7 +1117,7 @@ unit raatt;
                commname:=actasmpattern;
                Consume(AS_ID);
                Consume(AS_COMMA);
-               curList.concat(Tai_datablock.Create_global(commname,BuildConstExpression(false,false)));
+               ConcatGlobalBss(commname,BuildConstExpression(false,false));
                if actasmtoken<>AS_SEPARATOR then
                 Consume(AS_SEPARATOR);
              end;
@@ -1395,7 +1382,7 @@ unit raatt;
                     begin
                       CreateLocalLabel(tempstr,hl,false);
                       hs:=hl.name;
-                      hssymtyp:=AT_LABEL;
+                      hssymtyp:=AT_FUNCTION;
                     end
                    else
                     if SearchLabel(tempstr,hl,false) then

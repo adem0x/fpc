@@ -27,7 +27,7 @@ interface
 
 uses
   cclasses,aasmtai,
-  aasmbase,globals,verbose,symtype,
+  aasmbase,globals,verbose,
   cpubase,cpuinfo,cgbase,cgutils;
 
 
@@ -40,7 +40,6 @@ type
 
   taicpu = class(tai_cpu_abstract)
      opsize : topsize;
-     constructor op_none(op : tasmop);
      constructor op_none(op : tasmop;_size : topsize);
 
      constructor op_reg(op : tasmop;_size : topsize;_op1 : tregister);
@@ -81,9 +80,6 @@ type
 
      constructor op_sym_ofs(op : tasmop;_size : topsize;_op1 : tasmsymbol;_op1ofs:longint);
      constructor op_sym_ofs_ref(op : tasmop;_size : topsize;_op1 : tasmsymbol;_op1ofs:longint;const _op2 : treference);
-
-     function is_same_reg_move(regtype: Tregistertype):boolean;override;
-     function spilling_get_operation_type(opnr: longint): topertype;override;
 
   private
      procedure loadregset(opidx:longint;const s:tcpuregisterset);
@@ -145,13 +141,6 @@ type
          is_jmp:=false;
          opsize:=_size;
          ops:=0;
-      end;
-
-
-    constructor taicpu.op_none(op : tasmop);
-      begin
-         inherited create(op);
-         init(S_NO);
       end;
 
 
@@ -428,54 +417,9 @@ type
       end;
 
 
-    function taicpu.is_same_reg_move(regtype: Tregistertype):boolean;
-      begin
-        result:=(((opcode=A_MOVE) or (opcode=A_EXG)) and
-                 (regtype = R_INTREGISTER) and
-                 (ops=2) and
-                 (oper[0]^.typ=top_reg) and
-                 (oper[1]^.typ=top_reg) and
-                 (oper[0]^.reg=oper[1]^.reg)
-                ) or
-                ((opcode=A_FMOVE) and
-                 (regtype = R_FPUREGISTER) and
-                 (ops=2) and
-                 (oper[0]^.typ=top_reg) and
-                 (oper[1]^.typ=top_reg) and
-                 (oper[0]^.reg=oper[1]^.reg)
-                );
-      end;
-
-
-    function taicpu.spilling_get_operation_type(opnr: longint): topertype;
-      begin
-        case opcode of
-          A_MOVE, A_MOVEQ, A_ADD, A_ADDQ, A_SUB, A_SUBQ:
-            if opnr=0 then begin
-//              writeln('move/etc write');
-              result:=operand_write;
-            end else begin
-//              writeln('move/etc read');
-              result:=operand_read;
-            end;
-        else
-          writeln('other opcode: ',dword(opcode),' (faked value returned)',opnr);
-	  result:=operand_write;
-        end;
-	// fake
-
-//        internalerror(200404091);
-      end;
-
     function spilling_create_load(const ref:treference;r:tregister): tai;
       begin
-//        writeln('spilling_create_load');
-        case getregtype(r) of
-          R_INTREGISTER :
-            result:=taicpu.op_ref_reg(A_MOVE,S_L,ref,r);
-          R_FPUREGISTER : begin end;
-        end;
-{
+        {
         case getregtype(r) of
           R_INTREGISTER :
             result:=taicpu.op_ref_reg(A_LD,ref,r);
@@ -492,22 +436,12 @@ type
             end
           else
             internalerror(200401041);
-        end;
-        }
+        end;}
       end;
 
 
     function spilling_create_store(r:tregister; const ref:treference): tai;
       begin
-//        writeln('spilling_create_store');
-	case getregtype(r) of
-	  R_INTREGISTER :
-	    result:=taicpu.op_reg_ref(A_MOVE,S_L,r,ref);
-	  R_FPUREGISTER :
-	    begin
-//	    result:=taicpu.op_reg_ref(A_FMOVE,R_SUBFS,r,ref);
-	    end;
-	end;
         {case getregtype(r) of
           R_INTREGISTER :
             result:=taicpu.op_reg_ref(A_ST,r,ref);

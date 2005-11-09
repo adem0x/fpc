@@ -47,7 +47,7 @@ interface
           procedure derefimpl;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
        end;
        tloadparentfpnodeclass = class of tloadparentfpnode;
 
@@ -61,7 +61,7 @@ interface
           procedure mark_write;override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
        end;
@@ -83,7 +83,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function docompare(p: tnode): boolean; override;
           function det_resulttype:tnode;override;
@@ -107,7 +107,7 @@ interface
           destructor destroy;override;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           function pass_1 : tnode;override;
           function docompare(p: tnode): boolean; override;
           function det_resulttype:tnode;override;
@@ -218,13 +218,13 @@ implementation
       end;
 
 
-    function tloadparentfpnode._getcopy : tnode;
+    function tloadparentfpnode.getcopy : tnode;
       var
          p : tloadparentfpnode;
       begin
-         p:=tloadparentfpnode(inherited _getcopy);
+         p:=tloadparentfpnode(inherited getcopy);
          p.parentpd:=parentpd;
-         _getcopy:=p;
+         getcopy:=p;
       end;
 
 
@@ -320,15 +320,15 @@ implementation
       end;
 
 
-    function taddrnode._getcopy : tnode;
+    function taddrnode.getcopy : tnode;
 
       var
          p : taddrnode;
 
       begin
-         p:=taddrnode(inherited _getcopy);
+         p:=taddrnode(inherited getcopy);
          p.getprocvardef:=getprocvardef;
-         _getcopy:=p;
+         getcopy:=p;
       end;
 
 
@@ -558,15 +558,15 @@ implementation
       end;
 
 
-    function tsubscriptnode._getcopy : tnode;
+    function tsubscriptnode.getcopy : tnode;
 
       var
          p : tsubscriptnode;
 
       begin
-         p:=tsubscriptnode(inherited _getcopy);
+         p:=tsubscriptnode(inherited getcopy);
          p.vs:=vs;
-         _getcopy:=p;
+         getcopy:=p;
       end;
 
 
@@ -640,17 +640,6 @@ implementation
          result:=nil;
          resulttypepass(left);
          resulttypepass(right);
-
-         { implicitly convert stringconstant to stringdef,
-           see tbs/tb0476.pp for a test }
-         if (left.nodetype=stringconstn) and
-            (tstringconstnode(left).st_type=st_conststring) then
-           begin
-             if tstringconstnode(left).len>255 then
-               inserttypeconv(left,cansistringtype)
-             else
-               inserttypeconv(left,cshortstringtype);
-           end;
 
          { In p[1] p is always valid, it is not possible to
            declared a shortstring or normal array that has
@@ -881,17 +870,17 @@ implementation
       end;
 
 
-    function twithnode._getcopy : tnode;
+    function twithnode.getcopy : tnode;
 
       var
          p : twithnode;
 
       begin
-         p:=twithnode(inherited _getcopy);
+         p:=twithnode(inherited getcopy);
          p.withsymtable:=withsymtable;
          p.tablecount:=tablecount;
          if assigned(p.withrefnode) then
-           p.withrefnode:=withrefnode._getcopy
+           p.withrefnode:=withrefnode.getcopy
          else
            p.withrefnode:=nil;
          result:=p;

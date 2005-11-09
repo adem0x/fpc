@@ -141,7 +141,6 @@ implementation
                       cg.a_load_ref_reg(exprasmlist,OS_ADDR,OS_ADDR,location.reference,hregister);
                       reference_reset_base(location.reference,hregister,0);
                     end
-{$ifndef segment_threadvars}
                   { Thread variable }
                   else if (vo_is_thread_var in tabstractvarsym(symtableentry).varoptions) then
                     begin
@@ -155,8 +154,8 @@ implementation
                          call and then the address load to be sure that the
                          register that is used for returning is the same (PFV)
                        }
-                       objectlibrary.getjumplabel(norelocatelab);
-                       objectlibrary.getjumplabel(endrelocatelab);
+                       objectlibrary.getlabel(norelocatelab);
+                       objectlibrary.getlabel(endrelocatelab);
                        { make sure hregister can't allocate the register necessary for the parameter }
                        paraloc1.init;
                        paramanager.getintparaloc(pocall_default,1,paraloc1);
@@ -170,9 +169,9 @@ implementation
                        cg.a_param_ref(exprasmlist,OS_32,href,paraloc1);
                        paramanager.freeparaloc(exprasmlist,paraloc1);
                        paraloc1.done;
-                       cg.allocallcpuregisters(exprasmlist);
+                       cg.alloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
                        cg.a_call_reg(exprasmlist,hregister);
-                       cg.deallocallcpuregisters(exprasmlist);
+                       cg.dealloccpuregisters(exprasmlist,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
                        cg.getcpuregister(exprasmlist,NR_FUNCTION_RESULT_REG);
                        cg.ungetcpuregister(exprasmlist,NR_FUNCTION_RESULT_REG);
                        hregister:=cg.getaddressregister(exprasmlist);
@@ -188,7 +187,6 @@ implementation
                        cg.a_label(exprasmlist,endrelocatelab);
                        location.reference.base:=hregister;
                     end
-{$endif}
                   { Nested variable }
                   else if assigned(left) then
                     begin
@@ -249,10 +247,6 @@ implementation
                                         reference_reset_symbol(location.reference,objectlibrary.newasmsymbol(tglobalvarsym(symtableentry).mangledname,AB_EXTERNAL,AT_DATA),0)
                                       else
                                         location:=tglobalvarsym(symtableentry).localloc;
-{$ifdef segment_threadvars}
-                                      if (vo_is_thread_var in tabstractvarsym(symtableentry).varoptions) then
-                                        location.reference.segment:=NR_GS;
-{$endif}
                                     end;
                                 end;
                               else
@@ -391,8 +385,8 @@ implementation
 
         otlabel:=truelabel;
         oflabel:=falselabel;
-        objectlibrary.getjumplabel(truelabel);
-        objectlibrary.getjumplabel(falselabel);
+        objectlibrary.getlabel(truelabel);
+        objectlibrary.getlabel(falselabel);
 
         {
           in most cases we can process first the right node which contains
@@ -591,13 +585,6 @@ implementation
                         else
                           cg.g_concatcopy(exprasmlist,right.location.reference,left.location.reference,len);
                       end;
-                    LOC_MMREGISTER,
-                    LOC_CMMREGISTER:
-                      cg.a_loadmm_ref_reg(exprasmlist,
-                        right.location.size,
-                        left.location.size,
-                        right.location.reference,
-                        left.location.register,mms_movescalar);
                     else
                       internalerror(200203284);
                   end;
@@ -651,22 +638,13 @@ implementation
                     fputyp:=tfloatdef(ttypeconvnode(right).left.resulttype.def).typ
                   else
                     fputyp:=s32real;
-                  { we can't do direct moves between fpu and mm registers }
-                  if left.location.loc in [LOC_MMREGISTER,LOC_CMMREGISTER] then
-                    begin
-                      location_force_mmregscalar(exprasmlist,right.location,false);
-                      cg.a_loadmm_reg_reg(exprasmlist,
-                          tfloat2tcgsize[fputyp],tfloat2tcgsize[fputyp],
-                          right.location.register,left.location.register,mms_movescalar);
-                    end
-                  else
-                    cg.a_loadfpu_reg_loc(exprasmlist,
-                        tfloat2tcgsize[fputyp],
-                        right.location.register,left.location);
+                  cg.a_loadfpu_reg_loc(exprasmlist,
+                      tfloat2tcgsize[fputyp],
+                      right.location.register,left.location);
                 end;
               LOC_JUMP :
                 begin
-                  objectlibrary.getjumplabel(hlabel);
+                  objectlibrary.getlabel(hlabel);
                   cg.a_label(exprasmlist,truelabel);
                   cg.a_load_const_loc(exprasmlist,1,left.location);
                   cg.a_jmp_always(exprasmlist,hlabel);

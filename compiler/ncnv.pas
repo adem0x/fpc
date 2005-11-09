@@ -44,7 +44,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
           procedure derefimpl;override;
-          function _getcopy : tnode;override;
+          function getcopy : tnode;override;
           procedure printnodeinfo(var t : text);override;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
@@ -180,7 +180,7 @@ interface
           constructor create(l,r : tnode);virtual;
           function pass_1 : tnode;override;
           function det_resulttype:tnode;override;
-          function _getcopy: tnode;override;
+          function getcopy: tnode;override;
           destructor destroy; override;
          protected
           call: tnode;
@@ -593,14 +593,14 @@ implementation
       end;
 
 
-    function ttypeconvnode._getcopy : tnode;
+    function ttypeconvnode.getcopy : tnode;
       var
          n : ttypeconvnode;
       begin
-         n:=ttypeconvnode(inherited _getcopy);
+         n:=ttypeconvnode(inherited getcopy);
          n.convtype:=convtype;
          n.totype:=totype;
-         _getcopy:=n;
+         getcopy:=n;
       end;
 
     procedure ttypeconvnode.printnodeinfo(var t : text);
@@ -714,23 +714,13 @@ implementation
             arrsize := highrange-lowrange+1;
           end;
         if (left.nodetype = stringconstn) and
-           (tstringdef(left.resulttype.def).string_typ=st_conststring) then
+            { left.length+1 since there's always a terminating #0 character (JM) }
+            (tstringconstnode(left).len+1 >= arrsize) and
+            (tstringdef(left.resulttype.def).string_typ=st_shortstring) then
            begin
-             { if the array of char is large enough we can use the string
-               constant directly. This is handled in ncgcnv }
-             if (arrsize>=tstringconstnode(left).len) and
-                is_char(tarraydef(resulttype.def).elementtype.def) then
-               exit;
-             { Convert to wide/short/ansistring and call default helper }
-             if is_widechar(tarraydef(resulttype.def).elementtype.def) then
-               inserttypeconv(left,cwidestringtype)
-             else
-               begin
-                 if tstringconstnode(left).len>255 then
-                   inserttypeconv(left,cansistringtype)
-                 else
-                   inserttypeconv(left,cshortstringtype);
-               end;
+             { handled separately }
+             result := nil;
+             exit;
            end;
         if is_widechar(tarraydef(resulttype.def).elementtype.def) then
           chartype:='widechar'
@@ -749,12 +739,47 @@ implementation
       var
         procname: string[31];
         stringpara : tcallparanode;
+        pw : pcompilerwidestring;
+        pc : pchar;
 
       begin
          result:=nil;
          if left.nodetype=stringconstn then
           begin
-             tstringconstnode(left).changestringtype(resulttype);
+             { convert ascii 2 unicode }
+           {$ifdef ansistring_bits}
+             if (tstringdef(resulttype.def).string_typ=st_widestring) and
+                (tstringconstnode(left).st_type in [st_ansistring16,st_ansistring32,
+                       st_ansistring64,st_shortstring,st_longstring]) then
+           {$else}
+             if (tstringdef(resulttype.def).string_typ=st_widestring) and
+                (tstringconstnode(left).st_type in [st_ansistring,st_shortstring,st_longstring]) then
+           {$endif}
+              begin
+                initwidestring(pw);
+                ascii2unicode(tstringconstnode(left).value_str,tstringconstnode(left).len,pw);
+                ansistringdispose(tstringconstnode(left).value_str,tstringconstnode(left).len);
+                pcompilerwidestring(tstringconstnode(left).value_str):=pw;
+              end
+             else
+             { convert unicode 2 ascii }
+           {$ifdef ansistring_bits}
+             if (tstringconstnode(left).st_type=st_widestring) and
+                (tstringdef(resulttype.def).string_typ in [st_ansistring16,st_ansistring32,
+                           st_ansistring64,st_shortstring,st_longstring]) then
+           {$else}
+             if (tstringconstnode(left).st_type=st_widestring) and
+                (tstringdef(resulttype.def).string_typ in [st_ansistring,st_shortstring,st_longstring]) then
+           {$endif}
+              begin
+                pw:=pcompilerwidestring(tstringconstnode(left).value_str);
+                getmem(pc,getlengthwidestring(pw)+1);
+                unicode2ascii(pw,pc);
+                donewidestring(pw);
+                tstringconstnode(left).value_str:=pc;
+              end;
+             tstringconstnode(left).st_type:=tstringdef(resulttype.def).string_typ;
+             tstringconstnode(left).resulttype:=resulttype;
              result:=left;
              left:=nil;
           end
@@ -2631,10 +2656,10 @@ implementation
       end;
 
 
-    function tasnode._getcopy: tnode;
+    function tasnode.getcopy: tnode;
 
       begin
-        result := inherited _getcopy;
+        result := inherited getcopy;
         if assigned(call) then
           tasnode(result).call := call.getcopy
         else

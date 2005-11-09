@@ -413,9 +413,9 @@
              begin
                 // See if we have messages at all in this class.
                 p:=pointer(vmt)+vmtDynamicTable;
-                If assigned(PPointer(p)^) then
+                If Assigned(p) and (Pdword(p)^<>0) then
                   begin
-                     msgtable:=pmsgtable(Pointer(p^)+4);
+                     msgtable:=pmsgtable(PtrInt(p^)+4);
                      count:=pdword(p^)^;
                   end
                 else
