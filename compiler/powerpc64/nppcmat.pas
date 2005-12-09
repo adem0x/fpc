@@ -71,118 +71,147 @@ begin
 end;
 
 procedure tppcmoddivnode.pass_2;
-const
-  // ts: todo, use 32 bit operations if possible (much faster!)
-  { signed   overflow }
+const         { signed   overflow }
   divops: array[boolean, boolean] of tasmop =
-  ((A_DIVDU, A_DIVDUO_), (A_DIVD, A_DIVDO_));
-  zerocond: tasmcond = (dirhint: DH_Plus; simple: true; cond: C_NE; cr: RS_CR1);
+    ((A_DIVDU, A_DIVDU_),(A_DIVD, A_DIVDO_));
+  divcgops : array[boolean] of TOpCG = (OP_DIV, OP_IDIV);
+  zerocond: tasmcond = (dirhint: DH_Plus; simple: true; cond:C_NE; cr: RS_CR7);
+  tcgsize2native : array[OS_8..OS_S128] of tcgsize = (
+    OS_64, OS_64, OS_64, OS_64, OS_NO, 
+    OS_S64, OS_S64, OS_S64, OS_S64, OS_NO
+    );
 var
-  power: longint;
-  op: tasmop;
-  numerator,
-    divider,
-    resultreg: tregister;
-  size: Tcgsize;
-  hl: tasmlabel;
+  power  : longint;
+  op  : tasmop;
+  numerator, divider,
+  resultreg  : tregister;
+  size       : TCgSize;
+  hl : tasmlabel;
+  done: boolean;
+         
+  procedure genOrdConstNodeMod;
+  var
+    modreg, maskreg, tempreg : tregister;
+    isNegPower : boolean;
+  begin
+    if (tordconstnode(right).value = 0) then begin
+      internalerror(2005061702);
+    end else if (abs(tordconstnode(right).value) = 1) then begin
+      { x mod +/-1 is always zero }
+      cg.a_load_const_reg(exprasmlist, OS_INT, 0, resultreg);
+    end else if (ispowerof2(tordconstnode(right).value, power)) then begin
+      if (is_signed(right.resulttype.def)) then begin
+        tempreg := cg.getintregister(exprasmlist, OS_INT);
+        maskreg := cg.getintregister(exprasmlist, OS_INT);
+        modreg := cg.getintregister(exprasmlist, OS_INT);
 
+        cg.a_load_const_reg(exprasmlist, OS_INT, abs(tordconstnode(right).value)-1, modreg);
+        cg.a_op_const_reg_reg(exprasmlist, OP_SAR, OS_INT, 63, numerator, maskreg);
+        cg.a_op_reg_reg_reg(exprasmlist, OP_AND, OS_INT, numerator, modreg, tempreg);
+
+        exprasmlist.concat(taicpu.op_reg_reg_reg(A_ANDC, maskreg, maskreg, modreg));
+        exprasmlist.concat(taicpu.op_reg_reg_const(A_SUBFIC, modreg, tempreg, 0));
+        exprasmlist.concat(taicpu.op_reg_reg_reg(A_SUBFE, modreg, modreg, modreg));
+        cg.a_op_reg_reg_reg(exprasmlist, OP_AND, OS_INT, modreg, maskreg, maskreg);
+        cg.a_op_reg_reg_reg(exprasmlist, OP_OR, OS_INT, maskreg, tempreg, resultreg);
+      end else begin
+        cg.a_op_const_reg_reg(exprasmlist, OP_AND, OS_INT, tordconstnode(right).value-1, numerator, 
+          resultreg);
+      end;
+    end else begin
+      cg.a_op_const_reg_reg(exprasmlist, divCgOps[is_signed(right.resulttype.def)], OS_INT, 
+        tordconstnode(right).value, numerator, resultreg);
+      cg.a_op_const_reg_reg(exprasmlist, OP_MUL, OS_INT, tordconstnode(right).value, resultreg, 
+        resultreg);
+      cg.a_op_reg_reg_reg(exprasmlist, OP_SUB, OS_INT, resultreg, numerator, resultreg);
+    end;
+  end;
+
+         
 begin
   secondpass(left);
   secondpass(right);
-  location_copy(location, left.location);
+  location_copy(location,left.location);
 
   { put numerator in register }
-  size := def_cgsize(left.resulttype.def);
-  location_force_reg(exprasmlist, left.location,
-    size, true);
-  location_copy(location, left.location);
+  size:=def_cgsize(left.resulttype.def);
+  location_force_reg(exprasmlist,left.location,
+    size,true);
+  location_copy(location,left.location);
   numerator := location.register;
   resultreg := location.register;
-  if (location.loc = LOC_CREGISTER) then
-  begin
+  if (location.loc = LOC_CREGISTER) then begin
     location.loc := LOC_REGISTER;
-    location.register := cg.getintregister(exprasmlist, size);
+    location.register := cg.getintregister(exprasmlist,size);
     resultreg := location.register;
+  end else if (nodetype = modn) or (right.nodetype = ordconstn) then begin
+    { for a modulus op, and for const nodes we need the result register
+     to be an extra register }
+    resultreg := cg.getintregister(exprasmlist,size);
   end;
-  if (nodetype = modn) then
-  begin
-    resultreg := cg.getintregister(exprasmlist, size);
+  done := false;
+
+  if (cs_slowoptimize in aktglobalswitches) and (right.nodetype = ordconstn) then begin
+    if (nodetype = divn) then
+      cg.a_op_const_reg_reg(exprasmlist, divCgOps[is_signed(right.resulttype.def)], 
+        size, tordconstnode(right).value, numerator, resultreg)
+    else 
+      genOrdConstNodeMod;
+    done := true;
   end;
 
-  if (nodetype = divn) and
-    (right.nodetype = ordconstn) and
-    ispowerof2(tordconstnode(right).value, power) then
-  begin
-  	if (is_signed(right.resulttype.def)) then begin
-      { From "The PowerPC Compiler Writer's Guide":                   }
-      { This code uses the fact that, in the PowerPC architecture,    }
-      { the shift right algebraic instructions set the Carry bit if   }
-      { the source register contains a negative number and one or     }
-      { more 1-bits are shifted out. Otherwise, the carry bit is      }
-      { cleared. The addze instruction corrects the quotient, if      }
-      { necessary, when the dividend is negative. For example, if     }
-      { n = -13, (0xFFFF_FFF3), and k = 2, after executing the srawi  }
-      { instruction, q = -4 (0xFFFF_FFFC) and CA = 1. After executing }
-      { the addze instruction, q = -3, the correct quotient.          }
-      cg.a_op_const_reg_reg(exprasmlist, OP_SAR, OS_64, power,
-        numerator, resultreg);
-      exprasmlist.concat(taicpu.op_reg_reg(A_ADDZE, resultreg, resultreg));
-    end else begin
-      cg.a_op_const_reg_reg(exprasmlist, OP_SHR, OS_INT, power, numerator, resultreg);
-    end;
-  end
-  else
-  begin
+  if (not done) then begin
     { load divider in a register if necessary }
-    location_force_reg(exprasmlist, right.location,
-      def_cgsize(right.resulttype.def), true);
+    location_force_reg(exprasmlist,right.location,def_cgsize(right.resulttype.def),true);
     if (right.nodetype <> ordconstn) then
-{$NOTE ts: testme}
-      exprasmlist.concat(taicpu.op_reg_reg_const(A_CMPDI, NR_CR1,
-        right.location.register, 0));
+      exprasmlist.concat(taicpu.op_reg_reg_const(A_CMPDI, NR_CR7,
+        right.location.register, 0))
+    else begin
+      if (tordconstnode(right).value = 0) then 
+        internalerror(2005100301);
+    end;
     divider := right.location.register;
 
-    { needs overflow checking, (-maxlongint-1) div (-1) overflows! }
-    { And on PPC, the only way to catch a div-by-0 is by checking  }
-    { the overflow flag (JM)                                       }
-    op := divops[is_signed(right.resulttype.def),
-      cs_check_overflow in aktlocalswitches];
+    { select the correct opcode according to the sign of the result, whether we need
+     overflow checking }
+    op := divops[is_signed(right.resulttype.def), cs_check_overflow in aktlocalswitches];
     exprasmlist.concat(taicpu.op_reg_reg_reg(op, resultreg, numerator,
       divider));
 
-    if (nodetype = modn) then
-    begin
-{$NOTE ts:testme}
-      exprasmlist.concat(taicpu.op_reg_reg_reg(A_MULLD, resultreg,
-        divider, resultreg));
-      exprasmlist.concat(taicpu.op_reg_reg_reg(A_SUB, location.register,
-        numerator, resultreg));
+    if (nodetype = modn) then begin
+      { multiply with the divisor again, taking care of the correct size }
+      exprasmlist.concat(taicpu.op_reg_reg_reg(A_MULLD,resultreg,
+          divider,resultreg));
+      exprasmlist.concat(taicpu.op_reg_reg_reg(A_SUB,location.register,
+        numerator,resultreg));
       resultreg := location.register;
     end;
   end;
   { set result location }
-  location.loc := LOC_REGISTER;
-  location.register := resultreg;
-  if right.nodetype <> ordconstn then
-  begin
+  location.loc:=LOC_REGISTER;
+  location.register:=resultreg;
+  if right.nodetype <> ordconstn then begin
     objectlibrary.getjumplabel(hl);
-    exprasmlist.concat(taicpu.op_cond_sym(A_BC, zerocond, hl));
-    cg.a_call_name(exprasmlist, 'FPC_DIVBYZERO');
-    cg.a_label(exprasmlist, hl);
+    exprasmlist.concat(taicpu.op_cond_sym(A_BC,zerocond,hl));
+    cg.a_call_name(exprasmlist,'FPC_DIVBYZERO');
+    cg.a_label(exprasmlist,hl);
   end;
-  cg.g_overflowcheck(exprasmlist, location, resulttype.def);
+  { unsigned division/module can only overflow in case of division by zero
+   (but checking this overflow flag is more convoluted than performing a  
+   simple comparison with 0)                                             }
+  if is_signed(right.resulttype.def) then
+    cg.g_overflowcheck(exprasmlist,location,resulttype.def);
 end;
 
 {*****************************************************************************
                              TPPCSHLRSHRNODE
 *****************************************************************************}
 
-
 procedure tppcshlshrnode.pass_2;
 
 var
-  resultreg, hregister1, hregister2,
-    hreg64hi, hreg64lo: tregister;
+  resultreg, hregister1, hregister2 : tregister;
+  
   op: topcg;
   asmop1, asmop2: tasmop;
   shiftval: aint;
@@ -199,7 +228,7 @@ begin
   hregister1 := location.register;
   if (location.loc = LOC_CREGISTER) then begin
     location.loc := LOC_REGISTER;
-    resultreg := cg.getintregister(exprasmlist, OS_64);
+    resultreg := cg.getintregister(exprasmlist, OS_INT);
     location.register := resultreg;
   end;
 
@@ -257,17 +286,14 @@ begin
         end;
       LOC_REFERENCE, LOC_CREFERENCE:
         begin
-          if (left.resulttype.def.deftype = floatdef) then
-          begin
+          if (left.resulttype.def.deftype = floatdef) then begin
             src1 := cg.getfpuregister(exprasmlist,
               def_cgsize(left.resulttype.def));
             location.register := src1;
             cg.a_loadfpu_ref_reg(exprasmlist,
               def_cgsize(left.resulttype.def),
               left.location.reference, src1);
-          end
-          else
-          begin
+          end else begin
             src1 := cg.getintregister(exprasmlist, OS_64);
             location.register := src1;
             cg.a_load_ref_reg(exprasmlist, OS_64, OS_64,
@@ -276,28 +302,19 @@ begin
         end;
     end;
     { choose appropriate operand }
-    if left.resulttype.def.deftype <> floatdef then
-    begin
+    if left.resulttype.def.deftype <> floatdef then begin
       if not (cs_check_overflow in aktlocalswitches) then
         op := A_NEG
       else
         op := A_NEGO_;
       location.loc := LOC_REGISTER;
-    end
-    else
-    begin
+    end else begin
       op := A_FNEG;
       location.loc := LOC_FPUREGISTER;
     end;
     { emit operation }
     exprasmlist.concat(taicpu.op_reg_reg(op, location.register, src1));
   end;
-  { Here was a problem...     }
-  { Operand to be negated always     }
-  { seems to be converted to signed  }
-  { 32-bit before doing neg!!     }
-  { So this is useless...     }
-  { that's not true: -2^31 gives an overflow error if it is negated (FK) }
   cg.g_overflowcheck(exprasmlist, location, resulttype.def);
 end;
 

@@ -245,26 +245,34 @@ implementation
       begin
         if not (target_info.system in system_all_windows + [system_i386_os2,
                                        system_i386_emx, system_powerpc_macos]) then
-          Message(scan_w_app_type_not_support);
-        if not current_module.in_global then
-          Message(scan_w_switch_is_global)
+          begin
+            if m_delphi in aktmodeswitches then
+              Message(scan_n_app_type_not_support)
+            else
+              Message(scan_w_app_type_not_support);
+          end
         else
           begin
-             current_scanner.skipspace;
-             hs:=current_scanner.readid;
-             if hs='GUI' then
-               apptype:=app_gui
-             else if hs='CONSOLE' then
-               apptype:=app_cui
-             else if (hs='NATIVE') and (target_info.system in system_windows) then
-               apptype:=app_native
-             else if (hs='FS') and (target_info.system in [system_i386_os2,
-                                                         system_i386_emx]) then
-               apptype:=app_fs
-             else if (hs='TOOL') and (target_info.system in [system_powerpc_macos]) then
-               apptype:=app_tool
-             else
-               Message1(scan_w_unsupported_app_type,hs);
+            if not current_module.in_global then
+              Message(scan_w_switch_is_global)
+            else
+              begin
+                 current_scanner.skipspace;
+                 hs:=current_scanner.readid;
+                 if hs='GUI' then
+                   apptype:=app_gui
+                 else if hs='CONSOLE' then
+                   apptype:=app_cui
+                 else if (hs='NATIVE') and (target_info.system in system_windows) then
+                   apptype:=app_native
+                 else if (hs='FS') and (target_info.system in [system_i386_os2,
+                                                             system_i386_emx]) then
+                   apptype:=app_fs
+                 else if (hs='TOOL') and (target_info.system in [system_powerpc_macos]) then
+                   apptype:=app_tool
+                 else
+                   Message1(scan_w_unsupported_app_type,hs);
+              end;
           end;
       end;
 
@@ -780,6 +788,11 @@ implementation
       end;
 {$ENDIF}
 
+    procedure dir_pic;
+      begin
+        do_moduleswitch(cs_create_pic);
+      end;
+
     procedure dir_pop;
 
     begin
@@ -1020,6 +1033,23 @@ implementation
           status.verbosity:=status.verbosity and (not V_Info);
       end;
 
+    procedure dir_warn;
+      var
+        warning_string,state : string;
+      begin
+        current_scanner.skipspace;
+        warning_string:=current_scanner.readid;
+        if (upper(warning_string)='ON') then
+          begin
+          end
+        else if (upper(warning_string)='ON') then
+          else
+            begin
+              current_scanner.skipspace;
+              state:=current_scanner.readid;
+            end;
+      end;
+
     procedure dir_warning;
       begin
         do_message(scan_w_user_defined);
@@ -1171,6 +1201,7 @@ implementation
 {$IFDEF TestVarsets}
         AddDirective('PACKSET',directive_all, @dir_packset);
 {$ENDIF}
+        AddDirective('PIC',directive_all, @dir_pic);
         AddDirective('POP',directive_mac, @dir_pop);
         AddDirective('PROFILE',directive_all, @dir_profile);
         AddDirective('PUSH',directive_mac, @dir_push);
@@ -1194,7 +1225,7 @@ implementation
         AddDirective('VARSTRINGCHECKS',directive_all, @dir_varstringchecks);
         AddDirective('VERSION',directive_all, @dir_version);
         AddDirective('WAIT',directive_all, @dir_wait);
-        AddDirective('WARN',directive_all, @dir_warnings);
+        AddDirective('WARN',directive_all, @dir_warn);
         AddDirective('WARNING',directive_all, @dir_warning);
         AddDirective('WARNINGS',directive_all, @dir_warnings);
         AddDirective('WEAKPACKAGEUNIT',directive_all, @dir_weakpackageunit);

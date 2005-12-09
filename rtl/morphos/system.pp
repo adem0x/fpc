@@ -71,6 +71,14 @@ implementation
 
 {$I system.inc}
 
+{$IFDEF MOSFPC_FILEDEBUG}
+{$WARNING Compiling with file debug enabled!}
+{$ENDIF}
+
+{$IFDEF MOSFPC_MEMDEBUG}
+{$WARNING Compiling with memory debug enabled!}
+{$ENDIF}
+
 
 {*****************************************************************************
                        Misc. System Dependent Functions
@@ -301,12 +309,17 @@ begin
  GetProcessID:=SizeUInt(FindTask(NIL));
 end;
 
+function CheckInitialStkLen(stklen : SizeUInt) : SizeUInt;
+begin
+  result := stklen;
+end;
+
 
 begin
   SysResetFPU;
   IsConsole := TRUE;
   IsLibrary := FALSE;
-  StackLength := InitialStkLen;
+  StackLength := CheckInitialStkLen(InitialStkLen);
   StackBottom := Sptr - StackLength;
 { OS specific startup }
   MOS_ambMsg:=nil;

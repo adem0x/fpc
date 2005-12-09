@@ -36,6 +36,9 @@ type
     }
     function first_abs_real: tnode; override;
     function first_sqr_real: tnode; override;
+
+    { trunc/round/frac?/int can't be inlined? }
+
     procedure second_abs_real; override;
     procedure second_sqr_real; override;
     procedure second_prefetch; override;

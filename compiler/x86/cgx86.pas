@@ -1,5 +1,5 @@
 {
-    Copyright (c) 1998-2002 by Florian Klaempfl
+    Copyright (c) 1998-2005 by Florian Klaempfl
 
     This unit implements the common parts of the code generator for the i386 and the x86-64.
 
@@ -54,6 +54,7 @@ unit cgx86;
 
         procedure a_call_name(list : taasmoutput;const s : string);override;
         procedure a_call_reg(list : taasmoutput;reg : tregister);override;
+        procedure a_call_ref(list : taasmoutput;ref : treference);override;
 
         procedure a_op_const_reg(list : taasmoutput; Op: TOpCG; size: TCGSize; a: aint; reg: TRegister); override;
         procedure a_op_const_ref(list : taasmoutput; Op: TOpCG; size: TCGSize; a: aint; const ref: TReference); override;
@@ -368,7 +369,7 @@ unit cgx86;
                end;
           end;
         if (cs_create_pic in aktmoduleswitches) and
-          assigned(ref.symbol) then
+         assigned(ref.symbol) then
           begin
             reference_reset_symbol(href,ref.symbol,0);
             hreg:=getaddressregister(list);
@@ -378,13 +379,13 @@ unit cgx86;
 
             ref.symbol:=nil;
 
-            if ref.index=NR_NO then
+            if ref.base=NR_NO then
+              ref.base:=hreg
+            else if ref.index=NR_NO then
               begin
                 ref.index:=hreg;
                 ref.scalefactor:=1;
               end
-            else if ref.base=NR_NO then
-              ref.base:=hreg
             else
               begin
                 list.concat(taicpu.op_reg_reg(A_ADD,S_Q,ref.base,hreg));
@@ -412,7 +413,7 @@ unit cgx86;
               end
             else
               begin
-                list.concat(taicpu.op_reg_reg(A_ADD,S_Q,ref.base,hreg));
+                list.concat(taicpu.op_reg_reg(A_ADD,S_L,ref.base,hreg));
                 ref.base:=hreg;
               end;
           end;
@@ -553,6 +554,12 @@ unit cgx86;
     procedure tcgx86.a_call_reg(list : taasmoutput;reg : tregister);
       begin
         list.concat(taicpu.op_reg(A_CALL,S_NO,reg));
+      end;
+
+
+    procedure tcgx86.a_call_ref(list : taasmoutput;ref : treference);
+      begin
+        list.concat(taicpu.op_ref(A_CALL,S_NO,ref));
       end;
 
 
@@ -697,29 +704,35 @@ unit cgx86;
         with ref do
           begin
             if (base=NR_NO) and (index=NR_NO) then
-              if assigned(ref.symbol) then
-                if cs_create_pic in aktmoduleswitches then
+              begin
+                if assigned(ref.symbol) then
                   begin
+                    if (cs_create_pic in aktmoduleswitches) then
+                      begin
 {$ifdef x86_64}
-                    reference_reset_symbol(tmpref,ref.symbol,0);
-                    tmpref.refaddr:=addr_pic;
-                    tmpref.base:=NR_RIP;
-                    list.concat(taicpu.op_ref_reg(A_MOV,S_Q,tmpref,r));
+                        reference_reset_symbol(tmpref,ref.symbol,0);
+                        tmpref.refaddr:=addr_pic;
+                        tmpref.base:=NR_RIP;
+                        list.concat(taicpu.op_ref_reg(A_MOV,S_Q,tmpref,r));
 {$else x86_64}
-                    reference_reset_symbol(tmpref,ref.symbol,0);
-                    tmpref.refaddr:=addr_pic;
-                    tmpref.base:=current_procinfo.got;
-                    list.concat(taicpu.op_ref_reg(A_MOV,S_L,tmpref,r));
+                        reference_reset_symbol(tmpref,ref.symbol,0);
+                        tmpref.refaddr:=addr_pic;
+                        tmpref.base:=current_procinfo.got;
+                        list.concat(taicpu.op_ref_reg(A_MOV,S_L,tmpref,r));
 {$endif x86_64}
+                        if offset<>0 then
+                          a_op_const_reg(list,OP_ADD,OS_ADDR,offset,r);
+                      end
+                    else
+                      begin
+                        tmpref:=ref;
+                        tmpref.refaddr:=ADDR_FULL;
+                        list.concat(Taicpu.op_ref_reg(A_MOV,tcgsize2opsize[OS_ADDR],tmpref,r));
+                      end
                   end
                 else
-                  begin
-                    tmpref:=ref;
-                    tmpref.refaddr:=ADDR_FULL;
-                    list.concat(Taicpu.op_ref_reg(A_MOV,tcgsize2opsize[OS_ADDR],tmpref,r));
-                  end
-              else
-                a_load_const_reg(list,OS_ADDR,offset,r)
+                  a_load_const_reg(list,OS_ADDR,offset,r)
+              end
             else if (base=NR_NO) and (index<>NR_NO) and
                     (offset=0) and (scalefactor=0) and (symbol=nil) then
               a_load_reg_reg(list,OS_ADDR,OS_ADDR,index,r)
@@ -818,7 +831,7 @@ unit cgx86;
           A_MOVSS,
           A_MOVSD,
           A_MOVQ:
-          add_move_instruction(instr);
+            add_move_instruction(instr);
         end;
         list.concat(instr);
       end;

@@ -870,14 +870,17 @@ begin
            'o' :
              begin
                if More<>'' then
+                 begin
 {$IFDEF USE_SYSUTILS}
-               begin
-                 d := SplitPath(More);
-                 OutputFile := SplitFileName(More);
-               end
+                 D:=SplitPath(More);
+                 OutputFile:=SplitFileName(More);
+                 OutputExtension:=SplitExtension(More);
 {$ELSE USE_SYSUTILS}
-                 Fsplit(More,d,OutputFile,e)
+                 FSplit(More,D,OutputFile,OutputExtension);
 {$ENDIF USE_SYSUTILS}
+                 if (D<>'') then
+                   OutputExeDir:=FixPath(D,True);
+                 end
                else
                  IllegalPara(opt);
              end;

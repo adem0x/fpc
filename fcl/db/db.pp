@@ -32,6 +32,7 @@ const
   // whether it's true or false.
   YesNoChars : Array[Boolean] of char = ('Y','N');
 
+  SQLDelimiterCharacters = [';',',',' ','(',')',#13,#10,#9];
 
 type
 
@@ -317,10 +318,12 @@ type
     procedure Clear; virtual;
     procedure FocusControl;
     function GetData(Buffer: Pointer): Boolean;
+    function GetData(Buffer: Pointer; NativeFormat : Boolean): Boolean;
     class function IsBlob: Boolean; virtual;
     function IsValidChar(InputChar: Char): Boolean; virtual;
     procedure RefreshLookupList;
     procedure SetData(Buffer: Pointer);
+    procedure SetData(Buffer: Pointer; NativeFormat : Boolean);
     procedure SetFieldType(AValue: TFieldType); virtual;
     procedure Validate(Buffer: Pointer);
     property AsBoolean: Boolean read GetAsBoolean write SetAsBoolean;
@@ -1065,6 +1068,7 @@ type
     function GetDataSource: TDataSource; virtual;
     function GetFieldData(Field: TField; Buffer: Pointer): Boolean; overload; virtual;
     function GetFieldData(Field: TField; Buffer: Pointer; NativeFormat: Boolean): Boolean; overload; virtual;
+    procedure DataConvert(Field: TField; Source, Dest: Pointer; ToNative: Boolean);virtual;
     function GetRecord(Buffer: PChar; GetMode: TGetMode; DoCheck: Boolean): TGetResult; virtual; abstract;
     function GetRecordSize: Word; virtual; abstract;
     procedure InternalAddRecord(Buffer: Pointer; Append: Boolean); virtual; abstract;
@@ -1401,7 +1405,6 @@ type
     Procedure CheckDisConnected;
     procedure InternalHandleException; virtual;
     procedure Loaded; override;
-    procedure Notification(AComponent: TComponent; Operation: TOperation); override;
     Procedure DoInternalConnect; Virtual;Abstract;
     Procedure DoInternalDisConnect; Virtual;Abstract;
   public
@@ -1547,9 +1550,13 @@ type
   { TParam }
 
   TBlobData = string;
+  
+  TParamBinding = array of integer;
 
   TParamType = (ptUnknown, ptInput, ptOutput, ptInputOutput, ptResult);
   TParamTypes = set of TParamType;
+  
+  TParamStyle = (psInterbase,psPostgreSQL);
 
   TParams = class;
 
@@ -1661,6 +1668,8 @@ type
     Function  IsEqual(Value: TParams): Boolean;
     Function  ParamByName(const Value: string): TParam;
     Function  ParseSQL(SQL: String; DoCreate: Boolean): String;
+    Function  ParseSQL(SQL: String; DoCreate: Boolean; ParameterStyle : TParamStyle): String; overload;
+    Function  ParseSQL(SQL: String; DoCreate: Boolean; ParameterStyle : TParamStyle; var ParamBinding: TParambinding): String; overload;
     Procedure RemoveParam(Value: TParam);
     Property Dataset : TDataset Read GetDataset;
     Property Items[Index: Integer] : TParam read GetItem write SetItem; default;
@@ -1795,6 +1804,8 @@ Procedure DatabaseErrorFmt (Const Fmt : String; Args : Array Of Const);
 Procedure DatabaseErrorFmt (Const Fmt : String; Args : Array Of const;
                             Comp : TComponent);
 Function ExtractFieldName(Const Fields: String; var Pos: Integer): String;
+Function DateTimeRecToDateTime(DT: TFieldType; Data: TDateTimeRec): TDateTime;
+Function DateTimeToDateTimeRec(DT: TFieldType; Data: TDateTime): TDateTimeRec;
 
 implementation
 

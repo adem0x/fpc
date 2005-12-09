@@ -320,6 +320,8 @@ scan_c_switching_to_utf8=02071_C_UTF-8 signature found, using UTF-8 encoding
 % so it interprets it as an UTF-8 file
 scan_e_compile_time_typeerror=02072_E_Compile time expression: Wanted $1 but got $2 at $3
 % Type check of a compile time expression failed.
+scan_n_app_type_not_support=02073_N_APPTYPE is not supported by the target OS
+% The \var{\{\$APPTYPE\}} directive is supported by certain operating systems only.
 % \end{description}
 #
 # Parser
@@ -2035,7 +2037,7 @@ unit_u_skipping_reresolving_unit=10059_U_Skipping re-resolving unit $1, still lo
 #
 # 11039 is the last used one
 #
-option_usage=11000_$1 [options] <inputfile> [options]
+option_usage=11000_O_$1 [options] <inputfile> [options]
 # BeginOfTeX
 %
 % \section{Command-line handling errors}
@@ -2254,7 +2256,7 @@ S*2Aas_assemble using GNU AS
 *g2gg_use gsym
 *g2gh_use heap trace unit (for memory leak debugging)
 *g2gl_use line info unit to show more info for backtraces
-*g2gv_generates programs tracable with valgrind
+*g2gv_generates programs traceable with valgrind
 *g2gw_generate dwarf debugging info
 **1i_information
 **2iD_return compiler date
@@ -2274,7 +2276,7 @@ S*2Aas_assemble using GNU AS
 **2Mgpc_tries to be gpc compatible
 **2Mmacpas_tries to be compatible to the macintosh pascal dialects
 **1n_don't read the default config file
-**1N<x>node tree optimizations
+**1N<x>_node tree optimizations
 **2Nu_unroll loops
 **1o<x>_change the name of the executable produced to <x>
 **1O<x>_optimizations:

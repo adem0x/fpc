@@ -90,9 +90,6 @@ implementation
 
 uses strutils;
 
-resourcestring
-  SErrNoDatabaseName = 'Database connect string (DatabaseName) not filled in!';
-
 type
   TTm = packed record
     tm_sec : longint;
@@ -243,8 +240,6 @@ begin
      DPB := DPB + chr(isc_dpb_sql_role_name) + chr(Length(Role)) + Role;
   if Length(CharSet) > 0 then
     DPB := DPB + Chr(isc_dpb_lc_ctype) + Chr(Length(CharSet)) + CharSet;
-  if (DatabaseName = '') then
-    DatabaseError(SErrNoDatabaseName,self);
 
   FSQLDatabaseHandle := nil;
   if isc_attach_database(@FStatus, Length(DatabaseName), @DatabaseName[1], @FSQLDatabaseHandle,
@@ -438,27 +433,7 @@ begin
     tr := aTransaction.Handle;
     
     if assigned(AParams) and (AParams.count > 0) then
-      begin
-      SetLength(ParamBinding,0);
-
-      i := posex(':',buf);
-      while i > 0 do
-        begin
-        inc(i);
-        p := @buf[i];
-        repeat
-        inc(p);
-        until (p^ in SQLDelimiterCharacters);
-
-        SetLength(ParamBinding,length(ParamBinding)+1);
-        parambinding[high(parambinding)] := AParams.ParamByName(copy(buf,i,p-@buf[i])).Index;
-
-        i := posex(':',buf,i);
-        end;
-
-        for x := 0 to AParams.count-1 do
-          buf := stringreplace(buf,':'+AParams[x].Name,'?',[rfReplaceAll,rfIgnoreCase]);
-      end;
+      buf := AParams.ParseSQL(buf,false,psInterbase,paramBinding);
 
     if isc_dsql_prepare(@Status, @tr, @Statement, 0, @Buf[1], Dialect, nil) <> 0 then
       CheckError('PrepareStatement', Status);

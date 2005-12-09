@@ -1004,6 +1004,12 @@ Begin
   Move(Tmp[1], Buffer[0], Result);
 End;
 
+const
+{$if sizeof(extended) > sizeof(double)}
+  maxdigits = 15;
+{$else}
+  maxdigits = 14;
+{$endif}
 
 Function FloatToStrF(Value: Extended; format: TFloatFormat; Precision, Digits: Integer): String;
 Var
@@ -1017,7 +1023,7 @@ Begin
     ffGeneral:
 
       Begin
-        If (Precision = -1) Or (Precision > 15) Then Precision := 15;
+        If (Precision = -1) Or (Precision > maxdigits) Then Precision := maxdigits;
         TooSmall := (Abs(Value) < 0.00001) and (Value>0.0);
         If Not TooSmall Then
         Begin
@@ -1025,36 +1031,46 @@ Begin
           P := Pos('.', Result);
           if P<>0 then
             Result[P] := DecimalSeparator;
-          TooLarge := P > Precision + 1;
+          TooLarge :=(P > Precision + 1) or (Pos('E', Result)<>0);
         End;
 
         If TooSmall Or TooLarge Then
           begin
-          Result := FloatToStrF(Value, ffExponent, Precision, Digits);
-          // Strip unneeded zeroes.
-          P:=Pos('E',result)-1;
-          If P<>-1 then
-             While (P>1) and (Result[P]='0') do
-               begin
-               system.Delete(Result,P,1);
-               Dec(P);
-               end;
-          end
+            Result := FloatToStrF(Value, ffExponent, Precision, Digits);
+            // Strip unneeded zeroes.
+            P:=Pos('E',result)-1;
+            If P<>-1 then
+              begin
+                { delete superfluous +? }
+                if result[p+2]='+' then
+                  system.Delete(Result,P+2,1);
+                While (P>1) and (Result[P]='0') do
+                  begin
+                    system.Delete(Result,P,1);
+                    Dec(P);
+                  end;
+                If (P>0) and (Result[P]=DecimalSeparator) Then
+                  begin
+                    system.Delete(Result,P,1);
+                    Dec(P);
+                  end;
+              end;
+            end
         else if (P<>0) then // we have a decimalseparator
           begin
-          P := Length(Result);
-          While (P>0) and (Result[P] = '0') Do
-            Dec(P);
-          If (P>0) and (Result[P]=DecimalSeparator) Then
-            Dec(P);
-          SetLength(Result, P);
+            P := Length(Result);
+            While (P>0) and (Result[P] = '0') Do
+              Dec(P);
+            If (P>0) and (Result[P]=DecimalSeparator) Then
+              Dec(P);
+            SetLength(Result, P);
           end;
       End;
 
     ffExponent:
 
       Begin
-        If (Precision = -1) Or (Precision > 15) Then Precision := 15;
+        If (Precision = -1) Or (Precision > maxdigits) Then Precision := maxdigits;
         Str(Value:Precision + 8, Result);
         Result[3] := DecimalSeparator;
         P:=4;
@@ -1086,7 +1102,7 @@ Begin
 
       Begin
         If Digits = -1 Then Digits := 2
-        Else If Digits > 15 Then Digits := 15;
+        Else If Digits > maxdigits Then Digits := maxdigits;
         Str(Value:0:Digits, Result);
         If Result[1] = ' ' Then System.Delete(Result, 1, 1);
         P := Pos('.', Result);
@@ -1728,8 +1744,8 @@ Begin
     N := Decimals + Result.Exponent
   Else
     N := Precision;
-  If N > 15 Then
-    N := 15;
+  If N > maxdigits Then
+    N := maxdigits;
   If N = 0 Then
     Begin
     If Result.Digits[0] >= '5' Then
@@ -2217,7 +2233,7 @@ function sscanf(const s: string; const fmt : string;const Pointers : array of Po
             begin
               if GetInt>0 then
                 begin
-                  pPtrInt(Pointers[i])^:=StrToInt(s1);
+                  pLongint(Pointers[i])^:=StrToInt(s1);
                   inc(Result);
                 end
               else

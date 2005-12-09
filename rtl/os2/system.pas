@@ -133,6 +133,7 @@ var
 (* for all threads, so the setting isn't declared as a threadvar and       *)
 (* should be only changed at the beginning of the main thread if needed.   *)
   UseHighMem: boolean;
+  StackTop : PtrUInt;
 
 
 
@@ -693,6 +694,11 @@ begin
                                                  else GetFileHandleCount := L2;
 end;
 
+function CheckInitialStkLen (StkLen: SizeUInt): SizeUInt;
+begin
+  CheckInitialStkLen := StkLen;
+end;
+
 var TIB: PThreadInfoBlock;
     RC: cardinal;
     ErrStr: string;
@@ -705,6 +711,8 @@ begin
     FileHandleCount := GetFileHandleCount;
     DosGetInfoBlocks (@TIB, @PIB);
     StackBottom := TIB^.Stack;
+    StackTop := PtrUInt (TIB^.StackLimit);
+    StackLength := CheckInitialStkLen (InitialStkLen);
 
     {Set type of application}
     ApplicationType := PIB^.ProcType;
@@ -774,7 +782,8 @@ begin
        begin
         Str (RC, ErrStr);
         ErrStr := 'Error during heap initialization (DosAllocMem - ' + ErrStr + ')!!'#13#10;
-        DosWrite (2, @ErrStr [1], Length (ErrStr), RC);
+        if IsConsole then
+         DosWrite (2, @ErrStr [1], Length (ErrStr), RC);
         HandleError (204);
        end
       else

@@ -157,16 +157,9 @@ type
   end;
 
 const
-  TOpCG2AsmOpConstLo: array[topcg] of TAsmOp = (A_NONE, A_ADDI, A_ANDI_,
-    A_DIVWU,
-    A_DIVW, A_MULLW, A_MULLW, A_NONE, A_NONE, A_ORI,
-    A_SRAWI, A_SLWI, A_SRWI, A_SUBI, A_XORI);
-  TOpCG2AsmOpConstHi: array[topcg] of TAsmOp = (A_NONE, A_ADDIS, A_ANDIS_,
-    A_DIVWU, A_DIVW, A_MULLW, A_MULLW, A_NONE, A_NONE,
-    A_ORIS, A_NONE, A_NONE, A_NONE, A_SUBIS, A_XORIS);
-
-  TShiftOpCG2AsmOpConst32 : array[OP_SAR..OP_SHR] of TAsmOp = (A_SRAWI, A_SLWI, A_SRWI);
-  TShiftOpCG2AsmOpConst64 : array[OP_SAR..OP_SHR] of TAsmOp = (A_SRADI, A_SLDI, A_SRDI);
+  TShiftOpCG2AsmOpConst : array[boolean, OP_SAR..OP_SHR] of TAsmOp = (
+    (A_SRAWI, A_SLWI, A_SRWI), (A_SRADI, A_SLDI, A_SRDI)
+    );
 
   TOpCmp2AsmCond: array[topcmp] of TAsmCondFlag = (C_NONE, C_EQ, C_GT,
     C_LT, C_GE, C_LE, C_NE, C_LE, C_LT, C_GE, C_GT);
@@ -178,6 +171,136 @@ uses
   globals, verbose, systems, cutils,
   symconst, symsym, fmodule,
   rgobj, tgobj, cpupi, procinfo, paramgr;
+
+{ helper function which calculate "magic" values for replacement of unsigned 
+ division by constant operation by multiplication. See the PowerPC compiler
+ developer manual for more information }
+procedure getmagic_unsignedN(const N : byte; const d : aWord; 
+  out magic_m : aWord; out magic_add : boolean; out magic_shift : byte);
+var
+    p : aInt;
+    nc, delta, q1, r1, q2, r2, two_N_minus_1 : aWord;
+begin
+  assert(d > 0);
+
+  two_N_minus_1 := aWord(1) shl (N-1);
+    
+  magic_add := false;
+  nc := - 1 - (-d) mod d;
+  p := N-1; { initialize p }
+  q1 := two_N_minus_1 div nc; { initialize q1 = 2p/nc }
+  r1 := two_N_minus_1 - q1*nc; { initialize r1 = rem(2p,nc) }
+  q2 := (two_N_minus_1-1) div d; { initialize q2 = (2p-1)/d }
+  r2 := (two_N_minus_1-1) - q2*d; { initialize r2 = rem((2p-1),d) }
+  repeat
+    inc(p);
+    if (r1 >= (nc - r1)) then begin
+      q1 := 2 * q1 + 1; { update q1 }
+      r1 := 2*r1 - nc; { update r1 }
+    end else begin
+      q1 := 2*q1; { update q1 }
+      r1 := 2*r1; { update r1 }
+    end;
+    if ((r2 + 1) >= (d - r2)) then begin
+      if (q2 >= (two_N_minus_1-1)) then
+        magic_add := true;
+      q2 := 2*q2 + 1; { update q2 }
+      r2 := 2*r2 + 1 - d; { update r2 }
+    end else begin
+      if (q2 >= two_N_minus_1) then 
+        magic_add := true;
+      q2 := 2*q2; { update q2 }
+      r2 := 2*r2 + 1; { update r2 }
+    end;
+    delta := d - 1 - r2;
+  until not ((p < (2*N)) and ((q1 < delta) or ((q1 = delta) and (r1 = 0))));
+  magic_m := q2 + 1; { resulting magic number }
+  magic_shift := p - N; { resulting shift }
+end;
+
+{ helper function which calculate "magic" values for replacement of signed 
+ division by constant operation by multiplication. See the PowerPC compiler
+ developer manual for more information }
+procedure getmagic_signedN(const N : byte; const d : aInt; 
+  out magic_m : aInt; out magic_s : aInt);
+var
+  p : aInt;
+  ad, anc, delta, q1, r1, q2, r2, t : aWord;
+  two_N_minus_1 : aWord;
+    
+begin
+  assert((d < -1) or (d > 1));
+
+  two_N_minus_1 := aWord(1) shl (N-1);
+
+  ad := abs(d);
+  t := two_N_minus_1 + (aWord(d) shr (N-1));
+  anc := t - 1 - t mod ad; { absolute value of nc }
+  p := (N-1); { initialize p }
+  q1 := two_N_minus_1 div anc; { initialize q1 = 2p/abs(nc) }
+  r1 := two_N_minus_1 - q1*anc; { initialize r1 = rem(2p,abs(nc)) }
+  q2 := two_N_minus_1 div ad; { initialize q2 = 2p/abs(d) }
+  r2 := two_N_minus_1 - q2*ad; { initialize r2 = rem(2p,abs(d)) }
+  repeat 
+    inc(p);
+    q1 := 2*q1; { update q1 = 2p/abs(nc) }
+    r1 := 2*r1; { update r1 = rem(2p/abs(nc)) }
+    if (r1 >= anc) then begin { must be unsigned comparison }
+      inc(q1);
+      dec(r1, anc);
+    end;
+    q2 := 2*q2; { update q2 = 2p/abs(d) }
+    r2 := 2*r2; { update r2 = rem(2p/abs(d)) }
+    if (r2 >= ad) then begin { must be unsigned comparison }
+      inc(q2);
+      dec(r2, ad);
+    end;
+    delta := ad - r2;
+  until not ((q1 < delta) or ((q1 = delta) and (r1 = 0)));
+  magic_m := q2 + 1;
+  if (d < 0) then begin
+    magic_m := -magic_m; { resulting magic number }
+  end;
+  magic_s := p - N; { resulting shift }
+end;
+
+{ finds positive and negative powers of two of the given value, returning the
+ power and whether it's a negative power or not in addition to the actual result
+ of the function }
+function ispowerof2(value : aInt; out power : byte; out neg : boolean) : boolean;
+var
+  i : longint;
+  hl : aInt;
+begin
+  neg := false;
+  { also try to find negative power of two's by negating if the 
+   value is negative. low(aInt) is special because it can not be
+   negated. Simply return the appropriate values for it }
+  if (value < 0) then begin
+    neg := true;
+    if (value = low(aInt)) then begin
+      power := sizeof(aInt)*8-1;
+      result := true;
+      exit;
+    end;
+    value := -value;
+  end;
+
+  if ((value and (value-1)) <> 0) then begin
+    result := false;
+    exit;
+  end;
+  hl := 1;
+  for i := 0 to (sizeof(aInt)*8-1) do begin
+    if (hl = value) then begin
+      result := true;
+      power := i;
+      exit;
+    end;
+    hl := hl shl 1;
+  end;
+end;
+
 
 procedure tcgppc.init_register_allocators;
 begin
@@ -234,11 +357,13 @@ var
   tmpref, ref: treference;
   location: pcgparalocation;
   sizeleft: aint;
+  adjusttail : boolean;
 
 begin
   location := paraloc.location;
   tmpref := r;
   sizeleft := paraloc.intsize;
+  adjusttail := false;
   while assigned(location) do begin
     case location^.loc of
       LOC_REGISTER, LOC_CREGISTER:
@@ -247,11 +372,18 @@ begin
             a_load_ref_reg(list, size, location^.size, tmpref,
               location^.register)
           else
+          {$IFDEF extdebug}
+            list.concat(tai_comment.create(strpnew('a_param_ref with OS_NO')));
+          {$ENDIF extdebug}
+
             { load non-integral sized memory location into register. This 
-            memory location be 1-sizeleft byte sized.
-            Always assume that this memory area is properly aligned, eg. start
-            loading the larger quantities for "odd" quantities first }
+             memory location be 1-sizeleft byte sized.
+             Always assume that this memory area is properly aligned, eg. start
+             loading the larger quantities for "odd" quantities first }
             case sizeleft of
+              1,2,4,8 :
+                a_load_ref_reg(list, int_cgsize(sizeleft), location^.size, tmpref,
+                  location^.register); 
               3 : begin
                 a_reg_alloc(list, NR_R12); 
                 a_load_ref_reg(list, OS_16, location^.size, tmpref, 
@@ -259,7 +391,7 @@ begin
                 inc(tmpref.offset, tcgsize2size[OS_16]);
                 a_load_ref_reg(list, OS_8, location^.size, tmpref,
                   location^.register);
-                list.concat(taicpu.op_reg_reg_const_const(A_RLDIMI, location^.register, NR_R12, 8, 40));                
+                list.concat(taicpu.op_reg_reg_const_const(A_RLDIMI, location^.register, NR_R12, 8, 40));
                 a_reg_dealloc(list, NR_R12);
               end;
               5 : begin
@@ -267,8 +399,8 @@ begin
                 a_load_ref_reg(list, OS_32, location^.size, tmpref, NR_R12);
                 inc(tmpref.offset, tcgsize2size[OS_32]);
                 a_load_ref_reg(list, OS_8, location^.size, tmpref, location^.register);
-                list.concat(taicpu.op_reg_reg_const_const(A_RLDIMI, location^.register, NR_R12, 8, 24));                
-                a_reg_dealloc(list, NR_R12);              
+                list.concat(taicpu.op_reg_reg_const_const(A_RLDIMI, location^.register, NR_R12, 8, 24));
+                a_reg_dealloc(list, NR_R12);
               end;
               6 : begin
                 a_reg_alloc(list, NR_R12);
@@ -286,20 +418,27 @@ begin
                 a_load_ref_reg(list, OS_16, location^.size, tmpref, NR_R0);
                 inc(tmpref.offset, tcgsize2size[OS_16]);
                 a_load_ref_reg(list, OS_8, location^.size, tmpref, location^.register);
-                list.concat(taicpu.op_reg_reg_const_const(A_RLDIMI, NR_R0, NR_R12, 16, 16));                
-                list.concat(taicpu.op_reg_reg_const_const(A_RLDIMI, location^.register, NR_R0, 8, 8));                 
+                list.concat(taicpu.op_reg_reg_const_const(A_RLDIMI, NR_R0, NR_R12, 16, 16));
+                list.concat(taicpu.op_reg_reg_const_const(A_RLDIMI, location^.register, NR_R0, 8, 8));
                 a_reg_dealloc(list, NR_R0);
                 a_reg_dealloc(list, NR_R12);
               end;
-              1,2,4,8 :
-                a_load_ref_reg(list, int_cgsize(sizeleft), location^.size, tmpref,
-                  location^.register); 
-              else 
+              else
+                { still > 8 bytes to load, so load data single register now }
                 a_load_ref_reg(list, location^.size, location^.size, tmpref,
                   location^.register);
+                { the block is > 8 bytes, so we have to store any bytes not
+                 a multiple of the register size beginning with the MSB }
+                adjusttail := true;
             end; 
-//            a_load_ref_reg(list, location^.size, location^.size, tmpref,
-//              location^.register);
+(*          
+            { Comment this in (for gcc compat) and be prepared for a whole bunch of errors :/ }
+            
+            if (adjusttail) and (sizeleft < tcgsize2size[OS_INT]) then
+              a_op_const_reg(list, OP_SHL, OS_INT, 
+                (tcgsize2size[OS_INT] - sizeleft) * tcgsize2size[OS_INT], 
+                location^.register);
+*)
         end;
       LOC_REFERENCE:
         begin
@@ -368,12 +507,8 @@ begin
     AT_FUNCTION)));
   if (addNOP) then
     list.concat(taicpu.op_none(A_NOP));
-  {
-         the compiler does not properly set this flag anymore in pass 1, and
-         for now we only need it after pass 2 (I hope) (JM)
-           if not(pi_do_call in current_procinfo.flags) then
-             internalerror(2003060703);
-  }
+  { the compiler does not properly set this flag anymore in pass 1, and
+   for now we only need it after pass 2 (I hope) (JM) }
   include(current_procinfo.flags, pi_do_call);
 end;
 
@@ -411,7 +546,7 @@ begin
     { call ptrgl helper routine which expects the pointer to the function descriptor
     in R11 }
     a_load_reg_reg(list, OS_ADDR, OS_ADDR, reg, NR_R11);
-    a_call_name_direct(list, 'ptrgl', true, false);
+    a_call_name_direct(list, '.ptrgl', false, false);
   end;
 
   { we need to load the old RTOC from stackframe because we changed it}
@@ -450,7 +585,9 @@ procedure tcgppc.a_load_const_reg(list: taasmoutput; size: TCGSize; a: aint;
   end;
 
   { R0-safe version of the above (ADDIS doesn't work the same way with R0 as base), without
-    the return value }
+   the return value. Unused until further testing shows that it is not really necessary;
+   loading the upper 32 bits of a value is now done using R12, which does not require
+   special treatment }
   procedure load32bitconstantR0(list : taasmoutput; size : TCGSize; a : longint;
     reg : TRegister);
   begin
@@ -503,9 +640,9 @@ begin
          32 bits should contain -1
         - loading the lower 32 bits resulted in 0 in the upper 32 bits, and the upper
          32 bits should contain 0 }
-      load32bitconstantR0(list, size, hi(a), NR_R0);
+      load32bitconstant(list, size, hi(a), NR_R12);
       { combine both registers }
-      list.concat(taicpu.op_reg_reg_const_const(A_RLDIMI, reg, NR_R0, 32, 0));
+      list.concat(taicpu.op_reg_reg_const_const(A_RLDIMI, reg, NR_R12, 32, 0));
     end;
   end;
 end;
@@ -550,7 +687,7 @@ const
     ((A_LBZ, A_LBZU), (A_LBZX, A_LBZUX)),
     ((A_LHA, A_LHAU), (A_LHAX, A_LHAUX)),
     { there's no load-word-arithmetic-indexed with update, simulate it in code :( }
-    ((A_LWA, A_LWAU), (A_LWAX, A_LWAUX)),
+    ((A_LWA, A_NOP), (A_LWAX, A_LWAUX)),
     ((A_LD, A_LDU), (A_LDX, A_LDUX))
     );
 var
@@ -563,12 +700,12 @@ begin
   ref2 := ref;
   fixref(list, ref2, tosize);
   { the caller is expected to have adjusted the reference already
-   in this case                                                  }
+   in this case }
   if (TCGSize2Size[fromsize] >= TCGSize2Size[tosize]) then
     fromsize := tosize;
   op := loadinstr[fromsize, ref2.index <> NR_NO, false];
   { there is no LWAU instruction, simulate using ADDI and LWA }
-  if (op = A_LWAU) then begin
+  if (op = A_NOP) then begin
     list.concat(taicpu.op_reg_reg_const(A_ADDI, reg, reg, ref2.offset));
     ref2.offset := 0;
     op := A_LWA;
@@ -605,8 +742,8 @@ var
 begin
   op := movemap[fromsize, tosize];
   case op of
-        A_MR, A_EXTSB, A_EXTSH, A_EXTSW : instr := taicpu.op_reg_reg(op, reg2, reg1);
-        A_RLDICL : instr := taicpu.op_reg_reg_const_const(A_RLDICL, reg2, reg1, 0, (8-tcgsize2size[fromsize])*8);
+    A_MR, A_EXTSB, A_EXTSH, A_EXTSW : instr := taicpu.op_reg_reg(op, reg2, reg1);
+    A_RLDICL : instr := taicpu.op_reg_reg_const_const(A_RLDICL, reg2, reg1, 0, (8-tcgsize2size[fromsize])*8);
   else
     internalerror(2002090901);
   end;
@@ -614,8 +751,8 @@ begin
   rg[R_INTREGISTER].add_move_instruction(instr);
 end;
 
-procedure tcgppc.a_loadfpu_reg_reg(list: taasmoutput; size: tcgsize; reg1, reg2:
-  tregister);
+procedure tcgppc.a_loadfpu_reg_reg(list: taasmoutput; size: tcgsize; 
+  reg1, reg2: tregister);
 var
   instr: taicpu;
 begin
@@ -624,8 +761,8 @@ begin
   rg[R_FPUREGISTER].add_move_instruction(instr);
 end;
 
-procedure tcgppc.a_loadfpu_ref_reg(list: taasmoutput; size: tcgsize; const ref:
-  treference; reg: tregister);
+procedure tcgppc.a_loadfpu_ref_reg(list: taasmoutput; size: tcgsize; 
+  const ref: treference; reg: tregister);
 const
   FpuLoadInstr: array[OS_F32..OS_F64, boolean, boolean] of TAsmOp =
   { indexed? updating?}
@@ -654,7 +791,6 @@ end;
 
 procedure tcgppc.a_loadfpu_reg_ref(list: taasmoutput; size: tcgsize; reg:
   tregister; const ref: treference);
-
 const
   FpuStoreInstr: array[OS_F32..OS_F64, boolean, boolean] of TAsmOp =
   { indexed? updating? }
@@ -688,139 +824,205 @@ end;
 procedure tcgppc.a_op_const_reg_reg(list: taasmoutput; op: TOpCg;
   size: tcgsize; a: aint; src, dst: tregister);
 var
-  l1, l2: longint;
-  oplo, ophi: tasmop;
-  scratchreg: tregister;
   useReg : boolean;
-  shiftmask : longint;
 
-  procedure do_lo_hi;
+  procedure do_lo_hi(loOp, hiOp : TAsmOp);
   begin
+    { Optimization for logical ops (excluding AND), trying to do this as efficiently
+     as possible by only generating code for the affected halfwords. Note that all
+     the instructions handled here must have "X op 0 = X" for every halfword. }
     usereg := false;
-    if (size in [OS_64, OS_S64]) then begin
-      { ts: use register method for 64 bit consts. Sloooooow }
+    if (aword(a) > high(dword)) then begin
       usereg := true;
-    end else if (size in [OS_32, OS_S32]) then begin
-      list.concat(taicpu.op_reg_reg_const(oplo, dst, src, word(a)));
-      list.concat(taicpu.op_reg_reg_const(ophi, dst, dst, word(a shr 16)));
     end else begin
-      list.concat(taicpu.op_reg_reg_const(oplo, dst, src, word(a)));
+      if (word(a) <> 0) then begin
+        list.concat(taicpu.op_reg_reg_const(loOp, dst, src, word(a)));
+        if (word(a shr 16) <> 0) then
+          list.concat(taicpu.op_reg_reg_const(hiOp, dst, dst, word(a shr 16)));
+      end else if (word(a shr 16) <> 0) then
+        list.concat(taicpu.op_reg_reg_const(hiOp, dst, src, word(a shr 16)));
     end;
   end;
 
+  procedure do_lo_hi_and;
+  begin
+    { optimization logical and with immediate: only use "andi." for 16 bit
+     ands, otherwise use register method. Doing this for 32 bit constants
+     would not give any advantage to the register method (via useReg := true), 
+     requiring a scratch register and three instructions. }
+    usereg := false;
+    if (aword(a) > high(word)) then
+      usereg := true
+    else
+      list.concat(taicpu.op_reg_reg_const(A_ANDI_, dst, src, word(a)));
+  end;
+
+  procedure do_constant_div(list : taasmoutput; size : TCgSize; a : aint; src, dst : TRegister;
+    signed : boolean);
+  const
+    negops : array[boolean] of tasmop = (A_NEG, A_NEGO);
+  var
+    magic, shift : int64;
+    u_magic : qword;
+    u_shift : byte;
+    u_add : boolean;
+    power : byte;
+    isNegPower : boolean;
+             
+    divreg : tregister;
+  begin
+    if (a = 0) then begin
+      internalerror(2005061701);
+    end else if (a = 1) then begin
+      cg.a_load_reg_reg(exprasmlist, OS_INT, OS_INT, src, dst);
+    end else if (a = -1) then begin
+      { note: only in the signed case possible..., may overflow }
+      exprasmlist.concat(taicpu.op_reg_reg(negops[cs_check_overflow in aktlocalswitches], dst, src));
+    end else if (ispowerof2(a, power, isNegPower)) then begin
+      if (signed) then begin
+        { From "The PowerPC Compiler Writer's Guide", pg. 52ff          }
+        cg.a_op_const_reg_reg(exprasmlist, OP_SAR, OS_INT, power,
+          src, dst);
+        exprasmlist.concat(taicpu.op_reg_reg(A_ADDZE, dst, dst));
+        if (isNegPower) then
+          exprasmlist.concat(taicpu.op_reg_reg(A_NEG, dst, dst));
+      end else begin
+        cg.a_op_const_reg_reg(exprasmlist, OP_SHR, OS_INT, power, src, dst)
+      end;
+    end else begin
+      { replace division by multiplication, both implementations }
+      { from "The PowerPC Compiler Writer's Guide" pg. 53ff      }
+      divreg := cg.getintregister(exprasmlist, OS_INT);
+      if (signed) then begin
+        getmagic_signedN(sizeof(aInt)*8, a, magic, shift);
+        { load magic value }
+        cg.a_load_const_reg(exprasmlist, OS_INT, magic, divreg);
+        { multiply }
+        exprasmlist.concat(taicpu.op_reg_reg_reg(A_MULHD, dst, src, divreg));
+        { add/subtract numerator }
+        if (a > 0) and (magic < 0) then begin
+          cg.a_op_reg_reg_reg(exprasmlist, OP_ADD, OS_INT, src, dst, dst);
+        end else if (a < 0) and (magic > 0) then begin
+          cg.a_op_reg_reg_reg(exprasmlist, OP_SUB, OS_INT, src, dst, dst);
+        end;
+        { shift shift places to the right (arithmetic) }
+        cg.a_op_const_reg_reg(exprasmlist, OP_SAR, OS_INT, shift, dst, dst);                     
+        { extract and add sign bit }
+        if (a >= 0) then begin
+          cg.a_op_const_reg_reg(exprasmlist, OP_SHR, OS_INT, 63, src, divreg);
+        end else begin
+          cg.a_op_const_reg_reg(exprasmlist, OP_SHR, OS_INT, 63, dst, divreg);
+        end;                     
+        cg.a_op_reg_reg_reg(exprasmlist, OP_ADD, OS_INT, dst, divreg, dst);
+      end else begin
+        getmagic_unsignedN(sizeof(aWord)*8, a, u_magic, u_add, u_shift);
+        { load magic in divreg }
+        cg.a_load_const_reg(exprasmlist, OS_INT, u_magic, divreg);
+        exprasmlist.concat(taicpu.op_reg_reg_reg(A_MULHDU, dst, src, divreg));
+        if (u_add) then begin
+          cg.a_op_reg_reg_reg(exprasmlist, OP_SUB, OS_INT, dst, src, divreg);
+          cg.a_op_const_reg_reg(exprasmlist, OP_SHR, OS_INT,  1, divreg, divreg);
+          cg.a_op_reg_reg_reg(exprasmlist, OP_ADD, OS_INT, divreg, dst, divreg);
+          cg.a_op_const_reg_reg(exprasmlist, OP_SHR, OS_INT, u_shift-1, divreg, dst);
+        end else begin
+          cg.a_op_const_reg_reg(exprasmlist, OP_SHR, OS_INT, u_shift, dst, dst);
+        end;
+      end;
+    end;
+  end;
+
+var
+  scratchreg: tregister;
+  shift : byte;
+  shiftmask : longint;
+  isneg : boolean;
+
 begin
+  { subtraction is the same as addition with negative constant }
   if op = OP_SUB then begin
     a_op_const_reg_reg(list, OP_ADD, size, -a, src, dst);
     exit;
   end;
-  ophi := TOpCG2AsmOpConstHi[op];
-  oplo := TOpCG2AsmOpConstLo[op];
-  { peephole optimizations for AND, OR, XOR - can't this be done at
-   some higher level, independent of architecture? }
-  if (op in [OP_AND, OP_OR, OP_XOR]) then begin
-    if (a = 0) then begin
-      if op = OP_AND then
-        list.concat(taicpu.op_reg_const(A_LI, dst, 0))
-      else
-        a_load_reg_reg(list, size, size, src, dst);
-      exit;
-    end else if (a = -1) then begin
-      case op of
-        OP_OR:
-          list.concat(taicpu.op_reg_const(A_LI, dst, -1));
-        OP_XOR:
-          list.concat(taicpu.op_reg_reg(A_NOT, dst, src));
-        OP_AND:
-          a_load_reg_reg(list, size, size, src, dst);
-      end;
-      exit;
-    end;
-  { optimization for add }
-  end else if (op = OP_ADD) then
-    if a = 0 then begin
-      a_load_reg_reg(list, size, size, src, dst);
-      exit;
-    end else if (a >= low(smallint)) and (a <= high(smallint)) then begin
-      list.concat(taicpu.op_reg_reg_const(A_ADDI, dst, src, smallint(a)));
-      exit;
-    end;
+  { This case includes some peephole optimizations for the various operations,
+   (e.g. AND, OR, XOR, ..) - can't this be done at some higher level, 
+   independent of architecture? }
 
-  { otherwise, the instructions we can generate depend on the operation }
+  { assume that we do not need a scratch register for the operation }
   useReg := false;
-  case op of
+  case (op) of
     OP_DIV, OP_IDIV:
-      if (a = 0) then
-        internalerror(200208103)
-      else if (a = 1) then begin
-        a_load_reg_reg(list, OS_INT, OS_INT, src, dst);
-        exit
-      end else if false {and ispowerof2(a, l1)} then begin
-        internalerror(200208103);
-        case op of
-          OP_DIV: begin
-            list.concat(taicpu.op_reg_reg_const(A_SRDI, dst, src, l1));
-          end;
-          OP_IDIV:
-            begin
-              list.concat(taicpu.op_reg_reg_const(A_SRADI, dst, src, l1));
-              list.concat(taicpu.op_reg_reg(A_ADDZE, dst, dst));
-            end;
-        end;
-        exit;
-      end else
-        usereg := true;
+      if (cs_slowoptimize in aktglobalswitches) then
+        do_constant_div(list, size, a, src, dst, op = OP_IDIV)
+      else
+        usereg := true; 
     OP_IMUL, OP_MUL:
-      if (a = 0) then begin
-        list.concat(taicpu.op_reg_const(A_LI, dst, 0));
-        exit
-      end else if (a = -1) then begin
-        list.concat(taicpu.op_reg_reg(A_NEG, dst, dst));
-      end else if (a = 1) then begin
-        a_load_reg_reg(list, OS_INT, OS_INT, src, dst);
-        exit
-      end else if ispowerof2(a, l1) then
-        list.concat(taicpu.op_reg_reg_const(A_SLDI, dst, src, l1))
-      else if (a >= low(smallint)) and (a <= high(smallint)) then
+      { idea: factorize constant multiplicands and use adds/shifts with few factors;
+       however, even a 64 bit multiply is already quite fast on PPC64 }
+      if (a = 0) then
+        a_load_const_reg(list, size, 0, dst)
+      else if (a = -1) then
+        list.concat(taicpu.op_reg_reg(A_NEG, dst, dst))
+      else if (a = 1) then
+        a_load_reg_reg(list, OS_INT, OS_INT, src, dst)
+      else if ispowerof2(a, shift, isneg) then begin
+        list.concat(taicpu.op_reg_reg_const(A_SLDI, dst, src, shift));
+        if (isneg) then
+          exprasmlist.concat(taicpu.op_reg_reg(A_NEG, dst, dst));
+      end else if (a >= low(smallint)) and (a <= high(smallint)) then
         list.concat(taicpu.op_reg_reg_const(A_MULLI, dst, src,
           smallint(a)))
       else
         usereg := true;
     OP_ADD:
-      {$todo ts:optimize}
-      useReg := true;
+      if (a = 0) then
+        a_load_reg_reg(list, size, size, src, dst)
+      else if (a >= low(smallint)) and (a <= high(smallint)) then
+        list.concat(taicpu.op_reg_reg_const(A_ADDI, dst, src, smallint(a)))
+      else
+        useReg := true;
     OP_OR:
-      do_lo_hi;
+      if (a = 0) then
+        a_load_reg_reg(list, size, size, src, dst)
+      else if (a = -1) then
+        a_load_const_reg(list, size, -1, dst)
+      else
+        do_lo_hi(A_ORI, A_ORIS);
     OP_AND:
-      useReg := true;
+      if (a = 0) then
+        a_load_const_reg(list, size, 0, dst)
+      else if (a = -1) then
+        a_load_reg_reg(list, size, size, src, dst)
+      else
+        do_lo_hi_and;
     OP_XOR:
-      do_lo_hi;
+      if (a = 0) then
+        a_load_reg_reg(list, size, size, src, dst)
+      else if (a = -1) then
+        list.concat(taicpu.op_reg_reg(A_NOT, dst, src))
+      else
+        do_lo_hi(A_XORI, A_XORIS);
     OP_SHL, OP_SHR, OP_SAR:
       begin
-        {$note ts: cleanup todo, fix remaining bugs}
-        if (size in [OS_64, OS_S64]) then begin
-          if (a and 63) <> 0 then
-            list.concat(taicpu.op_reg_reg_const(
-              TShiftOpCG2AsmOpConst64[Op], dst, src, a and 63))
-          else
-            a_load_reg_reg(list, size, size, src, dst);
-          if (a shr 6) <> 0 then
-            internalError(68991);
-        end else begin
-          if (a and 31) <> 0 then
-            list.concat(taicpu.op_reg_reg_const(
-              TShiftOpCG2AsmOpConst32[Op], dst, src, a and 31))
-          else
-            a_load_reg_reg(list, size, size, src, dst);
-          if (a shr 5) <> 0 then
-            internalError(68991);
-        end;
+        if (size in [OS_64, OS_S64]) then 
+          shift := 6
+        else
+          shift := 5;
+        
+        shiftmask := (1 shl shift)-1;
+        if (a and shiftmask) <> 0 then
+          list.concat(taicpu.op_reg_reg_const(
+            TShiftOpCG2AsmOpConst[size in [OS_64, OS_S64], op], dst, src, a and shiftmask))
+        else
+          a_load_reg_reg(list, size, size, src, dst);
+        if ((a shr shift) <> 0) then
+          internalError(68991);
       end
-  else
-    internalerror(200109091);
+    else
+      internalerror(200109091);
   end;
-  { if all else failed, load the constant in a register and then }
-  { perform the operation                                        }
-  if useReg then begin
+  { if all else failed, load the constant in a register and then
+   perform the operation }
+  if (useReg) then begin
     scratchreg := rg[R_INTREGISTER].getregister(list, R_SUBWHOLE);
     a_load_const_reg(list, size, a, scratchreg);
     a_op_reg_reg_reg(list, op, size, scratchreg, src, dst);
@@ -829,7 +1031,6 @@ end;
 
 procedure tcgppc.a_op_reg_reg_reg(list: taasmoutput; op: TOpCg;
   size: tcgsize; src1, src2, dst: tregister);
-
 const
   op_reg_reg_opcg2asmop32: array[TOpCG] of tasmop =
   (A_NONE, A_ADD, A_AND, A_DIVWU, A_DIVW, A_MULLW, A_MULLW, A_NEG, A_NOT, A_OR,
@@ -837,41 +1038,34 @@ const
   op_reg_reg_opcg2asmop64: array[TOpCG] of tasmop =
   (A_NONE, A_ADD, A_AND, A_DIVDU, A_DIVD, A_MULLD, A_MULLD, A_NEG, A_NOT, A_OR,
    A_SRAD, A_SLD, A_SRD, A_SUB, A_XOR);
-
 begin
   case op of
     OP_NEG, OP_NOT:
       begin
         list.concat(taicpu.op_reg_reg(op_reg_reg_opcg2asmop64[op], dst, src1));
-        if (op = OP_NOT) and
-          not (size in [OS_64, OS_S64]) then
+        if (op = OP_NOT) and not (size in [OS_64, OS_S64]) then
           { zero/sign extend result again, fromsize is not important here }
           a_load_reg_reg(list, OS_S64, size, dst, dst)
       end;
-  else
-  {$NOTE ts:testme}
-    if (size in [OS_64, OS_S64]) then begin
-      list.concat(taicpu.op_reg_reg_reg(op_reg_reg_opcg2asmop64[op], dst, src2,
-        src1));
-    end else begin
-      list.concat(taicpu.op_reg_reg_reg(op_reg_reg_opcg2asmop32[op], dst, src2,
-        src1));
-    end;
+    else
+      if (size in [OS_64, OS_S64]) then begin
+        list.concat(taicpu.op_reg_reg_reg(op_reg_reg_opcg2asmop64[op], dst, src2,
+          src1));
+      end else begin
+        list.concat(taicpu.op_reg_reg_reg(op_reg_reg_opcg2asmop32[op], dst, src2,
+          src1));
+      end;
   end;
 end;
 
 {*************** compare instructructions ****************}
 
-procedure tcgppc.a_cmp_const_reg_label(list: taasmoutput; size: tcgsize; cmp_op:
-  topcmp; a: aint; reg: tregister;
-  l: tasmlabel);
-
+procedure tcgppc.a_cmp_const_reg_label(list: taasmoutput; size: tcgsize; 
+  cmp_op: topcmp; a: aint; reg: tregister; l: tasmlabel);
 var
   scratch_register: TRegister;
   signed: boolean;
-
 begin
-  { todo: use 32 bit compares? }
   signed := cmp_op in [OC_GT, OC_LT, OC_GTE, OC_LTE];
   { in the following case, we generate more efficient code when }
   { signed is true                                              }
@@ -897,13 +1091,10 @@ begin
   a_jmp(list, A_BC, TOpCmp2AsmCond[cmp_op], 0, l);
 end;
 
-procedure tcgppc.a_cmp_reg_reg_label(list: taasmoutput; size: tcgsize; cmp_op:
-  topcmp;
-  reg1, reg2: tregister; l: tasmlabel);
-
+procedure tcgppc.a_cmp_reg_reg_label(list: taasmoutput; size: tcgsize; 
+  cmp_op: topcmp; reg1, reg2: tregister; l: tasmlabel);
 var
   op: tasmop;
-
 begin
   if cmp_op in [OC_GT, OC_LT, OC_GTE, OC_LTE] then
     if (size in [OS_64, OS_S64]) then
@@ -953,11 +1144,9 @@ end;
 
 procedure tcgppc.g_flags2reg(list: taasmoutput; size: TCgSize; const f:
   TResFlags; reg: TRegister);
-
 var
   testbit: byte;
   bitvalue: boolean;
-
 begin
   { get the bit to extract from the conditional register + its requested value (0 or 1) }
   testbit := ((f.cr - RS_CR0) * 4);
@@ -996,12 +1185,14 @@ end;
 
 procedure tcgppc.g_save_standard_registers(list: Taasmoutput);
 begin
-  { this work is done in g_proc_entry }
+  { this work is done in g_proc_entry; additionally it is not safe 
+  to use it because it is called at some weird time }
 end;
 
 procedure tcgppc.g_restore_standard_registers(list: Taasmoutput);
 begin
-  { this work is done in g_proc_exit }
+  { this work is done in g_proc_exit; mainly because it is not safe to
+  put the register restore code here because it is called at some weird time }
 end;
 
 procedure tcgppc.calcFirstUsedFPR(out firstfpr : TSuperRegister; out fprcount : aint);
@@ -1010,15 +1201,13 @@ var
 begin
   fprcount := 0;
   firstfpr := RS_F31;
-  if not (po_assembler in current_procinfo.procdef.procoptions) then begin
-    for reg := RS_F14 to RS_F31 do begin
+  if not (po_assembler in current_procinfo.procdef.procoptions) then
+    for reg := RS_F14 to RS_F31 do
       if reg in rg[R_FPUREGISTER].used_in_proc then begin
         fprcount := ord(RS_F31)-ord(reg)+1;
         firstfpr := reg;
         break;
       end;
-    end;
-  end;
 end;
 
 procedure tcgppc.calcFirstUsedGPR(out firstgpr : TSuperRegister; out gprcount : aint);
@@ -1027,42 +1216,87 @@ var
 begin
   gprcount := 0;
   firstgpr := RS_R31;
-  if not (po_assembler in current_procinfo.procdef.procoptions) then begin
-    for reg := RS_R14 to RS_R31 do begin
+  if not (po_assembler in current_procinfo.procdef.procoptions) then
+    for reg := RS_R14 to RS_R31 do
       if reg in rg[R_INTREGISTER].used_in_proc then begin
         gprcount := ord(RS_R31)-ord(reg)+1;
         firstgpr := reg;
         break;
       end;
-    end;
-  end;
 end;
 
+{ Generates the entry code of a procedure/function. 
+                                                                     
+ This procedure may be called before, as well as after g_return_from_proc
+ is called. localsize is the sum of the size necessary for local variables 
+ and the maximum possible combined size of ALL the parameters of a procedure 
+ called by the current one 
+
+ IMPORTANT: registers are not to be allocated through the register
+ allocator here, because the register colouring has already occured !! 
+}
 procedure tcgppc.g_proc_entry(list: taasmoutput; localsize: longint;
   nostackframe: boolean);
-{ generated the entry code of a procedure/function. Note: localsize is the 
- sum of the size necessary for local variables and the maximum possible
- combined size of ALL the parameters of a procedure called by the current
- one.                                                                     
- This procedure may be called before, as well as after g_return_from_proc
- is called. NOTE registers are not to be allocated through the register
- allocator here, because the register colouring has already occured !! }
 var
   firstregfpu, firstreggpr: TSuperRegister;
-  href: treference;
   needslinkreg: boolean;
-  regcount : TSuperRegister;
 
   fprcount, gprcount : aint;
 
-begin
-  { CR and LR only have to be saved in case they are modified by the current
-   procedure, but currently this isn't checked, so save them always        
-   following is the entry code as described in "Altivec Programming
-   Interface Manual", bar the saving of AltiVec registers }
-  a_reg_alloc(list, NR_STACK_POINTER_REG);
-  a_reg_alloc(list, NR_R0);
+  { Save standard registers, both FPR and GPR; does not support VMX/Altivec }
+  procedure save_standard_registers;
+  var
+    regcount : TSuperRegister;
+    href : TReference;
+    mayNeedLRStore : boolean;
+  begin
+    { there are two ways to do this: manually, by generating a few "std" instructions,
+     or via the restore helper functions. The latter are selected by the -Og switch,
+     i.e. "optimize for size" }
+    if (cs_littlesize in aktglobalswitches) then begin
+      mayNeedLRStore := false;
+      if ((fprcount > 0) and (gprcount > 0)) then begin
+        a_op_const_reg_reg(list, OP_SUB, OS_INT, 8 * fprcount, NR_R1, NR_R12);
+        a_call_name_direct(list, '_savegpr1_' + intToStr(32-gprcount), false, false);
+        a_call_name_direct(list, '_savefpr_' + intToStr(32-fprcount), false, false);
+      end else if (gprcount > 0) then
+        a_call_name_direct(list, '_savegpr0_' + intToStr(32-gprcount), false, false)
+      else if (fprcount > 0) then
+        a_call_name_direct(list, '_savefpr_' + intToStr(32-fprcount), false, false)
+      else
+        mayNeedLRStore := true;
+    end else begin
+      { save registers, FPU first, then GPR }
+      reference_reset_base(href, NR_STACK_POINTER_REG, -8);
+      if (fprcount > 0) then
+        for regcount := RS_F31 downto firstregfpu do begin
+          a_loadfpu_reg_ref(list, OS_FLOAT, newreg(R_FPUREGISTER, regcount,
+            R_SUBNONE), href);
+          dec(href.offset, tcgsize2size[OS_FLOAT]);
+        end;
+      if (gprcount > 0) then
+        for regcount := RS_R31 downto firstreggpr do begin
+          a_load_reg_ref(list, OS_INT, OS_INT, newreg(R_INTREGISTER, regcount,
+            R_SUBNONE), href);
+          dec(href.offset, tcgsize2size[OS_INT]);
+        end;
+      { VMX registers not supported by FPC atm }
 
+      { in this branch we may always need to store LR ourselves}
+      mayNeedLRStore := true;
+    end;
+
+    { we may need to store R0 (=LR) ourselves }
+    if (mayNeedLRStore) and (needslinkreg) then begin
+      reference_reset_base(href, NR_STACK_POINTER_REG, LA_LR_ELF);
+      list.concat(taicpu.op_reg_ref(A_STD, NR_R0, href));
+    end;
+  end;
+
+var
+  href: treference;
+
+begin
   calcFirstUsedFPR(firstregfpu, fprcount);
   calcFirstUsedGPR(firstreggpr, gprcount);
 
@@ -1071,41 +1305,23 @@ begin
     gprcount, fprcount);
 
   { determine whether we need to save the link register }
-  needslinkreg := ((not (po_assembler in current_procinfo.procdef.procoptions)) and
-    (pi_do_call in current_procinfo.flags));
+  needslinkreg := 
+    ((not (po_assembler in current_procinfo.procdef.procoptions)) and (pi_do_call in current_procinfo.flags)) or 
+    ((cs_littlesize in aktglobalswitches) and ((fprcount > 0) or (gprcount > 0)));
+
+  a_reg_alloc(list, NR_STACK_POINTER_REG);
+  a_reg_alloc(list, NR_R0);
 
   { move link register to r0 }
-  if (needslinkreg) then begin
+  if (needslinkreg) then
     list.concat(taicpu.op_reg(A_MFLR, NR_R0));
-  end;
+
+  save_standard_registers;
+
   { save old stack frame pointer }
   if (localsize > 0) then begin
     a_reg_alloc(list, NR_OLD_STACK_POINTER_REG);
     list.concat(taicpu.op_reg_reg(A_MR, NR_OLD_STACK_POINTER_REG, NR_STACK_POINTER_REG));
-  end;
-  { save registers, FPU first, then GPR }
-  reference_reset_base(href, NR_STACK_POINTER_REG, -8);
-  if (fprcount > 0) then begin
-    for regcount := RS_F31 downto firstregfpu do begin
-      a_loadfpu_reg_ref(list, OS_FLOAT, newreg(R_FPUREGISTER, regcount,
-        R_SUBNONE), href);
-      dec(href.offset, tcgsize2size[OS_FLOAT]);
-    end;
-  end;
-  if (gprcount > 0) then begin
-    for regcount := RS_R31 downto firstreggpr do begin
-      a_load_reg_ref(list, OS_INT, OS_INT, newreg(R_INTREGISTER, regcount,
-        R_SUBNONE), href);
-      dec(href.offset, tcgsize2size[OS_INT]);
-    end;
-  end;
-
-  { VMX registers not supported by FPC atm }
-
-  { we may need to store R0 (=LR) ourselves }
-  if (needslinkreg) then begin
-    reference_reset_base(href, NR_STACK_POINTER_REG, LA_LR_ELF);
-    list.concat(taicpu.op_reg_ref(A_STD, NR_R0, href));
   end;
 
   { create stack frame }
@@ -1116,10 +1332,11 @@ begin
     end else begin
       reference_reset_base(href, NR_NO, -localsize);
 
-      { use R0 for loading the constant (which is definitely > 32k when entering
-       this branch)
+      { Use R0 for loading the constant (which is definitely > 32k when entering
+       this branch).
+
        Inlined at this position because it must not use temp registers because 
-       register allocations have already been done :( }
+       register allocations have already been done  }
       { Code template:
       lis   r0,ofs@highest
       ori   r0,r0,ofs@higher
@@ -1136,30 +1353,99 @@ begin
       list.concat(taicpu.op_reg_reg_reg(A_STDUX, NR_R1, NR_R1, NR_R0));
     end;
   end;
+
   { CR register not used by FPC atm }
 
   { keep R1 allocated??? }
   a_reg_dealloc(list, NR_R0);
 end;
 
+{ Generates the exit code for a method. 
+
+ This procedure may be called before, as well as after g_stackframe_entry
+ is called. 
+
+ IMPORTANT: registers are not to be allocated through the register
+ allocator here, because the register colouring has already occured !!
+}
 procedure tcgppc.g_proc_exit(list: taasmoutput; parasize: longint; nostackframe:
   boolean);
-{ This procedure may be called before, as well as after g_stackframe_entry }
-{ is called. NOTE registers are not to be allocated through the register   }
-{ allocator here, because the register colouring has already occured !!    }
 var
-  regcount, firstregfpu, firstreggpr: TSuperRegister;
-  href: treference;
+  firstregfpu, firstreggpr: TSuperRegister;
   needslinkreg : boolean;
-  localsize,
   fprcount, gprcount: aint;
+
+  { Restore standard registers, both FPR and GPR; does not support VMX/Altivec }
+  procedure restore_standard_registers;
+  var
+    { flag indicating whether we need to manually add the exit code (e.g. blr instruction)
+     or not }
+    needsExitCode : Boolean;
+    href : treference;
+    regcount : TSuperRegister;
+  begin
+    { there are two ways to do this: manually, by generating a few "ld" instructions,
+     or via the restore helper functions. The latter are selected by the -Og switch,
+     i.e. "optimize for size" }
+    if (cs_littlesize in aktglobalswitches) then begin
+      needsExitCode := false;
+      if ((fprcount > 0) and (gprcount > 0)) then begin
+        a_op_const_reg_reg(list, OP_SUB, OS_INT, 8 * fprcount, NR_R1, NR_R12);
+        a_call_name_direct(list, '_restgpr1_' + intToStr(32-gprcount), false, false);
+        a_jmp_name(list, '_restfpr_' + intToStr(32-fprcount));
+      end else if (gprcount > 0) then
+        a_jmp_name(list, '_restgpr0_' + intToStr(32-gprcount))
+      else if (fprcount > 0) then
+        a_jmp_name(list, '_restfpr_' + intToStr(32-fprcount))
+      else
+        needsExitCode := true;
+    end else begin
+      needsExitCode := true;
+      { restore registers, FPU first, GPR next }
+      reference_reset_base(href, NR_STACK_POINTER_REG, -tcgsize2size[OS_FLOAT]);
+      if (fprcount > 0) then
+        for regcount := RS_F31 downto firstregfpu do begin
+          a_loadfpu_ref_reg(list, OS_FLOAT, href, newreg(R_FPUREGISTER, regcount,
+            R_SUBNONE));
+          dec(href.offset, tcgsize2size[OS_FLOAT]);
+        end;
+      if (gprcount > 0) then
+        for regcount := RS_R31 downto firstreggpr do begin
+          a_load_ref_reg(list, OS_INT, OS_INT, href, newreg(R_INTREGISTER, regcount,
+            R_SUBNONE));
+          dec(href.offset, tcgsize2size[OS_INT]);
+        end;
+
+      { VMX not supported by FPC atm }
+    end;
+
+    if (needsExitCode) then begin
+
+      { restore LR (if needed) }
+      if (needslinkreg) then begin
+        reference_reset_base(href, NR_STACK_POINTER_REG, LA_LR_ELF);
+        list.concat(taicpu.op_reg_ref(A_LD, NR_R0, href));
+        list.concat(taicpu.op_reg(A_MTLR, NR_R0));
+      end;
+
+      { generate return instruction }
+      list.concat(taicpu.op_none(A_BLR));
+    end;
+  end;
+
+var
+  href: treference;
+  localsize : aint;
+
 begin
   calcFirstUsedFPR(firstregfpu, fprcount);
   calcFirstUsedGPR(firstreggpr, gprcount);
 
   { determine whether we need to restore the link register }
-  needslinkreg := ((not (po_assembler in current_procinfo.procdef.procoptions)) and
-    (pi_do_call in current_procinfo.flags));
+  needslinkreg := 
+    ((not (po_assembler in current_procinfo.procdef.procoptions)) and (pi_do_call in current_procinfo.flags)) or
+    ((cs_littlesize in aktglobalswitches) and ((fprcount > 0) or (gprcount > 0)));
+
   { calculate stack frame }
   localsize := tppcprocinfo(current_procinfo).calc_stackframe_size(
     gprcount, fprcount);
@@ -1176,13 +1462,14 @@ begin
       { use R0 for loading the constant (which is definitely > 32k when entering
        this branch)
        Inlined because it must not use temp registers because register allocations
-       have already been done :( }
+       have already been done
+      }
       { Code template:
-      lis   r0,ofs@highest
-      ori   r0,ofs@higher
-      sldi  r0,r0,32
-      oris  r0,r0,ofs@h
-      ori   r0,r0,ofs@l
+       lis   r0,ofs@highest
+       ori   r0,ofs@higher
+       sldi  r0,r0,32
+       oris  r0,r0,ofs@h
+       ori   r0,r0,ofs@l
       }
       list.concat(taicpu.op_reg_const(A_LIS, NR_R0, word(href.offset shr 48)));
       list.concat(taicpu.op_reg_reg_const(A_ORI, NR_R0, NR_R0, word(href.offset shr 32)));
@@ -1194,35 +1481,7 @@ begin
     end;
   end;
 
-  { load registers, FPR first, then GPR }
-  {$note ts:todo change order of loading}
-  reference_reset_base(href, NR_STACK_POINTER_REG, -tcgsize2size[OS_FLOAT]);
-  if (fprcount > 0) then begin
-    for regcount := RS_F31 downto firstregfpu do begin
-      a_loadfpu_ref_reg(list, OS_FLOAT, href, newreg(R_FPUREGISTER, regcount,
-        R_SUBNONE));
-      dec(href.offset, tcgsize2size[OS_FLOAT]);
-    end;
-  end;
-  if (gprcount > 0) then begin
-    for regcount := RS_R31 downto firstreggpr do begin
-      a_load_ref_reg(list, OS_INT, OS_INT, href, newreg(R_INTREGISTER, regcount,
-        R_SUBNONE));
-      dec(href.offset, tcgsize2size[OS_INT]);
-    end;
-  end;
-
-  { VMX not supported... }
-
-  { restore LR (if needed) }
-  if (needslinkreg) then begin
-    reference_reset_base(href, NR_STACK_POINTER_REG, LA_LR_ELF);
-    list.concat(taicpu.op_reg_ref(A_LD, NR_R0, href));
-    list.concat(taicpu.op_reg(A_MTLR, NR_R0));
-  end;
-
-  { generate return instruction }
-  list.concat(taicpu.op_none(A_BLR));
+  restore_standard_registers;
 end;
 
 
@@ -1317,23 +1576,33 @@ begin
 {$IFDEF extdebug}
   if len > high(aint) then
     internalerror(2002072704);
+  list.concat(tai_comment.create(strpnew('g_concatcopy')));
 {$ENDIF extdebug}
-  { make sure short loads are handled as optimally as possible }
+  { make sure short loads are handled as optimally as possible;
+   note that the data here never overlaps, so we can do a forward
+   copy at all times.
+   NOTE: maybe use some scratch registers to pair load/store instructions
+  }
 
-  if (len <= maxmoveunit) and
-    (byte(len) in [1, 2, 4, 8]) then
-  begin
-    if len < 8 then
-    begin
-      size := int_cgsize(len);
-      a_load_ref_ref(list, size, size, source, dest);
-    end
-    else
-    begin
-      a_reg_alloc(list, NR_F0);
-      a_loadfpu_ref_reg(list, OS_F64, source, NR_F0);
-      a_loadfpu_reg_ref(list, OS_F64, NR_F0, dest);
-      a_reg_dealloc(list, NR_F0);
+  if (len <= maxmoveunit) then begin
+    src := source; dst := dest;
+    while (len <> 0) do begin
+      if (len = 8) then begin
+        a_load_ref_ref(list, OS_64, OS_64, src, dst);    
+        dec(len, 8);
+      end else if (len >= 4) then begin
+        a_load_ref_ref(list, OS_32, OS_32, src, dst);    
+        inc(src.offset, 4); inc(dst.offset, 4);
+        dec(len, 4);
+      end else if (len >= 2) then begin
+        a_load_ref_ref(list, OS_16, OS_16, src, dst);    
+        inc(src.offset, 2); inc(dst.offset, 2);
+        dec(len, 2);
+      end else begin
+        a_load_ref_ref(list, OS_8, OS_8, src, dst);    
+        inc(src.offset, 1); inc(dst.offset, 1);
+        dec(len, 1);
+      end;
     end;
     exit;
   end;
@@ -1374,8 +1643,8 @@ begin
     list.concat(taicpu.op_reg_reg_const(A_SUBI, src.base, src.base, 8));
     list.concat(taicpu.op_reg_reg_const(A_SUBI, dst.base, dst.base, 8));
     countreg := rg[R_INTREGISTER].getregister(list, R_SUBWHOLE);
-    a_load_const_reg(list, OS_32, count, countreg);
-    { explicitely allocate R_0 since it can be used safely here
+    a_load_const_reg(list, OS_64, count, countreg);
+    { explicitely allocate F0 since it can be used safely here
      (for holding date that's being copied) }
     a_reg_alloc(list, NR_F0);
     objectlibrary.getjumplabel(lab);
@@ -1591,7 +1860,7 @@ begin
    least four. If not, add the bytes which are "off" to the base register and
    adjust the offset accordingly }
   case op of
-    A_LD, A_LDU, A_STD, A_STDU, A_LWA, A_LWAU :
+    A_LD, A_LDU, A_STD, A_STDU, A_LWA :
      if ((ref.offset mod 4) <> 0) then begin
        tmpreg := rg[R_INTREGISTER].getregister(list, R_SUBWHOLE);
 
@@ -1621,6 +1890,7 @@ begin
     tmpref.symbol := ref.symbol;
     tmpref.relsymbol := ref.relsymbol;
     tmpref.offset := ref.offset;
+
     if (ref.base <> NR_NO) then begin
       { As long as the TOC isn't working we try to achieve highest speed (in this
       case by allowing instructions execute in parallel) as possible at the cost
@@ -1653,7 +1923,8 @@ begin
       tmpref.base := ref.base;
       tmpref.index := tmpreg2;
       case op of
-        { the code generator doesn't generate update instructions anyway }
+        { the code generator doesn't generate update instructions anyway, so 
+        error out on those instructions }
         A_LBZ : op := A_LBZX;
         A_LHZ : op := A_LHZX;
         A_LWZ : op := A_LWZX;

@@ -52,7 +52,6 @@ const
                   'create', 'get', 'put', 'execute',
                   'start','commit','rollback', '?'
                  );
- SQLDelimiterCharacters = [';',',',' ','(',')',#13,#10,#9];
 
 
 { TSQLConnection }
@@ -89,7 +88,6 @@ type
     function Fetch(cursor : TSQLCursor) : boolean; virtual; abstract;
     procedure AddFieldDefs(cursor: TSQLCursor; FieldDefs : TfieldDefs); virtual; abstract;
     procedure UnPrepareStatement(cursor : TSQLCursor); virtual; abstract;
-
     procedure FreeFldBuffers(cursor : TSQLCursor); virtual; abstract;
     function LoadField(cursor : TSQLCursor;FieldDef : TfieldDef;buffer : pointer) : boolean; virtual; abstract;
     function GetTransactionHandle(trans : TSQLHandle): pointer; virtual; abstract;
@@ -197,6 +195,7 @@ type
     function Fetch : boolean; override;
     function LoadField(FieldDef : TFieldDef;buffer : pointer) : boolean; override;
     // abstract & virtual methods of TDataset
+    procedure DataConvert(Field: TField; Source, Dest: Pointer; ToNative: Boolean); override;
     procedure UpdateIndexDefs; override;
     procedure SetDatabase(Value : TDatabase); override;
     Procedure SetTransaction(Value : TDBTransaction); override;
@@ -298,7 +297,8 @@ end;
 
 procedure TSQLConnection.DoInternalConnect;
 begin
-// Empty abstract
+  if (DatabaseName = '') then
+    DatabaseError(SErrNoDatabaseName,self);
 end;
 
 procedure TSQLConnection.DoInternalDisconnect;
@@ -517,23 +517,9 @@ begin
   UnPrepare;
   if (FSQL <> nil) then
     begin
-    if assigned(FParams) then FParams.Clear;
-    s := FSQL.Text;
-    i := posex(':',s);
-    while i > 0 do
-      begin
-      inc(i);
-      p := @s[i];
-      repeat
-      inc(p);
-      until (p^ in SQLDelimiterCharacters);
-      if not assigned(FParams) then FParams := TParams.create(self);
-      ParamName := copy(s,i,p-@s[i]);
-      if FParams.FindParam(ParamName) = nil then
-        FParams.CreateParam(ftUnknown, ParamName, ptInput);
-      i := posex(':',s,i);
-      end;
-    end
+    if not assigned(FParams) then FParams := TParams.create(self);
+    FParams.ParseSQL(FSQL.Text,True);
+    end;
 end;
 
 Procedure TSQLQuery.SetTransaction(Value : TDBTransaction);
@@ -691,6 +677,16 @@ function TSQLQuery.LoadField(FieldDef : TFieldDef;buffer : pointer) : boolean;
 
 begin
   result := (Database as tSQLConnection).LoadField(FCursor,FieldDef,buffer)
+end;
+
+procedure TSQLQuery.DataConvert(Field: TField; Source, Dest: Pointer; ToNative: Boolean); 
+
+begin
+  { 
+    all data is in native format for these types, so no conversion is needed.
+  }
+  If not (Field.DataType in [ftDate,ftTime,ftDateTime]) then
+    Inherited DataConvert(Field,Source,Dest,ToNative);
 end;
 
 procedure TSQLQuery.InternalAddRecord(Buffer: Pointer; AAppend: Boolean);

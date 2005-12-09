@@ -46,7 +46,7 @@ begin
 end;
 
 
-constructor TThread.Create(CreateSuspended: Boolean);
+constructor TThread.Create(CreateSuspended: Boolean; const StackSize: SizeUInt = DefaultStackSize);
 
 begin
  {IsMultiThread := TRUE; }

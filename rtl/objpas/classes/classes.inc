@@ -59,9 +59,6 @@ var
 
 { TThread implementation }
 
-{ system dependend code }
-{$i tthread.inc}
-
 { system independend threading code }
 var
   { event that happens when gui thread is done executing the method}
@@ -76,6 +73,9 @@ var
   DoSynchronizeMethod: boolean;
   { caught exception in gui thread, to be raised in calling thread }
   SynchronizeException: Exception;
+  
+{ system dependend code }
+{$i tthread.inc}
 
 procedure TThread.Synchronize(Method: TThreadMethod);
   var
@@ -112,8 +112,11 @@ procedure TThread.Synchronize(Method: TThreadMethod);
 procedure CheckSynchronize(timeout : longint=0);
   { assumes being called from GUI thread }
   begin
-    { sanity check }
-    if GetCurrentThreadID<>MainThreadID then
+    { first sanity check }
+    if Not IsMultiThread then
+      Exit 
+    { second sanity check }  
+    else if GetCurrentThreadID<>MainThreadID then
       raise EThread.CreateFmt(SCheckSynchronizeError,[GetCurrentThreadID])
     else
       begin
@@ -981,6 +984,10 @@ procedure ObjectBinaryToText(Input, Output: TStream);
     w: Cardinal;
     InString, NewInString: Boolean;
   begin
+   if p = nil then begin
+    res:= '''''';
+   end
+   else begin
     res := '';
     InString := False;
     while P < LastP do begin
@@ -1005,7 +1012,8 @@ procedure ObjectBinaryToText(Input, Output: TStream);
       res := res + NewStr;
     end;
     if InString then res := res + '''';
-    OutStr(res);
+   end;
+   OutStr(res);
   end;
 
   procedure OutString(s: String);
