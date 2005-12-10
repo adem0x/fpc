@@ -1649,7 +1649,7 @@ implementation
                   if assigned(left) then
                     begin
                        { first param must be var }
-                       valid_for_var(tcallparanode(left).left);
+                       valid_for_var(tcallparanode(left).left,true);
                        set_varstate(tcallparanode(left).left,vs_readwritten,[vsf_must_be_valid]);
 
                        if (left.resulttype.def.deftype in [enumdef,pointerdef]) or
@@ -1717,7 +1717,7 @@ implementation
                   { the parser already checks whether we have two (and exectly two) }
                   { parameters (JM)                                                 }
                   { first param must be var }
-                  valid_for_var(tcallparanode(left).left);
+                  valid_for_var(tcallparanode(left).left,true);
                   set_varstate(tcallparanode(left).left,vs_readwritten,[vsf_must_be_valid]);
                   { check type }
                   if (left.resulttype.def.deftype=setdef) then

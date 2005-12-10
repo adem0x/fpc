@@ -141,10 +141,10 @@ interface
     { takes care of type casts etc.                 }
     procedure set_unique(p : tnode);
 
-    function  valid_for_formal_var(p : tnode) : boolean;
-    function  valid_for_formal_const(p : tnode) : boolean;
-    function  valid_for_var(p:tnode):boolean;
-    function  valid_for_assignment(p:tnode):boolean;
+    function  valid_for_formal_var(p : tnode; report_errors: boolean) : boolean;
+    function  valid_for_formal_const(p : tnode; report_errors: boolean) : boolean;
+    function  valid_for_var(p:tnode; report_errors: boolean):boolean;
+    function  valid_for_assignment(p:tnode; report_errors: boolean):boolean;
     function  valid_for_addr(p : tnode; report_errors: boolean) : boolean;
 
     function allowenumop(nt:tnodetype):boolean;
@@ -1263,28 +1263,28 @@ implementation
       end;
 
 
-    function  valid_for_var(p:tnode):boolean;
+    function  valid_for_var(p:tnode; report_errors: boolean):boolean;
       begin
-        valid_for_var:=valid_for_assign(p,[],true);
+        valid_for_var:=valid_for_assign(p,[],report_errors);
       end;
 
 
-    function  valid_for_formal_var(p : tnode) : boolean;
+    function  valid_for_formal_var(p : tnode; report_errors: boolean) : boolean;
       begin
-        valid_for_formal_var:=valid_for_assign(p,[valid_void],true);
+        valid_for_formal_var:=valid_for_assign(p,[valid_void],report_errors);
       end;
 
 
-    function  valid_for_formal_const(p : tnode) : boolean;
+    function  valid_for_formal_const(p : tnode; report_errors: boolean) : boolean;
       begin
         valid_for_formal_const:=(p.resulttype.def.deftype=formaldef) or
-          valid_for_assign(p,[valid_void,valid_const],true);
+          valid_for_assign(p,[valid_void,valid_const],report_errors);
       end;
 
 
-    function  valid_for_assignment(p:tnode):boolean;
+    function  valid_for_assignment(p:tnode; report_errors: boolean):boolean;
       begin
-        valid_for_assignment:=valid_for_assign(p,[valid_property],true);
+        valid_for_assignment:=valid_for_assign(p,[valid_property],report_errors);
       end;
 
 
@@ -2173,7 +2173,7 @@ implementation
           begin
             { Maybe passing the correct type but passing a const to var parameter }
             if (compare_defs(pt.resulttype.def,wrongpara.vartype.def,pt.nodetype)<>te_incompatible) and
-               not valid_for_var(pt.left) then
+               not valid_for_var(pt.left,true) then
               CGMessagePos(pt.left.fileinfo,type_e_variable_id_expected)
             else
               CGMessagePos2(pt.left.fileinfo,parser_e_call_by_ref_without_typeconv,

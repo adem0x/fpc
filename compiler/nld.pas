@@ -592,7 +592,7 @@ implementation
           CGMessage(type_e_operator_not_allowed);
 
         { test if node can be assigned, properties are allowed }
-        valid_for_assignment(left);
+        valid_for_assignment(left,true);
 
         { assigning nil to a dynamic array clears the array }
         if is_dynamic_array(left.resulttype.def) and
