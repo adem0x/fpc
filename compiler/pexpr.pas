@@ -75,7 +75,7 @@ implementation
        nmat,nadd,nmem,nset,ncnv,ninl,ncon,nld,nflw,nbas,nutils,
        { parser }
        scanner,
-       pbase,pinline,
+       pbase,pinline,ptype,
        { codegen }
        cgbase,procinfo,cpuinfo
        ;
@@ -2424,9 +2424,10 @@ implementation
 
            else
              begin
-               p1:=cerrornode.create;
-               consume(token);
                Message(parser_e_illegal_expression);
+               p1:=cerrornode.create;
+               { recover }
+               consume(token);
              end;
         end;
 

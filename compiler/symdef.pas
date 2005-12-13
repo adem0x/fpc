@@ -63,6 +63,9 @@ interface
 {$ifdef EXTDEBUG}
           fileinfo   : tfileposinfo;
 {$endif}
+          { generic support }
+          genericdef     : tstoreddef;
+          recordtokenbuf : tdynamicarray;
           constructor create;
           constructor ppuloaddef(ppufile:tcompilerppufile);
           procedure reset;virtual;
@@ -132,6 +135,12 @@ interface
           tosymname : pstring;
           forwardpos : tfileposinfo;
           constructor create(const s:string;const pos : tfileposinfo);
+          destructor destroy;override;
+          function  gettypename:string;override;
+       end;
+
+       tundefineddef = class(tstoreddef)
+          constructor create;
           destructor destroy;override;
           function  gettypename:string;override;
        end;
@@ -498,6 +507,8 @@ interface
           import_dll,
           import_name : pstring;
           import_nr   : word;
+          { generic support }
+          generictokenbuf : tdynamicarray;
           { info for inlining the subroutine, if this pointer is nil,
             the procedure can't be inlined }
           inlininginfo : pinlininginfo;
@@ -5399,6 +5410,29 @@ implementation
       begin
         if assigned(tosymname) then
           stringdispose(tosymname);
+        inherited destroy;
+      end;
+
+
+{****************************************************************************
+                               TUNDEFINEDDEF
+****************************************************************************}
+
+   constructor tundefineddef.create;
+     begin
+        inherited create;
+        deftype:=undefineddef;
+     end;
+
+
+    function tundefineddef.gettypename:string;
+      begin
+        gettypename:='<undefined type>';
+      end;
+
+
+     destructor tundefineddef.destroy;
+      begin
         inherited destroy;
       end;
 

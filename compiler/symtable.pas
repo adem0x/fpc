@@ -1672,7 +1672,12 @@ implementation
                   objects
                   parameters
               }
-              if not(srsymtable.symtabletype in [recordsymtable,objectsymtable,parasymtable]) then
+              if not(srsymtable.symtabletype in [recordsymtable,objectsymtable,parasymtable]) or
+                 (assigned(srsymtable.defowner) and
+                  (
+                   (df_generic in tdef(srsymtable.defowner).defoptions) or
+                   (df_specialization in tdef(srsymtable.defowner).defoptions))
+                  ) then
                 begin
                   srsym:=tsym(srsymtable.speedsearch(s,speedvalue));
                   if assigned(srsym) and

@@ -194,7 +194,7 @@ implementation
                    block_type:=bt_type;
                    consume(_COLON);
                    ignore_equal:=true;
-                   read_type(tt,'',false);
+                   read_anon_type(tt,false);
                    ignore_equal:=false;
                    block_type:=bt_const;
                    skipequal:=false;
@@ -379,19 +379,40 @@ implementation
          defpos,storetokenpos : tfileposinfo;
          old_block_type : tblock_type;
          ch       : tclassheader;
-         unique,istyperenaming : boolean;
-
+         unique,
+         isgeneric,
+         istyperenaming : boolean;
+         generictype : ttypesym;
+         generictypelist : tsinglelist;
+         generictokenbuf : tdynamicarray;
       begin
          old_block_type:=block_type;
          block_type:=bt_type;
          consume(_TYPE);
          typecanbeforward:=true;
          repeat
-           typename:=pattern;
-           orgtypename:=orgpattern;
            defpos:=akttokenpos;
            istyperenaming:=false;
+           isgeneric:=false;
+           generictypelist:=nil;
+           generictokenbuf:=nil;
+
+           typename:=pattern;
+           orgtypename:=orgpattern;
            consume(_ID);
+
+           { Generic type declaration? }
+           if try_to_consume(_LSHARPBRACKET) then
+             begin
+               isgeneric:=true;
+               tt.setdef(tundefineddef.create);
+               generictypelist:=tsinglelist.create;
+               generictype:=ttypesym.create(orgpattern,tt);
+               generictypelist.insert(generictype);
+               consume(_ID);
+               consume(_RSHARPBRACKET);
+             end;
+
            consume(_EQUAL);
            { support 'ttype=type word' syntax }
            unique:=try_to_consume(_TYPE);
@@ -401,6 +422,12 @@ implementation
            if (m_mac in aktmodeswitches) and
               (token = _OBJECT) then
              token := _CLASS;
+
+           if isgeneric then
+             begin
+               generictokenbuf:=tdynamicarray.create(256);
+               current_scanner.recordtokenbuf:=generictokenbuf;
+             end;
 
            { is the type already defined? }
            searchsym(typename,sym,srsymtable);
@@ -418,7 +445,7 @@ implementation
                   begin
                     { we can ignore the result   }
                     { the definition is modified }
-                    object_dec(orgtypename,tobjectdef(ttypesym(sym).restype.def));
+                    object_dec(orgtypename,nil,nil,tobjectdef(ttypesym(sym).restype.def));
                     newtype:=ttypesym(sym);
                     tt:=newtype.restype;
                   end
@@ -439,7 +466,7 @@ implementation
               akttokenpos:=defpos;
               akttokenpos:=storetokenpos;
               { read the type definition }
-              read_type(tt,orgtypename,false);
+              read_named_type(tt,orgtypename,nil,generictypelist,false);
               { update the definition of the type }
               newtype.restype:=tt;
               if assigned(tt.sym) then
@@ -496,10 +523,15 @@ implementation
               end;
             end;
 
+           if isgeneric then
+             current_scanner.recordtokenbuf:=nil;
+
            { Write tables if we are the typesym that defines
              this type. This will not be done for simple type renamings }
            if (tt.def.typesym=newtype) then
             begin
+              tstoreddef(tt.def).recordtokenbuf:=generictokenbuf;
+
               { file position }
               oldfilepos:=aktfilepos;
               aktfilepos:=newtype.fileinfo;

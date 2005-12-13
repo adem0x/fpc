@@ -78,6 +78,8 @@ type
     _CCHAR,
     _CWSTRING,
     _CWCHAR,
+    _LSHARPBRACKET,
+    _RSHARPBRACKET,
     { C like operators }
     _PLUSASN,
     _MINUSASN,
@@ -318,6 +320,8 @@ const
       (str:'const char'    ;special:true ;keyword:m_none;op:NOTOKEN),
       (str:'const wstring' ;special:true ;keyword:m_none;op:NOTOKEN),
       (str:'const wchar'   ;special:true ;keyword:m_none;op:NOTOKEN),
+      (str:'<'             ;special:true ;keyword:m_none;op:NOTOKEN),
+      (str:'>'             ;special:true ;keyword:m_none;op:NOTOKEN),
     { C like operators }
       (str:'+='            ;special:true ;keyword:m_none;op:NOTOKEN),
       (str:'-='            ;special:true ;keyword:m_none;op:NOTOKEN),

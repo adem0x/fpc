@@ -26,15 +26,16 @@ unit pdecobj;
 interface
 
     uses
+      cclasses,
       globtype,symtype,symdef;
 
     { parses a object declaration }
-    function object_dec(const n : stringid;fd : tobjectdef) : tdef;
+    function object_dec(const n : stringid;genericdef:tstoreddef;genericlist:tsinglelist;fd : tobjectdef) : tdef;
 
 implementation
 
     uses
-      cutils,cclasses,
+      cutils,
       globals,verbose,systems,tokens,
       symconst,symbase,symsym,
       node,nld,nmem,ncon,ncnv,ncal,
@@ -49,7 +50,7 @@ implementation
       current_procinfo = 'error';
 
 
-    function object_dec(const n : stringid;fd : tobjectdef) : tdef;
+    function object_dec(const n : stringid;genericdef:tstoreddef;genericlist:tsinglelist;fd : tobjectdef) : tdef;
     { this function parses an object or class declaration }
       var
          there_is_a_destructor : boolean;
@@ -501,6 +502,7 @@ implementation
       var
         pd : tprocdef;
         dummysymoptions : tsymoptions;
+        generictype : ttypesym;
       begin
          old_object_option:=current_object_option;
 
@@ -539,6 +541,22 @@ implementation
          symtablestack:=aktclass.symtable;
          testcurobject:=1;
          curobjectname:=Upper(n);
+
+         { add generic type parameters }
+         aktclass.genericdef:=genericdef;
+         if assigned(genericlist) then
+           begin
+             generictype:=ttypesym(genericlist.first);
+             while assigned(generictype) do
+               begin
+                 if generictype.restype.def.deftype=undefineddef then
+                   include(aktclass.defoptions,df_generic)
+                 else
+                   include(aktclass.defoptions,df_specialization);
+                 symtablestack.insert(generictype);
+                 generictype:=ttypesym(generictype.listnext);
+               end;
+           end;
 
          { short class declaration ? }
          if (classtype<>odt_class) or (token<>_SEMICOLON) then
@@ -782,7 +800,7 @@ implementation
          aktobjectdef:=nil;
          current_object_option:=old_object_option;
 
-         object_dec:=aktclass;
+         result:=aktclass;
       end;
 
 end.

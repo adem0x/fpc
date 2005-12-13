@@ -748,9 +748,16 @@ end;
 procedure readcommondef(const s:string);
 type
   tdefoption=(df_none,
-    df_has_inittable,           { init data has been generated }
-    df_has_rttitable,           { rtti data has been generated }
-    df_unique
+    { init data has been generated }
+    df_has_inittable,
+    { rtti data has been generated }
+    df_has_rttitable,
+    { type is unique, i.e. declared with type = type <tdef>; }
+    df_unique,
+    { type is a generic }
+    df_generic,
+    { type is a specialization of a generic type }
+    df_specialization
   );
   tdefoptions=set of tdefoption;
 var

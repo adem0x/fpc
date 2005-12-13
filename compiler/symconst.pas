@@ -159,7 +159,11 @@ type
     { rtti data has been generated }
     df_has_rttitable,
     { type is unique, i.e. declared with type = type <tdef>; }
-    df_unique
+    df_unique,
+    { type is a generic }
+    df_generic,
+    { type is a specialization of a generic type }
+    df_specialization
   );
   tdefoptions=set of tdefoption;
 
@@ -353,7 +357,7 @@ type
   tdeftype = (abstractdef,arraydef,recorddef,pointerdef,orddef,
               stringdef,enumdef,procdef,objectdef,errordef,
               filedef,formaldef,setdef,procvardef,floatdef,
-              classrefdef,forwarddef,variantdef);
+              classrefdef,forwarddef,variantdef,undefineddef);
 
   { possible types for symtable entries }
   tsymtyp = (abstractsym,globalvarsym,localvarsym,paravarsym,fieldvarsym,
@@ -421,7 +425,7 @@ const
        'abstractdef','arraydef','recorddef','pointerdef','orddef',
        'stringdef','enumdef','procdef','objectdef','errordef',
        'filedef','formaldef','setdef','procvardef','floatdef',
-       'classrefdef','forwarddef','variantdef'
+       'classrefdef','forwarddef','variantdef','undefineddef'
      );
 
      EqualTypeName : array[tequaltype] of string[16] = (
