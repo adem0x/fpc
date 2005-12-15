@@ -1573,11 +1573,19 @@ implementation
 
 
     procedure generate_specialization_procs;
+      var
+        oldsymtablestack : tsymtable;
       begin
         if assigned(current_module.globalsymtable) then
           current_module.globalsymtable.foreach_static(@specialize_objectdefs,nil);
         if assigned(current_module.localsymtable) then
-          current_module.localsymtable.foreach_static(@specialize_objectdefs,nil);
+          begin
+            oldsymtablestack:=symtablestack;
+            current_module.localsymtable.next:=symtablestack;
+            symtablestack:=current_module.localsymtable;
+            current_module.localsymtable.foreach_static(@specialize_objectdefs,nil);
+            symtablestack:=oldsymtablestack;
+          end;
       end;
 
 end.
