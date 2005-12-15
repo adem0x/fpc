@@ -991,6 +991,7 @@ implementation
          oldprocinfo : tprocinfo;
          oldblock_type : tblock_type;
          oldconstsymtable : tsymtable;
+         st : tsymtable;
       begin
          oldprocinfo:=current_procinfo;
          oldblock_type:=block_type;
@@ -1039,9 +1040,20 @@ implementation
          { parse the code ... }
          code:=block(current_module.islibrary);
 
-         { stop token recorder for generic template }
          if (df_generic in procdef.defoptions) then
-           current_scanner.stoprecordtokens;
+           begin
+             { stop token recorder for generic template }
+             current_scanner.stoprecordtokens;
+
+             { Give a warning for accesses in the static symtable that aren't visible
+               outside the current unit }
+             st:=procdef.owner;
+             while (st.symtabletype=objectsymtable) do
+               st:=st.defowner.owner;
+             if (pi_uses_static_symtable in flags) and
+                (st.symtabletype<>staticsymtable) then
+               Comment(V_Warning,'Global Generic template references static symtable');
+           end;
 
          { save exit info }
          exitswitches:=aktlocalswitches;
