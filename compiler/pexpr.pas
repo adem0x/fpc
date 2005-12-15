@@ -139,18 +139,7 @@ implementation
           else
             begin
                if cs_ansistrings in aktlocalswitches then
-                 {$ifdef ansistring_bits}
-                 case aktansistring_bits of
-                   sb_16:
-                     t:=cansistringtype16;
-                   sb_32:
-                     t:=cansistringtype32;
-                   sb_64:
-                     t:=cansistringtype64;
-                 end
-                 {$else}
                  t:=cansistringtype
-                 {$endif}
                else
                  t:=cshortstringtype;
             end;
@@ -1449,18 +1438,7 @@ implementation
                         begin
                           p1:=cloadnode.create(srsym,srsymtable);
                           do_resulttypepass(p1);
-                        {$ifdef ansistring_bits}
-                          case aktansistring_bits of
-                            sb_16:
-                              p1.resulttype:=cansistringtype16;
-                            sb_32:
-                              p1.resulttype:=cansistringtype32;
-                            sb_64:
-                              p1.resulttype:=cansistringtype64;
-                          end;
-                        {$else}
                           p1.resulttype:=cansistringtype;
-                        {$endif}
                         end;
                       constguid :
                         p1:=cguidconstnode.create(pguid(tconstsym(srsym).value.valueptr)^);

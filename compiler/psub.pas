@@ -1032,8 +1032,8 @@ implementation
          if (df_generic in procdef.defoptions) then
            begin
              { start token recorder for generic template }
-             procdef.generictokenbuf:=tdynamicarray.create(256);
-             current_scanner.recordtokenbuf:=procdef.generictokenbuf;
+             procdef.initgeneric;
+             current_scanner.startrecordtokens(procdef.generictokenbuf);
            end;
 
          { parse the code ... }
@@ -1041,7 +1041,7 @@ implementation
 
          { stop token recorder for generic template }
          if (df_generic in procdef.defoptions) then
-           current_scanner.recordtokenbuf:=nil;
+           current_scanner.stoprecordtokens;
 
          { save exit info }
          exitswitches:=aktlocalswitches;

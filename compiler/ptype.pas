@@ -143,9 +143,9 @@ implementation
         { Reparse the original type definition }
         if not err then
           begin
-            if not assigned(genericdef.recordtokenbuf) then
+            if not assigned(genericdef.generictokenbuf) then
               internalerror(200511171);
-            current_scanner.startreplaytokens(genericdef.recordtokenbuf);
+            current_scanner.startreplaytokens(genericdef.generictokenbuf);
             read_named_type(pt1.resulttype,name,genericdef,generictypelist,false);
             { Consume the semicolon if it is also recorded }
             try_to_consume(_SEMICOLON);

@@ -43,11 +43,7 @@ const
   tkSString  = 7;
   tkString   = tkSString;
   tkLString  = 8;
-{$ifdef ansistring_bits}
-  tkA32String  = 9;
-{$else}
   tkAString  = 9;
-{$endif}
   tkWString  = 10;
   tkVariant  = 11;
   tkArray    = 12;
@@ -61,11 +57,7 @@ const
   tkQWord    = 20;
   tkDynArray = 21;
   tkInterfaceCorba = 22;
-{$ifdef ansistring_bits}
-  tkA16string = 23;
-  tkA64string = 24;
-{$endif}
-  tkprocvar  = 25;
+  tkProcVar  = 23;
 
   otSByte    = 0;
   otUByte    = 1;

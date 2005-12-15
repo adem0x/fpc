@@ -405,9 +405,8 @@ implementation
            if try_to_consume(_LSHARPBRACKET) then
              begin
                isgeneric:=true;
-               tt.setdef(tundefineddef.create);
                generictypelist:=tsinglelist.create;
-               generictype:=ttypesym.create(orgpattern,tt);
+               generictype:=ttypesym.create(orgpattern,cundefinedtype);
                generictypelist.insert(generictype);
                consume(_ID);
                consume(_RSHARPBRACKET);
@@ -426,7 +425,7 @@ implementation
            if isgeneric then
              begin
                generictokenbuf:=tdynamicarray.create(256);
-               current_scanner.recordtokenbuf:=generictokenbuf;
+               current_scanner.startrecordtokens(generictokenbuf);
              end;
 
            { is the type already defined? }
@@ -524,14 +523,17 @@ implementation
             end;
 
            if isgeneric then
-             current_scanner.recordtokenbuf:=nil;
+             begin
+               current_scanner.stoprecordtokens;
+               tstoreddef(tt.def).generictokenbuf:=generictokenbuf;
+               { Generic is never a type renaming }
+               tt.def.typesym:=newtype;
+             end;
 
            { Write tables if we are the typesym that defines
              this type. This will not be done for simple type renamings }
            if (tt.def.typesym=newtype) then
             begin
-              tstoreddef(tt.def).recordtokenbuf:=generictokenbuf;
-
               { file position }
               oldfilepos:=aktfilepos;
               aktfilepos:=newtype.fileinfo;
