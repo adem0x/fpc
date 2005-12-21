@@ -1575,6 +1575,7 @@ implementation
                  internalerror(200512111);
                oldaktfilepos:=aktfilepos;
                aktfilepos:=tprocdef(tprocdef(hp).genericdef).fileinfo;
+               akttokenpos:=aktfilepos;
                current_scanner.startreplaytokens(tprocdef(tprocdef(hp).genericdef).generictokenbuf);
                read_proc_body(nil,tprocdef(hp));
                aktfilepos:=oldaktfilepos;

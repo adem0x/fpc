@@ -1311,7 +1311,8 @@ implementation
                        if (htype.def=cvarianttype.def) and
                           not(cs_compilesystem in aktmoduleswitches) then
                          current_module.flags:=current_module.flags or uf_uses_variants;
-                       if try_to_consume(_LKLAMMER) then
+                       if (block_type<>bt_type) and
+                          try_to_consume(_LKLAMMER) then
                         begin
                           p1:=comp_expr(true);
                           consume(_RKLAMMER);

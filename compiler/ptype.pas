@@ -91,15 +91,24 @@ implementation
             Comment(V_Error,'Specialization is only supported for generic types');
             pt1.resulttype:=generrortype;
             { recover }
+{$ifdef GENERICSHARPBRACKET}
             consume(_LSHARPBRACKET);
+{$endif GENERICSHARPBRACKET}
+            consume(_LKLAMMER);
             repeat
               pt2:=factor(false);
               pt2.free;
             until not try_to_consume(_COMMA);
+{$ifdef GENERICSHARPBRACKET}
             consume(_RSHARPBRACKET);
+{$endif GENERICSHARPBRACKET}
+            consume(_RKLAMMER);
             exit;
           end;
+{$ifdef GENERICSHARPBRACKET}
         consume(_LSHARPBRACKET);
+{$endif GENERICSHARPBRACKET}
+        consume(_LKLAMMER);
         { Parse generic parameters, for each undefineddef in the symtable of
           the genericdef we need to have a new def }
         err:=false;
@@ -151,7 +160,10 @@ implementation
             try_to_consume(_SEMICOLON);
           end;
         generictypelist.free;
+{$ifdef GENERICSHARPBRACKET}
         consume(_RSHARPBRACKET);
+{$endif GENERICSHARPBRACKET}
+        consume(_RKLAMMER);
       end;
 
 
@@ -346,6 +358,7 @@ implementation
         var
            pt1,pt2 : tnode;
            lv,hv   : TConstExprInt;
+           ispecialization : boolean;
         begin
            { use of current parsed object ? }
            if (token=_ID) and (testcurobject=2) and (curobjectname=pattern) then
@@ -361,6 +374,8 @@ implementation
                 consume(_ID);
                 exit;
              end;
+           { Generate a specialization? }
+           ispecialization:=try_to_consume(_SPECIALIZE);
            { we can't accept a equal in type }
            pt1:=comp_expr(not(ignore_equal));
            if (token=_POINTPOINT) then
@@ -411,7 +426,7 @@ implementation
                { a simple type renaming or generic specialization }
                if (pt1.nodetype=typen) then
                  begin
-                   if token=_LSHARPBRACKET then
+                   if ispecialization then
                      generate_specialization(pt1,name);
                    tt:=ttypenode(pt1).resulttype;
                  end

@@ -369,6 +369,22 @@ implementation
 
     { reads a type declaration to the symbol table }
     procedure type_dec;
+
+        function parse_generic_parameters:tsinglelist;
+        var
+          generictype : ttypesym;
+        begin
+          result:=tsinglelist.create;
+          repeat
+            if token=_ID then
+              begin
+                generictype:=ttypesym.create(orgpattern,cundefinedtype);
+                result.insert(generictype);
+              end;
+            consume(_ID);
+          until not try_to_consume(_COMMA) ;
+        end;
+
       var
          typename,orgtypename : stringid;
          newtype  : ttypesym;
@@ -379,10 +395,8 @@ implementation
          defpos,storetokenpos : tfileposinfo;
          old_block_type : tblock_type;
          ch       : tclassheader;
-         unique,
-         isgeneric,
+         isunique,
          istyperenaming : boolean;
-         generictype : ttypesym;
          generictypelist : tsinglelist;
          generictokenbuf : tdynamicarray;
       begin
@@ -393,7 +407,6 @@ implementation
          repeat
            defpos:=akttokenpos;
            istyperenaming:=false;
-           isgeneric:=false;
            generictypelist:=nil;
            generictokenbuf:=nil;
 
@@ -401,20 +414,27 @@ implementation
            orgtypename:=orgpattern;
            consume(_ID);
 
+{$ifdef GENERICSHARPBRACKET}
            { Generic type declaration? }
            if try_to_consume(_LSHARPBRACKET) then
              begin
-               isgeneric:=true;
-               generictypelist:=tsinglelist.create;
-               generictype:=ttypesym.create(orgpattern,cundefinedtype);
-               generictypelist.insert(generictype);
-               consume(_ID);
+               generictypelist:=parse_generic_parameters;
                consume(_RSHARPBRACKET);
              end;
+{$endif GENERICSHARPBRACKET}
 
            consume(_EQUAL);
+
            { support 'ttype=type word' syntax }
-           unique:=try_to_consume(_TYPE);
+           isunique:=try_to_consume(_TYPE);
+
+           { Generic type declaration? }
+           if try_to_consume(_GENERIC) then
+             begin
+               consume(_LKLAMMER);
+               generictypelist:=parse_generic_parameters;
+               consume(_RKLAMMER);
+             end;
 
            { MacPas object model is more like Delphi's than like TP's, but }
            { uses the object keyword instead of class                      }
@@ -422,7 +442,8 @@ implementation
               (token = _OBJECT) then
              token := _CLASS;
 
-           if isgeneric then
+           { Start recording a generic template }
+           if assigned(generictypelist) then
              begin
                generictokenbuf:=tdynamicarray.create(256);
                current_scanner.startrecordtokens(generictokenbuf);
@@ -472,7 +493,7 @@ implementation
                 istyperenaming:=true
               else
                 tt.sym:=newtype;
-              if unique and assigned(tt.def) then
+              if isunique and assigned(tt.def) then
                 begin
                    tt.setdef(tstoreddef(tt.def).getcopy);
                    include(tt.def.defoptions,df_unique);
@@ -522,7 +543,8 @@ implementation
               end;
             end;
 
-           if isgeneric then
+           { Stop recording a generic template }
+           if assigned(generictypelist) then
              begin
                current_scanner.stoprecordtokens;
                tstoreddef(tt.def).generictokenbuf:=generictokenbuf;
