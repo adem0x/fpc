@@ -44,7 +44,7 @@ interface
          procedure AddCommonSymbol(p:tasmsymbol);
          procedure AddMemoryMapHeader;
          procedure AddMemoryMapExeSection(p:texesection);
-         procedure AddMemoryMapObjectSection(p:TAsmSection);
+         procedure AddMemoryMapObjectSection(p:TObjSection);
          procedure AddMemoryMapSymbol(p:tasmsymbol);
        end;
 
@@ -120,7 +120,7 @@ implementation
        end;
 
 
-     procedure TExeMap.AddMemoryMapObjectSection(p:TAsmSection);
+     procedure TExeMap.AddMemoryMapObjectSection(p:TObjSection);
        begin
          { .text           0x000018a8     0xd958     object.o }
          writeln(t,' '+PadSpace(p.name,17)+PadSpace('0x'+HexStr(p.mempos,8),16)+

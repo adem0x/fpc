@@ -50,8 +50,8 @@ interface
       }
       TGNUAssembler=class(texternalassembler)
       protected
-        function sectionname(atype:tasmsectiontype;const aname:string):string;virtual;
-        procedure WriteSection(atype:tasmsectiontype;const aname:string);
+        function sectionname(atype:TObjSectiontype;const aname:string):string;virtual;
+        procedure WriteSection(atype:TObjSectiontype;const aname:string);
         procedure WriteExtraHeader;virtual;
         procedure WriteInstruction(hp: tai);  virtual; abstract;
       public
@@ -76,7 +76,7 @@ implementation
       line_length = 70;
 
     var
-      CurrSecType  : TAsmSectionType; { last section type written }
+      CurrSecType  : TObjSectionType; { last section type written }
       lastfileinfo : tfileposinfo;
       infile,
       lastinfile   : tinputfile;
@@ -201,9 +201,9 @@ implementation
         result := target_asm.labelprefix+'$set$'+tostr(setcount);
       end;
 
-    function TGNUAssembler.sectionname(atype:tasmsectiontype;const aname:string):string;
+    function TGNUAssembler.sectionname(atype:TObjSectiontype;const aname:string):string;
       const
-        secnames : array[tasmsectiontype] of string[13] = ('',
+        secnames : array[TObjSectiontype] of string[13] = ('',
 {$warning TODO .rodata not yet working}
           '.text','.data','.data','.bss','.threadvar',
           'common',
@@ -216,7 +216,7 @@ implementation
           'fpc.resptrs',
           '.toc'
         );
-        secnames_pic : array[tasmsectiontype] of string[13] = ('',
+        secnames_pic : array[TObjSectiontype] of string[13] = ('',
           '.text','.data.rel','.data.rel','.bss','.threadvar',
           'common',
           '.note',
@@ -249,7 +249,7 @@ implementation
       end;
 
 
-    procedure TGNUAssembler.WriteSection(atype:tasmsectiontype;const aname:string);
+    procedure TGNUAssembler.WriteSection(atype:TObjSectiontype;const aname:string);
       var
         s : string;
       begin

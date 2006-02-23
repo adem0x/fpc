@@ -83,7 +83,7 @@ implementation
          error     : boolean;
          old_block_type : tblock_type;
          storefilepos : tfileposinfo;
-         cursectype : TAsmSectionType;
+         cursectype : TObjSectionType;
          cural : tasmlist;
          sizelabel : tasmlabel;
 

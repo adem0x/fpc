@@ -311,7 +311,7 @@ implementation
         { asmlists }
           oldexprasmlist:Taasmoutput;
           oldasmlist:array[Tasmlist] of Taasmoutput;
-          oldobjectlibrary : tasmlibrarydata;
+          oldobjectlibrary : TObjLibraryData;
         { al_resourcestrings }
           Oldresourcestrings : tresourcestrings;
         { akt.. things }

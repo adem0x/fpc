@@ -29,7 +29,8 @@ uses
   cclasses,
   systems,
   fmodule,
-  globtype;
+  globtype,
+  ogbase;
 
 Type
     TLinkerInfo=record
@@ -74,7 +75,12 @@ Type
 
     TInternalLinker = class(TLinker)
     private
+       FCExeOutput : TExeOutputClass;
+       FCObjInput  : TObjInputClass;
        procedure readobj(const fn:string);
+    protected
+       property CObjInput:TObjInputClass read FCObjInput write FCObjInput;
+       property CExeOutput:TExeOutputClass read FCExeOutput write FCExeOutput;
     public
        Constructor Create;override;
        Destructor Destroy;override;
@@ -104,7 +110,7 @@ uses
   cutils,
   script,globals,verbose,ppu,
   aasmbase,aasmtai,aasmcpu,
-  ogbase,ogmap;
+  ogmap;
 
 type
  TLinkerClass = class of Tlinker;
@@ -657,6 +663,7 @@ begin
   inherited Create;
   exemap:=nil;
   exeoutput:=nil;
+  CObjInput:=TObjInput;
 end;
 
 
@@ -670,12 +677,12 @@ end;
 
 procedure TInternalLinker.readobj(const fn:string);
 var
-  objdata  : TAsmObjectData;
-  objinput : tobjectinput;
+  objdata  : TObjData;
+  objinput : TObjinput;
 begin
   Comment(V_Info,'Reading object '+fn);
-  objinput:=exeoutput.newobjectinput;
-  objdata:=objinput.newobjectdata(fn);
+  objinput:=CObjInput.Create;
+  objdata:=objinput.newObjData(fn);
   if objinput.readobjectfile(fn,objdata) then
     exeoutput.addobjdata(objdata);
   { release input object }

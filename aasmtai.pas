@@ -340,11 +340,11 @@ interface
 
        { Generates a section / segment directive }
        tai_section = class(tai)
-          sectype : TAsmSectionType;
+          sectype : TObjSectionType;
           secalign : byte;
           name    : pstring;
-          sec     : TAsmSection; { used in binary writer }
-          constructor Create(Asectype:TAsmSectionType;Aname:string;Aalign:byte);
+          sec     : TObjSection; { used in binary writer }
+          constructor Create(Asectype:TObjSectionType;Aname:string;Aalign:byte);
           destructor Destroy;override;
           constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
@@ -591,7 +591,7 @@ interface
            function spilling_get_operation_type_ref(opnr: longint; reg: tregister): topertype;virtual;
 
            function  Pass1(offset:longint):longint;virtual;abstract;
-           procedure Pass2(objdata:TAsmObjectdata);virtual;abstract;
+           procedure Pass2(objdata:TObjData);virtual;abstract;
         end;
         tai_cpu_class = class of tai_cpu_abstract;
 
@@ -695,9 +695,9 @@ interface
     function  maybe_smartlink_symbol:boolean;
 
     procedure maybe_new_object_file(list:taasmoutput);
-    procedure new_section(list:taasmoutput;Asectype:TAsmSectionType;Aname:string;Aalign:byte);
+    procedure new_section(list:taasmoutput;Asectype:TObjSectionType;Aname:string;Aalign:byte);
     procedure section_symbol_start(list:taasmoutput;const Aname:string;Asymtyp:Tasmsymtype;
-                                   Aglobal:boolean;Asectype:TAsmSectionType;Aalign:byte);
+                                   Aglobal:boolean;Asectype:TObjSectionType;Aalign:byte);
     procedure section_symbol_end(list:taasmoutput;const Aname:string);
 
     function ppuloadai(ppufile:tcompilerppufile):tai;
@@ -782,7 +782,7 @@ implementation
       end;
 
 
-    procedure new_section(list:taasmoutput;Asectype:TAsmSectionType;Aname:string;Aalign:byte);
+    procedure new_section(list:taasmoutput;Asectype:TObjSectionType;Aname:string;Aalign:byte);
       begin
         list.concat(tai_section.create(Asectype,Aname,Aalign));
         list.concat(cai_align.create(Aalign));
@@ -790,7 +790,7 @@ implementation
 
 
     procedure section_symbol_start(list:taasmoutput;const Aname:string;Asymtyp:Tasmsymtype;
-                                   Aglobal:boolean;Asectype:TAsmSectionType;Aalign:byte);
+                                   Aglobal:boolean;Asectype:TObjSectionType;Aalign:byte);
       begin
         maybe_new_object_file(list);
         list.concat(tai_section.create(Asectype,Aname,Aalign));
@@ -887,7 +887,7 @@ implementation
                              TAI_SECTION
  ****************************************************************************}
 
-    constructor tai_section.Create(Asectype:TAsmSectionType;Aname:string;Aalign:byte);
+    constructor tai_section.Create(Asectype:TObjSectionType;Aname:string;Aalign:byte);
       begin
         inherited Create;
         typ:=ait_section;
@@ -901,7 +901,7 @@ implementation
     constructor tai_section.ppuload(t:taitype;ppufile:tcompilerppufile);
       begin
         inherited ppuload(t,ppufile);
-        sectype:=tasmsectiontype(ppufile.getbyte);
+        sectype:=TObjSectiontype(ppufile.getbyte);
         secalign:=ppufile.getbyte;
         name:=stringdup(ppufile.getstring);
         sec:=nil;

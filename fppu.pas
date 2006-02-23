@@ -1226,7 +1226,7 @@ uses
       var
         pu           : tused_unit;
         load_refs    : boolean;
-        oldobjectlibrary : tasmlibrarydata;
+        oldobjectlibrary : TObjLibraryData;
       begin
         if current_module<>self then
          internalerror(200212284);
@@ -1280,7 +1280,7 @@ uses
         interface_compiled:=true;
 
         { read the implementation part, containing
-          the implementation uses and objectdata }
+          the implementation uses and ObjData }
         in_interface:=false;
         load_implementation;
 

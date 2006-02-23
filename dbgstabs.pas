@@ -1386,7 +1386,7 @@ implementation
         currfileinfo,
         lastfileinfo : tfileposinfo;
         currfuncname : pstring;
-        currsectype  : tasmsectiontype;
+        currsectype  : TObjSectiontype;
         hlabel       : tasmlabel;
         hp : tai;
         infile : tinputfile;

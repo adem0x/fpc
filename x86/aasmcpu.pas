@@ -239,7 +239,7 @@ interface
          procedure ResetPass2;
          function  CheckIfValid:boolean;
          function  Pass1(offset:longint):longint;override;
-         procedure Pass2(objdata:TAsmObjectdata);override;
+         procedure Pass2(objdata:TObjData);override;
          procedure SetOperandOrder(order:TOperandOrder);
          function is_same_reg_move(regtype: Tregistertype):boolean;override;
          { register spilling code }
@@ -259,7 +259,7 @@ interface
          procedure create_ot;
          function  Matches(p:PInsEntry):longint;
          function  calcsize(p:PInsEntry):shortint;
-         procedure gencode(objdata:TAsmObjectData);
+         procedure gencode(objdata:TObjData);
          function  NeedAddrPrefix(opidx:byte):boolean;
          procedure Swapoperands;
          function  FindInsentry:boolean;
@@ -1328,7 +1328,7 @@ implementation
       end;
 
 
-    procedure taicpu.Pass2(objdata:TAsmObjectData);
+    procedure taicpu.Pass2(objdata:TObjData);
       var
         c : longint;
       begin
@@ -1629,7 +1629,7 @@ implementation
       end;
 
 
-    procedure taicpu.GenCode(objdata:TAsmObjectData);
+    procedure taicpu.GenCode(objdata:TObjData);
       {
        * the actual codes (C syntax, i.e. octal):
        * \0            - terminates the code. (Unless it's a literal of course.)

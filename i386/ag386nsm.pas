@@ -36,7 +36,7 @@ interface
         procedure WriteReference(var ref : treference);
         procedure WriteOper(const o:toper;s : topsize; opcode: tasmop;ops:longint;dest : boolean);
         procedure WriteOper_jmp(const o:toper; op : tasmop);
-        procedure WriteSection(atype:tasmsectiontype;const aname:string);
+        procedure WriteSection(atype:TObjSectiontype;const aname:string);
       public
         procedure WriteTree(p:taasmoutput);override;
         procedure WriteAsmList;override;
@@ -343,7 +343,7 @@ interface
 
 
     var
-      LastSecType : TAsmSectionType;
+      LastSecType : TObjSectionType;
 
     const
       ait_const2str : array[aitconst_128bit..aitconst_indirect_symbol] of string[20]=(
@@ -352,9 +352,9 @@ interface
         #9'RVA'#9,#9'FIXMEINDIRECT'#9
       );
 
-    procedure T386NasmAssembler.WriteSection(atype:tasmsectiontype;const aname:string);
+    procedure T386NasmAssembler.WriteSection(atype:TObjSectiontype;const aname:string);
       const
-        secnames : array[tasmsectiontype] of string[13] = ('',
+        secnames : array[TObjSectiontype] of string[13] = ('',
           '.text','.data','.rodata','.bss','.tbss',
           'common',
           '.note',

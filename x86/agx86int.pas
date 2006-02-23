@@ -58,7 +58,7 @@ implementation
     const
       line_length = 70;
 
-      secnames : array[TAsmSectionType] of string[4] = ('',
+      secnames : array[TObjSectionType] of string[4] = ('',
         'CODE','DATA','DATA','BSS','',
         '','','','','','','',
         '','','','',
@@ -68,7 +68,7 @@ implementation
 	''
       );
 
-      secnamesml64 : array[TAsmSectionType] of string[7] = ('',
+      secnamesml64 : array[TObjSectionType] of string[7] = ('',
         '_TEXT','_DATE','_DATA','_BSS','',
         '','','','','',
         'idata$2','idata$4','idata$5','idata$6','idata$7','edata',
@@ -343,7 +343,7 @@ implementation
 
 
     var
-      LasTSectype : TAsmSectionType;
+      LasTSectype : TObjSectionType;
       lastfileinfo : tfileposinfo;
       infile,
       lastinfile   : tinputfile;
