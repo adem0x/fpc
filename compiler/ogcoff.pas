@@ -48,7 +48,7 @@ interface
        public
          flags    : cardinal;
          constructor create(const Aname:string;Atype:TObjSectionType;Aalign:longint;Aoptions:TObjSectionOptions);override;
-         procedure addsymsizereloc(ofs:longint;p:tasmsymbol;size:longint;relative:TAsmRelocationType);
+         procedure addsymsizereloc(ofs:longint;p:tasmsymbol;size:longint;relative:TObjRelocationType);
          procedure fixuprelocs;override;
        end;
 
@@ -65,10 +65,11 @@ interface
          win32      : boolean;
          procedure section_mempos(p:tnamedindexitem;arg:pointer);
        public
-         constructor createcoff(const n:string;awin32:boolean;acasmsection:TObjSectionClass);
+         constructor createcoff(const n:string;awin32:boolean;acObjSection:TObjSectionClass);
          destructor  destroy;override;
          function  sectionname(atype:TObjSectiontype;const aname:string):string;override;
-         procedure writereloc(data,len:aint;p:tasmsymbol;relative:TAsmRelocationType);override;
+         procedure decodesectionname(const coffname:string;var atype:TObjSectiontype;var aname:string);
+         procedure writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);override;
          procedure writesymbol(p:tasmsymbol);override;
          procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother,line:longint;p:pchar);override;
          procedure beforealloc;override;
@@ -92,7 +93,7 @@ interface
          procedure write_symbol(const name:string;value,section,typ,aux:longint);
          procedure section_write_symbol(p:tnamedindexitem;arg:pointer);
          procedure section_write_relocs(p:tnamedindexitem;arg:pointer);
-         procedure write_symbols(data:TObjData);
+         procedure write_ObjSymbols(data:TObjData);
          procedure section_set_secsymidx(p:tnamedindexitem;arg:pointer);
          procedure section_set_datapos(p:tnamedindexitem;arg:pointer);
          procedure section_set_reloc_datapos(p:tnamedindexitem;arg:pointer);
@@ -120,14 +121,16 @@ interface
          nsects,
          nsyms,
          sympos : longint;
+         procedure ExeSections_pass2_header(p:tnamedindexitem;arg:pointer);
          procedure write_symbol(const name:string;value,section,typ,aux:longint);
-         procedure write_symbols;
+         procedure globalsyms_write_symbol(p:tnamedindexitem;arg:pointer);
+         procedure ExeSections_write_header(p:tnamedindexitem;arg:pointer);
        protected
+         procedure Pass2_Header;override;
+         procedure Pass2_Symbols;override;
          function writedata:boolean;override;
        public
          constructor createcoff(awin32:boolean);
-         procedure CalculateMemoryMap;override;
-         procedure GenerateExecutable(const fn:string);override;
        end;
 
        TDJCoffexeoutput = class(TCoffexeoutput)
@@ -146,13 +149,15 @@ interface
 
        TCoffObjInput = class(tObjInput)
        private
-         Fidx2sec  : array[0..255] of TObjSection;
+         Fidx2objsec  : array[0..255] of TObjSection;
          FCoffsyms,
          FCoffStrs : tdynamicarray;
          FSymTbl   : ^ttasmsymbolarray;
          win32     : boolean;
          procedure read_relocs(s:TCoffObjSection);
-         procedure handle_symbols(data:TObjData);
+         procedure handle_ObjSymbols(data:TObjData);
+         procedure ObjSections_read_data(p:tnamedindexitem;arg:pointer);
+         procedure ObjSections_read_relocs(p:tnamedindexitem;arg:pointer);
        protected
          function  readObjData(data:TObjData):boolean;override;
        public
@@ -192,6 +197,13 @@ implementation
        globals,fmodule,aasmtai;
 
     const
+{$ifdef i386}
+       COFF_MAGIC = $14c;
+{$endif i386}
+{$ifdef arm}
+       COFF_MAGIC = $1c0;
+{$endif arm}
+
        COFF_FLAG_NORELOCS = $0001;
        COFF_FLAG_EXE      = $0002;
        COFF_FLAG_NOLINES  = $0004;
@@ -272,6 +284,18 @@ implementation
        symbolresize = 200*sizeof(coffsymbol);
        strsresize   = 8192;
 
+       coffsecnames : array[TObjSectiontype] of string[16] = ('',
+          '.text','.data','.data','.bss','.tls',
+          'common',
+          '.note',
+          '.text',
+          '.stab','.stabstr',
+          '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
+          '.eh_frame',
+          '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
+          '.fpc',
+		  ''
+        );
 
 const go32v2stub : array[0..2047] of byte=(
   $4D,$5A,$00,$00,$04,$00,$00,$00,$20,$00,$27,$00,$FF,$FF,$00,
@@ -424,19 +448,19 @@ const go32v2stub : array[0..2047] of byte=(
       end;
 
 
-    procedure TCoffObjSection.addsymsizereloc(ofs:longint;p:tasmsymbol;size:longint;relative:TAsmRelocationType);
+    procedure TCoffObjSection.addsymsizereloc(ofs:longint;p:tasmsymbol;size:longint;relative:TObjRelocationType);
       begin
-        relocations.concat(tasmrelocation.createsymbolsize(ofs,p,size,relative));
+        relocations.concat(TObjRelocation.createsymbolsize(ofs,p,size,relative));
       end;
 
 
     procedure TCoffObjSection.fixuprelocs;
       var
-        r : TAsmRelocation;
+        r : TObjRelocation;
         address,
         relocval : longint;
       begin
-        r:=TAsmRelocation(relocations.first);
+        r:=TObjRelocation(relocations.first);
         if assigned(r) and
            (not assigned(data)) then
           internalerror(200205183);
@@ -457,14 +481,14 @@ const go32v2stub : array[0..2047] of byte=(
               RELOC_RVA,
               RELOC_ABSOLUTE :
                 begin
-                  if r.symbol.section.sectype=sec_common then
+                  if r.symbol.objsection.sectype=sec_common then
                    dec(address,r.orgsize)
                   else
                    begin
                      { fixup address when the symbol was known in defined object }
-                     if (r.symbol.section<>nil) and
-                        (r.symbol.owner=owner) then
-                       dec(address,TCoffObjSection(r.symbol.section).orgmempos);
+                     if (r.symbol.objsection<>nil) and
+                        (r.symbol.objsection.objdata=objdata) then
+                       dec(address,TCoffObjSection(r.symbol.objsection).orgmempos);
                    end;
                   inc(address,relocval);
                 end;
@@ -472,7 +496,7 @@ const go32v2stub : array[0..2047] of byte=(
             data.Seek(r.address);
             data.Write(address,4);
             { goto next reloc }
-            r:=TAsmRelocation(r.next);
+            r:=TObjRelocation(r.next);
           end;
       end;
 
@@ -548,12 +572,12 @@ const go32v2stub : array[0..2047] of byte=(
                                 TCoffObjData
 ****************************************************************************}
 
-    constructor TCoffObjData.createcoff(const n:string;awin32:boolean;acasmsection:TObjSectionClass);
+    constructor TCoffObjData.createcoff(const n:string;awin32:boolean;acObjSection:TObjSectionClass);
       begin
         inherited create(n);
-        CAsmSection:=ACAsmSection;
+        CObjSection:=ACObjSection;
         win32:=awin32;
-        { we need at least the following 3 sections }
+        { we need at least the following 3 ObjSections }
         createsection(sec_code,'',0,[]);
         createsection(sec_data,'',0,[]);
         createsection(sec_bss,'',0,[]);
@@ -573,23 +597,10 @@ const go32v2stub : array[0..2047] of byte=(
 
 
     function TCoffObjData.sectionname(atype:TObjSectiontype;const aname:string):string;
-      const
-        secnames : array[TObjSectiontype] of string[16] = ('',
-          '.text','.data','.data','.bss','.tls',
-          'common',
-          '.note',
-          '.text',
-          '.stab','.stabstr',
-          '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
-          '.eh_frame',
-          '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
-          '.fpc',
-		  ''
-        );
       var
         secname : string;
       begin
-        secname:=secnames[atype];
+        secname:=coffsecnames[atype];
         if use_smartlink_section and
            (aname<>'') then
           result:=secname+'$'+aname
@@ -598,9 +609,29 @@ const go32v2stub : array[0..2047] of byte=(
       end;
 
 
+    procedure TCoffObjData.decodesectionname(const coffname:string;var atype:TObjSectiontype;var aname:string);
+      var
+        sectype : TObjSectionType;
+      begin
+        for sectype:=low(TObjSectionType) to high(TObjSectionType) do
+          begin
+            if Copy(coffname,1,length(coffsecnames[sectype]))=coffsecnames[sectype] then
+              begin
+                atype:=sectype;
+                aname:=Copy(coffname,length(coffsecnames[sectype])+1,255);
+                if (aname<>'') and (aname[1]='$') then
+                  delete(aname,1,1);
+                break;
+              end;
+          end;
+        atype:=sec_none;
+        aname:=coffname;
+      end;
+
+
     procedure TCoffObjData.writesymbol(p:tasmsymbol);
       begin
-        if currsec=nil then
+        if CurrObjSec=nil then
           internalerror(200403071);
         { already written ? }
         if p.indexnr<>-1 then
@@ -610,25 +641,25 @@ const go32v2stub : array[0..2047] of byte=(
          begin
            { insert the symbol in the local index, the indexarray
              will take care of the numbering }
-           symbols.insert(p);
+           ObjSymbols.insert(p);
          end
         else
          p.indexnr:=-2; { local }
       end;
 
 
-    procedure TCoffObjData.writereloc(data,len:aint;p:tasmsymbol;relative:TAsmRelocationType);
+    procedure TCoffObjData.writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);
       var
         curraddr,
         symaddr : longint;
       begin
-        if currsec=nil then
+        if CurrObjSec=nil then
           internalerror(200403072);
         if assigned(p) then
          begin
            { current address }
-           curraddr:=currsec.mempos+currsec.datasize;
-           { external/common symbols don't have a fixed memory position yet }
+           curraddr:=CurrObjSec.mempos+CurrObjSec.datasize;
+           { external/common ObjSymbols don't have a fixed memory position yet }
            if (p.currbind=AB_COMMON) then
              begin
                { For go32v2 we need to use the size as address }
@@ -640,26 +671,26 @@ const go32v2stub : array[0..2047] of byte=(
            else
              begin
                symaddr:=p.address;
-               if assigned(p.section) then
-                 inc(symaddr,p.section.mempos);
+               if assigned(p.objsection) then
+                 inc(symaddr,p.objsection.mempos);
              end;
            { no symbol relocation need inside a section }
-           if (p.section=currsec) and
+           if (p.objsection=CurrObjSec) and
               (p.currbind<>AB_COMMON) then
              begin
                case relative of
                  RELOC_ABSOLUTE :
                    begin
-                     currsec.addsectionreloc(curraddr,currsec,RELOC_ABSOLUTE);
+                     CurrObjSec.addsectionreloc(curraddr,CurrObjSec,RELOC_ABSOLUTE);
                      inc(data,symaddr);
                    end;
                  RELOC_RELATIVE :
                    begin
-                     inc(data,symaddr-len-currsec.datasize);
+                     inc(data,symaddr-len-CurrObjSec.datasize);
                    end;
                  RELOC_RVA :
                    begin
-                     currsec.addsectionreloc(curraddr,currsec,RELOC_RVA);
+                     CurrObjSec.addsectionreloc(curraddr,CurrObjSec,RELOC_RVA);
                      inc(data,symaddr);
                    end;
                end;
@@ -667,25 +698,25 @@ const go32v2stub : array[0..2047] of byte=(
            else
              begin
                writesymbol(p);
-               if (p.section<>nil) and
+               if (p.objsection<>nil) and
                   (p.currbind<>AB_COMMON) and
                   (relative<>RELOC_RELATIVE) then
-                 currsec.addsectionreloc(curraddr,p.section,relative)
+                 CurrObjSec.addsectionreloc(curraddr,p.objsection,relative)
                else
-                 currsec.addsymreloc(curraddr,p,relative);
+                 CurrObjSec.addsymreloc(curraddr,p,relative);
                if (not win32) or
-                  ((relative<>RELOC_RELATIVE) and (p.section<>nil)) then
+                  ((relative<>RELOC_RELATIVE) and (p.objsection<>nil)) then
                  inc(data,symaddr);
                if relative=RELOC_RELATIVE then
                 begin
                   if win32 then
                     dec(data,len-4)
                   else
-                    dec(data,len+currsec.datasize);
+                    dec(data,len+CurrObjSec.datasize);
                 end;
             end;
          end;
-        currsec.write(data,len);
+        CurrObjSec.write(data,len);
       end;
 
 
@@ -740,7 +771,7 @@ const go32v2stub : array[0..2047] of byte=(
 
     procedure TCoffObjData.beforealloc;
       begin
-        { create stabs sections if debugging }
+        { create stabs ObjSections if debugging }
         if (cs_debuginfo in aktmoduleswitches) then
           begin
             StabsSec.Alloc(sizeof(coffstab));
@@ -753,7 +784,7 @@ const go32v2stub : array[0..2047] of byte=(
       var
         s : string;
       begin
-        { create stabs sections if debugging }
+        { create stabs ObjSections if debugging }
         if (cs_debuginfo in aktmoduleswitches) then
          begin
            writestab(0,nil,0,0,0,nil);
@@ -776,7 +807,7 @@ const go32v2stub : array[0..2047] of byte=(
           end;
         { calc mempos }
         mempos:=0;
-        sections.foreach(@section_mempos,@mempos);
+        ObjSections.foreach(@section_mempos,@mempos);
       end;
 
 
@@ -848,28 +879,28 @@ const go32v2stub : array[0..2047] of byte=(
     procedure TCoffObjOutput.section_write_relocs(p:tnamedindexitem;arg:pointer);
       var
         rel  : coffreloc;
-        r    : TAsmRelocation;
+        r    : TObjRelocation;
       begin
-        r:=TasmRelocation(TObjSection(p).relocations.first);
+        r:=TObjRelocation(TObjSection(p).relocations.first);
         while assigned(r) do
          begin
            rel.address:=r.address;
            if assigned(r.symbol) then
             begin
               if (r.symbol.currbind=AB_LOCAL) then
-               rel.sym:=2*r.symbol.section.secsymidx
+               rel.sym:=2*r.symbol.objsection.secsymidx
               else
                begin
                  if r.symbol.indexnr=-1 then
-                   internalerror(4321);
+                   internalerror(200602233);
                  { indexnr starts with 1, coff starts with 0 }
                  rel.sym:=r.symbol.indexnr+initsym-1;
                end;
             end
            else
             begin
-              if r.section<>nil then
-               rel.sym:=2*r.section.secsymidx
+              if r.objsection<>nil then
+               rel.sym:=2*r.objsection.secsymidx
               else
                rel.sym:=0;
             end;
@@ -882,12 +913,12 @@ const go32v2stub : array[0..2047] of byte=(
                rel.relative:=$7;
            end;
            FWriter.write(rel,sizeof(rel));
-           r:=TAsmRelocation(r.next);
+           r:=TObjRelocation(r.next);
          end;
       end;
 
 
-    procedure TCoffObjOutput.write_symbols(data:TObjData);
+    procedure TCoffObjOutput.write_ObjSymbols(data:TObjData);
       var
         filename  : string[18];
         sectionval,
@@ -904,14 +935,14 @@ const go32v2stub : array[0..2047] of byte=(
            FWriter.write(filename[1],sizeof(filename)-1);
            { The section records, with their auxiliaries, also store the
              symbol index }
-           Sections.foreach(@section_write_symbol,nil);
-           { The symbols used }
-           p:=Tasmsymbol(symbols.First);
+           ObjSections.foreach(@section_write_symbol,nil);
+           { The ObjSymbols used }
+           p:=Tasmsymbol(ObjSymbols.First);
            while assigned(p) do
             begin
-              if assigned(p.section) and
+              if assigned(p.objsection) and
                  (p.currbind<>AB_COMMON) then
-               sectionval:=p.section.secsymidx
+               sectionval:=p.objsection.secsymidx
               else
                sectionval:=0;
               if p.currbind=AB_LOCAL then
@@ -921,7 +952,7 @@ const go32v2stub : array[0..2047] of byte=(
               { if local of global then set the section value to the address
                 of the symbol }
               if p.currbind in [AB_LOCAL,AB_GLOBAL] then
-               value:=p.address+p.section.mempos
+               value:=p.address+p.objsection.mempos
               else
                value:=p.size;
               { symbolname }
@@ -960,52 +991,48 @@ const go32v2stub : array[0..2047] of byte=(
         s        : string;
         strpos   : longint;
       begin
-        fillchar(sechdr,sizeof(sechdr),0);
-        s:=TObjSection(p).name;
-        if length(s)>8 then
-         begin
-           strpos:=FCoffStrs.size+4;
-           FCoffStrs.writestr(s);
-           FCoffStrs.writestr(#0);
-           s:='/'+ToStr(strpos);
-         end;
-        move(s[1],sechdr.name,length(s));
-        if not win32 then
+        with TCoffObjSection(p) do
           begin
-            sechdr.rvaofs:=TObjSection(p).mempos;
-            sechdr.vsize:=TObjSection(p).mempos;
-          end
-        else
-          begin
-            if TObjSection(p).sectype=sec_bss then
-              sechdr.vsize:=TObjSection(p).aligneddatasize;
+            fillchar(sechdr,sizeof(sechdr),0);
+            s:=name;
+            if length(s)>8 then
+             begin
+               strpos:=FCoffStrs.size+4;
+               FCoffStrs.writestr(s);
+               FCoffStrs.writestr(#0);
+               s:='/'+ToStr(strpos);
+             end;
+            move(s[1],sechdr.name,length(s));
+            if not win32 then
+              begin
+                sechdr.rvaofs:=mempos;
+                sechdr.vsize:=mempos;
+              end
+            else
+              begin
+                if sectype=sec_bss then
+                  sechdr.vsize:=aligneddatasize;
+              end;
+            sechdr.datasize:=aligneddatasize;
+            if (datasize>0) and
+               not(aso_alloconly in secoptions) then
+              sechdr.datapos:=datapos;
+            sechdr.nrelocs:=relocations.count;
+            sechdr.relocpos:=coffrelocpos;
+            sechdr.flags:=flags;
+            FWriter.write(sechdr,sizeof(sechdr));
           end;
-        sechdr.datasize:=TObjSection(p).aligneddatasize;
-        if (TObjSection(p).datasize>0) and
-           not(aso_alloconly in TObjSection(p).secoptions) then
-          sechdr.datapos:=TObjSection(p).datapos;
-        sechdr.nrelocs:=TObjSection(p).relocations.count;
-        sechdr.relocpos:=TCoffObjSection(p).coffrelocpos;
-        sechdr.flags:=TCoffObjSection(p).flags;
-        FWriter.write(sechdr,sizeof(sechdr));
       end;
 
 
     procedure TCoffObjOutput.section_write_data(p:tnamedindexitem;arg:pointer);
-      var
-        hp       : pdynamicblock;
       begin
         if (aso_alloconly in TObjSection(p).secoptions) then
           exit;
         if TObjSection(p).data=nil then
           internalerror(200403073);
         TObjSection(p).alignsection;
-        hp:=TObjSection(p).data.firstblock;
-        while assigned(hp) do
-          begin
-            FWriter.write(hp^.data,hp^.used);
-            hp:=hp^.next;
-          end;
+        FWriter.writearray(TObjSection(p).data);
       end;
 
 
@@ -1026,10 +1053,10 @@ const go32v2stub : array[0..2047] of byte=(
         FCoffStrs:=TDynamicArray.Create(strsresize);
         with TCoffObjData(data) do
          begin
-         { calc amount of sections we have }
+         { calc amount of ObjSections we have }
            fillchar(empty,sizeof(empty),0);
            nsects:=0;
-           Sections.foreach(@section_set_secsymidx,@nsects);
+           ObjSections.foreach(@section_set_secsymidx,@nsects);
            initsym:=2+nsects*2;   { 2 for the file }
          { For the stab section we need an HdrSym which can now be
            calculated more easily }
@@ -1048,37 +1075,32 @@ const go32v2stub : array[0..2047] of byte=(
             end;
          { Calculate the filepositions }
            datapos:=sizeof(coffheader)+sizeof(coffsechdr)*nsects;
-           { sections first }
-           Sections.foreach(@section_set_datapos,@datapos);
+           { ObjSections first }
+           ObjSections.foreach(@section_set_datapos,@datapos);
            { relocs }
            orgdatapos:=datapos;
-           Sections.foreach(@section_set_reloc_datapos,@datapos);
+           ObjSections.foreach(@section_set_reloc_datapos,@datapos);
            gotreloc:=(orgdatapos<>datapos);
-           { symbols }
+           { ObjSymbols }
            sympos:=datapos;
          { COFF header }
            fillchar(header,sizeof(coffheader),0);
-{$ifdef i386}
-           header.mach:=$14c;
-{$endif i386}
-{$ifdef arm}
-           header.mach:=$1c0;
-{$endif arm}
+           header.mach:=COFF_MAGIC;
            header.nsects:=nsects;
            header.sympos:=sympos;
-           header.syms:=symbols.count+initsym;
+           header.syms:=ObjSymbols.count+initsym;
            header.flag:=COFF_FLAG_AR32WR or COFF_FLAG_NOLINES;
            if not gotreloc then
             header.flag:=header.flag or COFF_FLAG_NORELOCS;
            FWriter.write(header,sizeof(header));
          { Section headers }
-           Sections.foreach(@section_write_header,nil);
-         { Sections }
-           Sections.foreach(@section_write_data,nil);
+           ObjSections.foreach(@section_write_header,nil);
+         { ObjSections }
+           ObjSections.foreach(@section_write_data,nil);
            { Relocs }
-           Sections.foreach(@section_write_relocs,nil);
-           { Symbols }
-           write_symbols(data);
+           ObjSections.foreach(@section_write_relocs,nil);
+           { ObjSymbols }
+           write_ObjSymbols(data);
            { Strings }
            i:=FCoffStrs.size+4;
            FWriter.write(i,4);
@@ -1124,13 +1146,16 @@ const go32v2stub : array[0..2047] of byte=(
       begin
         FillChar(sym,sizeof(sym),0);
         if length(name)>8 then
-         begin
-           sym.strpos:=FCoffStrs.size+4;
-           FCoffStrs.writestr(name);
-           FCoffStrs.writestr(#0);
+          begin
+            sym.strpos:=FCoffStrs.size+4;
+            FCoffStrs.writestr(name);
+            FCoffStrs.writestr(#0);
          end
         else
-         move(name[1],sym.name,length(name));
+          begin
+            move(name[1],sym.name,length(name));
+            sym.strpos:=-1;
+          end;
         sym.value:=value;
         sym.section:=section;
         sym.typ:=typ;
@@ -1139,61 +1164,102 @@ const go32v2stub : array[0..2047] of byte=(
       end;
 
 
-    procedure TCoffexeoutput.write_symbols;
+    procedure TCoffexeoutput.globalsyms_write_symbol(p:tnamedindexitem;arg:pointer);
       var
         value,
-        sectionval,
-        globalval : byte;
-        objdata   : TObjData;
-        p         : tasmsymbol;
+        globalval : longint;
       begin
-{$ifdef internallinker}
-        objdata:=TObjData(objdatalist.first);
-        while assigned(objdata) do
-         begin
-           with TCoffObjData(objdata) do
-            begin
-              { The symbols used }
-              p:=Tasmsymbol(symbols.First);
-              while assigned(p) do
-               begin
-                 if p.section=sec_common then
-                  sectionval:=sections[sec_bss].secsymidx
-                 else
-                  sectionval:=sections[p.section.name].secsymidx;
-                 if p.currbind=AB_LOCAL then
-                  globalval:=3
-                 else
-                  globalval:=2;
-                 { if local of global then set the section value to the address
-                   of the symbol }
-                 if p.currbind in [AB_LOCAL,AB_GLOBAL] then
-                  value:=p.address
-                 else
-                  value:=p.size;
-                 { symbolname }
-                 s:=p.name;
-                 if length(s)>8 then
-                  begin
-                    nameidx:=FCoffStrs.size+4;
-                    FCoffStrs.writestr(s);
-                    FCoffStrs.writestr(#0);
-                  end
-                 else
-                  begin
-                    nameidx:=-1;
-                    namestr:=s;
-                  end;
-                 write_symbol(namestr,nameidx,value,sectionval,globalval,0);
-                 p:=tasmsymbol(p.indexnext);
-               end;
-            end;
-           objdata:=TObjData(objdata.next);
-         end;
-{$endif internallinker}
+        with tasmsymbol(p) do
+          begin
+            if currbind=AB_LOCAL then
+              globalval:=3
+            else
+              globalval:=2;
+            { if local of global then set the section value to the address
+              of the symbol }
+            if currbind in [AB_LOCAL,AB_GLOBAL] then
+              value:=address
+            else
+              value:=size;
+            { symbolname }
+            write_symbol(name,value,objsection.secsymidx,globalval,0);
+          end;
       end;
 
 
+    procedure TCoffexeoutput.ExeSections_write_header(p:tnamedindexitem;arg:pointer);
+      var
+        sechdr    : coffsechdr;
+      begin
+        with tExeSection(p) do
+          begin
+            fillchar(sechdr,sizeof(sechdr),0);
+            move(name[1],sechdr.name,length(name));
+            if not win32 then
+             begin
+               sechdr.rvaofs:=mempos;
+               sechdr.vsize:=mempos;
+             end
+            else
+             begin
+               if sectype=sec_bss then
+                sechdr.vsize:=memsize;
+             end;
+            if sectype=sec_bss then
+             sechdr.datasize:=memsize
+            else
+             begin
+               sechdr.datasize:=datasize;
+               sechdr.datapos:=datapos;
+             end;
+            sechdr.nrelocs:=0;
+            sechdr.relocpos:=0;
+            sechdr.flags:=flags;
+            FWriter.write(sechdr,sizeof(sechdr));
+          end;
+      end;
+
+
+    procedure TCoffexeoutput.ExeSections_pass2_header(p:tnamedindexitem;arg:pointer);
+      begin
+        with TExeSection(p) do
+          begin
+            inc(plongint(arg)^);
+            secsymidx:=plongint(arg)^;
+          end;
+      end;
+
+
+    procedure tcoffexeoutput.Pass2_Header;
+      begin
+        { retrieve amount of ObjSections }
+        nsects:=0;
+        ExeSections.foreach(@ExeSections_pass2_header,@nsects);
+        { calculate start positions after the headers }
+        currdatapos:=sizeof(coffheader)+sizeof(coffoptheader)+sizeof(coffsechdr)*nsects;
+        currmempos:=sizeof(coffheader)+sizeof(coffoptheader)+sizeof(coffsechdr)*nsects;
+{$warning TODO Make imagebase configurable}
+        if win32 then
+          CurrMemPos:=$401000
+        else
+          inc(currmempos,sizeof(go32v2stub)+$1000);
+      end;
+
+
+    procedure tcoffexeoutput.Pass2_Symbols;
+      begin
+        nsyms:=0;
+        sympos:=0;
+        if not(cs_link_strip in aktglobalswitches) then
+         begin
+           nsyms:=GlobalExeSymbols.count;
+           sympos:=CurrDataPos;
+           inc(CurrDataPos,sizeof(coffsymbol)*nsyms);
+         end;
+      end;
+
+
+(*
     procedure TCoffexeoutput.CalculateMemoryMap;
       var
         objdata : TObjData;
@@ -1201,17 +1267,16 @@ const go32v2stub : array[0..2047] of byte=(
         mempos,
         datapos : longint;
       begin
-{$ifdef internallinker}
-        { retrieve amount of sections }
+        { retrieve amount of ObjSections }
         nsects:=0;
         secsymidx:=0;
         for sec:=low(TSection) to high(TSection) do
          begin
-           if sections[sec].available then
+           if ObjSections[sec].available then
             begin
               inc(nsects);
               inc(secsymidx);
-              sections[sec].secsymidx:=secsymidx;
+              ObjSections[sec].secsymidx:=secsymidx;
             end;
          end;
         { calculate start positions after the headers }
@@ -1219,13 +1284,13 @@ const go32v2stub : array[0..2047] of byte=(
         mempos:=sizeof(coffheader)+sizeof(coffoptheader)+sizeof(coffsechdr)*nsects;
         if not win32 then
          inc(mempos,sizeof(go32v2stub)+$1000);
-        { add sections }
+        { add ObjSections }
         MapObjData(datapos,mempos);
         { end symbol }
-        AddGlobalSym('_etext',sections[sec_code].mempos+sections[sec_code].memsize);
-        AddGlobalSym('_edata',sections[sec_data].mempos+sections[sec_data].memsize);
+        AddGlobalSym('_etext',ObjSections[sec_code].mempos+ObjSections[sec_code].memsize);
+        AddGlobalSym('_edata',ObjSections[sec_data].mempos+ObjSections[sec_data].memsize);
         AddGlobalSym('end',mempos);
-        { symbols }
+        { ObjSymbols }
         nsyms:=0;
         sympos:=0;
         if not(cs_link_strip in aktglobalswitches) then
@@ -1234,12 +1299,12 @@ const go32v2stub : array[0..2047] of byte=(
            objdata:=TObjData(objdatalist.first);
            while assigned(objdata) do
             begin
-              inc(nsyms,objdata.symbols.count);
+              inc(nsyms,objdata.ObjSymbols.count);
               objdata:=TObjData(objdata.next);
             end;
          end;
-{$endif internallinker}
       end;
+*)
 
 
     function TCoffexeoutput.writedata:boolean;
@@ -1247,21 +1312,27 @@ const go32v2stub : array[0..2047] of byte=(
         i         : longint;
         header    : coffheader;
         optheader : coffoptheader;
-        sechdr    : coffsechdr;
-        hp        : pdynamicblock;
-        objdata   : TObjData;
         hsym      : tasmsymbol;
+        textExeSec,
+        dataExeSec,
+        bssExeSec : TExeSection;
       begin
         result:=false;
-{$ifdef internallinker}
         FCoffSyms:=TDynamicArray.Create(symbolresize);
         FCoffStrs:=TDynamicArray.Create(strsresize);
+        textExeSec:=TExeSection(ExeSections['.text']);
+        dataExeSec:=TExeSection(ExeSections['.data']);
+        bssExeSec:=TExeSection(ExeSections['.bss']);
+        if not assigned(TextExeSec) or
+           not assigned(DataExeSec) or
+           not assigned(BSSExeSec) then
+          internalerror(200602231);
         { Stub }
         if not win32 then
-         FWriter.write(go32v2stub,sizeof(go32v2stub));
+          FWriter.write(go32v2stub,sizeof(go32v2stub));
         { COFF header }
         fillchar(header,sizeof(header),0);
-        header.mach:=$14c;
+        header.mach:=COFF_MAGIC;
         header.nsects:=nsects;
         header.sympos:=sympos;
         header.syms:=nsyms;
@@ -1271,103 +1342,37 @@ const go32v2stub : array[0..2047] of byte=(
         { Optional COFF Header }
         fillchar(optheader,sizeof(optheader),0);
         optheader.magic:=$10b;
-        optheader.tsize:=sections[sec_code].memsize;
-        optheader.dsize:=sections[sec_data].memsize;
-        optheader.bsize:=sections[sec_bss].memsize;
-        hsym:=tasmsymbol(globalsyms.search('start'));
+        optheader.tsize:=TextExeSec.memsize;
+        optheader.dsize:=DataExeSec.memsize;
+        optheader.bsize:=BSSExeSec.memsize;
+        optheader.text_start:=TextExeSec.mempos;
+        optheader.data_start:=DataExeSec.mempos;
+        hsym:=tasmsymbol(globalexesymbols.search('start'));
         if not assigned(hsym) then
          begin
            Comment(V_Error,'Entrypoint "start" not defined');
            exit;
          end;
         optheader.entry:=hsym.address;
-        optheader.text_start:=sections[sec_code].mempos;
-        optheader.data_start:=sections[sec_data].mempos;
         FWriter.write(optheader,sizeof(optheader));
         { Section headers }
-        for sec:=low(TSection) to high(TSection) do
-         if sections[sec].available then
-          begin
-            fillchar(sechdr,sizeof(sechdr),0);
-            move(target_asm.secnames[sec][1],sechdr.name,length(target_asm.secnames[sec]));
-            if not win32 then
-             begin
-               sechdr.rvaofs:=sections[sec].mempos;
-               sechdr.vsize:=sections[sec].mempos;
-             end
-            else
-             begin
-               if sec=sec_bss then
-                sechdr.vsize:=sections[sec].memsize;
-             end;
-            if sec=sec_bss then
-             sechdr.datasize:=sections[sec].memsize
-            else
-             begin
-               sechdr.datasize:=sections[sec].datasize;
-               sechdr.datapos:=sections[sec].datapos;
-             end;
-            sechdr.nrelocs:=0;
-            sechdr.relocpos:=0;
-            sechdr.flags:=sections[sec].flags;
-            FWriter.write(sechdr,sizeof(sechdr));
-          end;
-        { Sections }
-        for sec:=low(TSection) to high(TSection) do
-         if sections[sec].available then
-          begin
-            { update objectfiles }
-            objdata:=TObjData(objdatalist.first);
-            while assigned(objdata) do
-             begin
-               if assigned(objdata.sections[sec]) and
-                  assigned(objdata.sections[sec].data) then
-                begin
-                  FWriter.WriteZeros(objdata.sections[sec].dataalignbytes);
-                  hp:=objdata.sections[sec].data.firstblock;
-                  while assigned(hp) do
-                   begin
-                     FWriter.write(hp^.data,hp^.used);
-                     hp:=hp^.next;
-                   end;
-                end;
-               objdata:=TObjData(objdata.next);
-             end;
-          end;
-        { Optional symbols }
+        ExeSections.foreach(@ExeSections_write_header,nil);
+        { Section data }
+        ExeSections.foreach(@ExeSections_write_data,nil);
+        { Optional ObjSymbols }
         if not(cs_link_strip in aktglobalswitches) then
          begin
-           { Symbols }
-           write_symbols;
+           { ObjSymbols }
+           globalexesymbols.foreach(@globalsyms_write_symbol,nil);
            { Strings }
            i:=FCoffStrs.size+4;
            FWriter.write(i,4);
-           hp:=FCoffStrs.firstblock;
-           while assigned(hp) do
-            begin
-              FWriter.write(hp^.data,hp^.used);
-              hp:=hp^.next;
-            end;
+           FWriter.writearray(FCoffStrs);
          end;
         { Release }
         FCoffStrs.Free;
         FCoffSyms.Free;
         result:=true;
-{$endif internallinker}
-      end;
-
-
-    procedure TCoffexeoutput.GenerateExecutable(const fn:string);
-      begin
-        AddGlobalSym('_etext',0);
-        AddGlobalSym('_edata',0);
-        AddGlobalSym('end',0);
-        if not CalculateSymbols then
-         exit;
-        CalculateMemoryMap;
-        FixupSymbols;
-        FixupRelocations;
-        writeexefile(fn);
       end;
 
 
@@ -1397,7 +1402,7 @@ const go32v2stub : array[0..2047] of byte=(
     procedure TCoffObjInput.read_relocs(s:TCoffObjSection);
       var
         rel      : coffreloc;
-        rel_type : TAsmRelocationType;
+        rel_type : TObjRelocationType;
         i        : longint;
         p        : tasmsymbol;
       begin
@@ -1429,10 +1434,10 @@ const go32v2stub : array[0..2047] of byte=(
       end;
 
 
-    procedure TCoffObjInput.handle_symbols(data:TObjData);
+    procedure TCoffObjInput.handle_ObjSymbols(data:TObjData);
       var
         size,
-        address,
+        address   : aint;
         i,nsyms,
         symidx    : longint;
         sym       : coffsymbol;
@@ -1440,15 +1445,15 @@ const go32v2stub : array[0..2047] of byte=(
         p         : tasmsymbol;
         bind      : Tasmsymbind;
         auxrec    : array[0..17] of byte;
+        objsec    : TObjSection;
       begin
-{$ifdef internallinker}
         with TCoffObjData(data) do
          begin
            nsyms:=FCoffSyms.Size div sizeof(CoffSymbol);
            { Allocate memory for symidx -> tasmsymbol table }
            GetMem(FSymTbl,nsyms*sizeof(ttasmsymbolrec));
            FillChar(FSymTbl^,nsyms*sizeof(ttasmsymbolrec),0);
-           { Loop all symbols }
+           { Loop all ObjSymbols }
            FCoffSyms.Seek(0);
            symidx:=0;
            while (symidx<nsyms) do
@@ -1469,7 +1474,6 @@ const go32v2stub : array[0..2047] of byte=(
               if strname='' then
                Internalerror(200205172);
               bind:=AB_EXTERNAL;
-              sec:=sec_none;
               size:=0;
               address:=0;
               case sym.typ of
@@ -1488,21 +1492,13 @@ const go32v2stub : array[0..2047] of byte=(
                     else
                      begin
                        bind:=AB_GLOBAL;
-                       sec:=Fidx2sec[sym.section];
-                       if assigned(sections[sec]) then
-                        begin
-                          if sym.value>=sections[sec].mempos then
-                           address:=sym.value-sections[sec].mempos
-                          else
-                           internalerror(432432432);
-                        end
-                       else
-                        internalerror(34243214);
+                       objsec:=Fidx2objsec[sym.section];
+                       if sym.value>=objsec.mempos then
+                         address:=sym.value-objsec.mempos;
                      end;
                     p:=TAsmSymbol.Create(strname,bind,AT_FUNCTION);
-                    p.SetAddress(0,sec,address,size);
-                    p.ObjData:=data;
-                    symbols.insert(p);
+                    p.SetAddress(0,objsec,address,size);
+                    ObjSymbols.insert(p);
                   end;
                 COFF_SYM_LABEL,
                 COFF_SYM_LOCAL :
@@ -1511,20 +1507,12 @@ const go32v2stub : array[0..2047] of byte=(
                     if sym.section<>-1 then
                      begin
                        bind:=AB_LOCAL;
-                       sec:=Fidx2sec[sym.section];
-                       if assigned(sections[sec]) then
-                        begin
-                          if sym.value>=sections[sec].mempos then
-                           address:=sym.value-sections[sec].mempos
-                          else
-                           internalerror(432432432);
-                        end
-                       else
-                        internalerror(34243214);
+                       objsec:=Fidx2objsec[sym.section];
+                       if sym.value>=objsec.mempos then
+                         address:=sym.value-objsec.mempos;
                        p:=TAsmSymbol.Create(strname,bind,AT_FUNCTION);
-                       p.SetAddress(0,sec,address,size);
-                       p.ObjData:=data;
-                       symbols.insert(p);
+                       p.SetAddress(0,objsec,address,size);
+                       ObjSymbols.insert(p);
                      end;
                   end;
                 COFF_SYM_SECTION,
@@ -1532,7 +1520,7 @@ const go32v2stub : array[0..2047] of byte=(
                 COFF_SYM_FILE :
                   ;
                 else
-                  internalerror(4342343);
+                  internalerror(200602232);
               end;
               FSymTbl^[symidx].sym:=p;
               FSymTbl^[symidx].orgsize:=size;
@@ -1545,7 +1533,35 @@ const go32v2stub : array[0..2047] of byte=(
               inc(symidx);
             end;
          end;
-{$endif internallinker}
+      end;
+
+
+    procedure TCoffObjInput.ObjSections_read_data(p:tnamedindexitem;arg:pointer);
+      begin
+        with TCoffObjSection(p) do
+          begin
+            if (sectype=sec_bss) then
+              exit;
+            Reader.Seek(datapos);
+            if not Reader.ReadArray(data,datasize) then
+              begin
+                Comment(V_Error,'Error reading coff file');
+                exit;
+              end;
+          end;
+      end;
+
+
+    procedure TCoffObjInput.ObjSections_read_relocs(p:tnamedindexitem;arg:pointer);
+      begin
+        with TCoffObjSection(p) do
+          begin
+            if coffrelocs>0 then
+             begin
+               Reader.Seek(coffrelocpos);
+               read_relocs(TCoffObjSection(p));
+             end;
+          end;
       end;
 
 
@@ -1553,117 +1569,93 @@ const go32v2stub : array[0..2047] of byte=(
       var
         strsize,
         i        : longint;
+        objsec   : TCoffObjSection;
         header   : coffheader;
         sechdr   : coffsechdr;
-        secname  : array[0..15] of char;
+        sectype  : TObjSectionType;
+        secname  : string;
+        secnamebuf : array[0..15] of char;
       begin
         result:=false;
-{$ifdef internallinker}
         FCoffSyms:=TDynamicArray.Create(symbolresize);
         FCoffStrs:=TDynamicArray.Create(strsresize);
         with TCoffObjData(data) do
          begin
-           FillChar(Fidx2sec,sizeof(Fidx2sec),0);
+           FillChar(Fidx2objsec,sizeof(Fidx2objsec),0);
            { Read COFF header }
            if not reader.read(header,sizeof(coffheader)) then
-            begin
-              Comment(V_Error,'Error reading coff file');
-              exit;
-            end;
-{$ifdef i386}
-           if header.mach<>$14c then
-{$endif i386}
-{$ifdef arm}
-           if header.mach<>$1c0 then
-{$endif arm}
-            begin
-              Comment(V_Error,'Not a coff file');
-              exit;
-            end;
+             begin
+               Comment(V_Error,'Error reading coff file');
+               exit;
+             end;
+           if header.mach<>COFF_MAGIC then
+             begin
+               Comment(V_Error,'Not a coff file');
+               exit;
+             end;
            if header.nsects>255 then
-            begin
-              Comment(V_Error,'To many sections');
-              exit;
-            end;
+             begin
+               Comment(V_Error,'To many ObjSections');
+               exit;
+             end;
            { Section headers }
            for i:=1 to header.nsects do
-            begin
-              if not reader.read(sechdr,sizeof(sechdr)) then
-               begin
-                 Comment(V_Error,'Error reading coff file');
-                 exit;
-               end;
-
-              move(sechdr.name,secname,8);
-              secname[8]:=#0;
-              sec:=str2sec(strpas(secname));
-              if sec<>sec_none then
-               begin
-                 Fidx2sec[i]:=sec;
-                 createsection(sec);
-                 if not win32 then
-                  sections[sec].mempos:=sechdr.rvaofs;
-                 TCoffObjSection(sections[sec]).coffrelocs:=sechdr.nrelocs;
-                 TCoffObjSection(sections[sec]).coffrelocpos:=sechdr.relocpos;
-                 sections[sec].datapos:=sechdr.datapos;
-                 sections[sec].datasize:=sechdr.datasize;
-                 sections[sec].memsize:=sechdr.datasize;
-                 TCoffObjSection(sections[sec]).orgmempos:=sections[sec].mempos;
-                 sections[sec].flags:=sechdr.flags;
-               end
-              else
-               Comment(V_Warning,'skipping unsupported section '+strpas(sechdr.name));
-            end;
-           { Symbols }
-           Reader.Seek(header.sympos);
-           if not Reader.ReadArray(FCoffSyms,header.syms*sizeof(CoffSymbol)) then
-            begin
-              Comment(V_Error,'Error reading coff file');
-              exit;
-            end;
-           { Strings }
-           if not Reader.Read(strsize,4) then
-            begin
-              Comment(V_Error,'Error reading coff file');
-              exit;
-            end;
-           if strsize<4 then
-            begin
-              Comment(V_Error,'Error reading coff file');
-              exit;
-            end;
-           if not Reader.ReadArray(FCoffStrs,Strsize-4) then
-            begin
-              Comment(V_Error,'Error reading coff file');
-              exit;
-            end;
-           { Insert all symbols }
-           handle_symbols(data);
-           { Sections }
-           for sec:=low(TSection) to high(TSection) do
-            if assigned(sections[sec]) and
-               (sec<>sec_bss) then
              begin
-               Reader.Seek(sections[sec].datapos);
-               if not Reader.ReadArray(sections[sec].data,sections[sec].datasize) then
+               if not reader.read(sechdr,sizeof(sechdr)) then
                 begin
                   Comment(V_Error,'Error reading coff file');
                   exit;
                 end;
+
+               move(sechdr.name,secnamebuf,8);
+               secnamebuf[8]:=#0;
+               decodesectionname(strpas(secnamebuf),sectype,secname);
+ {$warning TODO Alignment and options}
+               objsec:=TCoffObjSection(createsection(sectype,secname,0,[]));
+               Fidx2objsec[i]:=objsec;
+               if not win32 then
+                 objsec.mempos:=sechdr.rvaofs;
+               objsec.orgmempos:=sechdr.rvaofs;
+               objsec.coffrelocs:=sechdr.nrelocs;
+               objsec.coffrelocpos:=sechdr.relocpos;
+               objsec.datapos:=sechdr.datapos;
+               objsec.datasize:=sechdr.datasize;
+               objsec.memsize:=sechdr.datasize;
+               objsec.flags:=sechdr.flags;
              end;
-           { Relocs }
-           for sec:=low(TSection) to high(TSection) do
-            if assigned(sections[sec]) and
-               (TCoffObjSection(sections[sec]).coffrelocs>0) then
+           { ObjSymbols }
+           Reader.Seek(header.sympos);
+           if not Reader.ReadArray(FCoffSyms,header.syms*sizeof(CoffSymbol)) then
              begin
-               Reader.Seek(TCoffObjSection(sections[sec]).coffrelocpos);
-               read_relocs(TCoffObjSection(sections[sec]));
+               Comment(V_Error,'Error reading coff file');
+               exit;
              end;
+           { Strings }
+           if not Reader.Read(strsize,4) then
+             begin
+               Comment(V_Error,'Error reading coff file');
+               exit;
+             end;
+           if strsize<4 then
+             begin
+               Comment(V_Error,'Error reading coff file');
+               exit;
+             end;
+           if not Reader.ReadArray(FCoffStrs,Strsize-4) then
+             begin
+               Comment(V_Error,'Error reading coff file');
+               exit;
+             end;
+           { Insert all ObjSymbols }
+           handle_ObjSymbols(data);
+           { Section Data }
+           ObjSections.foreach(@objsections_read_data,nil);
+           { Relocs }
+           ObjSections.foreach(@objsections_read_relocs,nil);
          end;
         FCoffStrs.Free;
         FCoffSyms.Free;
         result:=true;
-{$endif internallinker}
       end;
 
 

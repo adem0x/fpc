@@ -429,8 +429,6 @@ Implementation
 
 
     Function TExternalAssembler.DoAssemble:boolean;
-      var
-        s : TCmdStr;
       begin
         DoAssemble:=true;
         if DoPipe then
@@ -791,7 +789,7 @@ Implementation
                   { Second symbol? }
                   if assigned(relocsym) then
                     begin
-                      if (relocsym.section<>sym.section) then
+                      if (relocsym.objsection<>sym.objsection) then
                         internalerror(2005091810);
                       relocsym:=nil;
                     end
@@ -927,7 +925,7 @@ Implementation
                end;
              ait_datablock :
                begin
-                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.currsec.addralign);
+                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.addralign);
                  if SmartAsm or (not Tai_datablock(hp).is_global) then
                    begin
                      ObjData.allocalign(l);
@@ -947,7 +945,7 @@ Implementation
              ait_section:
                begin
                  ObjData.CreateSection(Tai_section(hp).sectype,Tai_section(hp).name^,Tai_section(hp).secalign,[]);
-                 Tai_section(hp).sec:=ObjData.CurrSec;
+                 Tai_section(hp).sec:=ObjData.CurrObjSec;
                end;
              ait_symbol :
                ObjData.allocsymbol(currpass,Tai_symbol(hp).sym,0);
@@ -961,13 +959,13 @@ Implementation
 {$ifndef NOAG386BIN}
                  { reset instructions which could change in pass 2 }
                  Taicpu(hp).resetpass2;
-                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.currsec.datasize));
+                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.datasize));
 {$endif NOAG386BIN}
 {$endif i386}
 {$ifdef arm}
                  { reset instructions which could change in pass 2 }
                  Taicpu(hp).resetpass2;
-                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.currsec.datasize));
+                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.datasize));
 {$endif arm}
                end;
              ait_cutobject :
@@ -993,15 +991,15 @@ Implementation
              ait_align :
                begin
                  { here we must determine the fillsize which is used in pass2 }
-                 Tai_align(hp).fillsize:=align(ObjData.currsec.datasize,Tai_align(hp).aligntype)-
-                   ObjData.currsec.datasize;
+                 Tai_align(hp).fillsize:=align(ObjData.CurrObjSec.datasize,Tai_align(hp).aligntype)-
+                   ObjData.CurrObjSec.datasize;
                  ObjData.alloc(Tai_align(hp).fillsize);
                end;
              ait_datablock :
                begin
-                 if not (ObjData.currsec.sectype in [sec_bss,sec_threadvar]) then
+                 if not (ObjData.CurrObjSec.sectype in [sec_bss,sec_threadvar]) then
                    Message(asmw_e_alloc_data_only_in_bss);
-                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.currsec.addralign);
+                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.addralign);
 {                 if Tai_datablock(hp).is_global and
                     not SmartAsm then
                   begin}
@@ -1055,7 +1053,7 @@ Implementation
                begin
                  if target_info.system in [system_i386_linux,system_i386_beos] then
                   begin
-                    Tai_symbol_end(hp).sym.size:=ObjData.currsec.datasize-Tai_symbol_end(hp).sym.address;
+                    Tai_symbol_end(hp).sym.size:=ObjData.CurrObjSec.datasize-Tai_symbol_end(hp).sym.address;
                     objectlibrary.UsedAsmSymbolListInsert(Tai_symbol_end(hp).sym);
                   end;
                 end;
@@ -1068,7 +1066,7 @@ Implementation
                ObjData.alloc(Tai_string(hp).len);
              ait_instruction :
                begin
-                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.currsec.datasize));
+                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.datasize));
                  { fixup the references }
                  for i:=1 to Taicpu(hp).ops do
                   begin
@@ -1118,7 +1116,7 @@ Implementation
            case hp.typ of
              ait_align :
                begin
-                 if ObjData.currsec.sectype in [sec_bss,sec_threadvar] then
+                 if ObjData.CurrObjSec.sectype in [sec_bss,sec_threadvar] then
                    ObjData.alloc(Tai_align(hp).fillsize)
                  else
                    ObjData.writebytes(Tai_align(hp).calculatefillbuf(fillbuffer)^,Tai_align(hp).fillsize);
@@ -1135,7 +1133,7 @@ Implementation
                end;
              ait_datablock :
                begin
-                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.currsec.addralign);
+                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.addralign);
                  ObjData.writesymbol(Tai_datablock(hp).sym);
                  ObjOutput.exportsymbol(Tai_datablock(hp).sym);
 {                 if SmartAsm or (not Tai_datablock(hp).is_global) then
@@ -1170,7 +1168,7 @@ Implementation
                        begin
                          if assigned(tai_const(hp).endsym) then
                            begin
-                             if tai_const(hp).endsym.section<>tai_const(hp).sym.section then
+                             if tai_const(hp).endsym.objsection<>tai_const(hp).sym.objsection then
                                internalerror(200404124);
                              v:=tai_const(hp).endsym.address-tai_const(hp).sym.address+Tai_const(hp).value;
                              ObjData.writebytes(v,tai_const(hp).size);
@@ -1354,7 +1352,7 @@ Implementation
            hp:=TreePass2(hp);
            { save section type for next loop, must be done before EndFileLineInfo
              because that changes the section to sec_code }
-           startsectype:=ObjData.currsec.sectype;
+           startsectype:=ObjData.CurrObjSec.sectype;
            ObjData.afterwrite;
            { leave if errors have occured }
            if errorcount>0 then

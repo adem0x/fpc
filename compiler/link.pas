@@ -77,7 +77,9 @@ Type
     private
        FCExeOutput : TExeOutputClass;
        FCObjInput  : TObjInputClass;
-       procedure readobj(const fn:string);
+       procedure Pass1_ReadObject(const para:string);
+       procedure ParseScriptPass1;
+       procedure ParseScriptPass2;
     protected
        property CObjInput:TObjInputClass read FCObjInput write FCObjInput;
        property CExeOutput:TExeOutputClass read FCExeOutput write FCExeOutput;
@@ -658,73 +660,132 @@ end;
                               TINTERNALLINKER
 *****************************************************************************}
 
-Constructor TInternalLinker.Create;
-begin
-  inherited Create;
-  exemap:=nil;
-  exeoutput:=nil;
-  CObjInput:=TObjInput;
-end;
+    Constructor TInternalLinker.Create;
+      begin
+        inherited Create;
+        exemap:=nil;
+        exeoutput:=nil;
+        CObjInput:=TObjInput;
+      end;
 
 
-Destructor TInternalLinker.Destroy;
-begin
-  exeoutput.free;
-  exeoutput:=nil;
-  inherited destroy;
-end;
+    Destructor TInternalLinker.Destroy;
+      begin
+        exeoutput.free;
+        exeoutput:=nil;
+        inherited destroy;
+      end;
 
 
-procedure TInternalLinker.readobj(const fn:string);
-var
-  objdata  : TObjData;
-  objinput : TObjinput;
-begin
-  Comment(V_Info,'Reading object '+fn);
-  objinput:=CObjInput.Create;
-  objdata:=objinput.newObjData(fn);
-  if objinput.readobjectfile(fn,objdata) then
-    exeoutput.addobjdata(objdata);
-  { release input object }
-  objinput.free;
-end;
+    procedure TInternalLinker.Pass1_ReadObject(const para:string);
+      var
+        objdata  : TObjData;
+        objinput : TObjinput;
+        fn       : string;
+      begin
+        fn:=FindObjectFile(para,'',false);
+        Comment(V_Info,'Reading object '+fn);
+        objinput:=CObjInput.Create;
+        objdata:=objinput.newObjData(para);
+        if objinput.readobjectfile(fn,objdata) then
+          exeoutput.addobjdata(objdata);
+        { release input object }
+        objinput.free;
+      end;
 
 
-function TInternalLinker.MakeExecutable:boolean;
-var
-  s : string;
-begin
-  MakeExecutable:=false;
+    procedure TInternalLinker.ParseScriptPass1;
+      var
+        t : text;
+        s,
+        para,
+        keyword : string;
+      begin
+        assign(t,'pecoff.scr');
+        reset(t);
+        while not eof(t) do
+          begin
+            readln(t,s);
+            keyword:=Upper(GetToken(s,' '));
+            para:=GetToken(s,' ');
+            if keyword='OUTPUTSECTION' then
+              ExeOutput.Pass1_OutputSection(para)
+            else if keyword='ENDSECTION' then
+              ExeOutput.Pass1_EndSection
+            else if keyword='INPUTSECTION' then
+              ExeOutput.Pass1_InputSection(para)
+            else if keyword='READOBJECT' then
+              Pass1_ReadObject(para);
+          end;
+        close(t);
+      end;
 
-  { no support yet for libraries }
-  if (not StaticLibFiles.Empty) or
-     (not SharedLibFiles.Empty) then
-   internalerror(123456789);
 
-  if (cs_link_map in aktglobalswitches) then
-   exemap:=texemap.create(current_module.mapfilename^);
+    procedure TInternalLinker.ParseScriptPass2;
+      var
+        t : text;
+        s,
+        para,
+        keyword : string;
+      begin
+        exeoutput.Pass2_Start;
+        assign(t,'pecoff.scr');
+        reset(t);
+        while not eof(t) do
+          begin
+            readln(t,s);
+            keyword:=Upper(GetToken(s,' '));
+            para:=GetToken(s,' ');
+            if keyword='OUTPUTSECTION' then
+              ExeOutput.Pass2_OutputSection(para)
+            else if keyword='ENDSECTION' then
+              ExeOutput.Pass2_EndSection
+            else if keyword='HEADER' then
+              ExeOutput.Pass2_Header
+            else if keyword='SYMBOLS' then
+              ExeOutput.Pass2_Symbols;
+          end;
+        close(t);
+      end;
 
-  { read objects }
-  readobj(FindObjectFile('prt0','',false));
-  while not ObjectFiles.Empty do
-   begin
-     s:=ObjectFiles.GetFirst;
-     if s<>'' then
-      readobj(s);
-   end;
 
-  { generate executable }
-  exeoutput.GenerateExecutable(current_module.exefilename^);
+    function TInternalLinker.MakeExecutable:boolean;
+      var
+        s : string;
+      begin
+        MakeExecutable:=false;
 
-  { close map }
-  if assigned(exemap) then
-   begin
-     exemap.free;
-     exemap:=nil;
-   end;
+        exeoutput:=CExeOutput.Create;
 
-  MakeExecutable:=true;
-end;
+        if (cs_link_map in aktglobalswitches) then
+          exemap:=texemap.create(current_module.mapfilename^);
+
+        { read objects from the units }
+        while not ObjectFiles.Empty do
+          begin
+            s:=ObjectFiles.GetFirst;
+            if s<>'' then
+              Pass1_ReadObject(s);
+          end;
+
+        ParseScriptPass1;
+        exeoutput.CalculateSymbols;
+
+        ParseScriptPass2;
+        exeoutput.FixupSymbols;
+        exeoutput.FixupRelocations;
+
+        exeoutput.WriteExeFile(current_module.exefilename^);
+
+        { close map }
+        if assigned(exemap) then
+          begin
+            exemap.free;
+            exemap:=nil;
+          end;
+
+        MakeExecutable:=true;
+      end;
 
 
 {*****************************************************************************

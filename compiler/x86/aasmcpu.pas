@@ -1715,7 +1715,7 @@ implementation
       begin
 {$ifdef EXTDEBUG}
         { safety check }
-        if objdata.currsec.datasize<>insoffset then
+        if objdata.currobjsec.datasize<>insoffset then
          internalerror(200130121);
 {$endif EXTDEBUG}
         { load data to write }

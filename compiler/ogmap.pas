@@ -101,7 +101,7 @@ implementation
             writeln(t,p.name);
             s:='';
           end;
-         writeln(t,PadSpace(s,20)+'0x'+PadSpace(hexstr(p.size,1),16)+p.owner.name);
+         writeln(t,PadSpace(s,20)+'0x'+PadSpace(hexstr(p.size,1),16)+p.objsection.objdata.name);
        end;
 
 
@@ -124,7 +124,7 @@ implementation
        begin
          { .text           0x000018a8     0xd958     object.o }
          writeln(t,' '+PadSpace(p.name,17)+PadSpace('0x'+HexStr(p.mempos,8),16)+
-                   '0x'+HexStr(p.memsize,1)+' '+p.owner.name);
+                   '0x'+HexStr(p.memsize,1)+' '+p.objdata.name);
        end;
 
 

@@ -102,6 +102,7 @@ var
 
 procedure set_default_link_type;
 begin
+{$ifndef INTERNALLINKER}
   { win32 and wdosx need smartlinking by default to prevent including too much
     dll dependencies }
   if (target_info.system in [system_i386_win32,system_i386_wdosx]) then
@@ -113,6 +114,7 @@ begin
       initglobalswitches:=initglobalswitches-[cs_link_shared,cs_link_static];
     end
   else
+{$endif INTERNALLINKER}
     begin
       undef_system_macro('FPC_LINK_SMART');
       def_system_macro('FPC_LINK_STATIC');

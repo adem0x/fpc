@@ -23,9 +23,6 @@ unit globals;
 
 {$i fpcdefs.inc}
 
-{ Use the internal linker by default }
-{ define INTERNALLINKER}
-
 interface
 
     uses

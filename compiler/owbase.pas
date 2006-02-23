@@ -45,6 +45,7 @@ type
     procedure writesym(const sym:string);virtual;
     procedure write(const b;len:longint);virtual;
     procedure WriteZeros(l:longint);
+    procedure writearray(a:TDynamicArray);
   end;
 
   tobjectreader=class
@@ -183,6 +184,19 @@ begin
 end;
 
 
+procedure tobjectwriter.writearray(a:TDynamicArray);
+var
+  hp : pdynamicblock;
+begin
+  hp:=a.firstblock;
+  while assigned(hp) do
+    begin
+      write(hp^.data,hp^.used);
+      hp:=hp^.next;
+    end;
+end;
+
+
 {****************************************************************************
                               TObjectReader
 ****************************************************************************}
@@ -210,7 +224,7 @@ begin
   f:=TCFileStream.Create(fn,fmOpenRead);
   if CStreamError<>0 then
     begin
-       Message1(exec_e_cant_create_objectfile,fn);
+       Comment(V_Error,'Can''t open object file: '+fn);
        exit;
     end;
   bufidx:=0;

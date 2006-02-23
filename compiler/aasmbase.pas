@@ -44,7 +44,7 @@ interface
 
        TAsmsymtype=(AT_NONE,AT_FUNCTION,AT_DATA,AT_SECTION,AT_LABEL);
 
-       TAsmRelocationType = (RELOC_ABSOLUTE,RELOC_RELATIVE,RELOC_RVA);
+       TObjRelocationType = (RELOC_ABSOLUTE,RELOC_RELATIVE,RELOC_RVA);
 
        TObjSectionType=(sec_none,
          sec_code,sec_data,sec_rodata,sec_bss,sec_threadvar,
@@ -84,14 +84,12 @@ interface
          currbind   : TAsmsymbind;
          typ        : TAsmsymtype;
          { the next fields are filled in the binary writer }
-         section    : TObjSection;
+         objsection : TObjSection;
          address,
          size       : aint;
          { Alternate symbol which can be used for 'renaming' needed for
            inlining }
          altsymbol  : tasmsymbol;
-         { pointer to ObjData that is the owner of this symbol }
-         owner      : TObjData;
          { Is the symbol in the used list }
          inusedlist : boolean;
          { assembler pass label is set, used for detecting multiple labels }
@@ -103,7 +101,7 @@ interface
          procedure increfs;
          procedure decrefs;
          function getrefs: longint;
-         procedure setaddress(_pass:byte;sec:TObjSection;offset,len:aint);
+         procedure setaddress(_pass:byte;aobjsec:TObjSection;offset,len:aint);
        end;
 
        { is the label only there for getting an address (e.g. for i/o
@@ -120,31 +118,31 @@ interface
          function getname:string;override;
        end;
 
-       TAsmRelocation = class(TLinkedListItem)
+       TObjRelocation = class(TLinkedListItem)
           address,
-          orgsize  : aint;  { original size of the symbol to relocate, required for COFF }
-          symbol   : TAsmSymbol;
-          section  : TObjSection; { only used if symbol=nil }
-          typ      : TAsmRelocationType;
-          constructor CreateSymbol(Aaddress:aint;s:Tasmsymbol;Atyp:TAsmRelocationType);
-          constructor CreateSymbolSize(Aaddress:aint;s:Tasmsymbol;Aorgsize:aint;Atyp:TAsmRelocationType);
-          constructor CreateSection(Aaddress:aint;sec:TObjSection;Atyp:TAsmRelocationType);
+          orgsize    : aint;  { original size of the symbol to relocate, required for COFF }
+          symbol     : TAsmSymbol;
+          objsection : TObjSection; { only used if symbol=nil }
+          typ        : TObjRelocationType;
+          constructor CreateSymbol(Aaddress:aint;s:Tasmsymbol;Atyp:TObjRelocationType);
+          constructor CreateSymbolSize(Aaddress:aint;s:Tasmsymbol;Aorgsize:aint;Atyp:TObjRelocationType);
+          constructor CreateSection(Aaddress:aint;aobjsec:TObjSection;Atyp:TObjRelocationType);
        end;
 
        TObjSection = class(TNamedIndexItem)
-         owner      : TObjData;
+         objData    : TObjData;
          secoptions : TObjSectionOptions;
          sectype    : TObjSectionType;
          secsymidx  : longint;   { index for the section in symtab }
          addralign  : longint;   { alignment of the section }
          { size of the data and in the file }
          dataalignbytes : longint;
-         data      : TDynamicArray;
+         data       : TDynamicArray;
          datasize,
-         datapos   : aint;
+         datapos    : aint;
          { size and position in memory }
          memsize,
-         mempos    : aint;
+         mempos     : aint;
          { relocation }
          relocations : TLinkedList;
          constructor create(const Aname:string;Atype:TObjSectionType;Aalign:longint;Aoptions:TObjSectionOptions);virtual;
@@ -156,34 +154,34 @@ interface
          procedure setdatapos(var dpos:aint);
          procedure alignsection;
          procedure alloc(l:aint);
-         procedure addsymreloc(ofs:aint;p:tasmsymbol;relative:TAsmRelocationType);
-         procedure addsectionreloc(ofs:aint;sec:TObjSection;relative:TAsmRelocationType);
+         procedure addsymreloc(ofs:aint;p:tasmsymbol;relative:TObjRelocationType);
+         procedure addsectionreloc(ofs:aint;aobjsec:TObjSection;relative:TObjRelocationType);
          procedure fixuprelocs;virtual;
        end;
        TObjSectionClass = class of TObjSection;
 
        TObjData = class(TLinkedListItem)
        private
-         FName      : string[80];
-         FCurrSec   : TObjSection;
-         { Sections will be stored in order in SectsIndex, this is at least
+         FName       : string[80];
+         FCurrObjSec : TObjSection;
+         { ObjSections will be stored in order in SectsIndex, this is at least
            required for stabs debuginfo. The SectsDict is only used for lookups (PFV) }
-         FSectionsDict   : TDictionary;
-         FSectionsIndex  : TIndexArray;
-         FCObjSection : TObjSectionClass;
+         FObjSectionsDict   : TDictionary;
+         FObjSectionsIndex  : TIndexArray;
+         FCObjSection   : TObjSectionClass;
          { Symbols that will be defined in this object file }
-         FSymbols   : TIndexArray;
+         FObjSymbols       : TIndexArray;
          { Special info sections that are written to during object generation }
-         FStabsRecSize : longint;
-         FStabsSec,
-         FStabStrSec : TObjSection;
+         FStabsRecSize  : longint;
+         FStabsObjSec,
+         FStabStrObjSec : TObjSection;
          procedure section_reset(p:tnamedindexitem;arg:pointer);
          procedure section_fixuprelocs(p:tnamedindexitem;arg:pointer);
        protected
          property StabsRecSize:longint read FStabsRecSize write FStabsRecSize;
-         property StabsSec:TObjSection read FStabsSec write FStabsSec;
-         property StabStrSec:TObjSection read FStabStrSec write FStabStrSec;
-         property CAsmSection:TObjSectionClass read FCObjSection write FCObjSection;
+         property StabsSec:TObjSection read FStabsObjSec write FStabsObjSec;
+         property StabStrSec:TObjSection read FStabStrObjSec write FStabStrObjSec;
+         property CObjSection:TObjSectionClass read FCObjSection write FCObjSection;
        public
          constructor create(const n:string);virtual;
          destructor  destroy;override;
@@ -196,7 +194,7 @@ interface
          procedure allocstab(p:pchar);
          procedure allocsymbol(currpass:byte;p:tasmsymbol;len:aint);
          procedure writebytes(var data;len:aint);
-         procedure writereloc(data,len:aint;p:tasmsymbol;relative:TAsmRelocationType);virtual;abstract;
+         procedure writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);virtual;abstract;
          procedure writesymbol(p:tasmsymbol);virtual;abstract;
          procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother,line:longint;p:pchar);virtual;abstract;
          procedure beforealloc;virtual;
@@ -206,9 +204,9 @@ interface
          procedure resetsections;
          procedure fixuprelocs;
          property Name:string[80] read FName;
-         property CurrSec:TObjSection read FCurrSec;
-         property Symbols:TindexArray read FSymbols;
-         property Sections:TIndexArray read FSectionsIndex;
+         property CurrObjSec:TObjSection read FCurrObjSec;
+         property ObjSymbols:TindexArray read FObjSymbols;
+         property ObjSections:TIndexArray read FObjSectionsIndex;
        end;
        TObjDataClass = class of TObjData;
 
@@ -344,7 +342,7 @@ implementation
     procedure tasmsymbol.reset;
       begin
         { reset section info }
-        section:=nil;
+        objsection:=nil;
         address:=0;
         size:=0;
         indexnr:=-1;
@@ -381,7 +379,7 @@ implementation
       end;
 
 
-    procedure tasmsymbol.setaddress(_pass:byte;sec:TObjSection;offset,len:aint);
+    procedure tasmsymbol.setaddress(_pass:byte;aobjsec:TObjSection;offset,len:aint);
       begin
         if (_pass=pass) then
          begin
@@ -389,7 +387,7 @@ implementation
            exit;
          end;
         pass:=_pass;
-        section:=sec;
+        objsection:=aobjsec;
         address:=offset;
         size:=len;
         { when the bind was reset to External, set it back to the default
@@ -431,35 +429,35 @@ implementation
 
 
 {****************************************************************************
-                              TAsmRelocation
+                              TObjRelocation
 ****************************************************************************}
 
-    constructor TAsmRelocation.CreateSymbol(Aaddress:aint;s:Tasmsymbol;Atyp:TAsmRelocationType);
+    constructor TObjRelocation.CreateSymbol(Aaddress:aint;s:Tasmsymbol;Atyp:TObjRelocationType);
       begin
         Address:=Aaddress;
         Symbol:=s;
         OrgSize:=0;
-        Section:=nil;
+        ObjSection:=nil;
         Typ:=Atyp;
       end;
 
 
-    constructor TAsmRelocation.CreateSymbolSize(Aaddress:aint;s:Tasmsymbol;Aorgsize:aint;Atyp:TAsmRelocationType);
+    constructor TObjRelocation.CreateSymbolSize(Aaddress:aint;s:Tasmsymbol;Aorgsize:aint;Atyp:TObjRelocationType);
       begin
         Address:=Aaddress;
         Symbol:=s;
         OrgSize:=Aorgsize;
-        Section:=nil;
+        ObjSection:=nil;
         Typ:=Atyp;
       end;
 
 
-    constructor TAsmRelocation.CreateSection(Aaddress:aint;sec:TObjSection;Atyp:TAsmRelocationType);
+    constructor TObjRelocation.CreateSection(Aaddress:aint;aobjsec:TObjSection;Atyp:TObjRelocationType);
       begin
         Address:=Aaddress;
         Symbol:=nil;
         OrgSize:=0;
-        Section:=sec;
+        ObjSection:=aobjsec;
         Typ:=Atyp;
       end;
 
@@ -569,29 +567,29 @@ implementation
       end;
 
 
-    procedure TObjSection.addsymreloc(ofs:aint;p:tasmsymbol;relative:TAsmRelocationType);
+    procedure TObjSection.addsymreloc(ofs:aint;p:tasmsymbol;relative:TObjRelocationType);
       var
-        r : TAsmRelocation;
+        r : TObjRelocation;
       begin
-        r:=TAsmRelocation.Create;
+        r:=TObjRelocation.Create;
         r.address:=ofs;
         r.orgsize:=0;
         r.symbol:=p;
-        r.section:=nil;
+        r.objsection:=nil;
         r.typ:=relative;
         relocations.concat(r);
       end;
 
 
-    procedure TObjSection.addsectionreloc(ofs:aint;sec:TObjSection;relative:TAsmRelocationType);
+    procedure TObjSection.addsectionreloc(ofs:aint;aobjsec:TObjSection;relative:TObjRelocationType);
       var
-        r : TAsmRelocation;
+        r : TObjRelocation;
       begin
-        r:=TAsmRelocation.Create;
+        r:=TObjRelocation.Create;
         r.address:=ofs;
         r.symbol:=nil;
         r.orgsize:=0;
-        r.section:=sec;
+        r.objsection:=aobjsec;
         r.typ:=relative;
         relocations.concat(r);
       end;
@@ -610,17 +608,17 @@ implementation
       begin
         inherited create;
         FName:=n;
-        { sections, the SectsIndex owns the items, the FSectionsDict
+        { sections, the SectsIndex owns the items, the FObjSectionsDict
           is only used for lookups }
-        FSectionsDict:=tdictionary.create;
-        FSectionsDict.noclear:=true;
-        FSectionsIndex:=tindexarray.create(sectsgrow);
+        FObjSectionsDict:=tdictionary.create;
+        FObjSectionsDict.noclear:=true;
+        FObjSectionsIndex:=tindexarray.create(sectsgrow);
         FStabsRecSize:=1;
-        FStabsSec:=nil;
-        FStabStrSec:=nil;
+        FStabsObjSec:=nil;
+        FStabStrObjSec:=nil;
         { symbols }
-        FSymbols:=tindexarray.create(symbolsgrow);
-        FSymbols.noclear:=true;
+        FObjSymbols:=tindexarray.create(symbolsgrow);
+        FObjSymbols.noclear:=true;
         { section class type for creating of new sections }
         FCObjSection:=TObjSection;
       end;
@@ -628,9 +626,9 @@ implementation
 
     destructor TObjData.destroy;
       begin
-        FSectionsDict.free;
-        FSectionsIndex.free;
-        FSymbols.free;
+        FObjSectionsDict.free;
+        FObjSectionsIndex.free;
+        FObjSymbols.free;
       end;
 
 
@@ -661,48 +659,48 @@ implementation
         secname : string;
       begin
         secname:=sectionname(atype,aname);
-        result:=TObjSection(FSectionsDict.search(secname));
+        result:=TObjSection(FObjSectionsDict.search(secname));
         if not assigned(result) then
           begin
             { bss sections are always allocation only }
             if atype=sec_bss then
               include(aoptions,aso_alloconly);
-            result:=CAsmSection.create(secname,atype,aalign,aoptions);
-            FSectionsDict.Insert(result);
-            FSectionsIndex.Insert(result);
-            result.owner:=self;
+            result:=CObjSection.create(secname,atype,aalign,aoptions);
+            FObjSectionsDict.Insert(result);
+            FObjSectionsIndex.Insert(result);
+            result.objdata:=self;
           end;
-        FCurrSec:=result;
+        FCurrObjSec:=result;
       end;
 
 
     function TObjData.FindSection(const aname:string):TObjSection;
       begin
-        result:=TObjSection(FSectionsDict.Search(aname));
+        result:=TObjSection(FObjSectionsDict.Search(aname));
       end;
 
 
     procedure TObjData.setsection(asec:TObjSection);
       begin
-        if asec.owner<>self then
+        if asec.objdata<>self then
           internalerror(200403041);
-        FCurrSec:=asec;
+        FCurrObjSec:=asec;
       end;
 
 
     procedure TObjData.writebytes(var data;len:aint);
       begin
-        if not assigned(currsec) then
+        if not assigned(CurrObjSec) then
           internalerror(200402251);
-        currsec.write(data,len);
+        CurrObjSec.write(data,len);
       end;
 
 
     procedure TObjData.alloc(len:aint);
       begin
-        if not assigned(currsec) then
+        if not assigned(CurrObjSec) then
           internalerror(200402252);
-        currsec.alloc(len);
+        CurrObjSec.alloc(len);
       end;
 
 
@@ -710,27 +708,27 @@ implementation
       var
         modulo : aint;
       begin
-        if not assigned(currsec) then
+        if not assigned(CurrObjSec) then
           internalerror(200402253);
-        modulo:=currsec.datasize mod len;
+        modulo:=CurrObjSec.datasize mod len;
         if modulo > 0 then
-          currsec.alloc(len-modulo);
+          CurrObjSec.alloc(len-modulo);
       end;
 
 
     procedure TObjData.allocsymbol(currpass:byte;p:tasmsymbol;len:aint);
       begin
-        p.setaddress(currpass,currsec,currsec.datasize,len);
+        p.setaddress(currpass,CurrObjSec,CurrObjSec.datasize,len);
       end;
 
 
     procedure TObjData.allocstab(p:pchar);
       begin
-        if not(assigned(FStabsSec) and assigned(FStabStrSec)) then
+        if not(assigned(FStabsObjSec) and assigned(FStabStrObjSec)) then
           internalerror(200402254);
-        FStabsSec.alloc(FStabsRecSize);
+        FStabsObjSec.alloc(FStabsRecSize);
         if assigned(p) and (p[0]<>#0) then
-          FStabStrSec.alloc(strlen(p)+1);
+          FStabStrObjSec.alloc(strlen(p)+1);
       end;
 
 
@@ -772,13 +770,13 @@ implementation
 
     procedure TObjData.resetsections;
       begin
-        FSectionsDict.foreach(@section_reset,nil);
+        FObjSectionsDict.foreach(@section_reset,nil);
       end;
 
 
     procedure TObjData.fixuprelocs;
       begin
-        FSectionsDict.foreach(@section_fixuprelocs,nil);
+        FObjSectionsDict.foreach(@section_fixuprelocs,nil);
       end;
 
 
@@ -961,7 +959,7 @@ implementation
            with hp do
             begin
               if is_used and
-                 (section=nil) and
+                 (objsection=nil) and
                  not(currbind in [AB_EXTERNAL,AB_COMMON]) then
                Message1(asmw_e_undefined_label,name);
             end;
