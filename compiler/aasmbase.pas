@@ -71,7 +71,7 @@ interface
          sec_toc
        );
 
-       TObjSectionOption = (aso_alloconly,aso_executable);
+       TObjSectionOption = (aso_alloconly,aso_executable,aso_common);
        TObjSectionOptions = set of TObjSectionOption;
 
        TAsmSymbol = class(TNamedIndexItem)

@@ -76,14 +76,12 @@ interface
       private
         FObjSectionList : TList;
       public
-        SecType   : TObjSectionType;
-        available : boolean;
         secsymidx,
         datasize,
         DataPos,
         memsize,
         MemPos    : aint;
-        flags     : cardinal;
+        options   : TObjSectionOptions;
         constructor create(const n:string);virtual;
         destructor  destroy;override;
         procedure AddObjSection(objsec:TObjSection);
@@ -101,9 +99,11 @@ interface
         FExternalExeSymbols : TList;
         FCommonExeSymbols   : TList;
         FGlobalExeSymbols   : TDictionary;
+        FEntryName          : string;
         { Objects }
         FObjDataList  : TList;
         { Position calculation }
+        FImageBase    : aint;
         FCurrDataPos,
         FCurrMemPos   : aint;
         procedure ExeSections_FixUpSymbol(s:tnamedindexitem;arg:pointer);
@@ -112,6 +112,9 @@ interface
         FWriter : TObjectwriter;
         commonobjdata,
         globalsobjdata : TObjData;
+        EntrySym  : TAsmSymbol;
+        SectionDataAlign,
+        SectionMemAlign : aint;
         procedure AddGlobalSym(const name:string;ofs:longint);
         function  writedata:boolean;virtual;abstract;
         procedure ExeSections_write_data(p:tnamedindexitem;arg:pointer);
@@ -120,6 +123,7 @@ interface
         constructor create;virtual;
         destructor  destroy;override;
         procedure AddObjData(objdata:TObjData);
+        procedure Pass1_EntryName(const aname:string);virtual;
         procedure Pass1_OutputSection(const aname:string);virtual;
         procedure Pass1_EndSection;virtual;
         procedure Pass1_InputSection(const aname:string);virtual;
@@ -138,6 +142,8 @@ interface
         property ExternalExeSymbols:TList read FExternalExeSymbols;
         property CommonExeSymbols:TList read FCommonExeSymbols;
         property GlobalExeSymbols:TDictionary read FGlobalExeSymbols;
+        property EntryName:string read FEntryName write FEntryName;
+        property ImageBase:aint read FImageBase write FImageBase;
         property CurrExeSec:TExeSection read FCurrExeSec;
         property CurrDataPos:aint read FCurrDataPos write FCurrDataPos;
         property CurrMemPos:aint read FCurrMemPos write FCurrMemPos;
@@ -226,8 +232,6 @@ implementation
         DataPos:=0;
         datasize:=0;
         secsymidx:=0;
-        available:=false;
-        flags:=0;
         FObjSectionList:=TList.Create;
       end;
 
@@ -261,6 +265,10 @@ implementation
         FExternalExeSymbols:=TList.create;
         FCommonExeSymbols:=TList.create;
         FExeSectionsDict:=TDictionary.create;
+        FEntryName:='start';
+        FImageBase:=0;
+        SectionMemAlign:=$1000;
+        SectionDataAlign:=$200;
         globalsobjdata:=TObjData.create('*GLOBALS*');
         AddObjData(globalsobjdata);
         commonobjdata:=TObjData.create('*COMMON*');
@@ -303,6 +311,12 @@ implementation
     procedure texeoutput.AddObjData(objdata:TObjData);
       begin
         ObjDataList.Add(objdata);
+      end;
+
+
+    procedure texeoutput.Pass1_EntryName(const aname:string);
+      begin
+        EntryName:=aname;
       end;
 
 
@@ -356,7 +370,9 @@ implementation
         FCurrExeSec:=TExeSection(FExeSectionsDict.search(aname));
         if not assigned(CurrExeSec) then
           internalerror(200602182);
-        { set start position of section }
+        { Alignment of exesection }
+        CurrMemPos:=align(CurrMemPos,SectionMemAlign);
+        CurrDataPos:=align(CurrDataPos,SectionDataAlign);
         CurrExeSec.DataPos:=CurrDataPos;
         CurrExeSec.MemPos:=CurrMemPos;
         { set position of object ObjSections }
@@ -364,11 +380,10 @@ implementation
           begin
             objsec:=TObjSection(CurrExeSec.ObjSectionList[i]);
             { align section }
-{$warning TODO alignment per section}
-            CurrMemPos:=align(CurrMemPos,$1000);
+            CurrMemPos:=align(CurrMemPos,objsec.addralign);
             if assigned(objsec.data) then
               begin
-                alignedpos:=align(CurrDataPos,$10);
+                alignedpos:=align(CurrDataPos,objsec.addralign);
                 objsec.dataalignbytes:=alignedpos-CurrDataPos;
                 CurrDataPos:=alignedpos;
               end;
@@ -430,11 +445,13 @@ implementation
                   begin
                     { process only the symbols that are defined in this section
                       and are located in this module }
-                    if ((hsym.objsection=objsec) or
-                        ((objsec.sectype=sec_bss) and (hsym.objsection.sectype=sec_common))) then
+//                    if ((hsym.objsection=objsec) or
+//                        ((objsec.sectype=sec_bss) and (hsym.objsection.sectype=sec_common))) then
+                    if (hsym.objsection=objsec) and
+                       (hsym.currbind in [AB_GLOBAL,AB_LOCAL]) then
                       begin
-                        if hsym.currbind=AB_EXTERNAL then
-                          internalerror(200206303);
+//                        if hsym.currbind=AB_EXTERNAL then
+//                          internalerror(200206303);
                         inc(hsym.address,objsec.MemPos);
                         if assigned(exemap) then
                           exemap.AddMemoryMapSymbol(hsym);
@@ -551,7 +568,8 @@ implementation
         i       : longint;
       begin
         commonobjsection:=nil;
-        CalculateSymbols:=true;
+        result:=true;
+
         {
           The symbol calculation is done in 3 steps:
            1. register globals
@@ -642,6 +660,19 @@ implementation
                   end;
               end;
           end;
+
+        { Find entry symbol in map }
+        EntrySym:=tasmsymbol(globalexesymbols.search(EntryName));
+        if assigned(EntrySym) then
+          begin
+            if assigned(exemap) then
+              begin
+                exemap.Add('Entry symbol '+EntryName);
+                exemap.Add('');
+              end;
+          end
+        else
+          Comment(V_Error,'Entrypoint '+EntryName+' not defined');
       end;
 
 

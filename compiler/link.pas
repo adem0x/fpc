@@ -714,6 +714,8 @@ end;
               ExeOutput.Pass1_EndSection
             else if keyword='INPUTSECTION' then
               ExeOutput.Pass1_InputSection(para)
+            else if keyword='ENTRYNAME' then
+              ExeOutput.Pass1_EntryName(para)
             else if keyword='READOBJECT' then
               Pass1_ReadObject(para);
           end;

@@ -68,7 +68,6 @@ interface
          constructor createcoff(const n:string;awin32:boolean;acObjSection:TObjSectionClass);
          destructor  destroy;override;
          function  sectionname(atype:TObjSectiontype;const aname:string):string;override;
-         procedure decodesectionname(const coffname:string;var atype:TObjSectiontype;var aname:string);
          procedure writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);override;
          procedure writesymbol(p:tasmsymbol);override;
          procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother,line:longint;p:pchar);override;
@@ -111,6 +110,21 @@ interface
 
        TPECoffObjOutput = class(TCoffObjOutput)
          constructor create(smart:boolean);override;
+       end;
+
+       TCoffExeSection = class(TExeSection)
+       private
+         win32   : boolean;
+       public
+         constructor createcoff(const n:string;awin32:boolean);
+       end;
+
+       TDJCoffExeSection = class(TCoffExeSection)
+         constructor create(const n:string);override;
+       end;
+
+       TPECoffExeSection = class(TCoffExeSection)
+         constructor create(const n:string);override;
        end;
 
        TCoffexeoutput = class(texeoutput)
@@ -220,6 +234,16 @@ implementation
        COFF_SYM_FILE     = 103;
        COFF_SYM_SECTION  = 104;
 
+       COFF_STYP_REG    = $0000; { "regular": allocated, relocated, loaded }
+       COFF_STYP_DSECT  = $0001; { "dummy":  relocated only }
+       COFF_STYP_NOLOAD = $0002; { "noload": allocated, relocated, not loaded }
+       COFF_STYP_GROUP  = $0004; { "grouped": formed of input sections }
+       COFF_STYP_PAD    = $0008;
+       COFF_STYP_COPY   = $0010;
+       COFF_STYP_TEXT   = $0020;
+       COFF_STYP_DATA   = $0040;
+       COFF_STYP_BSS    = $0080;
+
     type
        { Structures which are written directly to the output file }
        coffheader=packed record
@@ -231,7 +255,7 @@ implementation
          opthdr : word;
          flag   : word;
        end;
-       coffoptheader=packed record
+       coffdjoptheader=packed record
          magic  : word;
          vstamp : word;
          tsize  : longint;
@@ -240,6 +264,39 @@ implementation
          entry  : longint;
          text_start : longint;
          data_start : longint;
+       end;
+       coffpeoptheader=packed record
+         Magic : word;
+         MajorLinkerVersion : byte;
+         MinorLinkerVersion : byte;
+         tsize : longint;
+         dsize : longint;
+         bsize : longint;
+         entry : longint;
+         text_start : longint;
+         data_start : longint;
+         ImageBase : longint;
+         SectionAlignment : longint;
+         FileAlignment : longint;
+         MajorOperatingSystemVersion : word;
+         MinorOperatingSystemVersion : word;
+         MajorImageVersion : word;
+         MinorImageVersion : word;
+         MajorSubsystemVersion : word;
+         MinorSubsystemVersion : word;
+         Win32Version : longint;
+         SizeOfImage : longint;
+         SizeOfHeaders : longint;
+         CheckSum : longint;
+         Subsystem : word;
+         DllCharacteristics : word;
+         SizeOfStackReserve : longint;
+         SizeOfStackCommit : longint;
+         SizeOfHeapReserve : longint;
+         SizeOfHeapCommit : longint;
+         LoaderFlags : longint;
+         NumberOfRvaAndSizes : longint;
+         DataDirectory : array[1..$80] of byte;
        end;
        coffsechdr=packed record
          name     : array[0..7] of char;
@@ -294,7 +351,7 @@ implementation
           '.eh_frame',
           '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
           '.fpc',
-		  ''
+                  ''
         );
 
 const go32v2stub : array[0..2047] of byte=(
@@ -436,6 +493,41 @@ const go32v2stub : array[0..2047] of byte=(
   $90,$90,$90,$90,$90,$90,$90,$90,$90,$90,$90,$90,$90,$90,$90,
   $90,$90,$90,$90,$90,$90,$90,$90);
 
+const win32stub : array[0..131] of byte=(
+  $4D,$5A,$90,$00,$03,$00,$00,$00,$04,$00,$00,$00,$FF,$FF,$00,$00,
+  $B8,$00,$00,$00,$00,$00,$00,$00,$40,$00,$00,$00,$00,$00,$00,$00,
+  $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,
+  $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$80,$00,$00,$00,
+  $0E,$1F,$BA,$0E,$00,$B4,$09,$CD,$21,$B8,$01,$4C,$CD,$21,$54,$68,
+  $69,$73,$20,$70,$72,$6F,$67,$72,$61,$6D,$20,$63,$61,$6E,$6E,$6F,
+  $74,$20,$62,$65,$20,$72,$75,$6E,$20,$69,$6E,$20,$44,$4F,$53,$20,
+  $6D,$6F,$64,$65,$2E,$0D,$0D,$0A,$24,$00,$00,$00,$00,$00,$00,$00,
+  $50,$45,$00,$00);
+
+{****************************************************************************
+                                 Helpers
+****************************************************************************}
+
+    function sectionname2flags(const aname:string;aoptions:TObjSectionOptions):cardinal;
+      begin
+        if Copy(aname,1,5)='.text' then
+          result:=COFF_STYP_TEXT
+        else if Copy(aname,1,5)='.data' then
+          result:=COFF_STYP_DATA
+        else if Copy(aname,1,4)='.bss' then
+          result:=COFF_STYP_BSS
+        else
+          result:=COFF_STYP_REG;
+      end;
+
+
+    function sectionname2options(const aname:string;flags:cardinal):TObjSectionOptions;
+      begin
+        result:=[];
+        if Copy(aname,1,4)='.bss' then
+          include(result,aso_alloconly);
+      end;
+
 
 {****************************************************************************
                                TCoffObjSection
@@ -481,7 +573,7 @@ const go32v2stub : array[0..2047] of byte=(
               RELOC_RVA,
               RELOC_ABSOLUTE :
                 begin
-                  if r.symbol.objsection.sectype=sec_common then
+                  if aso_common in r.symbol.objsection.options then
                    dec(address,r.orgsize)
                   else
                    begin
@@ -606,26 +698,6 @@ const go32v2stub : array[0..2047] of byte=(
           result:=secname+'$'+aname
         else
           result:=secname;
-      end;
-
-
-    procedure TCoffObjData.decodesectionname(const coffname:string;var atype:TObjSectiontype;var aname:string);
-      var
-        sectype : TObjSectionType;
-      begin
-        for sectype:=low(TObjSectionType) to high(TObjSectionType) do
-          begin
-            if Copy(coffname,1,length(coffsecnames[sectype]))=coffsecnames[sectype] then
-              begin
-                atype:=sectype;
-                aname:=Copy(coffname,length(coffsecnames[sectype])+1,255);
-                if (aname<>'') and (aname[1]='$') then
-                  delete(aname,1,1);
-                break;
-              end;
-          end;
-        atype:=sec_none;
-        aname:=coffname;
       end;
 
 
@@ -1089,9 +1161,9 @@ const go32v2stub : array[0..2047] of byte=(
            header.nsects:=nsects;
            header.sympos:=sympos;
            header.syms:=ObjSymbols.count+initsym;
-           header.flag:=COFF_FLAG_AR32WR or COFF_FLAG_NOLINES;
+           header.flag:=COFF_FLAG_AR32WR or COFF_FLAG_NOLINES or COFF_FLAG_NOLSYMS;
            if not gotreloc then
-            header.flag:=header.flag or COFF_FLAG_NORELOCS;
+             header.flag:=header.flag or COFF_FLAG_NORELOCS;
            FWriter.write(header,sizeof(header));
          { Section headers }
            ObjSections.foreach(@section_write_header,nil);
@@ -1128,6 +1200,29 @@ const go32v2stub : array[0..2047] of byte=(
         cobjdata:=TPECoffObjData;
       end;
 
+{****************************************************************************
+                              TCoffexesection
+****************************************************************************}
+
+
+    constructor TCoffExeSection.createcoff(const n:string;awin32:boolean);
+      begin
+        inherited create(n);
+        win32:=awin32;
+      end;
+
+
+    constructor TDJCoffExeSection.create(const n:string);
+      begin
+        inherited createcoff(n,false);
+      end;
+
+
+    constructor TPECoffExeSection.create(const n:string);
+      begin
+        inherited createcoff(n,false);
+      end;
+
 
 {****************************************************************************
                               TCoffexeoutput
@@ -1137,6 +1232,10 @@ const go32v2stub : array[0..2047] of byte=(
       begin
         inherited create;
         win32:=awin32;
+        if win32 then
+          imagebase:=$400000
+        else
+          imagebase:=$1000;
       end;
 
 
@@ -1195,26 +1294,18 @@ const go32v2stub : array[0..2047] of byte=(
           begin
             fillchar(sechdr,sizeof(sechdr),0);
             move(name[1],sechdr.name,length(name));
-            if not win32 then
-             begin
-               sechdr.rvaofs:=mempos;
-               sechdr.vsize:=mempos;
-             end
+            sechdr.rvaofs:=mempos;
+            sechdr.vsize:=mempos;
+            if aso_alloconly in options then
+              sechdr.datasize:=memsize
             else
-             begin
-               if sectype=sec_bss then
-                sechdr.vsize:=memsize;
-             end;
-            if sectype=sec_bss then
-             sechdr.datasize:=memsize
-            else
-             begin
-               sechdr.datasize:=datasize;
-               sechdr.datapos:=datapos;
-             end;
+              begin
+                sechdr.datasize:=datasize;
+                sechdr.datapos:=datapos;
+              end;
             sechdr.nrelocs:=0;
             sechdr.relocpos:=0;
-            sechdr.flags:=flags;
+            sechdr.flags:=sectionname2flags(name,options);
             FWriter.write(sechdr,sizeof(sechdr));
           end;
       end;
@@ -1231,18 +1322,27 @@ const go32v2stub : array[0..2047] of byte=(
 
 
     procedure tcoffexeoutput.Pass2_Header;
+      var
+        stubsize,
+        optheadersize : longint;
       begin
+        if win32 then
+          begin
+            stubsize:=sizeof(win32stub);
+            optheadersize:=sizeof(coffpeoptheader);
+          end
+        else
+          begin
+            stubsize:=sizeof(go32v2stub);
+            optheadersize:=sizeof(coffdjoptheader);
+          end;
         { retrieve amount of ObjSections }
         nsects:=0;
         ExeSections.foreach(@ExeSections_pass2_header,@nsects);
         { calculate start positions after the headers }
-        currdatapos:=sizeof(coffheader)+sizeof(coffoptheader)+sizeof(coffsechdr)*nsects;
-        currmempos:=sizeof(coffheader)+sizeof(coffoptheader)+sizeof(coffsechdr)*nsects;
-{$warning TODO Make imagebase configurable}
-        if win32 then
-          CurrMemPos:=$401000
-        else
-          inc(currmempos,sizeof(go32v2stub)+$1000);
+        currdatapos:=stubsize+optheadersize+sizeof(coffsechdr)*nsects;
+        currmempos:=stubsize+optheadersize+sizeof(coffsechdr)*nsects;
+        inc(currmempos,imagebase)
       end;
 
 
@@ -1259,63 +1359,15 @@ const go32v2stub : array[0..2047] of byte=(
       end;
 
 
-(*
-    procedure TCoffexeoutput.CalculateMemoryMap;
-      var
-        objdata : TObjData;
-        secsymidx,
-        mempos,
-        datapos : longint;
-      begin
-        { retrieve amount of ObjSections }
-        nsects:=0;
-        secsymidx:=0;
-        for sec:=low(TSection) to high(TSection) do
-         begin
-           if ObjSections[sec].available then
-            begin
-              inc(nsects);
-              inc(secsymidx);
-              ObjSections[sec].secsymidx:=secsymidx;
-            end;
-         end;
-        { calculate start positions after the headers }
-        datapos:=sizeof(coffheader)+sizeof(coffoptheader)+sizeof(coffsechdr)*nsects;
-        mempos:=sizeof(coffheader)+sizeof(coffoptheader)+sizeof(coffsechdr)*nsects;
-        if not win32 then
-         inc(mempos,sizeof(go32v2stub)+$1000);
-        { add ObjSections }
-        MapObjData(datapos,mempos);
-        { end symbol }
-        AddGlobalSym('_etext',ObjSections[sec_code].mempos+ObjSections[sec_code].memsize);
-        AddGlobalSym('_edata',ObjSections[sec_data].mempos+ObjSections[sec_data].memsize);
-        AddGlobalSym('end',mempos);
-        { ObjSymbols }
-        nsyms:=0;
-        sympos:=0;
-        if not(cs_link_strip in aktglobalswitches) then
-         begin
-           sympos:=datapos;
-           objdata:=TObjData(objdatalist.first);
-           while assigned(objdata) do
-            begin
-              inc(nsyms,objdata.ObjSymbols.count);
-              objdata:=TObjData(objdata.next);
-            end;
-         end;
-      end;
-*)
-
-
     function TCoffexeoutput.writedata:boolean;
       var
-        i         : longint;
-        header    : coffheader;
-        optheader : coffoptheader;
-        hsym      : tasmsymbol;
+        i           : longint;
+        header      : coffheader;
+        djoptheader : coffdjoptheader;
+        peoptheader : coffpeoptheader;
         textExeSec,
         dataExeSec,
-        bssExeSec : TExeSection;
+        bssExeSec   : TExeSection;
       begin
         result:=false;
         FCoffSyms:=TDynamicArray.Create(symbolresize);
@@ -1328,7 +1380,9 @@ const go32v2stub : array[0..2047] of byte=(
            not assigned(BSSExeSec) then
           internalerror(200602231);
         { Stub }
-        if not win32 then
+        if win32 then
+          FWriter.write(win32stub,sizeof(win32stub))
+        else
           FWriter.write(go32v2stub,sizeof(go32v2stub));
         { COFF header }
         fillchar(header,sizeof(header),0);
@@ -1336,25 +1390,63 @@ const go32v2stub : array[0..2047] of byte=(
         header.nsects:=nsects;
         header.sympos:=sympos;
         header.syms:=nsyms;
-        header.opthdr:=sizeof(coffoptheader);
+        if win32 then
+          header.opthdr:=sizeof(coffpeoptheader)
+        else
+          header.opthdr:=sizeof(coffdjoptheader);
         header.flag:=COFF_FLAG_AR32WR or COFF_FLAG_EXE or COFF_FLAG_NORELOCS or COFF_FLAG_NOLINES;
         FWriter.write(header,sizeof(header));
         { Optional COFF Header }
-        fillchar(optheader,sizeof(optheader),0);
-        optheader.magic:=$10b;
-        optheader.tsize:=TextExeSec.memsize;
-        optheader.dsize:=DataExeSec.memsize;
-        optheader.bsize:=BSSExeSec.memsize;
-        optheader.text_start:=TextExeSec.mempos;
-        optheader.data_start:=DataExeSec.mempos;
-        hsym:=tasmsymbol(globalexesymbols.search('start'));
-        if not assigned(hsym) then
-         begin
-           Comment(V_Error,'Entrypoint "start" not defined');
-           exit;
-         end;
-        optheader.entry:=hsym.address;
-        FWriter.write(optheader,sizeof(optheader));
+        if win32 then
+          begin
+            fillchar(peoptheader,sizeof(peoptheader),0);
+            peoptheader.magic:=$10b;
+            peoptheader.tsize:=TextExeSec.memsize;
+            peoptheader.dsize:=DataExeSec.memsize;
+            peoptheader.bsize:=BSSExeSec.memsize;
+            peoptheader.text_start:=TextExeSec.mempos;
+            peoptheader.data_start:=DataExeSec.mempos;
+            peoptheader.entry:=EntrySym.address;
+            peoptheader.ImageBase:=ImageBase;
+            peoptheader.SectionAlignment:=SectionMemAlign;
+            peoptheader.FileAlignment:=SectionDataAlign;
+            peoptheader.MajorOperatingSystemVersion:=4;
+            peoptheader.MinorOperatingSystemVersion:=0;
+            peoptheader.MajorImageVersion:=1;
+            peoptheader.MinorImageVersion:=0;
+            peoptheader.MajorSubsystemVersion:=4;
+            peoptheader.MinorSubsystemVersion:=0;
+            peoptheader.Win32Version:=0;
+//TODO $b000
+            peoptheader.SizeOfImage:=0;
+//TODO $400
+            peoptheader.SizeOfHeaders:=0;
+// TODO                         0000b7b1
+            peoptheader.CheckSum:=0;
+{$warning TODO GUI/CUI Subsystem}
+            peoptheader.Subsystem:=3;
+            peoptheader.DllCharacteristics:=0;
+            peoptheader.SizeOfStackReserve:=$40000;
+            peoptheader.SizeOfStackCommit:=$1000;
+            peoptheader.SizeOfHeapReserve:=$100000;
+            peoptheader.SizeOfHeapCommit:=$1000;
+            peoptheader.LoaderFlags:=0;
+//TODO          00000010
+            peoptheader.NumberOfRvaAndSizes:=0;
+            FWriter.write(peoptheader,sizeof(peoptheader));
+          end
+        else
+          begin
+            fillchar(djoptheader,sizeof(djoptheader),0);
+            djoptheader.magic:=$10b;
+            djoptheader.tsize:=TextExeSec.memsize;
+            djoptheader.dsize:=DataExeSec.memsize;
+            djoptheader.bsize:=BSSExeSec.memsize;
+            djoptheader.text_start:=TextExeSec.mempos;
+            djoptheader.data_start:=DataExeSec.mempos;
+            djoptheader.entry:=EntrySym.address;
+            FWriter.write(djoptheader,sizeof(djoptheader));
+          end;
         { Section headers }
         ExeSections.foreach(@ExeSections_write_header,nil);
         { Section data }
@@ -1598,6 +1690,7 @@ const go32v2stub : array[0..2047] of byte=(
                Comment(V_Error,'To many ObjSections');
                exit;
              end;
+{$warning TODO Read strings first}
            { Section headers }
            for i:=1 to header.nsects do
              begin
@@ -1606,12 +1699,12 @@ const go32v2stub : array[0..2047] of byte=(
                   Comment(V_Error,'Error reading coff file');
                   exit;
                 end;
-
+{$warning TODO Support long secnames}
                move(sechdr.name,secnamebuf,8);
                secnamebuf[8]:=#0;
-               decodesectionname(strpas(secnamebuf),sectype,secname);
- {$warning TODO Alignment and options}
-               objsec:=TCoffObjSection(createsection(sectype,secname,0,[]));
+               secname:=strpas(secnamebuf);
+ {$warning TODO Alignment}
+               objsec:=TCoffObjSection(createsection(sec_none,secname,0,sectionname2options(secname,sechdr.flags)));
                Fidx2objsec[i]:=objsec;
                if not win32 then
                  objsec.mempos:=sechdr.rvaofs;
@@ -1621,7 +1714,6 @@ const go32v2stub : array[0..2047] of byte=(
                objsec.datapos:=sechdr.datapos;
                objsec.datasize:=sechdr.datasize;
                objsec.memsize:=sechdr.datasize;
-               objsec.flags:=sechdr.flags;
              end;
            { ObjSymbols }
            Reader.Seek(header.sympos);
