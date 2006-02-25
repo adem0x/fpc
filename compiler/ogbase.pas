@@ -124,11 +124,11 @@ interface
         destructor  destroy;override;
         procedure AddObjData(objdata:TObjData);
         procedure Pass1_EntryName(const aname:string);virtual;
-        procedure Pass1_OutputSection(const aname:string);virtual;
-        procedure Pass1_EndSection;virtual;
-        procedure Pass1_InputSection(const aname:string);virtual;
-        procedure Pass2_OutputSection(const aname:string);virtual;
-        procedure Pass2_EndSection;virtual;
+        procedure Pass1_ExeSection(const aname:string);virtual;
+        procedure Pass1_EndExeSection;virtual;
+        procedure Pass1_ObjSection(const aname:string);virtual;
+        procedure Pass2_ExeSection(const aname:string);virtual;
+        procedure Pass2_EndExeSection;virtual;
         procedure Pass2_Header;virtual;
         procedure Pass2_Start;virtual;
         procedure Pass2_Symbols;virtual;
@@ -320,7 +320,7 @@ implementation
       end;
 
 
-    procedure texeoutput.Pass1_OutputSection(const aname:string);
+    procedure texeoutput.Pass1_ExeSection(const aname:string);
       var
         sec : TExeSection;
       begin
@@ -334,7 +334,7 @@ implementation
       end;
 
 
-    procedure texeoutput.Pass1_EndSection;
+    procedure texeoutput.Pass1_EndExeSection;
       begin
         if not assigned(CurrExeSec) then
           internalerror(200602184);
@@ -342,7 +342,7 @@ implementation
       end;
 
 
-    procedure texeoutput.Pass1_InputSection(const aname:string);
+    procedure texeoutput.Pass1_ObjSection(const aname:string);
       var
         i       : longint;
         objdata : TObjData;
@@ -361,7 +361,7 @@ implementation
       end;
 
 
-    procedure texeoutput.Pass2_OutputSection(const aname:string);
+    procedure texeoutput.Pass2_ExeSection(const aname:string);
       var
         i      : longint;
         objsec : TObjSection;
@@ -397,7 +397,7 @@ implementation
       end;
 
 
-    procedure texeoutput.Pass2_EndSection;
+    procedure texeoutput.Pass2_EndExeSection;
       begin
         if not assigned(CurrExeSec) then
           internalerror(200602183);
@@ -551,7 +551,7 @@ implementation
          begin
            sym:=tasmsymbol.create(name,AB_GLOBAL,AT_FUNCTION);
            { Create a dummy section }
-           sym.objsection:=globalsobjdata.createsection(sec_none,'*'+sym.name,0,[aso_alloconly]);
+           sym.objsection:=globalsobjdata.createsection('*'+sym.name,0,[]);
            globalsobjdata.ObjSymbols.insert(sym);
            globalExeSymbols.insert(sym);
          end;
@@ -629,7 +629,7 @@ implementation
                         if assigned(exemap) then
                           exemap.AddCommonSymbolsHeader;
                         { create .bss section and add to list }
-                        commonobjsection:=commonobjdata.createsection(sec_bss,'',0,[aso_alloconly]);
+                        commonobjsection:=commonobjdata.createsection(sec_bss,'');
                       end;
                     p:=TAsmSymbol.Create(sym.name,AB_GLOBAL,AT_FUNCTION);
                     p.objsection:=commonobjsection;

@@ -67,7 +67,7 @@ interface
       const_storage_class = '';
       var_storage_class = '';
 
-      secnames : array[TObjSectionType] of string[10] = (
+      secnames : array[TAsmSectiontype] of string[10] = (
         '',      {none}
         'csect', {code}
         'csect', {data}
@@ -662,7 +662,7 @@ interface
     end;
 
     var
-      LasTSec : TObjSectionType;
+      LasTSec : TAsmSectiontype;
       lastfileinfo : tfileposinfo;
       infile,
       lastinfile   : tinputfile;

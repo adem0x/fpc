@@ -944,7 +944,7 @@ Implementation
                ObjData.alloc(tai_const(hp).size);
              ait_section:
                begin
-                 ObjData.CreateSection(Tai_section(hp).sectype,Tai_section(hp).name^,Tai_section(hp).secalign,[]);
+                 ObjData.CreateSection(Tai_section(hp).sectype,Tai_section(hp).name^);
                  Tai_section(hp).sec:=ObjData.CurrObjSec;
                end;
              ait_symbol :
@@ -997,23 +997,12 @@ Implementation
                end;
              ait_datablock :
                begin
-                 if not (ObjData.CurrObjSec.sectype in [sec_bss,sec_threadvar]) then
+                 if (oso_data in ObjData.CurrObjSec.secoptions) then
                    Message(asmw_e_alloc_data_only_in_bss);
                  l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.addralign);
-{                 if Tai_datablock(hp).is_global and
-                    not SmartAsm then
-                  begin}
-{                    ObjData.allocsymbol(currpass,Tai_datablock(hp).sym,Tai_datablock(hp).size);}
-                    { force to be common/external, must be after setaddress as that would
-                      set it to AB_GLOBAL }
-{                    Tai_datablock(hp).sym.currbind:=AB_COMMON;
-                  end
-                 else
-                  begin}
-                    ObjData.allocalign(l);
-                    ObjData.allocsymbol(currpass,Tai_datablock(hp).sym,Tai_datablock(hp).size);
-                    ObjData.alloc(Tai_datablock(hp).size);
-{                  end;}
+                 ObjData.allocalign(l);
+                 ObjData.allocsymbol(currpass,Tai_datablock(hp).sym,Tai_datablock(hp).size);
+                 ObjData.alloc(Tai_datablock(hp).size);
                  objectlibrary.UsedAsmSymbolListInsert(Tai_datablock(hp).sym);
                end;
              ait_real_80bit :
@@ -1116,10 +1105,10 @@ Implementation
            case hp.typ of
              ait_align :
                begin
-                 if ObjData.CurrObjSec.sectype in [sec_bss,sec_threadvar] then
-                   ObjData.alloc(Tai_align(hp).fillsize)
+                 if (oso_data in ObjData.CurrObjSec.secoptions) then
+                   ObjData.writebytes(Tai_align(hp).calculatefillbuf(fillbuffer)^,Tai_align(hp).fillsize)
                  else
-                   ObjData.writebytes(Tai_align(hp).calculatefillbuf(fillbuffer)^,Tai_align(hp).fillsize);
+                   ObjData.alloc(Tai_align(hp).fillsize);
                end;
              ait_section :
                begin
@@ -1136,11 +1125,8 @@ Implementation
                  l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.addralign);
                  ObjData.writesymbol(Tai_datablock(hp).sym);
                  ObjOutput.exportsymbol(Tai_datablock(hp).sym);
-{                 if SmartAsm or (not Tai_datablock(hp).is_global) then
-                   begin}
-                     ObjData.allocalign(l);
-                     ObjData.alloc(Tai_datablock(hp).size);
-{                   end;}
+                 ObjData.allocalign(l);
+                 ObjData.alloc(Tai_datablock(hp).size);
                end;
              ait_real_80bit :
                ObjData.writebytes(Tai_real_80bit(hp).value,10);
@@ -1224,7 +1210,7 @@ Implementation
 
       { Pass 0 }
         currpass:=0;
-        ObjData.createsection(sec_code,'',0,[]);
+        ObjData.createsection(sec_code,'');
         ObjData.beforealloc;
         { start with list 1 }
         currlistidx:=1;
@@ -1244,7 +1230,7 @@ Implementation
         currpass:=1;
         ObjData.resetsections;
         ObjData.beforealloc;
-        ObjData.createsection(sec_code,'',0,[]);
+        ObjData.createsection(sec_code,'');
         { start with list 1 }
         currlistidx:=1;
         currlist:=list[currlistidx];
@@ -1254,7 +1240,7 @@ Implementation
            hp:=TreePass1(hp);
            MaybeNextList(hp);
          end;
-        ObjData.createsection(sec_code,'',0,[]);
+        ObjData.createsection(sec_code,'');
         ObjData.afteralloc;
         { check for undefined labels and reset }
         objectlibrary.UsedAsmSymbolListCheckUndefined;
@@ -1267,7 +1253,7 @@ Implementation
         currpass:=2;
         ObjData.resetsections;
         ObjData.beforewrite;
-        ObjData.createsection(sec_code,'',0,[]);
+        ObjData.createsection(sec_code,'');
         { start with list 1 }
         currlistidx:=1;
         currlist:=list[currlistidx];
@@ -1277,7 +1263,7 @@ Implementation
            hp:=TreePass2(hp);
            MaybeNextList(hp);
          end;
-        ObjData.createsection(sec_code,'',0,[]);
+        ObjData.createsection(sec_code,'');
         ObjData.afterwrite;
 
         { don't write the .o file if errors have occured }
@@ -1301,13 +1287,13 @@ Implementation
     procedure TInternalAssembler.writetreesmart;
       var
         hp : Tai;
-        startsectype : TObjSectionType;
+//      startsectype : TAsmSectiontype;
         place: tcutplace;
       begin
         NextSmartName(cut_normal);
         ObjOutput:=CObjOutput.Create(true);
         ObjData:=ObjOutput.newObjData(Objfile);
-        startsectype:=sec_code;
+//        startsectype:=sec_code;
 
         { start with list 1 }
         currlistidx:=1;
@@ -1322,7 +1308,7 @@ Implementation
            currpass:=0;
            ObjData.resetsections;
            ObjData.beforealloc;
-           ObjData.createsection(startsectype,'',0,[]);
+//           ObjData.createsection(startsectype,'');
            TreePass0(hp);
            ObjData.afteralloc;
            { leave if errors have occured }
@@ -1333,7 +1319,7 @@ Implementation
            currpass:=1;
            ObjData.resetsections;
            ObjData.beforealloc;
-           ObjData.createsection(startsectype,'',0,[]);
+//           ObjData.createsection(startsectype,'');
            TreePass1(hp);
            ObjData.afteralloc;
            { check for undefined labels }
@@ -1348,11 +1334,9 @@ Implementation
            ObjOutput.startobjectfile(Objfile);
            ObjData.resetsections;
            ObjData.beforewrite;
-           ObjData.createsection(startsectype,'',0,[]);
+//          ObjData.createsection(startsectype,'');
            hp:=TreePass2(hp);
-           { save section type for next loop, must be done before EndFileLineInfo
-             because that changes the section to sec_code }
-           startsectype:=ObjData.CurrObjSec.sectype;
+//           startsectype:=ObjData.CurrObjSec.sectype;
            ObjData.afterwrite;
            { leave if errors have occured }
            if errorcount>0 then
@@ -1384,15 +1368,15 @@ Implementation
            while assigned(hp) and
                  (Tai(hp).typ in [ait_marker,ait_comment,ait_section,ait_cutobject]) do
             begin
-              if Tai(hp).typ=ait_section then
-               startsectype:=Tai_section(hp).sectype
-              else if (Tai(hp).typ=ait_cutobject) then
+//              if Tai(hp).typ=ait_section then
+//               startsectype:=Tai_section(hp).sectype
+              if (Tai(hp).typ=ait_cutobject) then
                place:=Tai_cutobject(hp).place;
               hp:=Tai(hp.next);
             end;
-           { there is a problem if startsectype is sec_none !! PM }
-           if startsectype=sec_none then
-             startsectype:=sec_code;
+//           { there is a problem if startsectype is sec_none !! PM }
+//           if startsectype=sec_none then
+//             startsectype:=sec_code;
 
            if not MaybeNextList(hp) then
              break;

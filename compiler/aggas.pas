@@ -50,8 +50,8 @@ interface
       }
       TGNUAssembler=class(texternalassembler)
       protected
-        function sectionname(atype:TObjSectiontype;const aname:string):string;virtual;
-        procedure WriteSection(atype:TObjSectiontype;const aname:string);
+        function sectionname(atype:TAsmSectiontype;const aname:string):string;virtual;
+        procedure WriteSection(atype:TAsmSectiontype;const aname:string);
         procedure WriteExtraHeader;virtual;
         procedure WriteInstruction(hp: tai);  virtual; abstract;
       public
@@ -76,7 +76,7 @@ implementation
       line_length = 70;
 
     var
-      CurrSecType  : TObjSectionType; { last section type written }
+      CurrSecType  : TAsmSectiontype; { last section type written }
       lastfileinfo : tfileposinfo;
       infile,
       lastinfile   : tinputfile;
@@ -201,27 +201,33 @@ implementation
         result := target_asm.labelprefix+'$set$'+tostr(setcount);
       end;
 
-    function TGNUAssembler.sectionname(atype:TObjSectiontype;const aname:string):string;
+    function TGNUAssembler.sectionname(atype:TAsmSectiontype;const aname:string):string;
       const
-        secnames : array[TObjSectiontype] of string[13] = ('',
+        secnames : array[TAsmSectiontype] of string[13] = ('',
+          '.text',
+          '.data',
 {$warning TODO .rodata not yet working}
-          '.text','.data','.data','.bss','.threadvar',
-          'common',
-          '.note',
+          '.data',
+          '.bss',
+          '.threadvar',
           '__TEXT', { stubs }
-          '.stab','.stabstr',
+          '.stab',
+          '.stabstr',
           '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
           '.eh_frame',
           '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
           'fpc.resptrs',
           '.toc'
         );
-        secnames_pic : array[TObjSectiontype] of string[13] = ('',
-          '.text','.data.rel','.data.rel','.bss','.threadvar',
-          'common',
-          '.note',
+        secnames_pic : array[TAsmSectiontype] of string[13] = ('',
+          '.text',
+          '.data.rel',
+          '.data.rel',
+          '.bss',
+          '.threadvar',
           '__TEXT', { stubs }
-          '.stab','.stabstr',
+          '.stab',
+          '.stabstr',
           '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
           '.eh_frame',
           '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
@@ -249,7 +255,7 @@ implementation
       end;
 
 
-    procedure TGNUAssembler.WriteSection(atype:TObjSectiontype;const aname:string);
+    procedure TGNUAssembler.WriteSection(atype:TAsmSectiontype;const aname:string);
       var
         s : string;
       begin

@@ -47,17 +47,17 @@ interface
          coffrelocpos : longint;
        public
          flags    : cardinal;
-         constructor create(const Aname:string;Atype:TObjSectionType;Aalign:longint;Aoptions:TObjSectionOptions);override;
+         constructor create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);override;
          procedure addsymsizereloc(ofs:longint;p:tasmsymbol;size:longint;relative:TObjRelocationType);
          procedure fixuprelocs;override;
        end;
 
        TDJCoffObjSection = class(TCoffObjSection)
-         constructor create(const Aname:string;Atype:TObjSectionType;Aalign:longint;Aoptions:TObjSectionOptions);override;
+         constructor create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);override;
        end;
 
        TPECoffObjSection = class(TCoffObjSection)
-         constructor create(const Aname:string;Atype:TObjSectionType;Aalign:longint;Aoptions:TObjSectionOptions);override;
+         constructor create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);override;
        end;
 
        TCoffObjData = class(TObjData)
@@ -67,7 +67,7 @@ interface
        public
          constructor createcoff(const n:string;awin32:boolean;acObjSection:TObjSectionClass);
          destructor  destroy;override;
-         function  sectionname(atype:TObjSectiontype;const aname:string):string;override;
+         function  sectionname(atype:TAsmSectiontype;const aname:string):string;override;
          procedure writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);override;
          procedure writesymbol(p:tasmsymbol);override;
          procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother,line:longint;p:pchar);override;
@@ -341,10 +341,8 @@ implementation
        symbolresize = 200*sizeof(coffsymbol);
        strsresize   = 8192;
 
-       coffsecnames : array[TObjSectiontype] of string[16] = ('',
+       coffsecnames : array[TAsmSectiontype] of string[16] = ('',
           '.text','.data','.data','.bss','.tls',
-          'common',
-          '.note',
           '.text',
           '.stab','.stabstr',
           '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
@@ -508,24 +506,33 @@ const win32stub : array[0..131] of byte=(
                                  Helpers
 ****************************************************************************}
 
-    function sectionname2flags(const aname:string;aoptions:TObjSectionOptions):cardinal;
+    function encodesechdrflags(aoptions:TObjSectionOptions):cardinal;
       begin
-        if Copy(aname,1,5)='.text' then
-          result:=COFF_STYP_TEXT
-        else if Copy(aname,1,5)='.data' then
-          result:=COFF_STYP_DATA
-        else if Copy(aname,1,4)='.bss' then
-          result:=COFF_STYP_BSS
+        if (oso_load in aoptions) then
+          begin
+            if oso_executable in aoptions then
+              result:=COFF_STYP_TEXT
+            else if not(oso_data in aoptions) then
+              result:=COFF_STYP_BSS
+            else
+              result:=COFF_STYP_DATA;
+          end
         else
           result:=COFF_STYP_REG;
       end;
 
 
-    function sectionname2options(const aname:string;flags:cardinal):TObjSectionOptions;
+    function decodesechdrflags(const aname:string;flags:cardinal):TObjSectionOptions;
       begin
         result:=[];
-        if Copy(aname,1,4)='.bss' then
-          include(result,aso_alloconly);
+        if flags and COFF_STYP_TEXT<>0 then
+          result:=[oso_data,oso_load,oso_executable]
+        else if flags and COFF_STYP_BSS<>0 then
+          result:=[oso_load]
+        else if flags and COFF_STYP_DATA<>0 then
+          result:=[oso_data,oso_load]
+        else
+          result:=[oso_data]
       end;
 
 
@@ -533,10 +540,9 @@ const win32stub : array[0..131] of byte=(
                                TCoffObjSection
 ****************************************************************************}
 
-    constructor TCoffObjSection.create(const aname:string;atype:TObjSectiontype;aalign:longint;aoptions:TObjSectionOptions);
+    constructor TCoffObjSection.create(const aname:string;aalign:longint;aoptions:TObjSectionOptions);
       begin
-        inherited create(aname,atype,aalign,aoptions);
-        Flags:=0;
+        inherited create(aname,aalign,aoptions);
       end;
 
 
@@ -573,15 +579,15 @@ const win32stub : array[0..131] of byte=(
               RELOC_RVA,
               RELOC_ABSOLUTE :
                 begin
-                  if aso_common in r.symbol.objsection.options then
-                   dec(address,r.orgsize)
+                  if oso_common in r.symbol.objsection.secoptions then
+                    dec(address,r.orgsize)
                   else
-                   begin
-                     { fixup address when the symbol was known in defined object }
-                     if (r.symbol.objsection<>nil) and
-                        (r.symbol.objsection.objdata=objdata) then
-                       dec(address,TCoffObjSection(r.symbol.objsection).orgmempos);
-                   end;
+                    begin
+                      { fixup address when the symbol was known in defined object }
+                      if (r.symbol.objsection<>nil) and
+                         (r.symbol.objsection.objdata=objdata) then
+                        dec(address,TCoffObjSection(r.symbol.objsection).orgmempos);
+                    end;
                   inc(address,relocval);
                 end;
             end;
@@ -598,26 +604,9 @@ const win32stub : array[0..131] of byte=(
                                TDJCoffObjSection
 ****************************************************************************}
 
-    constructor TDJCoffObjSection.create(const aname:string;atype:TObjSectiontype;aalign:longint;aoptions:TObjSectionOptions);
+    constructor TDJCoffObjSection.create(const aname:string;aalign:longint;aoptions:TObjSectionOptions);
       begin
-        inherited create(aname,atype,aalign,aoptions);
-        case atype of
-          sec_code :
-            begin
-              Flags:=$20;
-              addralign:=16;
-            end;
-          sec_data :
-            begin
-              Flags:=$40;
-              addralign:=16;
-            end;
-          sec_bss :
-            begin
-              Flags:=$80;
-              addralign:=16;
-            end;
-        end;
+        inherited create(aname,aalign,aoptions);
       end;
 
 
@@ -625,38 +614,9 @@ const win32stub : array[0..131] of byte=(
                                TPECoffObjSection
 ****************************************************************************}
 
-    constructor TPECoffObjSection.create(const aname:string;atype:TObjSectiontype;aalign:longint;aoptions:TObjSectionOptions);
+    constructor TPECoffObjSection.create(const aname:string;aalign:longint;aoptions:TObjSectionOptions);
       begin
-        inherited create(aname,atype,aalign,aoptions);
-        case atype of
-          sec_code :
-            begin
-              Flags:=$60000020;
-              addralign:=16;
-            end;
-          sec_data :
-            begin
-              Flags:=$c0300040;
-              addralign:=16;
-            end;
-          sec_bss :
-            begin
-              Flags:=$c0300080;
-              addralign:=16;
-            end;
-          sec_idata2,
-          sec_idata4,
-          sec_idata5,
-          sec_idata6,
-          sec_idata7 :
-            begin
-              Flags:=$40000000;
-            end;
-          sec_edata :
-            begin
-              Flags:=$c0300040;
-            end;
-        end;
+        inherited create(aname,aalign,aoptions);
       end;
 
 
@@ -670,14 +630,14 @@ const win32stub : array[0..131] of byte=(
         CObjSection:=ACObjSection;
         win32:=awin32;
         { we need at least the following 3 ObjSections }
-        createsection(sec_code,'',0,[]);
-        createsection(sec_data,'',0,[]);
-        createsection(sec_bss,'',0,[]);
+        createsection(sec_code,'');
+        createsection(sec_data,'');
+        createsection(sec_bss,'');
         if (cs_use_lineinfo in aktglobalswitches) or
            (cs_debuginfo in aktmoduleswitches) then
          begin
-           stabssec:=createsection(sec_stab,'',0,[]);
-           stabstrsec:=createsection(sec_stabstr,'',0,[]);
+           stabssec:=createsection(sec_stab,'');
+           stabstrsec:=createsection(sec_stabstr,'');
          end;
       end;
 
@@ -688,7 +648,7 @@ const win32stub : array[0..131] of byte=(
       end;
 
 
-    function TCoffObjData.sectionname(atype:TObjSectiontype;const aname:string):string;
+    function TCoffObjData.sectionname(atype:TAsmSectiontype;const aname:string):string;
       var
         secname : string;
       begin
@@ -1045,7 +1005,7 @@ const win32stub : array[0..131] of byte=(
     procedure TCoffObjOutput.section_set_datapos(p:tnamedindexitem;arg:pointer);
       begin
         TObjSection(p).datapos:=plongint(arg)^;
-        if not(aso_alloconly in TObjSection(p).secoptions) then
+        if (oso_data in TObjSection(p).secoptions) then
           inc(plongint(arg)^,TObjSection(p).aligneddatasize);
       end;
 
@@ -1082,16 +1042,16 @@ const win32stub : array[0..131] of byte=(
               end
             else
               begin
-                if sectype=sec_bss then
+                if not(oso_data in secoptions) then
                   sechdr.vsize:=aligneddatasize;
               end;
             sechdr.datasize:=aligneddatasize;
             if (datasize>0) and
-               not(aso_alloconly in secoptions) then
+               (oso_data in secoptions) then
               sechdr.datapos:=datapos;
             sechdr.nrelocs:=relocations.count;
             sechdr.relocpos:=coffrelocpos;
-            sechdr.flags:=flags;
+            sechdr.flags:=encodesechdrflags(secoptions);
             FWriter.write(sechdr,sizeof(sechdr));
           end;
       end;
@@ -1099,12 +1059,11 @@ const win32stub : array[0..131] of byte=(
 
     procedure TCoffObjOutput.section_write_data(p:tnamedindexitem;arg:pointer);
       begin
-        if (aso_alloconly in TObjSection(p).secoptions) then
-          exit;
-        if TObjSection(p).data=nil then
-          internalerror(200403073);
-        TObjSection(p).alignsection;
-        FWriter.writearray(TObjSection(p).data);
+        if oso_data in TObjSection(p).secoptions then
+          begin
+            TObjSection(p).alignsection;
+            FWriter.writearray(TObjSection(p).data);
+          end;
       end;
 
 
@@ -1296,16 +1255,16 @@ const win32stub : array[0..131] of byte=(
             move(name[1],sechdr.name,length(name));
             sechdr.rvaofs:=mempos;
             sechdr.vsize:=mempos;
-            if aso_alloconly in options then
-              sechdr.datasize:=memsize
-            else
+            if oso_data in options then
               begin
                 sechdr.datasize:=datasize;
                 sechdr.datapos:=datapos;
-              end;
+              end
+            else
+              sechdr.datasize:=memsize;
             sechdr.nrelocs:=0;
             sechdr.relocpos:=0;
-            sechdr.flags:=sectionname2flags(name,options);
+            sechdr.flags:=encodesechdrflags(options);
             FWriter.write(sechdr,sizeof(sechdr));
           end;
       end;
@@ -1632,13 +1591,14 @@ const win32stub : array[0..131] of byte=(
       begin
         with TCoffObjSection(p) do
           begin
-            if (sectype=sec_bss) then
-              exit;
-            Reader.Seek(datapos);
-            if not Reader.ReadArray(data,datasize) then
+            if oso_data in secoptions then
               begin
-                Comment(V_Error,'Error reading coff file');
-                exit;
+                Reader.Seek(datapos);
+                if not Reader.ReadArray(data,datasize) then
+                  begin
+                    Comment(V_Error,'Error reading coff file');
+                    exit;
+                  end;
               end;
           end;
       end;
@@ -1664,7 +1624,6 @@ const win32stub : array[0..131] of byte=(
         objsec   : TCoffObjSection;
         header   : coffheader;
         sechdr   : coffsechdr;
-        sectype  : TObjSectionType;
         secname  : string;
         secnamebuf : array[0..15] of char;
       begin
@@ -1704,7 +1663,7 @@ const win32stub : array[0..131] of byte=(
                secnamebuf[8]:=#0;
                secname:=strpas(secnamebuf);
  {$warning TODO Alignment}
-               objsec:=TCoffObjSection(createsection(sec_none,secname,0,sectionname2options(secname,sechdr.flags)));
+               objsec:=TCoffObjSection(createsection(secname,sizeof(aint),decodesechdrflags(secname,sechdr.flags)));
                Fidx2objsec[i]:=objsec;
                if not win32 then
                  objsec.mempos:=sechdr.rvaofs;

@@ -46,12 +46,12 @@ interface
 
        TObjRelocationType = (RELOC_ABSOLUTE,RELOC_RELATIVE,RELOC_RVA);
 
-       TObjSectionType=(sec_none,
-         sec_code,sec_data,sec_rodata,sec_bss,sec_threadvar,
-         { used for executable creation }
-         sec_common,
-         { custom section, no prefix }
-         sec_custom,
+       TAsmSectiontype=(sec_none,
+         sec_code,
+         sec_data,
+         sec_rodata,
+         sec_bss,
+         sec_threadvar,
          { used for darwin import stubs }
          sec_stub,
          { stabs }
@@ -71,7 +71,25 @@ interface
          sec_toc
        );
 
-       TObjSectionOption = (aso_alloconly,aso_executable,aso_common);
+       TObjSectionOption = (
+         { Has data available in the file }
+         oso_data,
+         { Is loaded into memory }
+         oso_load,
+         { Not loaded into memory }
+         oso_noload,
+         { Read only }
+         oso_readonly,
+         { Read/Write }
+         oso_write,
+         { Contains executable instructions }
+         oso_executable,
+         { Special common symbols }
+         oso_common,
+         { Contains only strings }
+         oso_strings
+       );
+
        TObjSectionOptions = set of TObjSectionOption;
 
        TAsmSymbol = class(TNamedIndexItem)
@@ -132,7 +150,6 @@ interface
        TObjSection = class(TNamedIndexItem)
          objData    : TObjData;
          secoptions : TObjSectionOptions;
-         sectype    : TObjSectionType;
          secsymidx  : longint;   { index for the section in symtab }
          addralign  : longint;   { alignment of the section }
          { size of the data and in the file }
@@ -145,7 +162,7 @@ interface
          mempos     : aint;
          { relocation }
          relocations : TLinkedList;
-         constructor create(const Aname:string;Atype:TObjSectionType;Aalign:longint;Aoptions:TObjSectionOptions);virtual;
+         constructor create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);virtual;
          destructor  destroy;override;
          function  write(const d;l:aint):aint;
          function  writestr(const s:string):aint;
@@ -185,8 +202,11 @@ interface
        public
          constructor create(const n:string);virtual;
          destructor  destroy;override;
-         function  sectionname(atype:TObjSectiontype;const aname:string):string;virtual;
-         function  createsection(atype:TObjSectiontype;const aname:string;aalign:longint;aoptions:TObjSectionOptions):TObjSection;virtual;
+         function  sectionname(atype:TAsmSectiontype;const aname:string):string;virtual;
+         function  sectiontype2options(atype:TAsmSectiontype):TObjSectionOptions;virtual;
+         function  sectiontype2align(atype:TAsmSectiontype):shortint;virtual;
+         function  createsection(atype:TAsmSectionType;const aname:string):TObjSection;
+         function  createsection(const aname:string;aalign:longint;aoptions:TObjSectionOptions):TObjSection;virtual;
          function  findsection(const aname:string):TObjSection;
          procedure setsection(asec:TObjSection);
          procedure alloc(len:aint);
@@ -466,10 +486,9 @@ implementation
                               TObjSection
 ****************************************************************************}
 
-    constructor TObjSection.create(const Aname:string;Atype:TObjSectionType;Aalign:longint;Aoptions:TObjSectionOptions);
+    constructor TObjSection.create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);
       begin
         inherited createname(Aname);
-        sectype:=Atype;
         name:=Aname;
         secoptions:=Aoptions;
         secsymidx:=0;
@@ -477,10 +496,10 @@ implementation
         { data }
         datasize:=0;
         datapos:=0;
-        if (aso_alloconly in aoptions) then
-         data:=nil
+        if (oso_data in aoptions) then
+          Data:=TDynamicArray.Create(8192)
         else
-         Data:=TDynamicArray.Create(8192);
+          data:=nil;
         { memory }
         mempos:=0;
         memsize:=0;
@@ -632,13 +651,15 @@ implementation
       end;
 
 
-    function TObjData.sectionname(atype:TObjSectiontype;const aname:string):string;
+    function TObjData.sectionname(atype:TAsmSectiontype;const aname:string):string;
       const
-        secnames : array[TObjSectiontype] of string[13] = ('',
-          'code','data','rodata','bss','threadvar',
-          'common',
-          'note',
-          'text',
+        secnames : array[TAsmSectiontype] of string[13] = ('',
+          'code',
+          'data',
+          'rodata',
+          'bss',
+          'threadvar',
+          'stub',
           'stab','stabstr',
           'idata2','idata4','idata5','idata6','idata7','edata',
           'eh_frame',
@@ -654,18 +675,55 @@ implementation
       end;
 
 
-    function TObjData.createsection(atype:TObjSectiontype;const aname:string;aalign:longint;aoptions:TObjSectionOptions):TObjSection;
-      var
-        secname : string;
+    function TObjData.sectiontype2options(atype:TAsmSectiontype):TObjSectionOptions;
+      const
+        secoptions : array[TAsmSectiontype] of TObjSectionOptions = ([],
+          {code} [oso_data,oso_load,oso_readonly,oso_executable],
+          {data} [oso_data,oso_load,oso_write],
+{$warning TODO Fix rodata be really read-only}
+          {rodata} [oso_data,oso_load,oso_write],
+          {bss} [oso_load,oso_write],
+          {threadvar} [oso_load,oso_write],
+          {stub} [oso_data,oso_load,oso_readonly,oso_executable],
+          {stab} [oso_data,oso_noload],
+          {stabstr} [oso_data,oso_noload,oso_strings],
+          {idata2} [oso_data,oso_load,oso_readonly],
+          {idata4} [oso_data,oso_load,oso_readonly],
+          {idata5} [oso_data,oso_load,oso_readonly],
+          {idata6} [oso_data,oso_load,oso_readonly],
+          {idata7} [oso_data,oso_load,oso_readonly],
+          {edata} [oso_data,oso_load,oso_readonly],
+          {eh_frame} [oso_data,oso_load,oso_readonly],
+          {debug_frame} [oso_data,oso_noload],
+          {debug_info} [oso_data,oso_noload],
+          {debug_line} [oso_data,oso_noload],
+          {debug_abbrev} [oso_data,oso_noload],
+          {fpc} [oso_data,oso_load,oso_write],
+          {toc} [oso_data,oso_load,oso_readonly]
+        );
       begin
-        secname:=sectionname(atype,aname);
-        result:=TObjSection(FObjSectionsDict.search(secname));
+        result:=secoptions[atype];
+      end;
+
+
+    function TObjData.sectiontype2align(atype:TAsmSectiontype):shortint;
+      begin
+        result:=sizeof(aint);
+      end;
+
+
+    function TObjData.createsection(atype:TAsmSectionType;const aname:string):TObjSection;
+      begin
+        createsection(sectionname(atype,aname),sectiontype2align(atype),sectiontype2options(atype));
+      end;
+
+
+    function TObjData.createsection(const aname:string;aalign:longint;aoptions:TObjSectionOptions):TObjSection;
+      begin
+        result:=TObjSection(FObjSectionsDict.search(aname));
         if not assigned(result) then
           begin
-            { bss sections are always allocation only }
-            if atype=sec_bss then
-              include(aoptions,aso_alloconly);
-            result:=CObjSection.create(secname,atype,aalign,aoptions);
+            result:=CObjSection.create(aname,aalign,aoptions);
             FObjSectionsDict.Insert(result);
             FObjSectionsIndex.Insert(result);
             result.objdata:=self;

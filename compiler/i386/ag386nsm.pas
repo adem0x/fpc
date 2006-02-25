@@ -36,7 +36,7 @@ interface
         procedure WriteReference(var ref : treference);
         procedure WriteOper(const o:toper;s : topsize; opcode: tasmop;ops:longint;dest : boolean);
         procedure WriteOper_jmp(const o:toper; op : tasmop);
-        procedure WriteSection(atype:TObjSectiontype;const aname:string);
+        procedure WriteSection(atype:TAsmSectiontype;const aname:string);
       public
         procedure WriteTree(p:taasmoutput);override;
         procedure WriteAsmList;override;
@@ -343,7 +343,7 @@ interface
 
 
     var
-      LastSecType : TObjSectionType;
+      LastSecType : TAsmSectiontype;
 
     const
       ait_const2str : array[aitconst_128bit..aitconst_indirect_symbol] of string[20]=(
@@ -352,14 +352,17 @@ interface
         #9'RVA'#9,#9'FIXMEINDIRECT'#9
       );
 
-    procedure T386NasmAssembler.WriteSection(atype:TObjSectiontype;const aname:string);
+    procedure T386NasmAssembler.WriteSection(atype:TAsmSectiontype;const aname:string);
       const
-        secnames : array[TObjSectiontype] of string[13] = ('',
-          '.text','.data','.rodata','.bss','.tbss',
-          'common',
-          '.note',
+        secnames : array[TAsmSectiontype] of string[13] = ('',
           '.text',
-          '.stab','.stabstr',
+          '.data',
+          '.rodata',
+          '.bss',
+          '.tbss',
+          '.text',
+          '.stab',
+          '.stabstr',
           '.idata2','.idata4','.idata5','.idata6','.idata7','.edata',
           '.eh_frame',
           '.debug_frame','.debug_info','.debug_line','.debug_abbrev',

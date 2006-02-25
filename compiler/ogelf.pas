@@ -51,8 +51,8 @@ interface
           entsize   : longint;
           { relocation }
           relocsect : TElf32ObjSection;
-          constructor create(const Aname:string;Atype:TObjSectionType;Aalign:longint;Aoptions:TObjSectionOptions);override;
-          constructor create_ext(const Aname:string;Atype:TObjSectionType;Ashtype,Ashflags,Ashlink,Ashinfo,Aalign,Aentsize:longint);
+          constructor create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);override;
+          constructor create_ext(const Aname:string;Ashtype,Ashflags,Ashlink,Ashinfo,Aalign,Aentsize:longint);
           destructor  destroy;override;
        end;
 
@@ -69,7 +69,8 @@ interface
          syms     : Tdynamicarray;
          constructor create(const n:string);
          destructor  destroy;override;
-         function  sectionname(atype:TObjSectiontype;const aname:string):string;override;
+         function  sectionname(atype:TAsmSectiontype;const aname:string):string;override;
+         function  sectiontype2align(atype:TAsmSectiontype):shortint;override;
          procedure writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);override;
          procedure writesymbol(p:tasmsymbol);override;
          procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother,line:longint;p:pchar);override;
@@ -210,83 +211,81 @@ implementation
           nvalue  : longint;
         end;
 
+{****************************************************************************
+                                Helpers
+****************************************************************************}
+
+    procedure encodesechdrflags(aoptions:TObjSectionOptions;out AshType:longint;out Ashflags:longint);
+      begin
+        { Section Type }
+        AshType:=SHT_PROGBITS;
+        if oso_strings in aoptions then
+          AshType:=SHT_STRTAB
+        else if not(oso_data in aoptions) then
+          AshType:=SHT_NOBITS;
+        { Section Flags }
+        Ashflags:=0;
+        if oso_load in aoptions then
+          Ashflags:=Ashflags or SHF_ALLOC;
+        if oso_executable in aoptions then
+          Ashflags:=Ashflags or SHF_EXECINSTR;
+        if oso_write in aoptions then
+          Ashflags:=Ashflags or SHF_WRITE;
+      end;
+
+
+    procedure decodesechdrflags(AshType:longint;Ashflags:longint;out aoptions:TObjSectionOptions);
+      begin
+        aoptions:=[];
+        { Section Type }
+        if AshType=SHT_STRTAB then
+          include(aoptions,oso_strings)
+        else if AshType=SHT_PROGBITS then
+          include(aoptions,oso_data);
+        { Section Flags }
+        if Ashflags and SHF_ALLOC<>0 then
+          include(aoptions,oso_load)
+        else
+          include(aoptions,oso_noload);
+        if Ashflags and SHF_WRITE<>0 then
+          include(aoptions,oso_write)
+        else
+          include(aoptions,oso_readonly);
+      end;
+
 
 {****************************************************************************
                                TSection
 ****************************************************************************}
 
-    constructor TElf32ObjSection.create(const Aname:string;Atype:TObjSectionType;Aalign:longint;Aoptions:TObjSectionOptions);
-      var
-        Ashflags,Ashtype,Aentsize : longint;
+    constructor TElf32ObjSection.create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);
       begin
-        Ashflags:=0;
-        Ashtype:=0;
-        Aentsize:=0;
-        case Atype of
-          sec_code :
-            begin
-              Ashflags:=SHF_ALLOC or SHF_EXECINSTR;
-              AshType:=SHT_PROGBITS;
-              AAlign:=max(sizeof(aint),AAlign);
-            end;
-          sec_data :
-            begin
-              Ashflags:=SHF_ALLOC or SHF_WRITE;
-              AshType:=SHT_PROGBITS;
-              AAlign:=max(sizeof(aint),AAlign);
-            end;
-          sec_rodata :
-            begin
-{$warning TODO Remove rodata hack}
-              Ashflags:=SHF_ALLOC or SHF_WRITE;
-              AshType:=SHT_PROGBITS;
-              AAlign:=max(sizeof(aint),AAlign);
-            end;
-          sec_bss,sec_threadvar :
-            begin
-              Ashflags:=SHF_ALLOC or SHF_WRITE;
-              AshType:=SHT_NOBITS;
-              AAlign:=max(sizeof(aint),AAlign);
-            end;
-          sec_stab :
-            begin
-              AshType:=SHT_PROGBITS;
-              AAlign:=max(sizeof(aint),AAlign);
-              Aentsize:=sizeof(TElf32stab);
-            end;
-          sec_stabstr :
-            begin
-              AshType:=SHT_STRTAB;
-              AAlign:=1;
-            end;
-          sec_fpc :
-            begin
-              AshFlags:=SHF_ALLOC;
-              AshType:=SHT_PROGBITS ;
-              AAlign:=4;// max(sizeof(aint),AAlign);
-            end;
-          else
-            internalerror(200509122);
-        end;
-        create_ext(Aname,Atype,Ashtype,Ashflags,0,0,Aalign,Aentsize);
+        inherited create(Aname,Aalign,aoptions);
+        secshidx:=0;
+        shstridx:=0;
+        encodesechdrflags(aoptions,shtype,shflags);
+        shlink:=0;
+        shinfo:=0;
+        if name='.stab' then
+          entsize:=sizeof(TElf32stab);
+        relocsect:=nil;
       end;
 
 
-    constructor TElf32ObjSection.create_ext(const Aname:string;Atype:TObjSectionType;Ashtype,Ashflags,Ashlink,Ashinfo,Aalign,Aentsize:longint);
+    constructor TElf32ObjSection.create_ext(const Aname:string;Ashtype,Ashflags,Ashlink,Ashinfo,Aalign,Aentsize:longint);
       var
         aoptions : TObjSectionOptions;
       begin
-        aoptions:=[];
-        if (AshType=SHT_NOBITS) then
-          include(aoptions,aso_alloconly);
-        inherited create(Aname,Atype,Aalign,aoptions);
+        decodesechdrflags(Ashtype,Ashflags,aoptions);
+        inherited create(Aname,Aalign,aoptions);
         secshidx:=0;
         shstridx:=0;
         shtype:=AshType;
         shflags:=AshFlags;
         shlink:=Ashlink;
         shinfo:=Ashinfo;
-        entsize:=Aentsize;
+        if name='.stab' then
+          entsize:=sizeof(TElf32stab);
         relocsect:=nil;
       end;
 
@@ -310,23 +309,23 @@ implementation
         { reset }
         Syms:=TDynamicArray.Create(symbolresize);
         { default sections }
-        symtabsect:=TElf32ObjSection.create_ext('.symtab',sec_custom,2,0,0,0,4,16);
-        strtabsect:=TElf32ObjSection.create_ext('.strtab',sec_custom,3,0,0,0,1,0);
-        shstrtabsect:=TElf32ObjSection.create_ext('.shstrtab',sec_custom,3,0,0,0,1,0);
+        symtabsect:=TElf32ObjSection.create_ext('.symtab',2,0,0,0,4,16);
+        strtabsect:=TElf32ObjSection.create_ext('.strtab',3,0,0,0,1,0);
+        shstrtabsect:=TElf32ObjSection.create_ext('.shstrtab',3,0,0,0,1,0);
         { insert the empty and filename as first in strtab }
         strtabsect.writestr(#0);
         strtabsect.writestr(SplitFileName(current_module.mainsource^)+#0);
         { we need at least the following sections }
-        createsection(sec_code,'',0,[]);
-        createsection(sec_data,'',0,[]);
-        createsection(sec_bss,'',0,[]);
+        createsection(sec_code,'');
+        createsection(sec_data,'');
+        createsection(sec_bss,'');
         if tf_section_threadvars in target_info.flags then
-          createsection(sec_threadvar,'',0,[]);
+          createsection(sec_threadvar,'');
         { create stabs sections if debugging }
         if (cs_debuginfo in aktmoduleswitches) then
          begin
-           stabssec:=createsection(sec_stab,'',0,[]);
-           stabstrsec:=createsection(sec_stabstr,'',0,[]);
+           stabssec:=createsection(sec_stab,'');
+           stabstrsec:=createsection(sec_stabstr,'');
          end;
       end;
 
@@ -341,16 +340,14 @@ implementation
       end;
 
 
-    function TElf32ObjData.sectionname(atype:TObjSectiontype;const aname:string):string;
+    function TElf32ObjData.sectionname(atype:TAsmSectiontype;const aname:string):string;
       const
-        secnames : array[TObjSectiontype] of string[13] = ('',
+        secnames : array[TAsmSectiontype] of string[13] = ('',
 {$ifdef userodata}
           '.text','.data','.rodata','.bss','.threadvar',
 {$else userodata}
           '.text','.data','.data','.bss','.threadvar',
 {$endif userodata}
-          'common',
-          '.note',
           '.text', { darwin stubs }
           '.stab','.stabstr',
           '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
@@ -365,6 +362,15 @@ implementation
           result:=secnames[atype]+'.'+aname
         else
           result:=secnames[atype];
+      end;
+
+
+    function TElf32ObjData.sectiontype2align(atype:TAsmSectiontype):shortint;
+      begin
+        if atype=sec_stabstr then
+          result:=1
+        else
+          result:=sizeof(aint);
       end;
 
 
@@ -505,7 +511,7 @@ implementation
              end;
 {$endif userodata}
            { create the reloc section }
-           s.relocsect:=TElf32ObjSection.create_ext('.rel'+s.name,sec_custom,9,0,symtabsect.secshidx,s.secshidx,4,8);
+           s.relocsect:=TElf32ObjSection.create_ext('.rel'+s.name,9,0,symtabsect.secshidx,s.secshidx,4,8);
            { add the relocations }
            r:=TObjRelocation(s.relocations.first);
            while assigned(r) do
@@ -606,7 +612,7 @@ implementation
               end;
               if (sym.currbind<>AB_EXTERNAL) and
                  not(assigned(sym.objsection) and
-                     (sym.objsection.sectype=sec_bss)) then
+                     not(oso_data in sym.objsection.secoptions)) then
                begin
                  case sym.typ of
                    AT_FUNCTION :
@@ -715,10 +721,10 @@ implementation
 
     procedure TElf32ObjectOutput.section_set_datapos(p:tnamedindexitem;arg:pointer);
       begin
-        if (aso_alloconly in TObjSection(p).secoptions) then
-          TObjSection(p).datapos:=paint(arg)^
+        if (oso_data in TObjSection(p).secoptions) then
+          TObjSection(p).setdatapos(paint(arg)^)
         else
-          TObjSection(p).setdatapos(paint(arg)^);
+          TObjSection(p).datapos:=paint(arg)^;
       end;
 
 
@@ -731,11 +737,12 @@ implementation
 
     procedure TElf32ObjectOutput.section_write_data(p:tnamedindexitem;arg:pointer);
       begin
-        if (aso_alloconly in TObjSection(p).secoptions) then
-          exit;
-        if TObjSection(p).data=nil then
-          internalerror(200403073);
-        writesectiondata(TElf32ObjSection(p));
+        if (oso_data in TObjSection(p).secoptions) then
+          begin
+            if TObjSection(p).data=nil then
+              internalerror(200403073);
+            writesectiondata(TElf32ObjSection(p));
+          end;
       end;
 
 

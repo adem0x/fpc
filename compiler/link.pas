@@ -78,6 +78,7 @@ Type
        FCExeOutput : TExeOutputClass;
        FCObjInput  : TObjInputClass;
        procedure Pass1_ReadObject(const para:string);
+       procedure Pass1_ReadUnitObjects;
        procedure ParseScriptPass1;
        procedure ParseScriptPass2;
     protected
@@ -694,6 +695,19 @@ end;
       end;
 
 
+    procedure TInternalLinker.Pass1_ReadUnitObjects;
+      var
+        s : string;
+      begin
+        while not ObjectFiles.Empty do
+          begin
+            s:=ObjectFiles.GetFirst;
+            if s<>'' then
+              Pass1_ReadObject(s);
+          end;
+      end;
+
+
     procedure TInternalLinker.ParseScriptPass1;
       var
         t : text;
@@ -708,16 +722,18 @@ end;
             readln(t,s);
             keyword:=Upper(GetToken(s,' '));
             para:=GetToken(s,' ');
-            if keyword='OUTPUTSECTION' then
-              ExeOutput.Pass1_OutputSection(para)
-            else if keyword='ENDSECTION' then
-              ExeOutput.Pass1_EndSection
-            else if keyword='INPUTSECTION' then
-              ExeOutput.Pass1_InputSection(para)
+            if keyword='EXESECTION' then
+              ExeOutput.Pass1_ExeSection(para)
+            else if keyword='ENDEXESECTION' then
+              ExeOutput.Pass1_EndExeSection
+            else if keyword='OBJSECTION' then
+              ExeOutput.Pass1_ObjSection(para)
             else if keyword='ENTRYNAME' then
               ExeOutput.Pass1_EntryName(para)
             else if keyword='READOBJECT' then
-              Pass1_ReadObject(para);
+              Pass1_ReadObject(para)
+            else if keyword='READUNITOBJECTS' then
+              Pass1_ReadUnitObjects;
           end;
         close(t);
       end;
@@ -738,10 +754,10 @@ end;
             readln(t,s);
             keyword:=Upper(GetToken(s,' '));
             para:=GetToken(s,' ');
-            if keyword='OUTPUTSECTION' then
-              ExeOutput.Pass2_OutputSection(para)
-            else if keyword='ENDSECTION' then
-              ExeOutput.Pass2_EndSection
+            if keyword='EXESECTION' then
+              ExeOutput.Pass2_ExeSection(para)
+            else if keyword='ENDEXESECTION' then
+              ExeOutput.Pass2_EndExeSection
             else if keyword='HEADER' then
               ExeOutput.Pass2_Header
             else if keyword='SYMBOLS' then
@@ -752,8 +768,6 @@ end;
 
 
     function TInternalLinker.MakeExecutable:boolean;
-      var
-        s : string;
       begin
         MakeExecutable:=false;
 
@@ -761,14 +775,6 @@ end;
 
         if (cs_link_map in aktglobalswitches) then
           exemap:=texemap.create(current_module.mapfilename^);
-
-        { read objects from the units }
-        while not ObjectFiles.Empty do
-          begin
-            s:=ObjectFiles.GetFirst;
-            if s<>'' then
-              Pass1_ReadObject(s);
-          end;
 
         ParseScriptPass1;
         exeoutput.CalculateSymbols;
