@@ -27,7 +27,7 @@ interface
 
     uses
        { common }
-       cclasses,systems,
+       cclasses,globtype,systems,
        { object writer }
        aasmbase,ogbase
        ;
@@ -36,13 +36,14 @@ interface
        texemap = class
        private
          t : text;
+         FImageBase : aint;
        public
          constructor Create(const s:string);
          destructor Destroy;override;
          procedure Add(const s:string);
          procedure AddCommonSymbolsHeader;
          procedure AddCommonSymbol(p:tasmsymbol);
-         procedure AddMemoryMapHeader;
+         procedure AddMemoryMapHeader(abase:aint);
          procedure AddMemoryMapExeSection(p:texesection);
          procedure AddMemoryMapObjectSection(p:TObjSection);
          procedure AddMemoryMapSymbol(p:tasmsymbol);
@@ -66,6 +67,7 @@ implementation
        begin
          Assign(t,FixFileName(s));
          Rewrite(t);
+         FImageBase:=0;
        end;
 
 
@@ -105,10 +107,14 @@ implementation
        end;
 
 
-     procedure TExeMap.AddMemoryMapHeader;
+     procedure TExeMap.AddMemoryMapHeader(abase:aint);
        begin
+         FImageBase:=abase;
          writeln(t,'');
-         writeln(t,'Memory map');
+         write(t,'Memory map');
+         if FImageBase<>0 then
+           Write(t,' (ImageBase=',HexStr(FImageBase,sizeof(aint)*2),')');
+         writeln(t,'');
          writeln(t,'');
        end;
 
@@ -116,22 +122,23 @@ implementation
      procedure TExeMap.AddMemoryMapExeSection(p:texesection);
        begin
          { .text           0x000018a8     0xd958 }
-         writeln(t,PadSpace(p.name,18)+PadSpace('0x'+HexStr(p.mempos,8),15)+'0x'+HexStr(p.memsize,1));
+         writeln(t,PadSpace(p.name,18)+PadSpace('0x'+HexStr(p.mempos+Fimagebase,sizeof(aint)*2),12)+
+                   '0x'+HexStr(p.memsize,sizeof(aint)));
        end;
 
 
      procedure TExeMap.AddMemoryMapObjectSection(p:TObjSection);
        begin
          { .text           0x000018a8     0xd958     object.o }
-         writeln(t,' '+PadSpace(p.name,17)+PadSpace('0x'+HexStr(p.mempos,8),16)+
-                   '0x'+HexStr(p.memsize,1)+' '+p.objdata.name);
+         writeln(t,' '+PadSpace(p.name,17)+PadSpace('0x'+HexStr(p.mempos+FImageBase,sizeof(aint)*2),12)+
+                   '0x'+HexStr(p.memsize,sizeof(aint))+' '+p.objdata.name);
        end;
 
 
      procedure TExeMap.AddMemoryMapSymbol(p:tasmsymbol);
        begin
          {                 0x00001e30                setup_screens }
-         writeln(t,Space(18)+PadSpace('0x'+HexStr(p.address,8),26)+p.name);
+         writeln(t,Space(18)+PadSpace('0x'+HexStr(p.address+Fimagebase,sizeof(aint)*2),26)+p.name);
        end;
 
 end.

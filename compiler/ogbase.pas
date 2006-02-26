@@ -1,5 +1,5 @@
 {
-    Copyright (c) 1998-2002 by Peter Vreman
+    Copyright (c) 1998-2006 by Peter Vreman
 
     Contains the base stuff for binary object file writers
 
@@ -72,29 +72,44 @@ interface
       end;
       TObjInputClass=class of TObjInput;
 
+      TExeSection = class;
+
+      TExeSymbol = class(TNamedIndexItem)
+        objsymbol  : TAsmSymbol;
+        exesection : TExeSection;
+        constructor create(sym:TAsmSymbol);
+      end;
+
       TExeSection = class(tnamedindexitem)
       private
+        FSecSymIdx : longint;
         FObjSectionList : TList;
+        FObjSymbolList  : Tlist;
+        procedure SetSecSymIdx(idx:longint);
       public
-        secsymidx,
-        datasize,
+        DataSize,
         DataPos,
-        memsize,
-        MemPos    : aint;
-        options   : TObjSectionOptions;
+        MemSize,
+        MemPos     : aint;
+        SecAlign   : shortint;
+        secoptions : TObjSectionOptions;
         constructor create(const n:string);virtual;
         destructor  destroy;override;
         procedure AddObjSection(objsec:TObjSection);
         property ObjSectionList:TList read FObjSectionList;
+        property ObjSymbolList:TList read FObjSymbolList;
+        property SecSymIdx:longint read FSecSymIdx write SetSecSymIdx;
       end;
       TExeSectionClass=class of TExeSection;
 
       TExeOutput = class
       private
         { ExeSections }
-        FCExeSection     : TExeSectionClass;
-        FCurrExeSec      : TExeSection;
-        FExeSectionsDict : TDictionary;
+        FCObjData         : TObjDataClass;
+        FCExeSection      : TExeSectionClass;
+        FCurrExeSec       : TExeSection;
+        FExeSectionsIndex : TIndexArray;
+        FExeSectionsDict  : TDictionary;
         { Symbols }
         FExternalExeSymbols : TList;
         FCommonExeSymbols   : TList;
@@ -110,23 +125,27 @@ interface
       protected
         { writer }
         FWriter : TObjectwriter;
+        commonobjsection : TObjSection;
         commonobjdata,
         globalsobjdata : TObjData;
         EntrySym  : TAsmSymbol;
         SectionDataAlign,
         SectionMemAlign : aint;
-        procedure AddGlobalSym(const name:string;ofs:longint);
         function  writedata:boolean;virtual;abstract;
-        procedure ExeSections_write_data(p:tnamedindexitem;arg:pointer);
         property CExeSection:TExeSectionClass read FCExeSection write FCExeSection;
+        property CObjData:TObjDataClass read FCObjData write FCObjData;
       public
         constructor create;virtual;
         destructor  destroy;override;
         procedure AddObjData(objdata:TObjData);
+        function  FindExeSection(const aname:string):TExeSection;
+        procedure Pass1_Start;virtual;
         procedure Pass1_EntryName(const aname:string);virtual;
         procedure Pass1_ExeSection(const aname:string);virtual;
         procedure Pass1_EndExeSection;virtual;
         procedure Pass1_ObjSection(const aname:string);virtual;
+        procedure Pass1_Symbol(const aname:string);virtual;
+        procedure Pass1_Zeros(const aname:string);virtual;
         procedure Pass2_ExeSection(const aname:string);virtual;
         procedure Pass2_EndExeSection;virtual;
         procedure Pass2_Header;virtual;
@@ -135,9 +154,10 @@ interface
         function  CalculateSymbols:boolean;
         procedure FixUpSymbols;
         procedure FixUpRelocations;
+        procedure RemoveEmptySections;
         function  writeexefile(const fn:string):boolean;
         property Writer:TObjectWriter read FWriter;
-        property ExeSections:TDictionary read FExeSectionsDict;
+        property ExeSections:TIndexArray read FExeSectionsIndex;
         property ObjDataList:TList read FObjDataList;
         property ExternalExeSymbols:TList read FExternalExeSymbols;
         property CommonExeSymbols:TList read FCommonExeSymbols;
@@ -186,6 +206,9 @@ implementation
     function TObjOutput.newObjData(const n:string):TObjData;
       begin
         result:=CObjData.create(n);
+        if (cs_use_lineinfo in aktglobalswitches) or
+           (cs_debuginfo in aktmoduleswitches) then
+          result.CreateDebugSections;
       end;
 
 
@@ -221,6 +244,17 @@ implementation
 
 
 {****************************************************************************
+                                 TExeSymbol
+****************************************************************************}
+
+    constructor TExeSymbol.create(sym:TAsmSymbol);
+      begin
+        inherited createname(sym.name);
+        objsymbol:=sym;
+      end;
+
+
+{****************************************************************************
                                 texesection
 ****************************************************************************}
 
@@ -228,23 +262,42 @@ implementation
       begin
         inherited createname(n);
         MemPos:=0;
-        memsize:=0;
+        MemSize:=0;
         DataPos:=0;
-        datasize:=0;
-        secsymidx:=0;
+        DataSize:=0;
+        FSecSymIdx:=0;
         FObjSectionList:=TList.Create;
+        FObjSymbolList:=TList.Create;
       end;
 
 
     destructor texesection.destroy;
       begin
         ObjSectionList.Free;
+        ObjSymbolList.Free;
       end;
 
 
     procedure texesection.AddObjSection(objsec:TObjSection);
       begin
         ObjSectionList.Add(objsec);
+        if (secoptions<>[]) then
+          begin
+            if (oso_data in secoptions)<>(oso_data in objsec.secoptions) then
+              Comment(V_Error,'Incompatible section options');
+          end;
+        { relate objsection to exesection }
+        objsec.exesection:=self;
+      end;
+
+
+    procedure texesection.SetSecSymIdx(idx:longint);
+      var
+        i : longint;
+      begin
+        FSecSymIdx:=idx;
+//        for i:=0 to ObjSectionList.count-1 do
+//          TObjSection(ObjSectionList[i]).SecSymIdx:=idx;
       end;
 
 
@@ -261,19 +314,16 @@ implementation
         { symbols }
         FGlobalExeSymbols:=tdictionary.create;
         FGlobalExeSymbols.usehash;
-        FGlobalExeSymbols.noclear:=true;
         FExternalExeSymbols:=TList.create;
         FCommonExeSymbols:=TList.create;
         FExeSectionsDict:=TDictionary.create;
+        FExeSectionsIndex:=TIndexArray.create(10);
         FEntryName:='start';
         FImageBase:=0;
         SectionMemAlign:=$1000;
         SectionDataAlign:=$200;
-        globalsobjdata:=TObjData.create('*GLOBALS*');
-        AddObjData(globalsobjdata);
-        commonobjdata:=TObjData.create('*COMMON*');
-        AddObjData(commonobjdata);
         FCExeSection:=TExeSection;
+        FCObjData:=TObjData;
       end;
 
 
@@ -310,7 +360,27 @@ implementation
 
     procedure texeoutput.AddObjData(objdata:TObjData);
       begin
+        if objdata.classtype<>FCObjData then
+          Comment(V_Error,'Invalid input object format for '+objdata.name+' got '+objdata.classname+' expected '+FCObjData.classname);
         ObjDataList.Add(objdata);
+      end;
+
+
+    function  texeoutput.FindExeSection(const aname:string):TExeSection;
+      begin
+        result:=TExeSection(FExeSectionsDict.Search(aname));
+      end;
+
+
+    procedure texeoutput.Pass1_Start;
+      begin
+        { Globals defined in the linker script }
+        globalsobjdata:=CObjData.create('*GLOBALS*');
+        AddObjData(globalsobjdata);
+        { Common data }
+        commonobjdata:=CObjData.create('*COMMON*');
+        commonobjsection:=commonobjdata.createsection(sec_bss,'');
+        AddObjData(commonobjdata);
       end;
 
 
@@ -324,11 +394,12 @@ implementation
       var
         sec : TExeSection;
       begin
-        sec:=TExeSection(FExeSectionsDict.search(aname));
+        sec:=FindExeSection(aname);
         if not assigned(sec) then
           begin
             sec:=CExeSection.create(aname);
             FExeSectionsDict.Insert(sec);
+            FExeSectionsIndex.Insert(sec);
           end;
         FCurrExeSec:=sec;
       end;
@@ -356,54 +427,147 @@ implementation
             objdata:=TObjData(ObjDataList[i]);
             objsec:=objdata.findsection(aname);
             if assigned(objsec) then
-              CurrExeSec.AddObjSection(objsec);
+              begin
+                CurrExeSec.AddObjSection(objsec);
+                { inherit section options }
+                if CurrExeSec.secoptions=[] then
+                  begin
+                    CurrExeSec.SecAlign:=CurrExeSec.secalign;
+                    CurrExeSec.secoptions:=CurrExeSec.secoptions+objsec.secoptions;
+                  end;
+              end;
           end;
       end;
 
 
-    procedure texeoutput.Pass2_ExeSection(const aname:string);
+    procedure texeoutput.Pass1_Symbol(const aname:string);
       var
-        i      : longint;
+        sym : tasmsymbol;
+      begin
+(*
+        sym:=tasmsymbol.create(aname,AB_GLOBAL,AT_FUNCTION);
+        { Create a dummy section }
+        sym.objsection:=globalsobjdata.createsection('*'+sym.name,0,[]);
+        globalsobjdata.ObjSymbols.insert(sym);
+        CurrExeSec.AddObjSection(sym.objsection);
+*)
+      end;
+
+
+    procedure texeoutput.Pass1_Zeros(const aname:string);
+      var
+        zeros : array[0..1023] of byte;
+        code  : integer;
+        len   : longint;
+        objsec : TObjSection;
+      begin
+        val(aname,len,code);
+        if len<=0 then
+          exit;
+        if len>sizeof(zeros) then
+          internalerror(200602254);
+        fillchar(zeros,len,0);
+        objsec:=globalsobjdata.createsection('*zeros',0,CurrExeSec.secoptions);
+        globalsobjdata.writebytes(zeros,len);
+        globalsobjdata.afteralloc;
+        CurrExeSec.AddObjSection(objsec);
+      end;
+
+
+    procedure texeoutput.Pass2_ExeSection(const aname:string);
+      type
+       coffstab=packed record
+         strpos  : longint;
+         ntype   : byte;
+         nother  : byte;
+         ndesc   : word;
+         nvalue  : longint;
+       end;
+      var
+        hstab  : coffstab;
+        stabcnt,
+        i,j    : longint;
+        stabsec,
         objsec : TObjSection;
         alignedpos : aint;
       begin
-        FCurrExeSec:=TExeSection(FExeSectionsDict.search(aname));
+        { Section can be removed }
+        FCurrExeSec:=FindExeSection(aname);
         if not assigned(CurrExeSec) then
-          internalerror(200602182);
+          exit;
         { Alignment of exesection }
-        CurrMemPos:=align(CurrMemPos,SectionMemAlign);
-        CurrDataPos:=align(CurrDataPos,SectionDataAlign);
-        CurrExeSec.DataPos:=CurrDataPos;
-        CurrExeSec.MemPos:=CurrMemPos;
+        if (oso_load in currexesec.secoptions) then
+          begin
+            CurrMemPos:=align(CurrMemPos,SectionMemAlign);
+            CurrExeSec.MemPos:=CurrMemPos;
+          end;
+        if (oso_data in currexesec.secoptions) then
+          begin
+            CurrDataPos:=align(CurrDataPos,SectionDataAlign);
+            CurrExeSec.DataPos:=CurrDataPos;
+          end;
+
+        { For the stab section we need an HdrSym }
+{$warning TODO Remove Stabs hack}
+        if aname='.stab' then
+          begin
+            inc(CurrDataPos,sizeof(coffstab));
+          end;
+
+
         { set position of object ObjSections }
         for i:=0 to CurrExeSec.ObjSectionList.Count-1 do
           begin
             objsec:=TObjSection(CurrExeSec.ObjSectionList[i]);
-            { align section }
-            CurrMemPos:=align(CurrMemPos,objsec.addralign);
-            if assigned(objsec.data) then
+            { Position in memory }
+            if (oso_load in currexesec.secoptions) then
               begin
-                alignedpos:=align(CurrDataPos,objsec.addralign);
+                CurrMemPos:=align(CurrMemPos,objsec.secalign);
+                objsec.MemPos:=CurrMemPos;
+                inc(CurrMemPos,objsec.alignedmemsize);
+              end;
+            { Position in File }
+            if (oso_data in objsec.secoptions) then
+              begin
+                alignedpos:=align(CurrDataPos,objsec.secalign);
                 objsec.dataalignbytes:=alignedpos-CurrDataPos;
                 CurrDataPos:=alignedpos;
+                objsec.DataPos:=CurrDataPos;
+                inc(CurrDataPos,objsec.aligneddatasize);
               end;
-            { set position and size of this objectfile }
-            objsec.MemPos:=CurrMemPos;
-            objsec.DataPos:=CurrDataPos;
-            inc(CurrMemPos,objsec.datasize);
-            if assigned(objsec.data) then
-              inc(CurrDataPos,objsec.datasize);
-         end;
+
+            { Update references to stabstr }
+    {$warning TODO Remove Stabs hack}
+            if objsec.name='.stabstr' then
+              begin
+                stabsec:=objsec.objdata.findsection('.stab');
+                stabcnt:=stabsec.data.size div sizeof(coffstab);
+                for j:=0 to stabcnt-1 do
+                  begin
+                    stabsec.data.seek(j*sizeof(coffstab));
+                    stabsec.data.read(hstab,sizeof(coffstab));
+                    if hstab.strpos<>0 then
+                      begin
+                        inc(hstab.strpos,objsec.datapos-CurrExeSec.DataPos);
+                        stabsec.data.seek(j*sizeof(coffstab));
+                        stabsec.data.write(hstab,sizeof(coffstab));
+                      end;
+                  end;
+              end;
+
+          end;
       end;
 
 
     procedure texeoutput.Pass2_EndExeSection;
       begin
         if not assigned(CurrExeSec) then
-          internalerror(200602183);
+          exit;
         { calculate size of the section }
-        CurrExeSec.datasize:=CurrDataPos-CurrExeSec.DataPos;
         CurrExeSec.memsize:=CurrMemPos-CurrExeSec.MemPos;
+        if (oso_data in CurrExeSec.secoptions) then
+          CurrExeSec.datasize:=CurrDataPos-CurrExeSec.DataPos;
+        { Reset current section }
         FCurrExeSec:=nil;
       end;
 
@@ -445,14 +609,9 @@ implementation
                   begin
                     { process only the symbols that are defined in this section
                       and are located in this module }
-//                    if ((hsym.objsection=objsec) or
-//                        ((objsec.sectype=sec_bss) and (hsym.objsection.sectype=sec_common))) then
                     if (hsym.objsection=objsec) and
                        (hsym.currbind in [AB_GLOBAL,AB_LOCAL]) then
                       begin
-//                        if hsym.currbind=AB_EXTERNAL then
-//                          internalerror(200206303);
-                        inc(hsym.address,objsec.MemPos);
                         if assigned(exemap) then
                           exemap.AddMemoryMapSymbol(hsym);
                       end;
@@ -463,31 +622,19 @@ implementation
       end;
 
 
-    procedure Texeoutput.ExeSections_write_Data(p:tnamedindexitem;arg:pointer);
-      var
-        objsec : TObjSection;
-        i      : longint;
-      begin
-        with texesection(p) do
-          begin
-            for i:=0 to ObjSectionList.Count-1 do
-              begin
-                objsec:=TObjSection(ObjSectionList[i]);
-                if assigned(objsec.data) then
-                  begin
-                    FWriter.writezeros(objsec.dataalignbytes);
-                    FWriter.writearray(objsec.data);
-                  end;
-              end;
-          end;
-      end;
-
-
     procedure texeoutput.FixUpSymbols;
       var
         i   : longint;
         sym : tasmsymbol;
+        objdata : TObjData;
       begin
+        { Update ImageBase to ObjData so it can access from ObjSymbols }
+        for i:=0 to ObjDataList.Count-1 do
+          begin
+            objdata:=TObjData(ObjDataList[i]);
+            objdata.imagebase:=imagebase;
+          end;
+
         {
           Fixing up symbols is done in the following steps:
            1. Update addresses
@@ -496,7 +643,7 @@ implementation
         }
         { Step 1, Update addresses }
         if assigned(exemap) then
-          exemap.AddMemoryMapHeader;
+          exemap.AddMemoryMapHeader(ImageBase);
         ExeSections.foreach(@ExeSections_FixUpSymbol,nil);
         { Step 2, Update commons }
         for i:=0 to commonExeSymbols.count-1 do
@@ -506,7 +653,7 @@ implementation
               begin
                 { update this symbol }
                 sym.currbind:=sym.altsymbol.currbind;
-                sym.address:=sym.altsymbol.address;
+                sym.memoffset:=sym.altsymbol.memoffset;
                 sym.size:=sym.altsymbol.size;
                 sym.typ:=sym.altsymbol.typ;
                 sym.objsection:=sym.altsymbol.objsection;
@@ -520,10 +667,28 @@ implementation
               begin
                 { update this symbol }
                 sym.currbind:=sym.altsymbol.currbind;
-                sym.address:=sym.altsymbol.address;
+                sym.memoffset:=sym.altsymbol.memoffset;
                 sym.size:=sym.altsymbol.size;
                 sym.typ:=sym.altsymbol.typ;
                 sym.objsection:=sym.altsymbol.objsection;
+              end;
+          end;
+      end;
+
+
+    procedure texeoutput.RemoveEmptySections;
+      var
+        i      : longint;
+        exesec : TExeSection;
+      begin
+        for i:=1 to FExeSectionsIndex.Count do
+          begin
+            exesec:=TExeSection(FExeSectionsIndex.Search(i));
+            if not(oso_keep in exesec.secoptions) and
+               (exesec.objsectionlist.count=0) then
+              begin
+                FExeSectionsIndex.DeleteIndex(exesec);
+                FExeSectionsDict.Delete(exesec.name);
               end;
           end;
       end;
@@ -542,32 +707,15 @@ implementation
       end;
 
 
-    procedure texeoutput.AddGlobalSym(const name:string;ofs:longint);
-      var
-        sym : tasmsymbol;
-      begin
-        sym:=tasmsymbol(globalExeSymbols.search(name));
-        if not assigned(sym) then
-         begin
-           sym:=tasmsymbol.create(name,AB_GLOBAL,AT_FUNCTION);
-           { Create a dummy section }
-           sym.objsection:=globalsobjdata.createsection('*'+sym.name,0,[]);
-           globalsobjdata.ObjSymbols.insert(sym);
-           globalExeSymbols.insert(sym);
-         end;
-        sym.currbind:=AB_GLOBAL;
-        sym.address:=ofs;
-      end;
-
-
     function TExeOutput.CalculateSymbols:boolean;
       var
-        commonobjsection : TObjSection;
-        objdata : TObjData;
-        sym,p   : tasmsymbol;
-        i       : longint;
+        objdata   : TObjData;
+        exesym    : TExeSymbol;
+        sym,
+        commonsym : tasmsymbol;
+        firstcommon : boolean;
+        i         : longint;
       begin
-        commonobjsection:=nil;
         result:=true;
 
         {
@@ -579,6 +727,7 @@ implementation
               add to the globals (so externals can be resolved)
            3. try to find externals
         }
+
         { Step 1, Register symbols }
         for i:=0 to ObjDataList.Count-1 do
           begin
@@ -591,9 +740,12 @@ implementation
                 case sym.currbind of
                   AB_GLOBAL :
                     begin
-                      p:=tasmsymbol(globalExeSymbols.search(sym.name));
-                      if not assigned(p) then
-                        globalExeSymbols.insert(sym)
+                      exesym:=texesymbol(globalExeSymbols.search(sym.name));
+                      if not assigned(exesym) then
+                        begin
+                          globalExeSymbols.insert(texesymbol.create(sym));
+                          TExeSection(sym.objsection.exesection).objsymbollist.add(sym);
+                        end
                       else
                         begin
                           Comment(V_Error,'Multiple defined symbol '+sym.name);
@@ -608,63 +760,69 @@ implementation
                 sym:=tasmsymbol(sym.indexnext);
               end;
           end;
+
         { Step 2, Match common symbols or add to the globals }
+        firstcommon:=true;
         for i:=0 to commonExeSymbols.count-1 do
           begin
             sym:=tasmsymbol(commonExeSymbols[i]);
             if sym.currbind=AB_COMMON then
               begin
-                p:=tasmsymbol(globalExeSymbols.search(sym.name));
-                if assigned(p) then
+                exesym:=texesymbol(globalExeSymbols.search(sym.name));
+                if assigned(exesym) then
                   begin
-                    if p.size<>sym.size then
+                    if exesym.objsymbol.size<>sym.size then
                      internalerror(200206301);
                   end
                 else
                   begin
                     { allocate new symbol in .bss and store it in the
                       *COMMON* module }
-                    if not assigned(commonobjsection) then
+                    if firstcommon then
                       begin
                         if assigned(exemap) then
                           exemap.AddCommonSymbolsHeader;
-                        { create .bss section and add to list }
-                        commonobjsection:=commonobjdata.createsection(sec_bss,'');
+                        firstcommon:=false;
                       end;
-                    p:=TAsmSymbol.Create(sym.name,AB_GLOBAL,AT_FUNCTION);
-                    p.objsection:=commonobjsection;
-                    commonobjdata.ObjSymbols.insert(p);
+                    commonsym:=TAsmSymbol.Create(sym.name,AB_GLOBAL,AT_FUNCTION);
+                    commonobjdata.setsection(commonobjsection);
+                    commonobjdata.allocsymbol(2,commonsym,sym.size);
+                    commonobjdata.alloc(sym.size);
+                    commonobjdata.writesymbol(commonsym);
                     if assigned(exemap) then
-                      exemap.AddCommonSymbol(p);
+                      exemap.AddCommonSymbol(commonsym);
                     { make this symbol available as a global }
-                    globalExeSymbols.insert(p);
+                    globalExeSymbols.insert(texesymbol.create(commonsym));
+                    TExeSection(commonsym.objsection.exesection).objsymbollist.add(commonsym);
                   end;
-                sym.altsymbol:=p;
+                sym.altsymbol:=commonsym;
               end;
           end;
+        if not firstcommon then
+          commonobjdata.afteralloc;
+
         { Step 3 }
         for i:=0 to externalExeSymbols.count-1 do
           begin
             sym:=tasmsymbol(externalExeSymbols[i]);
             if sym.currbind=AB_EXTERNAL then
               begin
-                p:=tasmsymbol(globalExeSymbols.search(sym.name));
-                if assigned(p) then
-                  begin
-                    sym.altsymbol:=p;
-                  end
+                exesym:=texesymbol(globalExeSymbols.search(sym.name));
+                if assigned(exesym) then
+                  sym.altsymbol:=exesym.objsymbol
                 else
                   begin
                     Comment(V_Error,'Undefined symbol: '+sym.name);
-                    CalculateSymbols:=false;
+                    result:=false;
                   end;
               end;
           end;
 
         { Find entry symbol in map }
-        EntrySym:=tasmsymbol(globalexesymbols.search(EntryName));
-        if assigned(EntrySym) then
+        exesym:=texesymbol(globalexesymbols.search(EntryName));
+        if assigned(exesym) then
           begin
+            EntrySym:=exesym.objsymbol;
             if assigned(exemap) then
               begin
                 exemap.Add('Entry symbol '+EntryName);

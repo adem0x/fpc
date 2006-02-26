@@ -685,7 +685,7 @@ end;
         fn       : string;
       begin
         fn:=FindObjectFile(para,'',false);
-        Comment(V_Info,'Reading object '+fn);
+        Comment(V_Tried,'Reading object '+fn);
         objinput:=CObjInput.Create;
         objdata:=objinput.newObjData(para);
         if objinput.readobjectfile(fn,objdata) then
@@ -707,6 +707,38 @@ end;
           end;
       end;
 
+(*
+READUNITOBJECTS
+ENTRYNAME _mainCRTStartup
+HEADER
+EXESECTION .text
+  OBJSECTION .text
+  SYMBOL etext
+ENDEXESECTION
+EXESECTION .data
+  OBJSECTION .data
+  SYMBOL edata
+ENDEXESECTION
+EXESECTION .idata
+  OBJSECTION .idata$2
+  OBJSECTION .idata$3
+  ZEROS 20
+  OBJSECTION .idata$4
+  OBJSECTION .idata$5
+  OBJSECTION .idata$6
+  OBJSECTION .idata$7
+ENDEXESECTION
+EXESECTION .bss
+  OBJSECTION .bss
+ENDEXESECTION
+EXESECTION .stab
+  OBJSECTION .stab
+ENDEXESECTION
+EXESECTION .stabstr
+  OBJSECTION .stabstr
+ENDEXESECTION
+SYMBOLS
+*)
 
     procedure TInternalLinker.ParseScriptPass1;
       var
@@ -715,11 +747,14 @@ end;
         para,
         keyword : string;
       begin
+        exeoutput.Pass1_Start;
         assign(t,'pecoff.scr');
         reset(t);
         while not eof(t) do
           begin
             readln(t,s);
+            if (s='') or (s[1]='#') then
+              continue;
             keyword:=Upper(GetToken(s,' '));
             para:=GetToken(s,' ');
             if keyword='EXESECTION' then
@@ -728,6 +763,10 @@ end;
               ExeOutput.Pass1_EndExeSection
             else if keyword='OBJSECTION' then
               ExeOutput.Pass1_ObjSection(para)
+            else if keyword='SYMBOL' then
+              ExeOutput.Pass1_Symbol(para)
+            else if keyword='ZEROS' then
+              ExeOutput.Pass1_Zeros(para)
             else if keyword='ENTRYNAME' then
               ExeOutput.Pass1_EntryName(para)
             else if keyword='READOBJECT' then
@@ -752,6 +791,8 @@ end;
         while not eof(t) do
           begin
             readln(t,s);
+            if (s='') or (s[1]='#') then
+              continue;
             keyword:=Upper(GetToken(s,' '));
             para:=GetToken(s,' ');
             if keyword='EXESECTION' then
@@ -778,6 +819,7 @@ end;
 
         ParseScriptPass1;
         exeoutput.CalculateSymbols;
+        exeoutput.RemoveEmptySections;
 
         ParseScriptPass2;
         exeoutput.FixupSymbols;

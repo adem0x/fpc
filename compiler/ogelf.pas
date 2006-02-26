@@ -73,7 +73,7 @@ interface
          function  sectiontype2align(atype:TAsmSectiontype):shortint;override;
          procedure writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);override;
          procedure writesymbol(p:tasmsymbol);override;
-         procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother,line:longint;p:pchar);override;
+         procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother:byte;ndesc:word;p:pchar);override;
          procedure beforealloc;override;
          procedure beforewrite;override;
        end;
@@ -433,7 +433,7 @@ implementation
       end;
 
 
-    procedure TElf32ObjData.writestab(offset:aint;ps:tasmsymbol;nidx,nother,line:longint;p:pchar);
+    procedure TElf32ObjData.writestab(offset:aint;ps:tasmsymbol;nidx,nother:byte;ndesc:word;p:pchar);
       var
         stab : TElf32stab;
       begin
@@ -444,7 +444,7 @@ implementation
            stabstrsec.write(p^,strlen(p)+1);
          end;
         stab.ntype:=nidx;
-        stab.ndesc:=line;
+        stab.ndesc:=ndesc;
         stab.nother:=nother;
         stab.nvalue:=offset;
         stabssec.write(stab,sizeof(stab));
@@ -516,7 +516,7 @@ implementation
            r:=TObjRelocation(s.relocations.first);
            while assigned(r) do
             begin
-              rel.address:=r.address;
+              rel.address:=r.dataoffset;
               if assigned(r.symbol) then
                begin
                  if (r.symbol.currbind=AB_LOCAL) then
@@ -674,7 +674,7 @@ implementation
         sechdr.sh_size:=s.datasize;
         sechdr.sh_link:=s.shlink;
         sechdr.sh_info:=s.shinfo;
-        sechdr.sh_addralign:=s.addralign;
+        sechdr.sh_addralign:=s.secalign;
         sechdr.sh_entsize:=s.entsize;
         writer.write(sechdr,sizeof(sechdr));
       end;

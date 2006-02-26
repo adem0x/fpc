@@ -35,7 +35,7 @@ type
     opened : boolean;
     buf    : pchar;
     bufidx : longint;
-    size   : longint;
+    fsize  : longint;
     procedure writebuf;
   public
     constructor create;
@@ -46,6 +46,7 @@ type
     procedure write(const b;len:longint);virtual;
     procedure WriteZeros(l:longint);
     procedure writearray(a:TDynamicArray);
+    property Size:longint read FSize;
   end;
 
   tobjectreader=class
@@ -84,7 +85,7 @@ begin
   getmem(buf,bufsize);
   bufidx:=0;
   opened:=false;
-  size:=0;
+  fsize:=0;
 end;
 
 
@@ -106,7 +107,7 @@ begin
        exit;
     end;
   bufidx:=0;
-  size:=0;
+  fsize:=0;
   opened:=true;
   createfile:=true;
 end;
@@ -124,7 +125,7 @@ begin
   if size=0 then
    RemoveFile(fn);
   opened:=false;
-  size:=0;
+  fsize:=0;
 end;
 
 
@@ -146,7 +147,7 @@ var
   left,
   idx : longint;
 begin
-  inc(size,len);
+  inc(fsize,len);
   p:=pchar(@b);
   idx:=0;
   while len>0 do
@@ -172,7 +173,7 @@ end;
 
 procedure tobjectwriter.WriteZeros(l:longint);
 var
-  empty : array[0..255] of byte;
+  empty : array[0..1023] of byte;
 begin
   if l>sizeof(empty) then
     internalerror(200404081);

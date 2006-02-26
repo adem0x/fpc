@@ -925,7 +925,7 @@ Implementation
                end;
              ait_datablock :
                begin
-                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.addralign);
+                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.secalign);
                  if SmartAsm or (not Tai_datablock(hp).is_global) then
                    begin
                      ObjData.allocalign(l);
@@ -999,7 +999,7 @@ Implementation
                begin
                  if (oso_data in ObjData.CurrObjSec.secoptions) then
                    Message(asmw_e_alloc_data_only_in_bss);
-                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.addralign);
+                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.secalign);
                  ObjData.allocalign(l);
                  ObjData.allocsymbol(currpass,Tai_datablock(hp).sym,Tai_datablock(hp).size);
                  ObjData.alloc(Tai_datablock(hp).size);
@@ -1122,7 +1122,7 @@ Implementation
                end;
              ait_datablock :
                begin
-                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.addralign);
+                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.secalign);
                  ObjData.writesymbol(Tai_datablock(hp).sym);
                  ObjOutput.exportsymbol(Tai_datablock(hp).sym);
                  ObjData.allocalign(l);
