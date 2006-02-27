@@ -200,6 +200,8 @@ type
           { concats an item }
           procedure ConcatItem(item:TStringListItem);
           property Doubles:boolean read FDoubles write FDoubles;
+          procedure readstream(f:TCStream);
+          procedure writestream(f:TCStream);
        end;
 
 
@@ -1236,6 +1238,104 @@ end;
     procedure TStringList.ConcatItem(item:TStringListItem);
       begin
         inherited Concat(item);
+      end;
+
+
+    procedure TStringList.readstream(f:TCStream);
+      const
+        BufSize = 16384;
+      var
+        Hsp,
+        p,maxp,
+        Buf    : PChar;
+        Prev   : Char;
+        HsPos,
+        ReadLen,
+        BufPos,
+        BufEnd : Longint;
+        hs     : string;
+
+        procedure ReadBuf;
+        begin
+          if BufPos<BufEnd then
+            begin
+              Move(Buf[BufPos],Buf[0],BufEnd-BufPos);
+              Dec(BufEnd,BufPos);
+              BufPos:=0;
+            end;
+          ReadLen:=f.Read(buf[BufEnd],BufSize-BufEnd);
+          inc(BufEnd,ReadLen);
+        end;
+
+      begin
+        Getmem(Buf,Bufsize);
+        BufPos:=0;
+        BufEnd:=0;
+        HsPos:=1;
+        ReadBuf;
+        repeat
+          hsp:=@hs[hsPos];
+          p:=@Buf[BufPos];
+          maxp:=@Buf[BufEnd];
+          while (p<maxp) and not(P^ in [#10,#13]) do
+            begin
+              hsp^:=p^;
+              inc(p);
+              if hsp-@hs[1]<255 then
+                inc(hsp);
+            end;
+          inc(BufPos,maxp-p);
+          inc(HsPos,maxp-p);
+          prev:=p^;
+          inc(BufPos);
+          { no system uses #10#13 as line seperator (#10 = *nix, #13 = Mac, }
+          { #13#10 = Dos), so if we've got #10, we can safely exit          }
+          if (prev<>#10) then
+            begin
+              if (BufPos>=BufEnd) then
+                begin
+                  ReadBuf;
+                  if BufPos>=BufEnd then
+                    break;
+                end;
+              { is there also a #10 after it? }
+              if prev=#13 then
+                begin
+                  if (Buf[BufPos]=#10) then
+                    inc(BufPos);
+                  prev:=#10;
+                end;
+            end;
+          if prev=#10 then
+            begin
+              hs[0]:=char(hsp-@hs[1]);
+              Concat(hs);
+              HsPos:=1;
+            end;
+        until BufPos>=BufEnd;
+        hs[0]:=char(hsp-@hs[1]);
+        Concat(hs);
+        freemem(buf);
+      end;
+
+
+    procedure TStringList.writestream(f:TCStream);
+      var
+        Node : TStringListItem;
+        LineEnd : string[2];
+      begin
+        Case DefaultTextLineBreakStyle Of
+          tlbsLF: LineEnd := #10;
+          tlbsCRLF: LineEnd := #13#10;
+          tlbsCR: LineEnd := #13;
+        End;
+        Node:=tstringListItem(FFirst);
+        while assigned(Node) do
+          begin
+            f.Write(Node.FPStr^[1],Length(Node.FPStr^));
+            f.Write(LineEnd[1],length(LineEnd));
+            Node:=tstringListItem(Node.Next);
+          end;
       end;
 
 

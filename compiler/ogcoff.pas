@@ -194,10 +194,12 @@ interface
 
        TDJCofflinker = class(tinternallinker)
          constructor create;override;
+         procedure DefaultLinkScript;override;
        end;
 
        TPECofflinker = class(tinternallinker)
          constructor create;override;
+         procedure DefaultLinkScript;override;
        end;
 
 
@@ -1453,7 +1455,6 @@ const win32stub : array[0..131] of byte=(
       var
         objsec : TObjSection;
         i      : longint;
-        s      : string;
         hstab  : coffstab;
       begin
         with texesection(p) do
@@ -1992,11 +1993,54 @@ const win32stub : array[0..131] of byte=(
       end;
 
 
+    procedure TDJCoffLinker.DefaultLinkScript;
+      begin
+      end;
+
+
     constructor TPECoffLinker.Create;
       begin
         inherited Create;
         CExeoutput:=TPECoffexeoutput;
         CObjInput:=TPECoffObjInput;
+      end;
+
+
+    procedure TPECoffLinker.DefaultLinkScript;
+      begin
+        with LinkScript do
+          begin
+            Concat('READUNITOBJECTS');
+            Concat('ENTRYNAME _mainCRTStartup');
+            Concat('HEADER');
+            Concat('EXESECTION .text');
+            Concat('  OBJSECTION .text');
+            Concat('  SYMBOL etext');
+            Concat('ENDEXESECTION');
+            Concat('EXESECTION .data');
+            Concat('  OBJSECTION .data');
+            Concat('  SYMBOL edata');
+            Concat('ENDEXESECTION');
+            Concat('EXESECTION .idata');
+            Concat('  OBJSECTION .idata$2');
+            Concat('  OBJSECTION .idata$3');
+            Concat('  ZEROS 20');
+            Concat('  OBJSECTION .idata$4');
+            Concat('  OBJSECTION .idata$5');
+            Concat('  OBJSECTION .idata$6');
+            Concat('  OBJSECTION .idata$7');
+            Concat('ENDEXESECTION');
+            Concat('EXESECTION .bss');
+            Concat('  OBJSECTION .bss');
+            Concat('ENDEXESECTION');
+            Concat('EXESECTION .stab');
+            Concat('  OBJSECTION .stab');
+            Concat('ENDEXESECTION');
+            Concat('EXESECTION .stabstr');
+            Concat('  OBJSECTION .stabstr');
+            Concat('ENDEXESECTION');
+            Concat('SYMBOLS');
+          end;
       end;
 
 

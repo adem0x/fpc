@@ -121,7 +121,7 @@ interface
         FImageBase    : aint;
         FCurrDataPos,
         FCurrMemPos   : aint;
-        procedure ExeSections_FixUpSymbol(s:tnamedindexitem;arg:pointer);
+        procedure ExeSections_SymbolMap(s:tnamedindexitem;arg:pointer);
       protected
         { writer }
         FWriter : TObjectwriter;
@@ -152,6 +152,7 @@ interface
         procedure Pass2_Start;virtual;
         procedure Pass2_Symbols;virtual;
         function  CalculateSymbols:boolean;
+        procedure PrintMemoryMap;
         procedure FixUpSymbols;
         procedure FixUpRelocations;
         procedure RemoveEmptySections;
@@ -589,7 +590,7 @@ implementation
       end;
 
 
-    procedure texeoutput.ExeSections_FixUpSymbol(s:tnamedindexitem;arg:pointer);
+    procedure texeoutput.ExeSections_SymbolMap(s:tnamedindexitem;arg:pointer);
       var
         objsec : TObjSection;
         hsym    : TAsmSymbol;
@@ -597,13 +598,11 @@ implementation
       begin
         with texesection(s) do
           begin
-            if assigned(exemap) then
-              exemap.AddMemoryMapExeSection(TExeSection(s));
+            exemap.AddMemoryMapExeSection(TExeSection(s));
             for i:=0 to ObjSectionList.count-1 do
               begin
                 objsec:=TObjSection(ObjSectionList[i]);
-                if assigned(exemap) then
-                  exemap.AddMemoryMapObjectSection(objsec);
+                exemap.AddMemoryMapObjectSection(objsec);
                 hsym:=tasmsymbol(objsec.objdata.objsymbols.first);
                 while assigned(hsym) do
                   begin
@@ -611,13 +610,21 @@ implementation
                       and are located in this module }
                     if (hsym.objsection=objsec) and
                        (hsym.currbind in [AB_GLOBAL,AB_LOCAL]) then
-                      begin
-                        if assigned(exemap) then
-                          exemap.AddMemoryMapSymbol(hsym);
-                      end;
+                      exemap.AddMemoryMapSymbol(hsym);
                     hsym:=tasmsymbol(hsym.indexnext);
                   end;
               end;
+          end;
+      end;
+
+
+    procedure texeoutput.PrintMemoryMap;
+      begin
+        { Step 1, Update addresses }
+        if assigned(exemap) then
+          begin
+            exemap.AddMemoryMapHeader(ImageBase);
+            ExeSections.foreach(@ExeSections_SymbolMap,nil);
           end;
       end;
 
@@ -637,15 +644,11 @@ implementation
 
         {
           Fixing up symbols is done in the following steps:
-           1. Update addresses
-           2. Update common references
-           3. Update external references
+           1. Update common references
+           2. Update external references
         }
-        { Step 1, Update addresses }
-        if assigned(exemap) then
-          exemap.AddMemoryMapHeader(ImageBase);
-        ExeSections.foreach(@ExeSections_FixUpSymbol,nil);
-        { Step 2, Update commons }
+
+        { Step 1, Update commons }
         for i:=0 to commonExeSymbols.count-1 do
           begin
             sym:=tasmsymbol(commonExeSymbols[i]);
@@ -659,7 +662,8 @@ implementation
                 sym.objsection:=sym.altsymbol.objsection;
               end;
           end;
-        { Step 3, Update externals }
+
+        { Step 2, Update externals }
         for i:=0 to externalExeSymbols.count-1 do
           begin
             sym:=tasmsymbol(externalExeSymbols[i]);
@@ -744,7 +748,8 @@ implementation
                       if not assigned(exesym) then
                         begin
                           globalExeSymbols.insert(texesymbol.create(sym));
-                          TExeSection(sym.objsection.exesection).objsymbollist.add(sym);
+                          if assigned(sym.objsection.exesection) then
+                            TExeSection(sym.objsection.exesection).objsymbollist.add(sym);
                         end
                       else
                         begin
@@ -818,15 +823,15 @@ implementation
               end;
           end;
 
-        { Find entry symbol in map }
+        { Find entry symbol and print in map }
         exesym:=texesymbol(globalexesymbols.search(EntryName));
         if assigned(exesym) then
           begin
             EntrySym:=exesym.objsymbol;
             if assigned(exemap) then
               begin
-                exemap.Add('Entry symbol '+EntryName);
                 exemap.Add('');
+                exemap.Add('Entry symbol '+EntryName);
               end;
           end
         else

@@ -81,9 +81,12 @@ Type
        procedure Pass1_ReadUnitObjects;
        procedure ParseScriptPass1;
        procedure ParseScriptPass2;
+       procedure PrintLinkerScript;
     protected
        property CObjInput:TObjInputClass read FCObjInput write FCObjInput;
        property CExeOutput:TExeOutputClass read FCExeOutput write FCExeOutput;
+       procedure DefaultLinkScript;virtual;abstract;
+       linkscript : TStringList;
     public
        Constructor Create;override;
        Destructor Destroy;override;
@@ -664,6 +667,7 @@ end;
     Constructor TInternalLinker.Create;
       begin
         inherited Create;
+        linkscript:=TStringList.Create;
         exemap:=nil;
         exeoutput:=nil;
         CObjInput:=TObjInput;
@@ -672,6 +676,7 @@ end;
 
     Destructor TInternalLinker.Destroy;
       begin
+        linkscript.free;
         exeoutput.free;
         exeoutput:=nil;
         inherited destroy;
@@ -707,52 +712,19 @@ end;
           end;
       end;
 
-(*
-READUNITOBJECTS
-ENTRYNAME _mainCRTStartup
-HEADER
-EXESECTION .text
-  OBJSECTION .text
-  SYMBOL etext
-ENDEXESECTION
-EXESECTION .data
-  OBJSECTION .data
-  SYMBOL edata
-ENDEXESECTION
-EXESECTION .idata
-  OBJSECTION .idata$2
-  OBJSECTION .idata$3
-  ZEROS 20
-  OBJSECTION .idata$4
-  OBJSECTION .idata$5
-  OBJSECTION .idata$6
-  OBJSECTION .idata$7
-ENDEXESECTION
-EXESECTION .bss
-  OBJSECTION .bss
-ENDEXESECTION
-EXESECTION .stab
-  OBJSECTION .stab
-ENDEXESECTION
-EXESECTION .stabstr
-  OBJSECTION .stabstr
-ENDEXESECTION
-SYMBOLS
-*)
 
     procedure TInternalLinker.ParseScriptPass1;
       var
-        t : text;
         s,
         para,
         keyword : string;
+        hp : TStringListItem;
       begin
         exeoutput.Pass1_Start;
-        assign(t,'pecoff.scr');
-        reset(t);
-        while not eof(t) do
+        hp:=tstringlistitem(linkscript.first);
+        while assigned(hp) do
           begin
-            readln(t,s);
+            s:=hp.str;
             if (s='') or (s[1]='#') then
               continue;
             keyword:=Upper(GetToken(s,' '));
@@ -773,24 +745,23 @@ SYMBOLS
               Pass1_ReadObject(para)
             else if keyword='READUNITOBJECTS' then
               Pass1_ReadUnitObjects;
+            hp:=tstringlistitem(hp.next);
           end;
-        close(t);
       end;
 
 
     procedure TInternalLinker.ParseScriptPass2;
       var
-        t : text;
         s,
         para,
         keyword : string;
+        hp : TStringListItem;
       begin
         exeoutput.Pass2_Start;
-        assign(t,'pecoff.scr');
-        reset(t);
-        while not eof(t) do
+        hp:=tstringlistitem(linkscript.first);
+        while assigned(hp) do
           begin
-            readln(t,s);
+            s:=hp.str;
             if (s='') or (s[1]='#') then
               continue;
             keyword:=Upper(GetToken(s,' '));
@@ -803,30 +774,62 @@ SYMBOLS
               ExeOutput.Pass2_Header
             else if keyword='SYMBOLS' then
               ExeOutput.Pass2_Symbols;
+            hp:=tstringlistitem(hp.next);
           end;
-        close(t);
+      end;
+
+
+    procedure TInternalLinker.PrintLinkerScript;
+      var
+        hp : TStringListItem;
+      begin
+        if not assigned(exemap) then
+          exit;
+        exemap.Add('Used linker script');
+        exemap.Add('');
+        hp:=tstringlistitem(linkscript.first);
+        while assigned(hp) do
+          begin
+            exemap.Add(hp.str);
+            hp:=tstringlistitem(hp.next);
+          end;
       end;
 
 
     function TInternalLinker.MakeExecutable:boolean;
+      label
+        myexit;
       begin
         MakeExecutable:=false;
+
+{$warning TODO Load custom linker script}
+        DefaultLinkScript;
 
         exeoutput:=CExeOutput.Create;
 
         if (cs_link_map in aktglobalswitches) then
           exemap:=texemap.create(current_module.mapfilename^);
 
+        PrintLinkerScript;
+
         ParseScriptPass1;
+        if ErrorCount>0 then
+          goto myexit;
         exeoutput.CalculateSymbols;
+        if ErrorCount>0 then
+          goto myexit;
         exeoutput.RemoveEmptySections;
+        if ErrorCount>0 then
+          goto myexit;
 
         ParseScriptPass2;
         exeoutput.FixupSymbols;
         exeoutput.FixupRelocations;
+        exeoutput.PrintMemoryMap;
 
         exeoutput.WriteExeFile(current_module.exefilename^);
 
+      myexit:
         { close map }
         if assigned(exemap) then
           begin
