@@ -48,7 +48,7 @@ interface
           shflags,
           shlink,
           shinfo,
-          entsize   : longint;
+          shentsize : longint;
           { relocation }
           relocsect : TElf32ObjSection;
           constructor create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);override;
@@ -67,10 +67,11 @@ interface
          plTSect,
          symsect  : TElf32ObjSection;
          syms     : Tdynamicarray;
-         constructor create(const n:string);
+         constructor create(const n:string);override;
          destructor  destroy;override;
          function  sectionname(atype:TAsmSectiontype;const aname:string):string;override;
          function  sectiontype2align(atype:TAsmSectiontype):shortint;override;
+         procedure CreateDebugSections;override;
          procedure writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);override;
          procedure writesymbol(p:tasmsymbol);override;
          procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother:byte;ndesc:word;p:pchar);override;
@@ -238,10 +239,10 @@ implementation
       begin
         aoptions:=[];
         { Section Type }
-        if AshType=SHT_STRTAB then
-          include(aoptions,oso_strings)
-        else if AshType=SHT_PROGBITS then
+        if AshType<>SHT_NOBITS then
           include(aoptions,oso_data);
+        if AshType=SHT_STRTAB then
+          include(aoptions,oso_strings);
         { Section Flags }
         if Ashflags and SHF_ALLOC<>0 then
           include(aoptions,oso_load)
@@ -267,7 +268,7 @@ implementation
         shlink:=0;
         shinfo:=0;
         if name='.stab' then
-          entsize:=sizeof(TElf32stab);
+          shentsize:=sizeof(TElf32stab);
         relocsect:=nil;
       end;
 
@@ -284,8 +285,7 @@ implementation
         shflags:=AshFlags;
         shlink:=Ashlink;
         shinfo:=Ashinfo;
-        if name='.stab' then
-          entsize:=sizeof(TElf32stab);
+        shentsize:=Aentsize;
         relocsect:=nil;
       end;
 
@@ -321,12 +321,6 @@ implementation
         createsection(sec_bss,'');
         if tf_section_threadvars in target_info.flags then
           createsection(sec_threadvar,'');
-        { create stabs sections if debugging }
-        if (cs_debuginfo in aktmoduleswitches) then
-         begin
-           stabssec:=createsection(sec_stab,'');
-           stabstrsec:=createsection(sec_stabstr,'');
-         end;
       end;
 
 
@@ -371,6 +365,13 @@ implementation
           result:=1
         else
           result:=sizeof(aint);
+      end;
+
+
+    procedure TElf32ObjData.CreateDebugSections;
+      begin
+        stabssec:=createsection(sec_stab,'');
+        stabstrsec:=createsection(sec_stabstr,'');
       end;
 
 
@@ -437,6 +438,8 @@ implementation
       var
         stab : TElf32stab;
       begin
+        if not assigned(StabsSec) then
+          internalerror(200602271);
         fillchar(stab,sizeof(TElf32stab),0);
         if assigned(p) and (p[0]<>#0) then
          begin
@@ -459,7 +462,7 @@ implementation
     procedure TElf32ObjData.beforealloc;
       begin
         { create stabs sections if debugging }
-        if (cs_debuginfo in aktmoduleswitches) then
+        if assigned(StabsSec) then
           begin
             StabsSec.Alloc(sizeof(TElf32stab));
             StabStrSec.Alloc(length(SplitFileName(current_module.mainsource^))+2);
@@ -472,7 +475,7 @@ implementation
         s : string;
       begin
         { create stabs sections if debugging }
-        if (cs_debuginfo in aktmoduleswitches) then
+        if assigned(StabsSec) then
          begin
            writestab(0,nil,0,0,0,nil);
            { write zero pchar and name together (PM) }
@@ -675,7 +678,7 @@ implementation
         sechdr.sh_link:=s.shlink;
         sechdr.sh_info:=s.shinfo;
         sechdr.sh_addralign:=s.secalign;
-        sechdr.sh_entsize:=s.entsize;
+        sechdr.sh_entsize:=s.shentsize;
         writer.write(sechdr,sizeof(sechdr));
       end;
 
@@ -867,7 +870,7 @@ implementation
     constructor TElf32Assembler.Create(smart:boolean);
       begin
         inherited Create(smart);
-        ObjOutput:=TElf32ObjectOutput.create(smart);
+        CObjOutput:=TElf32ObjectOutput;
       end;
 
 
