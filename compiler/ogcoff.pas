@@ -399,13 +399,6 @@ implementation
          typ     : byte;
          aux     : byte;
        end;
-       coffstab=packed record
-         strpos  : longint;
-         ntype   : byte;
-         nother  : byte;
-         ndesc   : word;
-         nvalue  : longint;
-       end;
 
      const
        symbolresize = 200*sizeof(coffsymbol);
@@ -627,6 +620,8 @@ const win32stub : array[0..131] of byte=(
           end
         else
           result:=result or PE_SCN_LNK_REMOVE;
+        if oso_debug in aoptions then
+          result:=result or PE_SCN_MEM_DISCARDABLE;
         case aalign of
            1 : result:=result or PE_SCN_ALIGN_1BYTES;
            2 : result:=result or PE_SCN_ALIGN_2BYTES;
@@ -648,6 +643,8 @@ const win32stub : array[0..131] of byte=(
         aalign:=sizeof(aint);
         if flags and PE_SCN_CNT_CODE<>0 then
           include(aoptions,oso_executable);
+        if flags and PE_SCN_MEM_DISCARDABLE<>0 then
+          include(aoptions,oso_debug);
         if flags and PE_SCN_CNT_UNINITIALIZED_DATA=0 then
           include(aoptions,oso_data);
         if flags and PE_SCN_LNK_REMOVE<>0 then
@@ -903,7 +900,7 @@ const win32stub : array[0..131] of byte=(
 
     procedure TCoffObjData.writestab(offset:aint;ps:tasmsymbol;nidx,nother:byte;ndesc:word;p:pchar);
       var
-        stab : coffstab;
+        stab : TObjStabEntry;
         curraddr : longint;
       begin
         if not assigned(StabsSec) then
@@ -957,7 +954,7 @@ const win32stub : array[0..131] of byte=(
         { create stabs Sections if debugging }
         if assigned(StabsSec) then
           begin
-            StabsSec.Alloc(sizeof(coffstab));
+            StabsSec.Alloc(sizeof(TObjStabEntry));
             StabStrSec.Alloc(length(SplitFileName(current_module.mainsource^))+2);
           end;
       end;
@@ -985,7 +982,7 @@ const win32stub : array[0..131] of byte=(
         { if debug then also count header stab }
         if assigned(StabsSec) then
           begin
-            StabsSec.Alloc(sizeof(coffstab));
+            StabsSec.Alloc(sizeof(TObjStabEntry));
             StabStrSec.Alloc(length(SplitFileName(current_module.mainsource^))+2);
           end;
         { calc mempos }
@@ -1227,7 +1224,7 @@ const win32stub : array[0..131] of byte=(
         datapos,
         nsects,
         sympos,i : longint;
-        hstab    : coffstab;
+        hstab    : TObjStabEntry;
         gotreloc : boolean;
         header   : coffheader;
         empty    : array[0..15] of byte;
@@ -1253,7 +1250,7 @@ const win32stub : array[0..131] of byte=(
               hstab.strpos:=1;
               hstab.ntype:=0;
               hstab.nother:=0;
-              hstab.ndesc:=(StabsSec.datasize div sizeof(coffstab))-1{+1 according to gas output PM};
+              hstab.ndesc:=(StabsSec.datasize div sizeof(TObjStabEntry))-1{+1 according to gas output PM};
               hstab.nvalue:=StabStrSec.datasize;
               StabsSec.data.seek(0);
               StabsSec.data.write(hstab,sizeof(hstab));
@@ -1455,7 +1452,7 @@ const win32stub : array[0..131] of byte=(
       var
         objsec : TObjSection;
         i      : longint;
-        hstab  : coffstab;
+        hstab  : TObjStabEntry;
       begin
         with texesection(p) do
           begin
@@ -1471,7 +1468,7 @@ const win32stub : array[0..131] of byte=(
                     hstab.strpos:=1;
                     hstab.ntype:=0;
                     hstab.nother:=0;
-                    hstab.ndesc:=(datasize div sizeof(coffstab))-1;
+                    hstab.ndesc:=(datasize div sizeof(TObjStabEntry))-1;
                     hstab.nvalue:=1;
                     FWriter.write(hstab,sizeof(hstab));
                   end;
@@ -1565,9 +1562,11 @@ const win32stub : array[0..131] of byte=(
           begin
             header.flag:=PE_FILE_EXECUTABLE_IMAGE or PE_FILE_RELOCS_STRIPPED or
                          {PE_FILE_BYTES_REVERSED_LO or }PE_FILE_32BIT_MACHINE or
-                         PE_FILE_LINE_NUMS_STRIPPED or PE_FILE_LOCAL_SYMS_STRIPPED;
-            if FindExeSection('stabs')=nil then
+                         PE_FILE_LINE_NUMS_STRIPPED;
+            if FindExeSection('.stab')=nil then
               header.flag:=header.flag or PE_FILE_DEBUG_STRIPPED;
+            if (cs_link_strip in aktglobalswitches) then
+              header.flag:=header.flag or PE_FILE_LOCAL_SYMS_STRIPPED;
           end
         else
           header.flag:=COFF_FLAG_AR32WR or COFF_FLAG_EXE or COFF_FLAG_NORELOCS or COFF_FLAG_NOLINES;

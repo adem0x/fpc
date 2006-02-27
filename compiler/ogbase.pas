@@ -36,6 +36,15 @@ interface
       aasmbase,aasmtai;
 
     type
+       { Stabs is common for all targets }
+       TObjStabEntry=packed record
+          strpos  : longint;
+          ntype   : byte;
+          nother  : byte;
+          ndesc   : word;
+          nvalue  : longint;
+       end;
+
       TObjOutput = class
       private
         FCObjData : TObjDataClass;
@@ -85,7 +94,6 @@ interface
         FSecSymIdx : longint;
         FObjSectionList : TList;
         FObjSymbolList  : Tlist;
-        procedure SetSecSymIdx(idx:longint);
       public
         DataSize,
         DataPos,
@@ -98,7 +106,7 @@ interface
         procedure AddObjSection(objsec:TObjSection);
         property ObjSectionList:TList read FObjSectionList;
         property ObjSymbolList:TList read FObjSymbolList;
-        property SecSymIdx:longint read FSecSymIdx write SetSecSymIdx;
+        property SecSymIdx:longint read FSecSymIdx write FSecSymIdx;
       end;
       TExeSectionClass=class of TExeSection;
 
@@ -292,16 +300,6 @@ implementation
       end;
 
 
-    procedure texesection.SetSecSymIdx(idx:longint);
-      var
-        i : longint;
-      begin
-        FSecSymIdx:=idx;
-//        for i:=0 to ObjSectionList.count-1 do
-//          TObjSection(ObjSectionList[i]).SecSymIdx:=idx;
-      end;
-
-
 {****************************************************************************
                                 texeoutput
 ****************************************************************************}
@@ -476,16 +474,8 @@ implementation
 
 
     procedure texeoutput.Pass2_ExeSection(const aname:string);
-      type
-       coffstab=packed record
-         strpos  : longint;
-         ntype   : byte;
-         nother  : byte;
-         ndesc   : word;
-         nvalue  : longint;
-       end;
       var
-        hstab  : coffstab;
+        hstab  : TObjStabEntry;
         stabcnt,
         i,j    : longint;
         stabsec,
@@ -497,11 +487,8 @@ implementation
         if not assigned(CurrExeSec) then
           exit;
         { Alignment of exesection }
-        if (oso_load in currexesec.secoptions) then
-          begin
-            CurrMemPos:=align(CurrMemPos,SectionMemAlign);
-            CurrExeSec.MemPos:=CurrMemPos;
-          end;
+        CurrMemPos:=align(CurrMemPos,SectionMemAlign);
+        CurrExeSec.MemPos:=CurrMemPos;
         if (oso_data in currexesec.secoptions) then
           begin
             CurrDataPos:=align(CurrDataPos,SectionDataAlign);
@@ -509,24 +496,17 @@ implementation
           end;
 
         { For the stab section we need an HdrSym }
-{$warning TODO Remove Stabs hack}
         if aname='.stab' then
-          begin
-            inc(CurrDataPos,sizeof(coffstab));
-          end;
-
+          inc(CurrDataPos,sizeof(TObjStabEntry));
 
         { set position of object ObjSections }
         for i:=0 to CurrExeSec.ObjSectionList.Count-1 do
           begin
             objsec:=TObjSection(CurrExeSec.ObjSectionList[i]);
             { Position in memory }
-            if (oso_load in currexesec.secoptions) then
-              begin
-                CurrMemPos:=align(CurrMemPos,objsec.secalign);
-                objsec.MemPos:=CurrMemPos;
-                inc(CurrMemPos,objsec.alignedmemsize);
-              end;
+            CurrMemPos:=align(CurrMemPos,objsec.secalign);
+            objsec.MemPos:=CurrMemPos;
+            inc(CurrMemPos,objsec.alignedmemsize);
             { Position in File }
             if (oso_data in objsec.secoptions) then
               begin
@@ -537,25 +517,23 @@ implementation
                 inc(CurrDataPos,objsec.aligneddatasize);
               end;
 
-            { Update references to stabstr }
-    {$warning TODO Remove Stabs hack}
+            { Update references from stab to stabstr }
             if objsec.name='.stabstr' then
               begin
                 stabsec:=objsec.objdata.findsection('.stab');
-                stabcnt:=stabsec.data.size div sizeof(coffstab);
+                stabcnt:=stabsec.data.size div sizeof(TObjStabEntry);
                 for j:=0 to stabcnt-1 do
                   begin
-                    stabsec.data.seek(j*sizeof(coffstab));
-                    stabsec.data.read(hstab,sizeof(coffstab));
+                    stabsec.data.seek(j*sizeof(TObjStabEntry));
+                    stabsec.data.read(hstab,sizeof(TObjStabEntry));
                     if hstab.strpos<>0 then
                       begin
                         inc(hstab.strpos,objsec.datapos-CurrExeSec.DataPos);
-                        stabsec.data.seek(j*sizeof(coffstab));
-                        stabsec.data.write(hstab,sizeof(coffstab));
+                        stabsec.data.seek(j*sizeof(TObjStabEntry));
+                        stabsec.data.write(hstab,sizeof(TObjStabEntry));
                       end;
                   end;
               end;
-
           end;
       end;
 
@@ -689,7 +667,13 @@ implementation
           begin
             exesec:=TExeSection(FExeSectionsIndex.Search(i));
             if not(oso_keep in exesec.secoptions) and
-               (exesec.objsectionlist.count=0) then
+               (
+                (exesec.objsectionlist.count=0) or
+                (
+                 (cs_link_strip in aktglobalswitches) and
+                 (oso_debug in exesec.secoptions)
+                )
+               ) then
               begin
                 FExeSectionsIndex.DeleteIndex(exesec);
                 FExeSectionsDict.Delete(exesec.name);

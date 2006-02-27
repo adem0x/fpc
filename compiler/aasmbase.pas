@@ -88,6 +88,8 @@ interface
          oso_keep,
          { Special common symbols }
          oso_common,
+         { Contains debug info and can be stripped }
+         oso_debug,
          { Contains only strings }
          oso_strings
        );
@@ -708,8 +710,8 @@ implementation
           {bss} [oso_load,oso_write,oso_keep],
           {threadvar} [oso_load,oso_write],
           {stub} [oso_data,oso_load,oso_readonly,oso_executable],
-          {stab} [oso_data,oso_noload],
-          {stabstr} [oso_data,oso_noload,oso_strings],
+          {stab} [oso_data,oso_noload,oso_debug],
+          {stabstr} [oso_data,oso_noload,oso_strings,oso_debug],
           {idata2} [oso_data,oso_load,oso_write],
           {idata4} [oso_data,oso_load,oso_write],
           {idata5} [oso_data,oso_load,oso_write],
@@ -717,10 +719,10 @@ implementation
           {idata7} [oso_data,oso_load,oso_write],
           {edata} [oso_data,oso_load,oso_readonly],
           {eh_frame} [oso_data,oso_load,oso_readonly],
-          {debug_frame} [oso_data,oso_noload],
-          {debug_info} [oso_data,oso_noload],
-          {debug_line} [oso_data,oso_noload],
-          {debug_abbrev} [oso_data,oso_noload],
+          {debug_frame} [oso_data,oso_noload,oso_debug],
+          {debug_info} [oso_data,oso_noload,oso_debug],
+          {debug_line} [oso_data,oso_noload,oso_debug],
+          {debug_abbrev} [oso_data,oso_noload,oso_debug],
           {fpc} [oso_data,oso_load,oso_write,oso_keep],
           {toc} [oso_data,oso_load,oso_readonly]
         );

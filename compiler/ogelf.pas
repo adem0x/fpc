@@ -204,13 +204,7 @@ implementation
           st_other : byte;
           st_shndx : word;
         end;
-        TElf32stab=packed record
-          strpos  : longint;
-          ntype   : byte;
-          nother  : byte;
-          ndesc   : word;
-          nvalue  : longint;
-        end;
+
 
 {****************************************************************************
                                 Helpers
@@ -268,7 +262,7 @@ implementation
         shlink:=0;
         shinfo:=0;
         if name='.stab' then
-          shentsize:=sizeof(TElf32stab);
+          shentsize:=sizeof(TObjStabEntry);
         relocsect:=nil;
       end;
 
@@ -436,11 +430,11 @@ implementation
 
     procedure TElf32ObjData.writestab(offset:aint;ps:tasmsymbol;nidx,nother:byte;ndesc:word;p:pchar);
       var
-        stab : TElf32stab;
+        stab : TObjStabEntry;
       begin
         if not assigned(StabsSec) then
           internalerror(200602271);
-        fillchar(stab,sizeof(TElf32stab),0);
+        fillchar(stab,sizeof(TObjStabEntry),0);
         if assigned(p) and (p[0]<>#0) then
          begin
            stab.strpos:=stabstrsec.datasize;
@@ -464,7 +458,7 @@ implementation
         { create stabs sections if debugging }
         if assigned(StabsSec) then
           begin
-            StabsSec.Alloc(sizeof(TElf32stab));
+            StabsSec.Alloc(sizeof(TObjStabEntry));
             StabStrSec.Alloc(length(SplitFileName(current_module.mainsource^))+2);
           end;
       end;
@@ -771,7 +765,7 @@ implementation
         datapos : aint;
         shoffset,
         nsections : longint;
-        hstab  : TElf32stab;
+        hstab  : TObjStabEntry;
         empty  : array[0..63] of byte;
       begin
         result:=false;
@@ -800,7 +794,7 @@ implementation
               hstab.strpos:=1;
               hstab.ntype:=0;
               hstab.nother:=0;
-              hstab.ndesc:=(stabssec.datasize div sizeof(TElf32stab))-1{+1 according to gas output PM};
+              hstab.ndesc:=(stabssec.datasize div sizeof(TObjStabEntry))-1{+1 according to gas output PM};
               hstab.nvalue:=stabstrsec.datasize;
               stabssec.Data.seek(0);
               stabssec.Data.write(hstab,sizeof(hstab));
