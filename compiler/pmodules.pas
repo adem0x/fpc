@@ -135,11 +135,17 @@ implementation
 
     procedure create_dwarf;
       begin
-        asmlist[al_dwarf]:=taasmoutput.create;
+        { Dwarf conflicts with smartlinking in separate .a files }
+        if (cs_create_smart in aktmoduleswitches) and
+           not use_smartlink_section then
+          exit;
         { Call frame information }
         if (tf_needs_dwarf_cfi in target_info.flags) and
            (af_supports_dwarf in target_asm.flags) then
-          dwarfcfi.generate_code(asmlist[al_dwarf]);
+          begin
+            asmlist[al_dwarf]:=taasmoutput.create;
+            dwarfcfi.generate_code(asmlist[al_dwarf]);
+          end;
       end;
 
 

@@ -1287,13 +1287,13 @@ Implementation
     procedure TInternalAssembler.writetreesmart;
       var
         hp : Tai;
-//      startsectype : TAsmSectiontype;
+        startsectype : TAsmSectiontype;
         place: tcutplace;
       begin
         NextSmartName(cut_normal);
         ObjOutput:=CObjOutput.Create(true);
         ObjData:=ObjOutput.newObjData(Objfile);
-//        startsectype:=sec_code;
+        startsectype:=sec_code;
 
         { start with list 1 }
         currlistidx:=1;
@@ -1301,25 +1301,25 @@ Implementation
         hp:=Tai(currList.first);
         while assigned(hp) do
          begin
-         { reset the asmsymbol list }
+           { reset the asmsymbol list }
            objectlibrary.CreateUsedAsmSymbolList;
 
-         { Pass 0 }
+           { Pass 0 }
            currpass:=0;
            ObjData.resetsections;
            ObjData.beforealloc;
-//           ObjData.createsection(startsectype,'');
+           ObjData.createsection(startsectype,'');
            TreePass0(hp);
            ObjData.afteralloc;
            { leave if errors have occured }
            if errorcount>0 then
-            exit;
+             exit;
 
-         { Pass 1 }
+           { Pass 1 }
            currpass:=1;
            ObjData.resetsections;
            ObjData.beforealloc;
-//           ObjData.createsection(startsectype,'');
+           ObjData.createsection(startsectype,'');
            TreePass1(hp);
            ObjData.afteralloc;
            { check for undefined labels }
@@ -1327,20 +1327,19 @@ Implementation
 
            { leave if errors have occured }
            if errorcount>0 then
-            exit;
+             exit;
 
-         { Pass 2 }
+           { Pass 2 }
            currpass:=2;
            ObjOutput.startobjectfile(Objfile);
            ObjData.resetsections;
            ObjData.beforewrite;
-//          ObjData.createsection(startsectype,'');
+           ObjData.createsection(startsectype,'');
            hp:=TreePass2(hp);
-//           startsectype:=ObjData.CurrObjSec.sectype;
            ObjData.afterwrite;
            { leave if errors have occured }
            if errorcount>0 then
-            exit;
+             exit;
 
            { write the current objectfile }
            ObjOutput.writeobjectfile(ObjData);
@@ -1354,29 +1353,27 @@ Implementation
 
            { end of lists? }
            if not MaybeNextList(hp) then
-            break;
+             break;
 
            { we will start a new objectfile so reset everything }
            { The place can still change in the next while loop, so don't init }
            { the writer yet (JM)                                              }
            if (hp.typ=ait_cutobject) then
-            place := Tai_cutobject(hp).place
+             place := Tai_cutobject(hp).place
            else
-            place := cut_normal;
+             place := cut_normal;
 
            { avoid empty files }
+           startsectype:=sec_code;
            while assigned(hp) and
                  (Tai(hp).typ in [ait_marker,ait_comment,ait_section,ait_cutobject]) do
             begin
-//              if Tai(hp).typ=ait_section then
-//               startsectype:=Tai_section(hp).sectype
+              if Tai(hp).typ=ait_section then
+                startsectype:=Tai_section(hp).sectype;
               if (Tai(hp).typ=ait_cutobject) then
-               place:=Tai_cutobject(hp).place;
+                place:=Tai_cutobject(hp).place;
               hp:=Tai(hp.next);
             end;
-//           { there is a problem if startsectype is sec_none !! PM }
-//           if startsectype=sec_none then
-//             startsectype:=sec_code;
 
            if not MaybeNextList(hp) then
              break;
