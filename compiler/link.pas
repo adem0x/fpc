@@ -114,7 +114,7 @@ uses
   dos,
 {$ENDIF USE_SYSUTILS}
   cutils,
-  script,globals,verbose,ppu,
+  script,globals,verbose,comphook,ppu,
   aasmbase,aasmtai,aasmcpu,
   ogmap;
 
@@ -802,6 +802,8 @@ end;
       begin
         MakeExecutable:=false;
 
+        Message1(exec_i_linking,current_module.exefilename^);
+
 {$warning TODO Load custom linker script}
         DefaultLinkScript;
 
@@ -829,6 +831,10 @@ end;
         exeoutput.PrintMemoryMap;
 
         exeoutput.WriteExeFile(current_module.exefilename^);
+
+{$warning TODO fixed section names}
+        status.codesize:=exeoutput.findexesection('.text').memsize;
+        status.datasize:=exeoutput.findexesection('.data').memsize;
 
       myexit:
         { close map }
