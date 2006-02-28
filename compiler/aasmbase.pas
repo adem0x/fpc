@@ -227,6 +227,7 @@ interface
          function  createsection(const aname:string;aalign:shortint;aoptions:TObjSectionOptions):TObjSection;virtual;
          procedure CreateDebugSections;virtual;
          function  findsection(const aname:string):TObjSection;
+         procedure removesection(asec:TObjSection);
          procedure setsection(asec:TObjSection);
          procedure alloc(len:aint);
          procedure allocalign(len:shortint);
@@ -796,6 +797,14 @@ implementation
     function TObjData.FindSection(const aname:string):TObjSection;
       begin
         result:=TObjSection(FObjSectionsDict.Search(aname));
+      end;
+
+
+    procedure TObjData.removesection(asec:TObjSection);
+      begin
+        FObjSectionsDict.Delete(asec.name);
+        FObjSectionsIndex.DeleteIndex(asec);
+        asec.free;
       end;
 
 

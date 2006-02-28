@@ -507,57 +507,62 @@ implementation
           begin
             currstabsec:=TObjSection(stabexesec.ObjSectionList[i]);
             currstabstrsec:=currstabsec.objdata.findsection('.stabstr');
-            if not assigned(currstabstrsec) then
-              continue;
-
-            stabcnt:=currstabsec.data.size div sizeof(TObjStabEntry);
-            currstabsec.data.seek(0);
-            currstabreloc:=TObjRelocation(currstabsec.relocations.first);
-            for j:=0 to stabcnt-1 do
+            if assigned(currstabstrsec) then
               begin
-                skipstab:=false;
-                currstabsec.data.read(hstab,sizeof(TObjStabEntry));
-                { Only include first hdrsym stab }
-                if hstab.ntype=0 then
-                  skipstab:=true;
-                if not skipstab then
+                stabcnt:=currstabsec.data.size div sizeof(TObjStabEntry);
+                currstabsec.data.seek(0);
+                currstabreloc:=TObjRelocation(currstabsec.relocations.first);
+                for j:=0 to stabcnt-1 do
                   begin
-                    { Copy string in stabstr }
-                    if hstab.strpos<>0 then
+                    skipstab:=false;
+                    currstabsec.data.read(hstab,sizeof(TObjStabEntry));
+                    { Only include first hdrsym stab }
+                    if hstab.ntype=0 then
+                      skipstab:=true;
+                    if not skipstab then
                       begin
-                        currstabstrsec.data.seek(hstab.strpos);
-                        hstab.strpos:=mergedstabstrsec.memsize;
-                        repeat
-                          bufsize:=currstabstrsec.data.read(buf,sizeof(buf));
-                          bufend:=indexbyte(buf,bufsize,0);
-                          if bufend=-1 then
-                            bufend:=bufsize
-                          else
-                            begin
-                              { include the #0 }
-                              inc(bufend);
-                            end;
-                          mergedstabstrsec.write(buf,bufend);
-                        until (bufend<>-1) or (bufsize<sizeof(buf));
-                      end;
-                    { Copy relocation }
-                    while assigned(currstabreloc) and
-                          (currstabreloc.dataoffset<j*sizeof(TObjStabEntry)+stabrelocofs) do
-                      currstabreloc:=TObjRelocation(currstabreloc.next);
-                    if assigned(currstabreloc) then
-                      begin
-                        if (currstabreloc.dataoffset=j*sizeof(TObjStabEntry)+stabrelocofs) then
+                        { Copy string in stabstr }
+                        if hstab.strpos<>0 then
                           begin
-                            currstabreloc.dataoffset:=mergedstabsec.memsize+stabrelocofs;
-                            nextstabreloc:=TObjRelocation(currstabreloc.next);
-                            currstabsec.relocations.remove(currstabreloc);
-                            mergedstabsec.relocations.concat(currstabreloc);
-                            currstabreloc:=nextstabreloc;
+                            currstabstrsec.data.seek(hstab.strpos);
+                            hstab.strpos:=mergedstabstrsec.memsize;
+                            repeat
+                              bufsize:=currstabstrsec.data.read(buf,sizeof(buf));
+                              bufend:=indexbyte(buf,bufsize,0);
+                              if bufend=-1 then
+                                bufend:=bufsize
+                              else
+                                begin
+                                  { include the #0 }
+                                  inc(bufend);
+                                end;
+                              mergedstabstrsec.write(buf,bufend);
+                            until (bufend<>-1) or (bufsize<sizeof(buf));
                           end;
+                        { Copy relocation }
+                        while assigned(currstabreloc) and
+                              (currstabreloc.dataoffset<j*sizeof(TObjStabEntry)+stabrelocofs) do
+                          currstabreloc:=TObjRelocation(currstabreloc.next);
+                        if assigned(currstabreloc) then
+                          begin
+                            if (currstabreloc.dataoffset=j*sizeof(TObjStabEntry)+stabrelocofs) then
+                              begin
+                                currstabreloc.dataoffset:=mergedstabsec.memsize+stabrelocofs;
+                                nextstabreloc:=TObjRelocation(currstabreloc.next);
+                                currstabsec.relocations.remove(currstabreloc);
+                                mergedstabsec.relocations.concat(currstabreloc);
+                                currstabreloc:=nextstabreloc;
+                              end;
+                          end;
+                        mergedstabsec.write(hstab,sizeof(hstab));
                       end;
-                    mergedstabsec.write(hstab,sizeof(hstab));
                   end;
               end;
+
+            { Unload stabs }
+            if assigned(currstabstrsec) then
+              currstabsec.objdata.removesection(currstabstrsec);
+            currstabsec.objdata.removesection(currstabsec);
           end;
 
         { Generate new HdrSym }
