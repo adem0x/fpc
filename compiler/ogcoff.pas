@@ -40,20 +40,20 @@ interface
        private
          orgmempos,
          coffrelocs,
-         coffrelocpos : longint;
+         coffrelocpos : aint;
        public
          flags    : longword;
-         constructor create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);override;
-         procedure addsymsizereloc(ofs:longint;p:tasmsymbol;size:longint;relative:TObjRelocationType);
+         constructor create(const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);override;
+         procedure addsymsizereloc(ofs:aint;p:tasmsymbol;size:aint;relative:TObjRelocationType);
          procedure fixuprelocs;override;
        end;
 
        TDJCoffObjSection = class(TCoffObjSection)
-         constructor create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);override;
+         constructor create(const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);override;
        end;
 
        TPECoffObjSection = class(TCoffObjSection)
-         constructor create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);override;
+         constructor create(const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);override;
        end;
 
        TCoffObjData = class(TObjData)
@@ -84,9 +84,9 @@ interface
        TCoffObjOutput = class(tObjOutput)
        private
          win32   : boolean;
-         initsym : longint;
+         initsym : word;
          FCoffStrs : tdynamicarray;
-         procedure write_symbol(const name:string;value:longint;section:smallint;typ,aux:byte);
+         procedure write_symbol(const name:string;value:aint;section:smallint;typ,aux:byte);
          procedure section_write_symbol(p:tnamedindexitem;arg:pointer);
          procedure section_write_relocs(p:tnamedindexitem;arg:pointer);
          procedure write_ObjSymbols(data:TObjData);
@@ -129,11 +129,11 @@ interface
          FCoffsyms,
          FCoffStrs : tdynamicarray;
          win32     : boolean;
-         nsects    : word;
          nsyms,
-         sympos    : longint;
+         nsects    : word;
+         sympos    : aint;
          procedure ExeSections_pass2_header(p:tnamedindexitem;arg:pointer);
-         procedure write_symbol(const name:string;value:longint;section:smallint;typ,aux:byte);
+         procedure write_symbol(const name:string;value:aint;section:smallint;typ,aux:byte);
          procedure globalsyms_write_symbol(p:tnamedindexitem;arg:pointer);
          procedure ExeSections_write_header(p:tnamedindexitem;arg:pointer);
          procedure ExeSections_write_data(p:tnamedindexitem;arg:pointer);
@@ -155,7 +155,7 @@ interface
 
        ttasmsymbolrec = record
          sym : tasmsymbol;
-         orgsize : longint;
+         orgsize : aint;
        end;
        ttasmsymbolarray = array[0..high(word)] of ttasmsymbolrec;
 
@@ -679,13 +679,13 @@ const win32stub : array[0..131] of byte=(
                                TCoffObjSection
 ****************************************************************************}
 
-    constructor TCoffObjSection.create(const aname:string;aalign:longint;aoptions:TObjSectionOptions);
+    constructor TCoffObjSection.create(const aname:string;aalign:shortint;aoptions:TObjSectionOptions);
       begin
         inherited create(aname,aalign,aoptions);
       end;
 
 
-    procedure TCoffObjSection.addsymsizereloc(ofs:longint;p:tasmsymbol;size:longint;relative:TObjRelocationType);
+    procedure TCoffObjSection.addsymsizereloc(ofs:aint;p:tasmsymbol;size:aint;relative:TObjRelocationType);
       begin
         relocations.concat(TObjRelocation.createsymbolsize(ofs,p,size,relative));
       end;
@@ -695,7 +695,7 @@ const win32stub : array[0..131] of byte=(
       var
         r : TObjRelocation;
         address,
-        relocval : longint;
+        relocval : aint;
       begin
         r:=TObjRelocation(relocations.first);
         if assigned(r) and
@@ -749,7 +749,7 @@ const win32stub : array[0..131] of byte=(
                                TDJCoffObjSection
 ****************************************************************************}
 
-    constructor TDJCoffObjSection.create(const aname:string;aalign:longint;aoptions:TObjSectionOptions);
+    constructor TDJCoffObjSection.create(const aname:string;aalign:shortint;aoptions:TObjSectionOptions);
       begin
         inherited create(aname,aalign,aoptions);
       end;
@@ -759,7 +759,7 @@ const win32stub : array[0..131] of byte=(
                                TPECoffObjSection
 ****************************************************************************}
 
-    constructor TPECoffObjSection.create(const aname:string;aalign:longint;aoptions:TObjSectionOptions);
+    constructor TPECoffObjSection.create(const aname:string;aalign:shortint;aoptions:TObjSectionOptions);
       begin
         inherited create(aname,aalign,aoptions);
       end;
@@ -829,7 +829,7 @@ const win32stub : array[0..131] of byte=(
     procedure TCoffObjData.writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);
       var
         curraddr,
-        symaddr : longint;
+        symaddr : aint;
       begin
         if CurrObjSec=nil then
           internalerror(200403072);
@@ -901,7 +901,7 @@ const win32stub : array[0..131] of byte=(
     procedure TCoffObjData.writestab(offset:aint;ps:tasmsymbol;nidx,nother:byte;ndesc:word;p:pchar);
       var
         stab : TObjStabEntry;
-        curraddr : longint;
+        curraddr : aint;
       begin
         if not assigned(StabsSec) then
           internalerror(200602256);
@@ -939,13 +939,8 @@ const win32stub : array[0..131] of byte=(
 
     procedure TCoffObjData.section_mempos(p:tnamedindexitem;arg:pointer);
       begin
-        TCoffObjSection(p).memsize:=TCoffObjSection(p).datasize;
-        { memory position is in arg }
         if not win32 then
-         begin
-           TCoffObjSection(p).mempos:=plongint(arg)^;
-           inc(plongint(arg)^,TCoffObjSection(p).alignedmemsize);
-         end;
+          TCoffObjSection(p).setmempos(paint(arg)^);
       end;
 
 
@@ -977,7 +972,7 @@ const win32stub : array[0..131] of byte=(
 
     procedure TCoffObjData.afteralloc;
       var
-        mempos : longint;
+        mempos : aint;
       begin
         { if debug then also count header stab }
         if assigned(StabsSec) then
@@ -1022,7 +1017,7 @@ const win32stub : array[0..131] of byte=(
       end;
 
 
-    procedure TCoffObjOutput.write_symbol(const name:string;value:longint;section:smallint;typ,aux:byte);
+    procedure TCoffObjOutput.write_symbol(const name:string;value:aint;section:smallint;typ,aux:byte);
       var
         sym : coffsymbol;
       begin
@@ -1102,8 +1097,8 @@ const win32stub : array[0..131] of byte=(
       var
         filename  : string[18];
         sectionval,
-        globalval,
-        value     : longint;
+        globalval : byte;
+        value     : aint;
         p         : tasmsymbol;
       begin
         with TCoffObjData(data) do
@@ -1152,16 +1147,14 @@ const win32stub : array[0..131] of byte=(
 
     procedure TCoffObjOutput.section_set_datapos(p:tnamedindexitem;arg:pointer);
       begin
-        TObjSection(p).datapos:=plongint(arg)^;
-        if (oso_data in TObjSection(p).secoptions) then
-          inc(plongint(arg)^,TObjSection(p).aligneddatasize);
+        TObjSection(p).setdatapos(paint(arg)^);
       end;
 
 
     procedure TCoffObjOutput.section_set_reloc_datapos(p:tnamedindexitem;arg:pointer);
       begin
-        TCoffObjSection(p).coffrelocpos:=plongint(arg)^;
-        inc(plongint(arg)^,sizeof(coffreloc)*TObjSection(p).relocations.count);
+        TCoffObjSection(p).coffrelocpos:=paint(arg)^;
+        inc(paint(arg)^,sizeof(coffreloc)*TObjSection(p).relocations.count);
       end;
 
 
@@ -1169,7 +1162,7 @@ const win32stub : array[0..131] of byte=(
       var
         sechdr   : coffsechdr;
         s        : string;
-        strpos   : longint;
+        strpos   : Aint;
       begin
         with TCoffObjSection(p) do
           begin
@@ -1222,8 +1215,9 @@ const win32stub : array[0..131] of byte=(
       var
         orgdatapos,
         datapos,
-        nsects,
-        sympos,i : longint;
+        sympos   : aint;
+        nsects   : word;
+        i        : longint;
         hstab    : TObjStabEntry;
         gotreloc : boolean;
         header   : coffheader;
@@ -1235,13 +1229,14 @@ const win32stub : array[0..131] of byte=(
         FCoffStrs:=TDynamicArray.Create(strsresize);
         with TCoffObjData(data) do
          begin
-         { calc amount of ObjSections we have }
+           { calc amount of ObjSections we have }
            fillchar(empty,sizeof(empty),0);
            nsects:=0;
            ObjSections.foreach(@section_set_secsymidx,@nsects);
            initsym:=2+nsects*2;   { 2 for the file }
-         { For the stab section we need an HdrSym which can now be
-           calculated more easily }
+
+           { For the stab section we need an HdrSym which can now be
+             calculated more easily }
            if assigned(StabsSec) then
             begin
               { header stab }
@@ -1250,12 +1245,13 @@ const win32stub : array[0..131] of byte=(
               hstab.strpos:=1;
               hstab.ntype:=0;
               hstab.nother:=0;
-              hstab.ndesc:=(StabsSec.datasize div sizeof(TObjStabEntry))-1{+1 according to gas output PM};
+              hstab.ndesc:=(StabsSec.datasize div sizeof(TObjStabEntry))-1;
               hstab.nvalue:=StabStrSec.datasize;
               StabsSec.data.seek(0);
               StabsSec.data.write(hstab,sizeof(hstab));
             end;
-         { Calculate the filepositions }
+
+           { Calculate the filepositions }
            datapos:=sizeof(coffheader)+sizeof(coffsechdr)*nsects;
            { ObjSections first }
            ObjSections.foreach(@section_set_datapos,@datapos);
@@ -1263,9 +1259,10 @@ const win32stub : array[0..131] of byte=(
            orgdatapos:=datapos;
            ObjSections.foreach(@section_set_reloc_datapos,@datapos);
            gotreloc:=(orgdatapos<>datapos);
-           { ObjSymbols }
+           { Symbols }
            sympos:=datapos;
-         { COFF header }
+
+           { Generate COFF header }
            fillchar(header,sizeof(coffheader),0);
            header.mach:=COFF_MAGIC;
            header.nsects:=nsects;
@@ -1285,9 +1282,9 @@ const win32stub : array[0..131] of byte=(
                  header.flag:=header.flag or COFF_FLAG_NORELOCS;
              end;
            FWriter.write(header,sizeof(header));
-         { Section headers }
+           { Section headers }
            ObjSections.foreach(@section_write_header,nil);
-         { ObjSections }
+           { ObjSections }
            ObjSections.foreach(@section_write_data,nil);
            { Relocs }
            ObjSections.foreach(@section_write_relocs,nil);
@@ -1357,7 +1354,7 @@ const win32stub : array[0..131] of byte=(
       end;
 
 
-    procedure TCoffexeoutput.write_symbol(const name:string;value:longint;section:smallint;typ,aux:byte);
+    procedure TCoffexeoutput.write_symbol(const name:string;value:aint;section:smallint;typ,aux:byte);
       var
         sym : coffsymbol;
       begin
@@ -1380,8 +1377,8 @@ const win32stub : array[0..131] of byte=(
 
     procedure TCoffexeoutput.globalsyms_write_symbol(p:tnamedindexitem;arg:pointer);
       var
-        value,
-        globalval : longint;
+        value  : aint;
+        globalval : byte;
         exesec : TExeSection;
       begin
         with texesymbol(p).objsymbol do
@@ -1462,6 +1459,7 @@ const win32stub : array[0..131] of byte=(
                 if DataPos<>FWriter.Size then
                   internalerror(200602251);
 
+(*
                 { For the stab section we need an HdrSym }
                 if name='.stab' then
                   begin
@@ -1472,6 +1470,7 @@ const win32stub : array[0..131] of byte=(
                     hstab.nvalue:=1;
                     FWriter.write(hstab,sizeof(hstab));
                   end;
+  *)
 
                 for i:=0 to ObjSectionList.Count-1 do
                   begin
@@ -1714,8 +1713,9 @@ const win32stub : array[0..131] of byte=(
       var
         size,
         address   : aint;
-        i,nsyms,
-        symidx    : longint;
+        nsyms,
+        symidx    : word;
+        i         : longint;
         sym       : coffsymbol;
         strname   : string;
         p         : tasmsymbol;

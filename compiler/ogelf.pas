@@ -51,7 +51,7 @@ interface
           shentsize : longint;
           { relocation }
           relocsect : TElf32ObjSection;
-          constructor create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);override;
+          constructor create(const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);override;
           constructor create_ext(const Aname:string;Ashtype,Ashflags,Ashlink,Ashinfo,Aalign,Aentsize:longint);
           destructor  destroy;override;
        end;
@@ -253,7 +253,7 @@ implementation
                                TSection
 ****************************************************************************}
 
-    constructor TElf32ObjSection.create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);
+    constructor TElf32ObjSection.create(const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);
       begin
         inherited create(Aname,Aalign,aoptions);
         secshidx:=0;
@@ -718,10 +718,7 @@ implementation
 
     procedure TElf32ObjectOutput.section_set_datapos(p:tnamedindexitem;arg:pointer);
       begin
-        if (oso_data in TObjSection(p).secoptions) then
-          TObjSection(p).setdatapos(paint(arg)^)
-        else
-          TObjSection(p).datapos:=paint(arg)^;
+        TObjSection(p).setdatapos(paint(arg)^);
       end;
 
 

@@ -821,6 +821,7 @@ end;
         exeoutput.RemoveEmptySections;
         if ErrorCount>0 then
           goto myexit;
+        exeoutput.CalculateStabs;
 
         ParseScriptPass2;
         exeoutput.FixupSymbols;

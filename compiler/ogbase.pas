@@ -36,15 +36,6 @@ interface
       aasmbase,aasmtai;
 
     type
-       { Stabs is common for all targets }
-       TObjStabEntry=packed record
-          strpos  : longint;
-          ntype   : byte;
-          nother  : byte;
-          ndesc   : word;
-          nvalue  : longint;
-       end;
-
       TObjOutput = class
       private
         FCObjData : TObjDataClass;
@@ -135,7 +126,7 @@ interface
         FWriter : TObjectwriter;
         commonobjsection : TObjSection;
         commonobjdata,
-        globalsobjdata : TObjData;
+        internalobjdata : TObjData;
         EntrySym  : TAsmSymbol;
         SectionDataAlign,
         SectionMemAlign : aint;
@@ -159,6 +150,7 @@ interface
         procedure Pass2_Header;virtual;
         procedure Pass2_Start;virtual;
         procedure Pass2_Symbols;virtual;
+        procedure CalculateStabs;
         function  CalculateSymbols:boolean;
         procedure PrintMemoryMap;
         procedure FixUpSymbols;
@@ -333,7 +325,7 @@ implementation
         externalExeSymbols.free;
         commonExeSymbols.free;
         objdatalist.free;
-        globalsobjdata.free;
+        internalobjdata.free;
         commonobjdata.free;
         FWriter.free;
       end;
@@ -374,8 +366,8 @@ implementation
     procedure texeoutput.Pass1_Start;
       begin
         { Globals defined in the linker script }
-        globalsobjdata:=CObjData.create('*GLOBALS*');
-        AddObjData(globalsobjdata);
+        internalobjdata:=CObjData.create('*GLOBALS*');
+        AddObjData(internalobjdata);
         { Common data }
         commonobjdata:=CObjData.create('*COMMON*');
         commonobjsection:=commonobjdata.createsection(sec_bss,'');
@@ -446,8 +438,8 @@ implementation
 (*
         sym:=tasmsymbol.create(aname,AB_GLOBAL,AT_FUNCTION);
         { Create a dummy section }
-        sym.objsection:=globalsobjdata.createsection('*'+sym.name,0,[]);
-        globalsobjdata.ObjSymbols.insert(sym);
+        sym.objsection:=internalobjdata.createsection('*'+sym.name,0,[]);
+        internalobjdata.ObjSymbols.insert(sym);
         CurrExeSec.AddObjSection(sym.objsection);
 *)
       end;
@@ -466,10 +458,116 @@ implementation
         if len>sizeof(zeros) then
           internalerror(200602254);
         fillchar(zeros,len,0);
-        objsec:=globalsobjdata.createsection('*zeros',0,CurrExeSec.secoptions);
-        globalsobjdata.writebytes(zeros,len);
-        globalsobjdata.afteralloc;
+        objsec:=internalobjdata.createsection('*zeros',0,CurrExeSec.secoptions);
+        internalobjdata.writebytes(zeros,len);
+        internalobjdata.afteralloc;
         CurrExeSec.AddObjSection(objsec);
+      end;
+
+
+    procedure texeoutput.CalculateStabs;
+      var
+        stabexesec,
+        stabstrexesec : TExeSection;
+        currstabsec,
+        currstabstrsec,
+        mergedstabsec,
+        mergedstabstrsec : TObjSection;
+        nextstabreloc,
+        currstabreloc : TObjRelocation;
+        i,j,
+        stabcnt : longint;
+        firsthdrsym,
+        skipstab : boolean;
+        hstab   : TObjStabEntry;
+        buf     : array[0..1023] of byte;
+        bufend,
+        bufsize  : longint;
+      begin
+        stabexesec:=FindExeSection('.stab');
+        stabstrexesec:=FindExeSection('.stabstr');
+        if not(assigned(stabexesec) and assigned(stabstrexesec)) then
+          exit;
+        { Create new stabsection }
+        mergedstabsec:=internalobjdata.CreateSection(sec_stab,'');
+        mergedstabstrsec:=internalobjdata.CreateSection(sec_stabstr,'');
+        for i:=0 to stabexesec.ObjSectionList.Count-1 do
+          begin
+            currstabsec:=TObjSection(stabexesec.ObjSectionList[i]);
+            currstabstrsec:=currstabsec.objdata.findsection('.stabstr');
+            if not assigned(currstabstrsec) then
+              continue;
+
+            { .stabstr starts with a #0 }
+            buf[0]:=0;
+            mergedstabstrsec.write(buf[0],1);
+
+            firsthdrsym:=false;
+            stabcnt:=currstabsec.data.size div sizeof(TObjStabEntry);
+            currstabsec.data.seek(0);
+            currstabreloc:=TObjRelocation(currstabsec.relocations.first);
+            for j:=0 to stabcnt-1 do
+              begin
+                skipstab:=false;
+                currstabsec.data.read(hstab,sizeof(TObjStabEntry));
+                { Only include first hdrsym stab }
+                if hstab.ntype=0 then
+                  begin
+                    if not firsthdrsym then
+                      skipstab:=true;
+                    firsthdrsym:=false;
+                  end;
+                if not skipstab then
+                  begin
+                    { Copy string in stabstr }
+                    if hstab.strpos<>0 then
+                      begin
+                        currstabstrsec.data.seek(hstab.strpos);
+                        hstab.strpos:=mergedstabstrsec.datasize;
+                        repeat
+                          bufsize:=currstabstrsec.data.read(buf,sizeof(buf));
+                          bufend:=indexbyte(buf,bufsize,0);
+                          if bufend=-1 then
+                            bufend:=bufsize
+                          else
+                            begin
+                              { include the #0 }
+                              inc(bufend);
+                            end;
+                          mergedstabstrsec.write(buf,bufend);
+                        until (bufend<>-1) or (bufsize<sizeof(buf));
+                      end;
+                    { Copy relocation }
+                    if assigned(currstabreloc) and
+                       (currstabreloc.dataoffset=j*sizeof(TObjStabEntry)+8) then
+                      begin
+                        nextstabreloc:=TObjRelocation(currstabreloc.next);
+                        currstabsec.relocations.remove(currstabreloc);
+                        mergedstabsec.relocations.concat(currstabreloc);
+                        currstabreloc:=nextstabreloc;
+                      end;
+                    mergedstabsec.write(hstab,sizeof(hstab));
+                  end;
+              end;
+          end;
+
+        { Generate new HdrSym }
+        if mergedstabsec.datasize>0 then
+          begin
+            hstab.strpos:=1;
+            hstab.ntype:=0;
+            hstab.nother:=0;
+            hstab.ndesc:=(mergedstabsec.datasize div sizeof(TObjStabEntry))-1;
+            hstab.nvalue:=mergedstabstrsec.datasize;
+            mergedstabsec.data.seek(0);
+            mergedstabsec.data.write(hstab,sizeof(hstab));
+          end;
+
+        { Replace all sections with our combined stabsec }
+        stabexesec.ObjSectionList.Clear;
+        stabstrexesec.ObjSectionList.Clear;
+        stabexesec.ObjSectionList.Add(mergedstabsec);
+        stabstrexesec.ObjSectionList.Add(mergedstabstrsec);
       end;
 
 
@@ -495,28 +593,22 @@ implementation
             CurrExeSec.DataPos:=CurrDataPos;
           end;
 
+(*
         { For the stab section we need an HdrSym }
         if aname='.stab' then
           inc(CurrDataPos,sizeof(TObjStabEntry));
+*)
 
         { set position of object ObjSections }
         for i:=0 to CurrExeSec.ObjSectionList.Count-1 do
           begin
             objsec:=TObjSection(CurrExeSec.ObjSectionList[i]);
             { Position in memory }
-            CurrMemPos:=align(CurrMemPos,objsec.secalign);
-            objsec.MemPos:=CurrMemPos;
-            inc(CurrMemPos,objsec.alignedmemsize);
+            objsec.setmempos(CurrMemPos);
             { Position in File }
             if (oso_data in objsec.secoptions) then
-              begin
-                alignedpos:=align(CurrDataPos,objsec.secalign);
-                objsec.dataalignbytes:=alignedpos-CurrDataPos;
-                CurrDataPos:=alignedpos;
-                objsec.DataPos:=CurrDataPos;
-                inc(CurrDataPos,objsec.aligneddatasize);
-              end;
-
+              objsec.setdatapos(CurrDataPos);
+(*
             { Update references from stab to stabstr }
             if objsec.name='.stabstr' then
               begin
@@ -534,6 +626,7 @@ implementation
                       end;
                   end;
               end;
+*)
           end;
       end;
 

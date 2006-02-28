@@ -1713,11 +1713,9 @@ implementation
         data,s,opidx : longint;
         ea_data : ea;
       begin
-{$ifdef EXTDEBUG}
         { safety check }
-        if objdata.currobjsec.datasize<>insoffset then
-         internalerror(200130121);
-{$endif EXTDEBUG}
+        if objdata.currobjsec.memsize<>insoffset then
+          internalerror(200130121);
         { load data to write }
         codes:=insentry^.code;
         { Force word push/pop for registers }

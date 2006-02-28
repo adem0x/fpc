@@ -141,6 +141,16 @@ interface
          function getname:string;override;
        end;
 
+       { Stabs is common for all targets }
+       TObjStabEntry=packed record
+          strpos  : longint;
+          ntype   : byte;
+          nother  : byte;
+          ndesc   : word;
+          nvalue  : longint;
+       end;
+       PObjStabEntry=^TObjStabEntry;
+
        TObjRelocation = class(TLinkedListItem)
           DataOffset,
           orgsize    : aint;  { original size of the symbol to relocate, required for COFF }
@@ -156,9 +166,9 @@ interface
          objData    : TObjData;
          secoptions : TObjSectionOptions;
          secsymidx  : longint;   { index for the section in symtab }
-         secalign  : longint;   { alignment of the section }
+         secalign   : shortint;   { alignment of the section }
          { size of the data in the file }
-         dataalignbytes : longint;
+         dataalignbytes : shortint;
          data       : TDynamicArray;
          datasize,
          datapos    : aint;
@@ -169,13 +179,14 @@ interface
          exesection  : TNamedIndexItem; { TExeSection }
          { relocation }
          relocations : TLinkedList;
-         constructor create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);virtual;
+         constructor create(const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);virtual;
          destructor  destroy;override;
          function  write(const d;l:aint):aint;
          function  writestr(const s:string):aint;
-         procedure writealign(l:longint);
-         function  aligneddatasize:aint;
+         procedure writealign(l:shortint);
          function  alignedmemsize:aint;
+         function  aligneddatasize:aint;
+         procedure setmempos(var mpos:aint);
          procedure setdatapos(var dpos:aint);
          procedure alignsection;
          procedure alloc(l:aint);
@@ -197,13 +208,11 @@ interface
          { Symbols that will be defined in this object file }
          FObjSymbols       : TIndexArray;
          { Special info sections that are written to during object generation }
-         FStabsRecSize  : longint;
          FStabsObjSec,
          FStabStrObjSec : TObjSection;
          procedure section_reset(p:tnamedindexitem;arg:pointer);
          procedure section_fixuprelocs(p:tnamedindexitem;arg:pointer);
        protected
-         property StabsRecSize:longint read FStabsRecSize write FStabsRecSize;
          property StabsSec:TObjSection read FStabsObjSec write FStabsObjSec;
          property StabStrSec:TObjSection read FStabStrObjSec write FStabStrObjSec;
          property CObjSection:TObjSectionClass read FCObjSection write FCObjSection;
@@ -215,12 +224,12 @@ interface
          function  sectiontype2options(atype:TAsmSectiontype):TObjSectionOptions;virtual;
          function  sectiontype2align(atype:TAsmSectiontype):shortint;virtual;
          function  createsection(atype:TAsmSectionType;const aname:string):TObjSection;
-         function  createsection(const aname:string;aalign:longint;aoptions:TObjSectionOptions):TObjSection;virtual;
+         function  createsection(const aname:string;aalign:shortint;aoptions:TObjSectionOptions):TObjSection;virtual;
          procedure CreateDebugSections;virtual;
          function  findsection(const aname:string):TObjSection;
          procedure setsection(asec:TObjSection);
          procedure alloc(len:aint);
-         procedure allocalign(len:longint);
+         procedure allocalign(len:shortint);
          procedure allocstab(p:pchar);
          procedure allocsymbol(currpass:byte;p:tasmsymbol;len:aint);
          procedure writebytes(var data;len:aint);
@@ -505,7 +514,7 @@ implementation
                               TObjSection
 ****************************************************************************}
 
-    constructor TObjSection.create(const Aname:string;Aalign:longint;Aoptions:TObjSectionOptions);
+    constructor TObjSection.create(const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);
       begin
         inherited createname(Aname);
         name:=Aname;
@@ -537,40 +546,53 @@ implementation
 
     function TObjSection.write(const d;l:aint):aint;
       begin
-        write:=datasize;
+        result:=memsize;
         if assigned(Data) then
-          Data.write(d,l);
-        inc(datasize,l);
+          begin
+            if datasize<>memsize then
+              internalerror(200602281);
+            Data.write(d,l);
+            inc(datasize,l);
+          end;
+        inc(memsize,l);
       end;
 
 
     function TObjSection.writestr(const s:string):aint;
       begin
-        writestr:=datasize;
+        result:=memsize;
         if assigned(Data) then
-          Data.write(s[1],length(s));
-        inc(datasize,length(s));
+          begin
+            if datasize<>memsize then
+              internalerror(200602282);
+            Data.write(s[1],length(s));
+            inc(datasize,length(s));
+          end;
+        inc(memsize,length(s));
       end;
 
 
-    procedure TObjSection.writealign(l:longint);
+    procedure TObjSection.writealign(l:shortint);
       var
-        i : longint;
-        empty : array[0..63] of char;
+        i : shortint;
+        empty : array[0..255] of char;
       begin
         { no alignment needed for 0 or 1 }
         if l<=1 then
-         exit;
-        i:=datasize mod l;
+          exit;
+        i:=memsize mod l;
         if i>0 then
-         begin
-           if assigned(data) then
-            begin
-              fillchar(empty,sizeof(empty),0);
-              Data.write(empty,l-i);
-            end;
-           inc(datasize,l-i);
-         end;
+          begin
+            if assigned(data) then
+              begin
+                if datasize<>memsize then
+                  internalerror(200602283);
+                fillchar(empty,sizeof(empty),0);
+                Data.write(empty,l-i);
+                inc(datasize,l-i);
+              end;
+            inc(memsize,l-i);
+          end;
       end;
 
 
@@ -587,15 +609,25 @@ implementation
 
 
     procedure TObjSection.setdatapos(var dpos:aint);
-      var
-        alignedpos : aint;
       begin
-        { get aligned datapos }
-        alignedpos:=align(dpos,secalign);
-        dataalignbytes:=alignedpos-dpos;
-        datapos:=alignedpos;
-        { update datapos }
-        dpos:=datapos+aligneddatasize;
+        if oso_data in secoptions then
+          begin
+            { get aligned datapos }
+            datapos:=align(dpos,secalign);
+            dataalignbytes:=datapos-dpos;
+            { return updated datapos }
+            dpos:=datapos+aligneddatasize;
+          end
+        else
+          datapos:=dpos;
+      end;
+
+
+    procedure TObjSection.setmempos(var mpos:aint);
+      begin
+        mempos:=align(mpos,secalign);
+        { return updated mempos }
+        mpos:=mempos+alignedmemsize;
       end;
 
 
@@ -607,7 +639,7 @@ implementation
 
     procedure TObjSection.alloc(l:aint);
       begin
-        inc(datasize,l);
+        inc(memsize,l);
       end;
 
 
@@ -657,7 +689,6 @@ implementation
         FObjSectionsDict:=tdictionary.create;
         FObjSectionsDict.noclear:=true;
         FObjSectionsIndex:=tindexarray.create(sectsgrow);
-        FStabsRecSize:=1;
         FStabsObjSec:=nil;
         FStabStrObjSec:=nil;
         { symbols }
@@ -743,7 +774,7 @@ implementation
       end;
 
 
-    function TObjData.createsection(const aname:string;aalign:longint;aoptions:TObjSectionOptions):TObjSection;
+    function TObjData.createsection(const aname:string;aalign:shortint;aoptions:TObjSectionOptions):TObjSection;
       begin
         result:=TObjSection(FObjSectionsDict.search(aname));
         if not assigned(result) then
@@ -792,13 +823,13 @@ implementation
       end;
 
 
-    procedure TObjData.allocalign(len:longint);
+    procedure TObjData.allocalign(len:shortint);
       var
         modulo : aint;
       begin
         if not assigned(CurrObjSec) then
           internalerror(200402253);
-        modulo:=CurrObjSec.datasize mod len;
+        modulo:=CurrObjSec.memsize mod len;
         if modulo > 0 then
           CurrObjSec.alloc(len-modulo);
       end;
@@ -806,7 +837,7 @@ implementation
 
     procedure TObjData.allocsymbol(currpass:byte;p:tasmsymbol;len:aint);
       begin
-        p.SetAddress(currpass,CurrObjSec,CurrObjSec.datasize,len);
+        p.SetAddress(currpass,CurrObjSec,CurrObjSec.memsize,len);
       end;
 
 
@@ -814,7 +845,7 @@ implementation
       begin
         if not(assigned(FStabsObjSec) and assigned(FStabStrObjSec)) then
           internalerror(200402254);
-        FStabsObjSec.alloc(FStabsRecSize);
+        FStabsObjSec.alloc(sizeof(TObjStabEntry));
         if assigned(p) and (p[0]<>#0) then
           FStabStrObjSec.alloc(strlen(p)+1);
       end;
@@ -826,6 +857,8 @@ implementation
           begin
             datasize:=0;
             datapos:=0;
+            memsize:=0;
+            mempos:=0;
           end;
       end;
 
