@@ -129,8 +129,8 @@ interface
          FCoffsyms,
          FCoffStrs : tdynamicarray;
          win32     : boolean;
-         nsyms,
          nsects    : word;
+         nsyms,
          sympos    : aint;
          procedure ExeSections_pass2_header(p:tnamedindexitem;arg:pointer);
          procedure write_symbol(const name:string;value:aint;section:smallint;typ,aux:byte);
@@ -899,9 +899,14 @@ const win32stub : array[0..131] of byte=(
 
 
     procedure TCoffObjData.writestab(offset:aint;ps:tasmsymbol;nidx,nother:byte;ndesc:word;p:pchar);
+      const
+        N_SourceFile = $64;
+        N_IncludeFile = $84;
       var
         stab : TObjStabEntry;
+        stabstrlen : longint;
         curraddr : aint;
+        hs : string;
       begin
         if not assigned(StabsSec) then
           internalerror(200602256);
@@ -912,8 +917,30 @@ const win32stub : array[0..131] of byte=(
           offset:=0;
         if assigned(p) and (p[0]<>#0) then
           begin
-            stab.strpos:=StabStrSec.datasize;
-            StabStrSec.write(p^,strlen(p)+1);
+            stabstrlen:=strlen(p);
+{$ifdef optimizestabs}
+            StabStrEntry:=nil;
+            if (nidx=N_SourceFile) or (nidx=N_IncludeFile) then
+              begin
+                hs:=strpas(p);
+                StabstrEntry:=StabStrDict.Search(hs);
+                if not assigned(StabstrEntry) then
+                  begin
+                    StabstrEntry:=TStabStrEntry.Create(hs);
+                    StabstrEntry:=StabStrSec.datasize;
+                    StabStrDict.Insert(StabstrEntry);
+                    { generate new stab }
+                    StabstrEntry:=nil;
+                  end;
+              end;
+            if assigned(StabstrEntry) then
+              stab.strpos:=StabstrEntry.strpos
+            else
+{$endif optimizestabs}
+              begin
+                stab.strpos:=StabStrSec.datasize;
+                StabStrSec.write(p^,stabstrlen+1);
+              end;
           end
         else
           stab.strpos:=0;
@@ -1140,8 +1167,8 @@ const win32stub : array[0..131] of byte=(
 
     procedure TCoffObjOutput.section_set_secsymidx(p:tnamedindexitem;arg:pointer);
       begin
-        inc(plongint(arg)^);
-        TObjSection(p).secsymidx:=plongint(arg)^;
+        inc(psmallint(arg)^);
+        TObjSection(p).secsymidx:=psmallint(arg)^;
       end;
 
 
@@ -1216,7 +1243,7 @@ const win32stub : array[0..131] of byte=(
         orgdatapos,
         datapos,
         sympos   : aint;
-        nsects   : word;
+        nsects   : smallint;
         i        : longint;
         hstab    : TObjStabEntry;
         gotreloc : boolean;
@@ -1712,9 +1739,9 @@ const win32stub : array[0..131] of byte=(
     procedure TCoffObjInput.handle_ObjSymbols(data:TObjData);
       var
         size,
-        address   : aint;
+        address,
         nsyms,
-        symidx    : word;
+        symidx    : aint;
         i         : longint;
         sym       : coffsymbol;
         strname   : string;
@@ -1816,6 +1843,11 @@ const win32stub : array[0..131] of byte=(
       begin
         with TCoffObjSection(p) do
           begin
+            { Skip debug sections }
+            if (cs_link_strip in aktglobalswitches) and
+               (oso_debug in secoptions) then
+              exit;
+
             if oso_data in secoptions then
               begin
                 Reader.Seek(datapos);
@@ -1833,11 +1865,16 @@ const win32stub : array[0..131] of byte=(
       begin
         with TCoffObjSection(p) do
           begin
+            { Skip debug sections }
+            if (cs_link_strip in aktglobalswitches) and
+               (oso_debug in secoptions) then
+              exit;
+
             if coffrelocs>0 then
-             begin
-               Reader.Seek(coffrelocpos);
-               read_relocs(TCoffObjSection(p));
-             end;
+              begin
+                Reader.Seek(coffrelocpos);
+                read_relocs(TCoffObjSection(p));
+              end;
           end;
       end;
 

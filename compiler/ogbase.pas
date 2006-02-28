@@ -480,6 +480,7 @@ implementation
         firsthdrsym,
         skipstab : boolean;
         hstab   : TObjStabEntry;
+        stabrelocofs : longint;
         buf     : array[0..1023] of byte;
         bufend,
         bufsize  : longint;
@@ -489,8 +490,19 @@ implementation
         if not(assigned(stabexesec) and assigned(stabstrexesec)) then
           exit;
         { Create new stabsection }
+        stabrelocofs:=@hstab.nvalue-@hstab;
         mergedstabsec:=internalobjdata.CreateSection(sec_stab,'');
         mergedstabstrsec:=internalobjdata.CreateSection(sec_stabstr,'');
+
+        { write stab for hdrsym }
+        fillchar(hstab,sizeof(TObjStabEntry),0);
+        mergedstabsec.write(hstab,sizeof(TObjStabEntry));
+
+        { .stabstr starts with a #0 }
+        buf[0]:=0;
+        mergedstabstrsec.write(buf[0],1);
+
+        { Copy stabs and corresponding relocations }
         for i:=0 to stabexesec.ObjSectionList.Count-1 do
           begin
             currstabsec:=TObjSection(stabexesec.ObjSectionList[i]);
@@ -498,11 +510,6 @@ implementation
             if not assigned(currstabstrsec) then
               continue;
 
-            { .stabstr starts with a #0 }
-            buf[0]:=0;
-            mergedstabstrsec.write(buf[0],1);
-
-            firsthdrsym:=false;
             stabcnt:=currstabsec.data.size div sizeof(TObjStabEntry);
             currstabsec.data.seek(0);
             currstabreloc:=TObjRelocation(currstabsec.relocations.first);
@@ -512,18 +519,14 @@ implementation
                 currstabsec.data.read(hstab,sizeof(TObjStabEntry));
                 { Only include first hdrsym stab }
                 if hstab.ntype=0 then
-                  begin
-                    if not firsthdrsym then
-                      skipstab:=true;
-                    firsthdrsym:=false;
-                  end;
+                  skipstab:=true;
                 if not skipstab then
                   begin
                     { Copy string in stabstr }
                     if hstab.strpos<>0 then
                       begin
                         currstabstrsec.data.seek(hstab.strpos);
-                        hstab.strpos:=mergedstabstrsec.datasize;
+                        hstab.strpos:=mergedstabstrsec.memsize;
                         repeat
                           bufsize:=currstabstrsec.data.read(buf,sizeof(buf));
                           bufend:=indexbyte(buf,bufsize,0);
@@ -538,13 +541,19 @@ implementation
                         until (bufend<>-1) or (bufsize<sizeof(buf));
                       end;
                     { Copy relocation }
-                    if assigned(currstabreloc) and
-                       (currstabreloc.dataoffset=j*sizeof(TObjStabEntry)+8) then
+                    while assigned(currstabreloc) and
+                          (currstabreloc.dataoffset<j*sizeof(TObjStabEntry)+stabrelocofs) do
+                      currstabreloc:=TObjRelocation(currstabreloc.next);
+                    if assigned(currstabreloc) then
                       begin
-                        nextstabreloc:=TObjRelocation(currstabreloc.next);
-                        currstabsec.relocations.remove(currstabreloc);
-                        mergedstabsec.relocations.concat(currstabreloc);
-                        currstabreloc:=nextstabreloc;
+                        if (currstabreloc.dataoffset=j*sizeof(TObjStabEntry)+stabrelocofs) then
+                          begin
+                            currstabreloc.dataoffset:=mergedstabsec.memsize+stabrelocofs;
+                            nextstabreloc:=TObjRelocation(currstabreloc.next);
+                            currstabsec.relocations.remove(currstabreloc);
+                            mergedstabsec.relocations.concat(currstabreloc);
+                            currstabreloc:=nextstabreloc;
+                          end;
                       end;
                     mergedstabsec.write(hstab,sizeof(hstab));
                   end;
@@ -557,7 +566,7 @@ implementation
             hstab.strpos:=1;
             hstab.ntype:=0;
             hstab.nother:=0;
-            hstab.ndesc:=(mergedstabsec.datasize div sizeof(TObjStabEntry))-1;
+            hstab.ndesc:=word((mergedstabsec.datasize div sizeof(TObjStabEntry))-1);
             hstab.nvalue:=mergedstabstrsec.datasize;
             mergedstabsec.data.seek(0);
             mergedstabsec.data.write(hstab,sizeof(hstab));
