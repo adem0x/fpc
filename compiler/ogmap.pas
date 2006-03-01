@@ -123,7 +123,7 @@ implementation
        begin
          { .text           0x000018a8     0xd958 }
          writeln(t,PadSpace(p.name,18)+PadSpace('0x'+HexStr(p.mempos+Fimagebase,sizeof(aint)*2),12)+
-                   '0x'+HexStr(p.memsize,sizeof(aint)));
+                   '0x'+HexStr(p.size,sizeof(aint)));
        end;
 
 
@@ -131,7 +131,7 @@ implementation
        begin
          { .text           0x000018a8     0xd958     object.o }
          writeln(t,' '+PadSpace(p.name,17)+PadSpace('0x'+HexStr(p.mempos+FImageBase,sizeof(aint)*2),12)+
-                   '0x'+HexStr(p.memsize,sizeof(aint))+' '+p.objdata.name);
+                   '0x'+HexStr(p.size,sizeof(aint))+' '+p.objdata.name);
        end;
 
 

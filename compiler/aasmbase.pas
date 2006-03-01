@@ -163,18 +163,16 @@ interface
        end;
 
        TObjSection = class(TNamedIndexItem)
-         objData    : TObjData;
-         secoptions : TObjSectionOptions;
-         secsymidx  : longint;   { index for the section in symtab }
-         secalign   : shortint;   { alignment of the section }
-         { size of the data in the file }
-         dataalignbytes : shortint;
-         data       : TDynamicArray;
-         datasize,
-         datapos    : aint;
-         { size and position in memory }
-         memsize,
-         mempos     : aint;
+         ObjData    : TObjData;
+         SecOptions : TObjSectionOptions;
+         SecSymIdx  : longint;   { index for the section in symtab }
+         SecAlign   : shortint;   { alignment of the section }
+         { section data }
+         Data       : TDynamicArray;
+         Size,
+         DataPos,
+         MemPos     : aint;
+         DataAlignBytes : shortint;
          { executable linking }
          exesection  : TNamedIndexItem; { TExeSection }
          { relocation }
@@ -183,12 +181,9 @@ interface
          destructor  destroy;override;
          function  write(const d;l:aint):aint;
          function  writestr(const s:string):aint;
-         procedure writealign(l:shortint);
-         function  alignedmemsize:aint;
-         function  aligneddatasize:aint;
+         function  WriteZeros(l:longint):aint;
          procedure setmempos(var mpos:aint);
          procedure setdatapos(var dpos:aint);
-         procedure alignsection;
          procedure alloc(l:aint);
          procedure addsymreloc(ofs:aint;p:tasmsymbol;relative:TObjRelocationType);
          procedure addsectionreloc(ofs:aint;aobjsec:TObjSection;relative:TObjRelocationType);
@@ -211,6 +206,8 @@ interface
          FStabsObjSec,
          FStabStrObjSec : TObjSection;
          procedure section_reset(p:tnamedindexitem;arg:pointer);
+         procedure section_afteralloc(p:tnamedindexitem;arg:pointer);
+         procedure section_afterwrite(p:tnamedindexitem;arg:pointer);
          procedure section_fixuprelocs(p:tnamedindexitem;arg:pointer);
        protected
          property StabsSec:TObjSection read FStabsObjSec write FStabsObjSec;
@@ -523,15 +520,13 @@ implementation
         secsymidx:=0;
         secalign:=Aalign;
         { data }
-        datasize:=0;
+        Size:=0;
         datapos:=0;
+        mempos:=0;
         if (oso_data in aoptions) then
           Data:=TDynamicArray.Create(8192)
         else
           data:=nil;
-        { memory }
-        mempos:=0;
-        memsize:=0;
         { relocation }
         relocations:=TLinkedList.Create;
       end;
@@ -547,65 +542,38 @@ implementation
 
     function TObjSection.write(const d;l:aint):aint;
       begin
-        result:=memsize;
+        result:=size;
         if assigned(Data) then
           begin
-            if datasize<>memsize then
+            if Size<>data.size then
               internalerror(200602281);
             Data.write(d,l);
-            inc(datasize,l);
-          end;
-        inc(memsize,l);
+            inc(Size,l);
+          end
+        else
+          internalerror(200602289);
       end;
 
 
     function TObjSection.writestr(const s:string):aint;
       begin
-        result:=memsize;
-        if assigned(Data) then
-          begin
-            if datasize<>memsize then
-              internalerror(200602282);
-            Data.write(s[1],length(s));
-            inc(datasize,length(s));
-          end;
-        inc(memsize,length(s));
+        result:=Write(s[1],length(s));
       end;
 
 
-    procedure TObjSection.writealign(l:shortint);
+    function TObjSection.WriteZeros(l:longint):aint;
       var
-        i : shortint;
-        empty : array[0..255] of char;
+        empty : array[0..1023] of byte;
       begin
-        { no alignment needed for 0 or 1 }
-        if l<=1 then
-          exit;
-        i:=memsize mod l;
-        if i>0 then
+        if l>sizeof(empty) then
+          internalerror(200404082);
+        if l>0 then
           begin
-            if assigned(data) then
-              begin
-                if datasize<>memsize then
-                  internalerror(200602283);
-                fillchar(empty,sizeof(empty),0);
-                Data.write(empty,l-i);
-                inc(datasize,l-i);
-              end;
-            inc(memsize,l-i);
-          end;
-      end;
-
-
-    function TObjSection.aligneddatasize:aint;
-      begin
-        result:=align(datasize,secalign);
-      end;
-
-
-    function TObjSection.alignedmemsize:aint;
-      begin
-        result:=align(memsize,secalign);
+            fillchar(empty,l,0);
+            result:=Write(empty,l);
+          end
+        else
+          result:=Size;
       end;
 
 
@@ -617,7 +585,7 @@ implementation
             datapos:=align(dpos,secalign);
             dataalignbytes:=datapos-dpos;
             { return updated datapos }
-            dpos:=datapos+aligneddatasize;
+            dpos:=datapos+size;
           end
         else
           datapos:=dpos;
@@ -628,19 +596,13 @@ implementation
       begin
         mempos:=align(mpos,secalign);
         { return updated mempos }
-        mpos:=mempos+alignedmemsize;
-      end;
-
-
-    procedure TObjSection.alignsection;
-      begin
-        writealign(secalign);
+        mpos:=mempos+size;
       end;
 
 
     procedure TObjSection.alloc(l:aint);
       begin
-        inc(memsize,l);
+        inc(size,l);
       end;
 
 
@@ -783,7 +745,7 @@ implementation
             result:=CObjSection.create(aname,aalign,aoptions);
             FObjSectionsDict.Insert(result);
             FObjSectionsIndex.Insert(result);
-            result.objdata:=self;
+            result.ObjData:=self;
           end;
         FCurrObjSec:=result;
       end;
@@ -810,7 +772,7 @@ implementation
 
     procedure TObjData.setsection(asec:TObjSection);
       begin
-        if asec.objdata<>self then
+        if asec.ObjData<>self then
           internalerror(200403041);
         FCurrObjSec:=asec;
       end;
@@ -833,20 +795,18 @@ implementation
 
 
     procedure TObjData.allocalign(len:shortint);
-      var
-        modulo : aint;
       begin
         if not assigned(CurrObjSec) then
           internalerror(200402253);
-        modulo:=CurrObjSec.memsize mod len;
-        if modulo > 0 then
-          CurrObjSec.alloc(len-modulo);
+        CurrObjSec.alloc(align(CurrObjSec.size,len)-CurrObjSec.size);
       end;
 
 
     procedure TObjData.allocsymbol(currpass:byte;p:tasmsymbol;len:aint);
       begin
-        p.SetAddress(currpass,CurrObjSec,CurrObjSec.memsize,len);
+        if not assigned(CurrObjSec) then
+          internalerror(200402255);
+        p.SetAddress(currpass,CurrObjSec,CurrObjSec.Size,len);
       end;
 
 
@@ -860,13 +820,29 @@ implementation
       end;
 
 
+    procedure TObjData.section_afteralloc(p:tnamedindexitem;arg:pointer);
+      begin
+        with TObjSection(p) do
+          alloc(align(size,secalign)-size);
+      end;
+
+
+    procedure TObjData.section_afterwrite(p:tnamedindexitem;arg:pointer);
+      begin
+        with TObjSection(p) do
+          begin
+            if assigned(data) then
+              writezeros(align(size,secalign)-size);
+          end;
+      end;
+
+
     procedure TObjData.section_reset(p:tnamedindexitem;arg:pointer);
       begin
         with TObjSection(p) do
           begin
-            datasize:=0;
+            Size:=0;
             datapos:=0;
-            memsize:=0;
             mempos:=0;
           end;
       end;
@@ -880,21 +856,56 @@ implementation
 
     procedure TObjData.beforealloc;
       begin
+        { create stabs sections if debugging }
+        if assigned(StabsSec) then
+          begin
+            StabsSec.Alloc(sizeof(TObjStabEntry));
+            StabStrSec.Alloc(1);
+          end;
       end;
 
 
     procedure TObjData.beforewrite;
+      var
+        s : string[1];
       begin
+        { create stabs sections if debugging }
+        if assigned(StabsSec) then
+         begin
+           writestab(0,nil,0,0,0,nil);
+           s:=#0;
+           stabstrsec.write(s[1],length(s));
+         end;
       end;
 
 
     procedure TObjData.afteralloc;
       begin
+        FObjSectionsDict.foreach(@section_afteralloc,nil);
       end;
 
 
     procedure TObjData.afterwrite;
+      var
+        s : string[1];
+        hstab : TObjStabEntry;
       begin
+        FObjSectionsDict.foreach(@section_afterwrite,nil);
+        { For the stab section we need an HdrSym which can now be
+          calculated more easily }
+        if assigned(StabsSec) then
+          begin
+            { header stab }
+            s:=#0;
+            stabstrsec.write(s[1],length(s));
+            hstab.strpos:=1;
+            hstab.ntype:=0;
+            hstab.nother:=0;
+            hstab.ndesc:=(StabsSec.Size div sizeof(TObjStabEntry))-1;
+            hstab.nvalue:=StabStrSec.Size;
+            StabsSec.data.seek(0);
+            StabsSec.data.write(hstab,sizeof(hstab));
+          end;
       end;
 
 
@@ -1140,6 +1151,5 @@ implementation
         inc(nextlabelnr[alt_addr]);
         symbolsearch.insert(l);
       end;
-
 
 end.

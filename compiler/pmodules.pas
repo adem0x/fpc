@@ -1444,35 +1444,35 @@ implementation
             exit;
           end;
 
-         { create the executable when we are at level 1 }
-         if (compile_level=1) then
-          begin
-            { insert all .o files from all loaded units and
-              unload the units, we don't need them anymore.
-              Keep the current_module because that is still needed }
-            hp:=tmodule(loaded_units.first);
-            while assigned(hp) do
-             begin
-               linker.AddModuleFiles(hp);
-               hp2:=tmodule(hp.next);
-               if hp<>current_module then
-                 begin
-                   loaded_units.remove(hp);
-                   hp.free;
-                 end;
-               hp:=hp2;
-             end;
-            { write .def file }
-            if (cs_link_deffile in aktglobalswitches) then
-             deffile.writefile;
-            { finally we can create a executable }
-            if (not current_module.is_unit) then
-             begin
-               if DLLSource then
-                 linker.MakeSharedLibrary
-               else
-                 linker.MakeExecutable;
-             end;
+         if (not current_module.is_unit) then
+           begin
+             { create the executable when we are at level 1 }
+             if (compile_level=1) then
+               begin
+                 { write .def file }
+                 if (cs_link_deffile in aktglobalswitches) then
+                  deffile.writefile;
+                 { insert all .o files from all loaded units and
+                   unload the units, we don't need them anymore.
+                   Keep the current_module because that is still needed }
+                 hp:=tmodule(loaded_units.first);
+                 while assigned(hp) do
+                  begin
+                    linker.AddModuleFiles(hp);
+                    hp2:=tmodule(hp.next);
+                    if hp<>current_module then
+                      begin
+                        loaded_units.remove(hp);
+                        hp.free;
+                      end;
+                    hp:=hp2;
+                  end;
+                 { finally we can create a executable }
+                 if DLLSource then
+                   linker.MakeSharedLibrary
+                 else
+                   linker.MakeExecutable;
+               end;
           end;
       end;
 

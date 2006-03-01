@@ -959,13 +959,13 @@ Implementation
 {$ifndef NOAG386BIN}
                  { reset instructions which could change in pass 2 }
                  Taicpu(hp).resetpass2;
-                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.memsize));
+                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.Size));
 {$endif NOAG386BIN}
 {$endif i386}
 {$ifdef arm}
                  { reset instructions which could change in pass 2 }
                  Taicpu(hp).resetpass2;
-                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.memsize));
+                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.Size));
 {$endif arm}
                end;
              ait_cutobject :
@@ -991,8 +991,8 @@ Implementation
              ait_align :
                begin
                  { here we must determine the fillsize which is used in pass2 }
-                 Tai_align(hp).fillsize:=align(ObjData.CurrObjSec.memsize,Tai_align(hp).aligntype)-
-                   ObjData.CurrObjSec.memsize;
+                 Tai_align(hp).fillsize:=align(ObjData.CurrObjSec.Size,Tai_align(hp).aligntype)-
+                   ObjData.CurrObjSec.Size;
                  ObjData.alloc(Tai_align(hp).fillsize);
                end;
              ait_datablock :
@@ -1042,7 +1042,7 @@ Implementation
                begin
                  if target_info.system in [system_i386_linux,system_i386_beos] then
                   begin
-                    Tai_symbol_end(hp).sym.size:=ObjData.CurrObjSec.memsize-Tai_symbol_end(hp).sym.address;
+                    Tai_symbol_end(hp).sym.size:=ObjData.CurrObjSec.Size-Tai_symbol_end(hp).sym.address;
                     objectlibrary.UsedAsmSymbolListInsert(Tai_symbol_end(hp).sym);
                   end;
                 end;
@@ -1055,7 +1055,7 @@ Implementation
                ObjData.alloc(Tai_string(hp).len);
              ait_instruction :
                begin
-                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.memsize));
+                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.Size));
                  { fixup the references }
                  for i:=1 to Taicpu(hp).ops do
                   begin

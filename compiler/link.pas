@@ -44,6 +44,8 @@ Type
 
     TLinker = class(TAbstractLinker)
     public
+       HasResources,
+       HasExports      : boolean;
        ObjectFiles,
        DLLFiles,
        SharedLibFiles,
@@ -299,6 +301,10 @@ var
 begin
   with hp do
    begin
+     if (flags and uf_has_resourcefiles)<>0 then
+       HasResources:=true;
+     if (flags and uf_has_exports)<>0 then
+       HasExports:=true;
    { link unit files }
      if (flags and uf_no_link)=0 then
       begin
@@ -833,8 +839,8 @@ end;
         exeoutput.WriteExeFile(current_module.exefilename^);
 
 {$warning TODO fixed section names}
-        status.codesize:=exeoutput.findexesection('.text').memsize;
-        status.datasize:=exeoutput.findexesection('.data').memsize;
+        status.codesize:=exeoutput.findexesection('.text').size;
+        status.datasize:=exeoutput.findexesection('.data').size;
 
       myexit:
         { close map }

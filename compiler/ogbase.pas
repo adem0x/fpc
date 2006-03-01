@@ -86,12 +86,11 @@ interface
         FObjSectionList : TList;
         FObjSymbolList  : Tlist;
       public
-        DataSize,
+        Size,
         DataPos,
-        MemSize,
         MemPos     : aint;
         SecAlign   : shortint;
-        secoptions : TObjSectionOptions;
+        SecOptions : TObjSectionOptions;
         constructor create(const n:string);virtual;
         destructor  destroy;override;
         procedure AddObjSection(objsec:TObjSection);
@@ -262,10 +261,9 @@ implementation
     constructor texesection.create(const n:string);
       begin
         inherited createname(n);
+        Size:=0;
         MemPos:=0;
-        MemSize:=0;
         DataPos:=0;
-        DataSize:=0;
         FSecSymIdx:=0;
         FObjSectionList:=TList.Create;
         FObjSymbolList:=TList.Create;
@@ -525,7 +523,7 @@ implementation
                         if hstab.strpos<>0 then
                           begin
                             currstabstrsec.data.seek(hstab.strpos);
-                            hstab.strpos:=mergedstabstrsec.memsize;
+                            hstab.strpos:=mergedstabstrsec.Size;
                             repeat
                               bufsize:=currstabstrsec.data.read(buf,sizeof(buf));
                               bufend:=indexbyte(buf,bufsize,0);
@@ -547,7 +545,7 @@ implementation
                           begin
                             if (currstabreloc.dataoffset=j*sizeof(TObjStabEntry)+stabrelocofs) then
                               begin
-                                currstabreloc.dataoffset:=mergedstabsec.memsize+stabrelocofs;
+                                currstabreloc.dataoffset:=mergedstabsec.Size+stabrelocofs;
                                 nextstabreloc:=TObjRelocation(currstabreloc.next);
                                 currstabsec.relocations.remove(currstabreloc);
                                 mergedstabsec.relocations.concat(currstabreloc);
@@ -566,13 +564,13 @@ implementation
           end;
 
         { Generate new HdrSym }
-        if mergedstabsec.datasize>0 then
+        if mergedstabsec.Size>0 then
           begin
             hstab.strpos:=1;
             hstab.ntype:=0;
             hstab.nother:=0;
-            hstab.ndesc:=word((mergedstabsec.datasize div sizeof(TObjStabEntry))-1);
-            hstab.nvalue:=mergedstabstrsec.datasize;
+            hstab.ndesc:=word((mergedstabsec.Size div sizeof(TObjStabEntry))-1);
+            hstab.nvalue:=mergedstabstrsec.Size;
             mergedstabsec.data.seek(0);
             mergedstabsec.data.write(hstab,sizeof(hstab));
           end;
@@ -598,6 +596,7 @@ implementation
         FCurrExeSec:=FindExeSection(aname);
         if not assigned(CurrExeSec) then
           exit;
+
         { Alignment of exesection }
         CurrMemPos:=align(CurrMemPos,SectionMemAlign);
         CurrExeSec.MemPos:=CurrMemPos;
@@ -606,12 +605,6 @@ implementation
             CurrDataPos:=align(CurrDataPos,SectionDataAlign);
             CurrExeSec.DataPos:=CurrDataPos;
           end;
-
-(*
-        { For the stab section we need an HdrSym }
-        if aname='.stab' then
-          inc(CurrDataPos,sizeof(TObjStabEntry));
-*)
 
         { set position of object ObjSections }
         for i:=0 to CurrExeSec.ObjSectionList.Count-1 do
@@ -622,25 +615,6 @@ implementation
             { Position in File }
             if (oso_data in objsec.secoptions) then
               objsec.setdatapos(CurrDataPos);
-(*
-            { Update references from stab to stabstr }
-            if objsec.name='.stabstr' then
-              begin
-                stabsec:=objsec.objdata.findsection('.stab');
-                stabcnt:=stabsec.data.size div sizeof(TObjStabEntry);
-                for j:=0 to stabcnt-1 do
-                  begin
-                    stabsec.data.seek(j*sizeof(TObjStabEntry));
-                    stabsec.data.read(hstab,sizeof(TObjStabEntry));
-                    if hstab.strpos<>0 then
-                      begin
-                        inc(hstab.strpos,objsec.datapos-CurrExeSec.DataPos);
-                        stabsec.data.seek(j*sizeof(TObjStabEntry));
-                        stabsec.data.write(hstab,sizeof(TObjStabEntry));
-                      end;
-                  end;
-              end;
-*)
           end;
       end;
 
@@ -650,9 +624,9 @@ implementation
         if not assigned(CurrExeSec) then
           exit;
         { calculate size of the section }
-        CurrExeSec.memsize:=CurrMemPos-CurrExeSec.MemPos;
+        CurrExeSec.Size:=CurrMemPos-CurrExeSec.MemPos;
         if (oso_data in CurrExeSec.secoptions) then
-          CurrExeSec.datasize:=CurrDataPos-CurrExeSec.DataPos;
+          CurrExeSec.Size:=CurrDataPos-CurrExeSec.DataPos;
         { Reset current section }
         FCurrExeSec:=nil;
       end;

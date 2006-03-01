@@ -1,11 +1,7 @@
 {
-    Copyright (c) 1998-2002 by Peter Vreman
+    Copyright (c) 1998-2006 by Peter Vreman
 
     Contains the binary elf writer
-
-    * This code was inspired by the NASM sources
-      The Netwide Assembler is Copyright (c) 1996 Simon Tatham and
-      Julian Hall. All rights reserved.
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -75,8 +71,6 @@ interface
          procedure writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);override;
          procedure writesymbol(p:tasmsymbol);override;
          procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother:byte;ndesc:word;p:pchar);override;
-         procedure beforealloc;override;
-         procedure beforewrite;override;
        end;
 
        TElf32ObjectOutput = class(tObjOutput)
@@ -409,17 +403,17 @@ implementation
                  value can be calculated }
                if (p.objsection=CurrObjSec) and
                   (relative=RELOC_RELATIVE) then
-                 inc(data,symaddr-len-CurrObjSec.datasize)
+                 inc(data,symaddr-len-CurrObjSec.Size)
                else
                  begin
-                   CurrObjSec.addsectionreloc(CurrObjSec.datasize,p.objsection,relative);
+                   CurrObjSec.addsectionreloc(CurrObjSec.Size,p.objsection,relative);
                    inc(data,symaddr);
                  end;
              end
            else
              begin
                writesymbol(p);
-               CurrObjSec.addsymreloc(CurrObjSec.datasize,p,relative);
+               CurrObjSec.addsymreloc(CurrObjSec.Size,p,relative);
                if relative=RELOC_RELATIVE then
                  dec(data,len);
             end;
@@ -437,7 +431,7 @@ implementation
         fillchar(stab,sizeof(TObjStabEntry),0);
         if assigned(p) and (p[0]<>#0) then
          begin
-           stab.strpos:=stabstrsec.datasize;
+           stab.strpos:=stabstrsec.Size;
            stabstrsec.write(p^,strlen(p)+1);
          end;
         stab.ntype:=nidx;
@@ -448,34 +442,8 @@ implementation
         if assigned(ps) then
           begin
             writesymbol(ps);
-            stabssec.addsymreloc(stabssec.datasize-4,ps,RELOC_ABSOLUTE);
+            stabssec.addsymreloc(stabssec.Size-4,ps,RELOC_ABSOLUTE);
           end;
-      end;
-
-
-    procedure TElf32ObjData.beforealloc;
-      begin
-        { create stabs sections if debugging }
-        if assigned(StabsSec) then
-          begin
-            StabsSec.Alloc(sizeof(TObjStabEntry));
-            StabStrSec.Alloc(length(SplitFileName(current_module.mainsource^))+2);
-          end;
-      end;
-
-
-    procedure TElf32ObjData.beforewrite;
-      var
-        s : string;
-      begin
-        { create stabs sections if debugging }
-        if assigned(StabsSec) then
-         begin
-           writestab(0,nil,0,0,0,nil);
-           { write zero pchar and name together (PM) }
-           s:=#0+SplitFileName(current_module.mainsource^)+#0;
-           stabstrsec.write(s[1],length(s));
-         end;
       end;
 
 
@@ -585,7 +553,7 @@ implementation
             begin
               fillchar(elfsym,sizeof(elfsym),0);
               { symbolname, write the #0 separate to overcome 255+1 char not possible }
-              elfsym.st_name:=strtabsect.datasize;
+              elfsym.st_name:=strtabsect.Size;
               strtabsect.writestr(sym.name);
               strtabsect.writestr(#0);
               case sym.currbind of
@@ -668,7 +636,7 @@ implementation
         sechdr.sh_type:=s.shtype;
         sechdr.sh_flags:=s.shflags;
         sechdr.sh_offset:=s.datapos;
-        sechdr.sh_size:=s.datasize;
+        sechdr.sh_size:=s.Size;
         sechdr.sh_link:=s.shlink;
         sechdr.sh_info:=s.shinfo;
         sechdr.sh_addralign:=s.secalign;
@@ -679,17 +647,9 @@ implementation
 
 
     procedure TElf32ObjectOutput.writesectiondata(s:TElf32ObjSection);
-      var
-        hp : pdynamicblock;
       begin
         FWriter.writezeros(s.dataalignbytes);
-        s.alignsection;
-        hp:=s.data.firstblock;
-        while assigned(hp) do
-          begin
-            FWriter.write(hp^.data,hp^.used);
-            hp:=hp^.next;
-          end;
+        FWriter.writearray(s.data);
       end;
 
 
@@ -791,8 +751,8 @@ implementation
               hstab.strpos:=1;
               hstab.ntype:=0;
               hstab.nother:=0;
-              hstab.ndesc:=(stabssec.datasize div sizeof(TObjStabEntry))-1{+1 according to gas output PM};
-              hstab.nvalue:=stabstrsec.datasize;
+              hstab.ndesc:=(stabssec.Size div sizeof(TObjStabEntry))-1{+1 according to gas output PM};
+              hstab.nvalue:=stabstrsec.Size;
               stabssec.Data.seek(0);
               stabssec.Data.write(hstab,sizeof(hstab));
             end;

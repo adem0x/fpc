@@ -1714,7 +1714,7 @@ implementation
         ea_data : ea;
       begin
         { safety check }
-        if objdata.currobjsec.memsize<>insoffset then
+        if objdata.currobjsec.size<>insoffset then
           internalerror(200130121);
         { load data to write }
         codes:=insentry^.code;
