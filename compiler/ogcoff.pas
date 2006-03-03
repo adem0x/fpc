@@ -42,6 +42,7 @@ interface
          coffrelocs,
          coffrelocpos : aint;
        public
+         secidx   : longint;
          flags    : longword;
          constructor create(const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);override;
          procedure addsymsizereloc(ofs:aint;p:TObjSymbol;symsize:aint;relative:TObjRelocationType);
@@ -1020,12 +1021,11 @@ const win32stub : array[0..131] of byte=(
       var
         secrec : coffsectionrec;
       begin
-        with TObjSection(p) do
+        with TCoffObjSection(p) do
           begin
-            { There is one .file and 2 symbols (symbol+AUX) per section, to get the
-              section index we can divide the symbol }
-            secsymidx:=symidx div 2;
-            write_symbol(name,mempos,secsymidx,COFF_SYM_SECTION,1);
+            secidx:=symidx div 2;
+            secsymidx:=symidx;
+            write_symbol(name,mempos,secidx,COFF_SYM_SECTION,1);
             { AUX }
             fillchar(secrec,sizeof(secrec),0);
             secrec.len:=Size;
@@ -1048,7 +1048,7 @@ const win32stub : array[0..131] of byte=(
            if assigned(r.symbol) then
             begin
               if (r.symbol.bind=AB_LOCAL) then
-               rel.sym:=2*r.symbol.objsection.secsymidx
+               rel.sym:=r.symbol.objsection.secsymidx
               else
                begin
                  if r.symbol.symidx=-1 then
@@ -1059,7 +1059,7 @@ const win32stub : array[0..131] of byte=(
            else
             begin
               if r.objsection<>nil then
-               rel.sym:=2*r.objsection.secsymidx
+               rel.sym:=r.objsection.secsymidx
               else
                rel.sym:=0;
             end;
@@ -1105,13 +1105,13 @@ const win32stub : array[0..131] of byte=(
                  AB_GLOBAL :
                    begin
                      globalval:=2;
-                     sectionval:=objsym.objsection.secsymidx;
+                     sectionval:=TCoffObjSection(objsym.objsection).secidx;
                      value:=objsym.address;
                    end;
                  AB_LOCAL :
                    begin
                      globalval:=3;
-                     sectionval:=objsym.objsection.secsymidx;
+                     sectionval:=TCoffObjSection(objsym.objsection).secidx;
                      value:=objsym.address;
                    end;
                  else
@@ -1694,6 +1694,7 @@ const win32stub : array[0..131] of byte=(
               address:=0;
               objsym:=nil;
               case sym.typ of
+                COFF_SYM_SECTION,
                 COFF_SYM_GLOBAL :
                   begin
                     if sym.section=0 then
@@ -1738,7 +1739,6 @@ const win32stub : array[0..131] of byte=(
                        objsym.size:=size;
                      end;
                   end;
-                COFF_SYM_SECTION,
                 COFF_SYM_FUNCTION,
                 COFF_SYM_FILE :
                   ;

@@ -433,8 +433,8 @@ implementation
       var
         objsection : TObjSection;
       begin
-        { Create a dummy section }
-        objsection:=internalobjdata.createsection('*'+aname,0,[]);
+        { Create a dummy section, inherit options from the exesection }
+        objsection:=internalobjdata.createsection('*'+aname,0,CurrExeSec.secoptions);
         internalobjdata.SymbolDefine(aname,AB_GLOBAL,AT_FUNCTION);
         CurrExeSec.AddObjSection(objsection);
       end;
