@@ -81,13 +81,13 @@ interface
        TCoffObjOutput = class(tObjOutput)
        private
          win32   : boolean;
-         initsym : word;
+         symidx  : longint;
+         FCoffSyms,
          FCoffStrs : tdynamicarray;
          procedure write_symbol(const name:string;value:aint;section:smallint;typ,aux:byte);
          procedure section_write_symbol(p:tnamedindexitem;arg:pointer);
          procedure section_write_relocs(p:tnamedindexitem;arg:pointer);
-         procedure write_ObjSymbols(data:TObjData);
-         procedure section_set_secsymidx(p:tnamedindexitem;arg:pointer);
+         procedure create_symbols(data:TObjData);
          procedure section_set_datapos(p:tnamedindexitem;arg:pointer);
          procedure section_set_reloc_datapos(p:tnamedindexitem;arg:pointer);
          procedure section_write_header(p:tnamedindexitem;arg:pointer);
@@ -1011,7 +1011,8 @@ const win32stub : array[0..131] of byte=(
         sym.section:=section;
         sym.typ:=typ;
         sym.aux:=aux;
-        FWriter.write(sym,sizeof(sym));
+        inc(symidx);
+        FCoffSyms.write(sym,sizeof(sym));
       end;
 
 
@@ -1019,11 +1020,19 @@ const win32stub : array[0..131] of byte=(
       var
         secrec : coffsectionrec;
       begin
-        write_symbol(TObjSection(p).name,TObjSection(p).mempos,TObjSection(p).secsymidx,3,1);
-        fillchar(secrec,sizeof(secrec),0);
-        secrec.len:=TObjSection(p).Size;
-        secrec.nrelocs:=TObjSection(p).relocations.count;
-        FWriter.write(secrec,sizeof(secrec));
+        with TObjSection(p) do
+          begin
+            { There is one .file and 2 symbols (symbol+AUX) per section, to get the
+              section index we can divide the symbol }
+            secsymidx:=symidx div 2;
+            write_symbol(name,mempos,secsymidx,COFF_SYM_SECTION,1);
+            { AUX }
+            fillchar(secrec,sizeof(secrec),0);
+            secrec.len:=Size;
+            secrec.nrelocs:=relocations.count;
+            inc(symidx);
+            FCoffSyms.write(secrec,sizeof(secrec));
+          end;
       end;
 
 
@@ -1042,10 +1051,9 @@ const win32stub : array[0..131] of byte=(
                rel.sym:=2*r.symbol.objsection.secsymidx
               else
                begin
-                 if r.symbol.indexnr=-1 then
+                 if r.symbol.symidx=-1 then
                    internalerror(200602233);
-                 { indexnr starts with 1, coff starts with 0 }
-                 rel.sym:=r.symbol.indexnr+initsym-1;
+                 rel.sym:=r.symbol.symidx;
                end;
             end
            else
@@ -1069,55 +1077,55 @@ const win32stub : array[0..131] of byte=(
       end;
 
 
-    procedure TCoffObjOutput.write_ObjSymbols(data:TObjData);
+    procedure TCoffObjOutput.create_symbols(data:TObjData);
       var
         filename  : string[18];
         sectionval,
         globalval : byte;
+        i         : longint;
         value     : aint;
-        p         : TObjSymbol;
+        objsym    : TObjSymbol;
       begin
         with TCoffObjData(data) do
          begin
+           symidx:=0;
            { The `.file' record, and the file name auxiliary record }
-           write_symbol('.file', 0, -2, $67, 1);
+           write_symbol('.file', 0, -2, COFF_SYM_FILE, 1);
            fillchar(filename,sizeof(filename),0);
            filename:=SplitFileName(current_module.mainsource^);
-           FWriter.write(filename[1],sizeof(filename)-1);
-           { The section records, with their auxiliaries, also store the
-             symbol index }
+           inc(symidx);
+           FCoffSyms.write(filename[1],sizeof(filename)-1);
+           { Sections }
            ObjSections.foreach(@section_write_symbol,nil);
-           { The ObjSymbols used }
-           p:=TObjSymbol(ObjSymbols.First);
-           while assigned(p) do
-            begin
-              if assigned(p.objsection) and
-                 (p.bind<>AB_COMMON) then
-               sectionval:=p.objsection.secsymidx
-              else
-               sectionval:=0;
-              if p.bind=AB_LOCAL then
-               globalval:=3
-              else
-               globalval:=2;
-              { if local of global then set the section value to the address
-                of the symbol }
-              if p.bind in [AB_LOCAL,AB_GLOBAL] then
-               value:=p.address
-              else
-               value:=p.size;
-              { symbolname }
-              write_symbol(p.name,value,sectionval,globalval,0);
-              p:=TObjSymbol(p.indexnext);
-            end;
+           { ObjSymbols }
+           for i:=0 to ObjSymbols.Count-1 do
+             begin
+               objsym:=TObjSymbol(ObjSymbols[i]);
+               case objsym.bind of
+                 AB_GLOBAL :
+                   begin
+                     globalval:=2;
+                     sectionval:=objsym.objsection.secsymidx;
+                     value:=objsym.address;
+                   end;
+                 AB_LOCAL :
+                   begin
+                     globalval:=3;
+                     sectionval:=objsym.objsection.secsymidx;
+                     value:=objsym.address;
+                   end;
+                 else
+                   begin
+                     globalval:=2;
+                     sectionval:=0;
+                     value:=objsym.size;
+                   end;
+               end;
+               { symbolname }
+               objsym.symidx:=symidx;
+               write_symbol(objsym.name,value,sectionval,globalval,0);
+             end;
          end;
-      end;
-
-
-    procedure TCoffObjOutput.section_set_secsymidx(p:tnamedindexitem;arg:pointer);
-      begin
-        inc(psmallint(arg)^);
-        TObjSection(p).secsymidx:=psmallint(arg)^;
       end;
 
 
@@ -1189,22 +1197,21 @@ const win32stub : array[0..131] of byte=(
         orgdatapos,
         datapos,
         sympos   : aint;
-        nsects   : smallint;
         i        : longint;
         gotreloc : boolean;
         header   : coffheader;
       begin
         result:=false;
+        FCoffSyms:=TDynamicArray.Create(symbolresize);
         FCoffStrs:=TDynamicArray.Create(strsresize);
         with TCoffObjData(data) do
          begin
-           { calc amount of ObjSections we have }
-           nsects:=0;
-           ObjSections.foreach(@section_set_secsymidx,@nsects);
-           initsym:=2+nsects*2;   { 2 for the file }
+           { Create Symbol Table }
+           create_symbols(data);
+
            { Calculate the filepositions }
-           datapos:=sizeof(coffheader)+sizeof(coffsechdr)*nsects;
-           { ObjSections first }
+           datapos:=sizeof(coffheader)+sizeof(coffsechdr)*ObjSections.Count;
+           { Sections first }
            ObjSections.foreach(@section_set_datapos,@datapos);
            { relocs }
            orgdatapos:=datapos;
@@ -1216,9 +1223,9 @@ const win32stub : array[0..131] of byte=(
            { Generate COFF header }
            fillchar(header,sizeof(coffheader),0);
            header.mach:=COFF_MAGIC;
-           header.nsects:=nsects;
+           header.nsects:=ObjSections.Count;
            header.sympos:=sympos;
-           header.syms:=ObjSymbols.count+initsym;
+           header.syms:=symidx;
            if win32 then
              begin
                header.flag:=PE_FILE_BYTES_REVERSED_LO or PE_FILE_32BIT_MACHINE or
@@ -1240,13 +1247,16 @@ const win32stub : array[0..131] of byte=(
            { Relocs }
            ObjSections.foreach(@section_write_relocs,nil);
            { ObjSymbols }
-           write_ObjSymbols(data);
+           FWriter.writearray(FCoffSyms);
            { Strings }
            i:=FCoffStrs.size+4;
            FWriter.write(i,4);
            FWriter.writearray(FCoffStrs);
          end;
         FCoffStrs.Free;
+        FCoffStrs:=nil;
+        FCoffSyms.Free;
+        FCoffSyms:=nil;
       end;
 
 
@@ -1659,7 +1669,7 @@ const win32stub : array[0..131] of byte=(
            { Allocate memory for symidx -> TObjSymbol table }
            GetMem(FSymTbl,nsyms*sizeof(tTObjSymbolrec));
            FillChar(FSymTbl^,nsyms*sizeof(tTObjSymbolrec),0);
-           { Loop all ObjSymbols }
+           { Load the Symbols }
            FCoffSyms.Seek(0);
            symidx:=0;
            while (symidx<nsyms) do

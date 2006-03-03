@@ -431,15 +431,12 @@ implementation
 
     procedure texeoutput.Pass1_Symbol(const aname:string);
       var
-        sym : TObjSymbol;
+        objsection : TObjSection;
       begin
-(*
-        sym:=TObjSymbol.create(aname,AB_GLOBAL,AT_FUNCTION);
         { Create a dummy section }
-        sym.objsection:=internalobjdata.createsection('*'+sym.name,0,[]);
-        internalobjdata.ObjSymbols.insert(sym);
-        CurrExeSec.AddObjSection(sym.objsection);
-*)
+        objsection:=internalobjdata.createsection('*'+aname,0,[]);
+        internalobjdata.SymbolDefine(aname,AB_GLOBAL,AT_FUNCTION);
+        CurrExeSec.AddObjSection(objsection);
       end;
 
 
@@ -475,7 +472,6 @@ implementation
         currstabreloc : TObjRelocation;
         i,j,
         stabcnt : longint;
-        firsthdrsym,
         skipstab : boolean;
         hstab   : TObjStabEntry;
         stabrelocofs : longint;
@@ -585,12 +581,8 @@ implementation
 
     procedure texeoutput.Pass2_ExeSection(const aname:string);
       var
-        hstab  : TObjStabEntry;
-        stabcnt,
-        i,j    : longint;
-        stabsec,
+        i      : longint;
         objsec : TObjSection;
-        alignedpos : aint;
       begin
         { Section can be removed }
         FCurrExeSec:=FindExeSection(aname);
@@ -652,8 +644,8 @@ implementation
     procedure texeoutput.ExeSections_SymbolMap(s:tnamedindexitem;arg:pointer);
       var
         objsec : TObjSection;
-        hsym    : TObjSymbol;
-        i       : longint;
+        objsym : TObjSymbol;
+        i,j    : longint;
       begin
         with texesection(s) do
           begin
@@ -662,15 +654,13 @@ implementation
               begin
                 objsec:=TObjSection(ObjSectionList[i]);
                 exemap.AddMemoryMapObjectSection(objsec);
-                hsym:=TObjSymbol(objsec.objdata.objsymbols.first);
-                while assigned(hsym) do
+                for j:=0 to ObjSymbolList.Count-1 do
                   begin
-                    { process only the symbols that are defined in this section
-                      and are located in this module }
-                    if (hsym.objsection=objsec) and
-                       (hsym.bind in [AB_GLOBAL,AB_LOCAL]) then
-                      exemap.AddMemoryMapSymbol(hsym);
-                    hsym:=TObjSymbol(hsym.indexnext);
+                    objsym:=TObjSymbol(ObjSymbolList[j]);
+                    { Order symbols per obj file }
+                    if (objsym.objsection=objsec) and
+                       (objsym.bind in [AB_GLOBAL,AB_LOCAL]) then
+                    exemap.AddMemoryMapSymbol(objsym);
                   end;
               end;
           end;
@@ -692,14 +682,10 @@ implementation
       var
         i   : longint;
         sym : TObjSymbol;
-        objdata : TObjData;
       begin
         { Update ImageBase to ObjData so it can access from ObjSymbols }
         for i:=0 to ObjDataList.Count-1 do
-          begin
-            objdata:=TObjData(ObjDataList[i]);
-            objdata.imagebase:=imagebase;
-          end;
+          TObjData(ObjDataList[i]).imagebase:=imagebase;
 
         {
           Fixing up symbols is done in the following steps:
@@ -780,10 +766,10 @@ implementation
       var
         objdata   : TObjData;
         exesym    : TExeSymbol;
-        sym,
+        objsym,
         commonsym : TObjSymbol;
         firstcommon : boolean;
-        i         : longint;
+        i,j       : longint;
       begin
         result:=true;
 
@@ -801,33 +787,32 @@ implementation
         for i:=0 to ObjDataList.Count-1 do
           begin
             objdata:=TObjData(ObjDataList[i]);
-            sym:=TObjSymbol(objdata.objsymbols.first);
-            while assigned(sym) do
+            for j:=0 to objdata.ObjSymbols.Count-1 do
               begin
-                if not assigned(sym.objsection) then
+                objsym:=TObjSymbol(objdata.ObjSymbols[j]);
+                if not assigned(objsym.objsection) then
                   internalerror(200206302);
-                case sym.bind of
+                case objsym.bind of
                   AB_GLOBAL :
                     begin
-                      exesym:=texesymbol(globalExeSymbols.search(sym.name));
+                      exesym:=texesymbol(globalExeSymbols.search(objsym.name));
                       if not assigned(exesym) then
                         begin
-                          globalExeSymbols.insert(texesymbol.create(sym));
-                          if assigned(sym.objsection.exesection) then
-                            TExeSection(sym.objsection.exesection).objsymbollist.add(sym);
+                          globalExeSymbols.insert(texesymbol.create(objsym));
+                          if assigned(objsym.objsection.exesection) then
+                            TExeSection(objsym.objsection.exesection).objsymbollist.add(objsym);
                         end
                       else
                         begin
-                          Comment(V_Error,'Multiple defined symbol '+sym.name);
+                          Comment(V_Error,'Multiple defined symbol '+objsym.name);
                           result:=false;
                         end;
                     end;
                   AB_EXTERNAL :
-                    externalExeSymbols.add(sym);
+                    externalExeSymbols.add(objsym);
                   AB_COMMON :
-                    commonExeSymbols.add(sym);
+                    commonExeSymbols.add(objsym);
                 end;
-                sym:=TObjSymbol(sym.indexnext);
               end;
           end;
 
@@ -835,13 +820,13 @@ implementation
         firstcommon:=true;
         for i:=0 to commonExeSymbols.count-1 do
           begin
-            sym:=TObjSymbol(commonExeSymbols[i]);
-            if sym.bind=AB_COMMON then
+            objsym:=TObjSymbol(commonExeSymbols[i]);
+            if objsym.bind=AB_COMMON then
               begin
-                exesym:=texesymbol(globalExeSymbols.search(sym.name));
+                exesym:=texesymbol(globalExeSymbols.search(objsym.name));
                 if assigned(exesym) then
                   begin
-                    if exesym.objsymbol.size<>sym.size then
+                    if exesym.objsymbol.size<>objsym.size then
                      internalerror(200206301);
                   end
                 else
@@ -855,16 +840,16 @@ implementation
                         firstcommon:=false;
                       end;
                     commonobjdata.setsection(commonobjsection);
-                    commonsym:=commonobjdata.symboldefine(sym.name,AB_GLOBAL,AT_FUNCTION);
-                    commonsym.size:=sym.size;
-                    commonobjdata.alloc(sym.size);
+                    commonsym:=commonobjdata.symboldefine(objsym.name,AB_GLOBAL,AT_FUNCTION);
+                    commonsym.size:=objsym.size;
+                    commonobjdata.alloc(objsym.size);
                     if assigned(exemap) then
                       exemap.AddCommonSymbol(commonsym);
                     { make this symbol available as a global }
                     globalExeSymbols.insert(texesymbol.create(commonsym));
                     TExeSection(commonsym.objsection.exesection).objsymbollist.add(commonsym);
                   end;
-                sym.altsymbol:=commonsym;
+                objsym.altsymbol:=commonsym;
               end;
           end;
         if not firstcommon then
@@ -873,15 +858,15 @@ implementation
         { Step 3 }
         for i:=0 to externalExeSymbols.count-1 do
           begin
-            sym:=TObjSymbol(externalExeSymbols[i]);
-            if sym.bind=AB_EXTERNAL then
+            objsym:=TObjSymbol(externalExeSymbols[i]);
+            if objsym.bind=AB_EXTERNAL then
               begin
-                exesym:=texesymbol(globalExeSymbols.search(sym.name));
+                exesym:=texesymbol(globalExeSymbols.search(objsym.name));
                 if assigned(exesym) then
-                  sym.altsymbol:=exesym.objsymbol
+                  objsym.altsymbol:=exesym.objsymbol
                 else
                   begin
-                    Comment(V_Error,'Undefined symbol: '+sym.name);
+                    Comment(V_Error,'Undefined symbol: '+objsym.name);
                     result:=false;
                   end;
               end;
