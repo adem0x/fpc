@@ -48,7 +48,7 @@ interface
           { relocation }
           relocsect : TElf32ObjSection;
           constructor create(const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);override;
-          constructor create_ext(const Aname:string;Ashtype,Ashflags,Ashlink,Ashinfo,Aalign,Aentsize:longint);
+          constructor create_ext(const Aname:string;Ashtype,Ashflags,Ashlink,Ashinfo:longint;Aalign:shortint;Aentsize:longint);
           destructor  destroy;override;
        end;
 
@@ -68,15 +68,15 @@ interface
          function  sectionname(atype:TAsmSectiontype;const aname:string):string;override;
          function  sectiontype2align(atype:TAsmSectiontype):shortint;override;
          procedure CreateDebugSections;override;
-         procedure writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);override;
-         procedure writesymbol(p:tasmsymbol);override;
-         procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother:byte;ndesc:word;p:pchar);override;
+         procedure writereloc(data,len:aint;p:TObjSymbol;relative:TObjRelocationType);override;
+         procedure writestab(offset:aint;ps:TObjSymbol;nidx,nother:byte;ndesc:word;p:pchar);override;
        end;
 
        TElf32ObjectOutput = class(tObjOutput)
        private
          elf32data : TElf32ObjData;
-         initsym   : longint;
+         symidx,
+         localsyms : longint;
          procedure createrelocsection(s:TElf32ObjSection);
          procedure createshstrtab;
          procedure createsymtab;
@@ -84,7 +84,6 @@ interface
          procedure writesectiondata(s:TElf32ObjSection);
          procedure section_write_symbol(p:tnamedindexitem;arg:pointer);
          procedure section_write_sh_string(p:tnamedindexitem;arg:pointer);
-         procedure section_number_symbol(p:tnamedindexitem;arg:pointer);
          procedure section_count_sections(p:tnamedindexitem;arg:pointer);
          procedure section_create_relocsec(p:tnamedindexitem;arg:pointer);
          procedure section_set_datapos(p:tnamedindexitem;arg:pointer);
@@ -261,7 +260,7 @@ implementation
       end;
 
 
-    constructor TElf32ObjSection.create_ext(const Aname:string;Ashtype,Ashflags,Ashlink,Ashinfo,Aalign,Aentsize:longint);
+    constructor TElf32ObjSection.create_ext(const Aname:string;Ashtype,Ashflags,Ashlink,Ashinfo:longint;Aalign:shortint;Aentsize:longint);
       var
         aoptions : TObjSectionOptions;
       begin
@@ -363,26 +362,7 @@ implementation
       end;
 
 
-    procedure TElf32ObjData.writesymbol(p:tasmsymbol);
-      begin
-        if CurrObjSec=nil then
-          internalerror(200403291);
-        { already written ? }
-        if p.indexnr<>-1 then
-         exit;
-        { calculate symbol index }
-        if (p.currbind<>AB_LOCAL) then
-         begin
-           { insert the symbol in the local index, the indexarray
-             will take care of the numbering }
-           ObjSymbols.insert(p);
-         end
-        else
-         p.indexnr:=-2; { local }
-      end;
-
-
-    procedure TElf32ObjData.writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);
+    procedure TElf32ObjData.writereloc(data,len:aint;p:TObjSymbol;relative:TObjRelocationType);
       var
         symaddr : longint;
       begin
@@ -397,7 +377,7 @@ implementation
            { real address of the symbol }
            symaddr:=p.address;
            { Local ObjSymbols can be resolved already or need a section reloc }
-           if (p.currbind=AB_LOCAL) then
+           if (p.bind=AB_LOCAL) then
              begin
                { For a relative relocation in the same section the
                  value can be calculated }
@@ -412,7 +392,6 @@ implementation
              end
            else
              begin
-               writesymbol(p);
                CurrObjSec.addsymreloc(CurrObjSec.Size,p,relative);
                if relative=RELOC_RELATIVE then
                  dec(data,len);
@@ -422,7 +401,7 @@ implementation
       end;
 
 
-    procedure TElf32ObjData.writestab(offset:aint;ps:tasmsymbol;nidx,nother:byte;ndesc:word;p:pchar);
+    procedure TElf32ObjData.writestab(offset:aint;ps:TObjSymbol;nidx,nother:byte;ndesc:word;p:pchar);
       var
         stab : TObjStabEntry;
       begin
@@ -440,10 +419,7 @@ implementation
         stab.nvalue:=offset;
         stabssec.write(stab,sizeof(stab));
         if assigned(ps) then
-          begin
-            writesymbol(ps);
-            stabssec.addsymreloc(stabssec.Size-4,ps,RELOC_ABSOLUTE);
-          end;
+          stabssec.addsymreloc(stabssec.Size-4,ps,RELOC_ABSOLUTE);
       end;
 
 
@@ -484,14 +460,13 @@ implementation
               rel.address:=r.dataoffset;
               if assigned(r.symbol) then
                begin
-                 if (r.symbol.currbind=AB_LOCAL) then
+                 if (r.symbol.bind=AB_LOCAL) then
                   relsym:=r.symbol.objsection.secsymidx
                  else
                   begin
-                    if r.symbol.indexnr=-1 then
-                      internalerror(4321);
-                    { indexnr starts with 1, ELF starts with 0 }
-                    relsym:=r.symbol.indexnr+initsym-1;
+                    if r.symbol.symidx=-1 then
+                      internalerror(200603012);
+                    relsym:=r.symbol.symidx;
                   end;
                end
               else
@@ -522,83 +497,97 @@ implementation
         elfsym.st_name:=TElf32ObjSection(p).shstridx;
         elfsym.st_info:=STT_SECTION;
         elfsym.st_shndx:=TElf32ObjSection(p).secshidx;
+        TObjSection(p).secsymidx:=symidx;
+        inc(symidx);
+        inc(localsyms);
         elf32data.symtabsect.write(elfsym,sizeof(elfsym));
-        { increase locals count }
-        inc(plongint(arg)^);
       end;
 
 
     procedure TElf32ObjectOutput.createsymtab;
       var
         elfsym : TElf32symbol;
-        locals : longint;
-        sym : tasmsymbol;
+        i       : longint;
+        objsym : TObjSymbol;
       begin
         with elf32data do
          begin
-           locals:=2;
+           symidx:=0;
+           localsyms:=0;
            { empty entry }
            fillchar(elfsym,sizeof(elfsym),0);
            symtabsect.write(elfsym,sizeof(elfsym));
+           inc(symidx);
+           inc(localsyms);
            { filename entry }
            elfsym.st_name:=1;
            elfsym.st_info:=STT_FILE;
            elfsym.st_shndx:=SHN_ABS;
            symtabsect.write(elfsym,sizeof(elfsym));
+           inc(symidx);
+           inc(localsyms);
            { section }
-           ObjSections.foreach(@section_write_symbol,@locals);
+           ObjSections.foreach(@section_write_symbol,nil);
            { ObjSymbols }
-           sym:=Tasmsymbol(ObjSymbols.First);
-           while assigned(sym) do
-            begin
-              fillchar(elfsym,sizeof(elfsym),0);
-              { symbolname, write the #0 separate to overcome 255+1 char not possible }
-              elfsym.st_name:=strtabsect.Size;
-              strtabsect.writestr(sym.name);
-              strtabsect.writestr(#0);
-              case sym.currbind of
-                AB_LOCAL,
-                AB_GLOBAL :
-                 elfsym.st_value:=sym.address;
-                AB_COMMON :
-                 elfsym.st_value:=$10;
-              end;
-              elfsym.st_size:=sym.size;
-              case sym.currbind of
-                AB_LOCAL :
-                  begin
-                    elfsym.st_info:=STB_LOCAL shl 4;
-                    inc(locals);
-                  end;
-                AB_COMMON,
-                AB_EXTERNAL,
-                AB_GLOBAL :
-                  elfsym.st_info:=STB_GLOBAL shl 4;
-              end;
-              if (sym.currbind<>AB_EXTERNAL) and
-                 not(assigned(sym.objsection) and
-                     not(oso_data in sym.objsection.secoptions)) then
-               begin
-                 case sym.typ of
-                   AT_FUNCTION :
-                     elfsym.st_info:=elfsym.st_info or STT_FUNC;
-                   AT_DATA :
-                     elfsym.st_info:=elfsym.st_info or STT_OBJECT;
+           for i:=0 to ObjSymbols.Count-1 do
+             begin
+               objsym:=TObjSymbol(ObjSymbols[i]);
+               if objsym.bind<>AB_LOCAL then
+                 begin
+                   fillchar(elfsym,sizeof(elfsym),0);
+                   { symbolname, write the #0 separate to overcome 255+1 char not possible }
+                   elfsym.st_name:=strtabsect.Size;
+                   strtabsect.writestr(objsym.name);
+                   strtabsect.writestr(#0);
+                   elfsym.st_size:=objsym.size;
+                   case objsym.bind of
+                     AB_LOCAL :
+                       begin
+                         elfsym.st_value:=objsym.address;
+                         elfsym.st_info:=STB_LOCAL shl 4;
+                         inc(localsyms);
+                       end;
+                     AB_COMMON :
+                       begin
+                         elfsym.st_value:=$10;
+                         elfsym.st_info:=STB_GLOBAL shl 4;
+                       end;
+                     AB_EXTERNAL :
+                       elfsym.st_info:=STB_GLOBAL shl 4;
+                     AB_GLOBAL :
+                       begin
+                         elfsym.st_value:=objsym.address;
+                         elfsym.st_info:=STB_GLOBAL shl 4;
+                       end;
+                   end;
+                   if (objsym.bind<>AB_EXTERNAL) and
+                      not(assigned(objsym.objsection) and
+                      not(oso_data in objsym.objsection.secoptions)) then
+                     begin
+                       case objsym.typ of
+                         AT_FUNCTION :
+                           elfsym.st_info:=elfsym.st_info or STT_FUNC;
+                         AT_DATA :
+                           elfsym.st_info:=elfsym.st_info or STT_OBJECT;
+                       end;
+                     end;
+                   if objsym.bind=AB_COMMON then
+                     elfsym.st_shndx:=SHN_COMMON
+                   else
+                     begin
+                       if assigned(objsym.objsection) then
+                         elfsym.st_shndx:=TElf32ObjSection(objsym.objsection).secshidx
+                       else
+                         elfsym.st_shndx:=SHN_UNDEF;
+                     end;
+                   objsym.symidx:=symidx;
+                   inc(symidx);
+                   symtabsect.write(elfsym,sizeof(elfsym));
                  end;
-               end;
-              if sym.currbind=AB_COMMON then
-               elfsym.st_shndx:=SHN_COMMON
-              else
-               if assigned(sym.objsection) then
-                elfsym.st_shndx:=TElf32ObjSection(sym.objsection).secshidx
-               else
-                elfsym.st_shndx:=SHN_UNDEF;
-              symtabsect.write(elfsym,sizeof(elfsym));
-              sym:=tasmsymbol(sym.indexnext);
-            end;
+             end;
            { update the .symtab section header }
            symtabsect.shlink:=strtabsect.secshidx;
-           symtabsect.shinfo:=locals;
+           symtabsect.shinfo:=localsyms;
          end;
       end;
 
@@ -653,19 +642,12 @@ implementation
       end;
 
 
-    procedure TElf32ObjectOutput.section_number_symbol(p:tnamedindexitem;arg:pointer);
-      begin
-        TObjSection(p).secsymidx:=plongint(arg)^;
-        inc(plongint(arg)^);
-      end;
-
-
     procedure TElf32ObjectOutput.section_count_sections(p:tnamedindexitem;arg:pointer);
       begin
-        TElf32ObjSection(p).secshidx:=plongint(arg)^;
-        inc(plongint(arg)^);
+        TElf32ObjSection(p).secshidx:=pword(arg)^;
+        inc(pword(arg)^);
         if TElf32ObjSection(p).relocations.count>0 then
-          inc(plongint(arg)^);
+          inc(pword(arg)^);
       end;
 
 
@@ -718,51 +700,34 @@ implementation
 
     function TElf32ObjectOutput.writedata(data:TObjData):boolean;
       var
-        header : TElf32header;
-        datapos : aint;
+        header    : TElf32header;
         shoffset,
-        nsections : longint;
-        hstab  : TObjStabEntry;
-        empty  : array[0..63] of byte;
+        datapos   : aint;
+        nsections : word;
       begin
         result:=false;
         elf32data:=TElf32ObjData(data);
         with elf32data do
          begin
            { calc amount of sections we have }
-           initsym:=2;
            nsections:=1;
-           fillchar(empty,sizeof(empty),0);
-           { each section requires a symbol for relocation }
-           ObjSections.foreach(@section_number_symbol,@initsym);
            { also create the index in the section header table }
            ObjSections.foreach(@section_count_sections,@nsections);
-           { add default sections follows }
+           { add default sections }
            shstrtabsect.secshidx:=nsections;
            inc(nsections);
            symtabsect.secshidx:=nsections;
            inc(nsections);
            strtabsect.secshidx:=nsections;
            inc(nsections);
-         { For the stab section we need an HdrSym which can now be
-           calculated more easily }
-           if assigned(stabssec) then
-            begin
-              hstab.strpos:=1;
-              hstab.ntype:=0;
-              hstab.nother:=0;
-              hstab.ndesc:=(stabssec.Size div sizeof(TObjStabEntry))-1{+1 according to gas output PM};
-              hstab.nvalue:=stabstrsec.Size;
-              stabssec.Data.seek(0);
-              stabssec.Data.write(hstab,sizeof(hstab));
-            end;
-         { Create the relocation sections }
-           ObjSections.foreach(@section_create_relocsec,nil);
-         { create .symtab and .strtab }
+           { create .symtab and .strtab }
            createsymtab;
-         { create .shstrtab }
+           { Create the relocation sections }
+           ObjSections.foreach(@section_create_relocsec,nil);
+           { create .shstrtab }
            createshstrtab;
-         { Calculate the filepositions }
+
+           { Calculate the filepositions }
            datapos:=$40; { elfheader + alignment }
            { sections first }
            ObjSections.foreach(@section_set_datapos,@datapos);
@@ -777,7 +742,8 @@ implementation
            strtabsect.setdatapos(datapos);
            { .rel sections }
            ObjSections.foreach(@section_relocsec_set_datapos,@datapos);
-         { Write ELF Header }
+
+           { Write ELF Header }
            fillchar(header,sizeof(header),0);
            header.magic0123:=$464c457f; { = #127'ELF' }
            header.file_class:=1;
@@ -792,13 +758,13 @@ implementation
            header.e_ehsize:=sizeof(TElf32header);
            header.e_shentsize:=sizeof(TElf32sechdr);
            writer.write(header,sizeof(header));
-           writer.write(empty,$40-sizeof(header)); { align }
+           writer.writezeros($40-sizeof(header)); { align }
          { Sections }
            ObjSections.foreach(@section_write_data,nil);
          { .shstrtab }
            writesectiondata(shstrtabsect);
          { section headers, start with an empty header for sh_undef }
-           writer.write(empty,sizeof(TElf32sechdr));
+           writer.writezeros(sizeof(TElf32sechdr));
            ObjSections.foreach(@section_write_sechdr,nil);
            writesectionheader(shstrtabsect);
            writesectionheader(symtabsect);

@@ -648,8 +648,8 @@ interface
 
            ait_label :
              begin
-               if tai_label(hp).l.is_used then
-                AsmWriteLn(tai_label(hp).l.name+':');
+               if tai_label(hp).labsym.is_used then
+                AsmWriteLn(tai_label(hp).labsym.name+':');
              end;
 
            ait_symbol :
@@ -782,7 +782,7 @@ interface
 
     procedure writeexternal(p:tnamedindexitem;arg:pointer);
       begin
-        if tasmsymbol(p).defbind=AB_EXTERNAL then
+        if tasmsymbol(p).bind=AB_EXTERNAL then
          currentasmlist.AsmWriteln('EXTERN'#9+p.name);
       end;
 

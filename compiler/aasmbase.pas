@@ -99,32 +99,21 @@ interface
        TAsmSymbol = class(TNamedIndexItem)
        private
          { this need to be incremented with every symbol loading into the
-           paasmoutput, thus in loadsym/loadref/const_symbol (PFV) }
+           taasmoutput with loadsym/loadref/const_symbol (PFV) }
          refs       : longint;
        public
-         defbind,
-         currbind   : TAsmsymbind;
+         bind       : TAsmsymbind;
          typ        : TAsmsymtype;
-         { the next fields are filled in the binary writer }
-         objsection : TObjSection;
-         memoffset,
-         size       : aint;
          { Alternate symbol which can be used for 'renaming' needed for
            asm inlining. Also used for external and common solving during linking }
          altsymbol  : TAsmSymbol;
-         { Is the symbol in the used list }
-         inusedlist : boolean;
-         { assembler pass label is set, used for detecting multiple labels }
-         pass       : byte;
-         ppuidx     : longint;
+         { Cached objsymbol }
+         cachedobjsymbol : TObject;
          constructor create(const s:string;_bind:TAsmsymbind;_typ:Tasmsymtype);
-         procedure reset;
-         function  address:aint;
          function  is_used:boolean;
          procedure increfs;
          procedure decrefs;
          function getrefs: longint;
-         procedure SetAddress(_pass:byte;aobjsec:TObjSection;offset,len:aint);
        end;
 
        { is the label only there for getting an DataOffset (e.g. for i/o
@@ -141,6 +130,23 @@ interface
          function getname:string;override;
        end;
 
+       TObjSymbol = class(TNamedIndexItem)
+       public
+         bind       : TAsmsymbind;
+         typ        : TAsmsymtype;
+         { Current assemble pass, used to detect duplicate labels }
+         pass       : byte;
+         objsection : TObjSection;
+         symidx     : longint;
+         offset,
+         size       : aint;
+         { Used for external and common solving during linking }
+         altsymbol  : TObjSymbol;
+         constructor create(const s:string);
+         function  address:aint;
+         procedure SetAddress(apass:byte;aobjsec:TObjSection;abind:TAsmsymbind;atyp:Tasmsymtype);
+       end;
+
        { Stabs is common for all targets }
        TObjStabEntry=packed record
           strpos  : longint;
@@ -154,11 +160,11 @@ interface
        TObjRelocation = class(TLinkedListItem)
           DataOffset,
           orgsize    : aint;  { original size of the symbol to relocate, required for COFF }
-          symbol     : TAsmSymbol;
+          symbol     : TObjSymbol;
           objsection : TObjSection; { only used if symbol=nil }
           typ        : TObjRelocationType;
-          constructor CreateSymbol(ADataOffset:aint;s:Tasmsymbol;Atyp:TObjRelocationType);
-          constructor CreateSymbolSize(ADataOffset:aint;s:Tasmsymbol;Aorgsize:aint;Atyp:TObjRelocationType);
+          constructor CreateSymbol(ADataOffset:aint;s:TObjSymbol;Atyp:TObjRelocationType);
+          constructor CreateSymbolSize(ADataOffset:aint;s:TObjSymbol;Aorgsize:aint;Atyp:TObjRelocationType);
           constructor CreateSection(ADataOffset:aint;aobjsec:TObjSection;Atyp:TObjRelocationType);
        end;
 
@@ -185,7 +191,7 @@ interface
          procedure setmempos(var mpos:aint);
          procedure setdatapos(var dpos:aint);
          procedure alloc(l:aint);
-         procedure addsymreloc(ofs:aint;p:tasmsymbol;relative:TObjRelocationType);
+         procedure addsymreloc(ofs:aint;p:TObjSymbol;relative:TObjRelocationType);
          procedure addsectionreloc(ofs:aint;aobjsec:TObjSection;relative:TObjRelocationType);
          procedure fixuprelocs;virtual;
        end;
@@ -199,9 +205,11 @@ interface
            required for stabs debuginfo. The SectsDict is only used for lookups (PFV) }
          FObjSectionsDict   : TDictionary;
          FObjSectionsIndex  : TIndexArray;
-         FCObjSection   : TObjSectionClass;
+         FCObjSection       : TObjSectionClass;
          { Symbols that will be defined in this object file }
-         FObjSymbols       : TIndexArray;
+         FObjSymbolsIndex   : TList;
+         FObjSymbolsDict    : TDictionary;
+         FCachedAsmSymbolList : tlist;
          { Special info sections that are written to during object generation }
          FStabsObjSec,
          FStabStrObjSec : TObjSection;
@@ -214,9 +222,11 @@ interface
          property StabStrSec:TObjSection read FStabStrObjSec write FStabStrObjSec;
          property CObjSection:TObjSectionClass read FCObjSection write FCObjSection;
        public
+         CurrPass  : byte;
          ImageBase : aint;
          constructor create(const n:string);virtual;
          destructor  destroy;override;
+         { Sections }
          function  sectionname(atype:TAsmSectiontype;const aname:string):string;virtual;
          function  sectiontype2options(atype:TAsmSectiontype):TObjSectionOptions;virtual;
          function  sectiontype2align(atype:TAsmSectiontype):shortint;virtual;
@@ -226,14 +236,19 @@ interface
          function  findsection(const aname:string):TObjSection;
          procedure removesection(asec:TObjSection);
          procedure setsection(asec:TObjSection);
+         { Symbols }
+         function  symboldefine(asmsym:TAsmSymbol):TObjSymbol;
+         function  symboldefine(const aname:string;abind:TAsmsymbind;atyp:Tasmsymtype):TObjSymbol;
+         function  symbolref(asmsym:TAsmSymbol):TObjSymbol;
+         function  symbolref(const aname:string):TObjSymbol;
+         procedure ResetCachedAsmSymbols;
+         { Allocation }
          procedure alloc(len:aint);
          procedure allocalign(len:shortint);
          procedure allocstab(p:pchar);
-         procedure allocsymbol(currpass:byte;p:tasmsymbol;len:aint);
          procedure writebytes(var data;len:aint);
-         procedure writereloc(data,len:aint;p:tasmsymbol;relative:TObjRelocationType);virtual;abstract;
-         procedure writesymbol(p:tasmsymbol);virtual;abstract;
-         procedure writestab(offset:aint;ps:tasmsymbol;nidx,nother:byte;ndesc:word;p:pchar);virtual;abstract;
+         procedure writereloc(data,len:aint;p:TObjSymbol;relative:TObjRelocationType);virtual;abstract;
+         procedure writestab(offset:aint;ps:TObjSymbol;nidx,nother:byte;ndesc:word;p:pchar);virtual;abstract;
          procedure beforealloc;virtual;
          procedure beforewrite;virtual;
          procedure afteralloc;virtual;
@@ -242,7 +257,7 @@ interface
          procedure fixuprelocs;
          property Name:string[80] read FName;
          property CurrObjSec:TObjSection read FCurrObjSec;
-         property ObjSymbols:TindexArray read FObjSymbols;
+         property ObjSymbols:TList read FObjSymbolsIndex;
          property ObjSections:TIndexArray read FObjSectionsIndex;
        end;
        TObjDataClass = class of TObjData;
@@ -258,18 +273,12 @@ interface
          name,
          realname     : string[80];
          symbolsearch : tdictionary; { contains ALL assembler symbols }
-         usedasmsymbollist : tsinglelist;
-         { ppu }
-         asmsymbolppuidx : longint;
-         asmsymbolidx : pasmsymbolidxarr; { used for translating ppu index->asmsymbol }
+         AltSymbollist : tlist;
          constructor create(const n:string);
          destructor  destroy;override;
-         procedure Freeasmsymbolidx;
-         procedure DerefAsmsymbol(var s:tasmsymbol);
          { asmsymbol }
          function  newasmsymbol(const s : string;_bind:TAsmSymBind;_typ:TAsmsymtype) : tasmsymbol;
          function  getasmsymbol(const s : string) : tasmsymbol;
-         function  renameasmsymbol(const sold, snew : string):tasmsymbol;
          function  newasmlabel(nr:longint;alt:tasmlabeltype;is_global:boolean) : tasmlabel;
          {# create a new assembler label }
          procedure getlabel(var l : tasmlabel;alt:tasmlabeltype);
@@ -280,15 +289,9 @@ interface
          { make l as a new label and flag is_data }
          procedure getdatalabel(var l : tasmlabel);
          {# return a label number }
-         procedure CreateUsedAsmSymbolList;
-         procedure DestroyUsedAsmSymbolList;
-         procedure UsedAsmSymbolListInsert(p:tasmsymbol);
          { generate an alternative (duplicate) symbol }
          procedure GenerateAltSymbol(p:tasmsymbol);
-         { reset alternative symbol information }
-         procedure UsedAsmSymbolListResetAltSym;
-         procedure UsedAsmSymbolListReset;
-         procedure UsedAsmSymbolListCheckUndefined;
+         procedure ResetAltSymbols;
        end;
 
     function LengthUleb128(a: aword) : byte;
@@ -365,37 +368,10 @@ implementation
     constructor tasmsymbol.create(const s:string;_bind:TAsmsymbind;_typ:Tasmsymtype);
       begin;
         inherited createname(s);
-        reset;
-        defbind:=_bind;
+        bind:=_bind;
         typ:=_typ;
-        inusedlist:=false;
-        pass:=255;
-        ppuidx:=-1;
-        { mainly used to remove unused labels from the al_procedures }
+        { used to remove unused labels from the al_procedures }
         refs:=0;
-      end;
-
-
-    procedure tasmsymbol.reset;
-      begin
-        { reset section info }
-        objsection:=nil;
-        MemOffset:=0;
-        size:=0;
-        indexnr:=-1;
-        pass:=255;
-        currbind:=AB_EXTERNAL;
-        altsymbol:=nil;
-{        taiowner:=nil;}
-      end;
-
-
-    function tasmsymbol.address:aint;
-      begin
-        if assigned(objsection) then
-          result:=memoffset+objsection.mempos
-        else
-          result:=0;
       end;
 
 
@@ -422,24 +398,6 @@ implementation
     function tasmsymbol.getrefs: longint;
       begin
         getrefs := refs;
-      end;
-
-
-    procedure tasmsymbol.SetAddress(_pass:byte;aobjsec:TObjSection;offset,len:aint);
-      begin
-        if (_pass=pass) then
-         begin
-           Message1(asmw_e_duplicate_label,name);
-           exit;
-         end;
-        pass:=_pass;
-        objsection:=aobjsec;
-        memoffset:=offset;
-        size:=len;
-        { when the bind was reset to External, set it back to the default
-          bind it got when defined }
-        if (currbind=AB_EXTERNAL) and (defbind<>AB_NONE) then
-         currbind:=defbind;
       end;
 
 
@@ -474,11 +432,61 @@ implementation
       end;
 
 
+{*****************************************************************************
+                                 TObjSymbol
+*****************************************************************************}
+
+    constructor TObjSymbol.create(const s:string);
+      begin;
+        inherited createname(s);
+        bind:=AB_EXTERNAL;
+        typ:=AT_NONE;
+        symidx:=-1;
+        size:=0;
+        offset:=0;
+        objsection:=nil;
+      end;
+
+
+    function TObjSymbol.address:aint;
+      begin
+        if assigned(objsection) then
+          result:=offset+objsection.mempos
+        else
+          result:=0;
+      end;
+
+
+    procedure TObjSymbol.SetAddress(apass:byte;aobjsec:TObjSection;abind:TAsmsymbind;atyp:Tasmsymtype);
+      begin
+        if not(abind in [AB_GLOBAL,AB_LOCAL,AB_COMMON]) then
+          internalerror(200603016);
+        if not assigned(aobjsec) then
+          internalerror(200603017);
+        if (bind=AB_EXTERNAL) then
+          begin
+            bind:=abind;
+            typ:=atyp;
+          end
+        else
+          begin
+            if pass=apass then
+              Message1(asmw_e_duplicate_label,name);
+          end;
+        pass:=apass;
+        { Code can never grow after a pass }
+        if assigned(objsection) and
+           (aobjsec.size>offset) then
+          internalerror(200603014);
+        objsection:=aobjsec;
+        offset:=aobjsec.size;
+      end;
+
 {****************************************************************************
                               TObjRelocation
 ****************************************************************************}
 
-    constructor TObjRelocation.CreateSymbol(ADataOffset:aint;s:Tasmsymbol;Atyp:TObjRelocationType);
+    constructor TObjRelocation.CreateSymbol(ADataOffset:aint;s:TObjSymbol;Atyp:TObjRelocationType);
       begin
         DataOffset:=ADataOffset;
         Symbol:=s;
@@ -488,7 +496,7 @@ implementation
       end;
 
 
-    constructor TObjRelocation.CreateSymbolSize(ADataOffset:aint;s:Tasmsymbol;Aorgsize:aint;Atyp:TObjRelocationType);
+    constructor TObjRelocation.CreateSymbolSize(ADataOffset:aint;s:TObjSymbol;Aorgsize:aint;Atyp:TObjRelocationType);
       begin
         DataOffset:=ADataOffset;
         Symbol:=s;
@@ -606,7 +614,7 @@ implementation
       end;
 
 
-    procedure TObjSection.addsymreloc(ofs:aint;p:tasmsymbol;relative:TObjRelocationType);
+    procedure TObjSection.addsymreloc(ofs:aint;p:TObjSymbol;relative:TObjRelocationType);
       var
         r : TObjRelocation;
       begin
@@ -655,18 +663,39 @@ implementation
         FStabsObjSec:=nil;
         FStabStrObjSec:=nil;
         { symbols }
-        FObjSymbols:=tindexarray.create(symbolsgrow);
-        FObjSymbols.noclear:=true;
+        FObjSymbolsDict:=tdictionary.create;
+        FObjSymbolsDict.noclear:=true;
+        FObjSymbolsIndex:=TList.create;
+        FCachedAsmSymbolList:=TList.create;
         { section class type for creating of new sections }
         FCObjSection:=TObjSection;
       end;
 
 
     destructor TObjData.destroy;
+{$ifdef MEMDEBUG}
+       var
+         d : tmemdebug;
+{$endif}
       begin
+{$ifdef MEMDEBUG}
+        d:=tmemdebug.create(name+' - objdata symbols');
+{$endif}
+        ResetCachedAsmSymbols;
+        FCachedAsmSymbolList.free;
+        FObjSymbolsDict.free;
+        FObjSymbolsIndex.free;
+{$ifdef MEMDEBUG}
+        d.free;
+{$endif}
+{$ifdef MEMDEBUG}
+        d:=tmemdebug.create(name+' - objdata sections');
+{$endif}
         FObjSectionsDict.free;
         FObjSectionsIndex.free;
-        FObjSymbols.free;
+{$ifdef MEMDEBUG}
+        d.free;
+{$endif}
       end;
 
 
@@ -778,6 +807,77 @@ implementation
       end;
 
 
+    function TObjData.symboldefine(asmsym:TAsmSymbol):TObjSymbol;
+      begin
+        if assigned(asmsym) then
+          begin
+            if not assigned(asmsym.cachedobjsymbol) then
+              begin
+                asmsym.cachedobjsymbol:=symboldefine(asmsym.name,asmsym.bind,asmsym.typ);
+                FCachedAsmSymbolList.add(asmsym);
+              end
+            else
+              begin
+                result:=TObjSymbol(asmsym.cachedobjsymbol);
+                result.SetAddress(CurrPass,CurrObjSec,asmsym.bind,asmsym.typ);
+              end;
+          end
+        else
+          result:=nil;
+      end;
+
+
+    function TObjData.symboldefine(const aname:string;abind:TAsmsymbind;atyp:Tasmsymtype):TObjSymbol;
+      begin
+        result:=TObjSymbol(FObjSymbolsDict.search(aname));
+        if not assigned(result) then
+          begin
+            result:=TObjSymbol.Create(aname);
+            FObjSymbolsDict.Insert(result);
+            FObjSymbolsIndex.Add(result);
+          end;
+        result.SetAddress(CurrPass,CurrObjSec,abind,atyp);
+      end;
+
+
+    function TObjData.symbolref(asmsym:TAsmSymbol):TObjSymbol;
+      begin
+        if assigned(asmsym) then
+          begin
+            if not assigned(asmsym.cachedobjsymbol) then
+              begin
+                asmsym.cachedobjsymbol:=symbolref(asmsym.name);
+                FCachedAsmSymbolList.add(asmsym);
+              end;
+            result:=TObjSymbol(asmsym.cachedobjsymbol);
+          end
+        else
+          result:=nil;
+      end;
+
+
+    function TObjData.symbolref(const aname:string):TObjSymbol;
+      begin
+        result:=TObjSymbol(FObjSymbolsDict.search(aname));
+        if not assigned(result) then
+          begin
+            result:=TObjSymbol.Create(aname);
+            FObjSymbolsDict.Insert(result);
+            FObjSymbolsIndex.Add(result);
+          end;
+      end;
+
+
+    procedure TObjData.ResetCachedAsmSymbols;
+      var
+        i  : longint;
+      begin
+        for i:=0 to FCachedAsmSymbolList.Count-1 do
+          tasmsymbol(FCachedAsmSymbolList[i]).cachedobjsymbol:=nil;
+        FCachedAsmSymbolList.Clear;
+      end;
+
+
     procedure TObjData.writebytes(var data;len:aint);
       begin
         if not assigned(CurrObjSec) then
@@ -799,14 +899,6 @@ implementation
         if not assigned(CurrObjSec) then
           internalerror(200402253);
         CurrObjSec.alloc(align(CurrObjSec.size,len)-CurrObjSec.size);
-      end;
-
-
-    procedure TObjData.allocsymbol(currpass:byte;p:tasmsymbol;len:aint);
-      begin
-        if not assigned(CurrObjSec) then
-          internalerror(200402255);
-        p.SetAddress(currpass,CurrObjSec,CurrObjSec.Size,len);
       end;
 
 
@@ -935,43 +1027,18 @@ implementation
         { symbols }
         symbolsearch:=tdictionary.create;
         symbolsearch.usehash;
+        AltSymbollist:=TList.Create;
         { labels }
         nextaltnr:=1;
         for alt:=low(TAsmLabelType) to high(TAsmLabelType) do
           nextlabelnr[alt]:=1;
-        { ppu }
-        asmsymbolppuidx:=0;
-        asmsymbolidx:=nil;
       end;
 
 
     destructor TObjLibraryData.destroy;
       begin
+        AltSymbollist.free;
         symbolsearch.free;
-        Freeasmsymbolidx;
-      end;
-
-
-    procedure TObjLibraryData.Freeasmsymbolidx;
-      begin
-        if assigned(asmsymbolidx) then
-         begin
-           Freemem(asmsymbolidx);
-           asmsymbolidx:=nil;
-         end;
-      end;
-
-
-    procedure TObjLibraryData.DerefAsmsymbol(var s:tasmsymbol);
-      begin
-        if assigned(s) then
-         begin
-           if not assigned(asmsymbolidx) then
-             internalerror(200208072);
-           if (ptrint(pointer(s))<1) or (ptrint(pointer(s))>asmsymbolppuidx) then
-             internalerror(200208073);
-           s:=asmsymbolidx^[ptrint(pointer(s))-1];
-         end;
       end;
 
 
@@ -993,7 +1060,7 @@ implementation
              end;
            {$ENDIF}
            if (_bind<>AB_EXTERNAL) then
-             hp.defbind:=_bind
+             hp.bind:=_bind
          end
         else
          begin
@@ -1011,101 +1078,24 @@ implementation
       end;
 
 
-    function TObjLibraryData.renameasmsymbol(const sold, snew : string):tasmsymbol;
-      begin
-        renameasmsymbol:=tasmsymbol(symbolsearch.rename(sold,snew));
-      end;
-
-
-    procedure TObjLibraryData.CreateUsedAsmSymbolList;
-      begin
-        if assigned(usedasmsymbollist) then
-         internalerror(78455782);
-        usedasmsymbollist:=TSingleList.create;
-      end;
-
-
-    procedure TObjLibraryData.DestroyUsedAsmSymbolList;
-      begin
-        usedasmsymbollist.destroy;
-        usedasmsymbollist:=nil;
-      end;
-
-
-    procedure TObjLibraryData.UsedAsmSymbolListInsert(p:tasmsymbol);
-      begin
-        if not p.inusedlist then
-         usedasmsymbollist.insert(p);
-        p.inusedlist:=true;
-      end;
-
-
     procedure TObjLibraryData.GenerateAltSymbol(p:tasmsymbol);
       begin
         if not assigned(p.altsymbol) then
          begin
-           p.altsymbol:=tasmsymbol.create(p.name+'_'+tostr(nextaltnr),p.defbind,p.typ);
+           p.altsymbol:=tasmsymbol.create(p.name+'_'+tostr(nextaltnr),p.bind,p.typ);
            symbolsearch.insert(p.altsymbol);
-           { add also the original sym to the usedasmsymbollist,
-             that list is used to reset the altsymbol }
-           if not p.inusedlist then
-            usedasmsymbollist.insert(p);
-           p.inusedlist:=true;
+           AltSymbollist.Add(p);
          end;
       end;
 
 
-    procedure TObjLibraryData.UsedAsmSymbolListReset;
+    procedure TObjLibraryData.ResetAltSymbols;
       var
-        hp : tasmsymbol;
+        i  : longint;
       begin
-        hp:=tasmsymbol(usedasmsymbollist.first);
-        while assigned(hp) do
-         begin
-           with hp do
-            begin
-              reset;
-              inusedlist:=false;
-            end;
-           hp:=tasmsymbol(hp.listnext);
-         end;
-      end;
-
-
-    procedure TObjLibraryData.UsedAsmSymbolListResetAltSym;
-      var
-        hp : tasmsymbol;
-      begin
-        hp:=tasmsymbol(usedasmsymbollist.first);
-        inc(nextaltnr);
-        while assigned(hp) do
-         begin
-           with hp do
-            begin
-              altsymbol:=nil;
-              inusedlist:=false;
-            end;
-           hp:=tasmsymbol(hp.listnext);
-         end;
-      end;
-
-
-    procedure TObjLibraryData.UsedAsmSymbolListCheckUndefined;
-      var
-        hp : tasmsymbol;
-      begin
-        hp:=tasmsymbol(usedasmsymbollist.first);
-        while assigned(hp) do
-         begin
-           with hp do
-            begin
-              if is_used and
-                 (objsection=nil) and
-                 not(currbind in [AB_EXTERNAL,AB_COMMON]) then
-               Message1(asmw_e_undefined_label,name);
-            end;
-           hp:=tasmsymbol(hp.listnext);
-         end;
+        for i:=0 to AltSymbollist.Count-1 do
+          tasmsymbol(AltSymbollist[i]).altsymbol:=nil;
+        AltSymbollist.Clear;
       end;
 
 
@@ -1128,6 +1118,7 @@ implementation
         inc(nextlabelnr[alt]);
         symbolsearch.insert(l);
       end;
+
 
     procedure TObjLibraryData.getjumplabel(var l : tasmlabel);
       begin

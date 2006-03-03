@@ -238,7 +238,7 @@ interface
          procedure ResetPass1;
          procedure ResetPass2;
          function  CheckIfValid:boolean;
-         function  Pass1(offset:longint):longint;override;
+         function  Pass1(objdata:TObjData):longint;override;
          procedure Pass2(objdata:TObjData);override;
          procedure SetOperandOrder(order:TOperandOrder);
          function is_same_reg_move(regtype: Tregistertype):boolean;override;
@@ -256,13 +256,13 @@ interface
          LastInsOffset : longint; { need to be public to be reset }
          insentry  : PInsEntry;
          function  InsEnd:longint;
-         procedure create_ot;
+         procedure create_ot(objdata:TObjData);
          function  Matches(p:PInsEntry):longint;
          function  calcsize(p:PInsEntry):shortint;
          procedure gencode(objdata:TObjData);
          function  NeedAddrPrefix(opidx:byte):boolean;
          procedure Swapoperands;
-         function  FindInsentry:boolean;
+         function  FindInsentry(objdata:TObjData):boolean;
     {$endif NOAG386BIN}
       end;
 
@@ -902,10 +902,6 @@ implementation
         case o.typ of
           top_ref :
             begin
-              if assigned(o.ref^.symbol) then
-                objectlibrary.derefasmsymbol(o.ref^.symbol);
-              if assigned(o.ref^.relsymbol) then
-                objectlibrary.derefasmsymbol(o.ref^.relsymbol);
             end;
           top_local :
             o.localoper^.localsym:=tlocalvarsym(o.localoper^.localsymderef.resolve);
@@ -983,12 +979,13 @@ implementation
         sib   : byte;
       end;
 
-    procedure taicpu.create_ot;
+    procedure taicpu.create_ot(objdata:TObjData);
       {
         this function will also fix some other fields which only needs to be once
       }
       var
         i,l,relsize : longint;
+        currsym : TObjSymbol;
       begin
         if ops=0 then
          exit;
@@ -1021,26 +1018,32 @@ implementation
                     end
                   else
                     begin
-                      l:=ref^.offset;
-                      if assigned(ref^.symbol) then
-                       inc(l,ref^.symbol.address);
-                      { when it is a forward jump we need to compensate the
-                        offset of the instruction since the previous time,
-                        because the symbol address is then still using the
-                        'old-style' addressing.
-                        For backwards jumps this is not required because the
-                        address of the symbol is already adjusted to the
-                        new offset }
-                      if (l>InsOffset) and (LastInsOffset<>-1) then
-                        inc(l,InsOffset-LastInsOffset);
-                      { instruction size will then always become 2 (PFV) }
-                      relsize:=(InsOffset+2)-l;
-                      if (not assigned(ref^.symbol) or
-                          ((ref^.symbol.currbind<>AB_EXTERNAL) and (ref^.symbol.address<>0))) and
-                         (relsize>=-128) and (relsize<=127) then
-                       ot:=OT_IMM32 or OT_SHORT
+                      if assigned(objdata) then
+                        begin
+                          currsym:=objdata.symbolref(ref^.symbol);
+                          l:=ref^.offset;
+                          if assigned(currsym) then
+                            inc(l,currsym.address);
+                          { when it is a forward jump we need to compensate the
+                            offset of the instruction since the previous time,
+                            because the symbol address is then still using the
+                            'old-style' addressing.
+                            For backwards jumps this is not required because the
+                            address of the symbol is already adjusted to the
+                            new offset }
+                          if (l>InsOffset) and (LastInsOffset<>-1) then
+                            inc(l,InsOffset-LastInsOffset);
+                          { instruction size will then always become 2 (PFV) }
+                          relsize:=(InsOffset+2)-l;
+                          if (not assigned(currsym) or
+                              ((currsym.bind<>AB_EXTERNAL) and (currsym.address<>0))) and
+                             (relsize>=-128) and (relsize<=127) then
+                            ot:=OT_IMM32 or OT_SHORT
+                          else
+                            ot:=OT_IMM32 or OT_NEAR;
+                        end
                       else
-                       ot:=OT_IMM32 or OT_NEAR;
+                        ot:=OT_IMM32 or OT_NEAR;
                     end;
                 end;
               top_local :
@@ -1229,11 +1232,11 @@ implementation
 
     function taicpu.CheckIfValid:boolean;
       begin
-        result:=FindInsEntry;
+        result:=FindInsEntry(nil);
       end;
 
 
-    function taicpu.FindInsentry:boolean;
+    function taicpu.FindInsentry(objdata:TObjData):boolean;
       var
         i : longint;
       begin
@@ -1245,7 +1248,7 @@ implementation
            { We need intel style operands }
            SetOperandOrder(op_intel);
            { create the .ot fields }
-           create_ot;
+           create_ot(objdata);
            { set the file postion }
            aktfilepos:=fileinfo;
          end
@@ -1281,18 +1284,18 @@ implementation
       end;
 
 
-    function taicpu.Pass1(offset:longint):longint;
+    function taicpu.Pass1(objdata:TObjData):longint;
       begin
         Pass1:=0;
         { Save the old offset and set the new offset }
-        InsOffset:=Offset;
+        InsOffset:=ObjData.CurrObjSec.Size;
         { Error? }
         if (Insentry=nil) and (InsSize=-1) then
           exit;
         { set the file postion }
         aktfilepos:=fileinfo;
         { Get InsEntry }
-        if FindInsEntry then
+        if FindInsEntry(ObjData) then
          begin
            { Calculate instruction size }
            InsSize:=calcsize(insentry);
@@ -1679,7 +1682,7 @@ implementation
 
       var
         currval : longint;
-        currsym : tasmsymbol;
+        currsym : tobjsymbol;
 
         procedure getvalsym(opidx:longint);
         begin
@@ -1687,7 +1690,7 @@ implementation
             top_ref :
               begin
                 currval:=oper[opidx]^.ref^.offset;
-                currsym:=oper[opidx]^.ref^.symbol;
+                currsym:=ObjData.symbolref(oper[opidx]^.ref^.symbol);
               end;
             top_const :
               begin
@@ -1950,7 +1953,10 @@ implementation
                      1 :
                        begin
                          if (oper[opidx]^.ot and OT_MEMORY)=OT_MEMORY then
-                          objdata.writereloc(oper[opidx]^.ref^.offset,1,oper[opidx]^.ref^.symbol,RELOC_ABSOLUTE)
+                           begin
+                             currsym:=objdata.symbolref(oper[opidx]^.ref^.symbol);
+                             objdata.writereloc(oper[opidx]^.ref^.offset,1,currsym,RELOC_ABSOLUTE)
+                           end
                          else
                           begin
                             bytes[0]:=oper[opidx]^.ref^.offset;
@@ -1961,7 +1967,7 @@ implementation
                      2,4 :
                        begin
                          objdata.writereloc(oper[opidx]^.ref^.offset,ea_data.bytes,
-                           oper[opidx]^.ref^.symbol,RELOC_ABSOLUTE);
+                           objdata.symbolref(oper[opidx]^.ref^.symbol),RELOC_ABSOLUTE);
                          inc(s,ea_data.bytes);
                        end;
                    end;

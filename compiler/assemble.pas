@@ -139,7 +139,6 @@ interface
         { current processing }
         currlistidx  : byte;
         currlist     : TAAsmoutput;
-        currpass     : byte;
         procedure convertstab(p:pchar);
         function  MaybeNextList(var hp:Tai):boolean;
         function  TreePass0(hp:Tai):Tai;
@@ -671,7 +670,6 @@ Implementation
         ObjOutput:=nil;
         ObjData:=nil;
         SmartAsm:=smart;
-        currpass:=0;
       end;
 
 
@@ -684,8 +682,10 @@ Implementation
 {$ifdef MEMDEBUG}
         d := tmemdebug.create(name+' - agbin');
 {$endif}
-        ObjData.free;
-        ObjOutput.free;
+        if assigned(ObjData) then
+          ObjData.free;
+        if assigned(ObjOutput) then
+          ObjOutput.free;
 {$ifdef MEMDEBUG}
         d.free;
 {$endif}
@@ -728,13 +728,13 @@ Implementation
           result:=(code=0);
         end;
 
-        function consumeoffset(var p:pchar;out relocsym:tasmsymbol;out value:longint):boolean;
+        function consumeoffset(var p:pchar;out relocsym:tobjsymbol;out value:longint):boolean;
         var
           hs        : string;
           len,
           code      : integer;
           pstart    : pchar;
-          sym       : tasmsymbol;
+          sym       : tobjsymbol;
           exprvalue : longint;
           gotmin,
           dosub     : boolean;
@@ -782,10 +782,7 @@ Implementation
                     internalerror(200509187);
                   move(pstart^,hs[1],len);
                   hs[0]:=chr(len);
-                  sym:=objectlibrary.newasmsymbol(hs,AB_EXTERNAL,AT_NONE);
-                  if not assigned(sym) then
-                    internalerror(200509188);
-                  objectlibrary.UsedAsmSymbolListInsert(sym);
+                  sym:=objdata.symbolref(hs);
                   { Second symbol? }
                   if assigned(relocsym) then
                     begin
@@ -794,9 +791,7 @@ Implementation
                       relocsym:=nil;
                     end
                   else
-                    begin
-                      relocsym:=sym;
-                    end;
+                    relocsym:=sym;
                   exprvalue:=sym.address;
                 end;
               '+' :
@@ -828,7 +823,7 @@ Implementation
         nidx,
         nother,
         i         : longint;
-        relocsym  : tasmsymbol;
+        relocsym  : TObjSymbol;
         pstr,
         pcurr,
         pendquote : pchar;
@@ -856,7 +851,7 @@ Implementation
           pcurr:=p;
 
         { When in pass 1 then only alloc and leave }
-        if currpass=1 then
+        if ObjData.currpass=1 then
           ObjData.allocstab(pstr)
         else
           begin
@@ -881,7 +876,7 @@ Implementation
             if (nidx=N_Function) and
                (tf_use_function_relative_addresses in target_info.flags) then
               ofs:=0;
-            ObjData.writestab(ofs,relocsym,nidx,nother,nline,pstr);
+            ObjData.writestab(ofs,relocsym,byte(nidx),byte(nother),word(nline),pstr);
           end;
         if assigned(pendquote) then
           pendquote^:='"';
@@ -911,7 +906,7 @@ Implementation
 
     function TInternalAssembler.TreePass0(hp:Tai):Tai;
       var
-        l : longint;
+        objsym : TObjSymbol;
       begin
         while assigned(hp) do
          begin
@@ -925,12 +920,9 @@ Implementation
                end;
              ait_datablock :
                begin
-                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.secalign);
-                 if SmartAsm or (not Tai_datablock(hp).is_global) then
-                   begin
-                     ObjData.allocalign(l);
-                     ObjData.alloc(Tai_datablock(hp).size);
-                   end;
+                 ObjData.allocalign(used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.secalign));
+                 ObjData.SymbolDefine(Tai_datablock(hp).sym);
+                 ObjData.alloc(Tai_datablock(hp).size);
                end;
              ait_real_80bit :
                ObjData.alloc(10);
@@ -948,25 +940,16 @@ Implementation
                  Tai_section(hp).sec:=ObjData.CurrObjSec;
                end;
              ait_symbol :
-               ObjData.allocsymbol(currpass,Tai_symbol(hp).sym,0);
+               ObjData.SymbolDefine(Tai_symbol(hp).sym);
              ait_label :
-               ObjData.allocsymbol(currpass,Tai_label(hp).l,0);
+               ObjData.SymbolDefine(Tai_label(hp).labsym);
              ait_string :
                ObjData.alloc(Tai_string(hp).len);
              ait_instruction :
                begin
-{$ifdef i386}
-{$ifndef NOAG386BIN}
                  { reset instructions which could change in pass 2 }
                  Taicpu(hp).resetpass2;
-                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.Size));
-{$endif NOAG386BIN}
-{$endif i386}
-{$ifdef arm}
-                 { reset instructions which could change in pass 2 }
-                 Taicpu(hp).resetpass2;
-                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.Size));
-{$endif arm}
+                 ObjData.alloc(Taicpu(hp).Pass1(ObjData));
                end;
              ait_cutobject :
                if SmartAsm then
@@ -981,8 +964,8 @@ Implementation
     function TInternalAssembler.TreePass1(hp:Tai):Tai;
       var
         InlineLevel,
-        l,
         i : longint;
+        objsym : TObjSymbol;
       begin
         inlinelevel:=0;
         while assigned(hp) do
@@ -999,11 +982,10 @@ Implementation
                begin
                  if (oso_data in ObjData.CurrObjSec.secoptions) then
                    Message(asmw_e_alloc_data_only_in_bss);
-                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.secalign);
-                 ObjData.allocalign(l);
-                 ObjData.allocsymbol(currpass,Tai_datablock(hp).sym,Tai_datablock(hp).size);
+                 ObjData.allocalign(used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.secalign));
+                 objsym:=ObjData.SymbolDefine(Tai_datablock(hp).sym);
+                 objsym.size:=Tai_datablock(hp).size;
                  ObjData.alloc(Tai_datablock(hp).size);
-                 objectlibrary.UsedAsmSymbolListInsert(Tai_datablock(hp).sym);
                end;
              ait_real_80bit :
                ObjData.alloc(10);
@@ -1017,9 +999,9 @@ Implementation
                begin
                  ObjData.alloc(tai_const(hp).size);
                  if assigned(Tai_const(hp).sym) then
-                   objectlibrary.UsedAsmSymbolListInsert(Tai_const(hp).sym);
+                   ObjData.SymbolRef(Tai_const(hp).sym);
                  if assigned(Tai_const(hp).endsym) then
-                   objectlibrary.UsedAsmSymbolListInsert(Tai_const(hp).endsym);
+                   ObjData.SymbolRef(Tai_const(hp).endsym);
                end;
              ait_section:
                begin
@@ -1034,45 +1016,18 @@ Implementation
              ait_function_name,
              ait_force_line : ;
              ait_symbol :
-               begin
-                 ObjData.allocsymbol(currpass,Tai_symbol(hp).sym,0);
-                 objectlibrary.UsedAsmSymbolListInsert(Tai_symbol(hp).sym);
-               end;
+               ObjData.SymbolDefine(Tai_symbol(hp).sym);
              ait_symbol_end :
                begin
-                 if target_info.system in [system_i386_linux,system_i386_beos] then
-                  begin
-                    Tai_symbol_end(hp).sym.size:=ObjData.CurrObjSec.Size-Tai_symbol_end(hp).sym.address;
-                    objectlibrary.UsedAsmSymbolListInsert(Tai_symbol_end(hp).sym);
-                  end;
-                end;
-             ait_label :
-               begin
-                 ObjData.allocsymbol(currpass,Tai_label(hp).l,0);
-                 objectlibrary.UsedAsmSymbolListInsert(Tai_label(hp).l);
+                 objsym:=ObjData.SymbolRef(Tai_symbol_end(hp).sym);
+                 objsym.size:=ObjData.CurrObjSec.Size-objsym.offset;
                end;
+             ait_label :
+               ObjData.SymbolDefine(Tai_label(hp).labsym);
              ait_string :
                ObjData.alloc(Tai_string(hp).len);
              ait_instruction :
-               begin
-                 ObjData.alloc(Taicpu(hp).Pass1(ObjData.CurrObjSec.Size));
-                 { fixup the references }
-                 for i:=1 to Taicpu(hp).ops do
-                  begin
-                    with Taicpu(hp).oper[i-1]^ do
-                     begin
-                       case typ of
-                         top_ref :
-                           begin
-                             if assigned(ref^.symbol) then
-                              objectlibrary.UsedAsmSymbolListInsert(ref^.symbol);
-                             if assigned(ref^.relsymbol) then
-                              objectlibrary.UsedAsmSymbolListInsert(ref^.relsymbol);
-                           end;
-                       end;
-                     end;
-                  end;
-               end;
+               ObjData.alloc(Taicpu(hp).Pass1(ObjData));
              ait_cutobject :
                if SmartAsm then
                 break;
@@ -1092,11 +1047,12 @@ Implementation
       var
         fillbuffer : tfillbuffer;
         InlineLevel,
-        l  : longint;
         v  : int64;
 {$ifdef x86}
         co : comp;
 {$endif x86}
+        objsym,
+        objsymend : TObjSymbol;
       begin
         inlinelevel:=0;
         { main loop }
@@ -1117,15 +1073,12 @@ Implementation
                end;
              ait_symbol :
                begin
-                 ObjData.writesymbol(Tai_symbol(hp).sym);
-                 ObjOutput.exportsymbol(Tai_symbol(hp).sym);
+                 ObjOutput.exportsymbol(ObjData.SymbolRef(Tai_symbol(hp).sym));
                end;
              ait_datablock :
                begin
-                 l:=used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.secalign);
-                 ObjData.writesymbol(Tai_datablock(hp).sym);
-                 ObjOutput.exportsymbol(Tai_datablock(hp).sym);
-                 ObjData.allocalign(l);
+                 ObjData.allocalign(used_align(size_2_align(Tai_datablock(hp).size),0,ObjData.CurrObjSec.secalign));
+                 ObjOutput.exportsymbol(ObjData.SymbolRef(Tai_datablock(hp).sym));
                  ObjData.alloc(Tai_datablock(hp).size);
                end;
              ait_real_80bit :
@@ -1150,31 +1103,33 @@ Implementation
                    aitconst_32bit,
                    aitconst_16bit,
                    aitconst_8bit :
-                     if assigned(tai_const(hp).sym) then
-                       begin
-                         if assigned(tai_const(hp).endsym) then
-                           begin
-                             if tai_const(hp).endsym.objsection<>tai_const(hp).sym.objsection then
-                               internalerror(200404124);
-                             v:=tai_const(hp).endsym.address-tai_const(hp).sym.address+Tai_const(hp).value;
-                             ObjData.writebytes(v,tai_const(hp).size);
-                           end
-                         else
-                           ObjData.writereloc(Tai_const(hp).value,Tai_const(hp).size,
-                                                 Tai_const(hp).sym,RELOC_ABSOLUTE);
-                       end
-                     else
-                       ObjData.writebytes(Tai_const(hp).value,tai_const(hp).size);
+                     begin
+                       if assigned(tai_const(hp).sym) then
+                         begin
+                           objsym:=Objdata.SymbolRef(tai_const(hp).sym);
+                           if assigned(tai_const(hp).endsym) then
+                             begin
+                               objsymend:=Objdata.SymbolRef(tai_const(hp).endsym);
+                               if objsymend.objsection<>objsym.objsection then
+                                 internalerror(200404124);
+                               v:=objsymend.address-objsym.address+Tai_const(hp).value;
+                               ObjData.writebytes(v,tai_const(hp).size);
+                             end
+                           else
+                             ObjData.writereloc(Tai_const(hp).value,Tai_const(hp).size,objsym,RELOC_ABSOLUTE);
+                         end
+                       else
+                         ObjData.writebytes(Tai_const(hp).value,tai_const(hp).size);
+                     end;
                    aitconst_rva_symbol :
-                     ObjData.writereloc(Tai_const(hp).value,sizeof(aint),Tai_const(hp).sym,RELOC_RVA);
+                     ObjData.writereloc(Tai_const(hp).value,sizeof(aint),Objdata.SymbolRef(tai_const(hp).sym),RELOC_RVA);
                  end;
                end;
              ait_label :
                begin
-                 ObjData.writesymbol(Tai_label(hp).l);
                  { exporting shouldn't be necessary as labels are local,
                    but it's better to be on the safe side (PFV) }
-                 ObjOutput.exportsymbol(Tai_label(hp).l);
+                 ObjOutput.exportsymbol(ObjData.SymbolRef(Tai_label(hp).labsym));
                end;
              ait_instruction :
                Taicpu(hp).Pass2(ObjData);
@@ -1198,18 +1153,16 @@ Implementation
 
 
     procedure TInternalAssembler.writetree;
-      var
-        hp : Tai;
       label
         doexit;
+      var
+        hp : Tai;
       begin
         ObjOutput:=CObjOutput.Create(false);
         ObjData:=ObjOutput.newObjData(Objfile);
-        { reset the asmsymbol list }
-        objectlibrary.CreateUsedAsmsymbolList;
 
-      { Pass 0 }
-        currpass:=0;
+        { Pass 0 }
+        ObjData.currpass:=0;
         ObjData.createsection(sec_code,'');
         ObjData.beforealloc;
         { start with list 1 }
@@ -1226,8 +1179,8 @@ Implementation
         if errorcount>0 then
          goto doexit;
 
-      { Pass 1 }
-        currpass:=1;
+        { Pass 1 }
+        ObjData.currpass:=1;
         ObjData.resetsections;
         ObjData.beforealloc;
         ObjData.createsection(sec_code,'');
@@ -1242,15 +1195,13 @@ Implementation
          end;
         ObjData.createsection(sec_code,'');
         ObjData.afteralloc;
-        { check for undefined labels and reset }
-        objectlibrary.UsedAsmSymbolListCheckUndefined;
 
         { leave if errors have occured }
         if errorcount>0 then
          goto doexit;
 
-      { Pass 2 }
-        currpass:=2;
+        { Pass 2 }
+        ObjData.currpass:=2;
         ObjData.resetsections;
         ObjData.beforewrite;
         ObjData.createsection(sec_code,'');
@@ -1272,15 +1223,12 @@ Implementation
            { write objectfile }
            ObjOutput.startobjectfile(ObjFile);
            ObjOutput.writeobjectfile(ObjData);
-           ObjData.free;
-           ObjData:=nil;
          end;
 
       doexit:
-        { reset the used symbols back, must be after the .o has been
-          written }
-        objectlibrary.UsedAsmsymbolListReset;
-        objectlibrary.DestroyUsedAsmsymbolList;
+        { Cleanup }
+        ObjData.free;
+        ObjData:=nil;
       end;
 
 
@@ -1292,7 +1240,6 @@ Implementation
       begin
         NextSmartName(cut_normal);
         ObjOutput:=CObjOutput.Create(true);
-        ObjData:=ObjOutput.newObjData(Objfile);
         startsectype:=sec_code;
 
         { start with list 1 }
@@ -1301,11 +1248,10 @@ Implementation
         hp:=Tai(currList.first);
         while assigned(hp) do
          begin
-           { reset the asmsymbol list }
-           objectlibrary.CreateUsedAsmSymbolList;
+           ObjData:=ObjOutput.newObjData(Objfile);
 
            { Pass 0 }
-           currpass:=0;
+           ObjData.currpass:=0;
            ObjData.resetsections;
            ObjData.beforealloc;
            ObjData.createsection(startsectype,'');
@@ -1316,40 +1262,34 @@ Implementation
              exit;
 
            { Pass 1 }
-           currpass:=1;
+           ObjData.currpass:=1;
            ObjData.resetsections;
            ObjData.beforealloc;
            ObjData.createsection(startsectype,'');
            TreePass1(hp);
            ObjData.afteralloc;
-           { check for undefined labels }
-           objectlibrary.UsedAsmSymbolListCheckUndefined;
 
            { leave if errors have occured }
            if errorcount>0 then
-             exit;
+             break;
 
            { Pass 2 }
-           currpass:=2;
+           ObjData.currpass:=2;
            ObjOutput.startobjectfile(Objfile);
            ObjData.resetsections;
            ObjData.beforewrite;
            ObjData.createsection(startsectype,'');
            hp:=TreePass2(hp);
            ObjData.afterwrite;
+
            { leave if errors have occured }
            if errorcount>0 then
-             exit;
+             break;
 
            { write the current objectfile }
            ObjOutput.writeobjectfile(ObjData);
            ObjData.free;
            ObjData:=nil;
-
-           { reset the used symbols back, must be after the .o has been
-             written }
-           objectlibrary.UsedAsmsymbolListReset;
-           objectlibrary.DestroyUsedAsmsymbolList;
 
            { end of lists? }
            if not MaybeNextList(hp) then
@@ -1380,7 +1320,6 @@ Implementation
 
            { start next objectfile }
            NextSmartName(place);
-           ObjData:=ObjOutput.newObjData(Objfile);
          end;
       end;
 
@@ -1389,6 +1328,9 @@ Implementation
 
     var to_do:set of Tasmlist;
         i:Tasmlist;
+{$ifdef MEMDEBUG}
+        d : tmemdebug;
+{$endif}
 
         procedure addlist(p:TAAsmoutput);
         begin
@@ -1412,6 +1354,23 @@ Implementation
           writetreesmart
         else
           writetree;
+
+(*
+        if assigned(objectlibrary) then
+          begin
+            if objectlibrary<>current_module.librarydata then
+              internalerror(200603013);
+{$ifdef MEMDEBUG}
+            d:=tmemdebug.create(modulename^+' - librarydata');
+{$endif}
+            objectlibrary.free;
+            objectlibrary:=nil;
+            current_module.librarydata:=nil;
+{$ifdef MEMDEBUG}
+            d.free;
+{$endif}
+          end;
+*)
       end;
 
 

@@ -50,7 +50,7 @@ interface
         function  newObjData(const n:string):TObjData;
         function  startObjectfile(const fn:string):boolean;
         function  writeobjectfile(data:TObjData):boolean;
-        procedure exportsymbol(p:tasmsymbol);
+        procedure exportsymbol(p:TObjSymbol);
         property Writer:TObjectWriter read FWriter;
       end;
       TObjOutputClass=class of TObjOutput;
@@ -75,9 +75,9 @@ interface
       TExeSection = class;
 
       TExeSymbol = class(TNamedIndexItem)
-        objsymbol  : TAsmSymbol;
+        objsymbol  : TObjSymbol;
         exesection : TExeSection;
-        constructor create(sym:TAsmSymbol);
+        constructor create(sym:TObjSymbol);
       end;
 
       TExeSection = class(tnamedindexitem)
@@ -126,7 +126,7 @@ interface
         commonobjsection : TObjSection;
         commonobjdata,
         internalobjdata : TObjData;
-        EntrySym  : TAsmSymbol;
+        EntrySym  : TObjSymbol;
         SectionDataAlign,
         SectionMemAlign : aint;
         function  writedata:boolean;virtual;abstract;
@@ -234,11 +234,11 @@ implementation
       end;
 
 
-    procedure TObjOutput.exportsymbol(p:tasmsymbol);
+    procedure TObjOutput.exportsymbol(p:TObjSymbol);
       begin
         { export globals and common symbols, this is needed
           for .a files }
-        if p.currbind in [AB_GLOBAL,AB_COMMON] then
+        if p.bind in [AB_GLOBAL,AB_COMMON] then
          FWriter.writesym(p.name);
       end;
 
@@ -247,7 +247,7 @@ implementation
                                  TExeSymbol
 ****************************************************************************}
 
-    constructor TExeSymbol.create(sym:TAsmSymbol);
+    constructor TExeSymbol.create(sym:TObjSymbol);
       begin
         inherited createname(sym.name);
         objsymbol:=sym;
@@ -431,10 +431,10 @@ implementation
 
     procedure texeoutput.Pass1_Symbol(const aname:string);
       var
-        sym : tasmsymbol;
+        sym : TObjSymbol;
       begin
 (*
-        sym:=tasmsymbol.create(aname,AB_GLOBAL,AT_FUNCTION);
+        sym:=TObjSymbol.create(aname,AB_GLOBAL,AT_FUNCTION);
         { Create a dummy section }
         sym.objsection:=internalobjdata.createsection('*'+sym.name,0,[]);
         internalobjdata.ObjSymbols.insert(sym);
@@ -652,7 +652,7 @@ implementation
     procedure texeoutput.ExeSections_SymbolMap(s:tnamedindexitem;arg:pointer);
       var
         objsec : TObjSection;
-        hsym    : TAsmSymbol;
+        hsym    : TObjSymbol;
         i       : longint;
       begin
         with texesection(s) do
@@ -662,15 +662,15 @@ implementation
               begin
                 objsec:=TObjSection(ObjSectionList[i]);
                 exemap.AddMemoryMapObjectSection(objsec);
-                hsym:=tasmsymbol(objsec.objdata.objsymbols.first);
+                hsym:=TObjSymbol(objsec.objdata.objsymbols.first);
                 while assigned(hsym) do
                   begin
                     { process only the symbols that are defined in this section
                       and are located in this module }
                     if (hsym.objsection=objsec) and
-                       (hsym.currbind in [AB_GLOBAL,AB_LOCAL]) then
+                       (hsym.bind in [AB_GLOBAL,AB_LOCAL]) then
                       exemap.AddMemoryMapSymbol(hsym);
-                    hsym:=tasmsymbol(hsym.indexnext);
+                    hsym:=TObjSymbol(hsym.indexnext);
                   end;
               end;
           end;
@@ -691,7 +691,7 @@ implementation
     procedure texeoutput.FixUpSymbols;
       var
         i   : longint;
-        sym : tasmsymbol;
+        sym : TObjSymbol;
         objdata : TObjData;
       begin
         { Update ImageBase to ObjData so it can access from ObjSymbols }
@@ -710,12 +710,12 @@ implementation
         { Step 1, Update commons }
         for i:=0 to commonExeSymbols.count-1 do
           begin
-            sym:=tasmsymbol(commonExeSymbols[i]);
-            if sym.currbind=AB_COMMON then
+            sym:=TObjSymbol(commonExeSymbols[i]);
+            if sym.bind=AB_COMMON then
               begin
                 { update this symbol }
-                sym.currbind:=sym.altsymbol.currbind;
-                sym.memoffset:=sym.altsymbol.memoffset;
+                sym.bind:=sym.altsymbol.bind;
+                sym.offset:=sym.altsymbol.offset;
                 sym.size:=sym.altsymbol.size;
                 sym.typ:=sym.altsymbol.typ;
                 sym.objsection:=sym.altsymbol.objsection;
@@ -725,12 +725,12 @@ implementation
         { Step 2, Update externals }
         for i:=0 to externalExeSymbols.count-1 do
           begin
-            sym:=tasmsymbol(externalExeSymbols[i]);
-            if sym.currbind=AB_EXTERNAL then
+            sym:=TObjSymbol(externalExeSymbols[i]);
+            if sym.bind=AB_EXTERNAL then
               begin
                 { update this symbol }
-                sym.currbind:=sym.altsymbol.currbind;
-                sym.memoffset:=sym.altsymbol.memoffset;
+                sym.bind:=sym.altsymbol.bind;
+                sym.offset:=sym.altsymbol.offset;
                 sym.size:=sym.altsymbol.size;
                 sym.typ:=sym.altsymbol.typ;
                 sym.objsection:=sym.altsymbol.objsection;
@@ -781,7 +781,7 @@ implementation
         objdata   : TObjData;
         exesym    : TExeSymbol;
         sym,
-        commonsym : tasmsymbol;
+        commonsym : TObjSymbol;
         firstcommon : boolean;
         i         : longint;
       begin
@@ -801,12 +801,12 @@ implementation
         for i:=0 to ObjDataList.Count-1 do
           begin
             objdata:=TObjData(ObjDataList[i]);
-            sym:=tasmsymbol(objdata.objsymbols.first);
+            sym:=TObjSymbol(objdata.objsymbols.first);
             while assigned(sym) do
               begin
                 if not assigned(sym.objsection) then
                   internalerror(200206302);
-                case sym.currbind of
+                case sym.bind of
                   AB_GLOBAL :
                     begin
                       exesym:=texesymbol(globalExeSymbols.search(sym.name));
@@ -827,7 +827,7 @@ implementation
                   AB_COMMON :
                     commonExeSymbols.add(sym);
                 end;
-                sym:=tasmsymbol(sym.indexnext);
+                sym:=TObjSymbol(sym.indexnext);
               end;
           end;
 
@@ -835,8 +835,8 @@ implementation
         firstcommon:=true;
         for i:=0 to commonExeSymbols.count-1 do
           begin
-            sym:=tasmsymbol(commonExeSymbols[i]);
-            if sym.currbind=AB_COMMON then
+            sym:=TObjSymbol(commonExeSymbols[i]);
+            if sym.bind=AB_COMMON then
               begin
                 exesym:=texesymbol(globalExeSymbols.search(sym.name));
                 if assigned(exesym) then
@@ -854,11 +854,10 @@ implementation
                           exemap.AddCommonSymbolsHeader;
                         firstcommon:=false;
                       end;
-                    commonsym:=TAsmSymbol.Create(sym.name,AB_GLOBAL,AT_FUNCTION);
                     commonobjdata.setsection(commonobjsection);
-                    commonobjdata.allocsymbol(2,commonsym,sym.size);
+                    commonsym:=commonobjdata.symboldefine(sym.name,AB_GLOBAL,AT_FUNCTION);
+                    commonsym.size:=sym.size;
                     commonobjdata.alloc(sym.size);
-                    commonobjdata.writesymbol(commonsym);
                     if assigned(exemap) then
                       exemap.AddCommonSymbol(commonsym);
                     { make this symbol available as a global }
@@ -874,8 +873,8 @@ implementation
         { Step 3 }
         for i:=0 to externalExeSymbols.count-1 do
           begin
-            sym:=tasmsymbol(externalExeSymbols[i]);
-            if sym.currbind=AB_EXTERNAL then
+            sym:=TObjSymbol(externalExeSymbols[i]);
+            if sym.bind=AB_EXTERNAL then
               begin
                 exesym:=texesymbol(globalExeSymbols.search(sym.name));
                 if assigned(exesym) then

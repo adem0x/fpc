@@ -224,8 +224,6 @@ type
          FLeft,
          FRight      : TNamedIndexItem;
          FSpeedValue : cardinal;
-       { singleList }
-         FListNext   : TNamedIndexItem;
          FName       : Pstring;
        protected
          function  GetName:string;virtual;
@@ -238,7 +236,6 @@ type
          property IndexNext:TNamedIndexItem read FIndexNext write FIndexNext;
          property Name:string read GetName write SetName;
          property SpeedValue:cardinal read FSpeedValue;
-         property ListNext:TNamedIndexItem read FListNext;
          property Left:TNamedIndexItem read FLeft write FLeft;
          property Right:TNamedIndexItem read FRight write FRight;
        end;
@@ -277,15 +274,6 @@ type
          property  Count:longint read FCount;
        end;
 
-       tsingleList=class
-         First,
-         last    : TNamedIndexItem;
-         constructor Create;
-         procedure reset;
-         procedure clear;
-         procedure insert(p:TNamedIndexItem);
-       end;
-
       tindexobjectarray=array[1..16000] of TNamedIndexItem;
       pnamedindexobjectarray=^tindexobjectarray;
 
@@ -303,6 +291,7 @@ type
         procedure insert(p:TNamedIndexItem);
         procedure replace(oldp,newp:TNamedIndexItem);
         function  search(nr:integer):TNamedIndexItem;
+        property  Items[Index: Integer]: TNamedIndexItem read Search; default;
       private
         growsize,
         size  : integer;
@@ -1353,8 +1342,6 @@ end;
         Fright:=nil;
         FName:=nil;
         Fspeedvalue:=cardinal($ffffffff);
-        { List }
-        FListNext:=nil;
       end;
 
     constructor TNamedIndexItem.Createname(const n:string);
@@ -1371,8 +1358,6 @@ end;
       {$else}
         FName:=stringdup(n);
       {$endif}
-        { List }
-        FListNext:=nil;
       end;
 
 
@@ -1968,51 +1953,6 @@ end;
          end;
         speedsearch:=nil;
       end;
-
-{****************************************************************************
-                               tsingleList
- ****************************************************************************}
-
-    constructor tsingleList.create;
-      begin
-        First:=nil;
-        last:=nil;
-      end;
-
-
-    procedure tsingleList.reset;
-      begin
-        First:=nil;
-        last:=nil;
-      end;
-
-
-    procedure tsingleList.clear;
-      var
-        hp,hp2 : TNamedIndexItem;
-      begin
-        hp:=First;
-        while assigned(hp) do
-         begin
-           hp2:=hp;
-           hp:=hp.FListNext;
-           hp2.free;
-         end;
-        First:=nil;
-        last:=nil;
-      end;
-
-
-    procedure tsingleList.insert(p:TNamedIndexItem);
-      begin
-        if not assigned(First) then
-         First:=p
-        else
-         last.FListNext:=p;
-        last:=p;
-        p.FListNext:=nil;
-      end;
-
 
 {****************************************************************************
                                tindexarray

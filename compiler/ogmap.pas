@@ -42,11 +42,11 @@ interface
          destructor Destroy;override;
          procedure Add(const s:string);
          procedure AddCommonSymbolsHeader;
-         procedure AddCommonSymbol(p:tasmsymbol);
+         procedure AddCommonSymbol(p:TObjSymbol);
          procedure AddMemoryMapHeader(abase:aint);
          procedure AddMemoryMapExeSection(p:texesection);
          procedure AddMemoryMapObjectSection(p:TObjSection);
-         procedure AddMemoryMapSymbol(p:tasmsymbol);
+         procedure AddMemoryMapSymbol(p:TObjSymbol);
        end;
 
     var
@@ -92,7 +92,7 @@ implementation
        end;
 
 
-     procedure TExeMap.AddCommonSymbol(p:tasmsymbol);
+     procedure TExeMap.AddCommonSymbol(p:TObjSymbol);
        var
          s : string;
        begin
@@ -135,7 +135,7 @@ implementation
        end;
 
 
-     procedure TExeMap.AddMemoryMapSymbol(p:tasmsymbol);
+     procedure TExeMap.AddMemoryMapSymbol(p:TObjSymbol);
        begin
          {                 0x00001e30                setup_screens }
          writeln(t,Space(18)+PadSpace('0x'+HexStr(p.address+Fimagebase,sizeof(aint)*2),26)+p.name);

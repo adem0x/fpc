@@ -540,13 +540,16 @@ implementation
 {$ifdef MEMDEBUG}
         d.free;
 {$endif}
+        if assigned(librarydata) then
+          begin
 {$ifdef MEMDEBUG}
-        d:=tmemdebug.create(modulename^+' - librarydata');
+            d:=tmemdebug.create(modulename^+' - librarydata');
 {$endif}
-        librarydata.free;
+            librarydata.free;
 {$ifdef MEMDEBUG}
-        d.free;
+            d.free;
 {$endif}
+          end;
         stringdispose(modulename);
         inherited Destroy;
       end;

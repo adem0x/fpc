@@ -320,8 +320,8 @@ interface
        { Generates an assembler label }
        tai_label = class(tai)
           is_global : boolean;
-          l         : tasmlabel;
-          constructor Create(_l : tasmlabel);
+          labsym    : tasmlabel;
+          constructor Create(_labsym : tasmlabel);
           constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure derefimpl;override;
@@ -590,7 +590,7 @@ interface
            function spilling_get_operation_type(opnr: longint): topertype;virtual;
            function spilling_get_operation_type_ref(opnr: longint; reg: tregister): topertype;virtual;
 
-           function  Pass1(offset:longint):longint;virtual;abstract;
+           function  Pass1(objdata:TObjData):longint;virtual;abstract;
            procedure Pass2(objdata:TObjData);virtual;abstract;
         end;
         tai_cpu_class = class of tai_cpu_abstract;
@@ -974,7 +974,6 @@ implementation
 
     procedure tai_datablock.derefimpl;
       begin
-        objectlibrary.DerefAsmsymbol(sym);
       end;
 
 
@@ -988,9 +987,10 @@ implementation
          typ:=ait_symbol;
          sym:=_sym;
          size:=siz;
-         sym.defbind:=AB_LOCAL;
+         sym.bind:=AB_LOCAL;
          is_global:=false;
       end;
+
 
     constructor tai_symbol.Create_global(_sym:tasmsymbol;siz:longint);
       begin
@@ -998,9 +998,10 @@ implementation
          typ:=ait_symbol;
          sym:=_sym;
          size:=siz;
-         sym.defbind:=AB_GLOBAL;
+         sym.bind:=AB_GLOBAL;
          is_global:=true;
       end;
+
 
     constructor tai_symbol.Createname(const _name : string;_symtyp:Tasmsymtype;siz:longint);
       begin
@@ -1011,6 +1012,7 @@ implementation
          is_global:=false;
       end;
 
+
     constructor tai_symbol.Createname_global(const _name : string;_symtyp:Tasmsymtype;siz:longint);
       begin
          inherited Create;
@@ -1019,6 +1021,7 @@ implementation
          size:=siz;
          is_global:=true;
       end;
+
 
     constructor tai_symbol.ppuload(t:taitype;ppufile:tcompilerppufile);
       begin
@@ -1040,7 +1043,6 @@ implementation
 
     procedure tai_symbol.derefimpl;
       begin
-        objectlibrary.DerefAsmsymbol(sym);
       end;
 
 
@@ -1055,12 +1057,14 @@ implementation
          sym:=_sym;
       end;
 
+
     constructor tai_symbol_end.Createname(const _name : string);
       begin
          inherited Create;
          typ:=ait_symbol_end;
          sym:=objectlibrary.newasmsymbol(_name,AB_GLOBAL,AT_NONE);
       end;
+
 
     constructor tai_symbol_end.ppuload(t:taitype;ppufile:tcompilerppufile);
       begin
@@ -1078,7 +1082,6 @@ implementation
 
     procedure tai_symbol_end.derefimpl;
       begin
-        objectlibrary.DerefAsmsymbol(sym);
       end;
 
 
@@ -1352,8 +1355,6 @@ implementation
 
     procedure tai_const.derefimpl;
       begin
-        objectlibrary.DerefAsmsymbol(sym);
-        objectlibrary.DerefAsmsymbol(endsym);
       end;
 
 
@@ -1599,20 +1600,20 @@ implementation
                                TAI_LABEL
  ****************************************************************************}
 
-    constructor tai_label.create(_l : tasmlabel);
+    constructor tai_label.create(_labsym : tasmlabel);
       begin
         inherited Create;
         typ:=ait_label;
-        l:=_l;
-        l.is_set:=true;
-        is_global:=(l.defbind=AB_GLOBAL);
+        labsym:=_labsym;
+        labsym.is_set:=true;
+        is_global:=(labsym.bind=AB_GLOBAL);
       end;
 
 
     constructor tai_label.ppuload(t:taitype;ppufile:tcompilerppufile);
       begin
         inherited ppuload(t,ppufile);
-        l:=tasmlabel(ppufile.getasmsymbol);
+        labsym:=tasmlabel(ppufile.getasmsymbol);
         is_global:=boolean(ppufile.getbyte);
       end;
 
@@ -1620,15 +1621,14 @@ implementation
     procedure tai_label.ppuwrite(ppufile:tcompilerppufile);
       begin
         inherited ppuwrite(ppufile);
-        ppufile.putasmsymbol(l);
+        ppufile.putasmsymbol(labsym);
         ppufile.putbyte(byte(is_global));
       end;
 
 
     procedure tai_label.derefimpl;
       begin
-        objectlibrary.DerefAsmsymbol(tasmsymbol(l));
-        l.is_set:=true;
+        labsym.is_set:=true;
       end;
 
 
