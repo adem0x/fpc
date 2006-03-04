@@ -2199,7 +2199,7 @@ end;
         nwcopyright  := '';
         UseDeffileForExports:=false;
         UseDeffileForExportsSetExplicitly:=false;
-        GenerateImportSection:=true;
+        GenerateImportSection:={$ifdef INTERNALLINKER}false{$else}true{$endif};
         RelocSection:=false;
         RelocSectionSetExplicitly:=false;
         LinkTypeSetExplicitly:=false;

@@ -155,6 +155,7 @@ interface
         procedure FixUpSymbols;
         procedure FixUpRelocations;
         procedure RemoveEmptySections;
+        procedure ResolveExternals(const libname:string);virtual;
         function  writeexefile(const fn:string):boolean;
         property Writer:TObjectWriter read FWriter;
         property ExeSections:TIndexArray read FExeSectionsIndex;
@@ -714,12 +715,17 @@ implementation
             sym:=TObjSymbol(externalExeSymbols[i]);
             if sym.bind=AB_EXTERNAL then
               begin
-                { update this symbol }
-                sym.bind:=sym.altsymbol.bind;
-                sym.offset:=sym.altsymbol.offset;
-                sym.size:=sym.altsymbol.size;
-                sym.typ:=sym.altsymbol.typ;
-                sym.objsection:=sym.altsymbol.objsection;
+                if assigned(sym.altsymbol) then
+                  begin
+                    { update this symbol }
+                    sym.bind:=sym.altsymbol.bind;
+                    sym.offset:=sym.altsymbol.offset;
+                    sym.size:=sym.altsymbol.size;
+                    sym.typ:=sym.altsymbol.typ;
+                    sym.objsection:=sym.altsymbol.objsection;
+                  end
+                else
+                  Comment(V_Error,'Undefined symbol: '+sym.name);
               end;
           end;
       end;
@@ -863,12 +869,7 @@ implementation
               begin
                 exesym:=texesymbol(globalExeSymbols.search(objsym.name));
                 if assigned(exesym) then
-                  objsym.altsymbol:=exesym.objsymbol
-                else
-                  begin
-                    Comment(V_Error,'Undefined symbol: '+objsym.name);
-                    result:=false;
-                  end;
+                  objsym.altsymbol:=exesym.objsymbol;
               end;
           end;
 
@@ -885,6 +886,11 @@ implementation
           end
         else
           Comment(V_Error,'Entrypoint '+EntryName+' not defined');
+      end;
+
+
+    procedure TExeOutput.ResolveExternals(const libname:string);
+      begin
       end;
 
 

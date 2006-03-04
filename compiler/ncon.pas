@@ -278,6 +278,7 @@ implementation
         inherited ppuload(t,ppufile);
         ppufile.gettype(restype);
         value_real:=ppufile.getreal;
+        lab_real:=tasmlabel(ppufile.getasmsymbol);
       end;
 
 
@@ -286,6 +287,7 @@ implementation
         inherited ppuwrite(ppufile);
         ppufile.puttype(restype);
         ppufile.putreal(value_real);
+        ppufile.putasmsymbol(lab_real);
       end;
 
 
@@ -583,6 +585,7 @@ implementation
             ppufile.getdata(value_str^,len);
             value_str[len]:=#0;
           end;
+        lab_str:=tasmlabel(ppufile.getasmsymbol);
       end;
 
 
@@ -595,6 +598,7 @@ implementation
           ppufile.putdata(pcompilerwidestring(value_str)^.data,len*sizeof(tcompilerwidechar))
         else
           ppufile.putdata(value_str^,len);
+        ppufile.putasmsymbol(lab_str);
       end;
 
 

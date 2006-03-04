@@ -1251,6 +1251,7 @@ implementation
 
     function  tcompilerppufile.getasmsymbol:tasmsymbol;
       begin
+        getlongint;
         getasmsymbol:=nil;
       end;
 
@@ -1412,6 +1413,7 @@ implementation
 
     procedure tcompilerppufile.putasmsymbol(s:tasmsymbol);
       begin
+        putlongint(0);
       end;
 
 {$ifdef MEMDEBUG}

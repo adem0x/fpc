@@ -805,6 +805,8 @@ end;
     function TInternalLinker.MakeExecutable:boolean;
       label
         myexit;
+      var
+        s,s2 : string;
       begin
         MakeExecutable:=false;
 
@@ -824,8 +826,14 @@ end;
         if ErrorCount>0 then
           goto myexit;
         exeoutput.CalculateSymbols;
-        if ErrorCount>0 then
-          goto myexit;
+         While not DLLFiles.Empty do
+          begin
+            s:=DLLFiles.GetFirst;
+            if FindDLL(s,s2) then
+              exeoutput.ResolveExternals(s2)
+            else
+              Comment(V_Error,'DLL not found: '+s);
+          end;
         exeoutput.RemoveEmptySections;
         if ErrorCount>0 then
           goto myexit;
