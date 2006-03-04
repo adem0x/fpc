@@ -923,7 +923,7 @@ implementation
       begin
         { remove also index from symtable }
         if assigned(owner) then
-          owner.defindex.deleteindex(self);
+          owner.deletedef(self);
         if assigned(generictokenbuf) then
           generictokenbuf.free;
         inherited destroy;
