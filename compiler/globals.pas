@@ -179,6 +179,7 @@ interface
        UseDeffileForExports    : boolean;
        UseDeffileForExportsSetExplicitly : boolean;
        GenerateImportSection,
+       GenerateImportSectionSetExplicitly,
        RelocSection : boolean;
        RelocSectionSetExplicitly : boolean;
        LinkTypeSetExplicitly : boolean;
@@ -2199,7 +2200,7 @@ end;
         nwcopyright  := '';
         UseDeffileForExports:=false;
         UseDeffileForExportsSetExplicitly:=false;
-        GenerateImportSection:={$ifdef INTERNALLINKER}false{$else}true{$endif};
+        GenerateImportSection:=true;
         RelocSection:=false;
         RelocSectionSetExplicitly:=false;
         LinkTypeSetExplicitly:=false;

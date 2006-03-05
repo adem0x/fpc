@@ -35,8 +35,10 @@ type
     opened : boolean;
     buf    : pchar;
     bufidx : longint;
-    fsize  : longint;
     procedure writebuf;
+  protected
+    fsize,
+    fobjsize  : longint;
   public
     constructor create;
     destructor  destroy;override;
@@ -47,6 +49,7 @@ type
     procedure WriteZeros(l:longint);
     procedure writearray(a:TDynamicArray);
     property Size:longint read FSize;
+    property ObjSize:longint read FObjSize;
   end;
 
   tobjectreader=class
@@ -63,7 +66,7 @@ type
     function  openfile(const fn:string):boolean;virtual;
     procedure closefile;virtual;
     procedure seek(len:longint);
-    function  read(var b;len:longint):boolean;virtual;
+    function  read(out b;len:longint):boolean;virtual;
     function  readarray(a:TDynamicArray;len:longint):boolean;
   end;
 
@@ -108,6 +111,7 @@ begin
     end;
   bufidx:=0;
   fsize:=0;
+  fobjsize:=0;
   opened:=true;
   createfile:=true;
 end;
@@ -126,6 +130,7 @@ begin
    RemoveFile(fn);
   opened:=false;
   fsize:=0;
+  fobjsize:=0;
 end;
 
 
@@ -148,6 +153,7 @@ var
   idx : longint;
 begin
   inc(fsize,len);
+  inc(fobjsize,len);
   p:=pchar(@b);
   idx:=0;
   while len>0 do
@@ -260,7 +266,7 @@ begin
 end;
 
 
-function tobjectreader.read(var b;len:longint):boolean;
+function tobjectreader.read(out b;len:longint):boolean;
 var
   p   : pchar;
   left,

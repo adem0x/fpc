@@ -37,7 +37,7 @@ interface
        cpuinfo,cpubase,
        cgbase,cgutils,
        symtype,
-       aasmbase;
+       aasmbase,ogbase;
 
     type
        { keep the number of elements in this enumeration less or equal than 32 as long

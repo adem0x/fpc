@@ -34,7 +34,8 @@ interface
       cpubase,
       cgbase,cgutils,
       symtype,
-      aasmbase,aasmtai;
+      aasmbase,aasmtai,
+      ogbase;
 
     const
       { "mov reg,reg" source operand number }

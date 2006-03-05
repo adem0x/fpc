@@ -182,6 +182,7 @@ begin
   objpos:=ardata.size;
   ardata.seek(objpos + sizeof(tarhdr));
   createfile:=true;
+  fobjsize:=0;
 end;
 
 
@@ -193,6 +194,7 @@ begin
 { write the header }
   ardata.seek(objpos);
   ardata.write(arhdr,sizeof(tarhdr));
+  fobjsize:=0;
 end;
 
 
@@ -209,6 +211,8 @@ end;
 
 procedure tarobjectwriter.write(const b;len:longint);
 begin
+  inc(fobjsize,len);
+  inc(fsize,len);
   ardata.write(b,len);
 end;
 

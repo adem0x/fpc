@@ -62,6 +62,9 @@ type
    TPointerList = array[0..MaxListSize - 1] of Pointer;
    TListSortCompare = function (Item1, Item2: Pointer): Integer;
 
+   TListCallback = procedure(data,arg:pointer) of object;
+   TListStaticCallback = procedure(data,arg:pointer);
+
    TList = class(TObject)
    private
      FList: PPointerList;
@@ -91,6 +94,8 @@ type
      function Remove(Item: Pointer): Integer;
      procedure Pack;
      procedure Sort(Compare: TListSortCompare);
+     procedure foreach(proc2call:TListCallback;arg:pointer);
+     procedure foreach_static(proc2call:TListStaticCallback;arg:pointer);
      property Capacity: Integer read FCapacity write SetCapacity;
      property Count: Integer read FCount write SetCount;
      property Items[Index: Integer]: Pointer read Get write Put; default;
@@ -737,6 +742,33 @@ begin
      Add(Obj[i]);
 end;
 
+
+    procedure TList.foreach(proc2call:TListCallback;arg:pointer);
+      var
+        i : longint;
+        p : pointer;
+      begin
+        For I:=0 To Count-1 Do
+          begin
+            p:=FList^[i];
+            if assigned(p) then
+              proc2call(p,arg);
+          end;
+      end;
+
+
+    procedure TList.foreach_static(proc2call:TListStaticCallback;arg:pointer);
+      var
+        i : longint;
+        p : pointer;
+      begin
+        For I:=0 To Count-1 Do
+          begin
+            p:=FList^[i];
+            if assigned(p) then
+              proc2call(p,arg);
+          end;
+      end;
 
 {****************************************************************************
                              TLinkedListItem

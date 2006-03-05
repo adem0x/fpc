@@ -79,10 +79,11 @@ Type
     private
        FCExeOutput : TExeOutputClass;
        FCObjInput  : TObjInputClass;
-       procedure Pass1_ReadObject(const para:string);
-       procedure Pass1_ReadUnitObjects;
-       procedure ParseScriptPass1;
-       procedure ParseScriptPass2;
+       procedure Load_ReadObject(const para:string);
+       procedure Load_ReadUnitObjects;
+       procedure ParseScript_Load;
+       procedure ParseScript_Order;
+       procedure ParseScript_CalcPos;
        procedure PrintLinkerScript;
     protected
        property CObjInput:TObjInputClass read FCObjInput write FCObjInput;
@@ -689,7 +690,7 @@ end;
       end;
 
 
-    procedure TInternalLinker.Pass1_ReadObject(const para:string);
+    procedure TInternalLinker.Load_ReadObject(const para:string);
       var
         objdata  : TObjData;
         objinput : TObjinput;
@@ -706,7 +707,7 @@ end;
       end;
 
 
-    procedure TInternalLinker.Pass1_ReadUnitObjects;
+    procedure TInternalLinker.Load_ReadUnitObjects;
       var
         s : string;
       begin
@@ -714,19 +715,19 @@ end;
           begin
             s:=ObjectFiles.GetFirst;
             if s<>'' then
-              Pass1_ReadObject(s);
+              Load_ReadObject(s);
           end;
       end;
 
 
-    procedure TInternalLinker.ParseScriptPass1;
+    procedure TInternalLinker.ParseScript_Load;
       var
         s,
         para,
         keyword : string;
         hp : TStringListItem;
       begin
-        exeoutput.Pass1_Start;
+        exeoutput.Load_Start;
         hp:=tstringlistitem(linkscript.first);
         while assigned(hp) do
           begin
@@ -735,35 +736,27 @@ end;
               continue;
             keyword:=Upper(GetToken(s,' '));
             para:=GetToken(s,' ');
-            if keyword='EXESECTION' then
-              ExeOutput.Pass1_ExeSection(para)
-            else if keyword='ENDEXESECTION' then
-              ExeOutput.Pass1_EndExeSection
-            else if keyword='OBJSECTION' then
-              ExeOutput.Pass1_ObjSection(para)
-            else if keyword='SYMBOL' then
-              ExeOutput.Pass1_Symbol(para)
-            else if keyword='ZEROS' then
-              ExeOutput.Pass1_Zeros(para)
+            if keyword='SYMBOL' then
+              ExeOutput.Load_Symbol(para)
             else if keyword='ENTRYNAME' then
-              ExeOutput.Pass1_EntryName(para)
+              ExeOutput.Load_EntryName(para)
             else if keyword='READOBJECT' then
-              Pass1_ReadObject(para)
+              Load_ReadObject(para)
             else if keyword='READUNITOBJECTS' then
-              Pass1_ReadUnitObjects;
+              Load_ReadUnitObjects;
             hp:=tstringlistitem(hp.next);
           end;
       end;
 
 
-    procedure TInternalLinker.ParseScriptPass2;
+    procedure TInternalLinker.ParseScript_Order;
       var
         s,
         para,
         keyword : string;
         hp : TStringListItem;
       begin
-        exeoutput.Pass2_Start;
+        exeoutput.Order_Start;
         hp:=tstringlistitem(linkscript.first);
         while assigned(hp) do
           begin
@@ -773,13 +766,46 @@ end;
             keyword:=Upper(GetToken(s,' '));
             para:=GetToken(s,' ');
             if keyword='EXESECTION' then
-              ExeOutput.Pass2_ExeSection(para)
+              ExeOutput.Order_ExeSection(para)
             else if keyword='ENDEXESECTION' then
-              ExeOutput.Pass2_EndExeSection
+              ExeOutput.Order_EndExeSection
+            else if keyword='OBJSECTION' then
+              ExeOutput.Order_ObjSection(para)
+            else if keyword='ZEROS' then
+              ExeOutput.Order_Zeros(para)
+            else if keyword='SYMBOL' then
+              ExeOutput.Order_Symbol(para)
+            else if keyword='STABS' then
+              ExeOutput.Order_Stabs;
+            hp:=tstringlistitem(hp.next);
+          end;
+      end;
+
+
+    procedure TInternalLinker.ParseScript_CalcPos;
+      var
+        s,
+        para,
+        keyword : string;
+        hp : TStringListItem;
+      begin
+        exeoutput.CalcPos_Start;
+        hp:=tstringlistitem(linkscript.first);
+        while assigned(hp) do
+          begin
+            s:=hp.str;
+            if (s='') or (s[1]='#') then
+              continue;
+            keyword:=Upper(GetToken(s,' '));
+            para:=GetToken(s,' ');
+            if keyword='EXESECTION' then
+              ExeOutput.CalcPos_ExeSection(para)
+            else if keyword='ENDEXESECTION' then
+              ExeOutput.CalcPos_EndExeSection
             else if keyword='HEADER' then
-              ExeOutput.Pass2_Header
+              ExeOutput.CalcPos_Header
             else if keyword='SYMBOLS' then
-              ExeOutput.Pass2_Symbols;
+              ExeOutput.CalcPos_Symbols;
             hp:=tstringlistitem(hp.next);
           end;
       end;
@@ -822,11 +848,13 @@ end;
 
         PrintLinkerScript;
 
-        ParseScriptPass1;
+        { Load .o files and resolve symbols }
+        ParseScript_Load;
         if ErrorCount>0 then
           goto myexit;
-        exeoutput.CalculateSymbols;
-         While not DLLFiles.Empty do
+        exeoutput.ResolveSymbols;
+        { DLL Linking }
+        While not DLLFiles.Empty do
           begin
             s:=DLLFiles.GetFirst;
             if FindDLL(s,s2) then
@@ -834,12 +862,15 @@ end;
             else
               Comment(V_Error,'DLL not found: '+s);
           end;
+
+        { Create .exe sections and add .o sections }
+        ParseScript_Order;
         exeoutput.RemoveEmptySections;
         if ErrorCount>0 then
           goto myexit;
-        exeoutput.CalculateStabs;
 
-        ParseScriptPass2;
+        { Calc positions in mem and file }
+        ParseScript_CalcPos;
         exeoutput.FixupSymbols;
         exeoutput.FixupRelocations;
         exeoutput.PrintMemoryMap;

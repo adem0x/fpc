@@ -93,4 +93,4 @@
 {$ENDIF MACOS}
 
 { Use the internal linker by default }
-{$define INTERNALLINKER}
+{ define INTERNALLINKER}
