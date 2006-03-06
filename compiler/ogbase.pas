@@ -1130,8 +1130,6 @@ implementation
         FExeSectionDict.free;
         FExeSectionList.free;
         objdatalist.free;
-        internalobjdata.free;
-        commonobjdata.free;
         FWriter.free;
       end;
 
@@ -1229,19 +1227,21 @@ implementation
 
     procedure TExeOutput.Order_ObjSection(const aname:string);
       var
-        i       : longint;
+        i,j     : longint;
         objdata : TObjData;
         objsec  : TObjSection;
       begin
         if not assigned(CurrExeSec) then
           internalerror(200602181);
-{$warning TODO Add wildcard support like *(.text*)}
         for i:=0 to ObjDataList.Count-1 do
           begin
             objdata:=TObjData(ObjDataList[i]);
-            objsec:=objdata.findsection(aname);
-            if assigned(objsec) then
-              CurrExeSec.AddObjSection(objsec);
+            for j:=0 to objdata.ObjSectionList.Count-1 do
+              begin
+                objsec:=TObjSection(objdata.ObjSectionList[j]);
+                if MatchPattern(aname,objsec.name) then
+                  CurrExeSec.AddObjSection(objsec);
+              end;
           end;
       end;
 
