@@ -1437,6 +1437,11 @@ const win32stub : array[0..131] of byte=(
                     objsym.objsection:=objsec;
                     objsym.offset:=address;
                     objsym.size:=size;
+                    { Register in ObjSection }
+                    if assigned(objsec) then
+                      objsec.AddSymbolDefine(objsym)
+                    else
+                      objsec.AddSymbolRef(objsym);
                   end;
                 COFF_SYM_LABEL,
                 COFF_SYM_LOCAL :
