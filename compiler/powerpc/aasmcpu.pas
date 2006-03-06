@@ -435,7 +435,7 @@ uses cutils, cclasses;
       var
         p: tai;
         newjmp: taicpu;
-        labelpositions: tlist;
+        labelpositions: TFPObjectList;
         instrpos: ptrint;
         l: tasmlabel;
         inserted_something: boolean;
@@ -451,9 +451,9 @@ uses cutils, cclasses;
           begin
             if p.typ = ait_label then
               begin
-                if (tai_label(p).l.labelnr >= labelpositions.count) then
-                  labelpositions.count := tai_label(p).l.labelnr * 2;
-                labelpositions[tai_label(p).l.labelnr] := pointer(instrpos);
+                if (tai_label(p).labsym.labelnr >= labelpositions.count) then
+                  labelpositions.count := tai_label(p).labsym.labelnr * 2;
+                labelpositions[tai_label(p).labsym.labelnr] := pointer(instrpos);
               end;
             if p.typ = ait_instruction then
               inc(instrpos);
@@ -473,9 +473,9 @@ uses cutils, cclasses;
                   // of jumps
                   begin
                     // can happen because of newly inserted labels
-                    if (tai_label(p).l.labelnr > labelpositions.count) then
-                      labelpositions.count := tai_label(p).l.labelnr * 2;
-                    labelpositions[tai_label(p).l.labelnr] := pointer(instrpos);
+                    if (tai_label(p).labsym.labelnr > labelpositions.count) then
+                      labelpositions.count := tai_label(p).labsym.labelnr * 2;
+                    labelpositions[tai_label(p).labsym.labelnr] := pointer(instrpos);
                   end;
                 ait_instruction:
                   begin
