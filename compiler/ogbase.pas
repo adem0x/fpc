@@ -142,6 +142,7 @@ interface
        procedure AddSymbolDefine(p:TObjSymbol);
        procedure AddSymbolRef(p:TObjSymbol);
        procedure fixuprelocs;virtual;
+       function  FullName:string;
        property  Data:TDynamicArray read FData;
        property  SecOptions:TObjSectionOptions read FSecOptions write SetSecOptions;
      end;
@@ -593,6 +594,15 @@ implementation
 
     procedure TObjSection.fixuprelocs;
       begin
+      end;
+
+
+    function  TObjSection.FullName:string;
+      begin
+        if assigned(objdata) then
+          result:=objdata.Name+'('+Name+')'
+        else
+          result:=Name;
       end;
 
 
@@ -1710,6 +1720,7 @@ implementation
         i,j     : longint;
         exesec  : TExeSection;
         objdata : TObjData;
+        refobjsec,
         objsec  : TObjSection;
         objsym  : TObjSymbol;
       begin
@@ -1742,7 +1753,7 @@ implementation
           begin
             objsec:=TObjSection(ObjSectionWorkList.Last);
             if assigned(exemap) then
-              exemap.Add('Keeping '+objsec.objdata.name+'('+objsec.Name+')'+' '+ToStr(objsec.ObjSymbolRefs.Count)+' references');
+              exemap.Add('Keeping '+objsec.FullName+' '+ToStr(objsec.ObjSymbolRefs.Count)+' references');
             ObjSectionWorkList.Delete(ObjSectionWorkList.Count-1);
             for i:=0 to objsec.ObjSymbolRefs.count-1 do
               begin
@@ -1751,15 +1762,18 @@ implementation
                   begin
                     if not assigned(objsym.objsection) then
                       internalerror(200603062);
-                    AddToObjSectionWorkList(objsym.objsection);
+                    refobjsec:=objsym.objsection
                   end
                 else
                   begin
                     if not(assigned(objsym.exesymbol) and
                            assigned(objsym.exesymbol.objsymbol)) then
                       internalerror(200603063);
-                    AddToObjSectionWorkList(objsym.exesymbol.objsymbol.objsection);
+                    refobjsec:=objsym.exesymbol.objsymbol.objsection;
                   end;
+                if assigned(exemap) then
+                  exemap.Add('  References '+refobjsec.fullname);
+                AddToObjSectionWorkList(refobjsec);
               end;
           end;
 
@@ -1773,7 +1787,7 @@ implementation
                 if not objsec.used then
                   begin
                     if assigned(exemap) then
-                      exemap.Add('Removing '+objsec.name);
+                      exemap.Add('Removing '+objsec.FullName);
                     exesec.ObjSectionlist[j]:=nil;
                   end;
               end;
