@@ -1361,6 +1361,9 @@ const win32stub : array[0..131] of byte=(
            if assigned(p) then
             begin
               s.addsymsizereloc(rel.address-s.mempos,p,FSymTbl^[rel.sym].orgsize,rel_type);
+                  { Register symbol reference in TObjSection }
+              if p.objsection<>s then
+                s.AddSymbolRef(p);
             end
            else
             begin
@@ -1411,6 +1414,7 @@ const win32stub : array[0..131] of byte=(
               size:=0;
               address:=0;
               objsym:=nil;
+              objsec:=nil;
               case sym.typ of
                 COFF_SYM_GLOBAL :
                   begin
@@ -1439,9 +1443,7 @@ const win32stub : array[0..131] of byte=(
                     objsym.size:=size;
                     { Register in ObjSection }
                     if assigned(objsec) then
-                      objsec.AddSymbolDefine(objsym)
-                    else
-                      objsec.AddSymbolRef(objsym);
+                      objsec.AddSymbolDefine(objsym);
                   end;
                 COFF_SYM_LABEL,
                 COFF_SYM_LOCAL :
@@ -1625,6 +1627,9 @@ const win32stub : array[0..131] of byte=(
                objsec.coffrelocpos:=sechdr.relocpos;
                objsec.datapos:=sechdr.datapos;
                objsec.Size:=sechdr.dataSize;
+{$warning TODO idata keep can maybe replaced with grouping of text and idata}
+               if Copy(objsec.name,1,6)='.idata' then
+                 include(objsec.secoptions,oso_keep);
              end;
            { ObjSymbols }
            Reader.Seek(header.sympos);
