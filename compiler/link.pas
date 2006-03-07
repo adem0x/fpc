@@ -865,6 +865,7 @@ end;
 
         { Create .exe sections and add .o sections }
         ParseScript_Order;
+        exeoutput.RemoveUnreferencedSections;
         exeoutput.RemoveEmptySections;
         if ErrorCount>0 then
           goto myexit;

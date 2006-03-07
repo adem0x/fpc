@@ -727,6 +727,10 @@ const win32stub : array[0..131] of byte=(
                 end
             else
               internalerror(200205183);
+            { Only debug section are allowed to have }
+            if not relocsec.used and
+               not(oso_debug in secoptions) then
+              internalerror(200603061);
             case r.typ of
               RELOC_RELATIVE  :
                 begin
@@ -1361,9 +1365,8 @@ const win32stub : array[0..131] of byte=(
            if assigned(p) then
             begin
               s.addsymsizereloc(rel.address-s.mempos,p,FSymTbl^[rel.sym].orgsize,rel_type);
-                  { Register symbol reference in TObjSection }
-              if p.objsection<>s then
-                s.AddSymbolRef(p);
+              { Register symbol reference in TObjSection }
+              s.AddSymbolRef(p);
             end
            else
             begin
@@ -1435,7 +1438,7 @@ const win32stub : array[0..131] of byte=(
                        if sym.value>=objsec.mempos then
                          address:=sym.value-objsec.mempos;
                      end;
-                    objsym:=symbolref(strname);
+                    objsym:=CreateSymbol(strname);
                     objsym.bind:=bind;
                     objsym.typ:=AT_FUNCTION;
                     objsym.objsection:=objsec;
@@ -1455,7 +1458,7 @@ const win32stub : array[0..131] of byte=(
                        objsec:=GetSection(sym.section);
                        if sym.value>=objsec.mempos then
                          address:=sym.value-objsec.mempos;
-                       objsym:=symbolref(strname);
+                       objsym:=CreateSymbol(strname);
                        objsym.bind:=bind;
                        objsym.typ:=AT_FUNCTION;
                        objsym.objsection:=objsec;
@@ -1470,7 +1473,7 @@ const win32stub : array[0..131] of byte=(
                     objsec:=GetSection(sym.section);
                     if sym.value>=objsec.mempos then
                       address:=sym.value-objsec.mempos;
-                    objsym:=symbolref(strname);
+                    objsym:=CreateSymbol(strname);
                     objsym.bind:=AB_LOCAL;
                     objsym.typ:=AT_FUNCTION;
                     objsym.objsection:=objsec;
@@ -1923,8 +1926,8 @@ const win32stub : array[0..131] of byte=(
             peoptheader.FileAlignment:=SectionDataAlign;
             peoptheader.MajorOperatingSystemVersion:=4;
             peoptheader.MinorOperatingSystemVersion:=0;
-            peoptheader.MajorImageVersion:=1;
-            peoptheader.MinorImageVersion:=0;
+            peoptheader.MajorImageVersion:=dllmajor;
+            peoptheader.MinorImageVersion:=dllminor;
             peoptheader.MajorSubsystemVersion:=4;
             peoptheader.MinorSubsystemVersion:=0;
             peoptheader.Win32Version:=0;
@@ -1934,7 +1937,7 @@ const win32stub : array[0..131] of byte=(
 {$warning TODO GUI/CUI Subsystem}
             peoptheader.Subsystem:=3;
             peoptheader.DllCharacteristics:=0;
-            peoptheader.SizeOfStackReserve:=$40000;
+            peoptheader.SizeOfStackReserve:=stacksize;
             peoptheader.SizeOfStackCommit:=$1000;
             peoptheader.SizeOfHeapReserve:=$100000;
             peoptheader.SizeOfHeapCommit:=$1000;
