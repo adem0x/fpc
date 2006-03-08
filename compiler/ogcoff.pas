@@ -2341,6 +2341,7 @@ const win32stub : array[0..131] of byte=(
                                   Initialize
 *****************************************************************************}
 
+{$ifdef i386}
     const
        as_i386_coff_info : tasminfo =
           (
@@ -2389,8 +2390,23 @@ const win32stub : array[0..131] of byte=(
             labelprefix : '.L';
             comment : '';
           );
-
-
+{$endif i386}
+{$ifdef x86_64}
+    const
+       as_x86_64_pecoff_info : tasminfo =
+          (
+            id     : as_x86_64_pecoff;
+            idtxt  : 'PECOFF';
+            asmbin : '';
+            asmcmd : '';
+            supported_target : system_x86_64_win64;
+            flags : [af_outputbinary,af_smartlink_sections];
+            labelprefix : '.L';
+            comment : '';
+          );
+{$endif x86_64}
+{$ifdef arm}
+    const
        as_arm_pecoffwince_info : tasminfo =
           (
             id     : as_arm_pecoffwince;
@@ -2402,6 +2418,8 @@ const win32stub : array[0..131] of byte=(
             labelprefix : '.L';
             comment : '';
           );
+{$endif arm}
+
 
 initialization
 {$ifdef i386}
@@ -2410,6 +2428,9 @@ initialization
   RegisterAssembler(as_i386_pecoffwdosx_info,TPECoffAssembler);
   RegisterAssembler(as_i386_pecoffwince_info,TPECoffAssembler);
 {$endif i386}
+{$ifdef x86_64}
+  RegisterAssembler(as_x86_64_pecoff_info,TPECoffAssembler);
+{$endif x86_64}
 {$ifdef arm}
   RegisterAssembler(as_arm_pecoffwince_info,TPECoffAssembler);
 {$endif arm}
