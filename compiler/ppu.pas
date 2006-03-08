@@ -474,7 +474,6 @@ var
 begin
   p:=pchar(@b);
   pbuf:=@buf[bufidx];
-  idx:=0;
   repeat
     left:=bufsize-bufidx;
     if len<left then

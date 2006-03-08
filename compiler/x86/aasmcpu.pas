@@ -1267,8 +1267,7 @@ implementation
                result:=true;
                exit;
              end;
-           inc(i);
-           insentry:=@instab[i];
+           inc(insentry);
          end;
         Message1(asmw_e_invalid_opcode_and_operands,GetString);
         { No instruction found, set insentry to nil and inssize to -1 }
