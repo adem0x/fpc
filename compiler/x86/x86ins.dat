@@ -1207,18 +1207,24 @@ mem,reg16             \320\300\1\x89\101              8086,SM
 reg16,reg16           \320\300\1\x89\101              8086
 mem,reg32             \321\300\1\x89\101              386,SM
 reg32,reg32           \321\300\1\x89\101              386
+mem,reg64             \322\300\1\x89\101              X86_64
+reg64,reg64           \322\300\1\x89\101              X86_64
 reg8,mem              \301\1\x8A\110                  8086,SM
 reg8,reg8             \301\1\x8A\110                  8086
 reg16,mem             \320\301\1\x8B\110              8086,SM
 reg16,reg16           \320\301\1\x8B\110              8086
 reg32,mem             \321\301\1\x8B\110              386,SM
 reg32,reg32           \321\301\1\x8B\110              386
+reg64,mem             \322\301\1\x8B\110              X86_64
+reg64,reg64           \322\301\1\x8B\110              X86_64
 reg8,imm              \10\xB0\21                      8086,SM
 reg16,imm             \320\10\xB8\31                  8086,SM
 reg32,imm             \321\10\xB8\41                  386,SM
+reg64,imm             \322\10\xB8\41                  X86_64
 rm8,imm               \300\1\xC6\200\21               8086,SM
 rm16,imm              \320\300\1\xC7\200\31           8086,SM
 rm32,imm              \321\300\1\xC7\200\41           386,SM
+rm64,imm              \322\300\1\xC7\200\41           X86_64
 mem,imm8              \300\1\xC6\200\21               8086,SM
 mem,imm16             \320\300\1\xC7\200\31           8086,SM
 mem,imm32             \321\300\1\xC7\200\41           386,SM
@@ -1871,15 +1877,16 @@ xmmreg,xmmreg         \3\x66\x0F\x61\110              WILLAMETTE,SSE2
 
 [PUSH,pushX]
 (Ch_Rop1, Ch_RWESP, Ch_None)
-reg16                 \320\10\x50                     8086,NOX86_64
-reg32                 \321\10\x50                     386,NOX86_64
-rm16                  \320\300\1\xFF\206              8086,NOX86_64
-rm32                  \321\300\1\xFF\206              386,NOX86_64
+reg16                 \320\10\x50                     8086
+reg32                 \321\10\x50                     386
+reg64                 \321\10\x50                     X86_64
+rm16                  \320\300\1\xFF\206              8086
+rm32                  \321\300\1\xFF\206              386
 reg_fsgs              \1\x0F\7                        386,NOX86_64
 reg_sreg              \6                              8086,NOX86_64
-imm8                  \1\x6A\14                       286,NOX86_64
-imm16                 \320\1\x68\30                   286,NOX86_64
-imm32                 \321\1\x68\40                   386,NOX86_64
+imm8                  \1\x6A\14                       286
+imm16                 \320\1\x68\30                   286
+imm32                 \321\1\x68\40                   386
 
 [PUSHA,pushaX]
 (Ch_All, Ch_None, Ch_None)
@@ -2236,20 +2243,28 @@ mem,reg16             \320\300\1\x29\101              8086,SM
 reg16,reg16           \320\300\1\x29\101              8086
 mem,reg32             \321\300\1\x29\101              386,SM
 reg32,reg32           \321\300\1\x29\101              386
+mem,reg32             \321\300\1\x29\101              386,SM
+reg32,reg32           \321\300\1\x29\101              386
+mem,reg64             \322\300\1\x29\101              X86_64
+reg64,reg64           \322\300\1\x29\101              X86_64
 reg8,mem              \301\1\x2A\110                  8086,SM
 reg8,reg8             \301\1\x2A\110                  8086
 reg16,mem             \320\301\1\x2B\110              8086,SM
 reg16,reg16           \320\301\1\x2B\110              8086
 reg32,mem             \321\301\1\x2B\110              386,SM
 reg32,reg32           \321\301\1\x2B\110              386
+reg64,reg64           \322\301\1\x2B\110              X86_64
 rm16,imm8             \320\300\1\x83\205\15           8086
 rm32,imm8             \321\300\1\x83\205\15           386
+rm64,imm8             \322\300\1\x83\205\15           X86_64
 reg_al,imm            \1\x2C\21                       8086,SM
 reg_ax,imm            \320\1\x2D\31                   8086,SM
 reg_eax,imm           \321\1\x2D\41                   386,SM
+reg_rax,imm           \322\1\x2D\41                   X86_64
 rm8,imm               \300\1\x80\205\21               8086,SM
 rm16,imm              \320\300\1\x81\205\31           8086,SM
 rm32,imm              \321\300\1\x81\205\41           386,SM
+rm64,imm              \322\300\1\x81\205\41           X86_64
 mem,imm8              \300\1\x80\205\21               8086,SM
 mem,imm16             \320\300\1\x81\205\31           8086,SM
 mem,imm32             \321\300\1\x81\205\41           386,SM
@@ -2427,6 +2442,21 @@ mem,imm32             \321\300\1\x81\206\41           386,SM
 (Ch_All, Ch_None, Ch_None)
 void                  \3\x0F\xA7\xC0                  P6,CYRIX
 
+[XCRYPTECB]
+(Ch_All, Ch_None, Ch_None)
+void                  \333\3\x0F\xA7\xC8              P6,CYRIX
+
+[XCRYPTCBC]
+(Ch_All, Ch_None, Ch_None)
+void                  \333\3\x0F\xA7\xD0              P6,CYRIX
+
+[XCRYPTCFB]
+(Ch_All, Ch_None, Ch_None)
+void                  \333\3\x0F\xA7\xE0              P6,CYRIX
+
+[XCRYPTOFB]
+(Ch_All, Ch_None, Ch_None)
+void                  \333\3\x0F\xA7\xE8              P6,CYRIX
 
 [CMOVcc,cmovCCX]
 (Ch_ROp1, Ch_WOp2, Ch_RFLAGS)
@@ -3405,11 +3435,119 @@ xmmreg,mem		\301\3\xF3\x0F\x12\110		PRESCOTT,SSE3
 xmmreg,xmmreg           \3\xF3\x0F\x12\110              PRESCOTT,SSE3
 
 ;
+; Intel VT
+;
+[VMREAD]
+(Ch_All, Ch_None, Ch_None)
+reg32,reg32           \300\2\x0F\x78\101              386,PRIV,PROT
+mem,reg32             \300\2\x0F\x78\101              386,PRIV,PROT,SM
+
+[VMWRITE]
+(Ch_All, Ch_None, Ch_None)
+reg32,reg32           \301\2\x0F\x79\110              386,PRIV,PROT
+reg32,mem             \301\2\x0F\x79\110              386,PRIV,PROT,SM
+
+[VMCALL]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xC1                  386,PRIV,PROT
+
+[VMLAUNCH]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xC2                  386,PRIV,PROT
+
+[VMRESUME]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xC3                  386,PRIV,PROT
+
+[VMXOFF]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xC4                  386,PRIV,PROT
+
+; note: ideally the following should be tagged with SQ
+
+[VMXON]
+(Ch_All, Ch_None, Ch_None)
+mem                   \300\333\2\x0F\xC7\206          PRIV,PROT
+
+[VMCLEAR]
+(Ch_All, Ch_None, Ch_None)
+mem                   \300\3\x66\x0F\xC7\206          PRIV,PROT
+
+[VMPTRLD]
+(Ch_All, Ch_None, Ch_None)
+mem                   \300\2\x0F\xC7\206              PRIV,PROT
+
+[VMPTRST]
+(Ch_All, Ch_None, Ch_None)
+mem                   \300\2\x0F\xC7\207              PRIV,PROT
+
+;
+; AMD SVM
+;
+[VMRUN]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xD8                  386,SVM,PRIV,PROT
+
+[VMMCALL]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xD9                  386,SVM
+
+[VMLOAD]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xDA                  386,SVM,PRIV,PROT
+
+[VMSAVE]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xDB                  386,SVM,PRIV,PROT
+
+[STGI]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xDC                  386,SVM,PRIV,PROT
+
+[CLGI]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xDD                  386,SVM,PRIV,PROT
+
+[SKINIT]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xDE                  386,SVM,PRIV,PROT
+
+[INVLPGA]
+(Ch_All, Ch_None, Ch_None)
+void                  \3\x0F\x01\xDF                  386,SVM,PRIV,PROT
+
+;
+; Centaur
+;
+[MONTMUL]
+(Ch_All, Ch_None, Ch_None)
+void                  \333\3\x0F\xA6\xC0              CENTAUR
+
+[XSHA1]
+(Ch_All, Ch_None, Ch_None)
+void                  \333\3\x0F\xA6\xC8              CENTAUR
+
+[XSHA256]
+(Ch_All, Ch_None, Ch_None)
+void                  \333\3\x0F\xA6\xD0              CENTAUR
+
+;
+; Geode
+;
+[DMINT]
+(Ch_All, Ch_None, Ch_None)
+void \2\x0F\x39                                       P6,CYRIX
+
+[RDM]
+(Ch_All, Ch_None, Ch_None)
+void                  \2\x0F\x3A                      P6,CYRIX
+
+;
 ; GAS specific x86-64 instructions
 ;
 [MOVABS]
 (Ch_Wop2, Ch_Rop1, Ch_None)
-reg32,imm               \321\10\xB8\41                  X86_64
+reg32,imm             \321\10\xB8\41                  X86_64
 
 [MOVSXD,movslq]
 (Ch_Wop2, Ch_Rop1, Ch_None)
