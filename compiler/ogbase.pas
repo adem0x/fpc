@@ -318,6 +318,7 @@ interface
         procedure Load_Symbol(const aname:string);virtual;
         procedure Order_Start;virtual;
         procedure Order_ExeSection(const aname:string);virtual;
+        procedure Order_Align(const aname:string);virtual;
         procedure Order_Zeros(const aname:string);virtual;
         procedure Order_Symbol(const aname:string);virtual;
         procedure Order_EndExeSection;virtual;
@@ -660,7 +661,7 @@ implementation
 
     function TObjData.sectionname(atype:TAsmSectiontype;const aname:string):string;
       const
-        secnames : array[TAsmSectiontype] of string[13] = ('',
+        secnames : array[TAsmSectiontype] of string[16] = ('',
           'code',
           'data',
           'rodata',
@@ -672,6 +673,8 @@ implementation
           'eh_frame',
           'debug_frame','debug_info','debug_line','debug_abbrev',
           'fpc',
+          'fpc_resstr_data',
+          'fpc_resstr_index',
           'toc'
         );
       begin
@@ -687,7 +690,7 @@ implementation
         secoptions : array[TAsmSectiontype] of TObjSectionOptions = ([],
           {code} [oso_data,oso_load,oso_readonly,oso_executable,oso_keep],
           {data} [oso_data,oso_load,oso_write,oso_keep],
-{$warning TODO Fix rodata be really read-only}
+{$warning TODO Fix rodata be read-only}
           {rodata} [oso_data,oso_load,oso_write,oso_keep],
           {bss} [oso_load,oso_write,oso_keep],
           {threadvar} [oso_load,oso_write],
@@ -707,6 +710,9 @@ implementation
           {debug_line} [oso_data,oso_noload,oso_debug],
           {debug_abbrev} [oso_data,oso_noload,oso_debug],
           {fpc} [oso_data,oso_load,oso_write,oso_keep],
+{$warning TODO Fix fpc_resstr_data be read-only}
+          {fpc_resstr_data} [oso_data,oso_load,oso_write],
+          {fpc_resstr_index} [oso_data,oso_load,oso_write],
           {toc} [oso_data,oso_load,oso_readonly]
         );
       begin
@@ -1269,6 +1275,23 @@ implementation
           internalerror(200603041);
         ObjSection.SecOptions:=CurrExeSec.SecOptions;
         CurrExeSec.AddObjSection(ObjSection);
+      end;
+
+
+    procedure TExeOutput.Order_Align(const aname:string);
+      var
+        code     : integer;
+        alignval : longint;
+        objsec   : TObjSection;
+      begin
+        val(aname,alignval,code);
+        if alignval<=0 then
+          exit;
+        { Create an empty section with the required aligning }
+        inc(Fzeronr);
+        objsec:=internalobjdata.createsection('*align'+tostr(Fzeronr),alignval,CurrExeSec.SecOptions+[oso_data,oso_keep]);
+        internalobjdata.afterwrite;
+        CurrExeSec.AddObjSection(objsec);
       end;
 
 

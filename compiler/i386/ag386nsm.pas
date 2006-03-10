@@ -99,7 +99,7 @@ interface
     function single2str(d : single) : string;
       var
          hs : string;
-         p : byte;
+         p : longint;
       begin
          str(d,hs);
       { nasm expects a lowercase e }
@@ -115,7 +115,7 @@ interface
     function double2str(d : double) : string;
       var
          hs : string;
-         p : byte;
+         p : longint;
       begin
          str(d,hs);
       { nasm expects a lowercase e }
@@ -131,7 +131,7 @@ interface
     function extended2str(e : extended) : string;
       var
          hs : string;
-         p : byte;
+         p : longint;
       begin
          str(e,hs);
       { nasm expects a lowercase e }
@@ -354,7 +354,7 @@ interface
 
     procedure T386NasmAssembler.WriteSection(atype:TAsmSectiontype;const aname:string);
       const
-        secnames : array[TAsmSectiontype] of string[13] = ('',
+        secnames : array[TAsmSectiontype] of string[17] = ('',
           '.text',
           '.data',
           '.rodata',
@@ -367,6 +367,8 @@ interface
           '.eh_frame',
           '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
           '.fpc',
+          '.fpc_resstr_data',
+          '.fpc_resstr_index',
           ''
         );
       begin
@@ -394,7 +396,6 @@ interface
       i,j,l    : longint;
       InlineLevel : longint;
       consttype : taiconst_type;
-      found,
       do_line,
       quoted   : boolean;
     begin

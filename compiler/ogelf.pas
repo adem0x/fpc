@@ -323,7 +323,7 @@ implementation
 
     function TElf32ObjData.sectionname(atype:TAsmSectiontype;const aname:string):string;
       const
-        secnames : array[TAsmSectiontype] of string[13] = ('',
+        secnames : array[TAsmSectiontype] of string[17] = ('',
 {$ifdef userodata}
           '.text','.data','.rodata','.bss','.threadvar',
 {$else userodata}
@@ -335,6 +335,8 @@ implementation
           '.eh_frame',
           '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
           'fpc',
+          '.fpc_resstr_data',
+          '.fpc_resstr_index',
 		  ''
         );
       begin

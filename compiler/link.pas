@@ -862,6 +862,10 @@ end;
             else
               Comment(V_Error,'DLL not found: '+s);
           end;
+        { Fill external symbols data }
+        exeoutput.FixupSymbols;
+        if ErrorCount>0 then
+          goto myexit;
 
         { Create .exe sections and add .o sections }
         ParseScript_Order;
@@ -872,7 +876,6 @@ end;
 
         { Calc positions in mem and file }
         ParseScript_CalcPos;
-        exeoutput.FixupSymbols;
         exeoutput.FixupRelocations;
         exeoutput.PrintMemoryMap;
 

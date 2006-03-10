@@ -264,9 +264,6 @@ implementation
          if (target_info.system in [system_powerpc_darwin,system_i386_darwin]) then
            asmlist[al_picdata].concat(tai_directive.create(asd_non_lazy_symbol_pointer,''));
 
-         { Resource strings }
-         cresstr.resourcestrings:=Tresourcestrings.Create;
-
          { use the librarydata from current_module }
          objectlibrary:=current_module.librarydata;
       end;
@@ -288,8 +285,6 @@ implementation
 {$ifdef MEMDEBUG}
          d.free;
 {$endif}
-         { resource strings }
-         cresstr.resourcestrings.free;
          objectlibrary:=nil;
       end;
 
@@ -320,8 +315,6 @@ implementation
           oldexprasmlist:Taasmoutput;
           oldasmlist:array[Tasmlist] of Taasmoutput;
           oldobjectlibrary : TObjLibraryData;
-        { al_resourcestrings }
-          Oldresourcestrings : tresourcestrings;
         { akt.. things }
           oldaktlocalswitches  : tlocalswitches;
           oldaktmoduleswitches : tmoduleswitches;
@@ -374,7 +367,6 @@ implementation
             oldasmlist:=asmlist;
             oldexprasmlist:=exprasmlist;
             oldobjectlibrary:=objectlibrary;
-            Oldresourcestrings:=resourcestrings;
           { save akt... state }
           { handle the postponed case first }
            if localswitcheschanged then
@@ -542,7 +534,6 @@ implementation
                 exprasmlist:=oldexprasmlist;
                 asmlist:=oldasmlist;
                 { object data }
-                resourcestrings:=oldresourcestrings;
                 objectlibrary:=oldobjectlibrary;
                 { restore previous scanner }
                 if assigned(old_compiled_module) then

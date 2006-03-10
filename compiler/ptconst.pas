@@ -62,8 +62,8 @@ implementation
       var
          len,base  : longint;
          p,hp      : tnode;
-         i,j,l,
-         varalign  : longint;
+         i,j,l     : longint;
+         varalign  : shortint;
          offset,
          strlength : aint;
          ll        : tasmlabel;
@@ -85,7 +85,6 @@ implementation
          storefilepos : tfileposinfo;
          cursectype : TAsmSectiontype;
          cural : tasmlist;
-         sizelabel : tasmlabel;
 
          procedure check_range(def:torddef);
            begin
@@ -124,7 +123,7 @@ implementation
              { insert cut for smartlinking or alignment }
              l:=sym.getsize;
              maybe_new_object_file(asmlist[cural]);
-             new_section(asmlist[cural],cursectype,lower(sym.mangledname),const_align(l));
+             new_section(asmlist[cural],cursectype,lower(sym.mangledname),const_align(size_2_align(l)));
 
              if (sym.owner.symtabletype=globalsymtable) or
                 maybe_smartlink_symbol or

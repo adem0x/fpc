@@ -420,7 +420,7 @@ implementation
        symbolresize = 200*sizeof(coffsymbol);
        strsresize   = 8192;
 
-       coffsecnames : array[TAsmSectiontype] of string[16] = ('',
+       coffsecnames : array[TAsmSectiontype] of string[17] = ('',
           '.text','.data','.data','.bss','.tls',
           '.text',
           '.stab','.stabstr',
@@ -428,7 +428,9 @@ implementation
           '.eh_frame',
           '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
           '.fpc',
-                  ''
+          '.fpc_resstr_data',
+          '.fpc_resstr_index',
+          ''
         );
 
 const go32v2stub : array[0..2047] of byte=(
@@ -2308,6 +2310,11 @@ const win32stub : array[0..131] of byte=(
             Concat('ENDEXESECTION');
             Concat('EXESECTION .data');
             Concat('  OBJSECTION .data*');
+            Concat('  OBJSECTION .fpc_resstr_data*');
+            Concat('  ALIGN 4');
+            Concat('  SYMBOL FPC_RESOURCESTRINGS');
+            Concat('  OBJSECTION .fpc_resstr_index*');
+            Concat('  ZEROS 16');
             Concat('  SYMBOL edata');
             Concat('ENDEXESECTION');
             Concat('EXESECTION .idata');

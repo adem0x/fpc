@@ -368,7 +368,7 @@ implementation
        node,
        { aasm }
        { codegen }
-       paramgr,cresstr,
+       paramgr,
        procinfo
        ;
 
@@ -1836,8 +1836,6 @@ implementation
          value.valueptr:=str;
          consttype.reset;
          value.len:=l;
-         if t=constresourcestring then
-           ResStrIndex:=resourcestrings.Register(name,pchar(value.valueptr),value.len);
       end;
 
 
