@@ -98,7 +98,7 @@ interface
          constructor Create(smart:boolean);override;
        end;
 
-       TElf32assembler = class(tinternalassembler)
+       TElfAssembler = class(tinternalassembler)
          constructor create(smart:boolean);override;
        end;
 
@@ -1158,7 +1158,7 @@ implementation
                                TELFAssembler
 ****************************************************************************}
 
-    constructor TElf32Assembler.Create(smart:boolean);
+    constructor TElfAssembler.Create(smart:boolean);
       begin
         inherited Create(smart);
         CObjOutput:=TElfObjectOutput;
@@ -1169,7 +1169,8 @@ implementation
                                   Initialize
 *****************************************************************************}
 
-    const
+{$ifdef i386}
+     const
        as_i386_elf32_info : tasminfo =
           (
             id     : as_i386_elf32;
@@ -1181,7 +1182,9 @@ implementation
             labelprefix : '.L';
             comment : '';
           );
-
+{$endif i386}
+{$ifdef x86_64}
+     const
        as_x86_64_elf64_info : tasminfo =
           (
             id     : as_x86_64_elf64;
@@ -1193,7 +1196,9 @@ implementation
             labelprefix : '.L';
             comment : '';
           );
-
+{$endif x86_64}
+{$ifdef sparc}
+     const
        as_sparc_elf32_info : tasminfo =
           (
             id     : as_sparc_elf32;
@@ -1206,15 +1211,16 @@ implementation
             labelprefix : '.L';
             comment : '';
           );
+{$endif sparc}
 
 initialization
 {$ifdef i386}
-  RegisterAssembler(as_i386_elf32_info,TElf32Assembler);
+  RegisterAssembler(as_i386_elf32_info,TElfAssembler);
 {$endif i386}
 {$ifdef sparc}
-  RegisterAssembler(as_sparc_elf32_info,TElf32Assembler);
+  RegisterAssembler(as_sparc_elf32_info,TElfAssembler);
 {$endif sparc}
 {$ifdef x86_64}
-  RegisterAssembler(as_x86_64_elf64_info,TElf32Assembler);
+  RegisterAssembler(as_x86_64_elf64_info,TElfAssembler);
 {$endif x86_64}
 end.
