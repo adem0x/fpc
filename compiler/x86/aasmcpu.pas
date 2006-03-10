@@ -77,8 +77,8 @@ interface
       OT_REG16     = $00201002;
       OT_REG32     = $00201004;
       OT_REG64     = $00201008;
-      OT_MMXREG    = $00201008;  { MMX registers  }
       OT_XMMREG    = $00201010;  { Katmai registers  }
+      OT_MMXREG    = $00201020;  { MMX registers  }
       OT_MEMORY    = $00204000;  { register number in 'basereg'  }
       OT_MEM8      = $00204001;
       OT_MEM16     = $00204002;
@@ -781,11 +781,9 @@ implementation
                    if (ot and OT_BITS32)<>0 then
                     s:=s+'32'
                   else
-{$ifdef x86_64}
-                   if (ot and OT_BITS32)<>0 then
+                   if (ot and OT_BITS64)<>0 then
                     s:=s+'64'
                   else
-{$endif x86_64}
                     s:=s+'??';
                   { signed }
                   if (ot and OT_SIGNED)<>0 then
@@ -1402,7 +1400,6 @@ implementation
       end;
 
 
-{$ifdef x86_64}
     function process_ea(const input:toper;var output:ea;rfield:longint):boolean;
       var
         sym   : tasmsymbol;
@@ -1456,7 +1453,6 @@ implementation
 {$else x86_64}
              message(asmw_e_16bit_not_supported);
 {$endif x86_64}
-{$ifdef OPTEA}
            { make single reg base }
            if (br=NR_NO) and (s=1) then
             begin
@@ -1465,46 +1461,45 @@ implementation
             end;
            { convert [3,5,9]*EAX to EAX+[2,4,8]*EAX }
            if (br=NR_NO) and
-              (((s=2) and (ir<>NR_ESP)) or
+              (((s=2) and (ir<>NR_STACK_POINTER_REG)) or
                 (s=3) or (s=5) or (s=9)) then
             begin
               br:=ir;
               dec(s);
             end;
-           { swap ESP into base if scalefactor is 1 }
-           if (s=1) and (ir=NR_ESP) then
+           { swap RSP/ESP into base if scalefactor is 1 }
+           if (s=1) and (ir=NR_STACK_POINTER_REG) then
             begin
               ir:=br;
-              br:=NR_ESP;
+              br:=NR_STACK_POINTER_REG;
             end;
-{$endif OPTEA}
            { wrong, for various reasons }
-           if (ir=NR_ESP) or ((s<>1) and (s<>2) and (s<>4) and (s<>8) and (ir<>NR_NO)) then
+           if (ir=NR_STACK_POINTER_REG) or ((s<>1) and (s<>2) and (s<>4) and (s<>8) and (ir<>NR_NO)) then
             exit;
            { base }
            case br of
-             NR_RAX : base:=0;
-             NR_RCX : base:=1;
-             NR_RDX : base:=2;
-             NR_RBX : base:=3;
-             NR_RSP : base:=4;
+             {$ifdef x86_64}NR_RAX{$else}NR_EAX{$endif} : base:=0;
+             {$ifdef x86_64}NR_RCX{$else}NR_ECX{$endif} : base:=1;
+             {$ifdef x86_64}NR_RDX{$else}NR_EDX{$endif} : base:=2;
+             {$ifdef x86_64}NR_RBX{$else}NR_EBX{$endif} : base:=3;
+             {$ifdef x86_64}NR_RSP{$else}NR_ESP{$endif} : base:=4;
              NR_NO,
-             NR_RBP : base:=5;
-             NR_RSI : base:=6;
-             NR_RDI : base:=7;
+             {$ifdef x86_64}NR_RBP{$else}NR_EBP{$endif} : base:=5;
+             {$ifdef x86_64}NR_RSI{$else}NR_ESI{$endif} : base:=6;
+             {$ifdef x86_64}NR_RDI{$else}NR_EDI{$endif} : base:=7;
            else
              exit;
            end;
            { index }
            case ir of
-             NR_EAX : index:=0;
-             NR_ECX : index:=1;
-             NR_EDX : index:=2;
-             NR_EBX : index:=3;
-             NR_NO  : index:=4;
-             NR_EBP : index:=5;
-             NR_ESI : index:=6;
-             NR_EDI : index:=7;
+             {$ifdef x86_64}NR_RAX{$else}NR_EAX{$endif} : index:=0;
+             {$ifdef x86_64}NR_RCX{$else}NR_ECX{$endif} : index:=1;
+             {$ifdef x86_64}NR_RDX{$else}NR_EDX{$endif} : index:=2;
+             {$ifdef x86_64}NR_RBX{$else}NR_EBX{$endif} : index:=3;
+             NR_NO                                      : index:=4;
+             {$ifdef x86_64}NR_RBP{$else}NR_EBP{$endif} : index:=5;
+             {$ifdef x86_64}NR_RSI{$else}NR_ESI{$endif} : index:=6;
+             {$ifdef x86_64}NR_RDI{$else}NR_EDI{$endif} : index:=7;
            else
              exit;
            end;
@@ -1518,7 +1513,7 @@ implementation
             exit;
            end;
            if (br=NR_NO) or
-              ((br<>NR_EBP) and (o=0) and (sym=nil)) then
+              ((br<>NR_FRAME_POINTER_REG) and (o=0) and (sym=nil)) then
             md:=0
            else
             if ((o>=-128) and (o<=127) and (sym=nil)) then
@@ -1530,7 +1525,7 @@ implementation
            else
             output.bytes:=md;
            { SIB needed ? }
-           if (ir=NR_NO) and (br<>NR_ESP) then
+           if (ir=NR_NO) and (br<>NR_STACK_POINTER_REG) then
             begin
               output.sib_present:=false;
               output.modrm:=(md shl 6) or (rfield shl 3) or base;
@@ -1549,151 +1544,6 @@ implementation
         process_ea:=true;
       end;
 
-
-{$else x86_64}
-
-    function process_ea(const input:toper;var output:ea;rfield:longint):boolean;
-      var
-        sym   : tasmsymbol;
-        md,s,rv  : byte;
-        base,index,scalefactor,
-        o     : longint;
-        ir,br : Tregister;
-        isub,bsub : tsubregister;
-      begin
-        process_ea:=false;
-        {Register ?}
-        if (input.typ=top_reg) then
-          begin
-            rv:=regval(input.reg);
-            output.sib_present:=false;
-            output.bytes:=0;
-            output.modrm:=$c0 or (rfield shl 3) or rv;
-            output.size:=1;
-            process_ea:=true;
-            exit;
-         end;
-        {No register, so memory reference.}
-        if (input.typ<>top_ref) then
-          internalerror(200409262);
-        if ((input.ref^.index<>NR_NO) and (getregtype(input.ref^.index)<>R_INTREGISTER)) or
-           ((input.ref^.base<>NR_NO) and (getregtype(input.ref^.base)<>R_INTREGISTER)) then
-          internalerror(200301081);
-        ir:=input.ref^.index;
-        br:=input.ref^.base;
-        isub:=getsubreg(ir);
-        bsub:=getsubreg(br);
-        s:=input.ref^.scalefactor;
-        o:=input.ref^.offset;
-        sym:=input.ref^.symbol;
-      { it's direct address }
-        if (br=NR_NO) and (ir=NR_NO) then
-         begin
-           { it's a pure offset }
-           output.sib_present:=false;
-           output.bytes:=4;
-           output.modrm:=5 or (rfield shl 3);
-         end
-        else
-        { it's an indirection }
-         begin
-           { 16 bit address? }
-           if ((ir<>NR_NO) and (isub<>R_SUBADDR)) or
-              ((br<>NR_NO) and (bsub<>R_SUBADDR)) then
-             message(asmw_e_16bit_not_supported);
-{$ifdef OPTEA}
-           { make single reg base }
-           if (br=NR_NO) and (s=1) then
-            begin
-              br:=ir;
-              ir:=NR_NO;
-            end;
-           { convert [3,5,9]*EAX to EAX+[2,4,8]*EAX }
-           if (br=NR_NO) and
-              (((s=2) and (ir<>NR_ESP)) or
-                (s=3) or (s=5) or (s=9)) then
-            begin
-              br:=ir;
-              dec(s);
-            end;
-           { swap ESP into base if scalefactor is 1 }
-           if (s=1) and (ir=NR_ESP) then
-            begin
-              ir:=br;
-              br:=NR_ESP;
-            end;
-{$endif OPTEA}
-           { wrong, for various reasons }
-           if (ir=NR_ESP) or ((s<>1) and (s<>2) and (s<>4) and (s<>8) and (ir<>NR_NO)) then
-            exit;
-           { base }
-           case br of
-             NR_EAX : base:=0;
-             NR_ECX : base:=1;
-             NR_EDX : base:=2;
-             NR_EBX : base:=3;
-             NR_ESP : base:=4;
-             NR_NO,
-             NR_EBP : base:=5;
-             NR_ESI : base:=6;
-             NR_EDI : base:=7;
-           else
-             exit;
-           end;
-           { index }
-           case ir of
-             NR_EAX : index:=0;
-             NR_ECX : index:=1;
-             NR_EDX : index:=2;
-             NR_EBX : index:=3;
-             NR_NO  : index:=4;
-             NR_EBP : index:=5;
-             NR_ESI : index:=6;
-             NR_EDI : index:=7;
-           else
-             exit;
-           end;
-           case s of
-            0,
-            1 : scalefactor:=0;
-            2 : scalefactor:=1;
-            4 : scalefactor:=2;
-            8 : scalefactor:=3;
-           else
-            exit;
-           end;
-           if (br=NR_NO) or
-              ((br<>NR_EBP) and (o=0) and (sym=nil)) then
-            md:=0
-           else
-            if ((o>=-128) and (o<=127) and (sym=nil)) then
-             md:=1
-            else
-             md:=2;
-           if (br=NR_NO) or (md=2) then
-            output.bytes:=4
-           else
-            output.bytes:=md;
-           { SIB needed ? }
-           if (ir=NR_NO) and (br<>NR_ESP) then
-            begin
-              output.sib_present:=false;
-              output.modrm:=(md shl 6) or (rfield shl 3) or base;
-            end
-           else
-            begin
-              output.sib_present:=true;
-              output.modrm:=(md shl 6) or (rfield shl 3) or 4;
-              output.sib:=(scalefactor shl 6) or (index shl 3) or base;
-            end;
-         end;
-        if output.sib_present then
-         output.size:=2+output.bytes
-        else
-         output.size:=1+output.bytes;
-        process_ea:=true;
-      end;
-{$endif x86_64}
 
     function taicpu.calcsize(p:PInsEntry):shortint;
       var
