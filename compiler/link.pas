@@ -850,8 +850,6 @@ end;
 
         { Load .o files and resolve symbols }
         ParseScript_Load;
-        if ErrorCount>0 then
-          goto myexit;
         exeoutput.ResolveSymbols;
         { DLL Linking }
         While not DLLFiles.Empty do
@@ -878,6 +876,8 @@ end;
         ParseScript_CalcPos;
         exeoutput.FixupRelocations;
         exeoutput.PrintMemoryMap;
+        if ErrorCount>0 then
+          goto myexit;
 
         exeoutput.WriteExeFile(current_module.exefilename^);
 

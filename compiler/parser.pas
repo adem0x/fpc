@@ -322,9 +322,9 @@ implementation
           oldaktpackrecords,
           oldaktpackenum       : shortint;
           oldaktmaxfpuregisters : longint;
-          oldaktalignment  : talignmentinfo;
-          oldaktspecificoptcputype,
-          oldaktoptcputype : tcputype;
+          oldaktalignment    : talignmentinfo;
+          oldaktoptimizecputype,
+          oldaktcputype      : tcputype;
           oldaktfputype      : tfputype;
           oldaktasmmode      : tasmmode;
           oldaktinterfacetype: tinterfacetypes;
@@ -382,8 +382,8 @@ implementation
             oldaktpackrecords:=aktpackrecords;
             oldaktfputype:=aktfputype;
             oldaktmaxfpuregisters:=aktmaxfpuregisters;
-            oldaktoptcputype:=aktoptcputype;
-            oldaktspecificoptcputype:=aktspecificoptcputype;
+            oldaktcputype:=aktcputype;
+            oldaktoptimizecputype:=aktoptimizecputype;
             oldaktasmmode:=aktasmmode;
             oldaktinterfacetype:=aktinterfacetype;
             oldaktfilepos:=aktfilepos;
@@ -440,8 +440,8 @@ implementation
          aktfputype:=initfputype;
          aktpackenum:=initpackenum;
          aktpackrecords:=0;
-         aktoptcputype:=initcputype;
-         aktspecificoptcputype:=initoptimizecputype;
+         aktcputype:=initcputype;
+         aktoptimizecputype:=initoptimizecputype;
          aktasmmode:=initasmmode;
          aktinterfacetype:=initinterfacetype;
 
@@ -557,8 +557,8 @@ implementation
                 aktpackenum:=oldaktpackenum;
                 aktpackrecords:=oldaktpackrecords;
                 aktmaxfpuregisters:=oldaktmaxfpuregisters;
-                aktoptcputype:=oldaktoptcputype;
-                aktspecificoptcputype:=oldaktspecificoptcputype;
+                aktcputype:=oldaktcputype;
+                aktoptimizecputype:=oldaktoptimizecputype;
                 aktfputype:=oldaktfputype;
                 aktasmmode:=oldaktasmmode;
                 aktinterfacetype:=oldaktinterfacetype;
