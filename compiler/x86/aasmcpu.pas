@@ -1567,7 +1567,7 @@ implementation
                 inc(codes,c);
                 inc(len,c);
               end;
-            8,9,10 :
+            8,9,10,11 :
               begin
                 inc(codes);
                 inc(len);
@@ -1597,26 +1597,25 @@ implementation
             192,193,194 :
               if NeedAddrPrefix(c-192) then
                inc(len);
-            208,
-            210 :
+            208,209,210 :
+              begin
+                case (oper[c-208]^.ot and OT_SIZE_MASK) of
+                  OT_BITS16,
+                  OT_BITS64 :
+                    inc(len);
+                end;
+              end;
+            212,
+            214 :
               inc(len);
             200,
             201,
             202,
-            209,
-            211,
+            213,
+            215,
             217,218: ;
             219,220 :
               inc(len);
-            216 :
-              begin
-                inc(codes);
-                inc(len);
-              end;
-            224,225,226 :
-              begin
-                InternalError(777002);
-              end;
             else
               begin
                 if (c>=64) and (c<=191) then
@@ -1646,6 +1645,8 @@ implementation
        *                 on operand 0
        * \10, \11, \12 - a literal byte follows in the code stream, to be added
        *                 to the register value of operand 0, 1 or 2
+       * \13           - a literal byte follows in the code stream, to be added
+       *                 to the condition code value of the instruction.
        * \17           - encodes the literal byte 0. (Some compilers don't take
        *                 kindly to a zero byte in the _middle_ of a compile time
        *                 string constant, so I had to put this hack in.)
@@ -1666,21 +1667,19 @@ implementation
        *                 field the register value of operand b.
        * \2ab          - a ModRM, calculated on EA in operand a, with the spare
        *                 field equal to digit b.
-       * \30x          - might be an 0x67 byte, depending on the address size of
+       * \300,\301,\302 - might be an 0x67 byte, depending on the address size of
        *                 the memory reference in operand x.
        * \310          - indicates fixed 16-bit address size, i.e. optional 0x67.
        * \311          - indicates fixed 32-bit address size, i.e. optional 0x67.
        * \312          - indicates fixed 64-bit address size, i.e. optional 0x48.
-       * \320          - indicates fixed 16-bit operand size, i.e. optional 0x66.
-       * \321          - indicates fixed 32-bit operand size, i.e. optional 0x66.
-       * \322          - indicates fixed 64-bit operand size, i.e. optional 0x48.
-       * \323          - indicates that this instruction is only valid when the
+       * \320,\321,\322 - might be an 0x66 or 0x48 byte, depending on the operand
+       *                 size of operand x.
+       * \324          - indicates fixed 16-bit operand size, i.e. optional 0x66.
+       * \325          - indicates fixed 32-bit operand size, i.e. optional 0x66.
+       * \326          - indicates fixed 64-bit operand size, i.e. optional 0x48.
+       * \327          - indicates that this instruction is only valid when the
        *                 operand size is the default (instruction to disassembler,
        *                 generates no code in the assembler)
-       * \330          - a literal byte follows in the code stream, to be added
-       *                 to the condition code value of the instruction.
-       * \340          - reserve <operand 0> bytes of uninitialised storage.
-       *                 Operand 0 had better be a segmentless constant.
       }
 
       var
@@ -1778,6 +1777,12 @@ implementation
             8,9,10 :
               begin
                 bytes[0]:=ord(codes^)+regval(oper[c-8]^.reg);
+                inc(codes);
+                objdata.writebytes(bytes,1);
+              end;
+            11 :
+              begin
+                bytes[0]:=ord(codes^)+condval[condition];
                 inc(codes);
                 objdata.writebytes(bytes,1);
               end;
@@ -1881,30 +1886,30 @@ implementation
                 bytes[0]:=$67;
                 objdata.writebytes(bytes,1);
               end;
-            208 :
+            208,209,210 :
+              begin
+                case oper[c-208]^.ot and OT_SIZE_MASK of
+                  OT_BITS16 :
+                    begin
+                      bytes[0]:=$66;
+                      objdata.writebytes(bytes,1);
+                    end;
+                  OT_BITS64 :
+                    begin
+                      bytes[0]:=$48;
+                      objdata.writebytes(bytes,1);
+                    end;
+                end;
+              end;
+            212 :
               begin
                 bytes[0]:=$66;
                 objdata.writebytes(bytes,1);
               end;
-            210 :
+            214 :
               begin
                 bytes[0]:=$48;
                 objdata.writebytes(bytes,1);
-              end;
-            216 :
-              begin
-                bytes[0]:=ord(codes^)+condval[condition];
-                inc(codes);
-                objdata.writebytes(bytes,1);
-              end;
-            201,
-            202,
-            209,
-            211,
-            217,218 :
-              begin
-                { these are dissambler hints or 32 bit prefixes which
-                  are not needed }
               end;
             219 :
               begin
@@ -1916,9 +1921,17 @@ implementation
                 bytes[0]:=$f2;
                 objdata.writebytes(bytes,1);
               end;
+            201,
+            202,
+            213,
+            215,
+            217,218 :
+              begin
+                { these are dissambler hints or 32 bit prefixes which
+                  are not needed }
+              end;
             31,
-            48,49,50,
-            224,225,226 :
+            48,49,50 :
               begin
                 InternalError(777006);
               end
