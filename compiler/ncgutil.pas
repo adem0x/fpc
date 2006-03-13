@@ -200,9 +200,8 @@ implementation
           LOC_REFERENCE,
           LOC_CREFERENCE :
             begin
-{$ifdef cputargethasfixedstack}
-              location_freetemp(list,location);
-{$endif cputargethasfixedstack}
+              if use_fixed_stack then
+                location_freetemp(list,location);
             end;
           else
             internalerror(2004110211);
@@ -332,10 +331,10 @@ implementation
             end;
           LOC_CREFERENCE,LOC_REFERENCE:
             begin
-              if not(cs_regvars in aktglobalswitches) or
+              if not(cs_opt_regvar in aktoptimizerswitches) or
                  (getsupreg(t.reference.base) in cg.rgint.usableregs) then
                 exclude(regs,getsupreg(t.reference.base));
-              if not(cs_regvars in aktglobalswitches) or
+              if not(cs_opt_regvar in aktoptimizerswitches) or
                  (getsupreg(t.reference.index) in cg.rgint.usableregs) then
                 exclude(regs,getsupreg(t.reference.index));
             end;
@@ -1693,13 +1692,6 @@ implementation
         { call startup helpers from main program }
         if (current_procinfo.procdef.proctypeoption=potype_proginit) then
          begin
-           if (target_info.system in [system_powerpc_darwin,system_i386_darwin,system_powerpc_macos]) and
-              not(current_module.islibrary) then
-             begin
-              { the parameters are already in the right registers }
-              cg.a_call_name(list,target_info.cprefix+'FPC_SYSTEMMAIN');
-             end;
-
            { initialize units }
            cg.allocallcpuregisters(list);
            cg.a_call_name(list,'FPC_INITIALIZEUNITS');
@@ -1791,6 +1783,16 @@ implementation
 
         if (current_procinfo.procdef.proctypeoption=potype_proginit) then
           begin
+           if (target_info.system in [system_powerpc_darwin,system_i386_darwin,system_powerpc_macos]) and
+              not(current_module.islibrary) then
+             begin
+              list.concat(tai_section.create(sec_code,'',4));
+              list.concat(tai_symbol.createname_global(
+                target_info.cprefix+mainaliasname,AT_FUNCTION,0));
+              { keep argc, argv and envp properly on the stack }
+              cg.a_jmp_name(list,target_info.cprefix+'FPC_SYSTEMMAIN');
+             end;
+
             { Reference all DEBUGINFO sections from the main .text section }
             if (cs_debuginfo in aktmoduleswitches) then
               debuginfo.referencesections(list);
@@ -2441,7 +2443,11 @@ implementation
         vmtreg:=cg.getaddressregister(list);
         cg.g_maybe_testself(list,href.base);
         cg.a_load_ref_reg(list,OS_ADDR,OS_ADDR,href,vmtreg);
-        cg.g_maybe_testvmt(list,vmtreg,objdef);
+
+        { test validity of VMT }
+        if not(is_interface(objdef)) and
+           not(is_cppclass(objdef)) then
+           cg.g_maybe_testvmt(list,vmtreg,objdef);
       end;
 
 

@@ -43,7 +43,7 @@ implementation
     uses
       globtype,systems,
       cutils,verbose,globals,
-      cgbase,
+      cgbase,cgutils,
       cpubase,paramgr,
       aasmtai,aasmcpu,
       ncal,nbas,nmem,nld,ncnv,
@@ -57,8 +57,11 @@ implementation
 
     procedure ti386callnode.extra_interrupt_code;
       begin
-        emit_none(A_PUSHF,S_L);
-        emit_reg(A_PUSH,S_L,NR_CS);
+        if (target_info.system <> system_i386_darwin) then
+          begin
+            emit_none(A_PUSHF,S_L);
+            emit_reg(A_PUSH,S_L,NR_CS);
+          end;
       end;
 
 
@@ -66,6 +69,18 @@ implementation
       var
         hreg : tregister;
       begin
+        if (use_fixed_stack) then
+          begin
+            { very weird: in this case the callee does a "ret $4" and the }
+            { caller immediately a "subl $4,%esp". Possibly this is for   }
+            { use_fixed_stack code to be able to transparently call       }
+            { old-style code (JM)                                         }
+            dec(pop_size,pushedparasize);
+            if (pop_size < 0) then
+              exprasmlist.concat(taicpu.op_const_reg(A_SUB,S_L,-pop_size,NR_ESP));
+            exit;
+          end;
+
         { better than an add on all processors }
         if pop_size=4 then
           begin
@@ -76,8 +91,8 @@ implementation
         { but the registers must be different!        }
         else
           if (pop_size=8) and
-             not(cs_littlesize in aktglobalswitches) and
-             (aktoptprocessor=ClassPentium) then
+             not(cs_opt_size in aktoptimizerswitches) and
+             (aktoptcputype=cpu_Pentium) then
             begin
                hreg:=cg.getintregister(exprasmlist,OS_INT);
                exprasmlist.concat(taicpu.op_reg(A_POP,S_L,hreg));

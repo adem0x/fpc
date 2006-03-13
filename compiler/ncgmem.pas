@@ -612,7 +612,7 @@ implementation
          else
          { not nodetype=ordconstn }
            begin
-              if (cs_regvars in aktglobalswitches) and
+              if (cs_opt_regvar in aktoptimizerswitches) and
                  { if we do range checking, we don't }
                  { need that fancy code (it would be }
                  { buggy)                            }
@@ -682,13 +682,7 @@ implementation
                  objectlibrary.getjumplabel(falselabel);
                end;
               secondpass(right);
-
-              if cs_check_range in aktlocalswitches then
-               begin
-                 if left.resulttype.def.deftype=arraydef then
-                   rangecheck_array;
-               end;
-
+              
               { if mulsize = 1, we won't have to modify the index }
               location_force_reg(exprasmlist,right.location,OS_ADDR,(mulsize = 1));
 
@@ -699,6 +693,13 @@ implementation
                end
               else if (right.location.loc = LOC_JUMP) then
                 internalerror(2006010801);
+
+              { only range check now, we can't range check loc_flags/loc_jump }
+              if cs_check_range in aktlocalswitches then
+               begin
+                 if left.resulttype.def.deftype=arraydef then
+                   rangecheck_array;
+               end;
 
             { produce possible range check code: }
               if cs_check_range in aktlocalswitches then

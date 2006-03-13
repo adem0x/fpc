@@ -127,6 +127,8 @@ unit cgx86;
         procedure floatstore(list: taasmoutput; t : tcgsize;const ref : treference);
         procedure floatloadops(t : tcgsize;var op : tasmop;var s : topsize);
         procedure floatstoreops(t : tcgsize;var op : tasmop;var s : topsize);
+
+        function get_darwin_call_stub(const s: string): tasmsymbol;
       end;
 
    const
@@ -539,22 +541,57 @@ unit cgx86;
       end;
 
 
+    function tcgx86.get_darwin_call_stub(const s: string): tasmsymbol;
+      var
+        stubname: string;
+        href: treference;
+        l1: tasmsymbol;
+      begin
+        stubname := 'L'+s+'$stub';
+        result := objectlibrary.getasmsymbol(stubname);
+        if assigned(result) then
+          exit;
+
+        if asmlist[al_imports]=nil then
+          asmlist[al_imports]:=TAAsmoutput.create;
+
+        asmlist[al_imports].concat(Tai_section.create(sec_stub,'',0));
+        result := objectlibrary.newasmsymbol(stubname,AB_EXTERNAL,AT_FUNCTION);
+        asmlist[al_imports].concat(Tai_symbol.Create(result,0));
+        asmlist[al_imports].concat(tai_directive.create(asd_indirect_symbol,s));
+        asmlist[al_imports].concat(taicpu.op_none(A_HLT));
+        asmlist[al_imports].concat(taicpu.op_none(A_HLT));
+        asmlist[al_imports].concat(taicpu.op_none(A_HLT));
+        asmlist[al_imports].concat(taicpu.op_none(A_HLT));
+        asmlist[al_imports].concat(taicpu.op_none(A_HLT));
+      end;
+
+
     procedure tcgx86.a_call_name(list : taasmoutput;const s : string);
       var
         sym : tasmsymbol;
         r : treference;
       begin
-        sym:=objectlibrary.newasmsymbol(s,AB_EXTERNAL,AT_FUNCTION);
-        reference_reset_symbol(r,sym,0);
-        if cs_create_pic in aktmoduleswitches then
+ 
+        if (target_info.system <> system_i386_darwin) then
           begin
+            sym:=objectlibrary.newasmsymbol(s,AB_EXTERNAL,AT_FUNCTION);
+            reference_reset_symbol(r,sym,0);
+            if cs_create_pic in aktmoduleswitches then
+              begin
 {$ifdef i386}
-            include(current_procinfo.flags,pi_needs_got);
+                include(current_procinfo.flags,pi_needs_got);
 {$endif i386}
-            r.refaddr:=addr_pic
+                r.refaddr:=addr_pic
+              end
+            else
+              r.refaddr:=addr_full;
           end
         else
-          r.refaddr:=addr_full;
+          begin
+            reference_reset_symbol(r,get_darwin_call_stub(s),0);
+            r.refaddr:=addr_full;
+          end;
         list.concat(taicpu.op_ref(A_CALL,S_NO,r));
       end;
 
@@ -1567,7 +1604,7 @@ unit cgx86;
     begin
       cm:=copy_move;
       helpsize:=12;
-      if cs_littlesize in aktglobalswitches then
+      if cs_opt_size in aktoptimizerswitches then
         helpsize:=8;
       if (cs_mmx in aktlocalswitches) and
          not(pi_uses_fpu in current_procinfo.flags) and
@@ -1575,7 +1612,7 @@ unit cgx86;
         cm:=copy_mmx;
       if (len>helpsize) then
         cm:=copy_string;
-      if (cs_littlesize in aktglobalswitches) and
+      if (cs_opt_size in aktoptimizerswitches) and
          not((len<=16) and (cm=copy_mmx)) then
         cm:=copy_string;
       case cm of
@@ -1661,7 +1698,7 @@ unit cgx86;
             getcpuregister(list,REGCX);
 
             list.concat(Taicpu.op_none(A_CLD,S_NO));
-            if cs_littlesize in aktglobalswitches  then
+            if cs_opt_size in aktoptimizerswitches  then
               begin
                 a_load_const_reg(list,OS_INT,len,REGCX);
                 list.concat(Taicpu.op_none(A_REP,S_NO));
@@ -1712,6 +1749,11 @@ unit cgx86;
 
     procedure tcgx86.g_releasevaluepara_openarray(list : taasmoutput;const l:tlocation);
       begin
+        if (use_fixed_stack) then
+          begin
+            inherited g_releasevaluepara_openarray(list,l);
+            exit;
+          end;
         { Nothing to release }
       end;
 
@@ -1820,10 +1862,14 @@ unit cgx86;
 
 
     procedure tcgx86.g_proc_entry(list : taasmoutput;localsize : longint;nostackframe:boolean);
+      var
+        stackmisalignment: longint;
       begin
 {$ifdef i386}
         { interrupt support for i386 }
-        if (po_interrupt in current_procinfo.procdef.procoptions) then
+        if (po_interrupt in current_procinfo.procdef.procoptions) and
+           { this messes up stack alignment }
+           (target_info.system <> system_i386_darwin) then
           begin
             { .... also the segment registers }
             list.concat(Taicpu.Op_reg(A_PUSH,S_W,NR_GS));
@@ -1843,11 +1889,15 @@ unit cgx86;
         { save old framepointer }
         if not nostackframe then
           begin
+            { return address }
+            stackmisalignment := sizeof(aint);
             list.concat(tai_regalloc.alloc(current_procinfo.framepointer,nil));
             if current_procinfo.framepointer=NR_STACK_POINTER_REG then
               CGmessage(cg_d_stackframe_omited)
             else
               begin
+                { push <frame_pointer> }
+                inc(stackmisalignment,sizeof(aint));
                 include(rg[R_INTREGISTER].preserved_by_proc,RS_FRAME_POINTER_REG);
                 list.concat(Taicpu.op_reg(A_PUSH,tcgsize2opsize[OS_ADDR],NR_FRAME_POINTER_REG));
                 { Return address and FP are both on stack }
@@ -1858,8 +1908,14 @@ unit cgx86;
               end;
 
             { allocate stackframe space }
-            if localsize<>0 then
+            if (localsize<>0) or
+               ((target_info.system = system_i386_darwin) and
+                (stackmisalignment <> 0) and
+                ((pi_do_call in current_procinfo.flags) or
+                 (po_assembler in current_procinfo.procdef.procoptions))) then
               begin
+                if (target_info.system = system_i386_darwin) then
+                  localsize := align(localsize+stackmisalignment,16)-stackmisalignment;
                 cg.g_stackpointer_alloc(list,localsize);
                 if current_procinfo.framepointer=NR_STACK_POINTER_REG then
                   dwarfcfi.cfa_def_cfa_offset(list,localsize+sizeof(aint));

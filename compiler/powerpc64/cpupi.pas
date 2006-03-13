@@ -37,7 +37,6 @@ type
     parent_framepointer_offset: longint;
     constructor create(aparent: tprocinfo); override;
     procedure set_first_temp_offset; override;
-    procedure allocate_push_parasize(size: longint); override;
     function calc_stackframe_size: longint; override;
     function calc_stackframe_size(numgpr, numfpr : longint): longint;
 
@@ -87,12 +86,6 @@ begin
   end;
 end;
 
-procedure tppcprocinfo.allocate_push_parasize(size: longint);
-begin
-  if size > maxpushedparasize then
-    maxpushedparasize := size;
-end;
-
 function tppcprocinfo.calc_stackframe_size: longint;
 begin
   result := calc_stackframe_size(18, 18);
@@ -106,9 +99,10 @@ begin
     result := align(numgpr * tcgsize2size[OS_INT] +
         numfpr * tcgsize2size[OS_FLOAT], ELF_STACK_ALIGN);
 
-    if not ((not (pi_do_call in flags)) and (tg.lasttemp = tg.firsttemp) and
-      (result <= RED_ZONE_SIZE)) then
+    if (pi_do_call in flags) or (tg.lasttemp <> tg.firsttemp) or
+      (result > RED_ZONE_SIZE) then begin
       result := align(result + tg.lasttemp, ELF_STACK_ALIGN);
+    end;
   end else
     result := align(tg.lasttemp, ELF_STACK_ALIGN);
 end;

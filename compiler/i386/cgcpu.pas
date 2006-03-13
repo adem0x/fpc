@@ -71,7 +71,8 @@ unit cgcpu;
 
     function use_push(const cgpara:tcgpara):boolean;
       begin
-        result:=assigned(cgpara.location) and
+        result:=(not use_fixed_stack) and
+                assigned(cgpara.location) and
                 (cgpara.location^.loc=LOC_REFERENCE) and
                 (cgpara.location^.reference.index=NR_STACK_POINTER_REG);
       end;
@@ -259,6 +260,13 @@ unit cgcpu;
             if (current_procinfo.framepointer=NR_STACK_POINTER_REG) then
               begin
                 stacksize:=current_procinfo.calc_stackframe_size;
+                if (target_info.system = system_i386_darwin) and
+                   ((stacksize <> 0) or
+                    (pi_do_call in current_procinfo.flags) or
+                    { can't detect if a call in this case -> use nostackframe }
+                    { if you (think you) know what you are doing              }
+                    (po_assembler in current_procinfo.procdef.procoptions)) then
+                  stacksize := align(stacksize+sizeof(aint),16) - sizeof(aint);
                 if (stacksize<>0) then
                   cg.a_op_const_reg(list,OP_ADD,OS_ADDR,stacksize,current_procinfo.framepointer);
               end
@@ -268,7 +276,9 @@ unit cgcpu;
           end;
 
         { return from proc }
-        if (po_interrupt in current_procinfo.procdef.procoptions) then
+        if (po_interrupt in current_procinfo.procdef.procoptions) and
+           { this messes up stack alignment }
+           (target_info.system <> system_i386_darwin) then
           begin
             if (current_procinfo.procdef.funcretloc[calleeside].loc<>LOC_VOID) and
                (current_procinfo.procdef.funcretloc[calleeside].loc=LOC_REGISTER) then
@@ -295,7 +305,8 @@ unit cgcpu;
             list.concat(Taicpu.Op_none(A_IRET,S_NO));
           end
         { Routines with the poclearstack flag set use only a ret }
-        else if current_procinfo.procdef.proccalloption in clearstack_pocalls then
+        else if (current_procinfo.procdef.proccalloption in clearstack_pocalls) and
+                (not use_fixed_stack)  then
          begin
            { complex return values are removed from stack in C code PM }
            if paramanager.ret_in_param(current_procinfo.procdef.rettype.def,
@@ -325,6 +336,12 @@ unit cgcpu;
         again,ok : tasmlabel;
 {$endif}
       begin
+        if use_fixed_stack then
+          begin
+            inherited g_copyvaluepara_openarray(list,ref,lenloc,elesize,destreg);
+            exit;
+          end;
+
         { get stack space }
         getcpuregister(list,NR_EDI);
         a_load_loc_reg(list,OS_INT,lenloc,NR_EDI);
@@ -429,19 +446,28 @@ unit cgcpu;
 
     procedure tcg386.g_exception_reason_save(list : taasmoutput; const href : treference);
       begin
-        list.concat(Taicpu.op_reg(A_PUSH,tcgsize2opsize[OS_INT],NR_FUNCTION_RESULT_REG));
+        if not use_fixed_stack then
+          list.concat(Taicpu.op_reg(A_PUSH,tcgsize2opsize[OS_INT],NR_FUNCTION_RESULT_REG))
+        else
+         inherited g_exception_reason_save(list,href);
       end;
 
 
     procedure tcg386.g_exception_reason_save_const(list : taasmoutput;const href : treference; a: aint);
       begin
-        list.concat(Taicpu.op_const(A_PUSH,tcgsize2opsize[OS_INT],a));
+        if not use_fixed_stack then
+          list.concat(Taicpu.op_const(A_PUSH,tcgsize2opsize[OS_INT],a))
+        else
+          inherited g_exception_reason_save_const(list,href,a);
       end;
 
 
     procedure tcg386.g_exception_reason_load(list : taasmoutput; const href : treference);
       begin
-        list.concat(Taicpu.op_reg(A_POP,tcgsize2opsize[OS_INT],NR_FUNCTION_RESULT_REG));
+        if not use_fixed_stack then
+          list.concat(Taicpu.op_reg(A_POP,tcgsize2opsize[OS_INT],NR_FUNCTION_RESULT_REG))
+        else
+          inherited g_exception_reason_load(list,href);
       end;
 
 

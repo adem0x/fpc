@@ -998,7 +998,10 @@ parser_e_macpas_exit_wrong_param=03207_E_Exit's parameter must be the name of th
 % Non local exit is not allowed. This error occurs only in mode MacPas.
 parser_e_illegal_assignment_to_count_var=03208_E_Illegal assignment to for-loop variable "$1"
 % The type of a \var{for} loop variable must be an ordinal type.
-% Loop variables cannot be reals or strings.
+% Loop variables cannot be reals or strings. You can also not assign values to
+% loop variables inside the loop (except in Delphi and TP modes). Use a while or
+% repeat loop instead if you need to do something like that, since those
+% constructs were built for that.
 parser_e_no_local_var_external=03209_E_Can't declare local variable as EXTERNAL
 % Declaring local variables as external is not allowed. Only global variables can reference
 % to external variables.
@@ -2110,11 +2113,11 @@ option_no_debug_support_recompile_fpc=11017_H_Try recompiling with -dGDB
 % It is possible to have a compiler executable that doesn't support
 % the generation of debugging info. If you use such an executable with the
 % \var{-g} switch, this warning will be displayed.
-option_obsolete_switch=11018_E_You are using the obsolete switch $1
+option_obsolete_switch=11018_W_You are using the obsolete switch $1
 % this warns you when you use a switch that is not needed/supported anymore.
 % It is recommended that you remove the switch to overcome problems in the
 % future, when the switch meaning may change.
-option_obsolete_switch_use_new=11019_E_You are using the obsolete switch $1, please use $2
+option_obsolete_switch_use_new=11019_W_You are using the obsolete switch $1, please use $2
 % this warns you when you use a switch that is not supported anymore. You
 % must now use the second switch instead.
 % It is recommended that you change the switch to overcome problems in the

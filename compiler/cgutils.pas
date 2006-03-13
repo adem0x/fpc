@@ -105,7 +105,7 @@ unit cgutils;
     { This routine verifies if two references are the same, and
        if so, returns TRUE, otherwise returns false.
     }
-    function references_equal(sref : treference;dref : treference) : boolean;
+    function references_equal(const sref,dref : treference) : boolean;
 
     { tlocation handling }
 
@@ -113,7 +113,14 @@ unit cgutils;
     procedure location_copy(var destloc:tlocation; const sourceloc : tlocation);
     procedure location_swap(var destloc,sourceloc : tlocation);
 
+
+    { allocate room for parameters on the stack in the entry code? }
+    function use_fixed_stack: boolean;
+
 implementation
+
+uses
+  systems;
 
 {****************************************************************************
                                   TReference
@@ -144,7 +151,7 @@ implementation
       end;
 
 
-    function references_equal(sref : treference;dref : treference):boolean;
+    function references_equal(const sref,dref : treference):boolean;
       begin
         references_equal:=CompareByte(sref,dref,sizeof(treference))=0;
       end;
@@ -182,5 +189,18 @@ implementation
       end;
 
 
+    function use_fixed_stack: boolean;
+      begin
+{$ifdef i386}
+        result := (target_info.system = system_i386_darwin);
+{$else i386}
+{$ifdef cputargethasfixedstack}
+        result := true;
+{$else cputargethasfixedstack}
+        result := false;
+{$endif cputargethasfixedstack}
+{$endif i386}
+      end;
 
 end.
+

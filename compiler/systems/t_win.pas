@@ -954,6 +954,11 @@ begin
       if not ObjectFiles.Empty then
         begin
           Add('INPUT(');
+          { For wince external startup file is used and placed first,     }
+          { because ARM prolog structure must be located at the very      }
+          { beginning of code. Otherwise exceptions do not work properly. }
+          if target_info.system in [system_arm_wince,system_i386_wince] then
+            LinkRes.AddFileName(MaybeQuoted(FindObjectFile('wprt0','',false)));
           while not ObjectFiles.Empty do
            begin
              s:=ObjectFiles.GetFirst;
@@ -1269,10 +1274,10 @@ begin
   if apptype=app_gui then
     begin
       AppTypeStr:='--subsystem windows';
-      EntryStr:='--entry _DLLWinMainCRTStartup@12'
+      EntryStr:='--entry _DLLWinMainCRTStartup'
     end
   else
-    EntryStr:='--entry _DLLMainCRTStartup@12';
+    EntryStr:='--entry _DLLMainCRTStartup';
   if assigned(DLLImageBase) then
     ImageBaseStr:='--image-base=0x'+DLLImageBase^;
   if (cs_link_strip in aktglobalswitches) then

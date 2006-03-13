@@ -425,6 +425,8 @@ unit cgobj;
           procedure g_restore_standard_registers(list:Taasmoutput);virtual;
           procedure g_intf_wrapper(list: TAAsmoutput; procdef: tprocdef; const labelname: string; ioffset: longint);virtual;abstract;
           procedure g_adjust_self_value(list:taasmoutput;procdef: tprocdef;ioffset: aint);virtual;
+
+          function g_indirect_sym_load(list:taasmoutput;const symname: string): tregister;virtual;
        end;
 
 {$ifndef cpu64bit}
@@ -815,7 +817,7 @@ implementation
                  ref.offset:=cgpara.location^.reference.offset;
                  { use concatcopy, because it can also be a float which fails when
                    load_ref_ref is used }
-                 g_concatcopy(list,r,ref,tcgsize2size[size]);
+                 g_concatcopy(list,r,ref,cgpara.intsize);
               end
             else
               internalerror(2002071004);
@@ -1673,6 +1675,7 @@ implementation
         if (todef.deftype = arraydef) then
           todef := tarraydef(todef).rangetype.def;
         { no range check if from and to are equal and are both longint/dword }
+        { no range check if from and to are equal and are both longint/dword }
         { (if we have a 32bit processor) or int64/qword, since such          }
         { operations can at most cause overflows (JM)                        }
         { Note that these checks are mostly processor independent, they only }
@@ -1685,7 +1688,10 @@ implementation
                (hfrom = high(int64))) or
               ((torddef(fromdef).typ = u64bit) and
                (lfrom = low(qword)) and
-               (hfrom = high(qword)))))) then
+               (hfrom = high(qword))) or
+              ((torddef(fromdef).typ = scurrency) and
+               (lfrom = low(int64)) and
+               (hfrom = high(int64)))))) then
           exit;
 {$else cpu64bit}
         if (fromdef = todef) and
@@ -1723,14 +1729,20 @@ implementation
 {$endif}
                 if to_signed then
                   begin
-                    if (lto = (-(int64(1) << (tosize * 4)))) and
-                       (hto = (int64(1) << (tosize * 4) - 1)) then
+                    { calculation of the low/high ranges must not overflow 64 bit 
+                     otherwise we end up comparing with zero for 64 bit data types on
+                     64 bit processors }
+                    if (lto = (int64(-1) << (tosize * 8 - 1))) and
+                       (hto = (-((int64(-1) << (tosize * 8 - 1))+1))) then
                       exit
                   end
                 else
                   begin
+                    { calculation of the low/high ranges must not overflow 64 bit 
+                     otherwise we end up having all zeros for 64 bit data types on
+                     64 bit processors }
                     if (lto = 0) and
-                       (qword(hto) = qword((int64(1) << (tosize * 8)) - 1)) then
+                       (qword(hto) = (qword(-1) >> (64-(tosize * 8))) ) then
                       exit
                   end;
 {$ifdef overflowon}
@@ -2082,6 +2094,35 @@ implementation
       begin
         a_call_name(list,s);
       end;
+
+
+   function tcg.g_indirect_sym_load(list:taasmoutput;const symname: string): tregister;
+      var
+        l: tasmsymbol;
+        ref: treference;
+      begin
+        result := NR_NO;
+        case target_info.system of
+          system_powerpc_darwin,
+          system_i386_darwin:
+            begin
+              l:=objectlibrary.getasmsymbol('L'+symname+'$non_lazy_ptr');
+              if not(assigned(l)) then
+                begin
+                  l:=objectlibrary.newasmsymbol('L'+symname+'$non_lazy_ptr',AB_COMMON,AT_DATA);
+                  asmlist[al_picdata].concat(tai_symbol.create(l,0));
+                  asmlist[al_picdata].concat(tai_const.create_indirect_sym(objectlibrary.newasmsymbol(symname,AB_EXTERNAL,AT_DATA)));
+                  asmlist[al_picdata].concat(tai_const.create_32bit(0));
+                end;
+              result := cg.getaddressregister(list);
+              reference_reset_symbol(ref,l,0);
+{              ref.base:=current_procinfo.got;
+              ref.relsymbol:=current_procinfo.gotlabel;}
+              cg.a_load_ref_reg(list,OS_ADDR,OS_ADDR,ref,result);
+            end;
+          end;
+        end;
+
 
 {*****************************************************************************
                                     TCG64

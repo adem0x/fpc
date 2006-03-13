@@ -38,7 +38,6 @@ unit cpupi;
           parent_framepointer_offset : longint;
           constructor create(aparent:tprocinfo);override;
           procedure set_first_temp_offset;override;
-          procedure allocate_push_parasize(size: longint);override;
           function calc_stackframe_size:longint;override;
 
           function uses_stack_temps: boolean;
@@ -66,7 +65,6 @@ unit cpupi;
 
       begin
          inherited create(aparent);
-         maxpushedparasize:=0;
          first_save_int_reg:=32;
          first_save_fpu_reg:=32;
          needs_frame_pointer:=false;
@@ -124,13 +122,6 @@ unit cpupi;
            end;
       end;
 *)
-
-
-    procedure tppcprocinfo.allocate_push_parasize(size:longint);
-      begin
-        if size>maxpushedparasize then
-          maxpushedparasize:=size;
-      end;
 
 
     function tppcprocinfo.uses_stack_temps: boolean;

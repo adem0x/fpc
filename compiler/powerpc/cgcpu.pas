@@ -98,8 +98,6 @@ unit cgcpu;
 
         procedure g_intf_wrapper(list: TAAsmoutput; procdef: tprocdef; const labelname: string; ioffset: longint);override;
 
-        function g_darwin_indirect_sym_load(list: taasmoutput; const symname: string): tregister;
-
       private
 
         (* NOT IN USE: *)
@@ -371,9 +369,8 @@ const
         if asmlist[al_imports]=nil then
           asmlist[al_imports]:=TAAsmoutput.create;
 
-        asmlist[al_imports].concat(Tai_section.Create(sec_data,'',0));
         asmlist[al_imports].concat(Tai_section.create(sec_stub,'',0));
-        asmlist[al_imports].concat(Tai_align.Create(4));
+        asmlist[al_imports].concat(Tai_align.Create(16));
         result := objectlibrary.newasmsymbol(stubname,AB_EXTERNAL,AT_FUNCTION);
         asmlist[al_imports].concat(Tai_symbol.Create(result,0));
         asmlist[al_imports].concat(tai_directive.create(asd_indirect_symbol,s));
@@ -386,7 +383,6 @@ const
         asmlist[al_imports].concat(taicpu.op_reg_ref(A_LWZU,NR_R12,href));
         asmlist[al_imports].concat(taicpu.op_reg(A_MTCTR,NR_R12));
         asmlist[al_imports].concat(taicpu.op_none(A_BCTR));
-        asmlist[al_imports].concat(Tai_section.Create(sec_data,'',0));
         asmlist[al_imports].concat(tai_directive.create(asd_lazy_symbol_pointer,''));
         asmlist[al_imports].concat(Tai_symbol.Create(l1,0));
         asmlist[al_imports].concat(tai_directive.create(asd_indirect_symbol,s));
@@ -1145,7 +1141,7 @@ const
                a_call_name(objectlibrary.newasmsymbol('_savegpr_'+tostr(ord(firstreggpr)-ord(R_14)+14),AB_EXTERNAL,AT_FUNCTION))
              }
             if (firstregint <= RS_R22) or
-               ((cs_littlesize in aktglobalswitches) and
+               ((cs_opt_size in aktoptimizerswitches) and
                { with RS_R30 it's also already smaller, but too big a speed trade-off to make }
                 (firstregint <= RS_R29)) then
               begin
@@ -1278,7 +1274,7 @@ const
         if (usesgpr) then
           begin
             if (firstregint <= RS_R22) or
-               ((cs_littlesize in aktglobalswitches) and
+               ((cs_opt_size in aktoptimizerswitches) and
                 { with RS_R30 it's also already smaller, but too big a speed trade-off to make }
                 (firstregint <= RS_R29)) then
               begin
@@ -1744,12 +1740,16 @@ const
         lab: tasmlabel;
         count, count2: aint;
         size: tcgsize;
+        copyreg: tregister;
 
       begin
 {$ifdef extdebug}
         if len > high(longint) then
           internalerror(2002072704);
 {$endif extdebug}
+
+        if (references_equal(source,dest)) then
+          exit;
 
         { make sure short loads are handled as optimally as possible }
         if (len <= maxmoveunit) and
@@ -1762,10 +1762,9 @@ const
               end
             else
               begin
-                a_reg_alloc(list,NR_F0);
-                a_loadfpu_ref_reg(list,OS_F64,source,NR_F0);
-                a_loadfpu_reg_ref(list,OS_F64,NR_F0,dest);
-                a_reg_dealloc(list,NR_F0);
+                copyreg := getfpuregister(list,OS_F64);
+                a_loadfpu_ref_reg(list,OS_F64,source,copyreg);
+                a_loadfpu_reg_ref(list,OS_F64,copyreg,dest);
               end;
             exit;
           end;
@@ -1815,16 +1814,15 @@ const
             list.concat(taicpu.op_reg_reg_const(A_SUBI,dst.base,dst.base,8));
             countreg := rg[R_INTREGISTER].getregister(list,R_SUBWHOLE);
             a_load_const_reg(list,OS_32,count,countreg);
-            { explicitely allocate R_0 since it can be used safely here }
-            { (for holding date that's being copied)                    }
-            a_reg_alloc(list,NR_F0);
+            copyreg := getfpuregister(list,OS_F64);
+            a_reg_sync(list,copyreg);
             objectlibrary.getjumplabel(lab);
             a_label(list, lab);
             list.concat(taicpu.op_reg_reg_const(A_SUBIC_,countreg,countreg,1));
-            list.concat(taicpu.op_reg_ref(A_LFDU,NR_F0,src));
-            list.concat(taicpu.op_reg_ref(A_STFDU,NR_F0,dst));
+            list.concat(taicpu.op_reg_ref(A_LFDU,copyreg,src));
+            list.concat(taicpu.op_reg_ref(A_STFDU,copyreg,dst));
             a_jmp(list,A_BC,C_NE,0,lab);
-            a_reg_dealloc(list,NR_F0);
+            a_reg_sync(list,copyreg);
             len := len mod 8;
           end;
 
@@ -1832,15 +1830,14 @@ const
         if count > 0 then
           { unrolled loop }
           begin
-            a_reg_alloc(list,NR_F0);
+            copyreg := getfpuregister(list,OS_F64);
             for count2 := 1 to count do
               begin
-                a_loadfpu_ref_reg(list,OS_F64,src,NR_F0);
-                a_loadfpu_reg_ref(list,OS_F64,NR_F0,dst);
+                a_loadfpu_ref_reg(list,OS_F64,src,copyreg);
+                a_loadfpu_reg_ref(list,OS_F64,copyreg,dst);
                 inc(src.offset,8);
                 inc(dst.offset,8);
               end;
-            a_reg_dealloc(list,NR_F0);
             len := len mod 8;
           end;
 
@@ -2026,26 +2023,6 @@ const
       end;
 
 
-     function tcgppc.g_darwin_indirect_sym_load(list: taasmoutput; const symname: string): tregister;
-        var
-          l: tasmsymbol;
-          ref: treference;
-        begin
-          l:=objectlibrary.getasmsymbol('L'+symname+'$non_lazy_ptr');
-          if not(assigned(l)) then
-            begin
-              l:=objectlibrary.newasmsymbol('L'+symname+'$non_lazy_ptr',AB_COMMON,AT_DATA);
-              asmlist[al_picdata].concat(tai_symbol.create(l,0));
-              asmlist[al_picdata].concat(tai_const.create_indirect_sym(objectlibrary.newasmsymbol(symname,AB_EXTERNAL,AT_DATA)));
-              asmlist[al_picdata].concat(tai_const.create_32bit(0));
-            end;
-          reference_reset_symbol(ref,l,0);
-{         ref.base:=current_procinfo.got;
-          ref.relsymbol:=current_procinfo.gotlabel;}
-          result := cg.getaddressregister(exprasmlist);
-          cg.a_load_ref_reg(list,OS_ADDR,OS_ADDR,ref,result);
-        end;
-
     function tcgppc.fixref(list: taasmoutput; var ref: treference): boolean;
 
        var
@@ -2057,7 +2034,7 @@ const
             assigned(ref.symbol) and
             (ref.symbol.bind = AB_EXTERNAL) then
            begin
-             tmpreg := g_darwin_indirect_sym_load(list,ref.symbol.name);
+             tmpreg := g_indirect_sym_load(list,ref.symbol.name);
              if (ref.base = NR_NO) then
                ref.base := tmpreg
              else if (ref.index = NR_NO) then

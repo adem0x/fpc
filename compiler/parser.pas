@@ -323,12 +323,13 @@ implementation
           oldaktpackenum       : shortint;
           oldaktmaxfpuregisters : longint;
           oldaktalignment  : talignmentinfo;
-          oldaktspecificoptprocessor,
-          oldaktoptprocessor : tprocessors;
+          oldaktspecificoptcputype,
+          oldaktoptcputype : tcputype;
           oldaktfputype      : tfputype;
           oldaktasmmode      : tasmmode;
           oldaktinterfacetype: tinterfacetypes;
           oldaktmodeswitches : tmodeswitches;
+          oldaktoptimizerswitches : toptimizerswitches;
           old_compiled_module : tmodule;
           oldcurrent_procinfo : tprocinfo;
           oldaktdefproccall : tproccalloption;
@@ -381,12 +382,13 @@ implementation
             oldaktpackrecords:=aktpackrecords;
             oldaktfputype:=aktfputype;
             oldaktmaxfpuregisters:=aktmaxfpuregisters;
-            oldaktoptprocessor:=aktoptprocessor;
-            oldaktspecificoptprocessor:=aktspecificoptprocessor;
+            oldaktoptcputype:=aktoptcputype;
+            oldaktspecificoptcputype:=aktspecificoptcputype;
             oldaktasmmode:=aktasmmode;
             oldaktinterfacetype:=aktinterfacetype;
             oldaktfilepos:=aktfilepos;
             oldaktmodeswitches:=aktmodeswitches;
+            oldaktoptimizerswitches:=aktoptimizerswitches;
           end;
        { reset parser, a previous fatal error could have left these variables in an unreliable state, this is
          important for the IDE }
@@ -430,6 +432,7 @@ implementation
          aktlocalswitches:=initlocalswitches;
          aktmoduleswitches:=initmoduleswitches;
          aktmodeswitches:=initmodeswitches;
+         aktoptimizerswitches:=initoptimizerswitches;
          {$IFDEF Testvarsets}
          aktsetalloc:=initsetalloc;
          {$ENDIF}
@@ -437,8 +440,8 @@ implementation
          aktfputype:=initfputype;
          aktpackenum:=initpackenum;
          aktpackrecords:=0;
-         aktoptprocessor:=initoptprocessor;
-         aktspecificoptprocessor:=initspecificoptprocessor;
+         aktoptcputype:=initcputype;
+         aktspecificoptcputype:=initoptimizecputype;
          aktasmmode:=initasmmode;
          aktinterfacetype:=initinterfacetype;
 
@@ -554,13 +557,14 @@ implementation
                 aktpackenum:=oldaktpackenum;
                 aktpackrecords:=oldaktpackrecords;
                 aktmaxfpuregisters:=oldaktmaxfpuregisters;
-                aktoptprocessor:=oldaktoptprocessor;
-                aktspecificoptprocessor:=oldaktspecificoptprocessor;
+                aktoptcputype:=oldaktoptcputype;
+                aktspecificoptcputype:=oldaktspecificoptcputype;
                 aktfputype:=oldaktfputype;
                 aktasmmode:=oldaktasmmode;
                 aktinterfacetype:=oldaktinterfacetype;
                 aktfilepos:=oldaktfilepos;
                 aktmodeswitches:=oldaktmodeswitches;
+                aktoptimizerswitches:=oldaktoptimizerswitches;
                 aktexceptblock:=0;
                 exceptblockcounter:=0;
               end;
