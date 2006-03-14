@@ -51,15 +51,14 @@ interface
       OT_BITS32    = $00000004;
       OT_BITS64    = $00000008;  { FPU only  }
       OT_BITS80    = $00000010;
+
+      OT_SIZE_MASK = $0000001F;  { all the size attributes  }
+      OT_NON_SIZE  = longint(not OT_SIZE_MASK);
+
       OT_FAR       = $00000020;  { this means 16:16 or 16:32, like in CALL/JMP }
       OT_NEAR      = $00000040;
       OT_SHORT     = $00000080;
-
-      OT_SIZE_MASK = $000000FF;  { all the size attributes  }
-      OT_NON_SIZE  = longint(not OT_SIZE_MASK);
-
       OT_SIGNED    = $00000100;  { the operand need to be signed -128-127 }
-
       OT_TO        = $00000200;  { operand is followed by a colon  }
                                  { reverse effect in FADD, FSUB &c  }
       OT_COLON     = $00000400;
@@ -233,7 +232,6 @@ interface
       private
          FOperandOrder : TOperandOrder;
          procedure init(_size : topsize); { this need to be called by all constructor }
-    {$ifndef NOAG386BIN}
       public
          { the next will reset all instructions that can change in pass 2 }
          procedure ResetPass1;override;
@@ -264,7 +262,6 @@ interface
          function  NeedAddrPrefix(opidx:byte):boolean;
          procedure Swapoperands;
          function  FindInsentry(objdata:TObjData):boolean;
-    {$endif NOAG386BIN}
       end;
 
     function spilling_create_load(const ref:treference;r:tregister): tai;
@@ -501,12 +498,10 @@ implementation
          FOperandOrder:=op_att;
          segprefix:=NR_NO;
          opsize:=_size;
-{$ifndef NOAG386BIN}
          insentry:=nil;
          LastInsOffset:=-1;
          InsOffset:=0;
          InsSize:=0;
-{$endif}
       end;
 
 
@@ -977,8 +972,6 @@ implementation
                                 Assembler
 *****************************************************************************}
 
-{$ifndef NOAG386BIN}
-
     type
       ea=packed record
         sib_present : boolean;
@@ -1049,7 +1042,7 @@ implementation
                               not assigned(currsym) or
                               (currsym.objsection=objdata.currobjsec)
                              ) then
-                            ot:=OT_IMM32 or OT_SHORT
+                            ot:=OT_IMM8 or OT_SHORT
                           else
                             ot:=OT_IMM32 or OT_NEAR;
                         end
@@ -1130,13 +1123,13 @@ implementation
          begin
            insot:=p^.optypes[i];
            currot:=oper[i]^.ot;
-           { Check that the operand flags }
-           if (insot and (not currot))<>0 then
+           { Check the operand flags }
+           if (insot and (not currot) and OT_NON_SIZE)<>0 then
              exit;
-           { Check if the passed operand size matches with the required
-             instruction operand size. The second 'and' with insot is used
-             to allow matching with undefined size }
-           if ((currot xor insot) and insot and OT_SIZE_MASK)<>0 then
+           { Check if the passed operand size matches with one of
+             the supported operand sizes }
+           if ((insot and OT_SIZE_MASK)<>0) and
+              ((insot and currot and OT_SIZE_MASK)<>(currot and OT_SIZE_MASK)) then
              exit;
          end;
 
@@ -1426,9 +1419,6 @@ implementation
         {No register, so memory reference.}
         if (input.typ<>top_ref) then
           internalerror(200409262);
-        if ((input.ref^.index<>NR_NO) and (getregtype(input.ref^.index)<>R_INTREGISTER)) or
-           ((input.ref^.base<>NR_NO) and (getregtype(input.ref^.base)<>R_INTREGISTER)) then
-          internalerror(200301081);
         ir:=input.ref^.index;
         br:=input.ref^.base;
         isub:=getsubreg(ir);
@@ -1436,7 +1426,10 @@ implementation
         s:=input.ref^.scalefactor;
         o:=input.ref^.offset;
         sym:=input.ref^.symbol;
-      { it's direct address }
+        if ((ir<>NR_NO) and (getregtype(ir)<>R_INTREGISTER)) or
+           ((br<>NR_NO) and (getregtype(br)<>R_INTREGISTER)) then
+          internalerror(200301081);
+        { it's direct address }
         if (br=NR_NO) and (ir=NR_NO) then
          begin
            { it's a pure offset }
@@ -1616,18 +1609,15 @@ implementation
             217,218: ;
             219,220 :
               inc(len);
-            else
+            64..191 :
               begin
-                if (c>=64) and (c<=191) then
-                 begin
-                   if not process_ea(oper[(c shr 3) and 7]^, ea_data, 0) then
-                    Message(asmw_e_invalid_effective_address)
-                   else
-                    inc(len,ea_data.size);
-                 end
+                if not process_ea(oper[(c shr 3) and 7]^, ea_data, 0) then
+                 Message(asmw_e_invalid_effective_address)
                 else
-                 InternalError(777003);
+                 inc(len,ea_data.size);
               end;
+            else
+             InternalError(200603141);
           end;
         until false;
         calcsize:=len;
@@ -1667,7 +1657,7 @@ implementation
        *                 field the register value of operand b.
        * \2ab          - a ModRM, calculated on EA in operand a, with the spare
        *                 field equal to digit b.
-       * \300,\301,\302 - might be an 0x67 byte, depending on the address size of
+       * \300,\301,\302 - might be an 0x67 or 0x48 byte, depending on the address size of
        *                 the memory reference in operand x.
        * \310          - indicates fixed 16-bit address size, i.e. optional 0x67.
        * \311          - indicates fixed 32-bit address size, i.e. optional 0x67.
@@ -1896,6 +1886,9 @@ implementation
                     end;
                   OT_BITS64 :
                     begin
+{$ifndef x86_64}
+                      Message(asmw_e_64bit_not_supported);
+{$endif x86_64}
                       bytes[0]:=$48;
                       objdata.writebytes(bytes,1);
                     end;
@@ -1908,6 +1901,9 @@ implementation
               end;
             214 :
               begin
+{$ifndef x86_64}
+                Message(asmw_e_64bit_not_supported);
+{$endif x86_64}
                 bytes[0]:=$48;
                 objdata.writebytes(bytes,1);
               end;
@@ -1994,7 +1990,6 @@ implementation
           end;
         until false;
       end;
-{$endif NOAG386BIN}
 
 
     function taicpu.is_same_reg_move(regtype: Tregistertype):boolean;
@@ -2123,12 +2118,9 @@ implementation
 *****************************************************************************}
 
     procedure BuildInsTabCache;
-{$ifndef NOAG386BIN}
       var
         i : longint;
-{$endif}
       begin
-{$ifndef NOAG386BIN}
         new(instabcache);
         FillChar(instabcache^,sizeof(tinstabcache),$ff);
         i:=0;
@@ -2138,17 +2130,14 @@ implementation
             InsTabCache^[InsTab[i].OPcode]:=i;
            inc(i);
          end;
-{$endif NOAG386BIN}
       end;
 
 
     procedure InitAsm;
       begin
         build_spilling_operation_type_table;
-{$ifndef NOAG386BIN}
         if not assigned(instabcache) then
           BuildInsTabCache;
-{$endif NOAG386BIN}
       end;
 
 
@@ -2159,13 +2148,11 @@ implementation
             dispose(operation_type_table);
             operation_type_table:=nil;
           end;
-{$ifndef NOAG386BIN}
         if assigned(instabcache) then
           begin
             dispose(instabcache);
             instabcache:=nil;
           end;
-{$endif NOAG386BIN}
       end;
 
 
