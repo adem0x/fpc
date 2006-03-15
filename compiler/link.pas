@@ -684,8 +684,16 @@ end;
     Destructor TInternalLinker.Destroy;
       begin
         linkscript.free;
-        exeoutput.free;
-        exeoutput:=nil;
+        if assigned(exeoutput) then
+          begin
+            exeoutput.free;
+            exeoutput:=nil;
+          end;
+        if assigned(exemap) then
+          begin
+            exemap.free;
+            exemap:=nil;
+          end;
         inherited destroy;
       end;
 
@@ -779,6 +787,7 @@ end;
               ExeOutput.Order_Stabs;
             hp:=tstringlistitem(hp.next);
           end;
+        exeoutput.Order_End;
       end;
 
 
@@ -892,6 +901,10 @@ end;
             exemap.free;
             exemap:=nil;
           end;
+
+        { close exe }
+        exeoutput.free;
+        exeoutput:=nil;
 
         MakeExecutable:=true;
       end;

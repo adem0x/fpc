@@ -116,7 +116,7 @@ interface
 
         {# This routine should be overriden for each assembler, it is used
            to actually write the abstract assembler stream to file.}
-        procedure WriteTree(p:TAAsmoutput);virtual;
+        procedure WriteTree(p:TAsmList);virtual;
 
         {# This routine should be overriden for each assembler, it is used
            to actually write all the different abstract assembler streams
@@ -135,10 +135,10 @@ interface
         FCObjOutput : TObjOutputclass;
         { the aasmoutput lists that need to be processed }
         lists        : byte;
-        list         : array[1..maxoutputlists] of TAAsmoutput;
+        list         : array[1..maxoutputlists] of TAsmList;
         { current processing }
         currlistidx  : byte;
-        currlist     : TAAsmoutput;
+        currlist     : TAsmList;
         procedure convertstab(p:pchar);
         function  MaybeNextList(var hp:Tai):boolean;
         function  TreePass0(hp:Tai):Tai;
@@ -641,7 +641,7 @@ Implementation
       end;
 
 
-    procedure TExternalAssembler.WriteTree(p:TAAsmoutput);
+    procedure TExternalAssembler.WriteTree(p:TAsmList);
       begin
       end;
 
@@ -1030,9 +1030,9 @@ Implementation
                if SmartAsm then
                 break;
              ait_marker :
-               if tai_marker(hp).kind=InlineStart then
+               if tai_marker(hp).kind=mark_InlineStart then
                  inc(InlineLevel)
-               else if tai_marker(hp).kind=InlineEnd then
+               else if tai_marker(hp).kind=mark_InlineEnd then
                  dec(InlineLevel);
            end;
            hp:=Tai(hp.next);
@@ -1139,9 +1139,9 @@ Implementation
                if SmartAsm then
                 break;
              ait_marker :
-               if tai_marker(hp).kind=InlineStart then
+               if tai_marker(hp).kind=mark_InlineStart then
                  inc(InlineLevel)
-               else if tai_marker(hp).kind=InlineEnd then
+               else if tai_marker(hp).kind=mark_InlineEnd then
                  dec(InlineLevel);
            end;
            hp:=Tai(hp.next);
@@ -1336,29 +1336,29 @@ Implementation
 
     procedure TInternalAssembler.MakeObject;
 
-    var to_do:set of Tasmlist;
-        i:Tasmlist;
+    var to_do:set of TasmlistType;
+        i:TasmlistType;
 {$ifdef MEMDEBUG}
         d : tmemdebug;
 {$endif}
 
-        procedure addlist(p:TAAsmoutput);
+        procedure addlist(p:TAsmList);
         begin
           inc(lists);
           list[lists]:=p;
         end;
 
       begin
-        to_do:=[low(Tasmlist)..high(Tasmlist)];
+        to_do:=[low(Tasmlisttype)..high(Tasmlisttype)];
         if usedeffileforexports then
           exclude(to_do,al_exports);
         {$warning TODO internal writer support for dwarf}
         exclude(to_do,al_dwarf);
         if not(tf_section_threadvars in target_info.flags) then
           exclude(to_do,al_threadvars);
-        for i:=low(Tasmlist) to high(Tasmlist) do
-          if (i in to_do) and (asmlist[i]<>nil) then
-            addlist(asmlist[i]);
+        for i:=low(TasmlistType) to high(TasmlistType) do
+          if (i in to_do) and (current_asmdata.asmlists[i]<>nil) then
+            addlist(current_asmdata.asmlists[i]);
 
         if SmartAsm then
           writetreesmart
@@ -1373,7 +1373,7 @@ Implementation
 {$ifdef MEMDEBUG}
             d:=tmemdebug.create(modulename^+' - librarydata');
 {$endif}
-            objectlibrary.free;
+            current_asmdata.free;
             objectlibrary:=nil;
             current_module.librarydata:=nil;
 {$ifdef MEMDEBUG}

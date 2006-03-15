@@ -97,6 +97,7 @@ interface
          function writedata(data:TObjData):boolean;override;
        public
          constructor createcoff(AWriter:TObjectWriter;awin32:boolean);
+         destructor destroy;
        end;
 
        TDJCoffObjOutput = class(TCoffObjOutput)
@@ -105,6 +106,37 @@ interface
 
        TPECoffObjOutput = class(TCoffObjOutput)
          constructor create(AWriter:TObjectWriter);override;
+       end;
+
+       TCoffObjInput = class(tObjInput)
+       private
+         FCoffsyms,
+         FCoffStrs : tdynamicarray;
+         { Convert symidx -> TObjSymbol }
+         FSymTbl   : ^TObjSymbolArray;
+         { Convert secidx -> TObjSection }
+         FSecCount : smallint;
+         FSecTbl   : ^TObjSectionArray;
+         win32     : boolean;
+         function  GetSection(secidx:longint):TObjSection;
+         function  Read_str(strpos:longint):string;
+         procedure read_relocs(s:TCoffObjSection);
+         procedure read_symbols(objdata:TObjData);
+         procedure ObjSections_read_data(p:TObject;arg:pointer);
+         procedure ObjSections_read_relocs(p:TObject;arg:pointer);
+       protected
+         function  readObjData(objdata:TObjData):boolean;override;
+       public
+         constructor createcoff(awin32:boolean);
+         destructor destroy;override;
+       end;
+
+       TDJCoffObjInput = class(TCoffObjInput)
+         constructor create;override;
+       end;
+
+       TPECoffObjInput = class(TCoffObjInput)
+         constructor create;override;
        end;
 
        TCoffExeSection = class(TExeSection)
@@ -162,36 +194,6 @@ interface
        end;
        TObjSymbolArray = array[0..high(word)] of TObjSymbolrec;
        TObjSectionArray = array[0..high(smallint)] of TObjSection;
-
-       TCoffObjInput = class(tObjInput)
-       private
-         FCoffsyms,
-         FCoffStrs : tdynamicarray;
-         { Convert symidx -> TObjSymbol }
-         FSymTbl   : ^TObjSymbolArray;
-         { Convert secidx -> TObjSection }
-         FSecCount : smallint;
-         FSecTbl   : ^TObjSectionArray;
-         win32     : boolean;
-         function  GetSection(secidx:longint):TObjSection;
-         function  Read_str(strpos:longint):string;
-         procedure read_relocs(s:TCoffObjSection);
-         procedure read_symbols(objdata:TObjData);
-         procedure ObjSections_read_data(p:TObject;arg:pointer);
-         procedure ObjSections_read_relocs(p:TObject;arg:pointer);
-       protected
-         function  readObjData(objdata:TObjData):boolean;override;
-       public
-         constructor createcoff(awin32:boolean);
-       end;
-
-       TDJCoffObjInput = class(TCoffObjInput)
-         constructor create;override;
-       end;
-
-       TPECoffObjInput = class(TCoffObjInput)
-         constructor create;override;
-       end;
 
        TDJCoffAssembler = class(tinternalassembler)
          constructor create(smart:boolean);override;
@@ -1025,6 +1027,16 @@ const win32stub : array[0..131] of byte=(
       end;
 
 
+    destructor TCoffObjOutput.destroy;
+      begin
+        if assigned(FCoffSyms) then
+          FCoffSyms.free;
+        if assigned(FCoffStrs) then
+          FCoffStrs.free;
+        inherited destroy;
+      end;
+
+
     procedure TCoffObjOutput.write_symbol(const name:string;value:aint;section:smallint;typ,aux:byte);
       var
         sym : coffsymbol;
@@ -1323,6 +1335,21 @@ const win32stub : array[0..131] of byte=(
       begin
         inherited create;
         win32:=awin32;
+        FSymTbl:=nil;
+      end;
+
+
+    destructor TCoffObjInput.destroy;
+      begin
+        if assigned(FCoffSyms) then
+          FCoffSyms.free;
+        if assigned(FCoffStrs) then
+          FCoffStrs.free;
+        if assigned(FSymTbl) then
+          freemem(FSymTbl);
+        if assigned(FSecTbl) then
+          freemem(FSecTbl);
+        inherited destroy;
       end;
 
 
@@ -1658,7 +1685,9 @@ const win32stub : array[0..131] of byte=(
            ObjSectionList.ForEachCall(@objsections_read_relocs,nil);
          end;
         FCoffStrs.Free;
+        FCoffStrs:=nil;
         FCoffSyms.Free;
+        FCoffSyms:=nil;
         result:=true;
       end;
 
@@ -2240,6 +2269,7 @@ const win32stub : array[0..131] of byte=(
         UnresolvedExeSymbols.Pack;
         if assigned(idata2objsection) then
           EndImport;
+        DLLReader.Free;
       end;
 
 

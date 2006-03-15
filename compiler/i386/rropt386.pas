@@ -28,7 +28,7 @@ interface
 
 uses aasmbase,aasmtai,aasmcpu;
 
-procedure doRenaming(asml: taasmoutput; first, last: tai);
+procedure doRenaming(asml: TAsmList; first, last: tai);
 
 implementation
 
@@ -189,7 +189,7 @@ begin
 end;
 
 
-function switchRegs(asml: taasmoutput; reg1, reg2: tsuperregister; start: tai): Boolean;
+function switchRegs(asml: TAsmList; reg1, reg2: tsuperregister; start: tai): Boolean;
 { change movl  %reg1,%reg2 ... bla ... to ... bla with reg1 and reg2 switched }
 var
   endP, hp, lastreg1,lastreg2: tai;
@@ -329,7 +329,7 @@ begin
 end;
 
 
-procedure doRenaming(asml: taasmoutput; first, last: tai);
+procedure doRenaming(asml: TAsmList; first, last: tai);
 var
   p: tai;
 begin

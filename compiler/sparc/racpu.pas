@@ -36,12 +36,12 @@ interface
     TSparcInstruction=class(TInstruction)
       delayslot_annulled : boolean;
       { opcode adding }
-      function ConcatInstruction(p : taasmoutput) : tai;override;
+      function ConcatInstruction(p : TAsmList) : tai;override;
     end;
 
 implementation
 
-    function TSparcInstruction.ConcatInstruction(p : taasmoutput) : tai;
+    function TSparcInstruction.ConcatInstruction(p : TAsmList) : tai;
       begin
         result:=inherited ConcatInstruction(p);
         { delay slot annulled support }

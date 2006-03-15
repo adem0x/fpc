@@ -95,7 +95,7 @@ implementation
           internalerror(200109052);
         { put numerator in register }
         location_reset(location,LOC_REGISTER,OS_INT);
-        location_force_reg(exprasmlist,left.location,OS_INT,false);
+        location_force_reg(current_asmdata.CurrAsmList,left.location,OS_INT,false);
         hreg1:=left.location.register;
 
         if (nodetype=divn) and (right.nodetype=ordconstn) then
@@ -113,7 +113,7 @@ implementation
                         comp.compilers (JM) }
                       begin
                         { no jumps, but more operations }
-                        hreg2:=cg.getintregister(exprasmlist,OS_INT);
+                        hreg2:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
                         emit_reg_reg(A_MOV,S_L,hreg1,hreg2);
                         {If the left value is signed, hreg2=$ffffffff, otherwise 0.}
                         emit_const_reg(A_SAR,S_L,31,hreg2);
@@ -128,13 +128,13 @@ implementation
                       begin
                         { a jump, but less operations }
                         emit_reg_reg(A_TEST,S_L,hreg1,hreg1);
-                        objectlibrary.getjumplabel(hl);
-                        cg.a_jmp_flags(exprasmlist,F_NS,hl);
+                        current_asmdata.getjumplabel(hl);
+                        cg.a_jmp_flags(current_asmdata.CurrAsmList,F_NS,hl);
                         if power=1 then
                           emit_reg(A_INC,S_L,hreg1)
                         else
                           emit_const_reg(A_ADD,S_L,tordconstnode(right).value-1,hreg1);
-                        cg.a_label(exprasmlist,hl);
+                        cg.a_label(current_asmdata.CurrAsmList,hl);
                         emit_const_reg(A_SAR,S_L,power,hreg1);
                       end
                   end
@@ -171,9 +171,9 @@ implementation
                       a:=1
                     else
                       a:=0;
-                    cg.getcpuregister(exprasmlist,NR_EAX);
+                    cg.getcpuregister(current_asmdata.CurrAsmList,NR_EAX);
                     emit_const_reg(A_MOV,S_L,aint(m),NR_EAX);
-                    cg.getcpuregister(exprasmlist,NR_EDX);
+                    cg.getcpuregister(current_asmdata.CurrAsmList,NR_EDX);
                     emit_reg(A_IMUL,S_L,hreg1);
                     emit_reg_reg(A_MOV,S_L,hreg1,NR_EAX);
                     if a<>0 then
@@ -213,10 +213,10 @@ implementation
                     emit_reg_reg(A_ADD,S_L,NR_EAX,NR_EDX);
                     if e<0 then
                       emit_reg(A_NEG,S_L,NR_EDX);
-                    cg.ungetcpuregister(exprasmlist,NR_EDX);
-                    cg.ungetcpuregister(exprasmlist,NR_EAX);
-                    location.register:=cg.getintregister(exprasmlist,OS_INT);
-                    cg.a_load_reg_reg(exprasmlist,OS_INT,OS_INT,NR_EDX,location.register)
+                    cg.ungetcpuregister(current_asmdata.CurrAsmList,NR_EDX);
+                    cg.ungetcpuregister(current_asmdata.CurrAsmList,NR_EAX);
+                    location.register:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
+                    cg.a_load_reg_reg(current_asmdata.CurrAsmList,OS_INT,OS_INT,NR_EDX,location.register)
                   end
                 else
                   begin
@@ -224,7 +224,7 @@ implementation
                     if d>=$80000000 then
                       begin
                         emit_const_reg(A_CMP,S_L,d,hreg1);
-                        location.register:=cg.getintregister(exprasmlist,OS_INT);
+                        location.register:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
                         emit_const_reg(A_MOV,S_L,0,location.register);
                         emit_const_reg(A_SBB,S_L,-1,location.register);
                       end
@@ -283,9 +283,9 @@ implementation
                           end;
                         { Adjust multiplier for reduction of even divisors }
                         inc(s,n);
-                        cg.getcpuregister(exprasmlist,NR_EAX);
+                        cg.getcpuregister(current_asmdata.CurrAsmList,NR_EAX);
                         emit_const_reg(A_MOV,S_L,aint(m),NR_EAX);
-                        cg.getcpuregister(exprasmlist,NR_EDX);
+                        cg.getcpuregister(current_asmdata.CurrAsmList,NR_EDX);
                         emit_reg(A_MUL,S_L,hreg1);
                         if a<>0 then
                           begin
@@ -305,19 +305,19 @@ implementation
                           end;
                         if s<>0 then
                           emit_const_reg(A_SHR,S_L,aint(s),NR_EDX);
-                        cg.ungetcpuregister(exprasmlist,NR_EDX);
-                        cg.ungetcpuregister(exprasmlist,NR_EAX);
-                        location.register:=cg.getintregister(exprasmlist,OS_INT);
-                        cg.a_load_reg_reg(exprasmlist,OS_INT,OS_INT,NR_EDX,location.register)
+                        cg.ungetcpuregister(current_asmdata.CurrAsmList,NR_EDX);
+                        cg.ungetcpuregister(current_asmdata.CurrAsmList,NR_EAX);
+                        location.register:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
+                        cg.a_load_reg_reg(current_asmdata.CurrAsmList,OS_INT,OS_INT,NR_EDX,location.register)
                       end;
                   end
               end
           end
         else
           begin
-            cg.getcpuregister(exprasmlist,NR_EAX);
+            cg.getcpuregister(current_asmdata.CurrAsmList,NR_EAX);
             emit_reg_reg(A_MOV,S_L,hreg1,NR_EAX);
-            cg.getcpuregister(exprasmlist,NR_EDX);
+            cg.getcpuregister(current_asmdata.CurrAsmList,NR_EDX);
             {Sign extension depends on the left type.}
             if torddef(left.resulttype.def).typ=u32bit then
               emit_reg_reg(A_XOR,S_L,NR_EDX,NR_EDX)
@@ -336,19 +336,19 @@ implementation
               emit_reg(op,S_L,right.location.register)
             else
               begin
-                hreg1:=cg.getintregister(exprasmlist,right.location.size);
-                cg.a_load_loc_reg(exprasmlist,OS_32,right.location,hreg1);
+                hreg1:=cg.getintregister(current_asmdata.CurrAsmList,right.location.size);
+                cg.a_load_loc_reg(current_asmdata.CurrAsmList,OS_32,right.location,hreg1);
                 emit_reg(op,S_L,hreg1);
               end;
 
             {Copy the result into a new register. Release EAX & EDX.}
-            cg.ungetcpuregister(exprasmlist,NR_EDX);
-            cg.ungetcpuregister(exprasmlist,NR_EAX);
-            location.register:=cg.getintregister(exprasmlist,OS_INT);
+            cg.ungetcpuregister(current_asmdata.CurrAsmList,NR_EDX);
+            cg.ungetcpuregister(current_asmdata.CurrAsmList,NR_EAX);
+            location.register:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
             if nodetype=divn then
-              cg.a_load_reg_reg(exprasmlist,OS_INT,OS_INT,NR_EAX,location.register)
+              cg.a_load_reg_reg(current_asmdata.CurrAsmList,OS_INT,OS_INT,NR_EAX,location.register)
             else
-              cg.a_load_reg_reg(exprasmlist,OS_INT,OS_INT,NR_EDX,location.register);
+              cg.a_load_reg_reg(current_asmdata.CurrAsmList,OS_INT,OS_INT,NR_EDX,location.register);
           end;
       end;
 
@@ -386,7 +386,7 @@ implementation
           location_reset(location,LOC_REGISTER,OS_64);
 
           { load left operator in a register }
-          location_force_reg(exprasmlist,left.location,OS_64,false);
+          location_force_reg(current_asmdata.CurrAsmList,left.location,OS_64,false);
           hreg64hi:=left.location.register64.reghi;
           hreg64lo:=left.location.register64.reglo;
 
@@ -430,8 +430,8 @@ implementation
           else
             begin
               { load right operators in a register }
-              cg.getcpuregister(exprasmlist,NR_ECX);
-              cg.a_load_loc_reg(exprasmlist,OS_32,right.location,NR_ECX);
+              cg.getcpuregister(current_asmdata.CurrAsmList,NR_ECX);
+              cg.a_load_loc_reg(current_asmdata.CurrAsmList,OS_32,right.location,NR_ECX);
 
               { left operator is already in a register }
               { hence are both in a register }
@@ -439,25 +439,25 @@ implementation
 
               { the damned shift instructions work only til a count of 32 }
               { so we've to do some tricks here                           }
-              objectlibrary.getjumplabel(l1);
-              objectlibrary.getjumplabel(l2);
-              objectlibrary.getjumplabel(l3);
+              current_asmdata.getjumplabel(l1);
+              current_asmdata.getjumplabel(l2);
+              current_asmdata.getjumplabel(l3);
               emit_const_reg(A_CMP,S_L,64,NR_ECX);
-              cg.a_jmp_flags(exprasmlist,F_L,l1);
+              cg.a_jmp_flags(current_asmdata.CurrAsmList,F_L,l1);
               emit_reg_reg(A_XOR,S_L,hreg64lo,hreg64lo);
               emit_reg_reg(A_XOR,S_L,hreg64hi,hreg64hi);
-              cg.a_jmp_always(exprasmlist,l3);
-              cg.a_label(exprasmlist,l1);
+              cg.a_jmp_always(current_asmdata.CurrAsmList,l3);
+              cg.a_label(current_asmdata.CurrAsmList,l1);
               emit_const_reg(A_CMP,S_L,32,NR_ECX);
-              cg.a_jmp_flags(exprasmlist,F_L,l2);
+              cg.a_jmp_flags(current_asmdata.CurrAsmList,F_L,l2);
               emit_const_reg(A_SUB,S_L,32,NR_ECX);
               if nodetype=shln then
                 begin
                   emit_reg_reg(A_SHL,S_L,NR_CL,hreg64lo);
                   emit_reg_reg(A_MOV,S_L,hreg64lo,hreg64hi);
                   emit_reg_reg(A_XOR,S_L,hreg64lo,hreg64lo);
-                  cg.a_jmp_always(exprasmlist,l3);
-                  cg.a_label(exprasmlist,l2);
+                  cg.a_jmp_always(current_asmdata.CurrAsmList,l3);
+                  cg.a_label(current_asmdata.CurrAsmList,l2);
                   emit_reg_reg_reg(A_SHLD,S_L,NR_CL,hreg64lo,hreg64hi);
                   emit_reg_reg(A_SHL,S_L,NR_CL,hreg64lo);
                 end
@@ -466,14 +466,14 @@ implementation
                   emit_reg_reg(A_SHR,S_L,NR_CL,hreg64hi);
                   emit_reg_reg(A_MOV,S_L,hreg64hi,hreg64lo);
                   emit_reg_reg(A_XOR,S_L,hreg64hi,hreg64hi);
-                  cg.a_jmp_always(exprasmlist,l3);
-                  cg.a_label(exprasmlist,l2);
+                  cg.a_jmp_always(current_asmdata.CurrAsmList,l3);
+                  cg.a_label(current_asmdata.CurrAsmList,l2);
                   emit_reg_reg_reg(A_SHRD,S_L,NR_CL,hreg64hi,hreg64lo);
                   emit_reg_reg(A_SHR,S_L,NR_CL,hreg64hi);
                 end;
-              cg.a_label(exprasmlist,l3);
+              cg.a_label(current_asmdata.CurrAsmList,l3);
 
-              cg.ungetcpuregister(exprasmlist,NR_ECX);
+              cg.ungetcpuregister(current_asmdata.CurrAsmList,NR_ECX);
               location.register64.reglo:=hreg64lo;
               location.register64.reghi:=hreg64hi;
             end;
@@ -482,7 +482,7 @@ implementation
         begin
           { load left operators in a register }
           location_copy(location,left.location);
-          location_force_reg(exprasmlist,location,OS_INT,false);
+          location_force_reg(current_asmdata.CurrAsmList,location,OS_INT,false);
 
           { shifting by a constant directly coded: }
           if (right.nodetype=ordconstn) then
@@ -491,11 +491,11 @@ implementation
           else
             begin
               { load right operators in a ECX }
-              cg.getcpuregister(exprasmlist,NR_ECX);
-              cg.a_load_loc_reg(exprasmlist,OS_32,right.location,NR_ECX);
+              cg.getcpuregister(current_asmdata.CurrAsmList,NR_ECX);
+              cg.a_load_loc_reg(current_asmdata.CurrAsmList,OS_32,right.location,NR_ECX);
 
               { right operand is in ECX }
-              cg.ungetcpuregister(exprasmlist,NR_ECX);
+              cg.ungetcpuregister(current_asmdata.CurrAsmList,NR_ECX);
               emit_reg_reg(op,S_L,NR_CL,location.register);
             end;
         end;

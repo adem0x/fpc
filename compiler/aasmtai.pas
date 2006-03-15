@@ -224,21 +224,83 @@ interface
 
 
     type
-       { cut type, required for alphanumeric ordering of the assembler filenames }
-       TCutPlace=(cut_normal,cut_begin,cut_end);
+      { cut type, required for alphanumeric ordering of the assembler filenames }
+      TCutPlace=(cut_normal,cut_begin,cut_end);
 
-       TRegAllocType = (ra_alloc,ra_dealloc,ra_sync,ra_resize);
+      TAsmMarker = (
+        mark_NoPropInfoStart,mark_NoPropInfoEnd,
+        mark_AsmBlockStart,mark_AsmBlockEnd,
+        mark_InlineStart,mark_InlineEnd,mark_BlockStart,
+        mark_Position
+      );
 
-       TMarker = (NoPropInfoStart,NoPropInfoEnd,
-                  AsmBlockStart,AsmBlockEnd,
-                  InlineStart,InlineEnd,marker_blockstart,
-                  marker_position);
+      TRegAllocType = (ra_alloc,ra_dealloc,ra_sync,ra_resize);
 
-       { Buffer type used for alignment }
-       tfillbuffer = array[0..63] of char;
+      TStabType = (stab_stabs,stab_stabn,stab_stabd);
 
-       Tspill_temp_list=array[tsuperregister] of Treference;
+      TAsmDirective=(
+        asd_non_lazy_symbol_pointer,asd_indirect_symbol,asd_lazy_symbol_pointer,
+        asd_extern,asd_nasm_import, asd_toc_entry, asd_mod_init_func, asd_mod_term_func
+      );
 
+      { Type of AsmLists. The order is important for the layout of the
+        information in the .o file. The stabs for the types must be defined
+        before they can be referenced and therefor they need to be written
+        first (PFV) }
+      TAsmListType=(
+        al_start,
+        al_stabs,
+        al_procedures,
+        al_globals,
+        al_const,
+        al_typedconsts,
+        al_rotypedconsts,
+        al_threadvars,
+        al_imports,
+        al_exports,
+        al_resources,
+        al_rtti,
+        al_dwarf,
+        al_dwarf_info,
+        al_dwarf_abbrev,
+        al_dwarf_line,
+        al_picdata,
+        al_resourcestrings,
+        al_end
+      );
+
+    const
+      AsmListTypeStr : array[TAsmListType] of string[24] =(
+        'al_begin',
+        'al_stabs',
+        'al_procedures',
+        'al_globals',
+        'al_const',
+        'al_typedconsts',
+        'al_rotypedconsts',
+        'al_threadvars',
+        'al_imports',
+        'al_exports',
+        'al_resources',
+        'al_rtti',
+        'al_dwarf',
+        'al_dwarf_info',
+        'al_dwarf_abbrev',
+        'al_dwarf_line',
+        'al_picdata',
+        'al_resourcestrings',
+        'al_end'
+      );
+
+      regallocstr : array[tregalloctype] of string[10]=('allocated','released','sync','resized');
+      tempallocstr : array[boolean] of string[10]=('released','allocated');
+      stabtypestr : array[TStabType] of string[5]=('stabs','stabn','stabd');
+      directivestr : array[TAsmDirective] of string[23]=(
+        'non_lazy_symbol_pointer','indirect_symbol','lazy_symbol_pointer',
+        'extern','nasm_import', 'tc', 'mod_init_func', 'mod_term_func'
+      );
+
+    type
        { abstract assembler item }
        tai = class(TLinkedListItem)
 {$ifndef NOOPT}
@@ -305,13 +367,10 @@ interface
           procedure derefimpl;override;
        end;
 
-       tasmdirective=(asd_non_lazy_symbol_pointer,asd_indirect_symbol,asd_lazy_symbol_pointer,
-                      asd_extern,asd_nasm_import, asd_toc_entry, asd_mod_init_func, asd_mod_term_func);
-
        tai_directive = class(tailineinfo)
           name : pstring;
-          directive : tasmdirective;
-          constructor Create(_directive:tasmdirective;const _name:string);
+          directive : TAsmDirective;
+          constructor Create(_directive:TAsmDirective;const _name:string);
           destructor Destroy;override;
           constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
@@ -448,13 +507,11 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
        end;
 
-       tstabtype = (stab_stabs,stab_stabn,stab_stabd);
-
        tai_stab = class(tai)
           str : pchar;
-          stabtype : tstabtype;
-          constructor Create(_stabtype:tstabtype;_str : pchar);
-          constructor Create_str(_stabtype:tstabtype;const s:string);
+          stabtype : TStabType;
+          constructor Create(_stabtype:TStabType;_str : pchar);
+          constructor Create_str(_stabtype:TStabType;const s:string);
           destructor Destroy;override;
        end;
 
@@ -480,8 +537,8 @@ interface
 
        { Insert a marker for assembler and inline blocks }
        tai_marker = class(tai)
-          Kind: TMarker;
-          Constructor Create(_Kind: TMarker);
+          Kind: TAsmMarker;
+          Constructor Create(_Kind: TAsmMarker);
           constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
        end;
@@ -539,11 +596,11 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
        end;
 
-       Taasmoutput=class;
+       TAsmList=class;
 
        tadd_reg_instruction_proc=procedure(instr:Tai;r:tregister) of object;
-       Trggetproc=procedure(list:Taasmoutput;position:Tai;subreg:Tsubregister;var result:Tregister) of object;
-       Trgungetproc=procedure(list:Taasmoutput;position:Tai;r:Tregister) of object;
+       Trggetproc=procedure(list:TAsmList;position:Tai;subreg:Tsubregister;var result:Tregister) of object;
+       Trgungetproc=procedure(list:TAsmList;position:Tai;r:Tregister) of object;
 
         { Class template for assembler instructions
         }
@@ -598,6 +655,9 @@ interface
         end;
         tai_cpu_class = class of tai_cpu_abstract;
 
+        { Buffer type used for alignment }
+        tfillbuffer = array[0..63] of char;
+
         { alignment for operator }
         tai_align_abstract = class(tai)
            aligntype : byte;   { 1 = no align, 2 = word align, 4 = dword align }
@@ -613,95 +673,60 @@ interface
         end;
         tai_align_class = class of tai_align_abstract;
 
-        taasmoutput = class(tlinkedlist)
+        TAsmList = class(tlinkedlist)
            constructor create;
            function  empty : boolean;
            function  getlasttaifilepos : pfileposinfo;
-           procedure InsertAfter(Item,Loc : TLinkedListItem);override;
         end;
 
-        { Type of asmlists. The order is important for the layout of the
-          information in the .o file. The stabs for the types must be defined
-          before they can be referenced and therefor they need to be written
-          first (PFV) }
-        Tasmlist=(al_start,
-                  al_stabs,
-                  al_procedures,
-                  al_globals,
-                  al_const,
-                  al_typedconsts,
-                  al_rotypedconsts,
-                  al_threadvars,
-                  al_imports,
-                  al_exports,
-                  al_resources,
-                  al_rtti,
-                  al_dwarf,
-                  al_dwarf_info,
-                  al_dwarf_abbrev,
-                  al_dwarf_line,
-                  al_picdata,
-                  al_resourcestrings,
-                  al_end);
-    const
-       TasmlistStr : array[tasmlist] of string[24] =(
-           'al_begin',
-           'al_stabs',
-           'al_procedures',
-           'al_globals',
-           'al_const',
-           'al_typedconsts',
-           'al_rotypedconsts',
-           'al_threadvars',
-           'al_imports',
-           'al_exports',
-           'al_resources',
-           'al_rtti',
-           'al_dwarf',
-           'al_dwarf_info',
-           'al_dwarf_abbrev',
-           'al_dwarf_line',
-           'al_picdata',
-           'al_resourcestrings',
-           'al_end');
-
-      regallocstr : array[tregalloctype] of string[10]=('allocated','released','sync','resized');
-      tempallocstr : array[boolean] of string[10]=('released','allocated');
-      stabtypestr : array[tstabtype] of string[5]=('stabs','stabn','stabd');
-      directivestr : array[tasmdirective] of string[23]=(
-        'non_lazy_symbol_pointer','indirect_symbol','lazy_symbol_pointer',
-        'extern','nasm_import', 'tc', 'mod_init_func', 'mod_term_func'
-      );
+       TAsmData = class
+       private
+         FAsmSymbolDict : TDictionary;
+         FAltSymbolList : TFPObjectList;
+         FNextAltNr     : longint;
+         FNextLabelNr   : array[Tasmlabeltype] of longint;
+       public
+         name,
+         realname      : string[80];
+         { Assembler lists }
+         AsmLists      : array[TAsmListType] of TAsmList;
+         CurrAsmList   : TAsmList;
+         constructor create(const n:string);
+         destructor  destroy;override;
+         { asmsymbol }
+         function  newasmsymbol(const s : string;_bind:TAsmSymBind;_typ:TAsmsymtype) : tasmsymbol;
+         function  getasmsymbol(const s : string) : tasmsymbol;
+         function  newasmlabel(nr:longint;alt:tasmlabeltype;is_global:boolean) : tasmlabel;
+         { create new assembler label }
+         procedure getlabel(var l : tasmlabel;alt:tasmlabeltype);
+         procedure getjumplabel(var l : tasmlabel);
+         procedure getaddrlabel(var l : tasmlabel);
+         procedure getdatalabel(var l : tasmlabel);
+         { generate an alternative (duplicate) symbol }
+         procedure GenerateAltSymbol(p:tasmsymbol);
+         procedure ResetAltSymbols;
+         property AsmSymbolDict:TDictionary read FAsmSymbolDict;
+       end;
 
     var
       { array with all class types for tais }
       aiclass : taiclassarray;
 
-      { Current expression list }
-      exprasmlist : taasmoutput;
-
-      { labels for BREAK and CONTINUE }
-      aktbreaklabel,aktcontinuelabel : tasmlabel;
-
-      { label when the result is true or false }
-      truelabel,falselabel : tasmlabel;
+      { target specific tais }
+      cai_align : tai_align_class;
+      cai_cpu   : tai_cpu_class;
 
       { hook to notify uses of registers }
       add_reg_instruction_hook : tadd_reg_instruction_proc;
 
-      asmlist:array[Tasmlist] of Taasmoutput;
+      current_asmdata : TAsmData;
 
-      cai_align : tai_align_class;
-      cai_cpu   : tai_cpu_class;
 
-    function  use_smartlink_section:boolean;
-    function  maybe_smartlink_symbol:boolean;
-
-    procedure maybe_new_object_file(list:taasmoutput);
-    procedure new_section(list:taasmoutput;Asectype:TAsmSectiontype;Aname:string;Aalign:byte);
-    procedure section_symbol_start(list:taasmoutput;const Aname:string;Asymtyp:Tasmsymtype;
+    procedure maybe_new_object_file(list:TAsmList);
+    procedure new_section(list:TAsmList;Asectype:TAsmSectiontype;Aname:string;Aalign:byte);
+    procedure section_symbol_start(list:TAsmList;const Aname:string;Asymtyp:Tasmsymtype;
                                    Aglobal:boolean;Asectype:TAsmSectiontype;Aalign:byte);
-    procedure section_symbol_end(list:taasmoutput;const Aname:string);
+    procedure section_symbol_end(list:TAsmList;const Aname:string);
 
     function ppuloadai(ppufile:tcompilerppufile):tai;
     procedure ppuwriteai(ppufile:tcompilerppufile;n:tai);
@@ -763,21 +788,7 @@ implementation
       end;
 
 
-    function use_smartlink_section:boolean;
-      begin
-        result:=(af_smartlink_sections in target_asm.flags) and
-                (tf_smartlink_sections in target_info.flags);
-      end;
-
-
-    function maybe_smartlink_symbol:boolean;
-      begin
-        result:=(cs_create_smart in aktmoduleswitches) or
-                use_smartlink_section;
-      end;
-
-
-    procedure maybe_new_object_file(list:taasmoutput);
+    procedure maybe_new_object_file(list:TAsmList);
       begin
         if (cs_create_smart in aktmoduleswitches) and
            (not use_smartlink_section) then
@@ -785,14 +796,14 @@ implementation
       end;
 
 
-    procedure new_section(list:taasmoutput;Asectype:TAsmSectiontype;Aname:string;Aalign:byte);
+    procedure new_section(list:TAsmList;Asectype:TAsmSectiontype;Aname:string;Aalign:byte);
       begin
         list.concat(tai_section.create(Asectype,Aname,Aalign));
         list.concat(cai_align.create(Aalign));
       end;
 
 
-    procedure section_symbol_start(list:taasmoutput;const Aname:string;Asymtyp:Tasmsymtype;
+    procedure section_symbol_start(list:TAsmList;const Aname:string;Asymtyp:Tasmsymtype;
                                    Aglobal:boolean;Asectype:TAsmSectiontype;Aalign:byte);
       begin
         maybe_new_object_file(list);
@@ -806,7 +817,7 @@ implementation
       end;
 
 
-    procedure section_symbol_end(list:taasmoutput;const Aname:string);
+    procedure section_symbol_end(list:TAsmList;const Aname:string);
       begin
         list.concat(tai_symbol_end.createname(Aname));
       end;
@@ -935,7 +946,7 @@ implementation
       begin
          inherited Create;
          typ:=ait_datablock;
-         sym:=objectlibrary.newasmsymbol(_name,AB_LOCAL,AT_DATA);
+         sym:=current_asmdata.newasmsymbol(_name,AB_LOCAL,AT_DATA);
          { keep things aligned }
          if _size<=0 then
            _size:=4;
@@ -948,7 +959,7 @@ implementation
       begin
          inherited Create;
          typ:=ait_datablock;
-         sym:=objectlibrary.newasmsymbol(_name,AB_GLOBAL,AT_DATA);
+         sym:=current_asmdata.newasmsymbol(_name,AB_GLOBAL,AT_DATA);
          { keep things aligned }
          if _size<=0 then
            _size:=4;
@@ -1010,7 +1021,7 @@ implementation
       begin
          inherited Create;
          typ:=ait_symbol;
-         sym:=objectlibrary.newasmsymbol(_name,AB_LOCAL,_symtyp);
+         sym:=current_asmdata.newasmsymbol(_name,AB_LOCAL,_symtyp);
          size:=siz;
          is_global:=false;
       end;
@@ -1020,7 +1031,7 @@ implementation
       begin
          inherited Create;
          typ:=ait_symbol;
-         sym:=objectlibrary.newasmsymbol(_name,AB_GLOBAL,_symtyp);
+         sym:=current_asmdata.newasmsymbol(_name,AB_GLOBAL,_symtyp);
          size:=siz;
          is_global:=true;
       end;
@@ -1065,7 +1076,7 @@ implementation
       begin
          inherited Create;
          typ:=ait_symbol_end;
-         sym:=objectlibrary.newasmsymbol(_name,AB_GLOBAL,AT_NONE);
+         sym:=current_asmdata.newasmsymbol(_name,AB_GLOBAL,AT_NONE);
       end;
 
 
@@ -1092,7 +1103,7 @@ implementation
                                TAI_SYMBOL_END
  ****************************************************************************}
 
-    constructor tai_directive.Create(_directive:tasmdirective;const _name:string);
+    constructor tai_directive.Create(_directive:TAsmDirective;const _name:string);
       begin
          inherited Create;
          typ:=ait_directive;
@@ -1111,7 +1122,7 @@ implementation
       begin
         inherited ppuload(t,ppufile);
         name:=stringdup(ppufile.getstring);
-        directive:=tasmdirective(ppufile.getbyte);
+        directive:=TAsmDirective(ppufile.getbyte);
       end;
 
 
@@ -1315,7 +1326,7 @@ implementation
          inherited Create;
          typ:=ait_const;
          consttype:=aitconst_ptr;
-         sym:=objectlibrary.newasmsymbol(name,AB_EXTERNAL,_symtyp);
+         sym:=current_asmdata.newasmsymbol(name,AB_EXTERNAL,_symtyp);
          endsym:=nil;
          value:=ofs;
          { update sym info }
@@ -1328,7 +1339,7 @@ implementation
          inherited Create;
          typ:=ait_const;
          consttype:=aitconst_rva_symbol;
-         sym:=objectlibrary.newasmsymbol(name,AB_EXTERNAL,AT_FUNCTION);
+         sym:=current_asmdata.newasmsymbol(name,AB_EXTERNAL,AT_FUNCTION);
          endsym:=nil;
          value:=0;
          { update sym info }
@@ -1692,7 +1703,7 @@ implementation
                               TAI_STABS
  ****************************************************************************}
 
-    constructor tai_stab.create(_stabtype:tstabtype;_str : pchar);
+    constructor tai_stab.create(_stabtype:TStabType;_str : pchar);
       begin
          inherited create;
          typ:=ait_stab;
@@ -1700,7 +1711,7 @@ implementation
          stabtype:=_stabtype;
       end;
 
-    constructor tai_stab.create_str(_stabtype:tstabtype;const s:string);
+    constructor tai_stab.create_str(_stabtype:TStabType;const s:string);
       begin
          self.create(_stabtype,strpnew(s));
       end;
@@ -1787,7 +1798,7 @@ implementation
                              Tai_Marker
  ****************************************************************************}
 
-    constructor Tai_Marker.Create(_Kind: TMarker);
+    constructor Tai_Marker.Create(_Kind: TAsmMarker);
       begin
         Inherited Create;
         typ := ait_marker;
@@ -1798,7 +1809,7 @@ implementation
     constructor Tai_Marker.ppuload(t:taitype;ppufile:tcompilerppufile);
       begin
         inherited ppuload(t,ppufile);
-        kind:=TMarker(ppufile.getbyte);
+        kind:=TAsmMarker(ppufile.getbyte);
       end;
 
 
@@ -2453,26 +2464,26 @@ implementation
 
 
 {*****************************************************************************
-                                 TAAsmOutput
+                                 TAsmList
 *****************************************************************************}
 
-    constructor taasmoutput.create;
+    constructor TAsmList.create;
       begin
         inherited create;
         { make sure the optimizer won't remove the first tai of this list}
-        insert(tai_marker.create(marker_blockstart));
+        insert(tai_marker.create(mark_BlockStart));
       end;
 
 
-    function taasmoutput.empty : boolean;
+    function TAsmList.empty : boolean;
       begin
-        { there is always a marker_blockstart available,
-          see taasmoutput.create }
+        { there is always a mark_BlockStart available,
+          see TAsmList.create }
         result:=(count<=1);
       end;
 
 
-    function taasmoutput.getlasttaifilepos : pfileposinfo;
+    function TAsmList.getlasttaifilepos : pfileposinfo;
       var
        hp : tlinkedlistitem;
       begin
@@ -2497,15 +2508,164 @@ implementation
            end;
       end;
 
-    procedure Taasmoutput.InsertAfter(Item,Loc : TLinkedListItem);
 
+{****************************************************************************
+                                TAsmData
+****************************************************************************}
+
+    constructor TAsmData.create(const n:string);
+      var
+        alt : TAsmLabelType;
+        hal : TAsmListType;
       begin
-        { This is not possible because it is not sure that the
-          tai at Loc has taifileinfo as parent }
-        {if assigned(Loc) then
-          tailineinfo(Item).fileinfo:=tailineinfo(Loc).fileinfo;}
-        inherited InsertAfter(Item,Loc);
+        inherited create;
+        realname:=n;
+        name:=upper(n);
+        { symbols }
+        FAsmSymbolDict:=TDictionary.create;
+        FAsmSymbolDict.usehash;
+        FAltSymbolList:=TFPObjectList.Create(false);
+        { labels }
+        FNextAltNr:=1;
+        for alt:=low(TAsmLabelType) to high(TAsmLabelType) do
+          FNextLabelNr[alt]:=1;
+        { AsmLists }
+        CurrAsmList:=TAsmList.create;
+        for hal:=low(TAsmListType) to high(TAsmListType) do
+          AsmLists[hal]:=TAsmList.create;
+        { PIC data }
+        if (target_info.system in [system_powerpc_darwin,system_i386_darwin]) then
+          AsmLists[al_picdata].concat(tai_directive.create(asd_non_lazy_symbol_pointer,''));
       end;
+
+
+    destructor TAsmData.destroy;
+      var
+{$ifdef MEMDEBUG}
+        d : tmemdebug;
+{$endif}
+        hal : TAsmListType;
+      begin
+{$ifdef MEMDEBUG}
+         d:=tmemdebug.create('AsmSymbols - '+name);
+{$endif}
+        FAltSymbolList.free;
+        FAsmSymbolDict.free;
+{$ifdef MEMDEBUG}
+         d.free;
+{$endif}
+{$ifdef MEMDEBUG}
+         d:=tmemdebug.create('AsmLists - '+name);
+{$endif}
+         for hal:=low(TAsmListType) to high(TAsmListType) do
+           AsmLists[hal].free;
+{$ifdef MEMDEBUG}
+         d.free;
+{$endif}
+      end;
+
+
+    function TAsmData.newasmsymbol(const s : string;_bind:TAsmSymBind;_typ:Tasmsymtype) : tasmsymbol;
+      var
+        hp : tasmsymbol;
+      begin
+        hp:=tasmsymbol(FAsmSymbolDict.search(s));
+        if assigned(hp) then
+         begin
+           {$IFDEF EXTDEBUG}
+           if (_typ <> AT_NONE) and
+              (hp.typ <> _typ) and
+              not(cs_compilesystem in aktmoduleswitches) and
+              (target_info.system <> system_powerpc_darwin) then
+             begin
+               //Writeln('Error symbol '+hp.name+' type is ',Ord(_typ),', should be ',Ord(hp.typ));
+               InternalError(2004031501);
+             end;
+           {$ENDIF}
+           if (_bind<>AB_EXTERNAL) then
+             hp.bind:=_bind
+         end
+        else
+         begin
+           { Not found, insert it. }
+           hp:=tasmsymbol.create(s,_bind,_typ);
+           FAsmSymbolDict.insert(hp);
+         end;
+        newasmsymbol:=hp;
+      end;
+
+
+    function TAsmData.getasmsymbol(const s : string) : tasmsymbol;
+      begin
+        getasmsymbol:=tasmsymbol(FAsmSymbolDict.search(s));
+      end;
+
+
+    procedure TAsmData.GenerateAltSymbol(p:tasmsymbol);
+      begin
+        if not assigned(p.altsymbol) then
+         begin
+           p.altsymbol:=tasmsymbol.create(p.name+'_'+tostr(FNextAltNr),p.bind,p.typ);
+           FAsmSymbolDict.insert(p.altsymbol);
+           FAltSymbolList.Add(p);
+         end;
+      end;
+
+
+    procedure TAsmData.ResetAltSymbols;
+      var
+        i  : longint;
+      begin
+        for i:=0 to FAltSymbolList.Count-1 do
+          tasmsymbol(FAltSymbolList[i]).altsymbol:=nil;
+        FAltSymbolList.Clear;
+      end;
+
+
+    function  TAsmData.newasmlabel(nr:longint;alt:tasmlabeltype;is_global:boolean) : tasmlabel;
+      var
+        hp : tasmlabel;
+      begin
+        if is_global then
+         hp:=tasmlabel.createglobal(name,nr,alt)
+       else
+         hp:=tasmlabel.createlocal(nr,alt);
+        FAsmSymbolDict.insert(hp);
+        result:=hp;
+      end;
+
+
+    procedure TAsmData.getlabel(var l : tasmlabel;alt:tasmlabeltype);
+      begin
+        l:=tasmlabel.createlocal(FNextLabelNr[alt],alt);
+        inc(FNextLabelNr[alt]);
+        FAsmSymbolDict.insert(l);
+      end;
+
+
+    procedure TAsmData.getjumplabel(var l : tasmlabel);
+      begin
+        l:=tasmlabel.createlocal(FNextLabelNr[alt_jump],alt_jump);
+        inc(FNextLabelNr[alt_jump]);
+        FAsmSymbolDict.insert(l);
+      end;
+
+
+    procedure TAsmData.getdatalabel(var l : tasmlabel);
+      begin
+        l:=tasmlabel.createglobal(name,FNextLabelNr[alt_data],alt_data);
+        inc(FNextLabelNr[alt_data]);
+        FAsmSymbolDict.insert(l);
+      end;
+
+
+    procedure TAsmData.getaddrlabel(var l : tasmlabel);
+      begin
+        l:=tasmlabel.createlocal(FNextLabelNr[alt_addr],alt_addr);
+        inc(FNextLabelNr[alt_addr]);
+        FAsmSymbolDict.insert(l);
+      end;
+
 
 begin
   cai_cpu:=tai_cpu_abstract;

@@ -38,7 +38,7 @@ interface
         procedure WriteOper_jmp(const o:toper; op : tasmop);
         procedure WriteSection(atype:TAsmSectiontype;const aname:string);
       public
-        procedure WriteTree(p:taasmoutput);override;
+        procedure WriteTree(p:TAsmList);override;
         procedure WriteAsmList;override;
         procedure WriteExternals;
       end;
@@ -386,7 +386,7 @@ interface
         LasTSecType:=atype;
       end;
 
-    procedure T386NasmAssembler.WriteTree(p:taasmoutput);
+    procedure T386NasmAssembler.WriteTree(p:TAsmList);
     var
       s : string;
       hp       : tai;
@@ -405,7 +405,7 @@ interface
       { lineinfo is only needed for al_procedures (PFV) }
       do_line:=(cs_asm_source in aktglobalswitches) or
                ((cs_lineinfo in aktmoduleswitches)
-                 and (p=asmlist[al_procedures]));
+                 and (p=current_asmdata.asmlists[al_procedures]));
       hp:=tai(p.first);
       while assigned(hp) do
        begin
@@ -750,9 +750,9 @@ interface
              end;
 
            ait_marker :
-             if tai_marker(hp).kind=InlineStart then
+             if tai_marker(hp).kind=mark_InlineStart then
                inc(InlineLevel)
-             else if tai_marker(hp).kind=InlineEnd then
+             else if tai_marker(hp).kind=mark_InlineEnd then
                dec(InlineLevel);
 
            ait_directive :
@@ -790,13 +790,13 @@ interface
     procedure T386NasmAssembler.WriteExternals;
       begin
         currentasmlist:=self;
-        objectlibrary.symbolsearch.foreach_static(@writeexternal,nil);
+        current_asmdata.AsmSymbolDict.foreach_static(@writeexternal,nil);
       end;
 
 
     procedure T386NasmAssembler.WriteAsmList;
     var
-      hal : tasmlist;
+      hal : tasmlisttype;
     begin
 {$ifdef EXTDEBUG}
       if assigned(current_module.mainsource) then
@@ -812,11 +812,11 @@ interface
 
       WriteExternals;
 
-      for hal:=low(Tasmlist) to high(Tasmlist) do
+      for hal:=low(TasmlistType) to high(TasmlistType) do
         begin
-          AsmWriteLn(target_asm.comment+'Begin asmlist '+TasmlistStr[hal]);
-          writetree(asmlist[hal]);
-          AsmWriteLn(target_asm.comment+'End asmlist '+TasmlistStr[hal]);
+          AsmWriteLn(target_asm.comment+'Begin asmlist '+AsmListTypeStr[hal]);
+          writetree(current_asmdata.asmlists[hal]);
+          AsmWriteLn(target_asm.comment+'End asmlist '+AsmListTypeStr[hal]);
         end;
 
       AsmLn;

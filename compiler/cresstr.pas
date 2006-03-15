@@ -137,37 +137,37 @@ uses
         R:=TResourceStringItem(List.First);
         while assigned(R) do
           begin
-            maybe_new_object_file(asmlist[al_const]);
-            new_section(asmlist[al_const],sec_fpc_resstr_data,R.name,sizeof(aint));
+            maybe_new_object_file(current_asmdata.asmlists[al_const]);
+            new_section(current_asmdata.asmlists[al_const],sec_fpc_resstr_data,R.name,sizeof(aint));
             { Write default value }
             if assigned(R.value) and (R.len<>0) then
               begin
-                 objectlibrary.getdatalabel(valuelab);
-                 asmlist[al_const].concat(tai_align.Create(const_align(sizeof(aint))));
-                 asmlist[al_const].concat(tai_const.create_aint(-1));
-                 asmlist[al_const].concat(tai_const.create_aint(R.len));
-                 asmlist[al_const].concat(tai_label.create(valuelab));
+                 current_asmdata.getdatalabel(valuelab);
+                 current_asmdata.asmlists[al_const].concat(tai_align.Create(const_align(sizeof(aint))));
+                 current_asmdata.asmlists[al_const].concat(tai_const.create_aint(-1));
+                 current_asmdata.asmlists[al_const].concat(tai_const.create_aint(R.len));
+                 current_asmdata.asmlists[al_const].concat(tai_label.create(valuelab));
                  getmem(s,R.len+1);
                  move(R.value^,s^,R.len);
                  s[R.len]:=#0;
-                 asmlist[al_const].concat(tai_string.create_pchar(s,R.len));
-                 asmlist[al_const].concat(tai_const.create_8bit(0));
+                 current_asmdata.asmlists[al_const].concat(tai_string.create_pchar(s,R.len));
+                 current_asmdata.asmlists[al_const].concat(tai_const.create_8bit(0));
               end
             else
               valuelab:=nil;
             { Append the name as a ansistring. }
-            objectlibrary.getdatalabel(namelab);
+            current_asmdata.getdatalabel(namelab);
             l:=length(R.name);
-            maybe_new_object_file(asmlist[al_const]);
-            asmlist[al_const].concat(tai_align.create(const_align(sizeof(aint))));
-            asmlist[al_const].concat(tai_const.create_aint(-1));
-            asmlist[al_const].concat(tai_const.create_aint(l));
-            asmlist[al_const].concat(tai_label.create(namelab));
+            maybe_new_object_file(current_asmdata.asmlists[al_const]);
+            current_asmdata.asmlists[al_const].concat(tai_align.create(const_align(sizeof(aint))));
+            current_asmdata.asmlists[al_const].concat(tai_const.create_aint(-1));
+            current_asmdata.asmlists[al_const].concat(tai_const.create_aint(l));
+            current_asmdata.asmlists[al_const].concat(tai_label.create(namelab));
             getmem(s,l+1);
             move(R.Name[1],s^,l);
             s[l]:=#0;
-            asmlist[al_const].concat(tai_string.create_pchar(s,l));
-            asmlist[al_const].concat(tai_const.create_8bit(0));
+            current_asmdata.asmlists[al_const].concat(tai_string.create_pchar(s,l));
+            current_asmdata.asmlists[al_const].concat(tai_const.create_8bit(0));
 
             {
               Resourcestring index:
@@ -179,14 +179,14 @@ uses
                      HashValue    : LongWord;
                    end;
             }
-            new_section(asmlist[al_resourcestrings],sec_fpc_resstr_index,r.name,sizeof(aint));
-            resstrlab:=objectlibrary.newasmsymbol(make_mangledname('RESSTR',R.Sym.owner,R.Sym.name),AB_GLOBAL,AT_DATA);
-            asmlist[al_resourcestrings].concat(tai_symbol.Create_global(resstrlab,0));
-            asmlist[al_resourcestrings].concat(tai_const.create_sym(namelab));
-            asmlist[al_resourcestrings].concat(tai_const.create_sym(nil));
-            asmlist[al_resourcestrings].concat(tai_const.create_sym(valuelab));
-            asmlist[al_resourcestrings].concat(tai_const.create_32bit(longint(R.Hash)));
-            asmlist[al_resourcestrings].concat(tai_symbol_end.create(resstrlab));
+            new_section(current_asmdata.asmlists[al_resourcestrings],sec_fpc_resstr_index,r.name,sizeof(aint));
+            resstrlab:=current_asmdata.newasmsymbol(make_mangledname('RESSTR',R.Sym.owner,R.Sym.name),AB_GLOBAL,AT_DATA);
+            current_asmdata.asmlists[al_resourcestrings].concat(tai_symbol.Create_global(resstrlab,0));
+            current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_sym(namelab));
+            current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_sym(nil));
+            current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_sym(valuelab));
+            current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_32bit(longint(R.Hash)));
+            current_asmdata.asmlists[al_resourcestrings].concat(tai_symbol_end.create(resstrlab));
             R:=TResourceStringItem(R.Next);
           end;
       end;

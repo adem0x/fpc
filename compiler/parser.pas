@@ -68,9 +68,9 @@ implementation
          testcurobject:=0;
 
          { Current compiled module/proc }
-         objectlibrary:=nil;
          current_module:=nil;
          compiled_module:=nil;
+         current_asmdata:=nil;
          current_procinfo:=nil;
          SetCompileModule(nil);
 
@@ -133,10 +133,10 @@ implementation
       begin
          { Reset current compiling info, so destroy routines can't
            reference the data that might already be destroyed }
-         objectlibrary:=nil;
          current_module:=nil;
          compiled_module:=nil;
          current_procinfo:=nil;
+         current_asmdata:=nil;
          SetCompileModule(nil);
 
          { unload units }
@@ -249,47 +249,6 @@ implementation
 
 
 {*****************************************************************************
-                      Create information for a new module
-*****************************************************************************}
-
-    procedure init_module;
-      var
-        i : Tasmlist;
-      begin
-         exprasmlist:=taasmoutput.create;
-         for i:=low(Tasmlist) to high(Tasmlist) do
-           asmlist[i]:=Taasmoutput.create;
-
-         { PIC data }
-         if (target_info.system in [system_powerpc_darwin,system_i386_darwin]) then
-           asmlist[al_picdata].concat(tai_directive.create(asd_non_lazy_symbol_pointer,''));
-
-         { use the librarydata from current_module }
-         objectlibrary:=current_module.librarydata;
-      end;
-
-
-    procedure done_module;
-      var
-{$ifdef MEMDEBUG}
-        d : tmemdebug;
-{$endif}
-        i:Tasmlist;
-      begin
-{$ifdef MEMDEBUG}
-         d:=tmemdebug.create(current_module.modulename^+' - asmlists');
-{$endif}
-         for i:=low(Tasmlist) to high(Tasmlist) do
-           if asmlist[i]<>nil then
-             asmlist[i].free;
-{$ifdef MEMDEBUG}
-         d.free;
-{$endif}
-         objectlibrary:=nil;
-      end;
-
-
-{*****************************************************************************
                              Compile a source file
 *****************************************************************************}
 
@@ -311,10 +270,6 @@ implementation
           oldaktprocsym    : tprocsym;
         { cg }
           oldparse_only  : boolean;
-        { asmlists }
-          oldexprasmlist:Taasmoutput;
-          oldasmlist:array[Tasmlist] of Taasmoutput;
-          oldobjectlibrary : TObjLibraryData;
         { akt.. things }
           oldaktlocalswitches  : tlocalswitches;
           oldaktmoduleswitches : tmoduleswitches;
@@ -364,10 +319,6 @@ implementation
             oldsourcecodepage:=aktsourcecodepage;
           { save cg }
             oldparse_only:=parse_only;
-          { save assembler lists }
-            oldasmlist:=asmlist;
-            oldexprasmlist:=exprasmlist;
-            oldobjectlibrary:=objectlibrary;
           { save akt... state }
           { handle the postponed case first }
            if localswitcheschanged then
@@ -445,6 +396,9 @@ implementation
          aktasmmode:=initasmmode;
          aktinterfacetype:=initinterfacetype;
 
+         { load current asmdata from current_module }
+         current_asmdata:=TAsmData(current_module.asmdata);
+
          { startup scanner and load the first file }
          current_scanner:=tscannerfile.Create(filename);
          current_scanner.firstfile;
@@ -457,9 +411,6 @@ implementation
 
          { read the first token }
          current_scanner.readtoken(false);
-
-         { init code generator for a new module }
-         init_module;
 
          { If the compile level > 1 we get a nice "unit expected" error
            message if we are trying to use a program as unit.}
@@ -484,9 +435,6 @@ implementation
                end;
            end;
          finally
-           { restore old state }
-           done_module;
-
            if assigned(current_module) then
              begin
                { module is now compiled }
@@ -497,6 +445,13 @@ implementation
                  begin
                    tppumodule(current_module).ppufile.free;
                    tppumodule(current_module).ppufile:=nil;
+                 end;
+
+               { free asmdata }
+               if assigned(current_module.asmdata) then
+                 begin
+                   current_module.asmdata.free;
+                   current_module.asmdata:=nil;
                  end;
 
                { free scanner }
@@ -533,11 +488,11 @@ implementation
                 block_type:=old_block_type;
                 { restore cg }
                 parse_only:=oldparse_only;
-                { restore asmlists }
-                exprasmlist:=oldexprasmlist;
-                asmlist:=oldasmlist;
-                { object data }
-                objectlibrary:=oldobjectlibrary;
+                { asm data }
+                if assigned(old_compiled_module) then
+                  current_asmdata:=tasmdata(old_compiled_module.asmdata)
+                else
+                  current_asmdata:=nil;
                 { restore previous scanner }
                 if assigned(old_compiled_module) then
                   current_scanner:=tscannerfile(old_compiled_module.scanner)
