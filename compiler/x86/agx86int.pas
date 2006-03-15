@@ -861,15 +861,15 @@ implementation
         begin
           if not(cs_asm_extern in aktglobalswitches) then
             begin
-              if Not FileExists(objfile) and
-                 FileExists(ForceExtension(objfile,'.obj')) then
+              if Not FileExists(objfilename) and
+                 FileExists(ForceExtension(objfilename,'.obj')) then
                 begin
-                  Assign(F,ForceExtension(objfile,'.obj'));
-                  Rename(F,objfile);
+                  Assign(F,ForceExtension(objfilename,'.obj'));
+                  Rename(F,objfilename);
                 end;
             end
           else
-            AsmRes.AddAsmCommand('mv',ForceExtension(objfile,'.obj')+' '+objfile,objfile);
+            AsmRes.AddAsmCommand('mv',ForceExtension(objfilename,'.obj')+' '+objfilename,objfilename);
         end;
     end;
 

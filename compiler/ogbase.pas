@@ -31,7 +31,7 @@ interface
       { targets }
       systems,globtype,
       { outputwriters }
-      owbase,owar,
+      owbase,
       { assembler }
       aasmbase;
 
@@ -223,7 +223,7 @@ interface
         function  writedata(data:TObjData):boolean;virtual;abstract;
         property CObjData : TObjDataClass read FCObjData write FCObjData;
       public
-        constructor create(smart:boolean);virtual;
+        constructor create(AWriter:TObjectWriter);virtual;
         destructor  destroy;override;
         function  newObjData(const n:string):TObjData;
         function  startObjectfile(const fn:string):boolean;
@@ -1000,21 +1000,15 @@ implementation
                                 TObjOutput
 ****************************************************************************}
 
-    constructor TObjOutput.create(smart:boolean);
+    constructor TObjOutput.create(AWriter:TObjectWriter);
       begin
-      { init writer }
-        if smart and
-           not(cs_asm_leave in aktglobalswitches) then
-          FWriter:=tarobjectwriter.create(current_module.staticlibfilename^)
-        else
-          FWriter:=TObjectwriter.create;
+        FWriter:=AWriter;
         CObjData:=TObjData;
       end;
 
 
     destructor TObjOutput.destroy;
       begin
-        FWriter.free;
       end;
 
 

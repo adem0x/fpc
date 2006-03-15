@@ -52,11 +52,11 @@ interface
       {filenames}
         path     : pathstr;
         name     : namestr;
-        asmfile,         { current .s and .o file }
-        objfile  : string;
-        ppufilename : string;
-        asmprefix : string;
-        SmartAsm : boolean;
+        AsmFileName,         { current .s and .o file }
+        ObjFileName,
+        ppufilename  : string;
+        asmprefix    : string;
+        SmartAsm     : boolean;
         SmartFilesCount,
         SmartHeaderCount : longint;
         Constructor Create(smart:boolean);virtual;
@@ -183,7 +183,8 @@ Implementation
 {$ifdef m68k}
       cpuinfo,
 {$endif m68k}
-      aasmcpu
+      aasmcpu,
+      owbase,owar
       ;
 
     var
@@ -197,8 +198,8 @@ Implementation
     Constructor TAssembler.Create(smart:boolean);
       begin
       { load start values }
-        asmfile:=current_module.get_asmfilename;
-        objfile:=current_module.objfilename^;
+        AsmFileName:=current_module.get_AsmFilename;
+        ObjFileName:=current_module.ObjFileName^;
         name:=Lower(current_module.modulename^);
         path:=current_module.outputpath^;
         asmprefix := current_module.asmprefix^;
@@ -236,10 +237,10 @@ Implementation
           cut_end :
             s:=asmprefix+tostr(SmartHeaderCount)+'t';
         end;
-        AsmFile:=Path+FixFileName(s+tostr(SmartFilesCount)+target_info.asmext);
-        ObjFile:=Path+FixFileName(s+tostr(SmartFilesCount)+target_info.objext);
+        AsmFileName:=Path+FixFileName(s+tostr(SmartFilesCount)+target_info.asmext);
+        ObjFileName:=Path+FixFileName(s+tostr(SmartFilesCount)+target_info.objext);
         { insert in container so it can be cleared after the linking }
-        SmartLinkOFiles.Insert(Objfile);
+        SmartLinkOFiles.Insert(ObjFileName);
       end;
 
 
@@ -415,10 +416,10 @@ Implementation
         if cs_asm_leave in aktglobalswitches then
          exit;
         if cs_asm_extern in aktglobalswitches then
-         AsmRes.AddDeleteCommand(AsmFile)
+         AsmRes.AddDeleteCommand(AsmFileName)
         else
          begin
-           assign(g,AsmFile);
+           assign(g,AsmFileName);
            {$I-}
             erase(g);
            {$I+}
@@ -552,8 +553,8 @@ Implementation
 {$endif}
         if (cs_link_on_target in aktglobalswitches) then
          begin
-           Replace(result,'$ASM',maybequoted(ScriptFixFileName(AsmFile)));
-           Replace(result,'$OBJ',maybequoted(ScriptFixFileName(ObjFile)));
+           Replace(result,'$ASM',maybequoted(ScriptFixFileName(AsmFileName)));
+           Replace(result,'$OBJ',maybequoted(ScriptFixFileName(ObjFileName)));
          end
         else
          begin
@@ -562,8 +563,8 @@ Implementation
             Replace(result,'$ASM','')
           else
 {$endif}
-             Replace(result,'$ASM',maybequoted(AsmFile));
-           Replace(result,'$OBJ',maybequoted(ObjFile));
+             Replace(result,'$ASM',maybequoted(AsmFileName));
+           Replace(result,'$OBJ',maybequoted(ObjFileName));
          end;
       end;
 
@@ -575,20 +576,20 @@ Implementation
 {$ifdef hasunix}
         if DoPipe then
          begin
-           Message1(exec_i_assembling_pipe,asmfile);
+           Message1(exec_i_assembling_pipe,AsmFileName);
            POpen(outfile,FindAssembler+' '+MakeCmdLine,'W');
          end
         else
 {$endif}
          begin
-           Assign(outfile,asmfile);
+           Assign(outfile,AsmFileName);
            {$I-}
            Rewrite(outfile,1);
            {$I+}
            if ioresult<>0 then
              begin
                ioerror:=true;
-               Message1(exec_d_cant_create_asmfile,asmfile);
+               Message1(exec_d_cant_create_asmfile,AsmFileName);
              end;
          end;
         outcnt:=0;
@@ -1154,9 +1155,11 @@ Implementation
         doexit;
       var
         hp : Tai;
+        ObjWriter : TObjectWriter;
       begin
-        ObjOutput:=CObjOutput.Create(false);
-        ObjData:=ObjOutput.newObjData(Objfile);
+        ObjWriter:=TObjectwriter.create;
+        ObjOutput:=CObjOutput.Create(ObjWriter);
+        ObjData:=ObjOutput.newObjData(ObjFileName);
 
         { Pass 0 }
         ObjData.currpass:=0;
@@ -1218,7 +1221,7 @@ Implementation
         if errorcount=0 then
          begin
            { write objectfile }
-           ObjOutput.startobjectfile(ObjFile);
+           ObjOutput.startobjectfile(ObjFileName);
            ObjOutput.writeobjectfile(ObjData);
          end;
 
@@ -1226,6 +1229,7 @@ Implementation
         { Cleanup }
         ObjData.free;
         ObjData:=nil;
+        ObjWriter.free;
       end;
 
 
@@ -1234,9 +1238,15 @@ Implementation
         hp : Tai;
         startsectype : TAsmSectiontype;
         place: tcutplace;
+        ObjWriter : TObjectWriter;
       begin
+        if not(cs_asm_leave in aktglobalswitches) then
+          ObjWriter:=TARObjectWriter.create(current_module.staticlibfilename^)
+        else
+          ObjWriter:=TObjectwriter.create;
+
         NextSmartName(cut_normal);
-        ObjOutput:=CObjOutput.Create(true);
+        ObjOutput:=CObjOutput.Create(ObjWriter);
         startsectype:=sec_code;
 
         { start with list 1 }
@@ -1245,7 +1255,7 @@ Implementation
         hp:=Tai(currList.first);
         while assigned(hp) do
          begin
-           ObjData:=ObjOutput.newObjData(Objfile);
+           ObjData:=ObjOutput.newObjData(ObjFileName);
 
            { Pass 0 }
            ObjData.currpass:=0;
@@ -1272,7 +1282,7 @@ Implementation
 
            { Pass 2 }
            ObjData.currpass:=2;
-           ObjOutput.startobjectfile(Objfile);
+           ObjOutput.startobjectfile(ObjFileName);
            ObjData.resetsections;
            ObjData.beforewrite;
            ObjData.createsection(startsectype,'');
@@ -1320,6 +1330,7 @@ Implementation
          end;
         ObjData.free;
         ObjData:=nil;
+        ObjWriter.free;
       end;
 
 

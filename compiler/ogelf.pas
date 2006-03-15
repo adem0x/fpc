@@ -33,7 +33,8 @@ interface
        { assembler }
        cpuinfo,cpubase,aasmbase,aasmtai,assemble,
        { output }
-       ogbase;
+       ogbase,
+       owbase;
 
     type
        TElfObjSection = class(TObjSection)
@@ -95,7 +96,7 @@ interface
        protected
          function writedata(data:TObjData):boolean;override;
        public
-         constructor Create(smart:boolean);override;
+         constructor Create(AWriter:TObjectWriter);override;
        end;
 
        TElfAssembler = class(tinternalassembler)
@@ -695,9 +696,9 @@ implementation
                             TElfObjectOutput
 ****************************************************************************}
 
-    constructor TElfObjectOutput.create(smart:boolean);
+    constructor TElfObjectOutput.create(AWriter:TObjectWriter);
       begin
-        inherited Create(smart);
+        inherited Create(AWriter);
         CObjData:=TElfObjData;
       end;
 

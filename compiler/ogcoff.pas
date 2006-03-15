@@ -33,7 +33,8 @@ interface
        { assembler }
        cpuinfo,cpubase,aasmbase,assemble,link,
        { output }
-       ogbase,ogmap;
+       ogbase,
+       owbase;
 
     type
        TCoffObjSection = class(TObjSection)
@@ -95,15 +96,15 @@ interface
        protected
          function writedata(data:TObjData):boolean;override;
        public
-         constructor createcoff(smart:boolean;awin32:boolean);
+         constructor createcoff(AWriter:TObjectWriter;awin32:boolean);
        end;
 
        TDJCoffObjOutput = class(TCoffObjOutput)
-         constructor create(smart:boolean);override;
+         constructor create(AWriter:TObjectWriter);override;
        end;
 
        TPECoffObjOutput = class(TCoffObjOutput)
-         constructor create(smart:boolean);override;
+         constructor create(AWriter:TObjectWriter);override;
        end;
 
        TCoffExeSection = class(TExeSection)
@@ -214,9 +215,9 @@ interface
 implementation
 
     uses
-       strings,
-       cutils,verbose,owbase,
-       globals,fmodule,aasmtai;
+       cutils,verbose,globals,
+       fmodule,aasmtai,
+       ogmap;
 
     const
 {$ifdef i386}
@@ -1017,9 +1018,9 @@ const win32stub : array[0..131] of byte=(
                                 TCoffObjOutput
 ****************************************************************************}
 
-    constructor TCoffObjOutput.createcoff(smart:boolean;awin32:boolean);
+    constructor TCoffObjOutput.createcoff(AWriter:TObjectWriter;awin32:boolean);
       begin
-        inherited create(smart);
+        inherited create(AWriter);
         win32:=awin32;
       end;
 
@@ -1300,16 +1301,16 @@ const win32stub : array[0..131] of byte=(
       end;
 
 
-    constructor TDJCoffObjOutput.create(smart:boolean);
+    constructor TDJCoffObjOutput.create(AWriter:TObjectWriter);
       begin
-        inherited createcoff(smart,false);
+        inherited createcoff(AWriter,false);
         cobjdata:=TDJCoffObjData;
       end;
 
 
-    constructor TPECoffObjOutput.create(smart:boolean);
+    constructor TPECoffObjOutput.create(AWriter:TObjectWriter);
       begin
-        inherited createcoff(smart,true);
+        inherited createcoff(AWriter,true);
         cobjdata:=TPECoffObjData;
       end;
 
