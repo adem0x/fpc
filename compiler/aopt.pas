@@ -28,7 +28,7 @@ Unit aopt;
   Interface
 
     Uses
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       aoptobj;
 
     Type

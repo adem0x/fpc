@@ -127,7 +127,7 @@ implementation
     uses
       globtype,systems,
       cutils,verbose,globals,
-      symconst,aasmbase,aasmtai,aasmcpu,defutil,
+      symconst,aasmbase,aasmtai,aasmdata,aasmcpu,defutil,
       parabase,
       pass_2,
       ncon,

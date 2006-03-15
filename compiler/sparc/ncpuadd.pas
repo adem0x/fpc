@@ -48,7 +48,7 @@ interface
       systems,
       cutils,verbose,
       paramgr,procinfo,
-      aasmtai,aasmcpu,defutil,
+      aasmtai,aasmdata,aasmcpu,defutil,
       cgbase,cgcpu,cgutils,
       cpupara,
       ncon,nset,nadd,

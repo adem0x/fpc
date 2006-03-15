@@ -36,7 +36,7 @@ unit tgobj;
       globals,globtype,
       symtype,
       cpubase,cpuinfo,cgbase,cgutils,
-      aasmbase,aasmtai;
+      aasmbase,aasmtai,aasmdata;
 
     type
       ptemprecord = ^ttemprecord;

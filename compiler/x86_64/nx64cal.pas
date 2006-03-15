@@ -39,7 +39,7 @@ implementation
     uses
       globtype,
       cpubase,
-      aasmtai,aasmcpu;
+      aasmtai,aasmdata,aasmcpu;
 
     procedure tx8664callnode.extra_call_code;
       var

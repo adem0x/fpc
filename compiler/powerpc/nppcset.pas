@@ -26,7 +26,7 @@ unit nppcset;
 interface
 
     uses
-       node,nset,ncgset,cpubase,cgbase,cgobj,aasmbase,aasmtai,globtype;
+       node,nset,ncgset,cpubase,cgbase,cgobj,aasmbase,aasmtai,aasmdata,globtype;
 
     type
        tppccasenode = class(tcgcasenode)

@@ -29,7 +29,7 @@ unit agppcmpw;
 interface
 
     uses
-       aasmtai,
+       aasmtai,aasmdata,
        globals,aasmbase,aasmcpu,assemble,
        cpubase;
 

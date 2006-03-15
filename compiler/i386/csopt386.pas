@@ -26,7 +26,7 @@ unit CSOpt386;
 
 interface
 
-uses aasmbase,aasmtai,aasmcpu, cpuinfo, cpubase, optbase, cgbase;
+uses aasmbase,aasmtai,aasmdata,aasmcpu, cpuinfo, cpubase, optbase, cgbase;
 
 function CSE(asml: TAsmList; first, last: tai; pass: longint): boolean;
 

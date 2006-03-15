@@ -58,7 +58,7 @@ implementation
 
    uses
       verbose,globtype,globals,systems,
-      symconst,symdef,aasmbase,aasmtai,
+      symconst,symdef,aasmbase,aasmtai,aasmdata,
       defutil,
       cgbase,cgutils,
       pass_1,pass_2,procinfo,

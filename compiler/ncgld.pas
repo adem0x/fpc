@@ -56,7 +56,7 @@ implementation
       verbose,globtype,globals,
       symconst,symtype,symdef,symsym,defutil,paramgr,
       ncnv,ncon,nmem,nbas,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       cgbase,pass_2,
       procinfo,
       cpubase,parabase,

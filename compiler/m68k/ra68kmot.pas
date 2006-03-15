@@ -98,7 +98,7 @@ Implementation
        globals,verbose,
        systems,
        { aasm }
-       cpuinfo,aasmtai,aasmcpu,
+       cpuinfo,aasmtai,aasmdata,aasmcpu,
        cgbase,
        { symtable }
        symbase,symtype,symsym,symtable,

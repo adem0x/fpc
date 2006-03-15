@@ -28,7 +28,7 @@ interface
     uses
        globtype,
        cpuinfo,cpubase,cgbase,cgutils,
-       aasmbase,aasmtai,aasmcpu,
+       aasmbase,aasmtai,aasmdata,aasmcpu,
        node,
        symtype;
 

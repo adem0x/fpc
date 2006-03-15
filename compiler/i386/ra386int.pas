@@ -82,7 +82,7 @@ Unit Ra386int;
        globals,verbose,
        systems,
        { aasm }
-       aasmtai,aasmcpu,
+       aasmtai,aasmdata,aasmcpu,
        { symtable }
        symconst,symbase,symtype,symsym,symdef,symtable,
        { parser }

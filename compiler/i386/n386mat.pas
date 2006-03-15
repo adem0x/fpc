@@ -51,7 +51,7 @@ implementation
     uses
       globtype,systems,
       cutils,verbose,globals,
-      symconst,symdef,aasmbase,aasmtai,defutil,
+      symconst,symdef,aasmbase,aasmtai,aasmdata,defutil,
       cgbase,pass_2,
       ncon,
       cpubase,cpuinfo,

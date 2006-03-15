@@ -35,7 +35,7 @@ uses
    cutils,globtype,globals,
    symconst,symtype,symdef,symsym,
    verbose,fmodule,
-   aasmbase,aasmtai,
+   aasmbase,aasmtai,aasmdata,
    aasmcpu;
 
     Type

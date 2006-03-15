@@ -30,7 +30,7 @@ unit cgx86;
     uses
        globtype,
        cgbase,cgutils,cgobj,
-       aasmbase,aasmtai,aasmcpu,
+       aasmbase,aasmtai,aasmdata,aasmcpu,
        cpubase,cpuinfo,rgobj,rgx86,rgcpu,
        symconst,symtype;
 
@@ -155,7 +155,6 @@ unit cgx86;
 
     uses
        globals,verbose,systems,cutils,
-       dwarf,
        symdef,defutil,paramgr,procinfo,
        fmodule;
 
@@ -572,7 +571,7 @@ unit cgx86;
         sym : tasmsymbol;
         r : treference;
       begin
- 
+
         if (target_info.system <> system_i386_darwin) then
           begin
             sym:=current_asmdata.newasmsymbol(s,AB_EXTERNAL,AT_FUNCTION);
@@ -1901,10 +1900,10 @@ unit cgx86;
                 include(rg[R_INTREGISTER].preserved_by_proc,RS_FRAME_POINTER_REG);
                 list.concat(Taicpu.op_reg(A_PUSH,tcgsize2opsize[OS_ADDR],NR_FRAME_POINTER_REG));
                 { Return address and FP are both on stack }
-                dwarfcfi.cfa_def_cfa_offset(list,2*sizeof(aint));
-                dwarfcfi.cfa_offset(list,NR_FRAME_POINTER_REG,-(2*sizeof(aint)));
+                current_asmdata.asmcfi.cfa_def_cfa_offset(list,2*sizeof(aint));
+                current_asmdata.asmcfi.cfa_offset(list,NR_FRAME_POINTER_REG,-(2*sizeof(aint)));
                 list.concat(Taicpu.op_reg_reg(A_MOV,tcgsize2opsize[OS_ADDR],NR_STACK_POINTER_REG,NR_FRAME_POINTER_REG));
-                dwarfcfi.cfa_def_cfa_register(list,NR_FRAME_POINTER_REG);
+                current_asmdata.asmcfi.cfa_def_cfa_register(list,NR_FRAME_POINTER_REG);
               end;
 
             { allocate stackframe space }
@@ -1918,7 +1917,7 @@ unit cgx86;
                   localsize := align(localsize+stackmisalignment,16)-stackmisalignment;
                 cg.g_stackpointer_alloc(list,localsize);
                 if current_procinfo.framepointer=NR_STACK_POINTER_REG then
-                  dwarfcfi.cfa_def_cfa_offset(list,localsize+sizeof(aint));
+                  current_asmdata.asmcfi.cfa_def_cfa_offset(list,localsize+sizeof(aint));
               end;
           end;
       end;

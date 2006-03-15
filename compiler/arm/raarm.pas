@@ -27,7 +27,7 @@ unit raarm;
 
     uses
       cpubase,
-      aasmtai,
+      aasmtai,aasmdata,
       rautils;
 
     type

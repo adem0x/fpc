@@ -34,7 +34,7 @@ unit procinfo;
       symconst,symtype,symdef,symsym,
       { aasm }
       cpubase,cpuinfo,cgbase,cgutils,
-      aasmbase,aasmtai
+      aasmbase,aasmtai,aasmdata
       ;
 
     const

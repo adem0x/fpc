@@ -65,7 +65,7 @@ implementation
     verbose,systems,globtype,globals,
     symconst,script,
     fmodule,dos,
-    aasmbase,aasmtai,aasmcpu,cpubase,
+    aasmbase,aasmtai,aasmdata,aasmcpu,cpubase,
     cgbase,cgobj,cgutils,
     i_linux
     ;

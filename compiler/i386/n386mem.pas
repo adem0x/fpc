@@ -50,7 +50,7 @@ implementation
       systems,
       cutils,verbose,
       symdef,paramgr,
-      aasmtai,
+      aasmtai,aasmdata,
       nld,ncon,nadd,
       cgutils,cgobj;
 

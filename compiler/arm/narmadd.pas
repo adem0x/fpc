@@ -46,7 +46,7 @@ interface
       globtype,systems,
       cutils,verbose,globals,
       symconst,symdef,paramgr,
-      aasmbase,aasmtai,aasmcpu,defutil,htypechk,
+      aasmbase,aasmtai,aasmdata,aasmcpu,defutil,htypechk,
       cgbase,cgutils,cgcpu,
       cpuinfo,pass_1,pass_2,regvars,procinfo,
       cpupara,

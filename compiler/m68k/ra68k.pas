@@ -26,7 +26,7 @@ unit ra68k;
   interface
 
     uses
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       cpubase,rautils,cclasses;
 
     type

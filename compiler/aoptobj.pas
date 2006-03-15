@@ -32,7 +32,7 @@ Unit AoptObj;
 
     uses
       globtype,
-      aasmbase,aasmcpu,aasmtai,
+      aasmbase,aasmcpu,aasmtai,aasmdata,
       cclasses,
       cgbase,cgutils,
       cpubase,

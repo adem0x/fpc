@@ -41,7 +41,7 @@ interface
       globtype,systems,
       cutils,verbose,globals,
       symconst,symdef,paramgr,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       cgbase,procinfo,
       ncon,nset,cgutils,tgobj,
       cga,ncgutil,cgobj,cg64f32;

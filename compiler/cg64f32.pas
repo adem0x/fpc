@@ -31,7 +31,7 @@ unit cg64f32;
   interface
 
     uses
-       aasmbase,aasmtai,aasmcpu,
+       aasmbase,aasmtai,aasmdata,aasmcpu,
        cpubase,cpupara,
        cgbase,cgobj,parabase,cgutils,
        symtype

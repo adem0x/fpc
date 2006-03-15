@@ -27,7 +27,7 @@ unit aoptbase;
   interface
 
     uses
-      aasmbase,aasmcpu,aasmtai,
+      aasmbase,aasmcpu,aasmtai,aasmdata,
       cpubase,
       cgbase,
       cgutils;

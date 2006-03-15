@@ -41,7 +41,7 @@ implementation
 
    uses
       verbose,globals,systems,
-      symconst,symdef,aasmbase,aasmtai,
+      symconst,symdef,aasmbase,aasmtai,aasmdata,
       defutil,
       cgbase,pass_1,pass_2,
       ncon,ncal,

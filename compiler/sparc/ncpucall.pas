@@ -38,7 +38,7 @@ implementation
 
     uses
       cpubase,
-      aasmtai,
+      aasmtai,aasmdata,
       aasmcpu,
       paramgr,
       ncal;

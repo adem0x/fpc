@@ -37,7 +37,7 @@ interface
        cpuinfo,cpubase,
        cgbase,cgutils,
        symtype,
-       aasmbase,ogbase;
+       aasmbase,aasmdata,ogbase;
 
     type
        { keep the number of elements in this enumeration less or equal than 32 as long
@@ -243,55 +243,7 @@ interface
         asd_extern,asd_nasm_import, asd_toc_entry, asd_mod_init_func, asd_mod_term_func
       );
 
-      { Type of AsmLists. The order is important for the layout of the
-        information in the .o file. The stabs for the types must be defined
-        before they can be referenced and therefor they need to be written
-        first (PFV) }
-      TAsmListType=(
-        al_start,
-        al_stabs,
-        al_procedures,
-        al_globals,
-        al_const,
-        al_typedconsts,
-        al_rotypedconsts,
-        al_threadvars,
-        al_imports,
-        al_exports,
-        al_resources,
-        al_rtti,
-        al_dwarf,
-        al_dwarf_info,
-        al_dwarf_abbrev,
-        al_dwarf_line,
-        al_picdata,
-        al_resourcestrings,
-        al_end
-      );
-
     const
-      AsmListTypeStr : array[TAsmListType] of string[24] =(
-        'al_begin',
-        'al_stabs',
-        'al_procedures',
-        'al_globals',
-        'al_const',
-        'al_typedconsts',
-        'al_rotypedconsts',
-        'al_threadvars',
-        'al_imports',
-        'al_exports',
-        'al_resources',
-        'al_rtti',
-        'al_dwarf',
-        'al_dwarf_info',
-        'al_dwarf_abbrev',
-        'al_dwarf_line',
-        'al_picdata',
-        'al_resourcestrings',
-        'al_end'
-      );
-
       regallocstr : array[tregalloctype] of string[10]=('allocated','released','sync','resized');
       tempallocstr : array[boolean] of string[10]=('released','allocated');
       stabtypestr : array[TStabType] of string[5]=('stabs','stabn','stabd');
@@ -596,11 +548,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
        end;
 
-       TAsmList=class;
-
        tadd_reg_instruction_proc=procedure(instr:Tai;r:tregister) of object;
-       Trggetproc=procedure(list:TAsmList;position:Tai;subreg:Tsubregister;var result:Tregister) of object;
-       Trgungetproc=procedure(list:TAsmList;position:Tai;r:Tregister) of object;
 
         { Class template for assembler instructions
         }
@@ -673,41 +621,6 @@ interface
         end;
         tai_align_class = class of tai_align_abstract;
 
-        TAsmList = class(tlinkedlist)
-           constructor create;
-           function  empty : boolean;
-           function  getlasttaifilepos : pfileposinfo;
-        end;
-
-       TAsmData = class
-       private
-         FAsmSymbolDict : TDictionary;
-         FAltSymbolList : TFPObjectList;
-         FNextAltNr     : longint;
-         FNextLabelNr   : array[Tasmlabeltype] of longint;
-       public
-         name,
-         realname      : string[80];
-         { Assembler lists }
-         AsmLists      : array[TAsmListType] of TAsmList;
-         CurrAsmList   : TAsmList;
-         constructor create(const n:string);
-         destructor  destroy;override;
-         { asmsymbol }
-         function  newasmsymbol(const s : string;_bind:TAsmSymBind;_typ:TAsmsymtype) : tasmsymbol;
-         function  getasmsymbol(const s : string) : tasmsymbol;
-         function  newasmlabel(nr:longint;alt:tasmlabeltype;is_global:boolean) : tasmlabel;
-         { create new assembler label }
-         procedure getlabel(var l : tasmlabel;alt:tasmlabeltype);
-         procedure getjumplabel(var l : tasmlabel);
-         procedure getaddrlabel(var l : tasmlabel);
-         procedure getdatalabel(var l : tasmlabel);
-         { generate an alternative (duplicate) symbol }
-         procedure GenerateAltSymbol(p:tasmsymbol);
-         procedure ResetAltSymbols;
-         property AsmSymbolDict:TDictionary read FAsmSymbolDict;
-       end;
-
     var
       { array with all class types for tais }
       aiclass : taiclassarray;
@@ -718,9 +631,6 @@ interface
 
       { hook to notify uses of registers }
       add_reg_instruction_hook : tadd_reg_instruction_proc;
-
-      current_asmdata : TAsmData;
-
 
     procedure maybe_new_object_file(list:TAsmList);
     procedure new_section(list:TAsmList;Asectype:TAsmSectiontype;Aname:string;Aalign:byte);
@@ -745,6 +655,41 @@ implementation
 {****************************************************************************
                                  Helpers
  ****************************************************************************}
+
+    procedure maybe_new_object_file(list:TAsmList);
+      begin
+        if (cs_create_smart in aktmoduleswitches) and
+           (not use_smartlink_section) then
+          list.concat(tai_cutobject.create);
+      end;
+
+
+    procedure new_section(list:TAsmList;Asectype:TAsmSectiontype;Aname:string;Aalign:byte);
+      begin
+        list.concat(tai_section.create(Asectype,Aname,Aalign));
+        list.concat(cai_align.create(Aalign));
+      end;
+
+
+    procedure section_symbol_start(list:TAsmList;const Aname:string;Asymtyp:Tasmsymtype;
+                                   Aglobal:boolean;Asectype:TAsmSectiontype;Aalign:byte);
+      begin
+        maybe_new_object_file(list);
+        list.concat(tai_section.create(Asectype,Aname,Aalign));
+        list.concat(cai_align.create(Aalign));
+        if Aglobal or
+           maybe_smartlink_symbol then
+          list.concat(tai_symbol.createname_global(Aname,Asymtyp,0))
+        else
+          list.concat(tai_symbol.createname(Aname,Asymtyp,0));
+      end;
+
+
+    procedure section_symbol_end(list:TAsmList;const Aname:string);
+      begin
+        list.concat(tai_symbol_end.createname(Aname));
+      end;
+
 
     function ppuloadai(ppufile:tcompilerppufile):tai;
       var
@@ -785,41 +730,6 @@ implementation
          end
         else
          ppufile.putbyte(byte(ait_none));
-      end;
-
-
-    procedure maybe_new_object_file(list:TAsmList);
-      begin
-        if (cs_create_smart in aktmoduleswitches) and
-           (not use_smartlink_section) then
-          list.concat(tai_cutobject.create);
-      end;
-
-
-    procedure new_section(list:TAsmList;Asectype:TAsmSectiontype;Aname:string;Aalign:byte);
-      begin
-        list.concat(tai_section.create(Asectype,Aname,Aalign));
-        list.concat(cai_align.create(Aalign));
-      end;
-
-
-    procedure section_symbol_start(list:TAsmList;const Aname:string;Asymtyp:Tasmsymtype;
-                                   Aglobal:boolean;Asectype:TAsmSectiontype;Aalign:byte);
-      begin
-        maybe_new_object_file(list);
-        list.concat(tai_section.create(Asectype,Aname,Aalign));
-        list.concat(cai_align.create(Aalign));
-        if Aglobal or
-           maybe_smartlink_symbol then
-          list.concat(tai_symbol.createname_global(Aname,Asymtyp,0))
-        else
-          list.concat(tai_symbol.createname(Aname,Asymtyp,0));
-      end;
-
-
-    procedure section_symbol_end(list:TAsmList;const Aname:string);
-      begin
-        list.concat(tai_symbol_end.createname(Aname));
       end;
 
 
@@ -2460,210 +2370,6 @@ implementation
         ppufile.putbyte(aligntype);
         ppufile.putbyte(fillop);
         ppufile.putbyte(byte(use_op));
-      end;
-
-
-{*****************************************************************************
-                                 TAsmList
-*****************************************************************************}
-
-    constructor TAsmList.create;
-      begin
-        inherited create;
-        { make sure the optimizer won't remove the first tai of this list}
-        insert(tai_marker.create(mark_BlockStart));
-      end;
-
-
-    function TAsmList.empty : boolean;
-      begin
-        { there is always a mark_BlockStart available,
-          see TAsmList.create }
-        result:=(count<=1);
-      end;
-
-
-    function TAsmList.getlasttaifilepos : pfileposinfo;
-      var
-       hp : tlinkedlistitem;
-      begin
-         getlasttaifilepos := nil;
-         if assigned(last) then
-           begin
-              { find the last file information record }
-              if not (tai(last).typ in SkipLineInfo) then
-                getlasttaifilepos:=@tailineinfo(last).fileinfo
-              else
-               { go through list backwards to find the first entry
-                 with line information
-               }
-               begin
-                 hp:=tai(last);
-                 while assigned(hp) and (tai(hp).typ in SkipLineInfo) do
-                    hp:=hp.Previous;
-                 { found entry }
-                 if assigned(hp) then
-                   getlasttaifilepos:=@tailineinfo(hp).fileinfo
-               end;
-           end;
-      end;
-
-
-{****************************************************************************
-                                TAsmData
-****************************************************************************}
-
-    constructor TAsmData.create(const n:string);
-      var
-        alt : TAsmLabelType;
-        hal : TAsmListType;
-      begin
-        inherited create;
-        realname:=n;
-        name:=upper(n);
-        { symbols }
-        FAsmSymbolDict:=TDictionary.create;
-        FAsmSymbolDict.usehash;
-        FAltSymbolList:=TFPObjectList.Create(false);
-        { labels }
-        FNextAltNr:=1;
-        for alt:=low(TAsmLabelType) to high(TAsmLabelType) do
-          FNextLabelNr[alt]:=1;
-        { AsmLists }
-        CurrAsmList:=TAsmList.create;
-        for hal:=low(TAsmListType) to high(TAsmListType) do
-          AsmLists[hal]:=TAsmList.create;
-        { PIC data }
-        if (target_info.system in [system_powerpc_darwin,system_i386_darwin]) then
-          AsmLists[al_picdata].concat(tai_directive.create(asd_non_lazy_symbol_pointer,''));
-      end;
-
-
-    destructor TAsmData.destroy;
-      var
-{$ifdef MEMDEBUG}
-        d : tmemdebug;
-{$endif}
-        hal : TAsmListType;
-      begin
-{$ifdef MEMDEBUG}
-         d:=tmemdebug.create('AsmSymbols - '+name);
-{$endif}
-        FAltSymbolList.free;
-        FAsmSymbolDict.free;
-{$ifdef MEMDEBUG}
-         d.free;
-{$endif}
-{$ifdef MEMDEBUG}
-         d:=tmemdebug.create('AsmLists - '+name);
-{$endif}
-         for hal:=low(TAsmListType) to high(TAsmListType) do
-           AsmLists[hal].free;
-{$ifdef MEMDEBUG}
-         d.free;
-{$endif}
-      end;
-
-
-    function TAsmData.newasmsymbol(const s : string;_bind:TAsmSymBind;_typ:Tasmsymtype) : tasmsymbol;
-      var
-        hp : tasmsymbol;
-      begin
-        hp:=tasmsymbol(FAsmSymbolDict.search(s));
-        if assigned(hp) then
-         begin
-           {$IFDEF EXTDEBUG}
-           if (_typ <> AT_NONE) and
-              (hp.typ <> _typ) and
-              not(cs_compilesystem in aktmoduleswitches) and
-              (target_info.system <> system_powerpc_darwin) then
-             begin
-               //Writeln('Error symbol '+hp.name+' type is ',Ord(_typ),', should be ',Ord(hp.typ));
-               InternalError(2004031501);
-             end;
-           {$ENDIF}
-           if (_bind<>AB_EXTERNAL) then
-             hp.bind:=_bind
-         end
-        else
-         begin
-           { Not found, insert it. }
-           hp:=tasmsymbol.create(s,_bind,_typ);
-           FAsmSymbolDict.insert(hp);
-         end;
-        newasmsymbol:=hp;
-      end;
-
-
-    function TAsmData.getasmsymbol(const s : string) : tasmsymbol;
-      begin
-        getasmsymbol:=tasmsymbol(FAsmSymbolDict.search(s));
-      end;
-
-
-    procedure TAsmData.GenerateAltSymbol(p:tasmsymbol);
-      begin
-        if not assigned(p.altsymbol) then
-         begin
-           p.altsymbol:=tasmsymbol.create(p.name+'_'+tostr(FNextAltNr),p.bind,p.typ);
-           FAsmSymbolDict.insert(p.altsymbol);
-           FAltSymbolList.Add(p);
-         end;
-      end;
-
-
-    procedure TAsmData.ResetAltSymbols;
-      var
-        i  : longint;
-      begin
-        for i:=0 to FAltSymbolList.Count-1 do
-          tasmsymbol(FAltSymbolList[i]).altsymbol:=nil;
-        FAltSymbolList.Clear;
-      end;
-
-
-    function  TAsmData.newasmlabel(nr:longint;alt:tasmlabeltype;is_global:boolean) : tasmlabel;
-      var
-        hp : tasmlabel;
-      begin
-        if is_global then
-         hp:=tasmlabel.createglobal(name,nr,alt)
-       else
-         hp:=tasmlabel.createlocal(nr,alt);
-        FAsmSymbolDict.insert(hp);
-        result:=hp;
-      end;
-
-
-    procedure TAsmData.getlabel(var l : tasmlabel;alt:tasmlabeltype);
-      begin
-        l:=tasmlabel.createlocal(FNextLabelNr[alt],alt);
-        inc(FNextLabelNr[alt]);
-        FAsmSymbolDict.insert(l);
-      end;
-
-
-    procedure TAsmData.getjumplabel(var l : tasmlabel);
-      begin
-        l:=tasmlabel.createlocal(FNextLabelNr[alt_jump],alt_jump);
-        inc(FNextLabelNr[alt_jump]);
-        FAsmSymbolDict.insert(l);
-      end;
-
-
-    procedure TAsmData.getdatalabel(var l : tasmlabel);
-      begin
-        l:=tasmlabel.createglobal(name,FNextLabelNr[alt_data],alt_data);
-        inc(FNextLabelNr[alt_data]);
-        FAsmSymbolDict.insert(l);
-      end;
-
-
-    procedure TAsmData.getaddrlabel(var l : tasmlabel);
-      begin
-        l:=tasmlabel.createlocal(FNextLabelNr[alt_addr],alt_addr);
-        inc(FNextLabelNr[alt_addr]);
-        FAsmSymbolDict.insert(l);
       end;
 
 

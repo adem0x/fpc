@@ -26,7 +26,7 @@ unit rropt386;
 
 interface
 
-uses aasmbase,aasmtai,aasmcpu;
+uses aasmbase,aasmtai,aasmdata,aasmcpu;
 
 procedure doRenaming(asml: TAsmList; first, last: tai);
 

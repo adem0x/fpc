@@ -367,7 +367,7 @@ implementation
        { tree }
        node,
        { aasm }
-       aasmtai,
+       aasmtai,aasmdata,
        { codegen }
        paramgr,
        procinfo

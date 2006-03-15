@@ -38,7 +38,7 @@ interface
       strings,
       dos,
 {$ENDIF USE_SYSUTILS}
-      systems,globtype,globals,aasmbase,aasmtai,ogbase;
+      systems,globtype,globals,aasmbase,aasmtai,aasmdata,ogbase;
 
     const
        { maximum of aasmoutput lists there will be }

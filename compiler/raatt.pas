@@ -31,7 +31,7 @@ unit raatt;
       { global }
       globtype,
       { aasm }
-      cpubase,cpuinfo,aasmbase,aasmtai,aasmcpu,
+      cpubase,cpuinfo,aasmbase,aasmtai,aasmdata,aasmcpu,
       { assembler reader }
       rabase,
       rasm,

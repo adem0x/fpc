@@ -26,7 +26,7 @@ unit regvars;
 interface
 
     uses
-       aasmbase,aasmtai,aasmcpu,
+       aasmbase,aasmtai,aasmdata,aasmcpu,
        node,
        symsym,
        cpubase, cgbase, tgobj;

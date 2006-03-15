@@ -25,7 +25,7 @@ unit popt386;
 
 interface
 
-uses Aasmbase,aasmtai,aasmcpu,verbose;
+uses Aasmbase,aasmtai,aasmdata,aasmcpu,verbose;
 
 procedure PrePeepHoleOpts(asml: TAsmList; BlockStart, BlockEnd: tai);
 procedure PeepHoleOptPass1(asml: TAsmList; BlockStart, BlockEnd: tai);

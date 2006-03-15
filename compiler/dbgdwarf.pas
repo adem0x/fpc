@@ -38,7 +38,7 @@ interface
 
     uses
       cclasses,
-      aasmbase,aasmtai,
+      aasmbase,aasmtai,aasmdata,
       symbase,symtype,symdef,
       DbgBase;
 

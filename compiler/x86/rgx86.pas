@@ -30,7 +30,7 @@ unit rgx86;
     uses
       cclasses,globtype,
       cpubase,cpuinfo,cgbase,cgutils,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       rgobj;
 
     type

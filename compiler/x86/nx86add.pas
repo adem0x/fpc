@@ -64,7 +64,7 @@ unit nx86add;
       globtype,globals,
       verbose,cutils,
       cpuinfo,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       symconst,symdef,
       cgobj,cgx86,cga,cgutils,
       paramgr,tgobj,ncgutil,

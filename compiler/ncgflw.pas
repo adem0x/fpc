@@ -92,7 +92,7 @@ implementation
 
     uses
       verbose,globals,systems,globtype,
-      symconst,symdef,symsym,aasmtai,aasmcpu,defutil,
+      symconst,symdef,symsym,aasmtai,aasmdata,aasmcpu,defutil,
       procinfo,cgbase,pass_2,parabase,
       cpubase,cpuinfo,
       nld,ncon,

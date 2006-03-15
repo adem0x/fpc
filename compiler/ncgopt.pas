@@ -40,7 +40,7 @@ uses
   globtype,globals,
   pass_1,defutil,htypechk,
   symdef,paramgr,
-  aasmbase,aasmtai,
+  aasmbase,aasmtai,aasmdata,
   ncnv, ncon, pass_2,
   cgbase, cpubase,
   tgobj, cgobj, cgutils,ncgutil;

@@ -27,7 +27,7 @@ Interface
 
 Uses
   cutils,cclasses,
-  globtype,aasmbase,aasmtai,cpubase,cpuinfo,cgbase,cgutils,
+  globtype,aasmbase,aasmtai,aasmdata,cpubase,cpuinfo,cgbase,cgutils,
   symconst,symbase,symtype,symdef,symsym;
 
 Const

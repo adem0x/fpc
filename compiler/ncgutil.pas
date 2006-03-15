@@ -29,7 +29,7 @@ interface
       node,cpuinfo,
       globtype,
       cpubase,cgbase,parabase,cgutils,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       symconst,symbase,symdef,symsym,symtype,symtable
 {$ifndef cpu64bit}
       ,cg64f32
@@ -157,7 +157,7 @@ implementation
     globals,systems,verbose,
     ppu,defutil,
     procinfo,paramgr,fmodule,
-    regvars,dwarf,dbgbase,
+    regvars,dbgbase,
     pass_1,pass_2,
     nbas,ncon,nld,nutils,
     tgobj,cgobj
@@ -1815,7 +1815,7 @@ implementation
         lotemp : longint;
       begin
         { generate call frame marker for dwarf call frame info }
-        dwarfcfi.start_frame(list);
+        current_asmdata.asmcfi.start_frame(list);
 
         { All temps are know, write offsets used for information }
         if (cs_asm_source in aktglobalswitches) then
@@ -1862,7 +1862,7 @@ implementation
           location_free(list,current_procinfo.procdef.funcretloc[calleeside]);
 
         { end of frame marker for call frame info }
-        dwarfcfi.end_frame(list);
+        current_asmdata.asmcfi.end_frame(list);
       end;
 
 

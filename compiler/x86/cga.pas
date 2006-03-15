@@ -29,7 +29,7 @@ interface
     uses
        globtype,
        cpuinfo,cpubase,cgbase,cgutils,
-       symconst,symtype,symdef,aasmbase,aasmtai,aasmcpu;
+       symconst,symtype,symdef,aasmbase,aasmtai,aasmdata,aasmcpu;
 
     procedure emit_none(i : tasmop;s : topsize);
 

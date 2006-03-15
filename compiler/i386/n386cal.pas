@@ -45,7 +45,7 @@ implementation
       cutils,verbose,globals,
       cgbase,cgutils,
       cpubase,paramgr,
-      aasmtai,aasmcpu,
+      aasmtai,aasmdata,aasmcpu,
       ncal,nbas,nmem,nld,ncnv,
       cga,cgobj,cpuinfo;
 

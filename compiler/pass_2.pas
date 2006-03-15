@@ -49,7 +49,7 @@ implementation
      globtype,systems,verbose,
      globals,
      paramgr,
-     aasmtai,
+     aasmtai,aasmdata,
      cgbase,
      nflw,cgobj;
 

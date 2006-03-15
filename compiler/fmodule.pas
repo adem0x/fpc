@@ -44,7 +44,7 @@ interface
     uses
        cutils,cclasses,
        globals,finput,
-       symbase,symsym,aasmbase,aasmtai;
+       symbase,symsym,aasmbase,aasmtai,aasmdata;
 
 
     type

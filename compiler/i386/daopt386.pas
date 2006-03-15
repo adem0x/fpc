@@ -29,7 +29,7 @@ interface
 
 uses
   globtype,
-  cclasses,aasmbase,aasmtai,aasmcpu,cgbase,cgutils,
+  cclasses,aasmbase,aasmtai,aasmdata,aasmcpu,cgbase,cgutils,
   cpubase,optbase;
 
 {******************************* Constants *******************************}

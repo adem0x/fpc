@@ -29,7 +29,7 @@ unit cgcpu;
 interface
 
 uses
-   cgbase,cgobj,aasmbase,aasmtai,aasmcpu,cginfo,cpubase,cpuinfo;
+   cgbase,cgobj,aasmbase,aasmtai,aasmdata,aasmcpu,cginfo,cpubase,cpuinfo;
 
 type
 pcgalpha = ^tcgalpha;

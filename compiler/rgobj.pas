@@ -31,7 +31,7 @@ unit rgobj;
 
     uses
       cutils, cpubase,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       cclasses,globtype,cgbase,cgutils,
       cpuinfo
       ;

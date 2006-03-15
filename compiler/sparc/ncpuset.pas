@@ -45,7 +45,7 @@ unit ncpuset;
       globals,
       systems,
       cpubase,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       cgbase,cgutils,cgobj,
       procinfo;
 

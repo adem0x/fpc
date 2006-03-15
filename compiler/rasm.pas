@@ -28,7 +28,7 @@ unit rasm;
     uses
       cclasses,
       rabase,
-      aasmtai,
+      aasmtai,aasmdata,
       systems,
       cpubase,
       cgbase;

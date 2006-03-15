@@ -30,7 +30,7 @@ interface
       systems,
       symconst,symbase,symdef,symtype,symsym,symtable,
       fmodule,
-      aasmtai;
+      aasmtai,aasmdata;
 
     type
       TDebugInfo=class

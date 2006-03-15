@@ -27,7 +27,7 @@ interface
 
 uses
   cclasses,globtype,globals,verbose,
-  aasmbase,aasmtai,
+  aasmbase,aasmtai,aasmdata,
   ogbase,
   symtype,
   cpubase,cpuinfo,cgbase,cgutils;

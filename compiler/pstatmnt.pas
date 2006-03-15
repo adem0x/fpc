@@ -44,7 +44,7 @@ implementation
        globtype,globals,verbose,
        systems,
        { aasm }
-       cpubase,aasmbase,aasmtai,
+       cpubase,aasmbase,aasmtai,aasmdata,
        { symtable }
        symconst,symbase,symtype,symdef,symsym,symtable,defutil,defcmp,
        paramgr,symutil,

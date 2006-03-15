@@ -26,7 +26,7 @@ unit rgcpu;
   interface
 
     uses
-      aasmbase,aasmcpu,aasmtai,
+      aasmbase,aasmcpu,aasmtai,aasmdata,
       cgbase,cgutils,
       cpubase,
       rgobj;

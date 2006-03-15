@@ -28,7 +28,7 @@ unit cgcpu;
     uses
        globtype,
        cgbase,cgobj,cg64f32,cgx86,
-       aasmbase,aasmtai,aasmcpu,
+       aasmbase,aasmtai,aasmdata,aasmcpu,
        cpubase,parabase,cgutils,
        symconst,symdef
        ;

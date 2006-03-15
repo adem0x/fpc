@@ -44,7 +44,7 @@ implementation
       systems,
       verbose,globals,
       symconst,symdef,defutil,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       cgbase,pass_2,
       ncon,
       cpubase,cpuinfo,procinfo,

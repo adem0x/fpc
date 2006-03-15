@@ -50,7 +50,7 @@ implementation
 
 uses
   cutils, globals, verbose,
-  aasmtai, aasmcpu,
+  aasmtai,aasmdata, aasmcpu,
   symconst, symdef,
   defutil,
   cgbase, pass_2,

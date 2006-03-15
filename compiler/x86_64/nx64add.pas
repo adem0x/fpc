@@ -37,7 +37,7 @@ interface
 
     uses
       globtype,globals,
-      aasmbase,aasmtai,
+      aasmbase,aasmtai,aasmdata,
       cgbase,cgutils,cga,cgobj,
       tgobj;
 

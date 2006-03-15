@@ -51,7 +51,7 @@ interface
       systems,
       cutils,verbose,globals,
       symconst,symdef,
-      aasmbase,aasmtai,defutil,
+      aasmbase,aasmtai,aasmdata,defutil,
       cgbase,pass_1,pass_2,
       ncon,
       cpubase,procinfo,

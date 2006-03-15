@@ -36,12 +36,12 @@ implementation
        cutils,cclasses,comphook,
        globals,verbose,fmodule,finput,fppu,
        symconst,symbase,symtype,symdef,symsym,symtable,
-       aasmtai,aasmcpu,aasmbase,
+       aasmtai,aasmdata,aasmcpu,aasmbase,
        cgbase,cgobj,
        nbas,ncgutil,
        link,assemble,import,export,gendef,ppu,comprsrc,dbgbase,
        cresstr,procinfo,
-       dwarf,pexports,
+       pexports,
        scanner,pbase,pexpr,psystem,psub,pdecsub;
 
 
@@ -144,7 +144,7 @@ implementation
            (af_supports_dwarf in target_asm.flags) then
           begin
             current_asmdata.asmlists[al_dwarf]:=TAsmList.create;
-            dwarfcfi.generate_code(current_asmdata.asmlists[al_dwarf]);
+            current_asmdata.asmcfi.generate_code(current_asmdata.asmlists[al_dwarf]);
           end;
       end;
 

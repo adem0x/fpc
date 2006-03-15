@@ -80,7 +80,7 @@ implementation
       systems,
       cutils,verbose,globals,
       symconst,symdef,symsym,defutil,paramgr,
-      aasmbase,aasmtai,
+      aasmbase,aasmtai,aasmdata,
       procinfo,pass_2,parabase,
       pass_1,nld,ncon,nadd,nutils,
       cgutils,cgobj,

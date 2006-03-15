@@ -78,7 +78,7 @@ implementation
       cutils,verbose,globals,
       symconst,symtable,defutil,paramgr,
       cgbase,pass_2,
-      aasmbase,aasmtai,
+      aasmbase,aasmtai,aasmdata,
       nbas,nmem,nld,ncnv,nutils,
 {$ifdef x86}
       cga,cgx86,

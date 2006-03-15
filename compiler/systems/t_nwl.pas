@@ -101,7 +101,7 @@ implementation
     cutils,
     verbose,systems,globtype,globals,
     symconst,script,
-    fmodule,aasmbase,aasmtai,aasmcpu,cpubase,symsym,symdef,
+    fmodule,aasmbase,aasmtai,aasmdata,aasmcpu,cpubase,symsym,symdef,
     import,export,link,i_nwl
     {$ifdef netware} ,dos {$endif}
     ;

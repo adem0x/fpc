@@ -68,7 +68,7 @@ interface
     uses
       globtype,globals,systems,
       cutils,verbose,
-      aasmbase,aasmtai,aasmcpu,symsym,symconst,
+      aasmbase,aasmtai,aasmdata,aasmcpu,symsym,symconst,
       defutil,
       nflw,pass_2,
       cgbase,cgobj,

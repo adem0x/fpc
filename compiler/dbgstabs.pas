@@ -29,7 +29,7 @@ interface
       cclasses,
       dbgbase,
       symtype,symdef,symsym,symtable,symbase,
-      aasmtai;
+      aasmtai,aasmdata;
 
     type
       TDebugInfoStabs=class(TDebugInfo)

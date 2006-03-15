@@ -27,7 +27,7 @@ interface
 
     uses
        globtype,globals,
-       node,nset,cpubase,cgbase,cgobj,aasmbase,aasmtai;
+       node,nset,cpubase,cgbase,cgobj,aasmbase,aasmtai,aasmdata;
 
     type
        tcgsetelementnode = class(tsetelementnode)

@@ -59,7 +59,7 @@ implementation
       globtype,systems,
       cutils,verbose,globals,fmodule,
       symconst,symdef,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       cgbase,cgutils,
       pass_1,pass_2,
       cpubase,paramgr,

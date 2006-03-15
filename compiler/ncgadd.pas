@@ -71,7 +71,7 @@ interface
       globtype,systems,
       cutils,verbose,globals,
       symconst,symdef,paramgr,
-      aasmbase,aasmtai,defutil,
+      aasmbase,aasmtai,aasmdata,defutil,
       cgbase,procinfo,pass_2,
       ncon,nset,ncgutil,cgobj,cgutils
       ;

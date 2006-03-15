@@ -27,7 +27,7 @@ Unit aopt386;
 Interface
 
 Uses
-  aasmbase,aasmtai,aasmcpu;
+  aasmbase,aasmtai,aasmdata,aasmcpu;
 
 Procedure Optimize(AsmL: TAsmList);
 

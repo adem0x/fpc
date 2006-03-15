@@ -47,7 +47,7 @@ implementation
       systems,
       cutils,verbose,
       symconst,symdef,
-      aasmtai,aasmcpu,
+      aasmtai,aasmdata,aasmcpu,
       cgbase,pass_2,
       cpubase,paramgr,
       nbas,ncon,ncal,ncnv,nld,

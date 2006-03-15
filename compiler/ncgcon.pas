@@ -64,7 +64,7 @@ implementation
     uses
       globtype,widestr,systems,
       verbose,globals,
-      symconst,symdef,aasmbase,aasmtai,aasmcpu,defutil,
+      symconst,symdef,aasmbase,aasmtai,aasmdata,aasmcpu,defutil,
       cpuinfo,cpubase,
       cgbase,cgobj,cgutils,
       ncgutil

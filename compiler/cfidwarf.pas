@@ -19,7 +19,7 @@
 
  ****************************************************************************
 }
-unit dwarf;
+unit cfidwarf;
 
 {$i fpcdefs.inc}
 
@@ -29,7 +29,7 @@ interface
       cclasses,
       globtype,
       cgbase,cpubase,
-      aasmbase,aasmtai;
+      aasmbase,aasmtai,aasmdata;
 
     const
       maxdwarfops = 2;
@@ -51,49 +51,41 @@ interface
         op   : byte;
         ops  : byte;
         oper : array[0..maxdwarfops-1] of tdwarfoper;
-        constructor create(aop:longint);
-        constructor create_reg(aop:longint;enc1:tdwarfoperenc;reg:tregister);
-        constructor create_const(aop:longint;enc1:tdwarfoperenc;val:int64);
-        constructor create_reloffset(aop:longint;enc1:tdwarfoperenc;beginlab,endlab:tasmsymbol);
-        constructor create_reg_const(aop:longint;enc1:tdwarfoperenc;reg:tregister;enc2:tdwarfoperenc;val:longint);
+        constructor create(aop:byte);
+        constructor create_reg(aop:byte;enc1:tdwarfoperenc;reg:tregister);
+        constructor create_const(aop:byte;enc1:tdwarfoperenc;val:int64);
+        constructor create_reloffset(aop:byte;enc1:tdwarfoperenc;beginlab,endlab:tasmsymbol);
+        constructor create_reg_const(aop:byte;enc1:tdwarfoperenc;reg:tregister;enc2:tdwarfoperenc;val:longint);
         procedure generate_code(list:TAsmList);
       end;
 
-      tdwarf=class
+      TDwarfAsmCFI=class(TAsmCFI)
       private
-        Fal_dwarf : TLinkedList;
-      public
-        constructor create;
-        destructor destroy;override;
-        property al_dwarf:TlinkedList read Fal_dwarf;
-      end;
-
-      tdwarfcfi=class(tdwarf)
-      private
+        FDwarfList : TLinkedList;
         FFrameStartLabel,
         FFrameEndLabel,
         FLastloclabel : tasmlabel;
         procedure cfa_advance_loc(list:TAsmList);
+        procedure generate_initial_instructions(list:TAsmList);virtual;
       protected
         code_alignment_factor,
         data_alignment_factor : shortint;
+        property DwarfList:TlinkedList read FDwarfList;
       public
-        constructor create;
-        procedure generate_code(list:TAsmList);
-        procedure generate_initial_instructions(list:TAsmList);virtual;
+        constructor create;override;
+        destructor destroy;override;
+        procedure generate_code(list:TAsmList);override;
         { operations }
-        procedure start_frame(list:TAsmList);
-        procedure end_frame(list:TAsmList);
-        procedure cfa_offset(list:TAsmList;reg:tregister;ofs:longint);
-        procedure cfa_restore(list:TAsmList;reg:tregister);
-        procedure cfa_def_cfa_register(list:TAsmList;reg:tregister);
-        procedure cfa_def_cfa_offset(list:TAsmList;ofs:longint);
+        procedure start_frame(list:TAsmList);override;
+        procedure end_frame(list:TAsmList);override;
+        procedure cfa_offset(list:TAsmList;reg:tregister;ofs:longint);override;
+        procedure cfa_restore(list:TAsmList;reg:tregister);override;
+        procedure cfa_def_cfa_register(list:TAsmList;reg:tregister);override;
+        procedure cfa_def_cfa_offset(list:TAsmList;ofs:longint);override;
       end;
 
-    var
-      dwarfcfi : tdwarfcfi;
 
-    function dwarf_reg(r:tregister):longint;
+    function dwarf_reg(r:tregister):byte;
 
 
 implementation
@@ -141,25 +133,9 @@ implementation
                                   Helpers
 ****************************************************************************}
 
-    function dwarf_reg(r:tregister):longint;
+    function dwarf_reg(r:tregister):byte;
       begin
         result:=regdwarf_table[findreg_by_number(r)];
-      end;
-
-
-{****************************************************************************
-                                  TDWARF
-****************************************************************************}
-
-    constructor tdwarf.create;
-      begin
-        Fal_dwarf:=TLinkedList.Create;
-      end;
-
-
-    destructor tdwarf.destroy;
-      begin
-        Fal_dwarf.Free;
       end;
 
 
@@ -167,7 +143,7 @@ implementation
                                 TDWARFITEM
 ****************************************************************************}
 
-    constructor tdwarfitem.create(aop:longint);
+    constructor tdwarfitem.create(aop:byte);
       begin
         inherited create;
         op:=aop;
@@ -175,7 +151,7 @@ implementation
       end;
 
 
-    constructor tdwarfitem.create_reg(aop:longint;enc1:tdwarfoperenc;reg:tregister);
+    constructor tdwarfitem.create_reg(aop:byte;enc1:tdwarfoperenc;reg:tregister);
       begin
         inherited create;
         op:=aop;
@@ -186,7 +162,7 @@ implementation
       end;
 
 
-    constructor tdwarfitem.create_const(aop:longint;enc1:tdwarfoperenc;val:int64);
+    constructor tdwarfitem.create_const(aop:byte;enc1:tdwarfoperenc;val:int64);
       begin
         inherited create;
         op:=aop;
@@ -197,7 +173,7 @@ implementation
       end;
 
 
-    constructor tdwarfitem.create_reloffset(aop:longint;enc1:tdwarfoperenc;beginlab,endlab:tasmsymbol);
+    constructor tdwarfitem.create_reloffset(aop:byte;enc1:tdwarfoperenc;beginlab,endlab:tasmsymbol);
       begin
         inherited create;
         op:=aop;
@@ -210,7 +186,7 @@ implementation
       end;
 
 
-    constructor tdwarfitem.create_reg_const(aop:longint;enc1:tdwarfoperenc;reg:tregister;enc2:tdwarfoperenc;val:longint);
+    constructor tdwarfitem.create_reg_const(aop:byte;enc1:tdwarfoperenc;reg:tregister;enc2:tdwarfoperenc;val:longint);
       begin
         inherited create;
         op:=aop;
@@ -257,10 +233,10 @@ implementation
 
 
 {****************************************************************************
-                                 TDWARFCFI
+                                 TDwarfAsmCFI
 ****************************************************************************}
 
-    constructor tdwarfcfi.create;
+    constructor TDwarfAsmCFI.create;
       begin
         inherited create;
         FFrameStartLabel:=nil;
@@ -268,11 +244,19 @@ implementation
         FLastLocLabel:=nil;
         code_alignment_factor:=1;
         data_alignment_factor:=-4;
+        FDwarfList:=TLinkedList.Create;
       end;
+
+
+    destructor TDwarfAsmCFI.destroy;
+      begin
+        FDwarfList.Free;
+      end;
+
 
 {$ifdef i386}
     { if more cpu dependend stuff is implemented, this needs more refactoring }
-    procedure tdwarfcfi.generate_initial_instructions(list:TAsmList);
+    procedure TDwarfAsmCFI.generate_initial_instructions(list:TAsmList);
       begin
         list.concat(tai_const.create_8bit(DW_CFA_def_cfa));
         list.concat(tai_const.create_uleb128bit(dwarf_reg(NR_STACK_POINTER_REG)));
@@ -283,7 +267,7 @@ implementation
       end;
 {$else i386}
     { if more cpu dependend stuff is implemented, this needs more refactoring }
-    procedure tdwarfcfi.generate_initial_instructions(list:TAsmList);
+    procedure TDwarfAsmCFI.generate_initial_instructions(list:TAsmList);
       begin
         list.concat(tai_const.create_8bit(DW_CFA_def_cfa));
         list.concat(tai_const.create_uleb128bit(dwarf_reg(NR_STACK_POINTER_REG)));
@@ -294,7 +278,7 @@ implementation
       end;
 {$endif i386}
 
-    procedure tdwarfcfi.generate_code(list:TAsmList);
+    procedure TDwarfAsmCFI.generate_code(list:TAsmList);
       var
         hp : tdwarfitem;
         cielabel,
@@ -336,7 +320,7 @@ implementation
         lenstartlabel:=nil;
         lenendlabel:=nil;
 
-        hp:=TDwarfItem(al_dwarf.first);
+        hp:=TDwarfItem(DwarfList.first);
         while assigned(hp) do
           begin
             case hp.op of
@@ -379,12 +363,12 @@ implementation
         { Check for open frames }
         if assigned(lenstartlabel) then
           internalerror(2004041210);
-        { al_dwarf is processed, remove items }
-        al_dwarf.Clear;
+        { DwarfList is processed, remove items }
+        DwarfList.Clear;
       end;
 
 
-    procedure tdwarfcfi.start_frame(list:TAsmList);
+    procedure TDwarfAsmCFI.start_frame(list:TAsmList);
       begin
         if assigned(FFrameStartLabel) then
           internalerror(200404129);
@@ -392,15 +376,15 @@ implementation
         current_asmdata.getlabel(FFrameEndLabel,alt_dbgframe);
         FLastloclabel:=FFrameStartLabel;
         list.concat(tai_label.create(FFrameStartLabel));
-        al_dwarf.concat(tdwarfitem.create_reloffset(DW_CFA_start_frame,doe_32bit,FFrameStartLabel,FFrameEndLabel));
+        DwarfList.concat(tdwarfitem.create_reloffset(DW_CFA_start_frame,doe_32bit,FFrameStartLabel,FFrameEndLabel));
       end;
 
 
-    procedure tdwarfcfi.end_frame(list:TAsmList);
+    procedure TDwarfAsmCFI.end_frame(list:TAsmList);
       begin
         if not assigned(FFrameStartLabel) then
           internalerror(2004041213);
-        al_dwarf.concat(tdwarfitem.create(DW_CFA_end_frame));
+        DwarfList.concat(tdwarfitem.create(DW_CFA_end_frame));
         list.concat(tai_label.create(FFrameEndLabel));
         FFrameStartLabel:=nil;
         FFrameEndLabel:=nil;
@@ -408,7 +392,7 @@ implementation
       end;
 
 
-    procedure tdwarfcfi.cfa_advance_loc(list:TAsmList);
+    procedure TDwarfAsmCFI.cfa_advance_loc(list:TAsmList);
       var
         currloclabel : tasmlabel;
       begin
@@ -416,42 +400,41 @@ implementation
           internalerror(200404082);
         current_asmdata.getlabel(currloclabel,alt_dbgframe);
         list.concat(tai_label.create(currloclabel));
-        al_dwarf.concat(tdwarfitem.create_reloffset(DW_CFA_advance_loc4,doe_32bit,FLastloclabel,currloclabel));
+        DwarfList.concat(tdwarfitem.create_reloffset(DW_CFA_advance_loc4,doe_32bit,FLastloclabel,currloclabel));
         FLastloclabel:=currloclabel;
       end;
 
 
-    procedure tdwarfcfi.cfa_offset(list:TAsmList;reg:tregister;ofs:longint);
+    procedure TDwarfAsmCFI.cfa_offset(list:TAsmList;reg:tregister;ofs:longint);
       begin
         cfa_advance_loc(list);
 {$warning TODO check if ref is a temp}
         { offset must be positive }
-        al_dwarf.concat(tdwarfitem.create_reg_const(DW_CFA_offset_extended,doe_uleb,reg,doe_uleb,ofs div data_alignment_factor));
+        DwarfList.concat(tdwarfitem.create_reg_const(DW_CFA_offset_extended,doe_uleb,reg,doe_uleb,ofs div data_alignment_factor));
       end;
 
 
-    procedure tdwarfcfi.cfa_restore(list:TAsmList;reg:tregister);
+    procedure TDwarfAsmCFI.cfa_restore(list:TAsmList;reg:tregister);
       begin
         cfa_advance_loc(list);
-        al_dwarf.concat(tdwarfitem.create_reg(DW_CFA_restore_extended,doe_uleb,reg));
+        DwarfList.concat(tdwarfitem.create_reg(DW_CFA_restore_extended,doe_uleb,reg));
       end;
 
 
-    procedure tdwarfcfi.cfa_def_cfa_register(list:TAsmList;reg:tregister);
+    procedure TDwarfAsmCFI.cfa_def_cfa_register(list:TAsmList;reg:tregister);
       begin
         cfa_advance_loc(list);
-        al_dwarf.concat(tdwarfitem.create_reg(DW_CFA_def_cfa_register,doe_uleb,reg));
+        DwarfList.concat(tdwarfitem.create_reg(DW_CFA_def_cfa_register,doe_uleb,reg));
       end;
 
 
-    procedure tdwarfcfi.cfa_def_cfa_offset(list:TAsmList;ofs:longint);
+    procedure TDwarfAsmCFI.cfa_def_cfa_offset(list:TAsmList;ofs:longint);
       begin
         cfa_advance_loc(list);
-        al_dwarf.concat(tdwarfitem.create_const(DW_CFA_def_cfa_offset,doe_uleb,ofs));
+        DwarfList.concat(tdwarfitem.create_const(DW_CFA_def_cfa_offset,doe_uleb,ofs));
       end;
 
 
 begin
-{$warning TODO Maybe initialize per module}
-  dwarfcfi:=tdwarfcfi.create;
+  CAsmCFI:=TDwarfAsmCFI;
 end.

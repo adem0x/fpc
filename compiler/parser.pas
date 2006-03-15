@@ -42,7 +42,7 @@ implementation
       globtype,version,tokens,systems,globals,verbose,
       symbase,symtable,symsym,
       finput,fmodule,fppu,
-      aasmbase,aasmtai,
+      aasmbase,aasmtai,aasmdata,
       cgbase,
       script,gendef,
 {$ifdef BrowserCol}

@@ -42,7 +42,7 @@ interface
        globals,verbose,
        systems,
        { aasm }
-       aasmbase,aasmtai,aasmcpu,
+       aasmbase,aasmtai,aasmdata,aasmcpu,
        { symtable }
        symconst,symbase,symtype,symsym,symtable,defbase,
        { pass 1 }

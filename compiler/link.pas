@@ -118,7 +118,7 @@ uses
 {$ENDIF USE_SYSUTILS}
   cutils,
   script,globals,verbose,comphook,ppu,
-  aasmbase,aasmtai,aasmcpu,
+  aasmbase,aasmtai,aasmdata,aasmcpu,
   ogmap;
 
 type

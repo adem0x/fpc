@@ -63,7 +63,7 @@ implementation
     cutils,cclasses,
     verbose,systems,globtype,globals,
     symconst,script,
-    fmodule,aasmbase,aasmtai,aasmcpu,cpubase,i_beos;
+    fmodule,aasmbase,aasmtai,aasmdata,aasmcpu,cpubase,i_beos;
 
 {*****************************************************************************
                                TIMPORTLIBBEOS

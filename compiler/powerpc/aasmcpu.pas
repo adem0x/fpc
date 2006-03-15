@@ -27,7 +27,7 @@ interface
 
 uses
   globtype,verbose,
-  aasmbase,aasmtai,
+  aasmbase,aasmtai,aasmdata,
   cpubase,cgbase,cgutils;
 
     const

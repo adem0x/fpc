@@ -38,7 +38,7 @@ unit cgobj;
     uses
        cclasses,globtype,
        cpubase,cgbase,cgutils,parabase,
-       aasmbase,aasmtai,aasmcpu,
+       aasmbase,aasmtai,aasmdata,aasmcpu,
        symconst,symbase,symtype,symdef,symtable,rgobj
        ;
 

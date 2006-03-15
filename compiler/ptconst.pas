@@ -39,7 +39,7 @@ implementation
        globtype,systems,tokens,verbose,
        cutils,globals,widestr,scanner,
        symconst,symbase,symdef,symtable,
-       aasmbase,aasmtai,aasmcpu,defutil,defcmp,
+       aasmbase,aasmtai,aasmdata,aasmcpu,defutil,defcmp,
        { pass 1 }
        node,htypechk,procinfo,
        nmat,nadd,ncal,nmem,nset,ncnv,ninl,ncon,nld,nflw,

@@ -36,7 +36,7 @@ interface
        { node }
        node,
        { aasm }
-       aasmbase,aasmtai,
+       aasmbase,aasmtai,aasmdata,
        cpubase,cpuinfo,
        cgbase,cgutils,
        parabase

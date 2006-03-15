@@ -56,7 +56,7 @@ implementation
       globtype,systems,
       cutils,verbose,globals,fmodule,
       symconst,symdef,defutil,symsym,
-      aasmbase,aasmtai,aasmcpu,parabase,
+      aasmbase,aasmtai,aasmdata,aasmcpu,parabase,
       cgbase,pass_1,pass_2,
       cpuinfo,cpubase,paramgr,procinfo,
       nbas,ncon,ncal,ncnv,nld,

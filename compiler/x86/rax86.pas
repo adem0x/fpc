@@ -29,7 +29,7 @@ unit rax86;
 interface
 
 uses
-  aasmbase,aasmtai,aasmcpu,
+  aasmbase,aasmtai,aasmdata,aasmcpu,
   cpubase,rautils,cclasses;
 
 { Parser helpers }

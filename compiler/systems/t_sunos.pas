@@ -37,7 +37,7 @@ implementation
     cutils,cclasses,
     verbose,systems,globtype,globals,
     symconst,script,
-    fmodule,aasmbase,aasmtai,aasmcpu,cpubase,symsym,symdef,
+    fmodule,aasmbase,aasmtai,aasmdata,aasmcpu,cpubase,symsym,symdef,
     cgobj,
     import,export,link,i_sunos;
 

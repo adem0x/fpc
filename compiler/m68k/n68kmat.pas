@@ -52,7 +52,7 @@ implementation
     uses
       globtype,systems,
       cutils,verbose,globals,
-      symconst,symdef,aasmbase,aasmtai,aasmcpu,
+      symconst,symdef,aasmbase,aasmtai,aasmdata,aasmcpu,
       pass_1,pass_2,procinfo,
       ncon,
       cpuinfo,paramgr,defutil,parabase,

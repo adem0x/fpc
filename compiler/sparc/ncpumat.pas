@@ -49,7 +49,7 @@ implementation
       globtype,systems,
       cutils,verbose,globals,
       symconst,
-      aasmbase,aasmcpu,aasmtai,
+      aasmbase,aasmcpu,aasmtai,aasmdata,
       defutil,
       cgbase,cgobj,pass_2,procinfo,
       ncon,

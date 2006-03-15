@@ -39,7 +39,7 @@ interface
       verbose,
       globtype,globals,
       cpuinfo,
-      aasmbase,aasmtai,
+      aasmbase,aasmtai,aasmdata,
       symconst,symdef,
       defutil,
       cgbase,cgutils,

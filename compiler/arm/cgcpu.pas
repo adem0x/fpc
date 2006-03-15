@@ -30,7 +30,7 @@ unit cgcpu;
     uses
        globtype,symtype,symdef,
        cgbase,cgutils,cgobj,
-       aasmbase,aasmcpu,aasmtai,
+       aasmbase,aasmcpu,aasmtai,aasmdata,
        parabase,
        cpubase,cpuinfo,node,cg64f32,rgcpu;
 

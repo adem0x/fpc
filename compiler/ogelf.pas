@@ -31,7 +31,7 @@ interface
        { target }
        systems,
        { assembler }
-       cpuinfo,cpubase,aasmbase,aasmtai,assemble,
+       cpuinfo,cpubase,aasmbase,aasmtai,aasmdata,assemble,
        { output }
        ogbase,
        owbase;

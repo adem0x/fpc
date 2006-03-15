@@ -31,7 +31,7 @@ unit paramgr;
        cclasses,globtype,
        cpubase,cgbase,
        parabase,
-       aasmtai,
+       aasmtai,aasmdata,
        symconst,symtype,symsym,symdef;
 
     type

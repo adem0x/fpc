@@ -59,7 +59,7 @@ implementation
 
    uses
       verbose,systems,globals,globtype,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       symconst,symdef,
       cgbase,cga,procinfo,pass_2,
       ncon,ncal,ncnv,

@@ -30,7 +30,7 @@ interface
 
     uses
       cpubase,
-      aasmbase,aasmtai,aasmcpu,assemble,cgutils;
+      aasmbase,aasmtai,aasmdata,aasmcpu,assemble,cgutils;
 
     type
       Tx86IntelAssembler = class(TExternalAssembler)

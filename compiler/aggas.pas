@@ -36,7 +36,7 @@ interface
 {$ENDIF USE_SYSUTILS}
       cclasses,
       globtype,globals,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       assemble;
 
 

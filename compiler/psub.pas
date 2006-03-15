@@ -80,7 +80,7 @@ implementation
        globtype,tokens,verbose,comphook,
        systems,
        { aasm }
-       cpubase,aasmbase,aasmtai,
+       cpubase,aasmbase,aasmtai,aasmdata,
        { symtable }
        symconst,symbase,symsym,symtype,symtable,defutil,
        paramgr,

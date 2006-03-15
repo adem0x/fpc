@@ -66,7 +66,7 @@ implementation
       cutils,verbose,
       symconst,
       defutil,
-      aasmbase,aasmtai,aasmcpu,
+      aasmbase,aasmtai,aasmdata,aasmcpu,
       symdef,
       cgbase,pass_2,
       cpuinfo,cpubase,paramgr,

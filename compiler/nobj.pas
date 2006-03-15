@@ -30,7 +30,7 @@ interface
        cutils,cclasses,
        globtype,
        symdef,symsym,
-       aasmbase,aasmtai
+       aasmbase,aasmtai,aasmdata
        ;
 
     type

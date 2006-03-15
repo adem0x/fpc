@@ -27,7 +27,7 @@ interface
     uses
        dos,
        cutils,cclasses,
-       aasmbase,aasmtai,aasmcpu,fmodule,globtype,globals,systems,verbose,
+       aasmbase,aasmtai,aasmdata,aasmcpu,fmodule,globtype,globals,systems,verbose,
        symconst,symdef,symsym,
        script,gendef,
        cpubase,

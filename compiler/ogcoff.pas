@@ -218,7 +218,7 @@ implementation
 
     uses
        cutils,verbose,globals,
-       fmodule,aasmtai,
+       fmodule,aasmtai,aasmdata,
        ogmap;
 
     const

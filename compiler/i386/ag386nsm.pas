@@ -28,7 +28,7 @@ interface
 
     uses
       cpubase,
-      aasmbase,aasmtai,aasmcpu,assemble,cgutils;
+      aasmbase,aasmtai,aasmdata,aasmcpu,assemble,cgutils;
 
     type
       T386NasmAssembler = class(texternalassembler)
