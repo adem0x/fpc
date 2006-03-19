@@ -34,7 +34,7 @@ uses
    cclasses,
    cutils,globtype,globals,
    symconst,symtype,symdef,symsym,
-   verbose,fmodule,
+   verbose,fmodule,ppu,
    aasmbase,aasmtai,aasmdata,
    aasmcpu;
 
@@ -134,11 +134,17 @@ uses
         l : longint;
         R : TResourceStringItem;
       begin
+        { This is only smartlinkable using section smartlinking. Using objects there is
+          no garantuee that  }
+        current_asmdata.asmlists[al_resourcestrings].concat(Tai_cutobject.Create_begin);
+        new_section(current_asmdata.asmlists[al_resourcestrings],sec_data,'resstridx_'+current_module.localsymtable.name^+'_start',sizeof(aint));
+        current_asmdata.AsmLists[al_resourcestrings].concat(tai_symbol.createname_global(
+          make_mangledname('RESSTR',current_module.localsymtable,'START'),AT_DATA,0));
         R:=TResourceStringItem(List.First);
         while assigned(R) do
           begin
             maybe_new_object_file(current_asmdata.asmlists[al_const]);
-            new_section(current_asmdata.asmlists[al_const],sec_fpc_resstr_data,R.name,sizeof(aint));
+            new_section(current_asmdata.asmlists[al_const],sec_rodata,'resstrdata_'+R.name,sizeof(aint));
             { Write default value }
             if assigned(R.value) and (R.len<>0) then
               begin
@@ -158,7 +164,6 @@ uses
             { Append the name as a ansistring. }
             current_asmdata.getdatalabel(namelab);
             l:=length(R.name);
-            maybe_new_object_file(current_asmdata.asmlists[al_const]);
             current_asmdata.asmlists[al_const].concat(tai_align.create(const_align(sizeof(aint))));
             current_asmdata.asmlists[al_const].concat(tai_const.create_aint(-1));
             current_asmdata.asmlists[al_const].concat(tai_const.create_aint(l));
@@ -171,7 +176,6 @@ uses
 
             {
               Resourcestring index:
-
                   TResourceStringRecord = Packed Record
                      Name,
                      CurrentValue,
@@ -179,16 +183,24 @@ uses
                      HashValue    : LongWord;
                    end;
             }
-            new_section(current_asmdata.asmlists[al_resourcestrings],sec_fpc_resstr_index,r.name,sizeof(aint));
+            current_asmdata.asmlists[al_resourcestrings].concat(Tai_cutobject.Create);
+            new_section(current_asmdata.asmlists[al_resourcestrings],sec_data,'resstridx_'+r.name,sizeof(aint));
             resstrlab:=current_asmdata.newasmsymbol(make_mangledname('RESSTR',R.Sym.owner,R.Sym.name),AB_GLOBAL,AT_DATA);
             current_asmdata.asmlists[al_resourcestrings].concat(tai_symbol.Create_global(resstrlab,0));
             current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_sym(namelab));
             current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_sym(nil));
             current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_sym(valuelab));
             current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_32bit(longint(R.Hash)));
+{$ifdef cpu64bit}
+            current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_32bit(0));
+{$endif cpu64bit}
             current_asmdata.asmlists[al_resourcestrings].concat(tai_symbol_end.create(resstrlab));
             R:=TResourceStringItem(R.Next);
           end;
+        current_asmdata.asmlists[al_resourcestrings].concat(Tai_cutobject.Create_end);
+        new_section(current_asmdata.asmlists[al_resourcestrings],sec_data,'resstridx_'+current_module.localsymtable.name^+'_end',sizeof(aint));
+        current_asmdata.AsmLists[al_resourcestrings].concat(tai_symbol.createname_global(
+          make_mangledname('RESSTR',current_module.localsymtable,'END'),AT_DATA,0));
       end;
 
 
@@ -210,8 +222,6 @@ uses
         end;
 
       begin
-        If List.Empty then
-          exit;
         ResFileName:=ForceExtension(current_module.ppufilename^,'.rst');
         message1 (general_i_writingresourcefile,SplitFileName(ResFileName));
         Assign(F,ResFileName);
@@ -284,8 +294,6 @@ uses
         if assigned(current_module.globalsymtable) then
           current_module.globalsymtable.foreach(@ConstSym_Register,nil);
         current_module.localsymtable.foreach(@ConstSym_Register,nil);
-        if List.Empty then
-          exit;
       end;
 
 
@@ -295,8 +303,12 @@ uses
       begin
         resstrs:=Tresourcestrings.Create;
         resstrs.RegisterResourceStrings;
-        resstrs.CreateResourceStringData;
-        resstrs.WriteResourceFile;
+        if not resstrs.List.Empty then
+          begin
+            current_module.flags:=current_module.flags or uf_has_resourcestrings;
+            resstrs.CreateResourceStringData;
+            resstrs.WriteResourceFile;
+          end;
         resstrs.Free;
       end;
 

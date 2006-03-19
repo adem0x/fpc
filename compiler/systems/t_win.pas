@@ -1044,12 +1044,6 @@ begin
       Add('    *(SORT(.data$*))');
       Add('    __data_end__ = . ;');
       Add('    *(.data_cygwin_nocopy)');
-      { FPC Resourcestrings }
-      add('    *(.fpc_resstr_data*)');
-      add('    . = ALIGN(4);');
-      add('    PROVIDE (FPC_RESOURCESTRINGS = .);');
-      add('    *(.fpc_resstr_index*)');
-      add('    LONG (0); LONG (0); LONG (0); LONG (0);');
       Add('  }');
       Add('  .rdata BLOCK(__section_alignment__) :');
       Add('  {');
@@ -1185,6 +1179,8 @@ begin
     ImageBaseStr:='--image-base=0x'+DLLImageBase^;
   if (cs_link_strip in aktglobalswitches) then
     StripStr:='-s';
+  if (cs_link_map in aktglobalswitches) then
+    StripStr:='-Map '+maybequoted(ForceExtension(current_module.exefilename^,'.map'));
 
 { Write used files and libraries }
   WriteResponseFile(false);

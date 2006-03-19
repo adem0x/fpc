@@ -367,8 +367,6 @@ interface
           '.eh_frame',
           '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
           '.fpc',
-          '.fpc_resstr_data',
-          '.fpc_resstr_index',
           ''
         );
       begin

@@ -97,7 +97,7 @@ interface
          function writedata(data:TObjData):boolean;override;
        public
          constructor createcoff(AWriter:TObjectWriter;awin32:boolean);
-         destructor destroy;
+         destructor destroy;override;
        end;
 
        TDJCoffObjOutput = class(TCoffObjOutput)
@@ -431,8 +431,6 @@ implementation
           '.eh_frame',
           '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
           '.fpc',
-          '.fpc_resstr_data',
-          '.fpc_resstr_index',
           ''
         );
 
@@ -2340,11 +2338,6 @@ const win32stub : array[0..131] of byte=(
             Concat('EXESECTION .data');
             Concat('  SYMBOL __data_start__');
             Concat('  OBJSECTION .data*');
-            Concat('  OBJSECTION .fpc_resstr_data*');
-            Concat('  ALIGN 4');
-            Concat('  SYMBOL FPC_RESOURCESTRINGS');
-            Concat('  OBJSECTION .fpc_resstr_index*');
-            Concat('  ZEROS 16');
             Concat('  SYMBOL edata');
             Concat('  SYMBOL __data_end__');
             Concat('ENDEXESECTION');

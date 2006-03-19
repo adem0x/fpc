@@ -125,6 +125,7 @@ unit cgcpu;
       topcg2tasmop: Array[topcg] of tasmop =
       (
        A_NONE,
+       A_MOVE,
        A_ADD,
        A_AND,
        A_DIVU,
@@ -404,11 +405,18 @@ unit cgcpu;
        opcode : tasmop;
        r,r2 : Tregister;
       begin
-        { need to emit opcode? }
-        if optimize_op_const_reg(list, op, a, reg) then
-           exit;
+        optimize_op_const(op, a);
         opcode := topcg2tasmop[op];
         case op of
+          OP_NONE :
+            begin
+              { Opcode is optimized away }
+            end;
+          OP_MOVE :
+            begin
+              { Optimized, replaced with a simple load }
+              a_load_const_reg(list,size,a,reg);
+            end;
           OP_ADD :
               begin
                 if (a >= 1) and (a <= 8) then

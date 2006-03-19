@@ -675,8 +675,6 @@ implementation
           'eh_frame',
           'debug_frame','debug_info','debug_line','debug_abbrev',
           'fpc',
-          'fpc_resstr_data',
-          'fpc_resstr_index',
           'toc'
         );
       begin
@@ -712,9 +710,6 @@ implementation
           {debug_line} [oso_data,oso_noload,oso_debug],
           {debug_abbrev} [oso_data,oso_noload,oso_debug],
           {fpc} [oso_data,oso_load,oso_write,oso_keep],
-{$warning TODO Fix fpc_resstr_data be read-only}
-          {fpc_resstr_data} [oso_data,oso_load,oso_write],
-          {fpc_resstr_index} [oso_data,oso_load,oso_write],
           {toc} [oso_data,oso_load,oso_readonly]
         );
       begin

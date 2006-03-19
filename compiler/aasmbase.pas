@@ -71,9 +71,6 @@ interface
          sec_debug_abbrev,
          { ELF resources }
          sec_fpc,
-         { FPC Resourcestrings }
-         sec_fpc_resstr_data,
-         sec_fpc_resstr_index,
          { Table of contents section }
          sec_toc
        );

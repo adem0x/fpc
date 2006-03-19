@@ -87,7 +87,7 @@ implementation
         norelocatelab : tasmlabel;
         paraloc1 : tcgpara;
       begin
-         
+
          { we don't know the size of all arrays }
          newsize:=def_cgsize(resulttype.def);
          location_reset(location,LOC_REFERENCE,newsize);

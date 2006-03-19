@@ -534,12 +534,6 @@ begin
       add('  {');
       add('    *(.data .data.* .gnu.linkonce.d.*)');
       add('    KEEP (*(.gnu.linkonce.d.*personality*))');
-      { FPC Resourcestrings }
-      add('    *(.fpc_resstr_data*)');
-      add('    . = ALIGN(4);');
-      add('    PROVIDE (FPC_RESOURCESTRINGS = .);');
-      add('    *(.fpc_resstr_index*)');
-      add('    LONG (0); LONG (0); LONG (0); LONG (0);');
       add('  }');
       add('  _edata = .;');
       add('  PROVIDE (edata = .);');
@@ -601,6 +595,8 @@ begin
    StaticStr:='-static';
   if (cs_link_strip in aktglobalswitches) then
    StripStr:='-s';
+  if (cs_link_map in aktglobalswitches) then
+   StripStr:='-Map '+maybequoted(ForceExtension(current_module.exefilename^,'.map'));
   if use_smartlink_section then
    GCSectionsStr:='--gc-sections';
   If (cs_profile in aktmoduleswitches) or

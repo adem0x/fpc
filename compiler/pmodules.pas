@@ -278,6 +278,37 @@ implementation
     end;
 
 
+    Procedure InsertResourceTablesTable;
+      var
+        hp : tmodule;
+        ResourceStringTables : tasmlist;
+        count : longint;
+      begin
+        ResourceStringTables:=tasmlist.Create;
+        count:=0;
+        hp:=tmodule(loaded_units.first);
+        while assigned(hp) do
+          begin
+            If (hp.flags and uf_has_resourcestrings)=uf_has_resourcestrings then
+              begin
+                ResourceStringTables.concat(Tai_const.Createname(make_mangledname('RESSTR',hp.localsymtable,'START'),AT_DATA,0));
+                ResourceStringTables.concat(Tai_const.Createname(make_mangledname('RESSTR',hp.localsymtable,'END'),AT_DATA,0));
+                inc(count);
+              end;
+            hp:=tmodule(hp.next);
+          end;
+        { Insert TableCount at start }
+        ResourceStringTables.insert(Tai_const.Create_aint(count));
+        { Add to data segment }
+        maybe_new_object_file(current_asmdata.AsmLists[al_globals]);
+        new_section(current_asmdata.AsmLists[al_globals],sec_data,'FPC_RESOURCESTRINGTABLES',sizeof(aint));
+        current_asmdata.AsmLists[al_globals].concat(Tai_symbol.Createname_global('FPC_RESOURCESTRINGTABLES',AT_DATA,0));
+        current_asmdata.AsmLists[al_globals].concatlist(ResourceStringTables);
+        current_asmdata.AsmLists[al_globals].concat(Tai_symbol_end.Createname('FPC_RESOURCESTRINGTABLES'));
+        ResourceStringTables.free;
+      end;
+
+
     procedure InsertInitFinalTable;
       var
         hp : tused_unit;
@@ -1371,6 +1402,7 @@ implementation
          { insert Tables and StackLength }
          insertinitfinaltable;
          InsertThreadvarTablesTable;
+         InsertResourceTablesTable;
          insertmemorysizes;
 
          { Insert symbol to resource info }
