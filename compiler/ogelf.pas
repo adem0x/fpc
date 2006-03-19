@@ -588,7 +588,7 @@ implementation
 
     function TElfObjData.sectionname(atype:TAsmSectiontype;const aname:string):string;
       const
-        secnames : array[TAsmSectiontype] of string[17] = ('',
+        secnames : array[TAsmSectiontype] of string[13] = ('',
 {$ifdef userodata}
           '.text','.data','.rodata','.bss','.threadvar',
 {$else userodata}
@@ -1211,6 +1211,7 @@ implementation
             comment : '';
           );
 {$endif sparc}
+
 
 initialization
 {$ifdef i386}

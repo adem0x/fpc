@@ -239,7 +239,7 @@ implementation
           '.data',
           '.bss',
           '.threadvar',
-          '__TEXT', { stubs }
+          '', { stubs }
           '.stab',
           '.stabstr',
           '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
@@ -254,7 +254,7 @@ implementation
           '.data.rel',
           '.bss',
           '.threadvar',
-          '__TEXT', { stubs }
+          '', { stubs }
           '.stab',
           '.stabstr',
           '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
