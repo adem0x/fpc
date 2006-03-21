@@ -63,6 +63,8 @@ interface
           function handle_reset_rewrite_typed: tnode;
           function handle_read_write: tnode;
           function handle_val: tnode;
+          function handle_move: tnode;
+          function handle_fillchar: tnode;
        end;
        tinlinenodeclass = class of tinlinenode;
 
@@ -1074,6 +1076,82 @@ implementation
       end;
 
 
+    function tinlinenode.handle_fillchar: tnode;
+      var
+        fillpara,
+        destpara,
+        lengthpara    : tcallparanode;
+      begin
+        resulttype:=voidtype;
+        result := nil;
+
+        { check the amount of parameters }
+        if not(assigned(left)) or
+           not(assigned(tcallparanode(left).right)) or
+           not(assigned(tcallparanode(tcallparanode(left).right).right)) then
+         begin
+           CGMessage(parser_e_wrong_parameter_size);
+           exit;
+         end;
+
+        { reverse parameters for easier processing }
+        left := reverseparameters(tcallparanode(left));
+
+        { get the parameters }
+        destpara := tcallparanode(left);
+        lengthpara := tcallparanode(destpara.right);
+        fillpara := tcallparanode(lengthpara.right);
+
+        if not valid_for_formal_var(destpara.left,true) then
+          CGMessagePos(left.fileinfo,parser_e_illegal_parameter_list);
+
+        { check if lengthpara is valid }
+        inserttypeconv_internal(lengthpara.left,sinttype);
+
+        { check if fillpara is valid }
+        inserttypeconv_internal(fillpara.left,u8inttype);
+      end;
+
+
+    function tinlinenode.handle_move: tnode;
+      var
+        sourcepara,
+        destpara,
+        lengthpara    : tcallparanode;
+      begin
+        resulttype:=voidtype;
+        result := nil;
+
+        { check the amount of parameters }
+        if not(assigned(left)) or
+           not(assigned(tcallparanode(left).right)) or
+           not(assigned(tcallparanode(tcallparanode(left).right).right)) then
+         begin
+           CGMessage(parser_e_wrong_parameter_size);
+           exit;
+         end;
+
+        { reverse parameters for easier processing }
+        left := reverseparameters(tcallparanode(left));
+
+        { get the parameters }
+        sourcepara := tcallparanode(left);
+        destpara := tcallparanode(sourcepara.right);
+        lengthpara := tcallparanode(destpara.right);
+
+        if not valid_for_formal_var(destpara.left,true) then
+          CGMessagePos(destpara.left.fileinfo,parser_e_illegal_parameter_list);
+
+        if not valid_for_formal_const(sourcepara.left,true) then
+          CGMessagePos(sourcepara.left.fileinfo,parser_e_illegal_parameter_list);
+
+        { check if lengthpara is valid }
+        inserttypeconv_internal(lengthpara.left,sinttype);
+
+        result := nil;
+      end;
+
+
 {$ifdef fpc}
 {$maxfpuregisters 0}
 {$endif fpc}
@@ -1718,6 +1796,16 @@ implementation
               in_val_x :
                 begin
                   result := handle_val;
+                end;
+
+              in_move_x :
+                begin
+                  result := handle_move;
+                end;
+
+              in_fillchar_x :
+                begin
+                  result := handle_fillchar;
                 end;
 
               in_include_x_y,
@@ -2383,6 +2471,12 @@ implementation
             begin
                { should not happend as it's converted to typeconv }
                internalerror(200104045);
+            end;
+
+         in_move_x,
+         in_fillchar_x:
+            begin
+              expectloc:=LOC_VOID;
             end;
 
           in_ofs_x :

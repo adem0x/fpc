@@ -62,6 +62,8 @@ const
    in_leave             = 51; {macpas}
    in_cycle             = 52; {macpas}
    in_slice_x           = 53;
+   in_move_x            = 54;
+   in_fillchar_x        = 55;
 
 { Internal constant functions }
    in_const_sqr        = 100;

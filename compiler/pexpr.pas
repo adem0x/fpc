@@ -786,6 +786,24 @@ implementation
               statement_syssym := p2;
             End;
 
+          in_move_x :
+            begin
+              consume(_LKLAMMER);
+              paras:=parse_paras(true,_RKLAMMER);
+              consume(_RKLAMMER);
+              p1 := geninlinenode(l,false,paras);
+              statement_syssym := p1;
+            end;
+
+          in_fillchar_x :
+            begin
+              consume(_LKLAMMER);
+              paras:=parse_paras(true,_RKLAMMER);
+              consume(_RKLAMMER);
+              p1 := geninlinenode(l,false,paras);
+              statement_syssym := p1;
+            end;
+
           in_include_x_y,
           in_exclude_x_y :
             begin

@@ -90,6 +90,8 @@ implementation
         systemunit.insert(tsyssym.create('Length',in_length_x));
         systemunit.insert(tsyssym.create('New',in_new_x));
         systemunit.insert(tsyssym.create('Dispose',in_dispose_x));
+        systemunit.insert(tsyssym.create('FillChar',in_fillchar_x));
+        systemunit.insert(tsyssym.create('Move',in_move_x));
       end;
 
 

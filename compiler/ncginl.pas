@@ -48,6 +48,8 @@ interface
           procedure second_sin_real; virtual;
           procedure second_assigned; virtual;
           procedure second_prefetch; virtual;
+          procedure second_move; virtual;
+          procedure second_fillchar; virtual;
        end;
 
 implementation
@@ -145,6 +147,14 @@ implementation
             in_prefetch_var:
               begin
                 second_prefetch;
+              end;
+            in_move_x:
+              begin
+                second_move;
+              end;
+            in_fillchar_x:
+              begin
+                second_fillchar;
               end;
             in_assigned_x:
               begin
@@ -441,7 +451,7 @@ implementation
 {$endif cpu64bit}
                   { insert multiply with addvalue if its >1 }
                   if addvalue>1 then
-                    cg.a_op_const_reg(current_asmdata.CurrAsmList,OP_IMUL,cgsize,addvalue,hregister);
+                    cg.a_op_const_reg(current_asmdata.CurrAsmList,OP_IMUL,cgsize,aint(addvalue),hregister);
                   addconstant:=false;
                 end;
             end;
@@ -680,6 +690,97 @@ implementation
         cg.a_cmp_const_loc_label(current_asmdata.CurrAsmList,OS_ADDR,OC_NE,0,tcallparanode(left).left.location,current_procinfo.CurrTrueLabel);
         cg.a_jmp_always(current_asmdata.CurrAsmList,current_procinfo.CurrFalseLabel);
         location_reset(location,LOC_JUMP,OS_NO);
+      end;
+
+
+{*****************************************************************************
+                         MOVE GENERIC HANDLING
+*****************************************************************************}
+
+    procedure tcginlinenode.second_move;
+      var
+        sourcepara,
+        destpara,
+        lengthpara   : tcallparanode;
+        href         : treference;
+        paraloc1,
+        paraloc2,
+        paraloc3     : tcgpara;
+      begin
+        { get the parameters }
+        sourcepara := tcallparanode(left);
+        destpara := tcallparanode(sourcepara.right);
+        lengthpara := tcallparanode(destpara.right);
+
+        secondpass(sourcepara.left);
+        secondpass(destpara.left);
+        secondpass(lengthpara.left);
+
+        if (sourcepara.location.loc in [LOC_CONSTANT,LOC_REGISTER]) then
+          location_force_mem(current_asmdata.CurrAsmList,sourcepara.left.location);
+
+        paraloc1.init;
+        paraloc2.init;
+        paraloc3.init;
+        paramanager.getintparaloc(pocall_default,1,paraloc1);
+        paramanager.getintparaloc(pocall_default,2,paraloc2);
+        paramanager.getintparaloc(pocall_default,3,paraloc3);
+        paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc1);
+        cg.a_paramaddr_ref(current_asmdata.CurrAsmList,sourcepara.left.location.reference,paraloc1);
+        paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc2);
+        cg.a_paramaddr_ref(current_asmdata.CurrAsmList,destpara.left.location.reference,paraloc2);
+        paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc3);
+        cg.a_param_loc(current_asmdata.CurrAsmList,lengthpara.left.location,paraloc3);
+        paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc1);
+        paraloc3.done;
+        paraloc2.done;
+        paraloc1.done;
+        cg.allocallcpuregisters(current_asmdata.CurrAsmList);
+        reference_reset_symbol(href,current_asmdata.newasmsymbol('FPC_MOVE_PROC',AB_EXTERNAL,AT_DATA),0);
+        cg.a_call_ref(current_asmdata.CurrAsmList,href);
+        cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
+      end;
+
+
+    procedure tcginlinenode.second_fillchar;
+      var
+        fillpara,
+        destpara,
+        lengthpara   : tcallparanode;
+        href         : treference;
+        paraloc1,
+        paraloc2,
+        paraloc3     : tcgpara;
+      begin
+        { get the parameters }
+        destpara := tcallparanode(left);
+        fillpara := tcallparanode(destpara.right);
+        lengthpara := tcallparanode(fillpara.right);
+
+        secondpass(destpara.left);
+        secondpass(fillpara.left);
+        secondpass(lengthpara.left);
+
+        paraloc1.init;
+        paraloc2.init;
+        paraloc3.init;
+        paramanager.getintparaloc(pocall_default,1,paraloc1);
+        paramanager.getintparaloc(pocall_default,2,paraloc2);
+        paramanager.getintparaloc(pocall_default,3,paraloc3);
+        paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc1);
+        cg.a_paramaddr_ref(current_asmdata.CurrAsmList,destpara.left.location.reference,paraloc1);
+        paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc2);
+        cg.a_param_loc(current_asmdata.CurrAsmList,fillpara.left.location,paraloc2);
+        paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc3);
+        cg.a_param_loc(current_asmdata.CurrAsmList,lengthpara.left.location,paraloc3);
+        paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc1);
+        paraloc3.done;
+        paraloc2.done;
+        paraloc1.done;
+        cg.allocallcpuregisters(current_asmdata.CurrAsmList);
+        reference_reset_symbol(href,current_asmdata.newasmsymbol('FPC_FILLCHAR_PROC',AB_EXTERNAL,AT_DATA),0);
+        cg.a_call_ref(current_asmdata.CurrAsmList,href);
+        cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
       end;
 
 
