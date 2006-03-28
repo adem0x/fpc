@@ -1870,7 +1870,6 @@ begin
   def_system_macro('COMPPROCINLINEFIXED');
   def_system_macro('PARAOUTFILE');
   def_system_macro('RESSTRSECTIONS');
-  def_system_macro('INTERNALMOVEFILLCHAR');
 
   if pocall_default = pocall_register then
     def_system_macro('REGCALL');

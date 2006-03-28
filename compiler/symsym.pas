@@ -1260,7 +1260,7 @@ implementation
       begin
         if assigned(vartype.def) and
            ((vartype.def.deftype<>arraydef) or
-            tarraydef(vartype.def).isDynamicArray or
+            is_dynamic_array(vartype.def) or
             (tarraydef(vartype.def).highrange>=tarraydef(vartype.def).lowrange)) then
           result:=vartype.def.size
         else
@@ -2338,7 +2338,7 @@ implementation
       begin
         { the label is always a global label }
         if not assigned(lab) then
-         lab:=current_asmdata.newasmsymbol(mangledname,AB_EXTERNAL,AT_DATA);
+         lab:=current_asmdata.RefAsmSymbol(mangledname);
         get_label:=lab;
       end;
 

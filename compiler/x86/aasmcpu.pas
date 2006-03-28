@@ -1428,7 +1428,15 @@ implementation
               (getsupreg(input.reg)>=RS_XMM8)) then
               begin
                 output.rex_present:=true;
-                output.rex:=output.rex or $44;
+                output.rex:=output.rex or $41;
+                inc(output.size,1);
+              end
+            else if (getregtype(input.reg)=R_INTREGISTER) and
+              (getsubreg(input.reg)=R_SUBL) and
+              (getsupreg(input.reg) in [RS_RDI,RS_RSI,RS_RBP,RS_RSP]) then
+              begin
+                output.rex_present:=true;
+                output.rex:=output.rex or $40;
                 inc(output.size,1);
               end;
 
@@ -1452,15 +1460,22 @@ implementation
         { it's direct address }
         if (br=NR_NO) and (ir=NR_NO) then
          begin
-           { it's a pure offset }
-           output.sib_present:=false;
+           output.sib_present:=true;
            output.bytes:=4;
-           output.modrm:=5 or (rfield shl 3);
+           output.modrm:=4 or (rfield shl 3);
+           output.sib:=$25;
          end
+        else if (br=NR_RIP) and (ir=NR_NO) then
+          begin
+            { rip based }
+            output.sib_present:=false;
+            output.bytes:=4;
+            output.modrm:=5 or (rfield shl 3);
+          end
         else
         { it's an indirection }
          begin
-           { 16 bit address? }
+           { 16 bit or 32 bit address? }
            if ((ir<>NR_NO) and (isub<>R_SUBADDR)) or
               ((br<>NR_NO) and (bsub<>R_SUBADDR)) then
              message(asmw_e_16bit_32bit_not_supported);
@@ -1491,27 +1506,43 @@ implementation
 
            { base }
            case br of
+             NR_R8,
              NR_RAX : base:=0;
+             NR_R9,
              NR_RCX : base:=1;
+             NR_R10,
              NR_RDX : base:=2;
+             NR_R11,
              NR_RBX : base:=3;
+             NR_R12,
              NR_RSP : base:=4;
+             NR_R13,
              NR_NO,
              NR_RBP : base:=5;
+             NR_R14,
              NR_RSI : base:=6;
+             NR_R15,
              NR_RDI : base:=7;
            else
              exit;
            end;
            { index }
            case ir of
+             NR_R8,
              NR_RAX : index:=0;
+             NR_R9,
              NR_RCX : index:=1;
+             NR_R10,
              NR_RDX : index:=2;
+             NR_R11,
              NR_RBX : index:=3;
+             NR_R12,
              NR_NO  : index:=4;
+             NR_R13,
              NR_RBP : index:=5;
+             NR_R14,
              NR_RSI : index:=6;
+             NR_R15,
              NR_RDI : index:=7;
            else
              exit;
@@ -1538,7 +1569,7 @@ implementation
            else
             output.bytes:=md;
            { SIB needed ? }
-           if (ir=NR_NO) and (br<>NR_ESP) then
+           if (ir=NR_NO) and (br<>NR_RSP)then
             begin
               output.sib_present:=false;
               output.modrm:=(md shl 6) or (rfield shl 3) or base;
@@ -1709,6 +1740,9 @@ implementation
       begin
         len:=0;
         codes:=@p^.code;
+{$ifdef x86_64}
+        rex:=0;
+{$endif x86_64}
         repeat
           c:=ord(codes^);
           inc(codes);
@@ -1727,7 +1761,21 @@ implementation
                   (getsupreg(oper[c-8]^.reg)>=RS_R8)) or
                   ((getregtype(oper[c-8]^.reg)=R_MMREGISTER) and
                   (getsupreg(oper[c-8]^.reg)>=RS_XMM8)) then
-                  rex:=rex or $41;
+                  begin
+                    if rex=0 then
+                      inc(len);
+                    rex:=rex or $41;
+                  end
+                else if (getregtype(oper[c-8]^.reg)=R_INTREGISTER) and
+                  (getsubreg(oper[c-8]^.reg)=R_SUBL) and
+                  (getsupreg(oper[c-8]^.reg) in [RS_RDI,RS_RSI,RS_RBP,RS_RSP]) then
+                  begin
+                    if rex=0 then
+                      inc(len);
+
+                    rex:=rex or $40;
+                  end;
+
 {$endif x86_64}
                 inc(codes);
                 inc(len);
@@ -1776,8 +1824,9 @@ implementation
 {$ifdef x86_64}
                   OT_BITS64:
                     begin
+                      if rex=0 then
+                        inc(len);
                       rex:=rex or $48;
-                      inc(len);
                     end;
 {$endif x86_64}
                 end;
@@ -1793,9 +1842,47 @@ implementation
             217,218: ;
             219,220 :
               inc(len);
+            221:
+{$ifdef x86_64}
+              { remove rex competely? }
+              if rex=$48 then
+                begin
+                  rex:=0;
+                  dec(len);
+                end
+              else
+                rex:=rex and $f7
+{$endif x86_64}
+              ;
             64..191 :
               begin
 {$ifdef x86_64}
+                 if (c<127) then
+                  begin
+                    if (oper[c and 7]^.typ=top_reg) then
+                      begin
+                        if ((getregtype(oper[c and 7]^.reg)=R_INTREGISTER) and
+                          (getsupreg(oper[c and 7]^.reg)>=RS_R8)) or
+                          ((getregtype(oper[c and 7]^.reg)=R_MMREGISTER) and
+                          (getsupreg(oper[c and 7]^.reg)>=RS_XMM8)) then
+                          begin
+                            if rex=0 then
+                              inc(len);
+
+                            rex:=rex or $44;
+                          end
+                        else if (getregtype(oper[c and 7]^.reg)=R_INTREGISTER) and
+                          (getsubreg(oper[c and 7]^.reg)=R_SUBL) and
+                          (getsupreg(oper[c and 7]^.reg) in [RS_RDI,RS_RSI,RS_RBP,RS_RSP]) then
+                          begin
+                            if rex=0 then
+                              inc(len);
+
+                            rex:=rex or $40;
+                          end;
+                      end;
+                  end;
+
                 ea_data.rex:=0;
                 ea_data.rex_present:=false;
 {$endif x86_64}
@@ -1865,6 +1952,7 @@ implementation
        * \327          - indicates that this instruction is only valid when the
        *                 operand size is the default (instruction to disassembler,
        *                 generates no code in the assembler)
+       * \335          - removes rex size prefix, i.e. rex.w must be the last opcode
       }
 
       var
@@ -1881,7 +1969,7 @@ implementation
                 end;
               top_const :
                 begin
-                  currval:=longint(oper[opidx]^.val);
+                  currval:=aint(oper[opidx]^.val);
                   currsym:=nil;
                 end;
               else
@@ -1911,7 +1999,7 @@ implementation
 {$endif extdebug}
         { safety check }
         if objdata.currobjsec.size<>insoffset then
-          internalerror(200130121);
+           internalerror(200130121);
         { load data to write }
         codes:=insentry^.code;
         { Force word push/pop for registers }
@@ -1929,6 +2017,16 @@ implementation
               break;
             1,2,3 :
               begin
+{$ifdef x86_64}
+                if rex<>0 then
+                  begin
+                    bytes[0]:=rex;
+{$ifdef extdebug}
+                    rexwritten:=true;
+{$endif extdebug}
+                    objdata.writebytes(bytes,1);
+                  end;
+{$endif x86_64}
                 objdata.writebytes(codes^,c);
                 inc(codes,c);
               end;
@@ -1968,11 +2066,23 @@ implementation
             8,9,10 :
               begin
                 { rex should be written at this point }
+{
 {$ifdef x86_64}
 {$ifdef extdebug}
                 if (rex<>0) and not(rexwritten) then
                   internalerror(200603192);
 {$endif extdebug}
+{$endif x86_64}
+}
+{$ifdef x86_64}
+                if rex<>0 then
+                  begin
+                    bytes[0]:=rex;
+{$ifdef extdebug}
+                    rexwritten:=true;
+{$endif extdebug}
+                    objdata.writebytes(bytes,1);
+                  end;
 {$endif x86_64}
                 bytes[0]:=ord(codes^)+regval(oper[c-8]^.reg);
                 inc(codes);
@@ -2042,16 +2152,16 @@ implementation
                 else
                   begin
                     if assigned(currsym) then
-                     objdata.writereloc(currval,4,currsym,RELOC_ABSOLUTE)
+                      objdata.writereloc(currval,4,currsym,RELOC_ABSOLUTE32)
                     else
-                     objdata.writebytes(currval,4);
+                      objdata.writebytes(currval,4);
                   end
               end;
             32,33,34 :
               begin
                 getvalsym(c-32);
                 if assigned(currsym) then
-                 objdata.writereloc(currval,4,currsym,RELOC_ABSOLUTE)
+                 objdata.writereloc(currval,4,currsym,RELOC_ABSOLUTE32)
                 else
                  objdata.writebytes(currval,4);
               end;
@@ -2071,7 +2181,7 @@ implementation
                 if assigned(currsym) then
                  objdata.writereloc(currval,4,currsym,RELOC_RELATIVE)
                 else
-                 objdata.writereloc(currval-insend,4,nil,RELOC_ABSOLUTE)
+                 objdata.writereloc(currval-insend,4,nil,RELOC_ABSOLUTE32)
               end;
             56,57,58 :
               begin
@@ -2079,7 +2189,7 @@ implementation
                 if assigned(currsym) then
                  objdata.writereloc(currval,4,currsym,RELOC_RELATIVE)
                 else
-                 objdata.writereloc(currval-insend,4,nil,RELOC_ABSOLUTE)
+                 objdata.writereloc(currval-insend,4,nil,RELOC_ABSOLUTE32)
               end;
             192,193,194 :
               begin
@@ -2107,6 +2217,7 @@ implementation
                       Message(asmw_e_64bit_not_supported);
 {$endif x86_64}
                 end;
+{
 {$ifdef x86_64}
                 if rex<>0 then
                   begin
@@ -2117,6 +2228,7 @@ implementation
                     objdata.writebytes(bytes,1);
                   end;
 {$endif x86_64}
+}
               end;
             212 :
               begin
@@ -2141,6 +2253,8 @@ implementation
                 bytes[0]:=$f2;
                 objdata.writebytes(bytes,1);
               end;
+            221:
+              ;
             201,
             202,
             213,
@@ -2198,7 +2312,7 @@ implementation
                          if (oper[opidx]^.ot and OT_MEMORY)=OT_MEMORY then
                            begin
                              currsym:=objdata.symbolref(oper[opidx]^.ref^.symbol);
-                             objdata.writereloc(oper[opidx]^.ref^.offset,1,currsym,RELOC_ABSOLUTE)
+                             objdata.writereloc(oper[opidx]^.ref^.offset,1,currsym,RELOC_ABSOLUTE);
                            end
                          else
                           begin
@@ -2210,7 +2324,7 @@ implementation
                      2,4 :
                        begin
                          objdata.writereloc(oper[opidx]^.ref^.offset,ea_data.bytes,
-                           objdata.symbolref(oper[opidx]^.ref^.symbol),RELOC_ABSOLUTE);
+                           objdata.symbolref(oper[opidx]^.ref^.symbol),RELOC_ABSOLUTE32);
                          inc(s,ea_data.bytes);
                        end;
                    end;

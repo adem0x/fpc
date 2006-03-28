@@ -78,7 +78,7 @@ general_t_objectpath=01007_T_Der Objektdateienpfad: $1
 % When the \var{-vt} switch is used, this line tells you where the compiler
 % looks for object files you link in (files used in \var{\{\$L xxx\}} statements).
 % You can set this path with the \var{-Fo} option.
-general_i_abslines_compiled=01008_I_$1 Zeilen kompiliert, $2 Sekunden
+general_i_abslines_compiled=01008_I_$1 Zeilen kompiliert, $2 Sekunden$3
 % When the \var{-vi} switch is used, the compiler reports the number
 % of lines compiled, and the time it took to compile them (real time,
 % not program time).
@@ -322,6 +322,9 @@ scan_e_compile_time_typeerror=02072_E_Compile time Ausdruck: Erwartete $1 aber e
 % Type check of a compile time expression failed.
 scan_n_app_type_not_support=02073_N_APPTYPE wird vom Zielbetriebssystem nicht unterstÅtzt
 % The \var{\{\$APPTYPE\}} directive is supported by certain operating systems only.
+scan_e_illegal_optimization_specifier=02074_E_"$1" ist eine ungültige Optimierung 
+% When you specify an optimization with the \var{\{\$OPTIMIZATION xxx\}}
+% the compiler didn't recognize the optimization you specified.
 % \end{description}
 #
 # Parser
@@ -999,7 +1002,10 @@ parser_e_macpas_exit_wrong_param=03207_E_Exits Parameter muss der Name der Proze
 % Non local exit is not allowed. This error occurs only in mode MacPas.
 parser_e_illegal_assignment_to_count_var=03208_E_UngÅltige Zuweisung zur for-loop Variable "$1"
 % The type of a \var{for} loop variable must be an ordinal type.
-% Loop variables cannot be reals or strings.
+% Loop variables cannot be reals or strings. You can also not assign values to
+% loop variables inside the loop (except in Delphi and TP modes). Use a while or
+% repeat loop instead if you need to do something like that, since those
+% constructs were built for that.
 parser_e_no_local_var_external=03209_E_Lokale Variable kann nicht als EXTERNAL deklariert werden
 % Declaring local variables as external is not allowed. Only global variables can reference
 % to external variables.
@@ -1258,6 +1264,11 @@ type_e_cant_choose_overload_function=04057_E_Kann nicht bestimmen, welche der Åb
 type_e_illegal_count_var=04058_E_Loop-Variable muss einen ordinalen Typ haben
 % The type of a \var{for} loop variable must be an ordinal type.
 % Loop variables cannot be reals or strings.
+type_w_double_c_varargs=04059_W_Der konstante Wert vom Typ real wird fÅr ein C Variablen-Argument zu double konvertiert. ErgÑnze eine explizite Typ-Konversion (typecast), um das zu verhindern
+% In C, constant real values are double by default. For this reason, if you
+% pass a constant real value to a variable argument part of a C function, FPC
+% by default converts this constant to double as well. If you want to prevent
+% this from happening, add an explicit typecast around the constant.
 % \end{description}
 #
 # Symtable
@@ -1416,6 +1427,10 @@ sym_h_function_result_uninitialized=05060_H_Die Ergebnisvariable der Funktion sc
 % variable will be used (i.e. appears in the right-hand-side of an expression)
 % before it is initialized (i.e. appeared in the left-hand side of an
 % assigment)
+sym_w_identifier_only_read=05061_W_Die Variable "$1" wird gelesen, obwohl ihr aber noch kein Wert zugewiesen wurde
+% You have read the value of a variable, but nowhere assigned a value to
+% it.
+
 % \end{description}
 #
 # Codegenerator
@@ -1772,18 +1787,20 @@ asmw_e_alloc_data_only_in_bss=08004_E_Allozieren von Daten ist nur in "bss"-Absc
 asmw_f_no_binary_writer_selected=08005_F_Kein BinÑrschreiber ausgewÑhlt
 asmw_e_opcode_not_in_table=08006_E_Asm: Opcode $1 nicht in Tabelle enthalten
 asmw_e_invalid_opcode_and_operands=08007_E_Asm: $1 ungÅltige Kombination von Opcode und Operanden
-asmw_e_16bit_not_supported=08008_E_Asm: 16-Bit-Verweise werden nicht untertÅtzt
+asmw_e_16bit_not_supported=08008_E_Asm: 16-Bit-Verweise werden nicht unterstÅtzt
 asmw_e_invalid_effective_address=08009_E_Asm: UngÅltige effektive Adresse
-asmw_e_immediate_or_reference_expected=08010_E_Asm: Konstanten Ausdruck oder Referenz erwartet
+asmw_e_immediate_or_reference_expected=08010_E_Asm: Konstanter Ausdruck oder Referenz erwartet
 asmw_e_value_exceeds_bounds=08011_E_Asm: $1 Wert Åberschreitet Grenzen $2
-asmw_e_short_jmp_out_of_range=08012_E_Asm: "Short jump" ist ausserhalb der Bereichs $1
+asmw_e_short_jmp_out_of_range=08012_E_Asm: "Short jump" ist ausserhalb des Bereichs $1
 asmw_e_undefined_label=08013_E_Asm: Undefiniertes Label: $1
-asmw_e_comp_not_supported=08014_E_Asm: Comp wird fÅr diese Ziel nicht unterstÅtzt
-asmw_e_extended_not_supported=08015_E_Asm: Extended Typ wird fÅr diese Ziel nicht unterstÅtzt
+asmw_e_comp_not_supported=08014_E_Asm: Comp wird fÅr dieses Ziel nicht unterstÅtzt
+asmw_e_extended_not_supported=08015_E_Asm: Extended Typ wird fÅr dieses Ziel nicht unterstÅtzt
 asmw_e_duplicate_label=08016_E_Asm: Doppeltes Label $1
 asmw_e_redefined_label=08017_E_Asm: Neu definiertes Label $1
 asmw_e_first_defined_label=08018_E_Asm: First beginnt hier
 asmw_e_invalid_register=08019_E_Asm: UngÅltiges Register $1
+asmw_e_16bit_32bit_not_supported=08020_E_Asm: 16 oder 32 Bit Referenzen werden nicht unterstÅtzt
+asmw_e_64bit_not_supported=08021_E_Asm: 64 Bit Operanden werden nicht unterstÅtzt
 
 #
 # Executing linker/assembler
@@ -2105,11 +2122,11 @@ option_no_debug_support_recompile_fpc=11017_H_Versuchen Sie mit -dGDB erneut zu 
 % It is possible to have a compiler executable that doesn't support
 % the generation of debugging info. If you use such an executable with the
 % \var{-g} switch, this warning will be displayed.
-option_obsolete_switch=11018_E_Sie verwenden den nun ÅberflÅssigen Schalter $1
+option_obsolete_switch=11018_W_Sie verwenden den nun Åberholten Schalter $1
 % this warns you when you use a switch that is not needed/supported anymore.
 % It is recommended that you remove the switch to overcome problems in the
 % future, when the switch meaning may change.
-option_obsolete_switch_use_new=11019_E_Sie benutzen den nun ÅberflÅssigen Schalter $1, bitte benutzen Sie $2
+option_obsolete_switch_use_new=11019_W_Sie benutzen den nun Åberholten Schalter $1, bitte benutzen Sie $2
 % this warns you when you use a switch that is not supported anymore. You
 % must now use the second switch instead.
 % It is recommended that you change the switch to overcome problems in the
@@ -2171,6 +2188,9 @@ UnterstÅtzte CPU Instruktionen:
 
 UnterstÅtzte FPU Instruktionen:
   $FPUINSTRUCTIONSETS
+
+UnterstÅtzte Optimierungen:
+  $OPTIMIZATIONS
 
 Dieses Programm unterliegt der GNU General Public Licence
 Weitere Informationen sind in COPYING.FPC zu finden
@@ -2298,23 +2318,14 @@ S*2Aas_assembliere mit Hilfe von GNU AS
 **2Nu_unroll loops
 **1o<x>_die erzeugte, ausfÅhrbare Datei bekommt den Namen <x>
 **1O<x>_Optimierungen:
-3*2Oa_<type>=<values> Ausrichtung (alignment) von Mengen
-3*2Og_erzeuge kÅrzeren Code
-3*2OG_erzeuge schnelleren Code (Voreinstellung)
-**2Or_halte bestimmte Variablen in den Registern
-3*2Ou_schalte unsichere Optimierung ein (siehe Dokumentation)
-3*2O1_level 1 Optimierung (schnelle Optimierung)
-3*2O2_level 2 Optimierung (-O1 + langsamere Optimierung)
-3*2O3_level 3 Optimierung (-O2 mehrfach, maximal 5-mal)
-3*2Op<x>_Zielprozessor:
-3*3Op1_setze Zielprozessor zu 386/486
-3*3Op2_setze Zielprozessor zu Pentium/PentiumMMX (tm)
-3*3Op3_setze Zielprozessor zu PPro/PII/c6x86/K6 (tm)
-6*2Og_erzeuge kÅrzeren Code
-6*2OG_erzeuge schnelleren Code (Voreinstellung)
-6*2Ox_optimiere maximal (noch BUGGY!!!)
-6*2O0_setze Zielprozessor zu MC68000
-6*2O2_setze Zielprozessor zu MC68020+ (Voreinstellung)
+**2O-_Optimierungen ausschalten
+**2O1_level 1 Optimierung (schnell und Debugger freundlich)
+**2O2_level 2 Optimierung (-O1 + schnelle Optimierungen)
+**2O3_level 3 Optimierung (-O2 + langsame Optimierungen)
+**2Oa<x>=<y>_Ausrichtung (alignment) von Mengen
+**2Oo[NO]<x>_Optimierungen ein- oder ausschalten, siehe fpc -i fÅr mîgliche Werte
+**2Op<x>_setze Zielprozessor fÅr die Optimierung, siehe fpc -i fÅr mîgliche Werte
+**2Os_erzeuge kÅrzeren Code
 **1pg_erzeuge Profiler-Code fÅr gprof
 **1R<x>_Assembler Code Format:
 **2Rdefault_benutze den default Assembler

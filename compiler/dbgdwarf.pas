@@ -423,6 +423,11 @@ implementation
       { Implementation-defined range end.   }
       DW_OP_hi_user = $ff;
 
+
+{****************************************************************************
+                              TDebugInfoDwarf
+****************************************************************************}
+
     function TDebugInfoDwarf.def_dwarf_lab(def:tdef) : tasmsymbol;
       begin
         { procdefs only need a number, mark them as already written
@@ -899,7 +904,7 @@ implementation
               DW_AT_stride_size,DW_FORM_udata,def.elesize*8
               ]);
           append_labelentry_ref(DW_AT_type,def_dwarf_lab(def.elementtype.def));
-          if def.IsDynamicArray then
+          if is_dynamic_array(def) then
             begin
               { !!! FIXME !!! }
               { gdb's dwarf implementation sucks, so we can't use DW_OP_push_object here (FK)
@@ -925,8 +930,8 @@ implementation
               finish_entry;
               { to simplify things, we don't write a multidimensional array here }
               append_entry(DW_TAG_subrange_type,false,[
-                DW_AT_lower_bound,DW_FORM_udata,def.lowrange,
-                DW_AT_upper_bound,DW_FORM_udata,def.highrange
+                DW_AT_lower_bound,DW_FORM_sdata,def.lowrange,
+                DW_AT_upper_bound,DW_FORM_sdata,def.highrange
                 ]);
               append_labelentry_ref(DW_AT_type,def_dwarf_lab(def.rangetype.def));
               finish_entry;
@@ -1445,7 +1450,7 @@ implementation
             current_asmdata.getlabel(procendlabel,alt_dbgtype);
             current_asmdata.asmlists[al_procedures].insertbefore(tai_label.create(procendlabel),pd.procendtai);
 
-            append_labelentry(DW_AT_low_pc,current_asmdata.newasmsymbol(pd.mangledname,AB_LOCAL,AT_DATA));
+            append_labelentry(DW_AT_low_pc,current_asmdata.RefAsmSymbol(pd.mangledname));
             append_labelentry(DW_AT_high_pc,procendlabel);
 
             {
@@ -1503,8 +1508,8 @@ implementation
           var
             templist : TAsmList;
             blocksize : longint;
-            regidx : longint;
             tag : tdwarf_tag;
+            dreg : byte;
           begin
             { external symbols can't be resolved at link time, so we
               can't generate stabs for them
@@ -1528,10 +1533,10 @@ implementation
               LOC_FPUREGISTER,
               LOC_CFPUREGISTER :
                 begin
-                  regidx:=findreg_by_number(sym.localloc.register);
                   templist.concat(tai_const.create_8bit(ord(DW_OP_regx)));
-                  templist.concat(tai_const.create_uleb128bit(regdwarf_table[regidx]));
-                  blocksize:=1+Lengthuleb128(regdwarf_table[regidx]);
+                  dreg:=dwarf_reg(sym.localloc.register);
+                  templist.concat(tai_const.create_uleb128bit(dreg));
+                  blocksize:=1+Lengthuleb128(dreg);
                 end;
               else
                 begin
@@ -1546,15 +1551,15 @@ implementation
                         else
                           begin
                             templist.concat(tai_const.create_8bit(3));
-                            templist.concat(tai_const.createname(sym.mangledname,AT_DATA,0));
+                            templist.concat(tai_const.createname(sym.mangledname,0));
                             blocksize:=1+sizeof(aword);
                           end;
                       end;
                     paravarsym,
                     localvarsym:
                       begin
-                        regidx:=findreg_by_number(sym.localloc.reference.base);
-                        templist.concat(tai_const.create_8bit(ord(DW_OP_breg0)+regdwarf_table[regidx]));
+                        dreg:=dwarf_reg(sym.localloc.reference.base);
+                        templist.concat(tai_const.create_8bit(ord(DW_OP_breg0)+dreg));
                         templist.concat(tai_const.create_sleb128bit(sym.localloc.reference.offset));
                         blocksize:=1+Lengthsleb128(sym.localloc.reference.offset);
                       end
@@ -1702,7 +1707,7 @@ implementation
               toasm :
                 begin
                   templist.concat(tai_const.create_8bit(3));
-                  templist.concat(tai_const.createname(sym.mangledname,AT_DATA,0));
+                  templist.concat(tai_const.createname(sym.mangledname,0));
                   blocksize:=1+sizeof(aword);
                 end;
               tovar:
@@ -1769,7 +1774,7 @@ implementation
               ]);
               { append block data }
               current_asmdata.asmlists[al_dwarf_info].concat(tai_const.create_8bit(3));
-              current_asmdata.asmlists[al_dwarf_info].concat(tai_const.createname(sym.mangledname,AT_DATA,0));
+              current_asmdata.asmlists[al_dwarf_info].concat(tai_const.createname(sym.mangledname,0));
               append_labelentry_ref(DW_AT_type,def_dwarf_lab(ttypedconstsym(sym).typedconsttype.def));
 
               finish_entry;
@@ -1915,10 +1920,10 @@ implementation
         { abbrev table }
         if isdwarf64 then
           current_asmdata.asmlists[al_dwarf_info].concat(tai_const.create_type_sym(aitconst_64bit,
-            current_asmdata.newasmsymbol('.Ldebug_abbrev0',AB_EXTERNAL,AT_DATA)))
+            current_asmdata.RefAsmSymbol('.Ldebug_abbrev0')))
         else
           current_asmdata.asmlists[al_dwarf_info].concat(tai_const.create_type_sym(aitconst_32bit,
-            current_asmdata.newasmsymbol('.Ldebug_abbrev0',AB_EXTERNAL,AT_DATA)));
+            current_asmdata.RefAsmSymbol('.Ldebug_abbrev0')));
         { address size }
         current_asmdata.asmlists[al_dwarf_info].concat(tai_const.create_8bit(sizeof(aint)));
 
@@ -1930,9 +1935,9 @@ implementation
           DW_AT_identifier_case,DW_FORM_data1,DW_ID_case_insensitive]);
 
         { reference to line info section }
-        append_labelentry_data(DW_AT_stmt_list,current_asmdata.newasmsymbol('.Ldebug_line0',AB_LOCAL,AT_DATA));
-        append_labelentry(DW_AT_low_pc,current_asmdata.newasmsymbol('.Ltext0',AB_LOCAL,AT_DATA));
-        append_labelentry(DW_AT_high_pc,current_asmdata.newasmsymbol('.Letext0',AB_LOCAL,AT_DATA));
+        append_labelentry_data(DW_AT_stmt_list,current_asmdata.RefAsmSymbol('.Ldebug_line0'));
+        append_labelentry(DW_AT_low_pc,current_asmdata.RefAsmSymbol('.Ltext0'));
+        append_labelentry(DW_AT_high_pc,current_asmdata.RefAsmSymbol('.Letext0'));
 
         finish_entry;
 

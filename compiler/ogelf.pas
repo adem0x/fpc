@@ -67,7 +67,6 @@ interface
          constructor create(const n:string);override;
          destructor  destroy;override;
          function  sectionname(atype:TAsmSectiontype;const aname:string):string;override;
-         function  sectiontype2align(atype:TAsmSectiontype):shortint;override;
          procedure CreateDebugSections;override;
          procedure writereloc(data,len:aint;p:TObjSymbol;relative:TObjRelocationType);override;
          procedure writestab(offset:aint;ps:TObjSymbol;nidx,nother:byte;ndesc:word;p:pchar);override;
@@ -611,19 +610,13 @@ implementation
       end;
 
 
-    function TElfObjData.sectiontype2align(atype:TAsmSectiontype):shortint;
-      begin
-        if atype=sec_stabstr then
-          result:=1
-        else
-          result:=sizeof(aint);
-      end;
-
-
     procedure TElfObjData.CreateDebugSections;
       begin
-        stabssec:=createsection(sec_stab,'');
-        stabstrsec:=createsection(sec_stabstr,'');
+        if target_dbg.id=dbg_stabs then
+          begin
+            stabssec:=createsection(sec_stab,'');
+            stabstrsec:=createsection(sec_stabstr,'');
+          end;
       end;
 
 
@@ -725,7 +718,7 @@ implementation
 {$ifdef i386}
            s.relocsect:=TElfObjSection.create_ext('.rel'+s.name,SHT_REL,0,symtabsect.secshidx,s.secshidx,4,sizeof(TElfReloc));
 {$else i386}
-           s.relocsect:=TElfObjSection.create_ext('.rel'+s.name,SHT_RELA,0,symtabsect.secshidx,s.secshidx,4,sizeof(TElfReloc));
+           s.relocsect:=TElfObjSection.create_ext('.rela'+s.name,SHT_RELA,0,symtabsect.secshidx,s.secshidx,4,sizeof(TElfReloc));
 {$endif i386}
            { add the relocations }
            r:=TObjRelocation(s.relocations.first);
@@ -779,8 +772,16 @@ implementation
                     { length of the relocated location is handled here }
                     rel.addend:=qword(-4);
                   end;
-              RELOC_ABSOLUTE :
-                  reltyp:=R_X86_64_64;
+                RELOC_ABSOLUTE :
+                  begin
+                    reltyp:=R_X86_64_64;
+                    rel.addend:=0;
+                  end;
+                RELOC_ABSOLUTE32 :
+                  begin
+                    reltyp:=R_X86_64_32S;
+                    rel.addend:=0;
+                  end;
                 else
                   internalerror(200602261);
               end;
@@ -1173,7 +1174,7 @@ implementation
             asmbin : '';
             asmcmd : '';
             supported_target : system_any;  //target_i386_linux;
-            flags : [af_outputbinary,af_smartlink_sections];
+            flags : [af_outputbinary,af_smartlink_sections,af_supports_dwarf];
             labelprefix : '.L';
             comment : '';
           );
@@ -1187,7 +1188,7 @@ implementation
             asmbin : '';
             asmcmd : '';
             supported_target : system_any;  //target_i386_linux;
-            flags : [af_outputbinary,af_smartlink_sections];
+            flags : [af_outputbinary,af_smartlink_sections,af_supports_dwarf];
             labelprefix : '.L';
             comment : '';
           );
@@ -1202,7 +1203,7 @@ implementation
             asmcmd : '';
             supported_target : system_any;  //target_i386_linux;
 //            flags : [af_outputbinary,af_smartlink_sections];
-            flags : [af_outputbinary];
+            flags : [af_outputbinary,af_supports_dwarf];
             labelprefix : '.L';
             comment : '';
           );

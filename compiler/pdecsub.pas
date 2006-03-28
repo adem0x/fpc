@@ -348,13 +348,13 @@ implementation
            case vartype.def.deftype of
              arraydef :
                begin
-                 with tarraydef(vartype.def) do
-                   if IsVariant or IsConstructor then
-                     begin
-                       Message1(parser_w_not_supported_for_inline,'array of const');
-                       Message(parser_w_inlining_disabled);
-                       pd.proccalloption:=pocall_default;
-                     end;
+                 if is_array_constructor(vartype.def) or
+                    is_variant_array(vartype.def) then
+                   begin
+                     Message1(parser_w_not_supported_for_inline,'array of const');
+                     Message(parser_w_inlining_disabled);
+                     pd.proccalloption:=pocall_default;
+                   end;
                end;
            end;
          end;
@@ -507,7 +507,7 @@ implementation
                    consume(_CONST);
                    srsym:=search_system_type('TVARREC');
                    tarraydef(tt.def).setelementtype(ttypesym(srsym).restype);
-                   tarraydef(tt.def).IsArrayOfConst:=true;
+                   include(tarraydef(tt.def).arrayoptions,ado_IsArrayOfConst);
                  end
                 else
                  begin
@@ -518,26 +518,15 @@ implementation
               end
              else
               begin
+                if (m_mac in aktmodeswitches) then
+                  try_to_consume(_UNIV); {currently does nothing}
+                single_type(tt,false);
+
                 { open string ? }
                 if (varspez in [vs_out,vs_var]) and
-                        (
-                          (
-                            ((token=_STRING) or (idtoken=_SHORTSTRING)) and
-                            (cs_openstring in aktmoduleswitches) and
-                            not(cs_ansistrings in aktlocalswitches)
-                          ) or
-                        (idtoken=_OPENSTRING)) then
-                 begin
-                   consume(token);
-                   tt:=openshortstringtype;
-                 end
-                else
-                 begin
-                   { everything else }
-                   if (m_mac in aktmodeswitches) then
-                     try_to_consume(_UNIV); {currently does nothing}
-                   single_type(tt,false);
-                 end;
+                   (cs_openstring in aktmoduleswitches) and
+                   is_shortstring(tt.def) then
+                  tt:=openshortstringtype;
 
                 if (target_info.system in [system_powerpc_morphos,system_m68k_amiga]) then
                   begin
@@ -693,7 +682,8 @@ implementation
            { Create unique name <interface>.<method> }
            hs:=sp+'.'+pattern;
            consume(_EQUAL);
-           if (token=_ID) then
+           if (i<>-1) and
+              (token=_ID) then
              aclass.implementedinterfaces.addmappings(i,hs,pattern);
            consume(_ID);
            result:=true;

@@ -165,7 +165,7 @@ reg16|32|64,regmem    \320\301\1\x3B\110              8086,SM
 rm8,reg8              \300\1\x38\101                  8086
 reg8,rm8              \301\1\x3A\110                  8086
 rm16|32|64,imm8       \320\300\1\x83\207\15           8086
-reg_eax|64,imm        \325\1\x3D\41                   386,SD
+reg_eax|64,imm        \320\1\x3D\41                   386,SD
 rm32|64,imm           \320\300\1\x81\207\41           386,SD
 reg_ax,imm            \324\1\x3D\31                   8086,SW
 rm16,imm              \324\300\1\x81\207\31           8086,SW
@@ -225,7 +225,7 @@ void                  \1\x2F                          8086
 
 [DEC,decX]
 (Ch_Mop1, Ch_WFlags, Ch_None)
-reg16|32|64           \320\10\x48                     8086
+reg16|32|64           \320\10\x48                     8086,NOX86_64
 rm16|32|64            \320\300\1\xFF\201              8086
 rm8                   \300\1\xFE\201                  8086
 
@@ -793,7 +793,7 @@ reg_ax|32|64,reg_dx   \320\1\xED                      8086
 
 [INC,incX]
 (Ch_Mop1, Ch_WFlags, Ch_None)
-reg16|32|64           \320\10\x40                     8086
+reg16|32|64           \320\10\x40                     8086,NOX86_64
 rm16|32|64            \320\300\1\xFF\200              8086
 rm8                   \300\1\xFE\200                  8086
 
@@ -1452,11 +1452,11 @@ mmxreg,mem            \301\2\x0F\x58\110              PENT,MMX,SM,CYRIX
 
 [POP,popX]
 (Ch_Wop1, Ch_RWESP, Ch_None)
-reg16|32|64           \320\10\x58                     8086
-rm16|32|64            \320\300\1\x8F\200              8086
+reg16|32|64           \320\10\x58\335                 8086
+rm16|32|64            \320\300\1\x8F\200\335          8086
 reg_cs                \1\x0F                          8086,UNDOC,ND
 reg_dess              \4                              8086
-reg_fsgs              \1\x0F\5                        386
+reg_fsgs              \1\x0F\5\335                    386
 
 [POPA,popaX]
 (Ch_All, Ch_None, Ch_None)
@@ -1671,12 +1671,12 @@ xmmreg,xmmreg         \3\x66\x0F\x61\110              WILLAMETTE,SSE2
 
 [PUSH,pushX]
 (Ch_Rop1, Ch_RWESP, Ch_None)
-reg16|32|64           \320\10\x50                     8086
-rm16|32|64            \320\300\1\xFF\206              8086
-imm32                 \325\1\x68\40                   386
-imm16                 \324\1\x68\30                   286
-imm8                  \1\x6A\14                       286
-reg_fsgs              \1\x0F\7                        386,NOX86_64
+reg16|32|64           \320\10\x50\335                 8086
+rm16|32|64            \320\300\1\xFF\206\335          8086
+imm32                 \325\1\x68\40\335               386
+imm16                 \324\1\x68\30\335               286
+imm8                  \1\x6A\14\335                   286
+reg_fsgs              \1\x0F\7\335                    386,NOX86_64
 reg_sreg              \6                              8086,NOX86_64
 
 [PUSHA,pushaX]
@@ -2302,13 +2302,13 @@ mmxreg,xmmreg         \331\2\x0F\x2D\110              KATMAI,SSE,MMX
 
 [CVTSI2SS]
 (Ch_Wop2, Ch_Rop1, Ch_None)
-xmmreg,mem            \301\333\2\x0F\x2A\110          KATMAI,SSE,SD,AR1
-xmmreg,reg32          \333\2\x0F\x2A\110              KATMAI,SSE
+xmmreg,mem            \321\301\333\2\x0F\x2A\110      KATMAI,SSE
+xmmreg,reg32|64       \321\333\2\x0F\x2A\110          KATMAI,SSE
 
 [CVTSS2SI]
 (Ch_Wop2, Ch_Rop1, Ch_None)
-reg32,mem             \301\333\2\x0F\x2D\110          KATMAI,SSE
-reg32,xmmreg          \333\2\x0F\x2D\110              KATMAI,SSE
+reg32|64,mem          \321\301\333\2\x0F\x2D\110      KATMAI,SSE
+reg32|64,xmmreg       \321\333\2\x0F\x2D\110          KATMAI,SSE
 
 [CVTTPS2PI]
 (Ch_Wop2, Ch_Rop1, Ch_None)
@@ -2924,8 +2924,8 @@ xmmreg,mem              \301\3\xF2\x0F\x5A\110          WILLAMETTE,SSE2
 
 [CVTSI2SD]
 (Ch_Wop2, Ch_Rop1, Ch_None)
-xmmreg,reg32            \3\xF2\x0F\x2A\110              WILLAMETTE,SSE2
-xmmreg,mem              \301\3\xF2\x0F\x2A\110          WILLAMETTE,SSE2
+xmmreg,reg32|64         \321\3\xF2\x0F\x2A\110          WILLAMETTE,SSE2
+xmmreg,mem              \321\301\3\xF2\x0F\x2A\110      WILLAMETTE,SSE2
 
 [CVTSS2SD]
 (Ch_Wop2, Ch_Rop1, Ch_None)
@@ -3239,8 +3239,8 @@ reg32,imm             \325\10\xB8\41                  X86_64
 
 [MOVSXD,movslq]
 (Ch_Wop2, Ch_Rop1, Ch_None)
-reg64,mem             \325\301\1\x63\110              X86_64
-reg64,reg32           \325\301\1\x63\110              X86_64
+reg64,mem             \326\301\1\x63\110              X86_64
+reg64,reg32           \326\301\1\x63\110              X86_64
 
 [CQO,cqto]
 (Ch_MRAX, Ch_WRDX, Ch_None)

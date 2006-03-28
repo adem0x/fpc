@@ -42,7 +42,11 @@ interface
       TExeSection = class;
       TExeSymbol  = class;
 
-      TObjRelocationType = (RELOC_ABSOLUTE,RELOC_RELATIVE,RELOC_RVA);
+      TObjRelocationType = (RELOC_ABSOLUTE,RELOC_RELATIVE,RELOC_RVA
+{$ifdef x86_64}
+        ,RELOC_ABSOLUTE32
+{$endif x86_64}
+      );
 
       TObjSectionOption = (
        { Has data available in the file }
@@ -352,6 +356,11 @@ interface
         property CurrMemPos:aint read FCurrMemPos write FCurrMemPos;
       end;
       TExeOutputClass=class of TExeOutput;
+
+{$ifdef i386}
+    const
+      RELOC_ABSOLUTE32 = RELOC_ABSOLUTE;
+{$endif i386}
 
     var
       exeoutput : TExeOutput;
@@ -719,7 +728,10 @@ implementation
 
     function TObjData.sectiontype2align(atype:TAsmSectiontype):shortint;
       begin
-        result:=sizeof(aint);
+        if atype in [sec_stabstr,sec_debug_info,sec_debug_line,sec_debug_abbrev] then
+          result:=1
+        else
+          result:=sizeof(aint);
       end;
 
 
