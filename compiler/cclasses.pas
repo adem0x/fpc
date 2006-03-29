@@ -1335,7 +1335,7 @@ begin
   HashIndex:=CurrHash mod LongWord(FHashCapacity);
   Index:=FHashTable^[HashIndex];
   Len:=Char(Length(s));
-  LastChar:=s[Len];
+  LastChar:=s[Byte(Len)];
   while Index<>-1 do
     begin
       with FHashList^[Index] do
