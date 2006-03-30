@@ -1255,6 +1255,7 @@ implementation
          dmtlabel : tasmlabel;
 {$endif WITHDMT}
          interfacetable : tasmlabel;
+         parentsym : tasmsymbol;
       begin
 {$ifdef WITHDMT}
          dmtlabel:=gendmt;
@@ -1356,6 +1357,12 @@ implementation
          current_asmdata.asmlists[al_globals].concat(Tai_const.create(aitconst_ptr,0));
          { write the size of the VMT }
          current_asmdata.asmlists[al_globals].concat(Tai_symbol_end.Createname(_class.vmt_mangledname));
+         { write vtable_inherit to notify the linker of the class inheritance tree }
+         if assigned(_class.childof) then
+           parentsym:=current_asmdata.refasmsymbol(_class.childof.vmt_mangledname)
+         else
+           parentsym:=nil;
+         current_asmdata.asmlists[al_globals].concat(tai_vtable_inherit.create(current_asmdata.refasmsymbol(_class.vmt_mangledname),parentsym));
       end;
 
 

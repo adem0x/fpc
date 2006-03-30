@@ -1013,8 +1013,6 @@ Implementation
                  if assigned(Tai_stab(hp).str) then
                    convertstab(Tai_stab(hp).str);
                end;
-             ait_function_name,
-             ait_force_line : ;
              ait_symbol :
                ObjData.SymbolDefine(Tai_symbol(hp).sym);
              ait_symbol_end :
@@ -1052,6 +1050,7 @@ Implementation
         co : comp;
 {$endif x86}
         objsym,
+        objsymparent,
         objsymend : TObjSymbol;
         leblen : byte;
         lebbuf : array[0..63] of byte;
@@ -1149,6 +1148,17 @@ Implementation
                Taicpu(hp).Pass2(ObjData);
              ait_stab :
                convertstab(Tai_stab(hp).str);
+             ait_vtable_entry :
+               begin
+                 objsym:=Objdata.SymbolRef(tai_vtable_entry(hp).vtablesym);
+                 ObjData.writevtablereloc(objsym,nil,tai_vtable_entry(hp).offset,RELOC_VTENTRY);
+               end;
+             ait_vtable_inherit :
+               begin
+                 objsym:=Objdata.SymbolRef(tai_vtable_inherit(hp).childsym);
+                 objsymparent:=Objdata.SymbolRef(tai_vtable_inherit(hp).parentsym);
+                 ObjData.writevtablereloc(objsym,objsymparent,0,RELOC_VTENTRY);
+               end;
              ait_function_name,
              ait_force_line : ;
              ait_cutobject :

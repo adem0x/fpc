@@ -819,6 +819,7 @@ implementation
         regs_to_save_mm   : Tcpuregisterset;
         href : treference;
         pop_size : longint;
+        vmtoffset : aint;
         pvreg,
         vmtreg : tregister;
         oldaktcallnode : tcallnode;
@@ -903,9 +904,12 @@ implementation
                     not(is_cppclass(tprocdef(procdefinition)._class)) then
                    cg.g_maybe_testvmt(current_asmdata.CurrAsmList,vmtreg,tprocdef(procdefinition)._class);
 
+                 { Call through VMT, generate a vtable_entry directive to notify the linker }
+                 vmtoffset:=tprocdef(procdefinition)._class.vmtmethodoffset(tprocdef(procdefinition).extnumber);
+                 current_asmdata.CurrAsmList.concat(tai_vtable_entry.create(
+                     current_asmdata.refasmsymbol(tprocdef(procdefinition)._class.vmt_mangledname),vmtoffset));
                  pvreg:=cg.getintregister(current_asmdata.CurrAsmList,OS_ADDR);
-                 reference_reset_base(href,vmtreg,
-                    tprocdef(procdefinition)._class.vmtmethodoffset(tprocdef(procdefinition).extnumber));
+                 reference_reset_base(href,vmtreg,vmtoffset);
                  cg.a_load_ref_reg(current_asmdata.CurrAsmList,OS_ADDR,OS_ADDR,href,pvreg);
 
                  { Load parameters that are in temporary registers in the

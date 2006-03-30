@@ -85,7 +85,10 @@ interface
           { new source file (dwarf) }
           ait_file,
           { new line/loc in source file (dwarf) }
-          ait_loc
+          ait_loc,
+          { used for vtable virtual method optimization }
+          ait_vtable_inherit,
+          ait_vtable_entry
           );
 
         taiconst_type = (
@@ -149,7 +152,9 @@ interface
           'tempalloc',
           'marker',
           'file',
-          'line'
+          'line',
+          'vtable_inherit',
+          'vtable_entry'
           );
 
     type
@@ -209,7 +214,7 @@ interface
       SkipInstr = [ait_comment, ait_symbol,ait_section
                    ,ait_stab, ait_function_name, ait_force_line
                    ,ait_regalloc, ait_tempalloc, ait_symbol_end, ait_directive
-                   ,ait_file,ait_loc];
+                   ,ait_file,ait_loc,ait_vtable_inherit,ait_vtable_entry];
 
       { ait_* types which do not have line information (and hence which are of type
         tai, otherwise, they are of type tailineinfo }
@@ -219,7 +224,7 @@ interface
                      ait_cutobject,ait_marker,ait_align,ait_section,ait_comment,
                      ait_const,
                      ait_real_32bit,ait_real_64bit,ait_real_80bit,ait_comp_64bit,ait_real_128bit,
-                     ait_file,ait_loc
+                     ait_file,ait_loc,ait_vtable_inherit,ait_vtable_entry
                     ];
 
 
@@ -546,6 +551,20 @@ interface
           constructor Create(_fileidx : tai_file;_line,_column : longint);
           constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
+       end;
+
+       { Generates a vtable inherit directive }
+       tai_vtable_inherit = class(tai)
+          childsym,
+          parentsym : TAsmSymbol;
+          constructor Create(Achildsym,Aparentsym:TAsmSymbol);
+       end;
+
+       { Generates a vtable inherit directive }
+       tai_vtable_entry = class(tai)
+          vtablesym  : TAsmSymbol;
+          offset     : aint;
+          constructor Create(Avtablesym:TAsmSymbol;Aoffset:aint);
        end;
 
        tadd_reg_instruction_proc=procedure(instr:Tai;r:tregister) of object;
@@ -1960,6 +1979,32 @@ implementation
         ppufile.putlongint(line);
         ppufile.putlongint(column);
       end;
+
+{****************************************************************************
+                                tai_vtable_inherit
+ ****************************************************************************}
+
+    constructor tai_vtable_inherit.Create(Achildsym,Aparentsym:TAsmSymbol);
+      begin
+        inherited Create;
+        typ:=ait_vtable_inherit;
+        childsym:=Achildsym;
+        parentsym:=Aparentsym;
+      end;
+
+
+{****************************************************************************
+                                tai_vtable_entry
+ ****************************************************************************}
+
+    constructor tai_vtable_entry.Create(Avtablesym:TAsmSymbol;Aoffset:aint);
+      begin
+        inherited Create;
+        typ:=ait_vtable_entry;
+        vtablesym:=Avtablesym;
+        offset:=Aoffset;
+      end;
+
 
 {*****************************************************************************
                                TaiInstruction

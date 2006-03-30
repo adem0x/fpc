@@ -46,6 +46,7 @@ interface
 {$ifdef x86_64}
         ,RELOC_ABSOLUTE32
 {$endif x86_64}
+        ,RELOC_VTENTRY,RELOC_VTINHERIT
       );
 
       TObjSectionOption = (
@@ -73,6 +74,13 @@ interface
 
      TObjSectionOptions = set of TObjSectionOption;
 
+     TObjVTable = record
+       Size     : Longint;
+       ItemUsed : PBoolean;
+       Consolidated : Boolean;
+     end;
+     PObjVTable = ^TObjVTable;
+
      TObjSymbol = class(TNamedIndexItem)
      public
        bind       : TAsmsymbind;
@@ -85,6 +93,8 @@ interface
        size       : aint;
        { Used for external and common solving during linking }
        exesymbol  : TExeSymbol;
+       { Used for vmt references optimization }
+       vtable     : PObjVTable;
        constructor create(const s:string);
        function  address:aint;
        procedure SetAddress(apass:byte;aobjsec:TObjSection;abind:TAsmsymbind;atyp:Tasmsymtype);
@@ -204,6 +214,7 @@ interface
        procedure allocstab(p:pchar);
        procedure writebytes(const data;len:aint);
        procedure writereloc(data,len:aint;p:TObjSymbol;reloctype:TObjRelocationType);virtual;abstract;
+       procedure writevtablereloc(vtablesym:TObjSymbol;parentsym:TObjSymbol;vmtoffset:aint;reloctype:TObjRelocationType);
        procedure writestab(offset:aint;ps:TObjSymbol;nidx,nother:byte;ndesc:word;p:pchar);virtual;abstract;
        procedure beforealloc;virtual;
        procedure beforewrite;virtual;
@@ -874,6 +885,29 @@ implementation
         if not assigned(CurrObjSec) then
           internalerror(200402251);
         CurrObjSec.write(data,len);
+      end;
+
+
+    procedure TObjData.writevtablereloc(vtablesym:TObjSymbol;parentsym:TObjSymbol;vmtoffset:aint;reloctype:TObjRelocationType);
+      begin
+        if not assigned(CurrObjSec) then
+          internalerror(200603304);
+        case reloctype of
+          RELOC_VTINHERIT :
+            begin
+              if not assigned(parentsym) then
+                internalerror(200603305);
+              CurrObjSec.addsymreloc(CurrObjSec.Size,parentsym,reloctype);
+            end;
+          RELOC_VTENTRY :
+            begin
+              if assigned(parentsym) then
+                internalerror(200603306);
+              CurrObjSec.addsymreloc(vmtoffset,parentsym,reloctype);
+            end;
+          else
+            internalerror(200603307);
+        end;
       end;
 
 
