@@ -894,16 +894,12 @@ implementation
           internalerror(200603304);
         case reloctype of
           RELOC_VTINHERIT :
-            begin
-              if not assigned(parentsym) then
-                internalerror(200603305);
-              CurrObjSec.addsymreloc(CurrObjSec.Size,parentsym,reloctype);
-            end;
+            CurrObjSec.addsymreloc(vtablesym.address,parentsym,reloctype);
           RELOC_VTENTRY :
             begin
               if assigned(parentsym) then
                 internalerror(200603306);
-              CurrObjSec.addsymreloc(vmtoffset,parentsym,reloctype);
+              CurrObjSec.addsymreloc(vmtoffset,vtablesym,reloctype);
             end;
           else
             internalerror(200603307);

@@ -1157,7 +1157,7 @@ Implementation
                begin
                  objsym:=Objdata.SymbolRef(tai_vtable_inherit(hp).childsym);
                  objsymparent:=Objdata.SymbolRef(tai_vtable_inherit(hp).parentsym);
-                 ObjData.writevtablereloc(objsym,objsymparent,0,RELOC_VTENTRY);
+                 ObjData.writevtablereloc(objsym,objsymparent,0,RELOC_VTINHERIT);
                end;
              ait_function_name,
              ait_force_line : ;

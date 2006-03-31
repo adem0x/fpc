@@ -114,19 +114,26 @@ implementation
       symbolresize = 200*18;
 
     const
+      { Relocation types }
+{$ifdef i386}
       R_386_32 = 1;                    { ordinary absolute relocation }
       R_386_PC32 = 2;                  { PC-relative relocation }
       R_386_GOT32 = 3;                 { an offset into GOT }
       R_386_PLT32 = 4;                 { a PC-relative offset into PLT }
       R_386_GOTOFF = 9;                { an offset from GOT base }
       R_386_GOTPC = 10;                { a PC-relative offset _to_ GOT }
-
+      R_386_GNU_VTINHERIT = 250;
+      R_386_GNU_VTENTRY = 251;
+{$endif i386}
+{$ifdef sparc}
       R_SPARC_32 = 3;
       R_SPARC_WDISP30 = 7;
       R_SPARC_HI22 = 9;
       R_SPARC_LO10 = 12;
-
-      { AMD64 relocations }
+      R_SPARC_GNU_VTINHERIT = 250;
+      R_SPARC_GNU_VTENTRY = 251;
+{$endif sparc}
+{$ifdef x86_64}
       R_X86_64_NONE = 0;
       { Direct 64 bit   }
       R_X86_64_64 = 1;
@@ -174,7 +181,11 @@ implementation
       R_X86_64_GOTTPOFF = 22;
       { Offset in initial TLS block  }
       R_X86_64_TPOFF32 = 23;
-      R_X86_64_NUM = 24;
+      { GNU extension to record C++ vtable hierarchy }
+      R_X86_64_GNU_VTINHERIT = 24;
+      { GNU extension to record C++ vtable member usage }
+      R_X86_64_GNU_VTENTRY = 25;
+{$endif x86_64}
 
       SHN_UNDEF     = 0;
       SHN_ABS       = $fff1;
@@ -724,6 +735,7 @@ implementation
            r:=TObjRelocation(s.relocations.first);
            while assigned(r) do
             begin
+              fillchar(rel,sizeof(rel),0);
               rel.address:=r.dataoffset;
               if assigned(r.symbol) then
                begin
@@ -745,27 +757,26 @@ implementation
               { when things settle down, we can create processor specific
                 derived classes
               }
-{$ifdef i386}
               case r.typ of
+{$ifdef i386}
                 RELOC_RELATIVE :
                   reltyp:=R_386_PC32;
                 RELOC_ABSOLUTE :
                   reltyp:=R_386_32;
-              end;
+                RELOC_VTENTRY :
+                  reltyp:=R_386_GNU_VTENTRY;
+                RELOC_VTINHERIT :
+                  reltyp:=R_386_GNU_VTINHERIT;
 {$endif i386}
 {$ifdef sparc}
-              case r.typ of
-{                RELOC_RELATIVE :
-                  reltyp:=R_386_PC32;
-}
                 RELOC_ABSOLUTE :
                   reltyp:=R_SPARC_32;
-                else
-                  internalerror(200410201);
-              end;
+                RELOC_VTENTRY :
+                  reltyp:=R_SPARC_GNU_VTENTRY;
+                RELOC_VTINHERIT :
+                  reltyp:=R_SPARC_GNU_VTINHERIT;
 {$endif sparc}
 {$ifdef x86_64}
-              case r.typ of
                 RELOC_RELATIVE :
                   begin
                     reltyp:=R_X86_64_PC32;
@@ -773,19 +784,17 @@ implementation
                     rel.addend:=qword(-4);
                   end;
                 RELOC_ABSOLUTE :
-                  begin
-                    reltyp:=R_X86_64_64;
-                    rel.addend:=0;
-                  end;
+                  reltyp:=R_X86_64_64;
                 RELOC_ABSOLUTE32 :
-                  begin
-                    reltyp:=R_X86_64_32S;
-                    rel.addend:=0;
-                  end;
+                  reltyp:=R_X86_64_32S;
+                RELOC_VTENTRY :
+                  reltyp:=R_X86_64_GNU_VTENTRY;
+                RELOC_VTINHERIT :
+                  reltyp:=R_X86_64_GNU_VTINHERIT;
+{$endif x86_64}
                 else
                   internalerror(200602261);
               end;
-{$endif x86_64}
 {$ifdef cpu64bit}
               rel.info:=(qword(relsym) shl 32) or reltyp;
 {$else cpu64bit}

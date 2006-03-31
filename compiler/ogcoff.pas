@@ -327,6 +327,12 @@ implementation
        PE_DATADIR_IMPORTADDRESSTABLE = 12;
        PE_DATADIR_DELAYIMPORT = 13;
 
+       R_DIR32 = 6;
+       R_IMAGEBASE = 7;
+       R_PCRLONG = 20;
+       R_GNU_VTINHERIT = 250;
+       R_GNU_VTENTRY = 251;
+
     type
        { Structures which are written directly to the output file }
        coffheader=packed record
@@ -1109,11 +1115,17 @@ const win32stub : array[0..131] of byte=(
             end;
            case r.typ of
              RELOC_RELATIVE :
-               rel.reloctype:=$14;
+               rel.reloctype:=R_PCRLONG;
              RELOC_ABSOLUTE :
-               rel.reloctype:=$6;
+               rel.reloctype:=R_DIR32;
              RELOC_RVA :
-               rel.reloctype:=$7;
+               rel.reloctype:=R_IMAGEBASE;
+             RELOC_VTENTRY :
+               rel.reloctype:=R_GNU_VTENTRY;
+             RELOC_VTINHERIT :
+               rel.reloctype:=R_GNU_VTINHERIT;
+             else
+               internalerror(200603311);
            end;
            FWriter.write(rel,sizeof(rel));
            r:=TObjRelocation(r.next);

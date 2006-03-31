@@ -924,7 +924,10 @@ implementation
                AsmWrite(#9'.vtable_inherit ');
                AsmWrite(tai_vtable_inherit(hp).childsym.name);
                AsmWrite(',');
-               AsmWrite(tai_vtable_inherit(hp).parentsym.name);
+               if assigned(tai_vtable_inherit(hp).parentsym) then
+                 AsmWrite(tai_vtable_inherit(hp).parentsym.name)
+               else
+                 AsmWrite('0');
                AsmLn;
              end;
 
