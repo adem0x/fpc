@@ -919,27 +919,6 @@ implementation
                AsmLn;
              end;
 
-           ait_vtable_inherit :
-             begin
-               AsmWrite(#9'.vtable_inherit ');
-               AsmWrite(tai_vtable_inherit(hp).childsym.name);
-               AsmWrite(',');
-               if assigned(tai_vtable_inherit(hp).parentsym) then
-                 AsmWrite(tai_vtable_inherit(hp).parentsym.name)
-               else
-                 AsmWrite('0');
-               AsmLn;
-             end;
-
-           ait_vtable_entry :
-             begin
-               AsmWrite(#9'.vtable_entry ');
-               AsmWrite(tai_vtable_entry(hp).vtablesym.name);
-               AsmWrite(',');
-               AsmWrite(tostr(tai_vtable_entry(hp).offset));
-               AsmLn;
-             end;
-
            ait_force_line,
            ait_function_name : ;
 

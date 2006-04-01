@@ -63,7 +63,6 @@ interface
          goTSect,
          plTSect,
          symsect  : TElfObjSection;
-         syms     : Tdynamicarray;
          constructor create(const n:string);override;
          destructor  destroy;override;
          function  sectionname(atype:TAsmSectiontype;const aname:string):string;override;
@@ -565,8 +564,6 @@ implementation
       begin
         inherited create(n);
         CObjSection:=TElfObjSection;
-        { reset }
-        Syms:=TDynamicArray.Create(symbolresize);
         { default sections }
         symtabsect:=TElfObjSection.create_ext('.symtab',SHT_SYMTAB,0,0,0,4,sizeof(telfsymbol));
         strtabsect:=TElfObjSection.create_ext('.strtab',SHT_STRTAB,0,0,0,1,0);
@@ -588,7 +585,6 @@ implementation
 
     destructor TElfObjData.destroy;
       begin
-        Syms.Free;
         symtabsect.free;
         strtabsect.free;
         shstrtabsect.free;
@@ -707,12 +703,14 @@ implementation
 
     procedure TElfObjectOutput.createrelocsection(s:TElfObjSection);
       var
+        i    : longint;
 {$ifdef ver2_0_0}
         relnative,
 {$endif ver2_0_0}
         rel  : telfreloc;
-        r    : TObjRelocation;
-        relsym,reltyp : longint;
+        objreloc : TObjRelocation;
+        relsym,
+        reltyp   : longint;
       begin
         with elf32data do
          begin
@@ -732,83 +730,71 @@ implementation
            s.relocsect:=TElfObjSection.create_ext('.rela'+s.name,SHT_RELA,0,symtabsect.secshidx,s.secshidx,4,sizeof(TElfReloc));
 {$endif i386}
            { add the relocations }
-           r:=TObjRelocation(s.relocations.first);
-           while assigned(r) do
-            begin
-              fillchar(rel,sizeof(rel),0);
-              rel.address:=r.dataoffset;
-              if assigned(r.symbol) then
-               begin
-                 if (r.symbol.bind=AB_LOCAL) then
-                  relsym:=r.symbol.objsection.secsymidx
-                 else
-                  begin
-                    if r.symbol.symidx=-1 then
-                      internalerror(200603012);
-                    relsym:=r.symbol.symidx;
-                  end;
-               end
-              else
-               if r.objsection<>nil then
-                relsym:=r.objsection.secsymidx
+           for i:=0 to s.Objrelocations.count-1 do
+             begin
+               objreloc:=TObjRelocation(s.Objrelocations[i]);
+               fillchar(rel,sizeof(rel),0);
+               rel.address:=objreloc.dataoffset;
+               if assigned(objreloc.symbol) then
+                 begin
+                   if (objreloc.symbol.bind=AB_LOCAL) then
+                     relsym:=objreloc.symbol.objsection.secsymidx
+                   else
+                     begin
+                       if objreloc.symbol.symidx=-1 then
+                         internalerror(200603012);
+                       relsym:=objreloc.symbol.symidx;
+                     end;
+                 end
                else
-                relsym:=SHN_UNDEF;
+                 begin
+                   if objreloc.objsection<>nil then
+                     relsym:=objreloc.objsection.secsymidx
+                   else
+                     relsym:=SHN_UNDEF;
+                 end;
 
-              { when things settle down, we can create processor specific
-                derived classes
-              }
-              case r.typ of
+               { when things settle down, we can create processor specific
+                 derived classes }
+               case objreloc.typ of
 {$ifdef i386}
-                RELOC_RELATIVE :
-                  reltyp:=R_386_PC32;
-                RELOC_ABSOLUTE :
-                  reltyp:=R_386_32;
-                RELOC_VTENTRY :
-                  reltyp:=R_386_GNU_VTENTRY;
-                RELOC_VTINHERIT :
-                  reltyp:=R_386_GNU_VTINHERIT;
+                 RELOC_RELATIVE :
+                   reltyp:=R_386_PC32;
+                 RELOC_ABSOLUTE :
+                   reltyp:=R_386_32;
 {$endif i386}
 {$ifdef sparc}
-                RELOC_ABSOLUTE :
-                  reltyp:=R_SPARC_32;
-                RELOC_VTENTRY :
-                  reltyp:=R_SPARC_GNU_VTENTRY;
-                RELOC_VTINHERIT :
-                  reltyp:=R_SPARC_GNU_VTINHERIT;
+                 RELOC_ABSOLUTE :
+                   reltyp:=R_SPARC_32;
 {$endif sparc}
 {$ifdef x86_64}
-                RELOC_RELATIVE :
-                  begin
-                    reltyp:=R_X86_64_PC32;
-                    { length of the relocated location is handled here }
-                    rel.addend:=qword(-4);
-                  end;
-                RELOC_ABSOLUTE :
-                  reltyp:=R_X86_64_64;
-                RELOC_ABSOLUTE32 :
-                  reltyp:=R_X86_64_32S;
-                RELOC_VTENTRY :
-                  reltyp:=R_X86_64_GNU_VTENTRY;
-                RELOC_VTINHERIT :
-                  reltyp:=R_X86_64_GNU_VTINHERIT;
+                 RELOC_RELATIVE :
+                   begin
+                     reltyp:=R_X86_64_PC32;
+                     { length of the relocated location is handled here }
+                     rel.addend:=qword(-4);
+                   end;
+                 RELOC_ABSOLUTE :
+                   reltyp:=R_X86_64_64;
+                 RELOC_ABSOLUTE32 :
+                   reltyp:=R_X86_64_32S;
 {$endif x86_64}
-                else
-                  internalerror(200602261);
-              end;
+                 else
+                   internalerror(200602261);
+               end;
 {$ifdef cpu64bit}
-              rel.info:=(qword(relsym) shl 32) or reltyp;
+               rel.info:=(qword(relsym) shl 32) or reltyp;
 {$else cpu64bit}
-              rel.info:=(relsym shl 8) or reltyp;
+               rel.info:=(relsym shl 8) or reltyp;
 {$endif cpu64bit}
-              { write reloc }
+               { write reloc }
 {$ifdef ver2_0_0}
-              relnative:=MaybeSwapElfReloc(rel);
-              s.relocsect.write(relnative,sizeof(rel));
+               relnative:=MaybeSwapElfReloc(rel);
+               s.relocsect.write(relnative,sizeof(rel));
 {$else}
-              s.relocsect.write(MaybeSwapElfReloc(rel),sizeof(rel));
+               s.relocsect.write(MaybeSwapElfReloc(rel),sizeof(rel));
 {$endif ver2_0_0}
-              r:=TObjRelocation(r.next);
-            end;
+             end;
          end;
       end;
 
@@ -843,11 +829,74 @@ implementation
 
 
     procedure TElfObjectOutput.createsymtab;
-      var
+
+        procedure WriteSym(objsym:TObjSymbol);
+        var
 {$ifdef ver2_0_0}
-        elfsymnative,
+          elfsymnative,
 {$endif}
-        elfsym : telfsymbol;
+          elfsym : telfsymbol;
+        begin
+          with elf32data do
+            begin
+              fillchar(elfsym,sizeof(elfsym),0);
+              { symbolname, write the #0 separate to overcome 255+1 char not possible }
+              elfsym.st_name:=strtabsect.Size;
+              strtabsect.writestr(objsym.name);
+              strtabsect.writestr(#0);
+              elfsym.st_size:=objsym.size;
+              case objsym.bind of
+                AB_LOCAL :
+                  begin
+                    elfsym.st_value:=objsym.address;
+                    elfsym.st_info:=STB_LOCAL shl 4;
+                    inc(localsyms);
+                  end;
+                AB_COMMON :
+                  begin
+                    elfsym.st_value:=$10;
+                    elfsym.st_info:=STB_GLOBAL shl 4;
+                  end;
+                AB_EXTERNAL :
+                  elfsym.st_info:=STB_GLOBAL shl 4;
+                AB_GLOBAL :
+                  begin
+                    elfsym.st_value:=objsym.address;
+                    elfsym.st_info:=STB_GLOBAL shl 4;
+                  end;
+              end;
+              if (objsym.bind<>AB_EXTERNAL) {and
+                  not(assigned(objsym.objsection) and
+                  not(oso_data in objsym.objsection.secoptions))} then
+                begin
+                  case objsym.typ of
+                    AT_FUNCTION :
+                      elfsym.st_info:=elfsym.st_info or STT_FUNC;
+                    AT_DATA :
+                      elfsym.st_info:=elfsym.st_info or STT_OBJECT;
+                  end;
+                end;
+              if objsym.bind=AB_COMMON then
+                elfsym.st_shndx:=SHN_COMMON
+              else
+                begin
+                  if assigned(objsym.objsection) then
+                    elfsym.st_shndx:=TElfObjSection(objsym.objsection).secshidx
+                  else
+                    elfsym.st_shndx:=SHN_UNDEF;
+                end;
+              objsym.symidx:=symidx;
+              inc(symidx);
+{$ifdef ver2_0_0}
+              elfsymnative:=MaybeSwapElfSymbol(elfsym);
+              symtabsect.write(elfsymnative,sizeof(elfsym));
+{$else}
+              symtabsect.write(MaybeSwapElfSymbol(elfsym),sizeof(elfsym));
+{$endif ver2_0_0}
+            end;
+        end;
+
+      var
         i      : longint;
         objsym : TObjSymbol;
       begin
@@ -861,67 +910,21 @@ implementation
            write_internal_symbol(1,STT_FILE,SHN_ABS);
            { section }
            ObjSectionList.ForEachCall(@section_write_symbol,nil);
-           { ObjSymbols }
+           { First the Local Symbols, this is required by ELF. The localsyms
+             count stored in shinfo is used to skip the local symbols
+             when traversing the symtab }
            for i:=0 to ObjSymbolList.Count-1 do
              begin
                objsym:=TObjSymbol(ObjSymbolList[i]);
-               if objsym.bind<>AB_LOCAL then
-                 begin
-                   fillchar(elfsym,sizeof(elfsym),0);
-                   { symbolname, write the #0 separate to overcome 255+1 char not possible }
-                   elfsym.st_name:=strtabsect.Size;
-                   strtabsect.writestr(objsym.name);
-                   strtabsect.writestr(#0);
-                   elfsym.st_size:=objsym.size;
-                   case objsym.bind of
-                     AB_LOCAL :
-                       begin
-                         elfsym.st_value:=objsym.address;
-                         elfsym.st_info:=STB_LOCAL shl 4;
-                         inc(localsyms);
-                       end;
-                     AB_COMMON :
-                       begin
-                         elfsym.st_value:=$10;
-                         elfsym.st_info:=STB_GLOBAL shl 4;
-                       end;
-                     AB_EXTERNAL :
-                       elfsym.st_info:=STB_GLOBAL shl 4;
-                     AB_GLOBAL :
-                       begin
-                         elfsym.st_value:=objsym.address;
-                         elfsym.st_info:=STB_GLOBAL shl 4;
-                       end;
-                   end;
-                   if (objsym.bind<>AB_EXTERNAL) and
-                      not(assigned(objsym.objsection) and
-                      not(oso_data in objsym.objsection.secoptions)) then
-                     begin
-                       case objsym.typ of
-                         AT_FUNCTION :
-                           elfsym.st_info:=elfsym.st_info or STT_FUNC;
-                         AT_DATA :
-                           elfsym.st_info:=elfsym.st_info or STT_OBJECT;
-                       end;
-                     end;
-                   if objsym.bind=AB_COMMON then
-                     elfsym.st_shndx:=SHN_COMMON
-                   else
-                     begin
-                       if assigned(objsym.objsection) then
-                         elfsym.st_shndx:=TElfObjSection(objsym.objsection).secshidx
-                       else
-                         elfsym.st_shndx:=SHN_UNDEF;
-                     end;
-                   objsym.symidx:=symidx;
-                   inc(symidx);
-{$ifdef ver2_0_0}
-                   elfsymnative:=MaybeSwapElfSymbol(elfsym);
-                   symtabsect.write(elfsymnative,sizeof(elfsym));
-{$else}
-                   symtabsect.write(MaybeSwapElfSymbol(elfsym),sizeof(elfsym));
-{$endif ver2_0_0}
-                 end;
+               if (objsym.bind=AB_LOCAL) and (objsym.typ<>AT_LABEL) then
+                 WriteSym(objsym);
+             end;
+           { Global Symbols }
+           for i:=0 to ObjSymbolList.Count-1 do
+             begin
+               objsym:=TObjSymbol(ObjSymbolList[i]);
+               if (objsym.bind<>AB_LOCAL) then
+                 WriteSym(objsym);
              end;
            { update the .symtab section header }
            symtabsect.shlink:=strtabsect.secshidx;
@@ -991,14 +994,14 @@ implementation
       begin
         TElfObjSection(p).secshidx:=pword(arg)^;
         inc(pword(arg)^);
-        if TElfObjSection(p).relocations.count>0 then
+        if TElfObjSection(p).ObjRelocations.count>0 then
           inc(pword(arg)^);
       end;
 
 
     procedure TElfObjectOutput.section_create_relocsec(p:TObject;arg:pointer);
       begin
-        if (TElfObjSection(p).relocations.count>0) then
+        if (TElfObjSection(p).ObjRelocations.count>0) then
           createrelocsection(TElfObjSection(p));
       end;
 

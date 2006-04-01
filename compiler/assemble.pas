@@ -1049,6 +1049,7 @@ Implementation
 {$ifdef x86}
         co : comp;
 {$endif x86}
+        hs : string;
         objsym,
         objsymparent,
         objsymend : TObjSymbol;
@@ -1148,17 +1149,6 @@ Implementation
                Taicpu(hp).Pass2(ObjData);
              ait_stab :
                convertstab(Tai_stab(hp).str);
-             ait_vtable_entry :
-               begin
-                 objsym:=Objdata.SymbolRef(tai_vtable_entry(hp).vtablesym);
-                 ObjData.writevtablereloc(objsym,nil,tai_vtable_entry(hp).offset,RELOC_VTENTRY);
-               end;
-             ait_vtable_inherit :
-               begin
-                 objsym:=Objdata.SymbolRef(tai_vtable_inherit(hp).childsym);
-                 objsymparent:=Objdata.SymbolRef(tai_vtable_inherit(hp).parentsym);
-                 ObjData.writevtablereloc(objsym,objsymparent,0,RELOC_VTINHERIT);
-               end;
              ait_function_name,
              ait_force_line : ;
              ait_cutobject :

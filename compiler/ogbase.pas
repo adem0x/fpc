@@ -42,11 +42,20 @@ interface
       TExeSection = class;
       TExeSymbol  = class;
 
-      TObjRelocationType = (RELOC_ABSOLUTE,RELOC_RELATIVE,RELOC_RVA
+      TObjRelocationType = (
+         { Relocation to absolute address }
+         RELOC_ABSOLUTE,
 {$ifdef x86_64}
-        ,RELOC_ABSOLUTE32
+         { 32bit Relocation to absolute address }
+         RELOC_ABSOLUTE32,
 {$endif x86_64}
-        ,RELOC_VTENTRY,RELOC_VTINHERIT
+         { Relative relocation }
+         RELOC_RELATIVE,
+         { PECoff (Windows) RVA relocation }
+         RELOC_RVA,
+         { Generate a 0 value at the place of the relocation,
+           this is used to remove unused vtable entries }
+         RELOC_ZERO
       );
 
       TObjSectionOption = (
@@ -74,13 +83,6 @@ interface
 
      TObjSectionOptions = set of TObjSectionOption;
 
-     TObjVTable = record
-       Size     : Longint;
-       ItemUsed : PBoolean;
-       Consolidated : Boolean;
-     end;
-     PObjVTable = ^TObjVTable;
-
      TObjSymbol = class(TNamedIndexItem)
      public
        bind       : TAsmsymbind;
@@ -93,8 +95,6 @@ interface
        size       : aint;
        { Used for external and common solving during linking }
        exesymbol  : TExeSymbol;
-       { Used for vmt references optimization }
-       vtable     : PObjVTable;
        constructor create(const s:string);
        function  address:aint;
        procedure SetAddress(apass:byte;aobjsec:TObjSection;abind:TAsmsymbind;atyp:Tasmsymtype);
@@ -110,7 +110,7 @@ interface
      end;
      PObjStabEntry=^TObjStabEntry;
 
-     TObjRelocation = class(TLinkedListItem)
+     TObjRelocation = class
         DataOffset,
         orgsize    : aint;  { original size of the symbol to relocate, required for COFF }
         symbol     : TObjSymbol;
@@ -135,14 +135,14 @@ interface
        DataPos,
        MemPos     : aint;
        DataAlignBytes : shortint;
-       { relocation }
-       relocations : TLinkedList;
-       { Symbols this section references and defines }
-       ObjSymbolRefs     : TFPObjectList;
-       ObjSymbolDefines  : TFPObjectList;
+       { Relocations (=references) to other sections }
+       ObjRelocations : TFPObjectList;
+       { Symbols this defines }
+       ObjSymbolDefines : TFPObjectList;
        { executable linking }
        ExeSection  : TExeSection;
        Used       : boolean;
+       VTRefList : TFPObjectList;
        constructor create(const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);virtual;
        destructor  destroy;override;
        function  write(const d;l:aint):aint;
@@ -154,7 +154,6 @@ interface
        procedure addsymreloc(ofs:aint;p:TObjSymbol;reloctype:TObjRelocationType);
        procedure addsectionreloc(ofs:aint;aobjsec:TObjSection;reloctype:TObjRelocationType);
        procedure AddSymbolDefine(p:TObjSymbol);
-       procedure AddSymbolRef(p:TObjSymbol);
        procedure fixuprelocs;virtual;
        function  FullName:string;
        property  Data:TDynamicArray read FData;
@@ -214,7 +213,6 @@ interface
        procedure allocstab(p:pchar);
        procedure writebytes(const data;len:aint);
        procedure writereloc(data,len:aint;p:TObjSymbol;reloctype:TObjRelocationType);virtual;abstract;
-       procedure writevtablereloc(vtablesym:TObjSymbol;parentsym:TObjSymbol;vmtoffset:aint;reloctype:TObjRelocationType);
        procedure writestab(offset:aint;ps:TObjSymbol;nidx,nother:byte;ndesc:word;p:pchar);virtual;abstract;
        procedure beforealloc;virtual;
        procedure beforewrite;virtual;
@@ -265,9 +263,36 @@ interface
       end;
       TObjInputClass=class of TObjInput;
 
+      TVTableEntry=record
+        ObjRelocation : TObjRelocation;
+        orgreloctype  : TObjRelocationType;
+        Enabled,
+        Used  : Boolean;
+      end;
+      PVTableEntry=^TVTableEntry;
+
+      TExeVTable = class
+      private
+        procedure CheckIdx(VTableIdx:longint);
+      public
+        ExeSymbol    : TExeSymbol;
+        EntryCnt     : Longint;
+        EntryArray   : PVTableEntry;
+        Consolidated : Boolean;
+        ChildList    : TFPObjectList;
+        constructor Create(AExeSymbol:TExeSymbol);
+        destructor Destroy;override;
+        procedure AddChild(vt:TExeVTable);
+        procedure AddEntry(VTableIdx:Longint);
+        procedure SetVTableSize(ASize:longint);
+        function  VTableRef(VTableIdx:Longint):TObjRelocation;
+      end;
+
       TExeSymbol = class(TNamedIndexItem)
         ObjSymbol  : TObjSymbol;
         ExeSection : TExeSection;
+        { Used for vmt references optimization }
+        VTable     : TExeVTable;
         constructor create(sym:TObjSymbol);
       end;
 
@@ -305,6 +330,7 @@ interface
         FExternalObjSymbols,
         FCommonObjSymbols   : TFPObjectList;
         FEntryName          : string;
+        FExeVTableList     : TFPObjectList;
         { Objects }
         FObjDataList  : TFPObjectList;
         { Position calculation }
@@ -344,6 +370,7 @@ interface
         procedure CalcPos_Header;virtual;
         procedure CalcPos_Start;virtual;
         procedure CalcPos_Symbols;virtual;
+        procedure BuildVTableTree(VTInheritList,VTEntryList:TFPObjectList);
         procedure ResolveSymbols;
         procedure PrintMemoryMap;
         procedure FixUpSymbols;
@@ -360,6 +387,7 @@ interface
         property UnresolvedExeSymbols:TFPObjectList read FUnresolvedExeSymbols;
         property ExternalObjSymbols:TFPObjectList read FExternalObjSymbols;
         property CommonObjSymbols:TFPObjectList read FCommonObjSymbols;
+        property ExeVTableList:TFPObjectList read FExeVTableList;
         property EntryName:string read FEntryName write FEntryName;
         property ImageBase:aint read FImageBase write FImageBase;
         property CurrExeSec:TExeSection read FCurrExeSec;
@@ -494,9 +522,9 @@ implementation
         secalign:=Aalign;
         secsymidx:=0;
         { relocation }
-        relocations:=TLinkedList.Create;
-        ObjSymbolRefs:=TFPObjectList.Create(false);
+        ObjRelocations:=TFPObjectList.Create(false);
         ObjSymbolDefines:=TFPObjectList.Create(false);
+        VTRefList:=TFPObjectList.Create(false);
       end;
 
 
@@ -504,9 +532,9 @@ implementation
       begin
         if assigned(Data) then
           Data.Free;
-        relocations.free;
-        ObjSymbolRefs.Free;
+        ObjRelocations.Free;
         ObjSymbolDefines.Free;
+        VTRefList.Free;
         inherited destroy;
       end;
 
@@ -588,13 +616,13 @@ implementation
 
     procedure TObjSection.addsymreloc(ofs:aint;p:TObjSymbol;reloctype:TObjRelocationType);
       begin
-        relocations.concat(TObjRelocation.CreateSymbol(ofs,p,reloctype));
+        ObjRelocations.Add(TObjRelocation.CreateSymbol(ofs,p,reloctype));
       end;
 
 
     procedure TObjSection.addsectionreloc(ofs:aint;aobjsec:TObjSection;reloctype:TObjRelocationType);
       begin
-        relocations.concat(TObjRelocation.CreateSection(ofs,aobjsec,reloctype));
+        ObjRelocations.Add(TObjRelocation.CreateSection(ofs,aobjsec,reloctype));
       end;
 
 
@@ -606,13 +634,14 @@ implementation
       end;
 
 
+(*
     procedure TObjSection.AddSymbolRef(p:TObjSymbol);
       begin
         { Register all references, also the local references between the
           ObjSections in an ObjData }
         ObjSymbolRefs.Add(p);
       end;
-
+*)
 
     procedure TObjSection.fixuprelocs;
       begin
@@ -849,11 +878,7 @@ implementation
                 FCachedAsmSymbolList.add(asmsym);
               end
             else
-              begin
-                result:=TObjSymbol(asmsym.cachedObjSymbol);
-                { Register also in TObjSection }
-                CurrObjSec.AddSymbolRef(result);
-              end;
+              result:=TObjSymbol(asmsym.cachedObjSymbol);
           end
         else
           result:=nil;
@@ -865,8 +890,6 @@ implementation
         if not assigned(CurrObjSec) then
           internalerror(200603052);
         result:=CreateSymbol(aname);
-        { Register also in TObjSection }
-        CurrObjSec.AddSymbolRef(result);
       end;
 
 
@@ -885,25 +908,6 @@ implementation
         if not assigned(CurrObjSec) then
           internalerror(200402251);
         CurrObjSec.write(data,len);
-      end;
-
-
-    procedure TObjData.writevtablereloc(vtablesym:TObjSymbol;parentsym:TObjSymbol;vmtoffset:aint;reloctype:TObjRelocationType);
-      begin
-        if not assigned(CurrObjSec) then
-          internalerror(200603304);
-        case reloctype of
-          RELOC_VTINHERIT :
-            CurrObjSec.addsymreloc(vtablesym.address,parentsym,reloctype);
-          RELOC_VTENTRY :
-            begin
-              if assigned(parentsym) then
-                internalerror(200603306);
-              CurrObjSec.addsymreloc(vmtoffset,vtablesym,reloctype);
-            end;
-          else
-            internalerror(200603307);
-        end;
       end;
 
 
@@ -1093,6 +1097,99 @@ implementation
 
 
 {****************************************************************************
+                                 TExeVTable
+****************************************************************************}
+
+    constructor TExeVTable.Create(AExeSymbol:TExeSymbol);
+      begin
+        ExeSymbol:=AExeSymbol;
+        if not assigned(ExeSymbol.ObjSymbol) then
+          internalerror(200604012);
+        ChildList:=TFPObjectList.Create(false);
+      end;
+
+
+    destructor TExeVTable.Destroy;
+      begin
+        ChildList.Free;
+        if assigned(EntryArray) then
+          Freemem(EntryArray);
+      end;
+
+
+    procedure TExeVTable.CheckIdx(VTableIdx:longint);
+      var
+        OldEntryCnt : longint;
+      begin
+        if VTableIdx>=EntryCnt then
+          begin
+            OldEntryCnt:=EntryCnt;
+            EntryCnt:=VTableIdx+1;
+            ReAllocMem(EntryArray,EntryCnt*sizeof(TVTableEntry));
+            FillChar(EntryArray[OldEntryCnt],(EntryCnt-OldEntryCnt)*sizeof(TVTableEntry),0);
+          end;
+      end;
+
+
+    procedure TExeVTable.AddChild(vt:TExeVTable);
+      begin
+        ChildList.Add(vt);
+writeln(ExeSymbol.Name,'-',vt.ExeSymbol.Name);
+      end;
+
+
+    procedure TExeVTable.AddEntry(VTableIdx:Longint);
+      var
+        i : longint;
+        objreloc : TObjRelocation;
+        vtblentryoffset : aint;
+      begin
+        CheckIdx(VTableIdx);
+        vtblentryoffset:=ExeSymbol.ObjSymbol.Offset+VTableIdx*sizeof(aint);
+        { Find and disable relocation }
+        for i:=0 to ExeSymbol.ObjSymbol.ObjSection.ObjRelocations.Count-1 do
+          begin
+            objreloc:=TObjRelocation(ExeSymbol.ObjSymbol.ObjSection.ObjRelocations[i]);
+            if objreloc.dataoffset=vtblentryoffset then
+              begin
+                EntryArray[VTableIdx].ObjRelocation:=objreloc;
+                EntryArray[VTableIdx].OrgRelocType:=objreloc.typ;
+                objreloc.typ:=RELOC_ZERO;
+                break;
+              end;
+          end;
+        if not assigned(EntryArray[VTableIdx].ObjRelocation) then
+          internalerror(200604011);
+      end;
+
+
+    procedure TExeVTable.SetVTableSize(ASize:longint);
+      begin
+        if EntryCnt<>0 then
+          internalerror(200603313);
+        EntryCnt:=ASize div sizeof(aint);
+        EntryArray:=AllocMem(EntryCnt*sizeof(TVTableEntry));
+      end;
+
+
+    function TExeVTable.VTableRef(VTableIdx:Longint):TObjRelocation;
+      begin
+        result:=nil;
+        CheckIdx(VTableIdx);
+        if EntryArray[VTableIdx].Used then
+          exit;
+writeln(ExeSymbol.Name,'(',VTableIdx,')');
+        { Restore relocation if available }
+        if assigned(EntryArray[VTableIdx].ObjRelocation) then
+          begin
+            EntryArray[VTableIdx].ObjRelocation.typ:=EntryArray[VTableIdx].OrgRelocType;
+            result:=EntryArray[VTableIdx].ObjRelocation;
+          end;
+        EntryArray[VTableIdx].Used:=true;
+      end;
+
+
+{****************************************************************************
                                  TExeSymbol
 ****************************************************************************}
 
@@ -1162,6 +1259,7 @@ implementation
         FUnresolvedExeSymbols:=TFPObjectList.Create(false);
         FExternalObjSymbols:=TFPObjectList.Create(false);
         FCommonObjSymbols:=TFPObjectList.Create(false);
+        FExeVTableList:=TFPObjectList.Create(false);
         FEntryName:='start';
         { sections }
         FExeSectionDict:=TDictionary.create;
@@ -1182,6 +1280,7 @@ implementation
         UnresolvedExeSymbols.free;
         ExternalObjSymbols.free;
         CommonObjSymbols.free;
+        ExeVTableList.free;
         FExeSectionDict.free;
         FExeSectionList.free;
         objdatalist.free;
@@ -1359,8 +1458,8 @@ implementation
         currstabstrsec,
         mergedstabsec,
         mergedstabstrsec : TObjSection;
-        nextstabreloc,
         currstabreloc : TObjRelocation;
+        currstabrelocidx,
         i,j,
         stabcnt : longint;
         skipstab : boolean;
@@ -1398,7 +1497,7 @@ implementation
               begin
                 stabcnt:=currstabsec.data.size div sizeof(TObjStabEntry);
                 currstabsec.data.seek(0);
-                currstabreloc:=TObjRelocation(currstabsec.relocations.first);
+                currstabrelocidx:=0;
                 for j:=0 to stabcnt-1 do
                   begin
                     skipstab:=false;
@@ -1426,20 +1525,24 @@ implementation
                               mergedstabstrsec.write(buf,bufend);
                             until (bufend<>-1) or (bufsize<sizeof(buf));
                           end;
-                        { Copy relocation }
-                        while assigned(currstabreloc) and
-                              (currstabreloc.dataoffset<j*sizeof(TObjStabEntry)+stabrelocofs) do
-                          currstabreloc:=TObjRelocation(currstabreloc.next);
-                        if assigned(currstabreloc) then
+                        { Find relocation }
+                        currstabreloc:=nil;
+                        while (currstabrelocidx<currstabsec.ObjRelocations.Count) do
                           begin
-                            if (currstabreloc.dataoffset=j*sizeof(TObjStabEntry)+stabrelocofs) then
-                              begin
-                                currstabreloc.dataoffset:=mergedstabsec.Size+stabrelocofs;
-                                nextstabreloc:=TObjRelocation(currstabreloc.next);
-                                currstabsec.relocations.remove(currstabreloc);
-                                mergedstabsec.relocations.concat(currstabreloc);
-                                currstabreloc:=nextstabreloc;
-                              end;
+                            currstabreloc:=TObjRelocation(currstabsec.ObjRelocations[currstabrelocidx]);
+                            if assigned(currstabreloc) and
+                               (currstabreloc.dataoffset>=j*sizeof(TObjStabEntry)+stabrelocofs) then
+                              break;
+                            inc(currstabrelocidx);
+                          end;
+
+                        if assigned(currstabreloc) and
+                           (currstabreloc.dataoffset=j*sizeof(TObjStabEntry)+stabrelocofs) then
+                          begin
+                            currstabreloc.dataoffset:=mergedstabsec.Size+stabrelocofs;
+                            currstabsec.ObjRelocations[currstabrelocidx]:=nil;
+                            mergedstabsec.ObjRelocations.Add(currstabreloc);
+                            inc(currstabrelocidx);
                           end;
                         mergedstabsec.write(hstab,sizeof(hstab));
                       end;
@@ -1538,6 +1641,68 @@ implementation
       end;
 
 
+    procedure TExeOutput.BuildVTableTree(VTInheritList,VTEntryList:TFPObjectList);
+      var
+        hs : string;
+        code : integer;
+        i,k,
+        vtableidx : longint;
+        vtableexesym,
+        childexesym,
+        parentexesym : TExeSymbol;
+        objsym : TObjSymbol;
+      begin
+        { Build inheritance tree from VTINHERIT }
+        for i:=0 to VTInheritList.Count-1 do
+          begin
+            objsym:=TObjSymbol(VTInheritList[i]);
+            hs:=objsym.name;
+            { VTINHERIT_<ChildVMTName>$$<ParentVMTName> }
+            Delete(hs,1,Pos('_',hs));
+            k:=Pos('$$',hs);
+            if k=0 then
+              internalerror(200603311);
+            childexesym:=texesymbol(FExeSymbolDict.search(Copy(hs,1,k-1)));
+            parentexesym:=texesymbol(FExeSymbolDict.search(Copy(hs,k+2,length(hs)-k-1)));
+            if not assigned(childexesym) or
+               not assigned(parentexesym)then
+              internalerror(200603312);
+            if not assigned(childexesym.vtable) then
+              begin
+                childexesym.vtable:=TExeVTable.Create(childexesym);
+                ExeVTableList.Add(childexesym.vtable);
+              end;
+            if not assigned(parentexesym.vtable) then
+              begin
+                parentexesym.vtable:=TExeVTable.Create(parentexesym);
+                ExeVTableList.Add(parentexesym.vtable);
+              end;
+            childexesym.vtable.SetVTableSize(childexesym.ObjSymbol.Size);
+            if parentexesym<>childexesym then
+              parentexesym.vtable.AddChild(childexesym.vtable);
+          end;
+
+        { Find VTable entries from VTENTRY }
+        for i:=0 to VTEntryList.Count-1 do
+          begin
+            objsym:=TObjSymbol(VTEntryList[i]);
+            hs:=objsym.name;
+            { VTENTRY_<VTableName>$$<Index> }
+            Delete(hs,1,Pos('_',hs));
+            k:=Pos('$$',hs);
+            if k=0 then
+              internalerror(200603319);
+            vtableexesym:=texesymbol(FExeSymbolDict.search(Copy(hs,1,k-1)));
+            val(Copy(hs,k+2,length(hs)-k-1),vtableidx,code);
+            if (code<>0) then
+              internalerror(200603318);
+            if not assigned(vtableexesym) then
+              internalerror(2006033110);
+            vtableexesym.vtable.AddEntry(vtableidx);
+          end;
+      end;
+
+
     procedure TExeOutput.ResolveSymbols;
       var
         objdata   : TObjData;
@@ -1546,7 +1711,13 @@ implementation
         commonsym : TObjSymbol;
         firstcommon : boolean;
         i,j       : longint;
+        hs        : string;
+        VTEntryList,
+        VTInheritList : TFPObjectList;
       begin
+        VTEntryList:=TFPObjectList.Create(false);
+        VTInheritList:=TFPObjectList.Create(false);
+
         {
           The symbol calculation is done in 3 steps:
            1. register globals
@@ -1564,9 +1735,27 @@ implementation
             for j:=0 to objdata.ObjSymbolList.Count-1 do
               begin
                 objsym:=TObjSymbol(objdata.ObjSymbolList[j]);
-                { Skip local symbols }
+                { From the local symbols we are only interressed in the
+                  VTENTRY and VTINHERIT symbols }
                 if objsym.bind=AB_LOCAL then
-                  continue;
+                  begin
+                    hs:=objsym.name;
+                    if (hs[1]='V') then
+                      begin
+                        if Copy(hs,1,5)='VTREF' then
+                          begin
+                            if not assigned(objsym.ObjSection.VTRefList) then
+                              objsym.ObjSection.VTRefList:=TFPObjectList.Create(false);
+                            objsym.ObjSection.VTRefList.Add(objsym);
+                          end
+                        else if Copy(hs,1,7)='VTENTRY' then
+                          VTEntryList.Add(objsym)
+                        else if Copy(hs,1,9)='VTINHERIT' then
+                          VTInheritList.Add(objsym);
+                      end;
+                    continue;
+                  end;
+                { Search for existing exesymbol }
                 exesym:=texesymbol(FExeSymbolDict.search(objsym.name));
                 if not assigned(exesym) then
                   begin
@@ -1645,6 +1834,11 @@ implementation
           end
         else
           Comment(V_Error,'Entrypoint '+EntryName+' not defined');
+
+        { Generate VTable tree }
+        BuildVTableTree(VTInheritList,VTEntryList);
+        VTInheritList.Free;
+        VTEntryList.Free;
       end;
 
 
@@ -1772,13 +1966,70 @@ implementation
             end;
         end;
 
+        procedure DoReloc(objreloc:TObjRelocation);
+        var
+          objsym : TObjSymbol;
+          refobjsec : TObjSection;
+        begin
+          { Disabled Relocation to 0  }
+          if objreloc.typ=RELOC_ZERO then
+            exit;
+          if assigned(objreloc.symbol) then
+            begin
+              objsym:=objreloc.symbol;
+              if objsym.bind<>AB_LOCAL then
+                begin
+                  if not(assigned(objsym.exesymbol) and
+                        assigned(objsym.exesymbol.objsymbol)) then
+                    internalerror(200603063);
+                  objsym:=objsym.exesymbol.objsymbol;
+                end;
+              if not assigned(objsym.objsection) then
+                internalerror(200603062);
+              refobjsec:=objsym.objsection;
+            end
+          else
+            if assigned(objreloc.objsection) then
+              refobjsec:=objreloc.objsection
+          else
+            internalerror(200603316);
+          if assigned(exemap) then
+            exemap.Add('  References '+refobjsec.fullname);
+          AddToObjSectionWorkList(refobjsec);
+        end;
+
+        procedure DoVTableRef(vtable:TExeVTable;VTableIdx:longint);
+        var
+          i : longint;
+          objreloc : TObjRelocation;
+        begin
+          objreloc:=vtable.VTableRef(VTableIdx);
+          if assigned(objreloc) then
+            begin
+              { Process the relocation now if the ObjSection is
+                already processed and marked as used. Otherwise we leave it
+                unprocessed. It'll then be resolved when the ObjSection is
+                changed to Used }
+              if vtable.ExeSymbol.ObjSymbol.ObjSection.Used then
+                DoReloc(objreloc);
+            end;
+          { This recursive walking is done here instead of
+            in TExeVTable.VTableRef because we can now process
+            all needed relocations }
+          for i:=0 to vtable.ChildList.Count-1 do
+            DoVTableRef(TExeVTable(vtable.ChildList[i]),VTableIdx);
+        end;
+
       var
-        i,j     : longint;
-        exesec  : TExeSection;
-        objdata : TObjData;
-        refobjsec,
-        objsec  : TObjSection;
-        objsym  : TObjSymbol;
+        hs        : string;
+        i,j,k     : longint;
+        exesec    : TExeSection;
+        objdata   : TObjData;
+        objsec    : TObjSection;
+        objsym    : TObjSymbol;
+        code      : integer;
+        vtableidx : longint;
+        vtableexesym : TExeSymbol;
       begin
         ObjSectionWorkList:=TFPObjectList.Create(false);
 
@@ -1809,27 +2060,31 @@ implementation
           begin
             objsec:=TObjSection(ObjSectionWorkList.Last);
             if assigned(exemap) then
-              exemap.Add('Keeping '+objsec.FullName+' '+ToStr(objsec.ObjSymbolRefs.Count)+' references');
+              exemap.Add('Keeping '+objsec.FullName+' '+ToStr(objsec.ObjRelocations.Count)+' references');
             ObjSectionWorkList.Delete(ObjSectionWorkList.Count-1);
-            for i:=0 to objsec.ObjSymbolRefs.count-1 do
+
+            { Process Relocations }
+            for i:=0 to objsec.ObjRelocations.count-1 do
+              DoReloc(TObjRelocation(objsec.ObjRelocations[i]));
+
+            { Process Virtual Entry calls }
+            for i:=0 to objsec.VTRefList.count-1 do
               begin
-                objsym:=TObjSymbol(objsec.ObjSymbolRefs[i]);
-                if objsym.bind=AB_LOCAL then
-                  begin
-                    if not assigned(objsym.objsection) then
-                      internalerror(200603062);
-                    refobjsec:=objsym.objsection
-                  end
-                else
-                  begin
-                    if not(assigned(objsym.exesymbol) and
-                           assigned(objsym.exesymbol.objsymbol)) then
-                      internalerror(200603063);
-                    refobjsec:=objsym.exesymbol.objsymbol.objsection;
-                  end;
-                if assigned(exemap) then
-                  exemap.Add('  References '+refobjsec.fullname);
-                AddToObjSectionWorkList(refobjsec);
+                objsym:=TObjSymbol(objsec.VTRefList[i]);
+                hs:=objsym.name;
+                Delete(hs,1,Pos('_',hs));
+                k:=Pos('$$',hs);
+                if k=0 then
+                  internalerror(200603314);
+                vtableexesym:=texesymbol(FExeSymbolDict.search(Copy(hs,1,k-1)));
+                val(Copy(hs,k+2,length(hs)-k-1),vtableidx,code);
+                if (code<>0) then
+                  internalerror(200603317);
+                if not assigned(vtableexesym) then
+                  internalerror(200603315);
+                if not assigned(vtableexesym.vtable) then
+                  internalerror(200603316);
+                DoVTableRef(vtableexesym.vtable,vtableidx);
               end;
           end;
         ObjSectionWorkList.Free;

@@ -710,35 +710,42 @@ const win32stub : array[0..131] of byte=(
 
     procedure TCoffObjSection.addsymsizereloc(ofs:aint;p:TObjSymbol;symsize:aint;reloctype:TObjRelocationType);
       begin
-        relocations.concat(TObjRelocation.createsymbolsize(ofs,p,symsize,reloctype));
+        ObjRelocations.Add(TObjRelocation.createsymbolsize(ofs,p,symsize,reloctype));
       end;
 
 
     procedure TCoffObjSection.fixuprelocs;
       var
-        r : TObjRelocation;
+        i        : longint;
+        objreloc : TObjRelocation;
         address,
         relocval : aint;
         relocsec : TObjSection;
       begin
-        r:=TObjRelocation(relocations.first);
-        if assigned(r) and
-           (not assigned(data)) then
+        if (ObjRelocations.Count>0) and
+           not assigned(data) then
           internalerror(200205183);
-        while assigned(r) do
+        for i:=0 to ObjRelocations.Count-1 do
           begin
-            data.Seek(r.dataoffset);
-            data.Read(address,4);
-            if assigned(r.symbol) then
+            objreloc:=TObjRelocation(ObjRelocations[i]);
+            if objreloc.typ=RELOC_ZERO then
               begin
-                relocsec:=r.symbol.objsection;
-                relocval:=r.symbol.address;
+                data.Seek(objreloc.dataoffset);
+                data.Write(0,4);
+                continue;
+              end;
+            data.Seek(objreloc.dataoffset);
+            data.Read(address,4);
+            if assigned(objreloc.symbol) then
+              begin
+                relocsec:=objreloc.symbol.objsection;
+                relocval:=objreloc.symbol.address;
               end
             else
-              if assigned(r.objsection) then
+              if assigned(objreloc.objsection) then
                 begin
-                  relocsec:=r.objsection;
-                  relocval:=r.objsection.mempos
+                  relocsec:=objreloc.objsection;
+                  relocval:=objreloc.objsection.mempos
                 end
             else
               internalerror(200205183);
@@ -746,12 +753,12 @@ const win32stub : array[0..131] of byte=(
             if not relocsec.used and
                not(oso_debug in secoptions) then
               internalerror(200603061);
-            case r.typ of
+            case objreloc.typ of
               RELOC_RELATIVE  :
                 begin
                   address:=address-mempos+relocval;
                   if TCoffObjData(objdata).win32 then
-                    dec(address,r.dataoffset+4);
+                    dec(address,objreloc.dataoffset+4);
                 end;
               RELOC_RVA :
                 begin
@@ -763,7 +770,7 @@ const win32stub : array[0..131] of byte=(
               RELOC_ABSOLUTE :
                 begin
                   if oso_common in relocsec.secoptions then
-                    dec(address,r.orgsize)
+                    dec(address,objreloc.orgsize)
                   else
                     begin
                       { fixup address when the symbol was known in defined object }
@@ -773,11 +780,11 @@ const win32stub : array[0..131] of byte=(
                   inc(address,relocval);
                   inc(address,relocsec.objdata.imagebase);
                 end;
+              else
+                internalerror(200604013);
             end;
-            data.Seek(r.dataoffset);
+            data.Seek(objreloc.dataoffset);
             data.Write(address,4);
-            { goto next reloc }
-            r:=TObjRelocation(r.next);
           end;
       end;
 
@@ -1079,7 +1086,7 @@ const win32stub : array[0..131] of byte=(
             { AUX }
             fillchar(secrec,sizeof(secrec),0);
             secrec.len:=Size;
-            secrec.nrelocs:=relocations.count;
+            secrec.nrelocs:=ObjRelocations.count;
             inc(symidx);
             FCoffSyms.write(secrec,sizeof(secrec));
           end;
@@ -1088,48 +1095,44 @@ const win32stub : array[0..131] of byte=(
 
     procedure TCoffObjOutput.section_write_relocs(p:TObject;arg:pointer);
       var
+        i    : longint;
         rel  : coffreloc;
-        r    : TObjRelocation;
+        objreloc : TObjRelocation;
       begin
-        r:=TObjRelocation(TObjSection(p).relocations.first);
-        while assigned(r) do
-         begin
-           rel.address:=r.dataoffset;
-           if assigned(r.symbol) then
-            begin
-              if (r.symbol.bind=AB_LOCAL) then
-               rel.sym:=r.symbol.objsection.secsymidx
+        for i:=0 to TObjSection(p).ObjRelocations.Count-1 do
+          begin
+            objreloc:=TObjRelocation(TObjSection(p).ObjRelocations[i]);
+            rel.address:=objreloc.dataoffset;
+            if assigned(objreloc.symbol) then
+              begin
+                if (objreloc.symbol.bind=AB_LOCAL) then
+                  rel.sym:=objreloc.symbol.objsection.secsymidx
+                else
+                  begin
+                    if objreloc.symbol.symidx=-1 then
+                      internalerror(200602233);
+                    rel.sym:=objreloc.symbol.symidx;
+                  end;
+              end
+            else
+              begin
+                if objreloc.objsection<>nil then
+                  rel.sym:=objreloc.objsection.secsymidx
+                else
+                  rel.sym:=0;
+              end;
+            case objreloc.typ of
+              RELOC_RELATIVE :
+                rel.reloctype:=R_PCRLONG;
+              RELOC_ABSOLUTE :
+                rel.reloctype:=R_DIR32;
+              RELOC_RVA :
+                rel.reloctype:=R_IMAGEBASE;
               else
-               begin
-                 if r.symbol.symidx=-1 then
-                   internalerror(200602233);
-                 rel.sym:=r.symbol.symidx;
-               end;
-            end
-           else
-            begin
-              if r.objsection<>nil then
-               rel.sym:=r.objsection.secsymidx
-              else
-               rel.sym:=0;
+                internalerror(200603311);
             end;
-           case r.typ of
-             RELOC_RELATIVE :
-               rel.reloctype:=R_PCRLONG;
-             RELOC_ABSOLUTE :
-               rel.reloctype:=R_DIR32;
-             RELOC_RVA :
-               rel.reloctype:=R_IMAGEBASE;
-             RELOC_VTENTRY :
-               rel.reloctype:=R_GNU_VTENTRY;
-             RELOC_VTINHERIT :
-               rel.reloctype:=R_GNU_VTINHERIT;
-             else
-               internalerror(200603311);
-           end;
-           FWriter.write(rel,sizeof(rel));
-           r:=TObjRelocation(r.next);
-         end;
+            FWriter.write(rel,sizeof(rel));
+          end;
       end;
 
 
@@ -1194,7 +1197,7 @@ const win32stub : array[0..131] of byte=(
     procedure TCoffObjOutput.section_set_reloc_datapos(p:TObject;arg:pointer);
       begin
         TCoffObjSection(p).coffrelocpos:=paint(arg)^;
-        inc(paint(arg)^,sizeof(coffreloc)*TObjSection(p).relocations.count);
+        inc(paint(arg)^,sizeof(coffreloc)*TObjSection(p).ObjRelocations.count);
       end;
 
 
@@ -1230,7 +1233,7 @@ const win32stub : array[0..131] of byte=(
             if (Size>0) and
                (oso_data in secoptions) then
               sechdr.datapos:=datapos;
-            sechdr.nrelocs:=relocations.count;
+            sechdr.nrelocs:=ObjRelocations.count;
             sechdr.relocpos:=coffrelocpos;
             if win32 then
               sechdr.flags:=peencodesechdrflags(secoptions,secalign)
@@ -1412,11 +1415,7 @@ const win32stub : array[0..131] of byte=(
 
            p:=FSymTbl^[rel.sym].sym;
            if assigned(p) then
-            begin
-              s.addsymsizereloc(rel.address-s.mempos,p,FSymTbl^[rel.sym].orgsize,rel_type);
-              { Register symbol reference in TObjSection }
-              s.AddSymbolRef(p);
-            end
+             s.addsymsizereloc(rel.address-s.mempos,p,FSymTbl^[rel.sym].orgsize,rel_type)
            else
             begin
               Comment(V_Error,'Error reading coff file');
