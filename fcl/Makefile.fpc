@@ -1,0 +1,70 @@
+#
+#   Makefile.fpc for Free Component Library
+#
+
+[package]
+name=fcl
+version=2.0.5
+
+[require]
+packages=paszlib hash
+packages_linux=netdb libasync pthreads
+packages_freebsd=netdb libasync pthreads
+packages_darwin=netdb libasync pthreads
+packages_solaris=netdb libasync pthreads
+packages_netbsd=netdb libasync
+packages_openbsd=netdb libasync
+packages_win32=netdb
+packages_wince=netdb
+packages_os2=netdb
+packages_emx=netdb
+
+# clean package units
+[clean]
+units=adler gzcrc gzio infblock infcodes inffast inftrees infutil minigzip paszlib trees zbase zcompres zdeflate zinflate zuncompr zutil pthreads streamio blowfish
+
+[target]
+dirs=xml image db shedit passrc net fpcunit
+units=contnrs inifiles ezcgi pipes rtfpars idea base64 gettext \
+      iostream zstream cachecls avl_tree xmlreg registry eventlog custapp cgiapp \
+      wformat whtml wtex rttiutils bufstream streamex blowfish
+units_freebsd=process ssockets resolve fpasync syncobjs simpleipc dbugmsg dbugintf
+units_darwin=process ssockets resolve fpasync syncobjs simpleipc dbugmsg dbugintf
+units_solaris=process ssockets resolve fpasync syncobjs simpleipc dbugmsg dbugintf
+units_netbsd=process ssockets resolve fpasync simpleipc dbugmsg dbugintf
+units_openbsd=process ssockets resolve fpasync simpleipc dbugmsg dbugintf
+units_linux=process resolve ssockets fpasync syncobjs simpleipc dbugmsg dbugintf
+units_win32=process fileinfo resolve ssockets syncobjs simpleipc dbugmsg dbugintf
+units_wince=process fileinfo resolve ssockets syncobjs simpleipc dbugmsg dbugintf
+units_os2=resolve ssockets
+units_emx=resolve ssockets
+units_netware=resolve ssockets
+units_netwlibc=resolve ssockets syncobjs
+rsts=ssockets cachecls resolve custapp cgiapp eventlog registry simpleipc
+exampledirs=tests
+
+[compiler]
+options=-S2
+includedir=$(OS_TARGET) inc
+includedir_linux=unix
+includedir_freebsd=unix
+includedir_darwin=unix
+includedir_netbsd=unix
+includedir_openbsd=unix
+includedir_solaris=unix
+includedir_qnx=unix
+includedir_beos=unix
+includedir_emx=os2
+sourcedir=$(OS_TARGET) inc
+
+[install]
+fpcpackage=y
+
+[default]
+fpcdir=..
+
+[rules]
+# xmlreg needs the XML units, XML units depend on avl_tree
+xmlreg.pp: avl_tree$(PPUEXT) xml inc/xmlreg.pp
+
+dbugintf$(PPUEXT): dbugmsg.pp simpleipc.pp
