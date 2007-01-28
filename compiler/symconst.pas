@@ -147,7 +147,11 @@ type
     { type is a generic }
     df_generic,
     { type is a specialization of a generic type }
-    df_specialization
+    df_specialization,
+    { type is an aspect }
+    df_aspect,
+    { type has an aspect applied }
+    df_aspecttarget
   );
   tdefoptions=set of tdefoption;
 
@@ -215,7 +219,8 @@ type
     potype_destructor,   { Procedure is a destructor }
     potype_operator,     { Procedure defines an operator }
     potype_procedure,
-    potype_function
+    potype_function,
+    potype_aspect
   );
   tproctypeoptions=set of tproctypeoption;
 
@@ -270,7 +275,9 @@ type
     po_has_importdll,
     po_has_importname,
     po_kylixlocal,
-    po_dispid
+    po_dispid,
+    { aspects }
+    po_contains_joinpoint
   );
   tprocoptions=set of tprocoption;
 

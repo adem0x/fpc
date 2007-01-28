@@ -69,6 +69,20 @@ interface
 
        tspecialgenerictoken = (ST_LOADSETTINGS,ST_LINE,ST_COLUMN,ST_FILEINDEX);
 
+       treplaystackentry = record
+          replaytokenbuf  : tdynamicarray;
+          replaysavetoken : ttoken;
+          { old settings, i.e. settings specialization was started }
+          old_settings    : tsettings;
+          old_c           : char;
+
+          pausesavetoken  : ttoken;
+          pause_settings  : tsettings;
+          pause_c         : char;
+       end;
+
+       treplaystack = array of treplaystackentry;
+
        tscannerfile = class
        public
           inputfile    : tinputfile;  { current inputfile list }
@@ -85,12 +99,10 @@ interface
           lasttoken,
           nexttoken    : ttoken;
 
-          replaysavetoken : ttoken;
-          replaytokenbuf,
           recordtokenbuf : tdynamicarray;
+          replaystack    : treplaystack;
+          replaystackpos : Integer;
 
-          { old settings, i.e. settings specialization was started }
-          old_settings,
           { last settings we stored }
           last_settings : tsettings;
 
@@ -140,6 +152,8 @@ interface
           procedure stoprecordtokens;
           procedure replaytoken;
           procedure startreplaytokens(buf:tdynamicarray);
+          procedure pausereplaytokens;
+          procedure resumereplaytokens;
           procedure readchar;
           procedure readstring;
           procedure readnumber;
@@ -269,6 +283,9 @@ implementation
         else
          if s='DELPHI' then
           current_settings.modeswitches:=delphimodeswitches
+        else
+         if s='ASPECT' then
+          current_settings.modeswitches:=delphimodeswitches + [m_aspect]
         else
          if s='TP' then
           current_settings.modeswitches:=tpmodeswitches
@@ -1680,6 +1697,7 @@ In case not, the value returned can be arbitrary.
 
     constructor tscannerfile.create(const fn:string);
       begin
+        replaystackpos := -1;
         inputfile:=do_openinputfile(fn);
         if assigned(current_module) then
           current_module.sourcefiles.register_file(inputfile);
@@ -1915,38 +1933,94 @@ In case not, the value returned can be arbitrary.
         { save current token }
         if token in [_CWCHAR,_CWSTRING,_CCHAR,_CSTRING,_INTCONST,_REALNUMBER,_ID] then
           internalerror(200511178);
-        replaysavetoken:=token;
-        old_settings:=current_settings;
-        if assigned(inputpointer) then
-          dec(inputpointer);
-        { install buffer }
-        replaytokenbuf:=buf;
+
+        if replaystackpos <> High(replaystack) then
+          internalerror(2007012703);
+
+        SetLength(replaystack, Succ(Length(replaystack)));
+        replaystackpos := High(replaystack);
+        with replaystack[replaystackpos] do begin
+          replaysavetoken := token;
+          old_settings := current_settings;
+          old_c := c;
+          { install buffer }
+          replaytokenbuf := buf;
+          replaytokenbuf.seek(0);
+        end;
 
         { reload next token }
-        replaytokenbuf.seek(0);
         replaytoken;
       end;
 
+    procedure tscannerfile.pausereplaytokens;
+    begin
+      if replaystackpos < 0 then
+        internalerror(2007012706);
+
+      if token in [_CWCHAR,_CWSTRING,_CCHAR,_CSTRING,_INTCONST,_REALNUMBER,_ID] then
+        internalerror(2007012708);
+
+      with replaystack[replaystackpos] do begin
+        pausesavetoken := token;
+        pause_settings := current_settings;
+        pause_c := c;
+          
+        token := replaysavetoken;
+        current_settings := old_settings;
+        c := old_c;
+      end;
+
+      Dec(replaystackpos);
+    end;
+    
+    procedure tscannerfile.resumereplaytokens;
+    begin
+      if replaystackpos >= High(replaystack) then
+        internalerror(2007012707);
+        
+      if token in [_CWCHAR,_CWSTRING,_CCHAR,_CSTRING,_INTCONST,_REALNUMBER,_ID] then
+        internalerror(2007012709);
+
+      Inc(replaystackpos);
+
+      with replaystack[replaystackpos] do begin
+        replaysavetoken := token;
+        old_settings := current_settings;
+        old_c := c;
+
+        token := pausesavetoken;
+        current_settings := pause_settings;;
+        c := pause_c;         
+      end;
+    end;
 
     procedure tscannerfile.replaytoken;
       var
-        wlen : sizeint;
-        specialtoken : tspecialgenerictoken;
+        wlen           : sizeint;
+        specialtoken   : tspecialgenerictoken;
+        replaytokenbuf : tdynamicarray;
       begin
+        if replaystackpos < 0 then
+          internalerror(2007012704);
+        replaytokenbuf := replaystack[replaystackpos].replaytokenbuf;
+
         if not assigned(replaytokenbuf) then
           internalerror(200511177);
+
         { End of replay buffer? Then load the next char from the file again }
         if replaytokenbuf.pos>=replaytokenbuf.size then
           begin
-            replaytokenbuf:=nil;
-            if assigned(inputpointer) then
-              begin
-                c:=inputpointer^;
-                inc(inputpointer);
-              end;
-            token:=replaysavetoken;
-            { restore compiler settings }
-            current_settings:=old_settings;
+            if replaystackpos < High(replaystack) then
+              internalerror(2007012705);
+
+            with replaystack[replaystackpos] do begin
+              token := replaysavetoken;
+              current_settings := old_settings;
+              c := old_c;
+              replaytokenbuf:=nil;
+            end;
+            Dec(replaystackpos);
+            SetLength(replaystack, Succ(replaystackpos));
             exit;
           end;
         repeat
@@ -3076,7 +3150,7 @@ In case not, the value returned can be arbitrary.
           recordtoken;
 
         { replay tokens? }
-        if assigned(replaytokenbuf) then
+        if replaystackpos >= 0 then
           begin
             replaytoken;
             goto exit_label;

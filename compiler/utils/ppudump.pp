@@ -748,7 +748,11 @@ type
     { type is a generic }
     df_generic,
     { type is a specialization of a generic type }
-    df_specialization
+    df_specialization,
+    { type is a aspect }
+    df_aspect,
+    { type has an aspect applied }
+    df_aspecttarget
   );
   tdefoptions=set of tdefoption;
 
@@ -771,11 +775,13 @@ type
     str  : string[30];
   end;
 const
-  defopts=3;
+  defopts=5;
   defopt : array[1..defopts] of tdefopt=(
      (mask:df_unique;         str:'Unique Type'),
      (mask:df_generic;        str:'Generic'),
-     (mask:df_specialization; str:'Specialization')
+     (mask:df_specialization; str:'Specialization'),
+     (mask:df_aspect;         str:'Aspect'),
+     (mask:df_aspecttarget;   str:'Aspect Target')
   );
   defstateinfos=7;
   defstate : array[1..defstateinfos] of tdefstateinfo=(
@@ -918,7 +924,107 @@ begin
       writeln;
       freemem(tokenbuf);
     end;
-  if df_specialization in defoptions then
+    if df_aspect in defoptions then
+    begin
+      tokenbufsize:=ppufile.getlongint;
+      writeln(space,' Tokenbuffer size : ',tokenbufsize);
+      tokenbuf:=allocmem(tokenbufsize);
+      ppufile.getdata(tokenbuf^,tokenbufsize);
+      i:=0;
+      write(space,' Tokens: ');
+      while i<tokenbufsize do
+        begin
+          if ttoken(tokenbuf[i])<>_GENERICSPECIALTOKEN then
+            write(arraytokeninfo[ttoken(tokenbuf[i])].str);
+          case ttoken(tokenbuf[i]) of
+            _CWCHAR,
+            _CWSTRING :
+              begin
+                inc(i);
+              {
+                replaytokenbuf.read(wlen,sizeof(SizeInt));
+                setlengthwidestring(patternw,wlen);
+                replaytokenbuf.read(patternw^.data^,patternw^.len*sizeof(tcompilerwidechar));
+                pattern:='';
+              }
+              end;
+            _CCHAR,
+            _CSTRING,
+            _INTCONST,
+            _REALNUMBER :
+              begin
+                inc(i);
+              {
+                replaytokenbuf.read(pattern[0],1);
+                replaytokenbuf.read(pattern[1],length(pattern));
+                orgpattern:='';
+              }
+              end;
+            _ID :
+              begin
+                inc(i);
+                inc(i);
+                write(' ',pshortstring(@tokenbuf[i])^);
+                inc(i,tokenbuf[i]+1);
+              {
+                replaytokenbuf.read(orgpattern[0],1);
+                replaytokenbuf.read(orgpattern[1],length(orgpattern));
+                pattern:=upper(orgpattern);
+              }
+              end;
+            _GENERICSPECIALTOKEN:
+              begin
+                inc(i);
+                case tspecialgenerictoken(tokenbuf[i]) of
+                  ST_LOADSETTINGS:
+                    begin
+                      inc(i);
+                      write('Settings');
+                      inc(i,sizeof(tsettings));
+                    end;
+                  ST_LINE:
+                    begin
+                      inc(i);
+                      write('Line: ',pdword(@tokenbuf[i])^);
+                      inc(i,4);
+                    end;
+                  ST_COLUMN:
+                    begin
+                      inc(i);
+                      write('Col: ',pword(@tokenbuf[i])^);
+                      inc(i,2);
+                    end;
+                  ST_FILEINDEX:
+                    begin
+                      inc(i);
+                      write('File: ',pword(@tokenbuf[i])^);
+                      inc(i,2);
+                    end;
+                end;
+              {
+                replaytokenbuf.read(specialtoken,1);
+                case specialtoken of
+                  ST_LOADSETTINGS:
+                    begin
+                      replaytokenbuf.read(current_settings,sizeof(current_settings));
+                    end
+                  else
+                    internalerror(2006103010);
+                end;
+                continue;
+              }
+              end;
+            else
+              inc(i);
+          end;
+
+          if i<tokenbufsize then
+            write(',');
+        end;
+      writeln;
+      freemem(tokenbuf);
+    end;
+    if df_specialization in defoptions then
     begin
       write  (space,' Orig. GenericDef : ');
       readderef;

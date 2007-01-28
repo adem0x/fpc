@@ -810,6 +810,12 @@ implementation
             def.dbg_state:=dbg_state_written;
             exit;
           end;
+        { never write aspect template defs }
+        if df_aspect in def.defoptions then
+          begin
+            def.dbg_state:=dbg_state_written;
+            exit;
+          end;
         { to avoid infinite loops }
         def.dbg_state := dbg_state_writing;
         { write dependencies first }

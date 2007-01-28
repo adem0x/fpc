@@ -54,6 +54,7 @@ interface
         procedure add_to_symtablestack;
         procedure remove_from_symtablestack;
         procedure parse_body;
+        procedure resolve_aspects;
 
         function stack_tainting_parameter : boolean;
         function has_assembler_child : boolean;
@@ -162,6 +163,11 @@ implementation
 
 
     function block(islibrary : boolean) : tnode;
+
+      var
+        s: string;
+        p: pChar;
+        i: Integer;
       begin
          { parse const,types and vars }
          read_declarations(islibrary);
@@ -174,9 +180,33 @@ implementation
          { Handle assembler block different }
          if (po_assembler in current_procinfo.procdef.procoptions) then
           begin
+            with current_procinfo do begin
+              Exclude(procdef.defoptions, df_aspecttarget);
+              FreeAndNil(aspects);
+            end;
             block:=assembler_block;
             exit;
           end;
+
+         with current_procinfo do begin
+           current_aspect := -1;
+
+           if (df_aspecttarget in procdef.defoptions) then
+             for i := 0 to Pred(aspects.Count) do begin
+               current_scanner.startreplaytokens(
+                 TProcDef(aspects.Items[i]).aspecttokenbuf);
+               read_declarations(islibrary);
+               Inc(current_aspect);
+             end;
+
+           if ([df_aspect, df_aspecttarget] * procdef.defoptions) <> [] then begin
+             s := procdef.fullprocname(false);
+             getmem(p, Length(s)+1);
+             move(s[1], p[0], Length(s)+1);
+             procdef.localst.insert(tconstsym.create_string
+               ('_PROCNAME_',conststring,p,Length(s)));
+           end;
+         end;
 
          {Unit initialization?.}
          if (
@@ -705,6 +735,10 @@ implementation
         if (df_generic in procdef.defoptions) then
           internalerror(200511152);
 
+        { No code can be generated for aspect template }
+        if (df_aspect in procdef.defoptions) then
+          internalerror(2007012604);
+
         { The RA and Tempgen shall not be available yet }
         if assigned(tg) then
           internalerror(200309201);
@@ -1129,6 +1163,8 @@ implementation
             code.free;
             code:=nil;
           end;
+          aspects.Free;
+          aspects:=nil;
        end;
 
 
@@ -1186,6 +1222,11 @@ implementation
          { allocate the symbol for this procedure }
          alloc_proc_symbol(procdef);
 
+         if (m_aspect in current_settings.modeswitches) and
+           not (df_aspect in procdef.defoptions) and
+           not (df_generic in procdef.defoptions) then
+           resolve_aspects;
+
          { add parast/localst to symtablestack }
          add_to_symtablestack;
 
@@ -1200,10 +1241,21 @@ implementation
              current_scanner.startrecordtokens(procdef.generictokenbuf);
            end;
 
+         if (df_aspect in procdef.defoptions) then
+           begin
+             { start token recorder for aspect template }
+             procdef.initaspect;
+             current_scanner.startrecordtokens(procdef.aspecttokenbuf);
+           end;
+
          { parse the code ... }
          code:=block(current_module.islibrary);
 
-         if (df_generic in procdef.defoptions) then
+         if (df_aspect in procdef.defoptions) and
+           not (po_contains_joinpoint in procdef.procoptions) then
+           internalerror(2007012702);
+
+         if ([df_generic, df_aspect] * procdef.defoptions <> []) then
            begin
              { stop token recorder for generic template }
              current_scanner.stoprecordtokens;
@@ -1215,7 +1267,10 @@ implementation
                st:=st.defowner.owner;
              if (pi_uses_static_symtable in flags) and
                 (st.symtabletype<>staticsymtable) then
-               Comment(V_Warning,'Global Generic template references static symtable');
+               if (df_generic in procdef.defoptions) then
+                 Comment(V_Warning,'Global Generic template references static symtable')
+               else
+                 Comment(V_Warning,'Global Aspect template references static symtable')
            end;
 
          { save exit info }
@@ -1289,6 +1344,28 @@ implementation
          block_type:=oldblock_type;
       end;
 
+    procedure tcgprocinfo.resolve_aspects;
+      begin
+        if (current_procinfo.procdef.parast.symtablelevel>normal_function_level) then
+          Exit;
+
+        if not (current_procinfo.procdef.proctypeoption in
+         [potype_constructor, potype_destructor, potype_procedure, potype_function]) then
+         Exit;
+
+        searchsym_aspects(aspects);
+
+        { FIXME: remove non matching aspects }
+
+        if Assigned(aspects) then begin
+          if aspects.Count = 0 then begin
+            aspects.Free;
+            aspects := nil;
+          end else begin
+            include(procdef.defoptions, df_aspecttarget);
+          end;
+        end;
+      end;
 
 {****************************************************************************
                         PROCEDURE/FUNCTION PARSING
@@ -1386,6 +1463,9 @@ implementation
                 if (df_generic in current_procinfo.procdef.defoptions) then
 {$warning TODO Add error message for nested procs in generics}
                   internalerror(200511151)
+                else if (df_aspect in current_procinfo.procdef.defoptions) then
+{$warning TODO Add error message for nested procs in aspects}
+                  internalerror(2007012605)
                 else if (po_inline in current_procinfo.procdef.procoptions) then
                   begin
                     Message1(parser_w_not_supported_for_inline,'nested procedures');
@@ -1393,7 +1473,7 @@ implementation
                     current_procinfo.procdef.proccalloption:=pocall_default;
                   end;
               end;
-            if not(df_generic in current_procinfo.procdef.defoptions) then
+            if ([df_generic, df_aspect] * current_procinfo.procdef.defoptions) = [] then
               do_generate_code(tcgprocinfo(current_procinfo));
           end;
 
@@ -1587,6 +1667,7 @@ implementation
       end;
 
 
+
 {****************************************************************************
                              DECLARATION PARSING
 ****************************************************************************}
@@ -1622,6 +1703,7 @@ implementation
               _FUNCTION,
               _PROCEDURE,
               _OPERATOR,
+              _ASPECT,
               _CLASS:
                 read_proc;
               _EXPORTS:
@@ -1687,7 +1769,8 @@ implementation
                threadvar_dec;
              _FUNCTION,
              _PROCEDURE,
-             _OPERATOR :
+             _OPERATOR,
+             _ASPECT:
                read_proc;
              else
                begin

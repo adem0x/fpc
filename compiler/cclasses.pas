@@ -122,6 +122,7 @@ type
   TObjectListCallback = procedure(data:TObject;arg:pointer) of object;
   TObjectListStaticCallback = procedure(data:TObject;arg:pointer);
 
+  PFPObjectList = ^TFPObjectList;
   TFPObjectList = class(TObject)
   private
     FFreeObjects : Boolean;

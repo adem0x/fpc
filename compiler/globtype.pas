@@ -203,7 +203,8 @@ interface
          m_duplicate_names,     { allow locals/paras to have duplicate names of globals }
          m_property,            { allow properties }
          m_default_inline,      { allow inline proc directive }
-         m_except               { allow exception-related keywords }
+         m_except,              { allow exception-related keywords }
+         m_aspect               { allow aspects }
        );
        tmodeswitches = set of tmodeswitch;
 

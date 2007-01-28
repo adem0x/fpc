@@ -196,6 +196,7 @@ interface
     function  searchsym_in_class(classh,contextclassh:tobjectdef;const s : TIDString;out srsym:tsym;out srsymtable:TSymtable):boolean;
     function  searchsym_in_class_by_msgint(classh:tobjectdef;msgid:longint;out srdef : tdef;out srsym:tsym;out srsymtable:TSymtable):boolean;
     function  searchsym_in_class_by_msgstr(classh:tobjectdef;const s:string;out srsym:tsym;out srsymtable:TSymtable):boolean;
+    procedure searchsym_aspects(var aList : TFPObjectList);
     function  search_system_type(const s: TIDString): ttypesym;
     function  search_class_member(pd : tobjectdef;const s : string):tsym;
     function  search_assignment_operator(from_def,to_def:Tdef):Tprocdef;
@@ -1699,6 +1700,41 @@ implementation
         srsymtable:=nil;
       end;
 
+    procedure find_aspects_callback(data:TObject;arg:pointer);
+    var
+      ps   : tprocsym;
+      pd   : tprocdef;
+      List : PFPObjectList;
+    begin
+      if data is tprocsym then begin
+        ps := tprocsym(data);
+        if ps.ProcdefList.Count > 0 then begin
+          pd := tprocdef(ps.ProcdefList.Items[0]);
+          if df_aspect in pd.defoptions then begin
+            List := PFPObjectList(arg);
+            if not Assigned(List^) then begin
+              List^ := TFPObjectList.Create(False);
+            end;
+            if List^.IndexOf(pd) < 0 then
+              List^.Add(pd);
+          end;
+        end;
+      end;
+    end;
+
+    procedure  searchsym_aspects(var aList : TFPObjectList);
+      var
+        stackitem  : psymtablestackitem;
+        srsymtable : TSymtable;
+       begin
+        stackitem:=symtablestack.stack;
+        while assigned(stackitem) do
+          begin
+            srsymtable:=stackitem^.symtable;
+            srsymtable.SymList.ForEachCall(@find_aspects_callback, @aList);
+            stackitem:=stackitem^.next;
+          end;
+      end;
 
     function search_assignment_operator(from_def,to_def:Tdef):Tprocdef;
       var

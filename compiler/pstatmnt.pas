@@ -1018,70 +1018,97 @@ implementation
              Message(scan_f_end_of_file);
          else
            begin
-             p:=expr;
-             { save the pattern here for latter usage, the label could be "000",
-               even if we read an expression, the pattern is still valid if it's really
-               a label (FK)
-               if you want to mess here, take care of
-               tests/webtbs/tw3546.pp
-             }
-             s:=pattern;
+             p := nil;
 
-             { When a colon follows a intconst then transform it into a label }
-             if (p.nodetype=ordconstn) and
-                try_to_consume(_COLON) then
-              begin
-                p.free;
-                searchsym(s,srsym,srsymtable);
-                if assigned(srsym) and
-                   (srsym.typ=labelsym) then
-                 begin
-                   if tlabelsym(srsym).defined then
-                    Message(sym_e_label_already_defined);
-                   tlabelsym(srsym).defined:=true;
-                   p:=clabelnode.create(nil);
-                   tlabelsym(srsym).code:=p;
-                 end
-                else
-                 begin
-                   Message1(sym_e_label_used_and_not_defined,s);
-                   p:=cnothingnode.create;
-                 end;
-              end;
+             if (token = _INHERITED) then with current_procinfo do begin
+               if df_aspect in procdef.defoptions then begin
+                 consume(_INHERITED);
+                 consume(_SEMICOLON);
 
-             if p.nodetype=labeln then
-               begin
-                 { the pointer to the following instruction }
-                 { isn't a very clean way                   }
-                 if token in endtokens then
-                   tlabelnode(p).left:=cnothingnode.create
+                 if po_contains_joinpoint in procdef.procoptions then
+                   internalerror(2007012701)
                  else
-                   tlabelnode(p).left:=statement();
-                 { be sure to have left also typecheckpass }
-                 typecheckpass(tlabelnode(p).left);
-               end
-             else
+                   Include(procdef.procoptions, po_contains_joinpoint);
 
-             { change a load of a procvar to a call. this is also
-               supported in fpc mode }
-             if p.nodetype in [vecn,derefn,typeconvn,subscriptn,loadn] then
-               maybe_call_procvar(p,false);
+                 code:=cnothingnode.create;
+               end else if (df_aspecttarget in procdef.defoptions) and (current_aspect >= 0) then begin
+                 current_scanner.pausereplaytokens;
+                 Dec(current_aspect);
+                 code:=statement_block(_BEGIN);
+                 Inc(current_aspect);
+                 current_scanner.resumereplaytokens;
+                 consume(_INHERITED);
+                 consume(_SEMICOLON);
+               end else
+                 p:=expr;
+             end else
+               p:=expr;
 
-             { blockn support because a read/write is changed into a blocknode }
-             { with a separate statement for each read/write operation (JM)    }
-             { the same is true for val() if the third parameter is not 32 bit }
-             if not(p.nodetype in [nothingn,calln,ifn,assignn,breakn,inlinen,
-                                   continuen,labeln,blockn,exitn]) then
-               Message(parser_e_illegal_expression);
+             if Assigned(p) then begin
+               { save the pattern here for latter usage, the label could be "000",
+                 even if we read an expression, the pattern is still valid if it's really
+                 a label (FK)
+                 if you want to mess here, take care of
+                 tests/webtbs/tw3546.pp
+               }
+               s:=pattern;
 
-             { Specify that we don't use the value returned by the call.
-               This is used for :
-                - dispose of temp stack space
-                - dispose on FPU stack }
-             if (p.nodetype=calln) then
-               exclude(tcallnode(p).callnodeflags,cnf_return_value_used);
+               { When a colon follows a intconst then transform it into a label }
+               if (p.nodetype=ordconstn) and
+                  try_to_consume(_COLON) then
+                begin
+                  p.free;
+                  searchsym(s,srsym,srsymtable);
+                  if assigned(srsym) and
+                     (srsym.typ=labelsym) then
+                   begin
+                     if tlabelsym(srsym).defined then
+                      Message(sym_e_label_already_defined);
+                     tlabelsym(srsym).defined:=true;
+                     p:=clabelnode.create(nil);
+                     tlabelsym(srsym).code:=p;
+                   end
+                  else
+                   begin
+                     Message1(sym_e_label_used_and_not_defined,s);
+                     p:=cnothingnode.create;
+                   end;
+                end;
 
-             code:=p;
+               if p.nodetype=labeln then
+                 begin
+                   { the pointer to the following instruction }
+                   { isn't a very clean way                   }
+                   if token in endtokens then
+                     tlabelnode(p).left:=cnothingnode.create
+                   else
+                     tlabelnode(p).left:=statement();
+                   { be sure to have left also typecheckpass }
+                   typecheckpass(tlabelnode(p).left);
+                 end
+               else
+
+               { change a load of a procvar to a call. this is also
+                 supported in fpc mode }
+               if p.nodetype in [vecn,derefn,typeconvn,subscriptn,loadn] then
+                 maybe_call_procvar(p,false);
+
+               { blockn support because a read/write is changed into a blocknode }
+               { with a separate statement for each read/write operation (JM)    }
+               { the same is true for val() if the third parameter is not 32 bit }
+               if not(p.nodetype in [nothingn,calln,ifn,assignn,breakn,inlinen,
+                                     continuen,labeln,blockn,exitn]) then
+                 Message(parser_e_illegal_expression);
+
+               { Specify that we don't use the value returned by the call.
+                 This is used for :
+                  - dispose of temp stack space
+                  - dispose on FPU stack }
+               if (p.nodetype=calln) then
+                 exclude(tcallnode(p).callnodeflags,cnf_return_value_used);
+
+               code:=p;
+             end;
            end;
          end;
          if assigned(code) then

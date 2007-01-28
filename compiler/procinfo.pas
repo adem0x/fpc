@@ -102,6 +102,10 @@ unit procinfo;
           { max. of space need for parameters }
           maxpushedparasize : aint;
 
+          { aspects }
+          aspects        : TFPObjectList;
+          current_aspect : Integer;
+
           constructor create(aparent:tprocinfo);virtual;
           destructor destroy;override;
 
@@ -139,6 +143,7 @@ implementation
 
     constructor tprocinfo.create(aparent:tprocinfo);
       begin
+        current_aspect := -1;
         parent:=aparent;
         procdef:=nil;
         para_stack_size:=0;
@@ -164,6 +169,7 @@ implementation
       begin
          aktproccode.free;
          aktlocaldata.free;
+         aspects.free;
       end;
 
 

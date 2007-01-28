@@ -61,6 +61,8 @@ interface
           genericdef      : tstoreddef;
           genericdefderef : tderef;
           generictokenbuf : tdynamicarray;
+          { aspect support }
+          aspecttokenbuf : tdynamicarray;
           constructor create(dt:tdeftyp);
           constructor ppuload(dt:tdeftyp;ppufile:tcompilerppufile);
           destructor  destroy;override;
@@ -82,6 +84,8 @@ interface
           function is_fpuregable : boolean;
           { generics }
           procedure initgeneric;
+          { aspects }
+          procedure initaspect;
        private
           savesize  : aint;
        end;
@@ -834,6 +838,9 @@ implementation
 {$endif}
          generictokenbuf:=nil;
          genericdef:=nil;
+
+         aspecttokenbuf:=nil;
+
          { Don't register forwarddefs, they are disposed at the
            end of an type block }
          if (dt=forwarddef) then
@@ -868,6 +875,11 @@ implementation
             generictokenbuf.free;
             generictokenbuf:=nil;
           end;
+        if assigned(aspecttokenbuf) then
+          begin
+            aspecttokenbuf.free;
+            aspecttokenbuf:=nil;
+          end;
         inherited destroy;
       end;
 
@@ -898,6 +910,21 @@ implementation
                    i:=sizeleft;
                  ppufile.getdata(buf,i);
                  generictokenbuf.write(buf,i);
+                 dec(sizeleft,i);
+               end;
+           end;
+         if df_aspect in defoptions then
+           begin
+             sizeleft:=ppufile.getlongint;
+             initaspect;
+             while sizeleft>0 do
+               begin
+                 if sizeleft>sizeof(buf) then
+                   i:=sizeof(buf)
+                 else
+                   i:=sizeleft;
+                 ppufile.getdata(buf,i);
+                 aspecttokenbuf.write(buf,i);
                  dec(sizeleft,i);
                end;
            end;
@@ -973,8 +1000,32 @@ implementation
               end;
             ppufile.do_interface_crc:=oldintfcrc;
           end;
-        if df_specialization in defoptions then
-          ppufile.putderef(genericdefderef);
+          if df_aspect in defoptions then
+          begin
+            oldintfcrc:=ppufile.do_interface_crc;
+            ppufile.do_interface_crc:=false;
+            if assigned(aspecttokenbuf) then
+              begin
+                sizeleft:=aspecttokenbuf.size;
+                aspecttokenbuf.seek(0);
+              end
+            else
+              sizeleft:=0;
+            ppufile.putlongint(sizeleft);
+            while sizeleft>0 do
+              begin
+                if sizeleft>sizeof(buf) then
+                  i:=sizeof(buf)
+                else
+                  i:=sizeleft;
+                aspecttokenbuf.read(buf,i);
+                ppufile.putdata(buf,i);
+                dec(sizeleft,i);
+              end;
+            ppufile.do_interface_crc:=oldintfcrc;
+          end;
+          if df_specialization in defoptions then
+            ppufile.putderef(genericdefderef);
       end;
 
 
@@ -1081,6 +1132,12 @@ implementation
        generictokenbuf:=tdynamicarray.create(256);
      end;
 
+   procedure tstoreddef.initaspect;
+     begin
+       if assigned(aspecttokenbuf) then
+         internalerror(2007012603);
+       aspecttokenbuf:=tdynamicarray.create(256);
+     end;
 
 {****************************************************************************
                                Tstringdef

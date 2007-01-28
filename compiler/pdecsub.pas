@@ -825,6 +825,8 @@ implementation
         pd._class:=aclass;
         pd.procsym:=aprocsym;
         pd.proctypeoption:=potype;
+        if potype = potype_aspect then
+          include(pd.defoptions,df_aspect);
 
         { methods inherit df_generic or df_specialization from the objectdef }
         if assigned(pd._class) then
@@ -850,6 +852,13 @@ implementation
               end;
           end;
 
+        { methods inherit df_aspect from the objectdef }
+        if assigned(pd._class) then
+          begin
+            if (df_aspect in pd._class.defoptions) then
+              include(pd.defoptions,df_aspect);
+          end;
+
         { methods need to be exported }
         if assigned(aclass) and
            (
@@ -863,7 +872,7 @@ implementation
         pd.symoptions:=current_object_option;
 
         { parse parameters }
-        if token=_LKLAMMER then
+        if (potype <> potype_aspect) and (token=_LKLAMMER) then
           begin
             { Add ObjectSymtable to be able to find generic type definitions }
             popclass:=false;
@@ -1085,6 +1094,19 @@ implementation
                   try_to_consume(_ID);
                   consume(_COLON);
                   consume_all_until(_SEMICOLON);
+                end;
+            end;
+          _ASPECT:
+            begin
+              if isclassmethod then
+                internalerror(2007012602);
+              consume(_ASPECT);
+              if parse_proc_head(aclass,potype_aspect,pd) then
+                begin
+                  if assigned(pd) then
+                    begin
+                      pd.returndef:=voidtype;
+                    end;
                 end;
             end;
         end;
