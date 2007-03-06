@@ -1,0 +1,28 @@
+#
+# Makefile.fpc for interbase FCL db units
+#
+
+[package]
+main=fcl
+
+[target]
+units=interbase
+examples=testib
+
+[clean]
+units=ibase40 ibase60
+
+[require]
+packages=ibase
+
+[compiler]
+options=-S2
+
+[install]
+fpcpackage=y
+
+[default]
+fpcdir=../../../..
+
+[rules]
+.NOTPARALLEL:

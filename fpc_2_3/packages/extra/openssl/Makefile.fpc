@@ -1,0 +1,19 @@
+#
+#   Makefile.fpc for OpenSSL bindings
+#
+
+[package]
+name=openssl
+version=1.0.0
+
+[target]
+units=openssl
+
+[install]
+fpcpackage=y
+
+[default]
+fpcdir=../../..
+
+[rules]
+.NOTPARALLEL:

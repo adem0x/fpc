@@ -1,0 +1,29 @@
+#
+# Makefile.fpc for SQL FCL db units
+#
+
+[package]
+main=fcl
+
+[target]
+dirs_linux=interbase postgres mysql odbc oracle
+dirs_freebsd=interbase postgres mysql odbc oracle
+dirs_darwin=interbase postgres mysql odbc oracle
+dirs_netbsd=interbase postgres mysql odbc oracle
+dirs_openbsd=interbase postgres mysql odbc oracle
+dirs_win32=interbase postgres mysql odbc oracle
+dirs_wince=interbase postgres 
+units=sqldb
+rsts=sqldb
+
+[compiler]
+options=-S2
+
+[install]
+fpcpackage=y
+
+[default]
+fpcdir=../../..
+
+[rules]
+.NOTPARALLEL:

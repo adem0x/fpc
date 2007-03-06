@@ -1,0 +1,41 @@
+#
+#   Makefile.fpc for fppkg
+#
+
+[package]
+name=fppkg
+version=2.0.0
+
+[target]
+programs=fppkg
+units=fpmktype fpmkunit fprepos fpxmlrep pkgropts pkghandler pkgmkconv pkgdownload
+units_linux=pkgwget  pkglnet pkglibcurl
+units_freebsd=pkgwget pkglnet pkglibcurl
+units_netbsd=pkgwget pkglnet pkglibcurl
+units_openbsd=pkgwget pkglnet pkglibcurl
+units_darwin=pkgwget pkglnet pkglibcurl
+units_solaris=pkgwget pkglnet pkglibcurl
+units_win32=pkgwget pkglnet
+units_win64=pkgwget pkglnet
+units_wince=pkgwget pkglnet
+examples=rep2xml
+rsts=fprepos fpxmlrep fppkg
+
+[compiler]
+unitdir=lnet
+includedir=lnet/sys
+
+[install]
+fpcpackage=y
+
+[default]
+fpcdir=../..
+
+[require]
+packages=fcl libcurl
+
+[rules]
+.NOTPARALLEL:
+fpmkunit$(PPUEXT) : fpmkunit.pp fpmkcnst.inc fpmktype$(PPUEXT)
+
+fpmktype$(PPUEXT) : fpmktype.pp fpmkcnst.inc
