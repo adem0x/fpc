@@ -1162,6 +1162,8 @@ begin
   InOutRes:=0;
   ProcessID := GetCurrentProcessID;
   { threading }
+  SetThreadManager(NoThreadManager);
+  InitThreadVars;
   InitSystemThreads;
   { Reset internal error variable }
   errno:=0;
