@@ -1137,16 +1137,20 @@ end;
 {$i heap.inc}
 {$endif FPC_HAS_FEATURE_HEAP}
 
+
 {*****************************************************************************
                           Thread support
 *****************************************************************************}
 
 {$ifdef FPC_HAS_FEATURE_THREADING}
-{ Generic threadmanager }
-{$i thread.inc}
+var
+  __CurrentTM : TThreadManager;
 
 { Generic threadvar support }
 {$i threadvr.inc}
+
+{ Generic threadmanager }
+{$i thread.inc}
 
 { OS Dependent implementation }
 {$i systhrd.inc}

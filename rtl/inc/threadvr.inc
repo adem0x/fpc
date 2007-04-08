@@ -23,77 +23,108 @@
 type
   pltvInitEntry = ^ltvInitEntry;
   ltvInitEntry = packed record
-     varaddr : pdword;
+     varaddr : plongword;
      size    : longint;
   end;
 
   TltvInitTablesTable = packed record
-    count  : dword;
+    count  : longword;
     tables : packed array [1..32767] of pltvInitEntry;
   end;
 
 var
   ThreadvarTablesTable : TltvInitTablesTable; external name 'FPC_THREADVARTABLES';
+  ThreadvarContainerSize : PtrUInt;
+  ThreadvarContainerCount : Longword;
 
-procedure init_unit_threadvars (tableEntry : pltvInitEntry);
+type
+  PTlsSection = ^TTlsSection;
+  TTlsSection = record
+    threadvars : pointer;
+  end;
+
+procedure copy_unit_threadthreadvars(p: PTlsSection; tableEntry: pltvInitEntry);
+var
+  src: pointer;
+  dst: pointer;
 begin
   while tableEntry^.varaddr <> nil do
-   begin
-     CurrentTM.InitThreadvar (tableEntry^.varaddr^, tableEntry^.size);
-     inc (pchar (tableEntry), sizeof (tableEntry^));
-   end;
+  begin
+    { copy initial threadvar data to TLS section }
+    src := pointer(pchar(tableEntry^.varaddr)+sizeof(pointer));
+    dst := pointer(PtrUInt(P^.threadvars) + tableEntry^.varaddr^);
+    move(src^, dst^, tableEntry^.size);
+
+    { goto next entry }
+    inc(pchar(tableEntry), sizeof(tableEntry^));
+  end;
 end;
 
-
-procedure init_all_unit_threadvars;
+procedure InitTlsSection(const Address: Pointer);
 var
-  i : integer;
+  P: PTlsSection absolute Address;
+  i: integer;
 begin
-{$ifdef DEBUG_MT}
-  WriteLn ('init_all_unit_threadvars (',ThreadvarTablesTable.count,') units');
-{$endif}
+  { allocate memory for threadthreadvars of this new TLS section }
+  GetMem(P^.threadvars, ThreadvarContainerSize);
+
+  { copy threadvar initial data to TLS section }
   for i := 1 to ThreadvarTablesTable.count do
-    init_unit_threadvars (ThreadvarTablesTable.tables[i]);
+    copy_unit_threadthreadvars(P, ThreadvarTablesTable.tables[i]);
+end;
+
+procedure FreeTlsSection(const Address: Pointer);
+var
+  P: PTlsSection absolute Address;
+begin
+  FreeMem(P^.threadvars);
+  P^.threadvars := nil;
+end;
+
+function ThreadVarLocate(const Offset: Longword): pointer;
+var
+  P: PTlsSection;
+begin
+  P := __CurrentTM.TlsSectionGet();
+  Result := pointer(ptruint(P^.threadvars) + Offset);
 end;
 
 
-procedure copy_unit_threadvars (tableEntry : pltvInitEntry);
+
+procedure init_unit_threadthreadvars(tableEntry: pltvInitEntry);
 var
-  oldp,
-  newp : pointer;
+  size: integer;
 begin
   while tableEntry^.varaddr <> nil do
-   begin
-     newp:=CurrentTM.RelocateThreadVar(tableEntry^.varaddr^);
-     oldp:=pointer(pchar(tableEntry^.varaddr)+sizeof(pointer));
-     move(oldp^,newp^,tableEntry^.size);
-     inc (pchar (tableEntry), sizeof (tableEntry^));
-   end;
+  begin
+    { align to operand size }
+    size := tableEntry^.size mod sizeof(pointer);
+    if size <> 0 then
+      size := tableEntry^.size + sizeof(pointer) - size
+    else
+      size := tableEntry^.size;
+
+    { offset means byte offset inside tls section }
+    tableEntry^.varaddr^ := ThreadvarContainerSize;
+    inc(ThreadvarContainerSize, size);
+    inc(ThreadvarContainerCount);
+
+    { goto next entry }
+    inc(pchar(tableEntry), sizeof(tableEntry^));
+  end;
 end;
 
-
-procedure copy_all_unit_threadvars;
+procedure InitThreadvars;
 var
-  i : integer;
+  i: integer;
 begin
+  ThreadvarContainerSize := 0;
+  ThreadvarContainerCount := 0;
 {$ifdef DEBUG_MT}
-  WriteLn ('copy_all_unit_threadvars (',ThreadvarTablesTable.count,') units');
+  WriteLn ('InitThreadthreadvars (',ThreadvarTablesTable.count,') units');
 {$endif}
   for i := 1 to ThreadvarTablesTable.count do
-    copy_unit_threadvars (ThreadvarTablesTable.tables[i]);
-end;
-
-procedure InitThreadVars(RelocProc : Pointer);
-
-begin
-   { initialize threadvars }
-   init_all_unit_threadvars;
-   { allocate mem for main thread threadvars }
-   CurrentTM.AllocateThreadVars;
-   { copy main thread threadvars }
-   copy_all_unit_threadvars;
-   { install threadvar handler }
-   fpc_threadvar_relocate_proc:=RelocProc;
+    init_unit_threadthreadvars(ThreadvarTablesTable.tables[i]);
 end;
 
 

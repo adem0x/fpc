@@ -16,147 +16,161 @@
 
 const
   { including 16384 margin for stackchecking }
-  DefaultStackSize = 32768;
+  DefaultStackSize               = 32768;
 
 type
-  PEventState = pointer;
-  PRTLEvent   = type pointer;   // Windows=thandle, other=pointer to record.
-  TThreadFunc = function(parameter : pointer) : ptrint;
-  trtlmethod  = procedure of object;
+  TWaitResult                    = (wrSignaled, wrTimeout, wrError);
+  TThreadPriority                = (tpIdle, tpLowest, tpLower, tpNormal, tpHigher, tpHighest, tpTimeCritical);
 
-  // Function prototypes for TThreadManager Record.
-  TBeginThreadHandler = Function (sa : Pointer;stacksize : PtrUInt; ThreadFunction : tthreadfunc;p : pointer;creationFlags : dword; var ThreadId : TThreadID) : TThreadID;
-  TEndThreadHandler = Procedure (ExitCode : DWord);
-  // Used for Suspend/Resume/Kill
-  TThreadHandler = Function (threadHandle : TThreadID) : dword;
-  TThreadSwitchHandler = Procedure;
-  TWaitForThreadTerminateHandler = Function (threadHandle : TThreadID; TimeoutMs : longint) : dword;  {0=no timeout}
-  TThreadSetPriorityHandler = Function (threadHandle : TThreadID; Prio: longint): boolean;            {-15..+15, 0=normal}
-  TThreadGetPriorityHandler = Function (threadHandle : TThreadID): longint;
-  TGetCurrentThreadIdHandler = Function : TThreadID;
-  TCriticalSectionHandler = Procedure (var cs);
-  TInitThreadVarHandler = Procedure(var offset : dword;size : dword);
-  TRelocateThreadVarHandler = Function(offset : dword) : pointer;
-  TAllocateThreadVarsHandler = Procedure;
-  TReleaseThreadVarsHandler = Procedure;
-  TBasicEventHandler        = procedure(state:peventstate);
-  TBasicEventWaitForHandler = function (timeout:cardinal;state:peventstate):longint;
-  TBasicEventCreateHandler  = function (EventAttributes :Pointer;  AManualReset,InitialState : Boolean;const Name:ansistring):pEventState;
-  TRTLEventHandler          = procedure(AEvent:PRTLEvent);
-  TRTLEventHandlerTimeout   = procedure(AEvent:PRTLEvent;timeout : longint);
-  TRTLCreateEventHandler    = function:PRTLEvent;
-  TRTLEventSyncHandler      = procedure (m:trtlmethod;p:tprocedure);
-  // semaphores stuff
-  TSempahoreInitHandler     = function: Pointer;
-  TSemaphoreDestroyHandler  = procedure (const sem: Pointer);
-  TSemaphorePostHandler     = procedure (const sem: Pointer);
-  TSemaphoreWaitHandler     = procedure (const sem: Pointer);
+// ThreadManager Callbacks
+  TTlsSectionMemoryHandler       = procedure(const Address: Pointer);
+  TThreadSetupHandler            = procedure(const Stack: Pointer; const StackSize: PtrUInt); register;
+  TThreadManagerInitHandler      = function(const ThreadSetup: TThreadSetupHandler; const TlsSize: PtrUInt; const TlsInit, TlsFree: TTlsSectionMemoryHandler): Boolean;
+  TThreadManagerDoneHandler      = procedure;
 
-  // TThreadManager interface.
-  TThreadManager = Record
-    InitManager            : Function : Boolean;
-    DoneManager            : Function : Boolean;
-    BeginThread            : TBeginThreadHandler;
-    EndThread              : TEndThreadHandler;
-    SuspendThread          : TThreadHandler;
-    ResumeThread           : TThreadHandler;
-    KillThread             : TThreadHandler;
+// Thread Callbacks
+  TThreadFunc                    = function(const Arg: Pointer): PtrInt; register;
+  TThreadBeginHandler            = function(const StackSize: PtrUInt; const Func: TThreadFunc; const Arg: Pointer; var ThreadId: TThreadID): Boolean;
+  TThreadExitHandler             = procedure(const ExitCode: PtrInt);
+  TThreadHandler                 = function(const ThreadId: TThreadID): Boolean;
+  TThreadSwitchHandler           = procedure;
+  TThreadWaitForHandler          = function(const ThreadId: TThreadID; const TimeoutMs: Longint): TWaitResult;
+  TThreadSetPriorityHandler      = function(const ThreadId: TThreadID; const Prio: TThreadPriority): Boolean;            {-15..+15, 0=normal}
+  TThreadGetPriorityHandler      = function(const ThreadId: TThreadID): TThreadPriority;
+  TThreadGetCurrentHandler       = function: TThreadID;
+
+// TlsSection Callbacks
+  TTlsSectionGetHandler          = function: Pointer;
+
+// Mutex Callbacks
+  PMutex                         = type Pointer;
+  TMutexCreateHandler            = function: PMutex;
+  TMutexHandler                  = procedure(const AMutex: PMutex);
+
+// Event Callbacks
+  PEvent                         = type Pointer;
+  TEventCreateHandler            = function(const InitState, ManualReset: Boolean): PEvent;
+  TEventHandler                  = procedure(const AEvent: PEvent);
+  TEventWaitForHandler           = function(const AEvent: PEvent; const TimeoutMs: Longint): TWaitResult;
+
+// Semaphore Callbacks
+  PSemaphore                     = type Pointer;
+  TSempahoreCreateHandler        = function(const Initialcount: Longword): PSemaphore;
+  TSemaphoreHandler              = procedure(const ASemaphore: PSemaphore);
+  TSemaphoreWaitForHandler       = function(const ASemaphore: PSemaphore; const TimeoutMs: Longint): TWaitResult;
+
+// ThreadManager interface.
+  TThreadManager = record
+    InitManager            : TThreadManagerInitHandler;
+    DoneManager            : TThreadManagerDoneHandler;
+
+  // Thread
+    ThreadBegin            : TThreadBeginHandler;
+    ThreadExit             : TThreadExitHandler;
+    ThreadSuspend          : TThreadHandler;
+    ThreadResume           : TThreadHandler;
+    ThreadKill             : TThreadHandler;
     ThreadSwitch           : TThreadSwitchHandler;
-    WaitForThreadTerminate : TWaitForThreadTerminateHandler;
+    ThreadWaitFor          : TThreadWaitForHandler;
     ThreadSetPriority      : TThreadSetPriorityHandler;
     ThreadGetPriority      : TThreadGetPriorityHandler;
-    GetCurrentThreadId     : TGetCurrentThreadIdHandler;
-    InitCriticalSection    : TCriticalSectionHandler;
-    DoneCriticalSection    : TCriticalSectionHandler;
-    EnterCriticalSection   : TCriticalSectionHandler;
-    LeaveCriticalSection   : TCriticalSectionHandler;
-    InitThreadVar          : TInitThreadVarHandler;
-    RelocateThreadVar      : TRelocateThreadVarHandler;
-    AllocateThreadVars     : TAllocateThreadVarsHandler;
-    ReleaseThreadVars      : TReleaseThreadVarsHandler;
-    BasicEventCreate       : TBasicEventCreateHandler;      // left in for a while.
-    BasicEventDestroy      : TBasicEventHandler;            // we might need BasicEvent
-    BasicEventResetEvent   : TBasicEventHandler;            // for a real TEvent
-    BasicEventSetEvent     : TBasicEventHandler;
-    BasiceventWaitFOr      : TBasicEventWaitForHandler;
-    RTLEventCreate         : TRTLCreateEventHandler;
-    RTLEventDestroy        : TRTLEventHandler;
-    RTLEventSetEvent       : TRTLEventHandler;
-    RTLEventResetEvent     : TRTLEventHandler;
-    RTLEventWaitFor        : TRTLEventHandler;
-    RTLEventSync           : TRTLEventSyncHandler;
-    RTLEventWaitForTimeout : TRTLEventHandlerTimeout;
-    // semaphores stuff
-    SemaphoreInit          : TSempahoreInitHandler;
-    SemaphoreDestroy       : TSemaphoreDestroyHandler;
-    SemaphorePost          : TSemaphorePostHandler;
-    SemaphoreWait          : TSemaphoreWaitHandler;
+    ThreadGetCurrent       : TThreadGetCurrentHandler;
+
+  // TlsSection
+    TlsSectionGet          : TTlsSectionGetHandler;
+
+  // Mutex
+    MutexCreate            : TMutexCreateHandler;
+    MutexDestroy           : TMutexHandler;
+    MutexLock              : TMutexHandler;
+    MutexUnlock            : TMutexHandler;
+
+  // Event
+    EventCreate            : TEventCreateHandler;
+    EventDestroy           : TEventHandler;
+    EventSet               : TEventHandler;
+    EventReset             : TEventHandler;
+    EventWaitFor           : TEventWaitForHandler;
+
+  // Semaphore
+    SemaphoreCreate        : TSempahoreCreateHandler;
+    SemaphoreDestroy       : TSemaphoreHandler;
+    SemaphorePost          : TSemaphoreHandler;
+    SemaphoreWaitFor       : TSemaphoreWaitForHandler;
   end;
 
-{*****************************************************************************
-                         Thread Handler routines
-*****************************************************************************}
 
-
-Function GetThreadManager(Var TM : TThreadManager) : Boolean;
-Function SetThreadManager(Const NewTM : TThreadManager; Var OldTM : TThreadManager) : Boolean;
-Function SetThreadManager(Const NewTM : TThreadManager) : Boolean;
-{$ifndef DISABLE_NO_THREAD_MANAGER}
-{$endif DISABLE_NO_THREAD_MANAGER}
-// Needs to be exported, so the manager can call it.
-procedure InitThreadVars(RelocProc : Pointer);
-procedure InitThread(stklen:SizeUInt);
 
 {*****************************************************************************
-                         Multithread Handling
+  Thread Handler routines
 *****************************************************************************}
 
-function BeginThread(sa : Pointer;stacksize : SizeUInt;
-  ThreadFunction : tthreadfunc;p : pointer;creationFlags : dword;
-  var ThreadId : TThreadID) : TThreadID;
+function GetThreadManager(var Manager: TThreadManager): Boolean;
+function SetThreadManager(const NewManager: TThreadManager; var OldManager: TThreadManager): Boolean;
+function SetThreadManager(const NewManager: TThreadManager): Boolean;
 
-{ add some simplfied forms which make lifer easier and porting }
-{ to other OSes too ...                                        }
-function BeginThread(ThreadFunction : tthreadfunc) : TThreadID;
-function BeginThread(ThreadFunction : tthreadfunc;p : pointer) : TThreadID;
-function BeginThread(ThreadFunction : tthreadfunc;p : pointer; var ThreadId : TThreadID) : TThreadID;
-function BeginThread(ThreadFunction : tthreadfunc;p : pointer;
-                     var ThreadId : TThreadID; const stacksize: SizeUInt) : TThreadID;
 
-procedure EndThread(ExitCode : DWord);
-procedure EndThread;
+{*****************************************************************************
+  Thread Handling
+*****************************************************************************}
 
-{some thread support functions}
+function BeginThread(const Func: TThreadFunc): Boolean;
+function BeginThread(const Func: TThreadFunc; const Arg: Pointer): Boolean;
+function BeginThread(const Func: TThreadFunc; const Arg: Pointer; var ThreadId: TThreadID): Boolean;
+function BeginThread(const Func: TThreadFunc; const Arg: Pointer; var ThreadId: TThreadID; const StackSize: PtrUInt): Boolean;
+procedure ExitThread(const ExitCode: PtrInt);
+procedure ExitThread;
 procedure FlushThread;
-function  SuspendThread (threadHandle : TThreadID) : dword;
-function  ResumeThread  (threadHandle : TThreadID) : dword;
-procedure ThreadSwitch;                                                                {give time to other threads}
-function  KillThread (threadHandle : TThreadID) : dword;
-function  WaitForThreadTerminate (threadHandle : TThreadID; TimeoutMs : longint) : dword;  {0=no timeout}
-function  ThreadSetPriority (threadHandle : TThreadID; Prio: longint): boolean;            {-15..+15, 0=normal}
-function  ThreadGetPriority (threadHandle : TThreadID): longint;
-function  GetCurrentThreadId : TThreadID;
+function SuspendThread(const ThreadId: TThreadID): Boolean;
+function ResumeThread(const ThreadId: TThreadID): Boolean;
+procedure ThreadSwitch;
+function KillThread(const ThreadId: TThreadID): Boolean;
+function WaitForThreadTerminate(const ThreadId: TThreadID; const TimeoutMs: Longint): TWaitResult;
+function SetThreadPriority(const ThreadId: TThreadID; const Prio: TThreadPriority): Boolean;
+function GetThreadPriority(const ThreadId: TThreadID): TThreadPriority;
+function GetCurrentThreadId: TThreadID;
 
 
-{ this allows to do a lot of things in MT safe way }
-{ it is also used to make the heap management      }
-{ thread safe                                      }
-procedure InitCriticalSection(var cs : TRTLCriticalSection);
-procedure DoneCriticalsection(var cs : TRTLCriticalSection);
-procedure EnterCriticalsection(var cs : TRTLCriticalSection);
-procedure LeaveCriticalsection(var cs : TRTLCriticalSection);
+{*****************************************************************************
+  CriticalSection Handling (backward compatibility)
+*****************************************************************************}
 
-function  BasicEventCreate(EventAttributes : Pointer; AManualReset,InitialState : Boolean;const Name : ansistring):pEventState;
-procedure basiceventdestroy(state:peventstate);
-procedure basiceventResetEvent(state:peventstate);
-procedure basiceventSetEvent(state:peventstate);
-function  basiceventWaitFor(Timeout : Cardinal;state:peventstate) : longint;
+type
+  TRTLCriticalSection = PMutex;
 
-function  RTLEventCreate :PRTLEvent;
-procedure RTLeventdestroy(state:pRTLEvent);
-procedure RTLeventSetEvent(state:pRTLEvent);
-procedure RTLeventResetEvent(state:pRTLEvent);
-procedure RTLeventWaitFor(state:pRTLEvent);
-procedure RTLeventWaitFor(state:pRTLEvent;timeout : longint);
-procedure RTLeventsync(m:trtlmethod;p:tprocedure);
+procedure InitCriticalSection(var cs: TRTLCriticalSection);
+procedure DoneCriticalsection(const cs: TRTLCriticalSection);
+procedure EnterCriticalsection(const cs: TRTLCriticalSection);
+procedure LeaveCriticalsection(const cs: TRTLCriticalSection);
+
+
+{*****************************************************************************
+  Mutex Handling
+*****************************************************************************}
+
+function MutexCreate: PMutex;
+procedure MutexDestroy(const AMutex: PMutex);
+procedure MutexLock(const AMutex: PMutex);
+procedure MutexUnlock(const AMutex: PMutex);
+
+
+{*****************************************************************************
+  Event Handling
+*****************************************************************************}
+
+function EventCreate(const InitState, ManualReset: Boolean): PEvent;
+procedure EventDestroy(const AEvent: PEvent);
+procedure EventSet(const AEvent: PEvent);
+procedure EventReset(const AEvent: PEvent);
+function EventWaitFor(const AEvent: PEvent; const TimeoutMs: Longint): TWaitResult;
+
+
+{*****************************************************************************
+  Semaphore Handling
+*****************************************************************************}
+
+function SemaphoreCreate(const Initialcount: Longword): PSemaphore;
+procedure SemaphoreDestroy(const ASemaphore: PSemaphore);
+procedure SemaphorePost(const ASemaphore: PSemaphore);
+function SemaphoreWaitFor(const ASemaphore: PSemaphore; const TimeoutMs: Longint): TWaitResult;
 

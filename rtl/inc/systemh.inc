@@ -351,7 +351,7 @@ const
   IsMultiThread : longbool = FALSE;
   { set to true, if a threading helper is used before a thread
     manager has been installed }
-  ThreadingAlreadyUsed : boolean = FALSE;
+//  ThreadingAlreadyUsed : boolean = FALSE;
   { Indicates if there was an error }
   StackError : boolean = FALSE;
   InitProc : Pointer = nil;

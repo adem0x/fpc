@@ -62,11 +62,11 @@ var
 { system independend threading code }
 var
   { event that happens when gui thread is done executing the method}
-  ExecuteEvent: PRtlEvent;
+  ExecuteEvent: PEvent;
   { event executed by synchronize to wake main thread if it sleeps in CheckSynchronize }
-  SynchronizeTimeoutEvent: PRtlEvent;
+  SynchronizeTimeoutEvent: PEvent;
   { guard for synchronization variables }
-  SynchronizeCritSect: TRtlCriticalSection;
+  SynchronizeMutex: PMutex;
   { method to execute }
   SynchronizeMethod: TThreadMethod;
   { should we execute the method? }
@@ -100,24 +100,85 @@ function ThreadProc(ThreadObjPtr: Pointer): PtrInt;
     Thread.DoTerminate;
     if FreeThread then
       Thread.Free;
-    EndThread(Result);
   end;
 
 { system-dependent code }
-{$i tthread.inc}
+{.$i tthread.inc}
+
+constructor TThread.Create(CreateSuspended: Boolean;
+                           const StackSize: SizeUInt = DefaultStackSize);
+  begin
+    RunError(232);
+    inherited Create;
+  end;
+
+
+destructor TThread.Destroy;
+  begin
+    inherited Destroy;
+  end;
+
+procedure TThread.CallOnTerminate;
+  begin
+    FOnTerminate(Self);
+  end;
+
+procedure TThread.DoTerminate;
+  begin
+    if Assigned(FOnTerminate) then
+      Synchronize(@CallOnTerminate);
+  end;
+
+
+function TThread.GetPriority: TThreadPriority;
+  begin
+  end;
+
+
+procedure TThread.SetPriority(Value: TThreadPriority);
+  begin
+  end;
+
+
+procedure TThread.SetSuspended(Value: Boolean);
+  begin
+  end;
+
+
+procedure TThread.Suspend;
+  begin
+  end;
+
+
+procedure TThread.Resume;
+  begin
+  end;
+
+
+procedure TThread.Terminate;
+  begin
+  end;
+
+
+function TThread.WaitFor: Integer;
+  begin
+  end;
+
+
+{ end of system-dependent code }
 
 
 function TThread.GetSuspended: Boolean;
-begin
-  GetSuspended:=FSuspended;
-end;
+  begin
+    GetSuspended:=FSuspended;
+  end;
 
 
 procedure TThread.AfterConstruction;
-begin
-  inherited AfterConstruction;
-//  Resume;
-end;
+  begin
+    inherited AfterConstruction;
+  //  Resume;
+  end;
 
 
 class procedure TThread.Synchronize(AThread: TThread; AMethod: TThreadMethod);
@@ -129,22 +190,22 @@ class procedure TThread.Synchronize(AThread: TThread; AMethod: TThreadMethod);
       AMethod()
     else
       begin
-        System.EnterCriticalSection(SynchronizeCritSect);
+        MutexLock(SynchronizeMutex);
         SynchronizeException:=nil;
         SynchronizeMethod:=AMethod;
 
         { be careful, after this assignment Method could be already executed }
         DoSynchronizeMethod:=true;
 
-        RtlEventSetEvent(SynchronizeTimeoutEvent);
+        EventSet(SynchronizeTimeoutEvent);
 
         if assigned(WakeMainThread) then
           WakeMainThread(AThread);
 
         { wait infinitely }
-        RtlEventWaitFor(ExecuteEvent);
+        EventWaitFor(ExecuteEvent, -1);
         LocalSyncException:=SynchronizeException;
-        System.LeaveCriticalSection(SynchronizeCritSect);
+        MutexUnlock(SynchronizeMutex);
         if assigned(LocalSyncException) then
           raise LocalSyncException;
       end;
@@ -170,10 +231,10 @@ procedure CheckSynchronize(timeout : longint=0);
       begin
         if timeout>0 then
           begin
-            RtlEventWaitFor(SynchronizeTimeoutEvent,timeout);
+            EventWaitFor(SynchronizeTimeoutEvent,timeout);
           end
          else
-           RtlEventResetEvent(SynchronizeTimeoutEvent);
+           EventReset(SynchronizeTimeoutEvent);
 
         if DoSynchronizeMethod then
           begin
@@ -183,7 +244,7 @@ procedure CheckSynchronize(timeout : longint=0);
               SynchronizeException:=Exception(AcquireExceptionObject);
             end;
             DoSynchronizeMethod:=false;
-            RtlEventSetEvent(ExecuteEvent);
+            EventSet(ExecuteEvent);
           end;
       end;
   end;
@@ -1066,40 +1127,40 @@ procedure ObjectBinaryToText(Input, Output: TStream);
    if p = nil then begin
     res:= '''''';
    end
-   else 
+   else
     begin
     res := '';
     InString := False;
-    while P < LastP do 
+    while P < LastP do
       begin
       NewInString := InString;
       w := CharToOrdfunc(P);
-      if w = ord('''') then 
+      if w = ord('''') then
         begin //quote char
         if not InString then
           NewInString := True;
         NewStr := '''''';
-        end 
-      else if (Ord(w) >= 32) and (Ord(w) < 127) then 
+        end
+      else if (Ord(w) >= 32) and (Ord(w) < 127) then
         begin //printable ascii
         if not InString then
           NewInString := True;
         NewStr := char(w);
-        end 
-      else 
+        end
+      else
         begin //ascii control chars, non ascii
         if InString then
           NewInString := False;
         NewStr := '#' + IntToStr(w);
         end;
-      if NewInString <> InString then 
+      if NewInString <> InString then
         begin
         NewStr := '''' + NewStr;
         InString := NewInString;
         end;
       res := res + NewStr;
       end;
-    if InString then 
+    if InString then
       res := res + '''';
     end;
    OutStr(res);
@@ -1332,7 +1393,7 @@ type
   PLongWord = ^LongWord;
 const
   signature: PChar = 'TPF0';
-  
+
 begin
   if Input.ReadDWord <> PLongWord(Pointer(signature))^ then
     raise EReadError.Create('Illegal stream image' {###SInvalidImage});
@@ -1673,9 +1734,9 @@ end;
 
 procedure CommonInit;
 begin
-  InitCriticalSection(SynchronizeCritSect);
-  ExecuteEvent:=RtlEventCreate;
-  SynchronizeTimeoutEvent:=RtlEventCreate;
+  SynchronizeMutex:=MutexCreate;
+  ExecuteEvent:=EventCreate(false, false);
+  SynchronizeTimeoutEvent:=EventCreate(false, false);
   DoSynchronizeMethod:=false;
   MainThreadID:=GetCurrentThreadID;
   InitHandlerList:=Nil;
@@ -1720,9 +1781,9 @@ begin
   InitHandlerList:=Nil;
   FindGlobalComponentList.Free;
   FindGlobalComponentList:=nil;
-  DoneCriticalSection(SynchronizeCritSect);
-  RtlEventDestroy(ExecuteEvent);
-  RtlEventDestroy(SynchronizeTimeoutEvent);
+  MutexDestroy(SynchronizeMutex);
+  EventDestroy(ExecuteEvent);
+  EventDestroy(SynchronizeTimeoutEvent);
 end;
 
 { TFiler implementation }

@@ -328,6 +328,8 @@ begin
   { Reset IO Error }
   InOutRes:=0;
   { threading }
+  SetThreadManager(NoThreadManager);
+  InitThreadVars;
   InitSystemThreads;
   initvariantmanager;
   initwidestringmanager;

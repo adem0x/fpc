@@ -50,6 +50,4 @@ initialization
 finalization
   CommonCleanup;
 
-  if ThreadsInited then
-     DoneThreads;
 end.

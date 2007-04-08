@@ -19,7 +19,6 @@ begin
   { This should be changed to a real value during
     thread driver initialization if appropriate. }
   ThreadID := TThreadID(1);
-  SetNoThreadManager;
 end;
 
 

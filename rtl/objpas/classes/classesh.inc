@@ -59,7 +59,7 @@ type
   TSeekOrigin = (soBeginning, soCurrent, soEnd);
   TDuplicates = Types.TDuplicates;
 
-// For Delphi and backwards compatibility.  
+// For Delphi and backwards compatibility.
 const
   dupIgnore = Types.dupIgnore;
   dupAccept = Types.dupAccept;
@@ -125,7 +125,7 @@ type
   EMethodNotFound = class(EFilerError);
   EInvalidImage = class(EFilerError);
   EResNotFound = class(Exception);
-{$ifdef FPC_TESTGENERICS}  
+{$ifdef FPC_TESTGENERICS}
   EListError = fgl.EListError;
 {$else}
   EListError = class(Exception);
@@ -662,7 +662,7 @@ type
     property OnCompareText: TStringListTextCompare read FOnCompareText write FOnCompareText;
   end;
 
-{$endif}  
+{$endif}
 
 { TStream abstract class }
 
@@ -1279,9 +1279,6 @@ type
   EThreadDestroyCalled = class(EThread);
   TSynchronizeProcVar = procedure;
   TThreadMethod = procedure of object;
-
-  TThreadPriority = (tpIdle, tpLowest, tpLower, tpNormal, tpHigher, tpHighest,
-    tpTimeCritical);
 
   TThread = class
   private

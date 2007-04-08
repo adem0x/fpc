@@ -27,7 +27,7 @@ type
   {$endif}
 
   { pthread_mutex_t }
-  PRTLCriticalSection = ^TRTLCriticalSection;
+  {PRTLCriticalSection = ^TRTLCriticalSection;
   TRTLCriticalSection = record
     __m_reserved: longint;
     __m_count: longint;
@@ -37,7 +37,7 @@ type
        __status: sizeint;
       __spinlock: longint;
     end;
-  end;
+  end;}
 
 
 
