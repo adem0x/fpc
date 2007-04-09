@@ -36,8 +36,7 @@ begin
   RunError(232);
 end;
 
-function NoThreadManagerInit(const ThrdSetup: TThreadSetupHandler; const TlsSize: PtrUInt;
-  const TlsInit, TlsFree: TTlsSectionMemoryHandler): Boolean;
+function NoThreadManagerInit(const ThrdSetup: TThreadSetupHandler; const TlsInit, TlsFree: TTlsSectionMemoryHandler): Boolean;
 begin
   Result := False;
 end;
@@ -312,7 +311,7 @@ begin
     OldManager.DoneManager();
 
 { install new thread manager }
-  Result := NewManager.InitManager(@ThreadSetup, Sizeof(TTlsSection), @InitTlsSection, @FreeTlsSection);
+  Result := NewManager.InitManager(@ThreadSetup, @InitTlsSection, @FreeTlsSection);
   if Result then
   begin
     __CurrentTM := NewManager;

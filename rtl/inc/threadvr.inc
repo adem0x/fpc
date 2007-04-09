@@ -37,13 +37,8 @@ var
   ThreadvarContainerSize : PtrUInt;
   ThreadvarContainerCount : Longword;
 
-type
-  PTlsSection = ^TTlsSection;
-  TTlsSection = record
-    threadvars : pointer;
-  end;
 
-procedure copy_unit_threadthreadvars(p: PTlsSection; tableEntry: pltvInitEntry);
+procedure copy_unit_threadthreadvars(p: pointer; tableEntry: pltvInitEntry);
 var
   src: pointer;
   dst: pointer;
@@ -52,7 +47,7 @@ begin
   begin
     { copy initial threadvar data to TLS section }
     src := pointer(pchar(tableEntry^.varaddr)+sizeof(pointer));
-    dst := pointer(PtrUInt(P^.threadvars) + tableEntry^.varaddr^);
+    dst := pointer(PtrUInt(P) + tableEntry^.varaddr^);
     move(src^, dst^, tableEntry^.size);
 
     { goto next entry }
@@ -60,33 +55,30 @@ begin
   end;
 end;
 
-procedure InitTlsSection(const Address: Pointer);
+procedure InitTlsSection(var Address: Pointer);
 var
-  P: PTlsSection absolute Address;
   i: integer;
 begin
   { allocate memory for threadthreadvars of this new TLS section }
-  GetMem(P^.threadvars, ThreadvarContainerSize);
+  GetMem(Address, ThreadvarContainerSize);
 
   { copy threadvar initial data to TLS section }
   for i := 1 to ThreadvarTablesTable.count do
-    copy_unit_threadthreadvars(P, ThreadvarTablesTable.tables[i]);
+    copy_unit_threadthreadvars(Address, ThreadvarTablesTable.tables[i]);
 end;
 
-procedure FreeTlsSection(const Address: Pointer);
-var
-  P: PTlsSection absolute Address;
+procedure FreeTlsSection(var Address: Pointer);
 begin
-  FreeMem(P^.threadvars);
-  P^.threadvars := nil;
+  FreeMem(Address);
+  Address := nil;
 end;
 
 function ThreadVarLocate(const Offset: Longword): pointer;
 var
-  P: PTlsSection;
+  P: pointer;
 begin
   P := __CurrentTM.TlsSectionGet();
-  Result := pointer(ptruint(P^.threadvars) + Offset);
+  Result := pointer(ptruint(P) + Offset);
 end;
 
 

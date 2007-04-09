@@ -14,8 +14,7 @@
 
  **********************************************************************}
 
-function LinThreadManagerInit(const ThrdSetup: TThreadSetupHandler; const TlsSize: PtrUInt;
-  const TlsInit, TlsFree: TTlsSectionMemoryHandler): Boolean;
+function LinThreadManagerInit(const ThrdSetup: TThreadSetupHandler; const TlsInit, TlsFree: TTlsSectionMemoryHandler): Boolean;
 begin
   {ThrdSetupHandler := ThrdSetup;
   TlsMemorySize := TlsSize;

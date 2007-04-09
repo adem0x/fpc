@@ -23,9 +23,9 @@ type
   TThreadPriority                = (tpIdle, tpLowest, tpLower, tpNormal, tpHigher, tpHighest, tpTimeCritical);
 
 // ThreadManager Callbacks
-  TTlsSectionMemoryHandler       = procedure(const Address: Pointer);
+  TTlsSectionMemoryHandler       = procedure(var Address: Pointer);
   TThreadSetupHandler            = procedure(const Stack: Pointer; const StackSize: PtrUInt); register;
-  TThreadManagerInitHandler      = function(const ThreadSetup: TThreadSetupHandler; const TlsSize: PtrUInt; const TlsInit, TlsFree: TTlsSectionMemoryHandler): Boolean;
+  TThreadManagerInitHandler      = function(const ThreadSetup: TThreadSetupHandler; const TlsInit, TlsFree: TTlsSectionMemoryHandler): Boolean;
   TThreadManagerDoneHandler      = procedure;
 
 // Thread Callbacks
