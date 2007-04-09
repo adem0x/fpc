@@ -14,31 +14,31 @@
 
 constructor TMultiReadExclusiveWriteSynchronizer.Create;
 begin
-  System.InitCriticalSection(Crit);
+  System.CriticalSectionInit(Crit);
 end;
 
 destructor TMultiReadExclusiveWriteSynchronizer.Destroy;
 begin
-  System.DoneCriticalSection(Crit);
+  System.CriticalSectionDone(Crit);
 end;
 
 function  TMultiReadExclusiveWriteSynchronizer.Beginwrite : boolean;
 begin
-  System.EnterCriticalSection(Crit);
+  System.CriticalSectionEnter(Crit);
   result:=true;
 end;
 
 procedure  TMultiReadExclusiveWriteSynchronizer.Endwrite;
 begin
-  System.LeaveCriticalSection(Crit);
+  System.CriticalSectionLeave(Crit);
 end;
 
 procedure  TMultiReadExclusiveWriteSynchronizer.Beginread;
 begin
-  System.EnterCriticalSection(Crit);
+  System.CriticalSectionEnter(Crit);
 end;
 
 procedure  TMultiReadExclusiveWriteSynchronizer.Endread;
 begin
-  System.LeaveCriticalSection(Crit);
+  System.CriticalSectionLeave(Crit);
 end;

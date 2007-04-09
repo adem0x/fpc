@@ -1421,13 +1421,21 @@
      TCRITICALSECTIONDEBUG = CRITICAL_SECTION_DEBUG;
      PCRITICALSECTIONDEBUG = ^CRITICAL_SECTION_DEBUG;
 
-     CRITICAL_SECTION = TRTLCriticalSection;
-     _CRITICAL_SECTION = TRTLCriticalSection;
-     TCRITICAL_SECTION = TRTLCriticalSection;
-     PCRITICAL_SECTION = PRTLCriticalSection;
-     LPCRITICAL_SECTION = PRTLCriticalSection;
-     TCRITICALSECTION = TRTLCriticalSection;
-     PCRITICALSECTION = PRTLCriticalSection;
+     CRITICAL_SECTION = packed record
+          DebugInfo : pointer;
+          LockCount : longint;
+          RecursionCount : longint;
+          OwningThread : THandle;
+          LockSemaphore : THandle;
+          SpinCount : ULONG_PTR;
+       end;
+
+     _CRITICAL_SECTION = CRITICAL_SECTION;
+     TCRITICAL_SECTION = CRITICAL_SECTION;
+     PCRITICAL_SECTION = ^CRITICAL_SECTION;
+     LPCRITICAL_SECTION = ^CRITICAL_SECTION;
+     TCRITICALSECTION = CRITICAL_SECTION;
+     PCRITICALSECTION = ^CRITICAL_SECTION;
 
   { SECURITY_CONTEXT_TRACKING_MODE ContextTrackingMode;  }
 
@@ -1790,9 +1798,9 @@
      _EXCEPTION_DEBUG_INFO = EXCEPTION_DEBUG_INFO;
      TEXCEPTIONDEBUGINFO = EXCEPTION_DEBUG_INFO;
      PEXCEPTIONDEBUGINFO = ^EXCEPTION_DEBUG_INFO;
-     
+
      { Explicit forms to debug targets running on a different architecture (32-bit versus 64-bit)}
-     
+
      EXCEPTION_RECORD32 = record
           ExceptionCode : DWORD;
           ExceptionFlags : DWORD;
@@ -4880,7 +4888,7 @@
           lpTemplateName : LPCTSTR;
           pvReserved : pointer;
           dwreserved : dword;
-          FlagsEx    : dword; 
+          FlagsEx    : dword;
        end;
      LPOPENFILENAME = ^OPENFILENAME;
      TOPENFILENAME = OPENFILENAME;

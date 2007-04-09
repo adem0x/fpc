@@ -934,7 +934,7 @@
      tagINITCOMMONCONTROLSEX = record
           dwSize:DWORD;             // size of this structure
           dwICC:DWORD;              // flags indicating which classes to be initialized
-        end;  
+        end;
      TINITCOMMONCONTROLSEX=tagINITCOMMONCONTROLSEX;
      LPINITCOMMONCONTROLSEX=^tagINITCOMMONCONTROLSEX;
 
@@ -1976,13 +1976,19 @@
      TCRITICALSECTIONDEBUG = CRITICAL_SECTION_DEBUG;
      PCRITICALSECTIONDEBUG = ^CRITICAL_SECTION_DEBUG;
 
-     CRITICAL_SECTION = TRTLCriticalSection;
-     _CRITICAL_SECTION = TRTLCriticalSection;
-     TCRITICAL_SECTION = TRTLCriticalSection;
-     PCRITICAL_SECTION = PRTLCriticalSection;
-     LPCRITICAL_SECTION = PRTLCriticalSection;
-     TCRITICALSECTION = TRTLCriticalSection;
-     PCRITICALSECTION = PRTLCriticalSection;
+     CRITICAL_SECTION = packed record
+          LockCount     : DWord ;   // Nesting count on critical section
+          OwnerThread   : THandle;    // Handle of owner thread
+          hCrit         : THandle;    // Handle to this critical section
+          needtrap      : DWORD;  // Trap in when freeing critical section
+          dwContentions : DWORD ; // Count of contentions
+       end;
+     _CRITICAL_SECTION = CRITICAL_SECTION;
+     TCRITICAL_SECTION = CRITICAL_SECTION;
+     PCRITICAL_SECTION = ^CRITICAL_SECTION;
+     LPCRITICAL_SECTION = ^CRITICAL_SECTION;
+     TCRITICALSECTION = CRITICAL_SECTION;
+     PCRITICALSECTION = ^CRITICAL_SECTION;
 
   { SECURITY_CONTEXT_TRACKING_MODE ContextTrackingMode;  }
 
@@ -4337,8 +4343,8 @@
           rgbFg  : COLORREF;
           fStyle  : UINT;
           dwRop : DWORD;
-       end;  
-       
+       end;
+
      _IMAGELISTDRAWPARAMS=IMAGELISTDRAWPARAMS;
      PIMAGELISTDRAWPARAMS=^IMAGELISTDRAWPARAMS;
 

@@ -113,7 +113,7 @@ var
   iconv_ucs42ansi,
   iconv_ansi2wide,
   iconv_wide2ansi : iconv_t;
-  
+
   lock_ansi2ucs4 : integer = -1;
   lock_ucs42ansi : integer = -1;
   lock_ansi2wide : integer = -1;
@@ -135,7 +135,7 @@ begin
  interlockeddecrement(lockcount);
 end;
 }
- 
+
 procedure Wide2AnsiMove(source:pwidechar;var dest:ansistring;len:SizeInt);
   var
     outlength,
@@ -156,7 +156,7 @@ procedure Wide2AnsiMove(source:pwidechar;var dest:ansistring;len:SizeInt);
     srcpos:=source;
     destpos:=pchar(dest);
     outleft:=outlength;
-    entercriticalsection(iconv_lock);
+    criticalsectionenter(iconv_lock);
     while iconv(iconv_wide2ansi,ppchar(@srcpos),@srclen,@destpos,@outleft)=size_t(-1) do
       begin
         case fpgetCerrno of
@@ -182,11 +182,11 @@ procedure Wide2AnsiMove(source:pwidechar;var dest:ansistring;len:SizeInt);
               destpos:=pchar(dest)+outoffset;
             end;
           else
-            leavecriticalsection(iconv_lock);
+            criticalsectionleave(iconv_lock);
             runerror(231);
         end;
       end;
-    leavecriticalsection(iconv_lock);
+    criticalsectionleave(iconv_lock);
     // truncate string
     setlength(dest,length(dest)-outleft);
   end;
@@ -211,7 +211,7 @@ procedure Ansi2WideMove(source:pchar;var dest:widestring;len:SizeInt);
     srcpos:=source;
     destpos:=pchar(dest);
     outleft:=outlength*2;
-    entercriticalsection(iconv_lock);
+    criticalsectionenter(iconv_lock);
     while iconv(iconv_ansi2wide,@srcpos,psize(@len),@destpos,@outleft)=size_t(-1) do
       begin
         case fpgetCerrno of
@@ -237,11 +237,11 @@ procedure Ansi2WideMove(source:pchar;var dest:widestring;len:SizeInt);
               destpos:=pchar(dest)+outoffset;
             end;
           else
-            leavecriticalsection(iconv_lock);
+            criticalsectionleave(iconv_lock);
             runerror(231);
         end;
       end;
-    leavecriticalsection(iconv_lock);
+    criticalsectionleave(iconv_lock);
     // truncate string
     setlength(dest,length(dest)-outleft div 2);
   end;
@@ -286,7 +286,7 @@ procedure Ansi2UCS4Move(source:pchar;var dest:UCS4String;len:SizeInt);
     srcpos:=source;
     destpos:=pchar(dest);
     outleft:=outlength*4;
-    entercriticalsection(iconv_lock);
+    criticalsectionenter(iconv_lock);
     while iconv(iconv_ansi2ucs4,@srcpos,psize(@len),@destpos,@outleft)=size_t(-1) do
       begin
         case fpgetCerrno of
@@ -301,11 +301,11 @@ procedure Ansi2UCS4Move(source:pchar;var dest:UCS4String;len:SizeInt);
               destpos:=pchar(dest)+outoffset;
             end;
           else
-            leavecriticalsection(iconv_lock);
+            criticalsectionleave(iconv_lock);
             runerror(231);
         end;
       end;
-    leavecriticalsection(iconv_lock);
+    criticalsectionleave(iconv_lock);
     // truncate string
     setlength(dest,length(dest)-outleft div 4);
   end;
@@ -372,10 +372,12 @@ end;
 initialization
   SetCWideStringManager;
   { init conversion tables }
+  criticalsectioninit(iconv_lock);
   iconv_wide2ansi:=iconv_open(nl_langinfo(CODESET),unicode_encoding);
   iconv_ansi2wide:=iconv_open(unicode_encoding,nl_langinfo(CODESET));
   iconv_ucs42ansi:=iconv_open(nl_langinfo(CODESET),'UCS4');
   iconv_ansi2ucs4:=iconv_open('UCS4',nl_langinfo(CODESET));
 finalization
   iconv_close(iconv_ansi2wide);
+  criticalsectiondone(iconv_lock);
 end.

@@ -516,7 +516,7 @@ constructor TThreadList.Create;
   begin
     inherited Create;
     FDuplicates:=dupIgnore;
-    InitCriticalSection(FLock);
+    CriticalSectionInit(FLock);
     FList:=TList.Create;
   end;
 
@@ -529,7 +529,7 @@ destructor TThreadList.Destroy;
       inherited Destroy;
     finally
       UnlockList;
-      DoneCriticalSection(FLock);
+      CriticalSectionDone(FLock);
     end;
   end;
 
@@ -565,7 +565,7 @@ procedure TThreadList.Clear;
 function TThreadList.LockList: TList;
   begin
     Result:=FList;
-    System.EnterCriticalSection(FLock);
+    System.CriticalSectionEnter(FLock);
   end;
 
 
@@ -582,7 +582,7 @@ procedure TThreadList.Remove(Item: Pointer);
 
 procedure TThreadList.UnlockList;
   begin
-    System.LeaveCriticalSection(FLock);
+    System.CriticalSectionLeave(FLock);
   end;
 
 

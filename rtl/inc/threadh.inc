@@ -43,21 +43,21 @@ type
   TTlsSectionGetHandler          = function: Pointer;
 
 // Mutex Callbacks
-  PMutex                         = type Pointer;
-  TMutexCreateHandler            = function: PMutex;
-  TMutexHandler                  = procedure(const AMutex: PMutex);
+  TMutex                         = type Pointer;
+  TMutexCreateHandler            = function: TMutex;
+  TMutexHandler                  = procedure(const AMutex: TMutex);
 
 // Event Callbacks
-  PEvent                         = type Pointer;
-  TEventCreateHandler            = function(const InitState, ManualReset: Boolean): PEvent;
-  TEventHandler                  = procedure(const AEvent: PEvent);
-  TEventWaitForHandler           = function(const AEvent: PEvent; const TimeoutMs: Longint): TWaitResult;
+  TEvent                         = type Pointer;
+  TEventCreateHandler            = function(const InitState, ManualReset: Boolean): TEvent;
+  TEventHandler                  = procedure(const AEvent: TEvent);
+  TEventWaitForHandler           = function(const AEvent: TEvent; const TimeoutMs: Longint): TWaitResult;
 
 // Semaphore Callbacks
-  PSemaphore                     = type Pointer;
-  TSempahoreCreateHandler        = function(const Initialcount: Longword): PSemaphore;
-  TSemaphoreHandler              = procedure(const ASemaphore: PSemaphore);
-  TSemaphoreWaitForHandler       = function(const ASemaphore: PSemaphore; const TimeoutMs: Longint): TWaitResult;
+  TSemaphore                     = type Pointer;
+  TSempahoreCreateHandler        = function(const Initialcount: Longword): TSemaphore;
+  TSemaphoreHandler              = procedure(const ASemaphore: TSemaphore);
+  TSemaphoreWaitForHandler       = function(const ASemaphore: TSemaphore; const TimeoutMs: Longint): TWaitResult;
 
 // ThreadManager interface.
   TThreadManager = record
@@ -132,45 +132,45 @@ function GetCurrentThreadId: TThreadID;
 
 
 {*****************************************************************************
-  CriticalSection Handling (backward compatibility)
+  CriticalSection Handling
 *****************************************************************************}
 
 type
-  TRTLCriticalSection = PMutex;
+  TRTLCriticalSection = TMutex;
 
-procedure InitCriticalSection(var cs: TRTLCriticalSection);
-procedure DoneCriticalsection(const cs: TRTLCriticalSection);
-procedure EnterCriticalsection(const cs: TRTLCriticalSection);
-procedure LeaveCriticalsection(const cs: TRTLCriticalSection);
+procedure CriticalSectionInit(var cs: TRTLCriticalSection);
+procedure CriticalsectionDone(const cs: TRTLCriticalSection);
+procedure CriticalsectionEnter(const cs: TRTLCriticalSection);
+procedure CriticalsectionLeave(const cs: TRTLCriticalSection);
 
 
 {*****************************************************************************
   Mutex Handling
 *****************************************************************************}
 
-function MutexCreate: PMutex;
-procedure MutexDestroy(const AMutex: PMutex);
-procedure MutexLock(const AMutex: PMutex);
-procedure MutexUnlock(const AMutex: PMutex);
+function MutexCreate: TMutex;
+procedure MutexDestroy(const AMutex: TMutex);
+procedure MutexLock(const AMutex: TMutex);
+procedure MutexUnlock(const AMutex: TMutex);
 
 
 {*****************************************************************************
   Event Handling
 *****************************************************************************}
 
-function EventCreate(const InitState, ManualReset: Boolean): PEvent;
-procedure EventDestroy(const AEvent: PEvent);
-procedure EventSet(const AEvent: PEvent);
-procedure EventReset(const AEvent: PEvent);
-function EventWaitFor(const AEvent: PEvent; const TimeoutMs: Longint): TWaitResult;
+function EventCreate(const InitState, ManualReset: Boolean): TEvent;
+procedure EventDestroy(const AEvent: TEvent);
+procedure EventSet(const AEvent: TEvent);
+procedure EventReset(const AEvent: TEvent);
+function EventWaitFor(const AEvent: TEvent; const TimeoutMs: Longint): TWaitResult;
 
 
 {*****************************************************************************
   Semaphore Handling
 *****************************************************************************}
 
-function SemaphoreCreate(const Initialcount: Longword): PSemaphore;
-procedure SemaphoreDestroy(const ASemaphore: PSemaphore);
-procedure SemaphorePost(const ASemaphore: PSemaphore);
-function SemaphoreWaitFor(const ASemaphore: PSemaphore; const TimeoutMs: Longint): TWaitResult;
+function SemaphoreCreate(const Initialcount: Longword): TSemaphore;
+procedure SemaphoreDestroy(const ASemaphore: TSemaphore);
+procedure SemaphorePost(const ASemaphore: TSemaphore);
+function SemaphoreWaitFor(const ASemaphore: TSemaphore; const TimeoutMs: Longint): TWaitResult;
 

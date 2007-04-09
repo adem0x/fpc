@@ -106,71 +106,71 @@ begin
   Result := nil;
 end;
 
-function NoMutexCreate: PMutex;
+function NoMutexCreate: TMutex;
 begin
   NoThreadError('No MutexCreate');
   Result := nil;
 end;
 
-procedure NoMutexDestroy(const AMutex: PMutex);
+procedure NoMutexDestroy(const AMutex: TMutex);
 begin
   NoThreadError('No MutexDestroy');
 end;
 
-procedure NoMutexLock(const AMutex: PMutex);
+procedure NoMutexLock(const AMutex: TMutex);
 begin
   NoThreadError('No MutexLock');
 end;
 
-procedure NoMutexUnlock(const AMutex: PMutex);
+procedure NoMutexUnlock(const AMutex: TMutex);
 begin
   NoThreadError('No MutexUnlock');
 end;
 
-function NoEventCreate(const InitState, ManualReset: Boolean): PEvent;
+function NoEventCreate(const InitState, ManualReset: Boolean): TEvent;
 begin
   NoThreadError('No EventCreate');
   Result := nil;
 end;
 
-procedure NoEventDestroy(const AEvent: PEvent);
+procedure NoEventDestroy(const AEvent: TEvent);
 begin
   NoThreadError('No EventDestroy');
 end;
 
-procedure NoEventSet(const AEvent: PEvent);
+procedure NoEventSet(const AEvent: TEvent);
 begin
   NoThreadError('No EventSet');
 end;
 
-procedure NoEventReset(const AEvent: PEvent);
+procedure NoEventReset(const AEvent: TEvent);
 begin
   NoThreadError('No EventReset');
 end;
 
-function NoEventWaitFor(const AEvent: PEvent; const TimeoutMs: Longint): TWaitResult;
+function NoEventWaitFor(const AEvent: TEvent; const TimeoutMs: Longint): TWaitResult;
 begin
   NoThreadError('No EventWaitFor');
   Result := wrError;
 end;
 
-function NoSemaphoreCreate(const Initialcount: Longword): PSemaphore;
+function NoSemaphoreCreate(const Initialcount: Longword): TSemaphore;
 begin
   NoThreadError('No SemaphoreCreate');
   Result := nil;
 end;
 
-procedure NoSemaphoreDestroy(const ASemaphore: PSemaphore);
+procedure NoSemaphoreDestroy(const ASemaphore: TSemaphore);
 begin
   NoThreadError('No SemaphoreDestroy');
 end;
 
-procedure NoSemaphorePost(const ASemaphore: PSemaphore);
+procedure NoSemaphorePost(const ASemaphore: TSemaphore);
 begin
   NoThreadError('No SemaphorePost');
 end;
 
-function NoSemaphoreWaitFor(const ASemaphore: PSemaphore; const TimeoutMs: Longint): TWaitResult;
+function NoSemaphoreWaitFor(const ASemaphore: TSemaphore; const TimeoutMs: Longint): TWaitResult;
 begin
   NoThreadError('No SemaphoreWaitFor');
   Result := wrError;
@@ -249,7 +249,7 @@ end;
 
 {$ifndef HAS_MT_MEMORYMANAGER}
 var
-  HeapMutex : PMutex;
+  HeapMutex : TMutex;
 
 procedure HeapMutexInit;
 begin
@@ -299,16 +299,19 @@ begin
   if IsMultiThread then
     Exit(False);
 
+{ release current thread manager }
   OldManager := __CurrentTM;
 {$ifndef HAS_MT_MEMORYMANAGER}
   SetMemoryMutexManager(MemoryMutexManager);
 {$endif HAS_MT_MEMORYMANAGER}
   fpc_threadvar_relocate_proc := nil;
+  ThreadID := 0;
   __CurrentTM := NoThreadManager;
 
   if Assigned(OldManager.DoneManager) then
     OldManager.DoneManager();
 
+{ install new thread manager }
   Result := NewManager.InitManager(@ThreadSetup, Sizeof(TTlsSection), @InitTlsSection, @FreeTlsSection);
   if Result then
   begin
@@ -418,22 +421,22 @@ end;
                          CriticalSection Handling
 *****************************************************************************}
 
-procedure InitCriticalSection(var cs: TRTLCriticalSection);
+procedure CriticalSectionInit(var cs: TRTLCriticalSection);
 begin
   cs := __CurrentTM.MutexCreate;
 end;
 
-procedure DoneCriticalsection(const cs: TRTLCriticalSection);
+procedure CriticalsectionDone(const cs: TRTLCriticalSection);
 begin
   __CurrentTM.MutexDestroy(cs);
 end;
 
-procedure EnterCriticalsection(const cs: TRTLCriticalSection);
+procedure CriticalsectionEnter(const cs: TRTLCriticalSection);
 begin
   __CurrentTM.MutexLock(cs);
 end;
 
-procedure LeaveCriticalsection(const cs: TRTLCriticalSection);
+procedure CriticalsectionLeave(const cs: TRTLCriticalSection);
 begin
   __CurrentTM.MutexUnlock(cs);
 end;
@@ -444,22 +447,22 @@ end;
                          Mutex Handling
 *****************************************************************************}
 
-function MutexCreate: PMutex;
+function MutexCreate: TMutex;
 begin
   Result := __CurrentTM.MutexCreate;
 end;
 
-procedure MutexDestroy(const AMutex: PMutex);
+procedure MutexDestroy(const AMutex: TMutex);
 begin
   __CurrentTM.MutexDestroy(AMutex);
 end;
 
-procedure MutexLock(const AMutex: PMutex);
+procedure MutexLock(const AMutex: TMutex);
 begin
   __CurrentTM.MutexLock(AMutex);
 end;
 
-procedure MutexUnlock(const AMutex: PMutex);
+procedure MutexUnlock(const AMutex: TMutex);
 begin
   __CurrentTM.MutexUnlock(AMutex);
 end;
@@ -469,27 +472,27 @@ end;
                          Event Handling
 *****************************************************************************}
 
-function EventCreate(const InitState, ManualReset: Boolean): PEvent;
+function EventCreate(const InitState, ManualReset: Boolean): TEvent;
 begin
   Result := __CurrentTM.EventCreate(InitState, ManualReset);
 end;
 
-procedure EventDestroy(const AEvent: PEvent);
+procedure EventDestroy(const AEvent: TEvent);
 begin
   __CurrentTM.EventDestroy(AEvent);
 end;
 
-procedure EventSet(const AEvent: PEvent);
+procedure EventSet(const AEvent: TEvent);
 begin
   __CurrentTM.EventSet(AEvent);
 end;
 
-procedure EventReset(const AEvent: PEvent);
+procedure EventReset(const AEvent: TEvent);
 begin
   __CurrentTM.EventReset(AEvent);
 end;
 
-function EventWaitFor(const AEvent: PEvent; const TimeoutMs: Longint): TWaitResult;
+function EventWaitFor(const AEvent: TEvent; const TimeoutMs: Longint): TWaitResult;
 begin
   Result := __CurrentTM.EventWaitFor(AEvent, TimeoutMs);
 end;
@@ -500,22 +503,22 @@ end;
                          Semaphore Handling
 *****************************************************************************}
 
-function SemaphoreCreate(const Initialcount: Longword): PSemaphore;
+function SemaphoreCreate(const Initialcount: Longword): TSemaphore;
 begin
   Result := __CurrentTM.SemaphoreCreate(Initialcount);
 end;
 
-procedure SemaphoreDestroy(const ASemaphore: PSemaphore);
+procedure SemaphoreDestroy(const ASemaphore: TSemaphore);
 begin
   __CurrentTM.SemaphoreDestroy(ASemaphore);
 end;
 
-procedure SemaphorePost(const ASemaphore: PSemaphore);
+procedure SemaphorePost(const ASemaphore: TSemaphore);
 begin
   __CurrentTM.SemaphorePost(ASemaphore);
 end;
 
-function SemaphoreWaitFor(const ASemaphore: PSemaphore; const TimeoutMs: Longint): TWaitResult;
+function SemaphoreWaitFor(const ASemaphore: TSemaphore; const TimeoutMs: Longint): TWaitResult;
 begin
   Result := __CurrentTM.SemaphoreWaitFor(ASemaphore, TimeoutMs);
 end;

@@ -803,7 +803,7 @@ end;
 *****************************************************************************}
 
 procedure PascalMain;external name 'PASCALMAIN';
-procedure ExitThread(Exitcode : longint); cdecl; external 'coredll';
+procedure __ExitThread(Exitcode : longint); cdecl; external 'coredll' name 'ExitThread';
 
 Procedure system_exit;
 begin
@@ -817,7 +817,7 @@ begin
       Close(Input);
       Close(Output);
   end;
-  ExitThread(exitcode);
+  __ExitThread(exitcode);
 end;
 
 {$ifdef cpu386}
@@ -1798,6 +1798,8 @@ initialization
   InOutRes:=0;
   ProcessID := GetCurrentProcessID;
   { threading }
+  SetThreadManager(NoThreadManager);
+  InitThreadVars;
   InitSystemThreads;
   { Reset internal error variable }
   errno:=0;

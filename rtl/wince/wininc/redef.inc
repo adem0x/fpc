@@ -147,14 +147,14 @@ function CreateProcess(lpApplicationName: LPTSTR; lpCommandLine: LPTSTR; lpProce
   const lpStartupInfo: TStartupInfo; var lpProcessInformation: TProcessInformation): BOOL;external KernelDLL name 'CreateProcessW';
 function CreateProcessW(lpApplicationName: LPWSTR; lpCommandLine: LPWSTR; lpProcessAttributes, lpThreadAttributes: PSecurityAttributes; bInheritHandles: BOOL; dwCreationFlags: DWORD; lpEnvironment: Pointer; lpCurrentDirectory: LPWSTR;
   const lpStartupInfo: TStartupInfo; var lpProcessInformation: TProcessInformation): BOOL; external KernelDLL name 'CreateProcessW';
-procedure DeleteCriticalSection(var CriticalSection : TRTLCriticalSection); external KernelDLL name 'DeleteCriticalSection';
+procedure DeleteCriticalSection(var CriticalSection : TCriticalSection); external KernelDLL name 'DeleteCriticalSection';
 function DispatchMessage(const lpMsg: TMsg): Longint; external KernelDLL name 'DispatchMessageW';
 function DispatchMessageW(const lpMsg: TMsg): Longint; external KernelDLL name 'DispatchMessageW';
 function DrawEdge(hdc: HDC; var qrc: TRect; edge: UINT; grfFlags: UINT): BOOL; external KernelDLL name 'DrawEdge';
 function DrawText(hDC: HDC; lpString: LPWSTR; nCount: Integer; var lpRect: TRect; uFormat: UINT): Integer; external KernelDLL name 'DrawTextW';
 function DrawTextW(hDC: HDC; lpString: LPWSTR; nCount: Integer; var lpRect: TRect; uFormat: UINT): Integer; external KernelDLL name 'DrawTextW';
 function EndPaint(hWnd: HWND; const lpPaint: TPaintStruct): BOOL; external KernelDLL name 'EndPaint';
-procedure EnterCriticalSection(var CriticalSection : TRTLCriticalSection); external KernelDLL name 'EnterCriticalSection';
+procedure EnterCriticalSection(var CriticalSection : TCriticalSection); external KernelDLL name 'EnterCriticalSection';
 function FileTimeToSystemTime(const lpFileTime: TFileTime; var lpSystemTime: TSystemTime): BOOL; external KernelDLL name 'FileTimeToSystemTime';
 function FileTimeToLocalFileTime(const lpFileTime: TFileTime; var lpLocalFileTime: TFileTime): BOOL; external KernelDLL name 'FileTimeToLocalFileTime';
 function FindFirstFile(lpFileName: LPTSTR; var lpFindFileData: TWIN32FindData): THandle; external KernelDLL name 'FindFirstFileW';
@@ -184,8 +184,8 @@ function GetVersionEx(var lpVersionInformation: TOSVersionInfo): BOOL;external K
 function GetVersionExW(var lpVersionInformation: TOSVersionInfoW): BOOL; external KernelDLL name 'GetVersionExW';
 function GetWindowRect(hWnd: HWND; var lpRect: TRect): BOOL; external KernelDLL name 'GetWindowRect';
 function InflateRect(var lprc: TRect; dx, dy: Integer): BOOL; external KernelDLL name 'InflateRect';
-procedure InitializeCriticalSection(var CriticalSection : TRTLCriticalSection); external KernelDLL name 'InitializeCriticalSection';
-procedure LeaveCriticalSection(var CriticalSection : TRTLCriticalSection); external KernelDLL name 'LeaveCriticalSection';
+procedure InitializeCriticalSection(var CriticalSection : TCriticalSection); external KernelDLL name 'InitializeCriticalSection';
+procedure LeaveCriticalSection(var CriticalSection : TCriticalSection); external KernelDLL name 'LeaveCriticalSection';
 function LocalFileTimeToFileTime(const lpLocalFileTime: TFileTime; var lpFileTime: TFileTime): BOOL; external KernelDLL name 'LocalFileTimeToFileTime';
 //redirected to MsgWaitForMultipleObjectsEx
 function MsgWaitForMultipleObjects(nCount: DWORD; var pHandles; fWaitAll: BOOL; dwMilliseconds, dwWakeMask: DWORD): DWORD;
@@ -214,7 +214,7 @@ function SHFileOperation(const lpFileOp:SHFILEOPSTRUCTW): longint; external Shel
 function SHFileOperationW(const lpFileOp:SHFILEOPSTRUCTW): longint; external ShellDLL name 'SHFileOperationW';
 function SystemTimeToFileTime(const lpSystemTime: TSystemTime; var lpFileTime: TFileTime): BOOL; external KernelDLL name 'SystemTimeToFileTime';
 function TranslateMessage(const lpMsg: TMsg): BOOL; external KernelDLL name 'TranslateMessage';
-function TryEnterCriticalSection(var CriticalSection : TRTLCriticalSection) : BOOL; external KernelDLL name 'TryEnterCriticalSection';
+function TryEnterCriticalSection(var CriticalSection : TCriticalSection) : BOOL; external KernelDLL name 'TryEnterCriticalSection';
 function WriteFile(hFile: THandle; const Buffer; nNumberOfBytesToWrite: DWORD; var lpNumberOfBytesWritten: DWORD; lpOverlapped: POverlapped): BOOL; external KernelDLL name 'WriteFile';
 
 (*
@@ -663,7 +663,7 @@ function HeapWalk(hHeap: THandle; var lpEntry: TProcessHeapEntry): BOOL; externa
 function ImageList_GetDragImage(var ppt:POINT; var pptHotspot:POINT):HIMAGELIST; external 'comctl32' name 'ImageList_GetDragImage';
 function InitializeAcl(var pAcl: TACL; nAclLength, dwAclRevision: DWORD): BOOL; external 'advapi32' name 'InitializeAcl';
 {$ifdef support_smartlink}
-function InitializeCriticalSectionAndSpinCount(var lpCriticalSection: TRTLCriticalSection; dwSpinCount: DWORD): BOOL;external 'kernel32' name 'InitializeCriticalSectionAndSpinCount';
+function InitializeCriticalSectionAndSpinCount(var lpCriticalSection: TCriticalSection; dwSpinCount: DWORD): BOOL;external 'kernel32' name 'InitializeCriticalSectionAndSpinCount';
 {$endif support_smartlink}
 function InitializeSid(Sid: Pointer; const pIdentifierAuthority: TSIDIdentifierAuthority; nSubAuthorityCount: Byte): BOOL; external 'advapi32' name 'InitializeSid';
 function InsertMenuItem(p1: HMENU; p2: UINT; p3: BOOL; const p4: TMenuItemInfo): BOOL;external 'user32' name 'InsertMenuItemA';
@@ -839,7 +839,7 @@ function SetCommTimeouts(hFile: THandle; const lpCommTimeouts: TCommTimeouts): B
 function SetConsoleCursorInfo(hConsoleOutput: THandle; const lpConsoleCursorInfo: TConsoleCursorInfo): BOOL; external 'kernel32' name 'SetConsoleCursorInfo';
 //function SetConsoleWindowInfo(hConsoleOutput: THandle; bAbsolute: BOOL; const lpConsoleWindow: TSmallRect): BOOL; external 'kernel32' name 'SetConsoleWindowInfo';
 {$ifdef support_smartlink}
-function SetCriticalSectionSpinCount(var lpCriticalSection: TRTLCriticalSection; dwSpinCount: DWORD): DWORD;external 'kernel32' name 'SetCriticalSectionSpinCount';
+function SetCriticalSectionSpinCount(var lpCriticalSection: TCriticalSection; dwSpinCount: DWORD): DWORD;external 'kernel32' name 'SetCriticalSectionSpinCount';
 {$endif support_smartlink}
 function SetDeviceGammaRamp(DC: HDC; var Ramp): BOOL; external 'gdi32' name 'SetDeviceGammaRamp';
 function SetDIBColorTable(DC: HDC; p2, p3: UINT; var RGBQuadSTructs): UINT; external 'gdi32' name 'SetDIBColorTable';
@@ -892,7 +892,7 @@ function TranslateCharsetInfo(var lpSrc: DWORD; var lpCs: TCharsetInfo; dwFlags:
 function TranslateMDISysAccel(hWndClient: HWND; const lpMsg: TMsg): BOOL; external 'user32' name 'TranslateMDISysAccel';
 //function TransparentDIBits(DC: HDC; p2, p3, p4, p5: Integer; const p6: Pointer; const p7: PBitmapInfo; p8: UINT; p9, p10, p11, p12: Integer; p13: UINT): BOOL;external 'gdi32' name 'TransparentDIBits';
 {$ifdef support_smartlink}
-function TryEnterCriticalSection(var lpCriticalSection: TRTLCriticalSection): BOOL;external 'kernel32' name 'TryEnterCriticalSection';
+function TryEnterCriticalSection(var lpCriticalSection: TCriticalSection): BOOL;external 'kernel32' name 'TryEnterCriticalSection';
 {$endif support_smartlink}
 function UnhandledExceptionFilter(const ExceptionInfo: TExceptionPointers): Longint; external 'kernel32' name 'UnhandledExceptionFilter';
 function UnionRect(var lprcDst: TRect; const lprcSrc1, lprcSrc2: TRect): BOOL; external 'user32' name 'UnionRect';

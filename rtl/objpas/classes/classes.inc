@@ -62,11 +62,11 @@ var
 { system independend threading code }
 var
   { event that happens when gui thread is done executing the method}
-  ExecuteEvent: PEvent;
+  ExecuteEvent: TEvent;
   { event executed by synchronize to wake main thread if it sleeps in CheckSynchronize }
-  SynchronizeTimeoutEvent: PEvent;
+  SynchronizeTimeoutEvent: TEvent;
   { guard for synchronization variables }
-  SynchronizeMutex: PMutex;
+  SynchronizeMutex: TMutex;
   { method to execute }
   SynchronizeMethod: TThreadMethod;
   { should we execute the method? }

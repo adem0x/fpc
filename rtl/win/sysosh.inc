@@ -25,30 +25,6 @@ type
   TThreadID = THandle;
   SIZE_T = ULONG_PTR;
 
-  { the fields of this record are os dependent  }
-  { and they shouldn't be used in a program     }
-  { only the type TCriticalSection is important }
-  PRTLCriticalSection = ^TRTLCriticalSection;
-{$ifndef WINCE}
-  TRTLCriticalSection = packed record
-    DebugInfo : pointer;
-    LockCount : longint;
-    RecursionCount : longint;
-    OwningThread : THandle;
-    LockSemaphore : THandle;
-    SpinCount : ULONG_PTR;
-  end;
-{$else WINCE}
-  //CE only
-  TRTLCriticalSection = packed record
-    LockCount     : DWord ;   // Nesting count on critical section
-    OwnerThread   : THandle; 	// Handle of owner thread
-    hCrit         : THandle;	// Handle to this critical section
-    needtrap      : DWORD;	// Trap in when freeing critical section
-    dwContentions : DWORD ;	// Count of contentions
-  end;
-{$endif WINCE}
-
 const
 {$ifdef WINCE}
   KernelDLL = 'coredll';

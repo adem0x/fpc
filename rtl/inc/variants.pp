@@ -3394,7 +3394,7 @@ function FindCustomVariantType(const aVarType: TVarType; out CustomVariantType: 
     Result:=(aVarType>=CMinVarType);
     if Result then
       begin
-        EnterCriticalSection(customvarianttypelock);
+        CriticalSectionEnter(customvarianttypelock);
         try
           Result:=(aVarType-CMinVarType)<=high(customvarianttypes);
           if Result then
@@ -3404,7 +3404,7 @@ function FindCustomVariantType(const aVarType: TVarType; out CustomVariantType: 
                (CustomVariantType<>InvalidCustomVariantType);
             end;
         finally
-          LeaveCriticalSection(customvarianttypelock);
+          CriticalSectionLeave(customvarianttypelock);
         end;
       end;
   end;
@@ -3650,13 +3650,13 @@ end;
 constructor TCustomVariantType.Create;
 begin
   inherited Create;
-  EnterCriticalSection(customvarianttypelock);
+  CriticalSectionEnter(customvarianttypelock);
   try
     SetLength(customvarianttypes,Length(customvarianttypes)+1);
     customvarianttypes[High(customvarianttypes)]:=self;
     FVarType:=CMinVarType+High(customvarianttypes);
   finally
-    LeaveCriticalSection(customvarianttypelock);
+    CriticalSectionLeave(customvarianttypelock);
   end;
 end;
 
@@ -3670,12 +3670,12 @@ end;
 
 destructor TCustomVariantType.Destroy;
 begin
-  EnterCriticalSection(customvarianttypelock);
+  CriticalSectionEnter(customvarianttypelock);
   try
     if FVarType<>0 then
       customvarianttypes[FVarType-CMinVarType]:=InvalidCustomVariantType;
   finally
-    LeaveCriticalSection(customvarianttypelock);
+    CriticalSectionLeave(customvarianttypelock);
   end;
 
   inherited Destroy;
@@ -3801,7 +3801,7 @@ procedure VarCastError(const ASourceType, ADestType: TVarType);
     raise EVariantTypeCastError.CreateFmt(SVarTypeCouldNotConvert,
       [VarTypeAsText(ASourceType),VarTypeAsText(ADestType)]);
   end;
-  
+
 
 procedure VarCastErrorOle(const ASourceType: TVarType);
   begin
@@ -4184,7 +4184,7 @@ var
   i : LongInt;
 
 Initialization
-  InitCriticalSection(customvarianttypelock);
+  CriticalSectionInit(customvarianttypelock);
   SetSysVariantManager;
   SetClearVarToEmptyParam(TVarData(EmptyParam));
   VarClearProc:=@DoVarClear;
@@ -4198,14 +4198,14 @@ Initialization
   InvalidCustomVariantType:=TCustomVariantType(-1);
   SetLength(customvarianttypes,CFirstUserType);
 Finalization
-  EnterCriticalSection(customvarianttypelock);
+  CriticalSectionEnter(customvarianttypelock);
   try
     for i:=0 to high(customvarianttypes) do
       if customvarianttypes[i]<>InvalidCustomVariantType then
         customvarianttypes[i].Free;
   finally
-    LeaveCriticalSection(customvarianttypelock);
+    CriticalSectionLeave(customvarianttypelock);
   end;
   UnSetSysVariantManager;
-  DoneCriticalSection(customvarianttypelock);
+  CriticalSectionDone(customvarianttypelock);
 end.

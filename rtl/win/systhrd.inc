@@ -25,38 +25,38 @@ const
   LMEM_ZEROINIT = 64;
 
 {$ifndef WINCE}
-function TlsAlloc : DWord;
+function __TlsAlloc : DWord;
   stdcall;external KernelDLL name 'TlsAlloc';
-function TlsFree(dwTlsIndex : DWord) : LongBool;
+function __TlsFree(dwTlsIndex : DWord) : LongBool;
   stdcall;external KernelDLL name 'TlsFree';
 {$endif WINCE}
-function TlsGetValue(dwTlsIndex : DWord) : pointer;
+function __TlsGetValue(dwTlsIndex : DWord) : pointer;
   {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'TlsGetValue';
-function TlsSetValue(dwTlsIndex : DWord;lpTlsValue : pointer) : LongBool;
+function __TlsSetValue(dwTlsIndex : DWord;lpTlsValue : pointer) : LongBool;
   {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'TlsSetValue';
-function CreateThread(lpThreadAttributes : pointer;
+function __CreateThread(lpThreadAttributes : pointer;
   dwStackSize : SIZE_T; lpStartAddress : pointer;lpParameter : pointer;
   dwCreationFlags : DWord;var lpThreadId : DWord) : THandle;
   {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'CreateThread';
-procedure ExitThread(dwExitCode : DWord);
+procedure __ExitThread(dwExitCode : DWord);
   {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'ExitThread';
-function LocalAlloc(uFlags:DWord; dwBytes:DWORD):Pointer;
+function __LocalAlloc(uFlags:DWord; dwBytes:DWORD):Pointer;
   {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'LocalAlloc';
-function LocalFree(hMem : Pointer):Pointer; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'LocalFree';
-procedure Sleep(dwMilliseconds: DWord); {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'Sleep';
-function  WinSuspendThread (threadHandle : THandle) : dword; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'SuspendThread';
-function  WinResumeThread  (threadHandle : THandle) : dword; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'ResumeThread';
-function  TerminateThread  (threadHandle : THandle; var exitCode : dword) : boolean; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'TerminateThread';
-function  WaitForSingleObject (hHandle : THandle;Milliseconds: dword): dword; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'WaitForSingleObject';
-function  WinThreadSetPriority (threadHandle : THandle; Prio: longint): boolean; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'SetThreadPriority';
-function  WinThreadGetPriority (threadHandle : THandle): LongInt; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'GetThreadPriority';
+function __LocalFree(hMem : Pointer):Pointer; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'LocalFree';
+procedure __Sleep(dwMilliseconds: DWord); {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'Sleep';
+function __SuspendThread (threadHandle : THandle) : dword; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'SuspendThread';
+function __ResumeThread  (threadHandle : THandle) : dword; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'ResumeThread';
+function __TerminateThread  (threadHandle : THandle; var exitCode : dword) : boolean; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'TerminateThread';
+function __WaitForSingleObject (hHandle : THandle;Milliseconds: dword): dword; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'WaitForSingleObject';
+function __SetThreadPriority (threadHandle : THandle; Prio: longint): boolean; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'SetThreadPriority';
+function __GetThreadPriority (threadHandle : THandle): LongInt; {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'GetThreadPriority';
 {$ifndef WINCE}
-function  CreateEvent(lpEventAttributes:pointer;bManualReset:longbool;bInitialState:longbool;lpName:pchar): THandle; stdcall; external KernelDLL name 'CreateEventA';
-function  ResetEvent(hEvent:THandle):LONGBOOL; stdcall; external KernelDLL name 'ResetEvent';
-function  SetEvent(hEvent:THandle):LONGBOOL; stdcall; external KernelDLL name 'SetEvent';
+function __CreateEvent(lpEventAttributes:pointer;bManualReset:longbool;bInitialState:longbool;lpName:pchar): THandle; stdcall; external KernelDLL name 'CreateEventA';
+function __ResetEvent(hEvent:THandle):LONGBOOL; stdcall; external KernelDLL name 'ResetEvent';
+function __SetEvent(hEvent:THandle):LONGBOOL; stdcall; external KernelDLL name 'SetEvent';
 {$endif WINCE}
 
-CONST
+const
    WAIT_OBJECT_0 = 0;
    WAIT_ABANDONED_0 = $80;
    WAIT_TIMEOUT = $102;
@@ -65,410 +65,167 @@ CONST
    WAIT_FAILED = $ffffffff;
 
 
-{*****************************************************************************
-                             Threadvar support
-*****************************************************************************}
-
-    const
-      threadvarblocksize : dword = 0;
-
-    var
-      TLSKey : Dword;
-
-    procedure SysInitThreadvar(var offset : dword;size : dword);
-      begin
-        offset:=threadvarblocksize;
-      {$ifdef CPUARM}
-        // Data must be allocated at 4 bytes boundary for ARM
-        size:=(size + 3) and not dword(3);
-      {$endif CPUARM}
-        inc(threadvarblocksize,size);
-      end;
-
-
-
-
-    procedure SysAllocateThreadVars;
-      var
-        dataindex : pointer;
-      begin
-        { we've to allocate the memory from system  }
-        { because the FPC heap management uses      }
-        { exceptions which use threadvars but       }
-        { these aren't allocated yet ...            }
-        { allocate room on the heap for the thread vars }
-        dataindex:=pointer(LocalAlloc(LMEM_FIXED or LMEM_ZEROINIT,threadvarblocksize));
-        TlsSetValue(tlskey,dataindex);
-      end;
-
-    function SysRelocateThreadvar(offset : dword) : pointer;
-	var
-        dataindex : pointer;
-      begin
-        dataindex := TlsGetValue(tlskey);
-        if dataindex = nil then begin
-          SysAllocateThreadVars;
-          dataindex := TlsGetValue(tlskey);
-        end;
-        SysRelocateThreadvar:=DataIndex+Offset;
-{
-      begin
-        SysRelocateThreadvar:=TlsGetValue(tlskey)+Offset;
-}      end;
-
-    procedure SysReleaseThreadVars;
-      begin
-        LocalFree(TlsGetValue(tlskey));
-      end;
-
-
-{*****************************************************************************
-                            Thread starting
-*****************************************************************************}
-
-    type
-      pthreadinfo = ^tthreadinfo;
-      tthreadinfo = record
-        f : tthreadfunc;
-        p : pointer;
-        stklen : cardinal;
-      end;
-
-    procedure DoneThread;
-      begin
-        { Release Threadvars }
-        SysReleaseThreadVars;
-      end;
-
-
-    function ThreadMain(param : pointer) : Longint; {$ifdef wince}cdecl{$else}stdcall{$endif};
-      var
-        ti : tthreadinfo;
-      begin
-        { Allocate local thread vars, this must be the first thing,
-          because the exception management and io depends on threadvars }
-        SysAllocateThreadVars;
-        { Copy parameter to local data }
-{$ifdef DEBUG_MT}
-        writeln('New thread started, initialising ...');
-{$endif DEBUG_MT}
-        ti:=pthreadinfo(param)^;
-        dispose(pthreadinfo(param));
-        { Initialize thread }
-        InitThread(ti.stklen);
-        { Start thread function }
-{$ifdef DEBUG_MT}
-        writeln('Jumping to thread function');
-{$endif DEBUG_MT}
-        ThreadMain:=ti.f(ti.p);
-      end;
-
-
-    function SysBeginThread(sa : Pointer;stacksize : ptruint;
-                         ThreadFunction : tthreadfunc;p : pointer;
-                         creationFlags : dword;var ThreadId : TThreadID) : TThreadID;
-      var
-        ti : pthreadinfo;
-        _threadid : DWord;
-      begin
-{$ifdef DEBUG_MT}
-        writeln('Creating new thread');
-{$endif DEBUG_MT}
-        { Initialize multithreading if not done }
-        if not IsMultiThread then
-         begin
-           { We're still running in single thread mode, setup the TLS }
-           TLSKey:=TlsAlloc;
-           InitThreadVars(@SysRelocateThreadvar);
-           IsMultiThread:=true;
-         end;
-        { the only way to pass data to the newly created thread
-          in a MT safe way, is to use the heap }
-        new(ti);
-        ti^.f:=ThreadFunction;
-        ti^.p:=p;
-        ti^.stklen:=stacksize;
-        { call pthread_create }
-{$ifdef DEBUG_MT}
-        writeln('Starting new thread');
-{$endif DEBUG_MT}
-        _threadid:=ThreadID;
-        SysBeginThread:=CreateThread(sa,stacksize,@ThreadMain,ti,creationflags,_threadid);
-        ThreadID:=_threadid;
-      end;
-
-
-    procedure SysEndThread(ExitCode : DWord);
-      begin
-        DoneThread;
-        ExitThread(ExitCode);
-      end;
-
-
-    procedure SysThreadSwitch;
-    begin
-      Sleep(0);
-    end;
-
-
-    function  SysSuspendThread (threadHandle : TThreadID) : dword;
-    begin
-      SysSuspendThread:=WinSuspendThread(threadHandle);
-    end;
-
-
-    function  SysResumeThread  (threadHandle : TThreadID) : dword;
-    begin
-      SysResumeThread:=WinResumeThread(threadHandle);
-    end;
-
-
-    function  SysKillThread (threadHandle : TThreadID) : dword;
-    var exitCode : dword;
-    begin
-      if not TerminateThread (threadHandle, exitCode) then
-        SysKillThread := GetLastError
-      else
-        SysKillThread := 0;
-    end;
-
-    function  SysWaitForThreadTerminate (threadHandle : TThreadID; TimeoutMs : longint) : dword;
-    begin
-      if timeoutMs = 0 then dec (timeoutMs);  // $ffffffff is INFINITE
-      SysWaitForThreadTerminate := WaitForSingleObject(threadHandle, TimeoutMs);
-    end;
-
-
-    function  SysThreadSetPriority (threadHandle : TThreadID; Prio: longint): boolean;            {-15..+15, 0=normal}
-    begin
-      SysThreadSetPriority:=WinThreadSetPriority(threadHandle,Prio);
-    end;
-
-
-    function  SysThreadGetPriority (threadHandle : TThreadID): longint;
-    begin
-      SysThreadGetPriority:=WinThreadGetPriority(threadHandle);
-    end;
-
-    function  SysGetCurrentThreadId : TThreadID;
-    begin
-      SysGetCurrentThreadId:=Win32GetCurrentThreadId;
-    end;
-
-{*****************************************************************************
-                          Delphi/Win32 compatibility
-*****************************************************************************}
-
-procedure WinInitCriticalSection(var cs : TRTLCriticalSection);
-  {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'InitializeCriticalSection';
-
-procedure WinDoneCriticalSection(var cs : TRTLCriticalSection);
-  {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'DeleteCriticalSection';
-
-procedure WinEnterCriticalSection(var cs : TRTLCriticalSection);
-  {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'EnterCriticalSection';
-
-procedure WinLeaveCriticalSection(var cs : TRTLCriticalSection);
-  {$ifdef wince}cdecl{$else}stdcall{$endif};external KernelDLL name 'LeaveCriticalSection';
-
-procedure SySInitCriticalSection(var cs);
+function WinThreadManagerInit(const ThrdSetup: TThreadSetupHandler; const TlsSize: PtrUInt;
+  const TlsInit, TlsFree: TTlsSectionMemoryHandler): Boolean;
 begin
-  WinInitCriticalSection(PRTLCriticalSection(@cs)^);
+  {ThrdSetupHandler := ThrdSetup;
+  TlsMemorySize := TlsSize;
+  TlsInitHandler := TlsInit;
+  TlsFreeHandler := TlsFree;}
+  Result := True;
 end;
 
-
-procedure SysDoneCriticalSection(var cs);
+function WinThreadBegin(const StackSize: PtrUInt; const Func: TThreadFunc; const Arg: Pointer; var ThreadId: TThreadID): Boolean;
 begin
-  WinDoneCriticalSection(PRTLCriticalSection(@cs)^);
+  Result := False;
 end;
 
-
-procedure SysEnterCriticalSection(var cs);
+procedure WinThreadExit(const ExitCode: PtrInt);
 begin
-  WinEnterCriticalSection(PRTLCriticalSection(@cs)^);
 end;
 
-
-procedure SySLeaveCriticalSection(var cs);
+function WinThreadSuspend(const ThreadId: TThreadID): Boolean;
 begin
-  WinLeaveCriticalSection(PRTLCriticalSection(@cs)^);
+  Result := False;
 end;
 
-
-{*****************************************************************************
-                           Heap Mutex Protection
-*****************************************************************************}
-
-{$ifndef HAS_MT_MEMORYMANAGER}
-    var
-      HeapMutex : TRTLCriticalSection;
-
-    procedure Win32HeapMutexInit;
-      begin
-         InitCriticalSection(heapmutex);
-      end;
-
-    procedure Win32HeapMutexDone;
-      begin
-         DoneCriticalSection(heapmutex);
-      end;
-
-    procedure Win32HeapMutexLock;
-      begin
-         EnterCriticalSection(heapmutex);
-      end;
-
-    procedure Win32HeapMutexUnlock;
-      begin
-         LeaveCriticalSection(heapmutex);
-      end;
-
-    const
-      Win32MemoryMutexManager : TMemoryMutexManager = (
-        MutexInit : @Win32HeapMutexInit;
-        MutexDone : @Win32HeapMutexDone;
-        MutexLock : @Win32HeapMutexLock;
-        MutexUnlock : @Win32HeapMutexUnlock;
-      );
-
-    procedure InitHeapMutexes;
-      begin
-        SetMemoryMutexManager(Win32MemoryMutexManager);
-      end;
-      
-{$endif HAS_MT_MEMORYMANAGER}
-
-Const
-        wrSignaled = 0;
-        wrTimeout  = 1;
-        wrAbandoned= 2;
-        wrError    = 3;
-
-type Tbasiceventstate=record
-                        fhandle    : THandle;
-                        flasterror : longint;
-                       end;
-     plocaleventrec= ^tbasiceventstate;
-
-function intBasicEventCreate(EventAttributes : Pointer;
-AManualReset,InitialState : Boolean;const Name : ansistring):pEventState;
-
+function WinThreadResume(const ThreadId: TThreadID): Boolean;
 begin
-  new(plocaleventrec(result));
-  plocaleventrec(result)^.FHandle := CreateEvent(EventAttributes, AManualReset, InitialState,PChar(Name));
+  Result := False;
 end;
 
-procedure intbasiceventdestroy(state:peventstate);
-
+function WinThreadKill(const ThreadId: TThreadID): Boolean;
 begin
-  closehandle(plocaleventrec(state)^.fhandle);
-  dispose(plocaleventrec(state));
+  Result := False;
 end;
 
-procedure intbasiceventResetEvent(state:peventstate);
-
+procedure WinThreadSwitch;
 begin
-  ResetEvent(plocaleventrec(state)^.FHandle)
 end;
 
-procedure intbasiceventSetEvent(state:peventstate);
-
+function WinThreadWaitFor(const ThreadId: TThreadID; const TimeoutMs: Longint): TWaitResult;
 begin
-  SetEvent(plocaleventrec(state)^.FHandle);
+  Result := wrError;
 end;
 
-function intbasiceventWaitFor(Timeout : Cardinal;state:peventstate) : longint;
-
+function WinThreadSetPriority(const ThreadId: TThreadID; const Prio: TThreadPriority): Boolean;
 begin
-  case WaitForSingleObject(plocaleventrec(state)^.fHandle, Timeout) of
-    WAIT_ABANDONED: Result := wrAbandoned;
-    WAIT_OBJECT_0: Result := wrSignaled;
-    WAIT_TIMEOUT: Result := wrTimeout;
-    WAIT_FAILED:
-        begin
-        Result := wrError;
-        plocaleventrec(state)^.FLastError := GetLastError;
-       end;
-  else
-    Result := wrError;
-  end;
+  Result := False;
 end;
 
-function intRTLEventCreate: PRTLEvent;
+function WinThreadGetPriority(const ThreadId: TThreadID): TThreadPriority;
 begin
-  Result := PRTLEVENT(CreateEvent(nil, false, false, nil));
+  Result := tpNormal;
 end;
 
-procedure intRTLEventDestroy(AEvent: PRTLEvent);
+function WinThreadGetCurrent: TThreadID;
 begin
-  CloseHandle(THANDLE(AEvent));
+  Result := 0;
 end;
 
-procedure intRTLEventSetEvent(AEvent: PRTLEvent);
+function WinTlsSectionGet: Pointer;
 begin
-  SetEvent(THANDLE(AEvent));
+  Result := nil;
 end;
 
-procedure intRTLEventResetEvent(AEvent: PRTLEvent);
+function WinMutexCreate: TMutex;
 begin
-  ResetEvent(THANDLE(AEvent));
+  Result := nil;
 end;
 
-procedure intRTLEventWaitFor(AEvent: PRTLEvent);
+procedure WinMutexDestroy(const AMutex: TMutex);
+begin
+end;
+
+procedure WinMutexLock(const AMutex: TMutex);
+begin
+end;
+
+procedure WinMutexUnlock(const AMutex: TMutex);
+begin
+end;
+
+function WinEventCreate(const InitState, ManualReset: Boolean): TEvent;
+begin
+  Result := nil;
+end;
+
+procedure WinEventDestroy(const AEvent: TEvent);
+begin
+end;
+
+procedure WinEventSet(const AEvent: TEvent);
+begin
+end;
+
+procedure WinEventReset(const AEvent: TEvent);
+begin
+end;
+
+function WinEventWaitFor(const AEvent: TEvent; const TimeoutMs: Longint): TWaitResult;
+begin
+  Result := wrError;
+end;
+
+function WinSemaphoreCreate(const Initialcount: Longword): TSemaphore;
+begin
+  Result := nil;
+end;
+
+procedure WinSemaphoreDestroy(const ASemaphore: TSemaphore);
+begin
+end;
+
+procedure WinSemaphorePost(const ASemaphore: TSemaphore);
+begin
+end;
+
+function WinSemaphoreWaitFor(const ASemaphore: TSemaphore; const TimeoutMs: Longint): TWaitResult;
+begin
+  Result := wrError;
+end;
+
 const
-  INFINITE=dword(-1);
+  WindowsThreadManager: TThreadManager = (
+    InitManager            : @WinThreadManagerInit;
+    DoneManager            : nil;
+
+  // Thread
+    ThreadBegin            : @WinThreadBegin;
+    ThreadExit             : @WinThreadExit;
+    ThreadSuspend          : @WinThreadSuspend;
+    ThreadResume           : @WinThreadResume;
+    ThreadKill             : @WinThreadKill;
+    ThreadSwitch           : @WinThreadSwitch;
+    ThreadWaitFor          : @WinThreadWaitFor;
+    ThreadSetPriority      : @WinThreadSetPriority;
+    ThreadGetPriority      : @WinThreadGetPriority;
+    ThreadGetCurrent       : @WinThreadGetCurrent;
+
+  // TlsSection
+    TlsSectionGet          : @WinTlsSectionGet;
+
+  // Mutex
+    MutexCreate            : @WinMutexCreate;
+    MutexDestroy           : @WinMutexDestroy;
+    MutexLock              : @WinMutexLock;
+    MutexUnlock            : @WinMutexUnlock;
+
+  // Event
+    EventCreate            : @WinEventCreate;
+    EventDestroy           : @WinEventDestroy;
+    EventSet               : @WinEventSet;
+    EventReset             : @WinEventReset;
+    EventWaitFor           : @WinEventWaitFor;
+
+  // Semaphore
+    SemaphoreCreate        : @WinSemaphoreCreate;
+    SemaphoreDestroy       : @WinSemaphoreDestroy;
+    SemaphorePost          : @WinSemaphorePost;
+    SemaphoreWaitFor       : @WinSemaphoreWaitFor
+  );
+
+procedure InitSystemThreads;
 begin
-  WaitForSingleObject(THANDLE(AEvent), INFINITE);
-end;
-
-procedure intRTLEventWaitForTimeout(AEvent: PRTLEvent;timeout : longint);
-begin
-  WaitForSingleObject(THANDLE(AEvent), timeout);
-end;
-
-
-Var
-  WinThreadManager : TThreadManager;
-
-Procedure InitSystemThreads;
-begin
-  With WinThreadManager do
-    begin
-    InitManager            :=Nil;
-    DoneManager            :=Nil;
-    BeginThread            :=@SysBeginThread;
-    EndThread              :=@SysEndThread;
-    SuspendThread          :=@SysSuspendThread;
-    ResumeThread           :=@SysResumeThread;
-    KillThread             :=@SysKillThread;
-    ThreadSwitch           :=@SysThreadSwitch;
-    WaitForThreadTerminate :=@SysWaitForThreadTerminate;
-    ThreadSetPriority      :=@SysThreadSetPriority;
-    ThreadGetPriority      :=@SysThreadGetPriority;
-    GetCurrentThreadId     :=@SysGetCurrentThreadId;
-    InitCriticalSection    :=@SysInitCriticalSection;
-    DoneCriticalSection    :=@SysDoneCriticalSection;
-    EnterCriticalSection   :=@SysEnterCriticalSection;
-    LeaveCriticalSection   :=@SysLeaveCriticalSection;
-    InitThreadVar          :=@SysInitThreadVar;
-    RelocateThreadVar      :=@SysRelocateThreadVar;
-    AllocateThreadVars     :=@SysAllocateThreadVars;
-    ReleaseThreadVars      :=@SysReleaseThreadVars;
-    BasicEventCreate       :=@intBasicEventCreate;
-    BasicEventDestroy      :=@intBasicEventDestroy;
-    BasicEventResetEvent   :=@intBasicEventResetEvent;
-    BasicEventSetEvent     :=@intBasicEventSetEvent;
-    BasiceventWaitFor      :=@intBasiceventWaitFor;
-    RTLEventCreate         :=@intRTLEventCreate;
-    RTLEventDestroy        :=@intRTLEventDestroy;
-    RTLEventSetEvent       :=@intRTLEventSetEvent;
-    RTLEventResetEvent     :=@intRTLEventResetEvent;
-    RTLEventWaitFor        :=@intRTLEventWaitFor;
-    RTLEventWaitForTimeout :=@intRTLEventWaitForTimeout;
-    end;
-  SetThreadManager(WinThreadManager);
-{$ifndef HAS_MT_MEMORYMANAGER}
-  InitHeapMutexes;
-{$endif HAS_MT_MEMORYMANAGER}
-  ThreadID := GetCurrentThreadID;
+  SetThreadManager(WindowsThreadManager);
 end;
