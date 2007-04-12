@@ -62,11 +62,11 @@ var
 { system independend threading code }
 var
   { event that happens when gui thread is done executing the method}
-  ExecuteEvent: TEvent;
+  ExecuteEvent: TRTLEvent;
   { event executed by synchronize to wake main thread if it sleeps in CheckSynchronize }
-  SynchronizeTimeoutEvent: TEvent;
+  SynchronizeTimeoutEvent: TRTLEvent;
   { guard for synchronization variables }
-  SynchronizeMutex: TMutex;
+  SynchronizeMutex: TRTLMutex;
   { method to execute }
   SynchronizeMethod: TThreadMethod;
   { should we execute the method? }
@@ -130,12 +130,12 @@ procedure TThread.DoTerminate;
   end;
 
 
-function TThread.GetPriority: TThreadPriority;
+function TThread.GetPriority: TRTLThreadPriority;
   begin
   end;
 
 
-procedure TThread.SetPriority(Value: TThreadPriority);
+procedure TThread.SetPriority(Value: TRTLThreadPriority);
   begin
   end;
 

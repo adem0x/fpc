@@ -19,8 +19,8 @@ const
   DefaultStackSize               = 32768;
 
 type
-  TWaitResult                    = (wrSignaled, wrTimeout, wrError);
-  TThreadPriority                = (tpIdle, tpLowest, tpLower, tpNormal, tpHigher, tpHighest, tpTimeCritical);
+  TRTLWaitResult                 = (wrSignaled, wrTimeout, wrError);
+  TRTLThreadPriority             = (tpIdle, tpLowest, tpLower, tpNormal, tpHigher, tpHighest, tpTimeCritical);
 
 // ThreadManager Callbacks
   TTlsSectionMemoryHandler       = procedure(var Address: Pointer);
@@ -29,37 +29,38 @@ type
   TThreadManagerDoneHandler      = procedure;
 
 // Thread Callbacks
-  TThreadFunc                    = function(const Arg: Pointer): PtrInt; register;
-  TThreadBeginHandler            = function(const StackSize: PtrUInt; const Func: TThreadFunc; const Arg: Pointer; var ThreadId: TThreadID): Boolean;
+//  TRTLThread                     = type Pointer; defined in systemh.inc
+  TRTLThreadFunc                 = function(const Arg: Pointer): PtrInt; register;
+  TThreadBeginHandler            = function(const StackSize: PtrUInt; const Func: TRTLThreadFunc; const Arg: Pointer; var ThreadId: TRTLThread): Boolean;
   TThreadExitHandler             = procedure(const ExitCode: PtrInt);
-  TThreadHandler                 = function(const ThreadId: TThreadID): Boolean;
+  TThreadHandler                 = function(const ThreadId: TRTLThread): Boolean;
   TThreadSwitchHandler           = procedure;
-  TThreadWaitForHandler          = function(const ThreadId: TThreadID; const TimeoutMs: Longint): TWaitResult;
-  TThreadSetPriorityHandler      = function(const ThreadId: TThreadID; const Prio: TThreadPriority): Boolean;            {-15..+15, 0=normal}
-  TThreadGetPriorityHandler      = function(const ThreadId: TThreadID): TThreadPriority;
-  TThreadGetCurrentHandler       = function: TThreadID;
+  TThreadWaitForHandler          = function(const ThreadId: TRTLThread; const TimeoutMs: Longint): TRTLWaitResult;
+  TThreadSetPriorityHandler      = function(const ThreadId: TRTLThread; const Prio: TRTLThreadPriority): Boolean;            {-15..+15, 0=normal}
+  TThreadGetPriorityHandler      = function(const ThreadId: TRTLThread): TRTLThreadPriority;
+  TThreadGetCurrentHandler       = function: TRTLThread;
 
 // TlsSection Callbacks
   TTlsSectionGetHandler          = function: Pointer;
 
 // Mutex Callbacks
-  TMutex                         = type Pointer;
-  TMutexCreateHandler            = function: TMutex;
-  TMutexHandler                  = procedure(const AMutex: TMutex);
+  TRTLMutex                      = type Pointer;
+  TMutexCreateHandler            = function: TRTLMutex;
+  TMutexHandler                  = procedure(const AMutex: TRTLMutex);
 
 // Event Callbacks
-  TEvent                         = type Pointer;
-  TEventCreateHandler            = function(const InitState, ManualReset: Boolean): TEvent;
-  TEventHandler                  = procedure(const AEvent: TEvent);
-  TEventWaitForHandler           = function(const AEvent: TEvent; const TimeoutMs: Longint): TWaitResult;
+  TRTLEvent                      = type Pointer;
+  TEventCreateHandler            = function(const InitState, ManualReset: Boolean): TRTLEvent;
+  TEventHandler                  = procedure(const AEvent: TRTLEvent);
+  TEventWaitForHandler           = function(const AEvent: TRTLEvent; const TimeoutMs: Longint): TRTLWaitResult;
 
 // Semaphore Callbacks
-  TSemaphore                     = type Pointer;
-  TSempahoreCreateHandler        = function(const Initialcount: Longword): TSemaphore;
-  TSemaphoreHandler              = procedure(const ASemaphore: TSemaphore);
-  TSemaphoreWaitForHandler       = function(const ASemaphore: TSemaphore; const TimeoutMs: Longint): TWaitResult;
+  TRTLSemaphore                  = type Pointer;
+  TSemaphoreCreateHandler        = function(const Initialcount: Longword): TRTLSemaphore;
+  TSemaphoreHandler              = procedure(const ASemaphore: TRTLSemaphore);
+  TSemaphoreWaitForHandler       = function(const ASemaphore: TRTLSemaphore; const TimeoutMs: Longint): TRTLWaitResult;
 
-// ThreadManager interface.
+// ThreadManager interface
   TThreadManager = record
     InitManager            : TThreadManagerInitHandler;
     DoneManager            : TThreadManagerDoneHandler;
@@ -93,7 +94,7 @@ type
     EventWaitFor           : TEventWaitForHandler;
 
   // Semaphore
-    SemaphoreCreate        : TSempahoreCreateHandler;
+    SemaphoreCreate        : TSemaphoreCreateHandler;
     SemaphoreDestroy       : TSemaphoreHandler;
     SemaphorePost          : TSemaphoreHandler;
     SemaphoreWaitFor       : TSemaphoreWaitForHandler;
@@ -114,21 +115,21 @@ function SetThreadManager(const NewManager: TThreadManager): Boolean;
   Thread Handling
 *****************************************************************************}
 
-function BeginThread(const Func: TThreadFunc): Boolean;
-function BeginThread(const Func: TThreadFunc; const Arg: Pointer): Boolean;
-function BeginThread(const Func: TThreadFunc; const Arg: Pointer; var ThreadId: TThreadID): Boolean;
-function BeginThread(const Func: TThreadFunc; const Arg: Pointer; var ThreadId: TThreadID; const StackSize: PtrUInt): Boolean;
+function BeginThread(const Func: TRTLThreadFunc): Boolean;
+function BeginThread(const Func: TRTLThreadFunc; const Arg: Pointer): Boolean;
+function BeginThread(const Func: TRTLThreadFunc; const Arg: Pointer; var ThreadId: TRTLThread): Boolean;
+function BeginThread(const Func: TRTLThreadFunc; const Arg: Pointer; var ThreadId: TRTLThread; const StackSize: PtrUInt): Boolean;
 procedure ExitThread(const ExitCode: PtrInt);
 procedure ExitThread;
 procedure FlushThread;
-function SuspendThread(const ThreadId: TThreadID): Boolean;
-function ResumeThread(const ThreadId: TThreadID): Boolean;
+function SuspendThread(const ThreadId: TRTLThread): Boolean;
+function ResumeThread(const ThreadId: TRTLThread): Boolean;
 procedure ThreadSwitch;
-function KillThread(const ThreadId: TThreadID): Boolean;
-function WaitForThreadTerminate(const ThreadId: TThreadID; const TimeoutMs: Longint): TWaitResult;
-function SetThreadPriority(const ThreadId: TThreadID; const Prio: TThreadPriority): Boolean;
-function GetThreadPriority(const ThreadId: TThreadID): TThreadPriority;
-function GetCurrentThreadId: TThreadID;
+function KillThread(const ThreadId: TRTLThread): Boolean;
+function WaitForThreadTerminate(const ThreadId: TRTLThread; const TimeoutMs: Longint): TRTLWaitResult;
+function SetThreadPriority(const ThreadId: TRTLThread; const Prio: TRTLThreadPriority): Boolean;
+function GetThreadPriority(const ThreadId: TRTLThread): TRTLThreadPriority;
+function GetCurrentThreadId: TRTLThread;
 
 
 {*****************************************************************************
@@ -136,7 +137,7 @@ function GetCurrentThreadId: TThreadID;
 *****************************************************************************}
 
 type
-  TRTLCriticalSection = TMutex;
+  TRTLCriticalSection = TRTLMutex;
 
 procedure CriticalSectionInit(var cs: TRTLCriticalSection);
 procedure CriticalsectionDone(const cs: TRTLCriticalSection);
@@ -148,29 +149,29 @@ procedure CriticalsectionLeave(const cs: TRTLCriticalSection);
   Mutex Handling
 *****************************************************************************}
 
-function MutexCreate: TMutex;
-procedure MutexDestroy(const AMutex: TMutex);
-procedure MutexLock(const AMutex: TMutex);
-procedure MutexUnlock(const AMutex: TMutex);
+function MutexCreate: TRTLMutex;
+procedure MutexDestroy(const AMutex: TRTLMutex);
+procedure MutexLock(const AMutex: TRTLMutex);
+procedure MutexUnlock(const AMutex: TRTLMutex);
 
 
 {*****************************************************************************
   Event Handling
 *****************************************************************************}
 
-function EventCreate(const InitState, ManualReset: Boolean): TEvent;
-procedure EventDestroy(const AEvent: TEvent);
-procedure EventSet(const AEvent: TEvent);
-procedure EventReset(const AEvent: TEvent);
-function EventWaitFor(const AEvent: TEvent; const TimeoutMs: Longint): TWaitResult;
+function EventCreate(const InitState, ManualReset: Boolean): TRTLEvent;
+procedure EventDestroy(const AEvent: TRTLEvent);
+procedure EventSet(const AEvent: TRTLEvent);
+procedure EventReset(const AEvent: TRTLEvent);
+function EventWaitFor(const AEvent: TRTLEvent; const TimeoutMs: Longint): TRTLWaitResult;
 
 
 {*****************************************************************************
   Semaphore Handling
 *****************************************************************************}
 
-function SemaphoreCreate(const Initialcount: Longword): TSemaphore;
-procedure SemaphoreDestroy(const ASemaphore: TSemaphore);
-procedure SemaphorePost(const ASemaphore: TSemaphore);
-function SemaphoreWaitFor(const ASemaphore: TSemaphore; const TimeoutMs: Longint): TWaitResult;
+function SemaphoreCreate(const Initialcount: Longword): TRTLSemaphore;
+procedure SemaphoreDestroy(const ASemaphore: TRTLSemaphore);
+procedure SemaphorePost(const ASemaphore: TRTLSemaphore);
+function SemaphoreWaitFor(const ASemaphore: TRTLSemaphore; const TimeoutMs: Longint): TRTLWaitResult;
 

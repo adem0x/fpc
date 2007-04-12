@@ -41,7 +41,7 @@ begin
   Result := False;
 end;
 
-function NoThreadBegin(const StackSize: PtrUInt; const Func: TThreadFunc; const Arg: Pointer; var ThreadId: TThreadID): Boolean;
+function NoThreadBegin(const StackSize: PtrUInt; const Func: TRTLThreadFunc; const Arg: Pointer; var ThreadId: TRTLThread): Boolean;
 begin
   NoThreadError('No ThreadBegin');
   Result := False;
@@ -52,19 +52,19 @@ begin
   NoThreadError('No ThreadExit');
 end;
 
-function NoThreadSuspend(const ThreadId: TThreadID): Boolean;
+function NoThreadSuspend(const ThreadId: TRTLThread): Boolean;
 begin
   NoThreadError('No ThreadSuspend');
   Result := False;
 end;
 
-function NoThreadResume(const ThreadId: TThreadID): Boolean;
+function NoThreadResume(const ThreadId: TRTLThread): Boolean;
 begin
   NoThreadError('No ThreadResume');
   Result := False;
 end;
 
-function NoThreadKill(const ThreadId: TThreadID): Boolean;
+function NoThreadKill(const ThreadId: TRTLThread): Boolean;
 begin
   NoThreadError('No ThreadKill');
   Result := False;
@@ -75,28 +75,28 @@ begin
   NoThreadError('No ThreadSwitch');
 end;
 
-function NoThreadWaitFor(const ThreadId: TThreadID; const TimeoutMs: Longint): TWaitResult;
+function NoThreadWaitFor(const ThreadId: TRTLThread; const TimeoutMs: Longint): TRTLWaitResult;
 begin
   NoThreadError('No ThreadWaitFor');
   Result := wrError;
 end;
 
-function NoThreadSetPriority(const ThreadId: TThreadID; const Prio: TThreadPriority): Boolean;
+function NoThreadSetPriority(const ThreadId: TRTLThread; const Prio: TRTLThreadPriority): Boolean;
 begin
   NoThreadError('No ThreadSetPriority');
   Result := False;
 end;
 
-function NoThreadGetPriority(const ThreadId: TThreadID): TThreadPriority;
+function NoThreadGetPriority(const ThreadId: TRTLThread): TRTLThreadPriority;
 begin
   NoThreadError('No ThreadGetPriority');
   Result := tpNormal;
 end;
 
-function NoThreadGetCurrent: TThreadID;
+function NoThreadGetCurrent: TRTLThread;
 begin
   NoThreadError('No ThreadGetCurrent');
-  Result := 0;
+  Result := nil;
 end;
 
 function NoTlsSectionGet: Pointer;
@@ -105,71 +105,71 @@ begin
   Result := nil;
 end;
 
-function NoMutexCreate: TMutex;
+function NoMutexCreate: TRTLMutex;
 begin
   NoThreadError('No MutexCreate');
   Result := nil;
 end;
 
-procedure NoMutexDestroy(const AMutex: TMutex);
+procedure NoMutexDestroy(const AMutex: TRTLMutex);
 begin
   NoThreadError('No MutexDestroy');
 end;
 
-procedure NoMutexLock(const AMutex: TMutex);
+procedure NoMutexLock(const AMutex: TRTLMutex);
 begin
   NoThreadError('No MutexLock');
 end;
 
-procedure NoMutexUnlock(const AMutex: TMutex);
+procedure NoMutexUnlock(const AMutex: TRTLMutex);
 begin
   NoThreadError('No MutexUnlock');
 end;
 
-function NoEventCreate(const InitState, ManualReset: Boolean): TEvent;
+function NoEventCreate(const InitState, ManualReset: Boolean): TRTLEvent;
 begin
   NoThreadError('No EventCreate');
   Result := nil;
 end;
 
-procedure NoEventDestroy(const AEvent: TEvent);
+procedure NoEventDestroy(const AEvent: TRTLEvent);
 begin
   NoThreadError('No EventDestroy');
 end;
 
-procedure NoEventSet(const AEvent: TEvent);
+procedure NoEventSet(const AEvent: TRTLEvent);
 begin
   NoThreadError('No EventSet');
 end;
 
-procedure NoEventReset(const AEvent: TEvent);
+procedure NoEventReset(const AEvent: TRTLEvent);
 begin
   NoThreadError('No EventReset');
 end;
 
-function NoEventWaitFor(const AEvent: TEvent; const TimeoutMs: Longint): TWaitResult;
+function NoEventWaitFor(const AEvent: TRTLEvent; const TimeoutMs: Longint): TRTLWaitResult;
 begin
   NoThreadError('No EventWaitFor');
   Result := wrError;
 end;
 
-function NoSemaphoreCreate(const Initialcount: Longword): TSemaphore;
+function NoSemaphoreCreate(const Initialcount: Longword): TRTLSemaphore;
 begin
   NoThreadError('No SemaphoreCreate');
   Result := nil;
 end;
 
-procedure NoSemaphoreDestroy(const ASemaphore: TSemaphore);
+procedure NoSemaphoreDestroy(const ASemaphore: TRTLSemaphore);
 begin
   NoThreadError('No SemaphoreDestroy');
 end;
 
-procedure NoSemaphorePost(const ASemaphore: TSemaphore);
+procedure NoSemaphorePost(const ASemaphore: TRTLSemaphore);
 begin
   NoThreadError('No SemaphorePost');
 end;
 
-function NoSemaphoreWaitFor(const ASemaphore: TSemaphore; const TimeoutMs: Longint): TWaitResult;
+function NoSemaphoreWaitFor(const ASemaphore: TRTLSemaphore; const TimeoutMs: Longint): TRTLWaitResult;
 begin
   NoThreadError('No SemaphoreWaitFor');
   Result := wrError;
@@ -248,7 +248,7 @@ end;
 
 {$ifndef HAS_MT_MEMORYMANAGER}
 var
-  HeapMutex : TMutex;
+  HeapMutex : TRTLMutex;
 
 procedure HeapMutexInit;
 begin
@@ -304,7 +304,7 @@ begin
   SetMemoryMutexManager(MemoryMutexManager);
 {$endif HAS_MT_MEMORYMANAGER}
   fpc_threadvar_relocate_proc := nil;
-  ThreadID := 0;
+  ThreadID := nil;
   __CurrentTM := NoThreadManager;
 
   if Assigned(OldManager.DoneManager) then
@@ -328,26 +328,26 @@ end;
                          Thread Handling
 *****************************************************************************}
 
-function BeginThread(const Func: TThreadFunc): Boolean;
+function BeginThread(const Func: TRTLThreadFunc): Boolean;
 var
-  dummy: TThreadID;
+  dummy: TRTLThread;
 begin
   Result := BeginThread(Func, nil, dummy, DefaultStackSize);
 end;
 
-function BeginThread(const Func: TThreadFunc; const Arg: Pointer): Boolean;
+function BeginThread(const Func: TRTLThreadFunc; const Arg: Pointer): Boolean;
 var
-  dummy: TThreadID;
+  dummy: TRTLThread;
 begin
   Result := BeginThread(Func, Arg, dummy, DefaultStackSize);
 end;
 
-function BeginThread(const Func: TThreadFunc; const Arg: Pointer; var ThreadId: TThreadID): Boolean;
+function BeginThread(const Func: TRTLThreadFunc; const Arg: Pointer; var ThreadId: TRTLThread): Boolean;
 begin
   Result := BeginThread(Func, Arg, ThreadId, DefaultStackSize);
 end;
 
-function BeginThread(const Func: TThreadFunc; const Arg: Pointer; var ThreadId: TThreadID; const StackSize: PtrUInt): Boolean;
+function BeginThread(const Func: TRTLThreadFunc; const Arg: Pointer; var ThreadId: TRTLThread; const StackSize: PtrUInt): Boolean;
 begin
   Result := __CurrentTM.ThreadBegin(StackSize, Func, Arg, ThreadId);
 end;
@@ -374,12 +374,12 @@ begin
 {$endif FPC_HAS_FEATURE_CONSOLEIO}
 end;
 
-function SuspendThread(const ThreadId: TThreadID): Boolean;
+function SuspendThread(const ThreadId: TRTLThread): Boolean;
 begin
   Result := __CurrentTM.ThreadSuspend(ThreadId);
 end;
 
-function ResumeThread(const ThreadId: TThreadID): Boolean;
+function ResumeThread(const ThreadId: TRTLThread): Boolean;
 begin
   Result := __CurrentTM.ThreadResume(ThreadId);
 end;
@@ -389,27 +389,27 @@ begin
   __CurrentTM.ThreadSwitch;
 end;
 
-function KillThread(const ThreadId: TThreadID): Boolean;
+function KillThread(const ThreadId: TRTLThread): Boolean;
 begin
   Result := __CurrentTM.ThreadKill(ThreadId);
 end;
 
-function WaitForThreadTerminate(const ThreadId: TThreadID; const TimeoutMs: Longint): TWaitResult;
+function WaitForThreadTerminate(const ThreadId: TRTLThread; const TimeoutMs: Longint): TRTLWaitResult;
 begin
   Result := __CurrentTM.ThreadWaitFor(ThreadId, TimeoutMs);
 end;
 
-function SetThreadPriority(const ThreadId: TThreadID; const Prio: TThreadPriority): Boolean;
+function SetThreadPriority(const ThreadId: TRTLThread; const Prio: TRTLThreadPriority): Boolean;
 begin
   Result := __CurrentTM.ThreadSetPriority(ThreadId, Prio);
 end;
 
-function GetThreadPriority(const ThreadId: TThreadID): TThreadPriority;
+function GetThreadPriority(const ThreadId: TRTLThread): TRTLThreadPriority;
 begin
   Result := __CurrentTM.ThreadGetPriority(ThreadId);
 end;
 
-function GetCurrentThreadId: TThreadID;
+function GetCurrentThreadId: TRTLThread;
 begin
   Result := __CurrentTM.ThreadGetCurrent();
 end;
@@ -446,22 +446,22 @@ end;
                          Mutex Handling
 *****************************************************************************}
 
-function MutexCreate: TMutex;
+function MutexCreate: TRTLMutex;
 begin
   Result := __CurrentTM.MutexCreate;
 end;
 
-procedure MutexDestroy(const AMutex: TMutex);
+procedure MutexDestroy(const AMutex: TRTLMutex);
 begin
   __CurrentTM.MutexDestroy(AMutex);
 end;
 
-procedure MutexLock(const AMutex: TMutex);
+procedure MutexLock(const AMutex: TRTLMutex);
 begin
   __CurrentTM.MutexLock(AMutex);
 end;
 
-procedure MutexUnlock(const AMutex: TMutex);
+procedure MutexUnlock(const AMutex: TRTLMutex);
 begin
   __CurrentTM.MutexUnlock(AMutex);
 end;
@@ -471,27 +471,27 @@ end;
                          Event Handling
 *****************************************************************************}
 
-function EventCreate(const InitState, ManualReset: Boolean): TEvent;
+function EventCreate(const InitState, ManualReset: Boolean): TRTLEvent;
 begin
   Result := __CurrentTM.EventCreate(InitState, ManualReset);
 end;
 
-procedure EventDestroy(const AEvent: TEvent);
+procedure EventDestroy(const AEvent: TRTLEvent);
 begin
   __CurrentTM.EventDestroy(AEvent);
 end;
 
-procedure EventSet(const AEvent: TEvent);
+procedure EventSet(const AEvent: TRTLEvent);
 begin
   __CurrentTM.EventSet(AEvent);
 end;
 
-procedure EventReset(const AEvent: TEvent);
+procedure EventReset(const AEvent: TRTLEvent);
 begin
   __CurrentTM.EventReset(AEvent);
 end;
 
-function EventWaitFor(const AEvent: TEvent; const TimeoutMs: Longint): TWaitResult;
+function EventWaitFor(const AEvent: TRTLEvent; const TimeoutMs: Longint): TRTLWaitResult;
 begin
   Result := __CurrentTM.EventWaitFor(AEvent, TimeoutMs);
 end;
@@ -502,22 +502,22 @@ end;
                          Semaphore Handling
 *****************************************************************************}
 
-function SemaphoreCreate(const Initialcount: Longword): TSemaphore;
+function SemaphoreCreate(const Initialcount: Longword): TRTLSemaphore;
 begin
   Result := __CurrentTM.SemaphoreCreate(Initialcount);
 end;
 
-procedure SemaphoreDestroy(const ASemaphore: TSemaphore);
+procedure SemaphoreDestroy(const ASemaphore: TRTLSemaphore);
 begin
   __CurrentTM.SemaphoreDestroy(ASemaphore);
 end;
 
-procedure SemaphorePost(const ASemaphore: TSemaphore);
+procedure SemaphorePost(const ASemaphore: TRTLSemaphore);
 begin
   __CurrentTM.SemaphorePost(ASemaphore);
 end;
 
-function SemaphoreWaitFor(const ASemaphore: TSemaphore; const TimeoutMs: Longint): TWaitResult;
+function SemaphoreWaitFor(const ASemaphore: TRTLSemaphore; const TimeoutMs: Longint): TRTLWaitResult;
 begin
   Result := __CurrentTM.SemaphoreWaitFor(ASemaphore, TimeoutMs);
 end;

@@ -14,10 +14,29 @@
 
  **********************************************************************}
 
+(*{$ifdef BSD}
+//Uses BaseUnix, unixtype;
+{$i ../../packages/base/pthreads/pthrbsd.inc}
+{$else}
+
+{$ifdef linux}
+//uses unixtype;
+{$i ../../packages/base/pthreads/pthrlinux.inc}
+{$else}
+
+{$ifdef sunos}
+{uses
+  unixtype;}
+{$i ../../packages/base/pthreads/pthrsnos.inc}
+{$else}
+
+{$endif}
+{$endif}
+{$endif}*)
+(*
 function LinThreadManagerInit(const ThrdSetup: TThreadSetupHandler; const TlsInit, TlsFree: TTlsSectionMemoryHandler): Boolean;
 begin
   {ThrdSetupHandler := ThrdSetup;
-  TlsMemorySize := TlsSize;
   TlsInitHandler := TlsInit;
   TlsFreeHandler := TlsFree;}
   Result := True;
@@ -78,11 +97,12 @@ end;
 
 function LinMutexCreate: TMutex;
 begin
-  Result := nil;
+//  pthread_mutex_init(Ppthread_mutex_t(Result), nil);
 end;
 
 procedure LinMutexDestroy(const AMutex: TMutex);
 begin
+//  pthread_mutex_destroy(Ppthread_mutex_t(AMutex));
 end;
 
 procedure LinMutexLock(const AMutex: TMutex);
@@ -171,11 +191,11 @@ const
     SemaphoreDestroy       : @LinSemaphoreDestroy;
     SemaphorePost          : @LinSemaphorePost;
     SemaphoreWaitFor       : @LinSemaphoreWaitFor
-  );
+  );*)
 
 procedure InitSystemThreads;
 begin
-  SetThreadManager(LinuxThreadManager);
+  //SetThreadManager(LinuxThreadManager);
 end;
 
 

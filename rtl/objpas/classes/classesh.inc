@@ -1282,7 +1282,7 @@ type
 
   TThread = class
   private
-    FHandle: TThreadID;
+    FHandle: TRTLThread;
     FTerminated: Boolean;
     FFreeOnTerminate: Boolean;
     FFinished: Boolean;
@@ -1293,12 +1293,12 @@ type
     FSynchronizeException: TObject;
     FFatalException: TObject;
     procedure CallOnTerminate;
-    function GetPriority: TThreadPriority;
-    procedure SetPriority(Value: TThreadPriority);
+    function GetPriority: TRTLThreadPriority;
+    procedure SetPriority(Value: TRTLThreadPriority);
     procedure SetSuspended(Value: Boolean);
     function GetSuspended: Boolean;
   protected
-    FThreadID: TThreadID; // someone might need it for pthread_* calls
+    FThreadID: TRTLThread; // someone might need it for pthread_* calls
     procedure DoTerminate; virtual;
     procedure Execute; virtual; abstract;
     procedure Synchronize(AMethod: TThreadMethod);
@@ -1330,10 +1330,10 @@ type
     function WaitFor: Integer;
     class procedure Synchronize(AThread: TThread; AMethod: TThreadMethod);
     property FreeOnTerminate: Boolean read FFreeOnTerminate write FFreeOnTerminate;
-    property Handle: TThreadID read FHandle;
-    property Priority: TThreadPriority read GetPriority write SetPriority;
+    property Handle: TRTLThread read FHandle;
+    property Priority: TRTLThreadPriority read GetPriority write SetPriority;
     property Suspended: Boolean read GetSuspended write SetSuspended;
-    property ThreadID: TThreadID read FThreadID;
+    property ThreadID: TRTLThread read FThreadID;
     property OnTerminate: TNotifyEvent read FOnTerminate write FOnTerminate;
     property FatalException: TObject read FFatalException;
   end;
@@ -1713,7 +1713,7 @@ type
   TInitComponentHandler = function(Instance: TComponent; RootAncestor : TClass): boolean;
 
 var
-  MainThreadID: TThreadID;
+  MainThreadID: TRTLThread;
 
 procedure RegisterIntegerConsts(IntegerType: Pointer; IdentToIntFn: TIdentToInt;
   IntToIdentFn: TIntToIdent);

@@ -349,9 +349,6 @@ const
   { assume that this program will not spawn other threads, when the
     first thread is started the following constants need to be filled }
   IsMultiThread : longbool = FALSE;
-  { set to true, if a threading helper is used before a thread
-    manager has been installed }
-//  ThreadingAlreadyUsed : boolean = FALSE;
   { Indicates if there was an error }
   StackError : boolean = FALSE;
   InitProc : Pointer = nil;
@@ -370,9 +367,11 @@ var
 var cmdline:Pchar=nil;
 {$endif}
 
+type
+  TRTLThread = type Pointer;
 
 ThreadVar
-  ThreadID    : TThreadID;
+  ThreadID    : TRTLThread;
   { Standard In- and Output }
   ErrOutput,
   Output,
@@ -708,7 +707,7 @@ Function Sptr:Pointer;{$ifdef SYSTEMINLINE}inline;{$endif}[internconst:fpc_in_co
 
 {$ifdef FPC_HAS_FEATURE_PROCESSES}
 Function GetProcessID:SizeUInt;
-Function GetThreadID:TThreadID;{$ifdef SYSTEMINLINE}inline;{$endif}
+Function GetThreadID:TRTLThread;{$ifdef SYSTEMINLINE}inline;{$endif}
 {$endif FPC_HAS_FEATURE_PROCESSES}
 
 function InterLockedIncrement (var Target: longint) : longint; public name 'FPC_INTERLOCKEDINCREMENT';

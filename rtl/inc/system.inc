@@ -583,7 +583,7 @@ Begin
 End;
 
 
-Function GetThreadID:TThreadID;{$ifdef SYSTEMINLINE}inline;{$endif}
+Function GetThreadID:TRTLThread;{$ifdef SYSTEMINLINE}inline;{$endif}
 begin
 (* ThreadID is stored in a threadvar and made available in interface *)
 (* to allow setup of this value during thread initialization.        *)
