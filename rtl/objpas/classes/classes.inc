@@ -1734,11 +1734,11 @@ end;
 
 procedure CommonInit;
 begin
-  SynchronizeMutex:=MutexCreate;
+  SynchronizeMutex:=MutexCreate();
   ExecuteEvent:=EventCreate(false, false);
   SynchronizeTimeoutEvent:=EventCreate(false, false);
   DoSynchronizeMethod:=false;
-  MainThreadID:=GetCurrentThreadID;
+  MainThreadID:=GetCurrentThreadID();
   InitHandlerList:=Nil;
   FindGlobalComponentList:=nil;
   IntConstList := TThreadList.Create;

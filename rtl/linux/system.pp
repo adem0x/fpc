@@ -333,4 +333,7 @@ begin
   InitSystemThreads;
   initvariantmanager;
   initwidestringmanager;
+{$ifdef SYSTEMDEBUG}
+  WriteLn('InternalInit');
+{$endif SYSTEMDEBUG}
 end.

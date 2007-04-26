@@ -107,7 +107,6 @@ type
 *****************************************************************************}
 
 function GetThreadManager(var Manager: TThreadManager): Boolean;
-function SetThreadManager(const NewManager: TThreadManager; var OldManager: TThreadManager): Boolean;
 function SetThreadManager(const NewManager: TThreadManager): Boolean;
 
 

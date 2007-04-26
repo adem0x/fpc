@@ -35,7 +35,6 @@ type
 var
   ThreadvarTablesTable : TltvInitTablesTable; external name 'FPC_THREADVARTABLES';
   ThreadvarContainerSize : PtrUInt;
-  ThreadvarContainerCount : Longword;
 
 
 procedure copy_unit_threadthreadvars(p: pointer; tableEntry: pltvInitEntry);
@@ -55,12 +54,21 @@ begin
   end;
 end;
 
+function ThreadVarLocate(Offset: Longword): pointer;
+var
+  P: pointer;
+begin
+  P := __CurrentTM.TlsSectionGet();
+  Result := pointer(ptruint(P) + Offset);
+end;
+
 procedure InitTlsSection(var Address: Pointer);
 var
   i: integer;
 begin
-  { allocate memory for threadthreadvars of this new TLS section }
+  { allocate memory for threadvars of this new TLS section }
   GetMem(Address, ThreadvarContainerSize);
+  FillChar(Address^, ThreadvarContainerSize, 0);
 
   { copy threadvar initial data to TLS section }
   for i := 1 to ThreadvarTablesTable.count do
@@ -72,15 +80,6 @@ begin
   FreeMem(Address);
   Address := nil;
 end;
-
-function ThreadVarLocate(const Offset: Longword): pointer;
-var
-  P: pointer;
-begin
-  P := __CurrentTM.TlsSectionGet();
-  Result := pointer(ptruint(P) + Offset);
-end;
-
 
 
 procedure init_unit_threadthreadvars(tableEntry: pltvInitEntry);
@@ -99,7 +98,6 @@ begin
     { offset means byte offset inside tls section }
     tableEntry^.varaddr^ := ThreadvarContainerSize;
     inc(ThreadvarContainerSize, size);
-    inc(ThreadvarContainerCount);
 
     { goto next entry }
     inc(pchar(tableEntry), sizeof(tableEntry^));
@@ -111,9 +109,8 @@ var
   i: integer;
 begin
   ThreadvarContainerSize := 0;
-  ThreadvarContainerCount := 0;
 {$ifdef DEBUG_MT}
-  WriteLn ('InitThreadthreadvars (',ThreadvarTablesTable.count,') units');
+  WriteLn ('InitThreadvars (',ThreadvarTablesTable.count,') units');
 {$endif}
   for i := 1 to ThreadvarTablesTable.count do
     init_unit_threadthreadvars(ThreadvarTablesTable.tables[i]);

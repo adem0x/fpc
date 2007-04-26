@@ -285,12 +285,6 @@ begin
   Result := True;
 end;
 
-function SetThreadManager(const NewManager: TThreadManager; var OldManager: TThreadManager): Boolean;
-begin
-  GetThreadManager(OldManager);
-  Result := SetThreadManager(NewManager);
-end;
-
 function SetThreadManager(const NewManager: TThreadManager): Boolean;
 var
   OldManager: TThreadManager;
@@ -301,7 +295,7 @@ begin
 { release current thread manager }
   OldManager := __CurrentTM;
 {$ifndef HAS_MT_MEMORYMANAGER}
-  SetMemoryMutexManager(MemoryMutexManager);
+//  SetMemoryMutexManager(MemoryMutexManager);
 {$endif HAS_MT_MEMORYMANAGER}
   fpc_threadvar_relocate_proc := nil;
   ThreadID := nil;
@@ -316,7 +310,7 @@ begin
   begin
     __CurrentTM := NewManager;
   {$ifndef HAS_MT_MEMORYMANAGER}
-    SetMemoryMutexManager(HeapMutexManager);
+//    SetMemoryMutexManager(HeapMutexManager);
   {$endif HAS_MT_MEMORYMANAGER}
     ThreadID := GetCurrentThreadID;
   end;
@@ -386,7 +380,7 @@ end;
 
 procedure ThreadSwitch;
 begin
-  __CurrentTM.ThreadSwitch;
+  __CurrentTM.ThreadSwitch();
 end;
 
 function KillThread(const ThreadId: TRTLThread): Boolean;
@@ -422,20 +416,20 @@ end;
 
 procedure CriticalSectionInit(var cs: TRTLCriticalSection);
 begin
-  cs := __CurrentTM.MutexCreate;
+  cs := __CurrentTM.MutexCreate();
 end;
 
-procedure CriticalsectionDone(const cs: TRTLCriticalSection);
+procedure CriticalSectionDone(const cs: TRTLCriticalSection);
 begin
   __CurrentTM.MutexDestroy(cs);
 end;
 
-procedure CriticalsectionEnter(const cs: TRTLCriticalSection);
+procedure CriticalSectionEnter(const cs: TRTLCriticalSection);
 begin
   __CurrentTM.MutexLock(cs);
 end;
 
-procedure CriticalsectionLeave(const cs: TRTLCriticalSection);
+procedure CriticalSectionLeave(const cs: TRTLCriticalSection);
 begin
   __CurrentTM.MutexUnlock(cs);
 end;
@@ -448,7 +442,7 @@ end;
 
 function MutexCreate: TRTLMutex;
 begin
-  Result := __CurrentTM.MutexCreate;
+  Result := __CurrentTM.MutexCreate();
 end;
 
 procedure MutexDestroy(const AMutex: TRTLMutex);
