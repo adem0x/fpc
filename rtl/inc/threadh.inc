@@ -29,7 +29,7 @@ type
   TThreadManagerDoneHandler      = procedure;
 
 // Thread Callbacks
-//  TRTLThread                     = type Pointer; defined in systemh.inc
+  TRTLThread                     = type Pointer;
   TRTLThreadFunc                 = function(const Arg: Pointer): PtrInt; register;
   TThreadBeginHandler            = function(const StackSize: PtrUInt; const Func: TRTLThreadFunc; const Arg: Pointer; var ThreadId: TRTLThread): Boolean;
   TThreadExitHandler             = procedure(const ExitCode: PtrInt);
@@ -106,8 +106,7 @@ type
   Thread Handler routines
 *****************************************************************************}
 
-function GetThreadManager(var Manager: TThreadManager): Boolean;
-function SetThreadManager(const NewManager: TThreadManager): Boolean;
+function InstallThreadManager(const NewManager: TThreadManager): Boolean;
 
 
 {*****************************************************************************

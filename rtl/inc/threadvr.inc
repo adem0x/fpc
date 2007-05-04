@@ -54,12 +54,13 @@ begin
   end;
 end;
 
-function ThreadVarLocate(Offset: Longword): pointer;
+function ThreadVarLocate(Offset: Longword): pointer; register;
 var
   P: pointer;
 begin
-  P := __CurrentTM.TlsSectionGet();
-  Result := pointer(ptruint(P) + Offset);
+  WriteLn('ThreadVarLocate');
+//  P := __CurrentTM.TlsSectionGet();
+//  Result := pointer(ptruint(P) + Offset);
 end;
 
 procedure InitTlsSection(var Address: Pointer);

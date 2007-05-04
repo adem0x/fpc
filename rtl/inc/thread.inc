@@ -222,28 +222,32 @@ const
 *****************************************************************************}
 
 procedure ThreadSetup(const Stack: Pointer; const StackSize: PtrUInt);
+var
+  p: function(Offset: Longword): pointer; register;
 begin
-  if not IsMultiThread then
-    IsMultiThread := True;
+{  if not IsMultiThread then
+    IsMultiThread := True;}
 
   { install threadvar handler }
+WriteLn('A');
+  p := @ThreadVarLocate;
   if fpc_threadvar_relocate_proc = nil then
-    fpc_threadvar_relocate_proc := @ThreadVarLocate;
+    fpc_threadvar_relocate_proc := p;
+WriteLn('B');
 
-  SysResetFPU;
+//  SysResetFPU;
   { ExceptAddrStack and ExceptObjectStack are threadvars       }
   { so every thread has its on exception handling capabilities }
-  SysInitExceptions;
+//  SysInitExceptions;
   { Open all stdio fds again }
-  SysInitStdio;
-  InOutRes := 0;
-  // ErrNo := 0;
+//  SysInitStdio;
+//  InOutRes := 0;
+//  ErrNo := 0;
   { Stack checking }
   // maybe check if Sptr is inside the range of Stack and Stack-StackSize
-  StackLength := CheckInitialStkLen(StackSize);
-  StackBottom := Stack - StackLength;
-  StackTop := Stack;
-  ThreadID := __CurrentTM.ThreadGetCurrent();
+//  StackLength := CheckInitialStkLen(StackSize);
+//  StackBottom := Stack - StackLength;
+//  StackTop := Stack;
 end;
 
 {$ifndef HAS_MT_MEMORYMANAGER}
@@ -279,28 +283,21 @@ const
   );
 {$endif HAS_MT_MEMORYMANAGER}
 
-function GetThreadManager(var Manager: TThreadManager): Boolean;
-begin
-  Manager := __CurrentTM;
-  Result := True;
-end;
-
-function SetThreadManager(const NewManager: TThreadManager): Boolean;
+function InstallThreadManager(const NewManager: TThreadManager): Boolean;
 var
   OldManager: TThreadManager;
 begin
   if IsMultiThread then
     Exit(False);
 
-{ release current thread manager }
-  OldManager := __CurrentTM;
 {$ifndef HAS_MT_MEMORYMANAGER}
 //  SetMemoryMutexManager(MemoryMutexManager);
 {$endif HAS_MT_MEMORYMANAGER}
-  fpc_threadvar_relocate_proc := nil;
-  ThreadID := nil;
-  __CurrentTM := NoThreadManager;
 
+{ release current thread manager }
+  OldManager := __CurrentTM;
+  fpc_threadvar_relocate_proc := nil;
+  __CurrentTM := NewManager;
   if Assigned(OldManager.DoneManager) then
     OldManager.DoneManager();
 
@@ -308,12 +305,11 @@ begin
   Result := NewManager.InitManager(@ThreadSetup, @InitTlsSection, @FreeTlsSection);
   if Result then
   begin
-    __CurrentTM := NewManager;
   {$ifndef HAS_MT_MEMORYMANAGER}
 //    SetMemoryMutexManager(HeapMutexManager);
   {$endif HAS_MT_MEMORYMANAGER}
-    ThreadID := GetCurrentThreadID;
-  end;
+  end else
+    __CurrentTM := NoThreadManager;
 end;
 
 

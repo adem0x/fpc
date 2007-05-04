@@ -583,12 +583,12 @@ Begin
 End;
 
 
-Function GetThreadID:TRTLThread;{$ifdef SYSTEMINLINE}inline;{$endif}
-begin
-(* ThreadID is stored in a threadvar and made available in interface *)
-(* to allow setup of this value during thread initialization.        *)
-  GetThreadID := ThreadID;
-end;
+//Function GetThreadID:TRTLThread;{$ifdef SYSTEMINLINE}inline;{$endif}
+//begin
+//(* ThreadID is stored in a threadvar and made available in interface *)
+//(* to allow setup of this value during thread initialization.        *)
+//  GetThreadID := ThreadID;
+//end;
 
 
 function fpc_safecallcheck(res : hresult) : hresult;[public,alias:'FPC_SAFECALLCHECK']; compilerproc;
@@ -1154,6 +1154,15 @@ var
 
 { OS Dependent implementation }
 {$i systhrd.inc}
+
+procedure InitThreading;
+begin
+  __CurrentTM := NoThreadManager;
+  fpc_threadvar_relocate_proc := nil;
+
+  InitThreadVars;
+  InitSystemThreads;
+end;
 {$endif FPC_HAS_FEATURE_THREADING}
 
 

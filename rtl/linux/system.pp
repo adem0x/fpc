@@ -310,6 +310,7 @@ begin
 {$endif}
   IsConsole := TRUE;
   StackLength := CheckInitialStkLen(initialStkLen);
+  StackTop := initialstkptr;
   StackBottom := initialstkptr - StackLength;
   { Set up signals handlers }
   InstallSignals;
@@ -328,9 +329,7 @@ begin
   { Reset IO Error }
   InOutRes:=0;
   { threading }
-  SetThreadManager(NoThreadManager);
-  InitThreadVars;
-  InitSystemThreads;
+  InitThreading;
   initvariantmanager;
   initwidestringmanager;
 {$ifdef SYSTEMDEBUG}
