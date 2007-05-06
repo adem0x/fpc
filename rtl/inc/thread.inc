@@ -222,32 +222,27 @@ const
 *****************************************************************************}
 
 procedure ThreadSetup(const Stack: Pointer; const StackSize: PtrUInt);
-var
-  p: function(Offset: Longword): pointer; register;
 begin
 {  if not IsMultiThread then
     IsMultiThread := True;}
 
   { install threadvar handler }
-WriteLn('A');
-  p := @ThreadVarLocate;
   if fpc_threadvar_relocate_proc = nil then
-    fpc_threadvar_relocate_proc := p;
-WriteLn('B');
+    fpc_threadvar_relocate_proc := @ThreadVarLocate;
 
-//  SysResetFPU;
+  SysResetFPU;
   { ExceptAddrStack and ExceptObjectStack are threadvars       }
   { so every thread has its on exception handling capabilities }
-//  SysInitExceptions;
+  SysInitExceptions;
   { Open all stdio fds again }
-//  SysInitStdio;
-//  InOutRes := 0;
+  SysInitStdio;
+  InOutRes := 0;
 //  ErrNo := 0;
   { Stack checking }
   // maybe check if Sptr is inside the range of Stack and Stack-StackSize
-//  StackLength := CheckInitialStkLen(StackSize);
-//  StackBottom := Stack - StackLength;
-//  StackTop := Stack;
+  StackLength := CheckInitialStkLen(StackSize);
+  StackBottom := Stack - StackLength;
+  StackTop := Stack;
 end;
 
 {$ifndef HAS_MT_MEMORYMANAGER}

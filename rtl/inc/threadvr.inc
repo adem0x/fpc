@@ -21,15 +21,22 @@
 
 
 type
-  pltvInitEntry = ^ltvInitEntry;
-  ltvInitEntry = packed record
-     varaddr : plongword;
-     size    : longint;
+  PltvValue = ^TltvValue;
+  TltvValue = packed record
+    offset    : Longword;
+    initvalue : packed array[0..0] of byte;
+    // size of initvalue is defined by TltvEntry.Size
+  end;
+
+  PltvEntry = ^TltvEntry;
+  TltvEntry = packed record
+    varaddr : PltvValue;
+    size    : Longint;
   end;
 
   TltvInitTablesTable = packed record
-    count  : longword;
-    tables : packed array [1..32767] of pltvInitEntry;
+    count  : Longword;
+    tables : packed array[1..32767] of PltvEntry;
   end;
 
 var
@@ -37,7 +44,7 @@ var
   ThreadvarContainerSize : PtrUInt;
 
 
-procedure copy_unit_threadthreadvars(p: pointer; tableEntry: pltvInitEntry);
+procedure copy_unit_threadvars(p: pointer; tableEntry: PltvEntry);
 var
   src: pointer;
   dst: pointer;
@@ -45,25 +52,24 @@ begin
   while tableEntry^.varaddr <> nil do
   begin
     { copy initial threadvar data to TLS section }
-    src := pointer(pchar(tableEntry^.varaddr)+sizeof(pointer));
-    dst := pointer(PtrUInt(P) + tableEntry^.varaddr^);
+    src := @tableEntry^.varaddr^.initvalue;
+    dst := pointer(ptruint(P) + tableEntry^.varaddr^.offset);
     move(src^, dst^, tableEntry^.size);
 
     { goto next entry }
-    inc(pchar(tableEntry), sizeof(tableEntry^));
+    inc(tableEntry);
   end;
 end;
 
-function ThreadVarLocate(Offset: Longword): pointer; register;
+function ThreadVarLocate(Offset: longword): pointer; register;
 var
   P: pointer;
 begin
-  WriteLn('ThreadVarLocate');
-//  P := __CurrentTM.TlsSectionGet();
-//  Result := pointer(ptruint(P) + Offset);
+  P := __CurrentTM.TlsSectionGet();
+  Result := pointer(ptruint(P) + Offset);
 end;
 
-procedure InitTlsSection(var Address: Pointer);
+procedure InitTlsSection(var address: pointer);
 var
   i: integer;
 begin
@@ -73,17 +79,17 @@ begin
 
   { copy threadvar initial data to TLS section }
   for i := 1 to ThreadvarTablesTable.count do
-    copy_unit_threadthreadvars(Address, ThreadvarTablesTable.tables[i]);
+    copy_unit_threadvars(Address, ThreadvarTablesTable.tables[i]);
 end;
 
-procedure FreeTlsSection(var Address: Pointer);
+procedure FreeTlsSection(var address: pointer);
 begin
   FreeMem(Address);
   Address := nil;
 end;
 
 
-procedure init_unit_threadthreadvars(tableEntry: pltvInitEntry);
+procedure init_unit_threadvars(tableEntry: pltvEntry);
 var
   size: integer;
 begin
@@ -97,11 +103,11 @@ begin
       size := tableEntry^.size;
 
     { offset means byte offset inside tls section }
-    tableEntry^.varaddr^ := ThreadvarContainerSize;
+    tableEntry^.varaddr^.offset := ThreadvarContainerSize;
     inc(ThreadvarContainerSize, size);
 
     { goto next entry }
-    inc(pchar(tableEntry), sizeof(tableEntry^));
+    inc(tableEntry);
   end;
 end;
 
@@ -114,7 +120,7 @@ begin
   WriteLn ('InitThreadvars (',ThreadvarTablesTable.count,') units');
 {$endif}
   for i := 1 to ThreadvarTablesTable.count do
-    init_unit_threadthreadvars(ThreadvarTablesTable.tables[i]);
+    init_unit_threadvars(ThreadvarTablesTable.tables[i]);
 end;
 
 
