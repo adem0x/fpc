@@ -34,7 +34,8 @@ unit procinfo;
       symconst,symtype,symdef,symsym,
       { aasm }
       cpubase,cpuinfo,cgbase,cgutils,
-      aasmbase,aasmtai,aasmdata
+      aasmbase,aasmtai,aasmdata,
+      optutils
       ;
 
     const
@@ -102,6 +103,9 @@ unit procinfo;
           { max. of space need for parameters }
           maxpushedparasize : aint;
 
+          { node to index mapping for the node level optimizer }
+          nodemap : TIndexedNodeSet;
+
           constructor create(aparent:tprocinfo);virtual;
           destructor destroy;override;
 
@@ -164,6 +168,7 @@ implementation
       begin
          aktproccode.free;
          aktlocaldata.free;
+         nodemap.free;
       end;
 
 

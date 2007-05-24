@@ -355,17 +355,14 @@ unit optdfa;
 
 
     procedure createdfainfo(node : tnode);
-      var
-        map : TIndexedNodeSet;
       begin
-        map:=TIndexedNodeSet.Create;
+        if not(assigned(current_procinfo.nodemap)) then
+          current_procinfo.nodemap:=TIndexedNodeSet.Create;
         { add controll flow information }
         SetNodeSucessors(node);
 
         { now, collect life information }
-        CreateLifeInfo(node,map);
-
-        map.free;
+        CreateLifeInfo(node,current_procinfo.nodemap);
       end;
 
 end.

@@ -141,7 +141,9 @@ implementation
            { must be a copy to a memory location ... }
            (n.location.loc <> LOC_REFERENCE) or
            { not inside a control flow statement and no goto's in sight }
-           ([fc_inflowcontrol,fc_gotolabel] * flowcontrol <> []) or
+           (([fc_inflowcontrol,fc_gotolabel] * flowcontrol <> []) and
+           { to do full ssa we need life information }
+           not(cs_opt_nodedfa in current_settings.optimizerswitches)) or
            { source and destination are temps (= not global variables) }
            not tg.istemp(n.location.reference) or
            not tg.istemp(newref) or

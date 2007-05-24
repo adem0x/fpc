@@ -26,7 +26,8 @@ unit optbase;
   interface
 
     uses
-      globtype;
+      globtype,
+      cclasses;
 
     type
       { this should maybe replaced by a spare set,
@@ -40,6 +41,10 @@ unit optbase;
         def : tdfaset;
         use : tdfaset;
         life : tdfaset;
+        { each bit set in life correspodences to one entry in the reg map,
+          if the regmap is set, all life nodes must be remapped to these registers
+          before the node is entered }
+        regmap : TFPList;
       end;
 
       poptinfo = ^toptinfo;

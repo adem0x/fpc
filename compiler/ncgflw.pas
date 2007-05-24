@@ -150,12 +150,13 @@ implementation
          oldblabel:=current_procinfo.CurrBreakLabel;
          include(flowcontrol,fc_inflowcontrol);
 
-         sync_regvars(true);
+//         sync_regvars(true);
 {$ifdef OLDREGVARS}
          load_all_regvars(current_asmdata.CurrAsmList);
 {$endif OLDREGVARS}
          { handling code at the end as it is much more efficient, and makes
            while equal to repeat loop, only the end true/false is swapped (PFV) }
+         generate_phi(self);
          if lnf_testatbegin in loopflags then
            cg.a_jmp_always(current_asmdata.CurrAsmList,lcont);
 
@@ -169,6 +170,7 @@ implementation
          current_procinfo.CurrBreakLabel:=lbreak;
          if assigned(right) then
            secondpass(right);
+         generate_phi(self);
 
 {$ifdef OLDREGVARS}
          load_all_regvars(current_asmdata.CurrAsmList);
@@ -187,12 +189,13 @@ implementation
             current_procinfo.CurrTrueLabel:=lloop;
             current_procinfo.CurrFalseLabel:=lbreak;
           end;
+         update_phi(self);
          secondpass(left);
 
          maketojumpbool(current_asmdata.CurrAsmList,left,lr_load_regvars);
          cg.a_label(current_asmdata.CurrAsmList,lbreak);
 
-         sync_regvars(false);
+//         sync_regvars(false);
 
          current_procinfo.CurrTrueLabel:=otlabel;
          current_procinfo.CurrFalseLabel:=oflabel;
