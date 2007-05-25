@@ -166,6 +166,8 @@ implementation
 
          cg.a_label(current_asmdata.CurrAsmList,lloop);
 
+         update_phi(self);
+
          current_procinfo.CurrContinueLabel:=lcont;
          current_procinfo.CurrBreakLabel:=lbreak;
          if assigned(right) then
