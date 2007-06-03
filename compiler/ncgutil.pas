@@ -2527,8 +2527,8 @@ implementation
       var
         rr: treplaceregrec;
       begin
-        if not (n.location.loc in [LOC_CREGISTER,LOC_CFPUREGISTER,LOC_CMMXREGISTER,LOC_CMMREGISTER]) or
-           ([fc_inflowcontrol,fc_gotolabel] * flowcontrol <> []) then
+        if not (n.location.loc in [LOC_CREGISTER,LOC_CFPUREGISTER,LOC_CMMXREGISTER,LOC_CMMREGISTER]) { or
+           ([fc_inflowcontrol,fc_gotolabel] * flowcontrol <> []) } then
           exit;
         rr.old := n.location.register;
         rr.ressym := nil;
@@ -2682,6 +2682,10 @@ implementation
                             begin
                               cg.a_load_reg_reg(current_asmdata.CurrAsmList,varsym.localloc.size,varsym.localloc.size,
                                 varsym.localloc.register,tregister(optinfo^.regmap[regmapindex]));
+{$ifdef DEBUG_SSA}
+                              current_asmdata.CurrAsmList.concat(tai_comment.create(strpnew(varsym.name+' moved from '+
+                                generic_regname(varsym.localloc.register)+' to '+generic_regname(tregister(optinfo^.regmap[regmapindex])))));
+{$endif DEBUG_SSA}
                               { entry used }
                               inc(regmapindex);
                             end;
@@ -2736,6 +2740,10 @@ implementation
 {$endif cpu64bit}
                             begin
                               varsym.localloc.register:=tregister(optinfo^.regmap[regmapindex]);
+                              cg.a_reg_sync(current_asmdata.CurrAsmList,varsym.localloc.register);
+{$ifdef DEBUG_SSA}
+                              current_asmdata.CurrAsmList.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
+{$endif DEBUG_SSA}
                               { entry used }
                               inc(regmapindex);
                             end;
