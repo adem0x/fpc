@@ -2622,81 +2622,83 @@ implementation
             optinfo^.regmap:=TFPList.Create;
             for i:=0 to current_procinfo.nodemap.count-1 do
               begin
-                case tnode(current_procinfo.nodemap[i]).nodetype of
-                  loadn:
-                    begin
-                      { reg. var? }
-                      varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
-                      case varsym.localloc.loc of
-                        LOC_CREGISTER:
-                          begin
+                if DFASetIn(n.optinfo^.life,i) then
+                  case tnode(current_procinfo.nodemap[i]).nodetype of
+                    loadn:
+                      begin
+                        { reg. var? }
+                        varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
+                        case varsym.localloc.loc of
+                          LOC_CREGISTER:
+                            begin
 {$ifndef cpu64bit}
-                            if (n.location.size in [OS_64,OS_S64]) then
-                              begin
-                                optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT))));
-                                optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT))));
-                              end
-                            else
+                              if (n.location.size in [OS_64,OS_S64]) then
+                                begin
+                                  optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT))));
+                                  optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT))));
+                                end
+                              else
 {$endif cpu64bit}
-                              optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,varsym.localloc.size))));
-                          end;
+                                optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,varsym.localloc.size))));
+                            end;
 {!!!!!
-                        LOC_CFPUREGISTER:
-                          rr.new := cg.getfpuregister(current_asmdata.CurrAsmList,n.location.size);
+                          LOC_CFPUREGISTER:
+                            rr.new := cg.getfpuregister(current_asmdata.CurrAsmList,n.location.size);
 {$ifdef SUPPORT_MMX}
-                        LOC_CMMXREGISTER:
-                          rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
+                          LOC_CMMXREGISTER:
+                            rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
 {$endif SUPPORT_MMX}
-                        LOC_CMMREGISTER:
-                          rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
+                          LOC_CMMREGISTER:
+                            rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
 }
+                        end;
                       end;
-                    end;
-                end;
+                  end;
               end;
           end;
         { now we've a valid map, now move things to those registers }
         regmapindex:=0;
         for i:=0 to current_procinfo.nodemap.count-1 do
           begin
-            case tnode(current_procinfo.nodemap[i]).nodetype of
-              loadn:
-                begin
-                  { reg. var? }
-                  varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
-                  case varsym.localloc.loc of
-                    LOC_CREGISTER:
-                      begin
+            if DFASetIn(n.optinfo^.life,i) then
+              case tnode(current_procinfo.nodemap[i]).nodetype of
+                loadn:
+                  begin
+                    { reg. var? }
+                    varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
+                    case varsym.localloc.loc of
+                      LOC_CREGISTER:
+                        begin
 {$ifndef cpu64bit}
-                        if (varsym.localloc.size in [OS_64,OS_S64]) then
-                          begin
-                          {!!!!!
-                            optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT)));
-                            optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT)));
-                          }
-                          end
-                        else
+                          if (varsym.localloc.size in [OS_64,OS_S64]) then
+                            begin
+                            {!!!!!
+                              optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT)));
+                              optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT)));
+                            }
+                            end
+                          else
 {$endif cpu64bit}
-                          begin
-                            cg.a_load_reg_reg(current_asmdata.CurrAsmList,varsym.localloc.size,varsym.localloc.size,
-                              varsym.localloc.register,tregister(optinfo^.regmap[regmapindex]));
-                            { entry used }
-                            inc(regmapindex);
-                          end;
-                      end;
+                            begin
+                              cg.a_load_reg_reg(current_asmdata.CurrAsmList,varsym.localloc.size,varsym.localloc.size,
+                                varsym.localloc.register,tregister(optinfo^.regmap[regmapindex]));
+                              { entry used }
+                              inc(regmapindex);
+                            end;
+                        end;
 {!!!!!
-                    LOC_CFPUREGISTER:
-                      rr.new := cg.getfpuregister(current_asmdata.CurrAsmList,n.location.size);
+                      LOC_CFPUREGISTER:
+                        rr.new := cg.getfpuregister(current_asmdata.CurrAsmList,n.location.size);
 {$ifdef SUPPORT_MMX}
-                    LOC_CMMXREGISTER:
-                      rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
+                      LOC_CMMXREGISTER:
+                        rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
 {$endif SUPPORT_MMX}
-                    LOC_CMMREGISTER:
-                      rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
+                      LOC_CMMREGISTER:
+                        rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
 }
+                    end;
                   end;
-                end;
-            end;
+              end;
           end;
       end;
 
@@ -2713,43 +2715,44 @@ implementation
         regmapindex:=0;
         for i:=0 to current_procinfo.nodemap.count-1 do
           begin
-            case tnode(current_procinfo.nodemap[i]).nodetype of
-              loadn:
-                begin
-                  { reg. var? }
-                  varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
-                  case varsym.localloc.loc of
-                    LOC_CREGISTER:
-                      begin
+            if DFASetIn(n.optinfo^.life,i) then
+              case tnode(current_procinfo.nodemap[i]).nodetype of
+                loadn:
+                  begin
+                    { reg. var? }
+                    varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
+                    case varsym.localloc.loc of
+                      LOC_CREGISTER:
+                        begin
 {$ifndef cpu64bit}
-                        if (varsym.localloc.size in [OS_64,OS_S64]) then
-                          begin
-                          {!!!!!
-                            optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT)));
-                            optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT)));
-                          }
-                          end
-                        else
+                          if (varsym.localloc.size in [OS_64,OS_S64]) then
+                            begin
+                            {!!!!!
+                              optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT)));
+                              optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT)));
+                            }
+                            end
+                          else
 {$endif cpu64bit}
-                          begin
-                            varsym.localloc.register:=tregister(optinfo^.regmap[regmapindex]);
-                            { entry used }
-                            inc(regmapindex);
-                          end;
-                      end;
+                            begin
+                              varsym.localloc.register:=tregister(optinfo^.regmap[regmapindex]);
+                              { entry used }
+                              inc(regmapindex);
+                            end;
+                        end;
 {!!!!!
-                    LOC_CFPUREGISTER:
-                      rr.new := cg.getfpuregister(current_asmdata.CurrAsmList,n.location.size);
+                      LOC_CFPUREGISTER:
+                        rr.new := cg.getfpuregister(current_asmdata.CurrAsmList,n.location.size);
 {$ifdef SUPPORT_MMX}
-                    LOC_CMMXREGISTER:
-                      rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
+                      LOC_CMMXREGISTER:
+                        rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
 {$endif SUPPORT_MMX}
-                    LOC_CMMREGISTER:
-                      rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
+                      LOC_CMMREGISTER:
+                        rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
 }
+                    end;
                   end;
-                end;
-            end;
+              end;
           end;
       end;
 
