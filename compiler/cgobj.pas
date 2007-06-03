@@ -771,7 +771,7 @@ implementation
         for rt:=low(rg) to high(rg) do
           begin
             if assigned(rg[rt]) then
-              rg[rt].extend_live_range_backwards := b;;
+              rg[rt].extend_live_range_backwards := b;
           end;
       end;
 
@@ -1884,7 +1884,7 @@ implementation
         result.ref:=ref;
         result.startbit:=0;
         result.bitlen:=1;
-  
+
         tmpreg:=getintregister(list,bitnumbersize);
         a_op_const_reg_reg(list,OP_SHR,bitnumbersize,3,bitnumber,tmpreg);
         tmpaddrreg:=cg.getaddressregister(list);
@@ -1911,7 +1911,7 @@ implementation
         tmpvalue: tregister;
       begin
         tmpvalue:=cg.getintregister(list,valuesize);
-  
+
         if (target_info.endian=endian_little) then
           begin
             { rotate value register "bitnumber" bits to the right }
@@ -1936,13 +1936,13 @@ implementation
       begin
         a_load_subsetref_reg(list,OS_8,destsize,get_bit_const_ref_sref(bitnumber,ref),destreg);
       end;
-  
-    
+
+
     procedure tcg.a_bit_test_const_reg_reg(list: TAsmList; setregsize, destsize: tcgsize; bitnumber: aint; setreg, destreg: tregister);
       begin
         a_load_subsetreg_reg(list,setregsize,destsize,get_bit_const_reg_sreg(setregsize,bitnumber,setreg),destreg);
       end;
-  
+
 
     procedure tcg.a_bit_test_const_subsetreg_reg(list: TAsmList; setregsize, destsize: tcgsize; bitnumber: aint; const setreg: tsubsetregister; destreg: tregister);
       var
@@ -1959,13 +1959,13 @@ implementation
         a_load_subsetreg_reg(list,setregsize,destsize,tmpsreg,destreg);
       end;
 
-  
+
     procedure tcg.a_bit_test_reg_ref_reg(list: TAsmList; bitnumbersize, destsize: tcgsize; bitnumber: tregister; const ref: treference; destreg: tregister);
       begin
         a_load_subsetref_reg(list,OS_8,destsize,get_bit_reg_ref_sref(list,bitnumbersize,bitnumber,ref),destreg);
       end;
-  
-  
+
+
     procedure tcg.a_bit_test_reg_loc_reg(list: TAsmList; bitnumbersize, destsize: tcgsize; bitnumber: tregister; const loc: tlocation; destreg: tregister);
       var
         tmpreg: tregister;
@@ -1998,8 +1998,8 @@ implementation
             internalerror(2007051701);
         end;
       end;
-  
-  
+
+
     procedure tcg.a_bit_test_const_loc_reg(list: TAsmList; destsize: tcgsize; bitnumber: aint; const loc: tlocation; destreg: tregister);
       begin
         case loc.loc of
@@ -2022,7 +2022,7 @@ implementation
         tmpvalue: tregister;
       begin
         tmpvalue:=cg.getintregister(list,destsize);
-  
+
         if (target_info.endian=endian_little) then
           begin
             a_load_const_reg(list,destsize,1,tmpvalue);
@@ -2051,14 +2051,14 @@ implementation
       begin
         a_load_const_subsetref(list,OS_8,ord(doset),get_bit_const_ref_sref(bitnumber,ref));
       end;
-  
-    
+
+
     procedure tcg.a_bit_set_const_reg(list: TAsmList; doset: boolean; destsize: tcgsize; bitnumber: aint; destreg: tregister);
       begin
         a_load_const_subsetreg(list,OS_8,ord(doset),get_bit_const_reg_sreg(destsize,bitnumber,destreg));
       end;
-  
-  
+
+
     procedure tcg.a_bit_set_const_subsetreg(list: TAsmList; doset: boolean; destsize: tcgsize; bitnumber: aint; const destreg: tsubsetregister);
       var
         tmpsreg: tsubsetregister;
@@ -2079,8 +2079,8 @@ implementation
       begin
         a_load_const_subsetref(list,OS_8,ord(doset),get_bit_reg_ref_sref(list,bitnumbersize,bitnumber,ref));
       end;
-  
-  
+
+
     procedure tcg.a_bit_set_reg_loc(list: TAsmList; doset: boolean; bitnumbersize: tcgsize; bitnumber: tregister; const loc: tlocation);
       var
         tmpreg: tregister;
@@ -2104,8 +2104,8 @@ implementation
             internalerror(2007051703)
         end;
       end;
-  
-  
+
+
     procedure tcg.a_bit_set_const_loc(list: TAsmList; doset: boolean; bitnumber: aint; const loc: tlocation);
       begin
         case loc.loc of
@@ -2186,7 +2186,8 @@ implementation
     procedure tcg.a_load_ref_reg_unaligned(list : TAsmList;fromsize,tosize : tcgsize;const ref : treference;register : tregister);
       var
         tmpref : treference;
-        tmpreg : tregister;
+        tmpreg,
+        tmpreg2 : tregister;
         i : longint;
       begin
         if ref.alignment<>0 then
@@ -2197,38 +2198,39 @@ implementation
             case FromSize of
               OS_16,OS_S16:
                 begin
+                  { first load in tmpreg, because the target register }
+                  { may be used in ref as well                        }
                   if target_info.endian=endian_little then
                     inc(tmpref.offset);
-                  register:=makeregsize(list,register,OS_8);
-                  a_load_ref_reg(list,OS_8,OS_8,tmpref,register);
-                  register:=makeregsize(list,register,OS_16);
-                  a_op_const_reg(list,OP_SHL,OS_16,8,register);
+                  tmpreg:=getintregister(list,OS_8);
+                  a_load_ref_reg(list,OS_8,OS_8,tmpref,tmpreg);
+                  tmpreg:=makeregsize(list,tmpreg,OS_16);
+                  a_op_const_reg(list,OP_SHL,OS_16,8,tmpreg);
                   if target_info.endian=endian_little then
                     dec(tmpref.offset)
                   else
                     inc(tmpref.offset);
-                  tmpreg:=getintregister(list,OS_16);
-                  a_load_ref_reg(list,OS_8,OS_16,tmpref,tmpreg);
+                  a_load_ref_reg(list,OS_8,OS_16,tmpref,register);
                   a_op_reg_reg(list,OP_OR,OS_16,tmpreg,register);
                 end;
               OS_32,OS_S32:
                 begin
                   if target_info.endian=endian_little then
                     inc(tmpref.offset,3);
-                  register:=makeregsize(list,register,OS_8);
-                  a_load_ref_reg(list,OS_8,OS_8,tmpref,register);
-                  register:=makeregsize(list,register,OS_32);
+                  tmpreg:=getintregister(list,OS_32);
+                  a_load_ref_reg(list,OS_8,OS_32,tmpref,tmpreg);
+                  tmpreg2:=getintregister(list,OS_32);
                   for i:=1 to 3 do
                     begin
-                      a_op_const_reg(list,OP_SHL,OS_32,8,register);
+                      a_op_const_reg(list,OP_SHL,OS_32,8,tmpreg);
                       if target_info.endian=endian_little then
                         dec(tmpref.offset)
                       else
                         inc(tmpref.offset);
-                      tmpreg:=getintregister(list,OS_32);
-                      a_load_ref_reg(list,OS_8,OS_32,tmpref,tmpreg);
-                      a_op_reg_reg(list,OP_OR,OS_32,tmpreg,register);
+                      a_load_ref_reg(list,OS_8,OS_32,tmpref,tmpreg2);
+                      a_op_reg_reg(list,OP_OR,OS_32,tmpreg2,tmpreg);
                     end;
+                  a_load_reg_reg(list,OS_32,OS_32,tmpreg,register);
                 end
               else
                 a_load_ref_reg(list,fromsize,tosize,tmpref,register);

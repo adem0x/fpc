@@ -597,6 +597,9 @@ implementation
         if is_dynamic_array(left.resultdef) and
            (right.nodetype=niln) then
          begin
+           { remove property flag to avoid errors, see comments for }
+           { tf_winlikewidestring assignments below                 }
+           exclude(left.flags,nf_isproperty);
            hp:=ccallparanode.create(caddrnode.create_internal
                    (crttinode.create(tstoreddef(left.resultdef),initrtti,rdt_normal)),
                ccallparanode.create(ctypeconvnode.create_internal(left,voidpointertype),nil));
@@ -649,6 +652,9 @@ implementation
         { call helpers for interface }
         if is_interfacecom(left.resultdef) then
          begin
+           { remove property flag to avoid errors, see comments for }
+           { tf_winlikewidestring assignments below                 }
+           exclude(left.flags,nf_isproperty);
            if right.resultdef.is_related(left.resultdef) then
              begin
                hp:=
