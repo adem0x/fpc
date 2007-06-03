@@ -844,6 +844,7 @@ implementation
 {$ifdef OLDREGVARS}
          load_all_regvars(current_asmdata.CurrAsmList);
 {$endif OLDREGVARS}
+         generate_phi(labelnode);
          cg.a_jmp_always(current_asmdata.CurrAsmList,tcglabelnode(labelnode).getasmlabel)
        end;
 
@@ -868,7 +869,9 @@ implementation
 {$ifdef OLDREGVARS}
          load_all_regvars(current_asmdata.CurrAsmList);
 {$endif OLDREGVARS}
+         generate_phi(self);
          cg.a_label(current_asmdata.CurrAsmList,getasmlabel);
+         update_phi(self);
          secondpass(left);
       end;
 

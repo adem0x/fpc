@@ -2607,13 +2607,11 @@ implementation
           n.location.register := rr.new;
       end;
 
-
-    procedure generate_phi(n : tnode);
+    procedure generate_phiregmap(n : tnode);
       var
         optinfo : poptinfo;
         varsym : tabstractnormalvarsym;
-        i,
-        regmapindex : integer;
+        i : integer;
       begin
         optinfo:=n.optinfo;
         { do we need to generate a new register map? }
@@ -2656,6 +2654,18 @@ implementation
                   end;
               end;
           end;
+       end;
+
+
+    procedure generate_phi(n : tnode);
+      var
+        optinfo : poptinfo;
+        varsym : tabstractnormalvarsym;
+        i,
+        regmapindex : integer;
+      begin
+        generate_phiregmap(n);
+        optinfo:=n.optinfo;
         { now we've a valid map, now move things to those registers }
         regmapindex:=0;
         for i:=0 to current_procinfo.nodemap.count-1 do
@@ -2714,12 +2724,13 @@ implementation
         i,
         regmapindex : integer;
       begin
+        generate_phiregmap(n);
         optinfo:=n.optinfo;
         { replace all register vars }
         regmapindex:=0;
         for i:=0 to current_procinfo.nodemap.count-1 do
           begin
-            if DFASetIn(n.optinfo^.life,i) then
+            if DFASetIn(optinfo^.life,i) then
               case tnode(current_procinfo.nodemap[i]).nodetype of
                 loadn:
                   begin
