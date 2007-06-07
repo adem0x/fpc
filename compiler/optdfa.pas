@@ -329,6 +329,8 @@ unit optdfa;
                     dfainfo.map:=map;
                     foreachnodestatic(pm_postprocess,tifnode(node).left,@AddDefUse,@dfainfo);
                   end;
+                calclife(node);
+
                 { create life info for then and else node }
                 CreateInfo(tifnode(node).right);
                 CreateInfo(tifnode(node).t1);

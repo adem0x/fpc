@@ -767,6 +767,7 @@ implementation
                   pi_needs_stackframe])=[]) then
           begin
             createdfainfo(code);
+            include(flags,pi_has_dfa_info);
             { when life info is available, we can give more sophisticated warning about unintialized
               variables }
 

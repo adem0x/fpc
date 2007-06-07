@@ -28,8 +28,9 @@ interface
     uses
       node,cpuinfo,
       globtype,
-      cpubase,cgbase,parabase,cgutils,
+      cpubase,cgbase,parabase,cgutils,cclasses,
       aasmbase,aasmtai,aasmdata,aasmcpu,
+      optbase,
       symconst,symbase,symdef,symsym,symtype,symtable
 {$ifndef cpu64bit}
       ,cg64f32
@@ -108,8 +109,8 @@ interface
     { is true, transfer the old to the new register                            }
     procedure maybechangeloadnodereg(list: TAsmList; var n: tnode; reload: boolean);
 
-    procedure update_phi(n : tnode);
-    procedure generate_phi(n : tnode);
+    procedure update_phi(lifeinfo : TDFASet;var regmap : TFPList);
+    procedure generate_phi(lifeinfo : TDFASet;var regmap : TFPList);
    {#
       Allocate the buffers for exception management and setjmp environment.
       Return a pointer to these buffers, send them to the utility routine
@@ -156,15 +157,14 @@ implementation
 
   uses
     version,
-    cutils,cclasses,
+    cutils,
     globals,systems,verbose,
     ppu,defutil,
     procinfo,paramgr,fmodule,
     regvars,dbgbase,
     pass_1,pass_2,
     nbas,ncon,nld,nmem,nutils,
-    tgobj,cgobj,
-    optbase
+    tgobj,cgobj
 {$ifdef powerpc}
     , cpupi
 {$endif}
@@ -2607,20 +2607,18 @@ implementation
           n.location.register := rr.new;
       end;
 
-    procedure generate_phiregmap(n : tnode);
+    procedure generate_phiregmap(lifeinfo : TDFASet;var regmap : TFPList);
       var
-        optinfo : poptinfo;
         varsym : tabstractnormalvarsym;
         i : integer;
       begin
-        optinfo:=n.optinfo;
         { do we need to generate a new register map? }
-        if not(assigned(optinfo^.regmap)) then
+        if not(assigned(regmap)) then
           begin
-            optinfo^.regmap:=TFPList.Create;
+            regmap:=TFPList.Create;
             for i:=0 to current_procinfo.nodemap.count-1 do
               begin
-                if DFASetIn(n.optinfo^.life,i) then
+                if DFASetIn(lifeinfo,i) then
                   case tnode(current_procinfo.nodemap[i]).nodetype of
                     loadn:
                       begin
@@ -2630,14 +2628,14 @@ implementation
                           LOC_CREGISTER:
                             begin
 {$ifndef cpu64bit}
-                              if (n.location.size in [OS_64,OS_S64]) then
+                              if (varsym.localloc.size in [OS_64,OS_S64]) then
                                 begin
-                                  optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT))));
-                                  optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT))));
+                                  regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT))));
+                                  regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT))));
                                 end
                               else
 {$endif cpu64bit}
-                                optinfo^.regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,varsym.localloc.size))));
+                                regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,varsym.localloc.size))));
                             end;
 {!!!!!
                           LOC_CFPUREGISTER:
@@ -2657,20 +2655,23 @@ implementation
        end;
 
 
-    procedure generate_phi(n : tnode);
+    procedure generate_phi(lifeinfo : TDFASet;var regmap : TFPList);
       var
-        optinfo : poptinfo;
         varsym : tabstractnormalvarsym;
         i,
         regmapindex : integer;
+        old_add_reg_instruction_hook : tadd_reg_instruction_proc;
       begin
-        generate_phiregmap(n);
-        optinfo:=n.optinfo;
+        if not(pi_has_dfa_info in current_procinfo.flags) or not(assigned(lifeinfo)) then
+          exit;
+        generate_phiregmap(lifeinfo,regmap);
         { now we've a valid map, now move things to those registers }
         regmapindex:=0;
+        old_add_reg_instruction_hook:=add_reg_instruction_hook;
+        add_reg_instruction_hook:=nil;
         for i:=0 to current_procinfo.nodemap.count-1 do
           begin
-            if DFASetIn(n.optinfo^.life,i) then
+            if DFASetIn(lifeinfo,i) then
               case tnode(current_procinfo.nodemap[i]).nodetype of
                 loadn:
                   begin
@@ -2691,10 +2692,10 @@ implementation
 {$endif cpu64bit}
                             begin
                               cg.a_load_reg_reg(current_asmdata.CurrAsmList,varsym.localloc.size,varsym.localloc.size,
-                                varsym.localloc.register,tregister(optinfo^.regmap[regmapindex]));
+                                varsym.localloc.register,tregister(regmap[regmapindex]));
 {$ifdef DEBUG_SSA}
                               current_asmdata.CurrAsmList.concat(tai_comment.create(strpnew(varsym.name+' moved from '+
-                                generic_regname(varsym.localloc.register)+' to '+generic_regname(tregister(optinfo^.regmap[regmapindex])))));
+                                generic_regname(varsym.localloc.register)+' to '+generic_regname(tregister(regmap[regmapindex])))));
 {$endif DEBUG_SSA}
                               { entry used }
                               inc(regmapindex);
@@ -2714,23 +2715,25 @@ implementation
                   end;
               end;
           end;
+        add_reg_instruction_hook:=old_add_reg_instruction_hook;
       end;
 
 
-    procedure update_phi(n : tnode);
+    procedure update_phi(lifeinfo : TDFASet;var regmap : TFPList);
       var
-        optinfo : poptinfo;
         varsym : tabstractnormalvarsym;
         i,
         regmapindex : integer;
       begin
-        generate_phiregmap(n);
-        optinfo:=n.optinfo;
+        if not(pi_has_dfa_info in current_procinfo.flags) then
+          exit;
+        generate_phiregmap(lifeinfo,regmap);
         { replace all register vars }
         regmapindex:=0;
+
         for i:=0 to current_procinfo.nodemap.count-1 do
           begin
-            if DFASetIn(optinfo^.life,i) then
+            if DFASetIn(lifeinfo,i) then
               case tnode(current_procinfo.nodemap[i]).nodetype of
                 loadn:
                   begin
@@ -2750,7 +2753,7 @@ implementation
                           else
 {$endif cpu64bit}
                             begin
-                              varsym.localloc.register:=tregister(optinfo^.regmap[regmapindex]);
+                              varsym.localloc.register:=tregister(regmap[regmapindex]);
                               cg.a_reg_sync(current_asmdata.CurrAsmList,varsym.localloc.register);
 {$ifdef DEBUG_SSA}
                               current_asmdata.CurrAsmList.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));

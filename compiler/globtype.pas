@@ -154,7 +154,7 @@ interface
          cs_opt_level1,cs_opt_level2,cs_opt_level3,
          cs_opt_regvar,cs_opt_uncertain,cs_opt_size,cs_opt_stackframe,
          cs_opt_peephole,cs_opt_asmcse,cs_opt_loopunroll,cs_opt_tailrecursion,cs_opt_nodecse,
-         cs_opt_nodedfa
+         cs_opt_nodedfa,cs_opt_fullssa
        );
        toptimizerswitches = set of toptimizerswitch;
 
@@ -162,7 +162,7 @@ interface
        OptimizerSwitchStr : array[toptimizerswitch] of string[10] = ('',
          'LEVEL1','LEVEL2','LEVEL3',
          'REGVAR','UNCERTAIN','SIZE','STACKFRAME',
-         'PEEPHOLE','ASMCSE','LOOPUNROLL','TAILREC','CSE','DFA'
+         'PEEPHOLE','ASMCSE','LOOPUNROLL','TAILREC','CSE','DFA','FULLSSA'
        );
 
        { switches being applied to all CPUs at the given level }
@@ -324,7 +324,9 @@ interface
          { calls itself recursive }
          pi_is_recursive,
          { stack frame optimization not possible (only on x86 probably) }
-         pi_needs_stackframe
+         pi_needs_stackframe,
+         { dfa info was generated }
+         pi_has_dfa_info
        );
        tprocinfoflags=set of tprocinfoflag;
 

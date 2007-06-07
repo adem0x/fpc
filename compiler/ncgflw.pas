@@ -156,7 +156,7 @@ implementation
 {$endif OLDREGVARS}
          { handling code at the end as it is much more efficient, and makes
            while equal to repeat loop, only the end true/false is swapped (PFV) }
-         generate_phi(self);
+         generate_phi(self.optinfo^.life,self.optinfo^.regmap);
          if lnf_testatbegin in loopflags then
            cg.a_jmp_always(current_asmdata.CurrAsmList,lcont);
 
@@ -166,13 +166,13 @@ implementation
 
          cg.a_label(current_asmdata.CurrAsmList,lloop);
 
-         update_phi(self);
+         update_phi(self.optinfo^.life,self.optinfo^.regmap);
 
          current_procinfo.CurrContinueLabel:=lcont;
          current_procinfo.CurrBreakLabel:=lbreak;
          if assigned(right) then
            secondpass(right);
-         generate_phi(self);
+         generate_phi(self.optinfo^.life,self.optinfo^.regmap);
 
 {$ifdef OLDREGVARS}
          load_all_regvars(current_asmdata.CurrAsmList);
@@ -191,7 +191,7 @@ implementation
             current_procinfo.CurrTrueLabel:=lloop;
             current_procinfo.CurrFalseLabel:=lbreak;
           end;
-         update_phi(self);
+         update_phi(self.optinfo^.life,self.optinfo^.regmap);
          secondpass(left);
 
          maketojumpbool(current_asmdata.CurrAsmList,left,lr_load_regvars);
@@ -241,130 +241,51 @@ implementation
          current_asmdata.getjumplabel(current_procinfo.CurrFalseLabel);
          secondpass(left);
 
-(*
-         { save regvars loaded in the beginning so that we can restore them }
-         { when processing the else-block                                   }
-         if cs_opt_regvar in current_settings.optimizerswitches then
-           begin
-             org_list := current_asmdata.CurrAsmList;
-             current_asmdata.CurrAsmList := TAsmList.create;
-           end;
-*)
+         if not(assigned(t1)) then
+           generate_phi(self.optinfo^.life,self.optinfo^.regmap);
+
          maketojumpbool(current_asmdata.CurrAsmList,left,lr_dont_load_regvars);
 
-(*
-         if cs_opt_regvar in current_settings.optimizerswitches then
-           begin
-             org_regvar_loaded_int := rg.regvar_loaded_int;
-             org_regvar_loaded_other := rg.regvar_loaded_other;
-           end;
-*)
-
+         { then block ? }
          if assigned(right) then
            begin
-              cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrTrueLabel);
-              secondpass(right);
+             cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrTrueLabel);
+             secondpass(right);
            end;
 
-         { save current asmlist (previous instructions + then-block) and }
-         { loaded regvar state and create new clean ones                 }
-{
-         if cs_opt_regvar in current_settings.optimizerswitches then
-           begin
-             then_regvar_loaded_int := rg.regvar_loaded_int;
-             then_regvar_loaded_other := rg.regvar_loaded_other;
-             rg.regvar_loaded_int := org_regvar_loaded_int;
-             rg.regvar_loaded_other := org_regvar_loaded_other;
-             then_list := current_asmdata.CurrAsmList;
-             current_asmdata.CurrAsmList := TAsmList.create;
-           end;
-}
-
+         { else block ? }
          if assigned(t1) then
            begin
               if assigned(right) then
                 begin
                    current_asmdata.getjumplabel(hl);
                    { do go back to if line !! }
-(*
-                   if not(cs_opt_regvar in current_settings.optimizerswitches) then
-*)
-                     current_filepos:=current_asmdata.CurrAsmList.getlasttaifilepos^
-(*
-                   else
-                     current_filepos:=then_list.getlasttaifilepos^
-*)
-                   ;
+                   current_filepos:=current_asmdata.CurrAsmList.getlasttaifilepos^;
+
+                   generate_phi(self.optinfo^.life,self.optinfo^.regmap);
                    cg.a_jmp_always(current_asmdata.CurrAsmList,hl);
                 end;
+
               cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrFalseLabel);
+              update_phi(self.optinfo^.life,self.optinfo^.regmap);
               secondpass(t1);
-(*
-              { save current asmlist (previous instructions + else-block) }
-              { and loaded regvar state and create a new clean list       }
-              if cs_opt_regvar in current_settings.optimizerswitches then
-                begin
-{                  else_regvar_loaded_int := rg.regvar_loaded_int;
-                  else_regvar_loaded_other := rg.regvar_loaded_other;}
-                  else_list := current_asmdata.CurrAsmList;
-                  current_asmdata.CurrAsmList := TAsmList.create;
-                end;
-*)
+              generate_phi(self.optinfo^.life,self.optinfo^.regmap);
+
               if assigned(right) then
                 cg.a_label(current_asmdata.CurrAsmList,hl);
            end
          else
            begin
-(*
-              if cs_opt_regvar in current_settings.optimizerswitches then
-                begin
-{                  else_regvar_loaded_int := rg.regvar_loaded_int;
-                  else_regvar_loaded_other := rg.regvar_loaded_other;}
-                  else_list := current_asmdata.CurrAsmList;
-                  current_asmdata.CurrAsmList := TAsmList.create;
-                end;
-*)
-              cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrFalseLabel);
+             generate_phi(self.optinfo^.life,self.optinfo^.regmap);
+             cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrFalseLabel);
            end;
+
          if not(assigned(right)) then
            begin
-              cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrTrueLabel);
+             cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrTrueLabel);
            end;
 
-(*
-         if cs_opt_regvar in current_settings.optimizerswitches then
-           begin
-             { add loads of regvars at the end of the then- and else-blocks  }
-             { so that at the end of both blocks the same regvars are loaded }
-
-             { no else block? }
-             if not assigned(t1) then
-               begin
-                 sync_regvars_int(org_list,then_list,org_regvar_loaded_int,then_regvar_loaded_int);
-                 sync_regvars_other(org_list,then_list,org_regvar_loaded_other,then_regvar_loaded_other);
-               end
-             { no then block? }
-             else if not assigned(right) then
-               begin
-                 sync_regvars_int(org_list,else_list,org_regvar_loaded_int,else_regvar_loaded_int);
-                 sync_regvars_other(org_list,else_list,org_regvar_loaded_other,else_regvar_loaded_other);
-               end
-             { both else and then blocks }
-             else
-               begin
-                 sync_regvars_int(then_list,else_list,then_regvar_loaded_int,else_regvar_loaded_int);
-                 sync_regvars_other(then_list,else_list,then_regvar_loaded_other,else_regvar_loaded_other);
-               end;
-             { add all lists together }
-             org_list.concatlist(then_list);
-             then_list.free;
-             org_list.concatlist(else_list);
-             else_list.free;
-             org_list.concatlist(current_asmdata.CurrAsmList);
-             current_asmdata.CurrAsmList.free;
-             current_asmdata.CurrAsmList := org_list;
-           end;
-*)
+         update_phi(self.optinfo^.life,self.optinfo^.regmap);
 
          current_procinfo.CurrTrueLabel:=otlabel;
          current_procinfo.CurrFalseLabel:=oflabel;
@@ -844,7 +765,7 @@ implementation
 {$ifdef OLDREGVARS}
          load_all_regvars(current_asmdata.CurrAsmList);
 {$endif OLDREGVARS}
-         generate_phi(labelnode);
+         generate_phi(labelnode.optinfo^.life,labelnode.optinfo^.regmap);
          cg.a_jmp_always(current_asmdata.CurrAsmList,tcglabelnode(labelnode).getasmlabel)
        end;
 
@@ -869,9 +790,9 @@ implementation
 {$ifdef OLDREGVARS}
          load_all_regvars(current_asmdata.CurrAsmList);
 {$endif OLDREGVARS}
-         generate_phi(self);
+         generate_phi(self.optinfo^.life,self.optinfo^.regmap);
          cg.a_label(current_asmdata.CurrAsmList,getasmlabel);
-         update_phi(self);
+         update_phi(self.optinfo^.life,self.optinfo^.regmap);
          secondpass(left);
       end;
 
