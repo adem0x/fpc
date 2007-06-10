@@ -229,7 +229,6 @@ unit rgobj;
         procedure add_worklist(u:Tsuperregister);
         function adjacent_ok(u,v:Tsuperregister):boolean;
         function conservative(u,v:Tsuperregister):boolean;
-        procedure combine(u,v:Tsuperregister);
         procedure coalesce;
         procedure freeze_moves(u:Tsuperregister);
         procedure freeze;
@@ -238,6 +237,7 @@ unit rgobj;
         procedure clear_interferences(u:Tsuperregister);
         procedure set_live_range_backwards(b: boolean);
        public
+        procedure combine(u,v:Tsuperregister);
         property extend_live_range_backwards: boolean read do_extend_live_range_backwards write set_live_range_backwards;
       end;
 

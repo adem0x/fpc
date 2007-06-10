@@ -250,7 +250,7 @@ implementation
            begin
              { restore register mapping which might be changed by the then-block }
              if has_life_info(t1) then
-               update_phi(t1.optinfo^.life,block_regmap);
+               restore_regmapping(t1.optinfo^.life,block_regmap);
              if assigned(right) then
                begin
                  current_asmdata.getjumplabel(hl);
