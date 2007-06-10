@@ -104,6 +104,7 @@ unit optdfa;
     function AddDefUse(var n: tnode; arg: pointer): foreachnoderesult;
       begin
         case n.nodetype of
+          temprefn,
           loadn:
             begin
               pdfainfo(arg)^.map.Add(n);

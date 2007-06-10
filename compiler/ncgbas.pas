@@ -504,7 +504,7 @@ interface
           LOC_REGISTER:
             begin
               if not(cs_opt_regvar in current_settings.optimizerswitches) or
-                 (pi_has_goto in current_procinfo.flags) then
+                 ((pi_has_goto in current_procinfo.flags) { and not(pi_has_dfa_info in current_procinfo.flags) }) then
                 begin
                   { make sure the register allocator doesn't reuse the }
                   { register e.g. in the middle of a loop              }
