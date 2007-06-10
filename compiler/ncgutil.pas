@@ -111,6 +111,8 @@ interface
 
     procedure update_phi(lifeinfo : TDFASet;var regmap : TFPList);
     procedure generate_phi(lifeinfo : TDFASet;var regmap : TFPList);
+    procedure getregmapping(lifeinfo : TDFASet;var regmap : TFPList);
+
    {#
       Allocate the buffers for exception management and setjmp environment.
       Return a pointer to these buffers, send them to the utility routine
@@ -2733,7 +2735,8 @@ implementation
 
         for i:=0 to current_procinfo.nodemap.count-1 do
           begin
-            if DFASetIn(lifeinfo,i) then
+            if (assigned(lifeinfo) and DFASetIn(lifeinfo,i)) or
+              not(assigned(lifeinfo)) then
               case tnode(current_procinfo.nodemap[i]).nodetype of
                 loadn:
                   begin
@@ -2779,6 +2782,57 @@ implementation
       end;
 
 
+    procedure getregmapping(lifeinfo : TDFASet;var regmap : TFPList);
+      var
+        varsym : tabstractnormalvarsym;
+        i : integer;
+      begin
+        if not(pi_has_dfa_info in current_procinfo.flags) then
+          exit;
+        { do we need to generate a new register map? }
+        if not(assigned(regmap)) then
+          begin
+            regmap:=TFPList.Create;
+            for i:=0 to current_procinfo.nodemap.count-1 do
+              begin
+                if (assigned(lifeinfo) and DFASetIn(lifeinfo,i)) or
+                  not(assigned(lifeinfo))  then
+                  case tnode(current_procinfo.nodemap[i]).nodetype of
+                    loadn:
+                      begin
+                        { reg. var? }
+                        varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
+                        case varsym.localloc.loc of
+                          LOC_CREGISTER:
+                            begin
+{$ifndef cpu64bit}
+                              if (varsym.localloc.size in [OS_64,OS_S64]) then
+                                begin
+                                {!!!!!
+                                  regmap.Add(pointer(ord()));
+                                  regmap.Add(pointer(ord()));
+                                }
+                                end
+                              else
+{$endif cpu64bit}
+                                regmap.Add(pointer(ord(varsym.localloc.register)));
+                            end;
+{!!!!!
+                          LOC_CFPUREGISTER:
+                            rr.new := cg.getfpuregister(current_asmdata.CurrAsmList,n.location.size);
+{$ifdef SUPPORT_MMX}
+                          LOC_CMMXREGISTER:
+                            rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
+{$endif SUPPORT_MMX}
+                          LOC_CMMREGISTER:
+                            rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
+}
+                        end;
+                      end;
+                  end;
+              end;
+          end;
+       end;
 
 
     procedure gen_free_symtable(list:TAsmList;st:TSymtable);

@@ -92,13 +92,15 @@ implementation
 
     uses
       verbose,globals,systems,globtype,
+      cclasses,
       symconst,symdef,symsym,aasmtai,aasmdata,aasmcpu,defutil,
       procinfo,cgbase,pass_2,parabase,
       cpubase,cpuinfo,
       nld,ncon,
       tgobj,paramgr,
       regvars,
-      cgutils,cgobj
+      cgutils,cgobj,
+      optutils
       ;
 
 {*****************************************************************************
@@ -218,18 +220,7 @@ implementation
       var
          hl,otlabel,oflabel : tasmlabel;
          oldflowcontrol: tflowcontrol;
-(*
-         org_regvar_loaded_other,
-         then_regvar_loaded_other,
-         else_regvar_loaded_other : regvarother_booleanarray;
-         org_regvar_loaded_int,
-         then_regvar_loaded_int,
-         else_regvar_loaded_int : Tsuperregisterset;
-         org_list,
-         then_list,
-         else_list : TAsmList;
-*)
-
+         join_regmap,block_regmap : TFPList;
       begin
          location_reset(location,LOC_VOID,OS_NO);
 
@@ -241,10 +232,11 @@ implementation
          current_asmdata.getjumplabel(current_procinfo.CurrFalseLabel);
          secondpass(left);
 
-         if not(assigned(t1)) then
-           generate_phi(self.optinfo^.life,self.optinfo^.regmap);
-
          maketojumpbool(current_asmdata.CurrAsmList,left,lr_dont_load_regvars);
+
+         { get current variable to register mapping }
+         block_regmap:=nil;
+         getregmapping(nil,block_regmap);
 
          { then block ? }
          if assigned(right) then
@@ -256,27 +248,32 @@ implementation
          { else block ? }
          if assigned(t1) then
            begin
-              if assigned(right) then
-                begin
-                   current_asmdata.getjumplabel(hl);
-                   { do go back to if line !! }
-                   current_filepos:=current_asmdata.CurrAsmList.getlasttaifilepos^;
+             { restore register mapping which might be changed by the then-block }
+             if has_life_info(t1) then
+               update_phi(t1.optinfo^.life,block_regmap);
+             if assigned(right) then
+               begin
+                 current_asmdata.getjumplabel(hl);
+                 { do go back to if line !! }
+                 current_filepos:=current_asmdata.CurrAsmList.getlasttaifilepos^;
 
-                   generate_phi(self.optinfo^.life,self.optinfo^.regmap);
-                   cg.a_jmp_always(current_asmdata.CurrAsmList,hl);
-                end;
+                 if has_life_info(successor) then
+                   generate_phi(successor.optinfo^.life,join_regmap);
+                 cg.a_jmp_always(current_asmdata.CurrAsmList,hl);
+               end;
 
-              cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrFalseLabel);
-              update_phi(self.optinfo^.life,self.optinfo^.regmap);
-              secondpass(t1);
-              generate_phi(self.optinfo^.life,self.optinfo^.regmap);
+             cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrFalseLabel);
+             secondpass(t1);
+             if has_life_info(successor) then
+               generate_phi(successor.optinfo^.life,join_regmap);
 
-              if assigned(right) then
-                cg.a_label(current_asmdata.CurrAsmList,hl);
+             if assigned(right) then
+               cg.a_label(current_asmdata.CurrAsmList,hl);
            end
          else
            begin
-             generate_phi(self.optinfo^.life,self.optinfo^.regmap);
+             if has_life_info(successor) then
+               generate_phi(successor.optinfo^.life,self.optinfo^.regmap);
              cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrFalseLabel);
            end;
 
@@ -285,7 +282,8 @@ implementation
              cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrTrueLabel);
            end;
 
-         update_phi(self.optinfo^.life,self.optinfo^.regmap);
+         if has_life_info(successor) then
+           update_phi(successor.optinfo^.life,join_regmap);
 
          current_procinfo.CurrTrueLabel:=otlabel;
          current_procinfo.CurrFalseLabel:=oflabel;

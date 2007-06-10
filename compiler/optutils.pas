@@ -42,6 +42,9 @@ unit optutils;
     procedure PrintDFAInfo(var f : text;p : tnode);
     procedure PrintIndexedNodeSet(var f : text;s : TIndexedNodeSet);
 
+    { returns true, if n is a valid node and has life info }
+    function has_life_info(n : tnode) : boolean;
+
   implementation
 
     uses
@@ -293,6 +296,13 @@ unit optutils;
         DoSet(p,nil);
         Continuestack.Free;
         Breakstack.Free;
+      end;
+
+
+    function has_life_info(n : tnode) : boolean;
+      begin
+        result:=assigned(n) and assigned(n.optinfo) and
+          assigned(n.optinfo^.life);
       end;
 
 end.
