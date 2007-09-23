@@ -109,11 +109,11 @@ interface
     { is true, transfer the old to the new register                            }
     procedure maybechangeloadnodereg(list: TAsmList; var n: tnode; reload: boolean);
 
-    procedure update_phi(lifeinfo : TDFASet;var regmap : TFPList);
-    procedure generate_phi(lifeinfo : TDFASet;var regmap : TFPList);
+    procedure update_phi(list : TAsmList;lifeinfo : TDFASet;var regmap : TFPList);
+    procedure generate_phi(list : TAsmList;lifeinfo : TDFASet;var regmap : TFPList);
 
     procedure getregmapping(lifeinfo : TDFASet;var regmap : TFPList);
-    procedure restore_regmapping(lifeinfo : TDFASet;var regmap : TFPList);
+    procedure restore_regmapping(list : TAsmList;lifeinfo : TDFASet;var regmap : TFPList);
 
    {#
       Allocate the buffers for exception management and setjmp environment.
@@ -2477,8 +2477,9 @@ implementation
                  not assigned(tloadnode(n).left) and
                  (((tloadnode(n).symtableentry <> rr^.ressym) and
                    not(vo_is_funcret in tabstractvarsym(tloadnode(n).symtableentry).varoptions)) or
-                  not(fc_exit in flowcontrol)) and
-                 (tabstractnormalvarsym(tloadnode(n).symtableentry).localloc.loc in [LOC_CREGISTER,LOC_CFPUREGISTER,LOC_CMMXREGISTER,LOC_CMMREGISTER]) and
+                  not(fc_exit in flowcontrol) ) and
+                 (tabstractnormalvarsym(tloadnode(n).symtableentry).localloc.loc in
+                   [LOC_CREGISTER,LOC_CFPUREGISTER,LOC_CMMXREGISTER,LOC_CMMREGISTER]) and
                  (tabstractnormalvarsym(tloadnode(n).symtableentry).localloc.register = rr^.old) then
                 begin
 {$ifndef cpu64bit}
@@ -2612,7 +2613,7 @@ implementation
       end;
 
 
-    procedure generate_phiregmap(lifeinfo : TDFASet;var regmap : TFPList);
+    procedure generate_phiregmap(list : TAsmlist;lifeinfo : TDFASet;var regmap : TFPList);
       var
         varsym : tabstractnormalvarsym;
         i : integer;
@@ -2635,22 +2636,22 @@ implementation
 {$ifndef cpu64bit}
                               if (varsym.localloc.size in [OS_64,OS_S64]) then
                                 begin
-                                  regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT))));
-                                  regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,OS_INT))));
+                                  regmap.Add(pointer(ord(cg.getintregister(list,OS_INT))));
+                                  regmap.Add(pointer(ord(cg.getintregister(list,OS_INT))));
                                 end
                               else
 {$endif cpu64bit}
-                                regmap.Add(pointer(ord(cg.getintregister(current_asmdata.CurrAsmList,varsym.localloc.size))));
+                                regmap.Add(pointer(ord(cg.getintregister(list,varsym.localloc.size))));
                             end;
 {!!!!!
                           LOC_CFPUREGISTER:
                             rr.new := cg.getfpuregister(current_asmdata.CurrAsmList,n.location.size);
 {$ifdef SUPPORT_MMX}
                           LOC_CMMXREGISTER:
-                            rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
+                            rr.new := tcgx86(cg).getmmxregister(list);
 {$endif SUPPORT_MMX}
                           LOC_CMMREGISTER:
-                            rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
+                            rr.new := cg.getmmregister(list,n.location.size);
 }
                         end;
                       end;
@@ -2660,7 +2661,7 @@ implementation
        end;
 
 
-    procedure generate_phi(lifeinfo : TDFASet;var regmap : TFPList);
+    procedure generate_phi(list : TAsmList;lifeinfo : TDFASet;var regmap : TFPList);
       var
         varsym : tabstractnormalvarsym;
         i,
@@ -2670,11 +2671,12 @@ implementation
       begin
         if not(pi_has_dfa_info in current_procinfo.flags) or not(assigned(lifeinfo)) then
           exit;
-        generate_phiregmap(lifeinfo,regmap);
+        generate_phiregmap(list,lifeinfo,regmap);
         { now we've a valid map, now move things to those registers }
         regmapindex:=0;
         old_add_reg_instruction_hook:=add_reg_instruction_hook;
         // add_reg_instruction_hook:=nil;
+        writeln('Regmap size: ',regmap.count);
         for i:=0 to current_procinfo.nodemap.count-1 do
           begin
             if DFASetIn(lifeinfo,i) then
@@ -2697,13 +2699,15 @@ implementation
                           else
 {$endif cpu64bit}
                             begin
-                              newreg:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
-                              cg.a_load_reg_reg(current_asmdata.CurrAsmList,varsym.localloc.size,varsym.localloc.size,
+                              newreg:=cg.getintregister(list,OS_INT);
+                              cg.a_load_reg_reg(list,varsym.localloc.size,varsym.localloc.size,
                                 varsym.localloc.register,newreg);
                               cg.rg[R_INTREGISTER].combine(getsupreg(tregister(regmap[regmapindex])),getsupreg(newreg));
                               // cg.a_reg_sync(current_asmdata.CurrAsmList,newreg);
 {$ifdef DEBUG_SSA}
-                              current_asmdata.CurrAsmList.concat(tai_comment.create(strpnew(varsym.name+' moved from '+
+                              list.concat(tai_comment.create(strpnew(varsym.name+' causes combine '+
+                                generic_regname(tregister(regmap[regmapindex]))+' and '+generic_regname(newreg))));
+                              list.concat(tai_comment.create(strpnew(varsym.name+' moved from '+
                                 generic_regname(varsym.localloc.register)+' to '+generic_regname(tregister(regmap[regmapindex])))));
 {$endif DEBUG_SSA}
                               { entry used }
@@ -2715,10 +2719,10 @@ implementation
                         rr.new := cg.getfpuregister(current_asmdata.CurrAsmList,n.location.size);
 {$ifdef SUPPORT_MMX}
                       LOC_CMMXREGISTER:
-                        rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
+                        rr.new := tcgx86(cg).getmmxregister(list);
 {$endif SUPPORT_MMX}
                       LOC_CMMREGISTER:
-                        rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
+                        rr.new := cg.getmmregister(list,n.location.size);
 }
                     end;
                   end;
@@ -2729,16 +2733,16 @@ implementation
       end;
 
 
-    procedure restore_regmapping(lifeinfo : TDFASet;var regmap : TFPList);
+    procedure restore_regmapping(list : TAsmList;lifeinfo : TDFASet;var regmap : TFPList);
       var
         varsym : tabstractnormalvarsym;
         i,
         regmapindex : integer;
-        newreg : tregister;
+        newreg,newreg2 : tregister;
       begin
         if not(pi_has_dfa_info in current_procinfo.flags) then
           exit;
-        generate_phiregmap(lifeinfo,regmap);
+        generate_phiregmap(list,lifeinfo,regmap);
         { replace all register vars }
         regmapindex:=0;
 
@@ -2765,10 +2769,23 @@ implementation
                           else
 {$endif cpu64bit}
                             begin
-                              newreg:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
+                              newreg:=cg.getintregister(list,OS_INT);
+                              // newreg2:=cg.getintregister(list,OS_INT);
+                              {
+                              cg.a_load_reg_reg(list,varsym.localloc.size,varsym.localloc.size,
+                                tregister(regmap[regmapindex]),newreg);
+                              }
                               cg.rg[R_INTREGISTER].combine(getsupreg(tregister(regmap[regmapindex])),getsupreg(newreg));
-                              varsym.localloc.register:=newreg;
+                              {
+                              cg.a_load_reg_reg(list,varsym.localloc.size,varsym.localloc.size,
+                                newreg,newreg2);
+                              varsym.localloc.register:=newreg2;
+                              }
                               // cg.a_reg_sync(current_asmdata.CurrAsmList,varsym.localloc.register);
+{$ifdef DEBUG_SSA}
+                              list.concat(tai_comment.create(strpnew(varsym.name+' causes combine '+
+                                generic_regname(tregister(regmap[regmapindex]))+' and '+generic_regname(newreg))));
+{$endif DEBUG_SSA}
 {$ifdef DEBUG_SSA}
 //                              current_asmdata.CurrAsmList.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
 {$endif DEBUG_SSA}
@@ -2781,10 +2798,10 @@ implementation
                         rr.new := cg.getfpuregister(current_asmdata.CurrAsmList,n.location.size);
 {$ifdef SUPPORT_MMX}
                       LOC_CMMXREGISTER:
-                        rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
+                        rr.new := tcgx86(cg).getmmxregister(list);
 {$endif SUPPORT_MMX}
                       LOC_CMMREGISTER:
-                        rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
+                        rr.new := cg.getmmregister(list,n.location.size);
 }
                     end;
                   end;
@@ -2846,7 +2863,7 @@ implementation
         end;
 
 
-    procedure update_phi(lifeinfo : TDFASet;var regmap : TFPList);
+    procedure update_phi(list:TAsmList;lifeinfo : TDFASet;var regmap : TFPList);
       var
         varsym : tabstractnormalvarsym;
         i,
@@ -2854,7 +2871,7 @@ implementation
       begin
         if not(pi_has_dfa_info in current_procinfo.flags) then
           exit;
-        generate_phiregmap(lifeinfo,regmap);
+        generate_phiregmap(list,lifeinfo,regmap);
         { replace all register vars }
         regmapindex:=0;
 
@@ -2882,9 +2899,9 @@ implementation
 {$endif cpu64bit}
                             begin
                               varsym.localloc.register:=tregister(regmap[regmapindex]);
-                              // cg.a_reg_sync(current_asmdata.CurrAsmList,varsym.localloc.register);
+//                              cg.a_reg_sync(list,varsym.localloc.register);
 {$ifdef DEBUG_SSA}
-                              current_asmdata.CurrAsmList.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
+                              list.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
 {$endif DEBUG_SSA}
                               { entry used }
                               inc(regmapindex);
@@ -2895,10 +2912,10 @@ implementation
                         rr.new := cg.getfpuregister(current_asmdata.CurrAsmList,n.location.size);
 {$ifdef SUPPORT_MMX}
                       LOC_CMMXREGISTER:
-                        rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
+                        rr.new := tcgx86(cg).getmmxregister(list);
 {$endif SUPPORT_MMX}
                       LOC_CMMREGISTER:
-                        rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
+                        rr.new := cg.getmmregister(list,n.location.size);
 }
                     end;
                   end;

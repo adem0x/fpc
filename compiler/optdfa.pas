@@ -20,7 +20,7 @@
  ****************************************************************************
 }
 
-{ $define DEBUG_DFA}
+{$define DEBUG_DFA}
 { $define EXTDEBUG_DFA}
 
 { this unit implements routines to perform dfa }
@@ -37,7 +37,8 @@ unit optdfa;
       if the tree has been changed without updating dfa }
     procedure resetdfainfo(node : tnode);
 
-    procedure createdfainfo(node : tnode);
+    { creates data flow information for node, returns the node used as result node }
+    function createdfainfo(node : tnode) : tnode;
 
   implementation
 
@@ -132,7 +133,7 @@ unit optdfa;
       end;
 
 
-    procedure CreateLifeInfo(node : tnode;map : TIndexedNodeSet);
+    function CreateLifeInfo(node : tnode;map : TIndexedNodeSet) : tnode;
 
       var
         changed : boolean;
@@ -213,6 +214,10 @@ unit optdfa;
           if nf_processing in node.flags then
             exit;
           include(node.flags,nf_processing);
+
+
+          if not(assigned(node.successor)) and (node<>resultnode) then
+            node.successor:=resultnode;
 
           if assigned(node.successor) then
             CreateInfo(node.successor);
@@ -330,7 +335,6 @@ unit optdfa;
                     dfainfo.map:=map;
                     foreachnodestatic(pm_postprocess,tifnode(node).left,@AddDefUse,@dfainfo);
                   end;
-                calclife(node);
 
                 { create life info for then and else node }
                 CreateInfo(tifnode(node).right);
@@ -341,13 +345,18 @@ unit optdfa;
 
                 { get life info from then branch }
                 if assigned(tifnode(node).right) then
-                  DFASetIncludeSet(l,tifnode(node).right.optinfo^.life);
+                  DFASetIncludeSet(l,tifnode(node).right.optinfo^.life)
+                else
+                  if assigned(node.successor) then
+                    DFASetIncludeSet(l,node.successor.optinfo^.life);
+
                 { get life info from else branch }
                 if assigned(tifnode(node).t1) then
                   DFASetIncludeSet(l,tifnode(node).t1.optinfo^.life)
                 else
                   if assigned(node.successor) then
                     DFASetIncludeSet(l,node.successor.optinfo^.life);
+
                 { add use info from the cond. expression }
                 DFASetIncludeSet(l,tifnode(node).optinfo^.use);
                 { finally, update the life info of the node }
@@ -446,10 +455,11 @@ unit optdfa;
                 calclife(node);
               end;
             else
-              begin
-                writeln(nodetype2str[node.nodetype]);
-                internalerror(2007050502);
-              end;
+              if node<>resultnode then
+                begin
+                  writeln(nodetype2str[node.nodetype]);
+                  internalerror(2007050502);
+                end;
           end;
 
           // exclude(node.flags,nf_processing);
@@ -470,6 +480,7 @@ unit optdfa;
             dfarec.def:=@resultnode.optinfo^.def;
             dfarec.map:=map;
             AddDefUse(resultnode,@dfarec);
+            resultnode.optinfo^.life:=resultnode.optinfo^.use;
           end
         else
           resultnode:=nil;
@@ -487,7 +498,7 @@ unit optdfa;
 {$ifdef DEBUG_DFA}
         writeln('DFA solver iterations: ',runs);
 {$endif DEBUG_DFA}
-        resultnode.free;
+        result:=resultnode;
       end;
 
 
@@ -498,7 +509,7 @@ unit optdfa;
       end;
 
 
-    procedure createdfainfo(node : tnode);
+    function createdfainfo(node : tnode) : tnode;
       begin
         if not(assigned(current_procinfo.nodemap)) then
           current_procinfo.nodemap:=TIndexedNodeSet.Create;
@@ -506,7 +517,7 @@ unit optdfa;
         SetNodeSucessors(node);
 
         { now, collect life information }
-        CreateLifeInfo(node,current_procinfo.nodemap);
+        result:=CreateLifeInfo(node,current_procinfo.nodemap);
       end;
 
 end.

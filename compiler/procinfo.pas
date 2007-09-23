@@ -35,7 +35,9 @@ unit procinfo;
       { aasm }
       cpubase,cpuinfo,cgbase,cgutils,
       aasmbase,aasmtai,aasmdata,
-      optutils
+
+      { this is for the dfa optimizer, it adds not so nice cyclic interdependencies }
+      node,optutils
       ;
 
     const
@@ -105,6 +107,8 @@ unit procinfo;
 
           { node to index mapping for the node level optimizer }
           nodemap : TIndexedNodeSet;
+
+          resultnode : tnode;
 
           constructor create(aparent:tprocinfo);virtual;
           destructor destroy;override;

@@ -766,7 +766,8 @@ implementation
                   pi_needs_implicit_finally,pi_has_implicit_finally,pi_has_stackparameter,
                   pi_needs_stackframe])=[]) then
           begin
-            createdfainfo(code);
+            { create dfa and store used dummy result node }
+            resultnode:=createdfainfo(code);
             include(flags,pi_has_dfa_info);
             { when life info is available, we can give more sophisticated warning about unintialized
               variables }
@@ -903,6 +904,7 @@ implementation
 
             { generate code for the node tree }
             do_secondpass(code);
+
             aktproccode.concatlist(current_asmdata.CurrAsmList);
 {$ifdef i386}
             procdef.fpu_used:=code.registersfpu;
@@ -940,6 +942,11 @@ implementation
               aktproccode.concatlist(templist);
             { insert exit label at the correct position }
             cg.a_label(templist,CurrExitLabel);
+
+            { add phi node for exit }
+            if assigned(resultnode) and has_life_info(resultnode) then
+              update_phi(templist,resultnode.optinfo^.life,resultnode.optinfo^.regmap);
+
             if assigned(exitlabel_asmnode.currenttai) then
               aktproccode.insertlistafter(exitlabel_asmnode.currenttai,templist)
             else
