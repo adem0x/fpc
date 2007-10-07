@@ -31,14 +31,29 @@ unit optdfa;
   interface
 
     uses
-      node;
+      node,procinfo,optutils;
 
-    { reset all dfa info, this is required before creating dfa info
-      if the tree has been changed without updating dfa }
-    procedure resetdfainfo(node : tnode);
+    type
+      TDFABuilder = class
+      protected
+        procedure CreateLifeInfo(node : tnode;map : TIndexedNodeSet);
+      public
+        resultnode : tnode;
+        nodemap : TIndexedNodeSet;
+        { reset all dfa info, this is required before creating dfa info
+          if the tree has been changed without updating dfa }
+        procedure resetdfainfo(node : tnode);
 
-    { creates data flow information for node, returns the node used as result node }
-    function createdfainfo(node : tnode) : tnode;
+        procedure createdfainfo(node : tnode);
+        destructor destroy;override;
+      end;
+
+      tdfaprocinfo = class(tprocinfo)
+        dfabuilder : TDFABuilder;
+      end;
+
+      { wrapper to hide the type cast }
+      function get_current_dfabuilder : TDFABuilder;inline;
 
   implementation
 
@@ -48,11 +63,14 @@ unit optdfa;
       cpuinfo,
       symconst,symdef,
       defutil,
-      procinfo,
       nutils,
       nbas,nflw,ncon,ninl,ncal,nset,
-      optbase,optutils;
+      optbase;
 
+    function get_current_dfabuilder : TDFABuilder;inline;
+      begin
+        result:=tdfaprocinfo(current_procinfo).dfabuilder;
+      end;
 
     (*
     function initnodes(var n:tnode; arg: pointer) : foreachnoderesult;
@@ -133,11 +151,9 @@ unit optdfa;
       end;
 
 
-    function CreateLifeInfo(node : tnode;map : TIndexedNodeSet) : tnode;
-
+    procedure TDFABuilder.CreateLifeInfo(node : tnode;map : TIndexedNodeSet);
       var
         changed : boolean;
-        Resultnode : TNode;
 
       procedure CreateInfo(node : tnode);
 
@@ -498,26 +514,33 @@ unit optdfa;
 {$ifdef DEBUG_DFA}
         writeln('DFA solver iterations: ',runs);
 {$endif DEBUG_DFA}
-        result:=resultnode;
       end;
 
 
     { reset all dfa info, this is required before creating dfa info
       if the tree has been changed without updating dfa }
-    procedure resetdfainfo(node : tnode);
+    procedure TDFABuilder.resetdfainfo(node : tnode);
       begin
       end;
 
 
-    function createdfainfo(node : tnode) : tnode;
+    procedure TDFABuilder.createdfainfo(node : tnode);
       begin
-        if not(assigned(current_procinfo.nodemap)) then
-          current_procinfo.nodemap:=TIndexedNodeSet.Create;
+        if not(assigned(nodemap)) then
+          nodemap:=TIndexedNodeSet.Create;
         { add controll flow information }
         SetNodeSucessors(node);
 
         { now, collect life information }
-        result:=CreateLifeInfo(node,current_procinfo.nodemap);
+        CreateLifeInfo(node,nodemap);
+      end;
+
+
+    destructor TDFABuilder.Destroy;
+      begin
+        Resultnode.free;
+        nodemap.free;
+        inherited destroy;
       end;
 
 end.

@@ -168,7 +168,8 @@ implementation
     regvars,dbgbase,
     pass_1,pass_2,
     nbas,ncon,nld,nmem,nutils,
-    tgobj,cgobj
+    tgobj,cgobj,
+    optdfa
 {$ifdef powerpc}
     , cpupi
 {$endif}
@@ -2622,14 +2623,14 @@ implementation
         if not(assigned(regmap)) then
           begin
             regmap:=TFPList.Create;
-            for i:=0 to current_procinfo.nodemap.count-1 do
+            for i:=0 to get_current_dfabuilder.nodemap.count-1 do
               begin
                 if DFASetIn(lifeinfo,i) then
-                  case tnode(current_procinfo.nodemap[i]).nodetype of
+                  case tnode(get_current_dfabuilder.nodemap[i]).nodetype of
                     loadn:
                       begin
                         { reg. var? }
-                        varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
+                        varsym:=tabstractnormalvarsym(tloadnode(get_current_dfabuilder.nodemap[i]).symtableentry);
                         case varsym.localloc.loc of
                           LOC_CREGISTER:
                             begin
@@ -2677,14 +2678,14 @@ implementation
         old_add_reg_instruction_hook:=add_reg_instruction_hook;
         // add_reg_instruction_hook:=nil;
         writeln('Regmap size: ',regmap.count);
-        for i:=0 to current_procinfo.nodemap.count-1 do
+        for i:=0 to get_current_dfabuilder.nodemap.count-1 do
           begin
             if DFASetIn(lifeinfo,i) then
-              case tnode(current_procinfo.nodemap[i]).nodetype of
+              case tnode(get_current_dfabuilder.nodemap[i]).nodetype of
                 loadn:
                   begin
                     { reg. var? }
-                    varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
+                    varsym:=tabstractnormalvarsym(tloadnode(get_current_dfabuilder.nodemap[i]).symtableentry);
                     case varsym.localloc.loc of
                       LOC_CREGISTER:
                         begin
@@ -2746,15 +2747,15 @@ implementation
         { replace all register vars }
         regmapindex:=0;
 
-        for i:=0 to current_procinfo.nodemap.count-1 do
+        for i:=0 to get_current_dfabuilder.nodemap.count-1 do
           begin
             if (assigned(lifeinfo) and DFASetIn(lifeinfo,i)) or
               not(assigned(lifeinfo)) then
-              case tnode(current_procinfo.nodemap[i]).nodetype of
+              case tnode(get_current_dfabuilder.nodemap[i]).nodetype of
                 loadn:
                   begin
                     { reg. var? }
-                    varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
+                    varsym:=tabstractnormalvarsym(tloadnode(get_current_dfabuilder.nodemap[i]).symtableentry);
                     case varsym.localloc.loc of
                       LOC_CREGISTER:
                         begin
@@ -2821,15 +2822,15 @@ implementation
         if not(assigned(regmap)) then
           begin
             regmap:=TFPList.Create;
-            for i:=0 to current_procinfo.nodemap.count-1 do
+            for i:=0 to get_current_dfabuilder.nodemap.count-1 do
               begin
                 if (assigned(lifeinfo) and DFASetIn(lifeinfo,i)) or
                   not(assigned(lifeinfo))  then
-                  case tnode(current_procinfo.nodemap[i]).nodetype of
+                  case tnode(get_current_dfabuilder.nodemap[i]).nodetype of
                     loadn:
                       begin
                         { reg. var? }
-                        varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
+                        varsym:=tabstractnormalvarsym(tloadnode(get_current_dfabuilder.nodemap[i]).symtableentry);
                         case varsym.localloc.loc of
                           LOC_CREGISTER:
                             begin
@@ -2875,15 +2876,15 @@ implementation
         { replace all register vars }
         regmapindex:=0;
 
-        for i:=0 to current_procinfo.nodemap.count-1 do
+        for i:=0 to get_current_dfabuilder.nodemap.count-1 do
           begin
             if (assigned(lifeinfo) and DFASetIn(lifeinfo,i)) or
               not(assigned(lifeinfo)) then
-              case tnode(current_procinfo.nodemap[i]).nodetype of
+              case tnode(get_current_dfabuilder.nodemap[i]).nodetype of
                 loadn:
                   begin
                     { reg. var? }
-                    varsym:=tabstractnormalvarsym(tloadnode(current_procinfo.nodemap[i]).symtableentry);
+                    varsym:=tabstractnormalvarsym(tloadnode(get_current_dfabuilder.nodemap[i]).symtableentry);
                     case varsym.localloc.loc of
                       LOC_CREGISTER:
                         begin
