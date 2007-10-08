@@ -767,6 +767,7 @@ implementation
           begin
             dfabuilder:=TDFABuilder.Create;
             dfabuilder.createdfainfo(code);
+            include(flags,pi_has_dfa_info);
 
             { when life info is available, we can give more sophisticated warning about unintialized
               variables }
