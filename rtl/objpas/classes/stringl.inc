@@ -1099,6 +1099,10 @@ Function TStringList.Find(const S: string; var Index: Integer): Boolean;
       else
         Middle := Middle + SS;
     end;
+    
+    Index := Middle;
+    if CR > 0 then
+      Inc(Middle);
   end;
 
   function FindOldStyle: Boolean;
