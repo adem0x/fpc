@@ -1960,71 +1960,9 @@ begin
 end;
 
 procedure DoVarClearArray(var v : TVarData);
-var
-  Bounds    : array[0..63] of TVarArrayBound;
-  Positions : array[0..63] of Integer;
 
-  function IncPos(aIdx: Integer): Boolean;
-  begin
-    Result := True;
-    Inc(Positions[aIdx]);
-    if Positions[aIdx] >= Bounds[aIdx].LowBound + Bounds[aIdx].ElementCount then
-      if aIdx = 0 then
-        Result := False
-      else begin
-        Positions[aIdx] := Bounds[aIdx].LowBound;
-        Result := IncPos(aIdx - 1);
-      end;
-  end;
-
-  function PosValid(aIdx: Integer): Boolean;
-  begin
-    repeat
-      Result := Positions[aIdx] < Bounds[aIdx].LowBound + Bounds[aIdx].ElementCount;
-      Dec(aIdx);
-    until not Result or (aIdx < 0);
-  end;
-
-
-var
-  ArrayPtr  : PVarArray;
-  HighBound : Integer;
-  Dims      : Integer;
-  Ptr       : Pointer;
-  i         : Integer;
 begin
-  with v do begin
-    if vType and varArray = 0 then
-      VarResultCheck(VAR_INVALIDARG);
-
-    if (vType and varTypeMask) = varVariant then begin
-
-      if vType and varByRef = 0 then
-        ArrayPtr := vArray
-      else
-        ArrayPtr := PVarArray(vPointer^);
-
-      // figure our Bounds
-      Dims := ArrayPtr^.DimCount;
-      for i := 0 to Pred(Dims) do
-        with Bounds[i] do begin
-          VarResultCheck(SafeArrayGetLBound(ArrayPtr, Succ(i), LowBound));
-          VarResultCheck(SafeArrayGetUBound(ArrayPtr, Succ(i), HighBound));
-          ElementCount := HighBound - LowBound + 1;
-        end;
-
-      for i := 0 to Pred(Dims) do
-        Positions[i] := Bounds[i].LowBound;
-
-      repeat
-        if PosValid(Pred(Dims)) then begin
-          VarResultCheck(SafeArrayPtrOfIndex(ArrayPtr, PVarArrayCoorArray(@Positions), Ptr));
-          DoVarClear(PVarData(Ptr)^);
-        end;
-      until not IncPos(Pred(Dims));
-    end;
-  end;
-  VarResultCheck(VariantClear(V));
+  // Tainted
 end;
 
 procedure DoVarClearComplex(var v : TVarData);
