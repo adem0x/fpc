@@ -573,11 +573,7 @@ end;
 
 procedure TField.CalcLookupValue;
 begin
-  if FLookupCache then
-    Value := LookupList.ValueOfKey(FDataSet.FieldValues[FKeyFields])
-  else if (FLookupDataSet <> nil) and FLookupDataSet.Active then
-    Value := FLookupDataSet.Lookup(FLookupKeyFields,
-      FDataSet.FieldValues[FKeyFields], FLookupResultField);
+  // Tainted
 end;
 
 function TField.getIndex : longint;
@@ -650,32 +646,9 @@ begin
 end;
 
 procedure TField.RefreshLookupList;
-var SaveActive: Boolean;
+
 begin
-  if (FLookupDataSet <> nil) And (FLookupKeyFields <> '') And
-     (FlookupResultField <> '') And (FKeyFields <> '') then begin
-    SaveActive := FLookupDataSet.Active;
-    with FLookupDataSet do
-    try
-      Active := True;
-      FFields.CheckFieldNames(FLookupKeyFields);
-      FieldByName(FLookupResultField);
-      LookupList.Clear;
-      DisableControls;
-      try
-        First;
-        while not Eof do begin
-          FLookupList.Add(FieldValues[FLookupKeyFields],
-            FieldValues[FLookupResultField]);
-          Next;
-        end;
-      finally
-        EnableControls;
-      end;
-    finally
-      Active := SaveActive;
-    end;
-  end;
+  // Tainted
 end;
 
 procedure TField.Notification(AComponent: TComponent; Operation: TOperation);
