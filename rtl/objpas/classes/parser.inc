@@ -163,96 +163,9 @@ end;
 
 
 Function TParser.NextToken: Char;
-var
-  CharCount         : Integer;
- 
-  procedure PutChar(achar: Word);
-  begin
-    inc(CharCount);
-    if length(fString) < CharCount then begin
-     setlength(fString,length(fString) + length(fString) div 4 + 64);
-    end;
-    fString[CharCount]:= WideChar(achar);
-  end;
- 
-var
-  I                : Integer;
-  P                : PChar;
+
 begin
-  SkipBlanks;
-  P := FSourcePtr;
-  FTokenPtr := P;
-  case P^ of
-    'A'..'Z', 'a'..'z', '_':
-      begin
-        Inc(P);
-        while P^ in ['A'..'Z', 'a'..'z', '0'..'9', '_'] do Inc(P);
-        Result := toSymbol;
-      end;
-    '#', '''':
-      begin
-        CharCount:= 0;
-        while True do
-          case P^ of
-            '#':
-              begin
-                Inc(P);
-                I := 0;
-                while P^ in ['0'..'9'] do
-                begin
-                  I := I * 10 + (Ord(P^) - Ord('0'));
-                  Inc(P);
-                end;
-                PutChar(I)
-              end;
-            '''':
-              begin
-                Inc(P);
-                while True do
-                begin
-                  case P^ of
-                    #0, #10, #13:
-                      Error(SInvalidString);
-                    '''':
-                      begin
-                        Inc(P);
-                        if P^ <> '''' then Break;
-                      end;
-                  end;
-                  PutChar(Word(P^));
-                  Inc(P);
-                end;
-              end;
-          else
-            Break;
-          end;
-        setlength(fString,CharCount);
-        Result := toString;
-      end;
-    '$':
-      begin
-        Inc(P);
-        while P^ in ['0'..'9', 'A'..'F', 'a'..'f'] do Inc(P);
-        Result := toInteger;
-      end;
-    '-', '0'..'9':
-      begin
-        Inc(P);
-        while P^ in ['0'..'9'] do Inc(P);
-        Result := toInteger;
-        while (P^ in ['0'..'9', '.', 'e', 'E', '+', '-']) and not
-          ((P[0] = '.') and not (P[1] in ['0'..'9', 'e', 'E'])) do
-        begin
-          Inc(P);
-          Result := toFloat;
-        end;
-      end;
-  else
-    Result := P^;
-    if Result <> toEOF then Inc(P);
-  end;
-  FSourcePtr := P;
-  FToken := Result;
+  // Tainted
 end;
 
 Function TParser.SourcePos: Longint;
@@ -262,23 +175,8 @@ end;
 
 
 Function TParser.TokenComponentIdent: String;
-var
-  P                : PChar;
 begin
-  CheckToken(toSymbol);
-
-  P := FSourcePtr;
-  while P^ = '.' do
-  begin
-    Inc(P);
-    if not (P^ in ['A'..'Z', 'a'..'z', '_']) then
-      Error(SIdentifierExpected);
-    repeat
-      Inc(P)
-    until not (P^ in ['A'..'Z', 'a'..'z', '0'..'9', '_']);
-  end;
-  FSourcePtr := P;
-  Result := TokenString;
+  // Tainted
 end;
 
 Function TParser.TokenFloat: Extended;

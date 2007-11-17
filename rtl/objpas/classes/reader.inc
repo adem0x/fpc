@@ -541,52 +541,10 @@ begin
     raise EReadError.Create(SInvalidPropertyValue);
 end;
 
-procedure RemoveGlobalFixup(Fixup: TPropFixup);
-var
-  i: Integer;
-begin
-  with GlobalFixupList.LockList do
-    try
-      for i := Count - 1 downto 0 do
-        with TPropFixup(Items[i]) do
-          if (FInstance = Fixup.FInstance) and
-            (FPropInfo = Fixup.FPropInfo) then
-          begin
-            Free;
-            Delete(i);
-          end;
-    finally
-      GlobalFixupList.UnlockList;
-    end;
-end;
-
 procedure TReader.DoFixupReferences;
-var
-  i: Integer;
-  CurFixup: TPropFixup;
-  CurName: String;
-  Target: Pointer;
+
 begin
-  if Assigned(FFixups) then
-    try
-      for i := 0 to FFixups.Count - 1 do
-      begin
-        CurFixup := TPropFixup(FFixups[i]);
-        CurName := CurFixup.FName;
-        if Assigned(FOnReferenceName) then
-          FOnReferenceName(Self, CurName);
-        Target := FindNestedComponent(CurFixup.FInstanceRoot, CurName);
-        RemoveGlobalFixup(CurFixup);
-        if (not Assigned(Target)) and CurFixup.MakeGlobalReference then
-        begin
-          GlobalFixupList.Add(CurFixup);
-          FFixups[i] := nil;
-        end else
-          SetOrdProp(CurFixup.FInstance, CurFixup.FPropInfo, PtrUInt(Target));
-      end;
-    finally
-      FreeFixups;
-    end;
+  // Tainted
 end;
 
 procedure TReader.FixupReferences;
@@ -600,16 +558,7 @@ begin
 end;
 
 procedure TReader.FreeFixups;
-var
-  i: Integer;
 begin
-  if Assigned(FFixups) then
-  begin
-    for i := 0 to FFixups.Count - 1 do
-      TPropFixup(FFixups[I]).Free;
-    FFixups.Free;
-    FFixups := nil;
-  end;
 end;
 
 function TReader.NextValue: TValueType;
@@ -668,27 +617,9 @@ begin
 end;
             
 procedure TReader.ReadCollection(Collection: TCollection);
-var
-  Item: TPersistent;
+
 begin
-  Collection.BeginUpdate;
-  try
-    if not EndOfList then
-      Collection.Clear;
-    while not EndOfList do
-    begin
-      if FDriver.NextValue in [vaInt8, vaInt16, vaInt32] then
-        ReadInteger;            { Skip order value }
-      Item := Collection.Add;
-      ReadListBegin;
-      while not EndOfList do
-        ReadProperty(Item);
-      ReadListEnd;
-    end;
-    ReadListEnd;
-  finally
-    Collection.EndUpdate;
-  end;
+  // Tainted.
 end;
 
 function TReader.ReadComponent(Component: TComponent): TComponent;
@@ -1165,7 +1096,8 @@ begin
             ReadCollection(TCollection(GetObjectProp(Instance, PropInfo)));
           end
         else
-          FFixups.Add(TPropFixup.Create(Instance, Root, PropInfo, '', ReadIdent));
+          // Tainted. FFixups.Add(TPropFixup.Create(Instance, Root, PropInfo, '', ReadIdent))
+          ;
       end;
     tkInt64, tkQWord: SetInt64Prop(Instance, PropInfo, ReadInt64);
     else
@@ -1383,13 +1315,7 @@ end;
 
 function TReader.FindComponentClass(const AClassName: String): TComponentClass;
 begin
-  TPersistentClass(Result) := GetFieldClass(Root, AClassName);
-  if not Assigned(Result) and Assigned(FLookupRoot) and (FLookupRoot <> Root) then
-    TPersistentClass(Result) := GetFieldClass(FLookupRoot, AClassName);
-  if Assigned(FOnFindComponentClass) then
-    FOnFindComponentClass(Self, AClassName, Result);
-  if not (Assigned(Result) and Result.InheritsFrom(TComponent)) then
-    raise EClassNotFound.CreateFmt(SClassNotFound, [AClassName]);
+  // Tainted
 end;
 
 

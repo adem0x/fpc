@@ -199,22 +199,14 @@ end;
 
 
 function TCollection.GetNamePath: string;
-Var
-        OwnerName,ThePropName : String;
 begin
-  Result:=ClassName;
-  If GetOwner=Nil then Exit;
-  OwnerName:=GetOwner.GetNamePath;
-  If OwnerName='' then Exit;
-  ThePropName:=PropName;
-  if ThePropName='' then exit;
-  Result:=OwnerName+'.'+PropName;
+  // Tainted
 end;
 
 
 procedure TCollection.Changed;
 begin
-        if FUpdateCount=0 then
+  if FUpdateCount=0 then
     Update(Nil);
 end;
 

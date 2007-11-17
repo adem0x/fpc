@@ -788,46 +788,16 @@ end;
 
 Procedure TStringList.Grow;
 
-Var Extra : Longint;
-
 begin
-  If FCapacity>64 then
-    Extra:=FCapacity Div 4
-  Else If FCapacity>8 Then
-    Extra:=16
-  Else
-    Extra:=4;
-  SetCapacity(FCapacity+Extra);
+  // Tainted
 end;
 
 
 
 Procedure TStringList.QuickSort(L, R: Integer; CompareFn: TStringListSortCompare);
 
-Var I,J, Pivot : Longint;
-
 begin
-  Repeat
-    I:=L;
-    J:=R;
-    Pivot:=(L+R) div 2;
-    Repeat
-      While CompareFn(Self, I, Pivot)<0 do Inc(I);
-      While CompareFn(Self, J, Pivot)>0 do Dec(J);
-      If I<=J then
-        begin
-        ExchangeItems(I,J); // No check, indices are correct.
-        if Pivot=I then
-          Pivot:=J
-        else if Pivot=J then
-          Pivot := I;
-        Inc(I);
-        Dec(j);
-        end;
-    until I>J;
-    If L<J then QuickSort(L,J, CompareFn);
-    L:=I;
-  Until I>=R;
+  // Tainted
 end;
 
 
@@ -1109,33 +1079,8 @@ Function TStringList.DoCompareText(const s1,s2 : string) : PtrInt;
 
 Function TStringList.Find(const S: string; var Index: Integer): Boolean;
 
-{ Searches for the first string <= S, returns True if exact match,
-  sets index to the index f the found string. }
-
-Var I,L,R,Temp : Longint;
-
 begin
-  Result:=False;
-  // Use binary search.
-  L:=0;
-  R:=FCount-1;
-  While L<=R do
-    begin
-    I:=(L+R) div 2;
-    Temp:=DoCompareText(FList^ [I].FString,S);
-    If Temp<0 then
-      L:=I+1
-    else
-      begin
-      R:=I-1;
-      If Temp=0 then
-        begin
-        Result:=True;
-        If Duplicates<>DupAccept then L:=I;
-        end;
-      end;
-    end;
-  Index:=L;
+  // Tainted
 end;
 
 

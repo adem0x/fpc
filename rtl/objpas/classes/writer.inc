@@ -407,130 +407,15 @@ begin
 end;
 
 procedure TWriter.WriteComponent(Component: TComponent);
-var
-  SavedAncestor: TPersistent;
-  SavedRootAncestor, AncestorComponent, CurAncestor: TComponent;
-  i: Integer;
-  s: String;
+
 begin
-  SavedAncestor := Ancestor;
-  SavedRootAncestor := RootAncestor;
-
-  try
-    // The component has to know that it is being written now...
-    Include(Component.FComponentState, csWriting);
-
-    // Locate the component in the ancestor list, if necessary
-    if Assigned(FAncestorList) then
-    begin
-      Ancestor := nil;
-      s := UpperCase(Component.Name);
-      for i := 0 to FAncestorList.Count - 1 do
-      begin
-        CurAncestor := TComponent(FAncestorList[i]);
-        if UpperCase(CurAncestor.Name) = s then
-        begin
-          Ancestor := CurAncestor;
-          break;
-        end;
-      end;
-    end;
-
-    // Do we have to call the OnFindAncestor callback?
-    if Assigned(FOnFindAncestor) and
-      ((not Assigned(Ancestor)) or Ancestor.InheritsFrom(TComponent)) then
-    begin
-      AncestorComponent := TComponent(Ancestor);
-      FOnFindAncestor(Self, Component, Component.Name,
-        AncestorComponent, FRootAncestor);
-      Ancestor := AncestorComponent;
-    end;
-
-    // Finally write the component state
-    Component.WriteState(Self);
-
-    // The writing has been finished now...
-    Exclude(Component.FComponentState, csWriting);
-
-  finally
-    Ancestor := SavedAncestor;
-    FRootAncestor := SavedRootAncestor;
-  end;
+  // Tainted
 end;
 
 procedure TWriter.WriteComponentData(Instance: TComponent);
-var
-  SavedAncestorList: TList;
-  SavedRoot, SavedRootAncestor: TComponent;
-  SavedAncestorPos, SavedChildPos: Integer;
-  Flags: TFilerFlags;
+
 begin
-  // Determine the filer flags to store
-  if Assigned(Ancestor) and ((not (csInline in Instance.ComponentState)) or
-    ((csAncestor in Instance.ComponentState) and Assigned(FAncestorList))) then
-    Flags := [ffInherited]
-  else if csInline in Instance.ComponentState then
-    Flags := [ffInline]
-  else
-    Flags := [];
-
-  if Assigned(FAncestorList) and (FAncestorPos < FAncestorList.Count) and
-    ((not Assigned(Ancestor)) or
-    (TPersistent(FAncestorList[FAncestorPos]) <> Ancestor)) then
-    Include(Flags, ffChildPos);
-
-  Driver.BeginComponent(Instance, Flags, FChildPos);
-
-  if Assigned(FAncestorList) and (FAncestorPos < FAncestorList.Count) then
-  begin
-    if Assigned(Ancestor) then
-      Inc(FAncestorPos);
-    Inc(FChildPos);
-  end;
-
-  // Write property list
-  WriteProperties(Instance);
-  WriteListEnd;
-
-  // Write children list
-  SavedAncestorList := FAncestorList;
-  SavedAncestorPos := FAncestorPos;
-  SavedChildPos := FChildPos;
-  SavedRoot := FRoot;
-  SavedRootAncestor := FRootAncestor;
-  try
-    FAncestorList := nil;
-    FAncestorPos := 0;
-    FChildPos := 0;
-    if not IgnoreChildren then
-      try
-        // Set up the ancestor list if we have an ancestor
-        if FAncestor is TComponent then
-        begin
-          if csInline in TComponent(FAncestor).ComponentState then
-            FRootAncestor := TComponent(FAncestor);
-          FAncestorList := TList.Create;
-          TComponent(FAncestor).GetChildren(@AddToAncestorList, FRootAncestor);
-        end;
-
-        if csInline in Instance.ComponentState then
-          FRoot := Instance;
-
-        Instance.GetChildren(@WriteComponent, FRoot);
-
-      finally
-        FAncestorList.Free;
-      end;
-
-  finally
-    FAncestorList := SavedAncestorList;
-    FAncestorPos := SavedAncestorPos;
-    FChildPos := SavedChildPos;
-    FRoot := SavedRoot;
-    FRootAncestor := SavedRootAncestor;
-  end;
-
-  WriteListEnd;
+  // Tainted
 end;
 
 procedure TWriter.WriteDescendent(ARoot: TComponent; AAncestor: TComponent);
@@ -589,31 +474,8 @@ begin
 end;
 
 procedure TWriter.WriteProperties(Instance: TPersistent);
-var
-  i, PropCount: Integer;
-  PropInfo: PPropInfo;
-  PropList: PPropList;
 begin
-  { First step: Write the properties given by the RTTI for Instance }
-  PropCount := GetTypeData(Instance.ClassInfo)^.PropCount;
-  if PropCount > 0 then
-  begin
-    GetMem(PropList, PropCount * SizeOf(PPropInfo));
-    try
-      GetPropInfos(Instance.ClassInfo, PropList);
-      for i := 0 to PropCount - 1 do
-      begin
-        PropInfo := PropList^[i];
-        if IsStoredProp(Instance, PropInfo) then
-          WriteProperty(Instance, PropInfo);
-      end;
-    finally
-      FreeMem(PropList);
-    end;
-  end;
-
-  { Second step: Give Instance the chance to write its own private data }
-  Instance.DefineProperties(Self);
+  // Tainted
 end;
 
 procedure TWriter.WriteProperty(Instance: TPersistent; PropInfo: Pointer);
