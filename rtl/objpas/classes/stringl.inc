@@ -1079,8 +1079,49 @@ Function TStringList.DoCompareText(const s1,s2 : string) : PtrInt;
 
 Function TStringList.Find(const S: string; var Index: Integer): Boolean;
 
+  function FindInSorted: Boolean;
+  var
+    i, Middle,
+    SS, CR: Integer; // slice size and compare result :)
+  begin
+    Result := False;
+
+    Middle := Count div 2;
+    SS := Middle;
+    for i := 1 to Middle do begin
+      CR := DoCompareText(S, Self[Middle]);
+      SS := SS div 2 + SS mod 2;
+      if CR = 0 then begin
+        Index := Middle;
+        Exit(True);
+      end else if CR < 0 then
+        Middle := Middle - SS
+      else
+        Middle := Middle + SS;
+    end;
+  end;
+
+  function FindOldStyle: Boolean;
+  var
+    i: Integer;
+  begin
+    Result := False;
+    Index := Count;
+
+    for i := 0 to Count - 1 do
+      if DoCompareText(S, Self[i]) = 0 then begin
+        Index := i;
+        Exit(True);
+      end;
+  end;
+
 begin
-  // Tainted
+  Result := False;
+
+  if Sorted then
+    Result := FindInSorted
+  else
+    Result := FindOldStyle;
 end;
 
 
