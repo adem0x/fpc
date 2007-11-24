@@ -199,8 +199,13 @@ end;
 
 
 function TCollection.GetNamePath: string;
+var o : TObject;
 begin
-  // Tainted
+  o:=getowner;
+  if assigned(o) and (propname<>'') and (o IS TPersistent) then 
+     result:=TPersistent(o).getnamepath+'.'+propname
+   else
+     result:=classname;
 end;
 
 
