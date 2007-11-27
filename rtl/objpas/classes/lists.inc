@@ -41,17 +41,7 @@ begin
 end;
 
 function TFPList.Extract(Item: Pointer): Pointer;
-var
-  i : Integer;
 begin
-  result := nil;
-  i := IndexOf(item);
-  if i >= 0 then
-   begin
-     Result := item;
-     FList^[i] := nil;
-     Delete(i);
-   end;
 end;
 
 procedure TFPList.SetCapacity(NewCapacity: Integer);
@@ -281,34 +271,7 @@ end;
 
 
 procedure TFPList.Assign(Obj: TFPList;AOperator: TListAssignOp = laCopy; ListB: TFPList = nil);
-var
-  i: Integer;
-  HelperList : TFPList;
 begin
-  if assigned(ListB) then
-    begin
-      HelperList:=ListB;
-      Assign(Obj);
-    end
-  else
-    HelperList:=Obj;
-  case AOperator of
-    laCopy:
-      begin
-        Clear;
-        Capacity:=HelperList.Capacity;
-        for i := 0 to HelperList.Count - 1 do
-          Add(HelperList[i]);
-      end;
-    laSrcUnique:
-      begin
-        for i:=Count-1 downto 0 do
-          if HelperList.IndexOf(Items[i])<>-1 then
-            Delete(i);
-      end;
-    else
-      RunError(217);
-  end;
 end;
 
 
