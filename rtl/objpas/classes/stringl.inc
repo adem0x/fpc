@@ -795,9 +795,46 @@ end;
 
 
 Procedure TStringList.QuickSort(L, R: Integer; CompareFn: TStringListSortCompare);
-
+var
+  Pivot, vL, vR: Integer;
+  Temp: TStringItem;
 begin
-  // Tainted
+  if R - L <= 1 then begin // a little bit of time saver
+    if L < R then
+      if CompareFn(Self, L, R) > 0 then begin
+        Temp := Self[L];
+        Self[L] := Self[R];
+        Self[R] := Temp;
+      end;
+    Exit;
+  end;
+
+  vL := L;
+  vR := R;
+
+  Pivot := L + Random(R - L); // they say random is best
+
+  while vL < vR do begin
+    while (vL < Pivot) and (CompareFn(Self, vL, Pivot) <= 0) do
+      Inc(vL);
+
+    while (vR > Pivot) and (CompareFn(Self, vR, Pivot) > 0) do
+      Dec(vR);
+
+    Temp := FList^[vL];
+    FList^[vL] := FList^[vR];
+    FList^[vR] := Temp;
+
+    if Pivot = vL then // swap pivot if we just hit it from one side
+      Pivot := vR
+    else if Pivot = vR then
+      Pivot := vL;
+  end;
+
+  if Pivot - 1 >= L then
+    QuickSort(L, Pivot - 1, CompareFn);
+  if Pivot + 1 <= R then
+    QuickSort(Pivot + 1, R, CompareFn);
 end;
 
 
