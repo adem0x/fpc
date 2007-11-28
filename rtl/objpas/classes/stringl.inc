@@ -797,15 +797,12 @@ end;
 Procedure TStringList.QuickSort(L, R: Integer; CompareFn: TStringListSortCompare);
 var
   Pivot, vL, vR: Integer;
-  Temp: TStringItem;
 begin
   if R - L <= 1 then begin // a little bit of time saver
     if L < R then
-      if CompareFn(Self, L, R) > 0 then begin
-        Temp := Self[L];
-        Self[L] := Self[R];
-        Self[R] := Temp;
-      end;
+      if CompareFn(Self, L, R) > 0 then
+        ExchangeItems(L, R);
+
     Exit;
   end;
 
@@ -821,9 +818,7 @@ begin
     while (vR > Pivot) and (CompareFn(Self, vR, Pivot) > 0) do
       Dec(vR);
 
-    Temp := FList^[vL];
-    FList^[vL] := FList^[vR];
-    FList^[vR] := Temp;
+    ExchangeItems(vL, vR);
 
     if Pivot = vL then // swap pivot if we just hit it from one side
       Pivot := vR
