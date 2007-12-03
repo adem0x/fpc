@@ -85,6 +85,7 @@ const
   toString  = Char(2);
   toInteger = Char(3);
   toFloat   = Char(4);
+  toWString = Char(5);
 
 Const
   FilerSignature : Array[1..4] of char = 'TPF0';
@@ -1250,20 +1251,39 @@ type
 
   TParser = class(TObject)
   private
-    FStream: TStream;
-    FOrigin: Longint;
-    FBuffer: PChar;
-    FBufPtr: PChar;
-    FBufEnd: PChar;
-    FSourcePtr: PChar;
-    FSourceEnd: PChar;
-    FTokenPtr: PChar;
-    FString: widestring;
-    FSourceLine: Integer;
-    FSaveChar: Char;
-    FToken: Char;
-    procedure ReadBuffer;
-    procedure SkipBlanks;
+    fStream : TStream;
+    fBuf : pchar;
+    fBufLen : integer;
+    fPos : integer;
+    fDeltaPos : integer;
+    fFloatType : char;
+    fSourceLine : integer;
+    fToken : char;
+    fEofReached : boolean;
+    fLastTokenStr : string;
+    fLastTokenWStr : widestring;
+    function GetTokenName(aTok : char) : string;
+    procedure LoadBuffer;
+    procedure CheckLoadBuffer; inline;
+    procedure ProcessChar; inline;
+    function IsNumber : boolean; inline;
+    function IsHexNum : boolean; inline;
+    function IsAlpha : boolean; inline;
+    function IsAlphaNum : boolean; inline;
+    function GetHexValue(c : char) : byte; inline;
+    function GetAlphaNum : string;
+    procedure HandleNewLine;
+    procedure SkipSpaces;
+    procedure SkipWhitespace;
+    procedure HandleEof;
+    procedure HandleAlphaNum;
+    procedure HandleNumber;
+    procedure HandleHexNumber;
+    function HandleQuotedString : string;
+    function HandleDecimalString(var ascii : boolean) : widestring;
+    procedure HandleString;
+    procedure HandleMinus;
+    procedure HandleUnknown;
   public
     constructor Create(Stream: TStream);
     destructor Destroy; override;
@@ -1275,16 +1295,16 @@ type
     procedure HexToBinary(Stream: TStream);
     function NextToken: Char;
     function SourcePos: Longint;
-    function TokenComponentIdent: String;
+    function TokenComponentIdent: string;
     function TokenFloat: Extended;
-    function TokenInt: Longint;
+    function TokenInt: Int64;
     function TokenString: string;
-    function TokenWideString: widestring;
+    function TokenWideString: WideString;
     function TokenSymbolIs(const S: string): Boolean;
-    property SourceLine: Integer read FSourceLine;
-    property Token: Char read FToken;
+    property FloatType: Char read fFloatType;
+    property SourceLine: Integer read fSourceLine;
+    property Token: Char read fToken;
   end;
-
 
 { TThread }
 
