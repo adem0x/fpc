@@ -372,6 +372,7 @@ begin
   end;
   if i>0 then
     Stream.WriteBuffer(outbuf[0],i);
+  NextToken;
 end;
 
 function TParser.NextToken: Char;
@@ -420,7 +421,8 @@ end;
 
 function TParser.TokenInt: Int64;
 begin
-  Result:=StrToInt64(fLastTokenStr);
+  if not TryStrToInt64(fLastTokenStr,Result) then
+    Result:=Int64(StrToQWord(fLastTokenStr)); //second chance for malformed files
 end;
 
 function TParser.TokenString: string;
