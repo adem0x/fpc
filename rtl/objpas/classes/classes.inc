@@ -193,6 +193,9 @@ function CheckSynchronize(timeout : longint=0) : boolean;
 { TPersistent implementation }
 {$i persist.inc }
 
+{$i sllist.inc}
+{$i resref.inc}
+
 { TComponent implementation }
 {$i compon.inc}
 
@@ -649,47 +652,6 @@ begin
   finally
     FileStream.Free;
   end;
-end;
-
-
-procedure GlobalFixupReferences;
-
-begin
-  // Tainted
-end;
-
-
-procedure GetFixupReferenceNames(Root: TComponent; Names: TStrings);
-begin
-  // Tainted
-end;
-
-
-procedure GetFixupInstanceNames(Root: TComponent; const ReferenceRootName: string; Names: TStrings);
-  
-begin
-  // Tainted
-end;
-
-
-procedure RedirectFixupReferences(Root: TComponent; const OldRootName, NewRootName: string);
-
-begin
-  // Tainted
-end;
-
-
-procedure RemoveFixupReferences(Root: TComponent; const RootName: string);
-
-begin
-  // Tainted
-end;
-
-
-procedure RemoveFixups(Instance: TPersistent);
-
-begin
-  // Tainted
 end;
 
 
