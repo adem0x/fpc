@@ -1780,7 +1780,7 @@ procedure RedirectFixupReferences(Root: TComponent; const OldRootName,
   NewRootName: string);
 procedure RemoveFixupReferences(Root: TComponent; const RootName: string);
 procedure RemoveFixups(Instance: TPersistent);
-function FindNestedComponent(Root: TComponent; const NamePath: string): TComponent;
+Function FindNestedComponent(Root : TComponent; APath : String; CStyle : Boolean = True) : TComponent;
 
 procedure BeginGlobalLoading;
 procedure NotifyGlobalLoading;

@@ -655,10 +655,49 @@ begin
 end;
 
 
-function FindNestedComponent(Root: TComponent; const NamePath: string): TComponent;
+Function FindNestedComponent(Root : TComponent; APath : String; CStyle : Boolean = True) : TComponent;
 
+  Function GetNextName : String; inline;
+  
+  Var
+    P : Integer;
+    CM : Boolean;
+    
+  begin
+    P:=Pos('.',APath);
+    CM:=False;
+    If (P=0) then
+      begin
+      If CStyle then
+        begin
+        P:=Pos('->',APath);
+        CM:=P<>0;
+        end;
+      If (P=0) Then
+        P:=Length(APath)+1;
+      end;
+    Result:=Copy(APath,1,P-1);
+    Delete(APath,1,P+Ord(CM));
+  end;
+
+Var
+  C : TComponent;
+  S : String;
 begin
-  // Tainted
+  If (APath='') then
+    Result:=Nil
+  else
+    begin
+    Result:=Root;
+    While (APath<>'') And (Result<>Nil) do
+      begin
+      C:=Result;
+      S:=Uppercase(GetNextName);
+      Result:=C.FindComponent(S);
+      If (Result=Nil) And (S='OWNER') then
+        Result:=C;
+      end;
+    end;
 end;
 
 threadvar
