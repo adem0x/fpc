@@ -14,9 +14,13 @@ type
   end;  
 
   // Linked list of TPersistent items that have unresolved properties.  
+
+  { TUnResolvedInstance }
+
   TUnResolvedInstance = Class(TLinkedListItem)
     Instance : TPersistent; // Instance we're handling unresolveds for
     FUnresolved : TLinkedList; // The list
+    Function AddReference(ARoot : TComponent; APropInfo : PPropInfo; AGlobal,ARelative : String) : TUnresolvedReference;
     Function RootUnresolved : TUnresolvedReference; inline; // Return root element in list.
     Function ResolveReferences : Boolean; // Return true if all unresolveds were resolved.
   end;
@@ -70,20 +74,42 @@ type
 var
   NeedResolving : TLinkedList;
   ResolveSection : TRTLCriticalSection;
+  LastAddInstance : TUnresolvedInstance;
 
 // Add an instance to the global list of instances which need resolving.
+Function FindUnresolvedInstance(AInstance: TPersistent) : TUnResolvedInstance;
+
+begin
+  Result:=Nil;
+  EnterCriticalSection(ResolveSection);
+  Try
+    If Assigned(NeedResolving) then
+      begin
+      Result:=TUnResolvedInstance(NeedResolving.Root);
+      While (Result<>Nil) and (Result.Instance<>AInstance) do
+        Result:=TUnResolvedInstance(Result.Next);
+      end;
+  finally
+    LeaveCriticalSection(ResolveSection);
+  end;
+end;
+
 Function AddtoResolveList(AInstance: TPersistent) : TUnResolvedInstance;
 
 begin
-  EnterCriticalSection(ResolveSection);
-  Try
-    If not Assigned(NeedResolving) then
-      NeedResolving:=TLinkedList.Create(TUnResolvedInstance);
-    Result:=NeedResolving.Add as TUnResolvedInstance;
-    Result.Instance:=AInstance;
-  finally
-    LeaveCriticalSection(ResolveSection);
-  end;  
+  Result:=FindUnresolvedInstance(AInstance);
+  If (Result=Nil) then
+    begin
+    EnterCriticalSection(ResolveSection);
+    Try
+      If not Assigned(NeedResolving) then
+        NeedResolving:=TLinkedList.Create(TUnResolvedInstance);
+      Result:=NeedResolving.Add as TUnResolvedInstance;
+      Result.Instance:=AInstance;
+    finally
+      LeaveCriticalSection(ResolveSection);
+    end;
+    end;
 end;
 
 // Walk through the global list of instances to be resolved.  
@@ -211,6 +237,18 @@ end;
 
 { TUnResolvedInstance }
 
+function TUnResolvedInstance.AddReference(ARoot: TComponent;
+  APropInfo: PPropInfo; AGlobal, ARelative: String): TUnresolvedReference;
+begin
+  If (FUnResolved=Nil) then
+    FUnResolved:=TLinkedList.Create(TUnresolvedReference);
+  Result:=FUnResolved.Add as TUnresolvedReference;
+  Result.FGlobal:=AGLobal;
+  Result.FRelative:=ARelative;
+  Result.FPropInfo:=APropInfo;
+  Result.FRoot:=ARoot;
+end;
+
 Function TUnResolvedInstance.RootUnresolved : TUnresolvedReference; 
 
 begin
@@ -221,9 +259,19 @@ end;
 
 Function TUnResolvedInstance.ResolveReferences:Boolean;
 
+Var
+  R,RN : TUnresolvedReference;
+
 begin
-  // TO DO
-  Result:=False;
+  R:=RootUnResolved;
+  While (R<>Nil) do
+    begin
+    RN:=R.NextRef;
+    If R.Resolve(Self.Instance) then
+      FUnresolved.RemoveItem(R);
+    R:=RN;
+    end;
+  Result:=RootUnResolved=Nil;
 end;
 
 { TReferenceNamesVisitor }
@@ -232,7 +280,7 @@ Constructor TReferenceNamesVisitor.Create(ARoot : TComponent;AList : TStrings);
 
 begin
   FRoot:=ARoot;
-  FList:=FList;
+  FList:=AList;
 end;
 
 Function TReferenceNamesVisitor.Visit(Item : TLinkedListItem) : Boolean;
@@ -316,8 +364,44 @@ end;
 
 Function TRemoveReferenceVisitor.Visit(Item : TLinkedListItem) : Boolean;
 
+Var
+  I : Integer;
+  UI : TUnResolvedInstance;
+  R : TUnresolvedReference;
+  L : TFPList;
+  
 begin
-  // TO DO
+  UI:=TUnResolvedInstance(Item);
+  R:=UI.RootUnresolved;
+  L:=Nil;
+  Try
+    // Collect all matches.
+    While (R<>Nil) do
+      begin
+      If R.RootMatches(FRoot) and (FRef=UpperCase(R.FGLobal)) Then
+        begin
+        If Not Assigned(L) then
+          L:=TFPList.Create;
+        L.Add(R);
+        end;
+      R:=R.NextRef;
+      end;
+    // Remove all matches.
+    IF Assigned(L) then
+      begin
+      For I:=0 to L.Count-1 do
+        UI.FUnresolved.RemoveItem(TLinkedListitem(L[i]),True);
+      end;
+    // If any references are left, leave them.
+    If UI.FUnResolved.Root=Nil then
+      begin
+      If List=Nil then
+        List:=TFPList.Create;
+      List.Add(UI);
+      end;
+  Finally
+    L.Free;
+  end;
   Result:=True;
 end;
 
