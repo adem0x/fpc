@@ -514,7 +514,6 @@ end;
 
 procedure TReader.EndReferences;
 begin
-  FreeFixups;
   FLoaded.Free;
   FLoaded := nil;
 end;
@@ -543,8 +542,42 @@ end;
 
 procedure TReader.DoFixupReferences;
 
+Var
+  R,RN : TLocalUnresolvedReference;
+  G : TUnresolvedInstance;
+  Ref : String;
+  C : TComponent;
+  P : integer;
+  L : TLinkedList;
+  
 begin
-  // Tainted
+  If Assigned(FFixups) then
+    begin
+    L:=TLinkedList(FFixups);
+    R:=TLocalUnresolvedReference(L.Root);
+    While (R<>Nil) do
+      begin
+      RN:=TLocalUnresolvedReference(R.Next);
+      Ref:=RN.FRelative;
+      If Assigned(FOnReferenceName) then
+        FOnReferenceName(Self,Ref);
+      C:=FindNestedComponent(R.FRoot,Ref);
+      If Assigned(C) then
+        SetObjectProp(R.FInstance,R.FPropInfo,C)
+      else
+        begin
+        P:=Pos('.',R.FRelative);
+        If (P<>0) then
+          begin
+          G:=AddToResolveList(R.FInstance);
+          G.Addreference(R.FRoot,R.FPropInfo,Copy(R.FRelative,1,P-1),Copy(R.FRelative,P+1,Length(R.FRelative)-P));
+          end;
+        end;
+      L.RemoveItem(R);
+      R:=RN;
+      end;
+    FreeAndNil(FFixups);
+    end;
 end;
 
 procedure TReader.FixupReferences;
@@ -557,9 +590,6 @@ begin
     TComponent(FLoaded[I]).Loaded;
 end;
 
-procedure TReader.FreeFixups;
-begin
-end;
 
 function TReader.NextValue: TValueType;
 begin
@@ -771,16 +801,9 @@ end;
 
 procedure TReader.ReadData(Instance: TComponent);
 var
-  DoFreeFixups: Boolean;
   SavedOwner, SavedParent: TComponent;
+  
 begin
-  if not Assigned(FFixups) then
-  begin
-    FFixups := TList.Create;
-    DoFreeFixups := True;
-  end else
-    DoFreeFixups := False;
-
   try
     { Read properties }
     while not EndOfList do
@@ -805,12 +828,9 @@ begin
     end;
 
     { Fixup references if necessary (normally only if this is the root) }
-    if DoFreeFixups then
-      DoFixupReferences;
-
+    DoFixupReferences;
   finally
-    if DoFreeFixups then
-      FreeFixups;
+    FreeAndNil(FFixups);
   end;
 end;
 
@@ -1096,8 +1116,17 @@ begin
             ReadCollection(TCollection(GetObjectProp(Instance, PropInfo)));
           end
         else
-          // Tainted. FFixups.Add(TPropFixup.Create(Instance, Root, PropInfo, '', ReadIdent))
-          ;
+          begin
+          If Not Assigned(FFixups) then
+            FFixups:=TLinkedList.Create(TLocalUnresolvedReference);
+          With TLocalUnresolvedReference(TLinkedList(FFixups).Add) do
+            begin
+            FInstance:=Instance;
+            FRoot:=Root;
+            FPropInfo:=PropInfo;
+            FRelative:=ReadIdent;
+            end;
+          end;
       end;
     tkInt64, tkQWord: SetInt64Prop(Instance, PropInfo, ReadInt64);
     else

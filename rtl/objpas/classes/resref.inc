@@ -2,6 +2,9 @@
 
 type
   // Quadruple representing an unresolved component property.
+
+  { TUnresolvedReference }
+
   TUnresolvedReference = class(TlinkedListItem)
   Private
     FRoot: TComponent;     // Root component when streaming
@@ -11,7 +14,11 @@ type
     Function Resolve(Instance : TPersistent) : Boolean; // Resolve this reference
     Function RootMatches(ARoot : TComponent) : Boolean; Inline; // True if Froot matches or ARoot is nil.
     Function NextRef : TUnresolvedReference; inline;
-  end;  
+  end;
+  
+  TLocalUnResolvedReference = class(TUnresolvedReference)
+    Finstance : TPersistent;
+  end;
 
   // Linked list of TPersistent items that have unresolved properties.  
 

@@ -1018,7 +1018,7 @@ type
     FDriver: TAbstractObjectReader;
     FOwner: TComponent;
     FParent: TComponent;
-    FFixups: TList;
+    FFixups: TObject;
     FLoaded: TList;
     FOnFindMethod: TFindMethodEvent;
     FOnSetMethodProperty: TSetMethodPropertyEvent;
@@ -1033,7 +1033,6 @@ type
     FCanHandleExcepts: Boolean;
     FOnReadStringProperty:TReadWriteStringPropertyEvent;
     procedure DoFixupReferences;
-    procedure FreeFixups;
     function FindComponentClass(const AClassName: string): TComponentClass;
   protected
     function Error(const Message: string): Boolean; virtual;
