@@ -407,15 +407,28 @@ begin
 end;
 
 procedure TWriter.WriteComponent(Component: TComponent);
-
+var
+  i : integer;
 begin
-  // Tainted
+  Component.FComponentState:=Component.FComponentState+[csWriting];
+  Component.WriteState(Self);
+  for i := 0 to Component.ComponentCount -1 do
+    begin
+    Component.GetChildren(@WriteComponent,Root);
+    FDriver.EndList;
+    end;
+  FDriver.EndList;
+  Component.FComponentState:=Component.FComponentState-[csWriting];
 end;
 
 procedure TWriter.WriteComponentData(Instance: TComponent);
-
+var Dummy: Integer;
+    Flags: TFilerFlags;
 begin
-  // Tainted
+  Flags := [];
+  FDriver.BeginComponent(Instance,Flags, Dummy);
+  WriteProperties(Instance);
+  WriteListEnd;
 end;
 
 procedure TWriter.WriteDescendent(ARoot: TComponent; AAncestor: TComponent);
@@ -474,8 +487,12 @@ begin
 end;
 
 procedure TWriter.WriteProperties(Instance: TPersistent);
+var PropCount,i : integer;
+    PropList  : PPropList;
 begin
-  // Tainted
+  PropCount:=GetPropList(Instance,PropList);
+  for i := 0 to PropCount-1 do if IsStoredProp(Instance,PropList^[i]) then
+    WriteProperty(Instance,PropList^[i]);
 end;
 
 procedure TWriter.WriteProperty(Instance: TPersistent; PropInfo: Pointer);
