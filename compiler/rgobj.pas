@@ -238,6 +238,8 @@ unit rgobj;
         procedure set_live_range_backwards(b: boolean);
        public
         procedure combine(u,v:Tsuperregister);
+        { set v as an alias for u }
+        procedure set_alias(u,v:Tsuperregister);
         property extend_live_range_backwards: boolean read do_extend_live_range_backwards write set_live_range_backwards;
       end;
 
@@ -1036,6 +1038,12 @@ unit rgobj;
           end;
       conservative:=(k<usable_registers_cnt);
     end;
+
+    procedure trgobj.set_alias(u,v:Tsuperregister);
+      begin
+        include(reginfo[v].flags,ri_coalesced);
+        reginfo[v].alias:=u;
+      end;
 
 
     procedure trgobj.combine(u,v:Tsuperregister);
