@@ -172,6 +172,14 @@ type
     FList: PPointerList;
     FCount: Integer;
     FCapacity: Integer;
+    procedure CopyMove (aList : TFPList);
+    procedure MergeMove (aList : TFPList);
+    procedure DoCopy(ListA, ListB : TFPList);
+    procedure DoSrcUnique(ListA, ListB : TFPList);
+    procedure DoAnd(ListA, ListB : TFPList);
+    procedure DoDestUnique(ListA, ListB : TFPList);
+    procedure DoOr(ListA, ListB : TFPList);
+    procedure DoXOr(ListA, ListB : TFPList);
   protected
     function Get(Index: Integer): Pointer; {$ifdef CLASSESINLINE} inline; {$endif CLASSESINLINE}
     procedure Put(Index: Integer; Item: Pointer); {$ifdef CLASSESINLINE} inline; {$endif CLASSESINLINE}
@@ -193,7 +201,7 @@ type
     procedure Insert(Index: Integer; Item: Pointer); {$ifdef CLASSESINLINE} inline; {$endif CLASSESINLINE}
     function Last: Pointer;
     procedure Move(CurIndex, NewIndex: Integer);
-    procedure Assign(Obj:TFPList; AOperator: TListAssignOp = laCopy; ListB: TFPList = nil);
+    procedure Assign (ListA: TFPList; AOperator: TListAssignOp=laCopy; ListB: TFPList=nil);
     function Remove(Item: Pointer): Integer;
     procedure Pack;
     procedure Sort(Compare: TListSortCompare);
@@ -226,6 +234,14 @@ type
   TList = class(TObject)
   private
     FList: TFPList;
+    procedure CopyMove (aList : TList);
+    procedure MergeMove (aList : TList);
+    procedure DoCopy(ListA, ListB : TList);
+    procedure DoSrcUnique(ListA, ListB : TList);
+    procedure DoAnd(ListA, ListB : TList);
+    procedure DoDestUnique(ListA, ListB : TList);
+    procedure DoOr(ListA, ListB : TList);
+    procedure DoXOr(ListA, ListB : TList);
   protected
     function Get(Index: Integer): Pointer;
     procedure Grow; virtual;
@@ -252,7 +268,7 @@ type
     procedure Insert(Index: Integer; Item: Pointer);
     function Last: Pointer;
     procedure Move(CurIndex, NewIndex: Integer);
-    procedure Assign(Obj: TList; AOperator: TListAssignOp = laCopy; ListB: TList = nil);
+    procedure Assign (ListA: TList; AOperator: TListAssignOp=laCopy; ListB: TList=nil);
     function Remove(Item: Pointer): Integer;
     procedure Pack;
     procedure Sort(Compare: TListSortCompare);

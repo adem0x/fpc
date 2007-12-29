@@ -270,11 +270,6 @@ begin
 end;
 
 
-procedure TFPList.Assign(Obj: TFPList;AOperator: TListAssignOp = laCopy; ListB: TFPList = nil);
-begin
-end;
-
-
 procedure TFPList.ForEachCall(proc2call:TListCallback;arg:pointer);
 var
   i : integer;
@@ -300,6 +295,145 @@ begin
       if assigned(p) then
         proc2call(p,arg);
     end;
+end;
+
+procedure TFPList.CopyMove (aList : TFPList);
+var r : integer;
+begin
+  Clear;
+  for r := 0 to aList.count-1 do
+    Add (aList[r]);
+end;
+
+procedure TFPList.MergeMove (aList : TFPList);
+var r : integer;
+begin
+  For r := 0 to aList.count-1 do
+    if self.indexof(aList[r]) < 0 then
+      self.Add (aList[r]);
+end;
+
+procedure TFPList.DoCopy(ListA, ListB : TFPList);
+var l : TFPList;
+begin
+  if assigned (ListB) then
+    CopyMove (ListB)
+  else
+    CopyMove (ListA);
+end;
+
+procedure TFPList.DoDestUnique(ListA, ListB : TFPList);
+  procedure MoveElements (src, dest : TFPList);
+  var r : integer;
+  begin
+    self.clear;
+    for r := 0 to src.count-1 do
+      if dest.indexof(src[r]) < 0 then
+        self.Add (src[r]);
+  end;
+  
+var dest : TFPList;
+begin
+  if assigned (ListB) then
+    MoveElements (ListB, ListA)
+  else
+    try
+      dest := TFPList.Create;
+      dest.CopyMove (self);
+      MoveElements (ListA, dest)
+    finally
+      dest.Free;
+    end;
+end;
+
+procedure TFPList.DoAnd(ListA, ListB : TFPList);
+var r : integer;
+begin
+  if assigned (ListB) then
+    begin
+    self.clear;
+    for r := 0 to ListA.count-1 do
+      if ListB.indexOf (ListA[r]) >= 0 then
+        self.Add (ListA[r]);
+    end
+  else
+    begin
+    for r := self.Count-1 downto 0 do
+      if ListA.indexof (Self[r]) < 0 then
+        self.delete (r);
+    end;
+end;
+
+procedure TFPList.DoSrcUnique(ListA, ListB : TFPList);
+var r : integer;
+begin
+  if assigned (ListB) then
+    begin
+    self.Clear;
+    for r := 0 to ListA.Count-1 do
+      if ListB.indexof (ListA[r]) < 0 then
+        self.Add (ListA[r]);
+    end
+  else
+    begin
+    for r := self.count-1 downto 0 do
+      if ListA.indexof (self[r]) >= 0 then
+        self.delete (r);
+    end;
+end;
+
+procedure TFPList.DoOr(ListA, ListB : TFPList);
+var r : integer;
+begin
+  if assigned (ListB) then
+    begin
+    CopyMove (ListA);
+    MergeMove (ListB);
+    end
+  else
+    MergeMove (ListA);
+end;
+
+procedure TFPList.DoXOr(ListA, ListB : TFPList);
+var r : integer;
+    l : TFPList;
+begin
+  if assigned (ListB) then
+    begin
+    self.Clear;
+    for r := 0 to ListA.count-1 do
+      if ListB.indexof (ListA[r]) < 0 then
+        self.Add (ListA[r]);
+    for r := 0 to ListB.count-1 do
+      if ListA.indexof (ListB[r]) < 0 then
+        self.Add (ListB[r]);
+    end
+  else
+    try
+      l := TFPList.Create;
+      l.CopyMove (Self);
+      for r := self.count-1 downto 0 do
+        if listA.indexof (self[r]) >= 0 then
+          self.delete (r);
+      for r := 0 to ListA.count-1 do
+        if l.indexof (ListA[r]) < 0 then
+          self.add (ListA[r]);
+    finally
+      l.Free;
+    end;
+end;
+
+
+procedure TFPList.Assign (ListA: TFPList; AOperator: TListAssignOp=laCopy; ListB: TFPList=nil);
+begin
+  case AOperator of
+    laCopy : DoCopy (ListA, ListB);             // replace dest with src
+    laSrcUnique : DoSrcUnique (ListA, ListB);   // replace dest with src that are not in dest
+    laAnd : DoAnd (ListA, ListB);               // remove from dest that are not in src
+    laDestUnique : DoDestUnique (ListA, ListB); // remove from dest that are in src
+    laOr : DoOr (ListA, ListB);                 // add to dest from src and not in dest
+    laXOr : DoXOr (ListA, ListB);               // add to dest from src and not in dest, remove from dest that are in src
+  end;
 end;
 
 {$else}
@@ -500,13 +634,145 @@ begin
   FList.Sort(Compare);
 end;
 
-procedure TList.Assign(Obj:TList;AOperator: TListAssignOp = laCopy; ListB: TList = nil);
+procedure TList.CopyMove (aList : TList);
+var r : integer;
 begin
-  if assigned(ListB) then
-    FList.Assign(Obj.FList,AOperator,ListB.FList)
-  else
-    FList.Assign(Obj.FList,AOperator,nil)
+  Clear;
+  for r := 0 to aList.count-1 do
+    Add (aList[r]);
 end;
+
+procedure TList.MergeMove (aList : TList);
+var r : integer;
+begin
+  For r := 0 to aList.count-1 do
+    if self.indexof(aList[r]) < 0 then
+      self.Add (aList[r]);
+end;
+
+procedure TList.DoCopy(ListA, ListB : TList);
+var l : TList;
+begin
+  if assigned (ListB) then
+    CopyMove (ListB)
+  else
+    CopyMove (ListA);
+end;
+
+procedure TList.DoDestUnique(ListA, ListB : TList);
+  procedure MoveElements (src, dest : TList);
+  var r : integer;
+  begin
+    self.clear;
+    for r := 0 to src.count-1 do
+      if dest.indexof(src[r]) < 0 then
+        self.Add (src[r]);
+  end;
+  
+var dest : TList;
+begin
+  if assigned (ListB) then
+    MoveElements (ListB, ListA)
+  else
+    try
+      dest := TList.Create;
+      dest.CopyMove (self);
+      MoveElements (ListA, dest)
+    finally
+      dest.Free;
+    end;
+end;
+
+procedure TList.DoAnd(ListA, ListB : TList);
+var r : integer;
+begin
+  if assigned (ListB) then
+    begin
+    self.clear;
+    for r := 0 to ListA.count-1 do
+      if ListB.indexOf (ListA[r]) >= 0 then
+        self.Add (ListA[r]);
+    end
+  else
+    begin
+    for r := self.Count-1 downto 0 do
+      if ListA.indexof (Self[r]) < 0 then
+        self.delete (r);
+    end;
+end;
+
+procedure TList.DoSrcUnique(ListA, ListB : TList);
+var r : integer;
+begin
+  if assigned (ListB) then
+    begin
+    self.Clear;
+    for r := 0 to ListA.Count-1 do
+      if ListB.indexof (ListA[r]) < 0 then
+        self.Add (ListA[r]);
+    end
+  else
+    begin
+    for r := self.count-1 downto 0 do
+      if ListA.indexof (self[r]) >= 0 then
+        self.delete (r);
+    end;
+end;
+
+procedure TList.DoOr(ListA, ListB : TList);
+var r : integer;
+begin
+  if assigned (ListB) then
+    begin
+    CopyMove (ListA);
+    MergeMove (ListB);
+    end
+  else
+    MergeMove (ListA);
+end;
+
+procedure TList.DoXOr(ListA, ListB : TList);
+var r : integer;
+    l : TList;
+begin
+  if assigned (ListB) then
+    begin
+    self.Clear;
+    for r := 0 to ListA.count-1 do
+      if ListB.indexof (ListA[r]) < 0 then
+        self.Add (ListA[r]);
+    for r := 0 to ListB.count-1 do
+      if ListA.indexof (ListB[r]) < 0 then
+        self.Add (ListB[r]);
+    end
+  else
+    try
+      l := TList.Create;
+      l.CopyMove (Self);
+      for r := self.count-1 downto 0 do
+        if listA.indexof (self[r]) >= 0 then
+          self.delete (r);
+      for r := 0 to ListA.count-1 do
+        if l.indexof (ListA[r]) < 0 then
+          self.add (ListA[r]);
+    finally
+      l.Free;
+    end;
+end;
+
+
+procedure TList.Assign (ListA: TList; AOperator: TListAssignOp=laCopy; ListB: TList=nil);
+begin
+  case AOperator of
+    laCopy : DoCopy (ListA, ListB);             // replace dest with src
+    laSrcUnique : DoSrcUnique (ListA, ListB);   // replace dest with src that are not in dest
+    laAnd : DoAnd (ListA, ListB);               // remove from dest that are not in src
+    laDestUnique : DoDestUnique (ListA, ListB); // remove from dest that are in src
+    laOr : DoOr (ListA, ListB);                 // add to dest from src and not in dest
+    laXOr : DoXOr (ListA, ListB);               // add to dest from src and not in dest, remove from dest that are in src
+  end;
+end;
+
 
 function TList.GetList: PPointerList;
 begin
