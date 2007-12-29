@@ -2710,7 +2710,6 @@ implementation
                                 varsym.localloc.register,newreg);
 
                               cg.rg[R_INTREGISTER].set_alias(getsupreg(tregister(regmap[regmapindex])),getsupreg(newreg));
-                              cg.a_reg_sync(current_asmdata.CurrAsmList,newreg);
 {$ifdef DEBUG_SSA}
                               list.concat(tai_comment.create(strpnew(varsym.name+' causes combine '+
                                 generic_regname(tregister(regmap[regmapindex]))+' and '+generic_regname(newreg))));
@@ -2788,8 +2787,8 @@ implementation
                                 newreg,newreg2);
                               }
                               varsym.localloc.register:=newreg;
-                              cg.a_reg_sync(current_asmdata.CurrAsmList,newreg);
-                              cg.a_reg_sync(current_asmdata.CurrAsmList,tregister(regmap[regmapindex]));
+//                              cg.a_reg_sync(current_asmdata.CurrAsmList,newreg);
+//                              cg.a_reg_sync(current_asmdata.CurrAsmList,tregister(regmap[regmapindex]));
 {$ifdef DEBUG_SSA}
                               list.concat(tai_comment.create(strpnew(varsym.name+' causes combine '+
                                 generic_regname(tregister(regmap[regmapindex]))+' and '+generic_regname(newreg))));
@@ -2909,7 +2908,7 @@ implementation
                               varsym.localloc.register:=tregister(regmap[regmapindex]);
                               { optimizer register allocator that the registers are now alive }
 
-                              cg.a_reg_alloc(list,varsym.localloc.register);
+//                              cg.a_reg_alloc(list,varsym.localloc.register);
 {$ifdef DEBUG_SSA}
                               list.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
 {$endif DEBUG_SSA}
