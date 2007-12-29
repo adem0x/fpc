@@ -245,7 +245,10 @@ implementation
          { get current variable to register mapping }
          block_regmap:=nil;
          join_regmap:=nil;
-         getregmapping(nil,block_regmap);
+
+         if assigned(t1) then
+           if has_life_info(t1) then
+             getregmapping(t1.optinfo^.life,block_regmap);
 
          { then block ? }
          if assigned(right) then
