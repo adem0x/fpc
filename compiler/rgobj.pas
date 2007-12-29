@@ -841,7 +841,7 @@ unit rgobj;
               spillworklist.add(n)
             else if move_related(n) then
               freezeworklist.add(n)
-            else
+            else if not(ri_coalesced in flags) then
               simplifyworklist.add(n);
           end;
       sort_simplify_worklist;
@@ -1046,6 +1046,7 @@ unit rgobj;
       if reginfo[v].alias<>0 then
         internalerror(200712291);
       reginfo[v].alias:=get_alias(u);
+      coalescednodes.add(v);
     end;
 
 
@@ -1654,6 +1655,11 @@ unit rgobj;
                 with Taicpu(p) do
                   begin
                     current_filepos:=fileinfo;
+                    {For speed reasons, get_alias isn't used here, instead, 
+                     assign_colours will also set the colour of coalesced nodes.
+                     If there are registers with colour=0, then the coalescednodes
+                     list probably doesn't contain these registers, causing
+                     assign_colours not to do this properly.}
                     for i:=0 to ops-1 do
                       with oper[i]^ do
                         case typ of
