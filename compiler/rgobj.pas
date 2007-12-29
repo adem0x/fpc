@@ -1040,10 +1040,13 @@ unit rgobj;
     end;
 
     procedure trgobj.set_alias(u,v:Tsuperregister);
-      begin
-        include(reginfo[v].flags,ri_coalesced);
-        reginfo[v].alias:=u;
-      end;
+
+    begin
+      include(reginfo[v].flags,ri_coalesced);
+      if reginfo[v].alias<>0 then
+        internalerror(200712291);
+      reginfo[v].alias:=get_alias(u);
+    end;
 
 
     procedure trgobj.combine(u,v:Tsuperregister);

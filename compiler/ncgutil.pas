@@ -2709,7 +2709,7 @@ implementation
                               cg.a_load_reg_reg(list,varsym.localloc.size,varsym.localloc.size,
                                 varsym.localloc.register,newreg);
 
-                              cg.rg[R_INTREGISTER].set_alias(getsupreg(newreg),getsupreg(tregister(regmap[regmapindex])));
+                              cg.rg[R_INTREGISTER].set_alias(getsupreg(tregister(regmap[regmapindex])),getsupreg(newreg));
                               cg.a_reg_sync(current_asmdata.CurrAsmList,newreg);
 {$ifdef DEBUG_SSA}
                               list.concat(tai_comment.create(strpnew(varsym.name+' causes combine '+
