@@ -41,7 +41,17 @@ begin
 end;
 
 function TFPList.Extract(Item: Pointer): Pointer;
+var
+  i : Integer;
 begin
+  i := IndexOf(item);
+  if i >= 0 then
+   begin
+     Result := item;
+     Delete(i);
+   end
+  else
+    result := nil;
 end;
 
 procedure TFPList.SetCapacity(NewCapacity: Integer);
@@ -496,14 +506,23 @@ begin
 end;
 
 procedure TList.Put(Index: Integer; Item: Pointer);
+var p : pointer;
 begin
+  p := get(Index);
   FList.Put(Index, Item);
+  if assigned (p) then
+    Notify (p, lnDeleted);
+  if assigned (Item) then
+    Notify (Item, lnAdded);
 end;
 
 function TList.Extract(item: Pointer): Pointer;
+var c : integer;
 begin
+  c := FList.Count;
   Result := FList.Extract(item);
-  Notify(Result, lnExtracted);
+  if c <> FList.Count then
+    Notify (Result, lnExtracted);
 end;
 
 procedure TList.Notify(Ptr: Pointer; Action: TListNotification);
