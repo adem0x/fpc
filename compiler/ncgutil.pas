@@ -2655,9 +2655,9 @@ implementation
                           LOC_CMMXREGISTER:
                             rr.new := tcgx86(cg).getmmxregister(list);
 {$endif SUPPORT_MMX}
-                          LOC_CMMREGISTER:
-                            rr.new := cg.getmmregister(list,n.location.size);
 }
+                          LOC_CMMREGISTER:
+                            regmap.Add(pointer(ord(cg.getmmregister(list,varsym.localloc.size))));
                         end;
                       end;
                   end;
@@ -2704,7 +2704,7 @@ implementation
                           else
 {$endif cpu64bit}
                             begin
-                              newreg:=cg.getintregister(list,OS_INT);
+                              newreg:=cg.getintregister(list,varsym.localloc.size);
                               cg.a_reg_dealloc(list,varsym.localloc.register);
                               cg.a_load_reg_reg(list,varsym.localloc.size,varsym.localloc.size,
                                 varsym.localloc.register,newreg);
@@ -2727,9 +2727,24 @@ implementation
                       LOC_CMMXREGISTER:
                         rr.new := tcgx86(cg).getmmxregister(list);
 {$endif SUPPORT_MMX}
-                      LOC_CMMREGISTER:
-                        rr.new := cg.getmmregister(list,n.location.size);
 }
+                      LOC_CMMREGISTER:
+                        begin
+                          newreg:=cg.getmmregister(list,varsym.localloc.size);
+                          cg.a_reg_dealloc(list,varsym.localloc.register);
+                          cg.a_loadmm_reg_reg(list,varsym.localloc.size,varsym.localloc.size,
+                            varsym.localloc.register,newreg,mms_movescalar);
+
+                          cg.rg[R_MMREGISTER].set_alias(getsupreg(tregister(regmap[regmapindex])),getsupreg(newreg));
+{$ifdef DEBUG_SSA}
+                          list.concat(tai_comment.create(strpnew(varsym.name+' causes combine '+
+                            generic_regname(tregister(regmap[regmapindex]))+' and '+generic_regname(newreg))));
+                          list.concat(tai_comment.create(strpnew(varsym.name+' moved from '+
+                            generic_regname(varsym.localloc.register)+' to '+generic_regname(tregister(regmap[regmapindex])))));
+{$endif DEBUG_SSA}
+                          { entry used }
+                          inc(regmapindex);
+                        end;
                     end;
                   end;
               end;
@@ -2775,26 +2790,13 @@ implementation
                           else
 {$endif cpu64bit}
                             begin
-                              newreg:=cg.getintregister(list,OS_INT);
-                              // newreg2:=cg.getintregister(list,OS_INT);
-                              {
-                              cg.a_load_reg_reg(list,varsym.localloc.size,varsym.localloc.size,
-                                tregister(regmap[regmapindex]),newreg);
-                              }
+                              newreg:=cg.getintregister(list,varsym.localloc.size);
                               cg.rg[R_INTREGISTER].set_alias(getsupreg(newreg),getsupreg(tregister(regmap[regmapindex])));
-                              {
-                              cg.a_load_reg_reg(list,varsym.localloc.size,varsym.localloc.size,
-                                newreg,newreg2);
-                              }
                               varsym.localloc.register:=newreg;
-//                              cg.a_reg_sync(current_asmdata.CurrAsmList,newreg);
-//                              cg.a_reg_sync(current_asmdata.CurrAsmList,tregister(regmap[regmapindex]));
 {$ifdef DEBUG_SSA}
                               list.concat(tai_comment.create(strpnew(varsym.name+' causes combine '+
                                 generic_regname(tregister(regmap[regmapindex]))+' and '+generic_regname(newreg))));
-{$endif DEBUG_SSA}
-{$ifdef DEBUG_SSA}
-//                              current_asmdata.CurrAsmList.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
+                              current_asmdata.CurrAsmList.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
 {$endif DEBUG_SSA}
                               { entry used }
                               inc(regmapindex);
@@ -2807,9 +2809,20 @@ implementation
                       LOC_CMMXREGISTER:
                         rr.new := tcgx86(cg).getmmxregister(list);
 {$endif SUPPORT_MMX}
-                      LOC_CMMREGISTER:
-                        rr.new := cg.getmmregister(list,n.location.size);
 }
+                      LOC_CMMREGISTER:
+                        begin
+                          newreg:=cg.getmmregister(list,varsym.localloc.size);
+                          cg.rg[R_MMREGISTER].set_alias(getsupreg(newreg),getsupreg(tregister(regmap[regmapindex])));
+                          varsym.localloc.register:=newreg;
+{$ifdef DEBUG_SSA}
+                          list.concat(tai_comment.create(strpnew(varsym.name+' causes combine '+
+                            generic_regname(tregister(regmap[regmapindex]))+' and '+generic_regname(newreg))));
+                          current_asmdata.CurrAsmList.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
+{$endif DEBUG_SSA}
+                          { entry used }
+                          inc(regmapindex);
+                        end;
                     end;
                   end;
               end;
@@ -2906,9 +2919,6 @@ implementation
 {$endif cpu64bit}
                             begin
                               varsym.localloc.register:=tregister(regmap[regmapindex]);
-                              { optimizer register allocator that the registers are now alive }
-
-//                              cg.a_reg_alloc(list,varsym.localloc.register);
 {$ifdef DEBUG_SSA}
                               list.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
 {$endif DEBUG_SSA}
@@ -2923,9 +2933,16 @@ implementation
                       LOC_CMMXREGISTER:
                         rr.new := tcgx86(cg).getmmxregister(list);
 {$endif SUPPORT_MMX}
-                      LOC_CMMREGISTER:
-                        rr.new := cg.getmmregister(list,n.location.size);
 }
+                      LOC_CMMREGISTER:
+                        begin
+                          varsym.localloc.register:=tregister(regmap[regmapindex]);
+{$ifdef DEBUG_SSA}
+                          list.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
+{$endif DEBUG_SSA}
+                          { entry used }
+                          inc(regmapindex);
+                        end;
                     end;
                   end;
               end;
