@@ -190,6 +190,7 @@ unit optutils;
                 result:=p;
                 { the successor of the last node of the for body is the for node itself }
                 DoSet(tfornode(p).t2,p);
+                p.successor:=succ;
                 Breakstack.Delete(Breakstack.Count-1);
                 Continuestack.Delete(Continuestack.Count-1);
               end;
@@ -208,7 +209,7 @@ unit optutils;
                 Breakstack.Add(succ);
                 Continuestack.Add(p);
                 result:=p;
-                { the successor of the last node of the for body is the while node itself }
+                { the successor of the last node of the while/repeat body is the while node itself }
                 DoSet(twhilerepeatnode(p).right,p);
                 p.successor:=succ;
                 Breakstack.Delete(Breakstack.Count-1);
