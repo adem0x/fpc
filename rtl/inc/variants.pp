@@ -1959,10 +1959,37 @@ begin
   end; {with TVarData(v) do case vType of}
 end;
 
-procedure DoVarClearArray(var v : TVarData);
-
+{
+  Clears variant array. If array element type is varVariant, then
+  clear each element individually first.
+}
+procedure DoVarClearArray(var VArray: TVarData);
+var
+  arr: pvararray;
+  i, cnt: cardinal;
+  data: pvardata;
 begin
-  // Tainted
+  if VArray.vtype and varTypeMask = varVariant then begin
+    if WordBool(VArray.vType and varByRef) then
+      arr:=PVarArray(VArray.vPointer^)
+    else
+      arr:=VArray.vArray;
+    VarResultCheck(SafeArrayAccessData(arr, data));
+    try
+      { Calculation total number of elements in the array }
+      cnt:=1;
+      for i:=0 to arr^.dimcount - 1 do
+        cnt:=cnt*cardinal(arr^.Bounds[i].ElementCount);
+      { Clearing each element }
+      for i:=1 to cnt do begin
+        DoVarClear(data^);
+        Inc(data);
+      end;
+    finally
+      VarResultCheck(SafeArrayUnaccessData(arr));
+    end;
+  end;
+  VariantClear(VArray);
 end;
 
 procedure DoVarClearComplex(var v : TVarData);
