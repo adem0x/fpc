@@ -2680,7 +2680,7 @@ implementation
         { now we've a valid map, now move things to those registers }
         regmapindex:=0;
         old_add_reg_instruction_hook:=add_reg_instruction_hook;
-        // add_reg_instruction_hook:=nil;
+//         add_reg_instruction_hook:=nil;
         writeln('Regmap size: ',regmap.count);
         for i:=0 to get_current_dfabuilder.nodemap.count-1 do
           begin
@@ -2706,6 +2706,7 @@ implementation
                             begin
                               newreg:=cg.getintregister(list,varsym.localloc.size);
                               cg.a_reg_dealloc(list,varsym.localloc.register);
+                              cg.a_reg_alloc(list,newreg);
                               cg.a_load_reg_reg(list,varsym.localloc.size,varsym.localloc.size,
                                 varsym.localloc.register,newreg);
 
@@ -2732,6 +2733,7 @@ implementation
                         begin
                           newreg:=cg.getmmregister(list,varsym.localloc.size);
                           cg.a_reg_dealloc(list,varsym.localloc.register);
+                          cg.a_reg_alloc(list,newreg);
                           cg.a_loadmm_reg_reg(list,varsym.localloc.size,varsym.localloc.size,
                             varsym.localloc.register,newreg,mms_movescalar);
 
@@ -2792,7 +2794,9 @@ implementation
                             begin
                               newreg:=cg.getintregister(list,varsym.localloc.size);
                               cg.rg[R_INTREGISTER].set_alias(getsupreg(newreg),getsupreg(tregister(regmap[regmapindex])));
+                              cg.a_reg_dealloc(list,varsym.localloc.register);
                               varsym.localloc.register:=newreg;
+                              cg.a_reg_alloc(list,varsym.localloc.register);
 {$ifdef DEBUG_SSA}
                               list.concat(tai_comment.create(strpnew(varsym.name+' causes combine '+
                                 generic_regname(tregister(regmap[regmapindex]))+' and '+generic_regname(newreg))));
@@ -2814,7 +2818,9 @@ implementation
                         begin
                           newreg:=cg.getmmregister(list,varsym.localloc.size);
                           cg.rg[R_MMREGISTER].set_alias(getsupreg(newreg),getsupreg(tregister(regmap[regmapindex])));
+                          cg.a_reg_dealloc(list,varsym.localloc.register);
                           varsym.localloc.register:=newreg;
+                          cg.a_reg_sync(list,varsym.localloc.register);
 {$ifdef DEBUG_SSA}
                           list.concat(tai_comment.create(strpnew(varsym.name+' causes combine '+
                             generic_regname(tregister(regmap[regmapindex]))+' and '+generic_regname(newreg))));
@@ -2872,10 +2878,10 @@ implementation
                           LOC_CMMXREGISTER:
                             rr.new := tcgx86(cg).getmmxregister(current_asmdata.CurrAsmList);
 {$endif SUPPORT_MMX}
-                          LOC_CMMREGISTER:
-                            rr.new := cg.getmmregister(current_asmdata.CurrAsmList,n.location.size);
 }
-                        end;
+                          LOC_CMMREGISTER:
+                            regmap.Add(pointer(ord(varsym.localloc.register)));
+                          end;
                       end;
                   end;
               end;
@@ -2919,9 +2925,6 @@ implementation
 {$endif cpu64bit}
                             begin
                               varsym.localloc.register:=tregister(regmap[regmapindex]);
-{$ifdef DEBUG_SSA}
-                              list.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
-{$endif DEBUG_SSA}
                               { entry used }
                               inc(regmapindex);
                             end;
@@ -2937,17 +2940,19 @@ implementation
                       LOC_CMMREGISTER:
                         begin
                           varsym.localloc.register:=tregister(regmap[regmapindex]);
-{$ifdef DEBUG_SSA}
-                          list.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
-{$endif DEBUG_SSA}
                           { entry used }
                           inc(regmapindex);
                         end;
                     end;
+{$ifdef DEBUG_SSA}
+                    list.concat(tai_comment.create(strpnew(varsym.name+' now in '+generic_regname(varsym.localloc.register))));
+{$endif DEBUG_SSA}
+                    cg.a_reg_alloc(list,varsym.localloc.register);
                   end;
               end;
           end;
       end;
+
 
     procedure gen_free_symtable(list:TAsmList;st:TSymtable);
       var

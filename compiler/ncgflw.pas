@@ -140,7 +140,19 @@ implementation
          oldclabel,oldblabel : tasmlabel;
          otlabel,oflabel : tasmlabel;
          oldflowcontrol : tflowcontrol;
+         createphi : boolean;
       begin
+         createphi:=has_life_info(self) and has_life_info(successor);
+         if createphi then
+           begin
+             { break }
+             getregmapping(successor.optinfo^.life,successor.optinfo^.regmap);
+             { loop/continue
+               they can share the register mapping because they are only separated by
+               the abort condition code which does no ssa }
+             getregmapping(optinfo^.life,optinfo^.regmap);
+           end;
+
          location_reset(location,LOC_VOID,OS_NO);
 
          current_asmdata.getjumplabel(lloop);
@@ -156,11 +168,11 @@ implementation
 {$ifdef OLDREGVARS}
          load_all_regvars(current_asmdata.CurrAsmList);
 {$endif OLDREGVARS}
+
+         if createphi then
+           generate_phi(current_asmdata.CurrAsmList,optinfo^.life,optinfo^.regmap);
          { handling code at the end as it is much more efficient, and makes
            while equal to repeat loop, only the end true/false is swapped (PFV) }
-         if assigned(optinfo) then
-           generate_phi(current_asmdata.CurrAsmList,self.optinfo^.life,self.optinfo^.regmap);
-
          if lnf_testatbegin in loopflags then
            cg.a_jmp_always(current_asmdata.CurrAsmList,lcont);
 
@@ -170,16 +182,16 @@ implementation
 
          cg.a_label(current_asmdata.CurrAsmList,lloop);
 
-         if assigned(optinfo) then
-           update_phi(current_asmdata.CurrAsmList,self.optinfo^.life,self.optinfo^.regmap);
+         if createphi then
+           update_phi(current_asmdata.CurrAsmList,optinfo^.life,optinfo^.regmap);
 
          current_procinfo.CurrContinueLabel:=lcont;
          current_procinfo.CurrBreakLabel:=lbreak;
          if assigned(right) then
            secondpass(right);
 
-         if assigned(optinfo) then
-           generate_phi(current_asmdata.CurrAsmList,self.optinfo^.life,self.optinfo^.regmap);
+         if createphi then
+           generate_phi(current_asmdata.CurrAsmList,optinfo^.life,optinfo^.regmap);
 
 {$ifdef OLDREGVARS}
          load_all_regvars(current_asmdata.CurrAsmList);
@@ -199,13 +211,21 @@ implementation
             current_procinfo.CurrFalseLabel:=lbreak;
           end;
 
-         if assigned(optinfo) then
-           update_phi(current_asmdata.CurrAsmList,self.optinfo^.life,self.optinfo^.regmap);
+         if createphi then
+           update_phi(current_asmdata.CurrAsmList,optinfo^.life,optinfo^.regmap);
 
          secondpass(left);
 
          maketojumpbool(current_asmdata.CurrAsmList,left,lr_load_regvars);
-         cg.a_label(current_asmdata.CurrAsmList,lbreak);
+
+         if createphi then
+           begin
+             { when comming from a break or continue label, we've to generate phi nodes first }
+             cg.a_label(current_asmdata.CurrAsmList,lbreak);
+             update_phi(current_asmdata.CurrAsmList,successor.optinfo^.life,successor.optinfo^.regmap);
+           end
+         else
+           cg.a_label(current_asmdata.CurrAsmList,lbreak);
 
 //         sync_regvars(false);
 
@@ -246,9 +266,8 @@ implementation
          block_regmap:=nil;
          join_regmap:=nil;
 
-         if assigned(t1) then
-           if has_life_info(t1) then
-             getregmapping(t1.optinfo^.life,block_regmap);
+         if has_life_info(t1) then
+           getregmapping(t1.optinfo^.life,block_regmap);
 
          { then block ? }
          if assigned(right) then
@@ -719,7 +738,7 @@ implementation
            secondpass(left);
 
          if has_life_info(successor) then
-           generate_phi(current_asmdata.CurrAsmList,optinfo^.life,optinfo^.regmap);
+           generate_phi(current_asmdata.CurrAsmList,successor.optinfo^.life,successor.optinfo^.regmap);
 
          cg.a_jmp_always(current_asmdata.CurrAsmList,current_procinfo.CurrExitLabel);
        end;
