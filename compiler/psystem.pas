@@ -388,11 +388,17 @@ implementation
         uinttype:=u64inttype;
         sinttype:=s64inttype;
         ptrinttype:=u64inttype;
-{$else cpu64bit}
+{$endif cpu64bit}
+{$ifdef cpu32bit}
         uinttype:=u32inttype;
         sinttype:=s32inttype;
         ptrinttype:=u32inttype;
-{$endif cpu64bit}
+{$endif cpu32bit}
+{$ifdef cpu16bit}
+        uinttype:=u16inttype;
+        sinttype:=s16inttype;
+        ptrinttype:=u16inttype;
+{$endif cpu16bit}
         current_module:=oldcurrentmodule;
       end;
 

@@ -43,7 +43,15 @@ unit cpubase;
 *****************************************************************************}
 
     type
-      TAsmOp=(A_None);
+      TAsmOp=(A_None,
+        A_ADD,A_ADC,A_ADIW,A_SUB,A_SUBI,A_SBC,A_SBCI,A_SBIW,A_AND,A_ANDI,
+        A_OR,A_ORI,A_EOR,A_COM,A_NEG,A_SBR,A_CBR,A_INC,A_DEC,A_TST,A_CLR,
+        A_SER,A_MUL,A_MULS,A_FMUL,A_FMULS,A_FMULSU,A_RJMP,A_IJMP,
+        A_EIJMP,A_JMP,A_RCALL,A_ICALL,R_EICALL,A_CALL,A_RET,A_RETI,A_CPSE,
+        A_CP,A_CPC,A_CPI,A_SBxx,A_BRxx,A_MOV,A_MOVW,A_LDI,A_LDS,A_LD,A_LDD,
+        A_STS,A_ST,A_STD,A_LPM,A_ELPM,A_SPM,A_IN,A_OUT,A_PUSH,A_POP,
+        A_LSL,A_LSR,A_ROL,A_ROR,A_ASR,A_SWAP,A_BSET,A_BCLR,A_SBI,A_CBI,
+        A_BST,A_BLD,A_Sxx,A_Cxx,A_BRAK,A_NOP,A_SLEEP,A_WDR);
 
 
       { This should define the array of instructions as string }
@@ -54,6 +62,8 @@ unit cpubase;
       firstop = low(tasmop);
       { Last value of opcode enumeration  }
       lastop  = high(tasmop);
+
+      jmp_instructions = [A_BRxx,A_SBxx,A_JMP,A_RCALL,A_ICALL,A_EIJMP,A_RJMP,A_CALL,A_RET,A_RETI,A_CPSE,A_IJMP];
 
 {*****************************************************************************
                                   Registers
@@ -72,6 +82,13 @@ unit cpubase;
 
       { Available Registers }
       {$i ravrcon.inc}
+
+      NR_XLO = NR_R26;
+      NR_XHI = NR_R27;
+      NR_YLO = NR_R28;
+      NR_YHI = NR_R29;
+      NR_ZLO = NR_R30;
+      NR_ZHI = NR_R31;
 
       { Integer Super registers first and last }
       first_int_supreg = RS_R0;
@@ -232,10 +249,10 @@ unit cpubase;
 *****************************************************************************}
 
       { Defines the default address size for a processor, }
-      OS_ADDR = OS_32;
+      OS_ADDR = OS_16;
       { the natural int size for a processor,             }
-      OS_INT = OS_32;
-      OS_SINT = OS_S32;
+      OS_INT = OS_16;
+      OS_SINT = OS_S16;
       { the maximum float size for a processor,           }
       OS_FLOAT = OS_F64;
       { the size of a vector register for a processor     }
@@ -324,11 +341,10 @@ unit cpubase;
     function inverse_cond(const c: TAsmCond): TAsmCond; {$ifdef USEINLINE}inline;{$endif USEINLINE}
     function conditions_equal(const c1, c2: TAsmCond): boolean; {$ifdef USEINLINE}inline;{$endif USEINLINE}
 
-    procedure shifterop_reset(var so : tshifterop);
     function is_pc(const r : tregister) : boolean;
 
-    function is_shifter_const(d : aint;var imm_shift : byte) : boolean;
     function dwarf_reg(r:tregister):byte;
+    function GetHigh(const r : TRegister) : TRegister;
 
   implementation
 
@@ -452,28 +468,17 @@ unit cpubase;
       end;
 
 
-    function is_shifter_const(d : aint;var imm_shift : byte) : boolean;
-      var
-         i : longint;
-      begin
-         for i:=0 to 15 do
-           begin
-              if (dword(d) and not(rotl($ff,i*2)))=0 then
-                begin
-                   imm_shift:=i*2;
-                   result:=true;
-                   exit;
-                end;
-           end;
-         result:=false;
-      end;
-
-
     function dwarf_reg(r:tregister):byte;
       begin
         result:=regdwarf_table[findreg_by_number(r)];
         if result=-1 then
           internalerror(200603251);
+      end;
+
+
+    function GetHigh(const r : TRegister) : TRegister;
+      begin
+        result:=TRegister(longint(r)+1)
       end;
 
 end.

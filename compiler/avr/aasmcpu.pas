@@ -1,7 +1,7 @@
 {
-    Copyright (c) 1999-2002 by Mazen Neifer
+    Copyright (c) 1999-2008 by Mazen Neifer and Florian Klaempfl
 
-    Contains the assembler object for the SPARC
+    Contains the assembler object for the AVR
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -39,7 +39,6 @@ uses
 
     type
       taicpu = class(tai_cpu_abstract_sym)
-         delayslot_annulled : boolean;   { conditinal opcode with ,a }
          constructor op_none(op : tasmop);
 
          constructor op_reg(op : tasmop;_op1 : tregister);
@@ -51,10 +50,6 @@ uses
          constructor op_reg_const(op:tasmop; _op1: tregister; _op2: LongInt);
          constructor op_const_reg(op:tasmop; _op1: LongInt; _op2: tregister);
          constructor op_ref_reg(op : tasmop;const _op1 : treference;_op2 : tregister);
-
-         constructor op_reg_reg_reg(op : tasmop;_op1,_op2,_op3 : tregister);
-         constructor op_reg_ref_reg(op:tasmop;_op1:TRegister;_op2:TReference;_op3:tregister);
-         constructor op_reg_const_reg(op:tasmop;_op1:TRegister;_op2:aint;_op3:tregister);
 
          { this is for Jmp instructions }
          constructor op_cond_sym(op : tasmop;cond:TAsmCond;_op1 : tasmsymbol);
@@ -171,40 +166,10 @@ implementation
       end;
 
 
-    constructor taicpu.op_reg_reg_reg(op : tasmop;_op1,_op2,_op3 : tregister);
-      begin
-         inherited create(op);
-         ops:=3;
-         loadreg(0,_op1);
-         loadreg(1,_op2);
-         loadreg(2,_op3);
-      end;
-
-
-    constructor taicpu.op_reg_ref_reg(op:tasmop;_op1:TRegister;_op2:TReference;_op3:tregister);
-      begin
-         inherited create(op);
-         ops:=3;
-         loadreg(0,_op1);
-         loadref(1,_op2);
-         loadreg(2,_op3);
-      end;
-
-
-    constructor taicpu.op_reg_const_reg(op:tasmop;_op1:TRegister;_op2:aint;_op3:tregister);
-      begin
-         inherited create(op);
-         ops:=3;
-         loadreg(0,_op1);
-         loadconst(1,_op2);
-         loadreg(2,_op3);
-      end;
-
-
     constructor taicpu.op_cond_sym(op : tasmop;cond:TAsmCond;_op1 : tasmsymbol);
       begin
          inherited create(op);
-         is_jmp:=op in [A_BA,A_Bxx];
+         is_jmp:=op in jmp_instructions;
          condition:=cond;
          ops:=1;
          loadsymbol(0,_op1,0);
@@ -214,7 +179,7 @@ implementation
     constructor taicpu.op_sym(op : tasmop;_op1 : tasmsymbol);
       begin
          inherited create(op);
-         is_jmp:=op in [A_BA,A_Bxx];
+         is_jmp:=op in jmp_instructions;
          ops:=1;
          loadsymbol(0,_op1,0);
       end;
@@ -231,7 +196,7 @@ implementation
     function taicpu.is_same_reg_move(regtype: Tregistertype):boolean;
       begin
         result:=(
-                 ((opcode=A_MOV) and (regtype = R_INTREGISTER)) or
+                 ((opcode in [A_MOV,A_MOVW]) and (regtype = R_INTREGISTER))
                 ) and
                 (ops=2) and
                 (oper[0]^.typ=top_reg) and
@@ -244,7 +209,7 @@ implementation
       begin
         result := operand_read;
         case opcode of
-          A_FCMPs,A_FCMPd,A_FCMPq :
+          A_CP,A_CPC,A_CPI :
             ;
           else
             begin

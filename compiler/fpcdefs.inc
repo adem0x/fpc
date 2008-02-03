@@ -43,6 +43,7 @@
 {$endif cpuarm}
 
 {$ifdef i386}
+  {$define cpu32bit}
   {$define x86}
   {$define cpuflags}
   {$define cpuextended}
@@ -68,12 +69,14 @@
 {$endif alpha}
 
 {$ifdef sparc}
+  {$define cpu32bit}
   {$define cpuflags}
   {$define cputargethasfixedstack}
   {$define cpurequiresproperalignment}
 {$endif sparc}
 
 {$ifdef powerpc}
+  {$define cpu32bit}
   {$define cpuflags}
   {$define cputargethasfixedstack}
   {$define cpumm}
@@ -88,6 +91,7 @@
 {$endif powerpc64}
 
 {$ifdef arm}
+  {$define cpu32bit}
   {$define cpuflags}
   {$define cpufpemu}
   {$define cpuneedsdiv32helper}
@@ -96,9 +100,16 @@
 {$endif arm}
 
 {$ifdef m68k}
+  {$define cpu32bit}
   {$define cpuflags}
   {$define cpufpemu}
 {$endif m68k}
+
+{$ifdef avr}
+  {$define cpu16bit}
+  {$define cpuflags}
+  {$define cpunofpu}
+{$endif avr}
 
 {$IFDEF MACOS}
 {$DEFINE USE_FAKE_SYSUTILS}
