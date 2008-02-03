@@ -61,92 +61,50 @@ unit cpubase;
 
     type
       { Number of registers used for indexing in tables }
-      tregisterindex=0..{$i rarmnor.inc}-1;
+      tregisterindex=0..{$i ravrnor.inc}-1;
 
     const
       { Available Superregisters }
-      {$i rarmsup.inc}
-
-      RS_PC = RS_R15;
+      {$i ravrsup.inc}
 
       { No Subregisters }
       R_SUBWHOLE = R_SUBNONE;
 
       { Available Registers }
-      {$i rarmcon.inc}
-
-      { aliases }
-      NR_PC = NR_R15;
+      {$i ravrcon.inc}
 
       { Integer Super registers first and last }
       first_int_supreg = RS_R0;
       first_int_imreg = $10;
 
       { Float Super register first and last }
-      first_fpu_supreg    = RS_F0;
-      first_fpu_imreg     = $08;
+      first_fpu_supreg    = RS_INVALID;
+      first_fpu_imreg     = RS_INVALID;
 
       { MM Super register first and last }
-      first_mm_supreg    = RS_S0;
-      first_mm_imreg     = $20;
+      first_mm_supreg    = RS_INVALID;
+      first_mm_imreg     = RS_INVALID;
 
 {$warning TODO Calculate bsstart}
       regnumber_count_bsstart = 64;
 
       regnumber_table : array[tregisterindex] of tregister = (
-        {$i rarmnum.inc}
+        {$i ravrnum.inc}
       );
 
       regstabs_table : array[tregisterindex] of shortint = (
-        {$i rarmsta.inc}
+        {$i ravrsta.inc}
       );
 
       regdwarf_table : array[tregisterindex] of shortint = (
-        {$i rarmdwa.inc}
+        {$i ravrdwa.inc}
       );
       { registers which may be destroyed by calls }
-      VOLATILE_INTREGISTERS = [RS_R0..RS_R3,RS_R12..RS_R15];
-      VOLATILE_FPUREGISTERS = [RS_F0..RS_F3];
+      VOLATILE_INTREGISTERS = [RS_R18..RS_R27,RS_R30..RS_R31];
+      VOLATILE_FPUREGISTERS = [];
 
     type
       totherregisterset = set of tregisterindex;
-
-{*****************************************************************************
-                          Instruction post fixes
-*****************************************************************************}
-    type
-      { ARM instructions load/store and arithmetic instructions
-        can have several instruction post fixes which are collected
-        in this enumeration
-      }
-      TOpPostfix = (PF_None,
-        { update condition flags
-          or floating point single }
-        PF_S,
-        { floating point size }
-        PF_D,PF_E,PF_P,PF_EP,
-        { load/store }
-        PF_B,PF_SB,PF_BT,PF_H,PF_SH,PF_T,
-        { multiple load/store address modes }
-        PF_IA,PF_IB,PF_DA,PF_DB,PF_FD,PF_FA,PF_ED,PF_EA
-      );
-
-      TRoundingMode = (RM_None,RM_P,RM_M,RM_Z);
-
-    const
-      cgsize2fpuoppostfix : array[OS_NO..OS_F128] of toppostfix = (
-        PF_E,
-        PF_None,PF_None,PF_None,PF_None,PF_None,PF_None,PF_None,PF_None,PF_None,PF_None,
-        PF_S,PF_D,PF_E,PF_None,PF_None);
-
-      oppostfix2str : array[TOpPostfix] of string[2] = ('',
-        's',
-        'd','e','p','ep',
-        'b','sb','bt','h','sh','t',
-        'ia','ib','da','db','fd','fa','ed','ea');
-
-      roundingmode2str : array[TRoundingMode] of string[1] = ('',
-        'p','m','z');
 
 {*****************************************************************************
                                 Conditions
@@ -204,7 +162,7 @@ unit cpubase;
       {# Constant defining possibly all registers which might require saving }
       ALL_OTHERREGISTERS = [];
 
-      general_superregisters = [RS_R0..RS_PC];
+      general_superregisters = [RS_R0..RS_R31];
 
       {# Table of registers which can be allocated by the code generator
          internally, when generating the code.
@@ -224,14 +182,14 @@ unit cpubase;
       usableregsint = [RS_R4..RS_R10];
       c_countusableregsint = 7;
 
-      maxfpuregs = 8;
-      fpuregs = [RS_F0..RS_F7];
-      usableregsfpu = [RS_F4..RS_F7];
-      c_countusableregsfpu = 4;
+      maxfpuregs = 0;
+      fpuregs = [];
+      usableregsfpu = [];
+      c_countusableregsfpu = 0;
 
-      mmregs = [RS_D0..RS_D15];
-      usableregsmm = [RS_D8..RS_D15];
-      c_countusableregsmm  = 8;
+      mmregs = [];
+      usableregsmm = [];
+      c_countusableregsmm  = 0;
 
       maxaddrregs = 0;
       addrregs    = [];
@@ -256,18 +214,18 @@ unit cpubase;
     const
       firstsaveintreg = RS_R4;
       lastsaveintreg  = RS_R10;
-      firstsavefpureg = RS_F4;
-      lastsavefpureg  = RS_F7;
-      firstsavemmreg  = RS_D8;
-      lastsavemmreg   = RS_D15;
+      firstsavefpureg = RS_INVALID;
+      lastsavefpureg  = RS_INVALID;
+      firstsavemmreg  = RS_INVALID;
+      lastsavemmreg   = RS_INVALID;
 
       maxvarregs = 7;
       varregs : Array [1..maxvarregs] of tsuperregister =
                 (RS_R4,RS_R5,RS_R6,RS_R7,RS_R8,RS_R9,RS_R10);
 
-      maxfpuvarregs = 4;
+      maxfpuvarregs = 1;
       fpuvarregs : Array [1..maxfpuvarregs] of tsuperregister =
-                (RS_F4,RS_F5,RS_F6,RS_F7);
+                (RS_INVALID);
 
 {*****************************************************************************
                           Default generic sizes
@@ -317,7 +275,7 @@ unit cpubase;
       NR_FUNCTION_RESULT64_HIGH_REG = NR_FUNCTION_RETURN64_HIGH_REG;
       RS_FUNCTION_RESULT64_HIGH_REG = RS_FUNCTION_RETURN64_HIGH_REG;
 
-      NR_FPU_RESULT_REG = NR_F0;
+      NR_FPU_RESULT_REG = NR_NO;
 
       NR_MM_RESULT_REG  = NR_NO;
 
@@ -357,7 +315,6 @@ unit cpubase;
     { Returns the tcgsize corresponding with the size of reg.}
     function reg_cgsize(const reg: tregister) : tcgsize;
     function cgsize2subreg(s:Tcgsize):Tsubregister;
-    function is_calljmp(o:tasmop):boolean;
     procedure inverse_flags(var f: TResFlags);
     function flags_to_cond(const f: TResFlags) : TAsmCond;
     function findreg_by_number(r:Tregister):tregisterindex;
@@ -381,15 +338,15 @@ unit cpubase;
 
     const
       std_regname_table : array[tregisterindex] of string[7] = (
-        {$i rarmstd.inc}
+        {$i ravrstd.inc}
       );
 
       regnumber_index : array[tregisterindex] of tregisterindex = (
-        {$i rarmrni.inc}
+        {$i ravrrni.inc}
       );
 
       std_regname_index : array[tregisterindex] of tregisterindex = (
-        {$i rarmsri.inc}
+        {$i ravrsri.inc}
       );
 
 
@@ -401,7 +358,7 @@ unit cpubase;
 
     function reg_cgsize(const reg: tregister): tcgsize;
       const subreg2cgsize:array[Tsubregister] of Tcgsize =
-            (OS_NO,OS_8,OS_8,OS_16,OS_32,OS_64,OS_NO,OS_NO,OS_NO,OS_NO,OS_NO);
+            (OS_NO,OS_8,OS_8,OS_16,OS_32,OS_64,OS_NO,OS_NO,OS_NO,OS_NO,OS_NO,OS_NO);
       begin
         case getregtype(reg) of
           R_INTREGISTER :
@@ -412,14 +369,6 @@ unit cpubase;
             internalerror(200303181);
           end;
         end;
-
-
-    function is_calljmp(o:tasmop):boolean;
-      begin
-        { This isn't 100% perfect because the arm allows jumps also by writing to PC=R15.
-          To overcome this problem we simply forbid that FPC generates jumps by loading R15 }
-        is_calljmp:= o in [A_B,A_BL,A_BX,A_BLX];
-      end;
 
 
     procedure inverse_flags(var f: TResFlags);
