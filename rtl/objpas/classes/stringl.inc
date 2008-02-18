@@ -1121,53 +1121,30 @@ Function TStringList.DoCompareText(const s1,s2 : string) : PtrInt;
 
 Function TStringList.Find(const S: string; var Index: Integer): Boolean;
 
-  function FindInSorted: Boolean;
-  var
-    i, Middle,
-    SS, CR: Integer; // slice size and compare result :)
-  begin
-    Result := False;
-
-    Middle := Count div 2;
-    SS := Middle;
-    for i := 1 to Middle do begin
-      CR := DoCompareText(S, Self[Middle]);
-      SS := SS div 2 + SS mod 2;
-      if CR = 0 then begin
-        Index := Middle;
-        Exit(True);
-      end else if CR < 0 then
-        Middle := Middle - SS
-      else
-        Middle := Middle + SS;
-    end;
-    
-    Index := Middle;
-    if CR > 0 then
-      Inc(Middle);
-  end;
-
-  function FindOldStyle: Boolean;
-  var
-    i: Integer;
-  begin
-    Result := False;
-    Index := Count;
-
-    for i := 0 to Count - 1 do
-      if DoCompareText(S, Self[i]) = 0 then begin
-        Index := i;
-        Exit(True);
-      end;
-  end;
-
+var
+  L, R, I: Integer;
+  CompareRes: PtrInt;
 begin
-  Result := False;
-
-  if Sorted then
-    Result := FindInSorted
-  else
-    Result := FindOldStyle;
+  Result := false;
+  // Use binary search.
+  L := 0;
+  R := Count - 1;
+  while (L<=R) do
+  begin
+    I := L + (R - L) div 2;
+    CompareRes := DoCompareText(S, Flist^[I].FString);
+    if (CompareRes>0) then
+      L := I+1
+    else begin
+      R := I-1;
+      if (CompareRes=0) then begin
+         Result := true;
+         if (Duplicates<>dupAccept) then
+            L := I; // forces end of while loop
+      end;
+    end;
+  end;
+  Index := L;
 end;
 
 
