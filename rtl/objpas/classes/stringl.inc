@@ -787,9 +787,16 @@ end;
 
 
 Procedure TStringList.Grow;
-
+// initial cleanroom implementation copied from TFPList.Expand
+var
+  IncSize : Longint;
 begin
-  // Tainted
+  if FCount < FCapacity then exit;
+  IncSize := 4;
+  if FCapacity > 3 then IncSize := IncSize + 4;
+  if FCapacity > 8 then IncSize := IncSize + 8;
+  if FCapacity > 127 then Inc(IncSize, FCapacity shr 2);
+  SetCapacity(FCapacity + IncSize);
 end;
 
 
