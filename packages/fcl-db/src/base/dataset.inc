@@ -2095,8 +2095,20 @@ end;
 
 procedure TDataset.SetFieldValues(Fieldname: string; Value: Variant);
 
+var
+  i : Integer;
+  FieldList: TList;
 begin
-  // Tainted
+  if Pos(';', FieldName) <> 0 then begin
+    GetFieldList(FieldList, FieldName);
+    try
+      for i := 0 to FieldList.Count -1 do
+        TField(FieldList[i]).Value := Value[i];
+    finally
+      FieldList.Free;
+    end;
+  end else
+    FieldByName(Fieldname).Value := Value;
 end;
 
 Function TDataset.Locate(const keyfields: string; const keyvalues: Variant; options: TLocateOptions) : boolean;
