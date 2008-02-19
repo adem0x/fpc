@@ -647,9 +647,19 @@ begin
 end;
             
 procedure TReader.ReadCollection(Collection: TCollection);
-
+var
+  Item: TCollectionItem;
 begin
-  // Tainted.
+  Collection.BeginUpdate;
+  Collection.Clear;
+  while not EndOfList do begin
+    ReadListBegin;
+    Item := Collection.Add;
+    ReadProperty(Item);
+    ReadListEnd;
+  end;
+  Collection.EndUpdate;
+  ReadListEnd;
 end;
 
 function TReader.ReadComponent(Component: TComponent): TComponent;
