@@ -1353,8 +1353,50 @@ begin
 end;
 
 function TReader.FindComponentClass(const AClassName: String): TComponentClass;
+
+var
+  PersistentClass: TPersistentClass;
+  UClassName: shortstring;
+
+  procedure FindInFieldTable(RootComponent: TComponent);
+  var
+    FieldClassTable: PFieldClassTable;
+    Entry: TPersistentClass;
+    i: Integer;
+  begin
+    FieldClassTable :=
+      PFieldTable((Pointer(RootComponent.ClassType)+vmtFieldTable)^)^.ClassTable;
+    if assigned(FieldClassTable) then begin
+      for i := 0 to FieldClassTable^.Count -1 do begin
+        Entry := FieldClassTable^.Entries[i];
+        if (UpperCase(Entry.ClassName)=UClassName) and
+          (Entry.InheritsFrom(TComponent)) then begin
+          Result := TComponentClass(Entry);
+          Break;
+        end;
+      end;
+    end;
+  end;
+  
 begin
-  // Tainted
+  Result := nil;
+  UClassName:=UpperCase(AClassName);
+  FindInFieldTable(Root);
+  
+  if (Result=nil) and assigned(LookupRoot) and (LookupRoot<>Root) then
+    FindInFieldTable(LookupRoot);
+
+  if (Result=nil) then begin
+    PersistentClass := GetClass(AClassName);
+    if PersistentClass.InheritsFrom(TComponent) then
+      Result := TComponentClass(PersistentClass);
+  end;
+    
+  if (Result=nil) and assigned(OnFindComponentClass) then
+    OnFindComponentClass(Self, AClassName, Result);
+
+  if (Result=nil) or (not Result.InheritsFrom(TComponent)) then
+    raise EClassNotFound.CreateFmt(SClassNotFound, [AClassName]);
 end;
 
 
