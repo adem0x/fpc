@@ -1459,6 +1459,7 @@ begin
   SynchronizeTimeoutEvent:=RtlEventCreate;
   DoSynchronizeMethod:=false;
   MainThreadID:=GetCurrentThreadID;
+  InitCriticalsection(ResolveSection);
   InitHandlerList:=Nil;
   FindGlobalComponentList:=nil;
   IntConstList := TThreadList.Create;
@@ -1485,6 +1486,7 @@ begin
   ClassList.Free;
   ClassAliasList.Free;
   RemoveFixupReferences(nil, '');
+  DoneCriticalsection(ResolveSection);
   GlobalLists.Free;
   ComponentPages.Free;
 
