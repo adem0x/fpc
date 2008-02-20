@@ -1363,18 +1363,29 @@ var
     FieldClassTable: PFieldClassTable;
     Entry: TPersistentClass;
     i: Integer;
+    ComponentClassType: TClass;
   begin
-    FieldClassTable :=
-      PFieldTable((Pointer(RootComponent.ClassType)+vmtFieldTable)^)^.ClassTable;
-    if assigned(FieldClassTable) then begin
-      for i := 0 to FieldClassTable^.Count -1 do begin
-        Entry := FieldClassTable^.Entries[i];
-        if (UpperCase(Entry.ClassName)=UClassName) and
-          (Entry.InheritsFrom(TComponent)) then begin
-          Result := TComponentClass(Entry);
-          Break;
+    ComponentClassType := RootComponent.ClassType;
+    // it is not necessary to look in the FieldTable of TComponent,
+    // because TComponent doesn't have published properties that are
+    // descendants of TComponent
+    while ComponentClassType<>TComponent do begin
+      FieldClassTable :=
+        PFieldTable((Pointer(RootComponent.ClassType)+vmtFieldTable)^)^.ClassTable;
+      if assigned(FieldClassTable) then begin
+        for i := 0 to FieldClassTable^.Count -1 do begin
+          Entry := FieldClassTable^.Entries[i];
+          //writeln(format('Looking for %s in field table of class %s. Found %s',
+            //[AClassName, ComponentClassType.ClassName, Entry.ClassName]));
+          if (UpperCase(Entry.ClassName)=UClassName) and
+            (Entry.InheritsFrom(TComponent)) then begin
+            Result := TComponentClass(Entry);
+            Exit;
+          end;
         end;
       end;
+      // look in parent class
+      ComponentClassType := ComponentClassType.ClassParent;
     end;
   end;
   
