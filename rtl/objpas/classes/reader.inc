@@ -558,7 +558,7 @@ begin
     While (R<>Nil) do
       begin
       RN:=TLocalUnresolvedReference(R.Next);
-      Ref:=RN.FRelative;
+      Ref:=R.FRelative;
       If Assigned(FOnReferenceName) then
         FOnReferenceName(Self,Ref);
       C:=FindNestedComponent(R.FRoot,Ref);
