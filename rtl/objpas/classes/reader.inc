@@ -655,7 +655,8 @@ begin
   while not EndOfList do begin
     ReadListBegin;
     Item := Collection.Add;
-    ReadProperty(Item);
+    while NextValue<>vaNull do
+      ReadProperty(Item);
     ReadListEnd;
   end;
   Collection.EndUpdate;
