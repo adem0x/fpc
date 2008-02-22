@@ -202,7 +202,7 @@ var
 begin
   if ((CurIndex < 0) or (CurIndex > Count - 1)) then
     Error(SListIndexError, CurIndex);
-  if (NewINdex < 0) then
+  if ((NewIndex < 0) or (NewIndex > Count -1)) then
     Error(SlistIndexError, NewIndex);
   Temp := FList^[CurIndex];
   FList^[CurIndex] := nil;
