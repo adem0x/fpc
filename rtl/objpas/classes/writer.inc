@@ -491,9 +491,12 @@ var PropCount,i : integer;
     PropList  : PPropList;
 begin
   PropCount:=GetPropList(Instance,PropList);
-  for i := 0 to PropCount-1 do if IsStoredProp(Instance,PropList^[i]) then
-    WriteProperty(Instance,PropList^[i]);
-  Freemem(PropList);
+  if PropCount>0 then begin
+    for i := 0 to PropCount-1 do
+      if IsStoredProp(Instance,PropList^[i]) then
+        WriteProperty(Instance,PropList^[i]);
+    Freemem(PropList);
+  end;
 end;
 
 procedure TWriter.WriteProperty(Instance: TPersistent; PropInfo: Pointer);
