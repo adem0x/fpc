@@ -2100,8 +2100,9 @@ var
   FieldList: TList;
 begin
   if Pos(';', FieldName) <> 0 then begin
-    GetFieldList(FieldList, FieldName);
+    FieldList := TList.Create;
     try
+      GetFieldList(FieldList, FieldName);
       for i := 0 to FieldList.Count -1 do
         TField(FieldList[i]).Value := Value[i];
     finally
