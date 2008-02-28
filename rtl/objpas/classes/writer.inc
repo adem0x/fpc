@@ -412,11 +412,7 @@ var
 begin
   Component.FComponentState:=Component.FComponentState+[csWriting];
   Component.WriteState(Self);
-  for i := 0 to Component.ComponentCount -1 do
-    begin
-    Component.GetChildren(@WriteComponent,Root);
-    FDriver.EndList;
-    end;
+  Component.GetChildren(@WriteComponent,Root);
   FDriver.EndList;
   Component.FComponentState:=Component.FComponentState-[csWriting];
 end;
