@@ -35,6 +35,9 @@ begin
 {$IFDEF STOREDB}
     testResult.AddListener(FDBResultsWriter);
 {$ENDIF}
+    FDigestResultsWriter.Comment:=dbtype;
+    FDigestResultsWriter.Category:='db';
+    FDigestResultsWriter.RelSrcDir:='fcl-db';
     FXMLResultsWriter.WriteHeader;
 {$IFDEF STOREDB}
     FDBResultsWriter.OpenConnection(dbconnectorname+';'+dbconnectorparams);
