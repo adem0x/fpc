@@ -934,6 +934,7 @@ begin
         if FState <> dsOpening then OpenCursorComplete;
         end;
       end;
+    FModified:=False;
     end
   else if not value and (Fstate <> dsinactive) then
     begin
@@ -941,6 +942,7 @@ begin
     SetState(dsInactive);
     CloseCursor;
     if not (csDestroying in ComponentState) then DoAfterClose;
+    FModified:=False;
     end
 end;
 
