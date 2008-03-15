@@ -58,9 +58,12 @@ end;
 
 
 Function TDataLink.CalcFirstRecord(Index : Integer) : Integer;
-
+var
+  n: Integer;
 begin
-  // Tainted
+  Result := FDataSource.FDataSet.FActiveRecord - (FFirstRecord + Index + FBufferCount - 1);
+  
+  Inc(FFirstRecord, Index + Result);
 end;
 
 

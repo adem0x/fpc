@@ -652,9 +652,33 @@ begin
 end;
 
 procedure TField.RefreshLookupList;
-
+var
+  tmpActive: Boolean;
 begin
-  // Tainted
+  if not Assigned(FLookupDataSet) or (Length(FLookupKeyfields) = 0)
+  or (Length(FLookupresultField) = 0) or (Length(FKeyFields) = 0) then
+    Exit;
+    
+  tmpActive := FLookupDataSet.Active;
+  try
+    FLookupDataSet.Active := True;
+    FFields.CheckFieldNames(FLookupKeyfields);
+    FLookupDataset.FieldByName(FLookupresultField); // I presume that if it doesn't exist it throws exception, and that a field with null value is still valid
+    FLookupList.Clear;
+
+    FLookupDataSet.DisableControls;
+    try
+      FLookupDataSet.Open;
+      repeat
+        FLookupList.Add(FieldValues[FLookupKeyfields], FieldValues[FLookupResultField]);
+        FLookupDataSet.Next;
+      until FLookupDataSet.EOF;
+    finally
+      FLookupDataSet.EnableControls;
+    end;
+  finally
+    FLookupDataSet.Active := tmpActive;
+  end;
 end;
 
 procedure TField.Notification(AComponent: TComponent; Operation: TOperation);
