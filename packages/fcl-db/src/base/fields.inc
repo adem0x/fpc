@@ -670,7 +670,7 @@ begin
     try
       FLookupDataSet.Open;
       repeat
-        FLookupList.Add(FieldValues[FLookupKeyfields], FieldValues[FLookupResultField]);
+        FLookupList.Add(FLookupDataSet.FieldValues[FLookupKeyfields], FLookupDataSet.FieldValues[FLookupResultField]);
         FLookupDataSet.Next;
       until FLookupDataSet.EOF;
     finally
