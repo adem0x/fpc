@@ -140,11 +140,13 @@ var
 begin
   FCalcBuffer := Buffer;
   
-  if not IsUniDirectional and (FState <> dsInternalCalc) then begin
+  if not IsUniDirectional and (FState <> dsInternalCalc) then try
     ClearCalcFields(FCalcBuffer);
     for i := 0 to FFieldList.Count - 1 do
       if FFieldList[i].FieldKind = fkLookup then
         FFieldList[i].CalcLookupValue;
+  finally
+    DoOnCalcFields;
   end;
 end;
 
