@@ -61,7 +61,7 @@ Function TDataLink.CalcFirstRecord(Index : Integer) : Integer;
 var
   n: Integer;
 begin
-  Result := FDataSource.FDataSet.FActiveRecord - (FFirstRecord + Index + FBufferCount - 1);
+  Result := DataSource.DataSet.FActiveRecord - (FFirstRecord + Index + FBufferCount - 1);
   
   Inc(FFirstRecord, Index + Result);
 end;
