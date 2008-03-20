@@ -1537,7 +1537,16 @@ Procedure TDataset.EnableControls;
 
 
 begin
-  // Tainted
+  if FDisableControlsCount > 0 then
+    Dec(FDisableControlsCount);
+
+  if FDisableControlsCount = 0 then begin
+    if FState <> FDisableControlsState then
+      DataEvent(deUpdateState, 0);
+
+    if (FState <> dsInactive) and (FDisableControlsState <> dsInactive) then
+      DataEvent(FEnableControlsEvent, 0);
+  end;
 end;
 
 Function TDataset.FieldByName(const FieldName: string): TField;
