@@ -135,9 +135,17 @@ begin
 end;
 
 Procedure TDataset.CalculateFields(Buffer: PChar);
-
+var
+  i: Integer;
 begin
-  // Tainted
+  FCalcBuffer := Buffer;
+  
+  if not IsUniDirectional and (FState <> dsInternalCalc) then begin
+    ClearCalcFields(FCalcBuffer);
+    for i := 0 to FFieldList.Count - 1 do
+      if FFieldList[i].FieldKind = fkLookup then
+        FFieldList[i].CalcLookupValue;
+  end;
 end;
 
 Procedure TDataset.CheckActive;
