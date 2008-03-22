@@ -221,8 +221,38 @@ end;
 
 Procedure TDataset.DataEvent(Event: TDataEvent; Info: Ptrint);
 
+  procedure HandleFieldChange(aField: TField);
+  begin
+    if aField.FieldKind in [fkData, fkInternalCalc] then
+      SetModified(True);
+      
+    if State <> dsSetKey then begin
+      if aField.FieldKind = fkData then begin
+        if FInternalCalcFields then
+          RefreshInternalCalcFields(ActiveBuffer)
+        else if FAutoCalcFields and (FCalcFieldsSize <> 0) then
+          CalculateFields(ActiveBuffer);
+      end;
+      
+      aField.Change;
+    end;
+  end;
+  
+  procedure HandleScrollOrChange;
+  begin
+    if State <> dsInsert then
+      UpdateCursorPos;
+
+    if not ControlsDisabled then
+      DataSource.ProcessEvent(Event, Info);
+  end;
+
 begin
-  // Tainted
+  case Event of
+    deFieldChange   : HandleFieldChange(TField(Info));
+    deDataSetChange,
+    deDataSetScroll : HandleScrollOrChange;
+  end;
 end;
 
 Procedure TDataset.DestroyFields;
