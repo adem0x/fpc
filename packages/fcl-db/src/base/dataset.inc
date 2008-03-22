@@ -239,12 +239,16 @@ Procedure TDataset.DataEvent(Event: TDataEvent; Info: Ptrint);
   end;
   
   procedure HandleScrollOrChange;
+  var
+    i: Integer;
   begin
     if State <> dsInsert then
       UpdateCursorPos;
 
-    if not ControlsDisabled then
-      DataSource.ProcessEvent(Event, Info);
+    if not ControlsDisabled then begin
+      for i := 0 to FDataSources.Count - 1 do
+        TDataSource(FDataSources[i]).ProcessEvent(Event, Info);
+    end;
   end;
 
 begin
