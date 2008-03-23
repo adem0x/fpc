@@ -453,12 +453,6 @@ end;
 procedure TReader.BeginReferences;
 begin
   FLoaded := TList.Create;
-  try
-    FFixups := TList.Create;
-  except
-    FLoaded.Free;
-    raise;
-  end;
 end;
 
 procedure TReader.CheckValue(Value: TValueType);
