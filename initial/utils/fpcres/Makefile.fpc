@@ -1,0 +1,18 @@
+#
+#   Makefile.fpc for FPCMake
+#
+
+[target]
+programs=fpcres
+units=msghandler paramparser sourcehandler  target
+
+[require]
+packages=rtl fcl-res
+
+[install]
+fpcpackage=y
+
+[default]
+fpcdir=../..
+
+[rules]
