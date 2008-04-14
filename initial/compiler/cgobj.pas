@@ -215,7 +215,7 @@ unit cgobj;
              @param(summand value to add to the SP)
              @param(emit tells if a real instruction shoud be emitted)
           }
-          procedure a_modify_stackpointer(summand : aint; emit : boolean); virtual; abstract;
+          procedure a_modify_stackpointer(list : TAsmList; summand : aint; emit : boolean); virtual; abstract;
 
 
           { move instructions }
