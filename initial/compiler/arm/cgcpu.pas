@@ -32,7 +32,8 @@ unit cgcpu;
        cgbase,cgutils,cgobj,
        aasmbase,aasmcpu,aasmtai,aasmdata,
        parabase,
-       cpubase,cpuinfo,node,cg64f32,rgcpu;
+       cpubase,cpuinfo,node,cg64f32,rgcpu,
+       splitconst;
 
 
     type
@@ -106,6 +107,12 @@ unit cgcpu;
         function handle_load_store(list:TAsmList;op: tasmop;oppostfix : toppostfix;reg:tregister;ref: treference):treference;
 
         procedure g_intf_wrapper(list: TAsmList; procdef: tprocdef; const labelname: string; ioffset: longint);override;
+
+        private
+
+        function invertop(op : TAsmOp) : TAsmOp;
+        function do_inv(op : TAsmOp; b : boolean) : TAsmOp;
+        procedure concatMovSplitConst(list : TAsmList; sc : Tsplitconst; reg : Tregister);
       end;
 
       tcg64farm = class(tcg64f32)
@@ -135,6 +142,47 @@ unit cgcpu;
        tgobj,
        procinfo,cpupi,
        paramgr;
+
+
+{$include armcghelp.inc}
+
+
+    const
+      { LDR tempreg,[.Labeldconst]
+        OP reg,reg,tempreg
+        ...
+        .Labeldconst: some_value;
+
+        vs.
+
+        OP reg,reg,const_part1
+        ...
+        OP reg,reg,const_partn
+
+
+        5 shouldn't happen, and 2 is clearly better then loading through reg
+        and 3 is equi-sized (one more instruction, but no label'd const and
+        no LDR), 4 means 2 more instructions and 1 more dword of code,
+        but still saves a reg+LDR, so I choose 5=4=never_LDR here.
+      }
+      MAX_OP_REG_REG_CONST_PARTS = 5; 
+
+
+      { LDR reg,[.Labeldconst]
+        ...
+        .Labeldconst: some_value;
+
+        vs.
+
+        MOV reg,const_part1
+        ...
+        OP reg,const_partn
+
+        
+        2 is equi-sized, one more instruction, but no LDR,
+        not sure if 1 or 3 will be faster.
+      }
+      MAX_MOV_CONST_PARTS = 2; // higher number = fewer LDR/labels but more instr.
 
 
     function get_fpu_postfix(def : tdef) : toppostfix;
@@ -362,6 +410,9 @@ unit cgcpu;
       end;
 
 
+
+{
+
     procedure tcgarm.a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: aint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);
       var
         shift : byte;
@@ -444,7 +495,7 @@ unit cgcpu;
                     OP_SUB:
                       ovloc.resflags:=F_CC;
                   end;
-                end;
+                end; 
           end
         else
           begin
@@ -477,6 +528,126 @@ unit cgcpu;
               end;
           end;
       end;
+
+
+
+}
+
+    procedure tcgarm.a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: aint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);
+      var
+        shift : byte;
+        tmpreg : tregister;
+        so : tshifterop;
+        l1 : longint;
+        sc : Tsplitconst;
+        i  : longint;
+        asmop : Tasmop;
+
+      begin
+        ovloc.loc:=LOC_VOID;  // actually no checkoverflow
+{
+        if is_shifter_const(-a,shift) then
+          case op of
+            OP_ADD:
+              begin
+                op:=OP_SUB;
+                a:=aint(dword(-a));
+              end;
+            OP_SUB:
+              begin
+                op:=OP_ADD;
+                a:=aint(dword(-a));
+              end
+          end;
+}
+        case OP of
+          OP_NOT,OP_NEG   : internalerror(200804052); // here?
+          OP_DIV,OP_IDIV  : internalerror(200804053); // does this happen?
+
+          OP_SAR,OP_SHR,OP_SHL :
+            BEGIN
+              if a>32 then  internalerror(200308295);
+              if (a=32)and(op in [OP_SHR,OP_SHL]) then begin
+                a_load_const_reg(list,size,0,dst); // avoid shift
+              end;
+              if a<>0 then begin
+                shifterop_reset(so);
+                case op of
+                  OP_SAR : so.shiftmode:=SM_ASR;
+                  OP_SHR : so.shiftmode:=SM_LSR;
+                  OP_SHL : so.shiftmode:=SM_LSL;
+                end;
+                so.shiftimm:=a;
+                list.concat(taicpu.op_reg_reg_shifterop(A_MOV,dst,src,so));
+              end else begin
+                list.concat(taicpu.op_reg_reg(A_MOV,dst,src));
+              end;
+              exit;
+            END;
+
+          OP_MUL,OP_IMUL :
+            BEGIN
+              if (a=1) then begin
+                a_load_reg_reg(list,size,size,src,dst);
+                exit;
+              end else if (a=0) then begin
+                a_load_const_reg(list,size,0,dst);
+                exit;
+              end else if (a=-1) then begin
+                a_op_reg_reg(list,OP_NEG,size,src,dst);
+                exit;
+              end else if ispowerof2(a,l1) and not(cgsetflags or setflags) then begin
+                a_op_const_reg_reg(list,OP_SHL,size,l1,src,dst);
+                exit;
+              end else if (op in [OP_MUL,OP_IMUL]) and ispowerof2(a-1,l1) and not(cgsetflags or setflags) then begin
+                if l1>32 then{roozbeh does this ever happen?}
+                  internalerror(200308296);
+                shifterop_reset(so);
+                so.shiftmode:=SM_LSL;
+                so.shiftimm:=l1;
+                list.concat(taicpu.op_reg_reg_reg_shifterop(A_ADD,dst,src,src,so));
+                exit;
+              end;
+            END;
+
+          OP_ADD,OP_SUB,OP_AND,OP_OR,OP_XOR :
+            BEGIN
+              asmop := op_reg_reg_opcg2asmop[op];
+              if asmop=A_AND then begin
+                asmop := A_BIC;
+                a := not(a);
+              end;
+
+              if (buildConstParts(a,sc,op in [OP_ADD,OP_SUB],false)<=MAX_OP_REG_REG_CONST_PARTS) then
+              begin
+                if not(cgsetflags or setflags) then begin
+                  for i := 0 to sc.parts-1 do 
+                   list.concat(taicpu.op_reg_reg_const(do_inv(asmop,sc.inv),dst,src,sc.part[i]));
+                  exit;
+                end else begin
+                  if sc.parts<=1 then begin
+                    // if not (op in [OP_ADD,OP_SUB]) then internalerror(2008033101);  // does this happen?
+                    list.concat( setoppostfix(
+                      taicpu.op_reg_reg_const(do_inv(asmop,sc.inv),dst,src,sc.part[0]),
+                      toppostfix(ord(PF_S))
+                    ));
+                    exit;      
+                  end else begin
+                    { The compiler expects us to generate flags on complicated immed-instructions? Better fall back to reg,reg,reg}
+                  end;
+                end;
+              end;
+            END;
+
+         end ;//case op
+
+         //nothing above made it, fall back to reg,reg,reg
+
+         tmpreg:=getintregister(list,size);
+         a_load_const_reg(list,size,a,tmpreg);
+         a_op_reg_reg_reg_checkoverflow(list,op,size,tmpreg,src,dst,setflags,ovloc);
+       end;
+
 
 
     procedure tcgarm.a_op_reg_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; src1, src2, dst: tregister;setflags : boolean;var ovloc : tlocation);
@@ -573,6 +744,7 @@ unit cgcpu;
         end;
       end;
 
+{
 
      procedure tcgarm.a_load_const_reg(list : TAsmList; size: tcgsize; a : aint;reg : tregister);
        var
@@ -615,7 +787,31 @@ unit cgcpu;
                list.concat(taicpu.op_reg_ref(A_LDR,reg,hr));
             end;
        end;
+}
 
+     procedure tcgarm.a_load_const_reg(list : TAsmList; size: tcgsize; a : aint;reg : tregister);
+        var
+          l : tasmlabel;
+          hr : treference;
+          sc : Tsplitconst;
+          i : longint;
+        begin
+            if not(size in [OS_8,OS_S8,OS_16,OS_S16,OS_32,OS_S32]) then
+              internalerror(2002090902);
+
+            if buildConstParts(a,sc,true,true) <= MAX_MOV_CONST_PARTS then
+            begin
+              concatMovSplitConst(list,sc,reg);
+            end else begin
+               reference_reset(hr);
+               current_asmdata.getjumplabel(l);
+               cg.a_label(current_procinfo.aktlocaldata,l);
+               hr.symboldata:=current_procinfo.aktlocaldata.last;
+               current_procinfo.aktlocaldata.concat(tai_const.Create_32bit(longint(a)));
+               hr.symbol:=l;
+               list.concat(taicpu.op_reg_ref(A_LDR,reg,hr));
+            end;
+        end;
 
     function tcgarm.handle_load_store(list:TAsmList;op: tasmop;oppostfix : toppostfix;reg:tregister;ref: treference):treference;
       var
