@@ -203,6 +203,21 @@ unit cgobj;
             static calls without usage of a got trampoline }
           procedure a_call_name_static(list : TAsmList;const s : string);virtual;
 
+          {# Add a value to the Stackpointer.
+             This is more or less really needed for cgcpus, that neither
+             require framepointers nor fixed stack.
+
+             emit=false can be used to just inform the cg about a changed SP,
+                  for example, after a stdcall has been emitted.
+
+             No generic version is provided here.
+            
+             @param(summand value to add to the SP)
+             @param(emit tells if a real instruction shoud be emitted)
+          }
+          procedure a_modify_stackpointer(summand : aint; emit : boolean); virtual; abstract;
+
+
           { move instructions }
           procedure a_load_const_reg(list : TAsmList;size : tcgsize;a : aint;register : tregister);virtual; abstract;
           procedure a_load_const_ref(list : TAsmList;size : tcgsize;a : aint;const ref : treference);virtual;
@@ -960,6 +975,9 @@ implementation
 {$define overflowon}
 {$q-}
 {$endif}
+
+
+
 
    procedure tcg.a_load_subsetreg_reg(list : TAsmList; subsetsize, tosize: tcgsize; const sreg: tsubsetregister; destreg: tregister);
      var
