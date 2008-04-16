@@ -62,8 +62,7 @@ unit cpupara;
        cutils,
        systems,verbose,
        defutil,
-       cgutils,
-       procinfo;
+       cgutils;
 
       const
         parasupregs : array[0..2] of tsuperregister = (RS_EAX,RS_EDX,RS_ECX);
@@ -90,14 +89,6 @@ unit cpupara;
               end;
             paraloc:=paraloc^.next;
           end;
-
-          { If the caller clears the stack, don't let the callee
-            modify the pushed paras. Not sure if this is really
-            needed, so I (JB) add this:
-          }
-        if ( current_procinfo.procdef.proccalloption in 
-             [pocall_cdecl,pocall_cppdecl] )  // can't catch export: @callback
-        then result := false;
       end;
 
 
