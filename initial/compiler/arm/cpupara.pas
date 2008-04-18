@@ -41,6 +41,9 @@ unit cpupara;
           procedure getintparaloc(calloption : tproccalloption; nr : longint;var cgpara:TCGPara);override;
           function create_paraloc_info(p : tabstractprocdef; side: tcallercallee):longint;override;
           function create_varargs_paraloc_info(p : tabstractprocdef; varargspara:tvarargsparalist):longint;override;
+
+          { imported from ti386paramanager}
+          function param_use_paraloc(const cgpara:tcgpara):boolean;
          private
           procedure init_values(var curintreg, curfloatreg, curmmreg: tsuperregister; var cur_stack_offset: aword);
           function create_paraloc_info_intern(p : tabstractprocdef; side: tcallercallee; paras: tparalist;
@@ -54,6 +57,30 @@ unit cpupara;
        rgobj,
        defutil,symsym,
        cgutils;
+
+
+    { copied from ti386paramanager}
+
+    function tarmparamanager.param_use_paraloc(const cgpara:tcgpara):boolean;
+      var
+        paraloc : pcgparalocation;
+      begin
+        if not assigned(cgpara.location) then
+          internalerror(2008041801);
+        result:=true;
+        { All locations are LOC_REFERENCE }
+        paraloc:=cgpara.location;
+        while assigned(paraloc) do
+          begin
+            if (paraloc^.loc<>LOC_REFERENCE) then
+              begin
+                result:=false;
+                exit;
+              end;
+            paraloc:=paraloc^.next;
+          end;
+      end;
+
 
 
     function tarmparamanager.get_volatile_registers_int(calloption : tproccalloption):tcpuregisterset;
