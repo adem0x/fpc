@@ -545,21 +545,7 @@ unit cgcpu;
 
       begin
         ovloc.loc:=LOC_VOID;  // actually no checkoverflow
-{
-        if is_shifter_const(-a,shift) then
-          case op of
-            OP_ADD:
-              begin
-                op:=OP_SUB;
-                a:=aint(dword(-a));
-              end;
-            OP_SUB:
-              begin
-                op:=OP_ADD;
-                a:=aint(dword(-a));
-              end
-          end;
-}
+
         case OP of
           OP_NOT,OP_NEG   : internalerror(200804052); // here?
           OP_DIV,OP_IDIV  : internalerror(200804053); // does this happen?
@@ -621,8 +607,10 @@ unit cgcpu;
               if (buildConstParts(a,sc,op in [OP_ADD,OP_SUB],false)<=MAX_OP_REG_REG_CONST_PARTS) then
               begin
                 if not(cgsetflags or setflags) then begin
-                  for i := 0 to sc.parts-1 do 
-                   list.concat(taicpu.op_reg_reg_const(do_inv(asmop,sc.inv),dst,src,sc.part[i]));
+                  for i := 0 to sc.parts-1 do begin
+                    list.concat(taicpu.op_reg_reg_const(do_inv(asmop,sc.inv),dst,src,sc.part[i]));
+                    src := dst;
+                  end;
                   exit;
                 end else begin
                   if sc.parts<=1 then begin
