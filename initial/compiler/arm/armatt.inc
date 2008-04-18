@@ -111,5 +111,13 @@
 'smultt',
 'smulwb',
 'smulwt',
-'strd'
+'strd',
+
+{The following string should never be used, except probably some debug}
+'zzzvirtualload',
+'zzzvirtualsave',
+'zzzvirtualcopy',
+'zzzvirtualspill',
+'zzzvirtualunspill'
+
 );
