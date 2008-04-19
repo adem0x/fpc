@@ -114,10 +114,10 @@
 'strd',
 
 {The following string should never be used, except probably some debug}
-'zzzvirtualload',
-'zzzvirtualsave',
-'zzzvirtualcopy',
-'zzzvirtualspill',
-'zzzvirtualunspill'
+'zzz_load',
+'zzz_save',
+'zzz_copy',
+'zzz_spill',
+'zzz_unspill'
 
 );
