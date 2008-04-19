@@ -499,6 +499,21 @@ implementation
       end;
 
 
+{$IFDEF USE_VIRTUAL_INSTRUCTIONS}
+
+    function spilling_create_load(const ref:treference;r:tregister):Taicpu;
+      begin
+        result:=taicpu.op_reg_ref(A_ZZZ_VIRTUALUNSPILL,r,ref);
+      end;
+
+
+    function spilling_create_store(r:tregister; const ref:treference):Taicpu;
+      begin
+        result:=taicpu.op_reg_ref(A_ZZZ_VIRTUALSPILL,r,ref);
+      end;
+
+{$ELSE don't USE_VIRTUAL_INSTRUCTIONS}
+
     function spilling_create_load(const ref:treference;r:tregister):Taicpu;
       begin
         case getregtype(r) of
@@ -529,6 +544,8 @@ implementation
             internalerror(200401041);
         end;
       end;
+
+{$ENDIF}
 
 
     function taicpu.spilling_get_operation_type(opnr: longint): topertype;
@@ -573,8 +590,56 @@ implementation
             else
               { check for pre/post indexed }
               result := operand_read;
+
+          A_ZZZ_VIRTUALSAVE :
+            begin
+              // when storing a reg, the reg to be stored is read,
+              // temps might be written, refs read
+              if opnr=0 
+              then result := operand_read
+              else begin
+                if (oper[opnr]^.typ = top_reg)
+                or (oper[opnr]^.typ = top_regset) then result := operand_write
+                                                  else result := operand_read;
+              end;
+            end;
+
+          A_ZZZ_VIRTUALLOAD :
+            begin
+              // same as virtualstore, only that the reg is written (read from mem)
+              if opnr=0 
+              then result := operand_write
+              else begin
+                if (oper[opnr]^.typ = top_reg)
+                or (oper[opnr]^.typ = top_regset) then result := operand_write
+                                                  else result := operand_read;
+              end;
+            end;
+
+          A_ZZZ_VIRTUALCOPY :
+            begin
+              // if this instrctuction has reg-operands, they're
+              // used as temps, so they're virtually only written to
+              if (oper[opnr]^.typ = top_reg)
+              or (oper[opnr]^.typ = top_regset) then result := operand_write
+                                                else result := operand_read;
+            end;
+
+          A_ZZZ_VIRTUALSPILL :
+            begin
+              // we won't modify registers when spilling
+              result := operand_read;
+            end;
+
+          A_ZZZ_VIRTUALUNSPILL :
+            begin
+              // we read the register back, so the register is written
+              if opnr=0 then result := operand_write
+                        else result := operand_read;
+            end;
+
           else
-            internalerror(200403151);
+            internalerror(2008041802);
         end;
       end;
 

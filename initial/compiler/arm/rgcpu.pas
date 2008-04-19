@@ -41,6 +41,8 @@ unit rgcpu;
 
        trgintcpu = class(trgcpu)
          procedure add_cpu_interferences(p : tai);override;
+
+         procedure add_regset_edges(s : Tcpuregisterset; v:Tsuperregister); virtual;
        end;
 
   implementation
@@ -157,9 +159,25 @@ unit rgcpu;
       end;
 
 
+    
+    procedure trgintcpu.add_regset_edges(s : Tcpuregisterset; v:Tsuperregister);
+      const num2reg : array[0..15] of Tsuperregister = (RS_R0,RS_R1,RS_R2,RS_R3,RS_R4,RS_R5,RS_R6,RS_R7,RS_R8,RS_R9,RS_R10,RS_R11,RS_R12,RS_R13,RS_R14,RS_R15);
+      var i : longint; r : Tsuperregister;
+    begin
+      for i := 0 to 15 do begin
+        r := num2reg[i];
+        if (r in s) then begin
+          add_edge(r,v); 
+          add_edge(v,r); 
+        end;
+      end;
+    end;
+
+
+
     procedure trgintcpu.add_cpu_interferences(p : tai);
       var
-        r : tregister;
+        r : tregister; i,j : longint;
       begin
         if p.typ=ait_instruction then
           begin
@@ -181,6 +199,13 @@ unit rgcpu;
               A_LDR,
               A_LDRH,
               A_STRH:
+                {
+                  Did this happen?
+                  Where/why, and if so, why disallow? 
+                  For now, I (JB) leave this here, but I think this "problem"
+                  should be fixed elsewhere.
+                }
+
                 { don't mix up the framepointer and stackpointer with pre/post indexed operations }
                 if (taicpu(p).oper[1]^.typ=top_ref) and
                   (taicpu(p).oper[1]^.ref^.addressmode in [AM_PREINDEXED,AM_POSTINDEXED]) then
@@ -192,8 +217,45 @@ unit rgcpu;
                     if current_procinfo.framepointer<>r then
                       add_edge(getsupreg(taicpu(p).oper[1]^.ref^.base),getsupreg(r));
                   end;
-            end;
-          end;
+
+              A_ZZZ_VIRTUALLOAD,
+              A_ZZZ_VIRTUALSAVE,
+              A_ZZZ_VIRTUALCOPY : 
+              begin
+                { if the instruction contains tempregs, make sure they're
+                  all diffrent, also from the reg to load/store. regs given
+                  in the ref may probably be shared, if they aren't needed
+                  anymore.
+                }
+                for i := taicpu(p).ops-1 downto 0 do begin
+
+                  if (taicpu(p).oper[i]^.typ in [top_reg,top_regset]) then begin
+
+                    for j := taicpu(p).ops-1 downto 0 do begin
+
+                      if not(i=j)  and (taicpu(p).oper[j]^.typ=top_reg) then begin
+                        if (taicpu(p).oper[i]^.typ=top_reg) 
+                        then add_edge( getsupreg( taicpu(p).oper[i]^.reg )  ,getsupreg(taicpu(p).oper[j]^.reg))
+                        else add_regset_edges(    taicpu(p).oper[i]^.regset^,getsupreg(taicpu(p).oper[j]^.reg));
+                      end;
+
+                    end;
+                  end;
+                  if taicpu(p).opcode=A_ZZZ_VIRTUALCOPY then begin
+                    { Maybe it's needed to add additional constraints 
+                      for copying refs, here. I'm unsure what to do
+                      if tempregs are equal to refregs of both refs.
+                      We should probably not generate that case, or 
+                      maybe concatcopy will be able to deal with this
+                      situation.
+                    }
+                  end;
+                end;
+              end;
+              A_ZZZ_VIRTUALSPILL,
+              A_ZZZ_VIRTUALUNSPILL : ; // actually no known constraints
+            end; {case instr}
+          end; {if tai-instr}
       end;
 
 
