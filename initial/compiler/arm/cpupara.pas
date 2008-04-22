@@ -43,7 +43,7 @@ unit cpupara;
           function create_varargs_paraloc_info(p : tabstractprocdef; varargspara:tvarargsparalist):longint;override;
 
           { imported from ti386paramanager}
-          function param_use_paraloc(const cgpara:tcgpara):boolean;
+          function param_use_paraloc(const cgpara:tcgpara):boolean; override;
          private
           procedure init_values(var curintreg, curfloatreg, curmmreg: tsuperregister; var cur_stack_offset: aword);
           function create_paraloc_info_intern(p : tabstractprocdef; side: tcallercallee; paras: tparalist;
