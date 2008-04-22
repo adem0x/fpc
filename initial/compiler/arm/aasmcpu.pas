@@ -153,8 +153,15 @@ uses
       InsTabCache : PInsTabCache;
 
     type
-      taicpu = class(tai_cpu_abstract_sym)
-         oppostfix : TOpPostfix;
+      taicpuimporter = class(tai_cpu_abstract_sym)
+        oppostfix : TOpPostfix;
+        Constructor Create(op : tasmop); override;
+{$IFDEF USE_VIRTUAL_INSTRUCTIONS}
+         sizefrom,sizeto : Tcgsize;
+         copylen : longint;
+{$ENDIF}
+      end;
+      taicpu = class(taicpuimporter)
          roundingmode : troundingmode;
          procedure loadshifterop(opidx:longint;const so:tshifterop);
          procedure loadregset(opidx:longint;const s:tcpuregisterset);
@@ -193,6 +200,8 @@ uses
          function is_same_reg_move(regtype: Tregistertype):boolean; override;
 
          function spilling_get_operation_type(opnr: longint): topertype;override;
+         function spilling_get_operation_type_ref(opnr: longint; reg: tregister): topertype; override;
+
 
          { assembler }
       public
@@ -222,6 +231,8 @@ uses
          function  NeedAddrPrefix(opidx:byte):boolean;
          procedure Swapoperands;
          function  FindInsentry(objdata:TObjData):boolean;
+
+
       end;
 
       tai_align = class(tai_align_abstract)
@@ -249,6 +260,12 @@ implementation
   uses
     cutils,rgobj,itcpugas;
 
+
+    Constructor taicpuimporter.Create(op : tasmop);
+      begin
+        inherited Create(op);
+        oppostfix := PF_NONE;
+      end;
 
     procedure taicpu.loadshifterop(opidx:longint;const so:tshifterop);
       begin
@@ -548,6 +565,17 @@ implementation
 {$ENDIF}
 
 
+
+    function taicpu.spilling_get_operation_type_ref(opnr: longint; reg: tregister): topertype;
+      begin
+        with oper[opnr]^.ref^ do begin
+          if (addressmode=AM_OFFSET) or not(reg=base) 
+          then result := operand_read
+          else result := operand_readwrite;
+        end;
+      end;
+
+
     function taicpu.spilling_get_operation_type(opnr: longint): topertype;
       begin
         case opcode of
@@ -637,6 +665,9 @@ implementation
               if opnr=0 then result := operand_write
                         else result := operand_read;
             end;
+
+          A_ZZZ_VIRTUALMODSP : if (opnr=0) then result := operand_readwrite
+                                           else result := operand_read;
 
           else
             internalerror(2008041802);
@@ -1099,6 +1130,11 @@ implementation
 
     function taicpu.CheckIfValid:boolean;
       begin
+        internalerror(2008042201);
+        { if this happens, previous version 
+          of this file probably had a bug not 
+          setting the result }
+        checkIfValid := true;
       end;
 
 
@@ -1187,6 +1223,9 @@ implementation
 
     function  taicpu.InsEnd:longint;
       begin
+        internalerror(2008042202);
+        {the function result was previously not set }
+        insEnd := 0;
       end;
 
 
@@ -1505,6 +1544,9 @@ implementation
 
     function  taicpu.NeedAddrPrefix(opidx:byte):boolean;
       begin
+        internalError(2008042203);
+        {function result was previously not set}
+        NeedAddrPrefix := false;
       end;
 
 
