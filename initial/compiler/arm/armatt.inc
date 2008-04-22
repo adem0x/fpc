@@ -118,6 +118,6 @@
 'zzz_save',
 'zzz_copy',
 'zzz_spill',
-'zzz_unspill'
-
+'zzz_unspill',
+'zzz_modsp'
 );
