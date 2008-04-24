@@ -51,6 +51,9 @@ unit cgcpu;
         procedure a_call_reg(list : TAsmList;reg: tregister);override;
         procedure a_call_ref(list : TAsmList;ref: treference);override;
 
+        procedure a_modify_stackpointer(list : TAsmList; summand : aint; emit : boolean); override;
+
+
         procedure a_op_const_reg(list : TAsmList; Op: TOpCG; size: TCGSize; a: aint; reg: TRegister); override;
         procedure a_op_reg_reg(list : TAsmList; Op: TOpCG; size: TCGSize; src, dst: TRegister); override;
 
@@ -113,6 +116,16 @@ unit cgcpu;
         function invertop(op : TAsmOp) : TAsmOp;
         function do_inv(op : TAsmOp; b : boolean) : TAsmOp;
         procedure concatMovSplitConst(list : TAsmList; sc : Tsplitconst; reg : Tregister);
+        function calc_prefered_transfersize(tcgs1 : TCGsize) : longint;
+        function test_aligned(regsize,refsize : TCGsize; const ref : Treference) : boolean;
+        function is_simple_ref(const ref : Treference; refsize : TCGsize) : boolean;
+        function calc_needed_tempregs(op : Tasmop; fromsize,tosize : Tcgsize; a1,a2 : longint; const ref : Treference) : longint;
+        function get_real_tempregs(list : Tasmlist; real_tempregs : longint) : Tcpuregisterset;
+        procedure put_virtual_meminstr(list : Tasmlist; op : Tasmop; fromsize,tosize : Tcgsize; len : aint; const srcref,dstref : Treference; reg : Tregister);
+        function valid_ARMoffset(o,transactionsize : longint) : boolean;
+        procedure emit_comment(list : Tasmlist; s : string);
+        procedure emit_rol(list : Tasmlist; treg : Tregister; cnt : longint);
+
       end;
 
       tcg64farm = class(tcg64f32)
@@ -359,6 +372,13 @@ unit cgcpu;
       end;
 
 
+     procedure tcgarm.a_modify_stackpointer(list : TAsmList; summand : aint; emit : boolean);
+       begin
+         list.concat(taicpu.op_const(A_ZZZ_VIRTUALMODSP,summand));
+         if emit then a_op_const_reg(list,OP_ADD,OS_ADDR,summand,NR_STACK_POINTER_REG);
+       end;
+
+
      procedure tcgarm.a_op_const_reg(list : TAsmList; Op: TOpCG; size: TCGSize; a: aint; reg: TRegister);
        begin
           a_op_const_reg_reg(list,op,size,a,reg,reg);
@@ -410,128 +430,6 @@ unit cgcpu;
       end;
 
 
-
-{
-
-    procedure tcgarm.a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: aint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);
-      var
-        shift : byte;
-        tmpreg : tregister;
-        so : tshifterop;
-        l1 : longint;
-      begin
-        ovloc.loc:=LOC_VOID;
-        if is_shifter_const(-a,shift) then
-          case op of
-            OP_ADD:
-              begin
-                op:=OP_SUB;
-                a:=aint(dword(-a));
-              end;
-            OP_SUB:
-              begin
-                op:=OP_ADD;
-                a:=aint(dword(-a));
-              end
-          end;
-
-        if is_shifter_const(a,shift) and not(op in [OP_IMUL,OP_MUL]) then
-          case op of
-            OP_NEG,OP_NOT,
-            OP_DIV,OP_IDIV:
-              internalerror(200308281);
-            OP_SHL:
-              begin
-                if a>32 then
-                  internalerror(200308294);
-                if a<>0 then
-                  begin
-                    shifterop_reset(so);
-                    so.shiftmode:=SM_LSL;
-                    so.shiftimm:=a;
-                    list.concat(taicpu.op_reg_reg_shifterop(A_MOV,dst,src,so));
-                  end
-                else
-                 list.concat(taicpu.op_reg_reg(A_MOV,dst,src));
-              end;
-            OP_SHR:
-              begin
-                if a>32 then
-                  internalerror(200308292);
-                shifterop_reset(so);
-                if a<>0 then
-                  begin
-                    so.shiftmode:=SM_LSR;
-                    so.shiftimm:=a;
-                    list.concat(taicpu.op_reg_reg_shifterop(A_MOV,dst,src,so));
-                  end
-                else
-                 list.concat(taicpu.op_reg_reg(A_MOV,dst,src));
-              end;
-            OP_SAR:
-              begin
-                if a>32 then
-                  internalerror(200308295);
-                if a<>0 then
-                  begin
-                    shifterop_reset(so);
-                    so.shiftmode:=SM_ASR;
-                    so.shiftimm:=a;
-                    list.concat(taicpu.op_reg_reg_shifterop(A_MOV,dst,src,so));
-                  end
-                else
-                 list.concat(taicpu.op_reg_reg(A_MOV,dst,src));
-              end;
-            else
-              list.concat(setoppostfix(
-                  taicpu.op_reg_reg_const(op_reg_reg_opcg2asmop[op],dst,src,a),toppostfix(ord(cgsetflags or setflags)*ord(PF_S))
-              ));
-              if (cgsetflags or setflags) and (size in [OS_8,OS_16,OS_32]) then
-                begin
-                  ovloc.loc:=LOC_FLAGS;
-                  case op of
-                    OP_ADD:
-                      ovloc.resflags:=F_CS;
-                    OP_SUB:
-                      ovloc.resflags:=F_CC;
-                  end;
-                end; 
-          end
-        else
-          begin
-            { there could be added some more sophisticated optimizations }
-            if (op in [OP_MUL,OP_IMUL]) and (a=1) then
-              a_load_reg_reg(list,size,size,src,dst)
-            else if (op in [OP_MUL,OP_IMUL]) and (a=0) then
-              a_load_const_reg(list,size,0,dst)
-            else if (op in [OP_IMUL]) and (a=-1) then
-              a_op_reg_reg(list,OP_NEG,size,src,dst)
-            { we do this here instead in the peephole optimizer because
-              it saves us a register }
-            else if (op in [OP_MUL,OP_IMUL]) and ispowerof2(a,l1) and not(cgsetflags or setflags) then
-              a_op_const_reg_reg(list,OP_SHL,size,l1,src,dst)
-            { for example : b=a*5 -> b=a*4+a with add instruction and shl }
-            else if (op in [OP_MUL,OP_IMUL]) and ispowerof2(a-1,l1) and not(cgsetflags or setflags) then
-              begin
-                if l1>32 then{roozbeh does this ever happen?}
-                  internalerror(200308296);
-                shifterop_reset(so);
-                so.shiftmode:=SM_LSL;
-                so.shiftimm:=l1;
-                list.concat(taicpu.op_reg_reg_reg_shifterop(A_ADD,dst,src,src,so));
-              end
-            else
-              begin
-                tmpreg:=getintregister(list,size);
-                a_load_const_reg(list,size,a,tmpreg);
-                a_op_reg_reg_reg_checkoverflow(list,op,size,tmpreg,src,dst,setflags,ovloc);
-              end;
-          end;
-      end;
-
-
-
-}
 
     procedure tcgarm.a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: aint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);
       var
@@ -599,13 +497,24 @@ unit cgcpu;
           OP_ADD,OP_SUB,OP_AND,OP_OR,OP_XOR :
             BEGIN
               asmop := op_reg_reg_opcg2asmop[op];
+              { A_AND can't be split directly, so we need to
+                revert it to BIC, if it doesn't fit into a simple const,
+                leave it as A_AND if it fits
+              }
               if asmop=A_AND then begin
-                asmop := A_BIC;
-                a := not(a);
+                if buildConstParts(a,sc,false,false)>1 then begin
+                  asmop := A_BIC;
+                  a := not(a);
+                end;
               end;
 
               if (buildConstParts(a,sc,op in [OP_ADD,OP_SUB],false)<=MAX_OP_REG_REG_CONST_PARTS) then
               begin
+                { contrary to +.-,or,xor, the AND must be done @0}
+                if (sc.parts=0) and (asmop=A_AND) then begin
+                  sc.part[0] := 0;
+                  sc.parts := 1;
+                end;
                 if not(cgsetflags or setflags) then begin
                   for i := 0 to sc.parts-1 do begin
                     list.concat(taicpu.op_reg_reg_const(do_inv(asmop,sc.inv),dst,src,sc.part[i]));
@@ -732,50 +641,7 @@ unit cgcpu;
         end;
       end;
 
-{
 
-     procedure tcgarm.a_load_const_reg(list : TAsmList; size: tcgsize; a : aint;reg : tregister);
-       var
-          imm_shift : byte;
-          l : tasmlabel;
-          hr : treference;
-       begin
-          if not(size in [OS_8,OS_S8,OS_16,OS_S16,OS_32,OS_S32]) then
-            internalerror(2002090902);
-          if is_shifter_const(a,imm_shift) then
-            list.concat(taicpu.op_reg_const(A_MOV,reg,a))
-          else if is_shifter_const(not(a),imm_shift) then
-            list.concat(taicpu.op_reg_const(A_MVN,reg,not(a)))
-          { loading of constants with mov and orr }
-          else if (is_shifter_const(a-byte(a),imm_shift)) then
-            begin
-              list.concat(taicpu.op_reg_const(A_MOV,reg,a-byte(a)));
-              list.concat(taicpu.op_reg_reg_const(A_ORR,reg,reg,byte(a)));
-            end
-          else if (is_shifter_const(a-word(a),imm_shift)) and (is_shifter_const(word(a),imm_shift)) then
-            begin
-              list.concat(taicpu.op_reg_const(A_MOV,reg,a-word(a)));
-              list.concat(taicpu.op_reg_reg_const(A_ORR,reg,reg,word(a)));
-            end
-          else if (is_shifter_const(a-(dword(a) shl 8) shr 8,imm_shift)) and (is_shifter_const((dword(a) shl 8) shr 8,imm_shift)) then
-            begin
-              list.concat(taicpu.op_reg_const(A_MOV,reg,a-(dword(a) shl 8) shr 8));
-              list.concat(taicpu.op_reg_reg_const(A_ORR,reg,reg,(dword(a) shl 8) shr 8));
-            end
-          else
-            begin
-               reference_reset(hr);
-
-               current_asmdata.getjumplabel(l);
-               cg.a_label(current_procinfo.aktlocaldata,l);
-               hr.symboldata:=current_procinfo.aktlocaldata.last;
-               current_procinfo.aktlocaldata.concat(tai_const.Create_32bit(longint(a)));
-
-               hr.symbol:=l;
-               list.concat(taicpu.op_reg_ref(A_LDR,reg,hr));
-            end;
-       end;
-}
 
      procedure tcgarm.a_load_const_reg(list : TAsmList; size: tcgsize; a : aint;reg : tregister);
         var
@@ -951,6 +817,17 @@ unit cgcpu;
       end;
 
 
+
+
+{$IFDEF USE_VIRTUAL_INSTRUCTIONS}
+
+     procedure tcgarm.a_load_reg_ref(list : TAsmList; fromsize, tosize: tcgsize; reg : tregister;const ref : treference);
+       begin
+         put_virtual_meminstr(list,A_ZZZ_VIRTUALSAVE,fromsize,tosize,0,ref,ref,reg);
+       end;
+
+{$ELSE  do not USE_VIRTUAL_INSTRUCTIONS}
+
      procedure tcgarm.a_load_reg_ref(list : TAsmList; fromsize, tosize: tcgsize; reg : tregister;const ref : treference);
        var
          oppostfix:toppostfix;
@@ -1019,7 +896,19 @@ unit cgcpu;
          else
            handle_load_store(list,A_STR,oppostfix,reg,ref);
        end;
+{$ENDIF do not USE_VIRTUAL_INSTRUCTIONS}
 
+
+
+
+{$IFDEF USE_VIRTUAL_INSTRUCTIONS}          
+
+     procedure tcgarm.a_load_ref_reg(list : TAsmList; fromsize, tosize : tcgsize;const Ref : treference;reg : tregister);
+       begin
+         put_virtual_meminstr(list,A_ZZZ_VIRTUALLOAD,fromsize,tosize,0,ref,ref,reg);
+       end;
+
+{$ELSE do not USE_VIRTUAL_INSTRUCTIONS}
 
      procedure tcgarm.a_load_ref_reg(list : TAsmList; fromsize, tosize : tcgsize;const Ref : treference;reg : tregister);
        var
@@ -1129,6 +1018,8 @@ unit cgcpu;
          else
            handle_load_store(list,A_LDR,oppostfix,reg,ref);
        end;
+
+{$ENDIF do not USE_VIRTUAL_INSTRUCTIONS}
 
 
      function tcgarm.a_internal_load_reg_ref(list : TAsmList; fromsize, tosize: tcgsize; reg : tregister;const ref : treference):treference;
@@ -1969,6 +1860,16 @@ unit cgcpu;
       end;
 
 
+
+
+{$IFDEF USE_VIRTUAL_INSTRUCTIONS}          
+    procedure tcgarm.g_concatcopy(list : TAsmList;const source,dest : treference;len : aint);
+      begin
+         put_virtual_meminstr(list,A_ZZZ_VIRTUALCOPY,OS_8,OS_8,len,source,dest,NR_NO);
+      end;
+
+{$ELSE do not use virtual instr.}
+
     procedure tcgarm.g_concatcopy(list : TAsmList;const source,dest : treference;len : aint);
       begin
         if (source.alignment in [1..3]) or
@@ -1977,6 +1878,8 @@ unit cgcpu;
         else
           g_concatcopy_internal(list,source,dest,len,true);
       end;
+
+{$ENDIF USE_VIRTUAL_INSTRUCTIONS}
 
 
     procedure tcgarm.g_overflowCheck(list : TAsmList;const l : tlocation;def : tdef);
