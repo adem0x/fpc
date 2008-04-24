@@ -74,6 +74,11 @@ unit rgcpu;
           (taicpu(pos).oper[1]^.reg=NR_PC) then
           pos:=tai(pos.previous);
 
+
+        { This is done on expansion of the virtual instructions,
+          so not needed (and not correct anymore) here }
+{$IFNDEF USE_VIRTUAL_INSTRUCTIONS}
+
         if abs(spilltemp.offset)>4095 then
           begin
             helplist:=TAsmList.create;
@@ -109,6 +114,7 @@ unit rgcpu;
             helplist.free;
           end
         else
+{$ENDIF}
           inherited do_spill_read(list,pos,spilltemp,tempreg);
       end;
 
@@ -120,6 +126,11 @@ unit rgcpu;
         l : tasmlabel;
         hreg : tregister;
       begin
+
+        { This is done on expansion of the virtual instructions,
+          so not needed (and not correct anymore) here }
+{$IFNDEF USE_VIRTUAL_INSTRUCTIONS}
+
         if abs(spilltemp.offset)>4095 then
           begin
             helplist:=TAsmList.create;
@@ -155,6 +166,7 @@ unit rgcpu;
             helplist.free;
           end
         else
+{$ENDIF}
           inherited do_spill_written(list,pos,spilltemp,tempreg);
       end;
 
@@ -241,19 +253,35 @@ unit rgcpu;
 
                     end;
                   end;
+                  { be sure the tempregs for virtual concatcopy
+                    don't equal base/index of the refs
+                  }
+
                   if taicpu(p).opcode=A_ZZZ_VIRTUALCOPY then begin
-                    { Maybe it's needed to add additional constraints 
-                      for copying refs, here. I'm unsure what to do
-                      if tempregs are equal to refregs of both refs.
-                      We should probably not generate that case, or 
-                      maybe concatcopy will be able to deal with this
-                      situation.
-                    }
-                  end;
+                    with (taicpu(p).oper[i]^) do begin
+                      if (typ = top_ref) then begin 
+                        if not(ref^.base =NR_NO) then begin
+                          for j := taicpu(p).ops-1 downto 0 do begin
+                            if not(i=j)  and (taicpu(p).oper[j]^.typ=top_reg) then begin
+                              add_edge( getsupreg( ref^.base ) ,getsupreg(taicpu(p).oper[j]^.reg));
+                            end;
+                          end;
+                        end;
+                        if not(ref^.index=NR_NO) then begin
+                          for j := taicpu(p).ops-1 downto 0 do begin
+                            if not(i=j)  and (taicpu(p).oper[j]^.typ=top_reg) then begin
+                              add_edge( getsupreg( ref^.index) ,getsupreg(taicpu(p).oper[j]^.reg));
+                            end;
+                          end;
+                        end;
+                      end;
+                    end;
+                  end; {endif concatcopy-constraints}
                 end;
               end;
               A_ZZZ_VIRTUALSPILL,
-              A_ZZZ_VIRTUALUNSPILL : ; // actually no known constraints
+              A_ZZZ_VIRTUALUNSPILL,
+              A_ZZZ_VIRTUALMODSP : ; // actually no known rg constraints
             end; {case instr}
           end; {if tai-instr}
       end;
