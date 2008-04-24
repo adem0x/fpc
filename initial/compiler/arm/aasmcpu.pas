@@ -149,23 +149,34 @@ uses
     const
       InsTab : array[0..instabentries-1] of TInsEntry={$i armtab.inc}
 
+      MAXREGLISTLEN = 4;
+      MAXREGSETLISTLEN = 1;
+      MAXREFLISTLEN = 2;
+
     var
       InsTabCache : PInsTabCache;
 
     type
+
+      Treglist    = ARRAY[0..MAXREGLISTLEN-1] of Tregister;
+      Tregsetlist = ARRAY[0..MAXREGSETLISTLEN-1] of Tcpuregisterset;
+      Treflist    = ARRAY[0..MAXREFLISTLEN-1] of Treference;
+
+
       taicpuimporter = class(tai_cpu_abstract_sym)
         oppostfix : TOpPostfix;
         Constructor Create(op : tasmop); override;
-{$IFDEF USE_VIRTUAL_INSTRUCTIONS}
-         sizefrom,sizeto : Tcgsize;
-         copylen : longint;
-{$ENDIF}
+        sizefrom,sizeto : Tcgsize;
+        copylen : longint;
       end;
+
       taicpu = class(taicpuimporter)
          roundingmode : troundingmode;
          procedure loadshifterop(opidx:longint;const so:tshifterop);
          procedure loadregset(opidx:longint;const s:tcpuregisterset);
          constructor op_none(op : tasmop);
+
+         constructor op_variable(op : tasmop; regs,regsets,refs : longint; const reglist : Treglist; const regsetlist : Tregsetlist; const reflist : Treflist);
 
          constructor op_reg(op : tasmop;_op1 : tregister);
          constructor op_ref(op : tasmop;const _op1 : treference);
@@ -314,6 +325,27 @@ implementation
       begin
          inherited create(op);
       end;
+
+
+    constructor taicpu.op_variable(op : tasmop; regs,regsets,refs : longint; const reglist : Treglist; const regsetlist : Tregsetlist; const reflist : Treflist);
+    var i,j : longint;
+    begin
+      inherited create(op);
+      ops := regs+regsets+refs;
+      j := 0;
+      for i := 0 to regs-1 do begin
+        loadreg(j,reglist[i]);
+        inc(j);
+      end;
+      for i := 0 to regsets-1 do begin
+        loadregset(j,regsetlist[i]);
+        inc(j);
+      end;
+      for i := 0 to refs-1 do begin
+        loadref(j,reflist[i]);
+        inc(j);
+      end;
+    end;
 
 
     { for pld }
@@ -664,6 +696,7 @@ implementation
               // we read the register back, so the register is written
               if opnr=0 then result := operand_write
                         else result := operand_read;
+//              result := operand_read;
             end;
 
           A_ZZZ_VIRTUALMODSP : if (opnr=0) then result := operand_readwrite
