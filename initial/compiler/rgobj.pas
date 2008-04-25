@@ -110,7 +110,15 @@ unit rgobj;
         tempreg : tregister;
         regread,regwritten, mustbespilled: boolean;
       end;
+
+{$ifdef ARM}
+      tspillregsinfo = array[0..15] of tspillreginfo; 
+      // ARM can modify all of it's registers in a single instruction
+      // and even if "load/store multiple" isn't used, 
+      // ZZZ_VIRTUALCOPY uses up to 8 regs (2 const refs, 2 addr, 1 tmp, 1 cnt)
+{$else}
       tspillregsinfo = array[0..3] of tspillreginfo;
+{$endif}
 
       Tspill_temp_list=array[tsuperregister] of Treference;
 
@@ -1878,6 +1886,16 @@ unit rgobj;
           inc(regindex,ord(regindex=tmpindex));
         end;
 
+{$ifdef ARM}
+      procedure addregsetinfo(rs : Tcpuregisterset; operation: topertype);
+      const q : ARRAY[0..15] of Tregister = (NR_R0,NR_R1,NR_R2,NR_R3,NR_R4,NR_R5,NR_R6,NR_R7,NR_R8,NR_R9,NR_R10,NR_R11,NR_R12,NR_R13,NR_R14,NR_R15);
+      var i : longint; 
+      begin
+        for i := 0 TO 15 do begin
+          if getsupreg(q[i]) in rs then addreginfo(q[i],operation);
+        end;
+      end;
+{$endif}
 
       procedure tryreplacereg(var reg: tregister);
         var
@@ -1936,6 +1954,12 @@ unit rgobj;
                     if shifterop^.rs<>NR_NO then
                       addreginfo(shifterop^.rs,operand_read);
                 end;
+
+              top_regset:
+                begin
+                  addregsetinfo(regset^,instr.spilling_get_operation_type(counter));
+                end;
+
 {$endif ARM}
             end;
           end;
