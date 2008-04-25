@@ -198,7 +198,8 @@ unit cpubase;
 *****************************************************************************}
 
     const
-      max_operands = 4;
+//    max_operands = 4;
+      max_operands = 6; // zzz_virtualcopy
 
       {# Constant defining possibly all registers which might require saving }
       ALL_OTHERREGISTERS = [];
