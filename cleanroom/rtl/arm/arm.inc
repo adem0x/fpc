@@ -1,0 +1,438 @@
+{
+
+    This file is part of the Free Pascal run time library.
+    Copyright (c) 2003 by the Free Pascal development team.
+
+    Processor dependent implementation for the system unit for
+    ARM
+
+    See the file COPYING.FPC, included in this distribution,
+    for details about the copyright.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+ **********************************************************************}
+
+{$asmmode gas}
+
+{$ifndef FPC_SYSTEM_HAS_MOVE}
+{$define FPC_SYSTEM_FPC_MOVE}
+{$endif FPC_SYSTEM_HAS_MOVE}
+
+{$ifdef FPC_SYSTEM_FPC_MOVE}
+const
+  cpu_has_edsp : boolean = false;
+  in_edsp_test : boolean = false;
+{$endif FPC_SYSTEM_FPC_MOVE}
+
+{$if not(defined(wince)) and not(defined(gba)) and not(defined(nds)) and not(defined(FPUSOFT)) and not(defined(FPULIBGCC))}
+{$define FPC_SYSTEM_HAS_SYSINITFPU}
+Procedure SysInitFPU;{$ifdef SYSTEMINLINE}inline;{$endif}
+begin
+  { Enable FPU exceptions, but disable INEXACT, UNDERFLOW, DENORMAL }
+  asm
+    rfs r0
+    and r0,r0,#0xffe0ffff
+    orr r0,r0,#0x00070000
+    wfs r0
+  end;
+end;
+{$endif}
+
+procedure fpc_cpuinit;
+begin
+  SysInitFPU;
+end;
+
+{$ifdef wince}
+function _controlfp(new: DWORD; mask: DWORD): DWORD; cdecl; external 'coredll';
+
+{$define FPC_SYSTEM_HAS_SYSRESETFPU}
+Procedure SysResetFPU;{$ifdef SYSTEMINLINE}inline;{$endif}
+begin
+  softfloat_exception_flags:=0;
+end;
+
+{$define FPC_SYSTEM_HAS_SYSINITFPU}
+Procedure SysInitFPU;{$ifdef SYSTEMINLINE}inline;{$endif}
+begin
+  softfloat_exception_mask:=float_flag_underflow or float_flag_inexact or float_flag_denormal;
+  { Enable FPU exceptions, but disable INEXACT, UNDERFLOW, DENORMAL }
+  { FPU precision 64 bit, rounding to nearest, affine infinity }
+  _controlfp($000C0003, $030F031F);
+end;
+{$endif wince}
+
+{****************************************************************************
+                       stack frame related stuff
+****************************************************************************}
+
+{$IFNDEF INTERNAL_BACKTRACE}
+{$define FPC_SYSTEM_HAS_GET_FRAME}
+function get_frame:pointer;assembler;nostackframe;{$ifdef SYSTEMINLINE}inline;{$endif}
+asm
+  mov    r0,r11
+end;
+{$ENDIF not INTERNAL_BACKTRACE}
+
+{$define FPC_SYSTEM_HAS_GET_CALLER_ADDR}
+function get_caller_addr(framebp:pointer):pointer;assembler;{$ifdef SYSTEMINLINE}inline;{$endif}
+asm
+  movs r0,r0
+  beq .Lg_a_null
+  ldr r0,[r0,#-4]
+.Lg_a_null:
+end;
+
+
+{$define FPC_SYSTEM_HAS_GET_CALLER_FRAME}
+function get_caller_frame(framebp:pointer):pointer;assembler;{$ifdef SYSTEMINLINE}inline;{$endif}
+asm
+  movs r0,r0
+  beq .Lgnf_null
+  ldr r0,[r0,#-12]
+.Lgnf_null:
+end;
+
+
+{$define FPC_SYSTEM_HAS_SPTR}
+Function Sptr : pointer;assembler;{$ifdef SYSTEMINLINE}inline;{$endif}
+asm
+  mov    r0,sp
+end;
+
+
+{$ifndef FPC_SYSTEM_HAS_FILLCHAR}
+{$define FPC_SYSTEM_HAS_FILLCHAR}
+Procedure FillChar(var x;count:longint;value:byte);assembler;nostackframe;
+asm
+        // less than 0?
+        cmp r1,#0
+        movlt pc,lr
+        mov     r3,r0
+        cmp     r1,#8           // at least 8 bytes to do?
+        blt     .LFillchar2
+        orr r2,r2,r2,lsl #8
+        orr r2,r2,r2,lsl #16
+.LFillchar0:
+        tst     r3,#3           // aligned yet?
+        strneb r2,[r3],#1
+        subne   r1,r1,#1
+        bne     .LFillchar0
+        mov     ip,r2
+.LFillchar1:
+        cmp     r1,#8           // 8 bytes still to do?
+        blt     .LFillchar2
+        stmia   r3!,{r2,ip}
+        sub     r1,r1,#8
+        cmp     r1,#8           // 8 bytes still to do?
+        blt     .LFillchar2
+        stmia   r3!,{r2,ip}
+        sub     r1,r1,#8
+        cmp     r1,#8           // 8 bytes still to do?
+        blt     .LFillchar2
+        stmia   r3!,{r2,ip}
+        sub     r1,r1,#8
+        cmp     r1,#8           // 8 bytes still to do?
+        stmgeia r3!,{r2,ip}
+        subge   r1,r1,#8
+        bge     .LFillchar1
+.LFillchar2:
+        movs r1,r1              // anything left?
+        moveq pc,lr
+        rsb     r1,r1,#7
+        add     pc,pc,r1,lsl #2
+        mov     r0,r0
+        strb r2,[r3],#1
+        strb r2,[r3],#1
+        strb r2,[r3],#1
+        strb r2,[r3],#1
+        strb r2,[r3],#1
+        strb r2,[r3],#1
+        strb r2,[r3],#1
+        mov pc,lr
+end;
+{$endif FPC_SYSTEM_HAS_FILLCHAR}
+
+{$ifndef FPC_SYSTEM_HAS_MOVE}
+{$define FPC_SYSTEM_HAS_MOVE}
+procedure Move_pld(const source;var dest;count:longint);assembler;nostackframe;
+asm
+  pld [r0]
+  pld [r1]
+  // count <=0 ?
+  cmp r2,#0
+  movle pc,lr
+  // overlap?
+  cmp r1,r0
+  bls .Lnooverlap
+  add r3,r0,r2
+  cmp r3,r1
+  bls .Lnooverlap
+  // overlap, copy backward
+.Loverlapped:
+  subs r2,r2,#1
+  ldrb r3,[r0,r2]
+  strb r3,[r1,r2]
+  bne .Loverlapped
+  mov pc,lr
+.Lnooverlap:
+  // less then 16 bytes to copy?
+  cmp r2,#8
+  // yes, the forget about the whole optimizations
+  // and do a bytewise copy
+  blt .Lbyteloop
+
+  // both aligned?
+  orr r3,r0,r1
+  tst r3,#3
+
+  bne .Lbyteloop
+(*
+  // yes, then align
+  // alignment to 4 byte boundries is enough
+  ldrb ip,[r0],#1
+  sub r2,r2,#1
+  stb ip,[r1],#1
+  tst r3,#2
+  bne .Ldifferentaligned
+  ldrh ip,[r0],#2
+  sub r2,r2,#2
+  sth ip,[r1],#2
+
+.Ldifferentaligned
+  // qword aligned?
+  orrs r3,r0,r1
+  tst r3,#7
+  bne .Ldwordloop
+*)
+  pld [r0,#32]
+  pld [r1,#32]
+.Ldwordloop:
+  sub r2,r2,#4
+  ldr r3,[r0],#4
+  // preload
+  pld [r0,#64]
+  pld [r1,#64]
+  cmp r2,#4
+  str r3,[r1],#4
+  bcs .Ldwordloop
+  cmp r2,#0
+  moveq pc,lr
+.Lbyteloop:
+  subs r2,r2,#1
+  ldrb r3,[r0],#1
+  strb r3,[r1],#1
+  bne .Lbyteloop
+  mov pc,lr
+end;
+
+procedure Move_blended(const source;var dest;count:longint);assembler;nostackframe;
+asm
+  // count <=0 ?
+  cmp r2,#0
+  movle pc,lr
+  // overlap?
+  cmp r1,r0
+  bls .Lnooverlap
+  add r3,r0,r2
+  cmp r3,r1
+  bls .Lnooverlap
+  // overlap, copy backward
+.Loverlapped:
+  subs r2,r2,#1
+  ldrb r3,[r0,r2]
+  strb r3,[r1,r2]
+  bne .Loverlapped
+  mov pc,lr
+.Lnooverlap:
+  // less then 16 bytes to copy?
+  cmp r2,#8
+  // yes, the forget about the whole optimizations
+  // and do a bytewise copy
+  blt .Lbyteloop
+
+  // both aligned?
+  orr r3,r0,r1
+  tst r3,#3
+
+  bne .Lbyteloop
+(*
+  // yes, then align
+  // alignment to 4 byte boundries is enough
+  ldrb ip,[r0],#1
+  sub r2,r2,#1
+  stb ip,[r1],#1
+  tst r3,#2
+  bne .Ldifferentaligned
+  ldrh ip,[r0],#2
+  sub r2,r2,#2
+  sth ip,[r1],#2
+
+.Ldifferentaligned
+  // qword aligned?
+  orrs r3,r0,r1
+  tst r3,#7
+  bne .Ldwordloop
+*)
+.Ldwordloop:
+  sub r2,r2,#4
+  ldr r3,[r0],#4
+  cmp r2,#4
+  str r3,[r1],#4
+  bcs .Ldwordloop
+  cmp r2,#0
+  moveq pc,lr
+.Lbyteloop:
+  subs r2,r2,#1
+  ldrb r3,[r0],#1
+  strb r3,[r1],#1
+  bne .Lbyteloop
+  mov pc,lr
+end;
+
+
+const
+  moveproc : pointer = @move_blended;
+
+procedure Move(const source;var dest;count:longint);[public, alias: 'FPC_MOVE'];assembler;nostackframe;
+asm
+  ldr ip,.Lmoveproc
+  ldr pc,[ip]
+.Lmoveproc:
+  .long moveproc
+end;
+
+{$endif FPC_SYSTEM_HAS_MOVE}
+
+var
+  fpc_system_lock: longint; export name 'fpc_system_lock';
+
+function InterLockedDecrement (var Target: longint) : longint; assembler; nostackframe;
+asm
+// lock
+  ldr r3, .Lfpc_system_lock
+  mov r1, #1
+.Lloop:
+  swp r2, r1, [r3]
+  cmp r2, #0
+  bne .Lloop
+// do the job
+  ldr r1, [r0]
+  sub r1, r1, #1
+  str r1, [r0]
+  mov r0, r1
+// unlock and return
+  str r2, [r3]
+  mov pc, lr
+
+.Lfpc_system_lock:
+  .long fpc_system_lock
+end;
+
+
+function InterLockedIncrement (var Target: longint) : longint; assembler; nostackframe;
+asm
+// lock
+  ldr r3, .Lfpc_system_lock
+  mov r1, #1
+.Lloop:
+  swp r2, r1, [r3]
+  cmp r2, #0
+  bne .Lloop
+// do the job
+  ldr r1, [r0]
+  add r1, r1, #1
+  str r1, [r0]
+  mov r0, r1
+// unlock and return
+  str r2, [r3]
+  mov pc, lr
+
+.Lfpc_system_lock:
+  .long fpc_system_lock
+end;
+
+
+function InterLockedExchange (var Target: longint;Source : longint) : longint; assembler; nostackframe;
+asm
+  swp r1, r1, [r0]
+  mov r0,r1
+end;
+
+function InterLockedExchangeAdd (var Target: longint;Source : longint) : longint; assembler; nostackframe;
+asm
+// lock
+  ldr r3, .Lfpc_system_lock
+  mov r2, #1
+.Lloop:
+  swp r2, r2, [r3]
+  cmp r2, #0
+  bne .Lloop
+// do the job
+  ldr r2, [r0]
+  add r1, r1, r2
+  str r1, [r0]
+  mov r0, r2
+// unlock and return
+  mov r2, #0
+  str r2, [r3]
+  mov pc, lr
+
+.Lfpc_system_lock:
+  .long fpc_system_lock
+end;
+
+
+function InterlockedCompareExchange(var Target: longint; NewValue: longint; Comperand: longint): longint; assembler; nostackframe;
+asm
+// lock
+  ldr r12, .Lfpc_system_lock
+  mov r3, #1
+.Lloop:
+  swp r3, r3, [r12]
+  cmp r3, #0
+  bne .Lloop
+// do the job
+  ldr r3, [r0]
+  cmp r3, r2
+  streq r1, [r0]
+  mov r0, r3
+// unlock and return
+  mov r3, #0
+  str r3, [r12]
+  mov pc, lr
+
+.Lfpc_system_lock:
+  .long fpc_system_lock
+end;
+
+{$define FPC_SYSTEM_HAS_DECLOCKED_LONGINT}
+function declocked(var l: longint) : boolean; inline;
+begin
+  Result:=InterLockedDecrement(l) = 0;
+end;
+
+{$define FPC_SYSTEM_HAS_INCLOCKED_LONGINT}
+procedure inclocked(var l: longint); inline;
+begin
+  InterLockedIncrement(l);
+end;
+
+procedure fpc_cpucodeinit;
+begin
+{$ifdef FPC_SYSTEM_FPC_MOVE}
+  cpu_has_edsp:=true;
+  in_edsp_test:=true;
+  asm
+    pld [r0]
+  end;
+  in_edsp_test:=false;
+  if cpu_has_edsp then
+    moveproc:=@move_pld
+  else
+    moveproc:=@move_blended;
+{$endif FPC_SYSTEM_FPC_MOVE}
+end;

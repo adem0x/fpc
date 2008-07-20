@@ -1,0 +1,27 @@
+#
+#   Makefile.fpc for XML for FCL
+#
+
+[package]
+name=fcl-xml
+version=2.0.0
+
+[target]
+units=htmldefs sax xmlutils dom sax_html dom_html xmlcfg xmlread xmlstreaming xmlwrite xhtml htmwrite xpath htmlelements htmlwriter xmlconf
+rsts=sax xpath htmlwriter xmlconf
+
+[require]
+packages=netdb fcl-base
+
+[compiler]
+options=-S2h
+sourcedir=src
+
+[install]
+fpcpackage=y
+
+[default]
+fpcdir=../..
+
+[rules]
+.NOTPARALLEL:

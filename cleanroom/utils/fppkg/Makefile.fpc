@@ -1,0 +1,51 @@
+#
+#   Makefile.fpc for fppkg
+#
+
+[package]
+name=fppkg
+version=2.0.0
+
+[target]
+programs=fppkg
+implicitunits=fprepos fpxmlrep pkgoptions pkgglobals pkgmessages pkghandler pkgmkconv pkgdownload  pkgfpmake pkgcommands
+units_linux=pkgwget  pkglnet
+units_beos=pkgwget pkglnet
+units_freebsd=pkgwget pkglnet
+units_netbsd=pkgwget pkglnet
+units_openbsd=pkgwget pkglnet
+units_darwin=pkgwget pkglnet
+units_solaris=pkgwget pkglnet
+units_win32=pkgwget pkglnet
+units_win64=pkgwget pkglnet
+units_wince=pkgwget pkglnet
+examples=rep2xml
+rsts=fprepos fpxmlrep pkgmessages
+
+[compiler]
+unitdir=lnet
+includedir=lnet/sys
+
+[clean]
+units=lCommon lControlStack lEvents lTelnet lftp lhttp lhttputil lnet lstrbuffer
+
+[install]
+fpcpackage=y
+
+[default]
+fpcdir=../..
+
+[require]
+packages=fcl-base fcl-xml fcl-process paszlib libcurl
+tools=data2inc
+
+[rules]
+.NOTPARALLEL:
+ifneq ($(DATA2INC),)
+fpmkunitsrc.inc: $(DEFAULT_FPCDIR)/packages/fpmkunit/src/fpmkunit.pp
+        $(DATA2INC) -b -s $(DEFAULT_FPCDIR)/packages/fpmkunit/src/fpmkunit.pp fpmkunitsrc.inc fpmkunitsrc
+endif
+
+# Don't include the dependency on fpmkunitsrc.inc by default so we can control
+# better when we want to update the internal fpmkunitsrc
+fppkg$(EXEEXT): $(wildcard pkg*.pp)
