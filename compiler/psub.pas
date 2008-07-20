@@ -1746,6 +1746,7 @@ implementation
                       end;
                     _GENERIC:
                       read_proc;
+                    _SPECIALIZE:
                     else
                       break;
                   end;

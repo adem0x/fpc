@@ -925,7 +925,7 @@ implementation
         isclassmethod,
         old_parse_generic,
         isgeneric,
-        popclass : boolean;
+        popextrasymtable : boolean;
         old_block_type : tblock_type;
       begin
         locationstr:='';
@@ -964,18 +964,26 @@ implementation
                          old_parse_generic:=parse_generic;
                          inc(testcurobject);
                          { Add ObjectSymtable to be able to find generic type definitions }
-                         popclass:=false;
+                         popextrasymtable:=false;
                          if assigned(pd._class) and
                             (pd.parast.symtablelevel=normal_function_level) and
                             (symtablestack.top.symtabletype<>ObjectSymtable) then
                            begin
                              symtablestack.push(pd._class.symtable);
-                             popclass:=true;
+                             popextrasymtable:=true;
                              parse_generic:=(df_generic in pd._class.defoptions);
+                           end
+                         { generic function? }
+                         else if (df_genericbase in pd.defoptions) then
+                           begin
+                             symtablestack.push(pd.parast);
+                             popextrasymtable:=true;
+                             parse_generic:=true;
                            end;
+
                          single_type(pd.returndef,false);
-                         if popclass then
-                           symtablestack.pop(pd._class.symtable);
+                         if popextrasymtable then
+                           symtablestack.pop(symtablestack.top);
                          dec(testcurobject);
                          parse_generic:=old_parse_generic;
 
