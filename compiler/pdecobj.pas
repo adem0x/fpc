@@ -68,7 +68,7 @@ implementation
         begin
            consume(_CONSTRUCTOR);
            { must be at same level as in implementation }
-           parse_proc_head(aktobjectdef,potype_constructor,pd);
+           parse_proc_head(aktobjectdef,potype_constructor,pd,false);
            if not assigned(pd) then
              begin
                consume(_SEMICOLON);
@@ -126,7 +126,7 @@ implementation
           pd : tprocdef;
         begin
            consume(_DESTRUCTOR);
-           parse_proc_head(aktobjectdef,potype_destructor,pd);
+           parse_proc_head(aktobjectdef,potype_destructor,pd,false);
            if not assigned(pd) then
              begin
                consume(_SEMICOLON);
@@ -538,7 +538,7 @@ implementation
            aktobjectdef:=fd
          else
            begin
-             { anonym objects aren't allow (o : object a : longint; end;) }
+             { anonym objects aren't allowed (o : object a : longint; end;) }
              if n='' then
                Message(parser_f_no_anonym_objects);
              aktobjectdef:=tobjectdef.create(classtype,n,nil);
@@ -684,6 +684,7 @@ implementation
                   begin
                     property_dec;
                   end;
+                _GENERIC,
                 _PROCEDURE,
                 _FUNCTION,
                 _CLASS :

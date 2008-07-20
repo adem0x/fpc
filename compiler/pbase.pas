@@ -92,6 +92,7 @@ interface
 
     function try_consume_hintdirective(var symopt:tsymoptions):boolean;
 
+    function parse_generic_parameters:TFPObjectList;
     { just for an accurate position of the end of a procedure (PM) }
     var
        last_endtoken_filepos: tfileposinfo;
@@ -319,6 +320,23 @@ implementation
           end;
           consume(Token);
         until false;
+      end;
+
+
+    function parse_generic_parameters:TFPObjectList;
+      var
+        generictype : ttypesym;
+      begin
+        result:=TFPObjectList.Create(false);
+        repeat
+          if token=_ID then
+            begin
+              generictype:=ttypesym.create(orgpattern,cundefinedtype);
+              include(generictype.symoptions,sp_generic_para);
+              result.add(generictype);
+            end;
+          consume(_ID);
+        until not try_to_consume(_COMMA) ;
       end;
 
 end.

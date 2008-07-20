@@ -371,23 +371,6 @@ implementation
 
 
     procedure types_dec;
-
-        function parse_generic_parameters:TFPObjectList;
-        var
-          generictype : ttypesym;
-        begin
-          result:=TFPObjectList.Create(false);
-          repeat
-            if token=_ID then
-              begin
-                generictype:=ttypesym.create(orgpattern,cundefinedtype);
-                include(generictype.symoptions,sp_generic_para);
-                result.add(generictype);
-              end;
-            consume(_ID);
-          until not try_to_consume(_COMMA) ;
-        end;
-
       var
          typename,orgtypename : TIDString;
          newtype  : ttypesym;
@@ -586,9 +569,9 @@ implementation
                tstoreddef(hdef).generictokenbuf:=generictokenbuf;
                { Generic is never a type renaming }
                hdef.typesym:=newtype;
+               generictypelist.free;
              end;
-           if assigned(generictypelist) then
-             generictypelist.free;
+
          until token<>_ID;
          typecanbeforward:=false;
          symtablestack.top.SymList.ForEachCall(@resolve_type_forward,nil);

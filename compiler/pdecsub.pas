@@ -57,7 +57,7 @@ interface
     procedure parse_proc_directives(pd:tabstractprocdef;var pdflags:tpdflags);
     procedure parse_var_proc_directives(sym:tsym);
     procedure parse_object_proc_directives(pd:tabstractprocdef);
-    function  parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean;
+    function  parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef;genericbase:boolean):boolean;
     function  parse_proc_dec(aclass:tobjectdef):tprocdef;
 
 implementation
@@ -618,7 +618,7 @@ implementation
       end;
 
 
-    function parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean;
+    function parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef;genericbase:boolean):boolean;
       var
         hs       : string;
         orgsp,sp : TIDString;
@@ -634,6 +634,8 @@ implementation
         popclass : boolean;
         ImplIntf : TImplementedInterface;
         old_parse_generic : boolean;
+        generictypelist : TFPObjectList;
+        i : longint;
       begin
         { Save the position where this procedure really starts }
         procstartfilepos:=current_tokenpos;
@@ -857,6 +859,26 @@ implementation
               end;
           end;
 
+        { procdef is generic base? }
+        if genericbase then
+          begin
+            include(pd.defoptions,df_genericbase);
+            include(pd.defoptions,df_generic);
+            parse_generic:=true;
+            consume(_LSHARPBRACKET);
+            generictypelist:=parse_generic_parameters;
+            consume(_RSHARPBRACKET);
+            pd.initgeneric;
+            current_scanner.startrecordtokens(pd.generictokenbuf);
+
+            { insert generic parameters into parameter symtable,
+              this is not a perfect solution but should work }
+            for i:=0 to generictypelist.count-1 do
+              pd.parast.insert(tsymentry(generictypelist[i]));
+
+            generictypelist.free;
+          end;
+
         { methods need to be exported }
         if assigned(aclass) and
            (
@@ -899,31 +921,40 @@ implementation
     function parse_proc_dec(aclass:tobjectdef):tprocdef;
       var
         pd : tprocdef;
-        isclassmethod : boolean;
         locationstr: string;
+        isclassmethod,
         old_parse_generic,
+        isgeneric,
         popclass : boolean;
+        old_block_type : tblock_type;
       begin
         locationstr:='';
         pd:=nil;
         isclassmethod:=false;
+        isgeneric:=false;
+        old_block_type:=block_type;
+        if try_to_consume(_GENERIC) then
+          begin
+            isgeneric:=true;
+            block_type:=bt_generic;
+          end;
         { read class method }
         if try_to_consume(_CLASS) then
-         begin
-           { class method only allowed for procedures and functions }
-           if not(token in [_FUNCTION,_PROCEDURE]) then
-             Message(parser_e_procedure_or_function_expected);
+          begin
+            { class method only allowed for procedures and functions }
+            if not(token in [_FUNCTION,_PROCEDURE]) then
+              Message(parser_e_procedure_or_function_expected);
 
-           if is_interface(aclass) then
-             Message(parser_e_no_static_method_in_interfaces)
-           else
-             isclassmethod:=true;
-         end;
+            if is_interface(aclass) then
+              Message(parser_e_no_static_method_in_interfaces)
+            else
+              isclassmethod:=true;
+          end;
         case token of
           _FUNCTION :
             begin
               consume(_FUNCTION);
-              if parse_proc_head(aclass,potype_function,pd) then
+              if parse_proc_head(aclass,potype_function,pd,isgeneric) then
                 begin
                   { pd=nil when it is a interface mapping }
                   if assigned(pd) then
@@ -999,7 +1030,7 @@ implementation
           _PROCEDURE :
             begin
               consume(_PROCEDURE);
-              if parse_proc_head(aclass,potype_procedure,pd) then
+              if parse_proc_head(aclass,potype_procedure,pd,isgeneric) then
                 begin
                   { pd=nil when it is a interface mapping }
                   if assigned(pd) then
@@ -1014,7 +1045,7 @@ implementation
           _CONSTRUCTOR :
             begin
               consume(_CONSTRUCTOR);
-              parse_proc_head(aclass,potype_constructor,pd);
+              parse_proc_head(aclass,potype_constructor,pd,isgeneric);
               if assigned(pd) and
                  assigned(pd._class) then
                 begin
@@ -1034,7 +1065,7 @@ implementation
           _DESTRUCTOR :
             begin
               consume(_DESTRUCTOR);
-              parse_proc_head(aclass,potype_destructor,pd);
+              parse_proc_head(aclass,potype_destructor,pd,isgeneric);
               if assigned(pd) then
                 pd.returndef:=voidtype;
             end;
@@ -1061,7 +1092,7 @@ implementation
                  optoken:=NOTOKEN;
                end;
               consume(token);
-              parse_proc_head(aclass,potype_operator,pd);
+              parse_proc_head(aclass,potype_operator,pd,isgeneric);
               if assigned(pd) then
                 begin
                   if pd.parast.symtablelevel>normal_function_level then
@@ -1115,11 +1146,12 @@ implementation
         result:=pd;
 
         if locationstr<>'' then
-         begin
-           if not(paramanager.parsefuncretloc(pd,upper(locationstr))) then
-             { I guess this needs a new message... (KB) }
-             message(parser_e_illegal_explicit_paraloc);
-         end;
+          begin
+            if not(paramanager.parsefuncretloc(pd,upper(locationstr))) then
+              { I guess this needs a new message... (KB) }
+              message(parser_e_illegal_explicit_paraloc);
+          end;
+        block_type:=old_block_type;
       end;
 
 

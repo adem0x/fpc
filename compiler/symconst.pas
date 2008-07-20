@@ -148,6 +148,11 @@ type
     df_unique,
     { type is a generic }
     df_generic,
+    { def is the def actually being declared as generic
+      for example a generic class gets this flag set,
+      a method of this class not
+    }
+    df_genericbase,
     { type is a specialization of a generic type }
     df_specialization,
     { def has been copied from another def so symtable is not owned }

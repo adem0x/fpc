@@ -1294,7 +1294,10 @@ implementation
          entrypos:=current_filepos;
          entryswitches:=current_settings.localswitches;
 
-         if (df_generic in procdef.defoptions) then
+         if (df_generic in procdef.defoptions) and
+           { the recording for procdefs being generics itself
+             has been started already before }
+           not(df_genericbase in procdef.defoptions) then
            begin
              { start token recorder for generic template }
              procdef.initgeneric;
@@ -1741,6 +1744,8 @@ implementation
                         else
                           break;
                       end;
+                    _GENERIC:
+                      read_proc;
                     else
                       break;
                   end;
@@ -1818,7 +1823,7 @@ implementation
               ) then
           exit;
 
-        { Setup symtablestack a definition time }
+        { Setup symtablestack like at definition time }
         specobj:=tobjectdef(ttypesym(p).typedef);
         oldsymtablestack:=symtablestack;
         symtablestack:=tsymtablestack.create;

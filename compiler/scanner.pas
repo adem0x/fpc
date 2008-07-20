@@ -3847,7 +3847,7 @@ In case not, the value returned can be arbitrary.
              '>' :
                begin
                  readchar;
-                 if (block_type in [bt_type,bt_specialize]) then
+                 if (block_type in [bt_type,bt_specialize,bt_generic]) then
                    token:=_RSHARPBRACKET
                  else
                    begin
@@ -3879,7 +3879,7 @@ In case not, the value returned can be arbitrary.
              '<' :
                begin
                  readchar;
-                 if (block_type in [bt_type,bt_specialize]) then
+                 if (block_type in [bt_type,bt_specialize,bt_generic]) then
                    token:=_LSHARPBRACKET
                  else
                    begin

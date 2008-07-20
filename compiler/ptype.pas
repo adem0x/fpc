@@ -241,7 +241,7 @@ implementation
             { Reparse the original type definition }
             if not err then
               begin
-                { Firsta new typesym so we can reuse this specialization and
+                { First a new typesym so we can reuse this specialization and
                   references to this specialization can be handled }
                 srsym:=ttypesym.create(specializename,generrordef);
                 specializest.insert(srsym);
