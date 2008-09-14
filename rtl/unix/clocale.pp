@@ -40,7 +40,7 @@ implementation
 {$linklib c}
 
 Uses
-  SysUtils, unixtype, initc;
+  SysUtils, ctypes, unixtype, initc;
 
 Const
 {$ifdef BSD}

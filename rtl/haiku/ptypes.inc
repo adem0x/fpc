@@ -19,8 +19,6 @@
 {                       POSIX TYPE DEFINITIONS                          }
 {***********************************************************************}
 
-{$i ctypes.inc}
-
 type
   fsblkcnt_t = clonglong;
   TStatfs = packed record

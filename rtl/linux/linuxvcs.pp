@@ -12,7 +12,7 @@ function try_grab_vcsa:boolean;
                                  implementation
 {*****************************************************************************}
 
-uses baseunix,strings;
+uses ctypes,unixtype,baseunix,strings;
 
 function try_grab_vcsa_in_path(path:Pchar;len:cardinal):boolean;
 

@@ -17,7 +17,7 @@ unit x86;
 
 interface
 
-Uses BaseUnix;
+Uses ctypes, BaseUnix;
 
 function ReadPortB (Port : Longint): Byte;
 function ReadPortW (Port : Longint): Word;

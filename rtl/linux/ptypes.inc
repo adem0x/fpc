@@ -30,7 +30,6 @@ and all three 32-bit systems returned completely identical types too
 introduction)
 }
 
-{$I ctypes.inc}
 {$packrecords c}
 
 Type

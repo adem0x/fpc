@@ -15,13 +15,13 @@
 Unit Unix;
 Interface
 
-Uses BaseUnix,UnixType;
+Uses ctypes,BaseUnix,UnixType;
 
 {$if (defined(BSD) or defined(SUNOS)) and defined(FPC_USE_LIBC)}
 {$define USE_VFORK}
 {$endif}
 
-{$i aliasptp.inc}
+{.$i aliasptp.inc}
 {$i unxconst.inc} { Get Types and Constants only exported in this unit }
 
 {**  File handling **}

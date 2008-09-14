@@ -34,7 +34,7 @@ interface
 {$DEFINE HAS_OSUSERDIR}
 
 uses
-  Unix,errors,sysconst,Unixtype;
+  ctypes,Unix,errors,sysconst,Unixtype;
 
 { Include platform independent interface part }
 {$i sysutilh.inc}

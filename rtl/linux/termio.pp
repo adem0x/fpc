@@ -19,7 +19,7 @@ unit termio;
 interface
 {$inline on}
 
-Uses BaseUnix;          // load base unix typing
+Uses ctypes,BaseUnix;          // load base unix typing
 
 // load types + consts
 

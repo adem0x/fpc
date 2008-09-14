@@ -16,11 +16,11 @@ Unit BaseUnix;
 
 Interface
 {$inline on}
-Uses UnixType;
+Uses ctypes,UnixType;
 
 {$i osdefs.inc}       { Compile time defines }
 
-{$i aliasptp.inc}
+{.$i aliasptp.inc}
 
 {$packrecords C}
 

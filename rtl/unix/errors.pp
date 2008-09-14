@@ -15,7 +15,7 @@ Unit errors;
 
 Interface
 
-uses unixtype;
+uses ctypes,unixtype;
 
 {$i errnostr.inc} // BSD or Linux ones
 

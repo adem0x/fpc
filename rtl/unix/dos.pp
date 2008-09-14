@@ -14,7 +14,7 @@
 Unit Dos;
 Interface
 
-uses baseunix;
+uses ctypes,unixtype,baseunix;
 
 Const
   FileNameLen = 255;

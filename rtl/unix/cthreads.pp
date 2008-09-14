@@ -56,6 +56,7 @@ Procedure SetCThreadManager;
 implementation
 
 Uses
+  ctypes,
   BaseUnix,
   unix,
   unixtype,

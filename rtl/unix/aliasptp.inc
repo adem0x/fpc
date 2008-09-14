@@ -15,8 +15,6 @@
 
  **********************************************************************}
 
-{$i aliasctp.inc}
-
 type
     dev_t    = UnixType.dev_t;
     TDev     = UnixType.TDev;

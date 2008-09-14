@@ -18,6 +18,9 @@ unit unixtype;
 
 Interface
 
+uses
+  ctypes;
+
 {$i ptypes.inc}
 
 Implementation

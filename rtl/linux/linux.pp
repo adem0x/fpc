@@ -22,7 +22,7 @@ unit Linux;
 interface
 
 uses
-  BaseUnix;//, ctypes;
+  ctypes, UnixType, BaseUnix;
 
 type
   TSysInfo = record

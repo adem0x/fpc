@@ -19,7 +19,6 @@
 {                       POSIX TYPE DEFINITIONS                          }
 {***********************************************************************}
 
-{$i ctypes.inc}
 {$packrecords c}
 
 type

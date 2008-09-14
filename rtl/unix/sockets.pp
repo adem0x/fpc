@@ -14,7 +14,7 @@ unit Sockets;
 Interface
 
 {$ifdef Unix}
-Uses baseunix,UnixType;
+Uses ctypes,baseunix,UnixType;
 {$endif}
 
 {$ifdef FreeBSD}

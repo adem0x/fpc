@@ -8,7 +8,7 @@ main=rtl
 [target]
 loaders=$(LOADERS)
 units=$(SYSTEMUNIT) $(SYSINIT_UNITS) \
-      unixtype ctypes baseunix strings objpas macpas syscall unixutil \
+      ctypes unixtype baseunix strings objpas macpas syscall unixutil \
       fpintres heaptrc lineinfo lnfodwrf \
       termio unix linux initc cmem $(CPU_UNITS) \
       crt printer linuxvcs \
@@ -165,17 +165,17 @@ strings$(PPUEXT) : $(INC)/strings.pp $(INC)/stringsi.inc\
 # $(SYSTEMUNIT) Dependent Units
 #
 
-unix$(PPUEXT) : unix.pp strings$(PPUEXT) baseunix$(PPUEXT) $(INC)/textrec.inc $(INC)/filerec.inc \
+unix$(PPUEXT) : unix.pp ctypes$(PPUEXT) strings$(PPUEXT) baseunix$(PPUEXT) $(INC)/textrec.inc $(INC)/filerec.inc \
                  unxconst.inc $(UNIXINC)/timezone.inc $(SYSTEMUNIT)$(PPUEXT) \
                  unxfunc.inc
 
-unixtype$(PPUEXT) : $(UNIXINC)/unixtype.pp ptypes.inc $(UNIXINC)/ctypes.inc $(SYSTEMUNIT)$(PPUEXT)
+unixtype$(PPUEXT) : $(UNIXINC)/unixtype.pp ptypes.inc ctypes$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
 
-baseunix$(PPUEXT) : errno.inc ptypes.inc $(UNIXINC)/ctypes.inc \
+baseunix$(PPUEXT) : errno.inc ptypes.inc \
   $(UNIXINC)/bunxh.inc \
   bunxsysc.inc $(ARCH)/syscallh.inc $(ARCH)/sysnr.inc \
   ostypes.inc osmacro.inc $(UNIXINC)/gensigset.inc \
-  $(UNIXINC)/genfuncs.inc $(SYSTEMUNIT)$(PPUEXT)
+  $(UNIXINC)/genfuncs.inc ctypes$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
 
 ports$(PPUEXT) : ports.pp unix$(PPUEXT) objpas$(PPUEXT)
 
@@ -188,7 +188,7 @@ dynlibs$(PPUEXT) : $(INC)/dynlibs.pas $(UNIXINC)/dynlibs.inc dl$(PPUEXT) objpas$
 #
 
 dos$(PPUEXT) : dos.pp $(INC)/filerec.inc $(INC)/textrec.inc strings$(PPUEXT) \
-               unix$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
+               ctypes$(PPUEXT) unix$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
 
 crt$(PPUEXT) : crt.pp $(INC)/textrec.inc unix$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
 
@@ -201,7 +201,7 @@ printer$(PPUEXT) : printer.pp $(INC)/textrec.inc unix$(PPUEXT) $(SYSTEMUNIT)$(PP
 #
 
 sysutils$(PPUEXT) : $(UNIXINC)/sysutils.pp $(wildcard $(OBJPASDIR)/sysutils/*.inc) \
-                    objpas$(PPUEXT) unix$(PPUEXT) errors$(PPUEXT) sysconst$(PPUEXT)
+                    ctypes$(PPUEXT) objpas$(PPUEXT) unix$(PPUEXT) errors$(PPUEXT) sysconst$(PPUEXT)
         $(COMPILER) -Fi$(OBJPASDIR)/sysutils $(UNIXINC)/sysutils.pp
 
 classes$(PPUEXT) : $(UNIXINC)/classes.pp $(wildcard $(OBJPASDIR)/classes/*.inc) \
@@ -285,24 +285,24 @@ ucomplex$(PPUEXT) : $(INC)/ucomplex.pp math$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
 #
 
 sockets$(PPUEXT) : sockets.pp $(INC)/textrec.inc $(INC)/filerec.inc \
-                   unixsock.inc unix$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
+                   unixsock.inc ctypes$(PPUEXT) unix$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
 
-errors$(PPUEXT) : errors.pp strings$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
+errors$(PPUEXT) : errors.pp ctypes$(PPUEXT) strings$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
 
 ipc$(PPUEXT) : ipc.pp unix$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
 
-terminfo$(PPUEXT) : terminfo.pp unix$(PPUEXT)
+terminfo$(PPUEXT) : terminfo.pp ctypes$(PPUEXT) unix$(PPUEXT)
 
 callspec$(PPUEXT) : $(INC)/callspec.pp $(SYSTEMUNIT)$(PPUEXT)
 
 cmem$(PPUEXT) : $(INC)/cmem.pp $(SYSTEMUNIT)$(PPUEXT)
 
-cthreads$(PPUEXT) : $(UNIXINC)/cthreads.pp $(SYSTEMUNIT)$(PPUEXT)
+cthreads$(PPUEXT) : $(UNIXINC)/cthreads.pp ctypes$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
 
 cwstring$(PPUEXT) : $(UNIXINC)/cwstring.pp $(SYSTEMUNIT)$(PPUEXT) sysutils$(PPUEXT) baseunix$(PPUEXT) unix$(PPUEXT) unixtype$(PPUEXT) ctypes$(PPUEXT)
 
 gpm$(PPUEXT): gpm.pp unix$(PPUEXT) baseunix$(PPUEXT) sockets$(PPUEXT)
 
-ctypes$(PPUEXT) :  $(INC)/ctypes.pp $(SYSTEMUNIT)$(PPUEXT)
+ctypes$(PPUEXT) :  $(INC)/ctypes.pp $(UNIXINC)/ctypes.inc $(SYSTEMUNIT)$(PPUEXT)
 
 fpcylix$(PPUEXT) :  fpcylix.pp $(SYSTEMUNIT)$(PPUEXT) dynlibs$(PPUEXT) objpas$(PPUEXT)

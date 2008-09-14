@@ -21,11 +21,9 @@ unit ctypes;
 
 interface
 
-{$ifdef unix}
-uses unixtype;
-{$i aliasctp.inc}
-{$else}
-
+{$if defined(UNIX)}
+  {$i ctypes.inc}
+{$elseif defined(WINDOWS)}
 type
 {$ifndef FPC}
     qword = int64;  // Keep h2pas "uses ctypes" headers working with delphi.
@@ -83,7 +81,9 @@ type
   cfloat                 = single;             pcfloat                = ^cfloat;
   cdouble                = double;             pcdouble               = ^cdouble;
 {$endif}
-{$endif}
+{$else}
+  {$error 'missing ctypes'}
+{$ifend}
 
 {$ifdef defined(win64) or defined(wince)}
   {$define longdouble_is_double}

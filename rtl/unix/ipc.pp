@@ -21,7 +21,7 @@ Uses
 {$ifdef FPC_USE_LIBCX}
   initc,
 {$endif}
-  BaseUnix,UnixType;
+  ctypes,BaseUnix,UnixType;
 
 { ----------------------------------------------------------------------
   General IPC stuff
