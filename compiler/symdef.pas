@@ -508,8 +508,9 @@ interface
        end;
 
        tstringdef = class(tstoreddef)
-          stringtype : tstringtype;
           len        : aint;
+          encoding   : tstringencoding;
+          stringtype : tstringtype;
           constructor createshort(l : byte);
           constructor loadshort(ppufile:tcompilerppufile);
           constructor createlong(l : aint);
