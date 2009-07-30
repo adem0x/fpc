@@ -92,48 +92,52 @@ implementation
     { and returns a pointer to the string      }
     { definition                               }
       var
-         p : tnode;
+        p : tnode;
       begin
-         def:=cshortstringtype;
-         consume(_STRING);
-         if try_to_consume(_LECKKLAMMER) then
-           begin
-              p:=comp_expr(true);
-              if not is_constintnode(p) then
-                begin
-                  Message(parser_e_illegal_expression);
-                  { error recovery }
-                  consume(_RECKKLAMMER);
-                end
-              else
-                begin
-                 if (tordconstnode(p).value<=0) then
-                   begin
-                      Message(parser_e_invalid_string_size);
-                      tordconstnode(p).value:=255;
-                   end;
+        def:=cshortstringtype;
+        consume(_STRING);
+        if try_to_consume(_LECKKLAMMER) then
+          begin
+             p:=comp_expr(true);
+             if not is_constintnode(p) then
+               begin
+                 Message(parser_e_illegal_expression);
+                 { error recovery }
                  consume(_RECKKLAMMER);
-                 if tordconstnode(p).value>255 then
+               end
+             else
+               begin
+                if (tordconstnode(p).value<=0) then
                   begin
-                    { longstring is currently unsupported (CEC)! }
-{                   t:=tstringdef.createlong(tordconstnode(p).value))}
                      Message(parser_e_invalid_string_size);
                      tordconstnode(p).value:=255;
-                     def:=tstringdef.createshort(int64(tordconstnode(p).value));
-                  end
-                 else
-                   if tordconstnode(p).value<>255 then
-                     def:=tstringdef.createshort(int64(tordconstnode(p).value));
-               end;
-              p.free;
-           end
-          else
-            begin
-               if cs_ansistrings in current_settings.localswitches then
-                 def:=cansistringtype
-               else
-                 def:=cshortstringtype;
-            end;
+                  end;
+                consume(_RECKKLAMMER);
+                if tordconstnode(p).value>255 then
+                 begin
+                   { longstring is currently unsupported (CEC)! }
+{                   t:=tstringdef.createlong(tordconstnode(p).value))}
+                    Message(parser_e_invalid_string_size);
+                    tordconstnode(p).value:=255;
+                    def:=tstringdef.createshort(int64(tordconstnode(p).value));
+                 end
+                else
+                  if tordconstnode(p).value<>255 then
+                    def:=tstringdef.createshort(int64(tordconstnode(p).value));
+              end;
+             p.free;
+          end
+        else if try_to_consume(_GT) then
+          begin
+            consume(_LT);
+          end
+        else
+          begin
+             if cs_ansistrings in current_settings.localswitches then
+               def:=cansistringtype
+             else
+               def:=cshortstringtype;
+          end;
        end;
 
 
