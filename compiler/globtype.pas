@@ -463,7 +463,7 @@ interface
       end;
   {$endif}
 
-      tstringencoding = dword;
+      tstringencoding = word;
 
     const
        { link options }

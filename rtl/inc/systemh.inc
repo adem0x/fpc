@@ -293,8 +293,10 @@ Type
   PUCS4CharArray      = ^TUCS4CharArray;
   UCS4String          = array of UCS4Char;
 
-  UTF8String          = type ansistring;
+  UTF8String          = String<65001>;
   PUTF8String         = ^UTF8String;
+
+  RawByteString       = String<$ffff>;
 
   HRESULT             = type Longint;
 {$ifndef FPUNONE}
@@ -359,6 +361,8 @@ Type
   UnicodeString       = type WideString;
 {$endif VER2_2}
   PUnicodeString      = ^UnicodeString;
+
+  TSystemCodePage     = Word;
 
   { Needed for fpc_get_output }
   PText               = ^Text;
@@ -474,6 +478,11 @@ var
   IsConsole : boolean;
   { Threading support }
   fpc_threadvar_relocate_proc : pointer; public name 'FPC_THREADVAR_RELOCATE';
+
+  DefaultSystemCodePage,
+  DefaultUnicodeCodePage,
+  UTF8CompareLocale : TSystemCodePage;
+
 
 {$ifndef HAS_CMDLINE}
 {Value should be changed during system initialization as appropriate.}
@@ -770,6 +779,10 @@ Procedure Delete (var S : AnsiString; Index,Size: SizeInt);
 Function  StringOfChar(c : char;l : SizeInt) : AnsiString;
 function  upcase(const s : ansistring) : ansistring;
 function  lowercase(const s : ansistring) : ansistring;
+
+function StringCodePage(const S : RawByteString): Word; overload;
+function StringElementSize(const S : RawByteString): Word; overload;
+function StringRefCount(const S : RawByteString): SizeInt; overload;
 {$endif FPC_HAS_FEATURE_ANSISTRINGS}
 
 

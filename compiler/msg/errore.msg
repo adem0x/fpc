@@ -1189,6 +1189,9 @@ parser_e_no_local_para_def=03252_E_Parameters cannot contain local type definiti
 % refer to the same type definition in the procedure headers of the interface and implementation of a unit
 % (both procedure headers would define a separate type). Keep in mind that expressions such as
 % ``file of byte'' or ``string[50]'' also define a new type.
+parser_e_invalid_codepage=03253_E_Invalid codepage
+% When declaring a string with a given codepage, the range of valid codepages values is limited
+% to 0 to 65535.
 % \end{description}
 #
 # Type Checking
