@@ -217,28 +217,29 @@ function GetProcessID: SizeUInt;
                               Unicode
  ******************************************************************************}
 
-procedure Win32Unicode2AnsiMove(source:punicodechar;var dest:ansistring;len:SizeInt);
+procedure Win32Unicode2AnsiMove(source:punicodechar;var dest:ansistring;cp : TSystemCodePage;len:SizeInt);
   var
     destlen: SizeInt;
   begin
     // retrieve length including trailing #0
     // not anymore, because this must also be usable for single characters
-    destlen:=WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, source, len, nil, 0, nil, nil);
+    destlen:=WideCharToMultiByte(cp, WC_NO_BEST_FIT_CHARS, source, len, nil, 0, nil, nil);
     // this will null-terminate
     setlength(dest, destlen);
-    WideCharToMultiByte(CP_ACP, WC_NO_BEST_FIT_CHARS, source, len, @dest[1], destlen, nil, nil);
+    WideCharToMultiByte(cp, WC_NO_BEST_FIT_CHARS, source, len, @dest[1], destlen, nil, nil);
   end;
 
-procedure Win32Ansi2UnicodeMove(source:pchar;var dest:UnicodeString;len:SizeInt);
+
+procedure Win32Ansi2UnicodeMove(source:pchar;cp : TSystemCodePage;var dest:UnicodeString;len:SizeInt);
   var
     destlen: SizeInt;
   begin
     // retrieve length including trailing #0
     // not anymore, because this must also be usable for single characters
-    destlen:=MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, source, len, nil, 0);
+    destlen:=MultiByteToWideChar(MB_PRECOMPOSED, source, len, nil, 0);
     // this will null-terminate
     setlength(dest, destlen);
-    MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, source, len, @dest[1], destlen);
+    MultiByteToWideChar(cp, MB_PRECOMPOSED, source, len, @dest[1], destlen);
   end;
 
 
@@ -259,8 +260,68 @@ function Win32UnicodeLower(const s : UnicodeString) : UnicodeString;
       CharLowerBuff(LPWSTR(result),length(result));
   end;
 
+{******************************************************************************
+                              Widestring
+ ******************************************************************************}
+const
+  { MultiByteToWideChar  }
+     MB_PRECOMPOSED = 1;
+     CP_ACP = 0;
+     WC_NO_BEST_FIT_CHARS = $400;
 
-{ there is a similiar procedure in sysutils which inits the fields which
+function MultiByteToWideChar(CodePage:UINT; dwFlags:DWORD; lpMultiByteStr:PChar; cchMultiByte:longint; lpWideCharStr:PWideChar;cchWideChar:longint):longint;
+    stdcall; external 'kernel32' name 'MultiByteToWideChar';
+function WideCharToMultiByte(CodePage:UINT; dwFlags:DWORD; lpWideCharStr:PWideChar; cchWideChar:longint; lpMultiByteStr:PChar;cchMultiByte:longint; lpDefaultChar:PChar; lpUsedDefaultChar:pointer):longint;
+    stdcall; external 'kernel32' name 'WideCharToMultiByte';
+function CharUpperBuff(lpsz:LPWSTR; cchLength:DWORD):DWORD;
+    stdcall; external 'user32' name 'CharUpperBuffW';
+function CharLowerBuff(lpsz:LPWSTR; cchLength:DWORD):DWORD;
+    stdcall; external 'user32' name 'CharLowerBuffW';
+
+
+procedure Win32Wide2AnsiMove(source:pwidechar;var dest:ansistring;cp : TSystemCodePage;len:SizeInt);
+  var
+    destlen: SizeInt;
+  begin
+    // retrieve length including trailing #0
+    // not anymore, because this must also be usable for single characters
+    destlen:=WideCharToMultiByte(cp, WC_NO_BEST_FIT_CHARS, source, len, nil, 0, nil, nil);
+    // this will null-terminate
+    setlength(dest, destlen);
+    WideCharToMultiByte(cp, WC_NO_BEST_FIT_CHARS, source, len, @dest[1], destlen, nil, nil);
+  end;
+
+
+procedure Win32Ansi2WideMove(source:pchar;cp : TSystemCodePage;var dest:widestring;len:SizeInt);
+  var
+    destlen: SizeInt;
+  begin
+    // retrieve length including trailing #0
+    // not anymore, because this must also be usable for single characters
+    destlen:=MultiByteToWideChar(cp, MB_PRECOMPOSED, source, len, nil, 0);
+    // this will null-terminate
+    setlength(dest, destlen);
+    MultiByteToWideChar(cp, MB_PRECOMPOSED, source, len, @dest[1], destlen);
+  end;
+
+
+function Win32WideUpper(const s : WideString) : WideString;
+  begin
+    result:=s;
+    if length(result)>0 then
+      CharUpperBuff(LPWSTR(result),length(result));
+  end;
+
+
+function Win32WideLower(const s : WideString) : WideString;
+  begin
+    result:=s;
+    if length(result)>0 then
+      CharLowerBuff(LPWSTR(result),length(result));
+  end;
+
+
+  { there is a similiar procedure in sysutils which inits the fields which
   are only relevant for the sysutils units }
 procedure InitWin32Widestrings;
   begin
