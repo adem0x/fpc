@@ -1375,7 +1375,6 @@ function Utf8ToUnicode(Dest: PWideChar; Source: PChar; MaxChars: SizeInt): SizeI
   end;
 
 
-
 function UTF8ToUnicode(Dest: PWideChar; MaxDestChars: SizeUInt; Source: PChar; SourceBytes: SizeUInt): SizeUInt;
   const
     UNICODE_INVALID=63;

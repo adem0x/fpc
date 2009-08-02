@@ -325,6 +325,13 @@ implementation
                              begin
                                 current_asmdata.getdatalabel(l1);
                                 current_asmdata.asmlists[al_typedconsts].concat(Tai_label.Create(l1));
+
+                                current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_16bit(tstringdef(resultdef).encoding));
+                                current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_16bit(1));
+{$ifdef cpu64bitaddr}
+                                { dummy for alignment }
+                                current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_32bit(0));
+{$endif cpu64bitaddr}
                                 current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_pint(-1));
                                 current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_pint(len));
 
@@ -358,6 +365,12 @@ implementation
                                   current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_32bit(len*cwidechartype.size))
                                 else
                                   begin
+                                    current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_16bit(tstringdef(resultdef).encoding));
+                                    current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_16bit(2));
+{$ifdef cpu64bitaddr}
+                                    { dummy for alignment }
+                                    current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_32bit(0));
+{$endif cpu64bitaddr}
                                     current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_pint(-1));
                                     current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_pint(len*cwidechartype.size));
                                   end;

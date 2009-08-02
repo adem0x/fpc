@@ -944,4 +944,3 @@ begin
   InitWin32Widestrings;
   DispCallByIDProc:=@DoDispCallByIDError;
 end.
-

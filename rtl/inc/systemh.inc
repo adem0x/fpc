@@ -341,7 +341,7 @@ Type
 
 {$ifndef FPUNONE}
   PDate               = ^TDateTime;
-  PDateTime	      = ^TDateTime;
+  PDateTime           = ^TDateTime;
 {$endif}
   PError              = ^TError;
   PVariant            = ^Variant;

@@ -164,7 +164,7 @@ begin
   GetMem(P,Len*sizeof(UnicodeChar)+UnicodeRecLen);
   If P<>Nil then
     begin
-      PUnicodeRec(P)^.Len:=Len*2;     { Initial length }
+      PUnicodeRec(P)^.Len:=Len;       { Initial length }
       PUnicodeRec(P)^.Ref:=1;         { Initial Refcount }
       PUnicodeRec(P)^.CodePage:=DefaultUnicodeCodePage;
       PUnicodeRec(P)^.ElementSize:=SizeOf(UnicodeChar);
@@ -210,9 +210,8 @@ Begin
 
   { declocked does a MT safe dec and returns true, if the counter is 0 }
   if declocked(l^) then
-    { Ref count dropped to zero ...
-      ... remove }
-  DisposeUnicodeString(S);
+    { Ref count dropped to zero remove }
+    DisposeUnicodeString(S);
 end;
 
 { alias for internal use }
@@ -653,7 +652,6 @@ begin
   widestringmanager.Ansi2UnicodeMoveProc(@c,DefaultSystemCodePage,w,1);
   fpc_Char_To_UChar:=w[1];
 end;
-
 
 
 Function fpc_Char_To_UnicodeStr(const c : Char): UnicodeString; compilerproc;
@@ -1347,7 +1345,7 @@ begin
         end;
       { Force nil termination in case it gets shorter }
       PWord(Pointer(S)+l*sizeof(UnicodeChar))^:=0;
-      PUnicodeRec(Pointer(S)-UnicodeFirstOff)^.Len:=l*sizeof(UnicodeChar);
+      PUnicodeRec(Pointer(S)-UnicodeFirstOff)^.Len:=l;
     end
   else
     begin
