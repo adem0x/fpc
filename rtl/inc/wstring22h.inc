@@ -38,8 +38,8 @@ function WideCharLenToString(S : PWideChar;Len : SizeInt) : AnsiString;
 procedure WideCharLenToStrVar(Src : PWideChar;Len : SizeInt;out Dest : AnsiString);
 procedure WideCharToStrVar(S : PWideChar;out Dest : AnsiString);
 
-procedure DefaultWide2AnsiMove(source:pwidechar;var dest:ansistring;len:SizeInt);
-procedure DefaultAnsi2WideMove(source:pchar;var dest:widestring;len:SizeInt);
+procedure DefaultWide2AnsiMove(source:pwidechar;var dest:ansistring;cp : TSystemCodePage;len:SizeInt);
+procedure DefaultAnsi2WideMove(source:pchar;cp : TSystemCodePage;var dest:widestring;len:SizeInt);
 
 Type
   { hooks for internationalization

@@ -217,6 +217,21 @@ function GetProcessID: SizeUInt;
                               Unicode
  ******************************************************************************}
 
+const
+  { MultiByteToWideChar  }
+     MB_PRECOMPOSED = 1;
+     CP_ACP = 0;
+     WC_NO_BEST_FIT_CHARS = $400;
+
+function MultiByteToWideChar(CodePage:UINT; dwFlags:DWORD; lpMultiByteStr:PChar; cchMultiByte:longint; lpWideCharStr:PWideChar;cchWideChar:longint):longint;
+    stdcall; external 'kernel32' name 'MultiByteToWideChar';
+function WideCharToMultiByte(CodePage:UINT; dwFlags:DWORD; lpWideCharStr:PWideChar; cchWideChar:longint; lpMultiByteStr:PChar;cchMultiByte:longint; lpDefaultChar:PChar; lpUsedDefaultChar:pointer):longint;
+    stdcall; external 'kernel32' name 'WideCharToMultiByte';
+function CharUpperBuff(lpsz:LPWSTR; cchLength:DWORD):DWORD;
+    stdcall; external 'user32' name 'CharUpperBuffW';
+function CharLowerBuff(lpsz:LPWSTR; cchLength:DWORD):DWORD;
+    stdcall; external 'user32' name 'CharLowerBuffW';
+
 procedure Win32Unicode2AnsiMove(source:punicodechar;var dest:ansistring;cp : TSystemCodePage;len:SizeInt);
   var
     destlen: SizeInt;
@@ -236,7 +251,7 @@ procedure Win32Ansi2UnicodeMove(source:pchar;cp : TSystemCodePage;var dest:Unico
   begin
     // retrieve length including trailing #0
     // not anymore, because this must also be usable for single characters
-    destlen:=MultiByteToWideChar(MB_PRECOMPOSED, source, len, nil, 0);
+    destlen:=MultiByteToWideChar(cp, MB_PRECOMPOSED, source, len, nil, 0);
     // this will null-terminate
     setlength(dest, destlen);
     MultiByteToWideChar(cp, MB_PRECOMPOSED, source, len, @dest[1], destlen);
@@ -263,21 +278,6 @@ function Win32UnicodeLower(const s : UnicodeString) : UnicodeString;
 {******************************************************************************
                               Widestring
  ******************************************************************************}
-const
-  { MultiByteToWideChar  }
-     MB_PRECOMPOSED = 1;
-     CP_ACP = 0;
-     WC_NO_BEST_FIT_CHARS = $400;
-
-function MultiByteToWideChar(CodePage:UINT; dwFlags:DWORD; lpMultiByteStr:PChar; cchMultiByte:longint; lpWideCharStr:PWideChar;cchWideChar:longint):longint;
-    stdcall; external 'kernel32' name 'MultiByteToWideChar';
-function WideCharToMultiByte(CodePage:UINT; dwFlags:DWORD; lpWideCharStr:PWideChar; cchWideChar:longint; lpMultiByteStr:PChar;cchMultiByte:longint; lpDefaultChar:PChar; lpUsedDefaultChar:pointer):longint;
-    stdcall; external 'kernel32' name 'WideCharToMultiByte';
-function CharUpperBuff(lpsz:LPWSTR; cchLength:DWORD):DWORD;
-    stdcall; external 'user32' name 'CharUpperBuffW';
-function CharLowerBuff(lpsz:LPWSTR; cchLength:DWORD):DWORD;
-    stdcall; external 'user32' name 'CharLowerBuffW';
-
 
 procedure Win32Wide2AnsiMove(source:pwidechar;var dest:ansistring;cp : TSystemCodePage;len:SizeInt);
   var
