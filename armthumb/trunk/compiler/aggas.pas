@@ -32,7 +32,11 @@ interface
       cclasses,
       globtype,globals,
       aasmbase,aasmtai,aasmdata,aasmcpu,
-      assemble;
+      assemble
+{$ifdef ARM}
+     ,cpuinfo
+{$endif ARM}
+;
 
 
     type
@@ -1042,6 +1046,11 @@ implementation
                          AsmWriteLn(',' + sepChar + 'function');
                      end;
                  end;
+{$ifdef ARM}
+               if tai_symbol(hp).sym.typ = AT_FUNCTION then
+                 if current_settings.cputype in [cpu_cortexm3, cpu_armv7m] then
+                   AsmWriteLn(#9'.thumb_func');
+{$endif}
                AsmWriteLn(tai_symbol(hp).sym.name + ':');
              end;
 

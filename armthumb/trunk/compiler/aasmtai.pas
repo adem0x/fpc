@@ -173,6 +173,7 @@ interface
        { ARM only }
        ,top_regset
        ,top_shifterop
+       ,top_conditioncode
 {$endif arm}
 {$ifdef m68k}
        { m68k only }
@@ -208,6 +209,7 @@ interface
       {$ifdef arm}
           top_regset : (regset:^tcpuregisterset);
           top_shifterop : (shifterop : pshifterop);
+          top_conditioncode: (cc: TAsmCond);
       {$endif arm}
       {$ifdef m68k}
           top_regset : (regset:^tcpuregisterset);
