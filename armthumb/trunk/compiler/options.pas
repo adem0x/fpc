@@ -81,7 +81,9 @@ uses
   comphook,
   symtable,scanner,rabase,
   wpobase,
-  i_bsd
+  i_bsd,
+  cgobj,
+  cgcpu
   ;
 
 const
@@ -672,6 +674,26 @@ begin
                         s:=upper(copy(more,j+1,length(more)-j));
                         if not(Setcputype(s,init_settings.cputype)) then
                           IllegalPara(opt);
+                        
+                        {$ifdef ARM}
+                        if init_settings.cputype in [cpu_armv7m, cpu_cortexm3] then
+                          begin
+                            cg64.Free;
+                            cg.Free;
+                            
+                            cg:=tthumb2cgarm.create;
+                            cg64:=tthumb2cg64farm.create;
+                          end
+                        else
+                          begin
+                            cg64.Free;
+                            cg.Free;
+                            
+                            cg:=tarmcgarm.create;
+                            cg64:=tcg64farm.create;
+                          end;
+                        {$endif}
+                        
                         break;
                       end;
                     'P':
