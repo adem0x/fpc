@@ -81,10 +81,10 @@ unit agarmgas;
         if (current_settings.fputype = fpu_soft) then
           result:='-mfpu=softvfp '+result;
         
-        if current_settings.cputype = cpu_armv7m then
-          result:='-mcpu=arm7m -mthumb -mthumb-interwork '+result;
         if current_settings.cputype = cpu_cortexm3 then
           result:='-mcpu=cortex-m3 -mthumb -mthumb-interwork '+result;
+        if current_settings.cputype = cpu_armv7m then
+          result:='-march=armv7m -mthumb -mthumb-interwork '+result;
       end;
     
     procedure TArmGNUAssembler.WriteExtraHeader;
@@ -230,10 +230,15 @@ unit agarmgas;
         sep: string[3];
     begin
       op:=taicpu(hp).opcode;
-      if (current_settings.cputype in [cpu_cortexm3, cpu_armv7m]) and (taicpu(hp).ops = 0) then
-        s:=#9+gas_op2str[op]+' '+cond2str[taicpu(hp).condition]+oppostfix2str[taicpu(hp).oppostfix]
+      if current_settings.cputype in [cpu_cortexm3, cpu_armv7m] then
+        begin
+          if taicpu(hp).ops = 0 then
+            s:=#9+gas_op2str[op]+' '+cond2str[taicpu(hp).condition]+oppostfix2str[taicpu(hp).oppostfix]
+          else
+            s:=#9+gas_op2str[op]+oppostfix2str[taicpu(hp).oppostfix]+cond2str[taicpu(hp).condition]; // Conditional infixes are deprecated in unified syntax
+        end
       else
-        s:=#9+gas_op2str[op]+oppostfix2str[taicpu(hp).oppostfix]+cond2str[taicpu(hp).condition];
+        s:=#9+gas_op2str[op]+cond2str[taicpu(hp).condition]+oppostfix2str[taicpu(hp).oppostfix];
       if taicpu(hp).ops<>0 then
         begin
           sep:=#9;
