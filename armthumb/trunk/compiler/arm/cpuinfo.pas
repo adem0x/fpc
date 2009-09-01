@@ -92,8 +92,8 @@ Const
      'ARMV3',
      'ARMV4',
      'ARMV5',
-	   'ARMV7M',
-	   'CORTEXM3'
+     'ARMV7M',
+     'CORTEXM3'
    );
 
    fputypestr : array[tfputype] of string[6] = ('',
@@ -114,7 +114,7 @@ Const
       'AT91SAM7SE256',
       'AT91SAM7X256',
       'AT91SAM7XC256',
-		  'STM32F103RE'
+      'STM32F103RE'
      );
 
    controllerunitstr : array[tcontrollertype] of string[20] =
@@ -126,7 +126,7 @@ Const
       'AT91SAM7x256',
       'AT91SAM7x256',
       'AT91SAM7x256',
-		  'STM32F103'
+      'STM32F103'
      );
 
    { Supported optimizations, only used for information }

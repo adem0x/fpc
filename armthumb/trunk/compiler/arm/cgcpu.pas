@@ -136,6 +136,8 @@ unit cgcpu;
         
         procedure a_load_const_reg(list : TAsmList; size: tcgsize; a : aint;reg : tregister);override;
         procedure a_load_ref_reg(list : TAsmList; fromsize, tosize : tcgsize;const Ref : treference;reg : tregister);override;
+        
+        procedure a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: aint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);override;
         procedure a_op_reg_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; src1, src2, dst: tregister;setflags : boolean;var ovloc : tlocation);override;
         
         procedure g_flags2reg(list: TAsmList; size: TCgSize; const f: TResFlags; reg: TRegister); override;
@@ -2600,6 +2602,163 @@ unit cgcpu;
          if (fromsize=OS_S8) and (tosize = OS_16) then
            a_load_reg_reg(list,OS_16,OS_32,reg,reg);
        end;
+
+
+    procedure Tthumb2cgarm.a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: aint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);
+      var
+        shift : byte;
+        tmpreg : tregister;
+        so : tshifterop;
+        l1 : longint;
+      begin
+        ovloc.loc:=LOC_VOID;
+        if {$ifopt R+}(a<>-2147483648) and{$endif} is_shifter_const(-a,shift) then
+          case op of
+            OP_ADD:
+              begin
+                op:=OP_SUB;
+                a:=aint(dword(-a));
+              end;
+            OP_SUB:
+              begin
+                op:=OP_ADD;
+                a:=aint(dword(-a));
+              end
+          end;
+
+        if is_shifter_const(a,shift) and not(op in [OP_IMUL,OP_MUL]) then
+          case op of
+            OP_NEG,OP_NOT,
+            OP_DIV,OP_IDIV:
+              internalerror(200308281);
+            OP_SHL:
+              begin
+                if a>32 then
+                  internalerror(200308294);
+                if a<>0 then
+                  begin
+                    shifterop_reset(so);
+                    so.shiftmode:=SM_LSL;
+                    so.shiftimm:=a;
+                    list.concat(taicpu.op_reg_reg_shifterop(A_MOV,dst,src,so));
+                  end
+                else
+                 list.concat(taicpu.op_reg_reg(A_MOV,dst,src));
+              end;
+            OP_ROL:
+              begin
+                if a>32 then
+                  internalerror(200308294);
+                if a<>0 then
+                  begin
+                    shifterop_reset(so);
+                    so.shiftmode:=SM_ROR;
+                    so.shiftimm:=32-a;
+                    list.concat(taicpu.op_reg_reg_shifterop(A_MOV,dst,src,so));
+                  end
+                else
+                 list.concat(taicpu.op_reg_reg(A_MOV,dst,src));
+              end;
+            OP_ROR:
+              begin
+                if a>32 then
+                  internalerror(200308294);
+                if a<>0 then
+                  begin
+                    shifterop_reset(so);
+                    so.shiftmode:=SM_ROR;
+                    so.shiftimm:=a;
+                    list.concat(taicpu.op_reg_reg_shifterop(A_MOV,dst,src,so));
+                  end
+                else
+                 list.concat(taicpu.op_reg_reg(A_MOV,dst,src));
+              end;
+            OP_SHR:
+              begin
+                if a>32 then
+                  internalerror(200308292);
+                shifterop_reset(so);
+                if a<>0 then
+                  begin
+                    so.shiftmode:=SM_LSR;
+                    so.shiftimm:=a;
+                    list.concat(taicpu.op_reg_reg_shifterop(A_MOV,dst,src,so));
+                  end
+                else
+                 list.concat(taicpu.op_reg_reg(A_MOV,dst,src));
+              end;
+            OP_SAR:
+              begin
+                if a>32 then
+                  internalerror(200308295);
+                if a<>0 then
+                  begin
+                    shifterop_reset(so);
+                    so.shiftmode:=SM_ASR;
+                    so.shiftimm:=a;
+                    list.concat(taicpu.op_reg_reg_shifterop(A_MOV,dst,src,so));
+                  end
+                else
+                 list.concat(taicpu.op_reg_reg(A_MOV,dst,src));
+              end;
+            else
+              if (op in [OP_SUB, OP_ADD]) and
+                 ((a < 0) or
+                  (a > 4095)) then
+                begin
+                  tmpreg:=getintregister(list,size);
+                  list.concat(taicpu.op_reg_const(A_MOVT, tmpreg, (a shr 16) and $FFFF));
+                  list.concat(taicpu.op_reg_const(A_MOV, tmpreg, a and $FFFF));
+                  list.concat(setoppostfix(taicpu.op_reg_reg_reg(op_reg_reg_opcg2asmop[op],dst,src,tmpreg),toppostfix(ord(cgsetflags or setflags)*ord(PF_S))
+                   ));
+                end
+              else
+              list.concat(setoppostfix(
+                  taicpu.op_reg_reg_const(op_reg_reg_opcg2asmop[op],dst,src,a),toppostfix(ord(cgsetflags or setflags)*ord(PF_S))
+              ));
+              if (cgsetflags or setflags) and (size in [OS_8,OS_16,OS_32]) then
+                begin
+                  ovloc.loc:=LOC_FLAGS;
+                  case op of
+                    OP_ADD:
+                      ovloc.resflags:=F_CS;
+                    OP_SUB:
+                      ovloc.resflags:=F_CC;
+                  end;
+                end;
+          end
+        else
+          begin
+            { there could be added some more sophisticated optimizations }
+            if (op in [OP_MUL,OP_IMUL]) and (a=1) then
+              a_load_reg_reg(list,size,size,src,dst)
+            else if (op in [OP_MUL,OP_IMUL]) and (a=0) then
+              a_load_const_reg(list,size,0,dst)
+            else if (op in [OP_IMUL]) and (a=-1) then
+              a_op_reg_reg(list,OP_NEG,size,src,dst)
+            { we do this here instead in the peephole optimizer because
+              it saves us a register }
+            else if (op in [OP_MUL,OP_IMUL]) and ispowerof2(a,l1) and not(cgsetflags or setflags) then
+              a_op_const_reg_reg(list,OP_SHL,size,l1,src,dst)
+            { for example : b=a*5 -> b=a*4+a with add instruction and shl }
+            else if (op in [OP_MUL,OP_IMUL]) and ispowerof2(a-1,l1) and not(cgsetflags or setflags) then
+              begin
+                if l1>32 then{roozbeh does this ever happen?}
+                  internalerror(200308296);
+                shifterop_reset(so);
+                so.shiftmode:=SM_LSL;
+                so.shiftimm:=l1;
+                list.concat(taicpu.op_reg_reg_reg_shifterop(A_ADD,dst,src,src,so));
+              end
+            else
+              begin
+                tmpreg:=getintregister(list,size);
+                a_load_const_reg(list,size,a,tmpreg);
+                a_op_reg_reg_reg_checkoverflow(list,op,size,tmpreg,src,dst,setflags,ovloc);
+              end;
+          end;
+        maybeadjustresult(list,op,size,dst);
+      end;
 
 
     const
