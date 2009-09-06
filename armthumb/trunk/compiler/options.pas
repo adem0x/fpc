@@ -81,9 +81,13 @@ uses
   comphook,
   symtable,scanner,rabase,
   wpobase,
-  i_bsd,
-  cgobj,
-  cgcpu
+  i_bsd
+  {$ifdef arm}
+  ,cgobj,
+  cgcpu,
+  aopt,
+  aoptcpu
+  {$endif}
   ;
 
 const
@@ -683,6 +687,8 @@ begin
                             
                             cg:=tthumb2cgarm.create;
                             cg64:=tthumb2cg64farm.create;
+                            
+                            casmoptimizer:=TCpuThumb2AsmOptimizer;
                           end
                         else
                           begin
@@ -691,6 +697,8 @@ begin
                             
                             cg:=tarmcgarm.create;
                             cg64:=tcg64farm.create;
+                            
+                            casmoptimizer:=TCpuAsmOptimizer;
                           end;
                         {$endif}
                         
