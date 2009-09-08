@@ -177,10 +177,6 @@ attsufNONE,
 attsufNONE,
 attsufNONE,
 attsufNONE,
-attsufNONE
-
-// Thumb2
-,
 attsufNONE,
 attsufNONE,
 attsufNONE,
@@ -188,20 +184,16 @@ attsufNONE,
 attsufNONE,
 attsufNONE,
 attsufNONE,
-
-attsufNONE,
-attsufNONE,
-
-attsufNONE,
-
-attsufNONE,
-attsufNONE,
-
 attsufNONE,
 attsufNONE,
 attsufNONE,
 attsufNONE,
-
+attsufNONE,
+attsufNONE,
+attsufNONE,
+attsufNONE,
+attsufNONE,
+attsufNONE,
 attsufNONE,
 attsufNONE,
 attsufNONE,

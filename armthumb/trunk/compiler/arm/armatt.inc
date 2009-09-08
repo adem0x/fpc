@@ -1,4 +1,6 @@
-{ don't edit, this file is generated from armins.dat }('none',
+{ don't edit, this file is generated from armins.dat }
+(
+'none',
 'abs',
 'acs',
 'asn',
@@ -176,8 +178,6 @@
 'ftouis',
 'fuitod',
 'fuitos',
-
-{ JGJ: Partial set of Thumb2 instructions }
 'asr',
 'lsr',
 'lsl',
