@@ -38,15 +38,42 @@ type
     FWriter: THTMLWriter;
     procedure SetDocument(const AValue: THTMLDocument);
     procedure SetWriter(const AValue: THTMLWriter);
+  private
+    // for streaming
+    FAcceptChildsAtDesignTime: boolean;
+    FChilds: TFPList; // list of THTMLContentProducer
+    FParent: THTMLContentProducer;
+    function GetChildList: TFPList;
+    function GetChilds(Index: integer): THTMLContentProducer;
+    procedure SetParent(const AValue: THTMLContentProducer);
   Protected
     function CreateWriter (Doc : THTMLDocument) : THTMLWriter; virtual;
+  protected
+    // Methods for streaming
+    procedure SetParentComponent(Value: TComponent); override;
+    function GetParentComponent: TComponent; override;
+    procedure GetChildren(Proc: TGetChildProc; Root: TComponent); override;
+    procedure Invalidate; virtual;
+    procedure SetName(const NewName: TComponentName); override;
+    property ChildList: TFPList read GetChildList;
   public
     function WriteContent (aWriter : THTMLWriter) : THTMLCustomElement; virtual; abstract;
     Function ProduceContent : String; override; // Here to test the output. Replace to protected after tests
     property ParentElement : THTMLCustomElement read FElement write FElement;
     property Writer : THTMLWriter read FWriter write SetWriter;
     Property HTMLDocument : THTMLDocument read FDocument write SetDocument;
+  public
+    // for streaming
+    constructor Create(AOwner: TComponent); override;
+    destructor destroy; override;
+    function HasParent: Boolean; override;
+    function ChildCount: integer;
+    property Childs[Index: integer]: THTMLContentProducer read GetChilds;
+    property AcceptChildsAtDesignTime: boolean read FAcceptChildsAtDesignTime;
+    property parent: THTMLContentProducer read FParent write SetParent;
   end;
+  THTMLContentProducerClas = class of THTMLContentProducer;
+
 
   TWriterElementEvent = procedure (Sender:THTMLContentProducer; aWriter : THTMLWriter; var anElement : THTMLCustomElement) of object;
   TAfterElementEvent = procedure (Sender:THTMLContentProducer; anElement : THTMLCustomElement) of object;
@@ -289,6 +316,32 @@ begin
     FWriter.Document := AValue;
 end;
 
+procedure THTMLContentProducer.SetParent(const AValue: THTMLContentProducer);
+begin
+  if FParent=AValue then exit;
+  if FParent<>nil then begin
+    Invalidate;
+    FParent.ChildList.Remove(Self);
+  end;
+  FParent:=AValue;
+  if FParent<>nil then begin
+    FParent.ChildList.Add(Self);
+  end;
+  Invalidate;
+end;
+
+function THTMLContentProducer.GetChilds(Index: integer): THTMLContentProducer;
+begin
+  Result:=THTMLContentProducer(ChildList[Index]);
+end;
+
+function THTMLContentProducer.GetChildList: TFPList;
+begin
+  if not assigned(FChilds) then
+    fchilds := tfplist.Create;
+  Result := FChilds;
+end;
+
 function THTMLContentProducer.ProduceContent: String;
 var WCreated, created : boolean;
     el : THtmlCustomElement;
@@ -316,10 +369,69 @@ begin
   end;
 end;
 
+constructor THTMLContentProducer.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  FAcceptChildsAtDesignTime:=True;
+end;
+
+destructor THTMLContentProducer.destroy;
+begin
+  Parent:=nil;
+  while ChildCount>0 do Childs[ChildCount-1].Free;
+  FreeAndNil(FChilds);
+  inherited destroy;
+end;
+
+procedure THTMLContentProducer.Invalidate;
+begin
+  if Parent<>nil then
+    Parent.Invalidate;
+end;
+
+procedure THTMLContentProducer.SetName(const NewName: TComponentName);
+begin
+  inherited SetName(NewName);
+  Invalidate;
+end;
+
+function THTMLContentProducer.ChildCount: integer;
+begin
+  if assigned(FChilds) then
+    result := FChilds.Count
+  else
+    result := 0;
+end;
+
 function THTMLContentProducer.CreateWriter (Doc : THTMLDocument): THTMLWriter;
 begin
   FDocument := Doc;
   result := THTMLWriter.Create (Doc);
+end;
+
+procedure THTMLContentProducer.SetParentComponent(Value: TComponent);
+begin
+  if Value is THTMLContentProducer then
+    Parent:=THTMLContentProducer(Value);
+end;
+
+function THTMLContentProducer.HasParent: Boolean;
+begin
+  Result:=FParent<>nil;
+end;
+
+function THTMLContentProducer.GetParentComponent: TComponent;
+begin
+  Result:=Parent;
+end;
+
+procedure THTMLContentProducer.GetChildren(Proc: TGetChildProc; Root: TComponent);
+var
+  i: Integer;
+begin
+  for i:=0 to ChildCount-1 do
+    if Childs[i].Owner=Root then
+      Proc(Childs[i]);
 end;
 
 { THTMLCustomDatasetContentProducer }
