@@ -2122,8 +2122,11 @@ implementation
               list.concat(Tai_function_name.create(item.str));
             previtem:=item;
             item := TCmdStrListItem(item.next);
+{$ifdef arm}
+            if current_settings.cputype in cpu_thumb2 then
+              list.concat(tai_thumb_func.create);
+{$endif arm}
           end;
-
         current_procinfo.procdef.procstarttai:=tai(list.last);
       end;
 

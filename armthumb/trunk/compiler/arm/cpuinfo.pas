@@ -39,6 +39,12 @@ Type
        cpu_cortexm3
       );
 
+Const
+   cpu_arm = [cpu_none,cpu_armv3,cpu_armv4,cpu_armv5];
+   cpu_thumb = [];
+   cpu_thumb2 = [cpu_armv7m,cpu_cortexm3];
+
+Type
    tfputype =
      (fpu_none,
       fpu_soft,

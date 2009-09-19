@@ -235,6 +235,10 @@ uses
         { nothing to add }
       end;
 
+      tai_thumb_func = class(tai)
+        constructor create;
+      end;
+
     function spilling_create_load(const ref:treference;r:tregister):Taicpu;
     function spilling_create_store(r:tregister; const ref:treference):Taicpu;
 
@@ -2556,6 +2560,12 @@ static char *CC[] =
 
 *)
 {$endif dummy}
+
+  constructor tai_thumb_func.create;
+    begin
+      inherited create;
+      typ:=ait_thumb_func;
+    end;
 
 begin
   cai_align:=tai_align;

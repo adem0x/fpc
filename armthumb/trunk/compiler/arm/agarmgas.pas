@@ -80,17 +80,17 @@ unit agarmgas;
         result:=inherited MakeCmdLine;
         if (current_settings.fputype = fpu_soft) then
           result:='-mfpu=softvfp '+result;
-        
+
         if current_settings.cputype = cpu_cortexm3 then
           result:='-mcpu=cortex-m3 -mthumb -mthumb-interwork '+result;
         if current_settings.cputype = cpu_armv7m then
           result:='-march=armv7m -mthumb -mthumb-interwork '+result;
       end;
-    
+
     procedure TArmGNUAssembler.WriteExtraHeader;
       begin
         inherited WriteExtraHeader;
-        if current_settings.cputype in [cpu_cortexm3,cpu_armv7m] then
+        if current_settings.cputype in cpu_thumb2 then
           AsmWriteLn(#9'.syntax unified');
       end;
 
@@ -230,7 +230,7 @@ unit agarmgas;
         sep: string[3];
     begin
       op:=taicpu(hp).opcode;
-      if current_settings.cputype in [cpu_cortexm3, cpu_armv7m] then
+      if current_settings.cputype in cpu_thumb2 then
         begin
           if taicpu(hp).ops = 0 then
             s:=#9+gas_op2str[op]+' '+cond2str[taicpu(hp).condition]+oppostfix2str[taicpu(hp).oppostfix]
