@@ -2285,12 +2285,7 @@ implementation
           list.concat(Tai_symbol.createname(pd.mangledname,AT_FUNCTION,0));
 
         cg.g_external_wrapper(list,pd,externalname);
-        cg.Free;
-        cg:=nil;
-{$ifndef cpu64bitalu}
-        cg64.free;
-        cg64:=nil;
-{$endif cpu64bitalu}
+        destroy_codegen;
       end;
 
 {****************************************************************************
@@ -2828,12 +2823,7 @@ implementation
             if is_class(def) then
               gen_intf_wrapper(list,tobjectdef(def));
           end;
-        cg.Free;
-        cg:=nil;
-{$ifndef cpu64bitalu}
-        cg64.free;
-        cg64:=nil;
-{$endif cpu64bitalu}
+        destroy_codegen;
       end;
 
 

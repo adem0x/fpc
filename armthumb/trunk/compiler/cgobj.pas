@@ -582,6 +582,7 @@ unit cgobj;
        cg64 : tcg64;
 {$endif cpu64bitalu}
 
+    procedure destroy_codegen;
 
 implementation
 
@@ -3996,7 +3997,17 @@ implementation
             internalerror(2006082211);
         end;
       end;
-
 {$endif cpu64bitalu}
+
+
+    procedure destroy_codegen;
+      begin
+        cg.free;
+        cg:=nil;
+{$ifndef cpu64bitalu}
+        cg64.free;
+        cg64:=nil;
+{$endif cpu64bitalu}
+      end;
 
 end.

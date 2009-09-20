@@ -1138,12 +1138,7 @@ implementation
             { stop tempgen and ra }
             tg.free;
             cg.done_register_allocators;
-            cg.free;
-            cg:=nil;
-{$ifndef cpu64bitalu}
-            cg64.free;
-            cg64:=nil;
-{$endif cpu64bitalu}
+            destroy_codegen;
             tg:=nil;
           end;
 
