@@ -2103,6 +2103,10 @@ implementation
         item := TCmdStrListItem(current_procinfo.procdef.aliasnames.first);
         while assigned(item) do
           begin
+{$ifdef arm}
+            if current_settings.cputype in cpu_thumb2 then
+              list.concat(tai_thumb_func.create);
+{$endif arm}
             { "double link" all procedure entry symbols via .reference }
             { directives on darwin, because otherwise the linker       }
             { sometimes strips the procedure if only on of the symbols }
@@ -2122,10 +2126,6 @@ implementation
               list.concat(Tai_function_name.create(item.str));
             previtem:=item;
             item := TCmdStrListItem(item.next);
-{$ifdef arm}
-            if current_settings.cputype in cpu_thumb2 then
-              list.concat(tai_thumb_func.create);
-{$endif arm}
           end;
         current_procinfo.procdef.procstarttai:=tai(list.last);
       end;
