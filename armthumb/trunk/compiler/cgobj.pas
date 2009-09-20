@@ -3999,13 +3999,4 @@ implementation
 
 {$endif cpu64bitalu}
 
-
-
-initialization
-    ;
-finalization
-  cg.free;
-{$ifndef cpu64bitalu}
-  cg64.free;
-{$endif cpu64bitalu}
 end.

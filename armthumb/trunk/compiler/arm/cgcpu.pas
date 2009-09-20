@@ -110,11 +110,11 @@ unit cgcpu;
         procedure maybeadjustresult(list: TAsmList; op: TOpCg; size: tcgsize; dst: tregister);
         function get_darwin_call_stub(const s: string; weak: boolean): tasmsymbol;
       end;
-      
+
       tarmcgarm = class(tcgarm)
         procedure init_register_allocators;override;
         procedure done_register_allocators;override;
-        
+
         procedure a_load_const_reg(list : TAsmList; size: tcgsize; a : aint;reg : tregister);override;
         procedure a_load_ref_reg(list : TAsmList; fromsize, tosize : tcgsize;const Ref : treference;reg : tregister);override;
       end;
@@ -131,20 +131,20 @@ unit cgcpu;
       Tthumb2cgarm = class(tcgarm)
         procedure init_register_allocators;override;
         procedure done_register_allocators;override;
-        
+
         procedure a_call_reg(list : TAsmList;reg: tregister);override;
-        
+
         procedure a_load_const_reg(list : TAsmList; size: tcgsize; a : aint;reg : tregister);override;
         procedure a_load_ref_reg(list : TAsmList; fromsize, tosize : tcgsize;const Ref : treference;reg : tregister);override;
-        
+
         procedure a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: aint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);override;
         procedure a_op_reg_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; src1, src2, dst: tregister;setflags : boolean;var ovloc : tlocation);override;
-        
+
         procedure g_flags2reg(list: TAsmList; size: TCgSize; const f: TResFlags; reg: TRegister); override;
-        
+
         procedure g_proc_entry(list : TAsmList;localsize : longint;nostackframe:boolean);override;
         procedure g_proc_exit(list : TAsmList;parasize : longint;nostackframe:boolean); override;
-        
+
         function handle_load_store(list:TAsmList;op: tasmop;oppostfix : toppostfix;reg:tregister;ref: treference):treference; override;
       end;
 
@@ -159,12 +159,14 @@ unit cgcpu;
       winstackpagesize = 4096;
 
     function get_fpu_postfix(def : tdef) : toppostfix;
+    procedure create_codegen;
 
   implementation
 
 
     uses
        globals,verbose,systems,cutils,
+       aopt,aoptcpu,
        fmodule,
        symconst,symsym,
        tgobj,
@@ -2147,7 +2149,7 @@ unit cgcpu;
         if weak then
           current_asmdata.weakrefasmsymbol(s);
         current_asmdata.asmlists[al_imports].concat(tai_directive.create(asd_indirect_symbol,s));
-        
+
         if not(cs_create_pic in current_settings.moduleswitches) then
           begin
             l1 := current_asmdata.RefAsmSymbol('L'+s+'$slp');
@@ -2162,7 +2164,7 @@ unit cgcpu;
           end
         else
           internalerror(2008100401);
-        
+
         current_asmdata.asmlists[al_imports].concat(tai_directive.create(asd_lazy_symbol_pointer,''));
         current_asmdata.asmlists[al_imports].concat(Tai_symbol.Create(l1,0));
         current_asmdata.asmlists[al_imports].concat(tai_directive.create(asd_indirect_symbol,s));
@@ -2864,7 +2866,7 @@ unit cgcpu;
 		    item := setcondition(taicpu.op_reg_const(A_MOV,reg,1),flags_to_cond(f));
 		    list.concat(item);
 		    list.insertbefore(taicpu.op_cond(A_IT, flags_to_cond(f)), item);
-		    
+		
 		    item := setcondition(taicpu.op_reg_const(A_MOV,reg,0),inverse_cond(flags_to_cond(f)));
 		    list.concat(item);
 		    list.insertbefore(taicpu.op_cond(A_IT, inverse_cond(flags_to_cond(f))), item);
@@ -2895,7 +2897,7 @@ unit cgcpu;
                   lastfloatreg:=r;
                   inc(stackmisalignment,12);
                 end;
-            
+
             a_reg_alloc(list,NR_STACK_POINTER_REG);
             if current_procinfo.framepointer<>NR_STACK_POINTER_REG then
               begin
@@ -2908,15 +2910,15 @@ unit cgcpu;
             reference_reset(ref,4);
             ref.index:=NR_STACK_POINTER_REG;
             ref.addressmode:=AM_PREINDEXED;
-            
+
             regs:=rg[R_INTREGISTER].used_in_proc-paramanager.get_volatile_registers_int(pocall_stdcall);
-            
+
             if current_procinfo.framepointer<>NR_STACK_POINTER_REG then
 				      regs:=regs+[RS_R11,RS_R14]
             else
               if (regs<>[]) or (pi_do_call in current_procinfo.flags) then
                 include(regs,RS_R14);
-            
+
             if regs<>[] then
               begin
                 for r:=RS_R0 to RS_R15 do
@@ -3067,7 +3069,7 @@ unit cgcpu;
               begin
                 { restore int registers and return }
 				        list.concat(taicpu.op_reg_reg(A_MOV, NR_STACK_POINTER_REG, NR_R11));
-					 
+					
                 reference_reset(ref,4);
                 ref.index:=NR_STACK_POINTER_REG;
                 list.concat(setoppostfix(taicpu.op_ref_regset(A_LDM,ref,regs),PF_DB));
@@ -3193,9 +3195,9 @@ unit cgcpu;
 		  if (ref.base=NR_R15) and (ref.index<>NR_NO) and (ref.shiftmode <> sm_none) then
 		    begin
           tmpreg:=getintregister(list,OS_ADDR);
-				  
+
 				  list.concat(taicpu.op_reg_reg(A_MOV, tmpreg, NR_R15));
-				  
+				
 				  ref.base := tmpreg;
 			  end;
 
@@ -3256,7 +3258,23 @@ unit cgcpu;
         end;
       end;
 
-begin
-  cg:=tarmcgarm.create;
-  cg64:=tcg64farm.create;
+
+    procedure create_codegen;
+      begin
+        if current_settings.cputype in cpu_thumb2 then
+          begin
+            cg:=tthumb2cgarm.create;
+            cg64:=tthumb2cg64farm.create;
+
+            casmoptimizer:=TCpuThumb2AsmOptimizer;
+          end
+        else
+          begin
+            cg:=tarmcgarm.create;
+            cg64:=tcg64farm.create;
+
+            casmoptimizer:=TCpuAsmOptimizer;
+          end;
+      end;
+
 end.

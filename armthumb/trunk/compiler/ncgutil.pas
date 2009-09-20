@@ -160,7 +160,7 @@ implementation
     regvars,dbgbase,
     pass_1,pass_2,
     nbas,ncon,nld,nmem,nutils,
-    tgobj,cgobj
+    tgobj,cgobj,cgcpu
 {$ifdef powerpc}
     , cpupi
 {$endif}
@@ -2274,6 +2274,7 @@ implementation
 
     procedure gen_external_stub(list:TAsmList;pd:tprocdef;const externalname:string);
       begin
+        create_codegen;
         { add the procedure to the al_procedures }
         maybe_new_object_file(list);
         new_section(list,sec_code,lower(pd.mangledname),current_settings.alignment.procalign);
@@ -2284,6 +2285,12 @@ implementation
           list.concat(Tai_symbol.createname(pd.mangledname,AT_FUNCTION,0));
 
         cg.g_external_wrapper(list,pd,externalname);
+        cg.Free;
+        cg:=nil;
+{$ifndef cpu64bitalu}
+        cg64.free;
+        cg64:=nil;
+{$endif cpu64bitalu}
       end;
 
 {****************************************************************************
@@ -2814,12 +2821,19 @@ implementation
         i   : longint;
         def : tdef;
       begin
+        create_codegen;
         for i:=0 to st.DefList.Count-1 do
           begin
             def:=tdef(st.DefList[i]);
             if is_class(def) then
               gen_intf_wrapper(list,tobjectdef(def));
           end;
+        cg.Free;
+        cg:=nil;
+{$ifndef cpu64bitalu}
+        cg64.free;
+        cg64:=nil;
+{$endif cpu64bitalu}
       end;
 
 

@@ -114,7 +114,7 @@ implementation
          {$ifdef i386}
            ,aopt386
          {$else i386}
-           ,aopt,aoptcpu
+           ,aopt
          {$endif i386}
        {$endif}
        ;
@@ -819,28 +819,7 @@ implementation
         { only do secondpass if there are no errors }
         if (ErrorCount=0) then
           begin
-{$ifdef ARM}
-            if current_settings.cputype in cpu_thumb2 then
-              begin
-                cg64.Free;
-                cg.Free;
-
-                cg:=tthumb2cgarm.create;
-                cg64:=tthumb2cg64farm.create;
-
-                casmoptimizer:=TCpuThumb2AsmOptimizer;
-              end
-            else
-              begin
-                cg64.Free;
-                cg.Free;
-
-                cg:=tarmcgarm.create;
-                cg64:=tcg64farm.create;
-
-                casmoptimizer:=TCpuAsmOptimizer;
-              end;
-{$endif}
+            create_codegen;
 
             { set the start offset to the start of the temp area in the stack }
             tg:=ttgobj.create;
@@ -1159,6 +1138,12 @@ implementation
             { stop tempgen and ra }
             tg.free;
             cg.done_register_allocators;
+            cg.free;
+            cg:=nil;
+{$ifndef cpu64bitalu}
+            cg64.free;
+            cg64:=nil;
+{$endif cpu64bitalu}
             tg:=nil;
           end;
 
