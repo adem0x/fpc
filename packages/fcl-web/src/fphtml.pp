@@ -40,7 +40,6 @@ type
     procedure SetWriter(const AValue: THTMLWriter);
   private
     // for streaming
-    FAcceptChildsAtDesignTime: boolean;
     FChilds: TFPList; // list of THTMLContentProducer
     FParent: THTMLContentProducer;
     function GetChildList: TFPList;
@@ -50,15 +49,16 @@ type
     function CreateWriter (Doc : THTMLDocument) : THTMLWriter; virtual;
   protected
     // Methods for streaming
+    FAcceptChildsAtDesignTime: boolean;
     procedure SetParentComponent(Value: TComponent); override;
-    function GetParentComponent: TComponent; override;
     procedure GetChildren(Proc: TGetChildProc; Root: TComponent); override;
     procedure Invalidate; virtual;
     procedure SetName(const NewName: TComponentName); override;
     property ChildList: TFPList read GetChildList;
   public
-    function WriteContent (aWriter : THTMLWriter) : THTMLCustomElement; virtual; abstract;
+    function WriteContent (aWriter : THTMLWriter) : THTMLCustomElement; virtual;
     Function ProduceContent : String; override; // Here to test the output. Replace to protected after tests
+    function GetParentComponent: TComponent; override;
     property ParentElement : THTMLCustomElement read FElement write FElement;
     property Writer : THTMLWriter read FWriter write SetWriter;
     Property HTMLDocument : THTMLDocument read FDocument write SetDocument;
@@ -68,6 +68,8 @@ type
     destructor destroy; override;
     function HasParent: Boolean; override;
     function ChildCount: integer;
+    function ExchangeChilds(Child1, Child2: THTMLContentProducer) : boolean;
+    function MoveChild(MoveElement, MoveBeforeElement: THTMLContentProducer) : boolean;
     property Childs[Index: integer]: THTMLContentProducer read GetChilds;
     property AcceptChildsAtDesignTime: boolean read FAcceptChildsAtDesignTime;
     property parent: THTMLContentProducer read FParent write SetParent;
@@ -395,12 +397,48 @@ begin
   Invalidate;
 end;
 
+function THTMLContentProducer.WriteContent(aWriter: THTMLWriter): THTMLCustomElement;
+var i: integer;
+begin
+  for i := 0 to ChildCount-1 do
+    if Childs[i] is THTMLContentProducer then
+      result := THTMLContentProducer(Childs[i]).WriteContent(aWriter);
+end;
+
 function THTMLContentProducer.ChildCount: integer;
 begin
   if assigned(FChilds) then
     result := FChilds.Count
   else
     result := 0;
+end;
+
+function THTMLContentProducer.ExchangeChilds(Child1, Child2: THTMLContentProducer): boolean;
+var ChildIndex1, ChildIndex2: integer;
+begin
+  result := false;
+  ChildIndex1:=GetChildList.IndexOf(Child1);
+  if (ChildIndex1=-1) then
+    Exit;
+  ChildIndex2:=GetChildList.IndexOf(Child2);
+  if (ChildIndex2=-1) then
+    Exit;
+  GetChildList.Exchange(ChildIndex1,ChildIndex2);
+  result := true;
+end;
+
+function THTMLContentProducer.MoveChild(MoveElement, MoveBeforeElement: THTMLContentProducer): boolean;
+var ChildIndex1, ChildIndex2: integer;
+begin
+  result := false;
+  ChildIndex1:=GetChildList.IndexOf(MoveElement);
+  if (ChildIndex1=-1) then
+    Exit;
+  ChildIndex2:=GetChildList.IndexOf(MoveBeforeElement);
+  if (ChildIndex2=-1) then
+    Exit;
+  GetChildList.Move(ChildIndex1,ChildIndex2);
+  result := true;
 end;
 
 function THTMLContentProducer.CreateWriter (Doc : THTMLDocument): THTMLWriter;
