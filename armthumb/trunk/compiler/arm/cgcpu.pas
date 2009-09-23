@@ -2709,8 +2709,7 @@ unit cgcpu;
                   (a > 4095)) then
                 begin
                   tmpreg:=getintregister(list,size);
-                  list.concat(taicpu.op_reg_const(A_MOVT, tmpreg, (a shr 16) and $FFFF));
-                  list.concat(taicpu.op_reg_const(A_MOV, tmpreg, a and $FFFF));
+                  a_load_const_reg(list, size, a, tmpreg);
                   list.concat(setoppostfix(taicpu.op_reg_reg_reg(op_reg_reg_opcg2asmop[op],dst,src,tmpreg),toppostfix(ord(cgsetflags or setflags)*ord(PF_S))
                    ));
                 end
