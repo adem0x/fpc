@@ -28,6 +28,8 @@ const
     (THTML_html, THTML_body, THTML_head, THTML_div, THTML_p);
 
 type
+  THTMLContentProducer = class;
+  TForeachChildsProc = procedure(const AContentProducer: THTMLContentProducer) of object;
 
   { THTMLContentProducer }
 
@@ -70,6 +72,8 @@ type
     function ChildCount: integer;
     function ExchangeChilds(Child1, Child2: THTMLContentProducer) : boolean;
     function MoveChild(MoveElement, MoveBeforeElement: THTMLContentProducer) : boolean;
+    procedure HandleAjaxRequest(ARequest: TRequest; AResponse: TResponse; var Handled: boolean); virtual;
+    procedure ForeachChild(AForeachChildsProc: TForeachChildsProc; Recursive: boolean);
     property Childs[Index: integer]: THTMLContentProducer read GetChilds;
     property AcceptChildsAtDesignTime: boolean read FAcceptChildsAtDesignTime;
     property parent: THTMLContentProducer read FParent write SetParent;
@@ -322,8 +326,8 @@ procedure THTMLContentProducer.SetParent(const AValue: THTMLContentProducer);
 begin
   if FParent=AValue then exit;
   if FParent<>nil then begin
-    Invalidate;
     FParent.ChildList.Remove(Self);
+    FParent.Invalidate;
   end;
   FParent:=AValue;
   if FParent<>nil then begin
@@ -439,6 +443,24 @@ begin
     Exit;
   GetChildList.Move(ChildIndex1,ChildIndex2);
   result := true;
+end;
+
+procedure THTMLContentProducer.HandleAjaxRequest(ARequest: TRequest; AResponse: TResponse; var Handled: boolean);
+begin
+  // Do nothing
+end;
+
+procedure THTMLContentProducer.ForeachChild(AForeachChildsProc: TForeachChildsProc; Recursive: boolean);
+var i : integer;
+    tmpChild: THTMLContentProducer;
+begin
+  for i := 0 to ChildCount -1 do
+    begin
+    tmpChild := Childs[i];
+    AForeachChildsProc(tmpChild);
+    if recursive then
+      tmpChild.ForeachChild(AForeachChildsProc,Recursive);
+    end;
 end;
 
 function THTMLContentProducer.CreateWriter (Doc : THTMLDocument): THTMLWriter;
@@ -711,6 +733,7 @@ function THTMLCustomEntityProducer.WriteContent(aWriter: THTMLWriter
 begin
   result := aWriter.StartElement(THtmlEntitiesClasses[FEntity]);
   DoWriteEntity(aWriter);
+  inherited WriteContent(aWriter);
   aWriter.EndElement(THtmlEntitiesClasses[FEntity]);
 end;
 
