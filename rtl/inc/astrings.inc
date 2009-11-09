@@ -1098,7 +1098,7 @@ function StringCodePage(const S: RawByteString): TSystemCodePage; overload;
     if assigned(Pointer(S)) then
       Result:=PAnsiRec(pointer(S)-AnsiFirstOff)^.CodePage
     else
-      Result:=SizeOf(AnsiChar);
+      Result:=DefaultSystemCodePage;
   end;
 
 
