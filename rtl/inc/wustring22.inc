@@ -362,7 +362,7 @@ begin
 end;
 
 
-Function fpc_AnsiStr_To_WideStr (Const S2 : AnsiString): WideString; compilerproc;
+Function fpc_AnsiStr_To_WideStr (Const S2 : RawByteString): WideString; compilerproc;
 {
   Converts an AnsiString to a WideString;
 }

@@ -20,9 +20,9 @@ Procedure UniqueString (Var S : WideString);external name 'FPC_WIDESTR_UNIQUE';
 Function Pos (Const Substr : WideString; Const Source : WideString) : SizeInt;
 Function Pos (c : Char; Const s : WideString) : SizeInt;
 Function Pos (c : WideChar; Const s : WideString) : SizeInt;
-Function Pos (c : WideChar; Const s : AnsiString) : SizeInt;
+Function Pos (c : WideChar; Const s : RawByteString) : SizeInt;
 Function Pos (c : AnsiString; Const s : WideString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
-Function Pos (c : WideString; Const s : AnsiString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
+Function Pos (c : WideString; Const s : RawByteString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
 Function Pos (c : ShortString; Const s : WideString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
 
 Function UpCase(const s : WideString) : WideString;
@@ -33,7 +33,7 @@ Procedure SetString (Out S : WideString; Buf : PWideChar; Len : SizeInt);
 Procedure SetString (Out S : WideString; Buf : PChar; Len : SizeInt);
 
 function WideCharToString(S : PWideChar) : AnsiString;
-function StringToWideChar(const Src : AnsiString;Dest : PWideChar;DestSize : SizeInt) : PWideChar;
+function StringToWideChar(const Src : RawByteString;Dest : PWideChar;DestSize : SizeInt) : PWideChar;
 function WideCharLenToString(S : PWideChar;Len : SizeInt) : AnsiString;
 procedure WideCharLenToStrVar(Src : PWideChar;Len : SizeInt;out Dest : AnsiString);
 procedure WideCharToStrVar(S : PWideChar;out Dest : AnsiString);
@@ -45,7 +45,7 @@ Type
   { hooks for internationalization
     please add new procedures at the end, it makes it easier to detect new procedures }
   TWideStringManager = record
-    Wide2AnsiMoveProc : procedure(source:pwidechar;var dest:ansistring;len:SizeInt);
+    Wide2AnsiMoveProc : procedure(source:pwidechar;var dest:RawByteString;len:SizeInt);
     Ansi2WideMoveProc : procedure(source:pchar;var dest:widestring;len:SizeInt);
 
 //    UpperUTF8 : procedure(p:PUTF8String);
@@ -85,7 +85,7 @@ function Utf8ToUnicode(Dest: PWideChar; Source: PChar; MaxChars: SizeInt): SizeI
 function Utf8ToUnicode(Dest: PWideChar; MaxDestChars: SizeUInt; Source: PChar; SourceBytes: SizeUInt): SizeUInt;
 function UTF8Encode(const s : WideString) : UTF8String;
 function UTF8Decode(const s : UTF8String): WideString;
-function AnsiToUtf8(const s : ansistring): UTF8String;{$ifdef SYSTEMINLINE}inline;{$endif}
+function AnsiToUtf8(const s : RawByteString): UTF8String;{$ifdef SYSTEMINLINE}inline;{$endif}
 function Utf8ToAnsi(const s : UTF8String) : ansistring;{$ifdef SYSTEMINLINE}inline;{$endif}
 function WideStringToUCS4String(const s : WideString) : UCS4String;
 function UCS4StringToWideString(const s : UCS4String) : WideString;
