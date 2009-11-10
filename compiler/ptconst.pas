@@ -725,6 +725,12 @@ implementation
                          current_asmdata.getdatalabel(ll2);
                          current_asmdata.asmlists[al_const].concat(tai_align.create(const_align(sizeof(pint))));
                          current_asmdata.asmlists[al_const].concat(Tai_label.Create(ll2));
+                         current_asmdata.asmlists[al_const].concat(Tai_const.Create_16bit(def.encoding));
+                         current_asmdata.asmlists[al_const].concat(Tai_const.Create_16bit(1));
+{$ifdef cpu64bitaddr}
+                         { dummy for alignment }
+                         current_asmdata.asmlists[al_const].concat(Tai_const.Create_32bit(0));
+{$endif cpu64bitaddr}
                          current_asmdata.asmlists[al_const].concat(Tai_const.Create_pint(-1));
                          current_asmdata.asmlists[al_const].concat(Tai_const.Create_pint(strlength));
                          { make sure the string doesn't get dead stripped if the header is referenced }
@@ -754,6 +760,12 @@ implementation
                          current_asmdata.getdatalabel(ll2);
                          current_asmdata.asmlists[al_const].concat(tai_align.create(const_align(sizeof(pint))));
                          current_asmdata.asmlists[al_const].concat(Tai_label.Create(ll2));
+                         current_asmdata.asmlists[al_const].concat(Tai_const.Create_16bit(def.encoding));
+                         current_asmdata.asmlists[al_const].concat(Tai_const.Create_16bit(2));
+{$ifdef cpu64bitaddr}
+                         { dummy for alignment }
+                         current_asmdata.asmlists[al_const].concat(Tai_const.Create_32bit(0));
+{$endif cpu64bitaddr}
                          if (def.stringtype=st_widestring) and (tf_winlikewidestring in target_info.flags) then
                            current_asmdata.asmlists[al_const].concat(Tai_const.Create_32bit(strlength*cwidechartype.size))
                          else
