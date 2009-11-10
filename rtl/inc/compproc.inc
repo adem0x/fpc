@@ -466,7 +466,7 @@ Procedure fpc_Writeln_End(var f:Text); compilerproc;
 Procedure fpc_Write_Text_ShortStr(Len : Longint;var f : Text;const s : String); compilerproc;
 Procedure fpc_Write_Text_Pchar_as_Array(Len : Longint;var f : Text;const s : array of char; zerobased: boolean = true); compilerproc;
 Procedure fpc_Write_Text_PChar_As_Pointer(Len : Longint;var f : Text;p : PChar); compilerproc;
-Procedure fpc_Write_Text_AnsiStr (Len : Longint; Var f : Text; const S : AnsiString); compilerproc;
+Procedure fpc_Write_Text_AnsiStr (Len : Longint; Var f : Text; const S : RawByteString); compilerproc;
 {$ifndef FPC_WIDESTRING_EQUAL_UNICODESTRING}
 Procedure fpc_Write_Text_WideStr (Len : Longint; Var f : Text; const S : WideString); compilerproc;
 {$endif FPC_WIDESTRING_EQUAL_UNICODESTRING}
