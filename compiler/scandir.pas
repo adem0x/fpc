@@ -1046,6 +1046,12 @@ unit scandir;
         do_message(scan_f_user_defined);
       end;
 
+    procedure dir_stringchecks;
+      begin
+        // Delphi adds checks that ansistring and unicodestring are correct in
+        // different places. Skip it for now.
+      end;
+
 {$ifdef powerpc}
     procedure dir_syscall;
       var
@@ -1390,6 +1396,7 @@ unit scandir;
         AddDirective('STACKFRAMES',directive_all, @dir_stackframes);
         AddDirective('STATIC',directive_all, @dir_static);
         AddDirective('STOP',directive_all, @dir_stop);
+        AddDirective('STRINGCHECKS', directive_all, @dir_stringchecks);
 {$ifdef powerpc}
         AddDirective('SYSCALL',directive_all, @dir_syscall);
 {$endif powerpc}
