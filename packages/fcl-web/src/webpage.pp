@@ -29,7 +29,6 @@ type
     function GetScripts: TFPObjectList; override;
     function GetCurrentJavaScriptStack: TJavaScriptStack; override;
     procedure SetCurrentJavascriptStack(const AJavascriptStack: TJavaScriptStack);
-    function CreateNewScript: TStringList;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -39,6 +38,7 @@ type
     procedure BindJavascriptCallstackToElement(AnElement: THtmlCustomElement; AnEvent: string); override;
     procedure AddScriptFileReference(AScriptFile: String); override;
     function DefaultMessageBoxHandler(Sender: TObject; AText: String; Buttons: TWebButtons): string; override;
+    function CreateNewScript: TStringList; override;
   end;
 
   { TWebPage }

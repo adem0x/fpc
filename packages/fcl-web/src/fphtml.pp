@@ -86,6 +86,7 @@ type
     procedure BindJavascriptCallstackToElement(AnElement: THtmlCustomElement; AnEvent: string); virtual; abstract;
     function MessageBox(AText: String; Buttons: TWebButtons): string; virtual;
     function DefaultMessageBoxHandler(Sender: TObject; AText: String; Buttons: TWebButtons): string; virtual; abstract;
+    function CreateNewScript: TStringList; virtual; abstract;
     property ScriptFileReferences: TStringList read GetScriptFileReferences;
     property Scripts: TFPObjectList read GetScripts;
     property CurrentJavaScriptStack: TJavaScriptStack read GetCurrentJavaScriptStack;
