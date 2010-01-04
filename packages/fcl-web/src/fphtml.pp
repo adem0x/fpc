@@ -83,7 +83,7 @@ type
     procedure InitializeAjaxRequest; virtual;
     procedure InitializeShowRequest; virtual;
     procedure FreeJavascriptStack; virtual; abstract;
-    procedure BindJavascriptCallstackToElement(AnElement: THtmlCustomElement; AnEvent: string); virtual; abstract;
+    procedure BindJavascriptCallstackToElement(AComponent: TComponent; AnElement: THtmlCustomElement; AnEvent: string); virtual; abstract;
     function MessageBox(AText: String; Buttons: TWebButtons): string; virtual;
     function DefaultMessageBoxHandler(Sender: TObject; AText: String; Buttons: TWebButtons): string; virtual; abstract;
     function CreateNewScript: TStringList; virtual; abstract;
@@ -593,7 +593,7 @@ begin
             events[i].csCallback(self, AJSClass, Handled);
           if not handled and assigned(events[i].ServerEvent) then
             AJSClass.CallServerEvent(self,events[i].ServerEventID);
-          wc.BindJavascriptCallstackToElement(AHtmlElement,events[i].JavaEventName);
+          wc.BindJavascriptCallstackToElement(Self, AHtmlElement,events[i].JavaEventName);
           AJSClass.clear;
           end;
       finally

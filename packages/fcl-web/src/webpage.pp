@@ -35,7 +35,7 @@ type
     function InitializeJavaScriptStack: TJavaScriptStack; override;
     function GetUrl(ParamNames, ParamValues, KeepParams: array of string; Action: string = ''): string; override;
     procedure FreeJavascriptStack; override;
-    procedure BindJavascriptCallstackToElement(AnElement: THtmlCustomElement; AnEvent: string); override;
+    procedure BindJavascriptCallstackToElement(AComponent: TComponent; AnElement: THtmlCustomElement; AnEvent: string); override;
     procedure AddScriptFileReference(AScriptFile: String); override;
     function DefaultMessageBoxHandler(Sender: TObject; AText: String; Buttons: TWebButtons): string; override;
     function CreateNewScript: TStringList; override;
@@ -375,7 +375,9 @@ constructor TStandardWebController.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   FScriptFileReferences := TStringList.Create;
-  FScriptFileReferences.Sorted:=true;
+  // For some reason the Duplicates property does not work when sorted is true,
+  // But we don't want a sorted list so do a manual check in AddScriptFileReference
+  //FScriptFileReferences.Sorted:=true;
   FScriptFileReferences.Duplicates:=dupIgnore;
 end;
 
@@ -470,7 +472,7 @@ begin
   FreeAndNil(FCurrentJavascriptStack);
 end;
 
-procedure TStandardWebController.BindJavascriptCallstackToElement(AnElement: THtmlCustomElement; AnEvent: string);
+procedure TStandardWebController.BindJavascriptCallstackToElement(AComponent: TComponent; AnElement: THtmlCustomElement; AnEvent: string);
 begin
   case AnEvent of
     'onclick' : (AnElement as THTMLAttrsElement).onclick:=CurrentJavaScriptStack.GetScript;
@@ -479,8 +481,10 @@ begin
 end;
 
 procedure TStandardWebController.AddScriptFileReference(AScriptFile: String);
+var i: integer;
 begin
-  FScriptFileReferences.Add(AScriptFile);
+  if not FScriptFileReferences.Find(AScriptFile,i) then
+    FScriptFileReferences.Add(AScriptFile);
 end;
 
 end.
