@@ -53,7 +53,7 @@ type
     destructor Destroy; override;
     procedure AddScriptLine(ALine: String); virtual;
     procedure MessageBox(AText: String; Buttons: TWebButtons); virtual;
-    procedure CallServerEvent(AComponent: TComponent; AEvent: Integer); virtual;
+    procedure CallServerEvent(AComponent: TComponent; AEvent: Integer; APostVariable: string = ''); virtual;
     procedure Clear; virtual;
     function ScriptIsEmpty: Boolean; virtual;
     function GetScript: String; virtual;
@@ -455,7 +455,7 @@ begin
   AddScriptLine(WebController.MessageBox(AText,Buttons));
 end;
 
-procedure TJavaScriptStack.CallServerEvent(AComponent: TComponent; AEvent: Integer);
+procedure TJavaScriptStack.CallServerEvent(AComponent: TComponent; AEvent: Integer; APostVariable: string = '');
 begin
   raise exception.Create('SendServerEvent not supported by current WebController');
 end;
