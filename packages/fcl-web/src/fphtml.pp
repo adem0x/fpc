@@ -55,6 +55,7 @@ type
     procedure MessageBox(AText: String; Buttons: TWebButtons); virtual;
     procedure CallServerEvent(AComponent: TComponent; AEvent: Integer); virtual;
     procedure Clear; virtual;
+    function ScriptIsEmpty: Boolean; virtual;
     function GetScript: String; virtual;
     property WebController: TWebController read GetWebController;
   end;
@@ -166,6 +167,7 @@ type
     procedure DoBeforeGenerateContent(const AContentProducer: THTMLContentProducer);
     function GetEvents: TEventRecords; virtual;
     procedure AddEvent(var Events: TEventRecords; AServerEventID: integer; AServerEvent: THandleAjaxEvent; AJavaEventName: string; AcsCallBack: TCSAjaxEvent); virtual;
+    procedure DoOnEventCS(AnEvent: TEventRecord; AJavascriptStack: TJavaScriptStack; var Handled: boolean); virtual;
     procedure SetupEvents(AHtmlElement: THtmlCustomElement); virtual;
     function GetWebController(const ExceptIfNotAvailable: boolean = true): TWebController;
     property ContentProducerList: TFPList read GetContentProducerList;
@@ -463,6 +465,11 @@ begin
   FScript.Clear;
 end;
 
+function TJavaScriptStack.ScriptIsEmpty: Boolean;
+begin
+  result := FScript.Count=0;
+end;
+
 function TJavaScriptStack.GetScript: String;
 begin
   result := FScript.Text;
@@ -525,8 +532,7 @@ begin
       el := WriteContent (FWriter);
       if not assigned(el) then
         Raise EHTMLError.CreateFmt(SErrNoContentProduced,[Self.Name]);
-      if supports(owner,IHTMLContentProducerContainer) then
-        (owner as IHTMLContentProducerContainer).ForeachContentProducer(@DoBeforeGenerateContent,True);
+      ForeachContentProducer(@DoBeforeGenerateContent,True);
       result := el.asstring;
     finally
       if WCreated then
@@ -571,6 +577,12 @@ begin
     end;
 end;
 
+procedure THTMLContentProducer.DoOnEventCS(AnEvent: TEventRecord; AJavascriptStack: TJavaScriptStack; var Handled: boolean);
+begin
+  if assigned(AnEvent.csCallback) then
+    AnEvent.csCallback(self, AJavascriptStack, Handled);
+end;
+
 procedure THTMLContentProducer.SetupEvents(AHtmlElement: THtmlCustomElement);
 var AJSClass: TJavaScriptStack;
     wc: TWebController;
@@ -589,8 +601,7 @@ begin
         for i := 0 to high(Events) do
           begin
           Handled:=false;
-          if assigned(events[i].csCallback) then
-            events[i].csCallback(self, AJSClass, Handled);
+          DoOnEventCS(events[i],AJSClass, Handled);
           if not handled and assigned(events[i].ServerEvent) then
             AJSClass.CallServerEvent(self,events[i].ServerEventID);
           wc.BindJavascriptCallstackToElement(Self, AHtmlElement,events[i].JavaEventName);
