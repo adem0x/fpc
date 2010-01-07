@@ -192,9 +192,9 @@ begin
             AComponent := FindComponent(CompName);
             if assigned(AComponent) and (AComponent is THTMLContentProducer) then
               THTMLContentProducer(AComponent).HandleAjaxRequest(ARequest, AnAjaxResponse);
+            AnAjaxResponse.BindToResponse;
             end;
           DoAfterAjaxRequest(ARequest, AResponse);
-          AnAjaxResponse.BindToResponse;
         finally
           AnAjaxResponse.Free;
         end;
