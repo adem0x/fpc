@@ -40,6 +40,7 @@ type
 
   TMessageBoxHandler = function(Sender: TObject; AText: String; Buttons: TWebButtons): string of object;
   TWebController = class;
+  THTMLContentProducer = class;
 
   TJavaScriptStack = class(TObject)
   private
@@ -53,6 +54,7 @@ type
     destructor Destroy; override;
     procedure AddScriptLine(ALine: String); virtual;
     procedure MessageBox(AText: String; Buttons: TWebButtons); virtual;
+    procedure RedrawContentProducer(AContentProducer: THTMLContentProducer); virtual;
     procedure CallServerEvent(AComponent: TComponent; AEvent: Integer; APostVariable: string = ''); virtual;
     procedure Clear; virtual;
     function ScriptIsEmpty: Boolean; virtual;
@@ -128,8 +130,6 @@ type
   end;
   TEventRecords = array of TEventRecord;
 
-type
-  THTMLContentProducer = class;
   TForeachContentProducerProc = procedure(const AContentProducer: THTMLContentProducer) of object;
 
   IHTMLContentProducerContainer = interface
@@ -453,6 +453,11 @@ end;
 procedure TJavaScriptStack.MessageBox(AText: String; Buttons: TWebButtons);
 begin
   AddScriptLine(WebController.MessageBox(AText,Buttons));
+end;
+
+procedure TJavaScriptStack.RedrawContentProducer(AContentProducer: THTMLContentProducer);
+begin
+  raise exception.Create('RedrawContentProducer not supported by current WebController');
 end;
 
 procedure TJavaScriptStack.CallServerEvent(AComponent: TComponent; AEvent: Integer; APostVariable: string = '');
