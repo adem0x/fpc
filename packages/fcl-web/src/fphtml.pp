@@ -55,7 +55,7 @@ type
     procedure AddScriptLine(ALine: String); virtual;
     procedure MessageBox(AText: String; Buttons: TWebButtons); virtual;
     procedure RedrawContentProducer(AContentProducer: THTMLContentProducer); virtual;
-    procedure CallServerEvent(AComponent: TComponent; AEvent: Integer; APostVariable: string = ''); virtual;
+    procedure CallServerEvent(AHTMLContentProducer: THTMLContentProducer; AEvent: Integer; APostVariable: string = ''); virtual;
     procedure Clear; virtual;
     function ScriptIsEmpty: Boolean; virtual;
     function GetScript: String; virtual;
@@ -460,7 +460,7 @@ begin
   raise exception.Create('RedrawContentProducer not supported by current WebController');
 end;
 
-procedure TJavaScriptStack.CallServerEvent(AComponent: TComponent; AEvent: Integer; APostVariable: string = '');
+procedure TJavaScriptStack.CallServerEvent(AHTMLContentProducer: THTMLContentProducer; AEvent: Integer; APostVariable: string = '');
 begin
   raise exception.Create('SendServerEvent not supported by current WebController');
 end;
