@@ -85,11 +85,13 @@ type
     function GetUrl(ParamNames, ParamValues, KeepParams: array of string; Action: string = ''): string; virtual; abstract;
     procedure InitializeAjaxRequest; virtual;
     procedure InitializeShowRequest; virtual;
+    procedure CleanupAfterRequest; virtual;
     procedure FreeJavascriptStack; virtual; abstract;
     procedure BindJavascriptCallstackToElement(AComponent: TComponent; AnElement: THtmlCustomElement; AnEvent: string); virtual; abstract;
     function MessageBox(AText: String; Buttons: TWebButtons): string; virtual;
     function DefaultMessageBoxHandler(Sender: TObject; AText: String; Buttons: TWebButtons): string; virtual; abstract;
     function CreateNewScript: TStringList; virtual; abstract;
+    procedure FreeScript(var AScript: TStringList); virtual; abstract;
     property ScriptFileReferences: TStringList read GetScriptFileReferences;
     property Scripts: TFPObjectList read GetScripts;
     property CurrentJavaScriptStack: TJavaScriptStack read GetCurrentJavaScriptStack;
@@ -1138,6 +1140,11 @@ end;
 procedure TWebController.InitializeShowRequest;
 begin
   // do nothing
+end;
+
+procedure TWebController.CleanupAfterRequest;
+begin
+  // Do Nothing
 end;
 
 function TWebController.MessageBox(AText: String; Buttons: TWebButtons): string;

@@ -39,6 +39,7 @@ type
     procedure AddScriptFileReference(AScriptFile: String); override;
     function DefaultMessageBoxHandler(Sender: TObject; AText: String; Buttons: TWebButtons): string; override;
     function CreateNewScript: TStringList; override;
+    procedure FreeScript(var AScript: TStringList); override;
   end;
 
   { TWebPage }
@@ -84,6 +85,7 @@ type
 
     procedure HandlePage(ARequest: TRequest; AResponse: TResponse; AWriter: THTMLwriter; AWebModule: TFPWebModule = nil); virtual;
     procedure DoBeforeGenerateXML; virtual;
+    procedure CleanupAfterRequest; virtual;
     property Designer: IWebPageDesigner read FDesigner write FDesigner;
     property Request: TRequest read FRequest;
     property ContentProducers[Index: integer]: THTMLContentProducer read GetContentProducer;
@@ -207,7 +209,7 @@ begin
         AResponse.Content := ProduceContent;
         end;
     finally
-      ForeachContentProducer(@DoCleanupAfterRequest, True);
+      CleanupAfterRequest;
     end;
   finally
     SetRequest(nil);
@@ -220,9 +222,16 @@ begin
   // Do Nothing
 end;
 
+procedure TWebPage.CleanupAfterRequest;
+begin
+  ForeachContentProducer(@DoCleanupAfterRequest, True);
+  if HasWebController then
+    WebController.CleanupAfterRequest;
+end;
+
 procedure TWebPage.DoCleanupAfterRequest(const AContentProducer: THTMLContentProducer);
 begin
-  AContentProducer.CleanupInstance;
+  AContentProducer.CleanupAfterRequest;
 end;
 
 procedure TWebPage.SetRequest(ARequest: TRequest);
@@ -337,6 +346,13 @@ function TStandardWebController.CreateNewScript: TStringList;
 begin
   Result:=TStringList.Create;
   GetScripts.Add(result);
+end;
+
+procedure TStandardWebController.FreeScript(var AScript: TStringList);
+begin
+  with GetScripts do
+    GetScripts.Delete(IndexOf(AScript));
+  AScript := nil;
 end;
 
 function TStandardWebController.DefaultMessageBoxHandler(Sender: TObject;
