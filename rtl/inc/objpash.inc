@@ -54,6 +54,9 @@
        vmtAfterConstruction    = vmtMethodStart+sizeof(pointer)*5;
        vmtBeforeDestruction    = vmtMethodStart+sizeof(pointer)*6;
        vmtDefaultHandlerStr    = vmtMethodStart+sizeof(pointer)*7;
+       vmtEquals               = vmtMethodStart+sizeof(pointer)*10;
+       vmtGetHashCode          = vmtMethodStart+sizeof(pointer)*11;
+       vmtToString             = vmtMethodStart+sizeof(pointer)*12;
 
        { IInterface }
        S_OK          = 0;
@@ -113,6 +116,9 @@
          vAfterConstruction: Pointer;
          vBeforeDestruction: Pointer;
          vDefaultHandlerStr: Pointer;
+         vEquals: Pointer;
+         vGetHashCode: Pointer;
+         vToString: Pointer;
        end;
 
        PGuid = ^TGuid;
@@ -214,6 +220,12 @@
           class function GetInterfaceEntry(const iid : tguid) : pinterfaceentry;
           class function GetInterfaceEntryByStr(const iidstr : shortstring) : pinterfaceentry;
           class function GetInterfaceTable : pinterfacetable;
+
+          { new since Delphi 2009 }
+          class function UnitName : string;
+          function Equals(Obj: TObject) : boolean;virtual;
+          function GetHashCode: PtrInt;virtual;
+          function ToString: string;virtual;
        end;
 
        IUnknown = interface
