@@ -1115,7 +1115,8 @@ begin
     Response.ContentStream := TMemoryStream.Create;
     Response.ContentType:='text/xml';
     writeXMLFile(XMLAnswer,Response.ContentStream);
-    end;
+    Response.ContentLength := Response.ContentStream.Size;
+    end
 end;
 
 { TWebController }
