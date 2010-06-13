@@ -120,11 +120,22 @@
   {$define cpunodefaultint}
 {$endif avr}
 
+{$ifdef mipsel}
+  {$define mips}
+{$endif mipsel}
+
+{$ifdef mips}
+  {$define cpu32bitalu}
+  {$define cpu32bitaddr}
+  { $define cpuflags}
+  {$define cputargethasfixedstack}
+  {$define cpurequiresproperalignment}
+  {$define cpumm}
+{$endif mips}
+
 {$IFDEF MACOS}
 {$DEFINE USE_FAKE_SYSUTILS}
 {$ENDIF MACOS}
-
-{$define SUPPORT_UNALIGNED}
 
 {$if not defined(FPC_HAS_TYPE_EXTENDED) and defined(i386)}
 {$error Cross-compiling from systems without support for an 80 bit extended floating point type to i386 is not yet supported at this time }

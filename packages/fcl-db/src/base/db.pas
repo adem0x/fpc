@@ -664,10 +664,12 @@ type
     function GetAsBoolean: Boolean; override;
     function GetAsString: string; override;
     function GetAsVariant: variant; override;
+    function GetAsInteger: Longint; override;
     function GetDataSize: Integer; override;
     function GetDefaultWidth: Longint; override;
     procedure SetAsBoolean(AValue: Boolean); override;
     procedure SetAsString(const AValue: string); override;
+    procedure SetAsInteger(AValue: Integer); override;
     procedure SetVarValue(const AValue: Variant); override;
   public
     constructor Create(AOwner: TComponent); override;
@@ -992,6 +994,19 @@ type
     property Items[Index: Longint]: TCheckConstraint read GetItem write SetItem; default;
   end;
 
+  { TFieldsEnumerator }
+
+  TFieldsEnumerator = class
+  private
+    FPosition: Integer;
+    FFields: TFields;
+    function GetCurrent: TField;
+  public
+    constructor Create(AFields: TFields);
+    function MoveNext: Boolean;
+    property Current: TField read GetCurrent;
+  end;
+
 { TFields }
 
   Tfields = Class(TObject)
@@ -1019,6 +1034,7 @@ type
       Function FindField (Const Value : String) : TField;
       Function FieldByName (Const Value : String) : TField;
       Function FieldByNumber(FieldNo : Integer) : TField;
+      Function GetEnumerator: TFieldsEnumerator;
       Procedure GetFieldNames (Values : TStrings);
       Function IndexOf(Field : TField) : Longint;
       procedure Remove(Value : TField);
@@ -1621,6 +1637,7 @@ type
     procedure UnRegisterTransaction(TA : TDBTransaction);
     procedure RemoveDataSets;
     procedure RemoveTransactions;
+    procedure SetParams(AValue: TStrings);
   protected
     Procedure CheckConnected;
     Procedure CheckDisConnected;
@@ -1647,7 +1664,7 @@ type
     property Connected: Boolean read FConnected write SetConnected;
     property DatabaseName: string read FDatabaseName write FDatabaseName;
     property KeepConnection: Boolean read FKeepConnection write FKeepConnection;
-    property Params : TStrings read FParams Write FParams;
+    property Params : TStrings read FParams Write SetParams;
   end;
 
 

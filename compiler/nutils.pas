@@ -86,8 +86,15 @@ interface
       containing no code }
     function has_no_code(n : tnode) : boolean;
 
+    function getpropaccesslist(propsym:tpropertysym; pap:tpropaccesslisttypes;out propaccesslist:tpropaccesslist):boolean;
     procedure propaccesslist_to_node(var p1:tnode;st:TSymtable;pl:tpropaccesslist);
     function node_to_propaccesslist(p1:tnode):tpropaccesslist;
+
+    { returns true if n is an array element access of a bitpacked array with
+      elements of the which the vitsize mod 8 <> 0, or if is a field access
+      with bitsize mod 8 <> 0 or bitoffset mod 8 <> 0 of an element in a
+      bitpacked structure }
+    function is_bitpacked_access(n: tnode): boolean;
 
 implementation
 
@@ -115,10 +122,10 @@ implementation
             end;
           calln:
             begin
-              result := foreachnode(procmethod,tcallnode(n).callinitblock,f,arg) or result;
+              result := foreachnode(procmethod,tnode(tcallnode(n).callinitblock),f,arg) or result;
               result := foreachnode(procmethod,tcallnode(n).methodpointer,f,arg) or result;
               result := foreachnode(procmethod,tcallnode(n).funcretnode,f,arg) or result;
-              result := foreachnode(procmethod,tcallnode(n).callcleanupblock,f,arg) or result;
+              result := foreachnode(procmethod,tnode(tcallnode(n).callcleanupblock),f,arg) or result;
             end;
           ifn, whilerepeatn, forn, tryexceptn, tryfinallyn:
             begin
@@ -129,6 +136,10 @@ implementation
           raisen:
             { frame tree }
             result := foreachnode(traisenode(n).third,f,arg) or result;
+          tempcreaten:
+            { temp. initialization code }
+            if assigned(ttempcreatenode(n).tempinfo^.tempinitcode) then
+              result := foreachnode(ttempcreatenode(n).tempinfo^.tempinitcode,f,arg) or result;
           casen:
             begin
               for i := 0 to tcasenode(n).blocks.count-1 do
@@ -194,10 +205,10 @@ implementation
             end;
           calln:
             begin
-              result := foreachnodestatic(procmethod,tcallnode(n).callinitblock,f,arg) or result;
+              result := foreachnodestatic(procmethod,tnode(tcallnode(n).callinitblock),f,arg) or result;
               result := foreachnodestatic(procmethod,tcallnode(n).methodpointer,f,arg) or result;
               result := foreachnodestatic(procmethod,tcallnode(n).funcretnode,f,arg) or result;
-              result := foreachnodestatic(procmethod,tcallnode(n).callcleanupblock,f,arg) or result;
+              result := foreachnodestatic(procmethod,tnode(tcallnode(n).callcleanupblock),f,arg) or result;
             end;
           ifn, whilerepeatn, forn, tryexceptn, tryfinallyn:
             begin
@@ -208,6 +219,10 @@ implementation
           raisen:
             { frame tree }
             result := foreachnodestatic(traisenode(n).third,f,arg) or result;
+          tempcreaten:
+            { temp. initialization code }
+            if assigned(ttempcreatenode(n).tempinfo^.tempinitcode) then
+              result := foreachnodestatic(ttempcreatenode(n).tempinfo^.tempinitcode,f,arg) or result;
           casen:
             begin
               for i := 0 to tcasenode(n).blocks.count-1 do
@@ -344,6 +359,10 @@ implementation
       var
         pd : tprocdef;
       begin
+        result:=nil;
+        { is not assigned while parsing a property }
+        if not assigned(current_procinfo) then
+          exit;
         { we can't use searchsym here, because the
           symtablestack is not fully setup when pass1
           is run for nested procedures }
@@ -625,6 +644,11 @@ implementation
     { at will, probably best mainly in terms of required memory      }
     { accesses                                                       }
     function node_complexity(p: tnode): cardinal;
+      var
+        correction: byte;
+{$ifdef ARM}
+        dummy : byte;
+{$endif ARM}
       begin
         result := 0;
         while assigned(p) do
@@ -658,8 +682,8 @@ implementation
                 end;
               subscriptn:
                 begin
-                  if is_class_or_interface(tunarynode(p).left.resultdef) then
-                    inc(result);
+                  if is_class_or_interface_or_dispinterface_or_objc(tunarynode(p).left.resultdef) then
+                    inc(result,2);
                   if (result = NODE_COMPLEXITY_INF) then
                     exit;
                   p := tunarynode(p).left;
@@ -700,9 +724,14 @@ implementation
               equaln,unequaln,gtn,gten,ltn,lten,
               assignn:
                 begin
-                  inc(result,node_complexity(tbinarynode(p).left)+1);
+{$ifdef CPU64BITALU}
+                  correction:=1;
+{$else CPU64BITALU}
+                  correction:=2;
+{$endif CPU64BITALU}
+                  inc(result,node_complexity(tbinarynode(p).left)+1*correction);
                   if (p.nodetype in [muln,divn,modn]) then
-                    inc(result,5);
+                    inc(result,5*correction*correction);
                   if (result >= NODE_COMPLEXITY_INF) then
                     begin
                       result := NODE_COMPLEXITY_INF;
@@ -710,10 +739,17 @@ implementation
                     end;
                   p := tbinarynode(p).right;
                 end;
+              ordconstn:
+                begin
+{$ifdef ARM}
+                  if not(is_shifter_const(tordconstnode(p).value.svalue,dummy)) then
+                    result:=2;
+{$endif ARM}
+                  exit;
+                end;
               stringconstn,
               tempcreaten,
               tempdeleten,
-              ordconstn,
               pointerconstn,
               nothingn,
               niln:
@@ -747,9 +783,7 @@ implementation
                     in_sqr_real,
                     in_sqrt_real,
                     in_ln_real,
-          {$ifdef SUPPORT_UNALIGNED}
                     in_unaligned_x,
-          {$endif SUPPORT_UNALIGNED}
                     in_prefetch_var:
                       begin
                         inc(result);
@@ -926,6 +960,25 @@ implementation
       end;
 
 
+    function getpropaccesslist(propsym:tpropertysym; pap:tpropaccesslisttypes;out propaccesslist:tpropaccesslist):boolean;
+    var
+      hpropsym : tpropertysym;
+    begin
+      result:=false;
+      { find property in the overriden list }
+      hpropsym:=propsym;
+      repeat
+        propaccesslist:=hpropsym.propaccesslist[pap];
+        if not propaccesslist.empty then
+          begin
+            result:=true;
+            exit;
+          end;
+        hpropsym:=hpropsym.overridenpropsym;
+      until not assigned(hpropsym);
+    end;
+
+
     procedure propaccesslist_to_node(var p1:tnode;st:TSymtable;pl:tpropaccesslist);
       var
         plist : ppropaccesslistitem;
@@ -1024,6 +1077,24 @@ implementation
       end;
 
 
+    function is_bitpacked_access(n: tnode): boolean;
+      begin
+        case n.nodetype of
+          vecn:
+            result:=
+              is_packed_array(tvecnode(n).left.resultdef) and
+              (tarraydef(tvecnode(n).left.resultdef).elepackedbitsize mod 8 <> 0);
+          subscriptn:
+            result:=
+              is_packed_record_or_object(tsubscriptnode(n).left.resultdef) and
+              ((tsubscriptnode(n).vs.vardef.packedbitsize mod 8 <> 0) or
+               (tsubscriptnode(n).vs.fieldoffset mod 8 <> 0));
+          else
+            result:=false;
+        end;
+      end;
+
+
     function has_no_code(n : tnode) : boolean;
       begin
         if n=nil then
@@ -1041,6 +1112,14 @@ implementation
           blockn:
             begin
               result:=has_no_code(tblocknode(n).left);
+              exit;
+            end;
+          statementn:
+            begin
+              repeat
+                result:=has_no_code(tstatementnode(n).left);
+                n:=tstatementnode(n).right;
+              until not(result) or not assigned(n);
               exit;
             end;
         end;

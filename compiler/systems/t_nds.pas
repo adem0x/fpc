@@ -1,6 +1,6 @@
 {
     This unit implements support import,export,link routines
-    for the (arm) GameBoy Advance target
+    for the (arm) Nintendo DS target
 
     Copyright (c) 2001-2002 by Peter Vreman
 
@@ -30,6 +30,7 @@ interface
 implementation
 
     uses
+       aasmbase,
        SysUtils,
        cutils,cfileutl,cclasses,
        globtype,globals,systems,verbose,script,fmodule,i_nds,link;
@@ -324,10 +325,18 @@ begin
         add('  .preinit_array     : { KEEP (*(.preinit_array)) } >ewram = 0xff');
         add('  PROVIDE (__preinit_array_end = .);');
         add('  PROVIDE (__init_array_start = .);');
-        add('  .init_array     : { KEEP (*(.init_array)) } >ewram = 0xff');
+        add('  .init_array     :');
+        add('  {');
+        add('       KEEP (*(SORT(.init_array.*)))');
+        add('       KEEP (*(.init_array))');
+        add('  } >ewram = 0xff');        
         add('  PROVIDE (__init_array_end = .);');
         add('  PROVIDE (__fini_array_start = .);');
-        add('  .fini_array     : { KEEP (*(.fini_array)) } >ewram = 0xff');
+        add('  .fini_array     :');
+        add('  {');
+        add('       KEEP (*(.fini_array))');
+        add('       KEEP (*(SORT(.fini_array.*)))');
+        add('  } >ewram = 0xff');
         add('  PROVIDE (__fini_array_end = .);');
         add('');
         add('	.ctors :');
@@ -503,12 +512,13 @@ begin
         add('');
         add('__iwram_start	=	ORIGIN(iwram);');
         add('__iwram_top	=	ORIGIN(iwram)+ LENGTH(iwram);');
-        add('__sp_irq	=	__iwram_top - 0x60;');
+        add('__sp_irq	=	__iwram_top - 0x100;');
         add('__sp_svc	=	__sp_irq - 0x100;');
         add('__sp_usr	=	__sp_svc - 0x100;');
         add('');
-        add('__irq_flags	=	__iwram_top - 8;');
-        add('__irq_vector	=	__iwram_top - 4;');
+        add('__irq_flags	=	0x04000000 - 8;');
+        add('__irq_flagsaux	=	0x04000000 - 0x40;');
+        add('__irq_vector	=	0x04000000 - 4;');
         add('');
         add('SECTIONS');
         add('{');
@@ -705,19 +715,27 @@ var
   StaticStr,
   GCSectionsStr,
   DynLinkStr,
+  MapStr,
   StripStr: string;
   preName: string;
 begin
   { for future use }
   StaticStr:='';
   StripStr:='';
+  MapStr:='';
   DynLinkStr:='';
   case apptype of
    app_arm9: preName:='.nef';
    app_arm7: preName:='.nlf';
   end;
 
-  GCSectionsStr:='--gc-sections';
+  if (cs_link_strip in current_settings.globalswitches) and
+     not(cs_link_separate_dbg_file in current_settings.globalswitches) then
+   StripStr:='-s';
+  if (cs_link_map in current_settings.globalswitches) then
+   StripStr:='-Map '+maybequoted(ChangeFileExt(current_module.exefilename^,'.map'));
+  if create_smartlink_sections then
+   GCSectionsStr:='--gc-sections';
   if not(cs_link_nolink in current_settings.globalswitches) then
    Message1(exec_i_linking,current_module.exefilename^);
 
@@ -733,6 +751,7 @@ begin
   Replace(cmdstr,'$STATIC',StaticStr);
   Replace(cmdstr,'$STRIP',StripStr);
   Replace(cmdstr,'$GCSECTIONS',GCSectionsStr);
+  Replace(cmdstr,'$MAP',MapStr);
   Replace(cmdstr,'$DYNLINK',DynLinkStr);
   
   success:=DoExec(FindUtil(utilsprefix+BinStr),cmdstr,true,false);

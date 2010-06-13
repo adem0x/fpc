@@ -64,7 +64,20 @@ implementation
         '','','','','','',
         '','','','',
         '',
+        '',
+        '',
+        '',
+        '',
         '','','','',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
         '',
         '',
         '',
@@ -101,7 +114,20 @@ implementation
         '','','','',
         'idata$2','idata$4','idata$5','idata$6','idata$7','edata',
         '',
+        '',
+        '',
+        '',
+        '',
         '','','','',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
         '',
         '',
         '',
@@ -393,10 +419,10 @@ implementation
     end;
 
     const
-      ait_const2str : array[aitconst_128bit..aitconst_indirect_symbol] of string[20]=(
+      ait_const2str : array[aitconst_128bit..aitconst_secrel32_symbol] of string[20]=(
         #9''#9,#9'DQ'#9,#9'DD'#9,#9'DW'#9,#9'DB'#9,
         #9'FIXMESLEB',#9'FIXEMEULEB',
-        #9'DD RVA'#9,#9'DD SECREL32'#9,#9'FIXMEINDIRECT'#9
+        #9'DD RVA'#9,#9'DD SECREL32'#9
       );
 
     Function PadTabs(const p:string;addch:char):string;
@@ -572,8 +598,7 @@ implementation
                  aitconst_16bit,
                  aitconst_8bit,
                  aitconst_rva_symbol,
-                 aitconst_secrel32_symbol,
-                 aitconst_indirect_symbol :
+                 aitconst_secrel32_symbol :
                    begin
                      AsmWrite(ait_const2str[consttype]);
                      l:=0;
@@ -705,6 +730,8 @@ implementation
              end;
            ait_symbol :
              begin
+               if tai_symbol(hp).has_value then
+                 internalerror(2009090802);
                if tai_symbol(hp).is_global then
                  AsmWriteLn(#9'PUBLIC'#9+tai_symbol(hp).sym.name);
                AsmWrite(tai_symbol(hp).sym.name);
@@ -845,9 +872,9 @@ implementation
                end;
            ait_marker :
              begin
-               if tai_marker(hp).kind=mark_InlineStart then
+               if tai_marker(hp).kind=mark_NoLineInfoStart then
                  inc(InlineLevel)
-               else if tai_marker(hp).kind=mark_InlineEnd then
+               else if tai_marker(hp).kind=mark_NoLineInfoEnd then
                  dec(InlineLevel);
              end;
 

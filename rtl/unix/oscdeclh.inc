@@ -66,7 +66,7 @@ const
     function  FPSigProcMask(how:cint;nset : psigset;oset : psigset):cint;cdecl; external clib name 'sigprocmask';
     function  FPSigProcMask(how:cint;const nset : sigset;var oset : sigset):cint;cdecl; external clib name 'sigprocmask';
     function  FpTime       (tloc:ptime_t): time_t; cdecl; external clib name 'time';
-    Function  FpTime       (var tloc : TTime): TTime; cdecl; external clib name 'time';
+    Function  FpTime       (var tloc : Time_t): Time_t; cdecl; external clib name 'time';
     function  FpTimes	(var buffer : tms): TClock; cdecl; external clib name 'times';
     function  FpUname   (var name: utsname): cint; cdecl; external clib name 'uname';
     function  FpUnlink  (path: pchar): cint; cdecl; external clib name 'unlink';
@@ -134,10 +134,6 @@ const
 //    function  fpsettimeofday(tp:ptimeval;tzp:ptimezone):cint;
 {$endif}
     function FpGetRLimit(resource : cInt; rlim : PRLimit) : cInt; cdecl; external clib name 'getrlimit';
-    {$ifdef HAS_UGETRLIMIT}
-    { there is no ugetrlimit libc call, just map it to the getrlimit call in these cases }
-    function FpUGetRLimit(resource : cInt; rlim : PRLimit) : cInt; cdecl; external clib name 'getrlimit';
-    {$endif}
 
 {$ifdef linux}
 {$ifndef FPC_IS_SYSTEM}

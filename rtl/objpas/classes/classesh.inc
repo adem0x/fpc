@@ -25,7 +25,7 @@
 
 type
    { extra types to compile with FPC }
-   HRSRC = longint;
+   HRSRC =  TFPResourceHandle {$ifndef ver2_2} deprecated {$endif};
    TComponentName = string;
    THandle = System.THandle;
 
@@ -166,6 +166,18 @@ type
 {$IFNDEF FPC_TESTGENERICS}
 
   TListAssignOp = (laCopy, laAnd, laOr, laXor, laSrcUnique, laDestUnique);
+  TFPList = class;
+
+  TFPListEnumerator = class
+  private
+    FList: TFPList;
+    FPosition: Integer;
+  public
+    constructor Create(AList: TFPList);
+    function GetCurrent: Pointer;
+    function MoveNext: Boolean;
+    property Current: Pointer read GetCurrent;
+  end;
 
   TFPList = class(TObject)
   private
@@ -197,6 +209,7 @@ type
     function Expand: TFPList; {$ifdef CLASSESINLINE} inline; {$endif CLASSESINLINE}
     function Extract(Item: Pointer): Pointer;
     function First: Pointer;
+    function GetEnumerator: TFPListEnumerator;
     function IndexOf(Item: Pointer): Integer;
     procedure Insert(Index: Integer; Item: Pointer); {$ifdef CLASSESINLINE} inline; {$endif CLASSESINLINE}
     function Last: Pointer;
@@ -228,8 +241,20 @@ type
 {$endif}
 
 { TList class}
-  TListNotification = (lnAdded, lnExtracted, lnDeleted);
 
+  TListNotification = (lnAdded, lnExtracted, lnDeleted);
+  TList = class;
+
+  TListEnumerator = class
+  private
+    FList: TList;
+    FPosition: Integer;
+  public
+    constructor Create(AList: TList);
+    function GetCurrent: Pointer;
+    function MoveNext: Boolean;
+    property Current: Pointer read GetCurrent;
+  end;
 
   TList = class(TObject)
   private
@@ -264,6 +289,7 @@ type
     function Expand: TList;
     function Extract(item: Pointer): Pointer;
     function First: Pointer;
+    function GetEnumerator: TListEnumerator;
     function IndexOf(Item: Pointer): Integer;
     procedure Insert(Index: Integer; Item: Pointer);
     function Last: Pointer;
@@ -334,7 +360,8 @@ type
       procedure NotBits(BitSet : TBits);
       function  Get(Bit : longint) : boolean;
       procedure Grow(NBit : longint);
-      function  Equals(BitSet : TBits) : Boolean;
+      function  Equals(Obj : TObject): Boolean; override; overload;
+      function  Equals(BitSet : TBits) : Boolean; overload;
       procedure SetIndex(Index : longint);
       function  FindFirstBit(State : boolean) : longint;
       function  FindNextBit : longint;
@@ -424,6 +451,17 @@ type
     property DisplayName: string read GetDisplayName write SetDisplayName;
   end;
 
+  TCollectionEnumerator = class
+  private
+    FCollection: TCollection;
+    FPosition: Integer;
+  public
+    constructor Create(ACollection: TCollection);
+    function GetCurrent: TCollectionItem;
+    function MoveNext: Boolean;
+    property Current: TCollectionItem read GetCurrent;
+  end;
+
   TCollectionItemClass = class of TCollectionItem;
   TCollectionNotification = (cnAdded, cnExtracting, cnDeleting);
   TCollectionSortCompare = function (Item1, Item2: TCollectionItem): Integer;
@@ -463,9 +501,11 @@ type
     procedure Clear;
     procedure EndUpdate; virtual;
     procedure Delete(Index: Integer);
+    function GetEnumerator: TCollectionEnumerator;
     function GetNamePath: string; override;
     function Insert(Index: Integer): TCollectionItem;
     function FindItemID(ID: Integer): TCollectionItem;
+    procedure Exchange(Const Index1, index2: integer);
     procedure Sort(Const Compare : TCollectionSortCompare);
     property Count: Integer read GetCount;
     property ItemClass: TCollectionItemClass read FItemClass;
@@ -490,6 +530,19 @@ type
   IStringsAdapter = interface ['{739C2F34-52EC-11D0-9EA6-0020AF3D82DA}']
     procedure ReferenceStrings(S: TStrings);
     procedure ReleaseStrings;
+  end;
+
+{ TStringsEnumerator class }
+
+  TStringsEnumerator = class
+  private
+    FStrings: TStrings;
+    FPosition: Integer;
+  public
+    constructor Create(AStrings: TStrings);
+    function GetCurrent: String;
+    function MoveNext: Boolean;
+    property Current: String read GetCurrent;
   end;
 
 { TStrings class }
@@ -549,8 +602,10 @@ type
     procedure Clear; virtual; abstract;
     procedure Delete(Index: Integer); virtual; abstract;
     procedure EndUpdate;
-    function Equals(TheStrings: TStrings): Boolean;
+    function Equals(Obj: TObject): Boolean; override; overload;
+    function Equals(TheStrings: TStrings): Boolean; overload;
     procedure Exchange(Index1, Index2: Integer); virtual;
+    function GetEnumerator: TStringsEnumerator;
     function GetText: PChar; virtual;
     function IndexOf(const S: string): Integer; virtual;
     function IndexOfName(const Name: string): Integer; virtual;
@@ -703,6 +758,7 @@ type
   end;
 
 {$endif}
+  
 
 { TStream abstract class }
 
@@ -736,13 +792,28 @@ type
     function ReadByte : Byte;
     function ReadWord : Word;
     function ReadDWord : Cardinal;
+    function ReadQWord : QWord;
     function ReadAnsiString : String;
     procedure WriteByte(b : Byte);
     procedure WriteWord(w : Word);
     procedure WriteDWord(d : Cardinal);
+    procedure WriteQWord(q : QWord);
     Procedure WriteAnsiString (const S : String);
     property Position: Int64 read GetPosition write SetPosition;
     property Size: Int64 read GetSize write SetSize64;
+  end;
+
+  TProxyStream = class(TStream)
+  private
+    FStream: IStream;
+  protected
+    function GetIStream: IStream;
+  public
+    constructor Create(const Stream: IStream);
+    function Read(var Buffer; Count: Longint): Longint; override;
+    function Write(const Buffer; Count: Longint): Longint; override;
+    function Seek(Offset: Longint; Origin: Word): Longint; override;
+    procedure Check(err:longint); virtual;
   end;
 
   { TOwnerStream }
@@ -796,13 +867,13 @@ type
   TCustomMemoryStream = class(TStream)
   private
     FMemory: Pointer;
-    FSize, FPosition: Longint;
+    FSize, FPosition: PtrInt;
   protected
-    procedure SetPointer(Ptr: Pointer; ASize: Longint);
+    procedure SetPointer(Ptr: Pointer; ASize: PtrInt);
   public
     Function GetSize : Int64; Override;
-    function Read(var Buffer; Count: Longint): Longint; override;
-    function Seek(Offset: Longint; Origin: Word): Longint; override;
+    function Read(var Buffer; Count: LongInt): LongInt; override;
+    function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; override;
     procedure SaveToStream(Stream: TStream);
     procedure SaveToFile(const FileName: string);
     property Memory: Pointer read FMemory;
@@ -812,18 +883,18 @@ type
 
   TMemoryStream = class(TCustomMemoryStream)
   private
-    FCapacity: Longint;
-    procedure SetCapacity(NewCapacity: Longint);
+    FCapacity: PtrInt;
+    procedure SetCapacity(NewCapacity: PtrInt);
   protected
-    function Realloc(var NewCapacity: Longint): Pointer; virtual;
-    property Capacity: Longint read FCapacity write SetCapacity;
+    function Realloc(var NewCapacity: PtrInt): Pointer; virtual;
+    property Capacity: PtrInt read FCapacity write SetCapacity;
   public
     destructor Destroy; override;
     procedure Clear;
     procedure LoadFromStream(Stream: TStream);
     procedure LoadFromFile(const FileName: string);
-    procedure SetSize(NewSize: Longint); override;
-    function Write(const Buffer; Count: Longint): Longint; override;
+    procedure SetSize({$ifdef CPU64}const{$endif CPU64} NewSize: PtrInt); override;
+    function Write(const Buffer; Count: LongInt): LongInt; override;
   end;
 
 { TStringStream }
@@ -849,7 +920,7 @@ type
 {$ifdef UNICODE}
   TResourceStream = class(TCustomMemoryStream)
   private
-    Res: HRSRC;
+    Res: TFPResourceHandle;
     Handle: THandle;
     procedure Initialize(Instance: THandle; Name, ResType: PWideChar);
   public
@@ -860,7 +931,7 @@ type
 {$else}
   TResourceStream = class(TCustomMemoryStream)
   private
-    Res: HRSRC;
+    Res: TFPResourceHandle;
     Handle: THandle;
     procedure Initialize(Instance: THandle; Name, ResType: PChar);
   public
@@ -877,8 +948,9 @@ type
 { Implements OLE IStream on TStream }
   TStreamAdapter = class(TInterfacedObject, IStream)
   private
-    FStream: TStream;
-    FOwnership: TStreamOwnership;
+    FStream    : TStream;
+    FOwnership : TStreamOwnership;
+    m_bReverted: Boolean;
   public
     constructor Create(Stream: TStream; Ownership: TStreamOwnership = soReference);
     destructor Destroy; override;
@@ -1120,6 +1192,7 @@ type
     function ReadIdent: string;
     function ReadInteger: Longint;
     function ReadInt64: Int64;
+    function ReadSet(EnumType: Pointer): Integer; 
     procedure ReadListBegin;
     procedure ReadListEnd;
     function ReadRootComponent(ARoot: TComponent): TComponent;
@@ -1298,6 +1371,7 @@ type
     procedure WriteIdent(const Ident: string);
     procedure WriteInteger(Value: Longint); overload;
     procedure WriteInteger(Value: Int64); overload;
+    procedure WriteSet(Value: LongInt; SetType: Pointer); 
     procedure WriteListBegin;
     procedure WriteListEnd;
     procedure WriteRootComponent(ARoot: TComponent);
@@ -1341,6 +1415,7 @@ type
     function GetHexValue(c : char) : byte; {$ifdef CLASSESINLINE} inline; {$endif CLASSESINLINE}
     function GetAlphaNum : string;
     procedure HandleNewLine;
+    procedure SkipBOM;
     procedure SkipSpaces;
     procedure SkipWhitespace;
     procedure HandleEof;
@@ -1348,7 +1423,8 @@ type
     procedure HandleNumber;
     procedure HandleHexNumber;
     function HandleQuotedString : string;
-    function HandleDecimalString(var ascii : boolean) : widestring;
+    procedure HandleDecimalCharacter(var ascii : boolean;
+                                     out WideChr: widechar; out StringChr: char);
     procedure HandleString;
     procedure HandleMinus;
     procedure HandleUnknown;
@@ -1429,6 +1505,7 @@ type
                        const StackSize: SizeUInt = DefaultStackSize);
     destructor Destroy; override;
     procedure AfterConstruction; override;
+    procedure Start;
     procedure Resume;
     procedure Suspend;
     procedure Terminate;
@@ -1454,21 +1531,17 @@ type
     csTransient);
   TGetChildProc = procedure (Child: TComponent) of object;
 
-  {
-  TComponentName = type string;
-
   IVCLComObject = interface
-    function GetTypeInfoCount(out Count: Integer): Integer; stdcall;
-    function GetTypeInfo(Index, LocaleID: Integer; out TypeInfo): Integer; stdcall;
+    ['{E07892A0-F52F-11CF-BD2F-0020AF0E5B81}']
+    function GetTypeInfoCount(out Count: Integer): HResult; stdcall;
+    function GetTypeInfo(Index, LocaleID: Integer; out TypeInfo): HResult; stdcall;
     function GetIDsOfNames(const IID: TGUID; Names: Pointer;
-      NameCount, LocaleID: Integer; DispIDs: Pointer): Integer; stdcall;
+      NameCount, LocaleID: Integer; DispIDs: Pointer): HResult; stdcall;
     function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
-      Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): Integer; stdcall;
-    function SafeCallException(ExceptObject: TObject;
-      ExceptAddr: Pointer): Integer;
+      Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): HResult; stdcall;
+    function SafeCallException(ExceptObject: TObject; ExceptAddr: Pointer): HResult;
     procedure FreeOnRelease;
   end;
-  }
 
   IInterfaceComponentReference = interface 
     ['{3FEEC8E1-E400-4A24-BCAC-1F01476439B1}']
@@ -1479,6 +1552,17 @@ type
     ['{B971E807-E3A6-11D1-AAB1-00C04FB16FBC}']
     procedure Modified;
     procedure Notification(AnObject: TPersistent; Operation: TOperation);
+  end;
+
+  TComponentEnumerator = class
+  private
+    FComponent: TComponent;
+    FPosition: Integer;
+  public
+    constructor Create(AComponent: TComponent);
+    function GetCurrent: TComponent;
+    function MoveNext: Boolean;
+    property Current: TComponent read GetCurrent;
   end;
 
   TBasicAction = class;
@@ -1495,7 +1579,7 @@ type
     FDesignInfo: Longint;
     FVCLComObject: Pointer;
     FComponentState: TComponentState;
-    // function GetComObject: IUnknown;
+    function GetComObject: IUnknown;
     function GetComponent(AIndex: Integer): TComponent;
     function GetComponentCount: Integer;
     function GetComponentIndex: Integer;
@@ -1542,12 +1626,12 @@ type
     function _Release: Integer; stdcall;
     function iicrGetComponent: TComponent;
     { IDispatch }
-    //!!!! function GetTypeInfoCount(out Count: Integer): Integer; stdcall;
-    //!!!! function GetTypeInfo(Index, LocaleID: Integer; out TypeInfo): Integer; stdcall;
-    //!!!! function GetIDsOfNames(const IID: TGUID; Names: Pointer;
-    //!!!!   NameCount, LocaleID: Integer; DispIDs: Pointer): Integer; stdcall;
-    //!!!! function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
-    //!!!!   Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): Integer; stdcall;
+    function GetTypeInfoCount(out Count: Integer): HResult; stdcall;
+    function GetTypeInfo(Index, LocaleID: Integer; out TypeInfo): HResult; stdcall;
+    function GetIDsOfNames(const IID: TGUID; Names: Pointer;
+      NameCount, LocaleID: Integer; DispIDs: Pointer): HResult; stdcall;
+    function Invoke(DispID: Integer; const IID: TGUID; LocaleID: Integer;
+      Flags: Word; var Params; VarResult, ExcepInfo, ArgErr: Pointer): HResult; stdcall;
   public
     //!! Moved temporary
     // fpdoc doesn't handle this yet :(
@@ -1556,8 +1640,8 @@ type
 {$endif}    
     procedure WriteState(Writer: TWriter); virtual;
     constructor Create(AOwner: TComponent); virtual;
-    procedure BeforeDestruction; override;
     destructor Destroy; override;
+    procedure BeforeDestruction; override;
     procedure DestroyComponents;
     procedure Destroying;
     function ExecuteAction(Action: TBasicAction): Boolean; dynamic;
@@ -1565,16 +1649,17 @@ type
     procedure FreeNotification(AComponent: TComponent);
     procedure RemoveFreeNotification(AComponent: TComponent);
     procedure FreeOnRelease;
+    function GetEnumerator: TComponentEnumerator;
     function GetNamePath: string; override;
     function GetParentComponent: TComponent; dynamic;
     function HasParent: Boolean; dynamic;
     procedure InsertComponent(AComponent: TComponent);
     procedure RemoveComponent(AComponent: TComponent);
     function SafeCallException(ExceptObject: TObject;
-      ExceptAddr: Pointer): Integer; override;
+      ExceptAddr: Pointer): HResult; override;
     procedure SetSubComponent(ASubComponent: Boolean);
     function UpdateAction(Action: TBasicAction): Boolean; dynamic;
-    // property ComObject: IUnknown read GetComObject;
+    property ComObject: IUnknown read GetComObject;
     function IsImplementorOf (const Intf:IInterface):boolean;
     procedure ReferenceInterface(const intf:IInterface;op:TOperation);
     property Components[Index: Integer]: TComponent read GetComponent;
@@ -1672,6 +1757,19 @@ type
     property Items[index : Integer] : IUnknown read Get write Put;default;
   end;
 
+  TInterfaceList = class;
+
+  TInterfaceListEnumerator = class
+  private
+    FList: TInterfaceList;
+    FPosition: Integer;
+  public
+    constructor Create(AList: TInterfaceList);
+    function GetCurrent: IUnknown;
+    function MoveNext: Boolean;
+    property Current: IUnknown read GetCurrent;
+  end;
+
   TInterfaceList = class(TInterfacedObject,IInterfaceList)
   private
     FList : TThreadList;
@@ -1690,6 +1788,7 @@ type
     procedure Delete(index : Integer);
     procedure Exchange(index1,index2 : Integer);
     function First : IUnknown;
+    function GetEnumerator: TInterfaceListEnumerator;
     function IndexOf(item : IUnknown) : Integer;
     function Add(item : IUnknown) : Integer;
     procedure Insert(i : Integer;item : IUnknown);
@@ -1744,6 +1843,7 @@ type
     property OnDestroy: TNotifyEvent read FOnDestroy write FOnDestroy;
     property OldCreateOrder: Boolean read FOldOrder write FOldOrder;
   end;
+  TDataModuleClass = Class of TDataModule;
 
 var
   // IDE hooks for TDatamodule support.
@@ -1777,8 +1877,8 @@ var
   RegisterNoIconProc: procedure(ComponentClasses: array of TComponentClass);
 {!!!!  RegisterNonActiveXProc: procedure(ComponentClasses: array of TComponentClass;
     AxRegType: TActiveXRegType) = nil;
-  CurrentGroup: Integer = -1;
-  CreateVCLComObjectProc: procedure(Component: TComponent) = nil;}
+  CurrentGroup: Integer = -1;}
+  CreateVCLComObjectProc: procedure(Component: TComponent) = nil;
 
 { Point and rectangle constructors }
 
@@ -1874,6 +1974,13 @@ function CollectionsEqual(C1, C2: TCollection; Owner1, Owner2: TComponent): Bool
 
 { Object conversion routines }
 
+type
+  TObjectTextEncoding = (
+    oteDFM,
+    oteLFM
+    );
+
+procedure ObjectBinaryToText(Input, Output: TStream; Encoding: TObjectTextEncoding);
 procedure ObjectBinaryToText(Input, Output: TStream);
 procedure ObjectTextToBinary(Input, Output: TStream);
 

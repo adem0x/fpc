@@ -333,6 +333,7 @@ implementation
        COFF_STYP_DATA   = $0040;
        COFF_STYP_BSS    = $0080;
 
+       PE_SUBSYSTEM_NATIVE         = 1;
        PE_SUBSYSTEM_WINDOWS_GUI    = 2;
        PE_SUBSYSTEM_WINDOWS_CUI    = 3;
        PE_SUBSYSTEM_WINDOWS_CE_GUI = 9;
@@ -479,10 +480,14 @@ implementation
        SymbolMaxGrow = 200*sizeof(coffsymbol);
        StrsMaxGrow   = 8192;
 
-       coffsecnames : array[TAsmSectiontype] of string[20] = ('',
+       coffsecnames : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('',
           '.text','.data','.data','.data','.bss','.tls',
-          '.text',
-          '.pdata',
+          '.pdata',{pdata}
+          '.text', {stub}
+          '.data',
+          '.data',
+          '.data',
+          '.data',
           '.stab','.stabstr',
           '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
           '.eh_frame',
@@ -515,7 +520,16 @@ implementation
           '.objc_property',
           '.objc_image_info',
           '.objc_cstring_object',
-          '.objc_sel_fixup'
+          '.objc_sel_fixup',
+          '__DATA,__objc_data',
+          '__DATA,__objc_const',
+          '.objc_superrefs',
+          '__DATA, __datacoal_nt,coalesced',
+          '.objc_classlist',
+          '.objc_nlclasslist',
+          '.objc_catlist',
+          '.obcj_nlcatlist',
+          '.objc_protolist'
         );
 
 const go32v2stub : array[0..2047] of byte=(
@@ -1976,7 +1990,7 @@ const pemagic : array[0..3] of byte = (
         if target_info.system in [system_x86_64_win64] then
           MaxMemPos:=$FFFFFFFF
         else
-          if target_info.system in system_wince then
+          if target_info.system in systems_wince then
             MaxMemPos:=$1FFFFFF
           else
             MaxMemPos:=$7FFFFFFF;
@@ -2071,7 +2085,13 @@ const pemagic : array[0..3] of byte = (
             sechdr.nrelocs:=0;
             sechdr.relocpos:=0;
             if win32 then
-              sechdr.flags:=peencodesechdrflags(SecOptions,SecAlign)
+              begin
+                if (target_info.system in systems_nativent) and
+                   (apptype = app_native) then
+                  sechdr.flags:=peencodesechdrflags(SecOptions,SecAlign) or PE_SCN_MEM_NOT_PAGED
+                else
+                  sechdr.flags:=peencodesechdrflags(SecOptions,SecAlign);
+              end
             else
               sechdr.flags:=djencodesechdrflags(SecOptions);
             FWriter.write(sechdr,sizeof(sechdr));
@@ -2280,7 +2300,7 @@ const pemagic : array[0..3] of byte = (
             peoptheader.MinorOperatingSystemVersion:=0;
             peoptheader.MajorImageVersion:=dllmajor;
             peoptheader.MinorImageVersion:=dllminor;
-            if target_info.system in system_wince then
+            if target_info.system in systems_wince then
               peoptheader.MajorSubsystemVersion:=3
             else
               peoptheader.MajorSubsystemVersion:=4;
@@ -2289,13 +2309,18 @@ const pemagic : array[0..3] of byte = (
             peoptheader.SizeOfImage:=Align(CurrMemPos,SectionMemAlign);
             peoptheader.SizeOfHeaders:=textExeSec.DataPos;
             peoptheader.CheckSum:=0;
-            if target_info.system in system_wince then
-              peoptheader.Subsystem:=PE_SUBSYSTEM_WINDOWS_CE_GUI
+            if (target_info.system in systems_nativent) and (not IsSharedLibrary or (apptype = app_native)) then
+              { Although I did not really test this, it seems that Subsystem is
+                not checked in DLLs except for maybe drivers}
+              peoptheader.Subsystem:=PE_SUBSYSTEM_NATIVE
             else
-              if apptype=app_gui then
-                peoptheader.Subsystem:=PE_SUBSYSTEM_WINDOWS_GUI
+              if target_info.system in systems_wince then
+                peoptheader.Subsystem:=PE_SUBSYSTEM_WINDOWS_CE_GUI
               else
-                peoptheader.Subsystem:=PE_SUBSYSTEM_WINDOWS_CUI;
+                if apptype=app_gui then
+                  peoptheader.Subsystem:=PE_SUBSYSTEM_WINDOWS_GUI
+                else
+                  peoptheader.Subsystem:=PE_SUBSYSTEM_WINDOWS_CUI;
             peoptheader.DllCharacteristics:=0;
             peoptheader.SizeOfStackReserve:=stacksize;
             peoptheader.SizeOfStackCommit:=$1000;
@@ -2330,7 +2355,7 @@ const pemagic : array[0..3] of byte = (
         { For some unknown reason WM 6.1 requires .idata section to be read only.
           Otherwise it refuses to load DLLs greater than 64KB.
           Earlier versions of WinCE load DLLs regardless of .idata flags. }
-        if target_info.system in system_wince then
+        if target_info.system in systems_wince then
           begin
             idataExeSec:=FindExeSection('.idata');
             if idataExeSec<>nil then
@@ -2893,7 +2918,7 @@ const pemagic : array[0..3] of byte = (
             idtxt  : 'PECOFF';
             asmbin : '';
             asmcmd : '';
-            supported_targets : [system_i386_win32];
+            supported_targets : [system_i386_win32,system_i386_nativent];
             flags : [af_outputbinary,af_smartlink_sections];
             labelprefix : '.L';
             comment : '';

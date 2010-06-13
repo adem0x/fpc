@@ -75,33 +75,43 @@ interface
         'csect', {read only data}
         'csect', {read only data - no relocations}
         'csect', {bss} 'csect', '',
-        'csect','csect','csect','csect',
+        'csect','csect','csect','csect','csect',
+        'csect','csect','csect',
          '','','','','','','','','','','','','','',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         '',
-         ''
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        ''
       );
 
     type
@@ -869,8 +879,7 @@ interface
                    aitconst_32bit,
                    aitconst_16bit,
                    aitconst_8bit,
-                   aitconst_rva_symbol,
-                   aitconst_indirect_symbol :
+                   aitconst_rva_symbol :
                      begin
                        AsmWrite(ait_const2str[consttype]);
                        l:=0;
@@ -1127,9 +1136,9 @@ interface
                 end;
               ait_marker :
                  begin
-                   if tai_marker(hp).kind=mark_InlineStart then
+                   if tai_marker(hp).kind=mark_NoLineInfoStart then
                      inc(InlineLevel)
-                   else if tai_marker(hp).kind=mark_InlineEnd then
+                   else if tai_marker(hp).kind=mark_NoLineInfoEnd then
                      dec(InlineLevel);
                  end;
          else

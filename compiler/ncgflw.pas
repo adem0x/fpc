@@ -424,7 +424,8 @@ implementation
 
     procedure tcgfornode.pass_generate_code;
       var
-         l3,oldclabel,oldblabel : tasmlabel;
+         l3,oldclabel,oldblabel,
+         otl, ofl : tasmlabel;
          temptovalue : boolean;
          hop : topcg;
          hcond : topcmp;
@@ -433,6 +434,7 @@ implementation
          cmp_const:Tconstexprint;
          oldflowcontrol : tflowcontrol;
          oldexecutionweight : longint;
+         isjump: boolean;
       begin
          location_reset(location,LOC_VOID,OS_NO);
          oldclabel:=current_procinfo.CurrContinueLabel;
@@ -454,7 +456,22 @@ implementation
          }
            and not(assigned(entrylabel));
 
-         secondpass(t1);
+        isjump:=(t1.expectloc=LOC_JUMP);
+        if isjump then
+          begin
+             otl:=current_procinfo.CurrTrueLabel;
+             current_asmdata.getjumplabel(current_procinfo.CurrTrueLabel);
+             ofl:=current_procinfo.CurrFalseLabel;
+             current_asmdata.getjumplabel(current_procinfo.CurrFalseLabel);
+          end;
+        secondpass(t1);
+        if t1.location.loc in [LOC_FLAGS,LOC_JUMP] then
+          location_force_reg(current_asmdata.CurrAsmList,t1.location,def_cgsize(t1.resultdef),false);
+        if isjump then
+          begin
+            current_procinfo.CurrTrueLabel:=otl;
+            current_procinfo.CurrFalseLabel:=ofl;
+          end;
          { calculate pointer value and check if changeable and if so }
          { load into temporary variable                       }
          if t1.nodetype<>ordconstn then
@@ -473,7 +490,22 @@ implementation
          cg.executionweight:=oldexecutionweight;
 
          { load from value }
+         isjump:=(right.expectloc=LOC_JUMP);
+         if isjump then
+           begin
+              otl:=current_procinfo.CurrTrueLabel;
+              current_asmdata.getjumplabel(current_procinfo.CurrTrueLabel);
+              ofl:=current_procinfo.CurrFalseLabel;
+              current_asmdata.getjumplabel(current_procinfo.CurrFalseLabel);
+           end;
          secondpass(right);
+         if right.location.loc in [LOC_FLAGS,LOC_JUMP] then
+           location_force_reg(current_asmdata.CurrAsmList,right.location,def_cgsize(right.resultdef),false);
+         if isjump then
+           begin
+             current_procinfo.CurrTrueLabel:=otl;
+             current_procinfo.CurrFalseLabel:=ofl;
+           end;
 
          maybechangeloadnodereg(current_asmdata.CurrAsmList,left,false);
          oldflowcontrol:=flowcontrol;
@@ -945,15 +977,13 @@ implementation
               { Push parameters }
               if assigned(right) then
                 begin
-                  paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc3);
                   { frame tree }
                   if assigned(third) then
-                    cg.a_param_loc(current_asmdata.CurrAsmList,third.location,paraloc3)
+                    cg.a_load_loc_cgpara(current_asmdata.CurrAsmList,third.location,paraloc3)
                   else
-                    cg.a_param_const(current_asmdata.CurrAsmList,OS_INT,0,paraloc3);
+                    cg.a_load_const_cgpara(current_asmdata.CurrAsmList,OS_INT,0,paraloc3);
                   { push address }
-                  paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc2);
-                  cg.a_param_loc(current_asmdata.CurrAsmList,right.location,paraloc2);
+                  cg.a_load_loc_cgpara(current_asmdata.CurrAsmList,right.location,paraloc2);
                 end
               else
                 begin
@@ -962,20 +992,17 @@ implementation
                    cg.a_label(current_asmdata.CurrAsmList,a);
                    reference_reset_symbol(href2,a,0,1);
                    { push current frame }
-                   paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc3);
-                   cg.a_param_reg(current_asmdata.CurrAsmList,OS_ADDR,NR_FRAME_POINTER_REG,paraloc3);
+                   cg.a_load_reg_cgpara(current_asmdata.CurrAsmList,OS_ADDR,NR_FRAME_POINTER_REG,paraloc3);
                    { push current address }
-                   paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc2);
                    if target_info.system <> system_powerpc_macos then
-                     cg.a_paramaddr_ref(current_asmdata.CurrAsmList,href2,paraloc2)
+                     cg.a_loadaddr_ref_cgpara(current_asmdata.CurrAsmList,href2,paraloc2)
                    else
-                     cg.a_param_const(current_asmdata.CurrAsmList,OS_INT,0,paraloc2);
+                     cg.a_load_const_cgpara(current_asmdata.CurrAsmList,OS_INT,0,paraloc2);
                 end;
-              paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc1);
-              cg.a_param_loc(current_asmdata.CurrAsmList,left.location,paraloc1);
-              paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc1);
-              paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc2);
-              paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc3);
+              cg.a_load_loc_cgpara(current_asmdata.CurrAsmList,left.location,paraloc1);
+              paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
+              paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc2);
+              paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc3);
               cg.allocallcpuregisters(current_asmdata.CurrAsmList);
               cg.a_call_name(current_asmdata.CurrAsmList,'FPC_RAISEEXCEPTION',false);
               cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
@@ -1013,10 +1040,9 @@ implementation
          cg.a_reg_alloc(current_asmdata.CurrAsmList,NR_FUNCTION_RESULT_REG);
          paraloc1.init;
          paramanager.getintparaloc(pocall_default,1,paraloc1);
-         paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc1);
          cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_FUNCTION_RESULT_REG);
-         cg.a_param_reg(current_asmdata.CurrAsmList,OS_ADDR,NR_FUNCTION_RESULT_REG,paraloc1);
-         paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc1);
+         cg.a_load_reg_cgpara(current_asmdata.CurrAsmList,OS_ADDR,NR_FUNCTION_RESULT_REG,paraloc1);
+         paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
          cg.allocallcpuregisters(current_asmdata.CurrAsmList);
          cg.a_call_name(current_asmdata.CurrAsmList,'FPC_DESTROYEXCEPTION',false);
          cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
@@ -1099,11 +1125,17 @@ implementation
          if codegenerror then
            goto errorexit;
 
+         { don't generate line info for internal cleanup }
+         current_asmdata.CurrAsmList.concat(tai_marker.create(mark_NoLineInfoStart));
+
          cg.a_label(current_asmdata.CurrAsmList,exceptlabel);
 
          free_exception(current_asmdata.CurrAsmList, excepttemps, 0, endexceptlabel, false);
 
          cg.a_label(current_asmdata.CurrAsmList,doexceptlabel);
+
+         { end cleanup }
+         current_asmdata.CurrAsmList.concat(tai_marker.create(mark_NoLineInfoEnd));
 
          { set control flow labels for the except block }
          { and the on statements                        }
@@ -1119,6 +1151,9 @@ implementation
          if assigned(right) then
            secondpass(right);
 
+         { don't generate line info for internal cleanup }
+         current_asmdata.CurrAsmList.concat(tai_marker.create(mark_NoLineInfoStart));
+
          cg.a_label(current_asmdata.CurrAsmList,lastonlabel);
          { default handling except handling }
          if assigned(t1) then
@@ -1128,9 +1163,8 @@ implementation
               }
               paraloc1.init;
               paramanager.getintparaloc(pocall_default,1,paraloc1);
-              paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc1);
-              cg.a_param_const(current_asmdata.CurrAsmList,OS_ADDR,-1,paraloc1);
-              paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc1);
+              cg.a_load_const_cgpara(current_asmdata.CurrAsmList,OS_ADDR,-1,paraloc1);
+              paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
               cg.allocallcpuregisters(current_asmdata.CurrAsmList);
               cg.a_call_name(current_asmdata.CurrAsmList,'FPC_CATCHES',false);
               cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
@@ -1161,9 +1195,8 @@ implementation
               paraloc1.init;
               paramanager.getintparaloc(pocall_default,1,paraloc1);
               cg.a_reg_alloc(current_asmdata.CurrAsmList,NR_FUNCTION_RESULT_REG);
-              paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc1);
-              cg.a_param_reg(current_asmdata.CurrAsmList, OS_ADDR, NR_FUNCTION_RESULT_REG, paraloc1);
-              paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc1);
+              cg.a_load_reg_cgpara(current_asmdata.CurrAsmList, OS_ADDR, NR_FUNCTION_RESULT_REG, paraloc1);
+              paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
               cg.allocallcpuregisters(current_asmdata.CurrAsmList);
               cg.a_call_name(current_asmdata.CurrAsmList,'FPC_DESTROYEXCEPTION',false);
               cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
@@ -1268,6 +1301,9 @@ implementation
          unget_exception_temps(current_asmdata.CurrAsmList,excepttemps);
          cg.a_label(current_asmdata.CurrAsmList,endexceptlabel);
 
+         { end cleanup }
+         current_asmdata.CurrAsmList.concat(tai_marker.create(mark_NoLineInfoEnd));
+
        errorexit:
          { restore all saved labels }
          endexceptlabel:=oldendexceptlabel;
@@ -1314,9 +1350,8 @@ implementation
          { send the vmt parameter }
          reference_reset_symbol(href2,current_asmdata.RefAsmSymbol(excepttype.vmt_mangledname),0,sizeof(pint));
          paramanager.getintparaloc(pocall_default,1,paraloc1);
-         paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc1);
-         cg.a_paramaddr_ref(current_asmdata.CurrAsmList,href2,paraloc1);
-         paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc1);
+         cg.a_loadaddr_ref_cgpara(current_asmdata.CurrAsmList,href2,paraloc1);
+         paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
          cg.allocallcpuregisters(current_asmdata.CurrAsmList);
          cg.a_call_name(current_asmdata.CurrAsmList,'FPC_CATCHES',false);
          cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
@@ -1372,6 +1407,10 @@ implementation
 
               secondpass(right);
            end;
+
+         { don't generate lineinfo for internal cleanup }
+         current_asmdata.CurrAsmList.concat(tai_marker.create(mark_NoLineInfoStart));
+
          current_asmdata.getjumplabel(doobjectdestroy);
          cg.a_label(current_asmdata.CurrAsmList,doobjectdestroyandreraise);
 
@@ -1383,9 +1422,8 @@ implementation
          cg.a_reg_alloc(current_asmdata.CurrAsmList,NR_FUNCTION_RESULT_REG);
          paramanager.getintparaloc(pocall_default,1,paraloc1);
          cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_FUNCTION_RESULT_REG);
-         paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc1);
-         cg.a_param_reg(current_asmdata.CurrAsmList, OS_ADDR, NR_FUNCTION_RESULT_REG, paraloc1);
-         paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc1);
+         cg.a_load_reg_cgpara(current_asmdata.CurrAsmList, OS_ADDR, NR_FUNCTION_RESULT_REG, paraloc1);
+         paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
          cg.allocallcpuregisters(current_asmdata.CurrAsmList);
          cg.a_call_name(current_asmdata.CurrAsmList,'FPC_DESTROYEXCEPTION',false);
          cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
@@ -1441,6 +1479,7 @@ implementation
          cg.a_label(current_asmdata.CurrAsmList,nextonlabel);
          flowcontrol:=oldflowcontrol+(flowcontrol-[fc_inflowcontrol]);
          paraloc1.done;
+         current_asmdata.CurrAsmList.concat(tai_marker.create(mark_NoLineInfoEnd));
 
          { next on node }
          if assigned(left) then
@@ -1465,6 +1504,7 @@ implementation
          oldflowcontrol,tryflowcontrol : tflowcontrol;
          decconst : longint;
          excepttemps : texceptiontemps;
+         retsym: tlocalvarsym;
       begin
          location_reset(location,LOC_VOID,OS_NO);
 
@@ -1514,9 +1554,15 @@ implementation
                 exit;
            end;
 
+         { don't generate line info for internal cleanup }
+         current_asmdata.CurrAsmList.concat(tai_marker.create(mark_NoLineInfoStart));
+
          cg.a_label(current_asmdata.CurrAsmList,finallylabel);
          { just free the frame information }
          free_exception(current_asmdata.CurrAsmList,excepttemps,1,finallylabel,true);
+
+         { end cleanup }
+         current_asmdata.CurrAsmList.concat(tai_marker.create(mark_NoLineInfoEnd));
 
          { finally code }
          flowcontrol:=[fc_inflowcontrol];
@@ -1527,6 +1573,9 @@ implementation
            CGMessage(cg_e_control_flow_outside_finally);
          if codegenerror then
            exit;
+
+         { don't generate line info for internal cleanup }
+         current_asmdata.CurrAsmList.concat(tai_marker.create(mark_NoLineInfoStart));
 
          { the value should now be in the exception handler }
          cg.g_exception_reason_load(current_asmdata.CurrAsmList,excepttemps.reasonbuf);
@@ -1543,16 +1592,15 @@ implementation
              if codegenerror then
                exit;
 {$if defined(x86) or defined(arm)}
-             if (target_info.system in system_all_windows) and
+             if (target_info.system in systems_all_windows) and
                 (current_procinfo.procdef.proccalloption=pocall_safecall) then
                begin
-                 { Remove and destroy the last exception object }
-                 cg.a_call_name(current_asmdata.CurrAsmList,'FPC_POPOBJECTSTACK',false);
-                 cg.a_call_name(current_asmdata.CurrAsmList,'FPC_DESTROYEXCEPTION',false);
+                 { find safe_result variable we created in the generate_except_block }
+                 retsym:=tlocalvarsym(current_procinfo.procdef.localst.Find('safe_result'));
                  { Set return value of safecall procedure to indicate exception.       }
                  { Exception will be raised after procedure exit based on return value }
                  cg.a_reg_alloc(current_asmdata.CurrAsmList,NR_FUNCTION_RESULT_REG);
-                 cg.a_load_const_reg(current_asmdata.CurrAsmList,OS_ADDR,aint($8000FFFF),NR_FUNCTION_RETURN_REG);
+                 cg.a_load_loc_reg(current_asmdata.CurrAsmList,OS_INT,retsym.localloc,NR_FUNCTION_RESULT_REG);
                  cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_FUNCTION_RESULT_REG);
                end
              else
@@ -1619,6 +1667,9 @@ implementation
            end;
          unget_exception_temps(current_asmdata.CurrAsmList,excepttemps);
          cg.a_label(current_asmdata.CurrAsmList,endfinallylabel);
+
+         { end cleanup }
+         current_asmdata.CurrAsmList.concat(tai_marker.create(mark_NoLineInfoEnd));
 
          current_procinfo.CurrExitLabel:=oldCurrExitLabel;
          if assigned(current_procinfo.CurrBreakLabel) then

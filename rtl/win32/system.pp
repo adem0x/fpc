@@ -105,14 +105,19 @@ var
   StartupConsoleMode : DWORD;
 
 type
-  TDLL_Process_Entry_Hook = function (dllparam : longint) : longbool;
   TDLL_Entry_Hook = procedure (dllparam : longint);
 
 const
-  Dll_Process_Attach_Hook : TDLL_Process_Entry_Hook = nil;
   Dll_Process_Detach_Hook : TDLL_Entry_Hook = nil;
   Dll_Thread_Attach_Hook : TDLL_Entry_Hook = nil;
   Dll_Thread_Detach_Hook : TDLL_Entry_Hook = nil;
+
+Const
+  { it can be discussed whether fmShareDenyNone means read and write or read, write and delete, see
+    also http://bugs.freepascal.org/view.php?id=8898, this allows users to configure the used
+	value
+  }
+  fmShareDenyNoneFlags : DWord = 3;
 
 implementation
 
@@ -168,7 +173,6 @@ var
     end;
 
 begin
-  SetupProcVars;
   { create commandline, it starts with the executed filename which is argv[0] }
   { Win32 passes the command NOT via the args, but via getmodulefilename}
   count:=0;
@@ -616,13 +620,13 @@ var
   resetFPU        : array[0..MaxExceptionLevel-1] of Boolean;
 
 {$ifdef SYSTEMEXCEPTIONDEBUG}
-procedure DebugHandleErrorAddrFrame(error, addr, frame : longint);
+procedure DebugHandleErrorAddrFrame(error : longint; addr, frame : pointer);
 begin
   if IsConsole then
     begin
       write(stderr,'HandleErrorAddrFrame(error=',error);
-      write(stderr,',addr=',hexstr(addr,8));
-      writeln(stderr,',frame=',hexstr(frame,8),')');
+      write(stderr,',addr=',hexstr(ptruint(addr),8));
+      writeln(stderr,',frame=',hexstr(ptruint(frame),8),')');
     end;
   HandleErrorAddrFrame(error,addr,frame);
 end;
@@ -773,7 +777,7 @@ function syswin32_i386_exception_handler(excep : PExceptionPointers) : Longint;s
           writeln(stderr,'Exception Continue Exception set at ',
                   hexstr(exceptEip[exceptLevel],8));
           writeln(stderr,'Eip changed to ',
-                  hexstr(longint(@JumpToHandleErrorFrame),8), ' error=', error);
+                  hexstr(longint(@JumpToHandleErrorFrame),8), ' error=', err);
         end;
 {$endif SYSTEMEXCEPTIONDEBUG}
       end;

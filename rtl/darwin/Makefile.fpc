@@ -13,10 +13,10 @@ units=$(SYSTEMUNIT) unixtype ctypes objpas macpas strings sysctl baseunix unixut
       dos dl objects printer sockets \
       sysutils typinfo fgl classes math varutils types \
       charset ucomplex getopts heaptrc lineinfo lnfodwrf \
-      errors ipc terminfo termio video crt mouse keyboard console \
+      errors ipc terminfo termio video crt mouse keyboard  \
       variants dateutils convutils stdconvs \
       sysconst cthreads strutils rtlconsts cwstring bsd fmtbcd \
-      fpintres fpextres clocale objc1
+      fpintres fpextres clocale objc objcbase
 implicitunits=exeinfo
 
 rsts=math varutils typinfo classes variants dateutils sysconst rtlconsts
@@ -136,7 +136,9 @@ strings$(PPUEXT) : $(SYSTEMUNIT)$(PPUEXT) $(INC)/strings.pp $(INC)/stringsi.inc\
                    $(PROCINC)/strings.inc $(PROCINC)/stringss.inc\
                    $(SYSTEMUNIT)$(PPUEXT)
 
-objc1$(PPUEXT) : $(SYSTEMUNIT)$(PPUEXT) $(INC)/objc1.pp
+objc$(PPUEXT) : $(SYSTEMUNIT)$(PPUEXT) ctypes$(PPUEXT) unixtype$(PPUEXT) $(INC)/objc.pp $(INC)/objc1.inc $(INC)/objcnf.inc
+
+objcbase$(PPUEXT) : $(SYSTEMUNIT)$(PPUEXT) $(INC)/objcbase.pp objc$(PPUEXT)
 
 #
 # System Dependent Units
@@ -156,7 +158,7 @@ unix$(PPUEXT) : unixtype$(PPUEXT) baseunix$(PPUEXT) unixutil$(PPUEXT) strings$(P
 
 unixutil$(PPUEXT) : $(SYSTEMUNIT)$(PPUEXT)
 
-dynlibs$(PPUEXT) : dl$(PPUEXT) objpas$(PPUEXT)
+dynlibs$(PPUEXT) : dl$(PPUEXT) objpas$(PPUEXT) rtlconsts$(PPUEXT) sysutils$(PPUEXT) sysconst$(PPUEXT)
 
 ctypes$(PPUEXT) : $(SYSTEMUNIT)$(PPUEXT) unixtype$(PPUEXT)
 
@@ -294,7 +296,7 @@ cthreads$(PPUEXT) : $(UNIXINC)/cthreads.pp unix$(PPUEXT) sysutils$(PPUEXT)
 
 initc$(PPUEXT) : $(SYSTEMUNIT)$(PPUEXT) ctypes$(PPUEXT)
 
-console$(PPUEXT) : baseunix$(PPUEXT) termio$(PPUEXT)
+# console$(PPUEXT) : baseunix$(PPUEXT) termio$(PPUEXT)
 
 ctypes$(PPUEXT) :  $(INC)/ctypes.pp $(SYSTEMUNIT)$(PPUEXT)
 

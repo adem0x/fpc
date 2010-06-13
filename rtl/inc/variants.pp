@@ -86,6 +86,8 @@ function VarToStr(const V: Variant): string;
 function VarToStrDef(const V: Variant; const ADefault: string): string;
 function VarToWideStr(const V: Variant): WideString;
 function VarToWideStrDef(const V: Variant; const ADefault: WideString): WideString;
+function VarToUnicodeStr(const V: Variant): UnicodeString;
+function VarToUnicodeStrDef(const V: Variant; const ADefault: UnicodeString): UnicodeString;
 
 {$ifndef FPUNONE}
 function VarToDateTime(const V: Variant): TDateTime;
@@ -1125,19 +1127,7 @@ end;
 {$ifndef FPUNONE}
 function DoVarCmpFloat(const Left, Right: Double; const OpCode: TVarOp): ShortInt;
 begin
-  if SameValue(Left, Right) then
-    Result := 0
-  else if (OpCode in [opCmpEq, opCmpNe]) or (Left < Right) then
-    Result := -1
-  else
-    Result := 1;
-end;
-
-
-function DoVarCmpDate(const Left, Right: TDateTime; const OpCode: TVarOp): ShortInt;
-begin
-  { dates have to match exactly, all bits encode time information }
-  if(Left = Right) then
+  if Left = Right then
     Result := 0
   else if (OpCode in [opCmpEq, opCmpNe]) or (Left < Right) then
     Result := -1
@@ -1273,7 +1263,7 @@ begin
       else
         Result := DoVarCmpWStr(vl, vr, OpCode);
 {$ifndef FPUNONE}
-    ctDate:     Result := DoVarCmpDate(VariantToDate(vl), VariantToDate(vr), OpCode);
+    ctDate:     Result := DoVarCmpFloat(VariantToDate(vl), VariantToDate(vr), OpCode);
     ctCurrency: Result := DoVarCmpCurr(VariantToCurrency(vl), VariantToCurrency(vr));
 {$endif}
     ctString:
@@ -2195,6 +2185,8 @@ begin
       RefAnyProc(Dest);
     end else if vType and varArray <> 0 then
       DoVarCopyArray(Dest, Source, @DoVarCopy)
+    else if (vType and varByRef <> 0) and (vType xor varByRef = varString) then
+      Dest := Source
     else if FindCustomVariantType(vType, Handler) then
       Handler.Copy(Dest, Source, False)
     else
@@ -2933,6 +2925,23 @@ end;
 
 
 function VarToWideStrDef(const V: Variant; const ADefault: WideString): WideString;
+
+begin
+  If TVarData(V).vType<>varNull then
+    Result:=V
+  else
+    Result:=ADefault;
+end;
+
+
+function VarToUnicodeStr(const V: Variant): UnicodeString;
+
+begin
+  Result:=VarToUnicodeStrDef(V,'');
+end;
+
+
+function VarToUnicodeStrDef(const V: Variant; const ADefault: UnicodeString): UnicodeString;
 
 begin
   If TVarData(V).vType<>varNull then
@@ -4281,10 +4290,14 @@ begin
        Result := GetStrProp(Instance, PropInfo);
      tkWString:
        Result := GetWideStrProp(Instance, PropInfo);
+     tkUString:
+       Result := GetUnicodeStrProp(Instance, PropInfo);
      tkVariant:
        Result := GetVariantProp(Instance, PropInfo);
      tkInt64:
        Result := GetInt64Prop(Instance, PropInfo);
+     tkQWord:
+       Result := QWord(GetInt64Prop(Instance, PropInfo));
    else
      raise EPropertyConvertError.CreateFmt('Invalid Property Type: %s',[PropInfo^.PropType^.Name]);
    end;
@@ -4295,10 +4308,12 @@ Procedure SetPropValue(Instance: TObject; const PropName: string;  const Value: 
 
 var
  PropInfo: PPropInfo;
-// TypeData: PTypeData;
- O : Integer;
- S : String;
- B : Boolean;
+ TypeData: PTypeData;
+ O: Integer;
+ I64: Int64;
+ Qw: QWord;
+ S: String;
+ B: Boolean;
 
 begin
    // find the property
@@ -4307,36 +4322,57 @@ begin
      raise EPropertyError.CreateFmt(SErrPropertyNotFound, [PropName])
    else
      begin
-//     TypeData := GetTypeData(PropInfo^.PropType);
+     TypeData := GetTypeData(PropInfo^.PropType);
      // call Right SetxxxProp
      case PropInfo^.PropType^.Kind of
        tkBool:
          begin
          { to support the strings 'true' and 'false' }
-         B:=Value;
-         SetOrdProp(Instance, PropInfo, ord(B));
+         if (VarType(Value)=varOleStr) or
+            (VarType(Value)=varString) or
+            (VarType(Value)=varBoolean) then
+           begin
+             B:=Value;
+             SetOrdProp(Instance, PropInfo, ord(B));
+           end
+         else
+           begin
+             I64:=Value;
+             if (I64<TypeData^.MinValue) or (I64>TypeData^.MaxValue) then
+               raise ERangeError.Create(SRangeError);
+             SetOrdProp(Instance, PropInfo, I64);
+           end;
          end;
        tkInteger, tkChar, tkWChar:
          begin
-         O:=Value;
-         SetOrdProp(Instance, PropInfo, O);
+         I64:=Value;
+         if (TypeData^.OrdType=otULong) then
+           if (I64<LongWord(TypeData^.MinValue)) or (I64>LongWord(TypeData^.MaxValue)) then
+             raise ERangeError.Create(SRangeError)
+           else
+         else
+         if (I64<TypeData^.MinValue) or (I64>TypeData^.MaxValue) then
+           raise ERangeError.Create(SRangeError);
+         SetOrdProp(Instance, PropInfo, I64);
          end;
        tkEnumeration :
          begin
-         if (VarType(Value)=varOleStr) or  (VarType(Value)=varString) then
+         if (VarType(Value)=varOleStr) or (VarType(Value)=varString) then
            begin
            S:=Value;
            SetEnumProp(Instance,PropInfo,S);
            end
          else
            begin
-           O:=Value;
-           SetOrdProp(Instance, PropInfo, O);
+           I64:=Value;
+           if (I64<TypeData^.MinValue) or (I64>TypeData^.MaxValue) then
+             raise ERangeError.Create(SRangeError);
+           SetOrdProp(Instance, PropInfo, I64);
            end;
          end;
        tkSet :
          begin
-         if (VarType(Value)=varOleStr) or  (VarType(Value)=varString) then
+         if (VarType(Value)=varOleStr) or (VarType(Value)=varString) then
            begin
            S:=Value;
            SetSetProp(Instance,PropInfo,S);
@@ -4355,10 +4391,24 @@ begin
          SetStrProp(Instance, PropInfo, VarToStr(Value));
        tkWString:
          SetWideStrProp(Instance, PropInfo, VarToWideStr(Value));
+       tkUString:
+         SetUnicodeStrProp(Instance, PropInfo, VarToUnicodeStr(Value));
        tkVariant:
          SetVariantProp(Instance, PropInfo, Value);
        tkInt64:
-         SetInt64Prop(Instance, PropInfo, Value);
+         begin
+           I64:=Value;
+           if (I64<TypeData^.MinInt64Value) or (I64>TypeData^.MaxInt64Value) then
+             raise ERangeError.Create(SRangeError);
+           SetInt64Prop(Instance, PropInfo, I64);
+         end;
+       tkQWord:
+         begin
+           Qw:=Value;
+           if (Qw<TypeData^.MinQWordValue) or (Qw>TypeData^.MaxQWordValue) then
+             raise ERangeError.Create(SRangeError);
+           SetInt64Prop(Instance, PropInfo,Qw);
+         end
      else
        raise EPropertyConvertError.CreateFmt('SetPropValue: Invalid Property Type %s',
                                       [PropInfo^.PropType^.Name]);

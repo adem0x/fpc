@@ -159,37 +159,14 @@ end;
     P1 > P2    > 0
     P1 = P2    = 0    }
 
-function CompareMemRange(P1, P2: Pointer; Length: cardinal): integer;
-
-var
-  i: cardinal;
-
+function CompareMemRange(P1, P2: Pointer; Length: PtrUInt): integer;{$ifdef SYSUTILSINLINE}inline;{$endif}
 begin
-  i := 0;
-  result := 0;
-  while (result=0) and (I<length) do
-    begin
-    result:=byte(P1^)-byte(P2^);
-    P1:=pchar(P1)+1;            // VP compat.
-    P2:=pchar(P2)+1;
-    i := i + 1;
-   end ;
-end ;
+  Result:=CompareByte(P1^,P2^,Length);
+end;
 
-function CompareMem(P1, P2: Pointer; Length: cardinal): Boolean;
-var
-  i: cardinal;
+function CompareMem(P1, P2: Pointer; Length: PtrUInt): Boolean;{$ifdef SYSUTILSINLINE}inline;{$endif}
 begin
-  Result:=True;
-  I:=0;
-  If (P1)<>(P2) then
-    While Result and (i<Length) do
-      begin
-      Result:=PByte(P1)^=PByte(P2)^;
-      Inc(I);
-      Inc(pchar(P1));
-      Inc(pchar(P2));
-      end;
+  Result:=CompareByte(P1^,P2^,Length)=0;
 end;
 
 
@@ -1220,10 +1197,11 @@ Begin
             else
               Str(Extended(Value):0:precision, Result);
           end;
+          Negative := Result[1] = '-';
           P := Pos('.', Result);
           if P<>0 then
             Result[P] := DS;
-          TooLarge :=(P > Precision + 1) or (Pos('E', Result)<>0);
+          TooLarge :=(P > Precision + ord(Negative) + 1) or (Pos('E', Result)<>0);
         End;
 
         If TooSmall Or TooLarge Then
@@ -1254,14 +1232,14 @@ Begin
             { significant digits" rather than "number of digits after the }
             { decimal point" (as it does in the system unit) -> adjust    }
             { (precision+1 to count the decimal point character)          }
-            if Result[1] = '-' then
-              Inc(Precision);
-            if (Length(Result) > Precision + 1) and
-               (Precision + 1 > P) then
-              begin
-                P := Precision + 1;
-                SetLength(Result,P);
-              end;
+            { don't just cut off the string, as rounding must be taken    }
+            { into account based on the final digit                       }
+            
+            if (Length(Result) > Precision + ord(Negative) + 1) and
+               (Precision + ord(Negative) + 1 >= P) then
+              Result := FloatToStrFIntl(Value, ffFixed,
+                0, Precision - (P - Ord(Negative) - 1),
+                ValueType, FormatSettings);
             P := Length(Result);
             While (P>0) and (Result[P] = '0') Do
               Dec(P);
@@ -1691,9 +1669,23 @@ begin
   Result:=FloatToStrF(Value,ffGeneral,-1,0);
 end;
 
+
+Function CurrToStr(Value: Currency; Const FormatSettings: TFormatSettings): string;
+begin
+  Result:=FloatToStrF(Value,ffGeneral,-1,0,FormatSettings);
+end;  
+
+
 function StrToCurr(const S: string): Currency;
 begin
   if not TextToFloat(PChar(pointer(S)), Result, fvCurrency) then
+    Raise EConvertError.createfmt(SInValidFLoat,[S]);
+end;
+
+
+function StrToCurr(const S: string; Const FormatSettings: TFormatSettings): Currency; 
+begin
+  if not TextToFloat(PChar(pointer(S)), Result, fvCurrency,FormatSettings) then
     Raise EConvertError.createfmt(SInValidFLoat,[S]);
 end;
 
@@ -1704,12 +1696,23 @@ Begin
 End;
 
 
+function TryStrToCurr(const S: string;Out Value : Currency; Const FormatSettings: TFormatSettings): Boolean;       
+Begin
+  Result := TextToFloat(PChar(pointer(S)), Value, fvCurrency,FormatSettings);
+End;  
+
+
 function StrToCurrDef(const S: string; Default : Currency): Currency;
 begin
   if not TextToFloat(PChar(pointer(S)), Result, fvCurrency) then
     Result:=Default;
 end;
 
+function StrToCurrDef(const S: string; Default : Currency; Const FormatSettings: TFormatSettings): Currency;  
+begin
+  if not TextToFloat(PChar(pointer(S)), Result, fvCurrency,FormatSettings) then
+    Result:=Default;
+end; 
 {$endif FPUNONE}
 
 function AnsiDequotedStr(const S: string; AQuote: Char): string;
@@ -2201,8 +2204,11 @@ Var
                 { Everything unexpected is written before the first digit }
                 For N := 1 To UnexpectedDigits Do
                   Begin
-                  Buf[0] := Digits[N];
-                  Inc(Buf);
+                    if (Digits[N]<>' ') Then
+                    begin
+                      Buf[0] := Digits[N];
+                      Inc(Buf);
+                    end;
                   If thousand And (Digits[N]<>'-') Then
                     Begin
                     If (DigitExponent Mod 3 = 0) And (DigitExponent>0) Then

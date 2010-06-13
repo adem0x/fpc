@@ -150,7 +150,7 @@ var
 begin
   { Read filer signature }
   Read(Signature, 4);
-  if Signature <> LongInt({$ifdef FPC_SUPPORTS_UNALIGNED}unaligned{$endif}(FilerSignature)) then
+  if Signature <> LongInt(unaligned(FilerSignature)) then
     raise EReadError.Create(SInvalidImage);
 end;
 
@@ -1062,6 +1062,17 @@ begin
     FDriver.ReadValue;
     Result := FDriver.ReadInt64;
   end else
+    Result := ReadInteger;
+end;
+
+function TReader.ReadSet(EnumType: Pointer): Integer; 
+begin
+  if FDriver.NextValue = vaSet then
+    begin
+      FDriver.ReadValue;
+      Result := FDriver.ReadSet(enumtype);
+    end 
+  else
     Result := ReadInteger;
 end;
 

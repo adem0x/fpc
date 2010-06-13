@@ -1798,13 +1798,13 @@ exec_e_unit_not_shared_or_static_linkable=09027_E_No es pot utilitzar l'enllaçam
 #
 # Executable information
 #
-execinfo_f_cant_process_executable=09028_F_No es pot post-processar l'executable $1
-execinfo_f_cant_open_executable=09029_F_No es pot obrir l'executable $1
-execinfo_x_codesize=09030_X_Tamany del codi: $1 octets
-execinfo_x_initdatasize=09031_X_Tamany de les dades inicialitzades: $1 octets
-execinfo_x_uninitdatasize=09032_X_Tamany de les dades sense inicialitzar: $1 octets
-execinfo_x_stackreserve=09033_X_Espai reservat per la pila: $1 octets
-execinfo_x_stackcommit=09034_X_Espai utilitzat per la pila: $1 octets
+execinfo_f_cant_process_executable=09128_F_No es pot post-processar l'executable $1
+execinfo_f_cant_open_executable=09129_F_No es pot obrir l'executable $1
+execinfo_x_codesize=09130_X_Tamany del codi: $1 octets
+execinfo_x_initdatasize=09131_X_Tamany de les dades inicialitzades: $1 octets
+execinfo_x_uninitdatasize=09132_X_Tamany de les dades sense inicialitzar: $1 octets
+execinfo_x_stackreserve=09133_X_Espai reservat per la pila: $1 octets
+execinfo_x_stackcommit=09134_X_Espai utilitzat per la pila: $1 octets
 #
 # Unit loading
 #
@@ -2282,7 +2282,6 @@ S*2Aas_assemblar utilitzant GNU AS
 **2So_Igual que -Mtp
 **2Sp_Igual que -Mgpc
 **2Ss_El nom del constructor ha de ser init (destructor = done)
-**2St_Permet la paraula clau -static- en els objectes
 **1s_No cridis l'assemblador ni l'enllaçador
 **2sh_Genera la seqüència per enllaçar a l'anfitrió
 **2st_Genera la seqüència per enllaçar al destí

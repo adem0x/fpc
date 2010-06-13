@@ -14,7 +14,7 @@ type
 
   { TTestBufDatasetStreams }
 
-  TUpdDatasetProc = procedure(ADataset : TBufDataset) of object;
+  TUpdDatasetProc = procedure(ADataset : TCustomBufDataset) of object;
 
   TTestBufDatasetStreams = class(TTestCase)
   private
@@ -24,14 +24,14 @@ type
     procedure TestChangesCancelUpdates(AUpdDatasetProc : TUpdDatasetProc);
     procedure TestChangesXML(AUpdDatasetProc : TUpdDatasetProc);
 
-    procedure SimpleEditChange(ADataset: TBufDataset);
-    procedure SimpleDeleteChange(ADataset: TBufDataset);
-    procedure MoreDeletesChange(ADataset: TBufDataset);
-    procedure SimpleInsertChange(ADataset: TBufDataset);
-    procedure MoreInsertsChange(ADataset: TBufDataset);
-    procedure SeveralEditsChange(ADataset: TBufDataset);
-    procedure DeleteAllChange(ADataset: TBufDataset);
-    procedure DeleteAllInsertChange(ADataset: TBufDataset);
+    procedure SimpleEditChange(ADataset: TCustomBufDataset);
+    procedure SimpleDeleteChange(ADataset: TCustomBufDataset);
+    procedure MoreDeletesChange(ADataset: TCustomBufDataset);
+    procedure SimpleInsertChange(ADataset: TCustomBufDataset);
+    procedure MoreInsertsChange(ADataset: TCustomBufDataset);
+    procedure SeveralEditsChange(ADataset: TCustomBufDataset);
+    procedure DeleteAllChange(ADataset: TCustomBufDataset);
+    procedure DeleteAllInsertChange(ADataset: TCustomBufDataset);
   protected
     procedure SetUp; override;
     procedure TearDown; override;
@@ -67,14 +67,6 @@ type
     procedure TestFileNameProperty;
   end;
 
-  { TSQLTestSetup }
-
-  TDBBasicsTestSetup = class(TTestSetup)
-  protected
-    procedure OneTimeSetup; override;
-    procedure OneTimeTearDown; override;
-  end;
-
 implementation
 
 uses toolsunit, SQLDBToolsUnit, sqldb, XMLDatapacketReader;
@@ -96,9 +88,9 @@ end;
 procedure TTestBufDatasetStreams.TestChangesApplyUpdates(
   AUpdDatasetProc: TUpdDatasetProc; Inserts : Boolean);
 var OrgDs,
-    ChangedDs : TBufDataset;
+    ChangedDs : TCustomBufDataset;
 begin
-  OrgDs := DBConnector.GetNDataset(true,15) as TBufDataset;
+  OrgDs := DBConnector.GetNDataset(true,15) as TCustomBufDataset;
   OrgDs.Open;
   AUpdDatasetProc(OrgDs);
   OrgDs.ApplyUpdates;
@@ -112,7 +104,7 @@ begin
     OrgDs.First;
     end
   else
-    ChangedDs := DBConnector.GetNDataset(true,15) as TBufDataset;
+    ChangedDs := DBConnector.GetNDataset(true,15) as TCustomBufDataset;
   ChangedDs.Open;
   CompareDatasets(OrgDs,ChangedDs);
 end;
@@ -120,28 +112,28 @@ end;
 procedure TTestBufDatasetStreams.TestChangesCancelUpdates(
   AUpdDatasetProc: TUpdDatasetProc);
 var OrgDs,
-    ChangedDs : TBufDataset;
+    ChangedDs : TCustomBufDataset;
 begin
-  OrgDs := DBConnector.GetNDataset(true,15) as TBufDataset;
+  OrgDs := DBConnector.GetNDataset(true,15) as TCustomBufDataset;
   OrgDs.Open;
   AUpdDatasetProc(OrgDs);
   OrgDs.CancelUpdates;
 
-  ChangedDs := DBConnector.GetNDataset(true,15) as TBufDataset;
+  ChangedDs := DBConnector.GetNDataset(true,15) as TCustomBufDataset;
   ChangedDs.Open;
   CompareDatasets(OrgDs,ChangedDs);
 end;
 
 procedure TTestBufDatasetStreams.TestChangesXML(AUpdDatasetProc: TUpdDatasetProc);
 var SaveDs,
-    LoadDs : TBufDataset;
+    LoadDs : TCustomBufDataset;
 begin
-  SaveDs := DBConnector.GetNDataset(true,15) as TBufDataset;
+  SaveDs := DBConnector.GetNDataset(true,15) as TCustomBufDataset;
   SaveDs.Open;
   AUpdDatasetProc(SaveDs);
   SaveDs.SaveToFile('Basics.xml',dfXML);
 
-  LoadDs := TBufDataset.Create(nil);
+  LoadDs := TCustomBufDataset.Create(nil);
   LoadDs.LoadFromFile('Basics.xml');
 
   CompareDatasets(SaveDs,LoadDs);
@@ -153,7 +145,7 @@ begin
   LoadDs.Free;
 end;
 
-procedure TTestBufDatasetStreams.SimpleEditChange(ADataset: TBufDataset);
+procedure TTestBufDatasetStreams.SimpleEditChange(ADataset: TCustomBufDataset);
 begin
   ADataset.next;
   ADataset.edit;
@@ -161,13 +153,13 @@ begin
   ADataset.Post;
 end;
 
-procedure TTestBufDatasetStreams.SimpleDeleteChange(ADataset: TBufDataset);
+procedure TTestBufDatasetStreams.SimpleDeleteChange(ADataset: TCustomBufDataset);
 begin
   ADataset.Next;
   ADataset.Delete;
 end;
 
-procedure TTestBufDatasetStreams.MoreDeletesChange(ADataset: TBufDataset);
+procedure TTestBufDatasetStreams.MoreDeletesChange(ADataset: TCustomBufDataset);
 begin
   with ADataset do
     begin
@@ -190,7 +182,7 @@ begin
     end;
 end;
 
-procedure TTestBufDatasetStreams.SimpleInsertChange(ADataset: TBufDataset);
+procedure TTestBufDatasetStreams.SimpleInsertChange(ADataset: TCustomBufDataset);
 begin
   ADataset.next;
   ADataset.insert;
@@ -199,7 +191,7 @@ begin
   ADataset.Post;
 end;
 
-procedure TTestBufDatasetStreams.MoreInsertsChange(ADataset: TBufDataset);
+procedure TTestBufDatasetStreams.MoreInsertsChange(ADataset: TCustomBufDataset);
 begin
   with ADataset do
     begin
@@ -244,7 +236,7 @@ begin
     end;
 end;
 
-procedure TTestBufDatasetStreams.SeveralEditsChange(ADataset: TBufDataset);
+procedure TTestBufDatasetStreams.SeveralEditsChange(ADataset: TCustomBufDataset);
 begin
   with ADataset do
     begin
@@ -264,13 +256,13 @@ begin
     end;
 end;
 
-procedure TTestBufDatasetStreams.DeleteAllChange(ADataset: TBufDataset);
+procedure TTestBufDatasetStreams.DeleteAllChange(ADataset: TCustomBufDataset);
 begin
   with ADataset do
     while not eof do delete;
 end;
 
-procedure TTestBufDatasetStreams.DeleteAllInsertChange(ADataset: TBufDataset);
+procedure TTestBufDatasetStreams.DeleteAllInsertChange(ADataset: TCustomBufDataset);
 begin
   DeleteAllChange(ADataset);
   with ADataset do
@@ -332,14 +324,14 @@ begin
 end;
 
 procedure TTestBufDatasetStreams.TestBasicsXML;
-var SaveDs: TBufDataset;
-    LoadDs: TBufDataset;
+var SaveDs: TCustomBufDataset;
+    LoadDs: TCustomBufDataset;
 begin
-  SaveDs := DBConnector.GetNDataset(true,15) as TBufDataset;
+  SaveDs := DBConnector.GetNDataset(true,15) as TCustomBufDataset;
   SaveDs.Open;
   SaveDs.SaveToFile('Basics.xml',dfXML);
 
-  LoadDs := TBufDataset.Create(nil);
+  LoadDs := TCustomBufDataset.Create(nil);
   LoadDs.LoadFromFile('Basics.xml');
   CompareDatasets(SaveDs,LoadDs);
   LoadDs.Free;
@@ -392,11 +384,11 @@ begin
   ds := DBConnector.GetNDataset(true,5);
 
   ds.open;
-  TBufDataset(ds).FileName:='test.dat';
+  TCustomBufDataset(ds).FileName:='test.dat';
   ds.close;
 
   LoadDs := DBConnector.GetNDataset(True,2);
-  TBufDataset(LoadDs).FileName:='test.dat';
+  TCustomBufDataset(LoadDs).FileName:='test.dat';
   LoadDs.Open;
 
   ds := DBConnector.GetNDataset(true,4);
@@ -444,17 +436,6 @@ end;
 procedure TTestBufDatasetStreams.DeleteAllInsertApplUpd;
 begin
   TestChangesApplyUpdates(@DeleteAllInsertChange, False);
-end;
-
-{ TSQLTestSetup }
-procedure TDBBasicsTestSetup.OneTimeSetup;
-begin
-  InitialiseDBConnector;
-end;
-
-procedure TDBBasicsTestSetup.OneTimeTearDown;
-begin
-  FreeAndNil(DBConnector);
 end;
 
 initialization

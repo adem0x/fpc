@@ -1707,6 +1707,7 @@ begin
   Inherited Create(AOWner);
   SetDataType(ftAutoInc);
   FReadOnly:=True;
+  FProviderFlags:=FProviderFlags-[pfInUpdate];
 end;
 
 Procedure TAutoIncField.SetAsLongint(AValue : Longint);
@@ -1920,6 +1921,19 @@ begin
     Result:=Length(FDisplays[false,True]);
 end;
 
+function TBooleanField.GetAsInteger: integer;
+begin
+   if GetAsBoolean then
+    Result:=1
+   else
+    Result:=0;
+end;
+
+procedure TBooleanField.SetAsInteger(AValue: Integer);
+begin
+  SetAsBoolean(avalue<>0);
+end;
+
 procedure TBooleanField.SetAsBoolean(AValue: Boolean);
 
 var b : wordbool;
@@ -2046,7 +2060,7 @@ begin
       F:=FDisplayFormat
     else
       Case DataType of
-       ftTime : F:=ShortTimeFormat;
+       ftTime : F:=LongTimeFormat;
        ftDate : F:=ShortDateFormat;
       else
        F:='c'
@@ -2368,6 +2382,7 @@ begin
   Inherited Create(AOwner);
   FMaxvalue := 0;
   FMinvalue := 0;
+  FValidChars := [DecimalSeparator, '+', '-', '0'..'9'];
   SetDataType(ftBCD);
   FPrecision := 15;
   Size:=4;
@@ -2796,6 +2811,25 @@ begin
   SetData(@aValue);
 end;
 
+{ TFieldsEnumerator }
+
+function TFieldsEnumerator.GetCurrent: TField;
+begin
+  Result := FFields[FPosition];
+end;
+
+constructor TFieldsEnumerator.Create(AFields: TFields);
+begin
+  inherited Create;
+  FFields := AFields;
+  FPosition := -1;
+end;
+
+function TFieldsEnumerator.MoveNext: Boolean;
+begin
+  inc(FPosition);
+  Result := FPosition < FFields.Count;
+end;
 
 { TFields }
 
@@ -2953,6 +2987,12 @@ begin
       Result:=TField(FFieldList[i]);
       Exit;
       end;
+end;
+
+Function TFields.GetEnumerator: TFieldsEnumerator;
+
+begin
+  Result:=TFieldsEnumerator.Create(Self);
 end;
 
 Procedure TFields.GetFieldNames (Values : TStrings);

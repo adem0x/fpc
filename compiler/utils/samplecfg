@@ -47,10 +47,10 @@ else
 fi
 FPCBIN=`dirname "$1"`/../../bin/fpc
 FPBIN=`dirname "$1"`/../../bin/fp
-sysfpdirbase=`dirname "$1"`/`$FPCBIN -iV`
+sysfpdirbase=`dirname "$1"`/`"$FPCBIN" -iV`
 sysfpdirbase2=$sysfpdirbase/ide
 sysfpdir=$sysfpdirbase2/text
-fpctargetos=`$FPCBIN -iTO`
+fpctargetos=`"$FPCBIN" -iTO`
 
 # Detect if we have write permission in sysdir.
 if [ -w "$sysdir" ] ; then
@@ -273,6 +273,12 @@ $CPUCROSSIFDEF2
 #ENDIF NEEDCROSSBINUTILS
 #ENDIF
 
+# assembling
+#ifdef darwin
+# use pipes instead of temporary files for assembling
+-ap
+#endif
+
 # ----------------
 # Parsing switches
 # ----------------
@@ -317,7 +323,6 @@ $CPUCROSSIFDEF2
 #      -So        same as -Mtp
 #      -Sp        same as -Mgpc
 #      -Ss        constructor name must be init (destructor must be done)
-#      -St        allow static keyword in objects
 #      -Sx        enable exception keywords (default in Delphi/ObjFPC modes)
 #
 # Allow goto, inline, C-operators, C-vars
@@ -351,6 +356,13 @@ $CPUCROSSIFDEF2
 # See "fpc -i" also for more fine-grained control over which optimizations
 # to perform
 
+#ifdef darwin
+#ifdef cpui386
+-Cppentiumm
+-Oppentiumm
+#endif
+#endif
+
 # -----------------------
 # Set Filenames and Paths
 # -----------------------
@@ -361,9 +373,6 @@ $CPUCROSSIFDEF2
 # the default language
 #-Fr$FPCPATH/msg/errore.msg
 #-Fr$FPCPATH/msg/errorn.msg
-
-# searchpath for includefiles
-#-Fi/pp/inc;/pp/rtl/inc
 
 #IFDEF FPCAPACHE_1_3
 -Fu$FPCPATH/units/\$fpctarget/httpd13/

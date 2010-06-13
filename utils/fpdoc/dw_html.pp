@@ -113,7 +113,7 @@ type
 
     Procedure CreateAllocator; virtual;
     function ResolveLinkID(const Name: String): DOMString;
-    function ResolveLinkIDInUnit(const Name,UnitName: String): DOMString;
+    function ResolveLinkIDInUnit(const Name,AUnitName: String): DOMString;
     function ResolveLinkWithinPackage(AElement: TPasElement;
       ASubpageIndex: Integer): String;
 
@@ -149,6 +149,8 @@ type
     procedure DescrWriteVarEl(const AText: DOMString); override;
     procedure DescrBeginLink(const AId: DOMString); override;
     procedure DescrEndLink; override;
+    procedure DescrBeginURL(const AURL: DOMString); override;
+    procedure DescrEndURL; override;
     procedure DescrWriteLinebreak; override;
     procedure DescrBeginParagraph; override;
     procedure DescrEndParagraph; override;
@@ -657,7 +659,8 @@ begin
   Doc := THTMLDocument.Create;
   Result := Doc;
   Doc.AppendChild(Doc.Impl.CreateDocumentType(
-    'HTML', '-//W3C//DTD HTML 4.0 Transitional//EN', ''));
+    'HTML', '-//W3C//DTD HTML 4.01 Transitional//EN',
+    'http://www.w3.org/TR/html4/loose.dtd'));
 
   HTMLEl := Doc.CreateHtmlElement;
   Doc.AppendChild(HTMLEl);
@@ -794,12 +797,12 @@ end;
   - AppendHyperlink (for unresolved parse tree element links)
 }
 
-function THTMLWriter.ResolveLinkIDInUnit(const Name,UnitName: String): DOMString;
+function THTMLWriter.ResolveLinkIDInUnit(const Name,AUnitName: String): DOMString;
 
 begin
   Result:=ResolveLinkID(Name);
-  If (Result='') and (UnitName<>'')  then
-    Result:=ResolveLinkID(UnitName+'.'+Name);
+  If (Result='') and (AUnitName<>'')  then
+    Result:=ResolveLinkID(AUnitName+'.'+Name);
 end;
 
 function THTMLWriter.ResolveLinkID(const Name: String): DOMString;
@@ -1084,6 +1087,16 @@ begin
 end;
 
 procedure THTMLWriter.DescrEndLink;
+begin
+  PopOutputNode;
+end;
+
+procedure THTMLWriter.DescrBeginURL(const AURL: DOMString);
+begin
+  PushOutputNode(CreateLink(CurOutputNode, AURL));
+end;
+
+procedure THTMLWriter.DescrEndURL;
 begin
   PopOutputNode;
 end;
@@ -2135,6 +2148,10 @@ begin
     // Append "Errors" section
     if Assigned(DocNode.ErrorsDoc) then
       AppendDescrSection(AElement, BodyElement, DocNode.ErrorsDoc, SDocErrors);
+
+    // Append Version info
+    if Assigned(DocNode.Version) then
+      AppendDescrSection(AElement, BodyElement, DocNode.Version, SDocVersion);
 
     // Append "See also" section
     AppendSeeAlsoSection(AElement,DocNode);

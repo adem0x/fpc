@@ -45,6 +45,7 @@ implementation
        link,assemble,import,export,gendef,ppu,comprsrc,dbgbase,
        cresstr,procinfo,
        pexports,
+       objcgutl,
        wpobase,
        scanner,pbase,pexpr,psystem,psub,pdecsub,ptype
        ,cpuinfo
@@ -235,19 +236,64 @@ implementation
          ltvTable.Free;
       end;
 
-
-    procedure MaybeGenerateObjectiveCImageInfo;
+    procedure InsertWideInits;
+      var
+        s: string;
+        item: TTCInitItem;
       begin
-        if (m_objectivec1 in current_settings.modeswitches) then
-          begin
-            { first 4 bytes contain version information about this section (currently version 0),
-              next 4 bytes contain flags (currently only regarding whether the code in the object
-              file supports or requires garbage collection)
-            }
-            new_section(current_asmdata.asmlists[al_objc_data],sec_objc_image_info,'_OBJC_IMAGE_INFO',4);
-            current_asmdata.asmlists[al_objc_data].concat(Tai_symbol.Createname(target_asm.labelprefix+'_OBJC_IMAGE_INFO',AT_LABEL,8));
-            current_asmdata.asmlists[al_objc_data].concat(Tai_const.Create_64bit(0));
-          end;
+        item:=TTCInitItem(current_asmdata.WideInits.First);
+        if item=nil then
+          exit;
+        s:=make_mangledname('WIDEINITS',current_module.localsymtable,'');
+        maybe_new_object_file(current_asmdata.asmlists[al_globals]);
+        new_section(current_asmdata.asmlists[al_globals],sec_data,s,sizeof(pint));
+        current_asmdata.asmlists[al_globals].concat(Tai_symbol.Createname_global(s,AT_DATA,0));
+        repeat
+          { address to initialize }
+          current_asmdata.asmlists[al_globals].concat(Tai_const.createname(item.sym.mangledname, item.offset));
+          { value with which to initialize }
+          current_asmdata.asmlists[al_globals].concat(Tai_const.Create_sym(item.datalabel));
+          item:=TTCInitItem(item.Next);
+        until item=nil;
+        { end-of-list marker }
+        current_asmdata.asmlists[al_globals].concat(Tai_const.Create_sym(nil));
+        current_asmdata.asmlists[al_globals].concat(Tai_symbol_end.Createname(s));
+        current_module.flags:=current_module.flags or uf_wideinits;
+      end;
+
+    procedure InsertWideInitsTablesTable;
+      var
+        hp: tused_unit;
+        lwiTables: TAsmList;
+        count: longint;
+      begin
+        lwiTables:=TAsmList.Create;
+        count:=0;
+        hp:=tused_unit(usedunits.first);
+        while assigned(hp) do
+         begin
+           if (hp.u.flags and uf_wideinits)=uf_wideinits then
+            begin
+              lwiTables.concat(Tai_const.Createname(make_mangledname('WIDEINITS',hp.u.globalsymtable,''),0));
+              inc(count);
+            end;
+           hp:=tused_unit(hp.next);
+         end;
+        { Add program widestring consts, if any }
+        if (current_module.flags and uf_wideinits)=uf_wideinits then
+         begin
+           lwiTables.concat(Tai_const.Createname(make_mangledname('WIDEINITS',current_module.localsymtable,''),0));
+           inc(count);
+         end;
+        { Insert TableCount at start }
+        lwiTables.insert(Tai_const.Create_32bit(count));
+        { insert in data segment }
+        maybe_new_object_file(current_asmdata.asmlists[al_globals]);
+        new_section(current_asmdata.asmlists[al_globals],sec_data,'FPC_WIDEINITTABLES',sizeof(pint));
+        current_asmdata.asmlists[al_globals].concat(Tai_symbol.Createname_global('FPC_WIDEINITTABLES',AT_DATA,0));
+        current_asmdata.asmlists[al_globals].concatlist(lwiTables);
+        current_asmdata.asmlists[al_globals].concat(Tai_symbol_end.Createname('FPC_WIDEINITTABLES'));
+        lwiTables.free;
       end;
 
 
@@ -330,46 +376,89 @@ implementation
         ResourceStringTables.free;
       end;
 
+    procedure AddToClasInits(p:TObject;arg:pointer);
+      var
+        ClassList: TFPList absolute arg;
+      begin
+        if (tdef(p).typ=objectdef) and
+           ([oo_has_class_constructor,oo_has_class_destructor] * tobjectdef(p).objectoptions <> []) then
+          ClassList.Add(p);
+      end;
 
     procedure InsertInitFinalTable;
       var
         hp : tused_unit;
         unitinits : TAsmList;
         count : longint;
+
+        procedure write_class_inits(u: tmodule);
+          var
+            i: integer;
+            classlist: TFPList;
+            pd: tprocdef;
+          begin
+            classlist := TFPList.Create;
+            if assigned(u.globalsymtable) then
+              u.globalsymtable.DefList.ForEachCall(@AddToClasInits,classlist);
+            u.localsymtable.DefList.ForEachCall(@AddToClasInits,classlist);
+            { write classes }
+            for i := 0 to classlist.Count - 1 do
+            begin
+              pd := tobjectdef(classlist[i]).find_procdef_bytype(potype_class_constructor);
+              if assigned(pd) then
+                unitinits.concat(Tai_const.Createname(pd.mangledname,0))
+              else
+                unitinits.concat(Tai_const.Create_pint(0));
+              pd := tobjectdef(classlist[i]).find_procdef_bytype(potype_class_destructor);
+              if assigned(pd) then
+                unitinits.concat(Tai_const.Createname(pd.mangledname,0))
+              else
+                unitinits.concat(Tai_const.Create_pint(0));
+              inc(count);
+            end;
+            classlist.free;
+          end;
+
       begin
         unitinits:=TAsmList.Create;
         count:=0;
         hp:=tused_unit(usedunits.first);
         while assigned(hp) do
          begin
+           { insert class constructors/destructors of the unit }
+           if (hp.u.flags and uf_classinits) <> 0 then
+             write_class_inits(hp.u);
            { call the unit init code and make it external }
            if (hp.u.flags and (uf_init or uf_finalize))<>0 then
-            begin
-              if (hp.u.flags and uf_init)<>0 then
-               unitinits.concat(Tai_const.Createname(make_mangledname('INIT$',hp.u.globalsymtable,''),0))
-              else
-               unitinits.concat(Tai_const.Create_sym(nil));
-              if (hp.u.flags and uf_finalize)<>0 then
-               unitinits.concat(Tai_const.Createname(make_mangledname('FINALIZE$',hp.u.globalsymtable,''),0))
-              else
-               unitinits.concat(Tai_const.Create_sym(nil));
-              inc(count);
-            end;
+             begin
+               if (hp.u.flags and uf_init)<>0 then
+                 unitinits.concat(Tai_const.Createname(make_mangledname('INIT$',hp.u.globalsymtable,''),0))
+               else
+                 unitinits.concat(Tai_const.Create_sym(nil));
+               if (hp.u.flags and uf_finalize)<>0 then
+                 unitinits.concat(Tai_const.Createname(make_mangledname('FINALIZE$',hp.u.globalsymtable,''),0))
+               else
+                 unitinits.concat(Tai_const.Create_sym(nil));
+               inc(count);
+             end;
            hp:=tused_unit(hp.next);
          end;
+        { insert class constructors/destructor of the program }
+        if (current_module.flags and uf_classinits) <> 0 then
+          write_class_inits(current_module);
         { Insert initialization/finalization of the program }
         if (current_module.flags and (uf_init or uf_finalize))<>0 then
-         begin
-           if (current_module.flags and uf_init)<>0 then
-            unitinits.concat(Tai_const.Createname(make_mangledname('INIT$',current_module.localsymtable,''),0))
-           else
-            unitinits.concat(Tai_const.Create_sym(nil));
-           if (current_module.flags and uf_finalize)<>0 then
-            unitinits.concat(Tai_const.Createname(make_mangledname('FINALIZE$',current_module.localsymtable,''),0))
-           else
-            unitinits.concat(Tai_const.Create_sym(nil));
-           inc(count);
-         end;
+          begin
+            if (current_module.flags and uf_init)<>0 then
+              unitinits.concat(Tai_const.Createname(make_mangledname('INIT$',current_module.localsymtable,''),0))
+            else
+              unitinits.concat(Tai_const.Create_sym(nil));
+            if (current_module.flags and uf_finalize)<>0 then
+              unitinits.concat(Tai_const.Createname(make_mangledname('FINALIZE$',current_module.localsymtable,''),0))
+            else
+              unitinits.concat(Tai_const.Create_sym(nil));
+            inc(count);
+          end;
         { Insert TableCount,InitCount at start }
         unitinits.insert(Tai_const.Create_32bit(0));
         unitinits.insert(Tai_const.Create_32bit(count));
@@ -383,7 +472,7 @@ implementation
       end;
 
 
-    procedure insertmemorysizes;
+    procedure InsertMemorySizes;
 {$IFDEF POWERPC}
       var
         stkcookie: string;
@@ -489,7 +578,7 @@ implementation
            - loaded_units list, so that the unit object file doesn't get linked
              with the executable. }
         { Note: on windows we always need resources! }
-        resources_used:=(target_info.system in system_all_windows)
+        resources_used:=(target_info.system in systems_all_windows)
                          or CheckResourcesUsed;
         if (not resources_used) and (tf_has_winlike_resources in target_info.flags) then
           begin
@@ -602,7 +691,15 @@ implementation
           AddUnit('macpas');
         { Objective-C 1.0 support unit? }
         if (m_objectivec1 in current_settings.modeswitches) then
-          AddUnit('objc1');
+          begin
+            { interface to Objective-C run time }
+            AddUnit('objc');
+            loadobjctypes;
+            { NSObject }
+            if not(current_module.is_unit) or
+               (current_module.modulename^<>'OBJCBASE') then
+              AddUnit('objcbase');
+          end;
         { Profile unit? Needed for go32v2 only }
         if (cs_profile in current_settings.moduleswitches) and
            (target_info.system in [system_i386_go32v2,system_i386_watcom]) then
@@ -615,7 +712,7 @@ implementation
 
         { CPU targets with microcontroller support can add a controller specific unit }
 {$if defined(ARM)}
-        if (target_info.system in system_embedded) and (current_settings.controllertype<>ct_none) then
+        if (target_info.system in systems_embedded) and (current_settings.controllertype<>ct_none) then
           AddUnit(controllerunitstr[current_settings.controllertype]);
 {$endif ARM}
       end;
@@ -719,6 +816,7 @@ implementation
                { save crc values }
                pu.checksum:=pu.u.crc;
                pu.interface_checksum:=pu.u.interface_crc;
+               pu.indirect_checksum:=pu.u.indirect_crc;
                { connect unitsym to the module }
                pu.unitsym.module:=pu.u;
                { add to symtable stack }
@@ -726,6 +824,8 @@ implementation
                if (m_mac in current_settings.modeswitches) and
                   assigned(pu.u.globalmacrosymtable) then
                  macrosymtablestack.push(pu.u.globalmacrosymtable);
+               { check hints }
+               pu.u.check_hints;
              end;
             pu:=tused_unit(pu.next);
           end;
@@ -890,6 +990,58 @@ implementation
         current_module.globalmacrosymtable.insert(tmacro(p).getcopy);
       end;
 
+    function try_consume_hintdirective(var moduleopt:tmoduleoptions; var deprecatedmsg:pshortstring):boolean;
+      var
+        last_is_deprecated:boolean;
+      begin
+        try_consume_hintdirective:=false;
+        repeat
+          last_is_deprecated:=false;
+          case idtoken of
+            _LIBRARY :
+              begin
+                include(moduleopt,mo_hint_library);
+                try_consume_hintdirective:=true;
+              end;
+            _DEPRECATED :
+              begin
+                include(moduleopt,mo_hint_deprecated);
+                try_consume_hintdirective:=true;
+                last_is_deprecated:=true;
+              end;
+            _EXPERIMENTAL :
+              begin
+                include(moduleopt,mo_hint_experimental);
+                try_consume_hintdirective:=true;
+              end;
+            _PLATFORM :
+              begin
+                include(moduleopt,mo_hint_platform);
+                try_consume_hintdirective:=true;
+              end;
+            _UNIMPLEMENTED :
+              begin
+                include(moduleopt,mo_hint_unimplemented);
+                try_consume_hintdirective:=true;
+              end;
+            else
+              break;
+          end;
+          consume(Token);
+          { handle deprecated message }
+          if ((token=_CSTRING) or (token=_CCHAR)) and last_is_deprecated then
+            begin
+              if deprecatedmsg<>nil then
+                internalerror(201001221);
+              if token=_CSTRING then
+                deprecatedmsg:=stringdup(cstringpattern)
+              else
+                deprecatedmsg:=stringdup(pattern);
+              consume(token);
+              include(moduleopt,mo_has_deprecated_msg);
+            end;
+        until false;
+      end;
 
     procedure proc_unit;
 
@@ -914,7 +1066,8 @@ implementation
 {$ifdef EXTDEBUG}
          store_crc,
 {$endif EXTDEBUG}
-         store_interface_crc : cardinal;
+         store_interface_crc,
+         store_indirect_crc: cardinal;
          s1,s2  : ^string; {Saves stack space}
          force_init_final : boolean;
          init_procinfo,
@@ -976,10 +1129,14 @@ implementation
              dispose(s1);
           end;
 
-         if (target_info.system in system_unit_program_exports) then
+         if (target_info.system in systems_unit_program_exports) then
            exportlib.preparelib(current_module.realmodulename^);
 
          consume(_ID);
+
+         { parse hint directives }
+         try_consume_hintdirective(current_module.moduleoptions, current_module.deprecatedmsg);
+
          consume(_SEMICOLON);
          consume(_INTERFACE);
          { global switches are read, so further changes aren't allowed }
@@ -1034,7 +1191,9 @@ implementation
            needs to be added implicitly }
          current_module.updatemaps;
 
-         { create whole program optimisation information }
+         { create whole program optimisation information (may already be
+           updated in the interface, e.g., in case of classrefdef typed
+           constants }
          current_module.wpoinfo:=tunitwpoinfo.create;
 
          { ... parse the declarations }
@@ -1069,7 +1228,8 @@ implementation
 
          { First reload all units depending on our interface, we need to do this
            in the implementation part to prevent erroneous circular references }
-         reload_flagged_units;
+         tppumodule(current_module).setdefgeneration;
+         tppumodule(current_module).reload_flagged_units;
 
          { Parse the implementation section }
          if (m_mac in current_settings.modeswitches) and try_to_consume(_END) then
@@ -1149,8 +1309,8 @@ implementation
          { finalize? }
          if not current_module.interface_only and (token=_FINALIZATION) then
            begin
-              { set module options }
-              current_module.flags:=current_module.flags or uf_finalize;
+              { the uf_finalize flag is only set after we checked that it
+                wasn't empty }
 
               { Compile the finalize }
               finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable);
@@ -1208,8 +1368,8 @@ implementation
             exit;
           end;
 
-         { if an Objective-C module, generate objc_image_info section }
-         MaybeGenerateObjectiveCImageInfo;
+         { if an Objective-C module, generate rtti and module info }
+         MaybeGenerateObjectiveCImageInfo(current_module.globalsymtable,current_module.localsymtable);
 
          { do we need to add the variants unit? }
          maybeloadvariantsunit;
@@ -1226,10 +1386,13 @@ implementation
          write_persistent_type_info(current_module.localsymtable);
 
          { Tables }
-         insertThreadVars;
+         InsertThreadvars;
 
          { Resource strings }
          GenerateResourceStrings;
+
+         { Widestring typed constants }
+         InsertWideInits;
 
          { generate debuginfo }
          if (cs_debuginfo in current_settings.moduleswitches) then
@@ -1260,6 +1423,7 @@ implementation
 
          { Write out the ppufile after the object file has been created }
          store_interface_crc:=current_module.interface_crc;
+         store_indirect_crc:=current_module.indirect_crc;
 {$ifdef EXTDEBUG}
          store_crc:=current_module.crc;
 {$endif EXTDEBUG}
@@ -1267,8 +1431,12 @@ implementation
            tppumodule(current_module).writeppu;
 
          if not(cs_compilesystem in current_settings.moduleswitches) then
-           if store_interface_crc<>current_module.interface_crc then
-             Message1(unit_u_interface_crc_changed,current_module.ppufilename^);
+           begin
+             if store_interface_crc<>current_module.interface_crc then
+               Message1(unit_u_interface_crc_changed,current_module.ppufilename^);
+             if store_indirect_crc<>current_module.indirect_crc then
+               Message1(unit_u_indirect_crc_changed,current_module.ppufilename^);
+           end;
 {$ifdef EXTDEBUG}
          if not(cs_compilesystem in current_settings.moduleswitches) then
            if (store_crc<>current_module.crc) and simplify_ppu then
@@ -1637,7 +1805,7 @@ implementation
          { AV error when DLL is loaded and relocation is needed.  }
          { Internal linker does not have this problem.            }
          if RelocSection and
-            (target_info.system in system_all_windows+[system_i386_wdosx]) and
+            (target_info.system in systems_all_windows+[system_i386_wdosx]) and
             (cs_link_extern in current_settings.globalswitches) then
            begin
               include(current_settings.globalswitches,cs_link_strip);
@@ -1932,7 +2100,7 @@ implementation
          { AV error when DLL is loaded and relocation is needed.  }
          { Internal linker does not have this problem.            }
          if RelocSection and
-            (target_info.system in system_all_windows+[system_i386_wdosx]) and
+            (target_info.system in systems_all_windows+[system_i386_wdosx]) and
             (cs_link_extern in current_settings.globalswitches) then
            begin
               include(current_settings.globalswitches,cs_link_strip);
@@ -1971,7 +2139,7 @@ implementation
             begin
               consume(_PROGRAM);
               current_module.setmodulename(orgpattern);
-              if (target_info.system in system_unit_program_exports) then
+              if (target_info.system in systems_unit_program_exports) then
                 exportlib.preparelib(orgpattern);
               consume(_ID);
               if token=_LKLAMMER then
@@ -1984,7 +2152,7 @@ implementation
                 end;
               consume(_SEMICOLON);
             end
-         else if (target_info.system in system_unit_program_exports) then
+         else if (target_info.system in systems_unit_program_exports) then
            exportlib.preparelib(current_module.realmodulename^);
 
          { global switches are read, so further changes aren't allowed }
@@ -2070,8 +2238,9 @@ implementation
          { finalize? }
          if token=_FINALIZATION then
            begin
-              { set module options }
-              current_module.flags:=current_module.flags or uf_finalize;
+              { the uf_finalize flag is only set after we checked that it
+                wasn't empty }
+
               { Parse the finalize }
               finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable);
               finalize_procinfo.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
@@ -2146,9 +2315,6 @@ implementation
                 end;
           end;
 
-         { if an Objective-C module, generate objc_image_info section }
-         MaybeGenerateObjectiveCImageInfo;
-
          { do we need to add the variants unit? }
          maybeloadvariantsunit;
 
@@ -2157,7 +2323,7 @@ implementation
          resources_used:=MaybeRemoveResUnit;
 
          linker.initsysinitunitname;
-         if target_info.system in system_internal_sysinit then
+         if target_info.system in systems_internal_sysinit then
          begin
            { add start/halt unit }
            AddUnit(linker.sysinitunit);
@@ -2178,6 +2344,9 @@ implementation
          { generate rtti/init tables }
          write_persistent_type_info(current_module.localsymtable);
 
+         { if an Objective-C module, generate rtti and module info }
+         MaybeGenerateObjectiveCImageInfo(nil,current_module.localsymtable);
+
          { generate wrappers for interfaces }
          gen_intf_wrappers(current_asmdata.asmlists[al_procedures],current_module.localsymtable);
 
@@ -2189,7 +2358,7 @@ implementation
          if (cs_debuginfo in current_settings.moduleswitches) then
            current_debuginfo.inserttypeinfo;
 
-         if islibrary or (target_info.system in system_unit_program_exports) then
+         if islibrary or (target_info.system in systems_unit_program_exports) then
            exportlib.generatelib;
 
          { Reference all DEBUGINFO sections from the main .fpc section }
@@ -2199,11 +2368,15 @@ implementation
          { Resource strings }
          GenerateResourceStrings;
 
+         { Windows widestring needing initialization }
+         InsertWideInits;
+
          { insert Tables and StackLength }
-         insertinitfinaltable;
+         InsertInitFinalTable;
          InsertThreadvarTablesTable;
          InsertResourceTablesTable;
-         insertmemorysizes;
+         InsertWideInitsTablesTable;
+         InsertMemorySizes;
 
          { Insert symbol to resource info }
          InsertResourceInfo(resources_used);

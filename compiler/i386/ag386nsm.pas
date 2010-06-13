@@ -438,15 +438,15 @@ interface
 
 
     const
-      ait_const2str : array[aitconst_128bit..aitconst_indirect_symbol] of string[20]=(
+      ait_const2str : array[aitconst_128bit..aitconst_secrel32_symbol] of string[20]=(
         #9'FIXME_128BIT'#9,#9'FIXME_64BIT'#9,#9'DD'#9,#9'DW'#9,#9'DB'#9,
         #9'FIXME_SLEB128BIT'#9,#9'FIXME_ULEB128BIT'#9,
-        #9'RVA'#9,#9'SECREL32'#9,#9'FIXMEINDIRECT'#9
+        #9'RVA'#9,#9'SECREL32'#9
       );
 
     procedure T386NasmAssembler.WriteSection(atype:TAsmSectiontype;const aname:string);
       const
-        secnames : array[TAsmSectiontype] of string[length('.objc_meth_var_types')] = ('',
+        secnames : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('',
           '.text',
           '.data',
           '.data',
@@ -454,7 +454,7 @@ interface
           '.bss',
           '.tbss',
           '.pdata',
-          '.text',
+          '.text','.data','.data','.data','.data',
           '.stab',
           '.stabstr',
           '.idata2','.idata4','.idata5','.idata6','.idata7','.edata',
@@ -488,7 +488,16 @@ interface
           '.objc_property',
           '.objc_image_info',
           '.objc_cstring_object',
-          '.objc_sel_fixup'
+          '.objc_sel_fixup',
+          '__DATA,__objc_data',
+          '__DATA,__objc_const',
+          '.objc_superrefs',
+          '__DATA, __datacoal_nt,coalesced',
+          '.objc_classlist',
+          '.objc_nlclasslist',
+          '.objc_catlist',
+          '.obcj_nlcatlist',
+          '.objc_protolist'
         );
       begin
         AsmLn;
@@ -669,8 +678,7 @@ interface
                  aitconst_16bit,
                  aitconst_8bit,
                  aitconst_rva_symbol,
-                 aitconst_secrel32_symbol,
-                 aitconst_indirect_symbol :
+                 aitconst_secrel32_symbol :
                    begin
                      AsmWrite(ait_const2str[tai_const(hp).consttype]);
                      l:=0;
@@ -724,6 +732,8 @@ interface
                    AsmWrite(',');
                   AsmWrite(tostr(t80bitarray(e)[i]));
                 end;
+                for i:=11 to tai_real_80bit(hp).savesize do
+                  AsmWrite(',0');
                AsmLn;
              end;
 {$else cpuextended}
@@ -895,6 +905,8 @@ interface
 
            ait_symbol :
              begin
+               if tai_symbol(hp).has_value then
+                 internalerror(2009090803);
                if tai_symbol(hp).is_global then
                 begin
                   AsmWrite(#9'GLOBAL ');
@@ -1000,9 +1012,9 @@ interface
              end;
 
            ait_marker :
-             if tai_marker(hp).kind=mark_InlineStart then
+             if tai_marker(hp).kind=mark_NoLineInfoStart then
                inc(InlineLevel)
-             else if tai_marker(hp).kind=mark_InlineEnd then
+             else if tai_marker(hp).kind=mark_NoLineInfoEnd then
                dec(InlineLevel);
 
            ait_directive :

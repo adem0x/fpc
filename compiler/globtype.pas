@@ -110,6 +110,7 @@ interface
          cs_mmx,cs_mmx_saturation,
          { parser }
          cs_typed_addresses,cs_strict_var_strings,cs_ansistrings,cs_bitpacking,
+         cs_varpropsetter,cs_scopedenums,
          { macpas specific}
          cs_external_var, cs_externally_visible
        );
@@ -121,7 +122,7 @@ interface
          cs_fp_emulation,cs_extsyntax,cs_openstring,
          { support }
          cs_support_goto,cs_support_macro,
-         cs_support_c_operators,cs_static_keyword,
+         cs_support_c_operators,
          { generation }
          cs_profile,cs_debuginfo,cs_compilesystem,
          cs_lineinfo,cs_implicit_exceptions,
@@ -155,7 +156,8 @@ interface
          cs_link_nolink,cs_link_static,cs_link_smart,cs_link_shared,cs_link_deffile,
          cs_link_strip,cs_link_staticflag,cs_link_on_target,cs_link_extern,cs_link_opt_vtable,
          cs_link_opt_used_sections,cs_link_separate_dbg_file,
-         cs_link_map,cs_link_pthread,cs_link_no_default_lib_order
+         cs_link_map,cs_link_pthread,cs_link_no_default_lib_order,
+	 cs_link_native
        );
        tglobalswitches = set of tglobalswitch;
 
@@ -170,7 +172,12 @@ interface
           { if the include file is moved (otherwise, things still work  }
           { if your source hierarchy is the same, but has a different   }
           { base path)                                                  }
-          ds_stabs_abs_include_files
+          ds_stabs_abs_include_files,
+          { prefix method names by "classname__" in DWARF (like is done }
+          { for Stabs); not enabled by default, because otherwise once  }
+          { support for calling methods has been added to gdb, you'd    }
+          { always have to type classinstance.classname__methodname()   }
+          ds_dwarf_method_class_prefix
        );
        tdebugswitches = set of tdebugswitch;
 
@@ -214,8 +221,8 @@ interface
          'DEVIRTCALLS','OPTVMTS','SYMBOLLIVENESS'
        );
 
-       DebugSwitchStr : array[tdebugswitch] of string[16] = ('',
-         'DWARFSETS','STABSABSINCLUDES');
+       DebugSwitchStr : array[tdebugswitch] of string[22] = ('',
+         'DWARFSETS','STABSABSINCLUDES','DWARFMETHODCLASSPREFIX');
 
        { switches being applied to all CPUs at the given level }
        genericlevel1optimizerswitches = [cs_opt_level1];
@@ -420,9 +427,10 @@ interface
        tprocinfoflags=set of tprocinfoflag;
 
     type
-      { float types }
+      { float types -- warning, this enum/order is used internally by the RTL
+        as well in rtl/inc/real2str.inc }
       tfloattype = (
-        s32real,s64real,s80real,
+        s32real,s64real,s80real,sc80real { the C "long double" type on x86 },
         s64comp,s64currency,s128real
       );
 
@@ -472,6 +480,14 @@ interface
        link_static  = $2;
        link_smart   = $4;
        link_shared  = $8;
+
+    type
+      { a message state }
+      tmsgstate = (
+        ms_on,    // turn on output
+        ms_off,   // turn off output
+        ms_error  // cast to error
+      );
 
 implementation
 

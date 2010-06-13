@@ -63,6 +63,7 @@ Type
     Function CheckOptions(Const ShortOptions : String; Const LongOpts : String) : String;
     Procedure GetEnvironmentList(List : TStrings;NamesOnly : Boolean);
     Procedure GetEnvironmentList(List : TStrings);
+    Procedure Log(EventType : TEventType; Msg : String); virtual;
     // Delphi properties
     property ExeName: string read GetExeName;
     property HelpFile: string read FHelpFile write FHelpFile;
@@ -80,9 +81,11 @@ Type
     Property StopOnException : Boolean Read FStopOnException Write FStopOnException;
   end;
 
+var CustomApplication : TCustomApplication = nil;
+
 Implementation
 
-{$if defined(darwin) and (defined(cpu386) or defined(cpupowerpc32))}
+{$ifdef darwin}
 uses
   MacOSAll;
 {$endif}
@@ -90,8 +93,7 @@ uses
 { TCustomApplication }
 
 function TCustomApplication.GetExeName: string;
-{ we don't have 64 bit clean interfaces to CoreFoundation yet }
-{$if defined(darwin) and (defined(cpu386) or defined(cpupowerpc32))}
+{$if defined(darwin)}
 var
   mainBundle: CFBundleRef;
   executableUrl: CFURLRef;
@@ -217,6 +219,12 @@ begin
 end;
 
 procedure TCustomApplication.DoRun;
+begin
+  // Do nothing. Override in descendent classes.
+end;
+
+Procedure TCustomApplication.Log(EventType : TEventType; Msg : String);
+
 begin
   // Do nothing. Override in descendent classes.
 end;
@@ -466,7 +474,7 @@ begin
           end
         else // Short Option.
           begin
-          HaveArg:=(I<ParamCount) and (Length(ParamStr(I+1))>0) and (ParamStr(I+1)[i]<>FOptionChar);
+          HaveArg:=(I<ParamCount) and (Length(ParamStr(I+1))>0) and (ParamStr(I+1)[1]<>FOptionChar);
           If HaveArg then
             OV:=Paramstr(I+1);
           If Not CaseSensitiveOptions then

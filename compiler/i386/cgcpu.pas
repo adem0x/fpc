@@ -39,10 +39,10 @@ unit cgcpu;
         procedure do_register_allocation(list:TAsmList;headertai:tai);override;
 
         { passing parameter using push instead of mov }
-        procedure a_param_reg(list : TAsmList;size : tcgsize;r : tregister;const cgpara : tcgpara);override;
-        procedure a_param_const(list : TAsmList;size : tcgsize;a : aint;const cgpara : tcgpara);override;
-        procedure a_param_ref(list : TAsmList;size : tcgsize;const r : treference;const cgpara : tcgpara);override;
-        procedure a_paramaddr_ref(list : TAsmList;const r : treference;const cgpara : tcgpara);override;
+        procedure a_load_reg_cgpara(list : TAsmList;size : tcgsize;r : tregister;const cgpara : tcgpara);override;
+        procedure a_load_const_cgpara(list : TAsmList;size : tcgsize;a : aint;const cgpara : tcgpara);override;
+        procedure a_load_ref_cgpara(list : TAsmList;size : tcgsize;const r : treference;const cgpara : tcgpara);override;
+        procedure a_loadaddr_ref_cgpara(list : TAsmList;const r : treference;const cgpara : tcgpara);override;
 
         procedure g_proc_exit(list : TAsmList;parasize:longint;nostackframe:boolean);override;
         procedure g_copyvaluepara_openarray(list : TAsmList;const ref:treference;const lenloc:tlocation;elesize:aint;destreg:tregister);override;
@@ -63,6 +63,8 @@ unit cgcpu;
       private
         procedure get_64bit_ops(op:TOpCG;var op1,op2:TAsmOp);
       end;
+      
+    procedure create_codegen;
 
   implementation
 
@@ -106,7 +108,7 @@ unit cgcpu;
       end;
 
 
-    procedure tcg386.a_param_reg(list : TAsmList;size : tcgsize;r : tregister;const cgpara : tcgpara);
+    procedure tcg386.a_load_reg_cgpara(list : TAsmList;size : tcgsize;r : tregister;const cgpara : tcgpara);
       var
         pushsize : tcgsize;
       begin
@@ -121,11 +123,11 @@ unit cgcpu;
             list.concat(taicpu.op_reg(A_PUSH,tcgsize2opsize[pushsize],makeregsize(list,r,pushsize)));
           end
         else
-          inherited a_param_reg(list,size,r,cgpara);
+          inherited a_load_reg_cgpara(list,size,r,cgpara);
       end;
 
 
-    procedure tcg386.a_param_const(list : TAsmList;size : tcgsize;a : aint;const cgpara : tcgpara);
+    procedure tcg386.a_load_const_cgpara(list : TAsmList;size : tcgsize;a : aint;const cgpara : tcgpara);
       var
         pushsize : tcgsize;
       begin
@@ -139,11 +141,11 @@ unit cgcpu;
             list.concat(taicpu.op_const(A_PUSH,tcgsize2opsize[pushsize],a));
           end
         else
-          inherited a_param_const(list,size,a,cgpara);
+          inherited a_load_const_cgpara(list,size,a,cgpara);
       end;
 
 
-    procedure tcg386.a_param_ref(list : TAsmList;size : tcgsize;const r : treference;const cgpara : tcgpara);
+    procedure tcg386.a_load_ref_cgpara(list : TAsmList;size : tcgsize;const r : treference;const cgpara : tcgpara);
 
         procedure pushdata(paraloc:pcgparalocation;ofs:aint);
         var
@@ -209,11 +211,11 @@ unit cgcpu;
               end
           end
         else
-          inherited a_param_ref(list,size,r,cgpara);
+          inherited a_load_ref_cgpara(list,size,r,cgpara);
       end;
 
 
-    procedure tcg386.a_paramaddr_ref(list : TAsmList;const r : treference;const cgpara : tcgpara);
+    procedure tcg386.a_loadaddr_ref_cgpara(list : TAsmList;const r : treference;const cgpara : tcgpara);
       var
         tmpreg : tregister;
         opsize : topsize;
@@ -247,7 +249,7 @@ unit cgcpu;
                   end;
               end
             else
-              inherited a_paramaddr_ref(list,r,cgpara);
+              inherited a_loadaddr_ref_cgpara(list,r,cgpara);
           end;
       end;
 
@@ -287,17 +289,29 @@ unit cgcpu;
            { this messes up stack alignment }
            (target_info.system <> system_i386_darwin) then
           begin
-            if (current_procinfo.procdef.funcretloc[calleeside].loc<>LOC_VOID) and
-               (current_procinfo.procdef.funcretloc[calleeside].loc=LOC_REGISTER) then
-              list.concat(Taicpu.Op_const_reg(A_ADD,S_L,4,NR_ESP))
+            if assigned(current_procinfo.procdef.funcretloc[calleeside].location) and
+               (current_procinfo.procdef.funcretloc[calleeside].location^.loc=LOC_REGISTER) then
+              begin
+                if (getsupreg(current_procinfo.procdef.funcretloc[calleeside].location^.register)=RS_EAX) then
+                  list.concat(Taicpu.Op_const_reg(A_ADD,S_L,4,NR_ESP))
+                else
+                  internalerror(2010053001);
+              end
             else
               list.concat(Taicpu.Op_reg(A_POP,S_L,NR_EAX));
             list.concat(Taicpu.Op_reg(A_POP,S_L,NR_EBX));
             list.concat(Taicpu.Op_reg(A_POP,S_L,NR_ECX));
 
-            if (current_procinfo.procdef.funcretloc[calleeside].loc=LOC_REGISTER) and
-               (current_procinfo.procdef.funcretloc[calleeside].size in [OS_64,OS_S64]) then
-              list.concat(Taicpu.Op_const_reg(A_ADD,S_L,4,NR_ESP))
+            if (current_procinfo.procdef.funcretloc[calleeside].size in [OS_64,OS_S64]) and
+               assigned(current_procinfo.procdef.funcretloc[calleeside].location) and
+               assigned(current_procinfo.procdef.funcretloc[calleeside].location^.next) and
+               (current_procinfo.procdef.funcretloc[calleeside].location^.next^.loc=LOC_REGISTER) then
+              begin
+                if (getsupreg(current_procinfo.procdef.funcretloc[calleeside].location^.next^.register)=RS_EDX) then
+                  list.concat(Taicpu.Op_const_reg(A_ADD,S_L,4,NR_ESP))
+                else
+                  internalerror(2010053002);
+              end
             else
               list.concat(Taicpu.Op_reg(A_POP,S_L,NR_EDX));
 
@@ -612,6 +626,7 @@ unit cgcpu;
           list.concat(taicpu.op_ref(op,S_L,href));
         end;
 
+
       procedure loadmethodoffstoeax;
         var
           href : treference;
@@ -622,6 +637,7 @@ unit cgcpu;
           reference_reset_base(href,NR_EAX,procdef._class.vmtmethodoffset(procdef.extnumber),4);
           cg.a_load_ref_reg(list,OS_ADDR,OS_ADDR,href,NR_EAX);
         end;
+
 
       var
         lab : tasmsymbol;
@@ -849,7 +865,10 @@ unit cgcpu;
         end;
       end;
 
-begin
-  cg := tcg386.create;
-  cg64 := tcg64f386.create;
+    procedure create_codegen;
+      begin
+        cg := tcg386.create;
+        cg64 := tcg64f386.create;
+      end;
+      
 end.

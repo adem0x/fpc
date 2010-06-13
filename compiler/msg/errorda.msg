@@ -1,4 +1,4 @@
-﻿#
+#
 #   $Id: errorda.msg 621 2006-07-02 15:44:03Z chrivers $
 #   This file is part of the Free Pascal Compiler
 #   Copyright (c) 1999-2000 by the Free Pascal Development team
@@ -2336,7 +2336,6 @@ option_help_pages=11025_[
 **2So_samme som -Mtp
 **2Sp_samme som -Mgpc
 **2Ss_constructor-navn skal være "init" (destructor-navn skal være "done")
-**2St_tillad nøgleordet static i objekter
 **1s_kør hverken assembler eller linker
 **2sh_generér script til linkning på værtscomputeren
 **2st_generér script til linkning på mål-computeren

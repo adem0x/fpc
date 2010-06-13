@@ -235,13 +235,19 @@ interface
        pmvcallstaticinfo = ^tmvcallstaticinfo;
        tmvcallstaticinfo = array[0..1024*1024-1] of tvmcallstatic;
        tobjectdef = class(tabstractrecorddef)
+       private
+          fcurrent_dispid: longint;
        public
           dwarf_struct_lab : tasmsymbol;
           childof        : tobjectdef;
           childofderef   : tderef;
 
+          { for C++ classes: name of the library this class is imported from }
+          import_lib,
           objname,
-          objrealname    : pshortstring;
+          objrealname,
+          { for Objective-C: protocols and classes can have the same name there }
+          objextname     : pshortstring;
           objectoptions  : tobjectoptions;
           { to be able to have a variable vmt position }
           { and no vmt field for objects without virtuals }
@@ -287,20 +293,36 @@ interface
           { this should be called when this class implements an interface }
           procedure prepareguid;
           function  is_publishable : boolean;override;
+          function  is_related(d : tdef) : boolean;override;
           function  needs_inittable : boolean;override;
+          function  rtti_mangledname(rt:trttitype):string;override;
           function  vmt_mangledname : string;
           procedure check_forwards;
-          function  is_related(d : tdef) : boolean;override;
           procedure insertvmt;
           procedure set_parent(c : tobjectdef);
-          function FindDestructor : tprocdef;
+          function find_procdef_bytype(pt:tproctypeoption): tprocdef;
+          function find_destructor: tprocdef;
           function implements_any_interfaces: boolean;
           procedure reset; override;
+          { dispinterface support }
+          function get_next_dispid: longint;
+          { enumerator support }
+          function search_enumerator_get: tprocdef;
+          function search_enumerator_move: tprocdef;
+          function search_enumerator_current: tsym;
           { WPO }
           procedure register_created_object_type;override;
           procedure register_maybe_created_object_type;
           procedure register_created_classref_type;
           procedure register_vmt_call(index:longint);
+          { ObjC & C++ }
+          procedure make_all_methods_external;
+          { ObjC }
+          procedure finish_objc_data;
+          function check_objc_types: boolean;
+          { C++ }
+          procedure finish_cpp_data;
+          function RttiName: string;
        end;
 
        tclassrefdef = class(tabstractpointerdef)
@@ -309,6 +331,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           function  GetTypeName:string;override;
           function  is_publishable : boolean;override;
+          function  rtti_mangledname(rt:trttitype):string;override;
           procedure register_created_object_type;override;
           procedure reset;override;
        end;
@@ -372,6 +395,8 @@ interface
           function  getvardef:longint;override;
        end;
 
+       { tabstractprocdef }
+
        tabstractprocdef = class(tstoreddef)
           { saves a definition to the return type }
           returndef       : tdef;
@@ -388,7 +413,7 @@ interface
 {$ifdef m68k}
           exp_funcretloc : tregister;   { explicit funcretloc for AmigaOS }
 {$endif}
-          funcretloc : array[tcallercallee] of TLocation;
+          funcretloc : array[tcallercallee] of TCGPara;
           has_paraloc_info : boolean; { paraloc info is available }
           constructor create(dt:tdeftyp;level:byte);
           constructor ppuload(dt:tdeftyp;ppufile:tcompilerppufile);
@@ -400,6 +425,7 @@ interface
           function  typename_paras(showhidden:boolean): string;
           function  is_methodpointer:boolean;virtual;
           function  is_addressonly:boolean;virtual;
+          function  no_self_node:boolean;
        private
           procedure count_para(p:TObject;arg:pointer);
           procedure insert_para(p:TObject;arg:pointer);
@@ -447,13 +473,14 @@ interface
        end;
 {$endif oldregvars}
 
+       { tprocdef }
+
        tprocdef = class(tabstractprocdef)
        private
           _mangledname : pshortstring;
        public
           messageinf : tmessageinf;
           dispid : longint;
-          extnumber      : word;
 {$ifndef EXTDEBUG}
           { where is this function defined and what were the symbol
             flags, needed here because there
@@ -461,8 +488,8 @@ interface
             EXTDEBUG has fileinfo in tdef (PFV) }
           fileinfo : tfileposinfo;
 {$endif}
-          visibility : tvisibility;
           symoptions : tsymoptions;
+          deprecatedmsg : pshortstring;
           { symbol owning this definition }
           procsym : tsym;
           procsymderef : tderef;
@@ -481,29 +508,31 @@ interface
 {$endif powerpc or m68k}
           { name of the result variable to insert in the localsymtable }
           resultname : pshortstring;
-          { true, if the procedure is only declared
-            (forward procedure) }
-          forwarddef,
-          { true if the procedure is declared in the interface }
-          interfacedef : boolean;
-          { true if the procedure has a forward declaration }
-          hasforward : boolean;
           { import info }
           import_dll,
           import_name : pshortstring;
-          import_nr   : word;
           { info for inlining the subroutine, if this pointer is nil,
             the procedure can't be inlined }
           inlininginfo : pinlininginfo;
 {$ifdef oldregvars}
           regvarinfo: pregvarinfo;
 {$endif oldregvars}
-{$ifdef i386}
-          fpu_used     : byte;
-{$endif i386}
           { position in aasmoutput list }
           procstarttai,
           procendtai   : tai;
+          import_nr    : word;
+          extnumber    : word;
+{$ifdef i386}
+          fpu_used     : byte;
+{$endif i386}
+          visibility   : tvisibility;
+          { true, if the procedure is only declared
+            (forward procedure) }
+          forwarddef,
+          { true if the procedure is declared in the interface }
+          interfacedef : boolean;
+          { true if the procedure has a forward declaration }
+          hasforward  : boolean;
           constructor create(level:byte);
           constructor ppuload(ppufile:tcompilerppufile);
           destructor  destroy;override;
@@ -519,6 +548,7 @@ interface
           procedure setmangledname(const s : string);
           function  fullprocname(showhidden:boolean):string;
           function  cplusplusmangledname : string;
+          function  objcmangledname : string;
           function  is_methodpointer:boolean;override;
           function  is_addressonly:boolean;override;
        end;
@@ -556,21 +586,23 @@ interface
           function  getvardef:longint;override;
        end;
 
+       { tenumdef }
+
        tenumdef = class(tstoreddef)
           minval,
           maxval    : aint;
           has_jumps : boolean;
-          firstenum : tsym;  {tenumsym}
           basedef   : tenumdef;
           basedefderef : tderef;
+          symtable  : TSymtable;
           constructor create;
           constructor create_subrange(_basedef:tenumdef;_min,_max:aint);
           constructor ppuload(ppufile:tcompilerppufile);
+          destructor destroy;override;
           function getcopy : tstoreddef;override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderef;override;
           procedure deref;override;
-          procedure derefimpl;override;
           function  GetTypeName:string;override;
           function  is_publishable : boolean;override;
           procedure calcsavesize;
@@ -579,6 +611,7 @@ interface
           procedure setmin(_min:aint);
           function  min:aint;
           function  max:aint;
+          function  getfirstsym:tsym;
        end;
 
        tsetdef = class(tstoreddef)
@@ -624,9 +657,10 @@ interface
        s32inttype,                { 32-Bit signed integer }
        u64inttype,                { 64-bit unsigned integer }
        s64inttype,                { 64-bit signed integer }
-       s32floattype,              { pointer for realconstn }
-       s64floattype,              { pointer for realconstn }
-       s80floattype,              { pointer to type of temp. floats }
+       s32floattype,              { 32 bit floating point number }
+       s64floattype,              { 64 bit floating point number }
+       s80floattype,              { 80 bit floating point number }
+       sc80floattype,             { 80 bit floating point number but stored like in C }
        s64currencytype,           { pointer to a currency type }
        cshortstringtype,          { pointer to type of short string const   }
        clongstringtype,           { pointer to type of long string const   }
@@ -662,6 +696,15 @@ interface
        { pointer to the TGUID type
          of all interfaces         }
        rec_tguid : trecorddef;
+
+       { Objective-C base types }
+       objc_metaclasstype,
+       objc_superclasstype,
+       objc_idtype,
+       objc_seltype         : tpointerdef;
+       objc_objecttype      : trecorddef;
+       { base type of @protocol(protocolname) Objective-C statements }
+       objc_protocoltype    : tobjectdef;
 
     const
 {$ifdef i386}
@@ -711,14 +754,22 @@ interface
     function is_object(def: tdef): boolean;
     function is_class(def: tdef): boolean;
     function is_cppclass(def: tdef): boolean;
+    function is_objcclass(def: tdef): boolean;
+    function is_objcclassref(def: tdef): boolean;
+    function is_objcprotocol(def: tdef): boolean;
+    function is_objccategory(def: tdef): boolean;
+    function is_objc_class_or_protocol(def: tdef): boolean;
+    function is_objc_protocol_or_category(def: tdef): boolean;
     function is_class_or_interface(def: tdef): boolean;
+    function is_class_or_interface_or_objc(def: tdef): boolean;
     function is_class_or_interface_or_object(def: tdef): boolean;
     function is_class_or_interface_or_dispinterface(def: tdef): boolean;
+    function is_class_or_interface_or_dispinterface_or_objc(def: tdef): boolean;
+    function is_class_or_object(def: tdef): boolean;
 
+    procedure loadobjctypes;
 
-{$ifdef x86}
-    function use_sse(def : tdef) : boolean;
-{$endif x86}
+    function use_vectorfpu(def : tdef) : boolean;
 
 implementation
 
@@ -730,7 +781,7 @@ implementation
       { target }
       systems,aasmcpu,paramgr,
       { symtable }
-      symsym,symtable,symutil,defutil,
+      symsym,symtable,symutil,defutil,objcdef,
       { module }
       fmodule,
       { other }
@@ -813,7 +864,7 @@ implementation
            newlen:=length(s);
            { Replace with CRC if the parameter line is very long }
            if (newlen-oldlen>12) and
-              ((newlen+length(prefix)>128) or (newlen-oldlen>32)) then
+              ((newlen+length(prefix)>100) or (newlen-oldlen>32)) then
              begin
                crc:=0;
                for i:=0 to tprocdef(st.defowner).paras.count-1 do
@@ -833,10 +884,16 @@ implementation
              prefix:=s+'_'+prefix
            else
              prefix:=s;
+           if length(prefix)>100 then
+             begin
+               crc:=0;
+               crc:=UpdateCrc32(crc,prefix[1],length(prefix));
+               prefix:='$CRC'+hexstr(crc,8);
+             end;
            st:=st.defowner.owner;
          end;
-        { object/classes symtable }
-        if (st.symtabletype=ObjectSymtable) then
+        { object/classes symtable, nested type definitions in classes require the while loop }
+        while st.symtabletype=ObjectSymtable do
          begin
            if st.defowner.typ<>objectdef then
             internalerror(200204174);
@@ -845,7 +902,7 @@ implementation
          end;
         { symtable must now be static or global }
         if not(st.symtabletype in [staticsymtable,globalsymtable]) then
-         internalerror(200204175);
+          internalerror(200204175);
         result:='';
         if typeprefix<>'' then
           result:=result+typeprefix+'_';
@@ -1108,7 +1165,7 @@ implementation
           procvardef :
             is_intregable:=not(po_methodpointer in tprocvardef(self).procoptions);
           objectdef:
-            is_intregable:=(is_class(self) or is_interface(self)) and not needs_inittable;
+            is_intregable:=(is_class_or_interface_or_dispinterface_or_objc(self)) and not needs_inittable;
           setdef:
             is_intregable:=is_smallset(self);
           recorddef:
@@ -1125,7 +1182,7 @@ implementation
    function tstoreddef.is_fpuregable : boolean;
      begin
 {$ifdef x86}
-       result:=use_sse(self);
+       result:=use_vectorfpu(self);
 {$else x86}
        result:=(typ=floatdef) and not(cs_fp_emulation in current_settings.moduleswitches);
 {$endif x86}
@@ -1354,7 +1411,7 @@ implementation
          calcsavesize;
          has_jumps:=false;
          basedef:=nil;
-         firstenum:=nil;
+         symtable:=tenumsymtable.create(self);
       end;
 
 
@@ -1366,21 +1423,37 @@ implementation
          basedef:=_basedef;
          calcsavesize;
          has_jumps:=false;
-         firstenum:=basedef.firstenum;
-         while assigned(firstenum) and (tenumsym(firstenum).value<>minval) do
-           firstenum:=tenumsym(firstenum).nextenum;
-      end;
+         symtable:=basedef.symtable.getcopy;
+         include(defoptions, df_copied_def);
+       end;
 
 
     constructor tenumdef.ppuload(ppufile:tcompilerppufile);
       begin
          inherited ppuload(enumdef,ppufile);
-         ppufile.getderef(basedefderef);
          minval:=ppufile.getaint;
          maxval:=ppufile.getaint;
          savesize:=ppufile.getaint;
          has_jumps:=false;
-         firstenum:=Nil;
+         if df_copied_def in defoptions then
+           begin
+             symtable:=nil;
+             ppufile.getderef(basedefderef);
+           end
+         else
+           begin
+             // create with nil defowner first to prevent values changes on insert
+             symtable:=tenumsymtable.create(nil);
+             tenumsymtable(symtable).ppuload(ppufile);
+             symtable.defowner:=self;
+           end;
+      end;
+
+    destructor tenumdef.destroy;
+      begin
+        symtable.free;
+        symtable:=nil;
+        inherited destroy;
       end;
 
 
@@ -1393,10 +1466,13 @@ implementation
             result:=tenumdef.create;
             tenumdef(result).minval:=minval;
             tenumdef(result).maxval:=maxval;
+            tenumdef(result).symtable.free;
+            tenumdef(result).symtable:=symtable.getcopy;
+            tenumdef(result).basedef:=self;
           end;
         tenumdef(result).has_jumps:=has_jumps;
-        tenumdef(result).firstenum:=firstenum;
         tenumdef(result).basedefderef:=basedefderef;
+        include(tenumdef(result).defoptions,df_copied_def);
       end;
 
 
@@ -1463,43 +1539,54 @@ implementation
         max:=maxval;
       end;
 
+    function tenumdef.getfirstsym: tsym;
+      var
+        i:integer;
+      begin
+        for i := 0 to symtable.SymList.Count - 1 do
+          begin
+            result:=tsym(symtable.SymList[i]);
+            if tenumsym(result).value=minval then
+              exit;
+          end;
+        result:=nil;
+      end;
+
 
     procedure tenumdef.buildderef;
       begin
         inherited buildderef;
-        basedefderef.build(basedef);
+        if df_copied_def in defoptions then
+          basedefderef.build(basedef)
+        else
+          tenumsymtable(symtable).buildderef;
       end;
 
 
     procedure tenumdef.deref;
       begin
         inherited deref;
-        basedef:=tenumdef(basedefderef.resolve);
-        { restart ordering }
-        firstenum:=nil;
-      end;
-
-
-    procedure tenumdef.derefimpl;
-      begin
-        if assigned(basedef) and
-           (firstenum=nil) then
+        if df_copied_def in defoptions then
           begin
-            firstenum:=basedef.firstenum;
-            while assigned(firstenum) and (tenumsym(firstenum).value<>minval) do
-              firstenum:=tenumsym(firstenum).nextenum;
-          end;
+            basedef:=tenumdef(basedefderef.resolve);
+            symtable:=basedef.symtable.getcopy;
+          end
+        else
+          tenumsymtable(symtable).deref;
       end;
 
 
     procedure tenumdef.ppuwrite(ppufile:tcompilerppufile);
       begin
          inherited ppuwrite(ppufile);
-         ppufile.putderef(basedefderef);
          ppufile.putaint(min);
          ppufile.putaint(max);
          ppufile.putaint(savesize);
+         if df_copied_def in defoptions then
+           ppufile.putderef(basedefderef);
          ppufile.writeentry(ibenumdef);
+         if not (df_copied_def in defoptions) then
+           tenumsymtable(symtable).ppuwrite(ppufile);
       end;
 
 
@@ -1583,10 +1670,14 @@ implementation
         if ordtype = uvoid then
           exit;
 
+{$ifndef cpu64bitalu}
+        if (ordtype in [s64bit,u64bit]) then
+{$else not cpu64bitalu}
         if (ordtype = u64bit) or
            ((ordtype = s64bit) and
             ((low <= (system.low(int64) div 2)) or
              (high > (system.high(int64) div 2)))) then
+{$endif cpu64bitalu}
           result := 64
         else if (low >= 0) and
            (high <= 1) then
@@ -1680,7 +1771,7 @@ implementation
       begin
         if (target_info.system in [system_i386_darwin,system_arm_darwin]) then
           case floattype of
-            s80real : result:=16;
+            s80real: result:=16;
             s64real,
             s64currency,
             s64comp : result:=4;
@@ -1697,6 +1788,13 @@ implementation
          case floattype of
            s32real : savesize:=4;
            s80real : savesize:=10;
+           sc80real:
+             if target_info.system in [system_i386_darwin,system_x86_64_darwin,
+                  system_x86_64_linux,system_x86_64_freebsd,
+                  system_x86_64_solaris,system_x86_64_embedded] then
+               savesize:=16
+             else
+               savesize:=12;
            s64real,
            s64currency,
            s64comp : savesize:=8;
@@ -1709,7 +1807,7 @@ implementation
     function tfloatdef.getvardef : longint;
       const
         floattype2vardef : array[tfloattype] of longint = (
-          varSingle,varDouble,varUndefined,
+          varSingle,varDouble,varUndefined,varUndefined,
           varUndefined,varCurrency,varUndefined);
       begin
         if (upper(typename)='TDATETIME') and
@@ -1739,7 +1837,7 @@ implementation
     function tfloatdef.GetTypeName : string;
       const
         names : array[tfloattype] of string[20] = (
-          'Single','Double','Extended','Comp','Currency','Float128');
+          'Single','Double','Extended','CExtended','Comp','Currency','Float128');
       begin
          GetTypeName:=names[floattype];
       end;
@@ -2079,6 +2177,15 @@ implementation
     function tclassrefdef.is_publishable : boolean;
       begin
          result:=true;
+      end;
+
+
+    function tclassrefdef.rtti_mangledname(rt: trttitype): string;
+      begin
+        if (tobjectdef(pointeddef).objecttype<>odt_objcclass) then
+          result:=inherited rtti_mangledname(rt)
+        else
+          result:=tobjectdef(pointeddef).rtti_mangledname(objcmetartti);
       end;
 
 
@@ -2657,8 +2764,8 @@ implementation
          savesize:=sizeof(pint);
          requiredargarea:=0;
          has_paraloc_info:=false;
-         location_reset(funcretloc[callerside],LOC_INVALID,OS_NO);
-         location_reset(funcretloc[calleeside],LOC_INVALID,OS_NO);
+         funcretloc[callerside].init;
+         funcretloc[calleeside].init;
       end;
 
 
@@ -2686,6 +2793,8 @@ implementation
             memprocparast.stop;
 {$endif MEMDEBUG}
           end;
+         funcretloc[callerside].done;
+         funcretloc[calleeside].done;
          inherited destroy;
       end;
 
@@ -2772,15 +2881,9 @@ implementation
          proccalloption:=tproccalloption(ppufile.getbyte);
          ppufile.getnormalset(procoptions);
 
-         location_reset(funcretloc[callerside],LOC_INVALID,OS_NO);
-         location_reset(funcretloc[calleeside],LOC_INVALID,OS_NO);
+         funcretloc[callerside].init;
          if po_explicitparaloc in procoptions then
-           begin
-             b:=ppufile.getbyte;
-             if b<>sizeof(funcretloc[callerside]) then
-               internalerror(200411154);
-             ppufile.getdata(funcretloc[callerside],sizeof(funcretloc[callerside]));
-           end;
+           funcretloc[callerside].ppuload(ppufile);
 
          savesize:=sizeof(pint);
          has_paraloc_info:=(po_explicitparaloc in procoptions);
@@ -2805,11 +2908,7 @@ implementation
          ppufile.do_interface_crc:=oldintfcrc;
 
          if (po_explicitparaloc in procoptions) then
-           begin
-             { Make a 'valid' funcretloc for procedures }
-             ppufile.putbyte(sizeof(funcretloc[callerside]));
-             ppufile.putdata(funcretloc[callerside],sizeof(funcretloc[callerside]));
-           end;
+           funcretloc[callerside].ppuwrite(ppufile);
       end;
 
 
@@ -2846,6 +2945,8 @@ implementation
                  vs_out :
                    s:=s+'out ';
                end;
+               if hp.univpara then
+                 s:=s+'univ ';
                if assigned(hp.vardef.typesym) then
                  begin
                    hs:=hp.vardef.typesym.realname;
@@ -2918,6 +3019,12 @@ implementation
         result:=true;
       end;
 
+    function tabstractprocdef.no_self_node: boolean;
+      begin
+        Result:=([po_staticmethod,po_classmethod]<=procoptions)or
+                (proctypeoption in [potype_class_constructor,potype_class_destructor]);
+      end;
+
 
 {***************************************************************************
                                   TPROCDEF
@@ -2940,6 +3047,7 @@ implementation
          import_name:=nil;
          import_nr:=0;
          inlininginfo:=nil;
+         deprecatedmsg:=nil;
 {$ifdef i386}
           fpu_used:=maxfpuregs;
 {$endif i386}
@@ -2963,6 +3071,10 @@ implementation
          ppufile.getposinfo(fileinfo);
          visibility:=tvisibility(ppufile.getbyte);
          ppufile.getsmallset(symoptions);
+         if sp_has_deprecated_msg in symoptions then
+           deprecatedmsg:=stringdup(ppufile.getstring)
+         else
+           deprecatedmsg:=nil;
 {$ifdef powerpc}
          { library symbol for AmigaOS/MorphOS }
          ppufile.getderef(libsymderef);
@@ -3063,6 +3175,7 @@ implementation
          stringdispose(resultname);
          stringdispose(import_dll);
          stringdispose(import_name);
+         stringdispose(deprecatedmsg);
          if (po_msgstr in procoptions) then
            stringdispose(messageinf.str);
          if assigned(_mangledname) then
@@ -3100,6 +3213,8 @@ implementation
          ppufile.putposinfo(fileinfo);
          ppufile.putbyte(byte(visibility));
          ppufile.putsmallset(symoptions);
+         if sp_has_deprecated_msg in symoptions then
+           ppufile.putstring(deprecatedmsg^);
 {$ifdef powerpc}
          { library symbol for AmigaOS/MorphOS }
          ppufile.putderef(libsymderef);
@@ -3187,14 +3302,15 @@ implementation
         showhidden:=true;
 {$endif EXTDEBUG}
         s:='';
-        if owner.symtabletype=localsymtable then
-         s:=s+'local ';
         if assigned(_class) then
          begin
-           if po_classmethod in procoptions then
-            s:=s+'class ';
-           s:=s+_class.objrealname^+'.';
+           s:=_class.RttiName+'.';
+           if (po_classmethod in procoptions) and
+              not (proctypeoption in [potype_class_constructor,potype_class_destructor]) then
+             s:='class ' + s;
          end;
+        if owner.symtabletype=localsymtable then
+          s:='local ' + s;
         if proctypeoption=potype_operator then
           begin
             for t:=NOTOKEN to last_overloaded do
@@ -3211,6 +3327,10 @@ implementation
             s:='constructor '+s;
           potype_destructor:
             s:='destructor '+s;
+          potype_class_constructor:
+            s:='class constructor '+s;
+          potype_class_destructor:
+            s:='class destructor '+s;
           else
             if assigned(returndef) and
               not(is_void(returndef)) then
@@ -3220,7 +3340,8 @@ implementation
         { forced calling convention? }
         if (po_hascallingconvention in procoptions) then
           s:=s+' '+ProcCallOptionStr[proccalloption]+';';
-        if po_staticmethod in procoptions then
+        if (po_staticmethod in procoptions) and
+           not (proctypeoption in [potype_class_constructor,potype_class_destructor]) then
           s:=s+' Static;';
         fullprocname:=s;
       end;
@@ -3237,7 +3358,6 @@ implementation
         result:=assigned(owner) and
                 (owner.symtabletype<>ObjectSymtable);
       end;
-
 
     function tprocdef.GetSymtable(t:tGetSymtable):TSymtable;
       begin
@@ -3325,7 +3445,10 @@ implementation
         else
           begin
             { safety }
-            funcretsym:=nil;
+            { Not safe! A unit may be reresolved after its interface has been
+              parsed but before its implementation has been parsed, and in that
+              case the funcretsym is still required!
+            funcretsym:=nil; }
           end;
       end;
 
@@ -3372,7 +3495,7 @@ implementation
         newlen:=length(mangledname);
         { Replace with CRC if the parameter line is very long }
         if (newlen-oldlen>12) and
-           ((newlen>128) or (newlen-oldlen>64)) then
+           ((newlen>100) or (newlen-oldlen>64)) then
           begin
             crc:=0;
             for i:=0 to paras.count-1 do
@@ -3401,12 +3524,25 @@ implementation
       function getcppparaname(p : tdef) : string;
 
         const
+{$ifdef NAMEMANGLING_GCC2}
            ordtype2str : array[tordtype] of string[2] = (
              '',
              'Uc','Us','Ui','Us',
              'Sc','s','i','x',
              'b','b','b','b','b',
              'c','w','x');
+{$else NAMEMANGLING_GCC2}
+           ordtype2str : array[tordtype] of string[1] = (
+             'v',
+             'h','t','j','y',
+             'a','s','i','x',
+             'b','b','b','b','b',
+             'c','w','x');
+
+           floattype2str : array[tfloattype] of string[1] = (
+             'f','d','e','e',
+             'd','d','g');
+{$endif NAMEMANGLING_GCC2}
 
         var
            s : string;
@@ -3417,6 +3553,10 @@ implementation
                 s:=ordtype2str[torddef(p).ordtype];
               pointerdef:
                 s:='P'+getcppparaname(tpointerdef(p).pointeddef);
+{$ifndef NAMEMANGLING_GCC2}
+              floatdef:
+                s:=floattype2str[tfloatdef(p).floattype];
+{$endif NAMEMANGLING_GCC2}
               else
                 internalerror(2103001);
            end;
@@ -3429,9 +3569,9 @@ implementation
          i    : integer;
 
       begin
-        { outdated gcc 2.x name mangling scheme }
 {$ifdef NAMEMANGLING_GCC2}
 
+        { outdated gcc 2.x name mangling scheme }
          s := procsym.realname;
          if procsym.owner.symtabletype=ObjectSymtable then
            begin
@@ -3459,6 +3599,12 @@ implementation
              for i:=0 to paras.count-1 do
                begin
                  hp:=tparavarsym(paras[i]);
+                 { no hidden parameters form part of a C++ mangled name:
+                     a) self is not included
+                     b) there are no "high" or other hidden parameters
+                 }
+                 if vo_is_hidden_para in hp.varoptions then
+                   continue;
                  s2:=getcppparaname(hp.vardef);
                  if hp.varspez in [vs_var,vs_out] then
                    s2:='R'+s2;
@@ -3468,14 +3614,15 @@ implementation
          else
            s:=s+'v';
          cplusplusmangledname:=s;
-{$endif NAMEMANGLING_GCC2}
+{$else NAMEMANGLING_GCC2}
 
-         { gcc 3.x name mangling scheme }
+         { gcc 3.x and 4.x name mangling scheme }
+         { see http://www.codesourcery.com/public/cxx-abi/abi.html#mangling }
          if procsym.owner.symtabletype=ObjectSymtable then
            begin
              s:='_ZN';
 
-             s2:=tobjectdef(procsym.owner.defowner).objrealname^;
+             s2:=tobjectdef(procsym.owner.defowner).objextname^;
              s:=s+tostr(length(s2))+s2;
              case proctypeoption of
                 potype_constructor:
@@ -3497,6 +3644,12 @@ implementation
              for i:=0 to paras.count-1 do
                begin
                  hp:=tparavarsym(paras[i]);
+                 { no hidden parameters form part of a C++ mangled name:
+                     a) self is not included
+                     b) there are no "high" or other hidden parameters
+                 }
+                 if vo_is_hidden_para in hp.varoptions then
+                   continue;
                  s2:=getcppparaname(hp.vardef);
                  if hp.varspez in [vs_var,vs_out] then
                    s2:='R'+s2;
@@ -3506,6 +3659,38 @@ implementation
          else
            s:=s+'v';
          cplusplusmangledname:=s;
+{$endif NAMEMANGLING_GCC2}
+      end;
+
+
+    function  tprocdef.objcmangledname : string;
+      var
+        manglednamelen: longint;
+        iscatmethod   : boolean;
+      begin
+        if not (po_msgstr in procoptions) then
+          internalerror(2009030901);
+        { we may very well need longer strings to handle these... }
+        manglednamelen:=length(tobjectdef(procsym.owner.defowner).objextname^)+
+          length('+"[ ]"')+length(messageinf.str^);
+        iscatmethod:=oo_is_classhelper in tobjectdef(procsym.owner.defowner).objectoptions;
+        if (iscatmethod) then
+          inc(manglednamelen,length(tobjectdef(procsym.owner.defowner).childof.objextname^)+length('()'));
+        if manglednamelen>255 then
+          Message1(parser_e_objc_message_name_too_long,messageinf.str^);
+        if not(po_classmethod in procoptions) then
+          result:='"-['
+        else
+          result:='"+[';
+        { quotes are necessary because the +/- otherwise confuse the assembler
+          into expecting a number
+        }
+        if iscatmethod then
+          result:=result+tobjectdef(procsym.owner.defowner).childof.objextname^+'(';
+        result:=result+tobjectdef(procsym.owner.defowner).objextname^;
+        if iscatmethod then
+          result:=result+')';
+        result:=result+' '+messageinf.str^+']"';
       end;
 
 
@@ -3574,7 +3759,7 @@ implementation
         tprocvardef(result).maxparacount:=maxparacount;
         tprocvardef(result).minparacount:=minparacount;
         for i:=low(tcallercallee) to high(tcallercallee) do
-          location_copy(tprocvardef(result).funcretloc[i],funcretloc[i]);
+          tprocvardef(result).funcretloc[i]:=funcretloc[i].getcopy;
         tprocvardef(result).has_paraloc_info:=has_paraloc_info;
 {$ifdef m68k}
         tprocvardef(result).exp_funcretloc:=exp_funcretloc;
@@ -3678,6 +3863,7 @@ implementation
    constructor tobjectdef.create(ot : tobjecttyp;const n : string;c : tobjectdef);
      begin
         inherited create(objectdef);
+        fcurrent_dispid:=0;
         objecttype:=ot;
         objectoptions:=[];
         childof:=nil;
@@ -3691,7 +3877,7 @@ implementation
         if objecttype in [odt_interfacecorba,odt_interfacecom,odt_dispinterface] then
           prepareguid;
         { setup implemented interfaces }
-        if objecttype in [odt_class,odt_interfacecorba] then
+        if objecttype in [odt_class,odt_objcclass,odt_objcprotocol] then
           ImplementedInterfaces:=TFPObjectList.Create(true)
         else
           ImplementedInterfaces:=nil;
@@ -3711,6 +3897,14 @@ implementation
          objecttype:=tobjecttyp(ppufile.getbyte);
          objrealname:=stringdup(ppufile.getstring);
          objname:=stringdup(upper(objrealname^));
+         objextname:=stringdup(ppufile.getstring);
+         { only used for external Objective-C classes/protocols }
+         if (objextname^='') then
+           stringdispose(objextname);
+         import_lib:=stringdup(ppufile.getstring);
+         { only used for external C++ classes }
+         if (import_lib^='') then
+           stringdispose(import_lib);
          symtable:=tObjectSymtable.create(self,objrealname^,0);
          tObjectSymtable(symtable).datasize:=ppufile.getaint;
          tObjectSymtable(symtable).fieldalignment:=ppufile.getbyte;
@@ -3741,7 +3935,7 @@ implementation
            end;
 
          { load implemented interfaces }
-         if objecttype in [odt_class,odt_interfacecorba] then
+         if objecttype in [odt_class,odt_objcclass,odt_objcprotocol] then
            begin
              ImplementedInterfaces:=TFPObjectList.Create(true);
              implintfcount:=ppufile.getlongint;
@@ -3772,6 +3966,10 @@ implementation
             (objecttype=odt_interfacecom) and
             (objname^='IUNKNOWN') then
            interface_iunknown:=self;
+         if (childof=nil) and
+            (objecttype=odt_objcclass) and
+            (objname^='PROTOCOL') then
+           objc_protocoltype:=self;
          writing_class_record_dbginfo:=false;
        end;
 
@@ -3785,6 +3983,8 @@ implementation
            end;
          stringdispose(objname);
          stringdispose(objrealname);
+         stringdispose(objextname);
+         stringdispose(import_lib);
          stringdispose(iidstr);
          if assigned(ImplementedInterfaces) then
            begin
@@ -3823,6 +4023,10 @@ implementation
           tobjectdef(result).objname:=stringdup(objname^);
         if assigned(objrealname) then
           tobjectdef(result).objrealname:=stringdup(objrealname^);
+        if assigned(objextname) then
+          tobjectdef(result).objextname:=stringdup(objextname^);
+        if assigned(import_lib) then
+          tobjectdef(result).import_lib:=stringdup(import_lib^);
         tobjectdef(result).objectoptions:=objectoptions;
         include(tobjectdef(result).defoptions,df_copied_def);
         tobjectdef(result).vmt_offset:=vmt_offset;
@@ -3851,10 +4055,28 @@ implementation
          i : longint;
          vmtentry : pvmtentry;
          ImplIntf : TImplementedInterface;
+         old_do_indirect_crc: boolean;
       begin
+         { if class1 in unit A changes, and class2 in unit B inherits from it
+           (so unit B uses unit A), then unit B with class2 will be recompiled.
+           However, if there is also a class3 in unit C that only depends on
+           unit B, then unit C will not be recompiled because nothing changed
+           to the interface of unit B. Nevertheless, unit C can indirectly
+           depend on unit A via derefs, and these must be updated -> the
+           indirect crc keeps track of such changes. }
+         old_do_indirect_crc:=ppufile.do_indirect_crc;
+         ppufile.do_indirect_crc:=true;
          inherited ppuwrite(ppufile);
          ppufile.putbyte(byte(objecttype));
          ppufile.putstring(objrealname^);
+         if assigned(objextname) then
+           ppufile.putstring(objextname^)
+         else
+           ppufile.putstring('');
+         if assigned(import_lib) then
+           ppufile.putstring(import_lib^)
+         else
+           ppufile.putstring('');
          ppufile.putaint(tObjectSymtable(symtable).datasize);
          ppufile.putbyte(tObjectSymtable(symtable).fieldalignment);
          ppufile.putbyte(tObjectSymtable(symtable).recordalignment);
@@ -3894,6 +4116,8 @@ implementation
 
          if not(df_copied_def in defoptions) then
            tObjectSymtable(symtable).ppuwrite(ppufile);
+
+         ppufile.do_indirect_crc:=old_do_indirect_crc;
       end;
 
 
@@ -3963,6 +4187,36 @@ implementation
       end;
 
 
+    procedure create_class_helper_for_procdef(def: tobject; arg: pointer);
+      var
+        pd: tprocdef absolute def;
+        st: tsymtable;
+        psym: tsym;
+        nname: TIDString;
+      begin
+        if (tdef(def).typ<>procdef) then
+          exit;
+        { pd.owner = objcclass symtable -> defowner = objcclassdef ->
+          owner = symtable in which objcclassdef is defined
+        }
+        st:=pd.owner.defowner.owner;
+        nname:=class_helper_prefix+tprocsym(pd.procsym).name;
+        { check for an existing procsym with our special name }
+        psym:=tsym(st.find(nname));
+        if not assigned(psym) then
+          begin
+            psym:=tprocsym.create(nname);
+            { avoid warning about this symbol being unused }
+            psym.IncRefCount;
+            st.insert(psym,true);
+          end
+        else if (psym.typ<>procsym) then
+          internalerror(2009111501);
+        { add ourselves to this special procsym }
+        tprocsym(psym).procdeflist.add(def);
+      end;
+
+
     procedure tobjectdef.buildderefimpl;
       begin
          inherited buildderefimpl;
@@ -3976,6 +4230,11 @@ implementation
          inherited derefimpl;
          if not (df_copied_def in defoptions) then
            tstoredsymtable(symtable).derefimpl;
+         { the procdefs are not owned by the class helper procsyms, so they
+           are not stored/restored either -> re-add them here }
+         if (objecttype=odt_objcclass) or
+            (oo_is_classhelper in objectoptions) then
+           symtable.DefList.ForEachCall(@create_class_helper_for_procdef,nil);
       end;
 
 
@@ -4042,7 +4301,7 @@ implementation
         { inherit options and status }
         objectoptions:=objectoptions+(c.objectoptions*inherited_objectoptions);
         { add the data of the anchestor class/object }
-        if (objecttype in [odt_class,odt_object]) then
+        if (objecttype in [odt_class,odt_object,odt_objcclass]) then
           begin
             tObjectSymtable(symtable).datasize:=tObjectSymtable(symtable).datasize+tObjectSymtable(c.symtable).datasize;
             { inherit recordalignment }
@@ -4064,7 +4323,7 @@ implementation
      var
        vs: tfieldvarsym;
      begin
-        if objecttype in [odt_interfacecom,odt_interfacecorba,odt_dispinterface] then
+        if objecttype in [odt_interfacecom,odt_interfacecorba,odt_dispinterface,odt_objcclass,odt_objcprotocol] then
           exit;
         if (oo_has_vmt in objectoptions) then
           internalerror(12345)
@@ -4093,7 +4352,7 @@ implementation
 
    procedure tobjectdef.check_forwards;
      begin
-        if not(objecttype in [odt_interfacecom,odt_interfacecorba,odt_dispinterface]) then
+        if not(objecttype in [odt_interfacecom,odt_interfacecorba,odt_dispinterface,odt_objcprotocol]) then
           tstoredsymtable(symtable).check_forwards;
         if (oo_is_forward in objectoptions) then
           begin
@@ -4104,11 +4363,36 @@ implementation
      end;
 
 
+   { true if prot implements d (or if they are equal) }
+   function is_related_protocol(prot: tobjectdef; d : tdef) : boolean;
+     var
+       i  : longint;
+     begin
+       { objcprotocols have multiple inheritance, all protocols from which
+         the current protocol inherits are stored in implementedinterfaces }
+       result:=prot=d;
+       if result then
+         exit;
+
+       for i:=0 to prot.ImplementedInterfaces.count-1 do
+         begin
+           result:=is_related_protocol(tobjectdef(prot.ImplementedInterfaces[i]),d);
+           if result then
+             exit;
+         end;
+     end;
+
+
    { true, if self inherits from d (or if they are equal) }
    function tobjectdef.is_related(d : tdef) : boolean;
      var
         hp : tobjectdef;
      begin
+        if (objecttype=odt_objcprotocol) then
+          begin
+            is_related:=is_related_protocol(self,d);
+            exit
+          end;
         hp:=self;
         while assigned(hp) do
           begin
@@ -4122,33 +4406,37 @@ implementation
         is_related:=false;
      end;
 
-
-   function tobjectdef.FindDestructor : tprocdef;
+   function tobjectdef.find_procdef_bytype(pt:tproctypeoption): tprocdef;
      var
-        objdef : tobjectdef;
-        i   : longint;
-        sym : tsym;
-        pd  : tprocdef;
+       i: longint;
+       sym: tsym;
      begin
-        result:=nil;
+       for i:=0 to symtable.SymList.Count-1 do
+         begin
+           sym:=tsym(symtable.SymList[i]);
+           if sym.typ=procsym then
+             begin
+               result:=tprocsym(sym).find_procdef_bytype(pt);
+               if assigned(result) then
+                 exit;
+             end;
+         end;
+         result:=nil;
+     end;
+
+   function tobjectdef.find_destructor: tprocdef;
+     var
+       objdef: tobjectdef;
+     begin
         objdef:=self;
         while assigned(objdef) do
           begin
-            for i:=0 to objdef.symtable.SymList.Count-1 do
-              begin
-                sym:=TSym(objdef.symtable.SymList[i]);
-                if sym.typ=procsym then
-                  begin
-                    pd:=Tprocsym(sym).Find_procdef_bytype(potype_destructor);
-                    if assigned(pd) then
-                      begin
-                        result:=pd;
-                        exit;
-                      end;
-                  end;
-               end;
-             objdef:=objdef.childof;
+            result:=find_procdef_bytype(potype_destructor);
+            if assigned(result) then
+              exit;
+            objdef:=objdef.childof;
           end;
+        result:=nil;
      end;
 
     function tobjectdef.implements_any_interfaces: boolean;
@@ -4159,7 +4447,7 @@ implementation
 
     function tobjectdef.size : aint;
       begin
-        if objecttype in [odt_class,odt_interfacecom,odt_interfacecorba,odt_dispinterface] then
+        if objecttype in [odt_class,odt_interfacecom,odt_interfacecorba,odt_dispinterface,odt_objcclass,odt_objcprotocol] then
           result:=sizeof(pint)
         else
           result:=tObjectSymtable(symtable).datasize;
@@ -4168,7 +4456,7 @@ implementation
 
     function tobjectdef.alignment:shortint;
       begin
-        if objecttype in [odt_class,odt_interfacecom,odt_interfacecorba,odt_dispinterface] then
+        if objecttype in [odt_class,odt_interfacecom,odt_interfacecorba,odt_dispinterface,odt_objcclass,odt_objcprotocol] then
           alignment:=sizeof(pint)
         else
           alignment:=tObjectSymtable(symtable).recordalignment;
@@ -4182,6 +4470,9 @@ implementation
         odt_class:
           { the +2*sizeof(pint) is size and -size }
           vmtmethodoffset:=(index+10)*sizeof(pint)+2*sizeof(pint);
+        odt_objcclass,
+        odt_objcprotocol:
+          vmtmethodoffset:=0;
         odt_interfacecom,odt_interfacecorba:
           vmtmethodoffset:=index*sizeof(pint);
         else
@@ -4214,11 +4505,96 @@ implementation
               needs_inittable:=is_related(interface_iunknown);
             odt_object:
               needs_inittable:=tObjectSymtable(symtable).needs_init_final;
-            odt_cppclass:
+            odt_cppclass,
+            odt_objcclass,
+            odt_objcprotocol:
               needs_inittable:=false;
             else
               internalerror(200108267);
          end;
+      end;
+
+
+    function tobjectdef.rtti_mangledname(rt: trttitype): string;
+      begin
+        if not(objecttype in [odt_objcclass,odt_objcprotocol]) then
+          result:=inherited rtti_mangledname(rt)
+        else
+          begin
+            { necessary in case of a dynamic array of nsobject, or
+              if an nsobject field appears in a record that needs
+              init/finalisation }
+            if rt=initrtti then
+              begin
+                result:=voidpointertype.rtti_mangledname(rt);
+                exit;
+              end;
+
+            if not(target_info.system in systems_objc_nfabi) then
+              begin
+                result:=target_asm.labelprefix;
+                case objecttype of
+                  odt_objcclass:
+                    begin
+                      case rt of
+                        objcclassrtti:
+                          if not(oo_is_classhelper in objectoptions) then
+                            result:=result+'_OBJC_CLASS_'
+                          else
+                            result:=result+'_OBJC_CATEGORY_';
+                        objcmetartti:
+                          if not(oo_is_classhelper in objectoptions) then
+                            result:=result+'_OBJC_METACLASS_'
+                          else
+                            internalerror(2009111511);
+                        else
+                         internalerror(2009092302);
+                      end;
+                    end;
+                  odt_objcprotocol:
+                    result:=result+'_OBJC_PROTOCOL_';
+                end;
+              end
+            else
+              begin
+                case objecttype of
+                  odt_objcclass:
+                    begin
+                      if (oo_is_classhelper in objectoptions) and
+                         (rt<>objcclassrtti) then
+                        internalerror(2009111512);
+                      case rt of
+                        objcclassrtti:
+                          if not(oo_is_classhelper in objectoptions) then
+                            result:='_OBJC_CLASS_$_'
+                          else
+                            result:='_OBJC_$_CATEGORY_';
+                        objcmetartti:
+                          result:='_OBJC_METACLASS_$_';
+                        objcclassrortti:
+                          result:=lower(target_asm.labelprefix)+'_OBJC_CLASS_RO_$_';
+                        objcmetarortti:
+                          result:=lower(target_asm.labelprefix)+'_OBJC_METACLASS_RO_$_';
+                        else
+                         internalerror(2009092303);
+                      end;
+                    end;
+                  odt_objcprotocol:
+                    begin
+                      result:=lower(target_asm.labelprefix);
+                      case rt of
+                        objcclassrtti:
+                          result:=result+'_OBJC_PROTOCOL_$_';
+                        objcmetartti:
+                          result:=result+'_OBJC_LABEL_PROTOCOL_$_';
+                        else
+                          internalerror(2009092501);
+                      end;
+                    end;
+                end;
+              end;
+            result:=result+objextname^;
+          end;
       end;
 
 
@@ -4262,6 +4638,125 @@ implementation
         classref_created_in_current_module:=false;
       end;
 
+    function tobjectdef.get_next_dispid: longint;
+      begin
+        inc(fcurrent_dispid);
+        result:=fcurrent_dispid;
+      end;
+
+    function tobjectdef.search_enumerator_get: tprocdef;
+     var
+        objdef : tobjectdef;
+        sym : tsym;
+        i : integer;
+        pd : tprocdef;
+        hashedid : THashedIDString;
+     begin
+        result:=nil;
+        objdef:=self;
+        hashedid.id:='GETENUMERATOR';
+        while assigned(objdef) do
+          begin
+            sym:=tsym(objdef.symtable.FindWithHash(hashedid));
+            if assigned(sym) and (sym.typ=procsym) then
+              begin
+                for i := 0 to Tprocsym(sym).ProcdefList.Count - 1 do
+                begin
+                  pd := tprocdef(Tprocsym(sym).ProcdefList[i]);
+                  if (pd.proctypeoption = potype_function) and
+                     is_class_or_interface_or_object(pd.returndef) and
+                     (pd.visibility >= vis_public) then
+                  begin
+                    result:=pd;
+                    exit;
+                  end;
+                end;
+              end;
+            objdef:=objdef.childof;
+          end;
+      end;
+
+    function tobjectdef.search_enumerator_move: tprocdef;
+     var
+        objdef : tobjectdef;
+        sym : tsym;
+        i : integer;
+        pd : tprocdef;
+        hashedid : THashedIDString;
+     begin
+        result:=nil;
+        objdef:=self;
+        // first search for po_enumerator_movenext method modifier
+        // then search for public function MoveNext: Boolean
+        hashedid.id:='MOVENEXT';
+        while assigned(objdef) do
+          begin
+            for i:=0 to objdef.symtable.SymList.Count-1 do
+              begin
+                sym:=TSym(objdef.symtable.SymList[i]);
+                if (sym.typ=procsym) then
+                begin
+                  pd:=Tprocsym(sym).find_procdef_byoptions([po_enumerator_movenext]);
+                  if assigned(pd) then
+                    begin
+                      result:=pd;
+                      exit;
+                    end;
+                end;
+              end;
+            sym:=tsym(objdef.symtable.FindWithHash(hashedid));
+            if assigned(sym) and (sym.typ=procsym) then
+              begin
+                for i := 0 to Tprocsym(sym).ProcdefList.Count - 1 do
+                begin
+                  pd := tprocdef(Tprocsym(sym).ProcdefList[i]);
+                  if (pd.proctypeoption = potype_function) and
+                     is_boolean(pd.returndef) and
+                     (pd.minparacount = 0) and
+                     (pd.visibility >= vis_public) then
+                  begin
+                    result:=pd;
+                    exit;
+                  end;
+                end;
+              end;
+            objdef:=objdef.childof;
+          end;
+      end;
+
+    function tobjectdef.search_enumerator_current: tsym;
+     var
+        objdef : tobjectdef;
+        sym: tsym;
+        i: integer;
+        hashedid : THashedIDString;
+     begin
+        result:=nil;
+        objdef:=self;
+        hashedid.id:='CURRENT';
+        // first search for ppo_enumerator_current property modifier
+        // then search for public property Current
+        while assigned(objdef) do
+          begin
+            for i:=0 to objdef.symtable.SymList.Count-1 do
+              begin
+                sym:=TSym(objdef.symtable.SymList[i]);
+                if (sym.typ=propertysym) and (ppo_enumerator_current in tpropertysym(sym).propoptions) then
+                begin
+                  result:=sym;
+                  exit;
+                end;
+              end;
+            sym:=tsym(objdef.symtable.FindWithHash(hashedid));
+            if assigned(sym) and (sym.typ=propertysym) and
+               (sym.visibility >= vis_public) and not tpropertysym(sym).propaccesslist[palt_read].empty then
+              begin
+                result:=sym;
+                exit;
+              end;
+            objdef:=objdef.childof;
+          end;
+      end;
 
     procedure tobjectdef.register_created_classref_type;
       begin
@@ -4302,6 +4797,204 @@ implementation
       begin
         if (is_object(self) or is_class(self)) then
           current_module.wpoinfo.addcalledvmtentry(self,index);
+      end;
+
+
+    procedure make_procdef_external(data: tobject; arg: pointer);
+      var
+        def: tdef absolute data;
+      begin
+        if (def.typ = procdef) then
+          begin
+            include(tprocdef(def).procoptions,po_external);
+            tprocdef(def).forwarddef:=false;
+          end;
+      end;
+
+
+    procedure tobjectdef.make_all_methods_external;
+      begin
+         self.symtable.deflist.foreachcall(@make_procdef_external,nil);
+      end;
+
+
+    procedure check_and_finish_msg(data: tobject; arg: pointer);
+      var
+        def: tdef absolute data;
+        pd: tprocdef absolute data;
+        i,
+        paracount: longint;
+      begin
+        if (def.typ=procdef) then
+          begin
+            { add all messages also under a dummy name to the symtable in
+              which the objcclass/protocol/category is declared, so they can
+              be called via id.<name>
+            }
+            create_class_helper_for_procdef(pd,nil);
+
+            { we have to wait until now to set the mangled name because it
+              depends on the (possibly external) class name, which is defined
+              at the very end.  }
+            if not(po_msgstr in pd.procoptions) then
+              begin
+                CGMessagePos(pd.fileinfo,parser_e_objc_requires_msgstr);
+                { recover to avoid internalerror later on }
+                include(pd.procoptions,po_msgstr);
+                pd.messageinf.str:=stringdup('MissingDeclaration');
+              end;
+            { Mangled name is already set in case this is a copy of
+              another type.  }
+            if not(po_has_mangledname in pd.procoptions) then
+              begin
+                { check whether the number of formal parameters is correct,
+                  and whether they have valid Objective-C types }
+                paracount:=0;
+                for i:=1 to length(pd.messageinf.str^) do
+                  if pd.messageinf.str^[i]=':' then
+                    inc(paracount);
+                for i:=0 to pd.paras.count-1 do
+                  if not(vo_is_hidden_para in tparavarsym(pd.paras[i]).varoptions) and
+                     not is_array_of_const(tparavarsym(pd.paras[i]).vardef) then
+                    dec(paracount);
+                if (paracount<>0) then
+                  MessagePos(pd.fileinfo,sym_e_objc_para_mismatch);
+
+                pd.setmangledname(pd.objcmangledname);
+              end
+            else
+              { all checks already done }
+              exit;
+            if not(oo_is_external in pd._class.objectoptions) then
+              begin
+                if (po_varargs in pd.procoptions) then
+                  MessagePos(pd.fileinfo,parser_e_varargs_need_cdecl_and_external)
+                else
+                  begin
+                    { check for "array of const" parameters }
+                    for i:=0 to pd.parast.symlist.count-1 do
+                      begin
+                        if (tsym(pd.parast.symlist[i]).typ=paravarsym) and
+                           is_array_of_const(tparavarsym(pd.parast.symlist[i]).vardef) then
+                          MessagePos(pd.fileinfo,parser_e_varargs_need_cdecl_and_external);
+                      end;
+                  end;
+              end;
+          end;
+      end;
+
+
+    procedure mark_private_fields_used(data: tobject; arg: pointer);
+      var
+        sym: tsym absolute data;
+      begin
+        if (sym.typ=fieldvarsym) and
+           (tfieldvarsym(sym).visibility in [vis_private,vis_strictprivate]) then
+          sym.IncRefCount;
+      end;
+
+
+    procedure tobjectdef.finish_objc_data;
+      begin
+        self.symtable.DefList.foreachcall(@check_and_finish_msg,nil);
+        if (oo_is_external in objectoptions) then
+          self.symtable.SymList.ForEachCall(@mark_private_fields_used,nil);
+      end;
+
+
+    procedure verify_objc_vardef(data: tobject; arg: pointer);
+      var
+        sym: tabstractvarsym absolute data;
+        res: pboolean absolute arg;
+        founderrordef: tdef;
+      begin
+        if not(tsym(data).typ in [paravarsym,fieldvarsym]) then
+          exit;
+        if (sym.typ=paravarsym) and
+           ((vo_is_hidden_para in tparavarsym(sym).varoptions) or
+            is_array_of_const(tparavarsym(sym).vardef)) then
+          exit;
+        if not objcchecktype(sym.vardef,founderrordef) then
+          begin
+            MessagePos1(sym.fileinfo,type_e_objc_type_unsupported,founderrordef.typename);
+            res^:=false;
+          end;
+      end;
+
+
+    procedure verify_objc_procdef_paras(data: tobject; arg: pointer);
+      var
+        def: tdef absolute data;
+        res: pboolean absolute arg;
+        founderrordef: tdef;
+      begin
+        if (def.typ<>procdef) then
+          exit;
+        { check parameter types for validity }
+        tprocdef(def).paras.foreachcall(@verify_objc_vardef,arg);
+        { check the result type for validity }
+        if not objcchecktype(tprocdef(def).returndef,founderrordef) then
+          begin
+            MessagePos1(tprocdef(def).funcretsym.fileinfo,type_e_objc_type_unsupported,founderrordef.typename);
+            res^:=false;
+          end;
+      end;
+
+
+    function tobjectdef.check_objc_types: boolean;
+      begin
+        { done in separate step from finish_objc_data, because when
+          finish_objc_data is called, not all forwarddefs have been resolved
+          yet and we need to know all types here }
+        result:=true;
+        self.symtable.symlist.foreachcall(@verify_objc_vardef,@result);
+        self.symtable.deflist.foreachcall(@verify_objc_procdef_paras,@result);
+      end;
+
+
+    procedure do_cpp_import_info(data: tobject; arg: pointer);
+      var
+        def: tdef absolute data;
+        pd: tprocdef absolute data;
+      begin
+        if (def.typ=procdef) then
+          begin
+            pd.setmangledname(target_info.Cprefix+pd.cplusplusmangledname);
+            if (oo_is_external in pd._class.objectoptions) then
+              begin
+                { copied from psub.read_proc }
+                if assigned(pd._class.import_lib) then
+                   current_module.AddExternalImport(pd._class.import_lib^,pd.mangledname,0,false,false)
+                 else
+                   begin
+                     { add import name to external list for DLL scanning }
+                     if tf_has_dllscanner in target_info.flags then
+                       current_module.dllscannerinputlist.Add(pd.mangledname,pd);
+                   end;
+
+              end;
+          end;
+      end;
+
+
+    procedure tobjectdef.finish_cpp_data;
+      begin
+        self.symtable.DefList.ForEachCall(@do_cpp_import_info,nil);
+      end;
+
+    function tobjectdef.RttiName: string;
+      var
+        tmp: tobjectdef;
+      begin
+        Result:=objrealname^;
+        tmp:=self;
+        repeat
+          if tmp.owner.symtabletype=ObjectSymtable then
+            tmp:=tobjectdef(tmp.owner.defowner)
+          else
+            break;
+          Result:=tmp.objrealname^+'.'+Result;
+        until tmp=nil;
       end;
 
 
@@ -4406,7 +5099,7 @@ implementation
       begin
         result:=false;
         { interfaces being implemented through delegation are not mergable (FK) }
-        if (MergingIntf.IType<>etStandard) or not(assigned(ProcDefs)) then
+        if (IType<>etStandard) or (MergingIntf.IType<>etStandard) or not(assigned(ProcDefs)) then
           exit;
         weight:=0;
         { empty interface is mergeable }
@@ -4432,6 +5125,11 @@ implementation
     function TImplementedInterface.getcopy:TImplementedInterface;
       begin
         Result:=TImplementedInterface.Create(nil);
+        {$warning: this is completely wrong on so many levels...}
+        { 1) the procdefs list will be freed once for each copy
+          2) since the procdefs list owns its elements, those will also be freed for each copy
+          3) idem for the name mappings
+        }
         Move(pointer(self)^,pointer(result)^,InstanceSize);
       end;
 
@@ -4585,12 +5283,80 @@ implementation
       end;
 
 
+    function is_objcclass(def: tdef): boolean;
+      begin
+        is_objcclass:=
+          assigned(def) and
+          (def.typ=objectdef) and
+          (tobjectdef(def).objecttype=odt_objcclass);
+      end;
+
+
+    function is_objcclassref(def: tdef): boolean;
+      begin
+        is_objcclassref:=
+          assigned(def) and
+          (def.typ=classrefdef) and
+          is_objcclass(tclassrefdef(def).pointeddef);
+      end;
+
+
+    function is_objcprotocol(def: tdef): boolean;
+      begin
+        result:=
+          assigned(def) and
+          (def.typ=objectdef) and
+          (tobjectdef(def).objecttype=odt_objcprotocol);
+      end;
+
+
+    function is_objccategory(def: tdef): boolean;
+      begin
+        result:=
+          assigned(def) and
+          (def.typ=objectdef) and
+          { if used as a forward type }
+          ((tobjectdef(def).objecttype=odt_objccategory) or
+          { if used as after it has been resolved }
+           ((tobjectdef(def).objecttype=odt_objcclass) and
+            (oo_is_classhelper in tobjectdef(def).objectoptions)));
+      end;
+
+    function is_objc_class_or_protocol(def: tdef): boolean;
+      begin
+         result:=
+           assigned(def) and
+           (def.typ=objectdef) and
+           (tobjectdef(def).objecttype in [odt_objcclass,odt_objcprotocol]);
+      end;
+
+
+    function is_objc_protocol_or_category(def: tdef): boolean;
+      begin
+         result:=
+           assigned(def) and
+           (def.typ=objectdef) and
+           ((tobjectdef(def).objecttype = odt_objcprotocol) or
+            ((tobjectdef(def).objecttype = odt_objcclass) and
+             (oo_is_classhelper in tobjectdef(def).objectoptions)));
+      end;
+
+
     function is_class_or_interface(def: tdef): boolean;
       begin
         result:=
           assigned(def) and
           (def.typ=objectdef) and
           (tobjectdef(def).objecttype in [odt_class,odt_interfacecom,odt_interfacecorba]);
+      end;
+
+
+    function is_class_or_interface_or_objc(def: tdef): boolean;
+      begin
+        result:=
+          assigned(def) and
+          (def.typ=objectdef) and
+          (tobjectdef(def).objecttype in [odt_class,odt_interfacecom,odt_interfacecorba,odt_objcclass,odt_objcprotocol]);
       end;
 
 
@@ -4612,12 +5378,46 @@ implementation
       end;
 
 
-{$ifdef x86}
-    function use_sse(def : tdef) : boolean;
+    function is_class_or_interface_or_dispinterface_or_objc(def: tdef): boolean;
       begin
-        use_sse:=(is_single(def) and (current_settings.fputype in sse_singlescalar)) or
-          (is_double(def) and (current_settings.fputype in sse_doublescalar));
+        result:=
+          assigned(def) and
+          (def.typ=objectdef) and
+          (tobjectdef(def).objecttype in [odt_class,odt_interfacecom,odt_interfacecorba,odt_dispinterface,odt_objcclass,odt_objcprotocol]);
       end;
+
+    function is_class_or_object(def: tdef): boolean;
+      begin
+        result:=
+          assigned(def) and
+          (def.typ=objectdef) and
+          (tobjectdef(def).objecttype in [odt_class,odt_object]);
+      end;
+
+    procedure loadobjctypes;
+      begin
+        objc_metaclasstype:=tpointerdef(search_named_unit_globaltype('OBJC','POBJC_CLASS').typedef);
+        objc_superclasstype:=tpointerdef(search_named_unit_globaltype('OBJC','POBJC_SUPER').typedef);
+        objc_idtype:=tpointerdef(search_named_unit_globaltype('OBJC','ID').typedef);
+        objc_seltype:=tpointerdef(search_named_unit_globaltype('OBJC','SEL').typedef);
+        objc_objecttype:=trecorddef(search_named_unit_globaltype('OBJC','OBJC_OBJECT').typedef);
+      end;
+
+
+    function use_vectorfpu(def : tdef) : boolean;
+      begin
+{$ifdef x86}
+{$define use_vectorfpuimplemented}
+        use_vectorfpu:=(is_single(def) and (current_settings.fputype in sse_singlescalar)) or
+          (is_double(def) and (current_settings.fputype in sse_doublescalar));
 {$endif x86}
+{$ifdef arm}
+{$define use_vectorfpuimplemented}
+        use_vectorfpu:=(current_settings.fputype in vfp_scalar);
+{$endif arm}
+{$ifndef use_vectorfpuimplemented}
+        use_vectorfpu:=false;
+{$endif}
+      end;
 
 end.

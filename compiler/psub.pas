@@ -49,7 +49,7 @@ interface
         dfabuilder : TDFABuilder;
         constructor create(aparent:tprocinfo);override;
         destructor  destroy;override;
-        procedure printproc;
+        procedure printproc(pass:string);
         procedure generate_code;
         procedure resetprocdef;
         procedure add_to_symtablestack;
@@ -82,7 +82,7 @@ implementation
        globtype,tokens,verbose,comphook,constexp,
        systems,
        { aasm }
-       cpubase,aasmbase,aasmtai,aasmdata,
+       cpuinfo,cpubase,aasmbase,aasmtai,aasmdata,
        { symtable }
        symconst,symbase,symsym,symtype,symtable,defutil,
        paramgr,
@@ -101,7 +101,7 @@ implementation
        scanner,import,gendef,
        pbase,pstatmnt,pdecl,pdecsub,pexports,
        { codegen }
-       tgobj,cgbase,cgobj,dbgbase,
+       tgobj,cgbase,cgobj,cgcpu,dbgbase,
        ncgutil,regvars,
        optbase,
        opttail,
@@ -148,8 +148,7 @@ implementation
       begin
         if (tsym(p).typ=paravarsym) and
            (tparavarsym(p).varspez=vs_value) and
-           not is_class(tparavarsym(p).vardef) and
-           tparavarsym(p).vardef.needs_inittable then
+           is_managed_type(tparavarsym(p).vardef) then
           include(current_procinfo.flags,pi_needs_implicit_finally);
       end;
 
@@ -160,8 +159,7 @@ implementation
         { occurs                                                            }
         if (tsym(p).typ=localvarsym) and
            (tlocalvarsym(p).refs>0) and
-           not(is_class(tlocalvarsym(p).vardef)) and
-           tlocalvarsym(p).vardef.needs_inittable then
+           is_managed_type(tlocalvarsym(p).vardef) then
           include(current_procinfo.flags,pi_needs_implicit_finally);
       end;
 
@@ -207,21 +205,30 @@ implementation
                      begin
                         { The library init code is already called and does not
                           need to be in the initfinal table (PFV) }
-                        if not islibrary then
-                          current_module.flags:=current_module.flags or uf_init;
                         block:=statement_block(_INITIALIZATION);
-                     end
-                   else if (token=_FINALIZATION) then
-                     begin
-                        if (current_module.flags and uf_finalize)<>0 then
-                          block:=statement_block(_FINALIZATION)
+                        { optimize empty initialization block away }
+                        if (block.nodetype=blockn) and (tblocknode(block).left=nil) then
+                          FreeAndNil(block)
                         else
-                          begin
-                          { can we allow no INITIALIZATION for DLL ??
-                            I think it should work PM }
-                             block:=nil;
-                             exit;
-                          end;
+                          if not islibrary then
+                            current_module.flags:=current_module.flags or uf_init;
+                     end
+                   else if token=_FINALIZATION then
+                     begin
+                       { when a unit has only a finalization section, we can come to this
+                         point when we try to read the nonh existing initalization section
+                         so we've to check if we are really try to parse the finalization }
+                       if current_procinfo.procdef.proctypeoption=potype_unitfinalize then
+                         begin
+                           block:=statement_block(_FINALIZATION);
+                           { optimize empty finalization block away }
+                           if (block.nodetype=blockn) and (tblocknode(block).left=nil) then
+                             FreeAndNil(block)
+                           else
+                             current_module.flags:=current_module.flags or uf_finalize;
+                         end
+                         else
+                           block:=nil;
                      end
                    else
                      begin
@@ -379,30 +386,6 @@ implementation
             { has been called, so it may no longer be valid (JM)    }
             oldlocalswitches:=current_settings.localswitches;
             current_settings.localswitches:=oldlocalswitches-[cs_check_object,cs_check_range];
-            { maybe call AfterConstruction for classes }
-            if (current_procinfo.procdef.proctypeoption=potype_constructor) and
-               is_class(current_objectdef) then
-              begin
-                srsym:=search_class_member(current_objectdef,'AFTERCONSTRUCTION');
-                if assigned(srsym) and
-                   (srsym.typ=procsym) then
-                  begin
-                    { Self can be nil when fail is called }
-                    { if self<>nil and vmt<>nil then afterconstruction }
-                    addstatement(newstatement,cifnode.create(
-                        caddnode.create(andn,
-                            caddnode.create(unequaln,
-                                load_self_pointer_node,
-                                cnilnode.create),
-                            caddnode.create(unequaln,
-                                load_vmt_pointer_node,
-                                cnilnode.create)),
-                        ccallnode.create(nil,tprocsym(srsym),srsym.owner,load_self_node,[]),
-                        nil));
-                  end
-                else
-                  internalerror(200305106);
-              end;
 
             { a destructor needs a help procedure }
             if (current_procinfo.procdef.proctypeoption=potype_destructor) then
@@ -434,7 +417,7 @@ implementation
                   if is_object(current_objectdef) then
                     begin
                       { finalize object data }
-                      if current_objectdef.needs_inittable then
+                      if is_managed_type(current_objectdef) then
                         addstatement(newstatement,finalize_data_node(load_self_node));
                       { parameter 3 : vmt_offset }
                       { parameter 2 : pointer to vmt }
@@ -466,6 +449,9 @@ implementation
         pd : tprocdef;
         newstatement : tstatementnode;
         oldlocalswitches: tlocalswitches;
+        { safecall handling }
+        exceptobjnode,exceptaddrnode: ttempcreatenode;
+        sym,exceptsym: tsym;
       begin
         generate_except_block:=internalstatements(newstatement);
 
@@ -478,7 +464,7 @@ implementation
             { why (JM)                                                      }
             oldlocalswitches:=current_settings.localswitches;
             current_settings.localswitches:=oldlocalswitches-[cs_check_object,cs_check_range];
-            pd:=current_objectdef.Finddestructor;
+            pd:=current_objectdef.find_destructor;
             if assigned(pd) then
               begin
                 { if vmt<>0 then call destructor }
@@ -497,13 +483,111 @@ implementation
             { no constructor }
             { must be the return value finalized before reraising the exception? }
             if (not is_void(current_procinfo.procdef.returndef)) and
-               (current_procinfo.procdef.returndef.needs_inittable) and
+               is_managed_type(current_procinfo.procdef.returndef) and
                (not paramanager.ret_in_param(current_procinfo.procdef.returndef, current_procinfo.procdef.proccalloption)) and
                (not is_class(current_procinfo.procdef.returndef)) then
               addstatement(newstatement,finalize_data_node(load_result_node));
+{$if defined(x86) or defined(arm)}
+            { safecall handling }
+            if (target_info.system in systems_all_windows) and
+               (current_procinfo.procdef.proccalloption=pocall_safecall) then
+              begin
+                { create a local hidden variable "safe_result"    }
+                { it will be used in ncgflw unit                  }
+                { to set "real" result value for safecall routine }
+                sym:=tlocalvarsym.create('$safe_result',vs_value,hresultdef,[]);
+                include(sym.symoptions,sp_internal);
+                current_procinfo.procdef.localst.insert(sym);
+                { if safecall is used for a class method we need to call }
+                { SafecallException virtual method                       }
+                { In other case we return E_UNEXPECTED error value       }
+                if is_class(current_procinfo.procdef._class) then
+                  begin
+                    { temp variable to store exception address }
+                    exceptaddrnode:=ctempcreatenode.create(voidpointertype,voidpointertype.size,
+                      tt_persistent,true);
+                    addstatement(newstatement,exceptaddrnode);
+                    addstatement(newstatement,
+                      cassignmentnode.create(
+                        ctemprefnode.create(exceptaddrnode),
+                        ccallnode.createintern('fpc_getexceptionaddr',nil)));
+                    { temp variable to store popped up exception }
+                    exceptobjnode:=ctempcreatenode.create(class_tobject,class_tobject.size,
+                      tt_persistent,true);
+                    addstatement(newstatement,exceptobjnode);
+                    addstatement(newstatement,
+                      cassignmentnode.create(
+                        ctemprefnode.create(exceptobjnode),
+                        ccallnode.createintern('fpc_popobjectstack', nil)));
+                    exceptsym:=search_class_member(current_procinfo.procdef._class,'SAFECALLEXCEPTION');
+                    addstatement(newstatement,
+                      cassignmentnode.create(
+                        cloadnode.create(sym,sym.Owner),
+                        ccallnode.create(
+                          ccallparanode.create(ctemprefnode.create(exceptaddrnode),
+                          ccallparanode.create(ctemprefnode.create(exceptobjnode),nil)),
+                          tprocsym(exceptsym), tprocsym(exceptsym).owner,load_self_node,[])));
+                    addstatement(newstatement,ccallnode.createintern('fpc_destroyexception',
+                      ccallparanode.create(ctemprefnode.create(exceptobjnode),nil)));
+                    addstatement(newstatement,ctempdeletenode.create(exceptobjnode));
+                    addstatement(newstatement,ctempdeletenode.create(exceptaddrnode));
+                  end
+                else
+                  begin
+                    { pop up and destroy an exception }
+                    addstatement(newstatement,ccallnode.createintern('fpc_destroyexception',
+                      ccallparanode.create(ccallnode.createintern('fpc_popobjectstack', nil),nil)));
+                    addstatement(newstatement,
+                      cassignmentnode.create(
+                        cloadnode.create(sym,sym.Owner),
+                        genintconstnode(HResult($8000FFFF))));
+                  end;
+              end;
+{$endif}
           end;
       end;
 
+
+    procedure maybe_add_afterconstruction(var tocode: tnode);
+      var
+        oldlocalswitches: tlocalswitches;
+        srsym: tsym;
+        newblock: tblocknode;
+        newstatement: tstatementnode;
+      begin
+        { maybe call AfterConstruction for classes }
+        if (current_procinfo.procdef.proctypeoption=potype_constructor) and
+           is_class(current_objectdef) then
+          begin
+            srsym:=search_class_member(current_objectdef,'AFTERCONSTRUCTION');
+            if assigned(srsym) and
+               (srsym.typ=procsym) then
+              begin
+                { Don't test self and the vmt here. See }
+                { generate_bodyexit_block why (JM)      }
+                oldlocalswitches:=current_settings.localswitches;
+                current_settings.localswitches:=oldlocalswitches-[cs_check_object,cs_check_range];
+                newblock:=internalstatements(newstatement);
+                addstatement(newstatement,tocode);
+                { Self can be nil when fail is called }
+                { if self<>nil and vmt<>nil then afterconstruction }
+                addstatement(newstatement,cifnode.create(
+                    caddnode.create(andn,
+                        caddnode.create(unequaln,
+                            load_self_pointer_node,
+                            cnilnode.create),
+                        caddnode.create(unequaln,
+                            load_vmt_pointer_node,
+                            cnilnode.create)),
+                    ccallnode.create(nil,tprocsym(srsym),srsym.owner,load_self_node,[]),
+                    nil));
+                tocode:=newblock;
+                current_settings.localswitches:=oldlocalswitches;
+              end
+            else
+              internalerror(200305106);
+          end;
+      end;
 
 {****************************************************************************
                                   TCGProcInfo
@@ -525,7 +609,7 @@ implementation
        end;
 
 
-    procedure tcgprocinfo.printproc;
+    procedure tcgprocinfo.printproc(pass:string);
       begin
         assign(printnodefile,treelogfilename);
         {$I-}
@@ -540,6 +624,7 @@ implementation
          end;
         writeln(printnodefile);
         writeln(printnodefile,'*******************************************************************************');
+        writeln(printnodefile, pass);
         writeln(printnodefile,procdef.fullprocname(false));
         writeln(printnodefile,'*******************************************************************************');
         printnode(printnodefile,code);
@@ -571,6 +656,7 @@ implementation
         exitlabel_asmnode:=casmnode.create_get_position;
         final_asmnode:=casmnode.create_get_position;
         bodyexitcode:=generate_bodyexit_block;
+        maybe_add_afterconstruction(code);
 
         { Generate procedure by combining init+body+final,
           depending on the implicit finally we need to add
@@ -616,7 +702,7 @@ implementation
             addstatement(newstatement,bodyexitcode);
             addstatement(newstatement,final_asmnode);
           end;
-        do_firstpass(newblock);
+        do_firstpass(tnode(newblock));
         code:=newblock;
         current_filepos:=oldfilepos;
       end;
@@ -745,7 +831,7 @@ implementation
 
 {$if defined(x86) or defined(arm)}
         { set implicit_finally flag for if procedure is safecall }
-        if (target_info.system in system_all_windows) and
+        if (target_info.system in systems_all_windows) and
            (procdef.proccalloption=pocall_safecall) then
           include(flags, pi_needs_implicit_finally);
 {$endif}
@@ -757,6 +843,10 @@ implementation
         if procdef.fpu_used>0 then
           include(flags,pi_uses_fpu);
 {$endif i386}
+
+        { Print the node to tree.log }
+        if paraprintnodetree=1 then
+          printproc( 'after the firstpass');
 
         { do this before adding the entry code else the tail recursion recognition won't work,
           if this causes troubles, it must be if'ed
@@ -792,7 +882,7 @@ implementation
                               CGMessage(sym_w_function_result_uninitialized)
                             else
                               begin
-                                if varsym.owner=procdef.localst then
+                                if (varsym.owner=procdef.localst) and not (vo_is_typed_const in varsym.varoptions) then
                                   CGMessage1(sym_w_uninitialized_local_variable,varsym.realname);
                               end;
                           end;
@@ -819,6 +909,8 @@ implementation
         { only do secondpass if there are no errors }
         if (ErrorCount=0) then
           begin
+            create_codegen;
+
             { set the start offset to the start of the temp area in the stack }
             tg:=ttgobj.create;
 
@@ -1072,7 +1164,7 @@ implementation
 {$if defined(x86) or defined(arm)}
             { Set return value of safecall procedure if implicit try/finally blocks are disabled }
             if not (cs_implicit_exceptions in current_settings.moduleswitches) and
-               (target_info.system in system_all_windows) and
+               (target_info.system in systems_all_windows) and
                (procdef.proccalloption=pocall_safecall) then
               cg.a_load_const_reg(aktproccode,OS_ADDR,0,NR_FUNCTION_RETURN_REG);
 {$endif}
@@ -1136,6 +1228,7 @@ implementation
             { stop tempgen and ra }
             tg.free;
             cg.done_register_allocators;
+            destroy_codegen;
             tg:=nil;
           end;
 
@@ -1179,8 +1272,11 @@ implementation
         if procdef.parast.symtablelevel>=normal_function_level then
           symtablestack.push(procdef.parast);
 
-        { insert localsymtable }
-        symtablestack.push(procdef.localst);
+        { insert localsymtable, except for the main procedure
+          (in that case the localst is the unit's static symtable,
+           which is already on the stack) }
+        if procdef.localst.symtablelevel>=normal_function_level then
+          symtablestack.push(procdef.localst);
       end;
 
 
@@ -1189,7 +1285,8 @@ implementation
         _class : tobjectdef;
       begin
         { remove localsymtable }
-        symtablestack.pop(procdef.localst);
+        if procdef.localst.symtablelevel>=normal_function_level then
+          symtablestack.pop(procdef.localst);
 
         { remove parasymtable }
         if procdef.parast.symtablelevel>=normal_function_level then
@@ -1383,7 +1480,7 @@ implementation
 
          { Print the node to tree.log }
          if paraprintnodetree=1 then
-           printproc;
+           printproc( 'after parsing');
 
          { ... remove symbol tables }
          remove_from_symtablestack;
@@ -1410,9 +1507,8 @@ implementation
         if tsym(p).typ<>paravarsym then
          exit;
         with tparavarsym(p) do
-          if (not is_class(vardef) and
-             vardef.needs_inittable and
-             (varspez in [vs_value,vs_out])) then
+          if is_managed_type(vardef) and
+             (varspez in [vs_value,vs_out]) then
             include(current_procinfo.flags,pi_do_call);
       end;
 
@@ -1529,7 +1625,7 @@ implementation
       end;
 
 
-    procedure read_proc;
+    procedure read_proc(isclassmethod:boolean);
       {
         Parses the procedure directives, then parses the procedure body, then
         generates the code for it
@@ -1552,7 +1648,7 @@ implementation
          current_objectdef:=nil;
 
          { parse procedure declaration }
-         pd:=parse_proc_dec(old_current_objectdef);
+         pd:=parse_proc_dec(isclassmethod, old_current_objectdef);
 
          { set the default function options }
          if parse_only then
@@ -1585,7 +1681,7 @@ implementation
 
          { hint directives, these can be separated by semicolons here,
            that needs to be handled here with a loop (PFV) }
-         while try_consume_hintdirective(pd.symoptions) do
+         while try_consume_hintdirective(pd.symoptions,pd.deprecatedmsg) do
           Consume(_SEMICOLON);
 
          { Set calling convention }
@@ -1697,8 +1793,11 @@ implementation
 
 
     procedure read_declarations(islibrary : boolean);
+      var
+        is_classdef:boolean;
       begin
-         repeat
+        is_classdef:=false;
+        repeat
            if not assigned(current_procinfo) then
              internalerror(200304251);
            case token of
@@ -1712,13 +1811,32 @@ implementation
                 var_dec;
               _THREADVAR:
                 threadvar_dec;
+              _CLASS:
+                begin
+                  is_classdef:=false;
+                  if try_to_consume(_CLASS) then
+                   begin
+                     { class modifier is only allowed for procedures, functions, }
+                     { constructors, destructors, fields and properties          }
+                     if not(token in [_FUNCTION,_PROCEDURE,_PROPERTY,_VAR,_CONSTRUCTOR,_DESTRUCTOR]) then
+                       Message(parser_e_procedure_or_function_expected);
+
+                     if is_interface(current_objectdef) then
+                       Message(parser_e_no_static_method_in_interfaces)
+                     else
+                       { class methods are also allowed for Objective-C protocols }
+                       is_classdef:=true;
+                   end;
+                end;
               _CONSTRUCTOR,
               _DESTRUCTOR,
               _FUNCTION,
               _PROCEDURE,
-              _OPERATOR,
-              _CLASS:
-                read_proc;
+              _OPERATOR:
+                begin
+                  read_proc(is_classdef);
+                  is_classdef:=false;
+                end;
               _EXPORTS:
                 begin
                    if (current_procinfo.procdef.localst.symtablelevel>main_program_level) then
@@ -1727,7 +1845,7 @@ implementation
                         consume_all_until(_SEMICOLON);
                      end
                    else if islibrary or
-                     (target_info.system in system_unit_program_exports) then
+                     (target_info.system in systems_unit_program_exports) then
                      read_exports
                    else
                      begin
@@ -1750,7 +1868,10 @@ implementation
                     _PROPERTY:
                       begin
                         if (m_fpc in current_settings.modeswitches) then
-                          property_dec
+                        begin
+                          property_dec(is_classdef);
+                          is_classdef:=false;
+                        end
                         else
                           break;
                       end;
@@ -1783,7 +1904,7 @@ implementation
              _FUNCTION,
              _PROCEDURE,
              _OPERATOR :
-               read_proc;
+               read_proc(false);
              else
                begin
                  case idtoken of
@@ -1792,7 +1913,7 @@ implementation
                    _PROPERTY:
                      begin
                        if (m_fpc in current_settings.modeswitches) then
-                         property_dec
+                         property_dec(false)
                        else
                          break;
                      end;

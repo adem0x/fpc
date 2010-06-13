@@ -27,7 +27,7 @@ interface
 
     uses
       cclasses,
-      dbgbase,
+      dbgbase,cgbase,
       symtype,symdef,symsym,symtable,symbase,
       aasmtai,aasmdata;
 
@@ -59,7 +59,7 @@ interface
       private
         writing_def_stabs  : boolean;
         global_stab_number : word;
-        defnumberlist      : TFPObjectList;
+        vardatadef: trecorddef;
         { tsym writing }
         function  sym_var_value(const s:string;arg:pointer):string;
         function  sym_stabstr_evaluate(sym:tsym;const s:string;const vars:array of string):ansistring;
@@ -74,6 +74,7 @@ interface
         procedure method_add_stabstr(p:TObject;arg:pointer);
         procedure field_write_defs(p:TObject;arg:pointer);
         function  get_enum_defstr(def: tenumdef; lowerbound: longint): ansistring;
+        function  get_appendsym_paravar_reg(sym:tparavarsym;const typ,stabstr:string;reg: tregister): ansistring;
       protected
         procedure appendsym_staticvar(list:TAsmList;sym:tstaticvarsym);override;
         procedure appendsym_paravar(list:TAsmList;sym:tparavarsym);override;
@@ -112,7 +113,7 @@ implementation
       SysUtils,cutils,cfileutl,
       systems,globals,globtype,verbose,constexp,
       symconst,defutil,
-      cpuinfo,cpubase,cgbase,paramgr,
+      cpuinfo,cpubase,paramgr,
       aasmbase,procinfo,
       finput,fmodule,ppu;
 
@@ -137,6 +138,7 @@ implementation
 
       tagtypes = [
         recorddef,
+        variantdef,
         enumdef,
         stringdef,
         filedef,
@@ -292,7 +294,10 @@ implementation
           referenced by the symbols. Definitions will always include all
           required stabs }
         if def.dbg_state=dbg_state_unused then
-          def.dbg_state:=dbg_state_used;
+          begin
+            def.dbg_state:=dbg_state_used;
+            deftowritelist.Add(def);
+          end;
         { Need a new number? }
         if def.stab_number=0 then
           begin
@@ -572,7 +577,6 @@ implementation
           result:='@s'+tostr(def.size*8)+';e'
         else
           result:='e';
-        p := tenumsym(def.firstenum);
         { the if-test is required because pred(def.minval) might overflow;
           the longint() typecast should be safe because stabs is not
           supported for 64 bit targets }
@@ -580,10 +584,15 @@ implementation
           for i:=lowerbound to pred(longint(def.minval)) do
             result:=result+'<invalid>:'+tostr(i)+',';
 
-        while assigned(p) do
+        for i := 0 to def.symtable.SymList.Count - 1 do
           begin
+            p := tenumsym(def.symtable.SymList[i]);
+            if p.value<def.minval then
+              continue
+            else
+            if p.value>def.maxval then
+              break;
             result:=result+GetSymName(p)+':'+tostr(p.value)+',';
-            p:=p.nextenum;
           end;
         { the final ',' is required to have a valid stabs }
         result:=result+';';
@@ -659,7 +668,8 @@ implementation
         case def.floattype of
           s32real,
           s64real,
-          s80real:
+          s80real,
+          sc80real:
             ss:=def_stabstr_evaluate(def,'r$1;${savesize};0;',[def_stab_number(s32inttype)]);
           s64currency,
           s64comp:
@@ -783,7 +793,9 @@ implementation
       var
         ss : ansistring;
       begin
-        ss:=def_stabstr_evaluate(def,'${numberstring};',[]);
+        ss:='s'+tostr(vardatadef.size);
+        vardatadef.symtable.SymList.ForEachCall(@field_add_stabstr,@ss);
+        ss[length(ss)]:=';';
         write_def_stabstr(list,def,ss);
       end;
 
@@ -1033,7 +1045,7 @@ implementation
         if target_info.cpu=cpu_powerpc64 then
           ss:=ss+'.';
         ss:=ss+def.mangledname;
-        if (tf_use_function_relative_addresses in target_info.flags) then
+        if not(af_stabs_use_function_absolute_addresses in target_asm.flags) then
           begin
             ss:=ss+'-';
             if target_info.cpu=cpu_powerpc64 then
@@ -1045,7 +1057,7 @@ implementation
         templist.concat(Tai_stab.Create(stab_stabn,p));
         // RBRAC
         ss:=tostr(N_RBRAC)+',0,0,'+stabsendlabel.name;
-        if (tf_use_function_relative_addresses in target_info.flags) then
+        if not(af_stabs_use_function_absolute_addresses in target_asm.flags) then
           begin
             ss:=ss+'-';
             if target_info.cpu=cpu_powerpc64 then
@@ -1276,12 +1288,30 @@ implementation
       end;
 
 
+    function TDebugInfoStabs.get_appendsym_paravar_reg(sym:tparavarsym;const typ,stabstr:string;reg: tregister): ansistring;
+      var
+        ltyp: string[1];
+        regidx : Tregisterindex;
+      begin
+        result:='';
+        if typ='p' then
+          ltyp:='R'
+        else
+          ltyp:='a';
+        regidx:=findreg_by_number(reg);
+        { "eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi", "eip", "ps", "cs", "ss", "ds", "es", "fs", "gs", }
+        { this is the register order for GDB}
+        if regidx<>0 then
+          result:=sym_stabstr_evaluate(sym,'"${name}:$1",${N_RSYM},0,${line},$2',[ltyp+stabstr,tostr(longint(regstabs_table[regidx]))]);
+      end;
+
+
     procedure TDebugInfoStabs.appendsym_paravar(list:TAsmList;sym:tparavarsym);
       var
         ss : ansistring;
+        c  : string[1];
         st : string;
         regidx : Tregisterindex;
-        c : char;
       begin
         ss:='';
         { set loc to LOC_REFERENCE to get somewhat usable debugging info for -Or }
@@ -1320,8 +1350,12 @@ implementation
                         [c+def_stab_number(tprocdef(sym.owner.defowner)._class),tostr(sym.localloc.reference.offset)])
                 else
                   begin
+                    if (c='p') then
+                      c:='R'
+                    else
+                      c:='a';
                     regidx:=findreg_by_number(sym.localloc.register);
-                    ss:=sym_stabstr_evaluate(sym,'"$$t:r$1",${N_RSYM},0,0,$2',
+                    ss:=sym_stabstr_evaluate(sym,'"$$t:$1",${N_RSYM},0,0,$2',
                         [c+def_stab_number(tprocdef(sym.owner.defowner)._class),tostr(regstabs_table[regidx])]);
                   end
               end;
@@ -1344,23 +1378,36 @@ implementation
               LOC_FPUREGISTER,
               LOC_CFPUREGISTER :
                 begin
-                  if c='p' then
-                    c:='R'
-                  else
-                    c:='a';
-                  st:=c+st;
-                  regidx:=findreg_by_number(sym.localloc.register);
-                  { "eax", "ecx", "edx", "ebx", "esp", "ebp", "esi", "edi", "eip", "ps", "cs", "ss", "ds", "es", "fs", "gs", }
-                  { this is the register order for GDB}
-                  if regidx<>0 then
-                    ss:=sym_stabstr_evaluate(sym,'"${name}:$1",${N_RSYM},0,${line},$2',[st,tostr(longint(regstabs_table[regidx]))]);
+                  ss:=get_appendsym_paravar_reg(sym,c,st,sym.localloc.register);
                 end;
               LOC_REFERENCE :
                 begin
-                  st:=c+st;
+                  { When the *value* of a parameter (so not its address!) is
+                    copied into a local variable, you have to generate two
+                    stabs: one for the parmeter, and one for the local copy.
+                    Not doing this breaks debugging under e.g. SPARC. Doc:
+                    http://sourceware.org/gdb/current/onlinedocs/stabs_4.html#SEC26
+                  }
+                  if (c='p') and
+                     not is_open_string(sym.vardef) and
+                     ((sym.paraloc[calleeside].location^.loc<>sym.localloc.loc) or
+                      ((sym.localloc.loc in [LOC_REFERENCE,LOC_CREFERENCE]) and
+                       ((sym.paraloc[calleeside].location^.reference.index<>sym.localloc.reference.base) or
+                        (sym.paraloc[calleeside].location^.reference.offset<>sym.localloc.reference.offset))) or
+                      ((sym.localloc.loc in [LOC_REGISTER,LOC_CREGISTER,LOC_MMREGISTER,LOC_CMMREGISTER,LOC_FPUREGISTER,LOC_CFPUREGISTER]) and
+                       (sym.localloc.register<>sym.paraloc[calleeside].location^.register))) then
+                    begin
+                      if not(sym.paraloc[calleeside].location^.loc in [LOC_REFERENCE,LOC_CREFERENCE]) then
+                        ss:=get_appendsym_paravar_reg(sym,c,st,sym.paraloc[calleeside].location^.register)
+                      else
+                        ss:=sym_stabstr_evaluate(sym,'"${name}:$1",${N_TSYM},0,${line},$2',[c+st,tostr(sym.paraloc[calleeside].location^.reference.offset)]);
+                      write_sym_stabstr(list,sym,ss);
+                      { second stab has no parameter specifier }
+                      c:='';
+                    end;
                   { offset to ebp => will not work if the framepointer is esp
                     so some optimizing will make things harder to debug }
-                  ss:=sym_stabstr_evaluate(sym,'"${name}:$1",${N_TSYM},0,${line},$2',[st,tostr(sym.localloc.reference.offset)])
+                  ss:=sym_stabstr_evaluate(sym,'"${name}:$1",${N_TSYM},0,${line},$2',[c+st,tostr(sym.localloc.reference.offset)])
                 end;
               else
                 internalerror(2003091814);
@@ -1452,8 +1499,11 @@ implementation
 
         global_stab_number:=0;
         defnumberlist:=TFPObjectlist.create(false);
+        deftowritelist:=TFPObjectlist.create(false);
         stabsvarlist:=TAsmList.create;
         stabstypelist:=TAsmList.create;
+
+        vardatadef:=trecorddef(search_system_type('TVARDATA').typedef);
 
         { include symbol that will be referenced from the main to be sure to
           include this debuginfo .o file }
@@ -1489,6 +1539,8 @@ implementation
         if assigned(current_module.localsymtable) then
           write_symtable_defs(stabstypelist,current_module.localsymtable);
 
+        write_remaining_defs_to_write(stabstypelist);
+
         current_asmdata.asmlists[al_stabs].concatlist(stabstypelist);
         current_asmdata.asmlists[al_stabs].concatlist(stabsvarlist);
 
@@ -1504,6 +1556,8 @@ implementation
 
         defnumberlist.free;
         defnumberlist:=nil;
+        deftowritelist.free;
+        deftowritelist:=nil;
 
         stabsvarlist.free;
         stabstypelist.free;
@@ -1567,7 +1621,7 @@ implementation
                 if (currfileinfo.line>lastfileinfo.line) and (currfileinfo.line<>0) then
                   begin
                      if assigned(currfuncname) and
-                        (tf_use_function_relative_addresses in target_info.flags) then
+                        not(af_stabs_use_function_absolute_addresses in target_asm.flags) then
                       begin
                         current_asmdata.getlabel(hlabel,alt_dbgline);
                         list.insertbefore(Tai_stab.Create_str(stab_stabn,tostr(n_textline)+',0,'+tostr(currfileinfo.line)+','+

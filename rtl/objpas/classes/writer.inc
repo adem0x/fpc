@@ -661,11 +661,11 @@ procedure TWriter.WriteComponent(Component: TComponent);
 
 var
   SA : TPersistent;
-  SR : TComponent;
-  
+  SR, SRA : TComponent;
 begin
   SR:=FRoot;
   SA:=FAncestor;
+  SRA:=FRootAncestor;
   Try
     Component.FComponentState:=Component.FComponentState+[csWriting];
     Try
@@ -681,6 +681,7 @@ begin
   Finally
     FAncestor:=SA;
     FRoot:=SR;
+    FRootAncestor:=SRA;
   end;
 end;
 
@@ -804,6 +805,12 @@ begin
   Driver.WriteInteger(Value);
 end;
 
+procedure TWriter.WriteSet(Value: LongInt; SetType: Pointer); 
+
+begin
+  Driver.WriteSet(Value,SetType);
+end;
+
 procedure TWriter.WriteVariant(const VarValue: Variant);
 begin
   Driver.WriteVariant(VarValue);
@@ -879,6 +886,7 @@ begin
   { Check if the ancestor can be used }
   HasAncestor := Assigned(Ancestor) and ((Instance = Root) or
     (Instance.ClassType = Ancestor.ClassType));
+  //writeln('TWriter.WriteProperty Name=',PropType^.Name,' Kind=',GetEnumName(TypeInfo(TTypeKind),ord(PropType^.Kind)),' HasAncestor=',HasAncestor);
 
   case PropType^.Kind of
     tkInteger, tkChar, tkEnumeration, tkSet, tkWChar:
@@ -952,7 +960,7 @@ begin
         if (not Handled) and
           (MethodValue.Code <> DefMethodValue.Code) and
           ((not Assigned(MethodValue.Code)) or
-          ((Length(FLookupRoot.MethodName(MethodValue.Code)) >= 0))) then
+          ((Length(FLookupRoot.MethodName(MethodValue.Code)) > 0))) then
         begin
           Driver.BeginProperty(FPropPath + PPropInfo(PropInfo)^.Name);
           if Assigned(MethodValue.Code) then
@@ -1035,14 +1043,20 @@ begin
         if HasAncestor then
         begin
           AncestorObj := TObject(GetObjectProp(Ancestor, PropInfo));
-          if Assigned(AncestorObj) then
-            if Assigned(ObjValue) and
-              (TComponent(AncestorObj).Owner = FRootAncestor) and
-              (TComponent(ObjValue).Owner = Root) and
-              (UpperCase(TComponent(AncestorObj).Name) = UpperCase(TComponent(ObjValue).Name)) then
-              AncestorObj := ObjValue
-//            else
-//              AncestorObj := nil;
+          if (AncestorObj is TComponent) and
+             (ObjValue is TComponent) then
+          begin
+            //writeln('TWriter.WriteProperty AncestorObj=',TComponent(AncestorObj).Name,' OwnerFit=',TComponent(AncestorObj).Owner = FRootAncestor,' ',TComponent(ObjValue).Name,' OwnerFit=',TComponent(ObjValue).Owner = Root);
+            if (AncestorObj<> ObjValue) and
+             (TComponent(AncestorObj).Owner = FRootAncestor) and
+             (TComponent(ObjValue).Owner = Root) and
+             (UpperCase(TComponent(AncestorObj).Name) = UpperCase(TComponent(ObjValue).Name)) then
+            begin
+              // different components, but with the same name
+              // treat it like an override
+              AncestorObj := ObjValue;
+            end;
+          end;
         end else
           AncestorObj := nil;
 

@@ -25,13 +25,13 @@ unit chmtypes;
 interface
 
 uses
-  Classes, SysUtils; 
-  
+  Classes, SysUtils;
+
 type
   TSectionName = (snMSCompressed, snUnCompressed);
-  
+
   TSectionNames = set of TSectionName;
-  
+
    { TDirectoryChunk }
 
   TDirectoryChunk = class(TObject)
@@ -52,7 +52,7 @@ type
     property ItemCount: Word read FItemCount;
     constructor Create(AHeaderSize: Integer);
   end;
-  
+
   { TPMGIDirectoryChunk }
 
   TPMGIDirectoryChunk = class(TDirectoryChunk)
@@ -91,9 +91,114 @@ type
 
   end;
 
+  TTOCIdxHeader = record
+    BlockSize: DWord; // 4096
+    EntriesOffset: DWord;
+    EntriesCount: DWord;
+    TopicsOffset: DWord;
+    EmptyBytes: array[0..4079] of byte;
+  end;
+
+const
+  TOC_ENTRY_HAS_NEW      = 2;
+  TOC_ENTRY_HAS_CHILDREN = 4;
+  TOC_ENTRY_HAS_LOCAL    = 8;
+
+type
+  PTOCEntryPageBookInfo = ^TTOCEntryPageBookInfo;
+  TTOCEntryPageBookInfo = record
+    Unknown1: Word; //  = 0
+    EntryIndex: Word; // multiple entry info's can have this value but the TTocEntry it points to points back to the first item with this number. Wierd.
+    Props: DWord; // BitField. See TOC_ENTRY_*
+    TopicsIndexOrStringsOffset: DWord; // if TOC_ENTRY_HAS_LOCAL is in props it's the Topics Index
+                                       // else it's the Offset In Strings of the Item Text
+    ParentPageBookInfoOffset: DWord;
+    NextPageBookOffset: DWord; // same level of tree only
+
+    // Only if TOC_ENTRY_HAS_CHILDREN is set are these written
+    FirstChildOffset: DWord;
+    Unknown3: DWord; // = 0
+  end;
+
+  TTocEntry = record
+    PageBookInfoOffset: DWord;
+    IncrementedInt: DWord; // first is $29A
+    TopicsIndex: DWord; // Index of Entry in #TOPICS file
+  end;
+
+  TTopicEntry = record
+    TocOffset,
+    StringsOffset,
+    URLTableOffset: DWord;
+    InContents: Word;// 2 = in contents 6 = not in contents
+    Unknown: Word; // 0,2,4,8,10,12,16,32
+  end;
+
+  TBtreeHeader = packed record
+                        ident          : array[0..1] of ansichar; // $3B $29
+                        flags          : word;	// bit $2 is always 1, bit $0400 1 if dir? (always on)
+                        blocksize      : word;  // size of blocks (2048)
+                        dataformat     : array[0..15] of ansichar;  // "X44" always the same, see specs.
+                        unknown0       : dword; // always 0
+			lastlstblock   : dword; // index of last listing block in the file;
+                        indexrootblock : dword; // Index of the root block in the file.
+                        unknown1       : dword; // always -1
+                        nrblock	       : dword; // Number of blocks
+                        treedepth      : word;  // The depth of the tree of blocks (1 if no index blocks, 2 one level of index blocks, ...)
+                        nrkeywords     : dword; // number of keywords in the file.
+                        codepage       : dword; // Windows code page identifier (usually 1252 - Windows 3.1 US (ANSI))
+			lcid	       : dword; // LCID from the HHP file.
+                        ischm	       : dword; // 0 if this a BTREE and is part of a CHW file, 1 if it is a BTree and is part of a CHI or CHM file
+                        unknown2       : dword; // Unknown. Almost always 10031. Also 66631 (accessib.chm, ieeula.chm, iesupp.chm, iexplore.chm, msoe.chm, mstask.chm, ratings.chm, wab.chm).
+                        unknown3       : dword; // unknown 0
+		        unknown4       : dword; // unknown 0
+			unknown5       : dword; // unknown 0
+                      end;
+  PBTreeBlockHeader = ^TBtreeBlockHeader;
+  TBtreeBlockHeader = packed record
+                        Length             : word;  // Length of free space at the end of the block.
+                        NumberOfEntries    : word;  // Number of entries in the block.
+                        IndexOfPrevBlock   : dword; // Index of the previous block. -1 if this is the first listing block.
+                        IndexOfNextBlock   : dword; // Index of the next block. -1 if this is the last listing block.
+                      end;
+
+  PBtreeBlockEntry = ^TBtreeBlockEntry;
+  TBtreeBlockEntry = packed record
+                        isseealso  : word; // 2 if this keyword is a See Also keyword, 0 if it is not.
+                        entrydepth : word; // Depth of this entry into the tree.
+                        charindex  : dword;// Character index of the last keyword in the ", " separated list.
+                        unknown0   : dword;// 0 (unknown)
+                        NrPairs    : dword;// Number of Name, Local pairs
+                      end;
+
+  PBtreeIndexBlockHeader = ^TBtreeIndexBlockHeader;
+  TBtreeIndexBlockHeader = packed record
+                        length             : word;  // Length of free space at the end of the block.
+                        NumberOfEntries    : word;  // Number of entries in the block.
+                        IndexOfChildBlock  : dword; // Index of Child Block
+                      end;
+
+  PBtreeIndexBlockEntry = ^TBtreeIndexBlockEntry;
+  TBtreeIndexBlockEntry = packed record
+                        isseealso  : word; // 2 if this keyword is a See Also keyword, 0 if it is not.
+                        entrydepth : word; // Depth of this entry into the tree.
+                        charindex  : dword;// Character index of the last keyword in the ", " separated list.
+                        unknown0   : dword;// 0 (unknown)
+                        NrPairs    : dword;// Number of Name, Local pairs
+                      end;
+
+function PageBookInfoRecordSize(ARecord: PTOCEntryPageBookInfo): Integer;
 
 implementation
 uses chmbase;
+
+function PageBookInfoRecordSize(ARecord: PTOCEntryPageBookInfo): Integer;
+begin
+  if (TOC_ENTRY_HAS_CHILDREN and ARecord^.Props) > 0 then
+    Result := 28
+  else
+    Result := 20;
+end;
 
 { TDirectoryChunk }
 
@@ -121,7 +226,7 @@ begin
   Move(Data^, Buffer[CurrentPos], Size);
   Inc(CurrentPos, Size);
   Inc(FItemCount);
-  
+
   // now put a quickref entry if needed
   if ItemCount mod 5 = 0 then begin
     Inc(FQuickRefEntries);
@@ -251,7 +356,9 @@ var
   end;
 begin
   if FItemCount < 1 then begin
+    {$ifdef chm_debug}
     WriteLn('WHAT ARE YOU DOING!!');
+    {$endif}
     Dec(AIndex);
     Exit;
   end;
@@ -259,7 +366,7 @@ begin
   WriteChunkToStream(Stream);
   NewPos := Stream.Position;
   Inc(FChunkLevelCount);
-  
+
   if Final and (ChunkLevelCount < 2) then begin
     FParentChunk.Free;
     FParentChunk := nil;
@@ -279,7 +386,7 @@ begin
   if not FParentChunk.CanHold(WriteSize) then begin
     FinishBlock;
   end;
-  
+
   FParentChunk.WriteEntry(WriteSize, @NewBuffer[0]);
   if Final then FinishBlock;
   //WriteLn(ChunkLevelCount);

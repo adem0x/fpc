@@ -21,6 +21,7 @@
 
   const
     PTHREAD_EXPLICIT_SCHED       = 0;
+    PTHREAD_INHERIT_SCHED        = 1;
     PTHREAD_CREATE_DETACHED      = $40;
     PTHREAD_SCOPE_PROCESS        = 0;
 
@@ -91,6 +92,7 @@ function  pthread_self:pthread_t; cdecl;external 'c';
 function  pthread_mutex_init (p:ppthread_mutex_t;o:ppthread_mutexattr_t):cint; cdecl;external 'c';
 function  pthread_mutex_destroy (p:ppthread_mutexattr_t):cint; cdecl;external 'c';
 function  pthread_mutex_lock    (p:ppthread_mutexattr_t):cint; cdecl;external 'c';
+function  pthread_mutex_trylock (p:ppthread_mutex_t):cint; cdecl;external 'c';
 function  pthread_mutex_unlock  (p:ppthread_mutexattr_t):cint; cdecl;external 'c';
 function  pthread_cancel(_para1:pthread_t):cint;cdecl;external 'c';
 function  pthread_detach(_para1:pthread_t):cint;cdecl;external 'c';

@@ -58,6 +58,7 @@ Type
     Procedure StartDescription; override;
     Procedure StartAccess; override;
     Procedure StartErrors; override;
+    Procedure StartVersion; override;
     Procedure StartSeealso; override;
     Procedure EndSeealso; override;
     procedure StartUnitOverview(AModuleName,AModuleLabel : String);override;
@@ -92,6 +93,8 @@ Type
     procedure DescrWriteVarEl(const AText: DOMString); override;
     procedure DescrBeginLink(const AId: DOMString); override;
     procedure DescrEndLink; override;
+    procedure DescrBeginURL(const AURL: DOMString); override; // Provides a default implementation
+    procedure DescrEndURL; override;
     procedure DescrWriteLinebreak; override;
     procedure DescrBeginParagraph; override;
     procedure DescrBeginCode(HasBorder: Boolean; const AHighlighterName: String); override;
@@ -271,6 +274,18 @@ end;
 procedure TLaTeXWriter.DescrEndLink;
 begin
   WriteF(' (\pageref{%s})',[StripText(Flink)]);
+end;
+
+procedure TLaTeXWriter.DescrBeginURL(const AURL: DOMString);
+begin
+  Inherited; //  Save link
+  Write('\htmladdnormallink{');
+end;
+
+procedure TLaTeXWriter.DescrEndURL;
+begin
+  WriteF('}{%s}',[LastURL]);
+  LastURL:='';
 end;
 
 procedure TLaTeXWriter.DescrWriteLinebreak;
@@ -581,6 +596,11 @@ Procedure TLatexWriter.StartErrors;
 
 begin
   Writeln('\Errors');
+end;
+
+procedure TLaTeXWriter.StartVersion;
+begin
+  Writeln('\VersionInfo');
 end;
 
 Procedure TLatexWriter.StartAccess;

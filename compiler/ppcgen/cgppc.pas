@@ -34,8 +34,8 @@ unit cgppc;
 
     type
       tcgppcgen = class(tcg)
-        procedure a_param_const(list: TAsmList; size: tcgsize; a: aint; const paraloc : tcgpara); override;
-        procedure a_paramaddr_ref(list : TAsmList;const r : treference;const paraloc : tcgpara); override;
+        procedure a_load_const_cgpara(list: TAsmList; size: tcgsize; a: aint; const paraloc : tcgpara); override;
+        procedure a_loadaddr_ref_cgpara(list : TAsmList;const r : treference;const paraloc : tcgpara); override;
 
         procedure a_call_reg(list : TAsmList;reg: tregister); override;
         procedure a_call_ref(list : TAsmList;ref: treference); override;
@@ -157,12 +157,13 @@ unit cgppc;
       end;
 
 
-    procedure tcgppcgen.a_param_const(list: TAsmList; size: tcgsize; a: aint; const
+    procedure tcgppcgen.a_load_const_cgpara(list: TAsmList; size: tcgsize; a: aint; const
       paraloc: tcgpara);
     var
       ref: treference;
     begin
       paraloc.check_simple_location;
+      paramanager.allocparaloc(list,paraloc.location);
       case paraloc.location^.loc of
         LOC_REGISTER, LOC_CREGISTER:
           a_load_const_reg(list, size, a, paraloc.location^.register);
@@ -179,13 +180,14 @@ unit cgppc;
     end;
 
 
-    procedure tcgppcgen.a_paramaddr_ref(list : TAsmList;const r : treference;const paraloc : tcgpara);
+    procedure tcgppcgen.a_loadaddr_ref_cgpara(list : TAsmList;const r : treference;const paraloc : tcgpara);
       var
         ref: treference;
         tmpreg: tregister;
 
       begin
         paraloc.check_simple_location;
+        paramanager.allocparaloc(list,paraloc.location);
         case paraloc.location^.loc of
            LOC_REGISTER,LOC_CREGISTER:
              a_loadaddr_ref_reg(list,r,paraloc.location^.register);
@@ -309,7 +311,7 @@ unit cgppc;
 {$endif cpu64bitaddr}
         current_asmdata.asmlists[al_imports].concat(taicpu.op_reg(A_MTCTR,NR_R12));
         current_asmdata.asmlists[al_imports].concat(taicpu.op_none(A_BCTR));
-        current_asmdata.asmlists[al_imports].concat(tai_directive.create(asd_lazy_symbol_pointer,''));
+        current_asmdata.asmlists[al_imports].concat(tai_section.create(sec_data_lazy,'',sizeof(pint)));
         current_asmdata.asmlists[al_imports].concat(Tai_symbol.Create(l1,0));
         current_asmdata.asmlists[al_imports].concat(tai_directive.create(asd_indirect_symbol,s));
         current_asmdata.asmlists[al_imports].concat(tai_const.createname('dyld_stub_binding_helper',0));
@@ -615,8 +617,8 @@ unit cgppc;
         begin
           paraloc1.init;
           paramanager.getintparaloc(pocall_cdecl,1,paraloc1);
-          a_param_reg(list,OS_ADDR,NR_R0,paraloc1);
-          paramanager.freeparaloc(list,paraloc1);
+          a_load_reg_cgpara(list,OS_ADDR,NR_R0,paraloc1);
+          paramanager.freecgpara(list,paraloc1);
           paraloc1.done;
           allocallcpuregisters(list);
           a_call_name(list,'mcount',false);
@@ -785,7 +787,7 @@ unit cgppc;
           begin
             if (ref.symbol.bind in [AB_EXTERNAL,AB_WEAK_EXTERNAL]) or
                ((cs_create_pic in current_settings.moduleswitches) and
-                (ref.symbol.bind in [AB_COMMON,AB_GLOBAL])) then
+                (ref.symbol.bind in [AB_COMMON,AB_GLOBAL,AB_PRIVATE_EXTERN])) then
               begin
                 tmpreg := g_indirect_sym_load(list,ref.symbol.name,ref.symbol.bind=AB_WEAK_EXTERNAL);
                 ref.symbol:=nil;

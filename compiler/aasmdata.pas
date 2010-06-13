@@ -65,6 +65,9 @@ interface
         al_resourcestrings,
         { Objective-C related sections }
         al_objc_data,
+        { keep pool data separate, so we can generate new pool entries
+          while emitting other data }
+        al_objc_pools,
         al_end
       );
 
@@ -79,7 +82,12 @@ interface
          sp_ansistr,
          sp_widestr,
          sp_unicodestr,
-         sp_objcselector
+         sp_objcclassnamerefs,
+         sp_varnamerefs,
+         sp_objcclassnames,
+         sp_objcvarnames,
+         sp_objcvartypes,
+         sp_objcprotocolrefs
       );
       
     const
@@ -103,6 +111,7 @@ interface
         'al_picdata',
         'al_resourcestrings',
         'al_objc_data',
+        'al_objc_pools',
         'al_end'
       );
 
@@ -143,6 +152,7 @@ interface
         { Assembler lists }
         AsmLists      : array[TAsmListType] of TAsmList;
         CurrAsmList   : TAsmList;
+        WideInits     : TLinkedList;
         { hash tables for reusing constant storage }
         ConstPools    : array[TConstPoolType] of THashSet;
         constructor create(const n:string);
@@ -163,6 +173,13 @@ interface
         procedure ResetAltSymbols;
         property AsmSymbolDict:TFPHashObjectList read FAsmSymbolDict;
         property AsmCFI:TAsmCFI read FAsmCFI;
+      end;
+
+      TTCInitItem = class(TLinkedListItem)
+        sym: tsym;
+        offset: aint;
+        datalabel: TAsmLabel;
+        constructor Create(asym: tsym; aoffset: aint; alabel: TAsmLabel);
       end;
 
     var
@@ -232,6 +249,18 @@ implementation
       begin
       end;
 
+{*****************************************************************************
+                                 TTCInitItem
+*****************************************************************************}
+
+
+    constructor TTCInitItem.Create(asym: tsym; aoffset: aint; alabel: TAsmLabel);
+      begin
+        inherited Create;
+        sym:=asym;
+        offset:=aoffset;
+        datalabel:=alabel;
+      end;
 
 {*****************************************************************************
                                  TAsmList
@@ -302,9 +331,10 @@ implementation
         CurrAsmList:=TAsmList.create;
         for hal:=low(TAsmListType) to high(TAsmListType) do
           AsmLists[hal]:=TAsmList.create;
+        WideInits :=TLinkedList.create;
         { PIC data }
         if (target_info.system in [system_powerpc_darwin,system_powerpc64_darwin,system_i386_darwin,system_arm_darwin]) then
-          AsmLists[al_picdata].concat(tai_directive.create(asd_non_lazy_symbol_pointer,''));
+          AsmLists[al_picdata].concat(tai_section.create(sec_data_nonlazy,'',sizeof(pint)));
         { CFI }
         FAsmCFI:=CAsmCFI.Create;
       end;
@@ -336,6 +366,7 @@ implementation
 {$ifdef MEMDEBUG}
          memasmlists.start;
 {$endif}
+        WideInits.free;
          for hal:=low(TAsmListType) to high(TAsmListType) do
            AsmLists[hal].free;
          CurrAsmList.free;

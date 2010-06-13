@@ -18,8 +18,8 @@
   This unit provides classes which implement the interfaces defined in the
   DOM (Document Object Model) specification.
   The current state is:
-  DOM Level 1  -  Almost completely implemented
-  DOM Level 2  -  Partially implemented
+  DOM Levels 1 and 2 -  Completely implemented
+  DOM Level 3  -  Partially implemented
 
   Specification used for this implementation:
 
@@ -38,7 +38,7 @@ unit DOM;
 interface
 
 uses
-  SysUtils, Classes, AVL_Tree, xmlutils;
+  SysUtils, Classes, xmlutils;
 
 // -------------------------------------------------------
 //   DOMException
@@ -99,9 +99,13 @@ type
   TDOMProcessingInstruction = class;
 
   TDOMAttrDef = class;
-  PNodePool = ^TNodePool;
   TNodePool = class;
+  PNodePoolArray = ^TNodePoolArray;
+  TNodePoolArray = array[0..MaxInt div sizeof(Pointer)-1] of TNodePool;
 
+{$ifndef fpc}
+  TFPList = TList;
+{$endif}
 
 // -------------------------------------------------------
 //   DOMString
@@ -212,6 +216,7 @@ type
     function GetPrefix: DOMString; virtual;
     procedure SetPrefix(const Value: DOMString); virtual;
     function GetOwnerDocument: TDOMDocument; virtual;
+    function GetBaseURI: DOMString;
     procedure SetReadOnly(Value: Boolean);
     procedure Changing;
   public
@@ -251,11 +256,15 @@ type
     property Prefix: DOMString read GetPrefix write SetPrefix;
     // DOM level 3
     property TextContent: DOMString read GetTextContent write SetTextContent;
+    function LookupPrefix(const nsURI: DOMString): DOMString;
     function LookupNamespaceURI(const APrefix: DOMString): DOMString;
+    function IsDefaultNamespace(const nsURI: DOMString): Boolean;
+    property baseURI: DOMString read GetBaseURI;
     // Extensions to DOM interface:
     function CloneNode(deep: Boolean; ACloneOwner: TDOMDocument): TDOMNode; overload; virtual;
     function FindNode(const ANodeName: DOMString): TDOMNode; virtual;
     function CompareName(const name: DOMString): Integer; virtual;
+    property Flags: TNodeFlags read FFlags;
   end;
 
   TDOMNodeClass = class of TDOMNode;
@@ -267,13 +276,10 @@ type
   TDOMNode_WithChildren = class(TDOMNode)
   protected
     FFirstChild, FLastChild: TDOMNode;
-    FChildNodeTree: TAVLTree;
     FChildNodes: TDOMNodeList;
     function GetFirstChild: TDOMNode; override;
     function GetLastChild: TDOMNode; override;
     procedure CloneChildren(ACopy: TDOMNode; ACloneOwner: TDOMDocument);
-    procedure AddToChildNodeTree(NewNode: TDOMNode);
-    procedure RemoveFromChildNodeTree(OldNode: TDOMNode);
     procedure FreeChildren;
     function GetTextContent: DOMString; override;
     procedure SetTextContent(const AValue: DOMString); override;
@@ -284,6 +290,7 @@ type
     function DetachChild(OldChild: TDOMNode): TDOMNode; override;
     function HasChildNodes: Boolean; override;
     function FindNode(const ANodeName: DOMString): TDOMNode; override;
+    procedure InternalAppend(NewChild: TDOMNode);
   end;
 
 
@@ -430,7 +437,7 @@ type
     FEmptyNode: TDOMElement;
     FNodeLists: THashTable;
     FMaxPoolSize: Integer;
-    FPools: PNodePool;
+    FPools: PNodePoolArray;
     FDocumentURI: DOMString;
     function GetDocumentElement: TDOMElement;
     function GetDocType: TDOMDocumentType;
@@ -446,6 +453,8 @@ type
     function Alloc(AClass: TDOMNodeClass): TDOMNode;
   public
     function IndexOfNS(const nsURI: DOMString; AddIfAbsent: Boolean = False): Integer;
+    function InsertBefore(NewChild, RefChild: TDOMNode): TDOMNode; override;
+    function ReplaceChild(NewChild, OldChild: TDOMNode): TDOMNode; override;
     property DocType: TDOMDocumentType read GetDocType;
     property Impl: TDOMImplementation read FImplementation;
     property DocumentElement: TDOMElement read GetDocumentElement;
@@ -571,6 +580,7 @@ type
     function GetNodeType: Integer; override;
     function GetAttributes: TDOMNamedNodeMap; override;
     procedure AttachDefaultAttrs;
+    function InternalLookupPrefix(const nsURI: DOMString; Original: TDOMElement): DOMString;
     procedure RestoreDefaultAttr(AttrDef: TDOMAttr);
   public
     destructor Destroy; override;
@@ -1136,10 +1146,17 @@ function GetAncestorElement(n: TDOMNode): TDOMElement;
 var
   parent: TDOMNode;
 begin
-  parent := n.ParentNode;
-  while Assigned(parent) and (parent.NodeType <> ELEMENT_NODE) do
-    parent := parent.ParentNode;
-  Result := TDOMElement(parent);
+  case n.nodeType of
+    DOCUMENT_NODE:
+      result := TDOMDocument(n).documentElement;
+    ATTRIBUTE_NODE:
+      result := TDOMAttr(n).OwnerElement;
+  else
+    parent := n.ParentNode;
+    while Assigned(parent) and (parent.NodeType <> ELEMENT_NODE) do
+      parent := parent.ParentNode;
+    Result := TDOMElement(parent);
+  end;  
 end;
 
 // TODO: specs prescribe to return default namespace if APrefix=null,
@@ -1154,53 +1171,93 @@ begin
   Result := '';
   if Self = nil then
     Exit;
-  case NodeType of
-    ELEMENT_NODE:
+  if nodeType = ELEMENT_NODE then
+  begin
+    if (nfLevel2 in FFlags) and (TDOMElement(Self).Prefix = APrefix) then
     begin
-      if (nfLevel2 in FFlags) and (TDOMElement(Self).Prefix = APrefix) then
-      begin
-        result := Self.NamespaceURI;
-        Exit;
-      end;
-      if HasAttributes then
-      begin
-        Map := Attributes;
-        for I := 0 to Map.Length-1 do
-        begin
-          Attr := TDOMAttr(Map[I]);
-          // should ignore level 1 atts here
-          if ((Attr.Prefix = 'xmlns') and (Attr.localName = APrefix)) or
-             ((Attr.localName = 'xmlns') and (APrefix = '')) then
-          begin
-            result := Attr.NodeValue;
-            Exit;
-          end;
-        end
-      end;
-      result := GetAncestorElement(Self).LookupNamespaceURI(APrefix);
+      result := Self.NamespaceURI;
+      Exit;
     end;
-    DOCUMENT_NODE:
-      result := TDOMDocument(Self).documentElement.LookupNamespaceURI(APrefix);
+    if HasAttributes then
+    begin
+      Map := Attributes;
+      for I := 0 to Map.Length-1 do
+      begin
+        Attr := TDOMAttr(Map[I]);
+        // should ignore level 1 atts here
+        if ((Attr.Prefix = 'xmlns') and (Attr.localName = APrefix)) or
+           ((Attr.localName = 'xmlns') and (APrefix = '')) then
+        begin
+          result := Attr.NodeValue;
+          Exit;
+        end;
+      end
+    end;
+  end;  
+  result := GetAncestorElement(Self).LookupNamespaceURI(APrefix);
+end;
 
-    ATTRIBUTE_NODE:
-      result := TDOMAttr(Self).OwnerElement.LookupNamespaceURI(APrefix);
-
+function TDOMNode.LookupPrefix(const nsURI: DOMString): DOMString;
+begin
+  Result := '';
+  if (nsURI = '') or (Self = nil) then
+    Exit;
+  if nodeType = ELEMENT_NODE then
+    result := TDOMElement(Self).InternalLookupPrefix(nsURI, TDOMElement(Self))
   else
-    Result := GetAncestorElement(Self).LookupNamespaceURI(APrefix);
+    result := GetAncestorElement(Self).LookupPrefix(nsURI);
+end;
+
+function TDOMNode.IsDefaultNamespace(const nsURI: DOMString): Boolean;
+var
+  Attr: TDOMAttr;
+  Map: TDOMNamedNodeMap;
+  I: Integer;
+begin
+  Result := False;
+  if Self = nil then
+    Exit;
+  if nodeType = ELEMENT_NODE then
+  begin
+    if TDOMElement(Self).FNSI.PrefixLen = 0 then
+    begin
+      result := (nsURI = namespaceURI);
+      Exit;
+    end  
+    else if HasAttributes then
+    begin
+      Map := Attributes;
+      for I := 0 to Map.Length-1 do
+      begin
+        Attr := TDOMAttr(Map[I]);
+        if Attr.LocalName = 'xmlns' then
+        begin
+          result := (Attr.Value = nsURI);
+          Exit;
+        end;
+      end;
+    end;
+  end;
+  result := GetAncestorElement(Self).IsDefaultNamespace(nsURI);
+end;
+
+function TDOMNode.GetBaseURI: DOMString;
+begin
+  case NodeType of
+  // !! Incomplete !!
+    DOCUMENT_NODE:
+      result := TDOMDocument(Self).FDocumentURI;
+    PROCESSING_INSTRUCTION_NODE:
+      if Assigned(ParentNode) then
+        result := ParentNode.GetBaseURI
+      else
+        result := OwnerDocument.DocumentURI;
+  else
+    result := '';
   end;
 end;
 
 //------------------------------------------------------------------------------
-
-function CompareDOMNodeWithDOMNode(Node1, Node2: Pointer): integer;
-begin
-  Result := TDOMNode(Node2).CompareName(TDOMNode(Node1).NodeName);
-end;
-
-function CompareDOMStringWithDOMNode(AKey, ANode: Pointer): integer;
-begin
-  Result := TDOMNode(ANode).CompareName(PDOMString(AKey)^);
-end;
 
 type
   TNodeTypeEnum = ELEMENT_NODE..NOTATION_NODE;
@@ -1238,7 +1295,6 @@ end;
 destructor TDOMNode_WithChildren.Destroy;
 begin
   FreeChildren;
-  FreeAndNil(FChildNodeTree);
   FChildNodes.Free; // its destructor will zero the field
   inherited Destroy;
 end;
@@ -1326,13 +1382,11 @@ begin
     RefChild.FPreviousSibling := NewChild;
   end;
   NewChild.FParentNode := Self;
-  AddToChildNodeTree(NewChild);
 end;
 
 function TDOMNode_WithChildren.ReplaceChild(NewChild, OldChild: TDOMNode):
   TDOMNode;
 begin
-  RemoveFromChildNodeTree(OldChild);
   InsertBefore(NewChild, OldChild);
   if Assigned(OldChild) then
     RemoveChild(OldChild);
@@ -1358,12 +1412,23 @@ begin
   else
     OldChild.FNextSibling.FPreviousSibling := OldChild.FPreviousSibling;
 
-  RemoveFromChildNodeTree(OldChild);
   // Make sure removed child does not contain references to nowhere
   OldChild.FPreviousSibling := nil;
   OldChild.FNextSibling := nil;
   OldChild.FParentNode := nil;
   Result := OldChild;
+end;
+
+procedure TDOMNode_WithChildren.InternalAppend(NewChild: TDOMNode);
+begin
+  if Assigned(FFirstChild) then
+  begin
+    FLastChild.FNextSibling := NewChild;
+    NewChild.FPreviousSibling := FLastChild;
+  end else
+    FFirstChild := NewChild;
+  FLastChild := NewChild;
+  NewChild.FParentNode := Self;
 end;
 
 function TDOMNode_WithChildren.HasChildNodes: Boolean;
@@ -1373,14 +1438,13 @@ end;
 
 
 function TDOMNode_WithChildren.FindNode(const ANodeName: DOMString): TDOMNode;
-var AVLNode: TAVLTreeNode;
 begin
-  Result:=nil;
-  if FChildNodeTree<>nil then begin
-    AVLNode:=FChildNodeTree.FindKey(Pointer(@ANodeName),
-                                    @CompareDOMStringWithDOMNode);
-    if AVLNode<>nil then
-      Result:=TDOMNode(AVLNode.Data);
+  Result := FFirstChild;
+  while Assigned(Result) do
+  begin
+    if Result.CompareName(ANodeName)=0 then
+      Exit;
+    Result := Result.NextSibling;
   end;
 end;
 
@@ -1393,7 +1457,7 @@ begin
   node := FirstChild;
   while Assigned(node) do
   begin
-    ACopy.AppendChild(node.CloneNode(True, ACloneOwner));
+    TDOMNode_WithChildren(ACopy).InternalAppend(node.CloneNode(True, ACloneOwner));
     node := node.NextSibling;
   end;
 end;
@@ -1402,8 +1466,6 @@ procedure TDOMNode_WithChildren.FreeChildren;
 var
   child, next: TDOMNode;
 begin
-  if Assigned(FChildNodeTree) then
-    FChildNodeTree.Clear;
   child := FFirstChild;
   while Assigned(child) do
   begin
@@ -1444,21 +1506,6 @@ begin
   if AValue <> '' then
     AppendChild(FOwnerDocument.CreateTextNode(AValue));
 end;
-
-procedure TDOMNode_WithChildren.AddToChildNodeTree(NewNode: TDOMNode);
-begin
-  if FChildNodeTree=nil then
-    FChildNodeTree:=TAVLTree.Create(@CompareDOMNodeWithDOMNode);
-  if FChildNodeTree.Find(NewNode)=nil then
-    FChildNodeTree.Add(NewNode);
-end;
-
-procedure TDOMNode_WithChildren.RemoveFromChildNodeTree(OldNode: TDOMNode);
-begin
-  if FChildNodeTree<>nil then
-    FChildNodeTree.Remove(OldNode);
-end;
-
 
 // -------------------------------------------------------
 //   NodeList
@@ -2060,7 +2107,7 @@ constructor TDOMDocument.Create;
 begin
   inherited Create(nil);
   FOwnerDocument := Self;
-  FMaxPoolSize := TDOMAttr.InstanceSize + sizeof(Pointer);
+  FMaxPoolSize := (TDOMAttr.InstanceSize + sizeof(Pointer)-1) and not (sizeof(Pointer)-1) + sizeof(Pointer);
   FPools := AllocMem(FMaxPoolSize);
   FNames := THashTable.Create(256, True);
   SetLength(FNamespaces, 3);
@@ -2081,7 +2128,7 @@ begin
   FEmptyNode.Free;
   inherited Destroy;
   for i := 0 to (FMaxPoolSize div sizeof(TNodePool))-1 do
-    FPools[i].Free;
+    FPools^[i].Free;
   FreeMem(FPools);
   FNames.Free;           // free the nametable after inherited has destroyed the children
                          // (because children reference the nametable)
@@ -2099,11 +2146,11 @@ begin
     Exit;
   end;
 
-  pp := FPools[size div sizeof(TNodePool)];
+  pp := FPools^[size div sizeof(TNodePool)];
   if pp = nil then
   begin
     pp := TNodePool.Create(size);
-    FPools[size div sizeof(TNodePool)] := pp;
+    FPools^[size div sizeof(TNodePool)] := pp;
   end;
   Result := pp.AllocNode(AClass);
 end;
@@ -2119,13 +2166,9 @@ begin
 
   ID := Attr.Value;
   p := FIDList.FindOrAdd(DOMPChar(ID), Length(ID), Exists);
-  if not Exists then
-  begin
+  Result := not Exists;
+  if Result then
     p^.Data := Attr.OwnerElement;
-    Result := True;
-  end
-  else
-    Result := False;
 end;
 
 // This shouldn't be called if document has no IDs,
@@ -2161,6 +2204,32 @@ end;
 function TDOMDocument.GetOwnerDocument: TDOMDocument;
 begin
   Result := nil;
+end;
+
+function TDOMDocument.InsertBefore(NewChild, RefChild: TDOMNode): TDOMNode;
+var
+  nType: Integer;
+begin
+  nType := NewChild.NodeType;
+  if ((nType = ELEMENT_NODE) and Assigned(DocumentElement)) or
+     ((nType = DOCUMENT_TYPE_NODE) and Assigned(DocType)) then
+       raise EDOMHierarchyRequest.Create('Document.InsertBefore');
+  Result := inherited InsertBefore(NewChild, RefChild);
+end;
+
+function TDOMDocument.ReplaceChild(NewChild, OldChild: TDOMNode): TDOMNode;
+var
+  nType: Integer;
+begin
+  nType := NewChild.NodeType;
+  if ((nType = ELEMENT_NODE) and (OldChild = DocumentElement)) or   // root can be replaced by another element
+     ((nType = DOCUMENT_TYPE_NODE) and (OldChild = DocType)) then   // and so can be DTD
+  begin
+    inherited InsertBefore(NewChild, OldChild);
+    Result := RemoveChild(OldChild);
+  end
+  else
+    Result := inherited ReplaceChild(NewChild, OldChild);
 end;
 
 function TDOMDocument.GetDocumentElement: TDOMElement;
@@ -2673,6 +2742,36 @@ begin
   end;
 end;
 
+function TDOMElement.InternalLookupPrefix(const nsURI: DOMString; Original: TDOMElement): DOMString;
+var
+  I: Integer;
+  Attr: TDOMAttr;
+begin
+  result := '';
+  if Self = nil then
+    Exit;
+  if (nfLevel2 in FFlags) and (namespaceURI = nsURI) and (FNSI.PrefixLen > 0) then
+  begin
+    Result := Prefix;
+    if Original.LookupNamespaceURI(result) = nsURI then
+      Exit;
+  end;
+  if Assigned(FAttributes) then
+  begin
+    for I := 0 to FAttributes.Length-1 do
+    begin
+      Attr := TDOMAttr(FAttributes[I]);
+      if (Attr.Prefix = 'xmlns') and (Attr.Value = nsURI) then
+      begin
+        result := Attr.LocalName;
+        if Original.LookupNamespaceURI(result) = nsURI then
+          Exit;
+      end;
+    end;
+  end;
+  result := GetAncestorElement(Self).InternalLookupPrefix(nsURI, Original);
+end;
+
 procedure TDOMElement.RestoreDefaultAttr(AttrDef: TDOMAttr);
 var
   Attr: TDOMAttr;
@@ -2848,16 +2947,12 @@ end;
 function TDOMElement.RemoveAttributeNode(OldAttr: TDOMAttr): TDOMAttr;
 begin
   Changing;
-  Result:=nil;
-  // TODO: DOM 2: must raise NOT_FOUND_ERR if OldAttr is not ours.
-  //       -- but what is the purpose of return value then?
-  // TODO: delegate to TNamedNodeMap?  Nope, it does not have such method
-  // (note) one way around is to remove by name
+  Result:=OldAttr;
   if Assigned(FAttributes) and (FAttributes.FList.Remove(OldAttr) > -1) then
   begin
-    Result := OldAttr;
     if Assigned(OldAttr.FNSI.QName) then  // safeguard
       FAttributes.RestoreDefault(OldAttr.FNSI.QName^.Key);
+    Result.FOwnerElement := nil;
   end
   else
     raise EDOMNotFound.Create('Element.RemoveAttributeNode');
@@ -3163,16 +3258,16 @@ end;
 destructor TNodePool.Destroy;
 var
   ext, next: PExtent;
-  ptr, ptr_end: Pointer;
+  ptr, ptr_end: PAnsiChar;
   sz: Integer;
 begin
   ext := FCurrExtent;
-  ptr := Pointer(FCurrBlock) + FElementSize;
+  ptr := PAnsiChar(FCurrBlock) + FElementSize;
   sz := FCurrExtentSize;
   while Assigned(ext) do
   begin
     // call destructors for everyone still there
-    ptr_end := Pointer(ext) + sizeof(TExtent) + (sz - 1) * FElementSize;
+    ptr_end := PAnsiChar(ext) + sizeof(TExtent) + (sz - 1) * FElementSize;
     while ptr <= ptr_end do
     begin
       if TDOMNode(ptr).FPool = Self then
@@ -3184,7 +3279,7 @@ begin
     FreeMem(ext);
     ext := next;
     sz := sz div 2;
-    ptr := Pointer(ext) + sizeof(TExtent);
+    ptr := PAnsiChar(ext) + sizeof(TExtent);
   end;
   inherited Destroy;
 end;
@@ -3194,13 +3289,13 @@ var
   ext: PExtent;
 begin
   Assert((FCurrExtent = nil) or
-    (Pointer(FCurrBlock) = Pointer(FCurrExtent) + sizeof(TExtent)));
+    (PAnsiChar(FCurrBlock) < PAnsiChar(FCurrExtent) + sizeof(TExtent)));
   Assert(AElemCount > 0);
 
   GetMem(ext, sizeof(TExtent) + AElemCount * FElementSize);
   ext^.Next := FCurrExtent;
   // point to the beginning of the last block of extent
-  FCurrBlock := TDOMNode(Pointer(ext) + sizeof(TExtent) + (AElemCount - 1) * FElementSize);
+  FCurrBlock := TDOMNode(PAnsiChar(ext) + sizeof(TExtent) + (AElemCount - 1) * FElementSize);
   FCurrExtent := ext;
   FCurrExtentSize := AElemCount;
 end;
@@ -3214,10 +3309,10 @@ begin
   end
   else
   begin
-    if Pointer(FCurrBlock) = Pointer(FCurrExtent) + sizeof(TExtent) then
+    if PAnsiChar(FCurrBlock) < PAnsiChar(FCurrExtent) + sizeof(TExtent) then
       AddExtent(FCurrExtentSize * 2);
     Result := FCurrBlock;
-    Dec(PChar(FCurrBlock), FElementSize);
+    Dec(PAnsiChar(FCurrBlock), FElementSize);
   end;
   AClass.InitInstance(Result);
   Result.FPool := Self;        // mark as used

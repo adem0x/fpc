@@ -34,7 +34,10 @@ Type
     FirstPass,
     ParaLogo,
     NoPressEnter,
-    LogoWritten : boolean;
+    LogoWritten,
+    FPUSetExplicitly,
+    CPUSetExplicitly,
+    OptCPUSetExplicitly: boolean;
     FileLevel : longint;
     QuickInfo : string;
     ParaIncludePath,
@@ -51,6 +54,7 @@ Type
     procedure WriteQuickInfo;
     procedure IllegalPara(const opt:string);
     procedure UnsupportedPara(const opt:string);
+    procedure IgnoredPara(const opt:string);
     function  Unsetbool(var Opts:TCmdStr; Pos: Longint):boolean;
     procedure interpret_option(const opt :string;ispara:boolean);
     procedure Interpret_envvar(const envname : string);
@@ -81,8 +85,7 @@ uses
   comphook,
   symtable,scanner,rabase,
   wpobase,
-  i_bsd
-  ;
+  i_bsd;
 
 const
   page_size = 24;
@@ -93,7 +96,6 @@ var
   disable_configfile : boolean;
   fpcdir,
   ppccfg,
-  ppcaltcfg,
   param_file    : string;   { file to compile specified on the commandline }
 
 
@@ -121,6 +123,10 @@ const
                         + [system_i386_freebsd]
                         + [system_i386_netbsd]
                         + [system_i386_wdosx];
+                        
+  suppported_targets_x_smallr = systems_linux + systems_solaris
+                             + [system_i386_haiku]
+                             + [system_i386_beos];
 
 {****************************************************************************
                                  Defines
@@ -448,6 +454,12 @@ begin
 end;
 
 
+procedure toption.IgnoredPara(const opt: string);
+begin
+  Message1(option_ignored_target,opt);
+end;
+
+
 procedure toption.ForceStaticLinking;
 begin
   def_system_macro('FPC_LINK_STATIC');
@@ -620,6 +632,7 @@ begin
                         s:=upper(copy(more,j+1,length(more)-j));
                         if not(SetFpuType(s,init_settings.fputype)) then
                           IllegalPara(opt);
+                        FPUSetExplicitly:=True;
                         break;
                       end;
                     'F' :
@@ -673,6 +686,7 @@ begin
                         s:=upper(copy(more,j+1,length(more)-j));
                         if not(Setcputype(s,init_settings.cputype)) then
                           IllegalPara(opt);
+                        CPUSetExplicitly:=true;
                         break;
                       end;
                     'P':
@@ -1131,6 +1145,7 @@ begin
                       begin
                         if not Setcputype(copy(more,j+1,length(more)),init_settings.optimizecputype) then
                           begin
+                            OptCPUSetExplicitly:=true;
                             { Give warning for old i386 switches }
                             if (Length(More)-j=1) and
                                (More[j+1]>='1') and (More[j+1]<='5')then
@@ -1330,10 +1345,7 @@ begin
                          else
                            include(init_settings.globalswitches,cs_constructor_name);
                        't' :
-                         If UnsetBool(More, j) then
-                           exclude(init_settings.moduleswitches,cs_static_keyword)
-                         else
-                           include(init_settings.moduleswitches,cs_static_keyword);
+                         Message1(option_obsolete_switch,'-St');
                        'v' :
                          If UnsetBool(More, j) then
                            exclude(init_settings.globalswitches,cs_support_vectors)
@@ -1349,8 +1361,7 @@ begin
                            init_settings.globalswitches:=init_settings.globalswitches - [cs_constructor_name,cs_support_exceptions];
                            init_settings.localswitches:=init_settings.localswitches - [cs_do_assertion, cs_do_inline, cs_ansistrings];
                            init_settings.moduleswitches:=init_settings.moduleswitches - [cs_support_c_operators, cs_support_goto,
-                                                                     cs_support_macro,
-                                                                     cs_static_keyword];
+                                                                     cs_support_macro];
                          end;
                        else
                          IllegalPara(opt);
@@ -1560,7 +1571,7 @@ begin
                       end;
                     'X':
                       begin
-                        if (target_info.system in system_linux) then
+                        if (target_info.system in systems_linux) then
                           begin
                             if UnsetBool(More, j) then
                               exclude(init_settings.moduleswitches,cs_executable_stack)
@@ -1608,6 +1619,14 @@ begin
                         else
                           exclude(init_settings.globalswitches,cs_link_extern);
                       end;
+                    'n' :
+                      begin
+                        If UnsetBool(More, j) then
+                          exclude(init_settings.globalswitches,cs_link_native)
+                        else
+                          include(init_settings.globalswitches,cs_link_native);
+                      end;
+
                     'm' :
                       begin
                         If UnsetBool(More, j) then
@@ -1618,9 +1637,14 @@ begin
                     'p' : ; { Ignore used by fpc.pp }
                     'r' :
                       begin
-                        rlinkpath:=Copy(more,2,length(More)-1);
-                        DefaultReplacements(rlinkpath);
-                        More:='';
+                        if (target_info.system in suppported_targets_x_smallr) then
+                          begin
+                            rlinkpath:=Copy(more,2,length(More)-1);
+                            DefaultReplacements(rlinkpath);
+                          end
+                        else
+                          IgnoredPara('-Xr');
+                        more:='';
                       end;
                     'R' :
                       begin
@@ -2196,7 +2220,10 @@ begin
     system_arm_gba:
       target_unsup_features:=[f_threading,f_commandargs,f_fileio,f_textio,f_consoleio,f_dynlibs];
     system_arm_nds:
-      target_unsup_features:=[f_threading,f_commandargs,f_fileio,f_textio,f_consoleio,f_dynlibs]
+      target_unsup_features:=[f_threading,f_commandargs,f_fileio,f_textio,f_consoleio,f_dynlibs];
+    system_i386_nativent:
+      // until these features are implemented, they are disabled in the compiler
+      target_unsup_features:=[f_threading,f_processes,f_fileio,f_textio,f_consoleio,f_commandargs,f_stackcheck];
     else
       target_unsup_features:=[];
   end;
@@ -2218,6 +2245,15 @@ begin
           ForceStaticLinking;
         end;
     end;
+
+  { external debug info is only supported for DWARF on darwin }
+  if (target_info.system in systems_darwin) and
+     (cs_link_separate_dbg_file in init_settings.globalswitches) and
+     not(paratargetdbg in [dbg_dwarf2,dbg_dwarf3]) then
+    begin
+      Message(option_debug_external_unsupported);
+      exclude(init_settings.globalswitches,cs_link_separate_dbg_file);
+    end;
 end;
 
 
@@ -2226,6 +2262,9 @@ begin
   LogoWritten:=false;
   NoPressEnter:=false;
   FirstPass:=false;
+  FPUSetExplicitly:=false;
+  CPUSetExplicitly:=false;
+  OptCPUSetExplicitly:=false;
   FileLevel:=0;
   Quickinfo:='';
   ParaIncludePath:=TSearchPathList.Create;
@@ -2328,10 +2367,7 @@ begin
       Delete(cmd,1,pos(']',cmd));
     end
   else
-    begin
-      ppccfg:='fpc.cfg';
-      ppcaltcfg:='ppc386.cfg';
-    end;
+    ppccfg:='fpc.cfg';
 
 { first pass reading of parameters, only -i -v -T etc.}
   option.firstpass:=true;
@@ -2347,7 +2383,7 @@ begin
   option.firstpass:=false;
 
 { target is set here, for wince the default app type is gui }
-  if target_info.system in system_wince then
+  if target_info.system in systems_wince then
     apptype:=app_gui;
 
 { default defines }
@@ -2366,9 +2402,9 @@ begin
   def_system_macro('FPC_HAS_STR_CURRENCY');
   def_system_macro('FPC_REAL2REAL_FIXED');
   def_system_macro('FPC_STRTOCHARARRAYPROC');
-  def_system_macro('FPC_NEW_BIGENDIAN_SETS');
   def_system_macro('FPC_STRTOSHORTSTRINGPROC');
   def_system_macro('FPC_OBJFPC_EXTENDED_IF');
+  def_system_macro('FPC_HAS_OPERATOR_ENUMERATOR');
 {$if defined(x86) or defined(powerpc) or defined(powerpc64)}
   def_system_macro('FPC_HAS_INTERNAL_ABS_LONG');
 {$endif}
@@ -2378,16 +2414,19 @@ begin
 {$ifdef x86_64}
   def_system_macro('FPC_HAS_RIP_RELATIVE');
 {$endif x86_64}
+  def_system_macro('FPC_HAS_CEXTENDED');
 
 { these cpus have an inline rol/ror implementaion }
 {$if defined(x86) or defined(arm) or defined(powerpc) or defined(powerpc64)}
   def_system_macro('FPC_HAS_INTERNAL_ROX');
 {$endif}
 
-{$ifdef SUPPORT_UNALIGNED}
-  def_system_macro('FPC_SUPPORTS_UNALIGNED');
-  def_system_macro('FPC_UNALIGNED_FIXED');
-{$endif SUPPORT_UNALIGNED}
+{ these cpus have an inline sar implementaion }
+{ currently, all supported CPUs have an internal sar implementation }
+{ $if defined(x86) or defined(arm) or defined(powerpc) or defined(powerpc64) or defined(sparc)}
+  def_system_macro('FPC_HAS_INTERNAL_SAR');
+{ $endif}
+
 {$ifdef powerpc64}
   def_system_macro('FPC_HAS_LWSYNC');
 {$endif}
@@ -2490,17 +2529,7 @@ begin
   { read configuration file }
   if (not disable_configfile) and
      (ppccfg<>'') then
-    begin
-      read_configfile:=check_configfile(ppccfg,ppccfg);
-      { Maybe alternative configfile ? }
-      if (not read_configfile) and
-         (ppcaltcfg<>'') then
-        begin
-          read_configfile:=check_configfile(ppcaltcfg,ppccfg);
-          if read_configfile then
-            message(option_ppc386_deprecated);
-        end;
-    end
+    read_configfile:=check_configfile(ppccfg,ppccfg)
   else
     read_configfile := false;
 
@@ -2694,12 +2723,17 @@ begin
      not(cs_link_separate_dbg_file in init_settings.globalswitches) then
     exclude(init_settings.globalswitches,cs_link_strip);
 
-  { force fpu emulation on arm/wince, arm/gba, arm/embedded and arm/nds}
-  if (target_info.system in [system_arm_wince,system_arm_gba,system_m68k_amiga,
-    system_m68k_linux,system_arm_nds,system_arm_darwin,system_arm_embedded])
+  { force fpu emulation on arm/wince, arm/gba, arm/embedded, arm/nds and
+    arm/darwin if fpu type not explicitly set }
+  if not(option.FPUSetExplicitly) and
+     ((target_info.system in [system_arm_wince,system_arm_gba,system_m68k_amiga,
+         system_m68k_linux,system_arm_nds,system_arm_embedded,system_arm_darwin])
 {$ifdef arm}
-    or (init_settings.fputype=fpu_soft)
-    or (target_info.abi=abi_eabi)
+      or (target_info.abi=abi_eabi)
+{$endif arm}
+     )
+{$ifdef arm}
+     or (init_settings.fputype=fpu_soft)
 {$endif arm}
   then
     begin
@@ -2709,6 +2743,17 @@ begin
       init_settings.fputype:=fpu_soft;
 {$endif cpufpemu}
     end;
+
+{$ifdef arm}
+{ set default cpu type to ARMv6 for Darwin unless specified otherwise }
+if (target_info.system=system_arm_darwin) then
+  begin
+    if not option.CPUSetExplicitly then
+      init_settings.cputype:=cpu_armv6;
+    if not option.OptCPUSetExplicitly then
+      init_settings.optimizecputype:=cpu_armv6;
+  end;
+{$endif arm}
 
   { now we can define cpu and fpu type }
   def_system_macro('CPU'+Cputypestr[init_settings.cputype]);
@@ -2768,7 +2813,7 @@ begin
   set_system_macro('FPC_PATCH',patch_nr);
   set_system_macro('FPC_FULLVERSION',Format('%d%.02d%.02d',[StrToInt(version_nr),StrToInt(release_nr),StrToInt(patch_nr)]));
 
-  if not(target_info.system in system_all_windows) then
+  if not(target_info.system in systems_windows) then
     def_system_macro('FPC_WIDESTRING_EQUAL_UNICODESTRING');
 
   for i:=low(tfeature) to high(tfeature) do

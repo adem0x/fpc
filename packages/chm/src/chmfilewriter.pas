@@ -26,10 +26,10 @@ interface
 
 uses
   Classes, SysUtils, chmwriter;
-  
+
 type
   TChmProject = class;
-  
+
   TChmProgressCB = procedure (Project: TChmProject; CurrentFile: String) of object;
 
   { TChmProject }
@@ -41,6 +41,8 @@ type
     FDefaultPage: String;
     FFiles: TStrings;
     FIndexFileName: String;
+    FMakeBinaryTOC: Boolean;
+    FMakeBinaryIndex: Boolean;
     FMakeSearchable: Boolean;
     FFileName: String;
     FOnProgress: TChmProgressCB;
@@ -57,6 +59,7 @@ type
     procedure SaveToFile(AFileName: String);
     procedure WriteChm(AOutStream: TStream);
     function ProjectDir: String;
+    procedure AddFileWithContext(contextid:integer;filename:ansistring;contextname:ansistring='');
     // though stored in the project file, it is only there for the program that uses the unit
     // since we actually write to a stream
     property OutputFileName: String read FOutputFileName write FOutputFileName;
@@ -64,18 +67,26 @@ type
     property Files: TStrings read FFiles write FFiles;
     property AutoFollowLinks: Boolean read FAutoFollowLinks write FAutoFollowLinks;
     property TableOfContentsFileName: String read FTableOfContentsFileName write FTableOfContentsFileName;
+    property MakeBinaryTOC: Boolean read FMakeBinaryTOC write FMakeBinaryTOC;
+    property MakeBinaryIndex: Boolean read FMakeBinaryIndex write FMakeBinaryIndex;
     property Title: String read FTitle write FTitle;
     property IndexFileName: String read FIndexFileName write FIndexFileName;
     property MakeSearchable: Boolean read FMakeSearchable write FMakeSearchable;
     property DefaultPage: String read FDefaultPage write FDefaultPage;
     property DefaultFont: String read FDefaultFont write FDefaultFont;
-    
+
     property OnProgress: TChmProgressCB read FOnProgress write FOnProgress;
   end;
 
+  TChmContextNode = Class
+                     URLName       : AnsiString;
+                     ContextNumber : Integer;
+                     ContextName   : AnsiString;
+                    End;
+
 implementation
 
-uses XmlCfg;
+uses XmlCfg, chmsitemap;
 
 { TChmProject }
 
@@ -88,7 +99,7 @@ begin
   // clean up the filename
   FileName := StringReplace(ExtractFileName(DataName), '\', '/', [rfReplaceAll]);
   FileName := StringReplace(FileName, '//', '/', [rfReplaceAll]);
-  
+
   PathInChm := '/'+ExtractFilePath(DataName);
   if Assigned(FOnProgress) then FOnProgress(Self, DataName);
 end;
@@ -98,20 +109,45 @@ var
   IndexStream: TFileStream;
   TOCStream: TFileStream;
   Writer: TChmWriter;
+  TOCSitemap  : TChmSiteMap;
+  IndexSiteMap: TChmSiteMap;
 begin
   // Assign the TOC and index files
   Writer := TChmWriter(Sender);
+  {$ifdef chmindex}
+    Writeln('binindex filename ',IndexFileName);
+  {$endif}
   if (IndexFileName <> '') and FileExists(IndexFileName) then begin
     IndexStream := TFileStream.Create(IndexFileName, fmOpenRead);
     Writer.AppendIndex(IndexStream);
+    if MakeBinaryIndex then
+    begin
+      {$ifdef chmindex}
+        Writeln('into binindex ');
+      {$endif}
+      IndexStream.Position := 0;
+      IndexSitemap := TChmSiteMap.Create(stIndex);
+      indexSitemap.LoadFromStream(IndexStream);
+      Writer.AppendBinaryIndexFromSiteMap(IndexSitemap,False);
+      IndexSitemap.Free;
+    end;
     IndexStream.Free;
   end;
   if (TableOfContentsFileName <> '') and FileExists(TableOfContentsFileName) then begin
     TOCStream := TFileStream.Create(TableOfContentsFileName, fmOpenRead);
     Writer.AppendTOC(TOCStream);
+    if MakeBinaryTOC then
+    begin
+      TOCStream.Position := 0;
+      TOCSitemap := TChmSiteMap.Create(stTOC);
+      TOCSitemap.LoadFromStream(TOCStream);
+      Writer.AppendBinaryTOCFromSiteMap(TOCSitemap);
+      TOCSitemap.Free;
+    end;
     TOCStream.Free;
   end;
-
+  if not assigned(sender) then
+    Writer.Free;
 end;
 
 constructor TChmProject.Create;
@@ -120,8 +156,11 @@ begin
 end;
 
 destructor TChmProject.Destroy;
+var i : integer;
 begin
-  FFIles.Free;
+  for i:=0 to ffiles.count -1 do
+    ffiles.objects[i].free;
+  FFiles.Free;
   inherited Destroy;
 end;
 
@@ -129,20 +168,28 @@ procedure TChmProject.LoadFromFile(AFileName: String);
 var
   Cfg: TXMLConfig;
   FileCount: Integer;
-  I: Integer;
+  I  : Integer;
+  nd : TChmContextNode;
 begin
   Cfg := TXMLConfig.Create(nil);
   Cfg.Filename := AFileName;
   FileName := AFileName;
-  
+
   Files.Clear;
   FileCount := Cfg.GetValue('Files/Count/Value', 0);
-  for I := 0 to FileCount-1 do begin
-    Files.Add(Cfg.GetValue('Files/FileName'+IntToStr(I)+'/Value',''));
-  end;
+  for I := 0 to FileCount-1 do
+    begin
+      nd:=TChmContextNode.Create;
+      nd.urlname:=Cfg.GetValue('Files/FileName'+IntToStr(I)+'/Value','');
+      nd.contextnumber:=Cfg.GetValue('Files/FileName'+IntToStr(I)+'/ContextNumber',0);
+      nd.contextname:=Cfg.GetValue('Files/FileName'+IntToStr(I)+'/ContextName','');
+      Files.AddObject(nd.urlname,nd);
+    end;
   IndexFileName := Cfg.GetValue('Files/IndexFile/Value','');
   TableOfContentsFileName := Cfg.GetValue('Files/TOCFile/Value','');
-  
+  // For chm file merging, bintoc must be false and binindex true. Change defaults in time?
+  MakeBinaryTOC := Cfg.GetValue('Files/MakeBinaryTOC/Value', True);
+  MakeBinaryIndex:= Cfg.GetValue('Files/MakeBinaryIndex/Value', False);
   AutoFollowLinks := Cfg.GetValue('Settings/AutoFollowLinks/Value', False);
   MakeSearchable := Cfg.GetValue('Settings/MakeSearchable/Value', False);
   DefaultPage := Cfg.GetValue('Settings/DefaultPage/Value', '');
@@ -152,23 +199,58 @@ begin
   Cfg.Free;
 end;
 
+procedure TChmProject.AddFileWithContext(contextid:integer;filename:ansistring;contextname:ansistring='');
+var x : integer;
+    nd : TChmContextNode;
+begin
+  x:=files.indexof(filename);
+  if x=-1 then
+    begin
+      nd:=TChmContextNode.Create;
+      nd.urlname:=filename;
+      nd.contextnumber:=contextid;
+      nd.contextname:=contextname;
+      Files.AddObject(nd.urlname,nd);
+    end
+  else
+   begin
+     nd:=TChmContextNode(files.objects[x]);
+     if not assigned(nd) then
+       begin
+         nd:=TChmContextNode.Create;
+         nd.urlname:=filename;
+         files.objects[x]:=nd;
+       end;
+      nd.contextnumber:=contextid;
+      nd.contextname:=contextname;
+   end;
+end;
+
 procedure TChmProject.SaveToFile(AFileName: String);
 var
   Cfg: TXMLConfig;
-  I: Integer;
-
+  I  : Integer;
+  nd : TChmContextNode;
 begin
   Cfg := TXMLConfig.Create(nil);
   Cfg.StartEmpty := True;
-  Cfg.Filename := FileName;
+  Cfg.Filename := AFileName;
   Cfg.Clear;
   Cfg.SetValue('Files/Count/Value', Files.Count);
-  for I := 0 to Files.Count-1 do begin
+  for I := 0 to Files.Count-1 do
+  begin
+    nd:=TChmContextNode(files.objects[i]);
     Cfg.SetValue('Files/FileName'+IntToStr(I)+'/Value', Files.Strings[I]);
+    if assigned(nd) then
+      begin
+        Cfg.SetValue('Files/FileName'+IntToStr(I)+'/ContextNumber', nd.contextnumber);
+        Cfg.SetValue('Files/FileName'+IntToStr(I)+'/ContextName', nd.contextname);
+      end;
   end;
   Cfg.SetValue('Files/IndexFile/Value', IndexFileName);
   Cfg.SetValue('Files/TOCFile/Value', TableOfContentsFileName);
-
+  Cfg.SetValue('Files/MakeBinaryTOC/Value',MakeBinaryTOC);
+  Cfg.SetValue('Files/MakeBinaryIndex/Value',MakeBinaryIndex);
   Cfg.SetValue('Settings/AutoFollowLinks/Value', AutoFollowLinks);
   Cfg.SetValue('Settings/MakeSearchable/Value', MakeSearchable);
   Cfg.SetValue('Settings/DefaultPage/Value', DefaultPage);
@@ -186,9 +268,11 @@ end;
 
 procedure TChmProject.WriteChm(AOutStream: TStream);
 var
-  Writer: TChmWriter;
+  Writer     : TChmWriter;
   TOCStream,
   IndexStream: TFileStream;
+  nd         : TChmContextNode;
+  I          : Integer;
 begin
   IndexStream := nil;
   TOCStream := nil;
@@ -198,7 +282,7 @@ begin
   // our callback to get data
   Writer.OnGetFileData := @GetData;
   Writer.OnLastFile    := @LastFileAdded;
-  
+
   // give it the list of files
   Writer.FilesToCompress.AddStrings(Files);
 
@@ -207,12 +291,22 @@ begin
   Writer.Title := Title;
   Writer.DefaultFont := DefaultFont;
   Writer.FullTextSearch := MakeSearchable;
-  
+  Writer.HasBinaryTOC := MakeBinaryTOC;
+  Writer.HasBinaryIndex := MakeBinaryIndex;
+
+  for i:=0 to files.count-1 do
+    begin
+      nd:=TChmContextNode(files.objects[i]);
+      if assigned(nd) and (nd.contextnumber<>0) then
+        Writer.AddContext(nd.ContextNumber,files[i]);
+    end;
+
   // and write!
   Writer.Execute;
-  
+
   if Assigned(TOCStream) then TOCStream.Free;
   if Assigned(IndexStream) then IndexStream.Free;
+  Writer.Free;
 end;
 
 

@@ -68,8 +68,9 @@ interface
        trefaddr = (
          addr_no,
          addr_full,
-         addr_pic
-         {$IF defined(POWERPC) or defined(POWERPC64) or defined(SPARC)}
+         addr_pic,
+         addr_pic_no_got
+         {$IF defined(POWERPC) or defined(POWERPC64) or defined(SPARC) or defined(MIPS)}
          ,
          addr_low,         // bits 48-63
          addr_high,        // bits 32-47
@@ -267,7 +268,7 @@ interface
          1,2,4,8,16,1,2,4,8,16);
 
        tfloat2tcgsize: array[tfloattype] of tcgsize =
-         (OS_F32,OS_F64,OS_F80,OS_C64,OS_C64,OS_F128);
+         (OS_F32,OS_F64,OS_F80,OS_F80,OS_C64,OS_C64,OS_F128);
 
        tcgsize2tfloat: array[OS_F32..OS_C64] of tfloattype =
          (s32real,s64real,s80real,s64comp);

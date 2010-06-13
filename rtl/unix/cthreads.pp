@@ -15,6 +15,13 @@
  **********************************************************************}
 {$mode objfpc}
 {$ifdef linux}
+{ we can combine both compile-time linking and dynamic loading, in order to:
+    a) solve a problem on some systems with dynamically loading libpthread if
+       it's not linked at compile time
+    b) still enabling dynamically checking whether or not certain functions
+       are available (could also be implemented via weak linking)
+}
+{$linklib pthread}
 {$define dynpthreads} // Useless on BSD, since they are in libc
 {$endif}
 
@@ -283,7 +290,11 @@ Type  PINTRTLEvent = ^TINTRTLEvent;
 {$endif DEBUG_MT}
       pthread_attr_init(@thread_attr);
       {$ifndef HAIKU}
+      {$ifdef solaris}
+      pthread_attr_setinheritsched(@thread_attr, PTHREAD_INHERIT_SCHED);
+      {$else not solaris}
       pthread_attr_setinheritsched(@thread_attr, PTHREAD_EXPLICIT_SCHED);
+      {$endif not solaris}
       {$endif}
 
       // will fail under linux -- apparently unimplemented
@@ -297,6 +308,7 @@ Type  PINTRTLEvent = ^TINTRTLEvent;
       if (pthread_attr_setstacksize(@thread_attr, stacksize)<>0) or
          // and create the thread
          (pthread_create(ppthread_t(@threadid), @thread_attr, @ThreadMain,ti) <> 0) then
+
         begin
           dispose(ti);
           threadid := TThreadID(0);
@@ -328,12 +340,14 @@ Type  PINTRTLEvent = ^TINTRTLEvent;
        http://java.sun.com/j2se/1.4.2/docs/guide/misc/threadPrimitiveDeprecation.html
     }
 //      result := pthread_kill(threadHandle,SIGSTOP);
+      result:=dword(-1);
     end;
 
 
   function  CResumeThread  (threadHandle : TThreadID) : dword;
     begin
 //      result := pthread_kill(threadHandle,SIGCONT);
+      result:=dword(-1);
     end;
 
 
@@ -355,6 +369,10 @@ Type  PINTRTLEvent = ^TINTRTLEvent;
       CKillThread := pthread_cancel(pthread_t(threadHandle));
     end;
 
+  function CCloseThread (threadHandle : TThreadID) : dword;
+    begin
+      result:=0;
+    end;
 
   function  CWaitForThreadTerminate (threadHandle : TThreadID; TimeoutMs : longint) : dword;  {0=no timeout}
     var
@@ -367,12 +385,14 @@ Type  PINTRTLEvent = ^TINTRTLEvent;
     function  CThreadSetPriority (threadHandle : TThreadID; Prio: longint): boolean; {-15..+15, 0=normal}
     begin
       {$Warning ThreadSetPriority needs to be implemented}
+      result:=false;
     end;
 
 
   function  CThreadGetPriority (threadHandle : TThreadID): Integer;
     begin
       {$Warning ThreadGetPriority needs to be implemented}
+      result:=0;
     end;
 
 
@@ -413,6 +433,14 @@ Type  PINTRTLEvent = ^TINTRTLEvent;
       begin
          if pthread_mutex_lock(@CS) <> 0 then
            fpc_threaderror
+      end;
+
+    function CTryEnterCriticalSection(var CS):longint;
+      begin
+         if pthread_mutex_Trylock(@CS)=0 then
+           result:=1  // succes
+         else
+           result:=0; // failure
       end;
 
     procedure CLeaveCriticalSection(var CS);
@@ -576,7 +604,7 @@ begin
 {$ifdef has_sem_open}
   { avoid a potential temporary nameclash with another process/thread }
   str(fpGetPid,semname);
-  str(ptruint(pthread_self),tid);
+  str(ptruint(pthread_self()),tid);
   semname:='/FPC'+semname+'T'+tid+#0;
   cIntSemaphoreInit:=cIntSemaphoreOpen(@semname[1],initvalue);
 {$else}
@@ -888,7 +916,7 @@ begin
 {$else}
   Result:=LoadPthreads;
 {$endif}
-  ThreadID := TThreadID (pthread_self);
+  ThreadID := TThreadID (pthread_self());
 {$ifdef DEBUG_MT}
   Writeln('InitThreads : ',Result);
 {$endif DEBUG_MT}
@@ -920,6 +948,7 @@ begin
     ResumeThread           :=@CResumeThread;
     KillThread             :=@CKillThread;
     ThreadSwitch           :=@CThreadSwitch;
+    CloseThread	           :=@CCloseThread;
     WaitForThreadTerminate :=@CWaitForThreadTerminate;
     ThreadSetPriority      :=@CThreadSetPriority;
     ThreadGetPriority      :=@CThreadGetPriority;
@@ -927,6 +956,7 @@ begin
     InitCriticalSection    :=@CInitCriticalSection;
     DoneCriticalSection    :=@CDoneCriticalSection;
     EnterCriticalSection   :=@CEnterCriticalSection;
+    TryEnterCriticalSection:=@CTryEnterCriticalSection;
     LeaveCriticalSection   :=@CLeaveCriticalSection;
     InitThreadVar          :=@CInitThreadVar;
     RelocateThreadVar      :=@CRelocateThreadVar;

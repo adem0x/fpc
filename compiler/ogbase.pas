@@ -74,7 +74,9 @@ interface
          { No relocation is needed. It is used in ARM object files.
            Also internal linker use this reloc to make virtual (not real)
            links to some sections }
-         RELOC_NONE
+         RELOC_NONE,
+         { Darwin relocation, using PAIR }
+         RELOC_PIC_PAIR
       );
 
 {$ifndef x86_64}
@@ -143,6 +145,10 @@ interface
        size       : aword;
        { Used for external and common solving during linking }
        exesymbol  : TExeSymbol;
+
+       { Darwin asm is using indirect symbols resolving }
+       indsymbol  : TObjSymbol;
+
        constructor create(AList:TFPHashObjectList;const AName:string);
        function  address:aword;
        procedure SetAddress(apass:byte;aobjsec:TObjSection;abind:TAsmsymbind;atyp:Tasmsymtype);
@@ -536,7 +542,7 @@ implementation
           internalerror(200603016);
         if not assigned(aobjsec) then
           internalerror(200603017);
-        if (bind=AB_EXTERNAL) then
+        if (bind in [AB_EXTERNAL,AB_LAZY]) then
           begin
             bind:=abind;
             typ:=atyp;
@@ -811,7 +817,7 @@ implementation
 
     function TObjData.sectionname(atype:TAsmSectiontype;const aname:string;aorder:TAsmSectionOrder):string;
       const
-        secnames : array[TAsmSectiontype] of string[length('objc_meth_var_names')] = ('',
+        secnames : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('',
           'code',
           'Data',
           'Data',
@@ -820,6 +826,10 @@ implementation
           'threadvar',
           'pdata',
           'stub',
+          'data_nonlazy',
+          'data_lazy',
+          'init_func',
+          'term_func',
           'stab','stabstr',
           'iData2','iData4','iData5','iData6','iData7','eData',
           'eh_frame',
@@ -852,7 +862,16 @@ implementation
           'objc_property',
           'objc_image_info',
           'objc_cstring_object',
-          'objc_sel_fixup'
+          'objc_sel_fixup',
+          '__DATA,__objc_data',
+          '__DATA,__objc_const',
+          '.objc_superrefs',
+          '__DATA, __datacoal_nt,coalesced',
+          '.objc_classlist',
+          '.objc_nlclasslist',
+          '.objc_catlist',
+          '.obcj_nlcatlist',
+          '.objc_protolist'
         );
       var
         sep : string[3];
@@ -887,6 +906,10 @@ implementation
           {threadvar} [oso_load,oso_write],
           {pdata} [oso_load,oso_readonly,oso_keep],
           {stub} [oso_Data,oso_load,oso_readonly,oso_executable],
+          {data_nonlazy}  [oso_Data,oso_load,oso_write],
+          {data_lazy} [oso_Data,oso_load,oso_write],
+          {init_func} [oso_Data,oso_load],
+          {term_func} [oso_Data,oso_load],
           {stab} [oso_Data,oso_noload,oso_debug],
           {stabstr} [oso_Data,oso_noload,oso_strings,oso_debug],
           {iData2} [oso_Data,oso_load,oso_write],
@@ -928,7 +951,16 @@ implementation
           {objc_property} [oso_data,oso_load],
           {objc_image_info} [oso_data,oso_load],
           {objc_cstring_object} [oso_data,oso_load],
-          {objc_sel_fixup} [oso_data,oso_load]
+          {objc_sel_fixup} [oso_data,oso_load],
+          {sec_objc_data} [oso_data,oso_load],
+          {sec_objc_const} [oso_data,oso_load],
+          {sec_objc_sup_refs} [oso_data,oso_load],
+          {sec_data_coalesced} [oso_data,oso_load],
+          {sec_objc_classlist} [oso_data,oso_load],
+          {sec_objc_nlclasslist} [oso_data,oso_load],
+          {sec_objc_catlist} [oso_data,oso_load],
+          {sec_objc_nlcatlist} [oso_data,oso_load],
+          {sec_objc_protolist'} [oso_data,oso_load]
         );
       begin
         result:=secoptions[atype];
@@ -1435,7 +1467,7 @@ implementation
         FMangledName:=AName;
         { Replace ? and @ in import name, since GNU AS does not allow these characters in symbol names. }
         { This allows to import VC++ mangled names from DLLs. }
-        if target_info.system in system_all_windows then
+        if target_info.system in systems_all_windows then
           begin
             Replace(FMangledName,'?','__q$$');
 {$ifdef arm}

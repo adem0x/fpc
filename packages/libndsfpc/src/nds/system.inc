@@ -76,15 +76,17 @@ const
 	POWER_3D_CORE  : PM_Bits = PM_ARM9_DIRECT or (1 shl 3);
 	POWER_2D_B     : PM_Bits = PM_ARM9_DIRECT or (1 shl 9);
 	POWER_SWAP_LCDS: PM_Bits = PM_ARM9_DIRECT or (1 shl 15);
-	POWER_ALL_2D   : PM_Bits = PM_ARM9_DIRECT or (1 shl 0) or (1 shl 1) or (1 shl 9);
-	POWER_ALL      : PM_Bits = PM_ARM9_DIRECT or (1 shl 0) or (1 shl 1) or (1 shl 9) or (1 shl 3) or (1 shl 2);
+//	POWER_ALL_2D   : PM_Bits = PM_ARM9_DIRECT or POWER_LCD or POWER_2D_A or POWER_2D_B;
+	POWER_ALL_2D   : PM_Bits = (1 shl 16) or (1 shl 0) or (1 shl 1) or (1 shl 9);
+//	POWER_ALL      : PM_Bits = PM_ARM9_DIRECT or POWER_ALL_2D or POWER_3D_CORE or POWER_MATRIX;
+	POWER_ALL      : PM_Bits = (1 shl 16) or (1 shl 0) or (1 shl 1) or (1 shl 9) or (1 shl 3) or (1 shl 2);
 
 procedure sleep(); cdecl; external;
 
 {$ifdef ARM9}
-procedure powerOn(bits: PM_Bits); cdecl; external;
-procedure powerOff(bits: PM_Bits); cdecl; external;
-procedure ledBlink(bm: PM_LedBlinkMode); cdecl; external;
+procedure powerOn(bits: cint); cdecl; external;
+procedure powerOff(bits: cint); cdecl; external;
+procedure ledBlink(bm: cint); cdecl; external;
 
 procedure systemMsgHandler(bytes: cint; user_data: pointer); cdecl; external;
 procedure powerValueHandler(value: cuint32; data: pointer); cdecl; external;
@@ -93,6 +95,7 @@ procedure lcdSwap(); inline;
 procedure lcdMainOnTop(); inline; 
 procedure lcdMainOnBottom(); inline; 
 
+procedure systemShutDown(); inline;
 
 procedure setVectorBase(highVector: cint); cdecl; external;
 
@@ -118,19 +121,20 @@ var
 type
   ARM7_power = cint;
 const
-  POWER_SOUND     : ARM7_power = (1 shl 0);
-  PM_CONTROL_REG  : ARM7_power = 0;
-  PM_BATTERY_REG  : ARM7_power = 1;
-  PM_AMPLIFIER_REG: ARM7_power = 2;
-  PM_READ_REGISTER: ARM7_power = (1 shl 7);
-  PM_AMP_OFFSET   : ARM7_power = 2;
-  PM_GAIN_OFFSET  : ARM7_power = 3;
-  PM_GAIN_20      : ARM7_power = 0;
-  PM_GAIN_40      : ARM7_power = 1;
-  PM_GAIN_80      : ARM7_power = 2;
-  PM_GAIN_160     : ARM7_power = 3;
-  PM_AMP_ON       : ARM7_power = 1;
-  PM_AMP_OFF      : ARM7_power = 0;
+  POWER_SOUND         : ARM7_power = (1 shl 0);
+  PM_CONTROL_REG      : ARM7_power = 0;
+  PM_BATTERY_REG      : ARM7_power = 1;
+  PM_AMPLIFIER_REG    : ARM7_power = 2;
+  PM_READ_REGISTER    : ARM7_power = (1 shl 7);
+  PM_AMP_OFFSET       : ARM7_power = 2;
+  PM_GAIN_OFFSET      : ARM7_power = 3;
+  PM_BACKLIGHT_LEVEL  : ARM7_power = 4;
+  PM_GAIN_20          : ARM7_power = 0;
+  PM_GAIN_40          : ARM7_power = 1;
+  PM_GAIN_80          : ARM7_power = 2;
+  PM_GAIN_160         : ARM7_power = 3;
+  PM_AMP_ON           : ARM7_power = 1;
+  PM_AMP_OFF          : ARM7_power = 0;
 
 function PM_LED_CONTROL(m: cint): cint; inline;
 
@@ -141,11 +145,14 @@ function writePowerManagement(reg, command: cint): cint; cdecl; external;
 
 function readPowerManagement(reg: cint): cint; inline; 
 
-procedure powerOn(bits: PM_Bits); inline;
-procedure powerOff(bits: PM_Bits); inline;
-
+procedure powerOn(bits: cint); inline;
+procedure powerOff(bits: cint); inline;
 procedure readUserSettings(); cdecl; external;
+procedure systemShutDown(); cdecl; external;
 {$endif ARM7}
+
+
+
 
 type
   tPERSONAL_DATA = bitpacked record
@@ -196,9 +203,15 @@ type
   PPERSONAL_DATA = ^tPERSONAL_DATA;
 
 const
-  REG_KEYINPUT	: pcuint16 = pointer($04000130);
-  REG_KEYCNT		: pcuint16 = pointer($04000132);
-  PersonalData  : PPERSONAL_DATA = pointer($27FFC80);
+  PersonalData  : PPERSONAL_DATA = pointer($2FFFC80);
+
+type
+  BACKLIGHT_LEVELS = cint;
+const
+	BACKLIGHT_LOW  : BACKLIGHT_LEVELS = 0;
+	BACKLIGHT_MED  : BACKLIGHT_LEVELS = 1;
+	BACKLIGHT_HIGH : BACKLIGHT_LEVELS = 2;
+	BACKLIGHT_MAX  : BACKLIGHT_LEVELS = 3;	
 
 
 type 
@@ -214,8 +227,17 @@ type
   Pargv = ^Targv;
 
 const
-  __system_argv: Pargv = pointer($027FFF70);
+  __system_argv: Pargv = pointer($02FFFE70);
   ARGV_MAGIC = $5f617267;
+  BOOTSIG = $62757473746F6F62; // ULL?
+
+type
+  __bootstub = packed record      // packed ?
+    bootsig: 	cuint64;
+    arm9reboot: VoidFn;
+    arm7reboot: VoidFn;
+    bootsize: cuint32;
+  end;
   
 
 type
@@ -230,7 +252,21 @@ type
     padding: cuint8;
   end;
 
+
+{$ifdef ARM9}
+procedure memCached(address: pointer); cdecl; external;
+procedure memUncached(address: pointer); cdecl; external;
+procedure resetARM7(address: cuint32); cdecl; external;
+{$endif ARM9}
+
+{$ifdef ARM7}
+procedure resetARM9(address: cuint32); cdecl; external;
+{$endif ARM7}
+
 {$endif NDS_INTERFACE}
+
+
+
 
 {$ifdef NDS_IMPLEMENTATION}
 
@@ -254,6 +290,11 @@ procedure lcdMainOnBottom(); inline;
 begin
   REG_POWERCNT^ := REG_POWERCNT^ and (not cint(POWER_SWAP_LCDS)); 
 end;
+
+procedure systemShutDown(); inline;
+begin
+  powerOn(PM_SYSTEM_PWR);
+end;
 {$endif ARM9}
 
 
@@ -268,15 +309,17 @@ begin
 	result := writePowerManagement(reg or PM_READ_REGISTER, 0);
 end;
 
-procedure powerOn(bits: PM_Bits); inline;
+procedure powerOn(bits: cint); inline;
 begin
 	REG_POWERCNT^ := REG_POWERCNT^ or bits;
 end;
 
-procedure powerOff(bits: PM_Bits); inline;
+procedure powerOff(bits: cint); inline;
 begin
 	REG_POWERCNT^ := REG_POWERCNT^ and not bits;
 end;
 {$endif ARM7}
+
+
 {$endif NDS_IMPLEMENTATION}
 

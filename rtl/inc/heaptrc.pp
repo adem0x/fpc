@@ -459,11 +459,7 @@ begin
   if add_tail then
     begin
       pl:=pointer(pp)+allocsize-pp^.extra_info_size-sizeof(ptruint);
-{$ifdef FPC_SUPPORTS_UNALIGNED}
       unaligned(pl^):=$DEADBEEF;
-{$else FPC_SUPPORTS_UNALIGNED}
-      pl^:=$DEADBEEF;
-{$endif FPC_SUPPORTS_UNALIGNED}
     end;
   { clear the memory }
   fillchar(p^,size,#255);
@@ -840,11 +836,7 @@ begin
   if add_tail then
     begin
       pl:=pointer(pp)+allocsize-pp^.extra_info_size-sizeof(ptruint);
-{$ifdef FPC_SUPPORTS_UNALIGNED}
       unaligned(pl^):=$DEADBEEF;
-{$else FPC_SUPPORTS_UNALIGNED}
-      pl^:=$DEADBEEF;
-{$endif FPC_SUPPORTS_UNALIGNED}
     end;
   { adjust like a freemem and then a getmem, so you get correct
     results in the summary display }
@@ -1352,6 +1344,12 @@ begin
       Rewrite(error_file);
     end;
 {$endif EXTRA}
+  { if multithreading was initialized before heaptrc gets initialized (this is currently
+    the case for windows dlls), then RelocateHeap gets never called and the lock
+    must be initialized already here
+  }
+  if IsMultithread then
+    initcriticalsection(todo_lock);
 end;
 
 procedure TraceExit;

@@ -68,6 +68,7 @@ interface
         constructor create;override;
         procedure DefaultLinkScript;override;
         procedure InitSysInitUnitName;override;
+        procedure ConcatEntryName; virtual;
       end;
 
       TExternalLinkerWin=class(texternallinker)
@@ -958,26 +959,14 @@ implementation
                   Comment(V_Error,'Import library not found for '+S);
               end;
             if IsSharedLibrary then
-              begin
-                Concat('ISSHAREDLIBRARY');
-                if apptype=app_gui then
-                  Concat('ENTRYNAME _DLLWinMainCRTStartup')
-                else
-                  Concat('ENTRYNAME _DLLMainCRTStartup');
-              end
-            else
-              begin
-                if apptype=app_gui then
-                  Concat('ENTRYNAME _WinMainCRTStartup')
-                else
-                  Concat('ENTRYNAME _mainCRTStartup');
-              end;
+              Concat('ISSHAREDLIBRARY');
+            ConcatEntryName;
             if not ImageBaseSetExplicity then
               begin
                 if IsSharedLibrary then
                   imagebase:={$ifdef cpu64bitaddr} $110000000 {$else} $10000000 {$endif}
                 else
-                  if target_info.system in system_wince then
+                  if target_info.system in systems_wince then
                     imagebase:=$10000
                   else
                     imagebase:={$ifdef cpu64bitaddr} $100000000 {$else} $400000 {$endif};
@@ -1062,6 +1051,28 @@ implementation
           GlobalInitSysInitUnitName(self);
       end;
 
+    procedure TInternalLinkerWin.ConcatEntryName;
+      begin
+        with LinkScript do
+          begin
+            if IsSharedLibrary then
+              begin
+                Concat('ISSHAREDLIBRARY');
+                if apptype=app_gui then
+                  Concat('ENTRYNAME _DLLWinMainCRTStartup')
+                else
+                  Concat('ENTRYNAME _DLLMainCRTStartup');
+              end
+            else
+              begin
+                if apptype=app_gui then
+                  Concat('ENTRYNAME _WinMainCRTStartup')
+                else
+                  Concat('ENTRYNAME _mainCRTStartup');
+              end;
+          end;
+      end;
+
 
 {****************************************************************************
                               TExternalLinkerWin
@@ -1083,7 +1094,7 @@ implementation
         with Info do
          begin
            if target_info.system=system_arm_wince then
-             targetopts:='-m armpe'
+             targetopts:='-m arm-wince-pe'
            else
              targetopts:='-b pe-i386 -m i386pe';
            ExeCmd[1]:='ld '+targetopts+' $OPT $GCSECTIONS $MAP $STRIP $APPTYPE $ENTRY  $IMAGEBASE $RELOC -o $EXE $RES';
@@ -1335,7 +1346,7 @@ implementation
           RelocStr:='--base-file base.$$$';
         if create_smartlink_sections then
           GCSectionsStr:='--gc-sections';
-        if target_info.system in system_wince then
+        if target_info.system in systems_wince then
           AppTypeStr:='--subsystem wince'
         else
           begin
@@ -1604,7 +1615,7 @@ implementation
         { gui=2 }
         { cui=3 }
         { wincegui=9 }
-        if target_info.system in system_wince then
+        if target_info.system in systems_wince then
           peoptheader.Subsystem:=9
         else
           case apptype of

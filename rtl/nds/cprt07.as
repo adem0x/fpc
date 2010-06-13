@@ -8,7 +8,8 @@
 _start:
 @---------------------------------------------------------------------------------
 	mov	r0, #0x04000000		@ IME = 0;
-	str	r0, [r0, #0x208]
+	mov	r1, #0
+	str	r1, [r0, #0x208]
 
 	mov	r0, #0x12		@ Switch to IRQ Mode
 	msr	cpsr, r0
@@ -33,11 +34,8 @@ _start:
 	mov	r0, #0			@ int argc
 	mov	r1, #0			@ char *argv[]
 	ldr	r3, =main
-	bl	_blx_r3_stub
-		
-	@ If the user ever returns, return to flash cartridge
-	mov	r0, #0x08000000
-	bx	r0
+	ldr	lr,=__libnds_exit
+	bx	r3
 
 @---------------------------------------------------------------------------------
  _blx_r3_stub:

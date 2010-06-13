@@ -42,6 +42,7 @@ unit optbase;
         use : tdfaset;
         life : tdfaset;
         defsum : tdfaset;
+        avail : tdfaset;
       end;
 
       poptinfo = ^toptinfo;
@@ -82,7 +83,6 @@ unit optbase;
 
     procedure DFASetInclude(var s : tdfaset;e : integer);
       var
-        i,
         e8 : Integer;
       begin
         e8:=e div 8;

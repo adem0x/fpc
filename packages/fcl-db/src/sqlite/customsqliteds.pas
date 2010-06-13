@@ -56,17 +56,22 @@ type
     Previous: PDataRecord;
   end;
   
+  { TDSStream }
+  //todo: refactor into two or three classes
   TDSStream = class(TStream)
   private
-    FActiveItem: PDataRecord;
+    FEditItem: PDataRecord;
     FDataset: TCustomSqliteDataset;
     FFieldRow: PChar;
     FField: TField;
     FFieldOffset: Integer;
     FRowSize: Integer;
     FPosition: LongInt;
+    FWriteMode: Boolean;
   public
-    constructor Create(Dataset: TCustomSqliteDataset; Field: TField);
+    constructor Create(Dataset: TCustomSqliteDataset; Field: TField;
+      FieldOffset: Integer; EditItem: PDataRecord; WriteMode: Boolean);
+    destructor Destroy; override;
     function Write(const Buffer; Count: LongInt): LongInt; override;
     function Read(var Buffer; Count: LongInt): LongInt; override;
     function Seek(Offset: LongInt; Origin: Word): LongInt; override;
@@ -108,8 +113,10 @@ type
     FOnGetHandle: TDataSetNotifyEvent;
     FOptions: TSqliteOptions;
     FSQLList: TStrings;
+    FStoreDefs: Boolean;
     procedure CopyCacheToItem(AItem: PDataRecord);
     function GetIndexFields(Value: Integer): TField;
+    function GetSQLList: TStrings;
     procedure SetMasterIndexValue;
     procedure SetOptions(const AValue: TSqliteOptions);
     procedure UpdateCalcFieldList;
@@ -145,6 +152,8 @@ type
     function SqliteExec(Sql: PChar; ACallback: TSqliteCdeclCallback; Data: Pointer): Integer; virtual; abstract;
     procedure InternalCloseHandle; virtual; abstract;
     function InternalGetHandle: Pointer; virtual; abstract;
+    function FieldDefsStored: Boolean;
+    function GetLastInsertRowId: Int64; virtual; abstract;
     procedure GetSqliteHandle;
     procedure BuildLinkedList; virtual; abstract;
     procedure FreeItem(AItem: PDataRecord);
@@ -161,7 +170,6 @@ type
     //TDataSet overrides
     function AllocRecordBuffer: PChar; override;
     procedure ClearCalcFields(Buffer: PChar); override;
-    function CreateBlobStream(Field: TField; Mode: TBlobStreamMode): TStream; override;
     procedure DoBeforeClose; override;
     procedure DoAfterInsert; override;
     procedure DoBeforeInsert; override;
@@ -191,19 +199,20 @@ type
     procedure SetExpectedAppends(AValue: Integer);
     procedure SetExpectedUpdates(AValue: Integer);
     procedure SetExpectedDeletes(AValue: Integer);
-    procedure SetFieldData(Field: TField; Buffer: Pointer); override;
-    procedure SetFieldData(Field: TField; Buffer: Pointer; NativeFormat: Boolean); override;
     procedure SetRecNo(Value: Integer); override;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     function BookmarkValid(ABookmark: TBookmark): Boolean; override;
     function CompareBookmarks(Bookmark1, Bookmark2: TBookmark): Longint; override;
+    function CreateBlobStream(Field: TField; Mode: TBlobStreamMode): TStream; override;
     function GetFieldData(Field: TField; Buffer: Pointer): Boolean; override;
     function GetFieldData(Field: TField; Buffer: Pointer; NativeFormat: Boolean): Boolean; override;
     function Locate(const KeyFields: String; const KeyValues: Variant; LocateOptions: TLocateOptions) : Boolean; override;
     function LocateNext(const KeyFields: String; const KeyValues: Variant; LocateOptions: TLocateOptions) : Boolean;
     function Lookup(const KeyFields: String; const KeyValues: Variant; const ResultFields: String): Variant; override;
+    procedure SetFieldData(Field: TField; Buffer: Pointer); override;
+    procedure SetFieldData(Field: TField; Buffer: Pointer; NativeFormat: Boolean); override;
     // Additional procedures
     function ApplyUpdates: Boolean;
     procedure ClearUpdates(RecordStates: TRecordStateSet = [rsAdded, rsDeleted, rsUpdated]);
@@ -212,6 +221,7 @@ type
     procedure ExecCallback(const ASql: String; UserData: Pointer = nil);
     procedure ExecSQL;
     procedure ExecSQL(const ASql: String);
+    procedure ExecSQL(ASqlList: TStrings);
     procedure ExecSQLList;
     procedure ExecuteDirect(const ASql: String); virtual; abstract;
     function GetSQLValue(Values: PPChar; FieldIndex: Integer): String;
@@ -233,10 +243,11 @@ type
     property ExpectedUpdates: Integer write SetExpectedUpdates;
     property ExpectedDeletes: Integer write SetExpectedDeletes;
     property IndexFields[Value: Integer]: TField read GetIndexFields;
+    property LastInsertRowId: Int64 read GetLastInsertRowId;
     property RowsAffected: Integer read GetRowsAffected;
     property ReturnCode: Integer read FReturnCode;
     property SqliteHandle: Pointer read FSqliteHandle;
-    property SQLList:TStrings read FSQLList;
+    property SQLList: TStrings read GetSQLList;
    published
     property AutoIncrementKey: Boolean read FAutoIncrementKey write FAutoIncrementKey default False;
     property IndexFieldNames: string read FIndexFieldNames write FIndexFieldNames;
@@ -248,12 +259,13 @@ type
     property SaveOnClose: Boolean read FSaveOnClose write FSaveOnClose default False;
     property SaveOnRefetch: Boolean read FSaveOnRefetch write FSaveOnRefetch default False;
     property SQL: String read FSQL write FSQL;
+    property StoreDefs: Boolean read FStoreDefs write FStoreDefs default False;
     property TableName: String read FTableName write FTableName;   
     property MasterSource: TDataSource read GetMasterSource write SetMasterSource;
     property MasterFields: String read GetMasterFields write SetMasterFields;
     
     property Active;
-    property FieldDefs;   
+    property FieldDefs stored FieldDefsStored;
     //Events
     property BeforeOpen;
     property AfterOpen;
@@ -329,23 +341,29 @@ end;
 
 // TDSStream
 
-constructor TDSStream.Create(Dataset: TCustomSqliteDataset; Field: TField);
+constructor TDSStream.Create(Dataset: TCustomSqliteDataset; Field: TField;
+  FieldOffset: Integer; EditItem: PDataRecord; WriteMode: Boolean);
 begin
   inherited Create;
   //FPosition := 0;
   FDataset := Dataset;
   FField := Field;
-  if Field.FieldNo >= 0 then
-    FFieldOffset := Field.FieldNo - 1
-  else
-    FFieldOffset := Dataset.FieldDefs.Count + Dataset.FCalcFieldList.IndexOf(Field);
-  FActiveItem := PPDataRecord(Dataset.ActiveBuffer)^;
-  FFieldRow := FActiveItem^.Row[FFieldOffset];
+  FFieldOffset := FieldOffset;
+  FWriteMode := WriteMode;
+  FEditItem := EditItem;
+  FFieldRow := FEditItem^.Row[FFieldOffset];
   if FFieldRow <> nil then
     FRowSize := StrLen(FFieldRow);
   //else
   //  FRowSize := 0;  
-end;  
+end;
+
+destructor TDSStream.Destroy;
+begin
+  if FWriteMode and not (FDataset.State in [dsCalcFields, dsFilter, dsNewValue]) then
+    FDataset.DataEvent(deFieldChange, PtrInt(FField));
+  inherited Destroy;
+end;
 
 function TDSStream.Seek(Offset: LongInt; Origin: Word): LongInt;
 begin
@@ -362,30 +380,29 @@ var
   NewRow: PChar;
 begin
   Result := Count;
-  if Count = 0 then
-    Exit;
-  //FRowSize is always 0 when FPosition = 0,
-  //so there's no need to check FPosition
-  NewRow := StrAlloc(FRowSize + Count + 1);
-  (NewRow + Count + FRowSize)^ := #0;
-  if FRowSize > 0 then
-    Move(FFieldRow^, NewRow^, FRowSize);
-  Move(Buffer, (NewRow + FRowSize)^, Count);
-  FActiveItem^.Row[FFieldOffset] := NewRow;
-  StrDispose(FFieldRow);
-  {$ifdef DEBUG_SQLITEDS}
-  WriteLn('##TDSStream.Write##');
-  WriteLn('  FPosition(Before): ', FPosition);
-  WriteLn('  FRowSize(Before): ', FRowSize);
-  WriteLn('  FPosition(After): ', FPosition+Count);
-  WriteLn('  FRowSize(After): ', StrLen(NewRow));
-  //WriteLn('  Stream Value: ',NewRow);
-  {$endif}
-  FFieldRow := NewRow;
-  FRowSize := StrLen(NewRow);
-  Inc(FPosition, Count);
-  if not (FDataset.State in [dsCalcFields, dsFilter, dsNewValue]) then
-    FDataset.DataEvent(deFieldChange, PtrInt(FField));
+  if Count > 0 then
+  begin
+    //FRowSize is always 0 when FPosition = 0,
+    //so there's no need to check FPosition
+    NewRow := StrAlloc(FRowSize + Count + 1);
+    (NewRow + Count + FRowSize)^ := #0;
+    if FRowSize > 0 then
+      Move(FFieldRow^, NewRow^, FRowSize);
+    Move(Buffer, (NewRow + FRowSize)^, Count);
+    FEditItem^.Row[FFieldOffset] := NewRow;
+    StrDispose(FFieldRow);
+    {$ifdef DEBUG_SQLITEDS}
+    WriteLn('##TDSStream.Write##');
+    WriteLn('  FPosition(Before): ', FPosition);
+    WriteLn('  FRowSize(Before): ', FRowSize);
+    WriteLn('  FPosition(After): ', FPosition+Count);
+    WriteLn('  FRowSize(After): ', StrLen(NewRow));
+    //WriteLn('  Stream Value: ',NewRow);
+    {$endif}
+    FFieldRow := NewRow;
+    FRowSize := StrLen(NewRow);
+    Inc(FPosition, Count);
+  end;
 end; 
  
 function TDSStream.Read(var Buffer; Count: Longint): LongInt;
@@ -451,23 +468,35 @@ begin
   FUpdatedItems := TFPList.Create;
   FAddedItems := TFPList.Create;
   FDeletedItems := TFPList.Create;
-  FSQLList := TStringList.Create;
   inherited Create(AOwner);
 end;
 
 function TCustomSqliteDataset.CreateBlobStream(Field: TField; Mode: TBlobStreamMode): TStream;
+var
+  FieldOffset: Integer;
+  EditItem: PDataRecord;
 begin
+  if Field.FieldNo >= 0 then
+  begin
+    if Mode = bmWrite then
+      EditItem := FCacheItem
+    else
+      EditItem := PPDataRecord(ActiveBuffer)^;
+    FieldOffset := Field.FieldNo - 1;
+  end
+  else
+  begin
+    EditItem := PPDataRecord(CalcBuffer)^;
+    FieldOffset := FieldDefs.Count + FCalcFieldList.IndexOf(Field);
+  end;
   if Mode = bmWrite then
   begin
-    if not (State in [dsEdit, dsInsert]) then
-    begin
-      DatabaseErrorFmt(SNotEditing,[Name],Self);
-      Exit;
-    end;
-    StrDispose(FCacheItem^.Row[Field.FieldNo - 1]);
-    FCacheItem^.Row[Field.FieldNo - 1] := nil;
+    if not (State in [dsEdit, dsInsert, dsCalcFields]) then
+      DatabaseErrorFmt(SNotEditing, [Name], Self);
+    StrDispose(EditItem^.Row[FieldOffset]);
+    EditItem^.Row[FieldOffset] := nil;
   end;
-  Result := TDSStream.Create(Self, Field);
+  Result := TDSStream.Create(Self, Field, FieldOffset, EditItem, Mode = bmWrite);
 end;
 
 procedure TCustomSqliteDataset.DoBeforeClose;
@@ -502,8 +531,8 @@ begin
   FAddedItems.Destroy;
   FDeletedItems.Destroy;
   FMasterLink.Destroy;
-  FSQLList.Destroy;
   //lists created on demand
+  FSQLList.Free;
   FIndexFieldList.Free;
   FCalcFieldList.Free;
   // dispose special items
@@ -572,12 +601,19 @@ begin
   Result := TField(FIndexFieldList[Value]);
 end;
 
+function TCustomSqliteDataset.GetSQLList: TStrings;
+begin
+  if FSQLList = nil then
+    FSQLList := TStringList.Create;
+  Result := FSQLList;
+end;
+
 procedure TCustomSqliteDataset.SetMasterIndexValue;
 var
   i: Integer;
 begin
   for i := 0 to FIndexFieldList.Count - 1 do
-    TField(FIndexFieldList[i]).AsString := TField(FMasterLink.Fields[i]).AsString;
+    TField(FIndexFieldList[i]).Value := TField(FMasterLink.Fields[i]).Value;
 end;
 
 procedure TCustomSqliteDataset.SetOptions(const AValue: TSqliteOptions);
@@ -658,7 +694,7 @@ begin
   else
     FieldOffset := FieldDefs.Count + FCalcFieldList.IndexOf(Field);
 
-  if State <> dsCalcFields then
+  if not (State in [dsCalcFields, dsInternalCalc]) then
     FieldRow := PPDataRecord(ActiveBuffer)^^.Row[FieldOffset]
   else
     FieldRow := PPDataRecord(CalcBuffer)^^.Row[FieldOffset];
@@ -1186,6 +1222,11 @@ begin
   SetDetailFilter;
 end;
 
+function TCustomSqliteDataset.FieldDefsStored: Boolean;
+begin
+  Result := FStoreDefs and (FieldDefs.Count > 0);
+end;
+
 procedure TCustomSqliteDataset.GetSqliteHandle;
 begin
   if FFileName = '' then
@@ -1220,11 +1261,20 @@ end;
 function TCustomSqliteDataset.Lookup(const KeyFields: String; const KeyValues: Variant; const ResultFields: String): Variant;
 var
   TempItem: PDataRecord;
+  SaveState: TDataSetState;
 begin
   CheckBrowseMode;
   TempItem := FindRecordItem(FBeginItem^.Next, KeyFields, KeyValues, [], False);
   if TempItem <> nil then
-    Result := TempItem^.Row[FieldByName(ResultFields).FieldNo - 1]
+  begin
+    SaveState := SetTempState(dsInternalCalc);
+    try
+      CalculateFields(PChar(@TempItem));
+      Result := FieldByName(ResultFields).Value;
+    finally
+      RestoreState(SaveState);
+    end;
+  end
   else
     Result := Null;
 end;  
@@ -1292,7 +1342,11 @@ begin
       end;
     ftBoolean, ftWord:
       begin
-        Str(Word(Buffer^), TempStr);
+        //ensure that boolean True value is stored as 1
+        if Field.DataType = ftBoolean then
+          TempStr := IfThen(Boolean(Buffer^), '1', '0')
+        else
+          Str(Word(Buffer^), TempStr);
         EditItem^.Row[FieldOffset] := StrAlloc(Length(TempStr) + 1);
         Move(PChar(TempStr)^, (EditItem^.Row[FieldOffset])^, Length(TempStr) + 1);
       end;  
@@ -1469,13 +1523,18 @@ begin
   ExecuteDirect(ASQL);
 end;
 
-procedure TCustomSqliteDataset.ExecSQLList;
+procedure TCustomSqliteDataset.ExecSQL(ASqlList: TStrings);
 begin
   if FSqliteHandle = nil then
     GetSqliteHandle;
-  FReturnCode := SqliteExec(PChar(FSQLList.Text), nil, nil);
+  FReturnCode := SqliteExec(PChar(ASQLList.Text), nil, nil);
   if FReturnCode <> SQLITE_OK then
     DatabaseError(ReturnString, Self);
+end;
+
+procedure TCustomSqliteDataset.ExecSQLList;
+begin
+  ExecSQL(SQLList);
 end;
 
 function TCustomSqliteDataset.GetSQLValue(Values: PPChar; FieldIndex: Integer

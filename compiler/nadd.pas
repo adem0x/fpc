@@ -116,7 +116,7 @@ implementation
     function getbestreal(t1,t2 : tdef) : tdef;
       const
         floatweight : array[tfloattype] of byte =
-          (2,3,4,0,1,5);
+          (2,3,4,5,0,1,6);
       begin
         if t1.typ=floatdef then
           begin
@@ -370,9 +370,14 @@ implementation
               t:=nil;
               hp:=right;
               realdef:=hp.resultdef;
+              { stop with finding the real def when we either encounter
+                 a) an explicit type conversion (then the value has to be
+                    re-interpreted)
+                 b) an "absolute" type conversion (also requires
+                    re-interpretation)
+              }
               while (hp.nodetype=typeconvn) and
-                    ([nf_internal,nf_explicit] * hp.flags = []) and
-                    is_in_limit(ttypeconvnode(hp).left.resultdef,realdef) do
+                    ([nf_internal,nf_explicit,nf_absolute] * hp.flags = []) do
                 begin
                   hp:=ttypeconvnode(hp).left;
                   realdef:=hp.resultdef;
@@ -421,8 +426,7 @@ implementation
               hp:=left;
               realdef:=hp.resultdef;
               while (hp.nodetype=typeconvn) and
-                    ([nf_internal,nf_explicit] * hp.flags = []) and
-                    is_in_limit(ttypeconvnode(hp).left.resultdef,realdef) do
+                    ([nf_internal,nf_explicit,nf_absolute] * hp.flags = []) do
                 begin
                   hp:=ttypeconvnode(hp).left;
                   realdef:=hp.resultdef;
@@ -744,6 +748,35 @@ implementation
              exit;
           end;
 
+        { the comparison is might be expensive and the nodes are usually only
+          equal if some previous optimizations were done so don't check
+          this simplification always
+        }
+        if (cs_opt_level2 in current_settings.optimizerswitches) and
+          is_boolean(left.resultdef) and is_boolean(right.resultdef) and
+          { since the expressions might have sideeffects, we may only remove them
+            if short boolean evaluation is turned on }
+          (nf_short_bool in flags) then
+            begin
+              if left.isequal(right) then
+                begin
+                  case nodetype of
+                    andn,orn:
+                      begin
+                        result:=left;
+                        left:=nil;
+                        exit;
+                      end;
+                    {
+                    xorn:
+                      begin
+                        result:=cordconstnode.create(0,resultdef,true);
+                        exit;
+                      end;
+                    }
+                  end;
+                end;
+            end;
       end;
 
 
@@ -1116,7 +1149,10 @@ implementation
              { size either as long as both values are signed or unsigned   }
              { "xor" and "or" also don't care about the sign if the values }
              { occupy an entire register                                   }
+             { don't do it if either type is 64 bit, since in that case we }
+             { can't safely find a "common" type                           }
              else if is_integer(ld) and is_integer(rd) and
+                     not is_64bitint(ld) and not is_64bitint(rd) and
                      ((nodetype=andn) or
                       ((nodetype in [orn,xorn,equaln,unequaln,gtn,gten,ltn,lten]) and
                        not(is_signed(ld) xor is_signed(rd)))) then
@@ -1128,17 +1164,28 @@ implementation
                    begin
                      if (rd.size=ld.size) and
                         is_signed(ld) then
-                       inserttypeconv_internal(left,right.resultdef)
+                       inserttypeconv_internal(left,rd)
                      else
-                       inserttypeconv(left,right.resultdef)
+                       begin
+                         { not to left right.resultdef, because that may
+                           cause a range error if left and right's def don't
+                           completely overlap }
+                         nd:=get_common_intdef(torddef(ld),torddef(rd),true);
+                         inserttypeconv(left,nd);
+                         inserttypeconv(right,nd);
+                       end;
                    end
                  else
                    begin
                      if (rd.size=ld.size) and
                         is_signed(rd) then
-                       inserttypeconv_internal(right,left.resultdef)
+                       inserttypeconv_internal(right,ld)
                      else
-                       inserttypeconv(right,left.resultdef)
+                       begin
+                         nd:=get_common_intdef(torddef(ld),torddef(rd),true);
+                         inserttypeconv(left,nd);
+                         inserttypeconv(right,nd);
+                       end;
                    end
                end
              { is there a signed 64 bit type ? }
@@ -1248,33 +1295,8 @@ implementation
                     (nodetype=subn) then
                    begin
 {$ifdef cpunodefaultint}
-                      { for small cpus we use the smallest common type }
-                      llow:=torddef(rd).low;
-                      if llow<torddef(ld).low then
-                        llow:=torddef(ld).low;
-                      lhigh:=torddef(rd).high;
-                      if lhigh<torddef(ld).high then
-                        lhigh:=torddef(ld).high;
-                      case range_to_basetype(llow,lhigh) of
-                        s8bit:
-                          nd:=s8inttype;
-                        u8bit:
-                          nd:=u8inttype;
-                        s16bit:
-                          nd:=s16inttype;
-                        u16bit:
-                          nd:=u16inttype;
-                        s32bit:
-                          nd:=s32inttype;
-                        u32bit:
-                          nd:=u32inttype;
-                        s64bit:
-                          nd:=s64inttype;
-                        u64bit:
-                          nd:=u64inttype;
-                        else
-                          internalerror(200802291);
-                      end;
+                     { for small cpus we use the smallest common type }
+                     nd:=get_common_intdef(torddef(ld),torddef(rd),false);
                      inserttypeconv(right,nd);
                      inserttypeconv(left,nd);
 {$else cpunodefaultint}
@@ -1564,18 +1586,18 @@ implementation
           end
 
          { class or interface equation }
-         else if is_class_or_interface(rd) or is_class_or_interface(ld) then
+         else if is_class_or_interface_or_dispinterface_or_objc(rd) or is_class_or_interface_or_dispinterface_or_objc(ld) then
           begin
             if (nodetype in [equaln,unequaln]) then
               begin
-                if is_class_or_interface(rd) and is_class_or_interface(ld) then
+                if is_class_or_interface_or_dispinterface_or_objc(rd) and is_class_or_interface_or_dispinterface_or_objc(ld) then
                  begin
                    if tobjectdef(rd).is_related(tobjectdef(ld)) then
                     inserttypeconv(right,left.resultdef)
                    else
                     inserttypeconv(left,right.resultdef);
                  end
-                else if is_class_or_interface(rd) then
+                else if is_class_or_interface_or_dispinterface_or_objc(rd) then
                   inserttypeconv(left,right.resultdef)
                 else
                   inserttypeconv(right,left.resultdef);
@@ -1599,7 +1621,7 @@ implementation
           end
 
          { allows comperasion with nil pointer }
-         else if is_class_or_interface(rd) or (rd.typ=classrefdef) then
+         else if is_class_or_interface_or_dispinterface_or_objc(rd) or (rd.typ=classrefdef) then
           begin
             if (nodetype in [equaln,unequaln]) then
               inserttypeconv(left,right.resultdef)
@@ -1607,7 +1629,7 @@ implementation
               CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),ld.typename,rd.typename);
           end
 
-         else if is_class_or_interface(ld) or (ld.typ=classrefdef) then
+         else if is_class_or_interface_or_dispinterface_or_objc(ld) or (ld.typ=classrefdef) then
           begin
             if (nodetype in [equaln,unequaln]) then
               inserttypeconv(right,left.resultdef)
@@ -1926,7 +1948,7 @@ implementation
                 only need to compare the length with 0 }
               if (nodetype in [equaln,unequaln,gtn,gten,ltn,lten]) and
                 { windows widestrings are too complicated to be handled optimized }
-                not(is_widestring(left.resultdef) and (target_info.system in system_windows)) and
+                not(is_widestring(left.resultdef) and (target_info.system in systems_windows)) and
                  (((left.nodetype=stringconstn) and (tstringconstnode(left).len=0)) or
                   ((right.nodetype=stringconstn) and (tstringconstnode(right).len=0))) then
                 begin
@@ -2310,7 +2332,7 @@ implementation
         if not (cs_fp_emulation in current_settings.moduleswitches) then
           exit;
 
-        if not(target_info.system in system_wince) then
+        if not(target_info.system in systems_wince) then
           begin
             case tfloatdef(left.resultdef).floattype of
               s32real:
@@ -2408,7 +2430,7 @@ implementation
 
           end;
         { cast softfpu result? }
-        if not(target_info.system in system_wince) then
+        if not(target_info.system in systems_wince) then
           begin
             if nodetype in [ltn,lten,gtn,gten,equaln,unequaln] then
               resultdef:=booltype;
@@ -2675,7 +2697,7 @@ implementation
                 expectloc:=LOC_FLAGS;
            end
 
-         else if is_class_or_interface(ld) then
+         else if is_class_or_interface_or_dispinterface_or_objc(ld) then
             begin
               expectloc:=LOC_FLAGS;
             end

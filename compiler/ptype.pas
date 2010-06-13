@@ -113,8 +113,9 @@ implementation
                         inc(ttypesym(srsym).refs);
                         { we need a class type for classrefdef }
                         if (def.typ=classrefdef) and
-                           not(is_class(ttypesym(srsym).typedef)) then
-                          MessagePos1(tsym(srsym).fileinfo,type_e_class_type_expected,ttypesym(srsym).typedef.typename);
+                           not(is_class(ttypesym(srsym).typedef)) and
+                           not(is_objcclass(ttypesym(srsym).typedef)) then
+                          MessagePos1(def.typesym.fileinfo,type_e_class_type_expected,ttypesym(srsym).typedef.typename);
                       end
                      else
                       begin
@@ -138,7 +139,6 @@ implementation
           end;
         current_module.checkforwarddefs.clear;
       end;
-
 
 
     procedure generate_specialization(var tt:tdef);
@@ -174,10 +174,13 @@ implementation
             onlyparsepara:=true;
           end;
 
-        { Only need to record the tokens, then we don't know the type yet }
+        { only need to record the tokens, then we don't know the type yet  ... }
         if parse_generic then
           begin
-            tt:=cundefinedtype;
+            { ... but we have to insert a def into the symtable else the deflist
+              of generic and specialization might not be equally sized which
+              is later assumed }
+            tt:=tundefineddef.create;
             onlyparsepara:=true;
           end;
 
@@ -302,7 +305,7 @@ implementation
             { Reparse the original type definition }
             if not err then
               begin
-                { Firsta new typesym so we can reuse this specialization and
+                { First a new typesym so we can reuse this specialization and
                   references to this specialization can be handled }
                 srsym:=ttypesym.create(specializename,generrordef);
                 specializest.insert(srsym);
@@ -315,6 +318,7 @@ implementation
                 tt.typesym:=srsym;
                 { Consume the semicolon if it is also recorded }
                 try_to_consume(_SEMICOLON);
+
 
                 { Build VMT indexes for classes }
                 if (tt.typ=objectdef) then
@@ -357,7 +361,7 @@ implementation
             (current_objectdef.objname^=pattern) and
             (
              (testcurobject=2) or
-             is_class_or_interface(current_objectdef)
+             is_class_or_interface_or_objc(current_objectdef)
             )then
            begin
              consume(_ID);
@@ -436,6 +440,8 @@ implementation
                            Message(parser_e_no_local_para_def);
                          consume(_OF);
                          single_type(t2,false,false);
+                         if is_managed_type(t2) then
+                           Message(parser_e_no_refcounted_typed_file);
                          def:=tfiledef.createtyped(t2);
                       end
                     else
@@ -452,7 +458,7 @@ implementation
                    else
                      begin
                        id_type(def,isforwarddef);
-                       { handle types inside classes for generics, e.g. TNode.TLongint }
+                       { handle types inside classes, e.g. TNode.TLongint }
                        while (token=_POINT) do
                          begin
                            if parse_generic then
@@ -460,7 +466,7 @@ implementation
                                 consume(_POINT);
                                 consume(_ID);
                              end
-                            else if ((def.typ=objectdef) and (df_specialization in def.defoptions)) then
+                            else if is_class(def) then
                               begin
                                 symtablestack.push(tobjectdef(def).symtable);
                                 consume(_POINT);
@@ -489,7 +495,12 @@ implementation
               begin
                 Message(parser_e_no_generics_as_types);
                 def:=generrordef;
-              end;
+              end
+            else if is_objccategory(def) then
+              begin
+                Message(parser_e_no_category_as_types);
+                def:=generrordef
+              end
           end;
       end;
 
@@ -512,7 +523,7 @@ implementation
          { restore symtable stack }
          symtablestack.pop(recst);
          if trecorddef(record_dec).is_packed and
-            record_dec.needs_inittable then
+            is_managed_type(record_dec) then
            Message(type_e_no_packed_inittable);
       end;
 
@@ -545,7 +556,7 @@ implementation
               (current_objectdef.objname^=pattern) and
               (
                (testcurobject=2) or
-               is_class_or_interface(current_objectdef)
+               is_class_or_interface_or_objc(current_objectdef)
               )then
              begin
                consume(_ID);
@@ -618,7 +629,12 @@ implementation
                          begin
                            Message(parser_e_no_generics_as_types);
                            def:=generrordef;
-                         end;
+                         end
+                       else if is_objccategory(def) then
+                         begin
+                           Message(parser_e_no_category_as_types);
+                           def:=generrordef
+                         end
                      end;
                  end
                else
@@ -732,7 +748,7 @@ implementation
                    end
                   else
                    begin
-                     pt:=expr;
+                     pt:=expr(true);
                      if pt.nodetype=typen then
                        setdefdecl(pt.resultdef)
                      else
@@ -813,7 +829,7 @@ implementation
              begin
                arrdef.elementdef:=tt2;
                if is_packed and
-                  tt2.needs_inittable then
+                  is_managed_type(tt2) then
                  Message(type_e_no_packed_inittable);
              end;
         end;
@@ -824,7 +840,7 @@ implementation
         pd : tabstractprocdef;
         is_func,
         enumdupmsg, first : boolean;
-        newtype    : ttypesym;
+        newtype : ttypesym;
         oldlocalswitches : tlocalswitches;
         bitpacking: boolean;
       begin
@@ -888,7 +904,9 @@ implementation
                   first := false;
                   storepos:=current_tokenpos;
                   current_tokenpos:=defpos;
-                  tstoredsymtable(aktenumdef.owner).insert(tenumsym.create(s,aktenumdef,longint(l.svalue)));
+                  tenumsymtable(aktenumdef.symtable).insert(tenumsym.create(s,aktenumdef,longint(l.svalue)));
+                  if not (cs_scopedenums in current_settings.localswitches) then
+                    tstoredsymtable(aktenumdef.owner).insert(tenumsym.create(s,aktenumdef,longint(l.svalue)));
                   current_tokenpos:=storepos;
                 until not try_to_consume(_COMMA);
                 def:=aktenumdef;
@@ -971,7 +989,8 @@ implementation
                   begin
                     consume(_OF);
                     single_type(hdef,(block_type=bt_type),false);
-                    if is_class(hdef) then
+                    if is_class(hdef) or
+                       is_objcclass(hdef) then
                       def:=tclassrefdef.create(hdef)
                     else
                       if hdef.typ=forwarddef then
@@ -980,7 +999,7 @@ implementation
                           current_module.checkforwarddefs.add(def);
                         end
                     else
-                      Message1(type_e_class_type_expected,hdef.typename);
+                      Message1(type_e_class_or_objcclass_type_expected,hdef.typename);
                   end
                 else
                   def:=object_dec(odt_class,name,genericdef,genericlist,nil);
@@ -989,6 +1008,14 @@ implementation
               begin
                 consume(token);
                 def:=object_dec(odt_cppclass,name,genericdef,genericlist,nil);
+              end;
+            _OBJCCLASS :
+              begin
+                if not(m_objectivec1 in current_settings.modeswitches) then
+                  Message(parser_f_need_objc);
+
+                consume(token);
+                def:=object_dec(odt_objcclass,name,genericdef,genericlist,nil);
               end;
             _INTERFACE :
               begin
@@ -1002,6 +1029,22 @@ implementation
                 else {it_interfacecorba}
                   def:=object_dec(odt_interfacecorba,name,genericdef,genericlist,nil);
               end;
+            _OBJCPROTOCOL :
+               begin
+                if not(m_objectivec1 in current_settings.modeswitches) then
+                  Message(parser_f_need_objc);
+
+                consume(token);
+                def:=object_dec(odt_objcprotocol,name,genericdef,genericlist,nil);
+               end;
+            _OBJCCATEGORY :
+               begin
+                if not(m_objectivec1 in current_settings.modeswitches) then
+                  Message(parser_f_need_objc);
+
+                consume(token);
+                def:=object_dec(odt_objccategory,name,genericdef,genericlist,nil);
+               end;
             _OBJECT :
               begin
                 consume(token);
@@ -1102,15 +1145,17 @@ implementation
             { Init }
             if (
                 assigned(def.typesym) and
-                (st.symtabletype=globalsymtable)
+                (st.symtabletype=globalsymtable) and
+                not is_objc_class_or_protocol(def)
                ) or
-               def.needs_inittable or
+               is_managed_type(def) or
                (ds_init_table_used in def.defstates) then
               RTTIWriter.write_rtti(def,initrtti);
             { RTTI }
             if (
-                  assigned(def.typesym) and
-                  (st.symtabletype=globalsymtable)
+                assigned(def.typesym) and
+                (st.symtabletype=globalsymtable) and
+                not is_objc_class_or_protocol(def)
                ) or
                (ds_rtti_table_used in def.defstates) then
               RTTIWriter.write_rtti(def,fullrtti);

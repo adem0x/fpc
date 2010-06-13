@@ -628,6 +628,8 @@ begin
     Result:=SysCreateGUID(GUID);
     {$ELSE}
     GetRandomBytes(GUID,SizeOf(Guid));
+    guid.clock_seq_hi_and_reserved:=(guid.clock_seq_hi_and_reserved and $3F) + 64;
+    guid.time_hi_and_version      :=(guid.time_hi_and_version and $0FFF)+ $4000;
     Result:=0;
     {$ENDIF}
     end;
@@ -682,4 +684,12 @@ begin
 {$ELSE}
   Result:='';
 {$ENDIF}
+end;
+
+{ Beep support }
+
+procedure Beep;
+begin
+  If Assigned(OnBeep) then
+    OnBeep;
 end;

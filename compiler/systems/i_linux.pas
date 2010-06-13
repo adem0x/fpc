@@ -38,7 +38,7 @@ unit i_linux;
 {$ifdef segment_threadvars}
                             tf_section_threadvars,
 {$endif segment_threadvars}
-                            tf_needs_symbol_type,tf_files_case_sensitive,tf_use_function_relative_addresses,
+                            tf_needs_symbol_type,tf_files_case_sensitive,
                             tf_smartlink_library,tf_needs_dwarf_cfi,tf_has_winlike_resources];
             cpu          : cpu_i386;
             unit_env     : 'LINUXUNITS';
@@ -101,7 +101,7 @@ unit i_linux;
             name         : 'Linux for x64_6432';
             shortname    : 'Linux6432';
             flags        : [tf_needs_symbol_size,tf_needs_symbol_type,tf_files_case_sensitive,
-                            tf_use_function_relative_addresses,tf_pic_uses_got{,tf_smartlink_sections},
+                            tf_pic_uses_got{,tf_smartlink_sections},
                             tf_smartlink_library,tf_has_winlike_resources];
             cpu          : cpu_x86_64;
             unit_env     : 'LINUXUNITS';
@@ -164,7 +164,6 @@ unit i_linux;
             name         : 'Linux for m68k';
             shortname    : 'Linux';
             flags        : [tf_needs_symbol_size,tf_needs_symbol_type,tf_files_case_sensitive,
-                            tf_use_function_relative_addresses,
                             tf_smartlink_library,tf_has_winlike_resources];
             cpu          : cpu_m68k;
             unit_env     : 'LINUXUNITS';
@@ -227,7 +226,6 @@ unit i_linux;
             name         : 'Linux for PowerPC';
             shortname    : 'Linux';
             flags        : [tf_needs_symbol_size,tf_needs_symbol_type,tf_files_case_sensitive,
-                            tf_use_function_relative_addresses,
                             tf_smartlink_library,tf_has_winlike_resources];
             cpu          : cpu_powerpc;
             unit_env     : '';
@@ -290,7 +288,6 @@ unit i_linux;
             name         : 'Linux for PowerPC64';
             shortname    : 'Linux';
             flags        : [tf_needs_symbol_size,tf_needs_symbol_type,tf_files_case_sensitive,
-                            tf_use_function_relative_addresses,
                             tf_requires_proper_alignment,tf_smartlink_library,tf_has_winlike_resources];
             cpu          : cpu_powerpc64;
             unit_env     : '';
@@ -353,7 +350,7 @@ unit i_linux;
             name         : 'Linux for Alpha';
             shortname    : 'Linux';
             flags        : [tf_needs_symbol_size,tf_needs_symbol_type,tf_files_case_sensitive,
-                            tf_use_function_relative_addresses,tf_smartlink_library,tf_has_winlike_resources];
+                            tf_smartlink_library,tf_has_winlike_resources];
             cpu          : cpu_alpha;
             unit_env     : 'LINUXUNITS';
             extradefines : 'UNIX;HASUNIX';
@@ -416,7 +413,7 @@ unit i_linux;
             shortname    : 'Linux';
             flags        : [tf_needs_symbol_size,tf_needs_dwarf_cfi,tf_smartlink_library,
                             tf_library_needs_pic,tf_needs_symbol_type,tf_files_case_sensitive,
-                            tf_use_function_relative_addresses,tf_has_winlike_resources];
+                            tf_has_winlike_resources];
             cpu          : cpu_x86_64;
             unit_env     : 'LINUXUNITS';
             extradefines : 'UNIX;HASUNIX';
@@ -465,7 +462,7 @@ unit i_linux;
                 localalignmax   : 16;
                 recordalignmin  : 0;
                 recordalignmax  : 16;
-                maxCrecordalign : 8
+                maxCrecordalign : 16
               );
             first_parm_offset : 16;
             stacksize    : 8*1024*1024;
@@ -479,7 +476,7 @@ unit i_linux;
             shortname    : 'Linux';
             flags        : [tf_needs_symbol_size,tf_library_needs_pic,tf_smartlink_sections,
                             tf_needs_symbol_type,tf_files_case_sensitive,tf_smartlink_library,
-                            tf_use_function_relative_addresses,tf_requires_proper_alignment,
+                            tf_requires_proper_alignment,
                             tf_has_winlike_resources];
             cpu          : cpu_SPARC;
             unit_env     : 'LINUXUNITS';
@@ -543,7 +540,7 @@ unit i_linux;
             name         : 'Linux for ARMEL';
             shortname    : 'Linux';
             flags        : [tf_needs_symbol_size,tf_needs_symbol_type,tf_files_case_sensitive,
-                            tf_use_function_relative_addresses,tf_requires_proper_alignment,
+                            tf_requires_proper_alignment,
                             tf_smartlink_sections,tf_smartlink_library,tf_has_winlike_resources];
             cpu          : cpu_arm;
             unit_env     : 'LINUXUNITS';
@@ -607,7 +604,7 @@ unit i_linux;
             name         : 'Linux for ARMEB';
             shortname    : 'Linux';
             flags        : [tf_needs_symbol_size,tf_needs_symbol_type,tf_files_case_sensitive,
-                            tf_use_function_relative_addresses,tf_requires_proper_alignment,
+                            tf_requires_proper_alignment,
                             tf_smartlink_sections,tf_smartlink_library,tf_has_winlike_resources];
             cpu          : cpu_arm;
             unit_env     : 'LINUXUNITS';
@@ -670,7 +667,7 @@ unit i_linux;
             name         : 'Linux for ARM';
             shortname    : 'Linux';
             flags        : [tf_needs_symbol_size,tf_needs_symbol_type,tf_files_case_sensitive,
-                            tf_use_function_relative_addresses,tf_requires_proper_alignment,
+                            tf_requires_proper_alignment,
                             tf_smartlink_sections,tf_smartlink_library,tf_has_winlike_resources];
             cpu          : cpu_arm;
             unit_env     : 'LINUXUNITS';
@@ -717,7 +714,7 @@ unit i_linux;
                 varalignmin     : 0;
                 varalignmax     : 4;
                 localalignmin   : 4;
-                localalignmax   : 8;
+                localalignmax   : 4;
                 recordalignmin  : 0;
                 recordalignmax  : 4;
                 maxCrecordalign : 4
@@ -728,6 +725,134 @@ unit i_linux;
           );
 {$endif FPC_ARMEB}
 {$endif FPC_ARMEL}
+
+       system_mips_linux_info : tsysteminfo =
+          (
+            system       : system_mips_LINUX;
+            name         : 'Linux for MIPS';
+            shortname    : 'Linux';
+            flags        : [tf_needs_symbol_size,tf_needs_symbol_type,tf_files_case_sensitive,
+                            tf_requires_proper_alignment,
+                            tf_smartlink_sections,tf_smartlink_library,tf_has_winlike_resources];
+            cpu          : cpu_mips;
+            unit_env     : 'LINUXUNITS';
+            extradefines : 'UNIX;HASUNIX';
+            exeext       : '';
+            defext       : '.def';
+            scriptext    : '.sh';
+            smartext     : '.sl';
+            unitext      : '.ppu';
+            unitlibext   : '.ppl';
+            asmext       : '.s';
+            objext       : '.o';
+            resext       : '.res';
+            resobjext    : '.or';
+            sharedlibext : '.so';
+            staticlibext : '.a';
+            staticlibprefix : 'libp';
+            sharedlibprefix : 'lib';
+            sharedClibext : '.so';
+            staticClibext : '.a';
+            staticClibprefix : 'lib';
+            sharedClibprefix : 'lib';
+            importlibprefix : 'libimp';
+            importlibext : '.a';
+//            p_ext_support : false;
+            Cprefix      : '';
+            newline      : #10;
+            dirsep       : '/';
+            assem        : as_gas;
+            assemextern  : as_gas;
+            link         : nil;
+            linkextern   : nil;
+            ar           : ar_gnu_ar;
+            res          : res_none;
+            dbg          : dbg_stabs;
+            script       : script_unix;
+            endian       : endian_big;
+            alignment    :
+              (
+                procalign       : 4;
+                loopalign       : 4;
+                jumpalign       : 0;
+                constalignmin   : 0;
+                constalignmax   : 8;
+                varalignmin     : 0;
+                varalignmax     : 8;
+                localalignmin   : 4;
+                localalignmax   : 8;
+                recordalignmin  : 0;
+                recordalignmax  : 2;
+                maxCrecordalign : 4
+              );
+            first_parm_offset : 8;
+            stacksize    : 32*1024*1024;
+            abi : abi_default
+          );
+
+       system_mipsel_linux_info : tsysteminfo =
+          (
+            system       : system_mipsel_LINUX;
+            name         : 'Linux for MIPSEL';
+            shortname    : 'Linux';
+            flags        : [tf_needs_symbol_size,tf_needs_symbol_type,tf_files_case_sensitive,
+                            tf_requires_proper_alignment,
+                            tf_smartlink_sections,tf_smartlink_library,tf_has_winlike_resources];
+            cpu          : cpu_mipsel;
+            unit_env     : 'LINUXUNITS';
+            extradefines : 'UNIX;HASUNIX;MIPSEL';
+            exeext       : '';
+            defext       : '.def';
+            scriptext    : '.sh';
+            smartext     : '.sl';
+            unitext      : '.ppu';
+            unitlibext   : '.ppl';
+            asmext       : '.s';
+            objext       : '.o';
+            resext       : '.res';
+            resobjext    : '.or';
+            sharedlibext : '.so';
+            staticlibext : '.a';
+            staticlibprefix : 'libp';
+            sharedlibprefix : 'lib';
+            sharedClibext : '.so';
+            staticClibext : '.a';
+            staticClibprefix : 'lib';
+            sharedClibprefix : 'lib';
+            importlibprefix : 'libimp';
+            importlibext : '.a';
+//            p_ext_support : false;
+            Cprefix      : '';
+            newline      : #10;
+            dirsep       : '/';
+            assem        : as_gas;
+            assemextern  : as_gas;
+            link         : nil;
+            linkextern   : nil;
+            ar           : ar_gnu_ar;
+            res          : res_none;
+            dbg          : dbg_stabs;
+            script       : script_unix;
+            endian       : endian_little;
+            alignment    :
+              (
+                procalign       : 4;
+                loopalign       : 4;
+                jumpalign       : 0;
+                constalignmin   : 0;
+                constalignmax   : 8;
+                varalignmin     : 0;
+                varalignmax     : 8;
+                localalignmin   : 4;
+                localalignmax   : 8;
+                recordalignmin  : 0;
+                recordalignmax  : 2;
+                maxCrecordalign : 4
+              );
+            first_parm_offset : 8;
+            stacksize    : 32*1024*1024;
+            abi : abi_default
+          );
 
   implementation
 
@@ -775,5 +900,9 @@ initialization
     set_source_info(system_arm_linux_info);
   {$endif linux}
 {$endif CPUARM}
+{$ifdef CPUMIPS}
+  {$ifdef linux}
+    set_source_info(system_mipsel_linux_info);
+  {$endif linux}
+{$endif CPUMIPS}
 end.
-

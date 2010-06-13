@@ -1,4 +1,4 @@
-﻿#
+#
 #   This file is part of the Free Pascal Compiler
 #   Copyright (c) 1999-2008 by the Free Pascal Development team
 #
@@ -2604,7 +2604,6 @@ S*2Aas_אסוף עם GNU AS
 **2Sm_תמוך במקרו דומים לC (גלובליים)
 **2So_זהה ל -Mtp
 **2Ss_שם יוצר חייב להיות init (שם הורס חייב להיות done)
-**2St_אפשר מילות מפתח באובייקטים
 **2Sx_אפשר מילות מפתח לexception (ברירת מחדל במצבי Delphi/ObjFPC)
 **1s_אל תקרא למאסף והמקשר
 **2sh_צור תסריט לקישור במארח

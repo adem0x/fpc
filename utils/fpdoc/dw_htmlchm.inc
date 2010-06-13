@@ -15,6 +15,8 @@ type
     FDefaultPage: String;
     FCSSFile: String;
     FMakeSearchable,
+    FNoBinToc,
+    FNoBinIndex,
     FAutoTOC,
     FAutoIndex: Boolean;
     FOtherFiles: String;
@@ -47,6 +49,11 @@ begin
   
   if FCSSFile <> '' then
   begin
+    if not FileExists(FCSSFile) Then
+      begin
+        Writeln(stderr,'Can''t find CSS file "',FCSSFILE,'"');
+        halt(1);
+      end;
     TempStream := TMemoryStream.Create;
     TempStream.LoadFromFile(FCSSFile);
     TempStream.Position := 0;
@@ -232,7 +239,9 @@ begin
       TOC.Items.Item[i].Children.Item[j].Children.Sort(TListSortCompare(@TOCSort));
     end;
   end;
-  
+
+  if not fnobintoc then
+    fchm.AppendBinaryTOCFromSiteMap(Toc);  
   TOC.SaveToStream(Stream);
   TOC.Free;
 
@@ -407,6 +416,8 @@ begin
 
     // save
     Index.SaveToStream(Stream);
+    if not fnobinindex then
+      fchm.AppendBinaryindexFromSitemap(index,false);
     Index.Free;
     Stream.Position :=0 ;
     FChm.AppendIndex(Stream);
@@ -444,7 +455,8 @@ begin
   FChm.TempRawStream := FTempUncompressed;
   FChm.OnGetFileData := @RetrieveOtherFiles;
   FChm.OnLastFile := @LastFileAdded;
-  
+  fchm.hasbinarytoc:=not fnobintoc;;
+  fchm.hasbinaryindex:=not fnobinindex;
   ProcessOptions;
 
   FileStream := TMemoryStream.Create;
@@ -481,6 +493,8 @@ end;
 function TCHMHTMLWriter.InterPretOption(const Cmd, Arg: String): boolean;
 begin
   Result:=True;
+  FNoBinToc:=False;
+  FnoBinIndex:=False;
   if Cmd = '--toc-file' then
     FTOCName := arg
   else if Cmd = '--index-file' then
@@ -495,6 +509,10 @@ begin
     FAutoIndex := True
   else if Cmd = '--auto-toc' then
     FAutoTOC := True
+  else if Cmd = '--no-bintoc' then
+    FNoBinToc := True
+  else if Cmd = '--no-binindex' then
+    FNoBinIndex := True
   else if Cmd = '--make-searchable' then
     FMakeSearchable := True
   else

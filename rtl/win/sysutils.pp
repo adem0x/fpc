@@ -18,6 +18,7 @@ unit sysutils;
 interface
 
 {$MODE objfpc}
+{$MODESWITCH OUT}
 { force ansistrings }
 {$H+}
 
@@ -249,7 +250,7 @@ begin
 end;
 
 
-Function FileRead (Handle : THandle; Var Buffer; Count : longint) : Longint;
+Function FileRead (Handle : THandle; out Buffer; Count : longint) : Longint;
 Var
   res : dword;
 begin
@@ -278,14 +279,14 @@ end;
 
 
 Function FileSeek (Handle : THandle; FOffset: Int64; Origin: Longint) : Int64;
+var
+  rslt: Int64Rec;
 begin
-  if assigned(SetFilePointerEx) then
-    begin
-      if not(SetFilePointerEx(Handle, FOffset, @result, Origin)) then
-        Result:=-1;
-    end
-  else
-    Result:=longint(SetFilePointer(Handle, FOffset, nil, Origin));
+  rslt := Int64Rec(FOffset);
+  rslt.lo := SetFilePointer(Handle, rslt.lo, @rslt.hi, Origin);
+  if (rslt.lo = $FFFFFFFF) and (GetLastError <> 0) then
+    rslt.hi := $FFFFFFFF;
+  Result := Int64(rslt);
 end;
 
 
@@ -604,7 +605,7 @@ end;
                               Misc Functions
 ****************************************************************************}
 
-procedure Beep;
+procedure sysbeep;
 begin
   MessageBeep(0);
 end;
@@ -629,9 +630,9 @@ end;
 
 function GetLocaleChar(LID, LT: Longint; Def: Char): Char;
 var
-  Buf: array[0..1] of Char;
+  Buf: array[0..3] of Char; // sdate allows 4 chars.
 begin
-  if GetLocaleInfo(LID, LT, Buf, 2) > 0 then
+  if GetLocaleInfo(LID, LT, Buf, sizeof(buf)) > 0 then
     Result := Buf[0]
   else
     Result := Def;
@@ -699,6 +700,8 @@ var
   { A call to GetSystemMetrics changes the value of the 8087 Control Word on
     Pentium4 with WinXP SP2 }
   old8087CW: word;
+  DefaultCustomLocaleID : LCID;   // typedef DWORD LCID;
+  DefaultCustomLanguageID : Word; // typedef WORD LANGID;
 begin
   InitInternationalGeneric;
   old8087CW:=Get8087CW;
@@ -708,6 +711,28 @@ begin
   SysLocale.PriLangID := LANG_ENGLISH;
   SysLocale.SubLangID := SUBLANG_ENGLISH_US;
   // probably needs update with getthreadlocale. post 2.0.2
+
+  DefaultCustomLocaleID := GetThreadLocale;
+  if DefaultCustomLocaleID <> 0 then
+    begin
+      { Locale Identifiers
+        +-------------+---------+-------------------------+
+        |   Reserved  | Sort ID |      Language ID        |
+        +-------------+---------+-------------------------+
+        31         20 19      16 15                       0   bit }
+      DefaultCustomLanguageID := DefaultCustomLocaleID and $FFFF; // 2^16
+      if DefaultCustomLanguageID <> 0 then
+        begin
+          SysLocale.DefaultLCID := DefaultCustomLocaleID;
+          { Language Identifiers
+            +-------------------------+-------------------------+
+            |     SubLanguage ID      |   Primary Language ID   |
+            +-------------------------+-------------------------+
+            15                      10  9                         0   bit  }
+          SysLocale.PriLangID := DefaultCustomLanguageID and $3ff; // 2^10
+          SysLocale.SubLangID := DefaultCustomLanguageID shr 10;
+        end;
+     end;
 
   Set8087CW(old8087CW);
   GetFormatSettings;
@@ -813,7 +838,8 @@ begin
 end;
 
 
-function ExecuteProcess(Const Path: AnsiString; Const ComLine: AnsiString):integer;
+function ExecuteProcess(Const Path: AnsiString; Const ComLine: AnsiString;Flags:TExecuteFlags=[]):integer;
+// win specific  function
 var
   SI: TStartupInfo;
   PI: TProcessInformation;
@@ -821,7 +847,7 @@ var
   l    : DWord;
   CommandLine : ansistring;
   e : EOSError;
-
+  ExecInherits : longbool;
 begin
   FillChar(SI, SizeOf(SI), 0);
   SI.cb:=SizeOf(SI);
@@ -840,8 +866,10 @@ begin
   else
     CommandLine := CommandLine + #0;
 
+  ExecInherits:=ExecInheritsHandles in Flags;
+
   if not CreateProcess(nil, pchar(CommandLine),
-    Nil, Nil, False,$20, Nil, Nil, SI, PI) then
+    Nil, Nil, ExecInherits,$20, Nil, Nil, SI, PI) then
     begin
       e:=EOSError.CreateFmt(SExecuteProcessFailed,[CommandLine,GetLastError]);
       e.ErrorCode:=GetLastError;
@@ -865,7 +893,7 @@ begin
     end;
 end;
 
-function ExecuteProcess(Const Path: AnsiString; Const ComLine: Array of AnsiString):integer;
+function ExecuteProcess(Const Path: AnsiString; Const ComLine: Array of AnsiString;Flags:TExecuteFlags=[]):integer;
 
 var
   CommandLine: AnsiString;
@@ -878,7 +906,7 @@ begin
     CommandLine := CommandLine + ' ' + '"' + ComLine [I] + '"'
    else
     CommandLine := CommandLine + ' ' + Comline [I];
-  ExecuteProcess := ExecuteProcess (Path, CommandLine);
+  ExecuteProcess := ExecuteProcess (Path, CommandLine,Flags);
 end;
 
 Procedure Sleep(Milliseconds : Cardinal);
@@ -1215,27 +1243,13 @@ procedure InitWin32Widestrings;
   end;
 
 
-procedure SetupProcVars;
-  var
-    hinstLib : THandle;
-  begin
-    SetFilePointerEx:=nil;
-    hinstLib:=LoadLibrary(KernelDLL);
-    if hinstLib<>0 then
-      begin
-        pointer(SetFilePointerEx):=GetProcAddress(hinstLib,'SetFilePointerEx');
-        FreeLibrary(hinstLib);
-      end;
-  end;
-
-
 Initialization
   InitWin32Widestrings;
   InitExceptions;       { Initialize exceptions. OS independent }
   InitInternational;    { Initialize internationalization settings }
   LoadVersionInfo;
   InitSysConfigDir;
-  SetupProcVars;
+  OnBeep:=@SysBeep;
 Finalization
   DoneExceptions;
   if kernel32dll<>0 then

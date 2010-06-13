@@ -61,9 +61,7 @@ unit cgutils;
          { (An)+ and -(An)                      }
          direction : tdirection;
 {$endif m68k}
-{$ifdef SUPPORT_UNALIGNED}
          alignment : byte;
-{$endif SUPPORT_UNALIGNED}
       end;
 
       tsubsetregister = record
@@ -82,7 +80,9 @@ unit cgutils;
          loc  : TCGLoc;
          size : TCGSize;
          case TCGLoc of
+{$ifdef cpuflags}
             LOC_FLAGS : (resflags : tresflags);
+{$endif cpuflags}
             LOC_CONSTANT : (
               case longint of
 {$ifdef FPC_BIG_ENDIAN}

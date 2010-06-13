@@ -70,7 +70,7 @@ interface
       cutils,verbose,
       aasmbase,aasmtai,aasmdata,aasmcpu,
       symsym,symconst,symdef,defutil,
-      nflw,pass_2,
+      nflw,pass_2,ncgutil,
       cgbase,cgobj,
       procinfo,
       tgobj
@@ -206,6 +206,21 @@ interface
                         op.reg:=sym.localloc.register;
                       end;
                   end;
+                LOC_MMREGISTER :
+                  begin
+                    if getoffset then
+                      Message(asmr_e_invalid_reference_syntax);
+                    { Subscribed access }
+                    if forceref or (sofs<>0) then
+                      internalerror(201001032)
+                    else
+                      begin
+                        op.typ:=top_reg;
+                        op.reg:=sym.localloc.register;
+                      end;
+                  end;
+                else
+                  internalerror(201001031);
               end;
             end;
         end;
@@ -381,7 +396,7 @@ interface
           internalerror(200108222);
 
         { get a (persistent) temp }
-        if tempinfo^.typedef.needs_inittable then
+        if is_managed_type(tempinfo^.typedef) then
           begin
             location_reset_ref(tempinfo^.location,LOC_REFERENCE,def_cgsize(tempinfo^.typedef),0);
             tg.GetTempTyped(current_asmdata.CurrAsmList,tempinfo^.typedef,tempinfo^.temptype,tempinfo^.location.reference);
@@ -391,43 +406,7 @@ interface
           end
         else if (ti_may_be_in_reg in tempinfo^.flags) then
           begin
-            if tempinfo^.typedef.typ=floatdef then
-              begin
-{$ifdef x86}
-                if use_sse(tempinfo^.typedef) then
-                  begin
-                    if (tempinfo^.temptype = tt_persistent) then
-                      location_reset(tempinfo^.location,LOC_CMMREGISTER,def_cgsize(tempinfo^.typedef))
-                    else
-                      location_reset(tempinfo^.location,LOC_MMREGISTER,def_cgsize(tempinfo^.typedef));
-                    tempinfo^.location.register:=cg.getmmregister(current_asmdata.CurrAsmList,tempinfo^.location.size);
-                  end
-                else
-{$endif x86}
-                  begin
-                    if (tempinfo^.temptype = tt_persistent) then
-                      location_reset(tempinfo^.location,LOC_CFPUREGISTER,def_cgsize(tempinfo^.typedef))
-                    else
-                      location_reset(tempinfo^.location,LOC_FPUREGISTER,def_cgsize(tempinfo^.typedef));
-                    tempinfo^.location.register:=cg.getfpuregister(current_asmdata.CurrAsmList,tempinfo^.location.size);
-                  end;
-              end
-            else
-              begin
-                if (tempinfo^.temptype = tt_persistent) then
-                  location_reset(tempinfo^.location,LOC_CREGISTER,def_cgsize(tempinfo^.typedef))
-                else
-                  location_reset(tempinfo^.location,LOC_REGISTER,def_cgsize(tempinfo^.typedef));
-{$ifndef cpu64bitalu}
-                if tempinfo^.location.size in [OS_64,OS_S64] then
-                  begin
-                    tempinfo^.location.register64.reglo:=cg.getintregister(current_asmdata.CurrAsmList,OS_32);
-                    tempinfo^.location.register64.reghi:=cg.getintregister(current_asmdata.CurrAsmList,OS_32);
-                  end
-                else
-{$endif not cpu64bitalu}
-                  tempinfo^.location.register:=cg.getintregister(current_asmdata.CurrAsmList,tempinfo^.location.size);
-              end;
+            location_allocate_register(current_asmdata.CurrAsmList,tempinfo^.location,tempinfo^.typedef,tempinfo^.temptype = tt_persistent);
           end
         else
           begin
@@ -435,6 +414,8 @@ interface
             tg.GetTemp(current_asmdata.CurrAsmList,size,tempinfo^.typedef.alignment,tempinfo^.temptype,tempinfo^.location.reference);
           end;
         include(tempinfo^.flags,ti_valid);
+        if assigned(tempinfo^.tempinitcode) then
+          include(tempinfo^.flags,ti_executeinitialisation);
       end;
 
 
@@ -444,6 +425,12 @@ interface
 
     procedure tcgtemprefnode.pass_generate_code;
       begin
+        if ti_executeinitialisation in tempinfo^.flags then
+          begin
+            { avoid recursion }
+            exclude(tempinfo^.flags, ti_executeinitialisation);
+            secondpass(tempinfo^.tempinitcode);
+          end;
         { check if the temp is valid }
         if not(ti_valid in tempinfo^.flags) then
           internalerror(200108231);

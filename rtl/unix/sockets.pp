@@ -17,11 +17,13 @@ Interface
 Uses baseunix,UnixType;
 {$endif}
 
-{$ifdef FreeBSD}
-{$DEFINE SOCK_HAS_SINLEN}               // BSD definition of socketaddr
-{$endif}
+{$i osdefs.inc}       { Compile time defines }
 
-{$ifdef Darwin}
+{$if 
+     defined(FreeBSD) or 
+     defined(Darwin) or 
+     defined(Haiku)
+}
 {$DEFINE SOCK_HAS_SINLEN}               // BSD definition of socketaddr
 {$endif}
 

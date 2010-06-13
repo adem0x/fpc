@@ -32,13 +32,8 @@ type
   fpc_big_chararray = array[0..0] of char;
   fpc_big_widechararray = array[0..0] of widechar;
 {$endif ndef FPC_STRTOCHARARRAYPROC}
-{$ifdef FPC_NEW_BIGENDIAN_SETS}
   fpc_small_set = bitpacked array[0..31] of 0..1;
   fpc_normal_set = bitpacked array[0..255] of 0..1;
-{$else}
-  fpc_small_set = longint;
-  fpc_normal_set = array[0..7] of longint;
-{$endif}
   fpc_normal_set_byte = array[0..31] of byte;
   fpc_normal_set_long = array[0..7] of longint;
 
@@ -117,6 +112,7 @@ procedure fpc_AnsiStr_uint(v : valuint;Len : SizeInt; out S : AnsiString); compi
 {$ifndef FPUNONE}
 procedure fpc_AnsiStr_Float(d : ValReal;len,fr,rt : SizeInt;out s : ansistring); compilerproc;
 {$endif}
+procedure fpc_ansistr_enum(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out s:ansistring); compilerproc;
 {$ifdef FPC_HAS_STR_CURRENCY}
 procedure fpc_AnsiStr_Currency(c : currency;len,fr : SizeInt;out s : ansistring); compilerproc;
 {$endif FPC_HAS_STR_CURRENCY}
@@ -159,6 +155,7 @@ procedure fpc_AnsiStr_Currency(c : currency;len,fr : SizeInt;out s : ansistring)
     {$ifndef FPUNONE}
     procedure fpc_WideStr_Float(d : ValReal;len,fr,rt : SizeInt;out s : WideString); compilerproc;
     {$endif}
+    procedure fpc_widestr_enum(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out s:widestring);compilerproc;
     {$ifdef FPC_HAS_STR_CURRENCY}
     procedure fpc_WideStr_Currency(c : Currency;len,fr : SizeInt;out s : WideString);compilerproc;
     {$endif FPC_HAS_STR_CURRENCY}
@@ -167,6 +164,7 @@ procedure fpc_AnsiStr_Currency(c : currency;len,fr : SizeInt;out s : ansistring)
     {$ifndef FPUNONE}
     procedure fpc_UnicodeStr_Float(d : ValReal;len,fr,rt : SizeInt;out s : UnicodeString); compilerproc;
     {$endif}
+    procedure fpc_unicodestr_enum(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out s:unicodestring);compilerproc;
     {$ifdef FPC_HAS_STR_CURRENCY}
     procedure fpc_UnicodeStr_Currency(c : Currency;len,fr : SizeInt;out s : UnicodeString);compilerproc;
     {$endif FPC_HAS_STR_CURRENCY}
@@ -176,6 +174,7 @@ procedure fpc_AnsiStr_Currency(c : currency;len,fr : SizeInt;out s : ansistring)
 {$ifndef FPUNONE}
 procedure fpc_chararray_Float(d : ValReal;len,fr,rt : SizeInt;out a : array of char); compilerproc;
 {$endif}
+procedure fpc_chararray_enum(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out a : array of char);compilerproc;
 {$ifdef FPC_HAS_STR_CURRENCY}
 procedure fpc_chararray_Currency(c : Currency;len,fr : SizeInt;out a : array of char);compilerproc;
 {$endif FPC_HAS_STR_CURRENCY}
@@ -593,11 +592,22 @@ function fpc_do_as(aclass : tclass;aobject : tobject): tobject; compilerproc;
 procedure fpc_intf_decr_ref(var i: pointer); compilerproc;
 procedure fpc_intf_incr_ref(i: pointer); compilerproc;
 procedure fpc_intf_assign(var D: pointer; const S: pointer); compilerproc;
-procedure fpc_intf_assign_by_iid(var D: pointer; const S: pointer; const iid: TGUID); compilerproc;
-function  fpc_intf_as(const S: pointer; const iid: TGUID): IInterface; compilerproc;
+//procedure fpc_intf_assign_by_iid(var D: pointer; const S: pointer; const iid: TGUID); compilerproc;
+function fpc_intf_is(const S: pointer; const iid: TGUID): Boolean; compilerproc;
+function fpc_intf_is_class(const S: pointer; const aclass: tclass): Boolean; compilerproc;
+function fpc_class_is_intf(const S: pointer; const iid: TGUID): Boolean; compilerproc;
+function fpc_class_is_corbaintf(const S: pointer; const iid: Shortstring): Boolean; compilerproc;
+function fpc_intf_cast(const S: pointer; const iid: TGUID): IInterface; compilerproc;
+function fpc_intf_cast_class(const S: pointer; const aclass: tclass): pointer; compilerproc;
+function fpc_class_cast_intf(const S: pointer; const iid: TGUID): IInterface; compilerproc;
+function fpc_class_cast_corbaintf(const S: pointer; const iid: Shortstring): Pointer; compilerproc;
+function fpc_intf_as(const S: pointer; const iid: TGUID): IInterface; compilerproc;
+function fpc_intf_as_class(const S: pointer; const aclass: tclass): pointer; compilerproc;
 function fpc_class_as_intf(const S: pointer; const iid: TGUID): IInterface; compilerproc;
 function fpc_class_as_corbaintf(const S: pointer; const iid: Shortstring): Pointer; compilerproc;
+{$ifdef FPC_HAS_FEATURE_VARIANTS}
 procedure fpc_dispatch_by_id(Result: Pointer; const Dispatch: pointer;DispDesc: Pointer; Params: Pointer); compilerproc;
+{$endif FPC_HAS_FEATURE_VARIANTS}
 {$endif FPC_HAS_FEATURE_CLASSES}
 
 
@@ -610,6 +620,8 @@ function fpc_PopObjectStack : TObject; compilerproc;
 function fpc_PopSecondObjectStack : TObject; compilerproc;
 Procedure fpc_ReRaise; compilerproc;
 Function fpc_Catches(Objtype : TClass) : TObject; compilerproc;
+Procedure fpc_DestroyException(o : TObject); compilerproc;
+function fpc_GetExceptionAddr : Pointer; compilerproc;
 {$endif FPC_HAS_FEATURE_EXCEPTIONS}
 
 
@@ -621,7 +633,6 @@ procedure fpc_help_fail(_self:pointer;var _vmt:pointer;vmt_pos:cardinal);compile
 
 
 {$ifdef dummy}
-Procedure fpc_DestroyException(o : TObject); compilerproc;
 procedure fpc_check_object(obj:pointer); compilerproc;
 procedure fpc_check_object_ext(vmt,expvmt:pointer);compilerproc;
 {$endif dummy}
@@ -637,20 +648,6 @@ Function fpc_Copy (Src, Dest, TypeInfo : Pointer) : SizeInt; compilerproc;
 Procedure fpc_Copy_proc (Src, Dest, TypeInfo : Pointer); compilerproc; inline;
 {$endif FPC_HAS_FEATURE_RTTI}
 
-
-{$ifndef FPC_NEW_BIGENDIAN_SETS}
-function fpc_set_load_small(l: fpc_small_set): fpc_normal_set; compilerproc;
-function fpc_set_create_element(b : byte): fpc_normal_set; compilerproc;
-function fpc_set_set_byte(const source: fpc_normal_set; b : byte): fpc_normal_set; compilerproc;
-function fpc_set_unset_byte(const source: fpc_normal_set; b : byte): fpc_normal_set; compilerproc;
-function fpc_set_set_range(const orgset: fpc_normal_set; l,h : byte): fpc_normal_set; compilerproc;
-function fpc_set_add_sets(const set1,set2: fpc_normal_set): fpc_normal_set; compilerproc;
-function fpc_set_mul_sets(const set1,set2: fpc_normal_set): fpc_normal_set; compilerproc;
-function fpc_set_sub_sets(const set1,set2: fpc_normal_set): fpc_normal_set; compilerproc;
-function fpc_set_symdif_sets(const set1,set2: fpc_normal_set): fpc_normal_set; compilerproc;
-function fpc_set_comp_sets(const set1,set2: fpc_normal_set): boolean; compilerproc;
-function fpc_set_contains_sets(const set1,set2: fpc_normal_set): boolean; compilerproc;
-{$endif ndef FPC_NEW_BIGENDIAN_SETS}
 
 {$ifdef FPC_SETBASE_USED}
 procedure fpc_varset_load(const l;sourcesize : longint;var dest;size,srcminusdstbase : ptrint); compilerproc;

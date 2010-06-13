@@ -17,6 +17,7 @@ unit sysutils;
 interface
 
 {$MODE objfpc}
+{$MODESWITCH OUT}
 { force ansistrings }
 {$H+}
 
@@ -343,6 +344,7 @@ var
   lockop: cint;
   lockres: cint;
   closeres: cint;
+  lockerr: cint;
 begin
   DoFileLocking:=Handle;
 {$ifdef beos}
@@ -392,7 +394,13 @@ begin
         lockres:=fpflock(Handle,lockop);
       until (lockres=0) or
             (fpgeterrno<>ESysEIntr);
-      if (lockres<>0) then
+      lockerr:=fpgeterrno;
+      { Only return an error if locks are working and the file was already
+        locked. Not if locks are simply unsupported (e.g., on Angstrom Linux
+        you always get ESysNOLCK in the default configuration) }
+      if (lockres<>0) and
+         ((lockerr=ESysEAGAIN) or
+          (lockerr=EsysEDEADLK)) then
         begin
           repeat
             closeres:=FpClose(Handle);
@@ -443,7 +451,7 @@ begin
 end;
 
 
-Function FileRead (Handle : Longint; Var Buffer; Count : longint) : Longint;
+Function FileRead (Handle : Longint; out Buffer; Count : longint) : Longint;
 
 begin
   repeat
@@ -991,9 +999,6 @@ end;
                               Misc Functions
 ****************************************************************************}
 
-procedure Beep;
-begin
-end;
 
 
 {****************************************************************************
@@ -1137,7 +1142,7 @@ begin
 end;
 
 
-function ExecuteProcess(Const Path: AnsiString; Const ComLine: AnsiString):integer;
+function ExecuteProcess(Const Path: AnsiString; Const ComLine: AnsiString;Flags:TExecuteFlags=[]):integer;
 var
   pid    : longint;
   e      : EOSError;
@@ -1202,7 +1207,7 @@ Begin
     end;
 End;
 
-function ExecuteProcess(Const Path: AnsiString; Const ComLine: Array Of AnsiString):integer;
+function ExecuteProcess(Const Path: AnsiString; Const ComLine: Array Of AnsiString;Flags:TExecuteFlags=[]):integer;
 
 var
   pid    : longint;
@@ -1356,6 +1361,12 @@ begin
   Result:=TheUserDir;    
 end;
 
+Procedure SysBeep;
+
+begin
+  Write(#7);
+  Flush(Output);
+end;
 
 {****************************************************************************
                               Initialization code
@@ -1365,6 +1376,8 @@ Initialization
   InitExceptions;       { Initialize exceptions. OS independent }
   InitInternational;    { Initialize internationalization settings }
   SysConfigDir:='/etc'; { Initialize system config dir }
+  OnBeep:=@SysBeep;
+  
 Finalization
   FreeDriveStr;
   DoneExceptions;

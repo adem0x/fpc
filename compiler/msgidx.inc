@@ -106,6 +106,7 @@ const
   scan_w_frameworks_darwin_only=02084;
   scan_e_illegal_minfpconstprec=02085;
   scan_w_multiple_main_name_overrides=02086;
+  scanner_w_illegal_warn_identifier=02087;
   parser_e_syntax_error=03000;
   parser_e_dont_nest_interrupt=03004;
   parser_w_proc_directive_ignored=03005;
@@ -151,8 +152,8 @@ const
   parser_e_error_in_real=03050;
   parser_e_fail_only_in_constructor=03051;
   parser_e_no_paras_for_destructor=03052;
-  parser_e_only_class_methods_via_class_ref=03053;
-  parser_e_only_class_methods=03054;
+  parser_e_only_class_members_via_class_ref=03053;
+  parser_e_only_class_members=03054;
   parser_e_case_mismatch=03055;
   parser_e_illegal_symbol_exported=03056;
   parser_w_should_use_override=03057;
@@ -312,7 +313,7 @@ const
   parser_e_packed_element_no_var_addr=03221;
   parser_e_packed_dynamic_open_array=03222;
   parser_e_packed_element_no_loop=03223;
-  parser_e_type_and_var_only_in_generics=03224;
+  parser_e_type_var_const_only_in_generics_and_classes=03224;
   parser_e_cant_create_generics_of_this_type=03225;
   parser_w_no_lineinfo_use_switch=03226;
   parser_e_no_funcret_specified=03227;
@@ -340,7 +341,48 @@ const
   parser_n_ignore_lower_visibility=03250;
   parser_e_field_not_allowed_here=03251;
   parser_e_no_local_para_def=03252;
-  parser_e_invalid_codepage=03253;
+  parser_e_abstract_and_sealed_conflict=03253;
+  parser_e_sealed_descendant=03254;
+  parser_e_sealed_class_cannot_have_abstract_methods=03255;
+  parser_e_only_virtual_methods_final=03256;
+  parser_e_final_can_no_be_overridden=03257;
+  parser_e_multiple_messages=03258;
+  parser_e_invalid_enumerator_identifier=03259;
+  parser_e_enumerator_identifier_required=03260;
+  parser_e_enumerator_movenext_is_not_valid=03261;
+  parser_e_enumerator_current_is_not_valid=03262;
+  parser_e_only_one_enumerator_movenext=03263;
+  parser_e_only_one_enumerator_current=03264;
+  parser_e_for_in_loop_cannot_be_used_for_the_type=03265;
+  parser_e_objc_requires_msgstr=03266;
+  parser_e_objc_no_constructor_destructor=03267;
+  parser_e_message_string_too_long=03268;
+  parser_e_objc_message_name_too_long=03269;
+  parser_h_no_objc_parent=03270;
+  parser_e_no_objc_published=03271;
+  parser_f_need_objc=03272;
+  parser_e_must_use_override_objc=03273;
+  parser_h_should_use_override_objc=03274;
+  parser_e_objc_message_name_changed=03275;
+  parser_e_no_objc_unique=03276;
+  parser_e_no_category_as_types=03277;
+  parser_e_no_category_override=03278;
+  parser_e_must_use_reintroduce_objc=03279;
+  parser_h_should_use_reintroduce_objc=03280;
+  parser_e_implements_getter_not_default_cc=03281;
+  parser_e_no_refcounted_typed_file=03282;
+  parser_e_operator_not_overloaded_2=03283;
+  parser_e_operator_not_overloaded_3=03284;
+  parser_e_more_array_elements_expected=03285;
+  parser_e_string_const_too_long=03286;
+  parser_e_invalid_univ_para=03287;
+  parser_e_only_one_class_constructor_allowed=03288;
+  parser_e_only_one_class_destructor_allowed=03289;
+  parser_e_no_paras_for_class_constructor=03290;
+  parser_e_no_paras_for_class_destructor=03291;
+  parser_e_invalid_codepage=03292;
+  parser_f_modeswitch_objc_required=03293;
+  parser_e_widestring_to_ansi_compile_time=03294;
   type_e_mismatch=04000;
   type_e_incompatible_types=04001;
   type_e_not_equal_types=04002;
@@ -419,6 +461,14 @@ const
   type_e_expected_objc_method_but_got=04085;
   type_e_expected_objc_method=04086;
   type_e_no_type_info=04087;
+  type_e_ordinal_or_string_expr_expected=04088;
+  type_e_string_expr_expected=04089;
+  type_w_zero_to_nil=04090;
+  type_e_protocol_type_expected=04091;
+  type_e_objc_type_unsupported=04092;
+  type_e_class_or_objcclass_type_expected=04093;
+  type_e_objcclass_type_expected=04094;
+  type_w_procvar_univ_conflicting_para=04095;
   sym_e_id_not_found=05000;
   sym_f_internal_error_in_symtablestack=05001;
   sym_e_duplicate_id=05002;
@@ -470,6 +520,21 @@ const
   sym_h_abstract_method_list=05062;
   sym_w_experimental_symbol=05063;
   sym_w_forward_not_resolved=05064;
+  sym_w_library_symbol=05065;
+  sym_w_deprecated_symbol_with_msg=05066;
+  sym_e_no_enumerator=05067;
+  sym_e_no_enumerator_move=05068;
+  sym_e_no_enumerator_current=05069;
+  sym_e_objc_para_mismatch=05070;
+  sym_n_private_type_not_used=05071;
+  sym_n_private_const_not_used=05072;
+  sym_n_private_property_not_used=05073;
+  sym_w_deprecated_unit=05074;
+  sym_w_deprecated_unit_with_msg=05075;
+  sym_w_non_portable_unit=05076;
+  sym_w_library_unit=05077;
+  sym_w_non_implemented_unit=05078;
+  sym_w_experimental_unit=05079;
   cg_e_parasize_too_big=06009;
   cg_e_file_must_call_by_reference=06012;
   cg_e_cant_use_far_pointer_there=06013;
@@ -497,6 +562,7 @@ const
   cg_f_unknown_system_type=06047;
   cg_h_inherited_ignored=06048;
   cg_e_goto_label_not_found=06049;
+  cg_f_unknown_type_in_unit=06050;
   asmr_d_start_reading=07000;
   asmr_d_finish_reading=07001;
   asmr_e_none_label_contain_at=07002;
@@ -600,6 +666,8 @@ const
   asmr_w_direct_esp_neg_offset=07105;
   asmr_e_no_vmtoffset_possible=07106;
   asmr_e_need_pic_ref=07107;
+  asmr_e_mixing_regtypes=07108;
+  asmr_e_empty_regset=07109;
   asmw_f_too_many_asm_files=08000;
   asmw_f_assembler_output_not_supported=08001;
   asmw_f_comp_not_supported=08002;
@@ -724,6 +792,7 @@ const
   unit_u_skipping_reresolving_unit=10059;
   unit_u_unload_resunit=10060;
   unit_e_different_wpo_file=10061;
+  unit_u_indirect_crc_changed=10062;
   option_usage=11000;
   option_only_one_source_support=11001;
   option_def_only_for_os2=11002;
@@ -766,6 +835,8 @@ const
   option_unsupported_target=11044;
   option_unsupported_target_for_feature=11045;
   option_dwarf_smart_linking=11046;
+  option_ignored_target=11047;
+  option_debug_external_unsupported=11048;
   wpo_cant_find_file=12000;
   wpo_begin_processing=12001;
   wpo_end_processing=12002;
@@ -790,9 +861,9 @@ const
   option_info=11024;
   option_help_pages=11025;
 
-  MsgTxtSize = 51613;
+  MsgTxtSize = 56517;
 
   MsgIdxMax : array[1..20] of longint=(
-    24,87,254,88,65,50,108,22,202,62,
-    47,20,1,1,1,1,1,1,1,1
+    24,88,295,96,80,51,110,22,202,63,
+    49,20,1,1,1,1,1,1,1,1
   );

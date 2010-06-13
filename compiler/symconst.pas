@@ -28,10 +28,11 @@ uses
   globtype;
 
 const
-  def_alignment = 4;
+  def_alignment     = 4;
 
-  C_alignment   = -1;
-  bit_alignment = -2;
+  C_alignment       = -1;
+  bit_alignment     = -2;
+  mac68k_alignment  = -3;
 
   { if you change one of the following contants, }
   { you have also to change the typinfo unit}
@@ -80,12 +81,18 @@ const
   ftCurr     = 4;
   ftFloat128 = 5;
 
-  mkProcedure= 0;
-  mkFunction = 1;
-  mkConstructor   = 2;
-  mkDestructor    = 3;
-  mkClassProcedure= 4;
-  mkClassFunction = 5;
+  mkProcedure        = 0;
+  mkFunction         = 1;
+  mkConstructor      = 2;
+  mkDestructor       = 3;
+  mkClassProcedure   = 4;
+  mkClassFunction    = 5;
+  mkClassConstructor = 6;
+  mkClassDestructor  = 7;
+// delphi has the next too:
+//mkOperatorOverload = 8;
+//mkSafeProcedure    = 9;
+//mkSafeFunction     = 10;
 
   pfvar      = 1;
   pfConst    = 2;
@@ -105,12 +112,20 @@ const
   paranr_self = 2;
   paranr_result = 3;
   paranr_vmt = 4;
+
+  { the implicit parameters for Objective-C methods need to come
+    after the hidden result parameter }
+  paranr_objc_self = 4;
+  paranr_objc_cmd = 5;
   { Required to support variations of syscalls on MorphOS }
   paranr_syscall_basesysv = 9;
   paranr_syscall_sysvbase = high(word)-4;
   paranr_syscall_r12base  = high(word)-3;
   paranr_syscall_legacy   = high(word)-2;
   paranr_result_leftright = high(word)-1;
+
+  { prefix for names of class helper procsyms added to regular symtables }
+  class_helper_prefix = 'CH$';
 
 
 type
@@ -146,7 +161,8 @@ type
     sp_internal,  { internal symbol, not reported as unused }
     sp_implicitrename,
     sp_hint_experimental,
-    sp_generic_para
+    sp_generic_para,
+    sp_has_deprecated_msg
   );
   tsymoptions=set of tsymoption;
 
@@ -217,7 +233,9 @@ type
     potype_destructor,   { Procedure is a destructor }
     potype_operator,     { Procedure defines an operator }
     potype_procedure,
-    potype_function
+    potype_function,
+    potype_class_constructor, { class constructor }
+    potype_class_destructor   { class destructor  }
   );
   tproctypeoptions=set of tproctypeoption;
 
@@ -226,6 +244,7 @@ type
     po_classmethod,       { class method }
     po_virtualmethod,     { Procedure is a virtual method }
     po_abstractmethod,    { Procedure is an abstract method }
+    po_finalmethod,       { Procedure is a final method }
     po_staticmethod,      { static method }
     po_overridingmethod,  { method with override directive }
     po_methodpointer,     { method pointer, only in procvardef, also used for 'with object do' }
@@ -276,7 +295,11 @@ type
     { weakly linked (i.e., may or may not exist at run time) }
     po_weakexternal,
     { Objective-C method }
-    po_objc
+    po_objc,
+    { enumerator support }
+    po_enumerator_movenext,
+    { optional Objective-C protocol method }
+    po_optional
   );
   tprocoptions=set of tprocoption;
 
@@ -289,7 +312,10 @@ type
     odt_interfacecom_function,
     odt_interfacecorba,
     odt_cppclass,
-    odt_dispinterface
+    odt_dispinterface,
+    odt_objcclass,
+    odt_objcprotocol,
+    odt_objccategory { note that these are changed into odt_class afterwards }
   );
 
   { Variations in interfaces implementation }
@@ -298,12 +324,17 @@ type
   tinterfaceentrytype = (etStandard,
     etVirtualMethodResult,
     etStaticMethodResult,
-    etFieldValue
+    etFieldValue,
+    etVirtualMethodClass,
+    etStaticMethodClass,
+    etFieldValueClass
   );
 
   { options for objects and classes }
   tobjectoption=(oo_none,
     oo_is_forward,         { the class is only a forward declared yet }
+    oo_is_abstract,        { the class is abstract - only descendants can be used }
+    oo_is_sealed,          { the class is sealed - can't have descendants }
     oo_has_virtual,        { the object/class has virtual methods }
     oo_has_private,
     oo_has_protected,
@@ -316,7 +347,14 @@ type
     oo_has_msgint,
     oo_can_have_published,{ the class has rtti, i.e. you can publish properties }
     oo_has_default_property,
-    oo_has_valid_guid
+    oo_has_valid_guid,
+    oo_has_enumerator_movenext,
+    oo_has_enumerator_current,
+    oo_is_external,       { the class is externally implemented (objcclass, cppclass) }
+    oo_is_anonymous,      { the class is only formally defined in this module (objcclass x = class; external;) }
+    oo_is_classhelper,    { objcclasses that represent categories, and Delpi-style class helpers, are marked like this }
+    oo_has_class_constructor, { the object/class has a class constructor }
+    oo_has_class_destructor   { the object/class has a class destructor  }
   );
   tobjectoptions=set of tobjectoption;
 
@@ -337,7 +375,10 @@ type
     ppo_defaultproperty,
     ppo_stored,
     ppo_hasparameters,
-    ppo_implements
+    ppo_implements,
+    ppo_enumerator_current,
+    ppo_dispid_read,
+    ppo_dispid_write
   );
   tpropertyoptions=set of tpropertyoption;
 
@@ -364,7 +405,11 @@ type
     vo_is_range_check,
     vo_is_overflow_check,
     vo_is_typinfo_para,
-    vo_is_weak_external
+    vo_is_weak_external,
+    { Objective-C message selector parameter }
+    vo_is_msgsel,
+    { first field of variant part of a record }
+    vo_is_first_field
   );
   tvaroptions=set of tvaroption;
 
@@ -384,7 +429,8 @@ type
     ObjectSymtable,recordsymtable,
     localsymtable,parasymtable,
     withsymtable,stt_excepTSymtable,
-    exportedmacrosymtable, localmacrosymtable
+    exportedmacrosymtable, localmacrosymtable,
+    enumsymtable
   );
 
 
@@ -439,7 +485,10 @@ type
 
   { RTTI information to store }
   trttitype = (
-    fullrtti,initrtti
+    fullrtti,initrtti,
+    { Objective-C }
+    objcmetartti,objcmetarortti,
+    objcclassrtti,objcclassrortti
   );
 
   { The order is from low priority to high priority,

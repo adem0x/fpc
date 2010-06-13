@@ -45,14 +45,15 @@ type
 
   TSqliteDataset = class(TCustomSqliteDataset)
   private
-    function SqliteExec(ASQL: PChar; ACallback: TSqliteCdeclCallback; Data: Pointer): Integer; override;
-    function InternalGetHandle: Pointer; override;
     function GetSqliteEncoding: String;
-    procedure InternalCloseHandle; override;
-    procedure BuildLinkedList; override;
   protected
-    procedure RetrieveFieldDefs; override;
+    procedure BuildLinkedList; override;
+    function GetLastInsertRowId: Int64; override;
     function GetRowsAffected:Integer; override;
+    function InternalGetHandle: Pointer; override;
+    procedure InternalCloseHandle; override;
+    procedure RetrieveFieldDefs; override;
+    function SqliteExec(ASQL: PChar; ACallback: TSqliteCdeclCallback; Data: Pointer): Integer; override;
   public
     procedure ExecuteDirect(const ASQL: String); override;
     function QuickQuery(const ASQL: String; const AStrList: TStrings; FillObjects: Boolean): String; override;
@@ -273,6 +274,11 @@ begin
   GetMem(FBeginItem^.Row, FRowBufferSize);
   for Counter := 0 to FRowCount - 1 do
     FBeginItem^.Row[Counter] := nil;
+end;
+
+function TSqliteDataset.GetLastInsertRowId: Int64;
+begin
+  Result := sqlite_last_insert_rowid(FSqliteHandle);
 end;
 
 function TSqliteDataset.ReturnString: String;

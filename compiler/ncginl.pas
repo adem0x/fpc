@@ -55,6 +55,7 @@ interface
           procedure second_trunc_real; virtual;
           procedure second_abs_long; virtual;
           procedure second_rox; virtual;
+          procedure second_sar; virtual;
        end;
 
 implementation
@@ -135,7 +136,6 @@ implementation
               second_get_caller_frame;
             in_get_caller_addr:
               second_get_caller_addr;
-{$ifdef SUPPORT_UNALIGNED}
             in_unaligned_x:
               begin
                 secondpass(tcallparanode(left).left);
@@ -143,7 +143,6 @@ implementation
                 if location.loc in [LOC_CREFERENCE,LOC_REFERENCE] then
                   location.reference.alignment:=1;
               end;
-{$endif SUPPORT_UNALIGNED}
 {$ifdef SUPPORT_MMX}
             in_mmx_pcmpeqb..in_mmx_pcmpgtw:
               begin
@@ -167,6 +166,9 @@ implementation
             in_ror_x,
             in_ror_x_x:
               second_rox;
+            in_sar_x,
+            in_sar_x_y:
+              second_sar;
             else internalerror(9);
          end;
       end;
@@ -214,22 +216,18 @@ implementation
        if codegenerror then
           exit;
        { push erroraddr }
-       paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc4);
-       cg.a_param_reg(current_asmdata.CurrAsmList,OS_ADDR,NR_FRAME_POINTER_REG,paraloc4);
+       cg.a_load_reg_cgpara(current_asmdata.CurrAsmList,OS_ADDR,NR_FRAME_POINTER_REG,paraloc4);
        { push lineno }
-       paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc3);
-       cg.a_param_const(current_asmdata.CurrAsmList,OS_INT,current_filepos.line,paraloc3);
+       cg.a_load_const_cgpara(current_asmdata.CurrAsmList,OS_INT,current_filepos.line,paraloc3);
        { push filename }
-       paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc2);
-       cg.a_paramaddr_ref(current_asmdata.CurrAsmList,hp2.location.reference,paraloc2);
+       cg.a_loadaddr_ref_cgpara(current_asmdata.CurrAsmList,hp2.location.reference,paraloc2);
        { push msg }
-       paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc1);
-       cg.a_paramaddr_ref(current_asmdata.CurrAsmList,hp3.location.reference,paraloc1);
+       cg.a_loadaddr_ref_cgpara(current_asmdata.CurrAsmList,hp3.location.reference,paraloc1);
        { call }
-       paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc1);
-       paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc2);
-       paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc3);
-       paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc4);
+       paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
+       paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc2);
+       paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc3);
+       paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc4);
        cg.allocallcpuregisters(current_asmdata.CurrAsmList);
        cg.a_call_name(current_asmdata.CurrAsmList,'FPC_ASSERT',false);
        cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
@@ -492,11 +490,13 @@ implementation
               { Or someone has to rewrite the above to use a_op_const_reg_reg_ov  }
               { and friends in case of overflow checking, and ask everyone to     }
               { implement these methods since they don't exist for all cpus (JM)  }
-              if (cs_check_overflow in current_settings.localswitches) then
+              { Similarly, range checking also has to be handled separately, }
+              { see mantis #14841 (JM)                                       }
+              if ([cs_check_overflow,cs_check_range] * current_settings.localswitches <> []) then
                 internalerror(2006111010);
-    //          cg.g_overflowcheck(current_asmdata.CurrAsmList,tcallparanode(left).left.location,tcallparanode(left).resultdef);
-              cg.g_rangecheck(current_asmdata.CurrAsmList,tcallparanode(left).left.location,tcallparanode(left).left.resultdef,
-                 tcallparanode(left).left.resultdef);
+//              cg.g_overflowcheck(current_asmdata.CurrAsmList,tcallparanode(left).left.location,tcallparanode(left).resultdef);
+//              cg.g_rangecheck(current_asmdata.CurrAsmList,tcallparanode(left).left.location,tcallparanode(left).left.resultdef,
+//                 tcallparanode(left).left.resultdef);
             end;
         end;
 
@@ -611,22 +611,22 @@ implementation
 
     procedure tcginlinenode.second_abs_long;
       var
-	opsize : tcgsize;
-	tempreg1, tempreg2 : tregister;
+        opsize : tcgsize;
+        tempreg1, tempreg2 : tregister;
       begin
         opsize := def_cgsize(left.resultdef);
 
         secondpass(left);
         location_force_reg(current_asmdata.CurrAsmList, left.location, opsize, false);
-	location := left.location;
+        location := left.location;
         location.register := cg.getintregister(current_asmdata.CurrAsmList, opsize);
 
-	tempreg1 := cg.getintregister(current_asmdata.CurrAsmList, opsize);
-	tempreg2 := cg.getintregister(current_asmdata.CurrAsmList, opsize);
+        tempreg1 := cg.getintregister(current_asmdata.CurrAsmList, opsize);
+        tempreg2 := cg.getintregister(current_asmdata.CurrAsmList, opsize);
 	
-	cg.a_op_const_reg_reg(current_asmdata.CurrAsmList, OP_SAR, OS_INT, tcgsize2size[opsize]*8-1, left.location.register, tempreg1);
-	cg.a_op_reg_reg_reg(current_asmdata.CurrAsmList, OP_XOR, OS_INT, left.location.register, tempreg1, tempreg2);
-	cg.a_op_reg_reg_reg(current_asmdata.CurrAsmlist, OP_SUB, OS_INT, tempreg1, tempreg2, location.register);
+        cg.a_op_const_reg_reg(current_asmdata.CurrAsmList, OP_SAR, OS_INT, tcgsize2size[opsize]*8-1, left.location.register, tempreg1);
+        cg.a_op_reg_reg_reg(current_asmdata.CurrAsmList, OP_XOR, OS_INT, left.location.register, tempreg1, tempreg2);
+        cg.a_op_reg_reg_reg(current_asmdata.CurrAsmlist, OP_SUB, OS_INT, tempreg1, tempreg2, location.register);
       end;
 
 
@@ -765,6 +765,46 @@ implementation
           end
         else
           cg.a_op_const_reg(current_asmdata.CurrAsmList,op,location.size,1,location.register);
+      end;
+
+
+    procedure tcginlinenode.second_sar;
+      var
+        {hcountreg : tregister;}
+        op1,op2 : tnode;
+      begin
+        if (left.nodetype=callparan) and
+           assigned(tcallparanode(left).right) then
+          begin
+            op1:=tcallparanode(tcallparanode(left).right).left;
+            op2:=tcallparanode(left).left;
+          end
+        else
+          begin
+            op1:=left;
+            op2:=nil;
+          end;
+        secondpass(op1);
+        { load left operator in a register }
+        location_copy(location,op1.location);
+
+        location_force_reg(current_asmdata.CurrAsmList,location,location.size,false);
+
+        if not(assigned(op2)) then
+          cg.a_op_const_reg(current_asmdata.CurrAsmList,OP_SAR,location.size,1,location.register)
+        else
+          begin
+            secondpass(op2);
+            { shifting by a constant directly coded: }
+            if op2.nodetype=ordconstn then
+              cg.a_op_const_reg(current_asmdata.CurrAsmList,OP_SAR,location.size,
+                                  tordconstnode(op2).value.uvalue and (resultdef.size*8-1),location.register)
+            else
+              begin
+                location_force_reg(current_asmdata.CurrAsmList,op2.location,location.size,false);
+                cg.a_op_reg_reg(current_asmdata.CurrAsmList,OP_SAR,location.size,op2.location.register,location.register);
+             end;
+          end;
       end;
 
 begin

@@ -175,7 +175,7 @@ implementation
       begin
          inherited create(loadn,nil);
          if not assigned(v) then
-          internalerror(200108121);
+          internalerror(200108122);
          symtableentry:=v;
          symtable:=st;
          procdef:=d;
@@ -584,7 +584,16 @@ implementation
                 { sse register to an extended value in memory more      }
                 { efficiently than a type conversion node, so don't     }
                 { bother implementing support for that                  }
-                and (use_sse(left.resultdef) or not(use_sse(right.resultdef)))
+                and (use_vectorfpu(left.resultdef) or not(use_vectorfpu(right.resultdef)))
+{$endif}
+
+{$ifdef arm}
+                { the assignment node code can't convert a single in
+                  an interger register to a double in an mmregister or
+                  vice versa }
+                and (use_vectorfpu(left.resultdef) and
+                     use_vectorfpu(right.resultdef) and
+                     (tfloatdef(left.resultdef).floattype=tfloatdef(right.resultdef).floattype))
 {$endif}
         then
           begin
@@ -657,8 +666,7 @@ implementation
            exit;
 
          { assignment to refcounted variable -> inc/decref }
-         if (not is_class(left.resultdef) and
-            left.resultdef.needs_inittable) then
+         if is_managed_type(left.resultdef) then
            include(current_procinfo.flags,pi_do_call);
 
         if (is_shortstring(left.resultdef)) then
@@ -680,7 +688,7 @@ implementation
             end;
            end
         { call helpers for composite types containing automated types }
-        else if (left.resultdef.needs_inittable) and
+        else if is_managed_type(left.resultdef) and
             (left.resultdef.typ in [arraydef,objectdef,recorddef]) and
             not is_interfacecom(left.resultdef) and
             not is_dynamic_array(left.resultdef) then
@@ -1095,6 +1103,7 @@ implementation
         inherited ppuload(t,ppufile);
         ppufile.getderef(rttidefderef);
         rttitype:=trttitype(ppufile.getbyte);
+        rttidatatype:=trttidatatype(ppufile.getbyte);
       end;
 
 
@@ -1103,6 +1112,7 @@ implementation
         inherited ppuwrite(ppufile);
         ppufile.putderef(rttidefderef);
         ppufile.putbyte(byte(rttitype));
+        ppufile.putbyte(byte(rttidatatype));
       end;
 
 
@@ -1127,6 +1137,7 @@ implementation
          n:=trttinode(inherited dogetcopy);
          n.rttidef:=rttidef;
          n.rttitype:=rttitype;
+         n.rttidatatype:=rttidatatype;
          result:=n;
       end;
 

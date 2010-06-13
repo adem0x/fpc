@@ -60,7 +60,7 @@ interface
     uses
       cutils,verbose,globtype,globals,
       aasmbase,aasmtai,aasmdata,aasmcpu,symconst,symdef,paramgr,
-      ncon,ncal,
+      nutils,ncon,ncal,
       cpubase,systems,
       procinfo,pass_2,
       cgbase,
@@ -88,7 +88,8 @@ interface
           nothing that we can load in a register }
         ressize := resultdef.size;
         leftsize := left.resultdef.size;
-        if (ressize<>leftsize) and
+        if ((ressize<>leftsize) or
+            is_bitpacked_access(left)) and
            not is_void(left.resultdef) then
           begin
             location_copy(location,left.location);
@@ -284,6 +285,9 @@ interface
              left.location.reference:=tr;
            end;
 {$endif x86}
+         { ARM VFP values are in integer registers when they are function results }
+         if (left.location.loc in [LOC_REGISTER,LOC_CREGISTER]) then
+           location_force_mmregscalar(current_asmdata.CurrAsmList,left.location,false);
          case left.location.loc of
             LOC_FPUREGISTER,
             LOC_CFPUREGISTER:

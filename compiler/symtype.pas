@@ -69,6 +69,7 @@ interface
          procedure derefimpl;virtual;abstract;
          function  typename:string;
          function  GetTypeName:string;virtual;
+         function  typesymbolprettyname:string;virtual;
          function  mangledparaname:string;
          function  getmangledparaname:string;virtual;
          function  rtti_mangledname(rt:trttitype):string;virtual;abstract;
@@ -98,13 +99,16 @@ interface
       public
          fileinfo   : tfileposinfo;
          symoptions : tsymoptions;
-         visibility : tvisibility;
          refs       : longint;
          reflist    : TLinkedList;
+         visibility : tvisibility;
+         { deprecated optionally can have a message }
+         deprecatedmsg: pshortstring;
          isdbgwritten : boolean;
          constructor create(st:tsymtyp;const aname:string);
          destructor  destroy;override;
          function  mangledname:string; virtual;
+         function  prettyname:string; virtual;
          procedure buildderef;virtual;
          procedure deref;virtual;
          procedure ChangeOwner(st:TSymtable);
@@ -223,6 +227,7 @@ implementation
                 exit;
               end;
             recordsymtable,
+            enumsymtable,
             localsymtable,
             parasymtable,
             ObjectSymtable :
@@ -266,6 +271,14 @@ implementation
          GetTypeName:='<unknown type>'
       end;
 
+
+    function tdef.typesymbolprettyname:string;
+      begin
+        if assigned(typesym) then
+          result:=typesym.prettyname
+        else
+          result:='<no type symbol>'
+      end;
 
     function tdef.mangledparaname:string;
       begin
@@ -333,10 +346,12 @@ implementation
          fileinfo:=current_tokenpos;
          isdbgwritten := false;
          visibility:=vis_public;
+         deprecatedmsg:=nil;
       end;
 
     destructor  Tsym.destroy;
       begin
+        stringdispose(deprecatedmsg);
         if assigned(RefList) then
           RefList.Free;
         inherited Destroy;
@@ -385,6 +400,12 @@ implementation
       begin
         internalerror(200204171);
         result:='';
+      end;
+
+
+    function tsym.prettyname : string;
+      begin
+        result:=realname;
       end;
 
 

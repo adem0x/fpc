@@ -42,7 +42,7 @@ type
     { left to right), this allows to move the parameter to    }
     { register, if the cpu supports register calling          }
     { conventions                                             }
-    procedure a_param_ref(list: TAsmList; size: tcgsize; const r: treference;
+    procedure a_load_ref_cgpara(list: TAsmList; size: tcgsize; const r: treference;
       const paraloc: tcgpara); override;
 
     procedure a_call_name(list: TAsmList; const s: string; weak: boolean); override;
@@ -140,6 +140,8 @@ type
     procedure profilecode_savepara(para : tparavarsym; list : TAsmList);
     procedure profilecode_restorepara(para : tparavarsym; list : TAsmList);
   end;
+  
+  procedure create_codegen;
 
 const
   TShiftOpCG2AsmOpConst : array[boolean, OP_SAR..OP_SHR] of TAsmOp = (
@@ -392,7 +394,7 @@ begin
   inherited done_register_allocators;
 end;
 
-procedure tcgppc.a_param_ref(list: TAsmList; size: tcgsize; const r:
+procedure tcgppc.a_load_ref_cgpara(list: TAsmList; size: tcgsize; const r:
   treference; const paraloc: tcgpara);
 
 var
@@ -407,6 +409,7 @@ begin
   sizeleft := paraloc.intsize;
   adjusttail := false;
   while assigned(location) do begin
+    paramanager.allocparaloc(list,location);
     case location^.loc of
       LOC_REGISTER, LOC_CREGISTER:
         begin
@@ -2158,6 +2161,10 @@ begin
   cg.a_load_ref_reg(list, OS_INT, OS_INT, ref, reg);
 end;
 
+
+procedure create_codegen;
 begin
   cg := tcgppc.create;
+end;
+
 end.

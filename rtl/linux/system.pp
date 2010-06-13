@@ -302,6 +302,13 @@ begin
  GetProcessID := SizeUInt (fpGetPID);
 end;
 
+{$ifdef FPC_USE_LIBC}
+{$ifdef HAS_UGETRLIMIT}
+    { there is no ugetrlimit libc call, just map it to the getrlimit call in these cases }
+function FpUGetRLimit(resource : cInt; rlim : PRLimit) : cInt; cdecl; external clib name 'getrlimit';
+{$endif}
+{$endif}
+
 function CheckInitialStkLen(stklen : SizeUInt) : SizeUInt;
 var
   limits : TRLimit;
@@ -312,8 +319,10 @@ begin
   {$ifdef has_ugetrlimit}
   success := fpugetrlimit(RLIMIT_STACK, @limits)=0;
   {$endif}
+  {$ifndef NO_SYSCALL_GETRLIMIT}
   if (not success) then
     success := fpgetrlimit(RLIMIT_STACK, @limits)=0;
+  {$endif}
   if (success) and (limits.rlim_cur < stklen) then
     result := limits.rlim_cur
   else

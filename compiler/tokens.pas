@@ -53,6 +53,7 @@ type
     _OP_SHR,
     _OP_XOR,
     _ASSIGNMENT,
+    _OP_ENUMERATOR,
     { special chars }
     _CARET,
     _UNEQUAL,
@@ -149,6 +150,7 @@ type
     _CONST,
     _FALSE,
     _FAR16,
+    _FINAL,
     _INDEX,
     _LABEL,
     _LOCAL,
@@ -170,6 +172,7 @@ type
     _REPEAT,
     _RESULT,
     _RETURN,
+    _SEALED,
     _STATIC,
     _STORED,
     _STRICT,
@@ -205,12 +208,14 @@ type
     _LOCATION,
     _MWPASCAL,
     _OPERATOR,
+    _OPTIONAL,
     _OVERLOAD,
     _OVERRIDE,
     _PLATFORM,
     _PROPERTY,
     _READONLY,
     _REGISTER,
+    _REQUIRED,
     _REQUIRES,
     _RESIDENT,
     _SAFECALL,
@@ -221,6 +226,7 @@ type
     _INTERFACE,
     _INTERRUPT,
     _NODEFAULT,
+    _OBJCCLASS,
     _OTHERWISE,
     _PROCEDURE,
     _PROTECTED,
@@ -230,6 +236,7 @@ type
     _WRITEONLY,
     _DEPRECATED,
     _DESTRUCTOR,
+    _ENUMERATOR,
     _IMPLEMENTS,
     _INTERNPROC,
     _OLDFPCCALL,
@@ -243,6 +250,8 @@ type
     _EXPERIMENTAL,
     _FINALIZATION,
     _NOSTACKFRAME,
+    _OBJCCATEGORY,
+    _OBJCPROTOCOL,
     _WEAKEXTERNAL,
     _DISPINTERFACE,
     _UNIMPLEMENTED,
@@ -258,7 +267,7 @@ const
   { last operator which can be overloaded, the first_overloaded should
     be declared directly after NOTOKEN }
   first_overloaded = succ(NOTOKEN);
-  last_overloaded  = _ASSIGNMENT;
+  last_overloaded  = _OP_ENUMERATOR;
 
 type
   tokenrec=record
@@ -305,6 +314,7 @@ const
       (str:'shr'           ;special:true ;keyword:m_none;op:NOTOKEN),
       (str:'xor'           ;special:true ;keyword:m_none;op:NOTOKEN),
       (str:':='            ;special:true ;keyword:m_none;op:NOTOKEN),
+      (str:'enumerator'    ;special:true ;keyword:m_none;op:NOTOKEN),
     { Special chars }
       (str:'^'             ;special:true ;keyword:m_none;op:NOTOKEN),
       (str:'<>'            ;special:true ;keyword:m_none;op:NOTOKEN),
@@ -401,6 +411,7 @@ const
       (str:'CONST'         ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'FALSE'         ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'FAR16'         ;special:false;keyword:m_none;op:NOTOKEN),
+      (str:'FINAL'         ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'INDEX'         ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'LABEL'         ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'LOCAL'         ;special:false;keyword:m_none;op:NOTOKEN),
@@ -422,6 +433,7 @@ const
       (str:'REPEAT'        ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'RESULT'        ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'RETURN'        ;special:false;keyword:m_mac;op:NOTOKEN),
+      (str:'SEALED'        ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'STATIC'        ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'STORED'        ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'STRICT'        ;special:false;keyword:m_none;op:NOTOKEN),
@@ -457,12 +469,14 @@ const
       (str:'LOCATION'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'MWPASCAL'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'OPERATOR'      ;special:false;keyword:m_fpc;op:NOTOKEN),
+      (str:'OPTIONAL'      ;special:false;keyword:m_none;op:NOTOKEN), { optional methods in an Objective-C protocol }
       (str:'OVERLOAD'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'OVERRIDE'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'PLATFORM'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'PROPERTY'      ;special:false;keyword:m_property;op:NOTOKEN),
       (str:'READONLY'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'REGISTER'      ;special:false;keyword:m_none;op:NOTOKEN),
+      (str:'REQUIRED'      ;special:false;keyword:m_none;op:NOTOKEN), { required methods in an Objective-C protocol }
       (str:'REQUIRES'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'RESIDENT'      ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'SAFECALL'      ;special:false;keyword:m_none;op:NOTOKEN),
@@ -473,6 +487,7 @@ const
       (str:'INTERFACE'     ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'INTERRUPT'     ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'NODEFAULT'     ;special:false;keyword:m_none;op:NOTOKEN),
+      (str:'OBJCCLASS'     ;special:false;keyword:m_objectivec1;op:NOTOKEN),
       (str:'OTHERWISE'     ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'PROCEDURE'     ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'PROTECTED'     ;special:false;keyword:m_none;op:NOTOKEN),
@@ -482,6 +497,7 @@ const
       (str:'WRITEONLY'     ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'DEPRECATED'    ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'DESTRUCTOR'    ;special:false;keyword:m_all;op:NOTOKEN),
+      (str:'ENUMERATOR'    ;special:false;keyword:m_none;op:_OP_ENUMERATOR),
       (str:'IMPLEMENTS'    ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'INTERNPROC'    ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'OLDFPCCALL'    ;special:false;keyword:m_none;op:NOTOKEN),
@@ -495,6 +511,8 @@ const
       (str:'EXPERIMENTAL'  ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'FINALIZATION'  ;special:false;keyword:m_initfinal;op:NOTOKEN),
       (str:'NOSTACKFRAME'  ;special:false;keyword:m_none;op:NOTOKEN),
+      (str:'OBJCCATEGORY'  ;special:false;keyword:m_objectivec1;op:NOTOKEN), { Objective-C category }
+      (str:'OBJCPROTOCOL'  ;special:false;keyword:m_objectivec1;op:NOTOKEN), { Objective-C protocol }
       (str:'WEAKEXTERNAL'  ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'DISPINTERFACE' ;special:false;keyword:m_class;op:NOTOKEN),
       (str:'UNIMPLEMENTED' ;special:false;keyword:m_all;op:NOTOKEN),

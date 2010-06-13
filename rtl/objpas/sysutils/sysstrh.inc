@@ -80,8 +80,8 @@ function LowerCase(const s: string): string; overload;
   version for a variant }
 function LowerCase(const V: variant): string; overload;{$ifdef SYSUTILSINLINE}inline;{$endif}
 function CompareStr(const S1, S2: string): Integer; overload;
-function CompareMemRange(P1, P2: Pointer; Length: cardinal): integer;
-function CompareMem(P1, P2: Pointer; Length: cardinal): Boolean;
+function CompareMemRange(P1, P2: Pointer; Length: PtrUInt): integer;{$ifdef SYSUTILSINLINE}inline;{$endif}
+function CompareMem(P1, P2: Pointer; Length: PtrUInt): Boolean;{$ifdef SYSUTILSINLINE}inline;{$endif}
 function CompareText(const S1, S2: string): integer;
 function SameText(const s1,s2:String):Boolean;
 
@@ -195,9 +195,13 @@ Function FloattoCurr (Const Value : Extended) : Currency;
 function TryFloatToCurr(const Value: Extended; var AResult: Currency): Boolean;
 
 Function CurrToStr(Value: Currency): string;
+Function CurrToStr(Value: Currency; Const FormatSettings: TFormatSettings): string;
 function StrToCurr(const S: string): Currency;
+function StrToCurr(const S: string; Const FormatSettings: TFormatSettings): Currency;  
 function TryStrToCurr(const S: string;Out Value : Currency): Boolean;
+function TryStrToCurr(const S: string;Out Value : Currency; Const FormatSettings: TFormatSettings): Boolean;       
 function StrToCurrDef(const S: string; Default : Currency): Currency;
+function StrToCurrDef(const S: string; Default : Currency; Const FormatSettings: TFormatSettings): Currency;  
 
 Function FloatToTextFmt(Buffer: PChar; Value: Extended; format: PChar; FormatSettings : TFormatSettings): Integer;
 Function FloatToTextFmt(Buffer: PChar; Value: Extended; format: PChar): Integer;

@@ -8,7 +8,7 @@ interface
 
 uses
   fpcunit, testutils, testregistry, testdecorator,
-  Classes, SysUtils, db;
+  Classes, SysUtils, db, ToolsUnit;
 
 type
 
@@ -22,22 +22,18 @@ type
 
     procedure FTestDelete1(TestCancelUpdate : boolean);
     procedure FTestDelete2(TestCancelUpdate : boolean);
-    procedure FTestXMLDatasetDefinition(ADataset : TDataset);
-    procedure TestAddIndexFieldType(AFieldType : TFieldType; ActiveDS : boolean);
   protected
     procedure SetUp; override;
     procedure TearDown; override;
   published
-    procedure TestFileNameProperty;
-    procedure TestClientDatasetAsMemDataset;
     procedure TestCancelUpdDelete1;
     procedure TestCancelUpdDelete2;
-    procedure TestSafeAsXML;
     procedure TestAppendInsertRecord;
     procedure TestBookmarks;
     procedure TestBookmarkValid;
 
     procedure TestLocate;
+    procedure TestLocateCaseIns;
 
     procedure TestFirst;
     procedure TestDelete1;
@@ -48,31 +44,6 @@ type
 
     procedure TestSetFieldValues;
     procedure TestGetFieldValues;
-
-    procedure TestAddIndex;
-    procedure TestAddDescIndex;
-    procedure TestAddCaseInsIndex;
-    procedure TestInactSwitchIndex;
-
-    procedure TestAddIndexInteger;
-    procedure TestAddIndexSmallInt;
-    procedure TestAddIndexBoolean;
-    procedure TestAddIndexFloat;
-    procedure TestAddIndexLargeInt;
-    procedure TestAddIndexDateTime;
-    procedure TestAddIndexCurrency;
-    procedure TestAddIndexBCD;
-
-    procedure TestAddIndexActiveDS;
-    procedure TestAddIndexEditDS;
-
-    procedure TestIndexFieldNames;
-    procedure TestIndexFieldNamesAct;
-    
-    procedure TestIndexCurRecord;
-
-    procedure TestAddDblIndex;
-    procedure TestIndexEditRecord;
 
     procedure TestNullAtOpen;
 
@@ -87,15 +58,10 @@ type
     procedure TestSupportBCDFields;
     procedure TestSupportFixedStringFields;
 
-    procedure TestIsEmpty;
     procedure TestAppendOnEmptyDataset;
     procedure TestInsertOnEmptyDataset;
 
-    procedure TestBufDatasetCancelUpd; //bug 6938
     procedure TestEofAfterFirst;           //bug 7211
-    procedure TestBufDatasetCancelUpd1;
-    procedure TestMultipleDeleteUpdateBuffer;
-    procedure TestDoubleDelete;
     procedure TestDoubleClose;
     procedure TestCalculatedField;
     procedure TestAssignFieldftString;
@@ -114,12 +80,63 @@ type
     procedure TestRecNo;                   // bug 5061
     procedure TestSetRecNo;                // bug 6919
     procedure TestRequired;
+    procedure TestExceptionLocateClosed;    // bug 13938
     procedure TestCanModifySpecialFields;
   end;
 
-  { TSQLTestSetup }
+  { TTestBufDatasetDBBasics }
 
-  TDBBasicsTestSetup = class(TTestSetup)
+  TTestBufDatasetDBBasics = class(TTestCase)
+  private
+    procedure FTestXMLDatasetDefinition(ADataset : TDataset);
+    procedure TestAddIndexFieldType(AFieldType : TFieldType; ActiveDS : boolean);
+  protected
+    procedure SetUp; override;
+    procedure TearDown; override;
+  published
+    procedure TestClosedIndexFieldNames; // bug 16695
+    procedure TestFileNameProperty;
+    procedure TestClientDatasetAsMemDataset;
+    procedure TestSafeAsXML;
+    procedure TestIsEmpty;
+    procedure TestBufDatasetCancelUpd; //bug 6938
+    procedure TestBufDatasetCancelUpd1;
+    procedure TestMultipleDeleteUpdateBuffer;
+    procedure TestDoubleDelete;
+  // index tests
+    procedure TestAddIndexInteger;
+    procedure TestAddIndexSmallInt;
+    procedure TestAddIndexBoolean;
+    procedure TestAddIndexFloat;
+    procedure TestAddIndexLargeInt;
+    procedure TestAddIndexDateTime;
+    procedure TestAddIndexCurrency;
+    procedure TestAddIndexBCD;
+
+    procedure TestAddIndex;
+    procedure TestAddDescIndex;
+    procedure TestAddCaseInsIndex;
+    procedure TestInactSwitchIndex;
+
+    procedure TestAddIndexActiveDS;
+    procedure TestAddIndexEditDS;
+
+    procedure TestIndexFieldNames;
+    procedure TestIndexFieldNamesAct;
+
+    procedure TestIndexCurRecord;
+
+    procedure TestAddDblIndex;
+    procedure TestIndexEditRecord;
+  end;
+
+
+  TTestUniDirectionalDBBasics = class(TTestDBBasics)
+  end;
+
+  { TDBBasicsUniDirectionalTestSetup }
+
+  TDBBasicsUniDirectionalTestSetup = class(TDBBasicsTestSetup)
   protected
     procedure OneTimeSetup; override;
     procedure OneTimeTearDown; override;
@@ -127,19 +144,17 @@ type
 
 implementation
 
-uses toolsunit, bufdataset, variants, strutils;
+uses bufdataset, variants, strutils, sqldb;
 
 type THackDataLink=class(TdataLink);
 
-procedure TTestDBBasics.TestIsEmpty;
+procedure TTestBufDatasetDBBasics.TestIsEmpty;
 begin
-  if not (DBConnector.GetNDataset(5) is TBufDataset) then
-    Ignore('This test only applies to TBufDataset and descendents.');
-  with tbufdataset(DBConnector.GetNDataset(True,1)) do
+  with tCustombufdataset(DBConnector.GetNDataset(True,1)) do
     begin
     open;
     delete;
-    refresh;
+    Resync([]);
     applyupdates;
     AssertTrue(IsEmpty);
 
@@ -230,38 +245,43 @@ var i,count      : integer;
 begin
   aDatasource := TDataSource.Create(nil);
   aDatalink := TTestDataLink.Create;
-  aDatalink.DataSource := aDatasource;
-  ABufferCount := 11;
-  aDatalink.BufferCount := ABufferCount;
-  DataEvents := '';
-  for count := 0 to 32 do
-    begin
-    aDatasource.DataSet := DBConnector.GetNDataset(count);
-    with aDatasource.Dataset do
+  try
+    aDatalink.DataSource := aDatasource;
+    ABufferCount := 11;
+    aDatalink.BufferCount := ABufferCount;
+    DataEvents := '';
+    for count := 0 to 32 do
       begin
-      i := 1;
-      Open;
-      AssertEquals('deUpdateState:0;',DataEvents);
-      DataEvents := '';
-      while not EOF do
+      aDatasource.DataSet := DBConnector.GetNDataset(count);
+      with aDatasource.Dataset do
         begin
-        AssertEquals(i,fields[0].AsInteger);
-        AssertEquals('TestName'+inttostr(i),fields[1].AsString);
-        inc(i);
+        i := 1;
+        Open;
+        AssertEquals('deUpdateState:0;',DataEvents);
+        DataEvents := '';
+        while not EOF do
+          begin
+          AssertEquals(i,fields[0].AsInteger);
+          AssertEquals('TestName'+inttostr(i),fields[1].AsString);
+          inc(i);
 
-        Next;
-        if (i > ABufferCount) and not EOF then
-          AssertEquals('deCheckBrowseMode:0;deDataSetScroll:-1;DataSetScrolled:1;',DataEvents)
-        else
-          AssertEquals('deCheckBrowseMode:0;deDataSetScroll:0;DataSetScrolled:0;',DataEvents);
+          Next;
+          if (i > ABufferCount) and not EOF then
+            AssertEquals('deCheckBrowseMode:0;deDataSetScroll:-1;DataSetScrolled:1;',DataEvents)
+          else
+            AssertEquals('deCheckBrowseMode:0;deDataSetScroll:0;DataSetScrolled:0;',DataEvents);
+          DataEvents := '';
+          end;
+        AssertEquals(count,i-1);
+        close;
+        AssertEquals('deUpdateState:0;',DataEvents);
         DataEvents := '';
         end;
-      AssertEquals(count,i-1);
-      close;
-      AssertEquals('deUpdateState:0;',DataEvents);
-      DataEvents := '';
       end;
-    end;
+  finally
+    aDatalink.Free;
+    aDatasource.Free;
+  end;
 end;
 
 procedure TTestDBBasics.TestdeFieldListChange;
@@ -324,23 +344,26 @@ var i,count     : integer;
 begin
   aDatasource := TDataSource.Create(nil);
   aDatalink := TTestDataLink.Create;
-  aDatalink.DataSource := aDatasource;
-  ds := DBConnector.GetNDataset(6);
-  ds.BeforeScroll := DBConnector.DataEvent;
-  with ds do
-    begin
-    aDatasource.DataSet := ds;
-    open;
-    DataEvents := '';
-    Resync([rmExact]);
-    AssertEquals('deDataSetChange:0;',DataEvents);
-    DataEvents := '';
-    next;
-    AssertEquals('deCheckBrowseMode:0;DataEvent;deDataSetScroll:0;DataSetScrolled:1;',DataEvents);
-    close;
-    end;
-  aDatasource.Free;
-  aDatalink.Free;
+  try
+    aDatalink.DataSource := aDatasource;
+    ds := DBConnector.GetNDataset(6);
+    ds.BeforeScroll := DBConnector.DataEvent;
+    with ds do
+      begin
+      aDatasource.DataSet := ds;
+      open;
+      DataEvents := '';
+      Resync([rmExact]);
+      AssertEquals('deDataSetChange:0;',DataEvents);
+      DataEvents := '';
+      next;
+      AssertEquals('deCheckBrowseMode:0;DataEvent;deDataSetScroll:0;DataSetScrolled:1;',DataEvents);
+      close;
+      end;
+  finally
+    aDatasource.Free;
+    aDatalink.Free;
+  end;
 end;
 
 procedure TTestDBBasics.TestLastAppendCancel;
@@ -495,6 +518,23 @@ begin
     end;
 end;
 
+procedure TTestDBBasics.TestExceptionLocateClosed;
+var passed: boolean;
+begin
+  with DBConnector.GetNDataset(15) do
+    begin
+    passed := false;
+    try
+      locate('name','TestName1',[]);
+    except on E: Exception do
+      begin
+      passed := E.classname = EDatabaseError.className
+      end;
+    end;
+    AssertTrue(passed);
+    end;
+end;
+
 
 procedure TTestDBBasics.SetUp;
 begin
@@ -504,6 +544,16 @@ end;
 procedure TTestDBBasics.TearDown;
 begin
   DBConnector.StopTest;
+end;
+
+procedure TTestBufDatasetDBBasics.TestClosedIndexFieldNames;
+var s : string;
+    bufds: TCustomBufDataset;
+begin
+  bufds := DBConnector.GetNDataset(5) as TCustomBufDataset;
+  s := bufds.IndexFieldNames;
+  s := bufds.IndexName;
+  bufds.CompareBookmarks(nil,nil);
 end;
 
 procedure TTestDBBasics.TestCanModifySpecialFields;
@@ -542,46 +592,48 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestSafeAsXML;
+procedure TTestBufDatasetDBBasics.TestSafeAsXML;
 var ds    : TDataset;
-    LoadDs: TBufDataset;
+    LoadDs: TCustomBufDataset;
 begin
   ds := DBConnector.GetNDataset(true,5);
-  if not (ds is TBufDataset) then
-    Ignore('This test only applies to TBufDataset and descendents.');
 
   ds.open;
-  TBufDataset(ds).SaveToFile('test.xml');
+  TCustomBufDataset(ds).SaveToFile('test.xml');
   ds.close;
 
-  LoadDs := TBufDataset.Create(nil);
+  LoadDs := TCustomBufDataset.Create(nil);
   LoadDs.LoadFromFile('test.xml');
   FTestXMLDatasetDefinition(LoadDS);
 end;
 
-procedure TTestDBBasics.TestFileNameProperty;
-var ds    : TDataset;
-    LoadDs: TBufDataset;
+procedure TTestBufDatasetDBBasics.TestFileNameProperty;
+var ds1,ds2: TDataset;
+    LoadDs: TCustomBufDataset;
 begin
-  ds := DBConnector.GetNDataset(true,5);
-  if not (ds is TBufDataset) then
-    Ignore('This test only applies to TBufDataset and descendents.');
+  ds2 := nil;
+  ds1 := DBConnector.GetNDataset(true,5);
+  try
+    ds1.open;
+    TCustomBufDataset(ds1).FileName:='test.xml';
+    ds1.close;
 
-  ds.open;
-  TBufDataset(ds).FileName:='test.xml';
-  ds.close;
-
-  ds := DBConnector.GetNDataset(True,7);
-  TBufDataset(ds).FileName:='test.xml';
-  ds.Open;
-  FTestXMLDatasetDefinition(Ds);
+    ds2 := DBConnector.GetNDataset(True,7);
+    TCustomBufDataset(ds2).FileName:='test.xml';
+    ds2.Open;
+    FTestXMLDatasetDefinition(Ds2);
+  finally
+    TCustomBufDataset(ds1).FileName:='';
+    if assigned(ds2) then
+      TCustomBufDataset(ds2).FileName:='';
+  end;
 end;
 
-procedure TTestDBBasics.TestClientDatasetAsMemDataset;
-var ds : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestClientDatasetAsMemDataset;
+var ds : TCustomBufDataset;
     i  : integer;
 begin
-  ds := TBufDataset.Create(nil);
+  ds := TCustomBufDataset.Create(nil);
   DS.FieldDefs.Add('ID',ftInteger);
   DS.FieldDefs.Add('NAME',ftString,50);
   DS.CreateDataset;
@@ -756,6 +808,24 @@ begin
     end;
 end;
 
+procedure TTestDBBasics.TestLocateCaseIns;
+begin
+  with DBConnector.GetNDataset(true,13) do
+    begin
+    open;
+    assertfalse(Locate('name',vararrayof(['TEstName5']),[]));
+    asserttrue(Locate('name',vararrayof(['TEstName5']),[loCaseInsensitive]));
+    AssertEquals(5,FieldByName('id').AsInteger);
+
+    assertfalse(Locate('name',vararrayof(['TestN']),[]));
+    asserttrue(Locate('name',vararrayof(['TestN']),[loPartialKey]));
+
+    assertfalse(Locate('name',vararrayof(['TestNA']),[loPartialKey]));
+    asserttrue(Locate('name',vararrayof(['TestNA']),[loPartialKey, loCaseInsensitive]));
+    close;
+    end;
+end;
+
 procedure TTestDBBasics.TestSetFieldValues;
 var PassException : boolean;
 begin
@@ -894,9 +964,9 @@ begin
     
   if TestCancelUpdate then
     begin
-    if not (ds is TBufDataset) then
-      Ignore('This test only applies to TBufDataset and descendents.');
-    with TBufDataset(ds) do
+    if not (ds is TCustomBufDataset) then
+      Ignore('This test only applies to TCustomBufDataset and descendents.');
+    with TCustomBufDataset(ds) do
       begin
       CancelUpdates;
 
@@ -963,9 +1033,9 @@ begin
 
   if TestCancelUpdate then
     begin
-    if not (ds is TBufDataset) then
-      Ignore('This test only applies to TBufDataset and descendents.');
-    with TBufDataset(ds) do
+    if not (ds is TCustomBufDataset) then
+      Ignore('This test only applies to TCustomBufDataset and descendents.');
+    with TCustomBufDataset(ds) do
       begin
       CancelUpdates;
 
@@ -982,7 +1052,7 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.FTestXMLDatasetDefinition(ADataset: TDataset);
+procedure TTestBufDatasetDBBasics.FTestXMLDatasetDefinition(ADataset: TDataset);
 var i : integer;
 begin
   AssertEquals(2,ADataset.FieldDefs.Count);
@@ -1086,13 +1156,13 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestAddIndexFieldType(AFieldType: TFieldType; ActiveDS : boolean);
-var ds : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestAddIndexFieldType(AFieldType: TFieldType; ActiveDS : boolean);
+var ds : TCustomBufDataset;
     FList : TStringList;
     LastValue : Variant;
     StrValue : String;
 begin
-  ds := DBConnector.GetFieldDataset as TBufDataset;
+  ds := DBConnector.GetFieldDataset as TCustomBufDataset;
   with ds do
     begin
     
@@ -1145,53 +1215,53 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestAddIndexSmallInt;
+procedure TTestBufDatasetDBBasics.TestAddIndexSmallInt;
 begin
   TestAddIndexFieldType(ftSmallint,False);
 end;
 
-procedure TTestDBBasics.TestAddIndexBoolean;
+procedure TTestBufDatasetDBBasics.TestAddIndexBoolean;
 begin
   TestAddIndexFieldType(ftBoolean,False);
 end;
 
-procedure TTestDBBasics.TestAddIndexFloat;
+procedure TTestBufDatasetDBBasics.TestAddIndexFloat;
 begin
   TestAddIndexFieldType(ftFloat,False);
 end;
 
-procedure TTestDBBasics.TestAddIndexInteger;
+procedure TTestBufDatasetDBBasics.TestAddIndexInteger;
 begin
   TestAddIndexFieldType(ftInteger,False);
 end;
 
-procedure TTestDBBasics.TestAddIndexLargeInt;
+procedure TTestBufDatasetDBBasics.TestAddIndexLargeInt;
 begin
   TestAddIndexFieldType(ftLargeint,False);
 end;
 
-procedure TTestDBBasics.TestAddIndexDateTime;
+procedure TTestBufDatasetDBBasics.TestAddIndexDateTime;
 begin
   TestAddIndexFieldType(ftDateTime,False);
 end;
 
-procedure TTestDBBasics.TestAddIndexCurrency;
+procedure TTestBufDatasetDBBasics.TestAddIndexCurrency;
 begin
   TestAddIndexFieldType(ftCurrency,False);
 end;
 
-procedure TTestDBBasics.TestAddIndexBCD;
+procedure TTestBufDatasetDBBasics.TestAddIndexBCD;
 begin
   TestAddIndexFieldType(ftBCD,False);
 end;
 
-procedure TTestDBBasics.TestAddIndex;
-var ds : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestAddIndex;
+var ds : TCustomBufDataset;
     AFieldType : TFieldType;
     FList : TStringList;
     i : integer;
 begin
-  ds := DBConnector.GetFieldDataset as TBufDataset;
+  ds := DBConnector.GetFieldDataset as TCustomBufDataset;
   with ds do
     begin
 
@@ -1229,13 +1299,13 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestAddDescIndex;
-var ds : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestAddDescIndex;
+var ds : TCustomBufDataset;
     AFieldType : TFieldType;
     FList : TStringList;
     i : integer;
 begin
-  ds := DBConnector.GetFieldDataset as TBufDataset;
+  ds := DBConnector.GetFieldDataset as TCustomBufDataset;
   with ds do
     begin
 
@@ -1273,13 +1343,13 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestAddCaseInsIndex;
-var ds : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestAddCaseInsIndex;
+var ds : TCustomBufDataset;
     AFieldType : TFieldType;
     FList : TStringList;
     i : integer;
 begin
-  ds := DBConnector.GetFieldDataset as TBufDataset;
+  ds := DBConnector.GetFieldDataset as TCustomBufDataset;
   with ds do
     begin
 
@@ -1316,14 +1386,14 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestInactSwitchIndex;
+procedure TTestBufDatasetDBBasics.TestInactSwitchIndex;
 // Test if the default-index is properly build when the active index is not
 // the default-index while opening then dataset
-var ds : TBufDataset;
+var ds : TCustomBufDataset;
     AFieldType : TFieldType;
     i : integer;
 begin
-  ds := DBConnector.GetFieldDataset as TBufDataset;
+  ds := DBConnector.GetFieldDataset as TCustomBufDataset;
   with ds do
     begin
 
@@ -1345,19 +1415,19 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestAddIndexActiveDS;
-var ds   : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestAddIndexActiveDS;
+var ds   : TCustomBufDataset;
     I    : integer;
 begin
   TestAddIndexFieldType(ftString,true);
 end;
 
-procedure TTestDBBasics.TestAddIndexEditDS;
-var ds        : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestAddIndexEditDS;
+var ds        : TCustomBufDataset;
     I         : integer;
     LastValue : String;
 begin
-  ds := DBConnector.GetNDataset(True,5) as TBufDataset;
+  ds := DBConnector.GetNDataset(True,5) as TCustomBufDataset;
   with ds do
     begin
     MaxIndexesCount:=3;
@@ -1385,13 +1455,13 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestIndexFieldNamesAct;
-var ds : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestIndexFieldNamesAct;
+var ds : TCustomBufDataset;
     AFieldType : TFieldType;
     FList : TStringList;
     i : integer;
 begin
-  ds := DBConnector.GetFieldDataset as TBufDataset;
+  ds := DBConnector.GetFieldDataset as TCustomBufDataset;
   with ds do
     begin
     AFieldType:=ftString;
@@ -1456,15 +1526,15 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestIndexCurRecord;
+procedure TTestBufDatasetDBBasics.TestIndexCurRecord;
 // Test if the currentrecord stays the same after an index change
-var ds : TBufDataset;
+var ds : TCustomBufDataset;
     AFieldType : TFieldType;
     i : integer;
     OldID : Integer;
     OldStringValue : string;
 begin
-  ds := DBConnector.GetFieldDataset as TBufDataset;
+  ds := DBConnector.GetFieldDataset as TCustomBufDataset;
   with ds do
     begin
     AFieldType:=ftString;
@@ -1504,12 +1574,12 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestAddDblIndex;
-var ds : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestAddDblIndex;
+var ds : TCustomBufDataset;
     LastInteger : Integer;
     LastString : string;
 begin
-  ds := DBConnector.GetFieldDataset as TBufDataset;
+  ds := DBConnector.GetFieldDataset as TCustomBufDataset;
   with ds do
     begin
 
@@ -1549,14 +1619,14 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestIndexEditRecord;
-var ds : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestIndexEditRecord;
+var ds : TCustomBufDataset;
     AFieldType : TFieldType;
     i : integer;
     OldID : Integer;
     OldStringValue : string;
 begin
-  ds := DBConnector.GetFieldDataset as TBufDataset;
+  ds := DBConnector.GetFieldDataset as TCustomBufDataset;
   with ds do
     begin
     AFieldType:=ftString;
@@ -1583,12 +1653,12 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestIndexFieldNames;
-var ds : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestIndexFieldNames;
+var ds : TCustomBufDataset;
     AFieldType : TFieldType;
     PrevValue : String;
 begin
-  ds := DBConnector.GetFieldDataset as TBufDataset;
+  ds := DBConnector.GetFieldDataset as TCustomBufDataset;
   with ds do
     begin
     AFieldType:=ftString;
@@ -1843,6 +1913,7 @@ begin
 
   for i := 0 to testValuesCount-1 do
     begin
+    AssertEquals(CurrToStr(testCurrencyValues[i]),Fld.AsString);
     AssertEquals(testCurrencyValues[i],Fld.AsCurrency);
     AssertEquals(testCurrencyValues[i],Fld.AsFloat);
     ds.Next;
@@ -1914,12 +1985,10 @@ begin
   AParam.Free;
 end;
 
-procedure TTestDBBasics.TestBufDatasetCancelUpd;
+procedure TTestBufDatasetDBBasics.TestBufDatasetCancelUpd;
 var i : byte;
 begin
-  if not (DBConnector.GetNDataset(5) is TBufDataset) then
-    Ignore('This test only applies to TBufDataset and descendents.');
-  with DBConnector.GetNDataset(5) as TBufDataset do
+  with DBConnector.GetNDataset(5) as TCustomBufDataset do
     begin
     open;
     next;
@@ -2029,12 +2098,10 @@ begin
   end;
 end;
 
-procedure TTestDBBasics.TestBufDatasetCancelUpd1;
+procedure TTestBufDatasetDBBasics.TestBufDatasetCancelUpd1;
 var i : byte;
 begin
-  if not (DBConnector.GetNDataset(5) is TBufDataset) then
-    Ignore('This test only applies to TBufDataset and descendents.');
-  with DBConnector.GetNDataset(5) as TBufDataset do
+  with DBConnector.GetNDataset(5) as TCustomBufDataset do
     begin
     open;
     next;
@@ -2058,15 +2125,13 @@ begin
     end;
 end;
 
-procedure TTestDBBasics.TestMultipleDeleteUpdateBuffer;
+procedure TTestBufDatasetDBBasics.TestMultipleDeleteUpdateBuffer;
 var ds    : TDataset;
 begin
   ds := DBConnector.GetNDataset(true,5);
-  if not (ds is TBufDataset) then
-    Ignore('This test only applies to TBufDataset and descendents.');
 
   ds.open;
-  with TBufDataset(ds) do
+  with TCustomBufDataset(ds) do
     begin
     AssertEquals(0,ChangeCount);
     edit;
@@ -2084,12 +2149,10 @@ begin
   ds.close;
 end;
 
-procedure TTestDBBasics.TestDoubleDelete;
-var ds    : TBufDataset;
+procedure TTestBufDatasetDBBasics.TestDoubleDelete;
+var ds    : TCustomBufDataset;
 begin
-  ds := TBufDataset(DBConnector.GetNDataset(true,5));
-  if not (ds is TBufDataset) then
-    Ignore('This test only applies to TBufDataset and descendents.');
+  ds := TCustomBufDataset(DBConnector.GetNDataset(true,5));
 
   with ds do
     begin
@@ -2132,20 +2195,40 @@ begin
     cancel;
     AssertTrue('Field isn''t NULL after cancel',fieldbyname('id').IsNull);
     end;
-
 end;
 
-{ TSQLTestSetup }
-procedure TDBBasicsTestSetup.OneTimeSetup;
+{ TDBBasicsUniDirectionalTestSetup }
+
+procedure TDBBasicsUniDirectionalTestSetup.OneTimeSetup;
 begin
-  InitialiseDBConnector;
+  inherited OneTimeSetup;
+  DBConnector.TestUniDirectional:=true;
 end;
 
-procedure TDBBasicsTestSetup.OneTimeTearDown;
+procedure TDBBasicsUniDirectionalTestSetup.OneTimeTearDown;
 begin
-  FreeAndNil(DBConnector);
+  DBConnector.TestUniDirectional:=false;
+  inherited OneTimeTearDown;
+end;
+
+{ TTestBufDatasetDBBasics }
+
+procedure TTestBufDatasetDBBasics.SetUp;
+begin
+  DBConnector.StartTest;
+end;
+
+procedure TTestBufDatasetDBBasics.TearDown;
+begin
+  DBConnector.StopTest;
 end;
 
 initialization
   RegisterTestDecorator(TDBBasicsTestSetup, TTestDBBasics);
+
+  if uppercase(dbconnectorname)='SQL' then
+    begin
+    RegisterTestDecorator(TDBBasicsTestSetup, TTestBufDatasetDBBasics);
+    RegisterTestDecorator(TDBBasicsUniDirectionalTestSetup, TTestUniDirectionalDBBasics);
+    end;
 end.

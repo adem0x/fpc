@@ -143,6 +143,12 @@ begin
   Result:=CurrentTM.ResumeThread(ThreadHandle);
 end;
 
+function CloseThread  (threadHandle : TThreadID):dword;
+
+begin
+  result:=CurrentTM.CloseThread(ThreadHandle);
+end;
+
 procedure ThreadSwitch;
 
 begin
@@ -194,6 +200,12 @@ procedure EnterCriticalsection(var cs : TRTLCriticalSection);
 
 begin
   CurrentTM.EnterCriticalSection(cs);
+end;
+
+function TryEnterCriticalsection(var cs : TRTLCriticalSection):longint;
+
+begin
+  result:=CurrentTM.TryEnterCriticalSection(cs);
 end;
 
 procedure LeaveCriticalsection(var cs : TRTLCriticalSection);
@@ -334,6 +346,7 @@ function NoBeginThread(sa : Pointer;stacksize : PtrUInt;
                      creationFlags : dword; var ThreadId : TThreadID) : TThreadID;
 begin
   NoThreadError;
+  result:=tthreadid(-1);
 end;
 
 procedure NoEndThread(ExitCode : DWord);
@@ -344,6 +357,7 @@ end;
 function  NoThreadHandler (threadHandle : TThreadID) : dword;
 begin
   NoThreadError;
+  result:=dword(-1);
 end;
 
 procedure NoThreadSwitch;  {give time to other threads}
@@ -351,19 +365,29 @@ begin
   NoThreadError;
 end;
 
+function NoCloseThread  (threadHandle : TThreadID):dword;
+
+begin
+ Result:=0;      // avoid warnings.
+ NoThreadError;
+end;
+
 function  NoWaitForThreadTerminate (threadHandle : TThreadID; TimeoutMs : longint) : dword;  {0=no timeout}
 begin
   NoThreadError;
+  result:=dword(-1);
 end;
 
 function  NoThreadSetPriority (threadHandle : TThreadID; Prio: longint): boolean; {-15..+15, 0=normal}
 begin
   NoThreadError;
+  result:=false;
 end;
 
 function  NoThreadGetPriority (threadHandle : TThreadID): longint;
 begin
   NoThreadError;
+  result:=-1;
 end;
 
 function  NoGetCurrentThreadId : TThreadID;
@@ -384,6 +408,15 @@ begin
     ThreadingAlreadyUsed:=true;
 end;
 
+function NoTryEnterCriticalSection(var CS):longint;
+
+begin
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
+end;
+
 procedure NoInitThreadvar(var offset : dword;size : dword);
 
 begin
@@ -394,6 +427,7 @@ function NoRelocateThreadvar(offset : dword) : pointer;
 
 begin
   NoThreadError;
+  result:=nil;
 end;
 
 
@@ -412,31 +446,48 @@ end;
 function  noBasicEventCreate(EventAttributes : Pointer; AManualReset,InitialState : Boolean;const Name : ansistring):pEventState;
 
 begin
-  NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
+  result:=nil;
 end;
 
 procedure nobasiceventdestroy(state:peventstate);
 
 begin
-  NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
 end;
 
 procedure nobasiceventResetEvent(state:peventstate);
 
 begin
-  NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
 end;
 
 procedure nobasiceventSetEvent(state:peventstate);
 
 begin
-  NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
 end;
 
 function  nobasiceventWaitFor(Timeout : Cardinal;state:peventstate) : longint;
 
 begin
-  NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
+  result:=-1;
 end;
 
 function  NORTLEventCreate :PRTLEvent;
@@ -445,7 +496,8 @@ begin
   if IsMultiThread then
     NoThreadError
   else
-    ThreadingAlreadyUsed:=true
+    ThreadingAlreadyUsed:=true;
+  result:=nil;
 end;
 
 procedure NORTLeventdestroy(state:pRTLEvent);
@@ -460,29 +512,54 @@ end;
 procedure NORTLeventSetEvent(state:pRTLEvent);
 
 begin
-  NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
+end;
+
+procedure NORTLeventResetEvent(state:pRTLEvent);
+
+begin
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
 end;
 
 procedure NORTLeventWaitFor(state:pRTLEvent);
   begin
-    NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
   end;
 
 
 procedure NORTLeventWaitForTimeout(state:pRTLEvent;timeout : longint);
   begin
-    NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
   end;
 
 
 procedure NORTLeventsync(m:trtlmethod;p:tprocedure);
   begin
-    NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
   end;
 
 function NoSemaphoreInit: Pointer;
 begin
-  NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
+  result:=nil;
 end;
 
 procedure NoSemaphoreWait(const FSem: Pointer);
@@ -492,12 +569,18 @@ end;
 
 procedure NoSemaphorePost(const FSem: Pointer);
 begin
-  NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
 end;
 
 procedure NoSemaphoreDestroy(const FSem: Pointer);
 begin
-  NoThreadError;
+  if IsMultiThread then
+    NoThreadError
+  else
+    ThreadingAlreadyUsed:=true;
 end;
 
 Var
@@ -515,6 +598,7 @@ begin
     SuspendThread          :=@NoThreadHandler;
     ResumeThread           :=@NoThreadHandler;
     KillThread             :=@NoThreadHandler;
+    CloseThread		   :=@NoCloseThread;
     ThreadSwitch           :=@NoThreadSwitch;
     WaitForThreadTerminate :=@NoWaitForThreadTerminate;
     ThreadSetPriority      :=@NoThreadSetPriority;
@@ -523,6 +607,7 @@ begin
     InitCriticalSection    :=@NoCriticalSection;
     DoneCriticalSection    :=@NoCriticalSection;
     EnterCriticalSection   :=@NoCriticalSection;
+    TryEnterCriticalSection:=@NoTryEnterCriticalSection;
     LeaveCriticalSection   :=@NoCriticalSection;
     InitThreadVar          :=@NoInitThreadVar;
     RelocateThreadVar      :=@NoRelocateThreadVar;
@@ -536,6 +621,7 @@ begin
     rtlEventCreate         :=@NortlEventCreate;
     rtleventdestroy        :=@Nortleventdestroy;
     rtleventSetEvent       :=@NortleventSetEvent;
+    rtleventResetEvent     :=@NortleventResetEvent;
     rtleventWaitFor        :=@NortleventWaitFor;
     rtleventsync           :=@Nortleventsync;
     rtleventwaitfortimeout :=@NortleventWaitForTimeout;

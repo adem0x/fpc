@@ -4,10 +4,10 @@
 
 [package]
 name=hash
-version=2.2.2
+version=2.5.1
 
 [target]
-units=md5 crc ntlm uuid
+units=md5 crc ntlm sha1 uuid
 units_linux=unixcrypt
 exampledirs=examples
 

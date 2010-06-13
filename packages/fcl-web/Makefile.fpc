@@ -1,36 +1,19 @@
 #
-#   Makefile.fpc for FCL Web components
+#   Makefile.fpc for TDataSet for FCL
 #
 
 [package]
 name=fcl-web
-version=2.2.2
+version=2.5.1
 
 [target]
-units=httpdefs fphttp custweb custcgi fpcgi fptemplate fphtml websession fpweb \
-      webutil fpdatasetform cgiapp ezcgi fpapache
-rsts=fpcgi fphtml fpweb websession cgiapp
-
-# these units are listed separately because they don't work for
-# darwin (which does support the rest of fcl-web)
-units_beos=custfcgi fpfcgi
-units_haiku=custfcgi fpfcgi
-units_freebsd=custfcgi fpfcgi
-units_solaris=custfcgi fpfcgi
-units_netbsd=custfcgi fpfcgi
-units_openbsd=custfcgi fpfcgi
-units_linux=custfcgi fpfcgi
-units_win32=custfcgi fpfcgi
-units_win64=custfcgi fpfcgi
-units_wince=custfcgi fpfcgi
+dirs=src/base src/webdata src/jsonrpc
 
 [require]
-packages=fcl-base fcl-xml fcl-db fcl-process httpd22 fastcgi
-packages_darwin=univint
+packages=fcl-base fcl-xml fcl-db fcl-json fcl-net
 
 [compiler]
 options=-S2h
-sourcedir=src
 
 [install]
 fpcpackage=y
@@ -38,6 +21,10 @@ fpcpackage=y
 [default]
 fpcdir=../..
 
-
 [rules]
 .NOTPARALLEL:
+distclean: $(addsuffix _distclean,$(TARGET_DIRS)) fpc_distclean 
+clean: $(addsuffix _clean,$(TARGET_DIRS)) fpc_clean
+cleanall: $(addsuffix _cleanall,$(TARGET_DIRS)) fpc_cleanall
+
+

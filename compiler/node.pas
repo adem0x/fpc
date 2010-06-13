@@ -110,7 +110,8 @@ interface
           rttin,            { Rtti information so they can be accessed in result/firstpass}
           loadparentfpn,    { Load the framepointer of the parent for nested procedures }
           dataconstn,       { node storing some binary data }
-          objcselectorn
+          objcselectorn,    { node for an Objective-C message selector }
+          objcprotocoln     { node for an Objective-C @protocol() expression (returns metaclass associated with protocol) }
        );
 
        tnodetypeset = set of tnodetype;
@@ -192,7 +193,8 @@ interface
           'rttin',
           'loadparentfpn',
           'dataconstn',
-          'objcselectorn');
+          'objcselectorn',
+          'objcprotocoln');
 
     type
        { all boolean field of ttree are now collected in flags }
@@ -473,6 +475,9 @@ interface
     function is_constenumnode(p : tnode) : boolean;
     function is_constwidecharnode(p : tnode) : boolean;
     function is_constpointernode(p : tnode) : boolean;
+    function is_conststringnode(p : tnode) : boolean;
+    function is_constwidestringnode(p : tnode) : boolean;
+    function is_conststring_or_constcharnode(p : tnode) : boolean;
 
 
 implementation
@@ -689,6 +694,25 @@ implementation
          is_constpointernode:=(p.nodetype=pointerconstn);
       end;
 
+    function is_conststringnode(p : tnode) : boolean;
+      begin
+         is_conststringnode :=
+           (p.nodetype = stringconstn) and is_chararray(p.resultdef);
+      end;
+
+    function is_constwidestringnode(p : tnode) : boolean;
+      begin
+         is_constwidestringnode :=
+           (p.nodetype = stringconstn) and is_widechararray(p.resultdef);
+      end;
+
+    function is_conststring_or_constcharnode(p : tnode) : boolean;
+      begin
+        is_conststring_or_constcharnode :=
+          is_conststringnode(p) or is_constcharnode(p) or
+          is_constwidestringnode(p) or is_constwidecharnode(p);
+      end;
+
 
 {****************************************************************************
                                  TNODE
@@ -819,7 +843,7 @@ implementation
       begin
         write(t,nodetype2str[nodetype]);
         if assigned(resultdef) then
-          write(t,', resultdef = "',resultdef.GetTypeName,'"')
+          write(t,', resultdef = ',resultdef.typesymbolprettyname,' = "',resultdef.GetTypeName,'"')
         else
           write(t,', resultdef = <nil>');
         write(t,', pos = (',fileinfo.line,',',fileinfo.column,')',

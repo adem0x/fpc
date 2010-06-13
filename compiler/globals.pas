@@ -404,6 +404,11 @@ interface
         optimizecputype : cpuinfo.cpu_avr;
         fputype : fpu_none;
 {$endif avr}
+{$ifdef mips}
+        cputype : cpu_mips32;
+        optimizecputype : cpu_mips32;
+        fputype : fpu_mips2;
+{$endif mips}
         asmmode : asmmode_standard;
         interfacetype : it_interfacecom;
         defproccall : pocall_default;
@@ -1067,19 +1072,35 @@ implementation
           else if tok='LOOP' then
            b.loopalign:=l
           else if tok='CONSTMIN' then
-           b.constalignmin:=l
+           begin
+             b.constalignmin:=l;
+             if l>b.constalignmax then
+               b.constalignmax:=l;
+           end
           else if tok='CONSTMAX' then
            b.constalignmax:=l
           else if tok='VARMIN' then
-           b.varalignmin:=l
+           begin
+             b.varalignmin:=l;
+             if l>b.varalignmax then
+               b.varalignmax:=l;
+           end
           else if tok='VARMAX' then
            b.varalignmax:=l
           else if tok='LOCALMIN' then
-           b.localalignmin:=l
+           begin
+             b.localalignmin:=l;
+             if l>b.localalignmax then
+               b.localalignmax:=l;
+           end
           else if tok='LOCALMAX' then
            b.localalignmax:=l
           else if tok='RECORDMIN' then
-           b.recordalignmin:=l
+           begin
+             b.recordalignmin:=l;
+             if l>b.recordalignmax then
+               b.recordalignmax:=l;
+           end
           else if tok='RECORDMAX' then
            b.recordalignmax:=l
           else { Error }
@@ -1379,6 +1400,7 @@ implementation
         do_release:=false;
         do_make:=true;
         compile_level:=0;
+        codegenerror:=false;
         DLLsource:=false;
         paratarget:=system_none;
         paratargetasm:=as_none;

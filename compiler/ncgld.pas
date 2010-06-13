@@ -153,8 +153,7 @@ implementation
            ([fc_inflowcontrol,fc_gotolabel] * flowcontrol <> []) or
            { not for refcounted types, because those locations are   }
            { still used later on in initialisation/finalisation code }
-           (not(is_class(n.resultdef)) and
-            n.resultdef.needs_inittable) or
+           is_managed_type(n.resultdef) or
            { source and destination are temps (= not global variables) }
            not tg.istemp(n.location.reference) or
            not tg.istemp(newref) or
@@ -173,8 +172,7 @@ implementation
         rr.new := @newref;
         rr.ressym := nil;
 
-        if (current_procinfo.procdef.funcretloc[calleeside].loc<>LOC_VOID) and
-           assigned(current_procinfo.procdef.funcretsym) and
+        if assigned(current_procinfo.procdef.funcretsym) and
            (tabstractvarsym(current_procinfo.procdef.funcretsym).refs <> 0) then
           if (current_procinfo.procdef.proctypeoption=potype_constructor) then
             rr.ressym:=tsym(current_procinfo.procdef.parast.Find('self'))
@@ -247,7 +245,7 @@ implementation
                        if tabsolutevarsym(symtableentry).absseg then
                          location.reference.segment:=NR_FS;
 {$endif i386}
-                       location.reference.offset:=tabsolutevarsym(symtableentry).addroffset;
+                       location.reference.offset:=aint(tabsolutevarsym(symtableentry).addroffset);
                      end;
                    toasm :
                      location.reference.symbol:=current_asmdata.RefAsmSymbol(tabsolutevarsym(symtableentry).mangledname);
@@ -351,9 +349,8 @@ implementation
                           reference_reset_symbol(href,current_asmdata.RefAsmSymbol(gvs.mangledname),0,sizeof(pint))
                         else
                           reference_reset_symbol(href,current_asmdata.WeakRefAsmSymbol(gvs.mangledname),0,sizeof(pint));
-                        paramanager.allocparaloc(current_asmdata.CurrAsmList,paraloc1);
-                        cg.a_param_ref(current_asmdata.CurrAsmList,OS_32,href,paraloc1);
-                        paramanager.freeparaloc(current_asmdata.CurrAsmList,paraloc1);
+                        cg.a_load_ref_cgpara(current_asmdata.CurrAsmList,OS_32,href,paraloc1);
+                        paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
                         paraloc1.done;
                         cg.allocallcpuregisters(current_asmdata.CurrAsmList);
                         cg.a_call_reg(current_asmdata.CurrAsmList,hregister);
@@ -583,13 +580,13 @@ implementation
           loading the left node afterwards can destroy the flags.
         }
         if not(right.expectloc in [LOC_FLAGS,LOC_JUMP]) and
-           ((right.resultdef.needs_inittable) or
+           (is_managed_type(right.resultdef) or
             (node_complexity(right)>node_complexity(left))) then
          begin
            secondpass(right);
            { increment source reference counter, this is
              useless for constants }
-           if (right.resultdef.needs_inittable) and
+           if is_managed_type(right.resultdef) and
               not is_constnode(right) then
             begin
               location_force_mem(current_asmdata.CurrAsmList,right.location);
@@ -603,7 +600,7 @@ implementation
            { can be false                                             }
            secondpass(left);
            { decrement destination reference counter }
-           if (left.resultdef.needs_inittable) then
+           if is_managed_type(left.resultdef) then
              begin
                location_get_data_ref(current_asmdata.CurrAsmList,left.location,href,false,sizeof(pint));
                cg.g_decrrefcount(current_asmdata.CurrAsmList,left.resultdef,href);
@@ -616,7 +613,7 @@ implementation
            { calculate left sides }
            secondpass(left);
            { decrement destination reference counter }
-           if (left.resultdef.needs_inittable) then
+           if is_managed_type(left.resultdef) then
              begin
                location_get_data_ref(current_asmdata.CurrAsmList,left.location,href,false,sizeof(pint));
                cg.g_decrrefcount(current_asmdata.CurrAsmList,left.resultdef,href);
@@ -636,7 +633,7 @@ implementation
            flowcontrol:=oldflowcontrol;
            { increment source reference counter, this is
              useless for string constants}
-           if (right.resultdef.needs_inittable) and
+           if is_managed_type(right.resultdef) and
               (right.nodetype<>stringconstn) then
              begin
                location_force_mem(current_asmdata.CurrAsmList,right.location);
@@ -784,7 +781,8 @@ implementation
                     LOC_CMMREGISTER:
                       begin
 {$ifdef x86}
-                        if not use_sse(right.resultdef) then
+                        if (right.resultdef.typ=floatdef) and
+                           not use_vectorfpu(right.resultdef) then
                           begin
                             { perform size conversion if needed (the mm-code cannot }
                             { convert an extended into a double/single, since sse   }
@@ -839,17 +837,24 @@ implementation
                     end
                   else
                     begin
-                      if left.location.loc=LOC_CMMREGISTER then
-                        cg.a_loadmm_reg_reg(current_asmdata.CurrAsmList,right.location.size,left.location.size,right.location.register,left.location.register,mms_movescalar)
-                      else
-                        cg.a_loadmm_reg_ref(current_asmdata.CurrAsmList,right.location.size,left.location.size,right.location.register,left.location.reference,mms_movescalar);
+                      case left.location.loc of
+                        LOC_CMMREGISTER,
+                        LOC_MMREGISTER:
+                          cg.a_loadmm_reg_reg(current_asmdata.CurrAsmList,right.location.size,left.location.size,right.location.register,left.location.register,mms_movescalar);
+                        LOC_REFERENCE,
+                        LOC_CREFERENCE:
+                          cg.a_loadmm_reg_ref(current_asmdata.CurrAsmList,right.location.size,left.location.size,right.location.register,left.location.reference,mms_movescalar);
+                        else
+                          internalerror(2009112601);
+                      end;
                     end;
                 end;
               LOC_REGISTER,
               LOC_CREGISTER :
                 begin
 {$ifndef cpu64bitalu}
-                  if left.location.size in [OS_64,OS_S64] then
+                  { also OS_F64 in case of mmreg -> intreg }
+                  if left.location.size in [OS_64,OS_S64,OS_F64] then
                     cg64.a_load64_reg_loc(current_asmdata.CurrAsmList,
                       right.location.register64,left.location)
                   else
@@ -863,7 +868,7 @@ implementation
                   if left.location.loc in [LOC_MMREGISTER,LOC_CMMREGISTER] then
                     begin
 {$ifdef x86}
-                      if not use_sse(right.resultdef) then
+                      if not use_vectorfpu(right.resultdef) then
                         begin
                           { perform size conversion if needed (the mm-code cannot convert an   }
                           { extended into a double/single, since sse doesn't support extended) }
@@ -1164,7 +1169,7 @@ implementation
               else
               { normal array constructor of the same type }
                begin
-                 if resultdef.needs_inittable then
+                 if is_managed_type(resultdef) then
                    freetemp:=false;
                  case hp.left.location.loc of
                    LOC_MMREGISTER,

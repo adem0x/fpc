@@ -76,6 +76,9 @@ interface
 {$ifdef m68k}
           ait_labeled_instruction,
 {$endif m68k}
+{$ifdef arm}
+          ait_thumb_func,
+{$endif arm}
           { used to split into tiny assembler files }
           ait_cutobject,
           ait_regalloc,
@@ -96,7 +99,6 @@ interface
           aitconst_rva_symbol,
           aitconst_secrel32_symbol,
           { darwin only }
-          aitconst_indirect_symbol,
           { From gcc/config/darwin.c (darwin_asm_output_dwarf_delta):
             ***
             Output a difference of two labels that will be an assembly time
@@ -160,6 +162,9 @@ interface
 {$ifdef m68k}
           'labeled_instr',
 {$endif m68k}
+{$ifdef arm}
+          'thumb_func',
+{$endif arm}
           'cut',
           'regalloc',
           'tempalloc',
@@ -173,6 +178,7 @@ interface
        { ARM only }
        ,top_regset
        ,top_shifterop
+       ,top_conditioncode
 {$endif arm}
 {$ifdef m68k}
        { m68k only }
@@ -206,8 +212,9 @@ interface
           { local varsym that will be inserted in pass_generate_code }
           top_local  : (localoper:plocaloper);
       {$ifdef arm}
-          top_regset : (regset:^tcpuregisterset);
+          top_regset : (regset:^tcpuregisterset; regtyp: tregistertype; subreg: tsubregister);
           top_shifterop : (shifterop : pshifterop);
+          top_conditioncode: (cc: TAsmCond);
       {$endif arm}
       {$ifdef m68k}
           top_regset : (regset:^tcpuregisterset);
@@ -231,6 +238,9 @@ interface
                      ait_stab,ait_function_name,
                      ait_cutobject,ait_marker,ait_align,ait_section,ait_comment,
                      ait_const,
+{$ifdef arm}
+                     ait_thumb_func,
+{$endif arm}
                      ait_real_32bit,ait_real_64bit,ait_real_80bit,ait_comp_64bit,ait_real_128bit,
                      ait_symbol
                     ];
@@ -243,7 +253,7 @@ interface
       TAsmMarker = (
         mark_NoPropInfoStart,mark_NoPropInfoEnd,
         mark_AsmBlockStart,mark_AsmBlockEnd,
-        mark_InlineStart,mark_InlineEnd,mark_BlockStart,
+        mark_NoLineInfoStart,mark_NoLineInfoEnd,mark_BlockStart,
         mark_Position
       );
 
@@ -252,9 +262,10 @@ interface
       TStabType = (stab_stabs,stab_stabn,stab_stabd);
 
       TAsmDirective=(
-        asd_non_lazy_symbol_pointer,asd_indirect_symbol,asd_lazy_symbol_pointer,
-        asd_extern,asd_nasm_import, asd_toc_entry, asd_mod_init_func, asd_mod_term_func,
-        asd_reference,asd_no_dead_strip,asd_weak_reference
+        asd_indirect_symbol,
+        asd_extern,asd_nasm_import, asd_toc_entry,
+        asd_reference,asd_no_dead_strip,asd_weak_reference,asd_lazy_reference,
+        asd_weak_definition
       );
 
     const
@@ -262,9 +273,9 @@ interface
       tempallocstr : array[boolean] of string[10]=('released','allocated');
       stabtypestr : array[TStabType] of string[5]=('stabs','stabn','stabd');
       directivestr : array[TAsmDirective] of string[23]=(
-        'non_lazy_symbol_pointer','indirect_symbol','lazy_symbol_pointer',
-        'extern','nasm_import', 'tc', 'mod_init_func', 'mod_term_func', 'reference',
-        'no_dead_strip','weak_reference'
+        'indirect_symbol',
+        'extern','nasm_import', 'tc', 'reference',
+        'no_dead_strip','weak_reference','lazy_reference','weak_definition'
       );
 
     type
@@ -313,13 +324,16 @@ interface
 
        { Generates a common label }
        tai_symbol = class(tai)
-          is_global : boolean;
           sym       : tasmsymbol;
+          value     : puint;
           size      : longint;
+          is_global,
+          has_value : boolean;
           constructor Create(_sym:tasmsymbol;siz:longint);
           constructor Create_Global(_sym:tasmsymbol;siz:longint);
           constructor Createname(const _name : string;_symtyp:Tasmsymtype;siz:longint);
           constructor Createname_global(const _name : string;_symtyp:Tasmsymtype;siz:longint);
+          constructor Createname_global_value(const _name : string;_symtyp:Tasmsymtype;siz:longint;val:ptruint);
           constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure derefimpl;override;
@@ -408,6 +422,7 @@ interface
           constructor Create_32bit(_value : longint);
           constructor Create_16bit(_value : word);
           constructor Create_8bit(_value : byte);
+          constructor Create_char(size: integer; _value: dword);
           constructor Create_sleb128bit(_value : int64);
           constructor Create_uleb128bit(_value : qword);
           constructor Create_aint(_value : aint);
@@ -417,7 +432,6 @@ interface
           constructor Create_sym_offset(_sym:tasmsymbol;ofs:aint);
           constructor Create_rel_sym(_typ:taiconst_type;_sym,_endsym:tasmsymbol);
           constructor Create_rva_sym(_sym:tasmsymbol);
-          constructor Create_indirect_sym(_sym:tasmsymbol);
           constructor Createname(const name:string;ofs:aint);
           constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
@@ -452,7 +466,8 @@ interface
        { Generates an extended float (80 bit real) }
        tai_real_80bit = class(tai)
           value : ts80real;
-          constructor Create(_value : ts80real);
+          savesize : byte;
+          constructor Create(_value : ts80real; _savesize: byte);
           constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
        end;
@@ -616,7 +631,7 @@ interface
            constructor Create_zeros(b:byte);
            constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
            procedure ppuwrite(ppufile:tcompilerppufile);override;
-           function calculatefillbuf(var buf : tfillbuffer):pchar;virtual;
+           function calculatefillbuf(var buf : tfillbuffer;executable : boolean):pchar;virtual;
         end;
         tai_align_class = class of tai_align_abstract;
 
@@ -921,7 +936,9 @@ implementation
          typ:=ait_symbol;
          sym:=_sym;
          size:=siz;
-         sym.bind:=AB_GLOBAL;
+         { don't override PRIVATE_EXTERN with GLOBAL }
+         if not(sym.bind in [AB_GLOBAL,AB_PRIVATE_EXTERN]) then
+           sym.bind:=AB_GLOBAL;
          is_global:=true;
       end;
 
@@ -943,6 +960,14 @@ implementation
          sym:=current_asmdata.DefineAsmSymbol(_name,AB_GLOBAL,_symtyp);
          size:=siz;
          is_global:=true;
+      end;
+
+
+    constructor tai_symbol.createname_global_value(const _name: string;_symtyp: tasmsymtype; siz: longint; val: ptruint);
+      begin
+        Createname_global(_name,_symtyp,siz);
+        value:=val;
+        has_value:=true;
       end;
 
 
@@ -1113,6 +1138,27 @@ implementation
       end;
 
 
+    constructor tai_const.Create_char(size: integer; _value: dword);
+      begin
+         inherited Create;
+         typ:=ait_const;
+         case size of
+            1:
+              begin
+                consttype:=aitconst_8bit;
+                value:=byte(_value)
+              end;
+             2:
+               begin
+                 consttype:=aitconst_16bit;
+                 value:=word(_value)
+               end
+             else
+               InternalError(2010030701)
+         end
+      end;
+
+
     constructor tai_const.Create_sleb128bit(_value : int64);
       begin
          inherited Create;
@@ -1211,13 +1257,6 @@ implementation
       end;
 
 
-    constructor tai_const.Create_indirect_sym(_sym:tasmsymbol);
-      begin
-         self.create_sym_offset(_sym,0);
-         consttype:=aitconst_indirect_symbol;
-      end;
-
-
     constructor tai_const.Createname(const name:string;ofs:aint);
       begin
          self.create_sym_offset(current_asmdata.RefAsmSymbol(name),ofs);
@@ -1266,11 +1305,10 @@ implementation
             result:=1;
           aitconst_16bit :
             result:=2;
-          aitconst_32bit :
+          aitconst_32bit,aitconst_darwin_dwarf_delta32:
             result:=4;
-          aitconst_64bit :
+          aitconst_64bit,aitconst_darwin_dwarf_delta64:
             result:=8;
-          aitconst_indirect_symbol,
           aitconst_secrel32_symbol,
           aitconst_rva_symbol :
             if target_info.system=system_x86_64_win64 then
@@ -1361,12 +1399,13 @@ implementation
                                TAI_real_80bit
  ****************************************************************************}
 
-    constructor tai_real_80bit.Create(_value : ts80real);
+    constructor tai_real_80bit.Create(_value : ts80real; _savesize: byte);
 
       begin
          inherited Create;
          typ:=ait_real_80bit;
          value:=_value;
+         savesize:=_savesize;
       end;
 
 
@@ -1374,6 +1413,7 @@ implementation
       begin
         inherited ppuload(t,ppufile);
         value:=ppufile.getreal;
+        savesize:=ppufile.getbyte;
       end;
 
 
@@ -1381,6 +1421,7 @@ implementation
       begin
         inherited ppuwrite(ppufile);
         ppufile.putreal(value);
+        ppufile.putbyte(savesize);
       end;
 
 
@@ -1507,7 +1548,7 @@ implementation
         typ:=ait_label;
         labsym:=_labsym;
         labsym.is_set:=true;
-        is_global:=(labsym.bind=AB_GLOBAL);
+        is_global:=(labsym.bind in [AB_GLOBAL,AB_PRIVATE_EXTERN]);
       end;
 
 
@@ -2335,7 +2376,7 @@ implementation
        end;
 
 
-     function tai_align_abstract.calculatefillbuf(var buf : tfillbuffer):pchar;
+     function tai_align_abstract.calculatefillbuf(var buf : tfillbuffer;executable : boolean):pchar;
        begin
          if fillsize>sizeof(buf) then
            internalerror(200404293);

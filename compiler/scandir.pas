@@ -144,9 +144,11 @@ unit scandir;
              begin
                { Support switches used in Apples Universal Interfaces}
                if (hs='MAC68K') then
-                 current_settings.packrecords:=2
-               else if (hs='POWER') then
-                 current_settings.packrecords:=4
+                 current_settings.packrecords:=mac68k_alignment
+               { "power" alignment is the default C packrecords setting on
+                 Mac OS X }
+               else if (hs='POWER') or (hs='POWERPC') then
+                 current_settings.packrecords:=C_alignment
                else if (hs='RESET') then
                  current_settings.packrecords:=0
                else
@@ -231,9 +233,9 @@ unit scandir;
       var
          hs : string;
       begin
-        if not (target_info.system in system_all_windows + [system_i386_os2,
+        if not (target_info.system in systems_all_windows + [system_i386_os2,
                                        system_i386_emx, system_powerpc_macos,
-                                       system_arm_nds]) then
+                                       system_arm_nds] + systems_nativent) then
           begin
             if m_delphi in current_settings.modeswitches then
               Message(scan_n_app_type_not_support)
@@ -252,7 +254,7 @@ unit scandir;
                    apptype:=app_gui
                  else if hs='CONSOLE' then
                    apptype:=app_cui
-                 else if (hs='NATIVE') and (target_info.system in system_windows) then
+                 else if (hs='NATIVE') and (target_info.system in systems_windows + systems_nativent) then
                    apptype:=app_native
                  else if (hs='FS') and (target_info.system in [system_i386_os2,
                                                              system_i386_emx]) then
@@ -312,7 +314,7 @@ unit scandir;
 
     procedure dir_description;
       begin
-        if not (target_info.system in system_all_windows+[system_i386_os2,system_i386_emx,
+        if not (target_info.system in systems_all_windows+[system_i386_os2,system_i386_emx,
                  system_i386_netware,system_i386_wdosx,system_i386_netwlibc]) then
           Message(scan_w_description_not_support);
         { change description global var in all cases }
@@ -407,7 +409,7 @@ unit scandir;
 
     procedure dir_imagebase;
       begin
-        if not (target_info.system in (system_windows+system_wince)) then
+        if not (target_info.system in (systems_windows+systems_wince)) then
           Message(scan_w_imagebase_not_support);
         current_scanner.skipspace;
         imagebase:=current_scanner.readval;
@@ -648,7 +650,7 @@ unit scandir;
 
     procedure dir_maxstacksize;
       begin
-        if not (target_info.system in (system_windows+system_wince)) then
+        if not (target_info.system in (systems_windows+systems_wince)) then
           Message(scan_w_maxstacksize_not_support);
         current_scanner.skipspace;
         maxstacksize:=current_scanner.readval;
@@ -721,7 +723,7 @@ unit scandir;
 
     procedure dir_minstacksize;
       begin
-        if not (target_info.system in (system_windows+system_wince)) then
+        if not (target_info.system in (systems_windows+systems_wince)) then
           Message(scan_w_minstacksize_not_support);
         current_scanner.skipspace;
         minstacksize:=current_scanner.readval;
@@ -1017,9 +1019,14 @@ unit scandir;
         do_localswitch(cs_fpu_fwait);
       end;
 
+    procedure dir_scopedenums;
+      begin
+        do_localswitch(cs_scopedenums);
+      end;
+
     procedure dir_setpeflags;
       begin
-        if not (target_info.system in (system_all_windows)) then
+        if not (target_info.system in (systems_all_windows)) then
           Message(scan_w_setpeflags_not_support);
         current_scanner.skipspace;
         peflags:=current_scanner.readval;
@@ -1034,11 +1041,6 @@ unit scandir;
     procedure dir_stackframes;
       begin
         do_delphiswitch('W');
-      end;
-
-    procedure dir_static;
-      begin
-        do_moduleswitch(cs_static_keyword);
       end;
 
     procedure dir_stop;
@@ -1096,6 +1098,11 @@ unit scandir;
             end;
       end;
 
+    procedure dir_varpropsetter;
+      begin
+        do_localswitch(cs_varpropsetter);
+      end;
+
     procedure dir_varstringchecks;
       begin
         do_delphiswitch('V');
@@ -1106,7 +1113,7 @@ unit scandir;
         major, minor, revision : longint;
         error : integer;
       begin
-        if not (target_info.system in system_all_windows+[system_i386_os2,system_i386_emx,
+        if not (target_info.system in systems_all_windows+[system_i386_os2,system_i386_emx,
                  system_i386_netware,system_i386_wdosx,
                  system_i386_netwlibc]) then
           begin
@@ -1185,24 +1192,84 @@ unit scandir;
     { delphi compatible warn directive:
       $warn <identifier> on
       $warn <identifier> off
+      $warn <identifier> error
       not implemented yet
     }
     procedure dir_warn;
       var
+        ident : string;
         state : string;
+        msgstate : tmsgstate;
       begin
         current_scanner.skipspace;
-        current_scanner.readid;
+        ident:=current_scanner.readid;
         current_scanner.skipspace;
         state:=current_scanner.readid;
-        if (upper(state)='ON') then
+
+        { support both delphi and fpc switches }
+        if (state='ON') or (state='+') then
+          msgstate:=ms_on
+        else
+        if (state='OFF') or (state='-') then
+          msgstate:=ms_off
+        else
+        if (state='ERROR') then
+          msgstate:=ms_error
+        else
+        begin
+          Message1(scanner_e_illegal_warn_state,state);
+          exit;
+        end;
+
+        if ident='CONSTRUCTING_ABSTRACT' then
+          recordpendingmessagestate(type_w_instance_with_abstract, msgstate)
+        else
+        if ident='IMPLICIT_VARIANTS' then
+          recordpendingmessagestate(parser_w_implicit_uses_of_variants_unit, msgstate)
+        else
+        if ident='NO_RETVAL' then
+          recordpendingmessagestate(sym_w_function_result_not_set, msgstate)
+        else
+        if ident='SYMBOL_DEPRECATED' then
           begin
-          end
-        else if (upper(state)='OFF') then
-          begin
+            recordpendingmessagestate(sym_w_deprecated_symbol, msgstate);
+            recordpendingmessagestate(sym_w_deprecated_symbol_with_msg, msgstate);
           end
         else
-          Message1(scanner_e_illegal_warn_state,state);
+        if ident='SYMBOL_EXPERIMENTAL' then
+          recordpendingmessagestate(sym_w_experimental_symbol, msgstate)
+        else
+        if ident='SYMBOL_LIBRARY' then
+          recordpendingmessagestate(sym_w_library_symbol, msgstate)
+        else
+        if ident='SYMBOL_PLATFORM' then
+          recordpendingmessagestate(sym_w_non_portable_symbol, msgstate)
+        else
+        if ident='SYMBOL_UNIMPLEMENTED' then
+          recordpendingmessagestate(sym_w_non_implemented_symbol, msgstate)
+        else
+        if ident='UNIT_DEPRECATED' then
+          begin
+            recordpendingmessagestate(sym_w_deprecated_unit, msgstate);
+            recordpendingmessagestate(sym_w_deprecated_unit_with_msg, msgstate);
+          end
+        else
+        if ident='UNIT_EXPERIMENTAL' then
+          recordpendingmessagestate(sym_w_experimental_unit, msgstate)
+        else
+        if ident='UNIT_LIBRARY' then
+          recordpendingmessagestate(sym_w_library_unit, msgstate)
+        else
+        if ident='UNIT_PLATFORM' then
+          recordpendingmessagestate(sym_w_non_portable_unit, msgstate)
+        else
+        if ident='UNIT_UNIMPLEMENTED' then
+          recordpendingmessagestate(sym_w_non_implemented_unit, msgstate)
+        else
+        if ident='ZERO_NIL_COMPAT' then
+          recordpendingmessagestate(type_w_zero_to_nil, msgstate)
+        else
+          Message1(scanner_w_illegal_warn_identifier,ident);
       end;
 
     procedure dir_warning;
@@ -1374,6 +1441,7 @@ unit scandir;
         AddDirective('OBJECTPATH',directive_all, @dir_objectpath);
         AddDirective('OPENSTRINGS',directive_all, @dir_openstrings);
         AddDirective('OPTIMIZATION',directive_all, @dir_optimization);
+        AddDirective('OV',directive_mac, @dir_overflowchecks);
         AddDirective('OVERFLOWCHECKS',directive_all, @dir_overflowchecks);
         AddDirective('PACKENUM',directive_all, @dir_packenum);
         AddDirective('PACKRECORDS',directive_all, @dir_packrecords);
@@ -1390,11 +1458,11 @@ unit scandir;
         AddDirective('RESOURCE',directive_all, @dir_resource);
         AddDirective('SATURATION',directive_all, @dir_saturation);
         AddDirective('SAFEFPUEXCEPTIONS',directive_all, @dir_safefpuexceptions);
+        AddDirective('SCOPEDENUMS',directive_all, @dir_scopedenums);
         AddDirective('SETPEFLAGS', directive_all, @dir_setpeflags);
         AddDirective('SCREENNAME',directive_all, @dir_screenname);
         AddDirective('SMARTLINK',directive_all, @dir_smartlink);
         AddDirective('STACKFRAMES',directive_all, @dir_stackframes);
-        AddDirective('STATIC',directive_all, @dir_static);
         AddDirective('STOP',directive_all, @dir_stop);
         AddDirective('STRINGCHECKS', directive_all, @dir_stringchecks);
 {$ifdef powerpc}
@@ -1404,6 +1472,7 @@ unit scandir;
         AddDirective('TYPEDADDRESS',directive_all, @dir_typedaddress);
         AddDirective('TYPEINFO',directive_all, @dir_typeinfo);
         AddDirective('UNITPATH',directive_all, @dir_unitpath);
+        AddDirective('VARPROPSETTER',directive_all, @dir_varpropsetter);
         AddDirective('VARSTRINGCHECKS',directive_all, @dir_varstringchecks);
         AddDirective('VERSION',directive_all, @dir_version);
         AddDirective('WAIT',directive_all, @dir_wait);

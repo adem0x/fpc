@@ -70,6 +70,7 @@ type
 
   TChmSiteMapItems = class(TPersistent)
   private
+    FInternalData: Dword;
     FList: TList;
     FOwner: TChmSiteMap;
     FParentItem: TChmSiteMapItem;
@@ -89,6 +90,7 @@ type
     property Count: Integer read GetCount;
     property ParentItem: TChmSiteMapItem read FParentItem;
     property Owner: TChmSiteMap read FOwner;
+    property InternalData: Dword read FInternalData write FInternalData;
   end;
   
 
@@ -122,6 +124,7 @@ type
     FUseFolderImages: Boolean;
     FWindowName: String;
     FLevel: Integer;
+    FLevelForced: Boolean;
     FWindowStyles: LongInt;
     procedure SetItems(const AValue: TChmSiteMapItems);
   protected
@@ -194,21 +197,21 @@ begin
   //WriteLn('TAG:', AActualTag);
   TagName := GetTagName(ACaseInsensitiveTag);
 
-  if not (smtHTML in FSiteMapTags) then begin
-    if TagName = 'HTML' then Include(FSiteMapTags, smtHTML);
+{  if not (smtHTML in FSiteMapTags) then begin
+    if (TagName = 'HTML') or (TagName = '/HTML') then Include(FSiteMapTags, smtHTML);
   end
   else begin // looking for /HTML
     if TagName = '/HTML' then Exclude(FSiteMapTags, smtHTML);
-  end;
-  
-  if (smtHTML in FSiteMapTags) then begin
+  end;}
+
+  //if (smtHTML in FSiteMapTags) then begin
      if not (smtBODY in FSiteMapTags) then begin
        if TagName = 'BODY' then Include(FSiteMapTags, smtBODY);
      end
      else begin
        if TagName = '/BODY' then Exclude(FSiteMapTags, smtBODY);
      end;
-     
+
      if (smtBODY in FSiteMapTags) then begin
        //WriteLn('GOT TAG: ', AActualTag);
        if TagName = 'UL' then begin
@@ -219,16 +222,26 @@ begin
          //WriteLN('Dec Level');
          DecreaseULevel;
        end
+       else if (TagName = 'LI') and (FLevel = 0) then
+         FLevelForced := True
        else if TagName = 'OBJECT' then begin
          Include(FSiteMapBodyTags, smbtOBJECT);
+         if FLevelForced then
+           IncreaseULevel;
          If FLevel > 0 then // if it is zero it is the site properties
            NewSiteMapItem;
        end
        else if TagName = '/OBJECT' then begin
          Exclude(FSiteMapBodyTags, smbtOBJECT);
+         if FLevelForced then
+         begin
+           DecreaseULevel;
+           FLevelForced := False;
+         end;
        end
        else begin // we are the properties of the object tag
-         if (smbtOBJECT in FSiteMapBodyTags) then begin
+         if (FLevel > 0 ) and (smbtOBJECT in FSiteMapBodyTags) then begin
+
            if LowerCase(GetTagName(AActualTag)) = 'param' then begin
 
              TagAttributeName := GetVal(AActualTag, 'name');
@@ -263,7 +276,7 @@ begin
          end;
        end;
      end;
-  end
+  //end
 end;
 
 procedure TChmSiteMap.FoundText(AText: string);
@@ -460,6 +473,7 @@ begin
   FList := TList.Create;
   FParentItem := AParentItem;
   FOwner := AOwner;
+  FInternalData := maxLongint;
 end;
 
 destructor TChmSiteMapItems.Destroy;

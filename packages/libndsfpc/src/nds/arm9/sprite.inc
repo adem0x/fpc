@@ -243,17 +243,17 @@ function SPRITE_SIZE_PIXELS(size: cint): cuint32; inline;
 
 
 type
-  SpriteMapping = integer;
+  TSpriteMapping = integer;
 const
-  SpriteMapping_1D_32     : SpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_32)  or (0 shl 28) or 0;
-  SpriteMapping_1D_64     : SpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_64)  or (1 shl 28) or 1;
-  SpriteMapping_1D_128    : SpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_128) or (2 shl 28) or 2;
-  SpriteMapping_1D_256    : SpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_256) or (3 shl 28) or 3;
-  SpriteMapping_2D        : SpriteMapping = integer(DISPLAY_SPR_2D) or (4 shl 28);
-  SpriteMapping_Bmp_1D_128: SpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_128) or integer(DISPLAY_SPR_1D_BMP) or integer(DISPLAY_SPR_1D_BMP_SIZE_128) or (5 shl 28) or 2;
-  SpriteMapping_Bmp_1D_256: SpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_256) or integer(DISPLAY_SPR_1D_BMP) or integer(DISPLAY_SPR_1D_BMP_SIZE_256) or (6 shl 28) or 3;
-  SpriteMapping_Bmp_2D_128: SpriteMapping = integer(DISPLAY_SPR_2D) or integer(DISPLAY_SPR_2D_BMP_128)  or (7 shl 28) or 2;
-  SpriteMapping_Bmp_2D_256: SpriteMapping = integer(DISPLAY_SPR_2D) or integer(DISPLAY_SPR_2D_BMP_256)  or (8 shl 28) or 3;
+  SpriteMapping_1D_32     : TSpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_32)  or (0 shl 28) or 0;
+  SpriteMapping_1D_64     : TSpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_64)  or (1 shl 28) or 1;
+  SpriteMapping_1D_128    : TSpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_128) or (2 shl 28) or 2;
+  SpriteMapping_1D_256    : TSpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_256) or (3 shl 28) or 3;
+  SpriteMapping_2D        : TSpriteMapping = integer(DISPLAY_SPR_2D) or (4 shl 28);
+  SpriteMapping_Bmp_1D_128: TSpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_128) or integer(DISPLAY_SPR_1D_BMP) or integer(DISPLAY_SPR_1D_BMP_SIZE_128) or (5 shl 28) or 2;
+  SpriteMapping_Bmp_1D_256: TSpriteMapping = integer(DISPLAY_SPR_1D) or integer(DISPLAY_SPR_1D_SIZE_256) or integer(DISPLAY_SPR_1D_BMP) or integer(DISPLAY_SPR_1D_BMP_SIZE_256) or (6 shl 28) or 3;
+  SpriteMapping_Bmp_2D_128: TSpriteMapping = integer(DISPLAY_SPR_2D) or integer(DISPLAY_SPR_2D_BMP_128)  or (7 shl 28) or 2;
+  SpriteMapping_Bmp_2D_256: TSpriteMapping = integer(DISPLAY_SPR_2D) or integer(DISPLAY_SPR_2D_BMP_256)  or (8 shl 28) or 3;
 
 type
   SpriteColorFormat = integer;
@@ -275,7 +275,8 @@ type
     gfxOffsetStep: cint; 
     firstFree: cint16;
     allocBuffer: PAllocHeader; 
-    allocBufferSize: cint16; 
+    allocBufferSize: cint16;
+    spriteMapping: TSpriteMapping;     
     case integer of
       0: (
             oamMemory: PSpriteEntry;
@@ -291,7 +292,7 @@ var
   oamMain: OamState; cvar; external;
   oamSub: OamState; cvar; external;  
 
-procedure oamInit(var oam: OamState; mapping: SpriteMapping; extPalette: cbool); cdecl; external;
+procedure oamInit(var oam: OamState; mapping: TSpriteMapping; extPalette: cbool); cdecl; external;
 procedure oamDisable(var oam: OamState); cdecl; external;
 procedure oamEnable(var oam: OamState); cdecl; external;
 function oamGetGfxPtr(var oam: OamState; gfxOffsetIndex: cint): pcuint16; cdecl; external;
@@ -299,6 +300,7 @@ function oamAllocateGfx(var oam: OamState; size: SpriteSize; colorFormat: Sprite
 procedure oamFreeGfx(var oam: OamState; const gfxOffset: pointer); cdecl; external;
 
 procedure oamSetMosaic(dx, dy: cuint); inline;
+procedure oamSetMosaicSub(dx, dy: cuint); inline;
 
 procedure oamSet( var oam: OamState; 
                   id, x, y, priority, palette_alpha: cint; 
@@ -310,9 +312,11 @@ procedure oamSet( var oam: OamState;
 procedure oamClear(var oam: OamState; start, count: cint); cdecl; external;
 procedure oamUpdate(var oam: OamState); cdecl; external;
 procedure oamRotateScale(var oam: OamState; rotId, angle, sx, sy: cint); cdecl; external;
+procedure oamAffineTransformation(var oam: OamState; rotId, hdx, hdy, vdx, vdy: cint); inline;
+
 function oamCountFragments(var oam: OamState): cint; cdecl; external;
 procedure oamAllocReset(var oam: OamState); cdecl; external;
-function oamGfxPtrToOffset(const offset: pointer): cuint; cdecl; external;
+function oamGfxPtrToOffset(var oam: OamState; const offset: pointer): cuint; cdecl; external;
 {$endif NDS_INTERFACE}
  
 {$ifdef NDS_IMPLEMENTATION}
@@ -364,8 +368,25 @@ end;
 procedure oamSetMosaic(dx, dy: cuint); inline;
 begin
   sassert((dx < 16) and (dy < 16), 'Mosaic range is 0 to 15');
-  MOSAIC_CR^ :=  MOSAIC_CR^ and not ($FF00);
-  MOSAIC_CR^ := MOSAIC_CR^ or ((dx shl 8) or (dy shl 12));
+  mosaicShadow := ( mosaicShadow and $00ff) or (dx shl 8) or (dy shl 12);
+  REG_MOSAIC^ := mosaicShadow;
 end;
+
+procedure oamSetMosaicSub(dx, dy: cuint); inline;
+begin
+  sassert((dx < 16) and (dy < 16), 'Mosaic range is 0 to 15');
+  mosaicShadowSub := (mosaicShadowSub and $00ff) or (dx shl 8) or (dy shl 12);
+  REG_MOSAIC_SUB^ := mosaicShadowSub;
+end;
+
+procedure oamAffineTransformation(var oam: OamState; rotId, hdx, hdy, vdx, vdy: cint); inline;
+begin
+  sassert((rotId >= 0) and (rotId < 32), 'oamAffineTransformation() rotId is out of bounds, must be 0-31');
+  oam.oamRotationMemory[rotId].hdx := hdx shr 12;
+  oam.oamRotationMemory[rotId].hdy := hdy shr 12;
+  oam.oamRotationMemory[rotId].vdx := vdx shr 12;
+  oam.oamRotationMemory[rotId].vdy := vdy shr 12;
+end;
+
 
 {$endif NDS_IMPLEMENTATION}

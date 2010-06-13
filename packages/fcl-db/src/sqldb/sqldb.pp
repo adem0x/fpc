@@ -23,7 +23,7 @@ interface
 uses SysUtils, Classes, DB, bufdataset, sqlscript;
 
 type TSchemaType = (stNoSchema, stTables, stSysTables, stProcedures, stColumns, stProcedureParams, stIndexes, stPackages);
-     TConnOption = (sqSupportParams,sqEscapeSlash,sqEscapeRepeat,sqQuoteFieldnames);
+     TConnOption = (sqSupportParams,sqEscapeSlash,sqEscapeRepeat);
      TConnOptions= set of TConnOption;
 
      TRowsCount = LargeInt;
@@ -53,9 +53,13 @@ type
     FSchemaType    : TSchemaType;
   end;
 
+type TQuoteChars = array[0..1] of char;
 
 const
- StatementTokens : Array[TStatementType] of string = ('(none)', 'select',
+  SingleQuotes : TQuoteChars = ('''','''');
+  DoubleQuotes : TQuoteChars = ('"','"');
+
+  StatementTokens : Array[TStatementType] of string = ('(none)', 'select',
                   'insert', 'update', 'delete',
                   'create', 'get', 'put', 'execute',
                   'start','commit','rollback', '?'
@@ -72,14 +76,13 @@ type
     procedure Update; override;
   end;
 
-
-{ TSQLConnection }
 type
 
   { TSQLConnection }
 
   TSQLConnection = class (TDatabase)
   private
+    FFieldNameQuoteChars : TQuoteChars;
     FPassword            : string;
     FTransaction         : TSQLTransaction;
     FUserName            : string;
@@ -126,6 +129,7 @@ type
     property port: cardinal read GetPort write Setport;
   public
     property Handle: Pointer read GetHandle;
+    property FieldNameQuoteChars: TQuoteChars read FFieldNameQuoteChars write FFieldNameQuoteChars;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure StartTransaction; override;
@@ -186,7 +190,7 @@ type
 
 { TCustomSQLQuery }
 
-  TCustomSQLQuery = class (Tbufdataset)
+  TCustomSQLQuery = class (TCustomBufDataset)
   private
     FCursor              : TSQLCursor;
     FUpdateable          : boolean;
@@ -235,7 +239,7 @@ type
     procedure OnChangeSQL(Sender : TObject);
     procedure OnChangeModifySQL(Sender : TObject);
     procedure Execute;
-    Function SQLParser(var ASQL : string) : TStatementType;
+    Function SQLParser(const ASQL : string) : TStatementType;
     procedure ApplyFilter;
     Function AddFilter(SQLstr : string) : string;
   protected
@@ -259,6 +263,7 @@ type
     Function GetDataSource : TDatasource; override;
     Procedure SetDataSource(AValue : TDatasource);
     procedure LoadBlobIntoBuffer(FieldDef: TFieldDef;ABlobBuf: PBufBlobField); override;
+    procedure BeforeRefreshOpenCursor; override;
   public
     procedure Prepare; virtual;
     procedure UnPrepare; virtual;
@@ -618,6 +623,7 @@ constructor TSQLConnection.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   FSQLServerFormatSettings.DecimalSeparator:='.';
+  FFieldNameQuoteChars:=DoubleQuotes;
 end;
 
 procedure TSQLConnection.GetTableNames(List: TStrings; SystemTables: Boolean);
@@ -860,10 +866,16 @@ end;
 Function TCustomSQLQuery.AddFilter(SQLstr : string) : string;
 
 begin
+  if (FWhereStartPos > 0) and (FWhereStopPos > 0) then
+    begin
+    system.insert('(',SQLstr,FWhereStartPos+1);
+    system.insert(')',SQLstr,FWhereStopPos+1);
+    end;
+
   if FWhereStartPos = 0 then
     SQLstr := SQLstr + ' where (' + Filter + ')'
   else if FWhereStopPos > 0 then
-    system.insert(' and ('+ServerFilter+') ',SQLstr,FWhereStopPos+1)
+    system.insert(' and ('+ServerFilter+') ',SQLstr,FWhereStopPos+2)
   else
     system.insert(' where ('+ServerFilter+') ',SQLstr,FWhereStartPos);
   Result := SQLstr;
@@ -1059,7 +1071,7 @@ begin
   end;
 end;
 
-function TCustomSQLQuery.SQLParser(var ASQL : string) : TStatementType;
+function TCustomSQLQuery.SQLParser(const ASQL : string) : TStatementType;
 
 type TParsePart = (ppStart,ppSelect,ppWhere,ppFrom,ppOrder,ppComment,ppGroup,ppBogus);
 
@@ -1136,7 +1148,7 @@ begin
                        end;
                      end;
           ppFrom   : begin
-                     if (s = 'WHERE') or (s = 'ORDER') or (s = 'GROUP') or (CurrentP^=#0) or (CurrentP^=';') then
+                     if (s = 'WHERE') or (s = 'ORDER') or (s = 'GROUP') or (s = 'LIMIT') or (CurrentP^=#0) or (CurrentP^=';') then
                        begin
                        if (s = 'WHERE') then
                          begin
@@ -1151,6 +1163,11 @@ begin
                        else if (s = 'ORDER') then
                          begin
                          ParsePart := ppOrder;
+                         StrLength := PhraseP-PStatementPart
+                         end
+                       else if (s = 'LIMIT') then
+                         begin
+                         ParsePart := ppBogus;
                          StrLength := PhraseP-PStatementPart
                          end
                        else
@@ -1179,11 +1196,11 @@ begin
                        end;
                      end;
           ppWhere  : begin
-                     if (s = 'ORDER') or (s = 'GROUP') or (CurrentP^=#0) or (CurrentP^=';') then
+                     if (s = 'ORDER') or (s = 'GROUP') or (s = 'LIMIT') or (CurrentP^=#0) or (CurrentP^=';') then
                        begin
                        ParsePart := ppBogus;
                        FWhereStartPos := PStatementPart-PSQL;
-                       if (s = 'ORDER') or (s = 'GROUP') then
+                       if (s = 'ORDER') or (s = 'GROUP') or (s = 'LIMIT') then
                          FWhereStopPos := PhraseP-PSQL+1
                        else
                          FWhereStopPos := CurrentP-PSQL+1;
@@ -1200,12 +1217,6 @@ begin
       end
     end;
   until CurrentP^=#0;
-  if (FWhereStartPos > 0) and (FWhereStopPos > 0) then
-    begin
-    system.insert('(',ASQL,FWhereStartPos+1);
-    inc(FWhereStopPos);
-    system.insert(')',ASQL,FWhereStopPos);
-    end
 end;
 
 procedure TCustomSQLQuery.InternalOpen;
@@ -1233,7 +1244,7 @@ begin
       // Call UpdateServerIndexDefs before Execute, to avoid problems with connections
       // which do not allow processing multiple recordsets at a time. (Microsoft
       // calls this MARS, see bug 13241)
-      if DefaultFields and FUpdateable and FusePrimaryKeyAsKey then
+      if DefaultFields and FUpdateable and FusePrimaryKeyAsKey and (not IsUniDirectional) then
         UpdateServerIndexDefs;
       Execute;
       // InternalInitFieldDef is only called after a prepare. i.e. not twice if
@@ -1243,7 +1254,7 @@ begin
         begin
         CreateFields;
 
-        if FUpdateable then
+        if FUpdateable and (not IsUniDirectional) then
           begin
           if FusePrimaryKeyAsKey then
             begin
@@ -1393,7 +1404,7 @@ end;
 
 Procedure TCustomSQLQuery.ApplyRecUpdate(UpdateKind : TUpdateKind);
 
-var FieldNamesQuoteChar : string;
+var FieldNamesQuoteChars : TQuoteChars;
 
   procedure InitialiseModifyQuery(var qry : TCustomSQLQuery; aSQL: String);
 
@@ -1414,7 +1425,7 @@ var FieldNamesQuoteChar : string;
     if (pfInKey in Fields[x].ProviderFlags) or
        ((FUpdateMode = upWhereAll) and (pfInWhere in Fields[x].ProviderFlags)) or
        ((FUpdateMode = UpWhereChanged) and (pfInWhere in Fields[x].ProviderFlags) and (fields[x].value <> fields[x].oldvalue)) then
-      sql_where := sql_where + '(' + FieldNamesQuoteChar + fields[x].FieldName + FieldNamesQuoteChar + '= :' + FieldNamesQuoteChar + 'OLD_' + fields[x].FieldName + FieldNamesQuoteChar +') and ';
+      sql_where := sql_where + '(' + FieldNamesQuoteChars[0] + fields[x].FieldName + FieldNamesQuoteChars[1] + '= :"' + 'OLD_' + fields[x].FieldName + '") and ';
   end;
 
   function ModifyRecQuery : string;
@@ -1431,7 +1442,7 @@ var FieldNamesQuoteChar : string;
       UpdateWherePart(sql_where,x);
 
       if (pfInUpdate in Fields[x].ProviderFlags) then
-        sql_set := sql_set +FieldNamesQuoteChar + fields[x].FieldName + FieldNamesQuoteChar +'=:' + FieldNamesQuoteChar + fields[x].FieldName + FieldNamesQuoteChar + ',';
+        sql_set := sql_set +FieldNamesQuoteChars[0] + fields[x].FieldName + FieldNamesQuoteChars[1] +'=:"' + fields[x].FieldName + '",';
       end;
 
     if length(sql_set) = 0 then DatabaseErrorFmt(sNoUpdateFields,['update'],self);
@@ -1455,8 +1466,8 @@ var FieldNamesQuoteChar : string;
       begin
       if (not fields[x].IsNull) and (pfInUpdate in Fields[x].ProviderFlags) then
         begin
-        sql_fields := sql_fields + FieldNamesQuoteChar + fields[x].FieldName + FieldNamesQuoteChar + ',';
-        sql_values := sql_values + ':' + FieldNamesQuoteChar + fields[x].FieldName + FieldNamesQuoteChar +',';
+        sql_fields := sql_fields + FieldNamesQuoteChars[0] + fields[x].FieldName + FieldNamesQuoteChars[1] + ',';
+        sql_values := sql_values + ':"' + fields[x].FieldName + '",';
         end;
       end;
     if length(sql_fields) = 0 then DatabaseErrorFmt(sNoUpdateFields,['insert'],self);
@@ -1487,10 +1498,7 @@ var qry : TCustomSQLQuery;
     Fld : TField;
 
 begin
-  if sqQuoteFieldnames in TSQLConnection(DataBase).ConnOptions then
-    FieldNamesQuoteChar := '"'
-  else
-    FieldNamesQuoteChar := '';
+  FieldNamesQuoteChars := TSQLConnection(DataBase).FieldNameQuoteChars;
 
   case UpdateKind of
     ukModify : begin
@@ -1504,17 +1512,23 @@ begin
                qry := FUpdateQry;
                end;
     ukInsert : begin
-               if not assigned(FInsertQry) and (trim(FInsertSQL.Text)<> '') then
-                 InitialiseModifyQuery(FInsertQry,FInsertSQL.Text)
-               else
-                 InitialiseModifyQuery(FInsertQry,InsertRecQuery);
+               if not assigned(FInsertQry) then
+                 begin
+                 if (trim(FInsertSQL.Text)<> '') then
+                   InitialiseModifyQuery(FInsertQry,FInsertSQL.Text)
+                 else
+                   InitialiseModifyQuery(FInsertQry,InsertRecQuery);
+                 end;
                qry := FInsertQry;
                end;
     ukDelete : begin
-               if not assigned(FDeleteQry) and (trim(FDeleteSQL.Text)<> '') then
-                 InitialiseModifyQuery(FDeleteQry,FDeleteSQL.Text)
-               else
-                 InitialiseModifyQuery(FDeleteQry,DeleteRecQuery);
+               if not assigned(FDeleteQry) then
+                 begin
+                 if (trim(FDeleteSQL.Text)<> '') then
+                   InitialiseModifyQuery(FDeleteQry,FDeleteSQL.Text)
+                 else
+                   InitialiseModifyQuery(FDeleteQry,DeleteRecQuery);
+                 end;
                qry := FDeleteQry;
                end;
   end;
@@ -1541,7 +1555,7 @@ Function TCustomSQLQuery.GetCanModify: Boolean;
 begin
   // the test for assigned(FCursor) is needed for the case that the dataset isn't opened
   if assigned(FCursor) and (FCursor.FStatementType = stSelect) then
-    Result:= FUpdateable and (not FReadOnly)
+    Result:= FUpdateable and (not FReadOnly) and (not IsUniDirectional)
   else
     Result := False;
 end;
@@ -1564,6 +1578,16 @@ procedure TCustomSQLQuery.LoadBlobIntoBuffer(FieldDef: TFieldDef;
   ABlobBuf: PBufBlobField);
 begin
   TSQLConnection(DataBase).LoadBlobIntoBuffer(FieldDef, ABlobBuf, FCursor,(Transaction as tsqltransaction));
+end;
+
+procedure TCustomSQLQuery.BeforeRefreshOpenCursor;
+begin
+  // This is only necessary because TIBConnection can not re-open a
+  // prepared cursor. In fact this is wrong, but has never led to
+  // problems because in SetActive(false) queries are always
+  // unprepared. (which is also wrong, but has to be fixed later)
+  if IsPrepared then with TSQLConnection(DataBase) do
+    UnPrepareStatement(FCursor);
 end;
 
 function TCustomSQLQuery.GetStatementType : TStatementType;

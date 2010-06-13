@@ -21,7 +21,7 @@ Uses
   {$IFDEF UNIX}
    BaseUnix,
   {$ENDIF}
-   SysUtils,Classes,ZStream;
+   SysUtils,Classes,zstream;
 
 
 Const
@@ -362,6 +362,7 @@ Type
   end;
 
   TOnCustomStreamEvent = Procedure(Sender : TObject; var AStream : TStream; AItem : TFullZipFileEntry) of object;
+  TCustomInputStreamEvent = Procedure(Sender: TObject; var AStream: TStream) of object;
 
   { TFullZipFileEntries }
 
@@ -377,15 +378,17 @@ Type
 
   TUnZipper = Class(TObject)
   Private
+    FOnCloseInputStream: TCustomInputStreamEvent;
     FOnCreateStream: TOnCustomStreamEvent;
     FOnDoneStream: TOnCustomStreamEvent;
+    FOnOpenInputStream: TCustomInputStreamEvent;
     FUnZipping  : Boolean;
     FBufSize    : LongWord;
     FFileName   :  String;         { Name of resulting Zip file                 }
     FOutputPath : String;
     FEntries    : TFullZipFileEntries;
     FFiles      : TStrings;
-    FZipFile     : TFileStream;     { I/O file variables                         }
+    FZipStream  : TStream;     { I/O file variables                         }
     LocalHdr    : Local_File_Header_Type;
     CentralHdr  : Central_File_Header_Type;
     EndHdr      : End_of_Central_Dir_Type;
@@ -418,6 +421,8 @@ Type
     Procedure Examine;
   Public
     Property BufferSize : LongWord Read FBufSize Write SetBufSize;
+    Property OnOpenInputStream: TCustomInputStreamEvent read FOnOpenInputStream write FOnOpenInputStream;
+    Property OnCloseInputStream: TCustomInputStreamEvent read FOnCloseInputStream write FOnCloseInputStream;
     Property OnCreateStream : TOnCustomStreamEvent Read FOnCreateStream Write FOnCreateStream;
     Property OnDoneStream : TOnCustomStreamEvent Read FOnDoneStream Write FOnDoneStream;
     Property OnPercent : Integer Read FOnPercent Write FOnPercent;
@@ -444,6 +449,7 @@ ResourceString
   SErrMissingArchiveName = 'Missing archive filename in streamed entry %d';
   SErrFileDoesNotExist = 'File "%s" does not exist.';
   SErrNoFileName = 'No archive filename for examine operation.';
+  SErrNoStream = 'No stream is opened.';
 
 { ---------------------------------------------------------------------
     Auxiliary
@@ -658,13 +664,23 @@ Var
   Buf : PByte;
   I,Count,NewCount : Integer;
   C : TCompressionStream;
-
+  BytesNow : Integer;
+  NextMark : Integer;
+  OnBytes : Integer;
+  FSize    : Integer;
 begin
   CRC32Val:=$FFFFFFFF;
   Buf:=GetMem(FBufferSize);
+  if FOnPercent = 0 then 
+    FOnPercent := 1; 
+  OnBytes:=Round((FInFile.Size * FOnPercent) / 100);
+  BytesNow:=0; NextMark := OnBytes;
+  FSize:=FInfile.Size;
   Try
     C:=TCompressionStream.Create(FCompressionLevel,FOutFile,True);
     Try
+      if assigned(FOnProgress) then
+        fOnProgress(self,0);
       Repeat
         Count:=FInFile.Read(Buf^,FBufferSize);
         For I:=0 to Count-1 do
@@ -672,6 +688,13 @@ begin
         NewCount:=Count;
         While (NewCount>0) do
           NewCount:=NewCount-C.Write(Buf^,NewCount);
+        inc(BytesNow,Count);
+        if BytesNow>NextMark Then
+          begin
+            if (FSize>0) and assigned(FOnProgress) Then
+              FOnProgress(self,100 * ( BytesNow / FSize));
+            inc(NextMark,OnBytes);
+          end;   
       Until (Count=0);
     Finally
       C.Free;
@@ -679,6 +702,8 @@ begin
   Finally
     FreeMem(Buf);
   end;
+  if assigned(FOnProgress) then
+    fOnProgress(self,100.0);
   Crc32Val:=NOT Crc32Val;
 end;
 
@@ -703,9 +728,22 @@ Var
   Buf : PByte;
   I,Count : Integer;
   C : TDeCompressionStream;
+  BytesNow : Integer;
+  NextMark : Integer;
+  OnBytes  : Integer;
+  FSize    : Integer;
 
 begin
   CRC32Val:=$FFFFFFFF;
+  if FOnPercent = 0 then
+    FOnPercent := 1;
+  OnBytes:=Round((FInFile.Size * FOnPercent) / 100);
+  BytesNow:=0; NextMark := OnBytes;
+  FSize:=FInfile.Size;
+
+  If Assigned(FOnProgress) then
+    fOnProgress(self,0);
+
   Buf:=GetMem(FBufferSize);
   Try
     C:=TDeCompressionStream.Create(FInFile,True);
@@ -715,6 +753,13 @@ begin
         For I:=0 to Count-1 do
           UpdC32(Buf[i]);
         FOutFile.Write(Buf^,Count);
+        inc(BytesNow,Count);
+        if BytesNow>NextMark Then
+           begin
+             if (FSize>0) and assigned(FOnProgress) Then
+               FOnProgress(self,100 * ( BytesNow / FSize));
+             inc(NextMark,OnBytes);
+           end;
       Until (Count=0);
     Finally
       C.Free;
@@ -722,6 +767,8 @@ begin
   Finally
     FreeMem(Buf);
   end;
+ if assigned(FOnProgress) then
+   fOnProgress(self,100.0);
   Crc32Val:=NOT Crc32Val;
 end;
 
@@ -1412,6 +1459,7 @@ Procedure TZipper.ZipFiles(AFileName : String; FileList : TStrings);
 
 begin
   FFileName:=AFileName;
+  ZipFiles(FileList);
 end;
 
 procedure TZipper.ZipFiles(FileList: TStrings);
@@ -1498,7 +1546,10 @@ end;
 Procedure TUnZipper.OpenInput;
 
 Begin
-  FZipFile:=TFileStream.Create(FFileName,fmOpenRead);
+  if Assigned(FOnOpenInputStream) then
+    FOnOpenInputStream(Self, FZipStream);
+  if FZipStream = nil then
+    FZipStream:=TFileStream.Create(FFileName,fmOpenRead);
 End;
 
 
@@ -1511,9 +1562,15 @@ Begin
     for Windows compatibility: it allows both '/' and '\'
     as directory separator. We don't want that behaviour
     here, since 'abc\' is a valid file name under Unix.
+	
+	(mantis 15836) On the other hand, many archives on 
+	 windows have '/' as pathseparator, even Windows 
+	 generated .odt files. So we disable this for windows.
   }
   OldDirectorySeparators:=AllowDirectorySeparators;
+  {$ifndef Windows}
   AllowDirectorySeparators:=[DirectorySeparator];
+  {$endif}
   Path:=ExtractFilePath(OutFileName);
   OutStream:=Nil;
   If Assigned(FOnCreateStream) then
@@ -1526,10 +1583,12 @@ Begin
     AllowDirectorySeparators:=OldDirectorySeparators;
     OutStream:=TFileStream.Create(OutFileName,fmCreate);
     end;
-
+	
+  AllowDirectorySeparators:=OldDirectorySeparators;
   Result:=True;
   If Assigned(FOnStartFile) then
     FOnStartFile(Self,OutFileName);
+	
 End;
 
 
@@ -1549,7 +1608,9 @@ end;
 Procedure TUnZipper.CloseInput;
 
 Begin
-  FreeAndNil(FZipFile);
+  if Assigned(FOnCloseInputStream) then
+    FOnCloseInputStream(Self, FZipStream);
+  FreeAndNil(FZipStream);
 end;
 
 
@@ -1558,18 +1619,18 @@ Var
   S : String;
   D : TDateTime;
 Begin
-  FZipFile.Seek(Item.HdrPos,soFromBeginning);
-  FZipFile.ReadBuffer(LocalHdr,SizeOf(LocalHdr));
+  FZipStream.Seek(Item.HdrPos,soFromBeginning);
+  FZipStream.ReadBuffer(LocalHdr,SizeOf(LocalHdr));
 {$IFDEF FPC_BIG_ENDIAN}
   LocalHdr := SwapLFH(LocalHdr);
 {$ENDIF}
   With LocalHdr do
     begin
       SetLength(S,Filename_Length);
-      FZipFile.ReadBuffer(S[1],Filename_Length);
+      FZipStream.ReadBuffer(S[1],Filename_Length);
       //SetLength(E,Extra_Field_Length);
-      //FZipFile.ReadBuffer(E[1],Extra_Field_Length);
-      FZipFile.Seek(Extra_Field_Length,soCurrent);
+      //FZipStream.ReadBuffer(E[1],Extra_Field_Length);
+      FZipStream.Seek(Extra_Field_Length,soCurrent);
       Item.ArchiveFileName:=S;
       Item.DiskFileName:=S;
       Item.Size:=Uncompressed_Size;
@@ -1592,36 +1653,36 @@ Var
   D : TDateTime;
   S : String;
 Begin
-  EndHdrPos:=FZipFile.Size-SizeOf(EndHdr);
+  EndHdrPos:=FZipStream.Size-SizeOf(EndHdr);
   if EndHdrPos < 0 then
-    raise EZipError.CreateFmt(SErrCorruptZIP,[FZipFile.FileName]);
-  FZipFile.Seek(EndHdrPos,soFromBeginning);
-  FZipFile.ReadBuffer(EndHdr, SizeOf(EndHdr));
+    raise EZipError.CreateFmt(SErrCorruptZIP,[FileName]);
+  FZipStream.Seek(EndHdrPos,soFromBeginning);
+  FZipStream.ReadBuffer(EndHdr, SizeOf(EndHdr));
 {$IFDEF FPC_BIG_ENDIAN}
   EndHdr := SwapECD(EndHdr);
 {$ENDIF}
   With EndHdr do
     begin
     if Signature <> END_OF_CENTRAL_DIR_SIGNATURE then
-      raise EZipError.CreateFmt(SErrCorruptZIP,[FZipFile.FileName]);
+      raise EZipError.CreateFmt(SErrCorruptZIP,[FileName]);
     CenDirPos:=Start_Disk_Offset;
     end;
-  FZipFile.Seek(CenDirPos,soFrombeginning);
+  FZipStream.Seek(CenDirPos,soFrombeginning);
   FEntries.Clear;
   for i:=0 to EndHdr.Entries_This_Disk-1 do
     begin
-    FZipFile.ReadBuffer(CentralHdr, SizeOf(CentralHdr));
+    FZipStream.ReadBuffer(CentralHdr, SizeOf(CentralHdr));
 {$IFDEF FPC_BIG_ENDIAN}
     CentralHdr := SwapCFH(CentralHdr);
 {$ENDIF}
     With CentralHdr do
       begin
       if Signature<>CENTRAL_FILE_HEADER_SIGNATURE then
-        raise EZipError.CreateFmt(SErrCorruptZIP,[FZipFile.FileName]);
+        raise EZipError.CreateFmt(SErrCorruptZIP,[FileName]);
       NewNode:=FEntries.Add as TFullZipFileEntry;
       NewNode.HdrPos := Local_Header_Offset;
       SetLength(S,Filename_Length);
-      FZipFile.ReadBuffer(S[1],Filename_Length);
+      FZipStream.ReadBuffer(S[1],Filename_Length);
       NewNode.ArchiveFileName:=S;
       NewNode.Size:=Uncompressed_Size;
       NewNode.FCompressedSize:=Compressed_Size;
@@ -1634,7 +1695,7 @@ Begin
         NewNode.Attributes := External_Attributes;
       ZipDateTimeToDateTime(Last_Mod_Date,Last_Mod_Time,D);
       NewNode.DateTime:=D;
-      FZipFile.Seek(Extra_Field_Length+File_Comment_Length,soCurrent);
+      FZipStream.Seek(Extra_Field_Length+File_Comment_Length,soCurrent);
       end;
    end;
 end;
@@ -1667,14 +1728,14 @@ Var
     begin
       if (LocalHdr.Compressed_Size<>0) then
         begin
-          Count:=Dest.CopyFrom(FZipFile,LocalHdr.Compressed_Size)
+          Count:=Dest.CopyFrom(FZipStream,LocalHdr.Compressed_Size)
          {$warning TODO: Implement CRC Check}
         end
       else
         Count:=0;
     end
     else
-    With CreateDecompressor(Item, ZMethod, FZipFile, Dest) do
+    With CreateDecompressor(Item, ZMethod, FZipStream, Dest) do
       Try
         OnProgress:=Self.OnProgress;
         OnPercent:=Self.OnPercent;
@@ -1883,9 +1944,11 @@ end;
 
 procedure TUnZipper.Examine;
 begin
-  If (FFileName='') then
+  if (FOnOpenInputStream = nil) and (FFileName='') then
     Raise EZipError.Create(SErrNoFileName);
   OpenInput;
+  If (FZipStream=nil) then
+    Raise EZipError.Create(SErrNoStream);
   Try
     ReadZipDirectory;
   Finally
