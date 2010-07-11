@@ -57,12 +57,21 @@ interface
 
        tdirectiveproc=procedure;
 
+       eDirectiveItem = (
+        diOther,
+        diDefine, // _DIR_DEFINE,
+        diUndef   // _DIR_UNDEF
+       ); //for preprocessor
+
        tdirectiveitem = class(TFPHashObject)
        public
           is_conditional : boolean;
+         kind: eDirectiveItem;
           proc : tdirectiveproc;
-          constructor Create(AList:TFPHashObjectList;const n:string;p:tdirectiveproc);
-          constructor CreateCond(AList:TFPHashObjectList;const n:string;p:tdirectiveproc);
+          constructor Create(AList:TFPHashObjectList;const n:string;
+            p:tdirectiveproc; k:eDirectiveItem=diOther);
+          constructor CreateCond(AList:TFPHashObjectList;const n:string;
+            p:tdirectiveproc; k:eDirectiveItem=diOther);
        end;
 
        // stack for replay buffers
@@ -156,6 +165,7 @@ interface
           procedure popreplaystack;
           procedure handleconditional(p:tdirectiveitem);
           procedure handledirectives;
+          function  Get_Directive(const hs: string): tdirectiveitem;
           procedure linebreak;
           procedure recordtoken;
           procedure startrecordtokens(buf:tdynamicarray);
@@ -187,10 +197,11 @@ interface
        tpreprocfile=class
          f   : text;
          buf : pointer;
+       public
          spacefound,
          eolfound : boolean;
          constructor create(const fn:string);
-         destructor  destroy;
+         destructor  destroy; override;
          procedure Add(const s:string);
          procedure AddSpace;
        end;
@@ -218,8 +229,8 @@ interface
     type
         tdirectivemode = (directive_all, directive_turbo, directive_mac);
 
-    procedure AddDirective(const s:string; dm: tdirectivemode; p:tdirectiveproc);
-    procedure AddConditional(const s:string; dm: tdirectivemode; p:tdirectiveproc);
+    procedure AddDirective(const s:string; dm: tdirectivemode; p:tdirectiveproc; k:eDirectiveItem=diOther);
+    procedure AddConditional(const s:string; dm: tdirectivemode; p:tdirectiveproc; k:eDirectiveItem=diOther);
 
     procedure InitScanner;
     procedure DoneScanner;
@@ -1801,6 +1812,7 @@ In case not, the value returned can be arbitrary.
 
     procedure tpreprocfile.add(const s:string);
       begin
+        AddSpace; //if whitespace found
         write(f,s);
       end;
 
@@ -1848,18 +1860,20 @@ In case not, the value returned can be arbitrary.
                               TDirectiveItem
 *****************************************************************************}
 
-    constructor TDirectiveItem.Create(AList:TFPHashObjectList;const n:string;p:tdirectiveproc);
+    constructor TDirectiveItem.Create(AList:TFPHashObjectList;const n:string;p:tdirectiveproc; k:eDirectiveItem);
       begin
         inherited Create(AList,n);
         is_conditional:=false;
+        kind := k;
         proc:=p;
       end;
 
 
-    constructor TDirectiveItem.CreateCond(AList:TFPHashObjectList;const n:string;p:tdirectiveproc);
+    constructor TDirectiveItem.CreateCond(AList:TFPHashObjectList;const n:string;p:tdirectiveproc; k:eDirectiveItem);
       begin
         inherited Create(AList,n);
         is_conditional:=true;
+        kind := k;
         proc:=p;
       end;
 
@@ -2668,10 +2682,11 @@ In case not, the value returned can be arbitrary.
          if parapreprocess then
           begin
             t:=Get_Directive(hs);
-            if not(is_conditional(t) or (t=_DIR_DEFINE) or (t=_DIR_UNDEF)) then
+            //if not(is_conditional(t) or (t=_DIR_DEFINE) or (t=_DIR_UNDEF)) then
+            if not(t.is_conditional or (t.kind in [diDefine, diUndef])) then
              begin
-               preprocfile^.AddSpace;
-               preprocfile^.Add('{$'+hs+current_scanner.readcomment+'}');
+               preprocfile.AddSpace;
+               preprocfile.Add('{$'+hs+current_scanner.readcomment+'}');
                exit;
              end;
           end;
@@ -2714,10 +2729,14 @@ In case not, the value returned can be arbitrary.
          { directives may follow switches after a , }
          if hs<>'' then
           begin
+          {$IFDEF old}
             if not (m_mac in current_settings.modeswitches) then
               t:=tdirectiveitem(turbo_scannerdirectives.Find(hs))
             else
               t:=tdirectiveitem(mac_scannerdirectives.Find(hs));
+          {$ELSE}
+            t := Get_Directive(hs);
+          {$ENDIF}
 
             if assigned(t) then
              begin
@@ -2741,6 +2760,14 @@ In case not, the value returned can be arbitrary.
             aktcommentstyle:=comment_none;
           end;
       end;
+
+  function tscannerfile.Get_Directive(const hs: string): tdirectiveitem;
+    begin
+      if not (m_mac in current_settings.modeswitches) then
+        Result:=tdirectiveitem(turbo_scannerdirectives.Find(hs))
+      else
+        Result:=tdirectiveitem(mac_scannerdirectives.Find(hs));
+    end;
 
 
     procedure tscannerfile.readchar;
@@ -3391,7 +3418,8 @@ In case not, the value returned can be arbitrary.
 {$ifdef PREPROCWRITE}
                 if parapreprocess then
                  begin
-                   if c=#10 then
+                   //if c=#10 then  //never matched???
+                   if c in [#10,#13] then
                     preprocfile.eolfound:=true
                    else
                     preprocfile.spacefound:=true;
@@ -4303,20 +4331,20 @@ exit_label:
                                    Helpers
 *****************************************************************************}
 
-    procedure AddDirective(const s:string; dm: tdirectivemode; p:tdirectiveproc);
+    procedure AddDirective(const s:string; dm: tdirectivemode; p:tdirectiveproc; k:eDirectiveItem);
       begin
         if dm in [directive_all, directive_turbo] then
-          tdirectiveitem.create(turbo_scannerdirectives,s,p);
+          tdirectiveitem.create(turbo_scannerdirectives,s,p,k);
         if dm in [directive_all, directive_mac] then
-          tdirectiveitem.create(mac_scannerdirectives,s,p);
+          tdirectiveitem.create(mac_scannerdirectives,s,p,k);
       end;
 
-    procedure AddConditional(const s:string; dm: tdirectivemode; p:tdirectiveproc);
+    procedure AddConditional(const s:string; dm: tdirectivemode; p:tdirectiveproc; k:eDirectiveItem);
       begin
         if dm in [directive_all, directive_turbo] then
-          tdirectiveitem.createcond(turbo_scannerdirectives,s,p);
+          tdirectiveitem.createcond(turbo_scannerdirectives,s,p,k);
         if dm in [directive_all, directive_mac] then
-          tdirectiveitem.createcond(mac_scannerdirectives,s,p);
+          tdirectiveitem.createcond(mac_scannerdirectives,s,p,k);
       end;
 
 {*****************************************************************************
@@ -4331,9 +4359,10 @@ exit_label:
 
         { Common directives and conditionals }
         AddDirective('I',directive_all, @dir_include);
-        AddDirective('DEFINE',directive_all, @dir_define);
-        AddDirective('UNDEF',directive_all, @dir_undef);
+        AddDirective('DEFINE',directive_all, @dir_define, diDefine);
+        AddDirective('UNDEF',directive_all, @dir_undef, diUndef);
 
+        { TODO : add directive kinds for all conditionals }
         AddConditional('IF',directive_all, @dir_if);
         AddConditional('IFDEF',directive_all, @dir_ifdef);
         AddConditional('IFNDEF',directive_all, @dir_ifndef);

@@ -137,10 +137,10 @@ implementation
 
     function try_to_consume(i:Ttoken):boolean;
       begin
-        try_to_consume:=false;
-        if (token=i) or (idtoken=i) then
+        try_to_consume:= (token=i) or (idtoken=i);
+        if Result then
          begin
-           try_to_consume:=true;
+           //try_to_consume:=true;
            if token=_END then
             last_endtoken_filepos:=current_tokenpos;
            current_scanner.readtoken(true);

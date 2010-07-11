@@ -40,6 +40,13 @@ implementation
 {$ELSE}
       fksysutl,
 {$ENDIF}
+    {$IFDEF semantics}
+      cclasses,tokens,globals,verbose,
+      symbase,symtable,symdef,fmodule,
+      comphook,
+      scanner,scandir,ptype,pmodules,procinfo,
+      semantics
+    {$ELSE}
       cutils,cclasses,
       globtype,version,tokens,systems,globals,verbose,switches,
       symbase,symtable,symdef,symsym,
@@ -50,8 +57,389 @@ implementation
       comphook,
       scanner,scandir,
       pbase,ptype,psystem,pmodules,psub,ncgrtti,htypechk,
-      cresstr,cpuinfo,procinfo;
+      cresstr,cpuinfo,procinfo
+    {$ENDIF semantics}
+      ;
 
+
+{$ifdef PREPROCWRITE}
+    procedure preprocess(const filename:string);
+      var
+        i : longint;
+      begin
+      (* DoDi: I could make the preprocessor work, somehow,
+        but it still deserves some improvements:
+        - message 'preprocessing...'
+        - catch errors (open infile, outfile...)
+        - outfile: where? name?
+        - newlines?
+        Also remove old statements (comments).
+      *)
+        { TODO : set message level? show action?}
+        //status.verbosity := V_All;
+        Message1(parser_i_compiling, filename);
+        if not FileExists(filename) then begin
+        { TODO : handle missing files properly }
+          Message2(scan_f_cannot_open_input, 'File not found: ', filename);
+          inc(status.errorcount);
+          Exit;
+        end;
+         { TODO : force preprocessed file into source directory, by default?
+          handle errors? }
+         //new(preprocfile,init('pre'));
+        //preprocfile := tpreprocfile.create('pre'); //?
+        //preprocfile := tpreprocfile.create(filename + '.pre'); //???
+        preprocfile := tpreprocfile.create('pre.' + filename); //???
+
+       { initialize a module, for symbol tables etc. }
+         //set_current_module(new(pmodule,init(filename,false)));
+         set_current_module(tmodule.create(nil, filename, False));
+
+         //macrosymtablestack:= initialmacrosymtable;
+         macrosymtablestack:= TSymtablestack.create;
+         { init macros before anything in the file is parsed.}
+         current_module.localmacrosymtable:= tmacrosymtable.create(false);
+         //current_module.localmacrosymtable.next:= initialmacrosymtable;
+         //macrosymtablestack:= current_module.localmacrosymtable;
+         macrosymtablestack.push(initialmacrosymtable);
+         macrosymtablestack.push(current_module.localmacrosymtable);
+
+         main_module:=current_module;
+       { startup scanner, and save in current_module }
+         //current_scanner:=new(pscannerfile,Init(filename));
+         current_scanner:=tscannerfile.Create(filename); //?
+         current_scanner.firstfile;
+         //current_module.scanner:=current_scanner;
+       { loop until EOF is found }
+         repeat
+           current_scanner.readtoken(true);
+           //preprocfile.AddSpace; //nl, space or nothing - moved into Add()
+           case token of
+             _ID :
+               begin
+                 preprocfile.Add(orgpattern);
+               end;
+             _REALNUMBER,
+             _INTCONST :
+               preprocfile.Add(pattern);
+             _CSTRING :
+               begin
+                 i:=0;
+                 while (i<length(cstringpattern)) do
+                  begin
+                    inc(i);
+                    if cstringpattern[i]='''' then
+                     begin
+                       insert('''',cstringpattern,i);
+                       inc(i);
+                     end;
+                  end;
+                 preprocfile.Add(''''+cstringpattern+'''');
+               end;
+             _CCHAR :
+               begin
+                 case pattern[1] of
+                   #39 :
+                     pattern:='''''''';
+                   #0..#31,
+                   #128..#255 :
+                     begin
+                       str(ord(pattern[1]),pattern);
+                       pattern:='#'+pattern;
+                     end;
+                   else
+                     pattern:=''''+pattern[1]+'''';
+                 end;
+                 preprocfile.Add(pattern);
+               end;
+             _EOF :
+               break;
+             else
+               preprocfile.Add(tokeninfo^[token].str)
+           end;
+         until false;
+       { free scanner }
+         current_scanner.Free;  // dispose(current_scanner,done);
+         current_scanner:=nil;
+       { close }
+         preprocfile.Free;  // dispose(preprocfile,done);
+      end;
+{$endif PREPROCWRITE}
+
+{$IFDEF semantics}
+  //all in semantics.pas
+{$ELSE}
+(* Compiler state of recursive calls.
+  Since this record has become a heap object, we make it a class.
+  The constructor saves the current state and pushes the object onto the CompilerStack,
+  the destructor restores the last (saved) state and pops the object off the stack.
+*)
+type
+  //polddata=^tolddata;
+  tolddata=class
+  private
+  //chain
+    old_data: tolddata;
+    restored: boolean;
+  public
+  { scanner }
+    oldidtoken,
+    oldtoken       : ttoken;
+    oldtokenpos    : tfileposinfo;
+    oldc           : char;
+    oldpattern,
+    oldorgpattern  : string;
+    old_block_type : tblock_type;
+  { symtable }
+    oldsymtablestack,
+    oldmacrosymtablestack : TSymtablestack;
+    oldaktprocsym    : tprocsym;
+  { cg }
+    oldparse_only  : boolean;
+  { akt.. things }
+    oldcurrent_filepos      : tfileposinfo;
+    old_current_module : tmodule;
+    oldcurrent_procinfo : tprocinfo;
+    old_settings : tsettings;
+    oldsourcecodepage : tcodepagestring;
+    old_switchesstatestack : tswitchesstatestack;
+    old_switchesstatestackpos : Integer;
+  public  //methods to save and restore an compiler state
+    constructor Create;
+    destructor  Destroy; override;
+    procedure Restore;
+  end;
+  polddata=tolddata;  //obsolete
+
+var
+  CompilerStack: tolddata;
+
+{ tolddata }
+
+constructor tolddata.Create;
+begin
+  old_current_module:=current_module;
+
+  { save symtable state }
+  oldsymtablestack:=symtablestack;
+  oldmacrosymtablestack:=macrosymtablestack;
+  oldcurrent_procinfo:=current_procinfo;
+
+  { save scanner state }
+  oldc:=c;
+  oldpattern:=pattern;
+  oldorgpattern:=orgpattern;
+  oldtoken:=token;
+  oldidtoken:=idtoken;
+  old_block_type:=block_type;
+  oldtokenpos:=current_tokenpos;
+  old_switchesstatestack:=switchesstatestack;
+  old_switchesstatestackpos:=switchesstatestackpos;
+
+  { save cg }
+  oldparse_only:=parse_only;
+
+  { save akt... state }
+  { handle the postponed case first }
+  flushpendingswitchesstate;
+  oldcurrent_filepos:=current_filepos;
+  old_settings:=current_settings;
+
+//link into state stack
+  old_data := CompilerStack;
+  CompilerStack := Self;
+
+//symbol stacks
+   //symtablestack:=TSymtablestack.create;
+   //macrosymtablestack:=TSymtablestack.create;
+end;
+
+destructor tolddata.Destroy;
+begin
+  if not restored then
+    Restore;
+
+  set_current_module(old_current_module);
+
+//handle symbol stacks?
+(* for symmetry reasons, either the stacks are created and destroyed in this class,
+  or must be managed outside, if their (old) content may be of further interest.
+*)
+
+//unlink
+  CompilerStack := old_data;
+
+  inherited Destroy;  //nop
+end;
+
+procedure tolddata.Restore;
+begin
+  { restore scanner }
+  c:=oldc;
+  pattern:=oldpattern;
+  orgpattern:=oldorgpattern;
+  token:=oldtoken;
+  idtoken:=oldidtoken;
+  current_tokenpos:=oldtokenpos;
+  block_type:=old_block_type;
+  switchesstatestack:=old_switchesstatestack;
+  switchesstatestackpos:=old_switchesstatestackpos;
+
+  { restore cg }
+  parse_only:=oldparse_only;
+
+  { restore symtable state }
+  symtablestack:=oldsymtablestack;
+  macrosymtablestack:=oldmacrosymtablestack;
+  current_procinfo:=oldcurrent_procinfo;
+  current_filepos:=oldcurrent_filepos;
+  current_settings:=old_settings;
+  current_exceptblock:=0;
+  exceptblockcounter:=0;
+
+  restored := True;
+end;
+
+{*****************************************************************************
+                             Compile a source file
+*****************************************************************************}
+
+(* The following two procedures will be moved into compiler semantics:
+module_init: initialize code generation framework
+module_done:  finalize  code generation framework
+*)
+
+procedure module_init; //(const filename:string);
+(* Initialize module compilation (code generation framework)
+  The filename is available in parser_current_file.
+*)
+begin
+   inc(compile_level);
+   //parser_current_file:=filename;
+   { Uses heap memory instead of placing everything on the
+     stack. This is needed because compile() can be called
+     recursively }
+   tolddata.Create;  //new(olddata);
+
+ { reset parser, a previous fatal error could have left these variables in an unreliable state, this is
+   important for the IDE }
+   afterassignment:=false;
+   in_args:=false;
+   named_args_allowed:=false;
+   got_addrn:=false;
+   getprocvardef:=nil;
+   allow_array_constructor:=false;
+
+{ TODO : the following should be moved
+into compile_module - as far as the framework (module...) is affected - or
+into TOldData create/destroy (symbol stacks)
+}
+//---
+ { show info }
+   //Message1(parser_i_compiling,filename); --> compile_module
+
+ { reset symtable }
+   //symtablestack:=TSymtablestack.create;
+   //macrosymtablestack:=TSymtablestack.create;
+   systemunit:=nil;
+   current_settings.defproccall:=init_settings.defproccall;
+   current_exceptblock:=0;
+   exceptblockcounter:=0;
+   current_settings.maxfpuregisters:=-1;
+ //---
+
+ { reset the unit or create a new program }
+   { a unit compiled at command line must be inside the loaded_unit list }
+   if (compile_level=1) then
+     begin
+       if assigned(current_module) then
+         internalerror(200501158);
+       //set_current_module(tppumodule.create(nil,filename,'',false));
+       set_current_module(tppumodule.create(nil,parser_current_file,'',false));
+       addloadedunit(current_module);
+       main_module:=current_module;
+       current_module.state:=ms_compile;
+     end;
+   if not(assigned(current_module) and
+          (current_module.state in [ms_compile,ms_second_compile])) then
+     internalerror(200212281);
+
+   { load current asmdata from current_module }
+   current_asmdata:=TAsmData(current_module.asmdata);
+end; //pre_compile
+
+procedure module_done;
+(* This was the finally part of compile(), excluding scanner finalization.
+*)
+var
+ //olddata : polddata; - moved into tolddata
+ hp,hp2 : tmodule;
+begin
+   if assigned(current_module) then
+     begin
+       { module is now compiled }
+       tppumodule(current_module).state:=ms_compiled;
+
+       { free ppu }
+       if assigned(tppumodule(current_module).ppufile) then
+         begin
+           tppumodule(current_module).ppufile.free;
+           tppumodule(current_module).ppufile:=nil;
+         end;
+
+       { free asmdata }
+       if assigned(current_module.asmdata) then
+         begin
+           current_module.asmdata.free;
+           current_module.asmdata:=nil;
+         end;
+     end; //assigned(current_module)
+
+    if (compile_level=1) and
+       (status.errorcount=0) then
+      { Write Browser Collections }
+      do_extractsymbolinfo;
+
+   CompilerStack.Restore;
+
+    { Shut down things when the last file is compiled succesfull }
+    if (compile_level=1) and
+        (status.errorcount=0) then
+      begin
+        parser_current_file:='';
+        { Close script }
+        if (not AsmRes.Empty) then
+        begin
+          Message1(exec_i_closing_script,AsmRes.Fn);
+          AsmRes.WriteToDisk;
+        end;
+      end;
+
+  { free now what we did not free earlier in
+    proc_program PM }
+  if (compile_level=1) and needsymbolinfo then
+    begin
+      hp:=tmodule(loaded_units.first);
+      while assigned(hp) do
+       begin
+         hp2:=tmodule(hp.next);
+         if (hp<>current_module) then
+           begin
+             loaded_units.remove(hp);
+             hp.free;
+           end;
+         hp:=hp2;
+       end;
+      { free also unneeded units we didn't free before }
+      unloaded_units.Clear;
+     end;
+   dec(compile_level);
+
+   //set_current_module(olddata^.old_current_module); - in TCompilerStatus.destroy
+   CompilerStack.Free; //dispose(olddata);
+end;
+
+{$ENDIF semantics}
 
     procedure initparser;
       begin
@@ -62,9 +450,6 @@ implementation
          { Current compiled module/proc }
          set_current_module(nil);
          current_module:=nil;
-         current_asmdata:=nil;
-         current_procinfo:=nil;
-         current_objectdef:=nil;
 
          loaded_units:=TLinkedList.Create;
 
@@ -89,42 +474,7 @@ implementation
          current_scanner:=nil;
          switchesstatestackpos:=0;
 
-         { register all nodes and tais }
-         registernodes;
-         registertais;
-
-         { memory sizes }
-         if stacksize=0 then
-           stacksize:=target_info.stacksize;
-
-         { RTTI writer }
-         RTTIWriter:=TRTTIWriter.Create;
-
-         { open assembler response }
-         if cs_link_on_target in current_settings.globalswitches then
-           GenerateAsmRes(outputexedir+ChangeFileExt(inputfilename,'_ppas'))
-         else
-           GenerateAsmRes(outputexedir+'ppas');
-
-         { open deffile }
-         DefFile:=TDefFile.Create(outputexedir+ChangeFileExt(inputfilename,target_info.defext));
-
-         { list of generated .o files, so the linker can remove them }
-         SmartLinkOFiles:=TCmdStrList.Create;
-
-         { codegen }
-         if paraprintnodetree<>0 then
-           printnode_reset;
-
-         { target specific stuff }
-         case target_info.system of
-           system_powerpc_amiga:
-             include(supported_calling_conventions,pocall_syscall);
-           system_powerpc_morphos:
-             include(supported_calling_conventions,pocall_syscall);
-           system_m68k_amiga:
-             include(supported_calling_conventions,pocall_syscall);
-         end;
+         parser_init;
       end;
 
 
@@ -133,10 +483,6 @@ implementation
          { Reset current compiling info, so destroy routines can't
            reference the data that might already be destroyed }
          set_current_module(nil);
-         current_module:=nil;
-         current_procinfo:=nil;
-         current_asmdata:=nil;
-         current_objectdef:=nil;
 
          { unload units }
          if assigned(loaded_units) then
@@ -166,360 +512,107 @@ implementation
          { close scanner }
          DoneScanner;
 
-         RTTIWriter.free;
-
-         { close ppas,deffile }
-         asmres.free;
-         deffile.free;
-
-         { free list of .o files }
-         SmartLinkOFiles.Free;
+         parser_done;
       end;
 
 
+procedure module_compile(const filename: string);
+(* This was the core of compile().
+  It initializes and finalizes the scanner.
+*)
+begin
+{ show info }
+  Message1(parser_i_compiling,filename);
+  parser_current_file:=filename;
 
+  module_init;
 
-{$ifdef PREPROCWRITE}
-    procedure preprocess(const filename:string);
-      var
-        i : longint;
-      begin
-         new(preprocfile,init('pre'));
-       { initialize a module }
-         set_current_module(new(pmodule,init(filename,false)));
+   { Load current state from the init values }
+   current_settings:=init_settings;
 
-         macrosymtablestack:= initialmacrosymtable;
-         current_module.localmacrosymtable:= tmacrosymtable.create(false);
-         current_module.localmacrosymtable.next:= initialmacrosymtable;
-         macrosymtablestack:= current_module.localmacrosymtable;
+   { startup scanner and load the first file }
+   current_scanner:=tscannerfile.Create(filename);
+   current_scanner.firstfile;
+   current_module.scanner:=current_scanner;
 
-         main_module:=current_module;
-       { startup scanner, and save in current_module }
-         current_scanner:=new(pscannerfile,Init(filename));
-         current_module.scanner:=current_scanner;
-       { loop until EOF is found }
-         repeat
-           current_scanner^.readtoken(true);
-           preprocfile^.AddSpace;
-           case token of
-             _ID :
-               begin
-                 preprocfile^.Add(orgpattern);
-               end;
-             _REALNUMBER,
-             _INTCONST :
-               preprocfile^.Add(pattern);
-             _CSTRING :
-               begin
-                 i:=0;
-                 while (i<length(cstringpattern)) do
-                  begin
-                    inc(i);
-                    if cstringpattern[i]='''' then
-                     begin
-                       insert('''',cstringpattern,i);
-                       inc(i);
-                     end;
-                  end;
-                 preprocfile^.Add(''''+cstringpattern+'''');
-               end;
-             _CCHAR :
-               begin
-                 case pattern[1] of
-                   #39 :
-                     pattern:='''''''';
-                   #0..#31,
-                   #128..#255 :
-                     begin
-                       str(ord(pattern[1]),pattern);
-                       pattern:='#'+pattern;
-                     end;
-                   else
-                     pattern:=''''+pattern[1]+'''';
-                 end;
-                 preprocfile^.Add(pattern);
-               end;
-             _EOF :
-               break;
-             else
-               preprocfile^.Add(tokeninfo^[token].str)
-           end;
-         until false;
-       { free scanner }
-         dispose(current_scanner,done);
-         current_scanner:=nil;
-       { close }
-         dispose(preprocfile,done);
-      end;
-{$endif PREPROCWRITE}
+   { init macros before anything in the file is parsed.}
+   symtablestack:=TSymtablestack.create;
+   macrosymtablestack:=TSymtablestack.create;
+   current_module.localmacrosymtable:= tmacrosymtable.create(false);
+   macrosymtablestack.push(initialmacrosymtable);
+   macrosymtablestack.push(current_module.localmacrosymtable);
 
+   { read the first token }
+   current_scanner.readtoken(false);
 
-{*****************************************************************************
-                             Compile a source file
-*****************************************************************************}
-
-    procedure compile(const filename:string);
-      type
-        polddata=^tolddata;
-        tolddata=record
-        { scanner }
-          oldidtoken,
-          oldtoken       : ttoken;
-          oldtokenpos    : tfileposinfo;
-          oldc           : char;
-          oldpattern,
-          oldorgpattern  : string;
-          old_block_type : tblock_type;
-        { symtable }
-          oldsymtablestack,
-          oldmacrosymtablestack : TSymtablestack;
-          oldaktprocsym    : tprocsym;
-        { cg }
-          oldparse_only  : boolean;
-        { akt.. things }
-          oldcurrent_filepos      : tfileposinfo;
-          old_current_module : tmodule;
-          oldcurrent_procinfo : tprocinfo;
-          old_settings : tsettings;
-          oldsourcecodepage : tcodepagestring;
-          old_switchesstatestack : tswitchesstatestack;
-          old_switchesstatestackpos : Integer;
-        end;
-
-      var
-         olddata : polddata;
-         hp,hp2 : tmodule;
-       begin
-         { parsing a procedure or declaration should be finished }
-         if assigned(current_procinfo) then
-           internalerror(200811121);
-         if assigned(current_objectdef) then
-           internalerror(200811122);
-         inc(compile_level);
-         parser_current_file:=filename;
-         { Uses heap memory instead of placing everything on the
-           stack. This is needed because compile() can be called
-           recursively }
-         new(olddata);
-         with olddata^ do
-          begin
-            old_current_module:=current_module;
-
-            { save symtable state }
-            oldsymtablestack:=symtablestack;
-            oldmacrosymtablestack:=macrosymtablestack;
-            oldcurrent_procinfo:=current_procinfo;
-
-            { save scanner state }
-            oldc:=c;
-            oldpattern:=pattern;
-            oldorgpattern:=orgpattern;
-            oldtoken:=token;
-            oldidtoken:=idtoken;
-            old_block_type:=block_type;
-            oldtokenpos:=current_tokenpos;
-            old_switchesstatestack:=switchesstatestack;
-            old_switchesstatestackpos:=switchesstatestackpos;
-
-            { save cg }
-            oldparse_only:=parse_only;
-
-            { save akt... state }
-            { handle the postponed case first }
-            flushpendingswitchesstate;
-            oldcurrent_filepos:=current_filepos;
-            old_settings:=current_settings;
-          end;
-
-       { reset parser, a previous fatal error could have left these variables in an unreliable state, this is
-         important for the IDE }
-         afterassignment:=false;
-         in_args:=false;
-         named_args_allowed:=false;
-         got_addrn:=false;
-         getprocvardef:=nil;
-         allow_array_constructor:=false;
-
-       { show info }
-         Message1(parser_i_compiling,filename);
-
-       { reset symtable }
-         symtablestack:=TSymtablestack.create;
-         macrosymtablestack:=TSymtablestack.create;
-         systemunit:=nil;
-         current_settings.defproccall:=init_settings.defproccall;
-         current_exceptblock:=0;
-         exceptblockcounter:=0;
-         current_settings.maxfpuregisters:=-1;
-       { reset the unit or create a new program }
-         { a unit compiled at command line must be inside the loaded_unit list }
-         if (compile_level=1) then
-           begin
-             if assigned(current_module) then
-               internalerror(200501158);
-             set_current_module(tppumodule.create(nil,filename,'',false));
-             addloadedunit(current_module);
-             main_module:=current_module;
-             current_module.state:=ms_compile;
-           end;
-         if not(assigned(current_module) and
-                (current_module.state in [ms_compile,ms_second_compile])) then
-           internalerror(200212281);
-
-         { Load current state from the init values }
-         current_settings:=init_settings;
-
-         { load current asmdata from current_module }
-         current_asmdata:=TAsmData(current_module.asmdata);
-
-         { startup scanner and load the first file }
-         current_scanner:=tscannerfile.Create(filename);
-         current_scanner.firstfile;
-         current_module.scanner:=current_scanner;
-
-         { init macros before anything in the file is parsed.}
-         current_module.localmacrosymtable:= tmacrosymtable.create(false);
-         macrosymtablestack.push(initialmacrosymtable);
-         macrosymtablestack.push(current_module.localmacrosymtable);
-
-         { read the first token }
-         current_scanner.readtoken(false);
-
-         { If the compile level > 1 we get a nice "unit expected" error
-           message if we are trying to use a program as unit.}
-         try
-           try
-             if (token=_UNIT) or (compile_level>1) then
-               begin
-                 current_module.is_unit:=true;
-                 proc_unit;
-               end
-             else if (token=_ID) and (idtoken=_PACKAGE) then
-               begin
-                 current_module.IsPackage:=true;
-                 proc_package;
-               end
-             else
-               proc_program(token=_LIBRARY);
-           except
-             on ECompilerAbort do
-               raise;
-             on Exception do
-               begin
-                 { Increase errorcounter to prevent some
-                   checks during cleanup }
-                 inc(status.errorcount);
-                 raise;
-               end;
-           end;
-         finally
-           if assigned(current_module) then
-             begin
-               { module is now compiled }
-               tppumodule(current_module).state:=ms_compiled;
-
-               { free ppu }
-               if assigned(tppumodule(current_module).ppufile) then
-                 begin
-                   tppumodule(current_module).ppufile.free;
-                   tppumodule(current_module).ppufile:=nil;
-                 end;
-
-               { free asmdata }
-               if assigned(current_module.asmdata) then
-                 begin
-                   current_module.asmdata.free;
-                   current_module.asmdata:=nil;
-                 end;
-
-               { free scanner }
-               if assigned(current_module.scanner) then
-                 begin
-                   if current_scanner=tscannerfile(current_module.scanner) then
-                     current_scanner:=nil;
-                   tscannerfile(current_module.scanner).free;
-                   current_module.scanner:=nil;
-                 end;
-
-               { free symtable stack }
-               if assigned(symtablestack) then
-                 begin
-                   symtablestack.free;
-                   symtablestack:=nil;
-                 end;
-               if assigned(macrosymtablestack) then
-                 begin
-                   macrosymtablestack.free;
-                   macrosymtablestack:=nil;
-                 end;
-             end;
-
-            if (compile_level=1) and
-               (status.errorcount=0) then
-              { Write Browser Collections }
-              do_extractsymbolinfo;
-
-            with olddata^ do
-              begin
-                { restore scanner }
-                c:=oldc;
-                pattern:=oldpattern;
-                orgpattern:=oldorgpattern;
-                token:=oldtoken;
-                idtoken:=oldidtoken;
-                current_tokenpos:=oldtokenpos;
-                block_type:=old_block_type;
-                switchesstatestack:=old_switchesstatestack;
-                switchesstatestackpos:=old_switchesstatestackpos;
-
-                { restore cg }
-                parse_only:=oldparse_only;
-
-                { restore symtable state }
-                symtablestack:=oldsymtablestack;
-                macrosymtablestack:=oldmacrosymtablestack;
-                current_procinfo:=oldcurrent_procinfo;
-                current_filepos:=oldcurrent_filepos;
-                current_settings:=old_settings;
-                current_exceptblock:=0;
-                exceptblockcounter:=0;
-              end;
-            { Shut down things when the last file is compiled succesfull }
-            if (compile_level=1) and
-                (status.errorcount=0) then
-              begin
-                parser_current_file:='';
-                { Close script }
-                if (not AsmRes.Empty) then
-                begin
-                  Message1(exec_i_closing_script,AsmRes.Fn);
-                  AsmRes.WriteToDisk;
-                end;
-              end;
-
-          { free now what we did not free earlier in
-            proc_program PM }
-          if (compile_level=1) and needsymbolinfo then
-            begin
-              hp:=tmodule(loaded_units.first);
-              while assigned(hp) do
-               begin
-                 hp2:=tmodule(hp.next);
-                 if (hp<>current_module) then
-                   begin
-                     loaded_units.remove(hp);
-                     hp.free;
-                   end;
-                 hp:=hp2;
-               end;
-              { free also unneeded units we didn't free before }
-              unloaded_units.Clear;
-             end;
-           dec(compile_level);
-           set_current_module(olddata^.old_current_module);
-
-           dispose(olddata);
+   { If the compile level > 1 we get a nice "unit expected" error
+     message if we are trying to use a program as unit.}
+   try
+     try
+       if (token=_UNIT) or (compile_level>1) then
+         begin
+           current_module.is_unit:=true;
+           proc_unit;
+         end
+       else if (token=_ID) and (idtoken=_PACKAGE) then
+         begin
+           current_module.IsPackage:=true;
+           proc_package;
+         end
+       else
+         proc_program(token=_LIBRARY);
+     except
+       on ECompilerAbort do
+         raise;
+       on Exception do
+         begin
+           { Increase errorcounter to prevent some
+             checks during cleanup }
+           inc(status.errorcount);
+           raise;
          end;
-    end;
+     end;
+   finally
+     //done_scanner;  //inlined:
+     if assigned(current_module) then
+     begin
+       { free scanner }
+       if assigned(current_module.scanner) then
+         begin
+           if current_scanner=tscannerfile(current_module.scanner) then
+             current_scanner:=nil;
+           tscannerfile(current_module.scanner).free;
+           current_module.scanner:=nil;
+         end;
+
+       { free symtable stack }
+       if assigned(symtablestack) then
+         begin
+           symtablestack.free;
+           symtablestack:=nil;
+         end;
+       if assigned(macrosymtablestack) then
+         begin
+           macrosymtablestack.free;
+           macrosymtablestack:=nil;
+         end;
+     end;
+     module_done; //called here, to avoid another try-finally block
+   end;
+end;
+
+
+procedure compile(const filename:string);
+begin  //compile
+   { parsing a procedure or declaration should be finished }
+   if assigned(current_procinfo) then
+     internalerror(200811121);
+   if assigned(current_objectdef) then
+     internalerror(200811122);
+
+   //module_init(filename);
+   module_compile(filename);
+   //module_done; - called in the finally part of module_compile
+end;
 
 end.

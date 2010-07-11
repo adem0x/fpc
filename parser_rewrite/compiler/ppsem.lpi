@@ -13,7 +13,7 @@
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
       <TargetFileExt Value=".exe"/>
-      <Title Value="pp"/>
+      <Title Value="ppsem"/>
     </General>
     <VersionInfo>
       <StringTable Comments="" CompanyName="" FileDescription="" FileVersion="0.0.0.0" InternalName="" LegalCopyright="" LegalTrademarks="" OriginalFilename="" ProductName="" ProductVersion="0.0.0.0"/>
@@ -31,9 +31,9 @@
     </RunParams>
     <Units Count="2">
       <Unit0>
-        <Filename Value="pp.pas"/>
+        <Filename Value="ppsem.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="pp"/>
+        <UnitName Value="ppsem"/>
       </Unit0>
       <Unit1>
         <Filename Value="x86\aasmcpu.pas"/>
@@ -46,11 +46,11 @@
     <Version Value="9"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="i386\pp"/>
+      <Filename Value="i386\ppsem"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="i386\"/>
-      <OtherUnitFiles Value="i386\;x86\;systems\"/>
+      <OtherUnitFiles Value="sem_comp\;i386\;x86\;systems\"/>
       <UnitOutputDirectory Value="i386\lazbuild"/>
     </SearchPaths>
     <Parsing>
@@ -75,9 +75,19 @@
       <ConfigFile>
         <StopAfterErrCount Value="50"/>
       </ConfigFile>
-      <CustomOptions Value="-di386
+      <CompilerMessages>
+        <UseMsgFile Value="True"/>
+      </CompilerMessages>
+      <CustomOptions Value="-di386 -dsemantics
 "/>
       <CompilerPath Value="$(CompPath)"/>
     </Other>
   </CompilerOptions>
+  <Debugging>
+    <Exceptions Count="1">
+      <Item1>
+        <Name Value="ECompilerAbortSilent"/>
+      </Item1>
+    </Exceptions>
+  </Debugging>
 </CONFIG>

@@ -32,6 +32,31 @@ interface
 
 implementation
 
+{$IFDEF semantics}
+    uses
+       SysUtils,
+       globtype,version,systems,tokens,
+       cutils,cfileutl,cclasses,comphook,
+       globals,verbose,fmodule,finput,fppu,
+       symconst,symbase,symtype,symdef,symsym,symtable,
+       wpoinfo,
+       aasmtai,aasmdata,aasmcpu,aasmbase,
+       cgbase,cgobj,
+       nbas,ncgutil,
+       link,assemble,import,export,gendef,ppu,comprsrc,dbgbase,
+       cresstr,procinfo,
+       pexports,
+       objcgutl,
+       wpobase,
+       scanner,pbase,pexpr,psystem,psub,pdecsub,ptype
+       ,cpuinfo
+{$ifdef i386}
+       { fix me! }
+       ,cpubase
+{$endif i386}
+      ,semantics
+       ;
+{$ELSE}
     uses
        SysUtils,
        globtype,version,systems,tokens,
@@ -54,6 +79,7 @@ implementation
        ,cpubase
 {$endif i386}
        ;
+{$ENDIF}
 
 
     procedure create_objectfile;
@@ -731,6 +757,7 @@ implementation
       end;
 
 
+
     procedure loadunits;
       var
          s,sorg  : TIDString;
@@ -738,26 +765,18 @@ implementation
          pu      : tused_unit;
          hp2     : tmodule;
          unitsym : tunitsym;
-      begin
-         consume(_USES);
-         repeat
-           s:=pattern;
-           sorg:=orgpattern;
-           consume(_ID);
-           { support "<unit> in '<file>'" construct, but not for tp7 }
-           fn:='';
-           if not(m_tp7 in current_settings.modeswitches) and
-              try_to_consume(_OP_IN) then
-             fn:=FixFileName(get_stringconst);
+
+         procedure  uses_file(s: TIDString; const fn: string);
+         begin
            { Give a warning if lineinfo is loaded }
            if s='LINEINFO' then begin
             Message(parser_w_no_lineinfo_use_switch);
             if (paratargetdbg in [dbg_dwarf2, dbg_dwarf3]) then
               s := 'LNFODWRF';
             sorg := s;
-           end;
+           end
            { Give a warning if objpas is loaded }
-           if s='OBJPAS' then
+           else if s='OBJPAS' then
             Message(parser_w_no_objpas_use_mode);
            { Using the unit itself is not possible }
            if (s<>current_module.modulename^) then
@@ -788,15 +807,10 @@ implementation
             end
            else
             Message1(sym_e_duplicate_id,s);
-           if token=_COMMA then
-            begin
-              pattern:='';
-              consume(_COMMA);
-            end
-           else
-            break;
-         until false;
+         end;
 
+         procedure  loadunits_done;
+         begin
          { Load the units }
          pu:=tused_unit(current_module.used_units.first);
          while assigned(pu) do
@@ -828,8 +842,35 @@ implementation
              end;
             pu:=tused_unit(pu.next);
           end;
+         end;
 
+      begin //loadunits
+         consume(_USES);
+         repeat
+           s:=pattern;
+           sorg:=orgpattern;
+           consume(_ID);
+           { support "<unit> in '<file>'" construct, but not for tp7 }
+           fn:='';
+           if not(m_tp7 in current_settings.modeswitches)
+           and try_to_consume(_OP_IN) then
+             fn:=FixFileName(get_stringconst);
+           uses_file(s, fn);  //handle used unit
+         {$IFDEF old}
+           if token=_COMMA then
+            begin
+              pattern:='';
+              consume(_COMMA);
+            end
+           else
+            break;
+         until false;
+         {$ELSE}
+          until not try_to_consume(_COMMA);
+         {$ENDIF}
+         //loadunits_done;
          consume(_SEMICOLON);
+         loadunits_done;  //handle all used files
       end;
 
 
@@ -864,6 +905,19 @@ implementation
           end;
       end;
 
+    function parse_interface_uses: boolean;
+      begin
+         { insert qualifier for the system unit (allows system.writeln) }
+         if not(cs_compilesystem in current_settings.moduleswitches) and
+            (token=_USES) then
+           begin
+             loadunits;
+             { has it been compiled at a higher level ?}
+             if current_module.state=ms_compiled then
+               exit(true);
+           end;
+         Result := False;
+      end;
 
     procedure parse_implementation_uses;
       begin
@@ -1050,18 +1104,21 @@ implementation
 {$ifdef debug_devirt}
          i: longint;
 {$endif debug_devirt}
-      begin
+
+        procedure unit_init;
+        begin
          init_procinfo:=nil;
          finalize_procinfo:=nil;
 
          if m_mac in current_settings.modeswitches then
            current_module.mode_switch_allowed:= false;
 
-         consume(_UNIT);
          if compile_level=1 then
           Status.IsExe:=false;
+        end;
 
-         if token=_ID then
+        procedure unit_name;
+        begin
           begin
              { create filenames and unit name }
              main_file := current_scanner.inputfile;
@@ -1101,14 +1158,10 @@ implementation
 
          if (target_info.system in systems_unit_program_exports) then
            exportlib.preparelib(current_module.realmodulename^);
+        end;
 
-         consume(_ID);
-
-         { parse hint directives }
-         try_consume_hintdirective(current_module.moduleoptions, current_module.deprecatedmsg);
-
-         consume(_SEMICOLON);
-         consume(_INTERFACE);
+        procedure interface_section_init;
+        begin
          { global switches are read, so further changes aren't allowed }
          current_module.in_global:=false;
 
@@ -1140,17 +1193,10 @@ implementation
 
          { load default units, like the system unit }
          loaddefaultunits;
+        end;
 
-         { insert qualifier for the system unit (allows system.writeln) }
-         if not(cs_compilesystem in current_settings.moduleswitches) and
-            (token=_USES) then
-           begin
-             loadunits;
-             { has it been compiled at a higher level ?}
-             if current_module.state=ms_compiled then
-               exit;
-           end;
-
+        procedure interface_uses_done;
+        begin
          { move the global symtable from the temporary local to global }
          current_module.globalsymtable:=current_module.localsymtable;
          current_module.localsymtable:=nil;
@@ -1222,15 +1268,10 @@ implementation
              gotvarsym.refs:=1;
            end;
 {$endif i386}
+        end; //interface_uses_done;
 
-         if not current_module.interface_only then
-           begin
-             consume(_IMPLEMENTATION);
-             Message1(unit_u_loading_implementation_units,current_module.modulename^);
-             { Read the implementation units }
-             parse_implementation_uses;
-           end;
-
+       procedure parse_unit_body;
+       begin
          if current_module.state=ms_compiled then
            exit;
 
@@ -1460,6 +1501,39 @@ implementation
              end;
            end;
 {$endif debug_devirt}
+        end;
+
+      begin  //proc_unit;
+        unit_init;
+
+         consume(_UNIT);
+
+         if token=_ID then
+          unit_name;
+         consume(_ID);
+
+         { parse hint directives }
+         try_consume_hintdirective(current_module.moduleoptions, current_module.deprecatedmsg);
+
+         consume(_SEMICOLON);
+         consume(_INTERFACE);
+          interface_section_init;
+
+          if parse_interface_uses then
+            exit; //already compiled
+
+          interface_uses_done;
+
+        //in case of "program" parse remainder as implementation(?)
+         if not current_module.interface_only then
+           begin
+             consume(_IMPLEMENTATION);
+             Message1(unit_u_loading_implementation_units,current_module.modulename^);
+             { Read the implementation units }
+             parse_implementation_uses;
+           end;
+
+         parse_unit_body; { TODO : separate syntax/semantics }
 
         Message1(unit_u_finished_compiling,current_module.modulename^);
       end;
