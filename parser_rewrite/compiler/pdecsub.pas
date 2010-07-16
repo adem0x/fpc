@@ -429,10 +429,11 @@ implementation
         explicit_paraloc,
         need_array,
         is_univ: boolean;
+
+      procedure parse_parameter_dec_init;
       begin
         old_block_type:=block_type;
         explicit_paraloc:=false;
-        consume(_LKLAMMER);
         { Delphi/Kylix supports nonsense like }
         { procedure p();                      }
         if try_to_consume(_RKLAMMER) and
@@ -447,6 +448,79 @@ implementation
         inc(testcurobject);
         block_type:=bt_var;
         is_univ:=false;
+      end;
+
+      procedure param_id_init;
+          begin
+            inc(paranr);
+            vs:=tparavarsym.create(orgpattern,paranr*10,varspez,generrordef,[]);
+            currparast.insert(vs);
+            if assigned(vs.owner) then
+             sc.add(vs)
+            else
+             vs.free;
+          end;
+
+      procedure parse_parameter_dec_done;
+      begin
+        if explicit_paraloc then
+          begin
+            pd.has_paraloc_info:=true;
+            include(pd.procoptions,po_explicitparaloc);
+          end;
+        { remove parasymtable from stack }
+        sc.free;
+        { reset object options }
+        dec(testcurobject);
+        block_type:=old_block_type;
+      end;
+
+      procedure parse_parameter_done;
+      var
+        i       : longint;
+      begin
+          { File types are only allowed for var and out parameters }
+          if (hdef.typ=filedef) and
+             not(varspez in [vs_out,vs_var]) then
+            CGMessage(cg_e_file_must_call_by_reference);
+
+          { univ cannot be used with types whose size is not known at compile
+            time }
+          if is_univ and
+             not is_valid_univ_para_type(hdef) then
+            Message1(parser_e_invalid_univ_para,hdef.typename);
+
+          for i:=0 to sc.count-1 do
+            begin
+              vs:=tparavarsym(sc[i]);
+              vs.univpara:=is_univ;
+              { update varsym }
+              vs.vardef:=hdef;
+              vs.defaultconstsym:=defaultvalue;
+
+              if (target_info.system in [system_powerpc_morphos,system_m68k_amiga]) then
+                begin
+                  if locationstr<>'' then
+                    begin
+                      if sc.count>1 then
+                        Message(parser_e_paraloc_only_one_para);
+                      if (paranr>1) and not(explicit_paraloc) then
+                        Message(parser_e_paraloc_all_paras);
+                      explicit_paraloc:=true;
+                      include(vs.varoptions,vo_has_explicit_paraloc);
+                      if not(paramanager.parseparaloc(vs,upper(locationstr))) then
+                        message(parser_e_illegal_explicit_paraloc);
+                    end
+                  else
+                    if explicit_paraloc then
+                      Message(parser_e_paraloc_all_paras);
+                end;
+            end;
+          end;
+
+      begin //parse_parameter_dec
+        consume(_LKLAMMER); //do it before?
+        parse_parameter_dec_init;
         repeat
           parseprocvar:=pv_none;
           if try_to_consume(_VAR) then
@@ -481,27 +555,26 @@ implementation
               end
           else
               varspez:=vs_value;
+
+          //parse_parameter_init
           defaultvalue:=nil;
           hdef:=nil;
+
           { read identifiers and insert with error type }
           sc.clear;
+
           repeat
-            inc(paranr);
-            vs:=tparavarsym.create(orgpattern,paranr*10,varspez,generrordef,[]);
-            currparast.insert(vs);
-            if assigned(vs.owner) then
-             sc.add(vs)
-            else
-             vs.free;
+            param_id_init;
             consume(_ID);
           until not try_to_consume(_COMMA);
+
           locationstr:='';
           { macpas anonymous procvar }
           if parseprocvar<>pv_none then
            begin
              pv:=tprocvardef.create(normal_function_level);
              if token=_LKLAMMER then
-               parse_parameter_dec(pv);
+               parse_parameter_dec(pv); //recursive call for embedded procdec
              if parseprocvar=pv_func then
               begin
                 block_type:=bt_var_type;
@@ -642,55 +715,12 @@ implementation
           else
            hdef:=cformaltype;
 
-          { File types are only allowed for var and out parameters }
-          if (hdef.typ=filedef) and
-             not(varspez in [vs_out,vs_var]) then
-            CGMessage(cg_e_file_must_call_by_reference);
+          parse_parameter_done;
 
-          { univ cannot be used with types whose size is not known at compile
-            time }
-          if is_univ and
-             not is_valid_univ_para_type(hdef) then
-            Message1(parser_e_invalid_univ_para,hdef.typename);
-
-          for i:=0 to sc.count-1 do
-            begin
-              vs:=tparavarsym(sc[i]);
-              vs.univpara:=is_univ;
-              { update varsym }
-              vs.vardef:=hdef;
-              vs.defaultconstsym:=defaultvalue;
-
-              if (target_info.system in [system_powerpc_morphos,system_m68k_amiga]) then
-                begin
-                  if locationstr<>'' then
-                    begin
-                      if sc.count>1 then
-                        Message(parser_e_paraloc_only_one_para);
-                      if (paranr>1) and not(explicit_paraloc) then
-                        Message(parser_e_paraloc_all_paras);
-                      explicit_paraloc:=true;
-                      include(vs.varoptions,vo_has_explicit_paraloc);
-                      if not(paramanager.parseparaloc(vs,upper(locationstr))) then
-                        message(parser_e_illegal_explicit_paraloc);
-                    end
-                  else
-                    if explicit_paraloc then
-                      Message(parser_e_paraloc_all_paras);
-                end;
-            end;
         until not try_to_consume(_SEMICOLON);
 
-        if explicit_paraloc then
-          begin
-            pd.has_paraloc_info:=true;
-            include(pd.procoptions,po_explicitparaloc);
-          end;
-        { remove parasymtable from stack }
-        sc.free;
-        { reset object options }
-        dec(testcurobject);
-        block_type:=old_block_type;
+        parse_parameter_dec_done;
+
         consume(_RKLAMMER);
       end;
 
@@ -712,32 +742,8 @@ implementation
         ImplIntf : TImplementedInterface;
         old_parse_generic : boolean;
         old_current_objectdef: tobjectdef;
-      begin
-        { Save the position where this procedure really starts }
-        procstartfilepos:=current_tokenpos;
-        old_parse_generic:=parse_generic;
 
-        result:=false;
-        pd:=nil;
-        aprocsym:=nil;
-
-        if potype=potype_operator then
-          begin
-            sp:=overloaded_names[optoken];
-            orgsp:=sp;
-          end
-        else
-          begin
-            sp:=pattern;
-            orgsp:=orgpattern;
-            consume(_ID);
-          end;
-
-        { examine interface map: function/procedure iname.functionname=locfuncname }
-        if assigned(aclass) and
-           assigned(aclass.ImplementedInterfaces) and
-           (aclass.ImplementedInterfaces.count>0) and
-           try_to_consume(_POINT) then
+      procedure iname_locfunc_init;
          begin
            storepos:=current_tokenpos;
            current_tokenpos:=procstartfilepos;
@@ -756,26 +762,16 @@ implementation
              ImplIntf:=aclass.find_implemented_interface(tobjectdef(ttypesym(srsym).typedef));
            if ImplIntf=nil then
              Message(parser_e_interface_id_expected);
-           consume(_ID);
-           { Create unique name <interface>.<method> }
-           hs:=sp+'.'+pattern;
-           consume(_EQUAL);
-           if assigned(ImplIntf) and
-              (token=_ID) then
-             ImplIntf.AddMapping(hs,pattern);
-           consume(_ID);
-           result:=true;
-           exit;
          end;
 
-        { method  ? }
-        if not assigned(aclass) and
-           (potype<>potype_operator) and
-           (symtablestack.top.symtablelevel=main_program_level) and
-           try_to_consume(_POINT) then
-         begin
-           repeat
-             searchagain:=false;
+      procedure iname_locfunc_done;
+         begin  //iname_locfunc_done
+           if assigned(ImplIntf) and (token=_ID) then
+             ImplIntf.AddMapping(hs,pattern);
+         end;
+
+      procedure cname_proc_init;
+           begin
              if not assigned(aclass) then
                begin
                  { search for object name }
@@ -789,11 +785,11 @@ implementation
                   end;
                  current_tokenpos:=storepos;
                end;
-             { consume proc name }
-             sp:=pattern;
-             orgsp:=orgpattern;
-             procstartfilepos:=current_tokenpos;
-             consume(_ID);
+           end;
+
+      function cname_proc_search: boolean;
+          begin
+            Result := False;
              { qualifier is class name ? }
              if (srsym.typ=typesym) and
                 (ttypesym(srsym).typedef.typ=objectdef) then
@@ -810,8 +806,8 @@ implementation
                    if (srsym.typ=typesym) and
                       (ttypesym(srsym).typedef.typ=objectdef) then
                      begin
-                       searchagain:=true;
-                       consume(_POINT);
+                       Result:=true;
+                       //consume(_POINT); --> depending on Result
                      end
                    else
                      begin
@@ -834,10 +830,10 @@ implementation
               end
              else
               Message(parser_e_class_id_expected);
-           until not searchagain;
-         end
-        else
-         begin
+           end;
+
+      procedure simple_proc_def_init;
+         begin  //simple_proc_def_init;
            { check for constructor/destructor which is not allowed here }
            if (not parse_only) and
               (potype in [potype_constructor,potype_destructor,
@@ -890,6 +886,8 @@ implementation
            until not searchagain;
          end;
 
+      procedure procdef_name_done;
+      begin
         { test again if assigned, it can be reset to recover }
         if not assigned(aprocsym) then
           begin
@@ -968,11 +966,12 @@ implementation
         if symtablestack.top.currentlyoptional then
           include(pd.procoptions,po_optional);
 
-        { parse parameters }
-        if token=_LKLAMMER then
+      end;
+
+      function parse_paramlist_init: boolean;
           begin
             { Add ObjectSymtable to be able to find generic type definitions }
-            popclass:=false;
+            Result:=false;  //used by parse_paramlist_done
             if assigned(pd._class) and
                (pd.parast.symtablelevel=normal_function_level) and
                (symtablestack.top.symtabletype<>ObjectSymtable) then
@@ -980,12 +979,15 @@ implementation
                 symtablestack.push(pd._class.symtable);
                 old_current_objectdef:=current_objectdef;
                 current_objectdef:=pd._class;
-                popclass:=true;
+                Result:=true;
               end;
             { Add parameter symtable }
             if pd.parast.symtabletype<>staticsymtable then
               symtablestack.push(pd.parast);
-            parse_parameter_dec(pd);
+          end;
+
+      procedure parse_paramlist_done(pd:tprocdef;popclass:boolean);
+          begin
             if pd.parast.symtabletype<>staticsymtable then
               symtablestack.pop(pd.parast);
             if popclass then
@@ -993,6 +995,79 @@ implementation
               current_objectdef:=old_current_objectdef;
               symtablestack.pop(pd._class.symtable);
             end;
+          end;
+
+      begin //parse_proc_head
+        { Save the position where this procedure really starts }
+        procstartfilepos:=current_tokenpos;
+        old_parse_generic:=parse_generic;
+
+        result:=false;
+        pd:=nil;
+        aprocsym:=nil;
+
+        if potype=potype_operator then
+          begin
+            sp:=overloaded_names[optoken];
+            orgsp:=sp;
+          end
+        else
+          begin
+            sp:=pattern;
+            orgsp:=orgpattern;
+            consume(_ID);
+          end;
+{ DONE : move _POINT here }
+      if try_to_consume(_POINT) then begin
+        { examine interface map: function/procedure iname.functionname=locfuncname }
+        if assigned(aclass) and
+           assigned(aclass.ImplementedInterfaces) and
+           (aclass.ImplementedInterfaces.count>0) then
+         begin  //parse_proc_head iname_locfunc
+           iname_locfunc_init;
+{ DONE : split parse }
+           consume(_ID);
+           { Create unique name <interface>.<method> }
+           hs:=sp+'.'+pattern;
+           consume(_EQUAL);
+           iname_locfunc_done;
+           consume(_ID);
+           result:=true;
+           exit;
+         end
+        else  //DoDi added
+        { method  ? }
+        if not assigned(aclass) and
+           (potype<>potype_operator) and
+           (symtablestack.top.symtablelevel=main_program_level) then
+         begin
+           repeat
+             searchagain:=false;
+             cname_proc_init;
+             { consume proc name }
+             sp:=pattern;
+             orgsp:=orgpattern;
+             procstartfilepos:=current_tokenpos;
+             consume(_ID);
+             searchagain := cname_proc_search; //token=_POINT
+             if searchagain then
+               consume(_POINT);
+           until not searchagain;
+         end
+      end
+        else  //simple procedure
+         begin
+           simple_proc_def_init;
+          end;
+
+      procdef_name_done;
+
+        { parse parameters }
+        if token=_LKLAMMER then
+          begin
+            popclass := parse_paramlist_init;
+            parse_parameter_dec(pd);  //todo: parse
+            parse_paramlist_done(pd,popclass);
           end;
 
         parse_generic:=old_parse_generic;

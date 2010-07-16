@@ -859,7 +859,7 @@ implementation
          {$IFDEF old}
            if token=_COMMA then
             begin
-              pattern:='';
+              pattern:='';  //why???
               consume(_COMMA);
             end
            else
@@ -1017,36 +1017,47 @@ implementation
     function try_consume_hintdirective(var moduleopt:tmoduleoptions; var deprecatedmsg:pshortstring):boolean;
       var
         last_is_deprecated:boolean;
+
+      procedure DirectiveDeprecated;
       begin
-        try_consume_hintdirective:=false;
+        if deprecatedmsg<>nil then
+          internalerror(201001221);
+        if token=_CSTRING then
+          deprecatedmsg:=stringdup(cstringpattern)
+        else
+          deprecatedmsg:=stringdup(pattern);
+      end;
+
+      begin
+        Result:=false;
+        last_is_deprecated:=false;
         repeat
-          last_is_deprecated:=false;
           case idtoken of
             _LIBRARY :
               begin
                 include(moduleopt,mo_hint_library);
-                try_consume_hintdirective:=true;
+                //Result:=true;
               end;
             _DEPRECATED :
               begin
                 include(moduleopt,mo_hint_deprecated);
-                try_consume_hintdirective:=true;
+                //Result:=true;
                 last_is_deprecated:=true;
               end;
             _EXPERIMENTAL :
               begin
                 include(moduleopt,mo_hint_experimental);
-                try_consume_hintdirective:=true;
+                //Result:=true;
               end;
             _PLATFORM :
               begin
                 include(moduleopt,mo_hint_platform);
-                try_consume_hintdirective:=true;
+                //Result:=true;
               end;
             _UNIMPLEMENTED :
               begin
                 include(moduleopt,mo_hint_unimplemented);
-                try_consume_hintdirective:=true;
+                //Result:=true;
               end;
             else
               break;
@@ -1055,15 +1066,12 @@ implementation
           { handle deprecated message }
           if ((token=_CSTRING) or (token=_CCHAR)) and last_is_deprecated then
             begin
-              if deprecatedmsg<>nil then
-                internalerror(201001221);
-              if token=_CSTRING then
-                deprecatedmsg:=stringdup(cstringpattern)
-              else
-                deprecatedmsg:=stringdup(pattern);
+              DirectiveDeprecated;
               consume(token);
               include(moduleopt,mo_has_deprecated_msg);
+              last_is_deprecated:=false;
             end;
+          Result := True;
         until false;
       end;
 
@@ -1270,7 +1278,7 @@ implementation
 {$endif i386}
         end; //interface_uses_done;
 
-       procedure parse_unit_body;
+      procedure parse_unit_body;
        begin
          if current_module.state=ms_compiled then
            exit;
@@ -1290,7 +1298,7 @@ implementation
              { Compile the unit }
              init_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'init'),potype_unitinit,current_module.localsymtable);
              init_procinfo.procdef.aliasnames.insert(make_mangledname('INIT$',current_module.localsymtable,''));
-             init_procinfo.parse_body;
+             init_procinfo.parse_body;  //todo: parse--------------------------------------------
              { save file pos for debuginfo }
              current_module.mainfilepos:=init_procinfo.entrypos;
            end;
@@ -1830,6 +1838,8 @@ implementation
         main_procinfo : tcgprocinfo;}
         force_init_final : boolean;
         uu : tused_unit;
+
+      procedure proc_package_init;
       begin
          Status.IsPackage:=true;
          Status.IsExe:=true;
@@ -1866,60 +1876,26 @@ implementation
            main_file := main_file.next;
 
          current_module.SetFileName(main_file.path^+main_file.name^,true);
+      end;
 
-         consume(_ID);
+      procedure proc_package_init2;
+      begin
          current_module.setmodulename(orgpattern);
          current_module.ispackage:=true;
          exportlib.preparelib(orgpattern);
 
          if tf_library_needs_pic in target_info.flags then
            include(current_settings.moduleswitches,cs_create_pic);
+      end;
 
-         consume(_ID);
-         consume(_SEMICOLON);
-
-         { global switches are read, so further changes aren't allowed }
-         current_module.in_global:=false;
-
-         { setup things using the switches }
-         setupglobalswitches;
-
-         { set implementation flag }
-         current_module.in_interface:=false;
-         current_module.interface_compiled:=true;
-
-         { insert after the unit symbol tables the static symbol table }
-         { of the program                                             }
-         current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
-
-         {Load the units used by the program we compile.}
-         if token=_REQUIRES then
-           begin
-           end;
-
-         {Load the units used by the program we compile.}
-         if (token=_ID) and (idtoken=_CONTAINS) then
-           begin
-             consume(_ID);
-             while true do
-               begin
-                 if token=_ID then
-                   AddUnit(pattern);
-                 consume(_ID);
-                 if token=_COMMA then
-                   consume(_COMMA)
-                 else break;
-               end;
-             consume(_SEMICOLON);
-           end;
-
+      procedure proc_package_read;
+      begin  //semantics
          { All units are read, now give them a number }
          current_module.updatemaps;
 
          {Insert the name of the main program into the symbol table.}
          if current_module.realmodulename^<>'' then
            current_module.localsymtable.insert(tunitsym.create(current_module.realmodulename^,current_module));
-
          Message1(parser_u_parsing_implementation,current_module.mainsource^);
 
          symtablestack.push(current_module.localsymtable);
@@ -1944,11 +1920,10 @@ implementation
            tstoredsymtable(current_module.localsymtable).checklabels;
 
          symtablestack.pop(current_module.localsymtable);
+       end;
 
-         { consume the last point }
-         consume(_END);
-         consume(_POINT);
-
+      procedure proc_package_done;
+        begin //semantics
          if (Errorcount=0) then
            begin
              { test static symtable }
@@ -2103,6 +2078,53 @@ implementation
                 status.skip_error:=true;
               end;
           end;
+        end;
+
+      begin //proc_package
+        proc_package_init;
+         consume(_ID);
+         proc_package_init2;
+         consume(_ID);
+         consume(_SEMICOLON);
+
+         { global switches are read, so further changes aren't allowed }
+         current_module.in_global:=false;
+
+         { setup things using the switches }
+         setupglobalswitches;
+
+         { set implementation flag }
+         current_module.in_interface:=false;
+         current_module.interface_compiled:=true;
+
+         { insert after the unit symbol tables the static symbol table }
+         { of the program                                             }
+         current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
+
+         {Load the units used by the program we compile.}
+         if token=_REQUIRES then
+           begin
+             { TODO : seems not to be required here? remove! }
+           end;
+
+         {Load the units used by the program we compile.}
+         if (token=_ID) and (idtoken=_CONTAINS) then
+           begin
+             consume(_ID);
+             repeat //while true do
+                 if token=_ID then
+                   AddUnit(pattern);
+                 consume(_ID);
+             until not try_to_consume(_COMMA);
+             consume(_SEMICOLON);
+           end;
+
+         proc_package_read;
+
+         { consume the last point }
+         consume(_END);
+         consume(_POINT);
+         proc_package_done;
       end;
 
 
@@ -2120,6 +2142,7 @@ implementation
          Status.IsLibrary:=IsLibrary;
          Status.IsPackage:=false;
          Status.IsExe:=true;
+       begin  //semantics
          parse_only:=false;
          main_procinfo:=nil;
          init_procinfo:=nil;
@@ -2152,6 +2175,7 @@ implementation
                   exclude(current_settings.moduleswitches,cs_debuginfo);
                 end;
            end;
+       end;
          { get correct output names }
          main_file := current_scanner.inputfile;
          while assigned(main_file.next) do
@@ -2164,22 +2188,25 @@ implementation
               consume(_LIBRARY);
               current_module.setmodulename(orgpattern);
               current_module.islibrary:=true;
+            begin //semantics
               exportlib.preparelib(orgpattern);
 
               if tf_library_needs_pic in target_info.flags then
                 include(current_settings.moduleswitches,cs_create_pic);
-
+            end;
               consume(_ID);
               consume(_SEMICOLON);
            end
          else
            { is there an program head ? }
-           if token=_PROGRAM then
+           if try_to_consume(_PROGRAM) then
             begin
-              consume(_PROGRAM);
+              //consume(_PROGRAM);
+            begin //semantics
               current_module.setmodulename(orgpattern);
               if (target_info.system in systems_unit_program_exports) then
                 exportlib.preparelib(orgpattern);
+            end;
               consume(_ID);
               if token=_LKLAMMER then
                 begin
@@ -2192,8 +2219,9 @@ implementation
               consume(_SEMICOLON);
             end
          else if (target_info.system in systems_unit_program_exports) then
+         begin  //semantics
            exportlib.preparelib(current_module.realmodulename^);
-
+         end;
          { global switches are read, so further changes aren't allowed }
          current_module.in_global:=false;
 
@@ -2208,12 +2236,13 @@ implementation
          { of the program                                             }
          current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
 
+       begin  //semantics
          { load standard units (system,objpas,profile unit) }
          loaddefaultunits;
 
          { Load units provided on the command line }
          loadautounits;
-
+       end;
          {Load the units used by the program we compile.}
          if token=_USES then
            loadunits;

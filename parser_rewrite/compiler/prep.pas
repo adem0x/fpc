@@ -37,6 +37,7 @@ program prep;
 {$endif win32}
 
 uses
+  sysutils,
 {$ifdef cmem}
   cmem,
 {$endif cmem}
@@ -97,5 +98,6 @@ begin
   keepreleased:=true;
 {$endif extheaptrc}
 { Call the compiler with empty command, so it will take the parameters }
+  WriteLn('Initial WorkDir: ', GetCurrentDir); // compiler/i386!!!
   Halt(compiler.Compile(''));
 end.

@@ -1410,7 +1410,7 @@ implementation
            end;
 
          { parse the code ... }
-         code:=block(current_module.islibrary);
+         code:=block(current_module.islibrary); //todo: parse...
 
          if (df_generic in procdef.defoptions) then
            begin
@@ -1573,7 +1573,7 @@ implementation
            tokeninfo^[_FAIL].keyword:=m_all;
          end;
 
-        tcgprocinfo(current_procinfo).parse_body;
+        tcgprocinfo(current_procinfo).parse_body; //todo: parse...
 
         { We can't support inlining for procedures that have nested
           procedures because the nested procedures use a fixed offset

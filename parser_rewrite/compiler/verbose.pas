@@ -700,6 +700,7 @@ implementation
     procedure Message1(w:longint;const s1:string;onqueue:tmsgqueueevent=nil);
 
       begin
+        { TODO : exit ASAP when the message is suppressed (by message level...) }
         MaybeLoadMessageFile;
         Msg2Comment(msg^.Get(w,[s1]),w,onqueue);
       end;

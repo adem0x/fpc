@@ -26,7 +26,7 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="-m E:\fpcsrc\fpc-2.5\compiler\prep.pas"/>
+        <CommandLineParams Value="-m -vt ../prep.pas"/>
         <LaunchingApplication PathPlusParams="\usr\bin\xterm -T 'Lazarus Run Output' -e $(LazarusDir)\tools\runwait.sh $(TargetCmdLine)"/>
       </local>
     </RunParams>
@@ -47,7 +47,7 @@
     <Version Value="9"/>
     <PathDelim Value="\"/>
     <Target>
-      <Filename Value="i386\prep"/>
+      <Filename Value="prep"/>
     </Target>
     <SearchPaths>
       <IncludeFiles Value="i386\"/>
@@ -84,7 +84,7 @@
       <CompilerMessages>
         <UseMsgFile Value="True"/>
       </CompilerMessages>
-      <CustomOptions Value="-di386 -dPreprocWrite
+      <CustomOptions Value="-di386 -dPreprocWrite -dsemantics
 "/>
       <CompilerPath Value="$(CompPath)"/>
     </Other>

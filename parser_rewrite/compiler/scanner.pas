@@ -3418,7 +3418,6 @@ In case not, the value returned can be arbitrary.
 {$ifdef PREPROCWRITE}
                 if parapreprocess then
                  begin
-                   //if c=#10 then  //never matched???
                    if c in [#10,#13] then
                     preprocfile.eolfound:=true
                    else

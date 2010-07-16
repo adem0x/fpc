@@ -59,6 +59,9 @@ implementation
       pbase,ptype,psystem,pmodules,psub,ncgrtti,htypechk,
       cresstr,cpuinfo,procinfo
     {$ENDIF semantics}
+    {$IFDEF test}
+      cfileutl,
+    {$ENDIF}
       ;
 
 
@@ -69,51 +72,38 @@ implementation
       begin
       (* DoDi: I could make the preprocessor work, somehow,
         but it still deserves some improvements:
-        - message 'preprocessing...'
-        - catch errors (open infile, outfile...)
+        - message 'preprocessing...'?
         - outfile: where? name?
-        - newlines?
-        Also remove old statements (comments).
       *)
-        { TODO : set message level? show action?}
-        //status.verbosity := V_All;
         Message1(parser_i_compiling, filename);
-        if not FileExists(filename) then begin
-        { TODO : handle missing files properly }
-          Message2(scan_f_cannot_open_input, 'File not found: ', filename);
+      {$IFDEF test}
+        if not FileExists(filename, False) then begin
+          WriteLn('WorkDir: ', GetCurrentDir); // compiler/i386!!!
+          //Message2(scan_f_cannot_open_input, 'File not found: ', filename);
+          Message1(scan_f_cannot_open_input, filename);
           inc(status.errorcount);
           Exit;
         end;
-         { TODO : force preprocessed file into source directory, by default?
-          handle errors? }
-         //new(preprocfile,init('pre'));
-        //preprocfile := tpreprocfile.create('pre'); //?
-        //preprocfile := tpreprocfile.create(filename + '.pre'); //???
-        preprocfile := tpreprocfile.create('pre.' + filename); //???
+      {$ELSE}
+      {$ENDIF}
+        preprocfile := tpreprocfile.create(filename + '.pre');
 
        { initialize a module, for symbol tables etc. }
-         //set_current_module(new(pmodule,init(filename,false)));
          set_current_module(tmodule.create(nil, filename, False));
 
-         //macrosymtablestack:= initialmacrosymtable;
          macrosymtablestack:= TSymtablestack.create;
-         { init macros before anything in the file is parsed.}
+       { init macros before anything in the file is parsed.}
          current_module.localmacrosymtable:= tmacrosymtable.create(false);
-         //current_module.localmacrosymtable.next:= initialmacrosymtable;
-         //macrosymtablestack:= current_module.localmacrosymtable;
          macrosymtablestack.push(initialmacrosymtable);
          macrosymtablestack.push(current_module.localmacrosymtable);
 
          main_module:=current_module;
        { startup scanner, and save in current_module }
-         //current_scanner:=new(pscannerfile,Init(filename));
-         current_scanner:=tscannerfile.Create(filename); //?
+         current_scanner:=tscannerfile.Create(filename);
          current_scanner.firstfile;
-         //current_module.scanner:=current_scanner;
        { loop until EOF is found }
          repeat
            current_scanner.readtoken(true);
-           //preprocfile.AddSpace; //nl, space or nothing - moved into Add()
            case token of
              _ID :
                begin
@@ -159,10 +149,10 @@ implementation
            end;
          until false;
        { free scanner }
-         current_scanner.Free;  // dispose(current_scanner,done);
+         current_scanner.Free;
          current_scanner:=nil;
        { close }
-         preprocfile.Free;  // dispose(preprocfile,done);
+         preprocfile.Free;
       end;
 {$endif PREPROCWRITE}
 
