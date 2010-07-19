@@ -19,6 +19,9 @@
 
  ****************************************************************************
 }
+
+{$IFnDEF old}
+{$ELSE}
 unit pdecobj;
 
 {$i fpcdefs.inc}
@@ -42,6 +45,7 @@ implementation
       fmodule,scanner,
       pbase,pexpr,pdecsub,pdecvar,ptype,pdecl,ppu
       ;
+{$ENDIF}
 
     const
       { Please leave this here, this module should NOT use
@@ -925,7 +929,7 @@ implementation
       end;
 
 
-    function object_dec(objecttype:tobjecttyp;const n:tidstring;genericdef:tstoreddef;genericlist:TFPObjectList;fd : tobjectdef) : tobjectdef;
+    function TOPLParser.object_dec(objecttype:tobjecttyp;const n:tidstring;genericdef:tstoreddef;genericlist:TFPObjectList;fd : tobjectdef) : tobjectdef;
       var
         old_current_objectdef : tobjectdef;
       begin
@@ -1053,4 +1057,4 @@ implementation
         current_objectdef:=old_current_objectdef;
       end;
 
-end.
+//end.

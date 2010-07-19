@@ -19,6 +19,9 @@
 
  ****************************************************************************
 }
+
+{$IFnDEF old}
+{$ELSE}
 unit pdecsub;
 
 {$i fpcdefs.inc}
@@ -82,6 +85,7 @@ implementation
        scanner,
        pbase,pexpr,ptype,pdecl
        ;
+{$ENDIF}
 
     const
       { Please leave this here, this module should NOT use
@@ -239,7 +243,7 @@ implementation
       end;
 
 
-    procedure insert_funcret_local(pd:tprocdef);
+    procedure TOPLParser.insert_funcret_local(pd:tprocdef);
       var
         storepos : tfileposinfo;
         vs       : tlocalvarsym;
@@ -403,7 +407,7 @@ implementation
       end;
 
 
-    procedure parse_parameter_dec(pd:tabstractprocdef);
+    procedure TOPLParser.parse_parameter_dec(pd:tabstractprocdef);
       {
         handle_procvar needs the same changes
       }
@@ -695,7 +699,7 @@ implementation
       end;
 
 
-    function parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean;
+    function TOPLParser.parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean;
       var
         hs       : string;
         orgsp,sp : TIDString;
@@ -1000,7 +1004,7 @@ implementation
       end;
 
 
-    function parse_proc_dec(isclassmethod:boolean; aclass:tobjectdef):tprocdef;
+    function TOPLParser.parse_proc_dec(isclassmethod:boolean; aclass:tobjectdef):tprocdef;
       var
         pd : tprocdef;
         locationstr: string;
@@ -2214,7 +2218,7 @@ const
    );
 
 
-    function check_proc_directive(isprocvar:boolean):boolean;
+    function TOPLParser.check_proc_directive(isprocvar:boolean):boolean;
       var
         i : longint;
       begin
@@ -2387,7 +2391,7 @@ const
 
 
 
-    function proc_get_importname(pd:tprocdef):string;
+    function TOPLParser.proc_get_importname(pd:tprocdef):string;
 
        function maybe_cprefix(const s:string):string;
          begin
@@ -2462,7 +2466,7 @@ const
       end;
 
 
-    procedure proc_set_mangledname(pd:tprocdef);
+    procedure TOPLParser.proc_set_mangledname(pd:tprocdef);
       var
         s : string;
       begin
@@ -2534,7 +2538,7 @@ const
       end;
 
 
-    procedure handle_calling_convention(pd:tabstractprocdef);
+    procedure TOPLParser.handle_calling_convention(pd:tabstractprocdef);
       begin
         { set the default calling convention if none provided }
         if (pd.typ=procdef) and
@@ -2637,7 +2641,7 @@ const
       end;
 
 
-    procedure parse_proc_directives(pd:tabstractprocdef;var pdflags:tpdflags);
+    procedure TOPLParser.parse_proc_directives(pd:tabstractprocdef;var pdflags:tpdflags);
       {
         Parse the procedure directives. It does not matter if procedure directives
         are written using ;procdir; or ['procdir'] syntax.
@@ -2712,7 +2716,7 @@ const
       end;
 
 
-    procedure parse_var_proc_directives(sym:tsym);
+    procedure TOPLParser.parse_var_proc_directives(sym:tsym);
       var
         pdflags : tpdflags;
         pd      : tabstractprocdef;
@@ -2737,7 +2741,7 @@ const
       end;
 
 
-    procedure parse_object_proc_directives(pd:tabstractprocdef);
+    procedure TOPLParser.parse_object_proc_directives(pd:tabstractprocdef);
       var
         pdflags : tpdflags;
       begin
@@ -2746,7 +2750,7 @@ const
       end;
 
 
-    function proc_add_definition(var currpd:tprocdef):boolean;
+    function TOPLParser.proc_add_definition(var currpd:tprocdef):boolean;
       {
         Add definition aprocdef to the overloaded definitions of aprocsym. If a
         forwarddef is found and reused it returns true
@@ -3061,4 +3065,4 @@ const
         proc_add_definition:=forwardfound;
       end;
 
-end.
+//end.

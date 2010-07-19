@@ -19,6 +19,10 @@
 
  ****************************************************************************
 }
+
+{$IFnDEF old}
+//has been inlined into parser
+{$ELSE}
 unit pexports;
 
 {$i fpcdefs.inc}
@@ -50,9 +54,10 @@ implementation
        { link }
        gendef,export
        ;
+{$ENDIF}
 
 
-    procedure read_exports;
+    procedure top read_exports;
       var
         orgs,
         DefString,
@@ -246,4 +251,4 @@ implementation
          DefFile.writefile;
       end;
 
-end.
+//end.

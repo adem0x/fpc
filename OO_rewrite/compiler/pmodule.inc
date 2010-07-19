@@ -19,23 +19,18 @@
 
  ****************************************************************************
 }
-(* OO rewrite: splitted into parser methods and other procedures,
-  to reduce dependencies.
-*)
+{$IFnDEF old}
+//inlined into parser
+{$ELSE}
 unit pmodules;
 
 {$i fpcdefs.inc}
 
 interface
 
-{$IFDEF old}
     procedure proc_unit;
     procedure proc_package;
     procedure proc_program(islibrary : boolean);
-{$ELSE}
-//insert non-parser procedures here (ppu/code generation)
-    Function RewritePPU(const PPUFn,PPLFn:String):Boolean;
- {$ENDIF}
 
 
 implementation
@@ -52,19 +47,21 @@ implementation
        nbas,ncgutil,
        link,assemble,import,export,gendef,ppu,comprsrc,dbgbase,
        cresstr,procinfo,
-       //pexports,
+       pexports,
        objcgutl,
        wpobase,
-       scanner
-      //,pbase,pexpr,psystem,psub,pdecsub,ptype
+       scanner,pbase,pexpr,psystem,psub,pdecsub,ptype
        ,cpuinfo
 {$ifdef i386}
        { fix me! }
        ,cpubase
 {$endif i386}
        ;
+{$ENDIF}
 
+{ TODO : separate code/ppu generation - should become independent class }
 
+{$IFDEF write_module}
     procedure create_objectfile;
       var
         DLLScanner      : TDLLScanner;
@@ -129,7 +126,7 @@ implementation
       end;
 
 
-    procedure insertobjectfile;
+    procedure TOPLParser.insertobjectfile;
     { Insert the used object file for this unit in the used list for this unit }
       begin
         current_module.linkunitofiles.add(current_module.objfilename^,link_static);
@@ -526,104 +523,6 @@ implementation
         current_asmdata.asmlists[al_globals].concat(Tai_const.create_8bit(byte(cs_gdb_valgrind in current_settings.globalswitches)));
       end;
 
-
-    procedure AddUnit(const s:string);
-      var
-        hp : tppumodule;
-        unitsym : tunitsym;
-      begin
-        { load unit }
-        hp:=registerunit(current_module,s,'');
-        hp.loadppu;
-        hp.adddependency(current_module);
-        { add to symtable stack }
-        symtablestack.push(hp.globalsymtable);
-        if (m_mac in current_settings.modeswitches) and
-           assigned(hp.globalmacrosymtable) then
-          macrosymtablestack.push(hp.globalmacrosymtable);
-        { insert unitsym }
-        unitsym:=tunitsym.create(s,hp);
-        inc(unitsym.refs);
-        current_module.localsymtable.insert(unitsym);
-        { add to used units }
-        current_module.addusedunit(hp,false,unitsym);
-      end;
-
-
-    procedure maybeloadvariantsunit;
-      var
-        hp : tmodule;
-      begin
-        { Do we need the variants unit? Skip this
-          for VarUtils unit for bootstrapping }
-        if (current_module.flags and uf_uses_variants=0) or
-           (current_module.modulename^='VARUTILS') then
-          exit;
-        { Variants unit already loaded? }
-        hp:=tmodule(loaded_units.first);
-        while assigned(hp) do
-          begin
-            if hp.modulename^='VARIANTS' then
-              exit;
-            hp:=tmodule(hp.next);
-          end;
-        { Variants unit is not loaded yet, load it now }
-        Message(parser_w_implicit_uses_of_variants_unit);
-        AddUnit('variants');
-      end;
-
-
-    function MaybeRemoveResUnit : boolean;
-      var
-        resources_used : boolean;
-        hp : tmodule;
-        uu : tused_unit;
-        unitname : shortstring;
-      begin
-        { We simply remove the unit from:
-           - usedunit list, so that things like init/finalization table won't
-              contain references to this unit
-           - loaded_units list, so that the unit object file doesn't get linked
-             with the executable. }
-        { Note: on windows we always need resources! }
-        resources_used:=(target_info.system in systems_all_windows)
-                         or CheckResourcesUsed;
-        if (not resources_used) and (tf_has_winlike_resources in target_info.flags) then
-          begin
-            { resources aren't used, so we don't need this unit }
-            if target_res.id=res_ext then
-              unitname:='FPEXTRES'
-            else
-              unitname:='FPINTRES';
-            Message1(unit_u_unload_resunit,unitname);
-            { find the module }
-            hp:=tmodule(loaded_units.first);
-            while assigned(hp) do
-              begin
-                if hp.is_unit and (hp.modulename^=unitname) then break;
-                hp:=tmodule(hp.next);
-              end;
-            if not assigned(hp) then
-              internalerror(200801071);
-            { find its tused_unit in the global list }
-            uu:=tused_unit(usedunits.first);
-            while assigned(uu) do
-              begin
-                if uu.u=hp then break;
-                uu:=tused_unit(uu.next);
-              end;
-            if not assigned(uu) then
-              internalerror(200801072);
-           { remove the tused_unit }
-            usedunits.Remove(uu);
-            uu.Free;
-           { remove the module }
-            loaded_units.Remove(hp);
-            unloaded_units.Concat(hp);
-          end;
-        MaybeRemoveResUnit:=resources_used;
-      end;
-
     Function RewritePPU(const PPUFn,PPLFn:String):Boolean;
       Var
         MakeStatic : Boolean;
@@ -822,9 +721,107 @@ implementation
         Result:=True;
       end;
 
+{$ELSE}
+//above procedures retained in pmodules.pas
+{$ENDIF}
 
-{$IFDEF old}
-//these have become parser methods
+    procedure AddUnit(const s:string);
+      var
+        hp : tppumodule;
+        unitsym : tunitsym;
+      begin
+        { load unit }
+        hp:=registerunit(current_module,s,'');
+        hp.loadppu;
+        hp.adddependency(current_module);
+        { add to symtable stack }
+        symtablestack.push(hp.globalsymtable);
+        if (m_mac in current_settings.modeswitches) and
+           assigned(hp.globalmacrosymtable) then
+          macrosymtablestack.push(hp.globalmacrosymtable);
+        { insert unitsym }
+        unitsym:=tunitsym.create(s,hp);
+        inc(unitsym.refs);
+        current_module.localsymtable.insert(unitsym);
+        { add to used units }
+        current_module.addusedunit(hp,false,unitsym);
+      end;
+
+
+    procedure maybeloadvariantsunit;
+      var
+        hp : tmodule;
+      begin
+        { Do we need the variants unit? Skip this
+          for VarUtils unit for bootstrapping }
+        if (current_module.flags and uf_uses_variants=0) or
+           (current_module.modulename^='VARUTILS') then
+          exit;
+        { Variants unit already loaded? }
+        hp:=tmodule(loaded_units.first);
+        while assigned(hp) do
+          begin
+            if hp.modulename^='VARIANTS' then
+              exit;
+            hp:=tmodule(hp.next);
+          end;
+        { Variants unit is not loaded yet, load it now }
+        Message(parser_w_implicit_uses_of_variants_unit);
+        AddUnit('variants');
+      end;
+
+
+    function MaybeRemoveResUnit : boolean;
+      var
+        resources_used : boolean;
+        hp : tmodule;
+        uu : tused_unit;
+        unitname : shortstring;
+      begin
+        { We simply remove the unit from:
+           - usedunit list, so that things like init/finalization table won't
+              contain references to this unit
+           - loaded_units list, so that the unit object file doesn't get linked
+             with the executable. }
+        { Note: on windows we always need resources! }
+        resources_used:=(target_info.system in systems_all_windows)
+                         or CheckResourcesUsed;
+        if (not resources_used) and (tf_has_winlike_resources in target_info.flags) then
+          begin
+            { resources aren't used, so we don't need this unit }
+            if target_res.id=res_ext then
+              unitname:='FPEXTRES'
+            else
+              unitname:='FPINTRES';
+            Message1(unit_u_unload_resunit,unitname);
+            { find the module }
+            hp:=tmodule(loaded_units.first);
+            while assigned(hp) do
+              begin
+                if hp.is_unit and (hp.modulename^=unitname) then break;
+                hp:=tmodule(hp.next);
+              end;
+            if not assigned(hp) then
+              internalerror(200801071);
+            { find its tused_unit in the global list }
+            uu:=tused_unit(usedunits.first);
+            while assigned(uu) do
+              begin
+                if uu.u=hp then break;
+                uu:=tused_unit(uu.next);
+              end;
+            if not assigned(uu) then
+              internalerror(200801072);
+           { remove the tused_unit }
+            usedunits.Remove(uu);
+            uu.Free;
+           { remove the module }
+            loaded_units.Remove(hp);
+            unloaded_units.Concat(hp);
+          end;
+        MaybeRemoveResUnit:=resources_used;
+      end;
+
 
     procedure loaddefaultunits;
       begin
@@ -927,7 +924,7 @@ implementation
       end;
 
 
-    procedure loadautounits;
+    procedure TOPLParser.loadautounits;
       var
         hs,s : string;
       begin
@@ -941,7 +938,7 @@ implementation
       end;
 
 
-    procedure loadunits;
+    procedure TOPLParser.loadunits;
       var
          s,sorg  : TIDString;
          fn      : string;
@@ -1075,14 +1072,14 @@ implementation
       end;
 
 
-    procedure parse_implementation_uses;
+    procedure TOPLParser.parse_implementation_uses;
       begin
          if token=_USES then
            loadunits;
       end;
 
 
-    procedure setupglobalswitches;
+    procedure TOPLParser.setupglobalswitches;
       begin
         if (cs_create_pic in current_settings.moduleswitches) then
           begin
@@ -1170,7 +1167,7 @@ implementation
         current_module.globalmacrosymtable.insert(tmacro(p).getcopy);
       end;
 
-    function try_consume_hintdirective(var moduleopt:tmoduleoptions; var deprecatedmsg:pshortstring):boolean;
+    function TOPLParser.try_consume_hintdirective(var moduleopt:tmoduleoptions; var deprecatedmsg:pshortstring):boolean;
       var
         last_is_deprecated:boolean;
       begin
@@ -1223,7 +1220,7 @@ implementation
         until false;
       end;
 
-    procedure proc_unit;
+    procedure TOPLParser.proc_unit;
 
       function is_assembler_generated:boolean;
       var
@@ -1758,7 +1755,7 @@ implementation
       end;
 
 
-    procedure proc_package;
+    procedure TOPLParser.proc_package;
       var
         main_file : tinputfile;
         hp,hp2    : tmodule;
@@ -2043,7 +2040,7 @@ implementation
       end;
 
 
-    procedure proc_program(islibrary : boolean);
+    procedure TOPLParser.proc_program(islibrary : boolean);
       var
          main_file : tinputfile;
          hp,hp2    : tmodule;
@@ -2434,7 +2431,4 @@ implementation
           end;
       end;
 
-{$ELSE}
-//moved into parser (pmodule.inc)
-{$ENDIF}
-end.
+//end.

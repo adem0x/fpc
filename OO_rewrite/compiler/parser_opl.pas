@@ -19,6 +19,11 @@
 
  ****************************************************************************
 }
+(* This is the OPL parser class.
+  Perhaps the declaration should be moved into the implementation section?
+  (to prevent excessive uses, exposure of types and methods)
+*)
+
 unit parser_opl;
 
 {$i fpcdefs.inc}
@@ -34,24 +39,121 @@ uses
 {$ENDIF}
       cutils,cclasses,
       globtype,version,tokens,systems,globals,verbose,switches,
-      symbase,symtable,symdef,symsym,
+      symbase,symtable,symdef,symsym, symtype,
       finput,fmodule,fppu,
       aasmbase,aasmtai,aasmdata,
-      cgbase,
+      cgbase, dbgbase,
       script,gendef,
       comphook,
       scanner,//scandir,
       //pbase,ptype,psystem,pmodules,psub, --- all inlined
       ncgrtti,htypechk,
       cresstr,cpuinfo,procinfo,
-      node;
+      node, ncal, constexp, symconst;
+
+(* These types are required for method arguments.
+  Can be moved into the implementation, together with the detailed class declaration.
+*)
+    type
+      tvar_dec_option=(vd_record,vd_object,vd_threadvar,vd_class);
+      tvar_dec_options=set of tvar_dec_option;
+
+    { sub_expr(opmultiply) is need to get -1 ** 4 to be
+      read as - (1**4) and not (-1)**4 PM }
+    type
+      Toperator_precedence=(opcompare,opaddition,opmultiply,oppower);
+
+    type
+      tpdflag=(
+        pd_body,         { directive needs a body }
+        pd_implemen,     { directive can be used implementation section }
+        pd_interface,    { directive can be used interface section }
+        pd_object,       { directive can be used object declaration }
+        pd_procvar,      { directive can be used procvar declaration }
+        pd_notobject,    { directive can not be used object declaration }
+        pd_notobjintf,   { directive can not be used interface declaration }
+        pd_notprocvar,   { directive can not be used procvar declaration }
+        pd_dispinterface,{ directive can be used with dispinterface methods }
+        pd_cppobject,    { directive can be used with cppclass }
+        pd_objcclass,    { directive can be used with objcclass }
+        pd_objcprot      { directive can be used with objcprotocol }
+      );
+      tpdflags=set of tpdflag;
 
     type
       TOPLParser = class(TParserBase)
       private
+       { hack, which allows to use the current parsed }
+       { object type as function argument type  }
+       testcurobject : byte;
+
+        function check_proc_directive(isprocvar: boolean): boolean;
+        function comp_expr(accept_equal: boolean): tnode;
+        procedure create_objectfile;
+        procedure do_member_read(classh: tobjectdef; getaddr: boolean;
+          sym: tsym; var p1: tnode; var again: boolean;
+          callflags: tcallnodeflags);
+        function expr(dotypecheck: boolean): tnode;
+        function factor(getaddr: boolean): tnode;
         procedure generate_specialization(var tt: tdef);
+        function get_intconst: TConstExprInt;
+        function get_stringconst: string;
+        procedure handle_calling_convention(pd: tabstractprocdef);
+        procedure id_type(var def: tdef; isforwarddef: boolean);
+        function inline_copy: tnode;
+        function inline_finalize: tnode;
+        function inline_initialize: tnode;
+        function inline_setlength: tnode;
+        procedure insertobjectfile;
+        procedure insert_funcret_local(pd: tprocdef);
+        procedure loadautounits;
+        procedure loadunits;
+        function maybe_parse_proc_directives(def: tdef): boolean;
         function new_dispose_statement(is_new: boolean): tnode;
         function new_function: tnode;
+        function object_dec(objecttype: tobjecttyp; const n: tidstring;
+          genericdef: tstoreddef; genericlist: TFPObjectList; fd: tobjectdef
+          ): tobjectdef;
+        procedure parse_implementation_uses;
+        procedure parse_object_proc_directives(pd: tabstractprocdef);
+        procedure parse_parameter_dec(pd: tabstractprocdef);
+        function parse_paras(__colon, __namedpara: boolean; end_of_paras: ttoken
+          ): tnode;
+        function parse_proc_dec(isclassmethod: boolean; aclass: tobjectdef
+          ): tprocdef;
+        procedure parse_proc_directives(pd: tabstractprocdef;
+          var pdflags: tpdflags);
+        function parse_proc_head(aclass: tobjectdef; potype: tproctypeoption;
+          var pd: tprocdef): boolean;
+        procedure parse_var_proc_directives(sym: tsym);
+        function proc_add_definition(var currpd: tprocdef): boolean;
+        function proc_get_importname(pd: tprocdef): string;
+        procedure proc_package;
+        procedure proc_program(islibrary: boolean);
+        procedure proc_set_mangledname(pd: tprocdef);
+        procedure proc_unit;
+        procedure read_anon_type(var def: tdef; parseprocvardir: boolean);
+        procedure read_named_type(var def: tdef; const name: TIDString;
+          genericdef: tstoreddef; genericlist: TFPObjectList;
+          parseprocvardir: boolean);
+        function read_property_dec(is_classproperty: boolean; aclass: tobjectdef
+          ): tpropertysym;
+        procedure read_public_and_external(vs: tabstractvarsym);
+        procedure read_public_and_external_sc(sc: TFPObjectList);
+        procedure read_record_fields(options: Tvar_dec_options);
+        procedure read_var_decls(options: Tvar_dec_options);
+        function record_dec: tdef;
+        procedure resolve_forward_types;
+        procedure setupglobalswitches;
+        procedure single_type(var def: tdef; isforwarddef, allowtypedef: boolean
+          );
+        procedure string_dec(var def: tdef; allowtypedef: boolean);
+        function sub_expr(pred_level: Toperator_precedence;
+          accept_equal: boolean): tnode;
+        function try_consume_hintdirective(var moduleopt: tmoduleoptions;
+          var deprecatedmsg: pshortstring): boolean;
+      public  //?
+        current_debuginfo : tdebuginfo;
       public
         constructor Create;
         destructor Destroy; override;
@@ -64,6 +166,23 @@ uses
   procedure doneparser;
 
 implementation
+
+    uses
+      psystem, pmodules,
+    //pinline
+      { symtable }
+      defutil,defcmp,
+      { pass 1 }
+      pass_1,
+      nobj,
+      nmat,nadd,nmem,nset,ncnv,ninl,ncon,nld,nflw,nbas,nutils,
+       { link }
+       import
+  ;
+
+//this is an attempt to locate non-methods
+procedure write_persistent_type_info(st:tsymtable); forward;
+
 
 {$ifdef PREPROCWRITE}
     procedure TOPLParser.preprocess(const AFilename:string);
@@ -160,10 +279,6 @@ implementation
 
     procedure initparser;
       begin
-         { we didn't parse a object or class declaration }
-         { and no function header                        }
-         testcurobject:=0;
-
          { Current compiled module/proc }
          set_current_module(nil);
          current_module:=nil;
@@ -184,7 +299,8 @@ implementation
 
          { initialize scanner }
          InitScanner;
-         InitScannerDirectives;
+       {$IFDEF old}
+         InitScannerDirectives; //in InitScanner
 
          { scanner }
          c:=#0;
@@ -193,6 +309,9 @@ implementation
          cstringpattern:='';
          current_scanner:=nil;
          switchesstatestackpos:=0;
+       {$ELSE}
+        //in scanner constructor
+       {$ENDIF}
 
          { register all nodes and tais }
          registernodes;
@@ -217,9 +336,13 @@ implementation
          { list of generated .o files, so the linker can remove them }
          SmartLinkOFiles:=TCmdStrList.Create;
 
+       {$IFDEF old}
          { codegen }
          if paraprintnodetree<>0 then
            printnode_reset;
+       {$ELSE}
+        //?
+       {$ENDIF}
 
          { target specific stuff }
          case target_info.system of
@@ -260,6 +383,7 @@ implementation
              unloaded_units:=nil;
            end;
 
+       {$IFDEF old}
          { if there was an error in the scanner, the scanner is
            still assinged }
          if assigned(current_scanner) then
@@ -270,6 +394,9 @@ implementation
 
          { close scanner }
          DoneScanner;
+       {$ELSE}
+        //by creator of the parser instance
+       {$ENDIF}
 
          RTTIWriter.free;
 
@@ -566,5 +693,11 @@ implementation
 
 {$I pinline.inc}
 {$I ptype.inc}
+{$I pmodule.inc}
+{$I pexpr.inc}
+{$I pdecvar.inc}
+{$I pdecobj.inc}
+{$I pdecsub.inc}
+{$I pexports.inc}
 
 end.

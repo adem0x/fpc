@@ -19,6 +19,10 @@
 
  ****************************************************************************
 }
+
+{$IFnDEF old}
+  //included by parser
+{$ELSE}
 unit pexpr;
 
 {$i fpcdefs.inc}
@@ -70,11 +74,7 @@ implementation
        { codegen }
        cgbase,procinfo,cpuinfo
        ;
-
-    { sub_expr(opmultiply) is need to get -1 ** 4 to be
-      read as - (1**4) and not (-1)**4 PM }
-    type
-      Toperator_precedence=(opcompare,opaddition,opmultiply,oppower);
+{$ENDIF}
 
     const
       highest_precedence = oppower;
@@ -87,7 +87,7 @@ implementation
        { last def found, only used by anon. inherited calls to insert proper type casts }
        srdef : tdef = nil;
 
-    procedure string_dec(var def:tdef; allowtypedef: boolean);
+    procedure TOPLParser.string_dec(var def:tdef; allowtypedef: boolean);
     { reads a string type with optional length }
     { and returns a pointer to the string      }
     { definition                               }
@@ -140,7 +140,7 @@ implementation
        end;
 
 
-    function parse_paras(__colon,__namedpara : boolean;end_of_paras : ttoken) : tnode;
+    function TOPLParser.parse_paras(__colon,__namedpara : boolean;end_of_paras : ttoken) : tnode;
       var
          p1,p2,argname : tnode;
          prev_in_args,
@@ -1188,7 +1188,7 @@ implementation
 
 
     { the ID token has to be consumed before calling this function }
-    procedure do_member_read(classh:tobjectdef;getaddr : boolean;sym : tsym;var p1 : tnode;var again : boolean;callflags:tcallnodeflags);
+    procedure TOPLParser.do_member_read(classh:tobjectdef;getaddr : boolean;sym : tsym;var p1 : tnode;var again : boolean;callflags:tcallnodeflags);
       var
          static_name : string;
          isclassref  : boolean;
@@ -1342,7 +1342,7 @@ implementation
 
   {$maxfpuregisters 0}
 
-    function factor(getaddr : boolean) : tnode;
+    function TOPLParser.factor(getaddr : boolean) : tnode;
 
          {---------------------------------------------
                          Factor_read_id
@@ -2755,7 +2755,7 @@ implementation
            _OP_AS,_OP_IS,_OP_AND,_AMPERSAND,_OP_DIV,_OP_MOD,_OP_SHL,_OP_SHR],
           [_STARSTAR] );
 
-    function sub_expr(pred_level:Toperator_precedence;accept_equal : boolean):tnode;
+    function TOPLParser.sub_expr(pred_level:Toperator_precedence;accept_equal : boolean):tnode;
     {Reads a subexpression while the operators are of the current precedence
      level, or any higher level. Replaces the old term, simpl_expr and
      simpl2_expr.}
@@ -2848,7 +2848,7 @@ implementation
       end;
 
 
-    function comp_expr(accept_equal : boolean):tnode;
+    function TOPLParser.comp_expr(accept_equal : boolean):tnode;
       var
          oldafterassignment : boolean;
          p1 : tnode;
@@ -2864,7 +2864,7 @@ implementation
       end;
 
 
-    function expr(dotypecheck : boolean) : tnode;
+    function TOPLParser.expr(dotypecheck : boolean) : tnode;
 
       var
          p1,p2 : tnode;
@@ -2938,7 +2938,7 @@ implementation
          expr:=p1;
       end;
 
-    function get_intconst:TConstExprInt;
+    function TOPLParser.get_intconst:TConstExprInt;
     {Reads an expression, tries to evalute it and check if it is an integer
      constant. Then the constant is returned.}
     var
@@ -2958,7 +2958,7 @@ implementation
     end;
 
 
-    function get_stringconst:string;
+    function TOPLParser.get_stringconst:string;
     {Reads an expression, tries to evaluate it and checks if it is a string
      constant. Then the constant is returned.}
     var
@@ -2978,4 +2978,4 @@ implementation
       p.free;
     end;
 
-end.
+//end.

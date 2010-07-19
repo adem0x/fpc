@@ -20,6 +20,9 @@
 
  ****************************************************************************
 }
+
+{$IFnDEF old}
+{$ELSE}
 unit pdecvar;
 
 {$i fpcdefs.inc}
@@ -64,9 +67,10 @@ implementation
        { link }
        import
        ;
+{$ENDIF}
 
 
-    function read_property_dec(is_classproperty:boolean; aclass:tobjectdef):tpropertysym;
+    function TOPLParser.read_property_dec(is_classproperty:boolean; aclass:tobjectdef):tpropertysym;
 
         { convert a node tree to symlist and return the last
           symbol }
@@ -828,7 +832,7 @@ implementation
       end;
 
 
-     function maybe_parse_proc_directives(def:tdef):boolean;
+     function TOPLParser.maybe_parse_proc_directives(def:tdef):boolean;
        var
          newtype : ttypesym;
        begin
@@ -852,7 +856,7 @@ implementation
        variantrecordlevel : longint = 0;
 
 
-    procedure read_public_and_external_sc(sc:TFPObjectList);
+    procedure TOPLParser.read_public_and_external_sc(sc:TFPObjectList);
     var
       vs: tabstractvarsym;
     begin
@@ -864,7 +868,7 @@ implementation
     end;
 
 
-    procedure read_public_and_external(vs: tabstractvarsym);
+    procedure TOPLParser.read_public_and_external(vs: tabstractvarsym);
     var
       is_dll,
       is_cdecl,
@@ -988,7 +992,7 @@ implementation
     end;
 
 
-    procedure read_var_decls(options:Tvar_dec_options);
+    procedure TOPLParser.read_var_decls(options:Tvar_dec_options);
 
         procedure read_default_value(sc : TFPObjectList);
         var
@@ -1357,7 +1361,7 @@ implementation
       end;
 
 
-    procedure read_record_fields(options:Tvar_dec_options);
+    procedure TOPLParser.read_record_fields(options:Tvar_dec_options);
       var
          sc : TFPObjectList;
          i  : longint;
@@ -1690,4 +1694,4 @@ implementation
 {$endif powerpc}
       end;
 
-end.
+//end.

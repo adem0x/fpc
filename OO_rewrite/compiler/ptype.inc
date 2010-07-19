@@ -344,7 +344,7 @@ implementation
       end;
 
 
-    procedure id_type(var def : tdef;isforwarddef:boolean);
+    procedure TOPLParser.id_type(var def : tdef;isforwarddef:boolean);
     { reads a type definition }
     { to a appropriating tdef, s gets the name of   }
     { the type to allow name mangling          }
@@ -423,7 +423,7 @@ implementation
       end;
 
 
-    procedure single_type(var def:tdef;isforwarddef,allowtypedef:boolean);
+    procedure TOPLParser.single_type(var def:tdef;isforwarddef,allowtypedef:boolean);
        var
          t2 : tdef;
          dospecialize,
@@ -510,7 +510,7 @@ implementation
       end;
 
     { reads a record declaration }
-    function record_dec : tdef;
+    function TOPLParser.record_dec : tdef;
       var
          recst : trecordsymtable;
       begin
@@ -534,7 +534,7 @@ implementation
 
 
     { reads a type definition and returns a pointer to it }
-    procedure read_named_type(var def : tdef;const name : TIDString;genericdef:tstoreddef;genericlist:TFPObjectList;parseprocvardir:boolean);
+    procedure TOPLParser.read_named_type(var def : tdef;const name : TIDString;genericdef:tstoreddef;genericlist:TFPObjectList;parseprocvardir:boolean);
       var
         pt : tnode;
         tt2 : tdef;
@@ -1099,7 +1099,7 @@ implementation
       end;
 
 
-    procedure read_anon_type(var def : tdef;parseprocvardir:boolean);
+    procedure TOPLParser.read_anon_type(var def : tdef;parseprocvardir:boolean);
       begin
         read_named_type(def,'',nil,nil,parseprocvardir);
       end;
@@ -1167,4 +1167,4 @@ implementation
           end;
       end;
 
-end.
+//end.

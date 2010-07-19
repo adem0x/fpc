@@ -92,7 +92,7 @@ interface
 
     var
       CDebugInfo : array[tdbg] of TDebugInfoClass;
-      current_debuginfo : tdebuginfo;
+      current_debuginfo : tdebuginfo; { TODO : move into parser class }
 
     procedure InitDebugInfo(hp:tmodule);
     procedure DoneDebugInfo(hp:tmodule);
