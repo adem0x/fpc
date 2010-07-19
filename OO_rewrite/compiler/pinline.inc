@@ -19,6 +19,12 @@
 
  ****************************************************************************
 }
+
+(* OO modifications
+  The procedures in this unit become methods of the TOPLParser.
+*)
+
+{$IFDEF parser_units}
 unit pinline;
 
 {$i fpcdefs.inc}
@@ -59,9 +65,10 @@ implementation
        { codegen }
        cgbase
        ;
+{$ENDIF}
 
 
-    function new_dispose_statement(is_new:boolean) : tnode;
+    function TOPLParser.new_dispose_statement(is_new:boolean) : tnode;
       var
         newstatement : tstatementnode;
         temp         : ttempcreatenode;
@@ -339,7 +346,7 @@ implementation
       end;
 
 
-    function new_function : tnode;
+    function TOPLParser.new_function : tnode;
       var
         newstatement : tstatementnode;
         newblock     : tblocknode;
@@ -454,7 +461,7 @@ implementation
       end;
 
 
-    function inline_setlength : tnode;
+    function TOPLParser.inline_setlength : tnode;
       var
         paras   : tnode;
         npara,
@@ -587,7 +594,7 @@ implementation
       end;
 
 
-    function inline_initialize : tnode;
+    function TOPLParser.inline_initialize : tnode;
       var
         newblock,
         paras   : tnode;
@@ -623,7 +630,7 @@ implementation
       end;
 
 
-    function inline_finalize : tnode;
+    function TOPLParser.inline_finalize : tnode;
       var
         newblock,
         paras   : tnode;
@@ -679,7 +686,7 @@ implementation
       end;
 
 
-    function inline_copy : tnode;
+    function TOPLParser.inline_copy : tnode;
       var
         copynode,
         lowppn,
@@ -782,4 +789,4 @@ implementation
         result:=copynode;
       end;
 
-end.
+//end.

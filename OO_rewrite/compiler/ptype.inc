@@ -19,6 +19,9 @@
 
  ****************************************************************************
 }
+(* Was ptype.pas
+*)
+{$IFDEF old}
 unit ptype;
 
 {$i fpcdefs.inc}
@@ -73,9 +76,11 @@ implementation
        { parser }
        scanner,
        pbase,pexpr,pdecsub,pdecvar,pdecobj;
+{$ELSE}
+{$ENDIF}
 
 
-    procedure resolve_forward_types;
+    procedure TOPLParser.resolve_forward_types;
       var
         i: longint;
         hpd,
@@ -141,7 +146,7 @@ implementation
       end;
 
 
-    procedure generate_specialization(var tt:tdef);
+    procedure TOPLParser.generate_specialization(var tt:tdef);
       var
         st  : TSymtable;
         srsym : tsym;

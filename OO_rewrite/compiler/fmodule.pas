@@ -214,6 +214,7 @@ interface
           constructor create(_u : tmodule);
        end;
 
+{ TODO : make class members }
     var
        main_module       : tmodule;     { Main module of the program }
        current_module    : tmodule;     { Current module which is compiled or loaded }

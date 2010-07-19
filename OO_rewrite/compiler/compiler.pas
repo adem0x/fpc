@@ -39,7 +39,7 @@ uses
   fksysutl,
 {$ENDIF}
   verbose,comphook,systems,
-  cutils,cfileutl,cclasses,globals,options,fmodule,parser,symtable,
+  cutils,cfileutl,cclasses,globals,options,fmodule,parser_opl,symtable,
   assemble,link,dbgbase,import,export,tokens,pass_1,wpobase,wpo
   { cpu parameter handling }
   ,cpupara
@@ -243,10 +243,10 @@ begin
        { Compile the program }
   {$ifdef PREPROCWRITE}
        if parapreprocess then
-        parser.preprocess(inputfilepath+inputfilename)
+        TParser.preprocess(inputfilepath+inputfilename)
        else
   {$endif PREPROCWRITE}
-        parser.compile(inputfilepath+inputfilename);
+        TParser.compile(inputfilepath+inputfilename);
 
        { Show statistics }
        if status.errorcount=0 then

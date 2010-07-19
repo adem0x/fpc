@@ -112,7 +112,7 @@ uses
   wpoinfo,
   scanner,
   aasmbase,ogbase,
-  parser,
+  pbase,  //was: parser,
   comphook;
 
 
@@ -1627,7 +1627,11 @@ var
               { compile this module }
               if not(state in [ms_compile,ms_second_compile]) then
                 state:=ms_compile;
+            {$IFDEF old}
               compile(mainsource^);
+            {$ELSE}
+              TParserBase.compile(mainsource^);
+            {$ENDIF}
               setdefgeneration;
             end
            else

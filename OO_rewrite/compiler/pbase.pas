@@ -19,9 +19,23 @@
 
  ****************************************************************************
 }
+(* OO modifications
+
+In a first try this unit (singleton) has been converted into a class.
+  The methods should reside in the scanner,
+  but to reduce the modifications of all calls we implement stubs here, at least.
+  Exact placement of the method implementation is subject to optimization (profiling)
+In a second try it may be more efficient to base the parser on the scanner class,
+  provided that every parser uses exactly one scanner (not so likely?)
+
+  All other parser units must become include files of the parser unit,
+  their procedures become methods of the parser.
+*)
+
 unit pbase;
 
 {$i fpcdefs.inc}
+{$DEFINE consume_in_parser}
 
 interface
 
@@ -29,6 +43,7 @@ interface
        cutils,cclasses,
        tokens,globtype,
        symconst,symbase,symtype,symdef,symsym,symtable
+      ,scanner
        ;
 
     const
@@ -36,37 +51,43 @@ interface
          a ; on the statement before }
        endtokens = [_SEMICOLON,_END,_ELSE,_UNTIL,_EXCEPT,_FINALLY];
 
-       { true, if we are after an assignement }
-       afterassignment : boolean = false;
+  type
+  {$IFDEF consume_in_parser}
+    TParserBase = class(tscannerfile)
+  {$ELSE}
+    TParserBase = class //(tscannerfile)
+  {$ENDIF}
+    public  //really?
+     current_scanner : tscannerfile;  { current scanner in use }
 
-       { true, if we are parsing arguments }
-       in_args : boolean = false;
+     { true, if we are after an assignement }
+     afterassignment : boolean; // = false;
 
-       { true, if we are parsing arguments allowing named parameters }
-       named_args_allowed : boolean = false;
+     { true, if we are parsing arguments }
+     in_args : boolean; // = false;
 
-       { true, if we got an @ to get the address }
-       got_addrn  : boolean = false;
+     { true, if we are parsing arguments allowing named parameters }
+     named_args_allowed : boolean;  // = false;
 
-       { special for handling procedure vars }
-       getprocvardef : tprocvardef = nil;
+     { true, if we got an @ to get the address }
+     got_addrn  : boolean;  // = false;
 
-    var
-       { for operators }
-       optoken : ttoken;
+     { special for handling procedure vars }
+     getprocvardef : tprocvardef; // = nil;
 
-       { true, if only routine headers should be parsed }
-       parse_only : boolean;
+     { for operators }
+     //optoken : ttoken; - moved into scanner?
 
-       { true, if we found a name for a named arg }
-       found_arg_name : boolean;
+     { true, if only routine headers should be parsed }
+     parse_only : boolean;
 
-       { true, if we are parsing generic declaration }
-       parse_generic : boolean;
+     { true, if we found a name for a named arg }
+     found_arg_name : boolean;
+
+     { true, if we are parsing generic declaration }
+     parse_generic : boolean;
 
     procedure identifier_not_found(const s:string);
-
-{    function tokenstring(i : ttoken):string;}
 
     { consumes token i, if the current token is unequal i }
     { a syntax error is written                           }
@@ -91,35 +112,70 @@ interface
     function try_consume_unitsym(var srsym:tsym;var srsymtable:TSymtable;var tokentoconsume : ttoken):boolean;
 
     function try_consume_hintdirective(var symopt:tsymoptions; var deprecatedmsg:pshortstring):boolean;
-
-    { just for an accurate position of the end of a procedure (PM) }
-    var
-       last_endtoken_filepos: tfileposinfo;
-
+  protected
+    ffilename: string;
+  public
+    class procedure compile(const filename:string); //should return the compiled module?
+{$ifdef PREPROCWRITE}
+    class procedure preprocess(const filename:string);
+{$endif PREPROCWRITE}
+    property filename: string read ffilename;
+  end;
 
 implementation
 
     uses
-       globals,htypechk,scanner,systems,verbose,fmodule;
+       globals,htypechk,//scanner,
+      systems,verbose,fmodule,
+      parser_opl;
+
+
+      { TParserBase }
+
+      class procedure TParserBase.compile(const filename: string);
+      var
+        parser: TOPLParser;
+      begin
+      (* Later on this method can detect the language of the file,
+          and create an parser accordingly.
+      *)
+        parser := TOPLParser.Create;
+        parser.ffilename := filename;
+        parser.Execute;
+        parser.Free;
+      end;
+
+      class procedure TParserBase.preprocess(const filename: string);
+      var
+        parser: TOPLParser;
+      begin
+      (* Later on this method can detect the language of the file,
+          and preprocess the file accordingly.
+      *)
+        parser := TOPLParser.Create;
+        parser.preprocess(filename);
+        parser.Free;
+      end;
 
 {****************************************************************************
                                Token Parsing
 ****************************************************************************}
 
-     procedure identifier_not_found(const s:string);
+{$IFDEF consume_in_parser}
+     procedure TParserBase.identifier_not_found(const s:string);
        begin
          Message1(sym_e_id_not_found,s);
          { show a fatal that you need -S2 or -Sd, but only
            if we just parsed the a token that has m_class }
          if not(m_class in current_settings.modeswitches) and
-            (Upper(s)=pattern) and
-            (tokeninfo^[idtoken].keyword=m_class) then
+            (Upper(s)=current_scanner.pattern) and
+            (tokeninfo^[current_scanner.idtoken].keyword=m_class) then
            Message(parser_f_need_objfpc_or_delphi_mode);
        end;
 
 
     { consumes token i, write error if token is different }
-    procedure consume(i : ttoken);
+    procedure TParserBase.consume(i : ttoken);
       begin
         if (token<>i) and (idtoken<>i) then
           if token=_id then
@@ -135,7 +191,7 @@ implementation
       end;
 
 
-    function try_to_consume(i:Ttoken):boolean;
+    function TParserBase.try_to_consume(i:Ttoken):boolean;
       begin
         try_to_consume:=false;
         if (token=i) or (idtoken=i) then
@@ -148,7 +204,7 @@ implementation
       end;
 
 
-    procedure consume_all_until(atoken : ttoken);
+    procedure TParserBase.consume_all_until(atoken : ttoken);
       begin
          while (token<>atoken) and (idtoken<>atoken) do
           begin
@@ -163,7 +219,7 @@ implementation
       end;
 
 
-    procedure consume_emptystats;
+    procedure TParserBase.consume_emptystats;
       begin
          repeat
          until not try_to_consume(_SEMICOLON);
@@ -176,7 +232,7 @@ implementation
       If this code is changed, it's likly that consume_sym_orgid and factor_read_id
       must be changed as well (FK)
     }
-    function consume_sym(var srsym:tsym;var srsymtable:TSymtable):boolean;
+    function TParserBase.consume_sym(var srsym:tsym;var srsymtable:TSymtable):boolean;
       var
         t : ttoken;
       begin
@@ -209,7 +265,7 @@ implementation
     { check if a symbol contains the hint directive, and if so gives out a hint
       if required and returns the id with it's original casing
     }
-    function consume_sym_orgid(var srsym:tsym;var srsymtable:TSymtable;var s : string):boolean;
+    function TParserBase.consume_sym_orgid(var srsym:tsym;var srsymtable:TSymtable;var s : string):boolean;
       var
         t : ttoken;
       begin
@@ -240,7 +296,7 @@ implementation
       end;
 
 
-    function try_consume_unitsym(var srsym:tsym;var srsymtable:TSymtable;var tokentoconsume : ttoken):boolean;
+    function TParserBase.try_consume_unitsym(var srsym:tsym;var srsymtable:TSymtable;var tokentoconsume : ttoken):boolean;
       begin
         result:=false;
         tokentoconsume:=_ID;
@@ -282,7 +338,7 @@ implementation
       end;
 
 
-    function try_consume_hintdirective(var symopt:tsymoptions; var deprecatedmsg:pshortstring):boolean;
+    function TParserBase.try_consume_hintdirective(var symopt:tsymoptions; var deprecatedmsg:pshortstring):boolean;
       var
         last_is_deprecated:boolean;
       begin
@@ -336,5 +392,59 @@ implementation
             end;
         until false;
       end;
+{$ELSE}
+
+{ TParserBase }
+
+procedure TParserBase.identifier_not_found(const s: string);
+begin
+  current_scanner.identifier_not_found(s);
+end;
+
+procedure TParserBase.consume(i: ttoken);
+begin
+  current_scanner.consume(i);
+end;
+
+function TParserBase.try_to_consume(i: Ttoken): boolean;
+begin
+  Result := current_scanner.try_to_consume(i);
+end;
+
+procedure TParserBase.consume_all_until(atoken: ttoken);
+begin
+  current_scanner.consume_all_until(atoken);
+end;
+
+procedure TParserBase.consume_emptystats;
+begin
+  current_scanner.consume_emptystats;
+end;
+
+function TParserBase.consume_sym(var srsym: tsym; var srsymtable: TSymtable
+  ): boolean;
+begin
+  Result :=  current_scanner.consume_sym(srsym,srsymtable);
+end;
+
+function TParserBase.consume_sym_orgid(var srsym: tsym;
+  var srsymtable: TSymtable; var s: string): boolean;
+begin
+  Result := current_scanner.consume_sym_orgid(srsym, srsymtable, s);
+end;
+
+function TParserBase.try_consume_unitsym(var srsym: tsym;
+  var srsymtable: TSymtable; var tokentoconsume: ttoken): boolean;
+begin
+  Result :=   current_scanner.try_consume_unitsym(srsym, srsymtable, tokentoconsume);
+end;
+
+function TParserBase.try_consume_hintdirective(var symopt: tsymoptions;
+  var deprecatedmsg: pshortstring): boolean;
+begin
+  Result := current_scanner.try_consume_hintdirective(symopt, deprecatedmsg);
+end;
+
+{$ENDIF}
 
 end.

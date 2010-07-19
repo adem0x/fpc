@@ -19,6 +19,11 @@
 
  ****************************************************************************
 }
+(* Was scandir.pas
+*)
+
+{$IFnDEF old}
+{$ELSE}
 unit scandir;
 
 {$i fpcdefs.inc}
@@ -57,37 +62,38 @@ unit scandir;
       fmodule,
       symconst,symtable,
       rabase;
+{$ENDIF}
 
 {*****************************************************************************
                                     Helpers
 *****************************************************************************}
 
-    procedure do_delphiswitch(sw:char);
+    procedure tscannerfile.do_delphiswitch(sw:char);
       var
         state : char;
       begin
       { c contains the next char, a + or - would be fine }
-        state:=current_scanner.readstate;
+        state:=readstate;
         if state in ['-','+'] then
           HandleSwitch(sw,state);
       end;
 
 
-    procedure do_setverbose(flag:char);
+    procedure tscannerfile.do_setverbose(flag:char);
       var
         state : char;
       begin
       { support ON/OFF }
-        state:=current_scanner.ReadState;
+        state:=ReadState;
         recordpendingverbosityswitch(flag,state);
       end;
 
 
-    procedure do_moduleswitch(sw:tmoduleswitch);
+    procedure tscannerfile.do_moduleswitch(sw:tmoduleswitch);
       var
         state : char;
       begin
-        state:=current_scanner.readstate;
+        state:=readstate;
         if (sw<>cs_modulenone) and (state in ['-','+']) then
          begin
            if state='-' then
@@ -98,44 +104,44 @@ unit scandir;
       end;
 
 
-    procedure do_localswitch(sw:tlocalswitch);
+    procedure tscannerfile.do_localswitch(sw:tlocalswitch);
       var
         state : char;
       begin
-        state:=current_scanner.readstate;
+        state:=readstate;
         if (sw<>cs_localnone) and (state in ['-','+']) then
           recordpendinglocalswitch(sw,state);
       end;
 
-    procedure do_localswitchdefault(sw:tlocalswitch);
+    procedure tscannerfile.do_localswitchdefault(sw:tlocalswitch);
       var
         state : char;
       begin
-        state:=current_scanner.readstatedefault;
+        state:=readstatedefault;
         if (sw<>cs_localnone) and (state in ['-','+','*']) then
           recordpendinglocalswitch(sw,state);
       end;
 
 
-    procedure do_message(w:integer);
+    procedure tscannerfile.do_message(w:integer);
       begin
-        current_scanner.skipspace;
-        Message1(w,current_scanner.readcomment);
+        skipspace;
+        Message1(w,readcomment);
       end;
 
 {*****************************************************************************
                               Directive Callbacks
 *****************************************************************************}
 
-    procedure dir_align;
+    procedure tscannerfile.dir_align;
       var
         hs : string;
       begin
-        current_scanner.skipspace;
+        skipspace;
         if not(c in ['0'..'9']) then
          begin
            { Support also the ON and OFF as switch }
-           hs:=current_scanner.readid;
+           hs:=readid;
            if (hs='ON') then
             current_settings.packrecords:=4
            else if (hs='OFF') then
@@ -159,7 +165,7 @@ unit scandir;
          end
         else
          begin
-           case current_scanner.readval of
+           case readval of
              1 : current_settings.packrecords:=1;
              2 : current_settings.packrecords:=2;
              4 : current_settings.packrecords:=4;
@@ -172,32 +178,32 @@ unit scandir;
          end;
       end;
 
-    procedure dir_a1;
+    procedure tscannerfile.dir_a1;
       begin
         current_settings.packrecords:=1;
       end;
 
-    procedure dir_a2;
+    procedure tscannerfile.dir_a2;
       begin
         current_settings.packrecords:=2;
       end;
 
-    procedure dir_a4;
+    procedure tscannerfile.dir_a4;
       begin
         current_settings.packrecords:=4;
       end;
 
-    procedure dir_a8;
+    procedure tscannerfile.dir_a8;
       begin
         current_settings.packrecords:=8;
       end;
 
-    procedure dir_asmmode;
+    procedure tscannerfile.dir_asmmode;
       var
         s : string;
       begin
-        current_scanner.skipspace;
-        s:=current_scanner.readid;
+        skipspace;
+        s:=readid;
         If Inside_asm_statement then
           Message1(scan_w_no_asm_reader_switch_inside_asm,s);
         if s='DEFAULT' then
@@ -208,28 +214,28 @@ unit scandir;
       end;
 
 {$if defined(m68k) or defined(arm)}
-    procedure dir_appid;
+    procedure tscannerfile.dir_appid;
       begin
         if target_info.system<>system_m68k_palmos then
           Message(scan_w_appid_not_support);
         { change description global var in all cases }
         { it not used but in win32 and os2 }
-        current_scanner.skipspace;
+        skipspace;
         palmos_applicationid:=current_scanner.readcomment;
       end;
 
-    procedure dir_appname;
+    procedure tscannerfile.dir_appname;
       begin
         if target_info.system<>system_m68k_palmos then
           Message(scan_w_appname_not_support);
         { change description global var in all cases }
         { it not used but in win32 and os2 }
-        current_scanner.skipspace;
-        palmos_applicationname:=current_scanner.readcomment;
+        skipspace;
+        palmos_applicationname:=readcomment;
       end;
 {$endif defined(m68k) or defined(arm)}
 
-    procedure dir_apptype;
+    procedure tscannerfile.dir_apptype;
       var
          hs : string;
       begin
@@ -248,8 +254,8 @@ unit scandir;
               Message(scan_w_switch_is_global)
             else
               begin
-                 current_scanner.skipspace;
-                 hs:=current_scanner.readid;
+                 skipspace;
+                 hs:=readid;
                  if hs='GUI' then
                    apptype:=app_gui
                  else if hs='CONSOLE' then
@@ -272,12 +278,12 @@ unit scandir;
       end;
 
 
-    procedure dir_calling;
+    procedure tscannerfile.dir_calling;
       var
          hs : string;
       begin
-        current_scanner.skipspace;
-        hs:=current_scanner.readid;
+        skipspace;
+        hs:=readid;
         if (hs='') then
           Message(parser_e_proc_directive_expected)
         else
@@ -285,170 +291,170 @@ unit scandir;
       end;
 
 
-    procedure dir_checkpointer;
+    procedure tscannerfile.dir_checkpointer;
       begin
         do_localswitchdefault(cs_checkpointer);
       end;
 
 
-    procedure dir_objectchecks;
+    procedure tscannerfile.dir_objectchecks;
       begin
         do_localswitch(cs_check_object);
       end;
 
 
-    procedure dir_assertions;
+    procedure tscannerfile.dir_assertions;
       begin
         do_delphiswitch('C');
       end;
 
-    procedure dir_booleval;
+    procedure tscannerfile.dir_booleval;
       begin
         do_delphiswitch('B');
       end;
 
-    procedure dir_debuginfo;
+    procedure tscannerfile.dir_debuginfo;
       begin
         do_delphiswitch('D');
       end;
 
-    procedure dir_description;
+    procedure tscannerfile.dir_description;
       begin
         if not (target_info.system in systems_all_windows+[system_i386_os2,system_i386_emx,
                  system_i386_netware,system_i386_wdosx,system_i386_netwlibc]) then
           Message(scan_w_description_not_support);
         { change description global var in all cases }
         { it not used but in win32, os2 and netware }
-        current_scanner.skipspace;
-        description:=current_scanner.readcomment;
+        skipspace;
+        description:=readcomment;
         DescriptionSetExplicity:=true;
       end;
 
-    procedure dir_screenname; {ad}
+    procedure tscannerfile.dir_screenname; {ad}
       begin
         if not (target_info.system in [system_i386_netware,system_i386_netwlibc]) then
           {Message(scan_w_decription_not_support);}
           comment (V_Warning,'Screenname only supported for target netware');
-        current_scanner.skipspace;
-        nwscreenname:=current_scanner.readcomment;
+        skipspace;
+        nwscreenname:=readcomment;
       end;
 
-      procedure dir_threadname; {ad}
+      procedure tscannerfile.dir_threadname; {ad}
       begin
         if not (target_info.system in [system_i386_netware,system_i386_netwlibc]) then
           {Message(scan_w_decription_not_support);}
           comment (V_Warning,'Threadname only supported for target netware');
-        current_scanner.skipspace;
-        nwthreadname:=current_scanner.readcomment;
+        skipspace;
+        nwthreadname:=readcomment;
       end;
 
-      procedure dir_copyright; {ad}
+      procedure tscannerfile.dir_copyright; {ad}
       begin
         if not (target_info.system in [system_i386_netware,system_i386_netwlibc]) then
           {Message(scan_w_decription_not_support);}
           comment (V_Warning,'Copyright only supported for target netware');
-        current_scanner.skipspace;
-        nwcopyright:=current_scanner.readcomment;
+        skipspace;
+        nwcopyright:=readcomment;
       end;
 
-    procedure dir_error;
+    procedure tscannerfile.dir_error;
       begin
         do_message(scan_e_user_defined);
       end;
 
-    procedure dir_extendedsyntax;
+    procedure tscannerfile.dir_extendedsyntax;
       begin
         do_delphiswitch('X');
       end;
 
-    procedure dir_fatal;
+    procedure tscannerfile.dir_fatal;
       begin
         do_message(scan_f_user_defined);
       end;
 
-    procedure dir_fputype;
+    procedure tscannerfile.dir_fputype;
       begin
-        current_scanner.skipspace;
+        skipspace;
         undef_system_macro('FPU'+fputypestr[current_settings.fputype]);
-        if not(SetFPUType(upper(current_scanner.readcomment),current_settings.fputype)) then
+        if not(SetFPUType(upper(readcomment),current_settings.fputype)) then
           comment(V_Error,'Illegal FPU type');
         def_system_macro('FPU'+fputypestr[current_settings.fputype]);
      end;
 
-    procedure dir_frameworkpath;
+    procedure tscannerfile.dir_frameworkpath;
       begin
         if not current_module.in_global then
          Message(scan_w_switch_is_global)
         else if not(target_info.system in systems_darwin) then
           begin
             Message(scan_w_frameworks_darwin_only);
-            current_scanner.skipspace;
-            current_scanner.readcomment
+            skipspace;
+            readcomment
           end
         else
           begin
-            current_scanner.skipspace;
-            current_module.localframeworksearchpath.AddPath(current_scanner.readcomment,false);
+            skipspace;
+            current_module.localframeworksearchpath.AddPath(readcomment,false);
           end;
       end;
 
-    procedure dir_goto;
+    procedure tscannerfile.dir_goto;
       begin
         do_moduleswitch(cs_support_goto);
       end;
 
-    procedure dir_hint;
+    procedure tscannerfile.dir_hint;
       begin
         do_message(scan_h_user_defined);
       end;
 
-    procedure dir_hints;
+    procedure tscannerfile.dir_hints;
       begin
         do_setverbose('H');
       end;
 
-    procedure dir_imagebase;
+    procedure tscannerfile.dir_imagebase;
       begin
         if not (target_info.system in (systems_windows+systems_wince)) then
           Message(scan_w_imagebase_not_support);
-        current_scanner.skipspace;
-        imagebase:=current_scanner.readval;
+        skipspace;
+        imagebase:=readval;
         ImageBaseSetExplicity:=true
       end;
 
-    procedure dir_implicitexceptions;
+    procedure tscannerfile.dir_implicitexceptions;
       begin
         do_moduleswitch(cs_implicit_exceptions);
       end;
 
-    procedure dir_includepath;
+    procedure tscannerfile.dir_includepath;
       begin
         if not current_module.in_global then
          Message(scan_w_switch_is_global)
         else
           begin
-            current_scanner.skipspace;
-            current_module.localincludesearchpath.AddPath(current_scanner.readcomment,false);
+            skipspace;
+            current_module.localincludesearchpath.AddPath(readcomment,false);
           end;
       end;
 
-    procedure dir_info;
+    procedure tscannerfile.dir_info;
       begin
         do_message(scan_i_user_defined);
       end;
 
-    procedure dir_inline;
+    procedure tscannerfile.dir_inline;
       begin
         do_localswitch(cs_do_inline);
       end;
 
-    procedure dir_interfaces;
+    procedure tscannerfile.dir_interfaces;
       var
         hs : string;
       begin
         {corba/com/default}
-        current_scanner.skipspace;
-        hs:=current_scanner.readid;
+        skipspace;
+        hs:=readid;
         if (hs='CORBA') then
           current_settings.interfacetype:=it_interfacecorba
         else if (hs='COM') then
@@ -459,57 +465,57 @@ unit scandir;
           Message(scan_e_invalid_interface_type);
       end;
 
-    procedure dir_iochecks;
+    procedure tscannerfile.dir_iochecks;
       begin
         do_delphiswitch('I');
       end;
 
-    procedure dir_libexport;
+    procedure tscannerfile.dir_libexport;
       begin
         {not implemented}
       end;
 
-    procedure dir_librarypath;
+    procedure tscannerfile.dir_librarypath;
       begin
         if not current_module.in_global then
          Message(scan_w_switch_is_global)
         else
           begin
-            current_scanner.skipspace;
-            current_module.locallibrarysearchpath.AddPath(current_scanner.readcomment,false);
+            skipspace;
+            current_module.locallibrarysearchpath.AddPath(readcomment,false);
           end;
       end;
 
-    procedure dir_link;
+    procedure tscannerfile.dir_link;
       var
         s : string;
       begin
-        current_scanner.skipspace;
-        if scanner.c = '''' then
+        skipspace;
+        if c = '''' then
           begin
-            s:= current_scanner.readquotedstring;
-            current_scanner.readcomment
+            s:= readquotedstring;
+            readcomment
           end
         else
-          s:= trimspace(current_scanner.readcomment);
+          s:= trimspace(readcomment);
         s:=FixFileName(s);
         if ExtractFileExt(s)='' then
           s:=ChangeFileExt(s,target_info.objext);
         current_module.linkotherofiles.add(s,link_always);
       end;
 
-    procedure dir_linkframework;
+    procedure tscannerfile.dir_linkframework;
       var
         s : string;
       begin
-        current_scanner.skipspace;
-        if scanner.c = '''' then
+        skipspace;
+        if c = '''' then
           begin
-            s:= current_scanner.readquotedstring;
-            current_scanner.readcomment
+            s:= readquotedstring;
+            readcomment
           end
         else
-          s:= trimspace(current_scanner.readcomment);
+          s:= trimspace(readcomment);
         s:=FixFileName(s);
         if (target_info.system in systems_darwin) then
           current_module.linkotherframeworks.add(s,link_always)
@@ -517,7 +523,7 @@ unit scandir;
           Message(scan_w_frameworks_darwin_only);
       end;
 
-    procedure dir_linklib;
+    procedure tscannerfile.dir_linklib;
       type
         tLinkMode=(lm_shared,lm_static);
       var
@@ -529,16 +535,16 @@ unit scandir;
         p : longint;
         linkMode : tLinkMode;
       begin
-        current_scanner.skipspace;
-        if scanner.c = '''' then
+        skipspace;
+        if c = '''' then
           begin
-            libname:= current_scanner.readquotedstring;
-            s:= current_scanner.readcomment;
+            libname:= readquotedstring;
+            s:= readcomment;
             p:=pos(',',s);
           end
         else
           begin
-            s:= current_scanner.readcomment;
+            s:= readcomment;
             p:=pos(',',s);
             if p=0 then
               libname:=TrimSpace(s)
@@ -587,27 +593,27 @@ unit scandir;
          current_module.linkOtherSharedLibs.add(libname,link_always);
       end;
 
-    procedure dir_localsymbols;
+    procedure tscannerfile.dir_localsymbols;
       begin
         do_delphiswitch('L');
       end;
 
-    procedure dir_longstrings;
+    procedure tscannerfile.dir_longstrings;
       begin
         do_delphiswitch('H');
       end;
 
-    procedure dir_macro;
+    procedure tscannerfile.dir_macro;
       begin
         do_moduleswitch(cs_support_macro);
       end;
 
-    procedure dir_pascalmainname;
+    procedure tscannerfile.dir_pascalmainname;
       var
         s: string;
       begin
-        current_scanner.skipspace;
-        s:=trimspace(current_scanner.readcomment);
+        skipspace;
+        s:=trimspace(readcomment);
         if assigned(current_module.mainname) and
            (s<>current_module.mainname^) then
           begin
@@ -622,15 +628,15 @@ unit scandir;
           current_module.mainname:=stringdup(mainaliasname);
       end;
 
-    procedure dir_maxfpuregisters;
+    procedure tscannerfile.dir_maxfpuregisters;
       var
          l  : integer;
          hs : string;
       begin
-         current_scanner.skipspace;
+         skipspace;
          if not(c in ['0'..'9']) then
            begin
-              hs:=current_scanner.readid;
+              hs:=readid;
               if (hs='NORMAL') or (hs='DEFAULT') then
                 current_settings.maxfpuregisters:=-1
               else
@@ -638,7 +644,7 @@ unit scandir;
            end
          else
            begin
-              l:=current_scanner.readval;
+              l:=readval;
               case l of
                  0..8:
                    current_settings.maxfpuregisters:=l;
@@ -648,47 +654,47 @@ unit scandir;
            end;
       end;
 
-    procedure dir_maxstacksize;
+    procedure tscannerfile.dir_maxstacksize;
       begin
         if not (target_info.system in (systems_windows+systems_wince)) then
           Message(scan_w_maxstacksize_not_support);
-        current_scanner.skipspace;
-        maxstacksize:=current_scanner.readval;
+        skipspace;
+        maxstacksize:=readval;
         MaxStackSizeSetExplicity:=true;
       end;
 
-    procedure dir_memory;
+    procedure tscannerfile.dir_memory;
       var
         l : longint;
       begin
-        current_scanner.skipspace;
-        l:=current_scanner.readval;
+        skipspace;
+        l:=readval;
         if l>1024 then
           stacksize:=l;
         if c=',' then
           begin
-            current_scanner.readchar;
-            current_scanner.skipspace;
-            l:=current_scanner.readval;
+            readchar;
+            skipspace;
+            l:=readval;
             if l>1024 then
               heapsize:=l;
           end;
       end;
 
 
-    procedure dir_message;
+    procedure tscannerfile.dir_message;
       var
         hs : string;
         w  : longint;
       begin
         w:=0;
-        current_scanner.skipspace;
+        skipspace;
         { Message level specified? }
         if c='''' then
           w:=scan_n_user_defined
         else
           begin
-            hs:=current_scanner.readid;
+            hs:=readid;
             if (hs='WARN') or (hs='WARNING') then
               w:=scan_w_user_defined
             else
@@ -709,37 +715,37 @@ unit scandir;
         { Only print message when there was no error }
         if w<>0 then
           begin
-            current_scanner.skipspace;
+            skipspace;
             if c='''' then
-              hs:=current_scanner.readquotedstring
+              hs:=readquotedstring
             else
-              hs:=current_scanner.readcomment;
+              hs:=readcomment;
             Message1(w,hs);
           end
         else
-          current_scanner.readcomment;
+          readcomment;
       end;
 
 
-    procedure dir_minstacksize;
+    procedure tscannerfile.dir_minstacksize;
       begin
         if not (target_info.system in (systems_windows+systems_wince)) then
           Message(scan_w_minstacksize_not_support);
-        current_scanner.skipspace;
-        minstacksize:=current_scanner.readval;
+        skipspace;
+        minstacksize:=readval;
         MinStackSizeSetExplicity:=true;
       end;
 
 
-    procedure dir_mode;
+    procedure tscannerfile.dir_mode;
 
     begin
       if not current_module.in_global then
         Message(scan_w_switch_is_global)
       else
         begin
-          current_scanner.skipspace;
-          current_scanner.readstring;
+          skipspace;
+          readstring;
           if not current_module.mode_switch_allowed and
               not ((m_mac in current_settings.modeswitches) and (pattern='MACPAS')) then
             Message1(scan_e_mode_switch_not_allowed,pattern)
@@ -750,7 +756,7 @@ unit scandir;
     end;
 
 
-    procedure dir_modeswitch;
+    procedure tscannerfile.dir_modeswitch;
       var
         s : string;
       begin
@@ -758,55 +764,55 @@ unit scandir;
           Message(scan_w_switch_is_global)
         else
           begin
-            current_scanner.skipspace;
-            current_scanner.readstring;
+            skipspace;
+            readstring;
             s:=pattern;
             if c in ['+','-'] then
-              s:=s+current_scanner.readstate;
+              s:=s+readstate;
             if not SetCompileModeSwitch(s,false) then
               Message1(scan_w_illegal_switch,s)
           end;
       end;
 
 
-    procedure dir_mmx;
+    procedure tscannerfile.dir_mmx;
       begin
         do_localswitch(cs_mmx);
       end;
 
-    procedure dir_note;
+    procedure tscannerfile.dir_note;
       begin
         do_message(scan_n_user_defined);
       end;
 
-    procedure dir_notes;
+    procedure tscannerfile.dir_notes;
       begin
         do_setverbose('N');
       end;
 
-    procedure dir_objectpath;
+    procedure tscannerfile.dir_objectpath;
       begin
         if not current_module.in_global then
          Message(scan_w_switch_is_global)
         else
           begin
-            current_scanner.skipspace;
-            current_module.localobjectsearchpath.AddPath(current_scanner.readcomment,false);
+            skipspace;
+            current_module.localobjectsearchpath.AddPath(readcomment,false);
           end;
       end;
 
-    procedure dir_openstrings;
+    procedure tscannerfile.dir_openstrings;
       begin
         do_delphiswitch('P');
       end;
 
-    procedure dir_optimization;
+    procedure tscannerfile.dir_optimization;
       var
         hs : string;
       begin
-        current_scanner.skipspace;
+        skipspace;
         { Support also the ON and OFF as switch }
-        hs:=current_scanner.readid;
+        hs:=readid;
         if (hs='ON') then
           current_settings.optimizerswitches:=level2optimizerswitches
         else if (hs='OFF') then
@@ -820,19 +826,19 @@ unit scandir;
           end;
       end;
 
-    procedure dir_overflowchecks;
+    procedure tscannerfile.dir_overflowchecks;
       begin
         do_delphiswitch('Q');
       end;
 
-    procedure dir_packenum;
+    procedure tscannerfile.dir_packenum;
       var
         hs : string;
       begin
-        current_scanner.skipspace;
+        skipspace;
         if not(c in ['0'..'9']) then
          begin
-           hs:=current_scanner.readid;
+           hs:=readid;
            if (hs='NORMAL') or (hs='DEFAULT') then
             current_settings.packenum:=4
            else
@@ -840,7 +846,7 @@ unit scandir;
          end
         else
          begin
-           case current_scanner.readval of
+           case readval of
             1 : current_settings.packenum:=1;
             2 : current_settings.packenum:=2;
             4 : current_settings.packenum:=4;
@@ -851,22 +857,22 @@ unit scandir;
       end;
 
 
-    procedure dir_minfpconstprec;
+    procedure tscannerfile.dir_minfpconstprec;
       begin
-        current_scanner.skipspace;
-        if not SetMinFPConstPrec(current_scanner.readid,current_settings.minfpconstprec) then
+        skipspace;
+        if not SetMinFPConstPrec(readid,current_settings.minfpconstprec) then
           Message1(scan_e_illegal_minfpconstprec, pattern);
       end;
 
 
-    procedure dir_packrecords;
+    procedure tscannerfile.dir_packrecords;
       var
         hs : string;
       begin
-        current_scanner.skipspace;
+        skipspace;
         if not(c in ['0'..'9']) then
          begin
-           hs:=current_scanner.readid;
+           hs:=readid;
            { C has the special recordalignmax of C_alignment }
            if (hs='C') then
             current_settings.packrecords:=C_alignment
@@ -878,7 +884,7 @@ unit scandir;
          end
         else
          begin
-           case current_scanner.readval of
+           case readval of
              1 : current_settings.packrecords:=1;
              2 : current_settings.packrecords:=2;
              4 : current_settings.packrecords:=4;
@@ -892,14 +898,14 @@ unit scandir;
       end;
 
 
-    procedure dir_packset;
+    procedure tscannerfile.dir_packset;
       var
         hs : string;
       begin
-        current_scanner.skipspace;
+        skipspace;
         if not(c in ['1','2','4','8']) then
          begin
-           hs:=current_scanner.readid;
+           hs:=readid;
            if (hs='FIXED') or ((hs='DEFAULT') OR (hs='NORMAL')) then
             current_settings.setalloc:=0               {Fixed mode, sets are 4 or 32 bytes}
            else
@@ -907,7 +913,7 @@ unit scandir;
          end
         else
          begin
-           case current_scanner.readval of
+           case readval of
             1 : current_settings.setalloc:=1;
             2 : current_settings.setalloc:=2;
             4 : current_settings.setalloc:=4;
@@ -919,7 +925,7 @@ unit scandir;
       end;
 
 
-    procedure dir_pic;
+    procedure tscannerfile.dir_pic;
       begin
         { windows doesn't need/support pic }
         if tf_no_pic_supported in target_info.flags then
@@ -928,7 +934,7 @@ unit scandir;
           do_moduleswitch(cs_create_pic);
       end;
 
-    procedure dir_pop;
+    procedure tscannerfile.dir_pop;
 
     begin
       if switchesstatestackpos < 1 then
@@ -939,7 +945,7 @@ unit scandir;
       recordpendingverbosityfullswitch(switchesstatestack[switchesstatestackpos].verbosity);
     end;
 
-    procedure dir_profile;
+    procedure tscannerfile.dir_profile;
       begin
         do_moduleswitch(cs_profile);
         { defined/undefine FPC_PROFILE }
@@ -949,8 +955,7 @@ unit scandir;
           undef_system_macro('FPC_PROFILE');
       end;
 
-    procedure dir_push;
-
+    procedure tscannerfile.dir_push;
     begin
       if switchesstatestackpos > switchesstatestackmax then
         Message(scan_e_too_many_push);
@@ -962,28 +967,28 @@ unit scandir;
       Inc(switchesstatestackpos);
     end;
 
-    procedure dir_rangechecks;
+    procedure tscannerfile.dir_rangechecks;
       begin
         do_delphiswitch('R');
       end;
 
-    procedure dir_referenceinfo;
+    procedure tscannerfile.dir_referenceinfo;
       begin
         do_delphiswitch('Y');
       end;
 
-    procedure dir_resource;
+    procedure tscannerfile.dir_resource;
       var
         s : string;
       begin
-        current_scanner.skipspace;
-        if scanner.c = '''' then
+        skipspace;
+        if c = '''' then
           begin
-            s:= current_scanner.readquotedstring;
-            current_scanner.readcomment
+            s:= readquotedstring;
+            readcomment
           end
         else
-          s:= trimspace(current_scanner.readcomment);
+          s:= trimspace(readcomment);
 
         { replace * with the name of the main source.
           This should always be defined. }
@@ -1009,47 +1014,47 @@ unit scandir;
           Message(scan_e_resourcefiles_not_supported);
       end;
 
-    procedure dir_saturation;
+    procedure tscannerfile.dir_saturation;
       begin
         do_localswitch(cs_mmx_saturation);
       end;
 
-    procedure dir_safefpuexceptions;
+    procedure tscannerfile.dir_safefpuexceptions;
       begin
         do_localswitch(cs_fpu_fwait);
       end;
 
-    procedure dir_scopedenums;
+    procedure tscannerfile.dir_scopedenums;
       begin
         do_localswitch(cs_scopedenums);
       end;
 
-    procedure dir_setpeflags;
+    procedure tscannerfile.dir_setpeflags;
       begin
         if not (target_info.system in (systems_all_windows)) then
           Message(scan_w_setpeflags_not_support);
-        current_scanner.skipspace;
-        peflags:=current_scanner.readval;
+        skipspace;
+        peflags:=readval;
         SetPEFlagsSetExplicity:=true;
       end;
 
-    procedure dir_smartlink;
+    procedure tscannerfile.dir_smartlink;
       begin
         do_moduleswitch(cs_create_smart);
       end;
 
-    procedure dir_stackframes;
+    procedure tscannerfile.dir_stackframes;
       begin
         do_delphiswitch('W');
       end;
 
-    procedure dir_stop;
+    procedure tscannerfile.dir_stop;
       begin
         do_message(scan_f_user_defined);
       end;
 
 {$ifdef powerpc}
-    procedure dir_syscall;
+    procedure tscannerfile.dir_syscall;
       var
         sctype : string;
       begin
@@ -1059,9 +1064,9 @@ unit scandir;
         { syscall convention (sysv) (KB) }
         if not (target_info.system in [system_powerpc_morphos]) then
           comment (V_Warning,'Syscall directive is useless on this target.');
-        current_scanner.skipspace;
+        skipspace;
 
-        sctype:=current_scanner.readid;
+        sctype:=readid;
         if (sctype='LEGACY') or (sctype='SYSV') or (sctype='SYSVBASE') or
           (sctype='BASESYSV') or (sctype='R12BASE') then
           syscall_convention:=sctype
@@ -1070,39 +1075,39 @@ unit scandir;
       end;
 {$endif}
 
-    procedure dir_typedaddress;
+    procedure tscannerfile.dir_typedaddress;
       begin
         do_delphiswitch('T');
       end;
 
-    procedure dir_typeinfo;
+    procedure tscannerfile.dir_typeinfo;
       begin
         do_delphiswitch('M');
       end;
 
-    procedure dir_unitpath;
+    procedure tscannerfile.dir_unitpath;
       begin
         if not current_module.in_global then
          Message(scan_w_switch_is_global)
         else
-          with current_scanner,current_module,localunitsearchpath do
+          with current_module,localunitsearchpath do
             begin
               skipspace;
               AddPath(path^,readcomment,false);
             end;
       end;
 
-    procedure dir_varpropsetter;
+    procedure tscannerfile.dir_varpropsetter;
       begin
         do_localswitch(cs_varpropsetter);
       end;
 
-    procedure dir_varstringchecks;
+    procedure tscannerfile.dir_varstringchecks;
       begin
         do_delphiswitch('V');
       end;
 
-    procedure dir_version;
+    procedure tscannerfile.dir_version;
       var
         major, minor, revision : longint;
         error : integer;
@@ -1120,9 +1125,9 @@ unit scandir;
           begin
             { change description global var in all cases }
             { it not used but in win32, os2 and netware }
-            current_scanner.skipspace;
+            skipspace;
             { we should only accept Major.Minor format for win32 and os2 }
-            current_scanner.readnumber;
+            readnumber;
             major:=0;
             minor:=0;
             revision:=0;
@@ -1134,8 +1139,8 @@ unit scandir;
               end;
             if c='.' then
               begin
-                current_scanner.readchar;
-                current_scanner.readnumber;
+                readchar;
+                readnumber;
                 val(pattern,minor,error);
                 if (error<>0) or (minor > high(word)) or (minor < 0) then
                   begin
@@ -1145,8 +1150,8 @@ unit scandir;
                 if (c='.') and
                    (target_info.system in [system_i386_netware,system_i386_netwlibc]) then
                   begin
-                     current_scanner.readchar;
-                     current_scanner.readnumber;
+                     readchar;
+                     readnumber;
                      val(pattern,revision,error);
                      if (error<>0) or (revision > high(word)) or (revision < 0) then
                        begin
@@ -1170,7 +1175,7 @@ unit scandir;
           end;
       end;
 
-    procedure dir_wait;
+    procedure tscannerfile.dir_wait;
       var
         had_info : boolean;
       begin
@@ -1189,16 +1194,16 @@ unit scandir;
       $warn <identifier> error
       not implemented yet
     }
-    procedure dir_warn;
+    procedure tscannerfile.dir_warn;
       var
         ident : string;
         state : string;
         msgstate : tmsgstate;
       begin
-        current_scanner.skipspace;
-        ident:=current_scanner.readid;
-        current_scanner.skipspace;
-        state:=current_scanner.readid;
+        skipspace;
+        ident:=readid;
+        skipspace;
+        state:=readid;
 
         { support both delphi and fpc switches }
         if (state='ON') or (state='+') then
@@ -1266,62 +1271,62 @@ unit scandir;
           Message1(scanner_w_illegal_warn_identifier,ident);
       end;
 
-    procedure dir_warning;
+    procedure tscannerfile.dir_warning;
       begin
         do_message(scan_w_user_defined);
       end;
 
-    procedure dir_warnings;
+    procedure tscannerfile.dir_warnings;
       begin
         do_setverbose('W');
       end;
 
-    procedure dir_writeableconst;
+    procedure tscannerfile.dir_writeableconst;
       begin
         do_delphiswitch('J');
       end;
 
-    procedure dir_z1;
+    procedure tscannerfile.dir_z1;
       begin
         current_settings.packenum:=1;
       end;
 
-    procedure dir_z2;
+    procedure tscannerfile.dir_z2;
       begin
         current_settings.packenum:=2;
       end;
 
-    procedure dir_z4;
+    procedure tscannerfile.dir_z4;
       begin
         current_settings.packenum:=4;
       end;
 
-    procedure dir_externalsym;
+    procedure tscannerfile.dir_externalsym;
       begin
       end;
 
-    procedure dir_nodefine;
+    procedure tscannerfile.dir_nodefine;
       begin
       end;
 
-    procedure dir_hppemit;
+    procedure tscannerfile.dir_hppemit;
       begin
       end;
 
-    procedure dir_weakpackageunit;
+    procedure tscannerfile.dir_weakpackageunit;
       begin
       end;
 
-    procedure dir_codealign;
+    procedure tscannerfile.dir_codealign;
       var
         s : string;
       begin
-        current_scanner.skipspace;
-        s:=current_scanner.readcomment;
+        skipspace;
+        s:=readcomment;
         UpdateAlignmentStr(s,current_settings.alignment);
       end;
 
-    procedure dir_codepage;
+    procedure tscannerfile.dir_codepage;
       var
          s : string;
       begin
@@ -1329,8 +1334,8 @@ unit scandir;
           Message(scan_w_switch_is_global)
         else
           begin
-             current_scanner.skipspace;
-             s:=current_scanner.readcomment;
+             skipspace;
+             s:=readcomment;
              if (upper(s)='UTF8') or (upper(s)='UTF-8') then
                current_settings.sourcecodepage:='utf8'
              else if not(cpavailable(s)) then
@@ -1340,143 +1345,24 @@ unit scandir;
           end;
       end;
 
-    procedure dir_coperators;
+    procedure tscannerfile.dir_coperators;
       begin
         do_moduleswitch(cs_support_c_operators);
       end;
 
 
-    procedure dir_bitpacking;
+    procedure tscannerfile.dir_bitpacking;
       begin
         do_localswitch(cs_bitpacking);
       end;
 
-    procedure dir_region;
+    procedure tscannerfile.dir_region;
       begin
       end;
 
-    procedure dir_endregion;
+    procedure tscannerfile.dir_endregion;
       begin
       end;
 
 
-{****************************************************************************
-                         Initialize Directives
-****************************************************************************}
-
-    procedure InitScannerDirectives;
-      begin
-        AddDirective('A1',directive_all, @dir_a1);
-        AddDirective('A2',directive_all, @dir_a2);
-        AddDirective('A4',directive_all, @dir_a4);
-        AddDirective('A8',directive_all, @dir_a8);
-        AddDirective('ALIGN',directive_all, @dir_align);
-{$ifdef m68k}
-        AddDirective('APPID',directive_all, @dir_appid);
-        AddDirective('APPNAME',directive_all, @dir_appname);
-{$endif m68k}
-        AddDirective('APPTYPE',directive_all, @dir_apptype);
-        AddDirective('ASMMODE',directive_all, @dir_asmmode);
-        AddDirective('ASSERTIONS',directive_all, @dir_assertions);
-        AddDirective('BOOLEVAL',directive_all, @dir_booleval);
-        AddDirective('BITPACKING',directive_all, @dir_bitpacking);
-        AddDirective('CALLING',directive_all, @dir_calling);
-        AddDirective('CHECKPOINTER',directive_all, @dir_checkpointer);
-        AddDirective('CODEALIGN',directive_all, @dir_codealign);
-        AddDirective('CODEPAGE',directive_all, @dir_codepage);
-        AddDirective('COPERATORS',directive_all, @dir_coperators);
-        AddDirective('COPYRIGHT',directive_all, @dir_copyright);
-        AddDirective('D',directive_all, @dir_description);
-        AddDirective('DEBUGINFO',directive_all, @dir_debuginfo);
-        AddDirective('DESCRIPTION',directive_all, @dir_description);
-        AddDirective('ENDREGION',directive_all, @dir_endregion);
-        AddDirective('ERROR',directive_all, @dir_error);
-        AddDirective('ERRORC',directive_mac, @dir_error);
-        AddDirective('EXTENDEDSYNTAX',directive_all, @dir_extendedsyntax);
-        AddDirective('EXTERNALSYM',directive_all, @dir_externalsym);
-        AddDirective('FATAL',directive_all, @dir_fatal);
-        AddDirective('FPUTYPE',directive_all, @dir_fputype);
-        AddDirective('FRAMEWORKPATH',directive_all, @dir_frameworkpath);
-        AddDirective('GOTO',directive_all, @dir_goto);
-        AddDirective('HINT',directive_all, @dir_hint);
-        AddDirective('HINTS',directive_all, @dir_hints);
-        AddDirective('HPPEMIT',directive_all, @dir_hppemit);
-        AddDirective('IOCHECKS',directive_all, @dir_iochecks);
-        AddDirective('IMAGEBASE',directive_all, @dir_imagebase);
-        AddDirective('IMPLICITEXCEPTIONS',directive_all, @dir_implicitexceptions);
-        AddDirective('INCLUDEPATH',directive_all, @dir_includepath);
-        AddDirective('INFO',directive_all, @dir_info);
-        AddDirective('INLINE',directive_all, @dir_inline);
-        AddDirective('INTERFACES',directive_all, @dir_interfaces);
-        AddDirective('L',directive_all, @dir_link);
-        AddDirective('LIBEXPORT',directive_mac, @dir_libexport);
-        AddDirective('LIBRARYPATH',directive_all, @dir_librarypath);
-        AddDirective('LINK',directive_all, @dir_link);
-        AddDirective('LINKFRAMEWORK',directive_all, @dir_linkframework);
-        AddDirective('LINKLIB',directive_all, @dir_linklib);
-        AddDirective('LOCALSYMBOLS',directive_all, @dir_localsymbols);
-        AddDirective('LONGSTRINGS',directive_all, @dir_longstrings);
-        AddDirective('M',directive_all, @dir_memory);
-        AddDirective('MACRO',directive_all, @dir_macro);
-        AddDirective('MAXFPUREGISTERS',directive_all, @dir_maxfpuregisters);
-        AddDirective('MAXSTACKSIZE',directive_all, @dir_maxstacksize);
-        AddDirective('MEMORY',directive_all, @dir_memory);
-        AddDirective('MESSAGE',directive_all, @dir_message);
-        AddDirective('MINENUMSIZE',directive_all, @dir_packenum);
-        AddDirective('MINFPCONSTPREC',directive_all, @dir_minfpconstprec);
-        AddDirective('MINSTACKSIZE',directive_all, @dir_minstacksize);
-        AddDirective('MMX',directive_all, @dir_mmx);
-        AddDirective('MODE',directive_all, @dir_mode);
-        AddDirective('MODESWITCH',directive_all, @dir_modeswitch);
-        AddDirective('NODEFINE',directive_all, @dir_nodefine);
-        AddDirective('NOTE',directive_all, @dir_note);
-        AddDirective('NOTES',directive_all, @dir_notes);
-        AddDirective('OBJECTCHECKS',directive_all, @dir_objectchecks);
-        AddDirective('OBJECTPATH',directive_all, @dir_objectpath);
-        AddDirective('OPENSTRINGS',directive_all, @dir_openstrings);
-        AddDirective('OPTIMIZATION',directive_all, @dir_optimization);
-        AddDirective('OV',directive_mac, @dir_overflowchecks);
-        AddDirective('OVERFLOWCHECKS',directive_all, @dir_overflowchecks);
-        AddDirective('PACKENUM',directive_all, @dir_packenum);
-        AddDirective('PACKRECORDS',directive_all, @dir_packrecords);
-        AddDirective('PACKSET',directive_all, @dir_packset);
-        AddDirective('PASCALMAINNAME',directive_all, @dir_pascalmainname);
-        AddDirective('PIC',directive_all, @dir_pic);
-        AddDirective('POP',directive_all, @dir_pop);
-        AddDirective('PROFILE',directive_all, @dir_profile);
-        AddDirective('PUSH',directive_all, @dir_push);
-        AddDirective('R',directive_all, @dir_resource);
-        AddDirective('RANGECHECKS',directive_all, @dir_rangechecks);
-        AddDirective('REFERENCEINFO',directive_all, @dir_referenceinfo);
-        AddDirective('REGION',directive_all, @dir_region);
-        AddDirective('RESOURCE',directive_all, @dir_resource);
-        AddDirective('SATURATION',directive_all, @dir_saturation);
-        AddDirective('SAFEFPUEXCEPTIONS',directive_all, @dir_safefpuexceptions);
-        AddDirective('SCOPEDENUMS',directive_all, @dir_scopedenums);
-        AddDirective('SETPEFLAGS', directive_all, @dir_setpeflags);
-        AddDirective('SCREENNAME',directive_all, @dir_screenname);
-        AddDirective('SMARTLINK',directive_all, @dir_smartlink);
-        AddDirective('STACKFRAMES',directive_all, @dir_stackframes);
-        AddDirective('STOP',directive_all, @dir_stop);
-{$ifdef powerpc}
-        AddDirective('SYSCALL',directive_all, @dir_syscall);
-{$endif powerpc}
-        AddDirective('THREADNAME',directive_all, @dir_threadname);
-        AddDirective('TYPEDADDRESS',directive_all, @dir_typedaddress);
-        AddDirective('TYPEINFO',directive_all, @dir_typeinfo);
-        AddDirective('UNITPATH',directive_all, @dir_unitpath);
-        AddDirective('VARPROPSETTER',directive_all, @dir_varpropsetter);
-        AddDirective('VARSTRINGCHECKS',directive_all, @dir_varstringchecks);
-        AddDirective('VERSION',directive_all, @dir_version);
-        AddDirective('WAIT',directive_all, @dir_wait);
-        AddDirective('WARN',directive_all, @dir_warn);
-        AddDirective('WARNING',directive_all, @dir_warning);
-        AddDirective('WARNINGS',directive_all, @dir_warnings);
-        AddDirective('WEAKPACKAGEUNIT',directive_all, @dir_weakpackageunit);
-        AddDirective('WRITEABLECONST',directive_all, @dir_writeableconst);
-        AddDirective('Z1',directive_all, @dir_z1);
-        AddDirective('Z2',directive_all, @dir_z2);
-        AddDirective('Z4',directive_all, @dir_z4);
-      end;
-
-end.
+//end.

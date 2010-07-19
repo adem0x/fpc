@@ -57,7 +57,7 @@ implementation
     uses
       globtype,systems,comphook,
       cutils,cclasses,verbose,globals,
-      psub,
+      parser_opl,//was: psub,
       symconst,symbase,symtype,symdef,paramgr,defutil,
       cpuinfo,cgobj,procinfo;
 

@@ -269,7 +269,7 @@ interface
 
        block_type : tblock_type;         { type of currently parsed block }
 
-       compile_level : word;
+       compile_level : word;  { TODO : move into class }
        exceptblockcounter    : integer;  { each except block gets a unique number check gotos      }
        current_exceptblock        : integer;  { the exceptblock number of the current block (0 if none) }
        LinkLibraryAliases : TLinkStrMap;
@@ -307,7 +307,7 @@ interface
        global_unit_count : word = 0;
 
        { for error info in pp.pas }
-       parser_current_file : string = '';
+       parser_current_file : string = ''; { TODO : moved into TParser }
 
 {$if defined(m68k) or defined(arm)}
        { PalmOS resources }

@@ -19,22 +19,14 @@
 
  ****************************************************************************
 }
-unit parser;
+unit parser_opl;
 
 {$i fpcdefs.inc}
 
 interface
 
-{$ifdef PREPROCWRITE}
-    procedure preprocess(const filename:string);
-{$endif PREPROCWRITE}
-    procedure compile(const filename:string);
-    procedure initparser;
-    procedure doneparser;
-
-implementation
-
-    uses
+uses
+  pbase,
 {$IFNDEF USE_FAKE_SYSUTILS}
       sysutils,
 {$ELSE}
@@ -48,10 +40,123 @@ implementation
       cgbase,
       script,gendef,
       comphook,
-      scanner,scandir,
-      pbase,ptype,psystem,pmodules,psub,ncgrtti,htypechk,
-      cresstr,cpuinfo,procinfo;
+      scanner,//scandir,
+      //pbase,ptype,psystem,pmodules,psub, --- all inlined
+      ncgrtti,htypechk,
+      cresstr,cpuinfo,procinfo,
+      node;
 
+    type
+      TOPLParser = class(TParserBase)
+      private
+        procedure generate_specialization(var tt: tdef);
+        function new_dispose_statement(is_new: boolean): tnode;
+        function new_function: tnode;
+      public
+        constructor Create;
+        destructor Destroy; override;
+        procedure Execute;  //in preparation of threads
+        procedure preprocess(const Afilename:string);
+      end;
+
+{ TODO : these will disappear }
+  procedure initparser;
+  procedure doneparser;
+
+implementation
+
+{$ifdef PREPROCWRITE}
+    procedure TOPLParser.preprocess(const AFilename:string);
+      var
+        i : longint;
+        //current_scanner: tscannerfile;
+      begin
+      (* Still deserves some improvements:
+        - message 'preprocessing...'
+        - outfile: where? name?
+        - suppress echo {$I...} - is inlined!
+      *)
+        Message1(parser_i_compiling, AFilename);
+      {$IFDEF old}
+        if not FileExists(filename) then begin
+          Message2(scan_f_cannot_open_input, 'File not found: ', filename);
+          inc(status.errorcount);
+          Exit;
+        end;
+      {$ENDIF}
+        preprocfile := tpreprocfile.create(AFilename + '.pre'); //???
+
+       { initialize a module, for symbol tables etc. }
+         set_current_module(tmodule.create(nil, AFilename, False));
+
+         macrosymtablestack:= TSymtablestack.create;
+         { init macros before anything in the file is parsed.}
+         current_module.localmacrosymtable:= tmacrosymtable.create(false);
+         macrosymtablestack.push(initialmacrosymtable);
+         macrosymtablestack.push(current_module.localmacrosymtable);
+
+         main_module:=current_module;
+       { startup scanner, and save in current_module }
+         //current_scanner:=tscannerfile.Create(AFilename);
+         current_scanner.firstfile;
+       { loop until EOF is found }
+         repeat
+           current_scanner.readtoken(true);
+           case token of
+             _ID :
+               begin
+                 preprocfile.Add(orgpattern);
+               end;
+             _REALNUMBER,
+             _INTCONST :
+               preprocfile.Add(pattern);
+             _CSTRING :
+               begin
+                 i:=0;
+                 while (i<length(cstringpattern)) do
+                  begin
+                    inc(i);
+                    if cstringpattern[i]='''' then
+                     begin
+                       insert('''',cstringpattern,i);
+                       inc(i);
+                     end;
+                  end;
+                 preprocfile.Add(''''+cstringpattern+'''');
+               end;
+             _CCHAR :
+               begin
+                 case pattern[1] of
+                   #39 :
+                     pattern:='''''''';
+                   #0..#31,
+                   #128..#255 :
+                     begin
+                       str(ord(pattern[1]),pattern);
+                       pattern:='#'+pattern;
+                     end;
+                   else
+                     pattern:=''''+pattern[1]+'''';
+                 end;
+                 preprocfile.Add(pattern);
+               end;
+             _EOF :
+               break;
+             else
+               preprocfile.Add(tokeninfo^[token].str)
+           end;
+         until false;
+       { free scanner }
+         current_scanner.Free;
+         current_scanner:=nil;
+       { close }
+         preprocfile.Free;
+      end;
+{$endif PREPROCWRITE}
+
+    { TOPLParser }
+
+{ TODO : initparser and doneparser must disappear, all done in classes }
 
     procedure initparser;
       begin
@@ -176,89 +281,25 @@ implementation
          SmartLinkOFiles.Free;
       end;
 
+    constructor TOPLParser.Create;
+    begin
+      //what?
+    end;
 
-
-
-{$ifdef PREPROCWRITE}
-    procedure preprocess(const filename:string);
-      var
-        i : longint;
-      begin
-         new(preprocfile,init('pre'));
-       { initialize a module }
-         set_current_module(new(pmodule,init(filename,false)));
-
-         macrosymtablestack:= initialmacrosymtable;
-         current_module.localmacrosymtable:= tmacrosymtable.create(false);
-         current_module.localmacrosymtable.next:= initialmacrosymtable;
-         macrosymtablestack:= current_module.localmacrosymtable;
-
-         main_module:=current_module;
-       { startup scanner, and save in current_module }
-         current_scanner:=new(pscannerfile,Init(filename));
-         current_module.scanner:=current_scanner;
-       { loop until EOF is found }
-         repeat
-           current_scanner^.readtoken(true);
-           preprocfile^.AddSpace;
-           case token of
-             _ID :
-               begin
-                 preprocfile^.Add(orgpattern);
-               end;
-             _REALNUMBER,
-             _INTCONST :
-               preprocfile^.Add(pattern);
-             _CSTRING :
-               begin
-                 i:=0;
-                 while (i<length(cstringpattern)) do
-                  begin
-                    inc(i);
-                    if cstringpattern[i]='''' then
-                     begin
-                       insert('''',cstringpattern,i);
-                       inc(i);
-                     end;
-                  end;
-                 preprocfile^.Add(''''+cstringpattern+'''');
-               end;
-             _CCHAR :
-               begin
-                 case pattern[1] of
-                   #39 :
-                     pattern:='''''''';
-                   #0..#31,
-                   #128..#255 :
-                     begin
-                       str(ord(pattern[1]),pattern);
-                       pattern:='#'+pattern;
-                     end;
-                   else
-                     pattern:=''''+pattern[1]+'''';
-                 end;
-                 preprocfile^.Add(pattern);
-               end;
-             _EOF :
-               break;
-             else
-               preprocfile^.Add(tokeninfo^[token].str)
-           end;
-         until false;
-       { free scanner }
-         dispose(current_scanner,done);
-         current_scanner:=nil;
-       { close }
-         dispose(preprocfile,done);
-      end;
-{$endif PREPROCWRITE}
+    destructor TOPLParser.Destroy;
+    begin
+      //what?
+      inherited Destroy;
+    end;
 
 
 {*****************************************************************************
                              Compile a source file
 *****************************************************************************}
 
-    procedure compile(const filename:string);
+    //procedure compile(const filename:string);
+    procedure TOPLParser.Execute;
+    { TODO : move all variables into classes, drop tolddata. }
       type
         polddata=^tolddata;
         tolddata=record
@@ -296,10 +337,11 @@ implementation
          if assigned(current_objectdef) then
            internalerror(200811122);
          inc(compile_level);
-         parser_current_file:=filename;
+         parser_current_file:=ffilename;
          { Uses heap memory instead of placing everything on the
            stack. This is needed because compile() can be called
            recursively }
+         { TODO : nothing to save, everything must be in classes }
          new(olddata);
          with olddata^ do
           begin
@@ -521,5 +563,8 @@ implementation
            dispose(olddata);
          end;
     end;
+
+{$I pinline.inc}
+{$I ptype.inc}
 
 end.

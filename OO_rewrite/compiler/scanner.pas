@@ -30,7 +30,12 @@ interface
        globtype,globals,constexp,version,tokens,
        verbose,comphook,
        finput,
-       widestr;
+       widestr
+      //consume_sym
+      ,symtype, symbase, htypechk
+      //try_consume_hintdirective
+      ,symconst
+      ;
 
     const
        max_include_nesting=32;
@@ -55,14 +60,61 @@ interface
           constructor Create(atyp:preproctyp;a:boolean;n:tpreprocstack);
        end;
 
+      eDirectiveItem = (
+        diOther,
+        diDefine, diUndef,
+        diIf, diIfDef, diIfnDef, diElse, diElseIf, diEndIf,
+        diInclude, diLibPrefix, diLibSuffix, diExtension,
+        //diIfEnd,
+        diIfOpt,
+        diSetC, diDefineC, //diUndefC, diIfC, diElseC, diElIfC, diEndC
+      //from scandir
+        diA1, diA2, diA4, diA8, diAlign,
+        diAppId, diAppName, diAppType, diAsmMode, diAssertions,
+        diBoolEval, diBitPacking,
+        diCalling, diCheckPointer, diCodeAlign, diCodePage, diCOperators, diCopyright,
+        diDescription, diDebugInfo,
+        diEndRegion, diError, diExtendedSyntax, diExternalSym,
+        diFatal, diFpuType, diFrameworkPath,
+        diGoto,
+        diHint, diHints, diHppEmit, diIOChecks, diImageBase,
+        diImplicitExceptions, diIncludePath, diInfo, diInline, diInterfaces,
+        diLink, diLibExport, diLibraryPath, diLinkFramework, diLinkLib,
+        diLocalSymbols, diLongStrings,
+        diMemory, diMacro, diMaxFpuRegisters, diMaxStackSize, diMessage,
+        diMinFPConstPrec, diMinStackSize, diMMX, diMode, diModeSwitch,
+        diNoDefine, diNote, diNotes, diObjectChecks, diObjectPath, diOpenStrings,
+        diOptimization, diOverflowChecks,
+        diPackEnum, diPackRecords, diPackSet, diPascalMainName,
+        diPic, diPop, diProfile, diPush,
+        diRangeChecks, diReferenceInfo, diRegion, diResource,
+        diSaturation, diSafeFpuExceptions, diScopedEnums, diSetPEFlags,
+        diScreenName, diSmartLink, diStackFrames, diStop, diSysCall,
+        diThreadName, diTypedAddress, diTypeInfo,
+        diUnitPath, diVarPropSetter, diVarStringChecks, diVersion,
+        diWait, diWarn, diWarning, diWarnings, diWeakPackageUnit, diWriteableConst,
+        diZ1, diZ2, diZ4
+      );
+
+     {$IFDEF old}
        tdirectiveproc=procedure;
+     {$ELSE}
+       tdirectiveproc=eDirectiveItem;
+     {$ENDIF}
+
+       {Compile time expression types}
+       TCTEType = (ctetBoolean, ctetInteger, ctetString, ctetSet);
+       TCTETypeSet = set of TCTEType;
 
        tdirectiveitem = class(TFPHashObject)
        public
           is_conditional : boolean;
+         kind: eDirectiveItem;
           proc : tdirectiveproc;
-          constructor Create(AList:TFPHashObjectList;const n:string;p:tdirectiveproc);
-          constructor CreateCond(AList:TFPHashObjectList;const n:string;p:tdirectiveproc);
+          constructor Create(AList:TFPHashObjectList;const n:string;
+            p:tdirectiveproc);
+          constructor CreateCond(AList:TFPHashObjectList;const n:string;
+            p:tdirectiveproc);
        end;
 
        // stack for replay buffers
@@ -74,17 +126,196 @@ interface
          constructor Create(atoken: ttoken;asettings:tsettings;atokenbuf:tdynamicarray;anext:treplaystack);
        end;
 
-       tcompile_time_predicate = function(var valuedescr: String) : Boolean;
+       tcompile_time_predicate = function(var valuedescr: String) : Boolean of object;
 
        tspecialgenerictoken = (ST_LOADSETTINGS,ST_LINE,ST_COLUMN,ST_FILEINDEX);
 
+    const
+      switchesstatestackmax = 20;
+
+    type
+      tsavedswitchesstate = record
+        localsw: tlocalswitches;
+        verbosity: longint;
+      end;
+
+      tswitchesstatestack = array[0..switchesstatestackmax] of tsavedswitchesstate;
+
        tscannerfile = class
+       public  //OO
+         function boolean_compile_time_expr(var valuedescr: String): Boolean;
+       {$IFDEF consume_in_parser}
+        //in tparserbase
+       {$ELSE}
+         procedure consume(i: ttoken);
+         procedure consume_all_until(atoken: ttoken);
+         procedure consume_emptystats;
+         function consume_sym(var srsym: tsym; var srsymtable: TSymtable
+           ): boolean;
+         function consume_sym_orgid(var srsym: tsym; var srsymtable: TSymtable;
+           var s: string): boolean;
+         procedure identifier_not_found(const s: string);
+         function try_consume_hintdirective(var symopt: tsymoptions;
+           var deprecatedmsg: pshortstring): boolean;
+         function try_consume_unitsym(var srsym: tsym;
+           var srsymtable: TSymtable; var tokentoconsume: ttoken): boolean;
+         function try_to_consume(i: Ttoken): boolean;
+       {$ENDIF}
+
+       {$IFDEF old}
+         procedure dir_define;
+         procedure dir_if;
+         procedure dir_ifdef;
+         procedure dir_ifndef;
+         procedure dir_else;
+         procedure dir_elseif;
+         procedure dir_endif;
+         procedure dir_definec;
+       {$ELSE}
+        //use method with params
+       {$ENDIF}
+         procedure dir_define_impl(macstyle: boolean);
+         procedure dir_extension;
+         procedure dir_ifopt;
+         procedure dir_include;
+         procedure dir_libprefix;
+         procedure dir_libsuffix;
+         procedure dir_setc;
+         procedure dir_undef;
+         procedure dodirective(p: tdirectiveproc);
+         function isdef(var valuedescr: String): Boolean;
+         function isnotdef(var valuedescr: String): Boolean;
+         function opt_check(var valuedescr: String): Boolean;
+         function parse_compiler_expr(var compileExprType: TCTETypeSet): string;
        private
+         procedure dir_a1;
+         procedure dir_a2;
+         procedure dir_a4;
+         procedure dir_a8;
+         procedure dir_align;
+         procedure dir_apptype;
+         procedure dir_asmmode;
+         procedure dir_assertions;
+         procedure dir_bitpacking;
+         procedure dir_booleval;
+         procedure dir_calling;
+         procedure dir_checkpointer;
+         procedure dir_codealign;
+         procedure dir_codepage;
+         procedure dir_coperators;
+         procedure dir_copyright;
+         procedure dir_debuginfo;
+         procedure dir_description;
+         procedure dir_endregion;
+         procedure dir_error;
+         procedure dir_extendedsyntax;
+         procedure dir_externalsym;
+         procedure dir_fatal;
+         procedure dir_fputype;
+         procedure dir_frameworkpath;
+         procedure dir_goto;
+         procedure dir_hint;
+         procedure dir_hints;
+         procedure dir_hppemit;
+         procedure dir_imagebase;
+         procedure dir_implicitexceptions;
+         procedure dir_includepath;
+         procedure dir_info;
+         procedure dir_inline;
+         procedure dir_interfaces;
+         procedure dir_iochecks;
+         procedure dir_libexport;
+         procedure dir_librarypath;
+         procedure dir_link;
+         procedure dir_linkframework;
+         procedure dir_linklib;
+         procedure dir_localsymbols;
+         procedure dir_longstrings;
+         procedure dir_macro;
+         procedure dir_maxfpuregisters;
+         procedure dir_maxstacksize;
+         procedure dir_memory;
+         procedure dir_message;
+         procedure dir_minfpconstprec;
+         procedure dir_minstacksize;
+         procedure dir_mmx;
+         procedure dir_mode;
+         procedure dir_modeswitch;
+         procedure dir_nodefine;
+         procedure dir_note;
+         procedure dir_notes;
+         procedure dir_objectchecks;
+         procedure dir_objectpath;
+         procedure dir_openstrings;
+         procedure dir_optimization;
+         procedure dir_overflowchecks;
+         procedure dir_packenum;
+         procedure dir_packrecords;
+         procedure dir_packset;
+         procedure dir_pascalmainname;
+         procedure dir_pic;
+         procedure dir_pop;
+         procedure dir_profile;
+         procedure dir_push;
+         procedure dir_rangechecks;
+         procedure dir_referenceinfo;
+         procedure dir_region;
+         procedure dir_resource;
+         procedure dir_safefpuexceptions;
+         procedure dir_saturation;
+         procedure dir_scopedenums;
+         procedure dir_screenname;
+         procedure dir_setpeflags;
+         procedure dir_smartlink;
+         procedure dir_stackframes;
+         procedure dir_stop;
+         procedure dir_threadname;
+         procedure dir_typedaddress;
+         procedure dir_typeinfo;
+         procedure dir_unitpath;
+         procedure dir_varpropsetter;
+         procedure dir_varstringchecks;
+         procedure dir_version;
+         procedure dir_wait;
+         procedure dir_warn;
+         procedure dir_warning;
+         procedure dir_warnings;
+         procedure dir_weakpackageunit;
+         procedure dir_writeableconst;
+         procedure dir_z1;
+         procedure dir_z2;
+         procedure dir_z4;
+         procedure do_delphiswitch(sw: char);
          procedure do_gettokenpos(out tokenpos: longint; out filepos: tfileposinfo);
          procedure cachenexttokenpos;
+         procedure do_localswitch(sw: tlocalswitch);
+         procedure do_localswitchdefault(sw: tlocalswitch);
+         procedure do_message(w: integer);
+         procedure do_moduleswitch(sw: tmoduleswitch);
+         procedure do_setverbose(flag: char);
          procedure setnexttoken;
          procedure savetokenpos;
          procedure restoretokenpos;
+       public //OO
+        { read strings }
+        c              : char;
+        orgpattern,
+        pattern        : string;
+        cstringpattern : ansistring;
+        patternw       : pcompilerwidestring;
+
+        { token }
+        token,                        { current token being parsed }
+        idtoken    : ttoken;          { holds the token if the pattern is a known word }
+
+        aktcommentstyle : tcommentstyle; { needed to use read_comment from directives }
+
+        { just for an accurate position of the end of a procedure (PM) }
+         last_endtoken_filepos: tfileposinfo;
+         { for operators }
+         optoken : ttoken;
+          switchesstatestack:tswitchesstatestack;
+          switchesstatestackpos: Integer;
        public
           inputfile    : tinputfile;  { current inputfile list }
           inputfilecount : longint;
@@ -146,7 +377,7 @@ interface
           procedure gettokenpos;
           procedure inc_comment_level;
           procedure dec_comment_level;
-          procedure illegal_char(c:char);
+          procedure illegal_char(ic:char);
           procedure end_of_file;
           procedure checkpreprocstack;
           procedure poppreprocstack;
@@ -156,6 +387,7 @@ interface
           procedure popreplaystack;
           procedure handleconditional(p:tdirectiveitem);
           procedure handledirectives;
+          function  Get_Directive(const hs: string): tdirectiveitem;
           procedure linebreak;
           procedure recordtoken;
           procedure startrecordtokens(buf:tdynamicarray);
@@ -184,34 +416,24 @@ interface
        end;
 
 {$ifdef PREPROCWRITE}
+{ TODO : move into compiler? }
        tpreprocfile=class
          f   : text;
          buf : pointer;
+       public
          spacefound,
          eolfound : boolean;
          constructor create(const fn:string);
-         destructor  destroy;
+         destructor  destroy; override;
          procedure Add(const s:string);
          procedure AddSpace;
        end;
 {$endif PREPROCWRITE}
 
-    var
-        { read strings }
-        c              : char;
-        orgpattern,
-        pattern        : string;
-        cstringpattern : ansistring;
-        patternw       : pcompilerwidestring;
+      //var current_scanner : tscannerfile;  { current scanner in use }
 
-        { token }
-        token,                        { current token being parsed }
-        idtoken    : ttoken;          { holds the token if the pattern is a known word }
-
-        current_scanner : tscannerfile;  { current scanner in use }
-
-        aktcommentstyle : tcommentstyle; { needed to use read_comment from directives }
 {$ifdef PREPROCWRITE}
+      var
         preprocfile     : tpreprocfile;  { used with only preprocessing }
 {$endif PREPROCWRITE}
 
@@ -236,8 +458,13 @@ implementation
       cutils,cfileutl,
       systems,
       switches,
-      symbase,symtable,symtype,symsym,symconst,symdef,defutil,
-      fmodule;
+      //symbase,
+      symtable,//symtype,
+      symsym,//symconst,
+      symdef,defutil,
+      fmodule,
+    //scandir
+      rabase, cpuinfo, ppu;
 
     var
       { dictionaries with the supported directives }
@@ -258,6 +485,7 @@ implementation
     function is_keyword(const s:string):boolean;
       var
         low,high,mid : longint;
+        pattern: string absolute s; //expect: s is scanner.pattern, all uppercase
       begin
         if not (length(s) in [tokenlenmin..tokenlenmax]) or
            not (s[1] in ['a'..'z','A'..'Z']) then
@@ -513,65 +741,88 @@ implementation
                            Conditional Directives
 *****************************************************************************}
 
-    procedure dir_else;
+{$IFDEF old}
+    procedure tscannerfile.dir_else;
       begin
-        current_scanner.elsepreprocstack;
+        elsepreprocstack;
       end;
 
 
-    procedure dir_endif;
+    procedure tscannerfile.dir_endif;
       begin
-        current_scanner.poppreprocstack;
+        poppreprocstack;
       end;
 
-    function isdef(var valuedescr: String): Boolean;
+    procedure tscannerfile.dir_ifdef;
+      begin
+        ifpreprocstack(pp_ifdef,@isdef,scan_c_ifdef_found);
+      end;
+
+    procedure tscannerfile.dir_ifndef;
+      begin
+        ifpreprocstack(pp_ifndef,@isnotdef,scan_c_ifndef_found);
+      end;
+
+    procedure tscannerfile.dir_if;
+      begin
+        ifpreprocstack(pp_if,@boolean_compile_time_expr, scan_c_if_found);
+      end;
+
+    procedure tscannerfile.dir_elseif;
+      begin
+        elseifpreprocstack(@boolean_compile_time_expr);
+      end;
+
+    procedure tscannerfile.dir_define;
+      begin
+        dir_define_impl(false);
+      end;
+
+    procedure tscannerfile.dir_definec;
+      begin
+        dir_define_impl(true);
+      end;
+{$ELSE}
+{$ENDIF}
+
+    function tscannerfile.isdef(var valuedescr: String): Boolean;
       var
         hs    : string;
       begin
-        current_scanner.skipspace;
-        hs:=current_scanner.readid;
+        skipspace;
+        hs:=readid;
         valuedescr:= hs;
         if hs='' then
           Message(scan_e_error_in_preproc_expr);
         isdef:=defined_macro(hs);
       end;
 
-    procedure dir_ifdef;
-      begin
-        current_scanner.ifpreprocstack(pp_ifdef,@isdef,scan_c_ifdef_found);
-      end;
-
-    function isnotdef(var valuedescr: String): Boolean;
+    function tscannerfile.isnotdef(var valuedescr: String): Boolean;
       var
         hs    : string;
       begin
-        current_scanner.skipspace;
-        hs:=current_scanner.readid;
+        skipspace;
+        hs:=readid;
         valuedescr:= hs;
         if hs='' then
           Message(scan_e_error_in_preproc_expr);
         isnotdef:=not defined_macro(hs);
       end;
 
-    procedure dir_ifndef;
-      begin
-        current_scanner.ifpreprocstack(pp_ifndef,@isnotdef,scan_c_ifndef_found);
-      end;
-
-    function opt_check(var valuedescr: String): Boolean;
+    function tscannerfile.opt_check(var valuedescr: String): Boolean;
       var
         hs    : string;
         state : char;
       begin
         opt_check:= false;
-        current_scanner.skipspace;
-        hs:=current_scanner.readid;
+        skipspace;
+        hs:=readid;
         valuedescr:= hs;
         if (length(hs)>1) then
           Message1(scan_w_illegal_switch,hs)
         else
           begin
-            state:=current_scanner.ReadState;
+            state:=ReadState;
             if state in ['-','+'] then
               opt_check:=CheckSwitch(hs[1],state)
             else
@@ -579,54 +830,55 @@ implementation
           end;
       end;
 
-    procedure dir_ifopt;
+    procedure tscannerfile.dir_ifopt;
       begin
         flushpendingswitchesstate;
-        current_scanner.ifpreprocstack(pp_ifopt,@opt_check,scan_c_ifopt_found);
+        ifpreprocstack(pp_ifopt,@opt_check,scan_c_ifopt_found);
       end;
 
-    procedure dir_libprefix;
+    procedure tscannerfile.dir_libprefix;
       var
         s : string;
       begin
-        current_scanner.skipspace;
+        skipspace;
         if c <> '''' then
           Message2(scan_f_syn_expected, '''', c);
-        s := current_scanner.readquotedstring;
+        s := readquotedstring;
         stringdispose(outputprefix);
         outputprefix := stringdup(s);
         with current_module do
          setfilename(paramfn^, paramallowoutput);
       end;
 
-    procedure dir_libsuffix;
+    procedure tscannerfile.dir_libsuffix;
       var
         s : string;
       begin
-        current_scanner.skipspace;
+        skipspace;
         if c <> '''' then
           Message2(scan_f_syn_expected, '''', c);
-        s := current_scanner.readquotedstring;
+        s := readquotedstring;
         stringdispose(outputsuffix);
         outputsuffix := stringdup(s);
         with current_module do
           setfilename(paramfn^, paramallowoutput);
       end;
 
-    procedure dir_extension;
+    procedure tscannerfile.dir_extension;
       var
         s : string;
       begin
-        current_scanner.skipspace;
+        skipspace;
         if c <> '''' then
           Message2(scan_f_syn_expected, '''', c);
-        s := current_scanner.readquotedstring;
+        s := readquotedstring;
         if OutputFileName='' then
           OutputFileName:=InputFileName;
         OutputFileName:=ChangeFileExt(OutputFileName,'.'+s);
         with current_module do
           setfilename(paramfn^, paramallowoutput);
       end;
+
 
 {
 Compile time expression type check
@@ -666,11 +918,6 @@ Therefor there is a parameter eval, telling whether evaluation is needed.
 In case not, the value returned can be arbitrary.
 }
 
-    type
-      {Compile time expression types}
-      TCTEType = (ctetBoolean, ctetInteger, ctetString, ctetSet);
-      TCTETypeSet = set of TCTEType;
-
     const
       cteTypeNames : array[TCTEType] of string[10] = (
         'BOOLEAN','INTEGER','STRING','SET');
@@ -702,15 +949,15 @@ In case not, the value returned can be arbitrary.
               );
     end;
 
-    function parse_compiler_expr(var compileExprType: TCTETypeSet):string;
+    function tscannerfile.parse_compiler_expr(var compileExprType: TCTETypeSet):string;
 
         function read_expr(var exprType: TCTETypeSet; eval : Boolean) : string; forward;
 
         procedure preproc_consume(t : ttoken);
         begin
-          if t<>current_scanner.preproc_token then
+          if t<>preproc_token then
             Message(scan_e_preproc_syntax_error);
-          current_scanner.preproc_token:=current_scanner.readpreproc;
+          preproc_token:=readpreproc;
         end;
 
         function preproc_substitutedtoken(var macroType: TCTETypeSet; eval : Boolean): string;
@@ -728,7 +975,7 @@ In case not, the value returned can be arbitrary.
           numres : longint;
           w: word;
         begin
-          result := current_scanner.preproc_pattern;
+          result := preproc_pattern;
           if not eval then
             exit;
 
@@ -821,17 +1068,17 @@ In case not, the value returned can be arbitrary.
            setElemType : TCTETypeSet;
 
         begin
-           if current_scanner.preproc_token=_ID then
+           if preproc_token=_ID then
              begin
-                if current_scanner.preproc_pattern='DEFINED' then
+                if preproc_pattern='DEFINED' then
                   begin
                     factorType:= [ctetBoolean];
                     preproc_consume(_ID);
-                    current_scanner.skipspace;
-                    if current_scanner.preproc_token =_LKLAMMER then
+                    skipspace;
+                    if preproc_token =_LKLAMMER then
                       begin
                         preproc_consume(_LKLAMMER);
-                        current_scanner.skipspace;
+                        skipspace;
                         hasKlammer:= true;
                       end
                     else if (m_mac in current_settings.modeswitches) then
@@ -839,9 +1086,9 @@ In case not, the value returned can be arbitrary.
                     else
                       Message(scan_e_error_in_preproc_expr);
 
-                    if current_scanner.preproc_token =_ID then
+                    if preproc_token =_ID then
                       begin
-                        hs := current_scanner.preproc_pattern;
+                        hs := preproc_pattern;
                         mac := tmacro(search_macro(hs));
                         if assigned(mac) and mac.defined then
                           begin
@@ -852,26 +1099,26 @@ In case not, the value returned can be arbitrary.
                           hs := '0';
                         read_factor := hs;
                         preproc_consume(_ID);
-                        current_scanner.skipspace;
+                        skipspace;
                       end
                     else
                       Message(scan_e_error_in_preproc_expr);
 
                     if hasKlammer then
-                      if current_scanner.preproc_token =_RKLAMMER then
+                      if preproc_token =_RKLAMMER then
                         preproc_consume(_RKLAMMER)
                       else
                         Message(scan_e_error_in_preproc_expr);
                   end
                 else
-                if (m_mac in current_settings.modeswitches) and (current_scanner.preproc_pattern='UNDEFINED') then
+                if (m_mac in current_settings.modeswitches) and (preproc_pattern='UNDEFINED') then
                   begin
                     factorType:= [ctetBoolean];
                     preproc_consume(_ID);
-                    current_scanner.skipspace;
-                    if current_scanner.preproc_token =_ID then
+                    skipspace;
+                    if preproc_token =_ID then
                       begin
-                        hs := current_scanner.preproc_pattern;
+                        hs := preproc_pattern;
                         mac := tmacro(search_macro(hs));
                         if assigned(mac) then
                           begin
@@ -882,29 +1129,29 @@ In case not, the value returned can be arbitrary.
                           hs := '1';
                         read_factor := hs;
                         preproc_consume(_ID);
-                        current_scanner.skipspace;
+                        skipspace;
                       end
                     else
                       Message(scan_e_error_in_preproc_expr);
                   end
                 else
-                if (m_mac in current_settings.modeswitches) and (current_scanner.preproc_pattern='OPTION') then
+                if (m_mac in current_settings.modeswitches) and (preproc_pattern='OPTION') then
                   begin
                     factorType:= [ctetBoolean];
                     preproc_consume(_ID);
-                    current_scanner.skipspace;
-                    if current_scanner.preproc_token =_LKLAMMER then
+                    skipspace;
+                    if preproc_token =_LKLAMMER then
                       begin
                         preproc_consume(_LKLAMMER);
-                        current_scanner.skipspace;
+                        skipspace;
                       end
                     else
                       Message(scan_e_error_in_preproc_expr);
 
-                    if not (current_scanner.preproc_token = _ID) then
+                    if not (preproc_token = _ID) then
                       Message(scan_e_error_in_preproc_expr);
 
-                    hs:=current_scanner.preproc_pattern;
+                    hs:=preproc_pattern;
                     if (length(hs) > 1) then
                       {This is allowed in Metrowerks Pascal}
                       Message(scan_e_error_in_preproc_expr)
@@ -917,28 +1164,28 @@ In case not, the value returned can be arbitrary.
                       end;
 
                     preproc_consume(_ID);
-                    current_scanner.skipspace;
-                    if current_scanner.preproc_token =_RKLAMMER then
+                    skipspace;
+                    if preproc_token =_RKLAMMER then
                       preproc_consume(_RKLAMMER)
                     else
                       Message(scan_e_error_in_preproc_expr);
                   end
                 else
-                if current_scanner.preproc_pattern='SIZEOF' then
+                if preproc_pattern='SIZEOF' then
                   begin
                     factorType:= [ctetInteger];
                     preproc_consume(_ID);
-                    current_scanner.skipspace;
-                    if current_scanner.preproc_token =_LKLAMMER then
+                    skipspace;
+                    if preproc_token =_LKLAMMER then
                       begin
                         preproc_consume(_LKLAMMER);
-                        current_scanner.skipspace;
+                        skipspace;
                       end
                     else
                       Message(scan_e_preproc_syntax_error);
 
                     if eval then
-                      if searchsym(current_scanner.preproc_pattern,srsym,srsymtable) then
+                      if searchsym(preproc_pattern,srsym,srsymtable) then
                         begin
                           l:=0;
                           case srsym.typ of
@@ -954,32 +1201,32 @@ In case not, the value returned can be arbitrary.
                           str(l,read_factor);
                         end
                       else
-                        Message1(sym_e_id_not_found,current_scanner.preproc_pattern);
+                        Message1(sym_e_id_not_found,preproc_pattern);
 
                     preproc_consume(_ID);
-                    current_scanner.skipspace;
+                    skipspace;
 
-                    if current_scanner.preproc_token =_RKLAMMER then
+                    if preproc_token =_RKLAMMER then
                       preproc_consume(_RKLAMMER)
                     else
                       Message(scan_e_preproc_syntax_error);
                   end
                 else
-                if current_scanner.preproc_pattern='HIGH' then
+                if preproc_pattern='HIGH' then
                   begin
                     factorType:= [ctetInteger];
                     preproc_consume(_ID);
-                    current_scanner.skipspace;
-                    if current_scanner.preproc_token =_LKLAMMER then
+                    skipspace;
+                    if preproc_token =_LKLAMMER then
                       begin
                         preproc_consume(_LKLAMMER);
-                        current_scanner.skipspace;
+                        skipspace;
                       end
                     else
                       Message(scan_e_preproc_syntax_error);
 
                     if eval then
-                      if searchsym(current_scanner.preproc_pattern,srsym,srsymtable) then
+                      if searchsym(preproc_pattern,srsym,srsymtable) then
                         begin
                           hdef:=nil;
                           hs:='';
@@ -1027,49 +1274,49 @@ In case not, the value returned can be arbitrary.
                             read_factor:=hs;
                         end
                       else
-                        Message1(sym_e_id_not_found,current_scanner.preproc_pattern);
+                        Message1(sym_e_id_not_found,preproc_pattern);
 
                     preproc_consume(_ID);
-                    current_scanner.skipspace;
+                    skipspace;
 
-                    if current_scanner.preproc_token =_RKLAMMER then
+                    if preproc_token =_RKLAMMER then
                       preproc_consume(_RKLAMMER)
                     else
                       Message(scan_e_preproc_syntax_error);
                   end
                 else
-                if current_scanner.preproc_pattern='DECLARED' then
+                if preproc_pattern='DECLARED' then
                   begin
                     factorType:= [ctetBoolean];
                     preproc_consume(_ID);
-                    current_scanner.skipspace;
-                    if current_scanner.preproc_token =_LKLAMMER then
+                    skipspace;
+                    if preproc_token =_LKLAMMER then
                       begin
                         preproc_consume(_LKLAMMER);
-                        current_scanner.skipspace;
+                        skipspace;
                       end
                     else
                       Message(scan_e_error_in_preproc_expr);
-                    if current_scanner.preproc_token =_ID then
+                    if preproc_token =_ID then
                       begin
-                        hs := upper(current_scanner.preproc_pattern);
+                        hs := upper(preproc_pattern);
                         if searchsym(hs,srsym,srsymtable) then
                           hs := '1'
                         else
                           hs := '0';
                         read_factor := hs;
                         preproc_consume(_ID);
-                        current_scanner.skipspace;
+                        skipspace;
                       end
                     else
                       Message(scan_e_error_in_preproc_expr);
-                    if current_scanner.preproc_token =_RKLAMMER then
+                    if preproc_token =_RKLAMMER then
                       preproc_consume(_RKLAMMER)
                     else
                       Message(scan_e_error_in_preproc_expr);
                   end
                 else
-                if current_scanner.preproc_pattern='NOT' then
+                if preproc_pattern='NOT' then
                   begin
                     factorType:= [ctetBoolean];
                     preproc_consume(_ID);
@@ -1088,14 +1335,14 @@ In case not, the value returned can be arbitrary.
                       read_factor:='0'; {Just to have something}
                   end
                 else
-                if (m_mac in current_settings.modeswitches) and (current_scanner.preproc_pattern='TRUE') then
+                if (m_mac in current_settings.modeswitches) and (preproc_pattern='TRUE') then
                   begin
                     factorType:= [ctetBoolean];
                     preproc_consume(_ID);
                     read_factor:='1';
                   end
                 else
-                if (m_mac in current_settings.modeswitches) and (current_scanner.preproc_pattern='FALSE') then
+                if (m_mac in current_settings.modeswitches) and (preproc_pattern='FALSE') then
                   begin
                     factorType:= [ctetBoolean];
                     preproc_consume(_ID);
@@ -1108,7 +1355,7 @@ In case not, the value returned can be arbitrary.
                     { Default is to return the original symbol }
                     read_factor:=hs;
                     if eval and ([m_delphi,m_objfpc]*current_settings.modeswitches<>[]) and (ctetString in factorType) then
-                      if searchsym(current_scanner.preproc_pattern,srsym,srsymtable) then
+                      if searchsym(preproc_pattern,srsym,srsymtable) then
                         begin
                           case srsym.typ of
                             constsym :
@@ -1169,23 +1416,23 @@ In case not, the value returned can be arbitrary.
                           end;
                         end;
                     preproc_consume(_ID);
-                    current_scanner.skipspace;
+                    skipspace;
                   end
              end
-           else if current_scanner.preproc_token =_LKLAMMER then
+           else if preproc_token =_LKLAMMER then
              begin
                 preproc_consume(_LKLAMMER);
                 read_factor:=read_expr(factorType, eval);
                 preproc_consume(_RKLAMMER);
              end
-           else if current_scanner.preproc_token = _LECKKLAMMER then
+           else if preproc_token = _LECKKLAMMER then
              begin
                preproc_consume(_LECKKLAMMER);
                read_factor := ',';
-               while current_scanner.preproc_token = _ID do
+               while preproc_token = _ID do
                begin
                  read_factor := read_factor+read_factor(setElemType, eval)+',';
-                 if current_scanner.preproc_token = _COMMA then
+                 if preproc_token = _COMMA then
                    preproc_consume(_COMMA);
                end;
                // TODO Add check of setElemType
@@ -1205,9 +1452,9 @@ In case not, the value returned can be arbitrary.
         begin
           hs1:=read_factor(termType, eval);
           repeat
-            if (current_scanner.preproc_token<>_ID) then
+            if (preproc_token<>_ID) then
               break;
-            if current_scanner.preproc_pattern<>'AND' then
+            if preproc_pattern<>'AND' then
               break;
 
             val(hs1,l1,w);
@@ -1251,9 +1498,9 @@ In case not, the value returned can be arbitrary.
         begin
           hs1:=read_term(simpleExprType, eval);
           repeat
-            if (current_scanner.preproc_token<>_ID) then
+            if (preproc_token<>_ID) then
               break;
-            if current_scanner.preproc_pattern<>'OR' then
+            if preproc_pattern<>'OR' then
               break;
 
             val(hs1,l1,w);
@@ -1297,8 +1544,8 @@ In case not, the value returned can be arbitrary.
            exprType2: TCTETypeSet;
         begin
            hs1:=read_simple_expr(exprType, eval);
-           op:=current_scanner.preproc_token;
-           if (op = _ID) and (current_scanner.preproc_pattern = 'IN') then
+           op:=preproc_token;
+           if (op = _ID) and (preproc_pattern = 'IN') then
              op := _IN;
            if not (op in [_IN,_EQUAL,_UNEQUAL,_LT,_GT,_LTE,_GTE]) then
              begin
@@ -1382,13 +1629,13 @@ In case not, the value returned can be arbitrary.
         end;
 
      begin
-        current_scanner.skipspace;
+        skipspace;
         { start preproc expression scanner }
-        current_scanner.preproc_token:=current_scanner.readpreproc;
+        preproc_token:=readpreproc;
         parse_compiler_expr:=read_expr(compileExprType, true);
      end;
 
-    function boolean_compile_time_expr(var valuedescr: String): Boolean;
+    function tscannerfile.boolean_compile_time_expr(var valuedescr: String): Boolean;
       var
         hs : string;
         exprType: TCTETypeSet;
@@ -1400,17 +1647,7 @@ In case not, the value returned can be arbitrary.
         valuedescr:= hs;
       end;
 
-    procedure dir_if;
-      begin
-        current_scanner.ifpreprocstack(pp_if,@boolean_compile_time_expr, scan_c_if_found);
-      end;
-
-    procedure dir_elseif;
-      begin
-        current_scanner.elseifpreprocstack(@boolean_compile_time_expr);
-      end;
-
-    procedure dir_define_impl(macstyle: boolean);
+    procedure tscannerfile.dir_define_impl(macstyle: boolean);
       var
         hs  : string;
         bracketcount : longint;
@@ -1418,8 +1655,8 @@ In case not, the value returned can be arbitrary.
         macropos : longint;
         macrobuffer : pmacrobuffer;
       begin
-        current_scanner.skipspace;
-        hs:=current_scanner.readid;
+        skipspace;
+        hs:=readid;
         mac:=tmacro(search_macro(hs));
         if not assigned(mac) or (mac.owner <> current_module.localmacrosymtable) then
           begin
@@ -1442,18 +1679,18 @@ In case not, the value returned can be arbitrary.
         mac.is_used:=true;
         if (cs_support_macro in current_settings.moduleswitches) then
           begin
-             current_scanner.skipspace;
+             skipspace;
 
              if not macstyle then
                begin
                  { may be a macro? }
                  if c <> ':' then
                    exit;
-                 current_scanner.readchar;
+                 readchar;
                  if c <> '=' then
                    exit;
-                 current_scanner.readchar;
-                 current_scanner.skipspace;
+                 readchar;
+                 skipspace;
                end;
 
              { key words are never substituted }
@@ -1475,15 +1712,15 @@ In case not, the value returned can be arbitrary.
                  '{' :
                    inc(bracketcount);
                  #10,#13 :
-                   current_scanner.linebreak;
+                   linebreak;
                  #26 :
-                   current_scanner.end_of_file;
+                   end_of_file;
                end;
                macrobuffer^[macropos]:=c;
                inc(macropos);
                if macropos>=maxmacrolen then
                  Message(scan_f_macro_buffer_overflow);
-               current_scanner.readchar;
+               readchar;
              until false;
 
              { free buffer of macro ?}
@@ -1500,27 +1737,17 @@ In case not, the value returned can be arbitrary.
           begin
            { check if there is an assignment, then we need to give a
              warning }
-             current_scanner.skipspace;
+             skipspace;
              if c=':' then
               begin
-                current_scanner.readchar;
+                readchar;
                 if c='=' then
                   Message(scan_w_macro_support_turned_off);
               end;
           end;
       end;
 
-    procedure dir_define;
-      begin
-        dir_define_impl(false);
-      end;
-
-    procedure dir_definec;
-      begin
-        dir_define_impl(true);
-      end;
-
-    procedure dir_setc;
+    procedure tscannerfile.dir_setc;
       var
         hs  : string;
         mac : tmacro;
@@ -1528,8 +1755,8 @@ In case not, the value returned can be arbitrary.
         l : longint;
         w : integer;
       begin
-        current_scanner.skipspace;
-        hs:=current_scanner.readid;
+        skipspace;
+        hs:=readid;
         mac:=tmacro(search_macro(hs));
         if not assigned(mac) or
            (mac.owner <> current_module.localmacrosymtable) then
@@ -1558,12 +1785,12 @@ In case not, the value returned can be arbitrary.
           Message(scan_e_keyword_cant_be_a_macro);
 
         { macro assignment can be both := and = }
-        current_scanner.skipspace;
+        skipspace;
         if c=':' then
-          current_scanner.readchar;
+          readchar;
         if c='=' then
           begin
-             current_scanner.readchar;
+             readchar;
              hs:= parse_compiler_expr(exprType);
              if (exprType * [ctetBoolean, ctetInteger]) = [] then
                CTEError(exprType, [ctetBoolean, ctetInteger], 'SETC');
@@ -1598,13 +1825,13 @@ In case not, the value returned can be arbitrary.
       end;
 
 
-    procedure dir_undef;
+    procedure tscannerfile.dir_undef;
       var
         hs  : string;
         mac : tmacro;
       begin
-        current_scanner.skipspace;
-        hs:=current_scanner.readid;
+        skipspace;
+        hs:=readid;
         mac:=tmacro(search_macro(hs));
         if not assigned(mac) or
            (mac.owner <> current_module.localmacrosymtable) then
@@ -1628,7 +1855,7 @@ In case not, the value returned can be arbitrary.
         mac.is_used:=true;
       end;
 
-    procedure dir_include;
+    procedure tscannerfile.dir_include;
 
         function findincludefile(const path,name:TCmdStr;var foundfile:TCmdStr):boolean;
         var
@@ -1653,7 +1880,7 @@ In case not, the value returned can be arbitrary.
              end
            else
              begin
-               hpath:=current_scanner.inputfile.path^+';'+CurDirRelPath(source_info);
+               hpath:=inputfile.path^+';'+CurDirRelPath(source_info);
                found:=FindFile(path+name, hpath,true,foundfile);
                if not found then
                  found:=current_module.localincludesearchpath.FindFile(path+name,true,foundfile);
@@ -1672,8 +1899,8 @@ In case not, the value returned can be arbitrary.
         hp    : tinputfile;
         found : boolean;
       begin
-        current_scanner.skipspace;
-        args:=current_scanner.readcomment;
+        skipspace;
+        args:=readcomment;
         hs:=GetToken(args,' ');
         if hs='' then
          exit;
@@ -1720,8 +1947,8 @@ In case not, the value returned can be arbitrary.
             Message1(scan_w_include_env_not_found,path);
            { make it a stringconst }
            hs:=''''+hs+'''';
-           current_scanner.insertmacro(path,@hs[1],length(hs),
-            current_scanner.line_no,current_scanner.inputfile.ref_index);
+           insertmacro(path,@hs[1],length(hs),
+            line_no,inputfile.ref_index);
          end
         else
          begin
@@ -1746,23 +1973,23 @@ In case not, the value returned can be arbitrary.
               if (not found) then
                found:=findincludefile(path,ChangeFileExt(name,pasext),foundfile);
             end;
-           if current_scanner.inputfilecount<max_include_nesting then
+           if inputfilecount<max_include_nesting then
              begin
-               inc(current_scanner.inputfilecount);
+               inc(inputfilecount);
                { we need to reread the current char }
-               dec(current_scanner.inputpointer);
+               dec(inputpointer);
                { shutdown current file }
-               current_scanner.tempcloseinputfile;
+               tempcloseinputfile;
                { load new file }
                hp:=do_openinputfile(foundfile);
-               current_scanner.addfile(hp);
+               addfile(hp);
                current_module.sourcefiles.register_file(hp);
                if (not found) then
                 Message1(scan_f_cannot_open_includefile,hs);
-              if (not current_scanner.openinputfile) then
+              if (not openinputfile) then
                 Message1(scan_f_cannot_open_includefile,hs);
-               Message1(scan_t_start_include_file,current_scanner.inputfile.path^+current_scanner.inputfile.name^);
-               current_scanner.reload;
+               Message1(scan_t_start_include_file,inputfile.path^+inputfile.name^);
+               reload;
              end
            else
              Message(scan_f_include_deep_ten);
@@ -1801,6 +2028,7 @@ In case not, the value returned can be arbitrary.
 
     procedure tpreprocfile.add(const s:string);
       begin
+        AddSpace; //if whitespace found
         write(f,s);
       end;
 
@@ -1891,6 +2119,8 @@ In case not, the value returned can be arbitrary.
         lastasmgetchar:=#0;
         ignoredirectives:=TFPHashList.Create;
         in_asm_string:=false;
+      //OO
+        initwidestring(patternw);
       end;
 
 
@@ -1919,6 +2149,8 @@ In case not, the value returned can be arbitrary.
         if not inputfile.closed then
           closeinputfile;
         ignoredirectives.free;
+      //OO
+        donewidestring(patternw);
       end;
 
 
@@ -2481,15 +2713,15 @@ In case not, the value returned can be arbitrary.
       end;
 
 
-    procedure tscannerfile.illegal_char(c:char);
+    procedure tscannerfile.illegal_char(ic:char);
       var
         s : string;
       begin
-        if c in [#32..#255] then
+        if ic in [#32..#255] then
           s:=''''+c+''''
         else
-          s:='#'+tostr(ord(c));
-        Message2(scan_f_illegal_char,s,'$'+hexstr(ord(c),2));
+          s:='#'+tostr(ord(ic));
+        Message2(scan_f_illegal_char,s,'$'+hexstr(ord(ic),2));
       end;
 
 
@@ -2622,27 +2854,52 @@ In case not, the value returned can be arbitrary.
          end;
       end;
 
+    procedure tscannerfile.dodirective(p:tdirectiveproc);
+    begin
+      case p of
+      diDefine:     dir_define_impl(false);
+      diUndef:      dir_undef;
+      diIf:         ifpreprocstack(pp_if,@boolean_compile_time_expr, scan_c_if_found);  //dir_if;
+      diIfDef:      ifpreprocstack(pp_ifdef,@isdef,scan_c_ifdef_found); //dir_ifdef;
+      diIfnDef:     ifpreprocstack(pp_ifndef,@isnotdef,scan_c_ifndef_found);  //dir_ifndef;
+      diElse:       elsepreprocstack; //dir_else;
+      diElseIf:     elseifpreprocstack(@boolean_compile_time_expr); //dir_elseif;
+      diEndIf:      poppreprocstack;  //dir_endif;
+      diInclude:    dir_include;
+      diLibPrefix:  dir_libprefix;
+      diLibSuffix:  dir_libsuffix;
+      diExtension:  dir_extension;
+      diIfOpt:      dir_ifopt;
+      diSetC:       dir_setc;
+      diDefineC:    dir_define_impl(True);
+      end;
+    end;
+
     procedure tscannerfile.handleconditional(p:tdirectiveitem);
       begin
         savetokenpos;
         repeat
-          current_scanner.gettokenpos;
+          gettokenpos;
+        {$IFDEF old}
           p.proc();
+        {$ELSE}
+          dodirective(p.proc);
+        {$ENDIF}
           { accept the text ? }
-          if (current_scanner.preprocstack=nil) or current_scanner.preprocstack.accept then
+          if (preprocstack=nil) or preprocstack.accept then
            break
           else
            begin
-             current_scanner.gettokenpos;
+             gettokenpos;
              Message(scan_c_skipping_until);
              repeat
-               current_scanner.skipuntildirective;
+               skipuntildirective;
                if not (m_mac in current_settings.modeswitches) then
-                 p:=tdirectiveitem(turbo_scannerdirectives.Find(current_scanner.readid))
+                 p:=tdirectiveitem(turbo_scannerdirectives.Find(readid))
                else
-                 p:=tdirectiveitem(mac_scannerdirectives.Find(current_scanner.readid));
+                 p:=tdirectiveitem(mac_scannerdirectives.Find(readid));
              until assigned(p) and (p.is_conditional);
-             current_scanner.gettokenpos;
+             gettokenpos;
              Message1(scan_d_handling_switch,'$'+p.name);
            end;
         until false;
@@ -2668,10 +2925,11 @@ In case not, the value returned can be arbitrary.
          if parapreprocess then
           begin
             t:=Get_Directive(hs);
-            if not(is_conditional(t) or (t=_DIR_DEFINE) or (t=_DIR_UNDEF)) then
+            //if not(is_conditional(t) or (t=_DIR_DEFINE) or (t=_DIR_UNDEF)) then
+            if not(t.is_conditional or (t.kind in [diDefine, diUndef])) then
              begin
-               preprocfile^.AddSpace;
-               preprocfile^.Add('{$'+hs+current_scanner.readcomment+'}');
+               preprocfile.AddSpace;
+               preprocfile.Add('{$'+hs+readcomment+'}');
                exit;
              end;
           end;
@@ -2689,18 +2947,18 @@ In case not, the value returned can be arbitrary.
          while (length(hs)=1) and (c in ['-','+']) do
           begin
             HandleSwitch(hs[1],c);
-            current_scanner.readchar; {Remove + or -}
+            readchar; {Remove + or -}
             if c=',' then
              begin
-               current_scanner.readchar;   {Remove , }
+               readchar;   {Remove , }
                { read next switch, support $v+,$+}
-               hs:=current_scanner.readid;
+               hs:=readid;
                if (hs='') then
                 begin
                   if (c='$') and (m_fpc in current_settings.modeswitches) then
                    begin
-                     current_scanner.readchar;  { skip $ }
-                     hs:=current_scanner.readid;
+                     readchar;  { skip $ }
+                     hs:=readid;
                    end;
                   if (hs='') then
                    Message1(scan_w_illegal_directive,'$'+c);
@@ -2714,10 +2972,14 @@ In case not, the value returned can be arbitrary.
          { directives may follow switches after a , }
          if hs<>'' then
           begin
+          {$IFDEF old}
             if not (m_mac in current_settings.modeswitches) then
               t:=tdirectiveitem(turbo_scannerdirectives.Find(hs))
             else
               t:=tdirectiveitem(mac_scannerdirectives.Find(hs));
+          {$ELSE}
+            t := Get_Directive(hs);
+          {$ENDIF}
 
             if assigned(t) then
              begin
@@ -2726,21 +2988,33 @@ In case not, the value returned can be arbitrary.
                else
                 begin
                   Message1(scan_d_handling_switch,'$'+hs);
+                {$IFDEF old}
                   t.proc();
+                {$ELSE}
+                  dodirective(t.proc);
+                {$ENDIF}
                 end;
              end
             else
              begin
-               current_scanner.ignoredirectives.Add(hs,nil);
+               ignoredirectives.Add(hs,nil);
                Message1(scan_w_illegal_directive,'$'+hs);
              end;
             { conditionals already read the comment }
-            if (current_scanner.comment_level>0) then
-             current_scanner.readcomment;
+            if (comment_level>0) then
+             readcomment;
             { we've read the whole comment }
             aktcommentstyle:=comment_none;
           end;
       end;
+
+  function tscannerfile.Get_Directive(const hs: string): tdirectiveitem;
+    begin
+      if not (m_mac in current_settings.modeswitches) then
+        Result:=tdirectiveitem(turbo_scannerdirectives.Find(hs))
+      else
+        Result:=tdirectiveitem(mac_scannerdirectives.Find(hs));
+    end;
 
 
     procedure tscannerfile.readchar;
@@ -2808,8 +3082,8 @@ In case not, the value returned can be arbitrary.
               break;
           end;
         until false;
-        orgpattern[0]:=chr(i);
-        pattern[0]:=chr(i);
+        SetLength(orgpattern, i);
+        SetLength(pattern, i);
       end;
 
 
@@ -3013,8 +3287,8 @@ In case not, the value returned can be arbitrary.
         state:=' ';
         if c=' ' then
          begin
-           current_scanner.skipspace;
-           current_scanner.readid;
+           skipspace;
+           readid;
            if pattern='ON' then
             state:='+'
            else
@@ -3036,8 +3310,8 @@ In case not, the value returned can be arbitrary.
         state:=' ';
         if c=' ' then
          begin
-           current_scanner.skipspace;
-           current_scanner.readid;
+           skipspace;
+           readid;
            if pattern='ON' then
             state:='+'
            else
@@ -3391,7 +3665,8 @@ In case not, the value returned can be arbitrary.
 {$ifdef PREPROCWRITE}
                 if parapreprocess then
                  begin
-                   if c=#10 then
+                   //if c=#10 then  //never matched???
+                   if c in [#10,#13] then
                     preprocfile.eolfound:=true
                    else
                     preprocfile.spacefound:=true;
@@ -4090,19 +4365,19 @@ exit_label:
            'A'..'Z',
            'a'..'z' :
              begin
-               current_scanner.preproc_pattern:=readid;
+               preproc_pattern:=readid;
                readpreproc:=_ID;
              end;
            '0'..'9' :
              begin
-               current_scanner.preproc_pattern:=readval_asstring;
+               preproc_pattern:=readval_asstring;
                { realnumber? }
                if c='.' then
                  begin
                    readchar;
                    while c in ['0'..'9'] do
                      begin
-                       current_scanner.preproc_pattern:=current_scanner.preproc_pattern+c;
+                       preproc_pattern:=preproc_pattern+c;
                        readchar;
                      end;
                  end;
@@ -4110,7 +4385,7 @@ exit_label:
              end;
            '$','%','&' :
              begin
-               current_scanner.preproc_pattern:=readval_asstring;
+               preproc_pattern:=readval_asstring;
                readpreproc:=_ID;
              end;
            ',' :
@@ -4207,6 +4482,245 @@ exit_label:
       end;
 
 
+{$IFnDEF consume_in_parser}
+    { consumes token i, write error if token is different }
+    procedure tscannerfile.consume(i : ttoken);
+      begin
+        if (token<>i) and (idtoken<>i) then
+          if token=_id then
+            Message2(scan_f_syn_expected,tokeninfo^[i].str,'identifier '+pattern)
+          else
+            Message2(scan_f_syn_expected,tokeninfo^[i].str,tokeninfo^[token].str)
+        else
+          begin
+            if token=_END then
+              last_endtoken_filepos:=current_tokenpos;
+            readtoken(true);
+          end;
+      end;
+
+
+    function tscannerfile.try_to_consume(i:Ttoken):boolean;
+      begin
+        try_to_consume:=false;
+        if (token=i) or (idtoken=i) then
+         begin
+           try_to_consume:=true;
+           if token=_END then
+            last_endtoken_filepos:=current_tokenpos;
+           readtoken(true);
+         end;
+      end;
+
+
+    procedure tscannerfile.consume_all_until(atoken : ttoken);
+      begin
+         while (token<>atoken) and (idtoken<>atoken) do
+          begin
+            Consume(token);
+            if token=_EOF then
+             begin
+               Consume(atoken);
+               Message(scan_f_end_of_file);
+               exit;
+             end;
+          end;
+      end;
+
+
+    procedure tscannerfile.consume_emptystats;
+      begin
+         repeat
+         until not try_to_consume(_SEMICOLON);
+      end;
+
+
+{****************************************************************************
+                               Token Parsing
+****************************************************************************}
+
+     procedure tscannerfile.identifier_not_found(const s:string);
+     //var pattern: string absolute s;  //must be uppercase!
+       begin
+         Message1(sym_e_id_not_found,s);
+         { show a fatal that you need -S2 or -Sd, but only
+           if we just parsed a token that has m_class }
+         if not(m_class in current_settings.modeswitches) and
+            (Upper(s)=pattern) and
+            (tokeninfo^[idtoken].keyword=m_class) then
+           Message(parser_f_need_objfpc_or_delphi_mode);
+       end;
+
+    { check if a symbol contains the hint directive, and if so gives out a hint
+      if required.
+
+      If this code is changed, it's likly that consume_sym_orgid and factor_read_id
+      must be changed as well (FK)
+    }
+    function tscannerfile.consume_sym(var srsym:tsym;var srsymtable:TSymtable):boolean;
+      var
+        t : ttoken;
+      begin
+        { first check for identifier }
+        if token<>_ID then
+          begin
+            consume(_ID);
+            srsym:=generrorsym;
+            srsymtable:=nil;
+            result:=false;
+            exit;
+          end;
+        searchsym(pattern,srsym,srsymtable);
+        { handle unit specification like System.Writeln }
+        try_consume_unitsym(srsym,srsymtable,t);
+        { if nothing found give error and return errorsym }
+        if assigned(srsym) then
+          check_hints(srsym,srsym.symoptions,srsym.deprecatedmsg)
+        else
+          begin
+            identifier_not_found(orgpattern);
+            srsym:=generrorsym;
+            srsymtable:=nil;
+          end;
+        consume(t);
+        result:=assigned(srsym);
+      end;
+
+
+    { check if a symbol contains the hint directive, and if so gives out a hint
+      if required and returns the id with it's original casing
+    }
+    function tscannerfile.consume_sym_orgid(var srsym:tsym;var srsymtable:TSymtable;var s : string):boolean;
+      var
+        t : ttoken;
+      begin
+        { first check for identifier }
+        if token<>_ID then
+          begin
+            consume(_ID);
+            srsym:=generrorsym;
+            srsymtable:=nil;
+            result:=false;
+            exit;
+          end;
+        searchsym(pattern,srsym,srsymtable);
+        { handle unit specification like System.Writeln }
+        try_consume_unitsym(srsym,srsymtable,t);
+        { if nothing found give error and return errorsym }
+        if assigned(srsym) then
+          check_hints(srsym,srsym.symoptions,srsym.deprecatedmsg)
+        else
+          begin
+            identifier_not_found(orgpattern);
+            srsym:=generrorsym;
+            srsymtable:=nil;
+          end;
+        s:=orgpattern;
+        consume(t);
+        result:=assigned(srsym);
+      end;
+
+
+    function tscannerfile.try_consume_unitsym(var srsym:tsym;var srsymtable:TSymtable;var tokentoconsume : ttoken):boolean;
+      begin
+        result:=false;
+        tokentoconsume:=_ID;
+        if assigned(srsym) and
+           (srsym.typ=unitsym) then
+          begin
+            if not(srsym.owner.symtabletype in [staticsymtable,globalsymtable]) then
+              internalerror(200501154);
+            { only allow unit.symbol access if the name was
+              found in the current module }
+            if srsym.owner.iscurrentunit then
+              begin
+                consume(_ID);
+                consume(_POINT);
+                case token of
+                  _ID:
+                     searchsym_in_module(tunitsym(srsym).module,pattern,srsym,srsymtable);
+                  _STRING:
+                    begin
+                      { system.string? }
+                      if tmodule(tunitsym(srsym).module).globalsymtable=systemunit then
+                        begin
+                          if cs_ansistrings in current_settings.localswitches then
+                            searchsym_in_module(tunitsym(srsym).module,'ANSISTRING',srsym,srsymtable)
+                          else
+                            searchsym_in_module(tunitsym(srsym).module,'SHORTSTRING',srsym,srsymtable);
+                          tokentoconsume:=_STRING;
+                        end;
+                    end
+                  end;
+              end
+            else
+              begin
+                srsym:=nil;
+                srsymtable:=nil;
+              end;
+            result:=true;
+          end;
+      end;
+
+
+    function tscannerfile.try_consume_hintdirective(var symopt:tsymoptions; var deprecatedmsg:pshortstring):boolean;
+      var
+        last_is_deprecated:boolean;
+      begin
+        try_consume_hintdirective:=false;
+        if not(m_hintdirective in current_settings.modeswitches) then
+         exit;
+        repeat
+          last_is_deprecated:=false;
+          case idtoken of
+            _LIBRARY :
+              begin
+                include(symopt,sp_hint_library);
+                try_consume_hintdirective:=true;
+              end;
+            _DEPRECATED :
+              begin
+                include(symopt,sp_hint_deprecated);
+                try_consume_hintdirective:=true;
+                last_is_deprecated:=true;
+              end;
+            _EXPERIMENTAL :
+              begin
+                include(symopt,sp_hint_experimental);
+                try_consume_hintdirective:=true;
+              end;
+            _PLATFORM :
+              begin
+                include(symopt,sp_hint_platform);
+                try_consume_hintdirective:=true;
+              end;
+            _UNIMPLEMENTED :
+              begin
+                include(symopt,sp_hint_unimplemented);
+                try_consume_hintdirective:=true;
+              end;
+            else
+              break;
+          end;
+          consume(Token);
+          { handle deprecated message }
+          if ((token=_CSTRING) or (token=_CCHAR)) and last_is_deprecated then
+            begin
+              if deprecatedmsg<>nil then
+                internalerror(200910181);
+              if token=_CSTRING then
+                deprecatedmsg:=stringdup(cstringpattern)
+              else
+                deprecatedmsg:=stringdup(pattern);
+              consume(token);
+              include(symopt,sp_has_deprecated_msg);
+            end;
+        until false;
+      end;
+{$ELSE}
+  //in tparserbase
+{$ENDIF}
+
     function tscannerfile.asmgetcharstart : char;
       begin
         { return first the character already
@@ -4299,6 +4813,8 @@ exit_label:
       end;
 
 
+{$I scandir.inc}
+
 {*****************************************************************************
                                    Helpers
 *****************************************************************************}
@@ -4325,40 +4841,152 @@ exit_label:
 
     procedure InitScanner;
       begin
-        InitWideString(patternw);
         turbo_scannerdirectives:=TFPHashObjectList.Create;
         mac_scannerdirectives:=TFPHashObjectList.Create;
 
         { Common directives and conditionals }
-        AddDirective('I',directive_all, @dir_include);
-        AddDirective('DEFINE',directive_all, @dir_define);
-        AddDirective('UNDEF',directive_all, @dir_undef);
+        AddDirective('I',directive_all, diInclude);
+        AddDirective('DEFINE',directive_all, diDefine);
+        AddDirective('UNDEF',directive_all, diUndef);
 
-        AddConditional('IF',directive_all, @dir_if);
-        AddConditional('IFDEF',directive_all, @dir_ifdef);
-        AddConditional('IFNDEF',directive_all, @dir_ifndef);
-        AddConditional('ELSE',directive_all, @dir_else);
-        AddConditional('ELSEIF',directive_all, @dir_elseif);
-        AddConditional('ENDIF',directive_all, @dir_endif);
+        { TODO : add directive kinds for all conditionals }
+        AddConditional('IF',directive_all, diIf);
+        AddConditional('IFDEF',directive_all, diIfDef);
+        AddConditional('IFNDEF',directive_all, diIfnDef);
+        AddConditional('ELSE',directive_all, diElse);
+        AddConditional('ELSEIF',directive_all, diElseIf);
+        AddConditional('ENDIF',directive_all, diEndIf);
 
         { Directives and conditionals for all modes except mode macpas}
-        AddDirective('INCLUDE',directive_turbo, @dir_include);
-        AddDirective('LIBPREFIX',directive_turbo, @dir_libprefix);
-        AddDirective('LIBSUFFIX',directive_turbo, @dir_libsuffix);
-        AddDirective('EXTENSION',directive_turbo, @dir_extension);
+        AddDirective('INCLUDE',directive_turbo, diInclude);
+        AddDirective('LIBPREFIX',directive_turbo, diLibPrefix);
+        AddDirective('LIBSUFFIX',directive_turbo, diLibSuffix);
+        AddDirective('EXTENSION',directive_turbo, diExtension);
 
-        AddConditional('IFEND',directive_turbo, @dir_endif);
-        AddConditional('IFOPT',directive_turbo, @dir_ifopt);
+        AddConditional('IFEND',directive_turbo, diEndIf);
+        AddConditional('IFOPT',directive_turbo, diIfOpt);
 
         { Directives and conditionals for mode macpas: }
-        AddDirective('SETC',directive_mac, @dir_setc);
-        AddDirective('DEFINEC',directive_mac, @dir_definec);
-        AddDirective('UNDEFC',directive_mac, @dir_undef);
+        AddDirective('SETC',directive_mac, diSetC);
+        AddDirective('DEFINEC',directive_mac, diDefineC);
+        AddDirective('UNDEFC',directive_mac, diUndef);
 
-        AddConditional('IFC',directive_mac, @dir_if);
-        AddConditional('ELSEC',directive_mac, @dir_else);
-        AddConditional('ELIFC',directive_mac, @dir_elseif);
-        AddConditional('ENDC',directive_mac, @dir_endif);
+        AddConditional('IFC',directive_mac, diIf);
+        AddConditional('ELSEC',directive_mac, diElse);
+        AddConditional('ELIFC',directive_mac, diElseIf);
+        AddConditional('ENDC',directive_mac, diEndIf);
+
+        AddDirective('A1',directive_all, diA1);
+        AddDirective('A2',directive_all, diA2);
+        AddDirective('A4',directive_all, diA4);
+        AddDirective('A8',directive_all, diA8);
+        AddDirective('ALIGN',directive_all, diAlign);
+{$ifdef m68k}
+        AddDirective('APPID',directive_all, diAppId);
+        AddDirective('APPNAME',directive_all, diAppName);
+{$endif m68k}
+        AddDirective('APPTYPE',directive_all, diAppType);
+        AddDirective('ASMMODE',directive_all, diAsmMode);
+        AddDirective('ASSERTIONS',directive_all, diAssertions);
+        AddDirective('BOOLEVAL',directive_all, diBoolEval);
+        AddDirective('BITPACKING',directive_all, diBitPacking);
+        AddDirective('CALLING',directive_all, diCalling);
+        AddDirective('CHECKPOINTER',directive_all, diCheckPointer);
+        AddDirective('CODEALIGN',directive_all, diCodeAlign);
+        AddDirective('CODEPAGE',directive_all, diCodePage);
+        AddDirective('COPERATORS',directive_all, diCOperators);
+        AddDirective('COPYRIGHT',directive_all, diCopyright);
+        AddDirective('D',directive_all, diDescription);
+        AddDirective('DEBUGINFO',directive_all, diDebugInfo);
+        AddDirective('DESCRIPTION',directive_all, diDescription);
+        AddDirective('ENDREGION',directive_all, diEndRegion);
+        AddDirective('ERROR',directive_all, diError);
+        AddDirective('ERRORC',directive_mac, diError);
+        AddDirective('EXTENDEDSYNTAX',directive_all, diExtendedSyntax);
+        AddDirective('EXTERNALSYM',directive_all, diExternalSym);
+        AddDirective('FATAL',directive_all, diFatal);
+        AddDirective('FPUTYPE',directive_all, diFpuType);
+        AddDirective('FRAMEWORKPATH',directive_all, diFrameworkPath);
+        AddDirective('GOTO',directive_all, diGoto);
+        AddDirective('HINT',directive_all, diHint);
+        AddDirective('HINTS',directive_all, diHints);
+        AddDirective('HPPEMIT',directive_all, diHppEmit);
+        AddDirective('IOCHECKS',directive_all, diIOChecks);
+        AddDirective('IMAGEBASE',directive_all, diImageBase);
+        AddDirective('IMPLICITEXCEPTIONS',directive_all, diImplicitExceptions);
+        AddDirective('INCLUDEPATH',directive_all, diIncludePath);
+        AddDirective('INFO',directive_all, diInfo);
+        AddDirective('INLINE',directive_all, diInline);
+        AddDirective('INTERFACES',directive_all, diInterfaces);
+        AddDirective('L',directive_all, diLink);
+        AddDirective('LIBEXPORT',directive_mac, diLibExport);
+        AddDirective('LIBRARYPATH',directive_all, diLibraryPath);
+        AddDirective('LINK',directive_all, diLink);
+        AddDirective('LINKFRAMEWORK',directive_all, diLinkFramework);
+        AddDirective('LINKLIB',directive_all, diLinkLib);
+        AddDirective('LOCALSYMBOLS',directive_all, diLocalSymbols);
+        AddDirective('LONGSTRINGS',directive_all, diLongStrings);
+        AddDirective('M',directive_all, diMemory);
+        AddDirective('MACRO',directive_all, diMacro);
+        AddDirective('MAXFPUREGISTERS',directive_all, diMaxFpuRegisters);
+        AddDirective('MAXSTACKSIZE',directive_all, diMaxStackSize);
+        AddDirective('MEMORY',directive_all, diMemory);
+        AddDirective('MESSAGE',directive_all, diMessage);
+        AddDirective('MINENUMSIZE',directive_all, diPackEnum);
+        AddDirective('MINFPCONSTPREC',directive_all, diMinFPConstPrec);
+        AddDirective('MINSTACKSIZE',directive_all, diMinStackSize);
+        AddDirective('MMX',directive_all, diMMX);
+        AddDirective('MODE',directive_all, diMode);
+        AddDirective('MODESWITCH',directive_all, diModeSwitch);
+        AddDirective('NODEFINE',directive_all, diNoDefine);
+        AddDirective('NOTE',directive_all, diNote);
+        AddDirective('NOTES',directive_all, diNotes);
+        AddDirective('OBJECTCHECKS',directive_all, diObjectChecks);
+        AddDirective('OBJECTPATH',directive_all, diObjectPath);
+        AddDirective('OPENSTRINGS',directive_all, diOpenStrings);
+        AddDirective('OPTIMIZATION',directive_all, diOptimization);
+        AddDirective('OV',directive_mac, diOverflowChecks);
+        AddDirective('OVERFLOWCHECKS',directive_all, diOverflowChecks);
+        AddDirective('PACKENUM',directive_all, diPackEnum);
+        AddDirective('PACKRECORDS',directive_all, diPackRecords);
+        AddDirective('PACKSET',directive_all, diPackSet);
+        AddDirective('PASCALMAINNAME',directive_all, diPascalMainName);
+        AddDirective('PIC',directive_all, diPic);
+        AddDirective('POP',directive_all, diPop);
+        AddDirective('PROFILE',directive_all, diProfile);
+        AddDirective('PUSH',directive_all, diPush);
+        AddDirective('R',directive_all, diResource);
+        AddDirective('RANGECHECKS',directive_all, diRangeChecks);
+        AddDirective('REFERENCEINFO',directive_all, diReferenceInfo);
+        AddDirective('REGION',directive_all, diRegion);
+        AddDirective('RESOURCE',directive_all, diResource);
+        AddDirective('SATURATION',directive_all, diSaturation);
+        AddDirective('SAFEFPUEXCEPTIONS',directive_all, diSafeFpuExceptions);
+        AddDirective('SCOPEDENUMS',directive_all, diScopedEnums);
+        AddDirective('SETPEFLAGS', directive_all, diSetPEFlags);
+        AddDirective('SCREENNAME',directive_all, diScreenName);
+        AddDirective('SMARTLINK',directive_all, diSmartLink);
+        AddDirective('STACKFRAMES',directive_all, diStackFrames);
+        AddDirective('STOP',directive_all, diStop);
+{$ifdef powerpc}
+        AddDirective('SYSCALL',directive_all, diSysCall);
+{$endif powerpc}
+        AddDirective('THREADNAME',directive_all, diThreadName);
+        AddDirective('TYPEDADDRESS',directive_all, diTypedAddress);
+        AddDirective('TYPEINFO',directive_all, diTypeInfo);
+        AddDirective('UNITPATH',directive_all, diUnitPath);
+        AddDirective('VARPROPSETTER',directive_all, diVarPropSetter);
+        AddDirective('VARSTRINGCHECKS',directive_all, diVarStringChecks);
+        AddDirective('VERSION',directive_all, diVersion);
+        AddDirective('WAIT',directive_all, diWait);
+        AddDirective('WARN',directive_all, diWarn);
+        AddDirective('WARNING',directive_all, diWarning);
+        AddDirective('WARNINGS',directive_all, diWarnings);
+        AddDirective('WEAKPACKAGEUNIT',directive_all, diWeakPackageUnit);
+        AddDirective('WRITEABLECONST',directive_all, diWriteableConst);
+        AddDirective('Z1',directive_all, diZ1);
+        AddDirective('Z2',directive_all, diZ2);
+        AddDirective('Z4',directive_all, diz4);
       end;
 
 
@@ -4366,7 +4994,6 @@ exit_label:
       begin
         turbo_scannerdirectives.Free;
         mac_scannerdirectives.Free;
-        DoneWideString(patternw);
       end;
 
 
