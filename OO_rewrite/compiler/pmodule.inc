@@ -721,10 +721,6 @@ implementation
         Result:=True;
       end;
 
-{$ELSE}
-//above procedures retained in pmodules.pas
-{$ENDIF}
-
     procedure AddUnit(const s:string);
       var
         hp : tppumodule;
@@ -924,6 +920,115 @@ implementation
       end;
 
 
+     procedure reset_all_defs;
+       begin
+         if assigned(current_module.wpoinfo) then
+           current_module.wpoinfo.resetdefs;
+       end;
+
+
+    procedure free_localsymtables(st:TSymtable);
+      var
+        i   : longint;
+        def : tstoreddef;
+        pd  : tprocdef;
+      begin
+        for i:=0 to st.DefList.Count-1 do
+          begin
+            def:=tstoreddef(st.DefList[i]);
+            if def.typ=procdef then
+              begin
+                pd:=tprocdef(def);
+                if assigned(pd.localst) and
+                   (pd.localst.symtabletype<>staticsymtable) and
+                   not(po_inline in pd.procoptions) then
+                  begin
+                    free_localsymtables(pd.localst);
+                    pd.localst.free;
+                    pd.localst:=nil;
+                  end;
+              end;
+          end;
+      end;
+
+
+    function create_main_proc(const name:string;potype:tproctypeoption;st:TSymtable):tcgprocinfo;
+      var
+        ps  : tprocsym;
+        pd  : tprocdef;
+      begin
+        { there should be no current_procinfo available }
+        if assigned(current_procinfo) then
+         internalerror(200304275);
+        {Generate a procsym for main}
+        ps:=tprocsym.create('$'+name);
+        { main are allways used }
+        inc(ps.refs);
+        st.insert(ps);
+        pd:=tprocdef.create(main_program_level);
+        include(pd.procoptions,po_global);
+        pd.procsym:=ps;
+        ps.ProcdefList.Add(pd);
+        { set procdef options }
+        pd.proctypeoption:=potype;
+        pd.proccalloption:=pocall_default;
+        include(pd.procoptions,po_hascallingconvention);
+        pd.forwarddef:=false;
+        pd.setmangledname(target_info.cprefix+name);
+        pd.aliasnames.insert(pd.mangledname);
+        handle_calling_convention(pd);
+        { We don't need is a local symtable. Change it into the static
+          symtable }
+        pd.localst.free;
+        pd.localst:=st;
+        { set procinfo and current_procinfo.procdef }
+        result:=tcgprocinfo(cprocinfo.create(nil));
+        result.procdef:=pd;
+        { main proc does always a call e.g. to init system unit }
+        include(result.flags,pi_do_call);
+      end;
+
+
+    procedure release_main_proc(pi:tcgprocinfo);
+      begin
+        { remove localst as it was replaced by staticsymtable }
+        pi.procdef.localst:=nil;
+        { remove procinfo }
+        current_module.procinfo:=nil;
+        pi.free;
+        pi:=nil;
+      end;
+
+
+    function gen_implicit_initfinal(flag:word;st:TSymtable):tcgprocinfo;
+      begin
+        { update module flags }
+        current_module.flags:=current_module.flags or flag;
+        { create procdef }
+        case flag of
+          uf_init :
+            begin
+              result:=create_main_proc(make_mangledname('',current_module.localsymtable,'init_implicit'),potype_unitinit,st);
+              result.procdef.aliasnames.insert(make_mangledname('INIT$',current_module.localsymtable,''));
+            end;
+          uf_finalize :
+            begin
+              result:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize_implicit'),potype_unitfinalize,st);
+              result.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
+              if (not current_module.is_unit) then
+                result.procdef.aliasnames.insert('PASCALFINALIZE');
+            end;
+          else
+            internalerror(200304253);
+        end;
+        result.code:=cnothingnode.create;
+      end;
+
+{$ELSE}
+//above procedures retained in pmodules.pas
+{$ENDIF}
+
+
     procedure TOPLParser.loadautounits;
       var
         hs,s : string;
@@ -1040,38 +1145,6 @@ implementation
       end;
 
 
-     procedure reset_all_defs;
-       begin
-         if assigned(current_module.wpoinfo) then
-           current_module.wpoinfo.resetdefs;
-       end;
-
-
-    procedure free_localsymtables(st:TSymtable);
-      var
-        i   : longint;
-        def : tstoreddef;
-        pd  : tprocdef;
-      begin
-        for i:=0 to st.DefList.Count-1 do
-          begin
-            def:=tstoreddef(st.DefList[i]);
-            if def.typ=procdef then
-              begin
-                pd:=tprocdef(def);
-                if assigned(pd.localst) and
-                   (pd.localst.symtabletype<>staticsymtable) and
-                   not(po_inline in pd.procoptions) then
-                  begin
-                    free_localsymtables(pd.localst);
-                    pd.localst.free;
-                    pd.localst:=nil;
-                  end;
-              end;
-          end;
-      end;
-
-
     procedure TOPLParser.parse_implementation_uses;
       begin
          if token=_USES then
@@ -1086,79 +1159,6 @@ implementation
             def_system_macro('FPC_PIC');
             def_system_macro('PIC');
           end;
-      end;
-
-
-    function create_main_proc(const name:string;potype:tproctypeoption;st:TSymtable):tcgprocinfo;
-      var
-        ps  : tprocsym;
-        pd  : tprocdef;
-      begin
-        { there should be no current_procinfo available }
-        if assigned(current_procinfo) then
-         internalerror(200304275);
-        {Generate a procsym for main}
-        ps:=tprocsym.create('$'+name);
-        { main are allways used }
-        inc(ps.refs);
-        st.insert(ps);
-        pd:=tprocdef.create(main_program_level);
-        include(pd.procoptions,po_global);
-        pd.procsym:=ps;
-        ps.ProcdefList.Add(pd);
-        { set procdef options }
-        pd.proctypeoption:=potype;
-        pd.proccalloption:=pocall_default;
-        include(pd.procoptions,po_hascallingconvention);
-        pd.forwarddef:=false;
-        pd.setmangledname(target_info.cprefix+name);
-        pd.aliasnames.insert(pd.mangledname);
-        handle_calling_convention(pd);
-        { We don't need is a local symtable. Change it into the static
-          symtable }
-        pd.localst.free;
-        pd.localst:=st;
-        { set procinfo and current_procinfo.procdef }
-        result:=tcgprocinfo(cprocinfo.create(nil));
-        result.procdef:=pd;
-        { main proc does always a call e.g. to init system unit }
-        include(result.flags,pi_do_call);
-      end;
-
-
-    procedure release_main_proc(pi:tcgprocinfo);
-      begin
-        { remove localst as it was replaced by staticsymtable }
-        pi.procdef.localst:=nil;
-        { remove procinfo }
-        current_module.procinfo:=nil;
-        pi.free;
-        pi:=nil;
-      end;
-
-
-    function gen_implicit_initfinal(flag:word;st:TSymtable):tcgprocinfo;
-      begin
-        { update module flags }
-        current_module.flags:=current_module.flags or flag;
-        { create procdef }
-        case flag of
-          uf_init :
-            begin
-              result:=create_main_proc(make_mangledname('',current_module.localsymtable,'init_implicit'),potype_unitinit,st);
-              result.procdef.aliasnames.insert(make_mangledname('INIT$',current_module.localsymtable,''));
-            end;
-          uf_finalize :
-            begin
-              result:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize_implicit'),potype_unitfinalize,st);
-              result.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
-              if (not current_module.is_unit) then
-                result.procdef.aliasnames.insert('PASCALFINALIZE');
-            end;
-          else
-            internalerror(200304253);
-        end;
-        result.code:=cnothingnode.create;
       end;
 
 

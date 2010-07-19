@@ -168,7 +168,7 @@ uses
 implementation
 
     uses
-      psystem, pmodules,
+      psystem, pmodules, psub, cfileutl,
     //pinline
       { symtable }
       defutil,defcmp,

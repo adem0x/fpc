@@ -34,6 +34,7 @@ interface
     procedure proc_program(islibrary : boolean);
 {$ELSE}
 //insert non-parser procedures here (ppu/code generation)
+    procedure AddUnit(const s:string);
     Function RewritePPU(const PPUFn,PPLFn:String):Boolean;
  {$ENDIF}
 
