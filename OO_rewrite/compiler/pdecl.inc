@@ -19,6 +19,9 @@
 
  ****************************************************************************
 }
+{$IFnDEF old}
+//made include file for parser_opl
+{$ELSE}
 unit pdecl;
 
 {$i fpcdefs.inc}
@@ -68,9 +71,10 @@ implementation
        { cpu-information }
        cpuinfo
        ;
+{$ENDIF}
 
 
-    function readconstant(const orgname:string;const filepos:tfileposinfo):tconstsym;
+    function TOPLParser.readconstant(const orgname:string;const filepos:tfileposinfo):tconstsym;
       var
         hp : tconstsym;
         p : tnode;
@@ -155,13 +159,13 @@ implementation
         readconstant:=hp;
       end;
 
-    procedure const_dec;
+    procedure TOPLParser.const_dec;
       begin
         consume(_CONST);
         consts_dec(false);
       end;
 
-    procedure consts_dec(in_class: boolean);
+    procedure TOPLParser.consts_dec(in_class: boolean);
       var
          orgname : TIDString;
          hdef : tdef;
@@ -267,7 +271,7 @@ implementation
       end;
 
 
-    procedure label_dec;
+    procedure TOPLParser.label_dec;
       begin
          consume(_LABEL);
          if not(cs_support_goto in current_settings.moduleswitches) then
@@ -289,7 +293,7 @@ implementation
       end;
 
 
-    procedure types_dec(in_class: boolean);
+    procedure TOPLParser.types_dec(in_class: boolean);
 
       procedure get_cpp_class_external_status(od: tobjectdef);
         var
@@ -648,14 +652,14 @@ implementation
 
 
     { reads a type declaration to the symbol table }
-    procedure type_dec;
+    procedure TOPLParser.type_dec;
       begin
         consume(_TYPE);
         types_dec(false);
       end;
 
 
-    procedure var_dec;
+    procedure TOPLParser.var_dec;
     { parses variable declarations and inserts them in }
     { the top symbol table of symtablestack         }
       begin
@@ -664,7 +668,7 @@ implementation
       end;
 
 
-    procedure property_dec(is_classpropery: boolean);
+    procedure TOPLParser.property_dec(is_classpropery: boolean);
       var
          old_block_type : tblock_type;
       begin
@@ -681,7 +685,7 @@ implementation
       end;
 
 
-    procedure threadvar_dec;
+    procedure TOPLParser.threadvar_dec;
     { parses thread variable declarations and inserts them in }
     { the top symbol table of symtablestack                }
       begin
@@ -692,7 +696,7 @@ implementation
       end;
 
 
-    procedure resourcestring_dec;
+    procedure TOPLParser.resourcestring_dec;
       var
          orgname : TIDString;
          p : tnode;
@@ -765,4 +769,4 @@ implementation
          block_type:=old_block_type;
       end;
 
-end.
+//end.

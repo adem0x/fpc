@@ -1118,7 +1118,7 @@ implementation
             if pu.in_uses and
                (pu.in_interface=current_module.in_interface) then
              begin
-               tppumodule(pu.u).loadppu;
+               tppumodule(pu.u).loadppu(current_module);
                { is our module compiled? then we can stop }
                if current_module.state=ms_compiled then
                 exit;

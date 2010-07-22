@@ -19,6 +19,9 @@
 
  ****************************************************************************
 }
+{$IFnDEF old}
+//inlined in parser
+{$ELSE}
 unit pstatmnt;
 
 {$i fpcdefs.inc}
@@ -64,6 +67,7 @@ implementation
 
 
     function statement : tnode;forward;
+{$ENDIF}
 
 
     function if_statement : tnode;
@@ -1201,7 +1205,7 @@ implementation
       end;
 
 
-    function statement_block(starttoken : ttoken) : tnode;
+    function TOPLParser.statement_block(starttoken : ttoken) : tnode;
 
       var
          first,last : tnode;
@@ -1251,7 +1255,7 @@ implementation
       end;
 
 
-    function assembler_block : tnode;
+    function TOPLParser.assembler_block : tnode;
       var
         p : tnode;
 {$ifndef arm}
@@ -1322,4 +1326,4 @@ implementation
         assembler_block:=p;
       end;
 
-end.
+//end.

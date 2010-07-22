@@ -87,8 +87,12 @@ uses
        { object type as function argument type  }
        testcurobject : byte;
 
+        function assembler_block: tnode;
+        function block(islibrary: boolean; current_procinfo: tprocinfo) : tnode;
         function check_proc_directive(isprocvar: boolean): boolean;
         function comp_expr(accept_equal: boolean): tnode;
+        procedure consts_dec(in_class: boolean);
+        procedure const_dec;
         procedure create_objectfile;
         procedure do_member_read(classh: tobjectdef; getaddr: boolean;
           sym: tsym; var p1: tnode; var again: boolean;
@@ -96,6 +100,7 @@ uses
         function expr(dotypecheck: boolean): tnode;
         function factor(getaddr: boolean): tnode;
         procedure generate_specialization(var tt: tdef);
+        procedure generate_specialization_procs;
         function get_intconst: TConstExprInt;
         function get_stringconst: string;
         procedure handle_calling_convention(pd: tabstractprocdef);
@@ -105,7 +110,7 @@ uses
         function inline_initialize: tnode;
         function inline_setlength: tnode;
         procedure insertobjectfile;
-        //procedure insert_funcret_local(pd: tprocdef);
+        procedure label_dec;
         procedure loadautounits;
         procedure loadunits;
         function maybe_parse_proc_directives(def: tdef): boolean;
@@ -114,11 +119,15 @@ uses
         function object_dec(objecttype: tobjecttyp; const n: tidstring;
           genericdef: tstoreddef; genericlist: TFPObjectList; fd: tobjectdef
           ): tobjectdef;
+        procedure parse_classrefdef(list: tasmlist; def: tclassrefdef);
+        procedure parse_floatdef(list: tasmlist; def: tfloatdef);
         procedure parse_implementation_uses;
         procedure parse_object_proc_directives(pd: tabstractprocdef);
+        procedure parse_orddef(list: tasmlist; def: torddef);
         procedure parse_parameter_dec(pd: tabstractprocdef);
         function parse_paras(__colon, __namedpara: boolean; end_of_paras: ttoken
           ): tnode;
+        procedure parse_pointerdef(list: tasmlist; def: tpointerdef);
         function parse_proc_dec(isclassmethod: boolean; aclass: tobjectdef
           ): tprocdef;
         procedure parse_proc_directives(pd: tabstractprocdef;
@@ -132,6 +141,9 @@ uses
         procedure proc_program(islibrary: boolean);
         procedure proc_set_mangledname(pd: tprocdef);
         procedure proc_unit;
+        procedure property_dec(is_classpropery: boolean);
+        function readconstant(const orgname: string; const filepos: tfileposinfo
+          ): tconstsym;
         procedure read_anon_type(var def: tdef; parseprocvardir: boolean);
         procedure read_declarations(islibrary: boolean);
         procedure read_exports;
@@ -139,28 +151,38 @@ uses
         procedure read_named_type(var def: tdef; const name: TIDString;
           genericdef: tstoreddef; genericlist: TFPObjectList;
           parseprocvardir: boolean);
+        procedure read_proc(isclassmethod: boolean);
+        procedure read_proc_body(old_current_procinfo: tprocinfo; pd: tprocdef);
         function read_property_dec(is_classproperty: boolean; aclass: tobjectdef
           ): tpropertysym;
         procedure read_public_and_external(vs: tabstractvarsym);
         procedure read_public_and_external_sc(sc: TFPObjectList);
         procedure read_record_fields(options: Tvar_dec_options);
+        procedure read_typed_const(list: tasmlist; sym: tstaticvarsym;
+          in_class: boolean);
         procedure read_var_decls(options: Tvar_dec_options);
         function record_dec: tdef;
         procedure resolve_forward_types;
+        procedure resourcestring_dec;
         procedure set_current_module(p:tmodule);
         procedure setupglobalswitches;
         procedure single_type(var def: tdef; isforwarddef, allowtypedef: boolean
           );
+        function statement_block(starttoken: ttoken): tnode;
         procedure string_dec(var def: tdef; allowtypedef: boolean);
         function sub_expr(pred_level: Toperator_precedence;
           accept_equal: boolean): tnode;
+        procedure threadvar_dec;
         function try_consume_hintdirective(var moduleopt: tmoduleoptions;
           var deprecatedmsg: pshortstring): boolean;
+          overload; //in ParserBase with tsymoptions
+        procedure types_dec(in_class: boolean);
+        procedure type_dec;
+        procedure var_dec;
       public  //?
         current_debuginfo : tdebuginfo;
         current_module: tmodule;
         current_scanner: tscannerfile; //deprecated; - will disappear
-        function block(islibrary: boolean; current_procinfo: tprocinfo) : tnode;
       public
         constructor Create;
         destructor Destroy; override;
@@ -175,16 +197,19 @@ uses
 implementation
 
     uses
-      psystem, pmodules, psub, cfileutl,
+      psystem, pmodules, psub, cfileutl, widestr,
     //pinline
       { symtable }
       defutil,defcmp,
       { pass 1 }
-      pass_1,
-      nobj,
+      pass_1, ppu,
+      nobj, ncgutil,
       nmat,nadd,nmem,nset,ncnv,ninl,ncon,nld,nflw,nbas,nutils,
+       { codegen }
+       //cpuinfo,cgbase,dbgbase,
+       wpobase,wpoinfo,//asmutils
        { link }
-       import
+       import, export
   ;
 
 //this is an attempt to locate non-methods
@@ -727,6 +752,7 @@ procedure write_persistent_type_info(st:tsymtable); forward;
 
 {$I pdecl.inc}
 {$I pinline.inc}
+{.$I ptconst.inc}
 {$I ptype.inc}
 {$I psub.inc}
   {$I pmodule.inc}
@@ -735,5 +761,6 @@ procedure write_persistent_type_info(st:tsymtable); forward;
 {$I pdecobj.inc}
 {$I pdecsub.inc}
 {$I pexports.inc}
+{$I pstatmnt.inc}
 
 end.

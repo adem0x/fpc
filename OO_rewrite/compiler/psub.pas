@@ -33,7 +33,7 @@ interface
     type
       {# callback for parsing blocks}
       tblockparser = function (islibrary: boolean;
-        current_procinfo: tprocinfo): tnode; //tcgprocinfo?
+        current_procinfo: tprocinfo): tnode of object; //tcgprocinfo?
 
       tcgprocinfo = class(tprocinfo)
       private
@@ -59,8 +59,14 @@ interface
         procedure resetprocdef;
         procedure add_to_symtablestack;
         procedure remove_from_symtablestack;
+      {$IFDEF old}
         //procedure parse_body;
         procedure parse_body(block: tblockparser);
+      {$ELSE}
+        procedure parse_body_init;
+        procedure parse_body_done;
+      {$ENDIF}
+
         function stack_tainting_parameter : boolean;
         function has_assembler_child : boolean;
       end;
@@ -77,7 +83,7 @@ interface
     procedure generate_specialization_procs(current_module: tmodule);
 {$ELSE}
 {$ENDIF}
-
+procedure insert_funcret_local(pd:tprocdef);
 
 implementation
 
@@ -1327,20 +1333,29 @@ implementation
       end;
 
 
-    //procedure tcgprocinfo.parse_body;
-    procedure tcgprocinfo.parse_body(block: tblockparser);
-      var
-         old_current_procinfo : tprocinfo;
-         old_block_type : tblock_type;
-         st : TSymtable;
-         old_current_objectdef : tobjectdef;
+      //procedure tcgprocinfo.parse_body;
+      //procedure tcgprocinfo.parse_body(block: tblockparser);
+      procedure tcgprocinfo.parse_body_init;
+      {$IFDEF old}
+        var
+           old_current_procinfo : tprocinfo;
+           old_block_type : tblock_type;
+           st : TSymtable;
+           old_current_objectdef : tobjectdef;
+      {$ELSE}
+      {$ENDIF}
       begin
+        {$IFDEF old}
          old_current_procinfo:=current_procinfo;
          old_block_type:=block_type;
          old_current_objectdef:=current_objectdef;
-
+        {$ELSE}
+        //no more globals
+        //also remove following
+        {$ENDIF}
          current_procinfo:=self;
          current_objectdef:=procdef._class;
+
 
          { calculate the lexical level }
          if procdef.parast.symtablelevel>maxnesting then
@@ -1371,10 +1386,19 @@ implementation
             //in block()
            {$ENDIF}
            end;
+      end;
 
+{$IFDEF old}
          { parse the code ... }
          code:=block(current_module.islibrary, self);
+{$ELSE}
+  //in parser
+{$ENDIF}
 
+      procedure tcgprocinfo.parse_body_done;
+      var
+           st : TSymtable;
+      begin
          if (df_generic in procdef.defoptions) then
            begin
              { stop token recorder for generic template }
@@ -1454,12 +1478,17 @@ implementation
 {    aktstate.destroy;}
     {$endif state_tracking}
 
+        {$IFDEF old}
          current_objectdef:=old_current_objectdef;
          current_procinfo:=old_current_procinfo;
 
          { Restore old state }
          block_type:=old_block_type;
+        {$ELSE}
+        //no more globals
+        {$ENDIF}
       end;
+
 
 
 {****************************************************************************
@@ -1479,81 +1508,82 @@ implementation
 
 
 
+    procedure do_generate_code(pi:tcgprocinfo);
+      var
+        hpi : tcgprocinfo;
+      begin
+        { generate code for this procedure }
+        pi.generate_code;
+        { process nested procs }
+        hpi:=tcgprocinfo(pi.nestedprocs.first);
+        while assigned(hpi) do
+         begin
+           do_generate_code(hpi);
+           hpi:=tcgprocinfo(hpi.next);
+         end;
+        pi.resetprocdef;
+      end;
+
+    procedure insert_funcret_local(pd:tprocdef);
+      var
+        storepos : tfileposinfo;
+        vs       : tlocalvarsym;
+        aliasvs  : tabsolutevarsym;
+        sl       : tpropaccesslist;
+        hs       : string;
+      begin
+        { The result from constructors and destructors can't be accessed directly }
+        if not(pd.proctypeoption in [potype_constructor,potype_destructor]) and
+           not is_void(pd.returndef) then
+         begin
+           storepos:=current_tokenpos;
+           current_tokenpos:=pd.fileinfo;
+
+           { We need to insert a varsym for the result in the localst
+             when it is returning in a register }
+           if not paramanager.ret_in_param(pd.returndef,pd.proccalloption) then
+            begin
+              vs:=tlocalvarsym.create('$result',vs_value,pd.returndef,[vo_is_funcret]);
+              pd.localst.insert(vs);
+              pd.funcretsym:=vs;
+            end;
+
+           { insert the name of the procedure as alias for the function result,
+             we can't use realname because that will not work for compilerprocs
+             as the name is lowercase and unreachable from the code }
+           if assigned(pd.resultname) then
+             hs:=pd.resultname^
+           else
+             hs:=pd.procsym.name;
+           sl:=tpropaccesslist.create;
+           sl.addsym(sl_load,pd.funcretsym);
+           aliasvs:=tabsolutevarsym.create_ref(hs,pd.returndef,sl);
+           include(aliasvs.varoptions,vo_is_funcret);
+           tlocalsymtable(pd.localst).insert(aliasvs);
+
+           { insert result also if support is on }
+           if (m_result in current_settings.modeswitches) then
+            begin
+              sl:=tpropaccesslist.create;
+              sl.addsym(sl_load,pd.funcretsym);
+              aliasvs:=tabsolutevarsym.create_ref('RESULT',pd.returndef,sl);
+              include(aliasvs.varoptions,vo_is_funcret);
+              include(aliasvs.varoptions,vo_is_result);
+              tlocalsymtable(pd.localst).insert(aliasvs);
+            end;
+
+           current_tokenpos:=storepos;
+         end;
+      end;
+
+{$IFDEF old}
+//now in parser (psub.inc)
     procedure read_proc_body(old_current_procinfo:tprocinfo;pd:tprocdef;
       block: tblockparser); // current_scanner: TOPLParser);
       {
         Parses the procedure directives, then parses the procedure body, then
         generates the code for it
       }
-
-      procedure do_generate_code(pi:tcgprocinfo);
-        var
-          hpi : tcgprocinfo;
-        begin
-          { generate code for this procedure }
-          pi.generate_code;
-          { process nested procs }
-          hpi:=tcgprocinfo(pi.nestedprocs.first);
-          while assigned(hpi) do
-           begin
-             do_generate_code(hpi);
-             hpi:=tcgprocinfo(hpi.next);
-           end;
-          pi.resetprocdef;
-        end;
-
-      procedure insert_funcret_local(pd:tprocdef);
-        var
-          storepos : tfileposinfo;
-          vs       : tlocalvarsym;
-          aliasvs  : tabsolutevarsym;
-          sl       : tpropaccesslist;
-          hs       : string;
-        begin
-          { The result from constructors and destructors can't be accessed directly }
-          if not(pd.proctypeoption in [potype_constructor,potype_destructor]) and
-             not is_void(pd.returndef) then
-           begin
-             storepos:=current_tokenpos;
-             current_tokenpos:=pd.fileinfo;
-
-             { We need to insert a varsym for the result in the localst
-               when it is returning in a register }
-             if not paramanager.ret_in_param(pd.returndef,pd.proccalloption) then
-              begin
-                vs:=tlocalvarsym.create('$result',vs_value,pd.returndef,[vo_is_funcret]);
-                pd.localst.insert(vs);
-                pd.funcretsym:=vs;
-              end;
-
-             { insert the name of the procedure as alias for the function result,
-               we can't use realname because that will not work for compilerprocs
-               as the name is lowercase and unreachable from the code }
-             if assigned(pd.resultname) then
-               hs:=pd.resultname^
-             else
-               hs:=pd.procsym.name;
-             sl:=tpropaccesslist.create;
-             sl.addsym(sl_load,pd.funcretsym);
-             aliasvs:=tabsolutevarsym.create_ref(hs,pd.returndef,sl);
-             include(aliasvs.varoptions,vo_is_funcret);
-             tlocalsymtable(pd.localst).insert(aliasvs);
-
-             { insert result also if support is on }
-             if (m_result in current_settings.modeswitches) then
-              begin
-                sl:=tpropaccesslist.create;
-                sl.addsym(sl_load,pd.funcretsym);
-                aliasvs:=tabsolutevarsym.create_ref('RESULT',pd.returndef,sl);
-                include(aliasvs.varoptions,vo_is_funcret);
-                include(aliasvs.varoptions,vo_is_result);
-                tlocalsymtable(pd.localst).insert(aliasvs);
-              end;
-
-             current_tokenpos:=storepos;
-           end;
-        end;
-
 
       var
         oldfailtokenmode : tmodeswitch;
@@ -1647,7 +1677,6 @@ implementation
           freeandnil(current_procinfo);
       end;
 
-{$IFDEF old}
     procedure read_proc(isclassmethod:boolean);
       {
         Parses the procedure directives, then parses the procedure body, then
