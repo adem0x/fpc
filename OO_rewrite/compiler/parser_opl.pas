@@ -105,7 +105,7 @@ uses
         function inline_initialize: tnode;
         function inline_setlength: tnode;
         procedure insertobjectfile;
-        procedure insert_funcret_local(pd: tprocdef);
+        //procedure insert_funcret_local(pd: tprocdef);
         procedure loadautounits;
         procedure loadunits;
         function maybe_parse_proc_directives(def: tdef): boolean;
@@ -133,6 +133,9 @@ uses
         procedure proc_set_mangledname(pd: tprocdef);
         procedure proc_unit;
         procedure read_anon_type(var def: tdef; parseprocvardir: boolean);
+        procedure read_declarations(islibrary: boolean);
+        procedure read_exports;
+        procedure read_interface_declarations;
         procedure read_named_type(var def: tdef; const name: TIDString;
           genericdef: tstoreddef; genericlist: TFPObjectList;
           parseprocvardir: boolean);
@@ -144,6 +147,7 @@ uses
         procedure read_var_decls(options: Tvar_dec_options);
         function record_dec: tdef;
         procedure resolve_forward_types;
+        procedure set_current_module(p:tmodule);
         procedure setupglobalswitches;
         procedure single_type(var def: tdef; isforwarddef, allowtypedef: boolean
           );
@@ -154,6 +158,9 @@ uses
           var deprecatedmsg: pshortstring): boolean;
       public  //?
         current_debuginfo : tdebuginfo;
+        current_module: tmodule;
+        current_scanner: tscannerfile; //deprecated; - will disappear
+        function block(islibrary: boolean; current_procinfo: tprocinfo) : tnode;
       public
         constructor Create;
         destructor Destroy; override;
@@ -217,10 +224,10 @@ procedure write_persistent_type_info(st:tsymtable); forward;
          main_module:=current_module;
        { startup scanner, and save in current_module }
          //current_scanner:=tscannerfile.Create(AFilename);
-         current_scanner.firstfile;
+         {current_scanner.}firstfile;
        { loop until EOF is found }
          repeat
-           current_scanner.readtoken(true);
+           {current_scanner.}readtoken(true);
            case token of
              _ID :
                begin
@@ -265,9 +272,13 @@ procedure write_persistent_type_info(st:tsymtable); forward;
                preprocfile.Add(tokeninfo^[token].str)
            end;
          until false;
+       {$IFDEF old}
        { free scanner }
          current_scanner.Free;
          current_scanner:=nil;
+       {$ELSE}
+        set_current_module(nil);
+       {$ENDIF}
        { close }
          preprocfile.Free;
       end;
@@ -279,12 +290,15 @@ procedure write_persistent_type_info(st:tsymtable); forward;
 
     procedure initparser;
       begin
+        {$IFDEF old}
          { Current compiled module/proc }
          set_current_module(nil);
          current_module:=nil;
          current_asmdata:=nil;
          current_procinfo:=nil;
          current_objectdef:=nil;
+        {$ELSE}
+        {$ENDIF}
 
          loaded_units:=TLinkedList.Create;
 
@@ -358,6 +372,7 @@ procedure write_persistent_type_info(st:tsymtable); forward;
 
     procedure doneparser;
       begin
+        {$IFDEF old}
          { Reset current compiling info, so destroy routines can't
            reference the data that might already be destroyed }
          set_current_module(nil);
@@ -365,6 +380,8 @@ procedure write_persistent_type_info(st:tsymtable); forward;
          current_procinfo:=nil;
          current_asmdata:=nil;
          current_objectdef:=nil;
+        {$ELSE}
+        {$ENDIF}
 
          { unload units }
          if assigned(loaded_units) then
@@ -410,15 +427,27 @@ procedure write_persistent_type_info(st:tsymtable); forward;
 
     constructor TOPLParser.Create;
     begin
+      current_scanner := self;  //for now
       //what?
     end;
 
     destructor TOPLParser.Destroy;
     begin
       //what?
+      //FreeAndNil(current_scanner);  //=self!
+      current_scanner := nil; //prevent destruction of self!
       inherited Destroy;
     end;
 
+
+    procedure TOPLParser.set_current_module(p: tmodule);
+    begin
+      current_module := p;
+      if p = nil then begin
+      //cleanup
+        //FreeAndNil(current_scanner); not if baseclass!
+      end;
+    end;
 
 {*****************************************************************************
                              Compile a source file
@@ -542,7 +571,12 @@ procedure write_persistent_type_info(st:tsymtable); forward;
          current_asmdata:=TAsmData(current_module.asmdata);
 
          { startup scanner and load the first file }
+       {$IFDEF scanner_based}
+        //we ARE the scanner
+          current_scanner := self;  //for now
+       {$ELSE}
          current_scanner:=tscannerfile.Create(filename);
+       {$ENDIF}
          current_scanner.firstfile;
          current_module.scanner:=current_scanner;
 
@@ -691,9 +725,11 @@ procedure write_persistent_type_info(st:tsymtable); forward;
          end;
     end;
 
+{$I pdecl.inc}
 {$I pinline.inc}
 {$I ptype.inc}
-{$I pmodule.inc}
+{$I psub.inc}
+  {$I pmodule.inc}
 {$I pexpr.inc}
 {$I pdecvar.inc}
 {$I pdecobj.inc}

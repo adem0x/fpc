@@ -57,7 +57,7 @@ implementation
 {$ENDIF}
 
 
-    procedure top read_exports;
+    procedure TOPLParser.read_exports;
       var
         orgs,
         DefString,

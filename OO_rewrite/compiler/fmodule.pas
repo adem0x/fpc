@@ -46,7 +46,8 @@ interface
        globtype,finput,ogbase,
        symbase,symsym,
        wpobase,
-       aasmbase,aasmtai,aasmdata;
+       aasmbase,aasmtai,aasmdata,
+      pbase;
 
 
     const
@@ -107,6 +108,7 @@ interface
       tmodule = class(tmodulebase)
       private
         FImportLibraryList : TFPHashObjectList;
+        procedure FreeSPA;
       public
         do_reload,                { force reloading of the unit }
         do_compile,               { need to compile the sources }
@@ -225,8 +227,10 @@ interface
        SmartLinkOFiles   : TCmdStrList; { List of .o files which are generated,
                                           used to delete them after linking }
 
-
+{$IFDEF old}
     procedure set_current_module(p:tmodule);
+{$ELSE}
+{$ENDIF}
     function get_module(moduleindex : longint) : tmodule;
     function get_source_file(moduleindex,fileindex : longint) : tinputfile;
     procedure addloadedunit(hp:tmodule);
@@ -268,6 +272,7 @@ implementation
          end;
       end;
 
+{$IFDEF old}
     procedure set_current_module(p:tmodule);
       begin
         { save the state of the scanner }
@@ -277,12 +282,12 @@ implementation
         current_module:=p;
         { restore previous module settings }
         Fillchar(current_filepos,0,sizeof(current_filepos));
-        if assigned(current_module) then
+        if assigned(p) then
           begin
-            current_asmdata:=tasmdata(current_module.asmdata);
-            current_debuginfo:=tdebuginfo(current_module.debuginfo);
+            current_asmdata:=tasmdata(p.asmdata);
+            current_debuginfo:=tdebuginfo(p.debuginfo);
             { restore scanner and file positions }
-            current_scanner:=tscannerfile(current_module.scanner);
+            current_scanner:=tscannerfile(p.scanner);
             if assigned(current_scanner) then
               begin
                 current_scanner.tempopeninputfile;
@@ -302,6 +307,8 @@ implementation
             current_debuginfo:=nil;
           end;
       end;
+{$ELSE}
+{$ENDIF}
 
 
     function get_module(moduleindex : longint) : tmodule;
@@ -542,6 +549,24 @@ implementation
         InitDebugInfo(self);
       end;
 
+    procedure tmodule.FreeSPA;
+    var
+        hpi : tprocinfo;
+    begin
+        FreeAndNil(scanner);
+        FreeAndNil(asmdata);
+        while assigned(procinfo) do begin
+          hpi := tprocinfo(procinfo);
+          procinfo := hpi.parent;
+          hpi.Free;
+        end;
+        DoneDebugInfo(self);
+        FreeAndNil(globalsymtable);
+        FreeAndNil(localsymtable);
+        FreeAndNil(globalmacrosymtable);
+        FreeAndNil(localmacrosymtable);
+        FreeAndNil(wpoinfo);
+    end;
 
     destructor tmodule.Destroy;
       var
@@ -556,40 +581,11 @@ implementation
               stringdispose(derefmap[i].modulename);
             freemem(derefmap);
           end;
-        if assigned(_exports) then
+        //if assigned(_exports) then
          _exports.free;
-        if assigned(dllscannerinputlist) then
+        //if assigned(dllscannerinputlist) then
          dllscannerinputlist.free;
-        if assigned(scanner) then
-         begin
-            { also update current_scanner if it was pointing
-              to this module }
-            if current_scanner=tscannerfile(scanner) then
-             current_scanner:=nil;
-            tscannerfile(scanner).free;
-         end;
-        if assigned(asmdata) then
-          begin
-            if current_asmdata=asmdata then
-              current_asmdata:=nil;
-             asmdata.free;
-          end;
-        if assigned(procinfo) then
-          begin
-            if current_procinfo=tprocinfo(procinfo) then
-              begin
-                current_procinfo:=nil;
-                current_objectdef:=nil;
-              end;
-            { release procinfo tree }
-            while assigned(procinfo) do
-             begin
-               hpi:=tprocinfo(procinfo).parent;
-               tprocinfo(procinfo).free;
-               procinfo:=hpi;
-             end;
-          end;
-        DoneDebugInfo(self);
+         FreeSPA;
         used_units.free;
         dependent_units.free;
         resourcefiles.Free;
@@ -626,12 +622,7 @@ implementation
         derefdata.free;
         deflist.free;
         symlist.free;
-        wpoinfo.free;
         checkforwarddefs.free;
-        globalsymtable.free;
-        localsymtable.free;
-        globalmacrosymtable.free;
-        localmacrosymtable.free;
 {$ifdef MEMDEBUG}
         memsymtable.stop;
 {$endif}
@@ -639,58 +630,16 @@ implementation
         inherited Destroy;
       end;
 
-
     procedure tmodule.reset;
       var
         hpi : tprocinfo;
         i   : longint;
       begin
-        if assigned(scanner) then
-          begin
-            { also update current_scanner if it was pointing
-              to this module }
-            if current_scanner=tscannerfile(scanner) then
-             current_scanner:=nil;
-            tscannerfile(scanner).free;
-            scanner:=nil;
-          end;
-        if assigned(procinfo) then
-          begin
-            if current_procinfo=tprocinfo(procinfo) then
-              begin
-                current_procinfo:=nil;
-                current_objectdef:=nil;
-              end;
-            { release procinfo tree }
-            while assigned(procinfo) do
-             begin
-               hpi:=tprocinfo(procinfo).parent;
-               tprocinfo(procinfo).free;
-               procinfo:=hpi;
-             end;
-          end;
-        if assigned(asmdata) then
-          begin
-            if current_asmdata=TAsmData(asmdata) then
-             current_asmdata:=nil;
-            asmdata.free;
-            asmdata:=nil;
-          end;
-        DoneDebugInfo(self);
-        globalsymtable.free;
-        globalsymtable:=nil;
-        localsymtable.free;
-        localsymtable:=nil;
-        globalmacrosymtable.free;
-        globalmacrosymtable:=nil;
-        localmacrosymtable.free;
-        localmacrosymtable:=nil;
+        FreeSPA;
         deflist.free;
         deflist:=TFPObjectList.Create(false);
         symlist.free;
         symlist:=TFPObjectList.Create(false);
-        wpoinfo.free;
-        wpoinfo:=nil;
         checkforwarddefs.free;
         checkforwarddefs:=TFPObjectList.Create(false);
         derefdata.free;

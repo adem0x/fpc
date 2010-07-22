@@ -535,7 +535,7 @@ implementation
       begin
         { load unit }
         hp:=registerunit(current_module,s,'');
-        hp.loadppu;
+        hp.loadppu(current_module);
         hp.adddependency(current_module);
         { add to symtable stack }
         symtablestack.push(hp.globalsymtable);

@@ -400,7 +400,10 @@ implementation
           pbestrealtype:=@s64floattype;
 
         oldcurrentmodule:=current_module;
+      {$IFDEF old}
         set_current_module(nil);
+      {$ELSE}
+      {$ENDIF}
         loadtype('byte',u8inttype);
         loadtype('shortint',s8inttype);
         loadtype('word',u16inttype);
@@ -465,7 +468,10 @@ implementation
         ptruinttype:=u16inttype;
         ptrsinttype:=s16inttype;
 {$endif cpu16bit}
+      {$IFDEF old}
         set_current_module(oldcurrentmodule);
+      {$ELSE}
+      {$ENDIF}
       end;
 
 

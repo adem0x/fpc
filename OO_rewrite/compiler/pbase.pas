@@ -54,11 +54,13 @@ interface
   type
   {$IFDEF consume_in_parser}
     TParserBase = class(tscannerfile)
+    public
   {$ELSE}
     TParserBase = class //(tscannerfile)
-  {$ENDIF}
     public  //really?
      current_scanner : tscannerfile;  { current scanner in use }
+     //current_module: tmodule;
+  {$ENDIF}
 
      { true, if we are after an assignement }
      afterassignment : boolean; // = false;

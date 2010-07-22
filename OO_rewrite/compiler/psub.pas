@@ -27,10 +27,14 @@ interface
 
     uses
       cclasses,globals,
-      node,nbas,
+      node,nbas, fmodule, // parser_opl,
       symdef,procinfo,optdfa;
 
     type
+      {# callback for parsing blocks}
+      tblockparser = function (islibrary: boolean;
+        current_procinfo: tprocinfo): tnode; //tcgprocinfo?
+
       tcgprocinfo = class(tprocinfo)
       private
         procedure maybe_add_constructor_wrapper(var tocode: tnode; withexceptblock: boolean);
@@ -55,22 +59,24 @@ interface
         procedure resetprocdef;
         procedure add_to_symtablestack;
         procedure remove_from_symtablestack;
-        procedure parse_body;
-
+        //procedure parse_body;
+        procedure parse_body(block: tblockparser);
         function stack_tainting_parameter : boolean;
         function has_assembler_child : boolean;
       end;
 
 
     procedure printnode_reset;
-
+{$IFDEF old}
     { reads the declaration blocks }
     procedure read_declarations(islibrary : boolean);
 
     { reads declarations in the interface part of a unit }
     procedure read_interface_declarations;
 
-    procedure generate_specialization_procs;
+    procedure generate_specialization_procs(current_module: tmodule);
+{$ELSE}
+{$ENDIF}
 
 
 implementation
@@ -87,7 +93,7 @@ implementation
        { symtable }
        symconst,symbase,symsym,symtype,symtable,defutil,
        paramgr,
-       ppu,fmodule,
+       ppu, //fmodule,
        { pass 1 }
        nutils,nld,ncal,ncon,nflw,nadd,ncnv,nmem,
        pass_1,
@@ -162,90 +168,6 @@ implementation
            (tlocalvarsym(p).refs>0) and
            is_managed_type(tlocalvarsym(p).vardef) then
           include(current_procinfo.flags,pi_needs_implicit_finally);
-      end;
-
-
-    function block(islibrary : boolean) : tnode;
-      begin
-         { parse const,types and vars }
-         read_declarations(islibrary);
-
-         { do we have an assembler block without the po_assembler?
-           we should allow this for Delphi compatibility (PFV) }
-         if (token=_ASM) and (m_delphi in current_settings.modeswitches) then
-           include(current_procinfo.procdef.procoptions,po_assembler);
-
-         { Handle assembler block different }
-         if (po_assembler in current_procinfo.procdef.procoptions) then
-          begin
-            block:=assembler_block;
-            exit;
-          end;
-
-         {Unit initialization?.}
-         if (
-             assigned(current_procinfo.procdef.localst) and
-             (current_procinfo.procdef.localst.symtablelevel=main_program_level) and
-             (current_module.is_unit or islibrary)
-            ) then
-           begin
-             if (token=_END) then
-                begin
-                   consume(_END);
-                   { We need at least a node, else the entry/exit code is not
-                     generated and thus no PASCALMAIN symbol which we need (PFV) }
-                   if islibrary then
-                    block:=cnothingnode.create
-                   else
-                    block:=nil;
-                end
-              else
-                begin
-                   if token=_INITIALIZATION then
-                     begin
-                        { The library init code is already called and does not
-                          need to be in the initfinal table (PFV) }
-                        block:=statement_block(_INITIALIZATION);
-                        { optimize empty initialization block away }
-                        if (block.nodetype=blockn) and (tblocknode(block).left=nil) then
-                          FreeAndNil(block)
-                        else
-                          if not islibrary then
-                            current_module.flags:=current_module.flags or uf_init;
-                     end
-                   else if token=_FINALIZATION then
-                     begin
-                       { when a unit has only a finalization section, we can come to this
-                         point when we try to read the nonh existing initalization section
-                         so we've to check if we are really try to parse the finalization }
-                       if current_procinfo.procdef.proctypeoption=potype_unitfinalize then
-                         begin
-                           block:=statement_block(_FINALIZATION);
-                           { optimize empty finalization block away }
-                           if (block.nodetype=blockn) and (tblocknode(block).left=nil) then
-                             FreeAndNil(block)
-                           else
-                             current_module.flags:=current_module.flags or uf_finalize;
-                         end
-                         else
-                           block:=nil;
-                     end
-                   else
-                     begin
-                        { The library init code is already called and does not
-                          need to be in the initfinal table (PFV) }
-                        if not islibrary then
-                          current_module.flags:=current_module.flags or uf_init;
-                        block:=statement_block(_BEGIN);
-                     end;
-                end;
-            end
-         else
-            begin
-               block:=statement_block(_BEGIN);
-               if current_procinfo.procdef.localst.symtabletype=localsymtable then
-                 current_procinfo.procdef.localst.SymList.ForEachCall(@initializevars,block);
-            end;
       end;
 
 
@@ -1405,7 +1327,8 @@ implementation
       end;
 
 
-    procedure tcgprocinfo.parse_body;
+    //procedure tcgprocinfo.parse_body;
+    procedure tcgprocinfo.parse_body(block: tblockparser);
       var
          old_current_procinfo : tprocinfo;
          old_block_type : tblock_type;
@@ -1442,16 +1365,20 @@ implementation
            begin
              { start token recorder for generic template }
              procdef.initgeneric;
+           {$IFDEF old}
              current_scanner.startrecordtokens(procdef.generictokenbuf);
+           {$ELSE}
+            //in block()
+           {$ENDIF}
            end;
 
          { parse the code ... }
-         code:=block(current_module.islibrary);
+         code:=block(current_module.islibrary, self);
 
          if (df_generic in procdef.defoptions) then
            begin
              { stop token recorder for generic template }
-             current_scanner.stoprecordtokens;
+             //current_scanner.stoprecordtokens;
 
              { Give an error for accesses in the static symtable that aren't visible
                outside the current unit }
@@ -1463,9 +1390,13 @@ implementation
                Comment(V_Error,'Global Generic template references static symtable');
            end;
 
+       {$IFDEF old}
          { save exit info }
          exitswitches:=current_settings.localswitches;
-         exitpos:=last_endtoken_filepos;
+         exitpos:= current_scanner.last_endtoken_filepos;
+       {$ELSE}
+          //in block()
+       {$ENDIF}
 
          { the procedure is now defined }
          procdef.forwarddef:=false;
@@ -1548,7 +1479,8 @@ implementation
 
 
 
-    procedure read_proc_body(old_current_procinfo:tprocinfo;pd:tprocdef);
+    procedure read_proc_body(old_current_procinfo:tprocinfo;pd:tprocdef;
+      block: tblockparser); // current_scanner: TOPLParser);
       {
         Parses the procedure directives, then parses the procedure body, then
         generates the code for it
@@ -1569,6 +1501,59 @@ implementation
            end;
           pi.resetprocdef;
         end;
+
+      procedure insert_funcret_local(pd:tprocdef);
+        var
+          storepos : tfileposinfo;
+          vs       : tlocalvarsym;
+          aliasvs  : tabsolutevarsym;
+          sl       : tpropaccesslist;
+          hs       : string;
+        begin
+          { The result from constructors and destructors can't be accessed directly }
+          if not(pd.proctypeoption in [potype_constructor,potype_destructor]) and
+             not is_void(pd.returndef) then
+           begin
+             storepos:=current_tokenpos;
+             current_tokenpos:=pd.fileinfo;
+
+             { We need to insert a varsym for the result in the localst
+               when it is returning in a register }
+             if not paramanager.ret_in_param(pd.returndef,pd.proccalloption) then
+              begin
+                vs:=tlocalvarsym.create('$result',vs_value,pd.returndef,[vo_is_funcret]);
+                pd.localst.insert(vs);
+                pd.funcretsym:=vs;
+              end;
+
+             { insert the name of the procedure as alias for the function result,
+               we can't use realname because that will not work for compilerprocs
+               as the name is lowercase and unreachable from the code }
+             if assigned(pd.resultname) then
+               hs:=pd.resultname^
+             else
+               hs:=pd.procsym.name;
+             sl:=tpropaccesslist.create;
+             sl.addsym(sl_load,pd.funcretsym);
+             aliasvs:=tabsolutevarsym.create_ref(hs,pd.returndef,sl);
+             include(aliasvs.varoptions,vo_is_funcret);
+             tlocalsymtable(pd.localst).insert(aliasvs);
+
+             { insert result also if support is on }
+             if (m_result in current_settings.modeswitches) then
+              begin
+                sl:=tpropaccesslist.create;
+                sl.addsym(sl_load,pd.funcretsym);
+                aliasvs:=tabsolutevarsym.create_ref('RESULT',pd.returndef,sl);
+                include(aliasvs.varoptions,vo_is_funcret);
+                include(aliasvs.varoptions,vo_is_result);
+                tlocalsymtable(pd.localst).insert(aliasvs);
+              end;
+
+             current_tokenpos:=storepos;
+           end;
+        end;
+
 
       var
         oldfailtokenmode : tmodeswitch;
@@ -1609,7 +1594,7 @@ implementation
            tokeninfo^[_FAIL].keyword:=m_all;
          end;
 
-        tcgprocinfo(current_procinfo).parse_body;
+        tcgprocinfo(current_procinfo).parse_body(block);
 
         { We can't support inlining for procedures that have nested
           procedures because the nested procedures use a fixed offset
@@ -1647,18 +1632,22 @@ implementation
           internalerror(200304274);
         current_module.procinfo:=current_procinfo.parent;
 
+      {$IFDEF old}
         { For specialization we didn't record the last semicolon. Moving this parsing
           into the parse_body routine is not done because of having better file position
           information available }
         if not(df_specialization in current_procinfo.procdef.defoptions) then
-          consume(_SEMICOLON);
+          current_scanner.consume(_SEMICOLON);
+      {$ELSE}
+        //in block()
+      {$ENDIF}
 
         if not isnestedproc then
           { current_procinfo is checked for nil later on }
           freeandnil(current_procinfo);
       end;
 
-
+{$IFDEF old}
     procedure read_proc(isclassmethod:boolean);
       {
         Parses the procedure directives, then parses the procedure body, then
@@ -1813,162 +1802,10 @@ implementation
 
 
 {****************************************************************************
-                             DECLARATION PARSING
-****************************************************************************}
-
-    { search in symtablestack for not complete classes }
-    procedure check_forward_class(p:TObject;arg:pointer);
-      begin
-        if (tsym(p).typ=typesym) and
-           (ttypesym(p).typedef.typ=objectdef) and
-           (oo_is_forward in tobjectdef(ttypesym(p).typedef).objectoptions) then
-          MessagePos1(tsym(p).fileinfo,sym_e_forward_type_not_resolved,tsym(p).realname);
-      end;
-
-
-    procedure read_declarations(islibrary : boolean);
-      var
-        is_classdef:boolean;
-      begin
-        is_classdef:=false;
-        repeat
-           if not assigned(current_procinfo) then
-             internalerror(200304251);
-           case token of
-              _LABEL:
-                label_dec;
-              _CONST:
-                const_dec;
-              _TYPE:
-                type_dec;
-              _VAR:
-                var_dec;
-              _THREADVAR:
-                threadvar_dec;
-              _CLASS:
-                begin
-                  is_classdef:=false;
-                  if try_to_consume(_CLASS) then
-                   begin
-                     { class modifier is only allowed for procedures, functions, }
-                     { constructors, destructors, fields and properties          }
-                     if not(token in [_FUNCTION,_PROCEDURE,_PROPERTY,_VAR,_CONSTRUCTOR,_DESTRUCTOR]) then
-                       Message(parser_e_procedure_or_function_expected);
-
-                     if is_interface(current_objectdef) then
-                       Message(parser_e_no_static_method_in_interfaces)
-                     else
-                       { class methods are also allowed for Objective-C protocols }
-                       is_classdef:=true;
-                   end;
-                end;
-              _CONSTRUCTOR,
-              _DESTRUCTOR,
-              _FUNCTION,
-              _PROCEDURE,
-              _OPERATOR:
-                begin
-                  read_proc(is_classdef);
-                  is_classdef:=false;
-                end;
-              _EXPORTS:
-                begin
-                   if (current_procinfo.procdef.localst.symtablelevel>main_program_level) then
-                     begin
-                        Message(parser_e_syntax_error);
-                        consume_all_until(_SEMICOLON);
-                     end
-                   else if islibrary or
-                     (target_info.system in systems_unit_program_exports) then
-                     read_exports
-                   else
-                     begin
-                        Message(parser_w_unsupported_feature);
-                        consume(_BEGIN);
-                     end;
-                end
-              else
-                begin
-                  case idtoken of
-                    _RESOURCESTRING :
-                      begin
-                        { m_class is needed, because the resourcestring
-                          loading is in the ObjPas unit }
-{                        if (m_class in current_settings.modeswitches) then}
-                          resourcestring_dec
-{                        else
-                          break;}
-                      end;
-                    _PROPERTY:
-                      begin
-                        if (m_fpc in current_settings.modeswitches) then
-                        begin
-                          property_dec(is_classdef);
-                          is_classdef:=false;
-                        end
-                        else
-                          break;
-                      end;
-                    else
-                      break;
-                  end;
-                end;
-           end;
-         until false;
-
-         { check for incomplete class definitions, this is only required
-           for fpc modes }
-         if (m_fpc in current_settings.modeswitches) then
-           current_procinfo.procdef.localst.SymList.ForEachCall(@check_forward_class,nil);
-      end;
-
-
-    procedure read_interface_declarations;
-      begin
-         repeat
-           case token of
-             _CONST :
-               const_dec;
-             _TYPE :
-               type_dec;
-             _VAR :
-               var_dec;
-             _THREADVAR :
-               threadvar_dec;
-             _FUNCTION,
-             _PROCEDURE,
-             _OPERATOR :
-               read_proc(false);
-             else
-               begin
-                 case idtoken of
-                   _RESOURCESTRING :
-                     resourcestring_dec;
-                   _PROPERTY:
-                     begin
-                       if (m_fpc in current_settings.modeswitches) then
-                         property_dec(false)
-                       else
-                         break;
-                     end;
-                   else
-                     break;
-                 end;
-               end;
-           end;
-         until false;
-         { check for incomplete class definitions, this is only required
-           for fpc modes }
-         if (m_fpc in current_settings.modeswitches) then
-          symtablestack.top.SymList.ForEachCall(@check_forward_class,nil);
-      end;
-
-
-{****************************************************************************
                       SPECIALIZATION BODY GENERATION
 ****************************************************************************}
 
-
+//used in ForEach
     procedure specialize_objectdefs(p:TObject;arg:pointer);
       var
         i  : longint;
@@ -1978,6 +1815,7 @@ implementation
         pu : tused_unit;
         hmodule : tmodule;
         specobj : tobjectdef;
+        current_scanner: tscannerfile absolute arg;
       begin
         if not((tsym(p).typ=typesym) and
                (ttypesym(p).typedef.typesym=tsym(p)) and
@@ -2026,7 +1864,7 @@ implementation
                        current_filepos.moduleindex:=hmodule.unit_index;
                        current_tokenpos:=current_filepos;
                        current_scanner.startreplaytokens(tprocdef(tprocdef(hp).genericdef).generictokenbuf);
-                       read_proc_body(nil,tprocdef(hp));
+                       read_proc_body(nil,tprocdef(hp), current_scanner);
                        current_filepos:=oldcurrent_filepos;
                      end
                    else
@@ -2041,12 +1879,18 @@ implementation
       end;
 
 
-    procedure generate_specialization_procs;
+    procedure generate_specialization_procs(current_module: tmodule);
+    var
+      current_scanner: tscannerfile;
       begin
+        current_scanner := tscannerfile(current_module.scanner);
         if assigned(current_module.globalsymtable) then
-          current_module.globalsymtable.SymList.ForEachCall(@specialize_objectdefs,nil);
+          current_module.globalsymtable.SymList.ForEachCall(@specialize_objectdefs, current_scanner);
         if assigned(current_module.localsymtable) then
-          current_module.localsymtable.SymList.ForEachCall(@specialize_objectdefs,nil);
+          current_module.localsymtable.SymList.ForEachCall(@specialize_objectdefs, current_scanner);
       end;
 
+{$ELSE}
+  //moved into psub.inc
+{$ENDIF}
 end.

@@ -59,7 +59,7 @@ interface
           function  openppu:boolean;
           procedure getppucrc;
           procedure writeppu;
-          procedure loadppu;
+          procedure loadppu(from:tmodule);
           function  needrecompile:boolean;
           procedure setdefgeneration;
           procedure reload_flagged_units;
@@ -141,7 +141,6 @@ var
         stringdispose(sourcefn);
         inherited Destroy;
       end;
-
 
     procedure tppumodule.reset;
       begin
@@ -1296,7 +1295,7 @@ var
          begin
            if pu.in_interface then
             begin
-              tppumodule(pu.u).loadppu;
+              tppumodule(pu.u).loadppu(self);
               { if this unit is compiled we can stop }
               if state=ms_compiled then
                exit;
@@ -1358,7 +1357,7 @@ var
          begin
            if (not pu.in_interface) then
             begin
-              tppumodule(pu.u).loadppu;
+              tppumodule(pu.u).loadppu(self);
               { if this unit is compiled we can stop }
               if state=ms_compiled then
                exit;
@@ -1455,7 +1454,7 @@ var
               (hp.defsgeneration<defsgeneration) then
              begin
                hp.defsgeneration:=defsgeneration;
-               hp.loadppu
+               hp.loadppu(self);
              end
            else
              hp.do_reload:=false;
@@ -1464,15 +1463,15 @@ var
       end;
 
 
-    procedure tppumodule.loadppu;
+    procedure tppumodule.loadppu(from:tmodule);
       const
         ImplIntf : array[boolean] of string[15]=('implementation','interface');
       var
         do_load,
         second_time        : boolean;
-        old_current_module : tmodule;
+        old_current_module : tmodule absolute from;
       begin
-        old_current_module:=current_module;
+        //old_current_module:=current_module;
         Message3(unit_u_load_unit,old_current_module.modulename^,
                  ImplIntf[old_current_module.in_interface],
                  modulename^);
@@ -1489,7 +1488,10 @@ var
         { reset }
         do_load:=true;
         second_time:=false;
+      {$IFDEF old}
         set_current_module(self);
+      {$ELSE}
+      {$ENDIF}
 
         { A force reload }
         if do_reload then
@@ -1565,9 +1567,13 @@ var
            { close old_current_ppu on system that are
              short on file handles like DOS PM }
 {$ifdef SHORT_ON_FILE_HANDLES}
+{$IFDEF old}
            if old_current_module.is_unit and
               assigned(tppumodule(old_current_module).ppufile) then
              tppumodule(old_current_module).ppufile.tempclose;
+{$ELSE}
+  //close what?
+{$ENDIF}
 {$endif SHORT_ON_FILE_HANDLES}
 
            { try to opening ppu, skip this when we already
@@ -1588,12 +1594,7 @@ var
                   end;
                end;
               { PPU is not needed anymore }
-              if assigned(ppufile) then
-               begin
-                  ppufile.closefile;
-                  ppufile.free;
-                  ppufile:=nil;
-               end;
+              FreeAndNil(ppufile);
             end;
 
            { Do we need to recompile the unit }
@@ -1615,11 +1616,7 @@ var
                   end;
                end;
               { we found the sources, we do not need the verbose messages anymore }
-              if comments <> nil then
-              begin
-                comments.free;
-                comments:=nil;
-              end;
+              FreeAndNil(comments);
               { Flag modules to reload }
               flagdependent(old_current_module);
               { Reset the module }
@@ -1658,8 +1655,11 @@ var
 {$endif SHORT_ON_FILE_HANDLES}
          end;
 
+      {$IFDEF old}
         { we are back, restore current_module }
         set_current_module(old_current_module);
+      {$ELSE}
+      {$ENDIF}
       end;
 
 

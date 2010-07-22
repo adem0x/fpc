@@ -50,7 +50,7 @@ interface
 
     function  check_proc_directive(isprocvar:boolean):boolean;
 
-    procedure insert_funcret_local(pd:tprocdef);
+    //procedure insert_funcret_local(pd:tprocdef);
 
     function  proc_add_definition(var currpd:tprocdef):boolean;
     function  proc_get_importname(pd:tprocdef):string;
@@ -240,59 +240,6 @@ implementation
                 current_tokenpos:=storepos;
               end;
           end;
-      end;
-
-
-    procedure TOPLParser.insert_funcret_local(pd:tprocdef);
-      var
-        storepos : tfileposinfo;
-        vs       : tlocalvarsym;
-        aliasvs  : tabsolutevarsym;
-        sl       : tpropaccesslist;
-        hs       : string;
-      begin
-        { The result from constructors and destructors can't be accessed directly }
-        if not(pd.proctypeoption in [potype_constructor,potype_destructor]) and
-           not is_void(pd.returndef) then
-         begin
-           storepos:=current_tokenpos;
-           current_tokenpos:=pd.fileinfo;
-
-           { We need to insert a varsym for the result in the localst
-             when it is returning in a register }
-           if not paramanager.ret_in_param(pd.returndef,pd.proccalloption) then
-            begin
-              vs:=tlocalvarsym.create('$result',vs_value,pd.returndef,[vo_is_funcret]);
-              pd.localst.insert(vs);
-              pd.funcretsym:=vs;
-            end;
-
-           { insert the name of the procedure as alias for the function result,
-             we can't use realname because that will not work for compilerprocs
-             as the name is lowercase and unreachable from the code }
-           if assigned(pd.resultname) then
-             hs:=pd.resultname^
-           else
-             hs:=pd.procsym.name;
-           sl:=tpropaccesslist.create;
-           sl.addsym(sl_load,pd.funcretsym);
-           aliasvs:=tabsolutevarsym.create_ref(hs,pd.returndef,sl);
-           include(aliasvs.varoptions,vo_is_funcret);
-           tlocalsymtable(pd.localst).insert(aliasvs);
-
-           { insert result also if support is on }
-           if (m_result in current_settings.modeswitches) then
-            begin
-              sl:=tpropaccesslist.create;
-              sl.addsym(sl_load,pd.funcretsym);
-              aliasvs:=tabsolutevarsym.create_ref('RESULT',pd.returndef,sl);
-              include(aliasvs.varoptions,vo_is_funcret);
-              include(aliasvs.varoptions,vo_is_result);
-              tlocalsymtable(pd.localst).insert(aliasvs);
-            end;
-
-           current_tokenpos:=storepos;
-         end;
       end;
 
 
