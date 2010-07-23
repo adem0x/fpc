@@ -212,6 +212,12 @@ implementation
          parse_paras:=p2;
       end;
 
+        procedure TOPLParser.parse_pointerdef(list: tasmlist; def: tpointerdef
+          );
+    begin
+
+    end;
+
 
      function gen_c_style_operator(ntyp:tnodetype;p1,p2:tnode) : tnode;
        var

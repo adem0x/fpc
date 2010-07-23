@@ -1057,4 +1057,15 @@ implementation
         current_objectdef:=old_current_objectdef;
       end;
 
+        procedure TOPLParser.parse_classrefdef(list: tasmlist; def: tclassrefdef
+          );
+    begin
+???
+    end;
+
+        procedure TOPLParser.parse_floatdef(list: tasmlist; def: tfloatdef);
+    begin
+???
+    end;
+
 //end.

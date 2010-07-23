@@ -1197,569 +1197,17 @@ implementation
                         Procedure directive handlers
 ****************************************************************************}
 
-procedure pd_far(pd:tabstractprocdef);
-begin
-  Message1(parser_w_proc_directive_ignored,'FAR');
-end;
-
-procedure pd_near(pd:tabstractprocdef);
-begin
-  Message1(parser_w_proc_directive_ignored,'NEAR');
-end;
-
-procedure pd_export(pd:tabstractprocdef);
-begin
-  if pd.typ<>procdef then
-    internalerror(200304264);
-  if assigned(tprocdef(pd)._class) then
-    Message(parser_e_methods_dont_be_export);
-  if pd.parast.symtablelevel>normal_function_level then
-    Message(parser_e_dont_nest_export);
-end;
-
-procedure pd_forward(pd:tabstractprocdef);
-begin
-  if pd.typ<>procdef then
-    internalerror(200304265);
-  tprocdef(pd).forwarddef:=true;
-end;
-
-
-procedure pd_alias(pd:tabstractprocdef);
-begin
-  if pd.typ<>procdef then
-    internalerror(200304266);
-  consume(_COLON);
-  tprocdef(pd).aliasnames.insert(get_stringconst);
-  include(pd.procoptions,po_has_public_name);
-end;
-
-
-procedure pd_public(pd:tabstractprocdef);
-begin
-  if pd.typ<>procdef then
-    internalerror(200304266);
-  if try_to_consume(_NAME) then
-    begin
-      tprocdef(pd).aliasnames.insert(get_stringconst);
-      include(pd.procoptions,po_has_public_name);
-    end;
-end;
-
-
-procedure pd_asmname(pd:tabstractprocdef);
-begin
-  if pd.typ<>procdef then
-    internalerror(200304267);
-  if token=_CCHAR then
-    begin
-      tprocdef(pd).aliasnames.insert(target_info.Cprefix+pattern);
-      consume(_CCHAR)
-    end
-  else
-    begin
-      tprocdef(pd).aliasnames.insert(target_info.Cprefix+cstringpattern);
-      consume(_CSTRING);
-    end;
-  { we don't need anything else }
-  tprocdef(pd).forwarddef:=false;
-end;
-
-
-procedure pd_internconst(pd:tabstractprocdef);
-
-var v:Tconstexprint;
-
-begin
-  if pd.typ<>procdef then
-    internalerror(200304268);
-  consume(_COLON);
-  v:=get_intconst;
-  if (v<int64(low(longint))) or (v>int64(high(longint))) then
-    message(parser_e_range_check_error)
-  else
-    Tprocdef(pd).extnumber:=longint(v.svalue);
-end;
-
-
-procedure pd_internproc(pd:tabstractprocdef);
-
-var v:Tconstexprint;
-
-begin
-  if pd.typ<>procdef then
-    internalerror(200304268);
-  consume(_COLON);
-  v:=get_intconst;
-  if (v<int64(low(longint))) or (v>int64(high(longint))) then
-    message(parser_e_range_check_error)
-  else
-    Tprocdef(pd).extnumber:=longint(v.svalue);
-  { the proc is defined }
-  tprocdef(pd).forwarddef:=false;
-end;
-
-procedure pd_interrupt(pd:tabstractprocdef);
-begin
-  if pd.parast.symtablelevel>normal_function_level then
-    Message(parser_e_dont_nest_interrupt);
-end;
-
-procedure pd_abstract(pd:tabstractprocdef);
-begin
-  if pd.typ<>procdef then
-    internalerror(200304269);
-  if oo_is_sealed in tprocdef(pd)._class.objectoptions then
-    Message(parser_e_sealed_class_cannot_have_abstract_methods)
-  else
-  if (po_virtualmethod in pd.procoptions) then
-    include(pd.procoptions,po_abstractmethod)
-  else
-    Message(parser_e_only_virtual_methods_abstract);
-  { the method is defined }
-  tprocdef(pd).forwarddef:=false;
-end;
-
-procedure pd_final(pd:tabstractprocdef);
-begin
-  if pd.typ<>procdef then
-    internalerror(200910170);
-  if (po_virtualmethod in pd.procoptions) then
-    include(pd.procoptions,po_finalmethod)
-  else
-    Message(parser_e_only_virtual_methods_final);
-end;
-
-procedure pd_enumerator(pd:tabstractprocdef);
-begin
-  if pd.typ<>procdef then
-    internalerror(200910250);
-  if (token = _ID) then
-  begin
-    if pattern='MOVENEXT' then
-    begin
-      if oo_has_enumerator_movenext in tprocdef(pd)._class.objectoptions then
-        message(parser_e_only_one_enumerator_movenext);
-      pd.calcparas;
-      if (pd.proctypeoption = potype_function) and is_boolean(pd.returndef) and
-         (pd.minparacount = 0) then
-      begin
-        include(tprocdef(pd)._class.objectoptions, oo_has_enumerator_movenext);
-        include(pd.procoptions,po_enumerator_movenext);
-      end
-      else
-        Message(parser_e_enumerator_movenext_is_not_valid)
-    end
-    else
-      Message1(parser_e_invalid_enumerator_identifier, pattern);
-    consume(token);
-  end
-  else
-    Message(parser_e_enumerator_identifier_required);
-end;
-
-procedure pd_virtual(pd:tabstractprocdef);
-{$ifdef WITHDMT}
-var
-  pt : tnode;
-{$endif WITHDMT}
-begin
-  if pd.typ<>procdef then
-    internalerror(2003042610);
-  if (pd.proctypeoption=potype_constructor) and
-     is_object(tprocdef(pd)._class) then
-    Message(parser_e_constructor_cannot_be_not_virtual);
-{$ifdef WITHDMT}
-  if is_object(tprocdef(pd)._class) and
-     (token<>_SEMICOLON) then
-    begin
-       { any type of parameter is allowed here! }
-       pt:=comp_expr(true);
-       if is_constintnode(pt) then
-         begin
-           include(pd.procoptions,po_msgint);
-           pd.messageinf.i:=pt.value;
-         end
-       else
-         Message(parser_e_ill_msg_expr);
-       disposetree(pt);
-    end;
-{$endif WITHDMT}
-end;
-
-
-procedure pd_dispid(pd:tabstractprocdef);
-
-var pt:Tnode;
-
-begin
-  if pd.typ<>procdef then
-    internalerror(200604301);
-  pt:=comp_expr(true);
-  if is_constintnode(pt) then
-    if (Tordconstnode(pt).value<int64(low(longint))) or (Tordconstnode(pt).value>int64(high(longint))) then
-      message(parser_e_range_check_error)
-    else
-      Tprocdef(pd).dispid:=Tordconstnode(pt).value.svalue
-  else
-    message(parser_e_dispid_must_be_ord_const);
-  pt.free;
-end;
-
-
-procedure pd_static(pd:tabstractprocdef);
-begin
-  if pd.typ=procdef then
-    include(tprocdef(pd).procsym.symoptions,sp_static);
-  include(pd.procoptions,po_staticmethod);
-end;
-
-procedure pd_override(pd:tabstractprocdef);
-begin
-  if pd.typ<>procdef then
-    internalerror(2003042611);
-  if not(is_class_or_interface_or_objc(tprocdef(pd)._class)) then
-    Message(parser_e_no_object_override)
-  else if is_objccategory(tprocdef(pd)._class) then
-    Message(parser_e_no_category_override);
-end;
-
-procedure pd_overload(pd:tabstractprocdef);
-begin
-  if pd.typ<>procdef then
-    internalerror(2003042612);
-  include(tprocdef(pd).procsym.symoptions,sp_has_overloaded);
-end;
-
-procedure pd_message(pd:tabstractprocdef);
-var
-  pt : tnode;
-  paracnt : longint;
-begin
-  if pd.typ<>procdef then
-    internalerror(2003042613);
-  if not is_class(tprocdef(pd)._class) and
-     not is_objc_class_or_protocol(tprocdef(pd)._class) then
-    Message(parser_e_msg_only_for_classes);
-  if ([po_msgstr,po_msgint]*pd.procoptions)<>[] then
-    Message(parser_e_multiple_messages);
-  { check parameter type }
-  if not is_objc_class_or_protocol(tprocdef(pd)._class) then
-    begin
-      paracnt:=0;
-      pd.parast.SymList.ForEachCall(@check_msg_para,@paracnt);
-      if paracnt<>1 then
-        Message(parser_e_ill_msg_param);
-    end;
-  pt:=comp_expr(true);
-  { message is 1-character long }
-  if is_constcharnode(pt) then
-    begin
-      include(pd.procoptions,po_msgstr);
-      tprocdef(pd).messageinf.str:=stringdup(chr(byte(tordconstnode(pt).value.uvalue and $FF)));
-    end
-  else if pt.nodetype=stringconstn then
-    begin
-      include(pd.procoptions,po_msgstr);
-      if (tstringconstnode(pt).len>255) then
-        Message(parser_e_message_string_too_long);
-      tprocdef(pd).messageinf.str:=stringdup(tstringconstnode(pt).value_str);
-    end
-  else
-   if is_constintnode(pt) and
-      is_class(tprocdef(pd)._class) then
-    begin
-      include(pd.procoptions,po_msgint);
-      if (Tordconstnode(pt).value<int64(low(Tprocdef(pd).messageinf.i))) or
-         (Tordconstnode(pt).value>int64(high(Tprocdef(pd).messageinf.i))) then
-        message(parser_e_range_check_error)
-      else
-        Tprocdef(pd).messageinf.i:=tordconstnode(pt).value.svalue;
-    end
-  else
-    Message(parser_e_ill_msg_expr);
-  { check whether the selector name is valid in case of Objective-C }
-  if (po_msgstr in pd.procoptions) and
-     is_objc_class_or_protocol(tprocdef(pd)._class) and
-     not objcvalidselectorname(@tprocdef(pd).messageinf.str^[1],length(tprocdef(pd).messageinf.str^)) then
-    Message1(type_e_invalid_objc_selector_name,tprocdef(pd).messageinf.str^);
-  pt.free;
-end;
-
-
-procedure pd_reintroduce(pd:tabstractprocdef);
-begin
-  if pd.typ<>procdef then
-    internalerror(200401211);
-  if not(is_class_or_interface_or_object(tprocdef(pd)._class)) and
-     not(is_objccategory(tprocdef(pd)._class)) then
-    Message(parser_e_no_object_reintroduce);
-end;
-
-
-procedure pd_syscall(pd:tabstractprocdef);
-{$if defined(powerpc) or defined(m68k)}
-var
-  vs  : tparavarsym;
-  sym : tsym;
-  symtable : TSymtable;
-  v: Tconstexprint;
-{$endif defined(powerpc) or defined(m68k)}
-begin
-  if (pd.typ<>procdef) and (target_info.system <> system_powerpc_amiga) then
-    internalerror(2003042614);
-  tprocdef(pd).forwarddef:=false;
-{$ifdef m68k}
-   if target_info.system in [system_m68k_amiga] then
-    begin
-      include(pd.procoptions,po_syscall_legacy);
-
-      if consume_sym(sym,symtable) then
-        begin
-          if (sym.typ=staticvarsym) and
-             (
-              (tabstractvarsym(sym).vardef.typ=pointerdef) or
-              is_32bitint(tabstractvarsym(sym).vardef)
-             ) then
-            begin
-              tprocdef(pd).libsym:=sym;
-              if po_syscall_legacy in tprocdef(pd).procoptions then
-                begin
-                  vs:=tparavarsym.create('$syscalllib',paranr_syscall_legacy,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para,vo_has_explicit_paraloc]);
-                  paramanager.parseparaloc(vs,'A6');
-                  pd.parast.insert(vs);
-                end
-            end
-          else
-            Message(parser_e_32bitint_or_pointer_variable_expected);
-        end;
-      (paramanager as tm68kparamanager).create_funcretloc_info(pd,calleeside);
-      (paramanager as tm68kparamanager).create_funcretloc_info(pd,callerside);
-
-      v:=get_intconst;
-      if (v<low(Tprocdef(pd).extnumber)) or (v>high(Tprocdef(pd).extnumber)) then
-        message(parser_e_range_check_error)
-      else
-        Tprocdef(pd).extnumber:=v.uvalue;
-    end;
-{$endif m68k}
-{$ifdef powerpc}
-   if target_info.system = system_powerpc_amiga then
-    begin
-      include(pd.procoptions,po_syscall_basesysv);
-
-      if consume_sym(sym,symtable) then
-        begin
-          if (sym.typ=staticvarsym) and
-             (
-              (tabstractvarsym(sym).vardef.typ=pointerdef) or
-              is_32bitint(tabstractvarsym(sym).vardef)
-             ) then
-            begin
-              tprocdef(pd).libsym:=sym;
-              vs:=tparavarsym.create('$syscalllib',paranr_syscall_basesysv,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para]);
-              pd.parast.insert(vs);
-            end
-          else
-            Message(parser_e_32bitint_or_pointer_variable_expected);
-        end;
-
-      (paramanager as tppcparamanager).create_funcretloc_info(pd,calleeside);
-      (paramanager as tppcparamanager).create_funcretloc_info(pd,callerside);
-
-      v:=get_intconst;
-      if (v<low(Tprocdef(pd).extnumber)) or (v>high(Tprocdef(pd).extnumber)) then
-        message(parser_e_range_check_error)
-      else
-        Tprocdef(pd).extnumber:=v.uvalue;
-    end else
-
-   if target_info.system = system_powerpc_morphos then
-    begin
-      if idtoken=_LEGACY then
-        begin
-          consume(_LEGACY);
-          include(pd.procoptions,po_syscall_legacy);
-        end
-      else if idtoken=_SYSV then
-        begin
-          consume(_SYSV);
-          include(pd.procoptions,po_syscall_sysv);
-        end
-      else if idtoken=_BASESYSV then
-        begin
-          consume(_BASESYSV);
-          include(pd.procoptions,po_syscall_basesysv);
-        end
-      else if idtoken=_SYSVBASE then
-        begin
-          consume(_SYSVBASE);
-          include(pd.procoptions,po_syscall_sysvbase);
-        end
-      else if idtoken=_R12BASE then
-        begin
-          consume(_R12BASE);
-          include(pd.procoptions,po_syscall_r12base);
-        end
-      else
-        if syscall_convention='LEGACY' then
-          include(pd.procoptions,po_syscall_legacy)
-        else if syscall_convention='SYSV' then
-          include(pd.procoptions,po_syscall_sysv)
-        else if syscall_convention='BASESYSV' then
-          include(pd.procoptions,po_syscall_basesysv)
-        else if syscall_convention='SYSVBASE' then
-          include(pd.procoptions,po_syscall_sysvbase)
-        else if syscall_convention='R12BASE' then
-          include(pd.procoptions,po_syscall_r12base)
-        else
-          internalerror(2005010404);
-
-      if consume_sym(sym,symtable) then
-        begin
-          if (sym.typ=staticvarsym) and
-             (
-              (tabstractvarsym(sym).vardef.typ=pointerdef) or
-              is_32bitint(tabstractvarsym(sym).vardef)
-             ) then
-            begin
-              tprocdef(pd).libsym:=sym;
-              if po_syscall_legacy in tprocdef(pd).procoptions then
-                begin
-                  vs:=tparavarsym.create('$syscalllib',paranr_syscall_legacy,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para,vo_has_explicit_paraloc]);
-                  paramanager.parseparaloc(vs,'A6');
-                  pd.parast.insert(vs);
-                end
-              else if po_syscall_sysv in tprocdef(pd).procoptions then
-                begin
-                  { Nothing to be done for sysv here for now, but this might change }
-                end
-              else if po_syscall_basesysv in tprocdef(pd).procoptions then
-                begin
-                  vs:=tparavarsym.create('$syscalllib',paranr_syscall_basesysv,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para]);
-                  pd.parast.insert(vs);
-                end
-              else if po_syscall_sysvbase in tprocdef(pd).procoptions then
-                begin
-                  vs:=tparavarsym.create('$syscalllib',paranr_syscall_sysvbase,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para]);
-                  pd.parast.insert(vs);
-                end
-              else if po_syscall_r12base in tprocdef(pd).procoptions then
-                begin
-                  vs:=tparavarsym.create('$syscalllib',paranr_syscall_r12base,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para,vo_has_explicit_paraloc]);
-                  paramanager.parseparaloc(vs,'R12');
-                  pd.parast.insert(vs);
-                end
-              else
-                internalerror(2005010501);
-            end
-          else
-            Message(parser_e_32bitint_or_pointer_variable_expected);
-        end;
-      (paramanager as tppcparamanager).create_funcretloc_info(pd,calleeside);
-      (paramanager as tppcparamanager).create_funcretloc_info(pd,callerside);
-
-      v:=get_intconst;
-      if (v<low(Tprocdef(pd).extnumber)) or (v>high(Tprocdef(pd).extnumber)) then
-        message(parser_e_range_check_error)
-      else
-        Tprocdef(pd).extnumber:=v.uvalue;
-    end;
-{$endif powerpc}
-end;
-
-
-procedure pd_external(pd:tabstractprocdef);
-{
-  If import_dll=nil the procedure is assumed to be in another
-  object file. In that object file it should have the name to
-  which import_name is pointing to. Otherwise, the procedure is
-  assumed to be in the DLL to which import_dll is pointing to. In
-  that case either import_nr<>0 or import_name<>nil is true, so
-  the procedure is either imported by number or by name. (DM)
-}
-var
-  hs : string;
-  v:Tconstexprint;
-
-begin
-  if pd.typ<>procdef then
-    internalerror(2003042615);
-  with tprocdef(pd) do
-    begin
-      forwarddef:=false;
-      { forbid local external procedures }
-      if parast.symtablelevel>normal_function_level then
-        Message(parser_e_no_local_proc_external);
-      { If the procedure should be imported from a DLL, a constant string follows.
-        This isn't really correct, an contant string expression follows
-        so we check if an semicolon follows, else a string constant have to
-        follow (FK) }
-      if not(token=_SEMICOLON) and not(idtoken=_NAME) then
-        begin
-          { Always add library prefix and suffix to create an uniform name }
-          hs:=get_stringconst;
-          if ExtractFileExt(hs)='' then
-            hs:=ChangeFileExt(hs,target_info.sharedlibext);
-          if Copy(hs,1,length(target_info.sharedlibprefix))<>target_info.sharedlibprefix then
-            hs:=target_info.sharedlibprefix+hs;
-          import_dll:=stringdup(hs);
-          include(procoptions,po_has_importdll);
-          if (idtoken=_NAME) then
-           begin
-             consume(_NAME);
-             import_name:=stringdup(get_stringconst);
-             include(procoptions,po_has_importname);
-             if import_name^='' then
-               message(parser_e_empty_import_name);
-           end;
-          if (idtoken=_INDEX) then
-           begin
-             {After the word index follows the index number in the DLL.}
-             consume(_INDEX);
-             v:=get_intconst;
-             if (v<int64(low(import_nr))) or (v>int64(high(import_nr))) then
-               message(parser_e_range_check_error)
-             else
-               import_nr:=longint(v.svalue);
-           end;
-          { default is to used the realname of the procedure }
-          if (import_nr=0) and not assigned(import_name) then
-            begin
-              import_name:=stringdup(procsym.realname);
-              include(procoptions,po_has_importname);
-            end;
-        end
-      else
-        begin
-          if (idtoken=_NAME) then
-           begin
-             consume(_NAME);
-             import_name:=stringdup(get_stringconst);
-             include(procoptions,po_has_importname);
-             if import_name^='' then
-               message(parser_e_empty_import_name);
-           end;
-        end;
-    end;
-end;
-
-
-procedure pd_weakexternal(pd:tabstractprocdef);
-begin
-  if not(target_info.system in systems_weak_linking) then
-    message(parser_e_weak_external_not_supported)
-  else
-    pd_external(pd);
-end;
-
 
 type
    pd_handler=procedure(pd:tabstractprocdef);
    proc_dir_rec=record
      idtok     : ttoken;
      pd_flags  : tpdflags;
+   {$IFDEF old}
      handler   : pd_handler;
+   {$ELSE}
+     //use case idtoken of...
+   {$ENDIF}
      pocall    : tproccalloption;
      pooption  : tprocoptions;
      mutexclpocall : tproccalloptions;
@@ -1774,7 +1222,7 @@ const
     (
       idtok:_ABSTRACT;
       pd_flags : [pd_interface,pd_object,pd_notobjintf];
-      handler  : @pd_abstract;
+      //handler  : @pd_abstract;
       pocall   : pocall_none;
       pooption : [po_abstractmethod];
       mutexclpocall : [pocall_internproc];
@@ -1783,7 +1231,7 @@ const
     ),(
       idtok:_ALIAS;
       pd_flags : [pd_implemen,pd_body,pd_notobjintf];
-      handler  : @pd_alias;
+      //handler  : @pd_alias;
       pocall   : pocall_none;
       pooption : [];
       mutexclpocall : [];
@@ -1792,7 +1240,7 @@ const
     ),(
       idtok:_ASMNAME;
       pd_flags : [pd_interface,pd_implemen,pd_notobjintf];
-      handler  : @pd_asmname;
+      //handler  : @pd_asmname;
       pocall   : pocall_cdecl;
       pooption : [po_external];
       mutexclpocall : [pocall_internproc];
@@ -1801,7 +1249,7 @@ const
     ),(
       idtok:_ASSEMBLER;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_notobjintf];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_none;
       pooption : [po_assembler];
       mutexclpocall : [];
@@ -1810,7 +1258,7 @@ const
     ),(
       idtok:_C; {same as cdecl for mode mac}
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_cdecl;
       pooption : [];
       mutexclpocall : [];
@@ -1819,7 +1267,7 @@ const
     ),(
       idtok:_CDECL;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_cdecl;
       pooption : [];
       mutexclpocall : [];
@@ -1828,7 +1276,7 @@ const
     ),(
       idtok:_DISPID;
       pd_flags : [pd_dispinterface];
-      handler  : @pd_dispid;
+      //handler  : @pd_dispid;
       pocall   : pocall_none;
       pooption : [po_dispid];
       mutexclpocall : [pocall_internproc];
@@ -1837,7 +1285,7 @@ const
     ),(
       idtok:_DYNAMIC;
       pd_flags : [pd_interface,pd_object,pd_notobjintf];
-      handler  : @pd_virtual;
+      //handler  : @pd_virtual;
       pocall   : pocall_none;
       pooption : [po_virtualmethod];
       mutexclpocall : [pocall_internproc];
@@ -1846,7 +1294,7 @@ const
     ),(
       idtok:_EXPORT;
       pd_flags : [pd_body,pd_interface,pd_implemen,pd_notobjintf];
-      handler  : @pd_export;
+      //handler  : @pd_export;
       pocall   : pocall_none;
       pooption : [po_exports,po_global];
       mutexclpocall : [pocall_internproc];
@@ -1855,7 +1303,7 @@ const
     ),(
       idtok:_EXTERNAL;
       pd_flags : [pd_implemen,pd_interface,pd_notobject,pd_notobjintf,pd_cppobject];
-      handler  : @pd_external;
+      //handler  : @pd_external;
       pocall   : pocall_none;
       pooption : [po_external];
       mutexclpocall : [pocall_internproc,pocall_syscall];
@@ -1865,7 +1313,7 @@ const
     ),(
       idtok:_FAR;
       pd_flags : [pd_implemen,pd_body,pd_interface,pd_procvar,pd_notobject,pd_notobjintf];
-      handler  : @pd_far;
+      //handler  : @pd_far;
       pocall   : pocall_none;
       pooption : [];
       mutexclpocall : [pocall_internproc];
@@ -1874,7 +1322,7 @@ const
     ),(
       idtok:_FAR16;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar,pd_notobject];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_far16;
       pooption : [];
       mutexclpocall : [];
@@ -1883,7 +1331,7 @@ const
     ),(
       idtok:_FINAL;
       pd_flags : [pd_interface,pd_object,pd_notobjintf];
-      handler  : @pd_final;
+      //handler  : @pd_final;
       pocall   : pocall_none;
       pooption : [po_finalmethod];
       mutexclpocall : [pocall_internproc];
@@ -1892,7 +1340,7 @@ const
     ),(
       idtok:_FORWARD;
       pd_flags : [pd_implemen,pd_notobject,pd_notobjintf];
-      handler  : @pd_forward;
+      //handler  : @pd_forward;
       pocall   : pocall_none;
       pooption : [];
       mutexclpocall : [pocall_internproc];
@@ -1901,7 +1349,7 @@ const
     ),(
       idtok:_OLDFPCCALL;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_oldfpccall;
       pooption : [];
       mutexclpocall : [];
@@ -1910,7 +1358,7 @@ const
     ),(
       idtok:_INLINE;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_notobjintf];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_none;
       pooption : [po_inline];
       mutexclpocall : [];
@@ -1919,7 +1367,7 @@ const
     ),(
       idtok:_INTERNCONST;
       pd_flags : [pd_interface,pd_body,pd_notobject,pd_notobjintf];
-      handler  : @pd_internconst;
+      //handler  : @pd_internconst;
       pocall   : pocall_none;
       pooption : [po_internconst];
       mutexclpocall : [];
@@ -1928,7 +1376,7 @@ const
     ),(
       idtok:_INTERNPROC;
       pd_flags : [pd_interface,pd_notobject,pd_notobjintf];
-      handler  : @pd_internproc;
+      //handler  : @pd_internproc;
       pocall   : pocall_internproc;
       pooption : [];
       mutexclpocall : [];
@@ -1937,7 +1385,7 @@ const
     ),(
       idtok:_INTERRUPT;
       pd_flags : [pd_implemen,pd_body,pd_notobject,pd_notobjintf];
-      handler  : @pd_interrupt;
+      //handler  : @pd_interrupt;
       pocall   : pocall_oldfpccall;
       pooption : [po_interrupt];
       mutexclpocall : [pocall_internproc,pocall_cdecl,pocall_cppdecl,pocall_stdcall,
@@ -1947,7 +1395,7 @@ const
     ),(
       idtok:_IOCHECK;
       pd_flags : [pd_implemen,pd_body,pd_notobjintf];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_none;
       pooption : [po_iocheck];
       mutexclpocall : [pocall_internproc];
@@ -1956,7 +1404,7 @@ const
     ),(
       idtok:_LOCAL;
       pd_flags : [pd_implemen,pd_body];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_none;
       pooption : [po_kylixlocal];
       mutexclpocall : [pocall_internproc,pocall_far16];
@@ -1965,7 +1413,7 @@ const
     ),(
       idtok:_MESSAGE;
       pd_flags : [pd_interface,pd_object,pd_notobjintf,pd_objcclass, pd_objcprot];
-      handler  : @pd_message;
+      //handler  : @pd_message;
       pocall   : pocall_none;
       pooption : []; { can be po_msgstr or po_msgint }
       mutexclpocall : [pocall_internproc];
@@ -1974,7 +1422,7 @@ const
     ),(
       idtok:_MWPASCAL;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_mwpascal;
       pooption : [];
       mutexclpocall : [];
@@ -1983,7 +1431,7 @@ const
     ),(
       idtok:_NEAR;
       pd_flags : [pd_implemen,pd_body,pd_procvar,pd_notobjintf];
-      handler  : @pd_near;
+      //handler  : @pd_near;
       pocall   : pocall_none;
       pooption : [];
       mutexclpocall : [pocall_internproc];
@@ -1992,7 +1440,7 @@ const
     ),(
       idtok:_NOSTACKFRAME;
       pd_flags : [pd_implemen,pd_body,pd_procvar,pd_notobjintf];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_none;
       pooption : [po_nostackframe];
       mutexclpocall : [pocall_internproc];
@@ -2001,7 +1449,7 @@ const
     ),(
       idtok:_OVERLOAD;
       pd_flags : [pd_implemen,pd_interface,pd_body];
-      handler  : @pd_overload;
+      //handler  : @pd_overload;
       pocall   : pocall_none;
       pooption : [po_overload];
       mutexclpocall : [pocall_internproc];
@@ -2010,7 +1458,7 @@ const
     ),(
       idtok:_OVERRIDE;
       pd_flags : [pd_interface,pd_object,pd_notobjintf,pd_objcclass];
-      handler  : @pd_override;
+      //handler  : @pd_override;
       pocall   : pocall_none;
       pooption : [po_overridingmethod,po_virtualmethod];
       mutexclpocall : [pocall_internproc];
@@ -2019,7 +1467,7 @@ const
     ),(
       idtok:_PASCAL;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_pascal;
       pooption : [];
       mutexclpocall : [];
@@ -2028,7 +1476,7 @@ const
     ),(
       idtok:_PUBLIC;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_notobject,pd_notobjintf];
-      handler  : @pd_public;
+      //handler  : @pd_public;
       pocall   : pocall_none;
       pooption : [po_public,po_global];
       mutexclpocall : [pocall_internproc];
@@ -2037,7 +1485,7 @@ const
     ),(
       idtok:_REGISTER;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_register;
       pooption : [];
       mutexclpocall : [];
@@ -2046,7 +1494,7 @@ const
     ),(
       idtok:_REINTRODUCE;
       pd_flags : [pd_interface,pd_object,pd_notobjintf,pd_objcclass];
-      handler  : @pd_reintroduce;
+      //handler  : @pd_reintroduce;
       pocall   : pocall_none;
       pooption : [po_reintroduce];
       mutexclpocall : [pocall_internproc];
@@ -2055,7 +1503,7 @@ const
     ),(
       idtok:_SAFECALL;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_safecall;
       pooption : [];
       mutexclpocall : [];
@@ -2064,7 +1512,7 @@ const
     ),(
       idtok:_SOFTFLOAT;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_softfloat;
       pooption : [];
       mutexclpocall : [];
@@ -2075,7 +1523,7 @@ const
     ),(
       idtok:_STATIC;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_object,pd_notobjintf];
-      handler  : @pd_static;
+      //handler  : @pd_static;
       pocall   : pocall_none;
       pooption : [po_staticmethod];
       mutexclpocall : [pocall_internproc];
@@ -2084,7 +1532,7 @@ const
     ),(
       idtok:_STDCALL;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_stdcall;
       pooption : [];
       mutexclpocall : [];
@@ -2096,7 +1544,7 @@ const
       { FIX ME!!! MorphOS/AOS68k pd_flags should be:
         pd_interface, pd_implemen, pd_notobject, pd_notobjintf (KB) }
       pd_flags : [pd_interface,pd_implemen,pd_procvar];
-      handler  : @pd_syscall;
+      //handler  : @pd_syscall;
       pocall   : pocall_syscall;
       pooption : [];
       mutexclpocall : [];
@@ -2105,7 +1553,7 @@ const
     ),(
       idtok:_VIRTUAL;
       pd_flags : [pd_interface,pd_object,pd_notobjintf];
-      handler  : @pd_virtual;
+      //handler  : @pd_virtual;
       pocall   : pocall_none;
       pooption : [po_virtualmethod];
       mutexclpocall : [pocall_internproc];
@@ -2114,7 +1562,7 @@ const
     ),(
       idtok:_CPPDECL;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_cppdecl;
       pooption : [];
       mutexclpocall : [];
@@ -2123,7 +1571,7 @@ const
     ),(
       idtok:_VARARGS;
       pd_flags : [pd_interface,pd_implemen,pd_procvar,pd_objcclass, pd_objcprot];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_none;
       pooption : [po_varargs];
       mutexclpocall : [pocall_internproc,pocall_stdcall,pocall_register,
@@ -2133,7 +1581,7 @@ const
     ),(
       idtok:_COMPILERPROC;
       pd_flags : [pd_interface,pd_implemen,pd_body,pd_notobjintf];
-      handler  : nil;
+      //handler  : nil;
       pocall   : pocall_none;
       pooption : [po_compilerproc];
       mutexclpocall : [];
@@ -2142,7 +1590,7 @@ const
     ),(
       idtok:_WEAKEXTERNAL;
       pd_flags : [pd_implemen,pd_interface,pd_notobject,pd_notobjintf,pd_cppobject];
-      handler  : @pd_weakexternal;
+      //handler  : @pd_weakexternal;
       pocall   : pocall_none;
       { mark it both external and weak external, so we don't have to
         adapt all code for external symbols to also check for weak external
@@ -2155,7 +1603,7 @@ const
     ),(
       idtok:_ENUMERATOR;
       pd_flags : [pd_interface,pd_object];
-      handler  : @pd_enumerator;
+      //handler  : @pd_enumerator;
       pocall   : pocall_none;
       pooption : [];
       mutexclpocall : [pocall_internproc];
@@ -2164,7 +1612,7 @@ const
     )
    );
 
-
+{ TODO : return directive index, to prevent another search }
     function TOPLParser.check_proc_directive(isprocvar:boolean):boolean;
       var
         i : longint;
@@ -2183,10 +1631,569 @@ const
       end;
 
 
-    function parse_proc_direc(pd:tabstractprocdef;var pdflags:tpdflags):boolean;
+  function TOPLParser.parse_proc_direc(pd:tabstractprocdef;var pdflags:tpdflags):boolean;
       {
         Parse the procedure directive, returns true if a correct directive is found
       }
+
+    //var current_parser: TOplParser;
+
+      procedure pd_far;
+      begin
+        Message1(parser_w_proc_directive_ignored,'FAR');
+      end;
+
+      procedure pd_near;
+      begin
+        Message1(parser_w_proc_directive_ignored,'NEAR');
+      end;
+
+      procedure pd_export;
+      begin
+        if pd.typ<>procdef then
+          internalerror(200304264);
+        if assigned(tprocdef(pd)._class) then
+          Message(parser_e_methods_dont_be_export);
+        if pd.parast.symtablelevel>normal_function_level then
+          Message(parser_e_dont_nest_export);
+      end;
+
+      procedure pd_forward;
+      begin
+        if pd.typ<>procdef then
+          internalerror(200304265);
+        tprocdef(pd).forwarddef:=true;
+      end;
+
+
+      procedure pd_alias;
+      begin
+        if pd.typ<>procdef then
+          internalerror(200304266);
+        consume(_COLON);
+        tprocdef(pd).aliasnames.insert(get_stringconst);
+        include(pd.procoptions,po_has_public_name);
+      end;
+
+
+      procedure pd_public;
+      begin
+        if pd.typ<>procdef then
+          internalerror(200304266);
+        if try_to_consume(_NAME) then
+          begin
+            tprocdef(pd).aliasnames.insert(get_stringconst);
+            include(pd.procoptions,po_has_public_name);
+          end;
+      end;
+
+
+      procedure pd_asmname;
+      begin
+        if pd.typ<>procdef then
+          internalerror(200304267);
+        if token=_CCHAR then
+          begin
+            tprocdef(pd).aliasnames.insert(target_info.Cprefix+pattern);
+            consume(_CCHAR)
+          end
+        else
+          begin
+            tprocdef(pd).aliasnames.insert(target_info.Cprefix+cstringpattern);
+            consume(_CSTRING);
+          end;
+        { we don't need anything else }
+        tprocdef(pd).forwarddef:=false;
+      end;
+
+
+      procedure pd_internconst;
+
+      var v:Tconstexprint;
+
+      begin
+        if pd.typ<>procdef then
+          internalerror(200304268);
+        consume(_COLON);
+        v:=get_intconst;
+        if (v<int64(low(longint))) or (v>int64(high(longint))) then
+          message(parser_e_range_check_error)
+        else
+          Tprocdef(pd).extnumber:=longint(v.svalue);
+      end;
+
+
+      procedure pd_internproc;
+
+      var v:Tconstexprint;
+
+      begin
+        if pd.typ<>procdef then
+          internalerror(200304268);
+        consume(_COLON);
+        v:=get_intconst;
+        if (v<int64(low(longint))) or (v>int64(high(longint))) then
+          message(parser_e_range_check_error)
+        else
+          Tprocdef(pd).extnumber:=longint(v.svalue);
+        { the proc is defined }
+        tprocdef(pd).forwarddef:=false;
+      end;
+
+      procedure pd_interrupt;
+      begin
+        if pd.parast.symtablelevel>normal_function_level then
+          Message(parser_e_dont_nest_interrupt);
+      end;
+
+      procedure pd_abstract;
+      begin
+        if pd.typ<>procdef then
+          internalerror(200304269);
+        if oo_is_sealed in tprocdef(pd)._class.objectoptions then
+          Message(parser_e_sealed_class_cannot_have_abstract_methods)
+        else
+        if (po_virtualmethod in pd.procoptions) then
+          include(pd.procoptions,po_abstractmethod)
+        else
+          Message(parser_e_only_virtual_methods_abstract);
+        { the method is defined }
+        tprocdef(pd).forwarddef:=false;
+      end;
+
+      procedure pd_final;
+      begin
+        if pd.typ<>procdef then
+          internalerror(200910170);
+        if (po_virtualmethod in pd.procoptions) then
+          include(pd.procoptions,po_finalmethod)
+        else
+          Message(parser_e_only_virtual_methods_final);
+      end;
+
+      procedure pd_enumerator;
+      begin
+        if pd.typ<>procdef then
+          internalerror(200910250);
+        if (token = _ID) then
+        begin
+          if pattern='MOVENEXT' then
+          begin
+            if oo_has_enumerator_movenext in tprocdef(pd)._class.objectoptions then
+              message(parser_e_only_one_enumerator_movenext);
+            pd.calcparas;
+            if (pd.proctypeoption = potype_function) and is_boolean(pd.returndef) and
+               (pd.minparacount = 0) then
+            begin
+              include(tprocdef(pd)._class.objectoptions, oo_has_enumerator_movenext);
+              include(pd.procoptions,po_enumerator_movenext);
+            end
+            else
+              Message(parser_e_enumerator_movenext_is_not_valid)
+          end
+          else
+            Message1(parser_e_invalid_enumerator_identifier, pattern);
+          consume(token);
+        end
+        else
+          Message(parser_e_enumerator_identifier_required);
+      end;
+
+      procedure pd_virtual;
+      {$ifdef WITHDMT}
+      var
+        pt : tnode;
+      {$endif WITHDMT}
+      begin
+        if pd.typ<>procdef then
+          internalerror(2003042610);
+        if (pd.proctypeoption=potype_constructor) and
+           is_object(tprocdef(pd)._class) then
+          Message(parser_e_constructor_cannot_be_not_virtual);
+      {$ifdef WITHDMT}
+        if is_object(tprocdef(pd)._class) and
+           (token<>_SEMICOLON) then
+          begin
+             { any type of parameter is allowed here! }
+             pt:=comp_expr(true);
+             if is_constintnode(pt) then
+               begin
+                 include(pd.procoptions,po_msgint);
+                 pd.messageinf.i:=pt.value;
+               end
+             else
+               Message(parser_e_ill_msg_expr);
+             disposetree(pt);
+          end;
+      {$endif WITHDMT}
+      end;
+
+
+      procedure pd_dispid;
+
+      var pt:Tnode;
+
+      begin
+        if pd.typ<>procdef then
+          internalerror(200604301);
+        pt:=comp_expr(true);
+        if is_constintnode(pt) then
+          if (Tordconstnode(pt).value<int64(low(longint))) or (Tordconstnode(pt).value>int64(high(longint))) then
+            message(parser_e_range_check_error)
+          else
+            Tprocdef(pd).dispid:=Tordconstnode(pt).value.svalue
+        else
+          message(parser_e_dispid_must_be_ord_const);
+        pt.free;
+      end;
+
+
+      procedure pd_static;
+      begin
+        if pd.typ=procdef then
+          include(tprocdef(pd).procsym.symoptions,sp_static);
+        include(pd.procoptions,po_staticmethod);
+      end;
+
+      procedure pd_override;
+      begin
+        if pd.typ<>procdef then
+          internalerror(2003042611);
+        if not(is_class_or_interface_or_objc(tprocdef(pd)._class)) then
+          Message(parser_e_no_object_override)
+        else if is_objccategory(tprocdef(pd)._class) then
+          Message(parser_e_no_category_override);
+      end;
+
+      procedure pd_overload;
+      begin
+        if pd.typ<>procdef then
+          internalerror(2003042612);
+        include(tprocdef(pd).procsym.symoptions,sp_has_overloaded);
+      end;
+
+      procedure pd_message;
+      var
+        pt : tnode;
+        paracnt : longint;
+      begin
+        if pd.typ<>procdef then
+          internalerror(2003042613);
+        if not is_class(tprocdef(pd)._class) and
+           not is_objc_class_or_protocol(tprocdef(pd)._class) then
+          Message(parser_e_msg_only_for_classes);
+        if ([po_msgstr,po_msgint]*pd.procoptions)<>[] then
+          Message(parser_e_multiple_messages);
+        { check parameter type }
+        if not is_objc_class_or_protocol(tprocdef(pd)._class) then
+          begin
+            paracnt:=0;
+            pd.parast.SymList.ForEachCall(@check_msg_para,@paracnt);
+            if paracnt<>1 then
+              Message(parser_e_ill_msg_param);
+          end;
+        pt:=comp_expr(true);
+        { message is 1-character long }
+        if is_constcharnode(pt) then
+          begin
+            include(pd.procoptions,po_msgstr);
+            tprocdef(pd).messageinf.str:=stringdup(chr(byte(tordconstnode(pt).value.uvalue and $FF)));
+          end
+        else if pt.nodetype=stringconstn then
+          begin
+            include(pd.procoptions,po_msgstr);
+            if (tstringconstnode(pt).len>255) then
+              Message(parser_e_message_string_too_long);
+            tprocdef(pd).messageinf.str:=stringdup(tstringconstnode(pt).value_str);
+          end
+        else
+         if is_constintnode(pt) and
+            is_class(tprocdef(pd)._class) then
+          begin
+            include(pd.procoptions,po_msgint);
+            if (Tordconstnode(pt).value<int64(low(Tprocdef(pd).messageinf.i))) or
+               (Tordconstnode(pt).value>int64(high(Tprocdef(pd).messageinf.i))) then
+              message(parser_e_range_check_error)
+            else
+              Tprocdef(pd).messageinf.i:=tordconstnode(pt).value.svalue;
+          end
+        else
+          Message(parser_e_ill_msg_expr);
+        { check whether the selector name is valid in case of Objective-C }
+        if (po_msgstr in pd.procoptions) and
+           is_objc_class_or_protocol(tprocdef(pd)._class) and
+           not objcvalidselectorname(@tprocdef(pd).messageinf.str^[1],length(tprocdef(pd).messageinf.str^)) then
+          Message1(type_e_invalid_objc_selector_name,tprocdef(pd).messageinf.str^);
+        pt.free;
+      end;
+
+
+      procedure pd_reintroduce;
+      begin
+        if pd.typ<>procdef then
+          internalerror(200401211);
+        if not(is_class_or_interface_or_object(tprocdef(pd)._class)) and
+           not(is_objccategory(tprocdef(pd)._class)) then
+          Message(parser_e_no_object_reintroduce);
+      end;
+
+
+      procedure pd_syscall;
+      {$if defined(powerpc) or defined(m68k)}
+      var
+        vs  : tparavarsym;
+        sym : tsym;
+        symtable : TSymtable;
+        v: Tconstexprint;
+      {$endif defined(powerpc) or defined(m68k)}
+      begin
+        if (pd.typ<>procdef) and (target_info.system <> system_powerpc_amiga) then
+          internalerror(2003042614);
+        tprocdef(pd).forwarddef:=false;
+      {$ifdef m68k}
+         if target_info.system in [system_m68k_amiga] then
+          begin
+            include(pd.procoptions,po_syscall_legacy);
+
+            if consume_sym(sym,symtable) then
+              begin
+                if (sym.typ=staticvarsym) and
+                   (
+                    (tabstractvarsym(sym).vardef.typ=pointerdef) or
+                    is_32bitint(tabstractvarsym(sym).vardef)
+                   ) then
+                  begin
+                    tprocdef(pd).libsym:=sym;
+                    if po_syscall_legacy in tprocdef(pd).procoptions then
+                      begin
+                        vs:=tparavarsym.create('$syscalllib',paranr_syscall_legacy,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para,vo_has_explicit_paraloc]);
+                        paramanager.parseparaloc(vs,'A6');
+                        pd.parast.insert(vs);
+                      end
+                  end
+                else
+                  Message(parser_e_32bitint_or_pointer_variable_expected);
+              end;
+            (paramanager as tm68kparamanager).create_funcretloc_info(pd,calleeside);
+            (paramanager as tm68kparamanager).create_funcretloc_info(pd,callerside);
+
+            v:=get_intconst;
+            if (v<low(Tprocdef(pd).extnumber)) or (v>high(Tprocdef(pd).extnumber)) then
+              message(parser_e_range_check_error)
+            else
+              Tprocdef(pd).extnumber:=v.uvalue;
+          end;
+      {$endif m68k}
+      {$ifdef powerpc}
+         if target_info.system = system_powerpc_amiga then
+          begin
+            include(pd.procoptions,po_syscall_basesysv);
+
+            if consume_sym(sym,symtable) then
+              begin
+                if (sym.typ=staticvarsym) and
+                   (
+                    (tabstractvarsym(sym).vardef.typ=pointerdef) or
+                    is_32bitint(tabstractvarsym(sym).vardef)
+                   ) then
+                  begin
+                    tprocdef(pd).libsym:=sym;
+                    vs:=tparavarsym.create('$syscalllib',paranr_syscall_basesysv,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para]);
+                    pd.parast.insert(vs);
+                  end
+                else
+                  Message(parser_e_32bitint_or_pointer_variable_expected);
+              end;
+
+            (paramanager as tppcparamanager).create_funcretloc_info(pd,calleeside);
+            (paramanager as tppcparamanager).create_funcretloc_info(pd,callerside);
+
+            v:=get_intconst;
+            if (v<low(Tprocdef(pd).extnumber)) or (v>high(Tprocdef(pd).extnumber)) then
+              message(parser_e_range_check_error)
+            else
+              Tprocdef(pd).extnumber:=v.uvalue;
+          end else
+
+         if target_info.system = system_powerpc_morphos then
+          begin
+            if idtoken=_LEGACY then
+              begin
+                consume(_LEGACY);
+                include(pd.procoptions,po_syscall_legacy);
+              end
+            else if idtoken=_SYSV then
+              begin
+                consume(_SYSV);
+                include(pd.procoptions,po_syscall_sysv);
+              end
+            else if idtoken=_BASESYSV then
+              begin
+                consume(_BASESYSV);
+                include(pd.procoptions,po_syscall_basesysv);
+              end
+            else if idtoken=_SYSVBASE then
+              begin
+                consume(_SYSVBASE);
+                include(pd.procoptions,po_syscall_sysvbase);
+              end
+            else if idtoken=_R12BASE then
+              begin
+                consume(_R12BASE);
+                include(pd.procoptions,po_syscall_r12base);
+              end
+            else
+              if syscall_convention='LEGACY' then
+                include(pd.procoptions,po_syscall_legacy)
+              else if syscall_convention='SYSV' then
+                include(pd.procoptions,po_syscall_sysv)
+              else if syscall_convention='BASESYSV' then
+                include(pd.procoptions,po_syscall_basesysv)
+              else if syscall_convention='SYSVBASE' then
+                include(pd.procoptions,po_syscall_sysvbase)
+              else if syscall_convention='R12BASE' then
+                include(pd.procoptions,po_syscall_r12base)
+              else
+                internalerror(2005010404);
+
+            if consume_sym(sym,symtable) then
+              begin
+                if (sym.typ=staticvarsym) and
+                   (
+                    (tabstractvarsym(sym).vardef.typ=pointerdef) or
+                    is_32bitint(tabstractvarsym(sym).vardef)
+                   ) then
+                  begin
+                    tprocdef(pd).libsym:=sym;
+                    if po_syscall_legacy in tprocdef(pd).procoptions then
+                      begin
+                        vs:=tparavarsym.create('$syscalllib',paranr_syscall_legacy,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para,vo_has_explicit_paraloc]);
+                        paramanager.parseparaloc(vs,'A6');
+                        pd.parast.insert(vs);
+                      end
+                    else if po_syscall_sysv in tprocdef(pd).procoptions then
+                      begin
+                        { Nothing to be done for sysv here for now, but this might change }
+                      end
+                    else if po_syscall_basesysv in tprocdef(pd).procoptions then
+                      begin
+                        vs:=tparavarsym.create('$syscalllib',paranr_syscall_basesysv,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para]);
+                        pd.parast.insert(vs);
+                      end
+                    else if po_syscall_sysvbase in tprocdef(pd).procoptions then
+                      begin
+                        vs:=tparavarsym.create('$syscalllib',paranr_syscall_sysvbase,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para]);
+                        pd.parast.insert(vs);
+                      end
+                    else if po_syscall_r12base in tprocdef(pd).procoptions then
+                      begin
+                        vs:=tparavarsym.create('$syscalllib',paranr_syscall_r12base,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para,vo_has_explicit_paraloc]);
+                        paramanager.parseparaloc(vs,'R12');
+                        pd.parast.insert(vs);
+                      end
+                    else
+                      internalerror(2005010501);
+                  end
+                else
+                  Message(parser_e_32bitint_or_pointer_variable_expected);
+              end;
+            (paramanager as tppcparamanager).create_funcretloc_info(pd,calleeside);
+            (paramanager as tppcparamanager).create_funcretloc_info(pd,callerside);
+
+            v:=get_intconst;
+            if (v<low(Tprocdef(pd).extnumber)) or (v>high(Tprocdef(pd).extnumber)) then
+              message(parser_e_range_check_error)
+            else
+              Tprocdef(pd).extnumber:=v.uvalue;
+          end;
+      {$endif powerpc}
+      end;
+
+
+      procedure pd_external;
+      {
+        If import_dll=nil the procedure is assumed to be in another
+        object file. In that object file it should have the name to
+        which import_name is pointing to. Otherwise, the procedure is
+        assumed to be in the DLL to which import_dll is pointing to. In
+        that case either import_nr<>0 or import_name<>nil is true, so
+        the procedure is either imported by number or by name. (DM)
+      }
+      var
+        hs : string;
+        v:Tconstexprint;
+
+      begin
+        if pd.typ<>procdef then
+          internalerror(2003042615);
+        with tprocdef(pd) do
+          begin
+            forwarddef:=false;
+            { forbid local external procedures }
+            if parast.symtablelevel>normal_function_level then
+              Message(parser_e_no_local_proc_external);
+            { If the procedure should be imported from a DLL, a constant string follows.
+              This isn't really correct, an contant string expression follows
+              so we check if an semicolon follows, else a string constant have to
+              follow (FK) }
+            if not(token=_SEMICOLON) and not(idtoken=_NAME) then
+              begin
+                { Always add library prefix and suffix to create an uniform name }
+                hs:=get_stringconst;
+                if ExtractFileExt(hs)='' then
+                  hs:=ChangeFileExt(hs,target_info.sharedlibext);
+                if Copy(hs,1,length(target_info.sharedlibprefix))<>target_info.sharedlibprefix then
+                  hs:=target_info.sharedlibprefix+hs;
+                import_dll:=stringdup(hs);
+                include(procoptions,po_has_importdll);
+                if (idtoken=_NAME) then
+                 begin
+                   consume(_NAME);
+                   import_name:=stringdup(get_stringconst);
+                   include(procoptions,po_has_importname);
+                   if import_name^='' then
+                     message(parser_e_empty_import_name);
+                 end;
+                if (idtoken=_INDEX) then
+                 begin
+                   {After the word index follows the index number in the DLL.}
+                   consume(_INDEX);
+                   v:=get_intconst;
+                   if (v<int64(low(import_nr))) or (v>int64(high(import_nr))) then
+                     message(parser_e_range_check_error)
+                   else
+                     import_nr:=longint(v.svalue);
+                 end;
+                { default is to used the realname of the procedure }
+                if (import_nr=0) and not assigned(import_name) then
+                  begin
+                    import_name:=stringdup(procsym.realname);
+                    include(procoptions,po_has_importname);
+                  end;
+              end
+            else
+              begin
+                if (idtoken=_NAME) then
+                 begin
+                   consume(_NAME);
+                   import_name:=stringdup(get_stringconst);
+                   include(procoptions,po_has_importname);
+                   if import_name^='' then
+                     message(parser_e_empty_import_name);
+                 end;
+              end;
+          end;
+      end;
+
+
+      procedure pd_weakexternal;
+      begin
+        if not(target_info.system in systems_weak_linking) then
+          message(parser_e_weak_external_not_supported)
+        else
+          pd_external;  //(pd);
+      end;
+
       var
         p     : longint;
         found : boolean;
@@ -2332,8 +2339,45 @@ const
         pd.procoptions:=pd.procoptions+proc_direcdata[p].pooption;
 
         { Call the handler }
+      {$IFDEF old}
         if pointer(proc_direcdata[p].handler)<>nil then
           proc_direcdata[p].handler(pd);
+      {$ELSE}
+        case idtoken of
+        _ABSTRACT:    pd_abstract;
+        _ALIAS:       pd_alias;
+        _ASMNAME:     pd_asmname;
+        _DISPID:      pd_dispid;
+        _DYNAMIC,
+        _VIRTUAL:     pd_virtual;
+        _ENUMERATOR:  pd_enumerator;
+        _EXPORT:      pd_export;
+        _EXTERNAL:    pd_external;
+        _FAR:         pd_far;
+        _FINAL:       pd_final;
+        _FORWARD:     pd_forward;
+        _INTERNCONST: pd_internconst;
+        _INTERNPROC:  pd_internproc;
+        _INTERRUPT:   pd_interrupt;
+        _MESSAGE:     pd_message;
+        _NEAR:        pd_near;
+        _OVERLOAD:    pd_overload;
+        _OVERRIDE:    pd_override;
+        _PUBLIC:      pd_public;
+        _REINTRODUCE: pd_reintroduce;
+        _STATIC:      pd_static;
+        _SYSCALL:     pd_syscall;
+        _WEAKEXTERNAL:pd_weakexternal;
+      //ignored
+        _ASSEMBLER, _C, _CDECL,
+        _FAR16, _OLDFPCCALL, _INLINE, _IOCHECK, _LOCAL, _MWPASCAL, _NOSTACKFRAME,
+        _PASCAL, _REGISTER, _SAFECALL, _SOFTFLOAT, _STDCALL,
+        _CPPDECL, _VARARGS, _COMPILERPROC:
+          ;
+        else
+          { TODO : catch errors }
+        end;
+      {$ENDIF}
       end;
 
 
@@ -2484,8 +2528,9 @@ const
           end;
       end;
 
-
-    procedure TOPLParser.handle_calling_convention(pd:tabstractprocdef);
+{$IFDEF old}
+    //procedure TOPLParser.handle_calling_convention(pd:tabstractprocdef);
+    procedure handle_calling_convention(pd:tabstractprocdef);
       begin
         { set the default calling convention if none provided }
         if (pd.typ=procdef) and
@@ -2586,6 +2631,9 @@ const
         { Calculate parameter tlist }
         pd.calcparas;
       end;
+{$ELSE}
+//moved into symdef
+{$ENDIF}
 
 
     procedure TOPLParser.parse_proc_directives(pd:tabstractprocdef;var pdflags:tpdflags);
@@ -2695,6 +2743,11 @@ const
         pdflags:=[pd_object];
         parse_proc_directives(pd,pdflags);
       end;
+
+        procedure TOPLParser.parse_orddef(list: tasmlist; def: torddef);
+    begin
+
+    end;
 
 
     function TOPLParser.proc_add_definition(var currpd:tprocdef):boolean;

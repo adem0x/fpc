@@ -60,7 +60,7 @@ interface
         procedure add_to_symtablestack;
         procedure remove_from_symtablestack;
       {$IFDEF old}
-        //procedure parse_body;
+        //procedure parse_body; - moved into parser
         procedure parse_body(block: tblockparser);
       {$ELSE}
         procedure parse_body_init;

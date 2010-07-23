@@ -593,11 +593,6 @@ implementation
         result:=newblock;
       end;
 
-        procedure TOPLParser.insertobjectfile;
-    begin
-
-    end;
-
 
     function TOPLParser.inline_initialize : tnode;
       var

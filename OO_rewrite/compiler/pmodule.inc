@@ -62,6 +62,8 @@ implementation
 { TODO : separate code/ppu generation - should become independent class }
 
 {$IFDEF write_module}
+
+    //procedure TOPLParser.create_objectfile;
     procedure create_objectfile;
       var
         DLLScanner      : TDLLScanner;
@@ -126,7 +128,7 @@ implementation
       end;
 
 
-    procedure TOPLParser.insertobjectfile;
+    procedure insertobjectfile;
     { Insert the used object file for this unit in the used list for this unit }
       begin
         current_module.linkunitofiles.add(current_module.objfilename^,link_static);
@@ -1456,7 +1458,11 @@ implementation
              { Compile the unit }
              init_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'init'),potype_unitinit,current_module.localsymtable);
              init_procinfo.procdef.aliasnames.insert(make_mangledname('INIT$',current_module.localsymtable,''));
+           {$IFDEF old}
              init_procinfo.parse_body;
+           {$ELSE}
+             parse_body(init_procinfo);
+           {$ENDIF}
              { save file pos for debuginfo }
              current_module.mainfilepos:=init_procinfo.entrypos;
            end;
@@ -1515,6 +1521,10 @@ implementation
          { the last char should always be a point }
          consume(_POINT);
 
+       {$IFnDEF old}
+         proc_unit_done(current_module);
+       {$ELSE}
+         begin  //proc_unit_done
          { reset wpo flags for all defs }
          reset_all_defs;
 
@@ -1668,10 +1678,13 @@ implementation
            end;
 {$endif debug_devirt}
 
+
         Message1(unit_u_finished_compiling,current_module.modulename^);
+         end;
+       {$ENDIF}
       end;
 
-
+{$IFDEF write_module}
     procedure procexport(const s : string);
       var
         hp : texported_item;
@@ -1753,17 +1766,20 @@ implementation
             hp:=texported_item(hp.next);
           end;
       end;
+{$ELSE}
+//above procedures retained in pmodules.pas
+{$ENDIF}
 
 
     procedure TOPLParser.proc_package;
       var
         main_file : tinputfile;
-        hp,hp2    : tmodule;
+        //hp,hp2    : tmodule;
         {finalize_procinfo,
         init_procinfo,
         main_procinfo : tcgprocinfo;}
         force_init_final : boolean;
-        uu : tused_unit;
+        //uu : tused_unit;
       begin
          Status.IsPackage:=true;
          Status.IsExe:=true;
@@ -1883,6 +1899,10 @@ implementation
          consume(_END);
          consume(_POINT);
 
+         {$IFnDEF write_module}
+         proc_package_done(current_module);
+         {$ELSE}
+         begin
          if (Errorcount=0) then
            begin
              { test static symtable }
@@ -2037,8 +2057,9 @@ implementation
                 status.skip_error:=true;
               end;
           end;
+        end;
+        {$ENDIF}
       end;
-
 
     procedure TOPLParser.proc_program(islibrary : boolean);
       var
@@ -2252,6 +2273,10 @@ implementation
          { consume the last point }
          consume(_POINT);
 
+       {$IFnDEF write_module}
+        proc_program_done(islibrary, current_module);
+       {$ELSE}
+         begin  //proc_program_done
          { reset wpo flags for all defs }
          reset_all_defs;
 
@@ -2429,6 +2454,8 @@ implementation
                 status.skip_error:=true;
               end;
           end;
+         end;
+       {$ENDIF}
       end;
 
 //end.

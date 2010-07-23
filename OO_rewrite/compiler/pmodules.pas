@@ -30,6 +30,7 @@ interface
 
 uses  //argument types!
   symconst, symbase,
+  fmodule,
   psub;
 
 {$IFDEF old}
@@ -37,11 +38,16 @@ uses  //argument types!
     procedure proc_package;
     procedure proc_program(islibrary : boolean);
 {$ELSE}
+//extracted from parser methods - become methods of tmodule?
+    procedure proc_unit_done(current_module: tmodule);
+    procedure proc_package_done(current_module: tmodule);
+    procedure proc_program_done(islibrary : boolean; current_module: tmodule);
 //insert non-parser procedures here (ppu/code generation)
     procedure AddUnit(const s:string);
-    function create_main_proc(const name:string;potype:tproctypeoption;st:TSymtable):tcgprocinfo;
+    function  create_main_proc(const name:string;potype:tproctypeoption;st:TSymtable):tcgprocinfo;
+    procedure release_main_proc(pi:tcgprocinfo);
     procedure loaddefaultunits;
-    Function RewritePPU(const PPUFn,PPLFn:String):Boolean;
+    //Function  RewritePPU(const PPUFn,PPLFn:String):Boolean;
  {$ENDIF}
 
 
@@ -51,7 +57,7 @@ implementation
        SysUtils,
        globtype,version,systems,tokens,
        cutils,cfileutl,cclasses,comphook,
-       globals,verbose,fmodule,finput,fppu,
+       globals,verbose,finput,fppu,
        //symconst,symbase,  //in interface
       symtype,symdef,symsym,symtable,
        wpoinfo,
@@ -981,7 +987,7 @@ implementation
 
 
 
-{$IFDEF old}
+{$IFDEF parse}
 //these have become parser methods
 
     procedure loadautounits;
@@ -1098,6 +1104,9 @@ implementation
 
          consume(_SEMICOLON);
       end;
+{$ELSE}
+//moved into parser
+{$ENDIF}
 
 
      procedure reset_all_defs;
@@ -1105,7 +1114,6 @@ implementation
          if assigned(current_module.wpoinfo) then
            current_module.wpoinfo.resetdefs;
        end;
-
 
     procedure free_localsymtables(st:TSymtable);
       var
@@ -1131,7 +1139,7 @@ implementation
           end;
       end;
 
-
+{$IFDEF parse}
     procedure parse_implementation_uses;
       begin
          if token=_USES then
@@ -1147,6 +1155,8 @@ implementation
             def_system_macro('PIC');
           end;
       end;
+{$ELSE}
+{$ENDIF}
 
 
     function gen_implicit_initfinal(flag:word;st:TSymtable):tcgprocinfo;
@@ -1173,6 +1183,7 @@ implementation
         result.code:=cnothingnode.create;
       end;
 
+{$IFDEF parse}
 
     procedure copy_macro(p:TObject; arg:pointer);
       begin
@@ -1527,6 +1538,12 @@ implementation
          { the last char should always be a point }
          consume(_POINT);
 
+         proc_unit_done(current_module);
+       end;
+{$ELSE}
+{$ENDIF}
+    procedure proc_unit_done(current_module: tmodule);
+      begin
          { reset wpo flags for all defs }
          reset_all_defs;
 
@@ -1766,7 +1783,7 @@ implementation
           end;
       end;
 
-
+{$IFDEF parse}
     procedure proc_package;
       var
         main_file : tinputfile;
@@ -1895,163 +1912,178 @@ implementation
          consume(_END);
          consume(_POINT);
 
-         if (Errorcount=0) then
-           begin
-             { test static symtable }
-             tstoredsymtable(current_module.localsymtable).allsymbolsused;
-             tstoredsymtable(current_module.localsymtable).allprivatesused;
-             tstoredsymtable(current_module.localsymtable).check_forwards;
+         proc_package_done(current_module); //see below
+       end;
+{$ELSE}
+//moved into parser (pmodule.inc)
+{$ENDIF}
+    procedure proc_package_done(current_module: tmodule);
+      var
+        //main_file : tinputfile;
+        hp,hp2    : tmodule;
+        {finalize_procinfo,
+        init_procinfo,
+        main_procinfo : tcgprocinfo;}
+        //force_init_final : boolean;
+        uu : tused_unit;
+      begin
+       if (Errorcount=0) then
+         begin
+           { test static symtable }
+           tstoredsymtable(current_module.localsymtable).allsymbolsused;
+           tstoredsymtable(current_module.localsymtable).allprivatesused;
+           tstoredsymtable(current_module.localsymtable).check_forwards;
 
-             current_module.allunitsused;
-           end;
+           current_module.allunitsused;
+         end;
 
-         new_section(current_asmdata.asmlists[al_globals],sec_data,'_FPCDummy',4);
-         current_asmdata.asmlists[al_globals].concat(tai_symbol.createname_global('_FPCDummy',AT_DATA,0));
-         current_asmdata.asmlists[al_globals].concat(tai_const.create_32bit(0));
+       new_section(current_asmdata.asmlists[al_globals],sec_data,'_FPCDummy',4);
+       current_asmdata.asmlists[al_globals].concat(tai_symbol.createname_global('_FPCDummy',AT_DATA,0));
+       current_asmdata.asmlists[al_globals].concat(tai_const.create_32bit(0));
 
-         new_section(current_asmdata.asmlists[al_procedures],sec_code,'',0);
-         current_asmdata.asmlists[al_procedures].concat(tai_symbol.createname_global('_DLLMainCRTStartup',AT_FUNCTION,0));
+       new_section(current_asmdata.asmlists[al_procedures],sec_code,'',0);
+       current_asmdata.asmlists[al_procedures].concat(tai_symbol.createname_global('_DLLMainCRTStartup',AT_FUNCTION,0));
 {$ifdef i386}
-         { fix me! }
-         current_asmdata.asmlists[al_procedures].concat(Taicpu.Op_const_reg(A_MOV,S_L,1,NR_EAX));
-         current_asmdata.asmlists[al_procedures].concat(Taicpu.Op_const(A_RET,S_W,12));
+       { fix me! }
+       current_asmdata.asmlists[al_procedures].concat(Taicpu.Op_const_reg(A_MOV,S_L,1,NR_EAX));
+       current_asmdata.asmlists[al_procedures].concat(Taicpu.Op_const(A_RET,S_W,12));
 {$endif i386}
-         current_asmdata.asmlists[al_procedures].concat(tai_const.createname('_FPCDummy',0));
+       current_asmdata.asmlists[al_procedures].concat(tai_const.createname('_FPCDummy',0));
 
-         { leave when we got an error }
-         if (Errorcount>0) and not status.skip_error then
-           begin
-             Message1(unit_f_errors_in_unit,tostr(Errorcount));
-             status.skip_error:=true;
-             exit;
-           end;
+       { leave when we got an error }
+       if (Errorcount>0) and not status.skip_error then
+         begin
+           Message1(unit_f_errors_in_unit,tostr(Errorcount));
+           status.skip_error:=true;
+           exit;
+         end;
 
-         { remove all unused units, this happends when units are removed
-           from the uses clause in the source and the ppu was already being loaded }
-         hp:=tmodule(loaded_units.first);
-         while assigned(hp) do
-          begin
-            hp2:=hp;
-            hp:=tmodule(hp.next);
-            if hp2.is_unit and
-               not assigned(hp2.globalsymtable) then
-              loaded_units.remove(hp2);
-          end;
+       { remove all unused units, this happends when units are removed
+         from the uses clause in the source and the ppu was already being loaded }
+       hp:=tmodule(loaded_units.first);
+       while assigned(hp) do
+        begin
+          hp2:=hp;
+          hp:=tmodule(hp.next);
+          if hp2.is_unit and
+             not assigned(hp2.globalsymtable) then
+            loaded_units.remove(hp2);
+        end;
 
-         { force exports }
-         uu:=tused_unit(usedunits.first);
-         while assigned(uu) do
-           begin
-             uu.u.globalsymtable.symlist.ForEachCall(@insert_export,uu.u.globalsymtable);
-             { check localsymtable for exports too to get public symbols }
-             uu.u.localsymtable.symlist.ForEachCall(@insert_export,uu.u.localsymtable);
+       { force exports }
+       uu:=tused_unit(usedunits.first);
+       while assigned(uu) do
+         begin
+           uu.u.globalsymtable.symlist.ForEachCall(@insert_export,uu.u.globalsymtable);
+           { check localsymtable for exports too to get public symbols }
+           uu.u.localsymtable.symlist.ForEachCall(@insert_export,uu.u.localsymtable);
 
-             { create special exports }
-             if (uu.u.flags and uf_init)<>0 then
-               procexport(make_mangledname('INIT$',uu.u.globalsymtable,''));
-             if (uu.u.flags and uf_finalize)<>0 then
-               procexport(make_mangledname('FINALIZE$',uu.u.globalsymtable,''));
-             if (uu.u.flags and uf_threadvars)=uf_threadvars then
-               varexport(make_mangledname('THREADVARLIST',uu.u.globalsymtable,''));
+           { create special exports }
+           if (uu.u.flags and uf_init)<>0 then
+             procexport(make_mangledname('INIT$',uu.u.globalsymtable,''));
+           if (uu.u.flags and uf_finalize)<>0 then
+             procexport(make_mangledname('FINALIZE$',uu.u.globalsymtable,''));
+           if (uu.u.flags and uf_threadvars)=uf_threadvars then
+             varexport(make_mangledname('THREADVARLIST',uu.u.globalsymtable,''));
 
-             uu:=tused_unit(uu.next);
-           end;
+           uu:=tused_unit(uu.next);
+         end;
 
 {$ifdef arm}
-         { Insert .pdata section for arm-wince.
-           It is needed for exception handling. }
-         if target_info.system in [system_arm_wince] then
-           InsertPData;
+       { Insert .pdata section for arm-wince.
+         It is needed for exception handling. }
+       if target_info.system in [system_arm_wince] then
+         InsertPData;
 {$endif arm}
 
-         { generate debuginfo }
-         if (cs_debuginfo in current_settings.moduleswitches) then
-           current_debuginfo.inserttypeinfo;
+       { generate debuginfo }
+       if (cs_debuginfo in current_settings.moduleswitches) then
+         current_debuginfo.inserttypeinfo;
 
-         exportlib.generatelib;
+       exportlib.generatelib;
 
-         { write all our exports to the import library,
-           needs to be done after exportlib.generatelib; }
-         createimportlibfromexports;
+       { write all our exports to the import library,
+         needs to be done after exportlib.generatelib; }
+       createimportlibfromexports;
 
-         { generate imports }
-         if current_module.ImportLibraryList.Count>0 then
-           importlib.generatelib;
+       { generate imports }
+       if current_module.ImportLibraryList.Count>0 then
+         importlib.generatelib;
 
-         { Reference all DEBUGINFO sections from the main .fpc section }
-         if (cs_debuginfo in current_settings.moduleswitches) then
-           current_debuginfo.referencesections(current_asmdata.asmlists[al_procedures]);
+       { Reference all DEBUGINFO sections from the main .fpc section }
+       if (cs_debuginfo in current_settings.moduleswitches) then
+         current_debuginfo.referencesections(current_asmdata.asmlists[al_procedures]);
 
-         { insert own objectfile }
-         insertobjectfile;
+       { insert own objectfile }
+       insertobjectfile;
 
-         { assemble and link }
-         create_objectfile;
+       { assemble and link }
+       create_objectfile;
 
-         { We might need the symbols info if not using
-           the default do_extractsymbolinfo
-           which is a dummy function PM }
-         needsymbolinfo:=do_extractsymbolinfo<>@def_extractsymbolinfo;
-         { release all local symtables that are not needed anymore }
-         if (not needsymbolinfo) then
-           free_localsymtables(current_module.localsymtable);
+       { We might need the symbols info if not using
+         the default do_extractsymbolinfo
+         which is a dummy function PM }
+       needsymbolinfo:=do_extractsymbolinfo<>@def_extractsymbolinfo;
+       { release all local symtables that are not needed anymore }
+       if (not needsymbolinfo) then
+         free_localsymtables(current_module.localsymtable);
 
-         { leave when we got an error }
-         if (Errorcount>0) and not status.skip_error then
-          begin
-            Message1(unit_f_errors_in_unit,tostr(Errorcount));
-            status.skip_error:=true;
-            exit;
-          end;
+       { leave when we got an error }
+       if (Errorcount>0) and not status.skip_error then
+        begin
+          Message1(unit_f_errors_in_unit,tostr(Errorcount));
+          status.skip_error:=true;
+          exit;
+        end;
 
-         if (not current_module.is_unit) then
-           begin
-             { finally rewrite all units included into the package }
-             uu:=tused_unit(usedunits.first);
-             while assigned(uu) do
-               begin
-                 RewritePPU(uu.u.ppufilename^,uu.u.ppufilename^);
-                 uu:=tused_unit(uu.next);
-               end;
+       if (not current_module.is_unit) then
+         begin
+           { finally rewrite all units included into the package }
+           uu:=tused_unit(usedunits.first);
+           while assigned(uu) do
+             begin
+               RewritePPU(uu.u.ppufilename^,uu.u.ppufilename^);
+               uu:=tused_unit(uu.next);
+             end;
 
-             { create the executable when we are at level 1 }
-             if (compile_level=1) then
-               begin
-                 { create global resource file by collecting all resource files }
-                 CollectResourceFiles;
-                 { write .def file }
-                 if (cs_link_deffile in current_settings.globalswitches) then
-                   deffile.writefile;
-                 { insert all .o files from all loaded units and
-                   unload the units, we don't need them anymore.
-                   Keep the current_module because that is still needed }
-                 hp:=tmodule(loaded_units.first);
-                 while assigned(hp) do
-                  begin
-                    { the package itself contains no code so far }
-                    linker.AddModuleFiles(hp);
-                    hp2:=tmodule(hp.next);
-                    if (hp<>current_module) and
-                       (not needsymbolinfo) then
-                      begin
-                        loaded_units.remove(hp);
-                        hp.free;
-                      end;
-                    hp:=hp2;
-                  end;
-                 linker.MakeSharedLibrary
-               end;
+           { create the executable when we are at level 1 }
+           if (compile_level=1) then
+             begin
+               { create global resource file by collecting all resource files }
+               CollectResourceFiles;
+               { write .def file }
+               if (cs_link_deffile in current_settings.globalswitches) then
+                 deffile.writefile;
+               { insert all .o files from all loaded units and
+                 unload the units, we don't need them anymore.
+                 Keep the current_module because that is still needed }
+               hp:=tmodule(loaded_units.first);
+               while assigned(hp) do
+                begin
+                  { the package itself contains no code so far }
+                  linker.AddModuleFiles(hp);
+                  hp2:=tmodule(hp.next);
+                  if (hp<>current_module) and
+                     (not needsymbolinfo) then
+                    begin
+                      loaded_units.remove(hp);
+                      hp.free;
+                    end;
+                  hp:=hp2;
+                end;
+               linker.MakeSharedLibrary
+             end;
 
-             { Give Fatal with error count for linker errors }
-             if (Errorcount>0) and not status.skip_error then
-              begin
-                Message1(unit_f_errors_in_unit,tostr(Errorcount));
-                status.skip_error:=true;
-              end;
-          end;
-      end;
+           { Give Fatal with error count for linker errors }
+           if (Errorcount>0) and not status.skip_error then
+            begin
+              Message1(unit_f_errors_in_unit,tostr(Errorcount));
+              status.skip_error:=true;
+            end;
+        end;
+    end;
 
-
+ {$IFDEF parse}
     procedure proc_program(islibrary : boolean);
       var
          main_file : tinputfile;
@@ -2264,6 +2296,13 @@ implementation
          { consume the last point }
          consume(_POINT);
 
+         proc_program_done(current_module); //see below
+      end;
+{$ELSE}
+//moved into parser (pmodule.inc)
+{$ENDIF}
+      procedure proc_program_done(islibrary : boolean; current_module: tmodule);
+         begin  //proc_program_done
          { reset wpo flags for all defs }
          reset_all_defs;
 
@@ -2441,9 +2480,6 @@ implementation
                 status.skip_error:=true;
               end;
           end;
-      end;
+         end;
 
-{$ELSE}
-//moved into parser (pmodule.inc)
-{$ENDIF}
 end.

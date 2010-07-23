@@ -93,7 +93,7 @@ uses
         function comp_expr(accept_equal: boolean): tnode;
         procedure consts_dec(in_class: boolean);
         procedure const_dec;
-        procedure create_objectfile;
+        //procedure create_objectfile;
         procedure do_member_read(classh: tobjectdef; getaddr: boolean;
           sym: tsym; var p1: tnode; var again: boolean;
           callflags: tcallnodeflags);
@@ -103,13 +103,12 @@ uses
         procedure generate_specialization_procs;
         function get_intconst: TConstExprInt;
         function get_stringconst: string;
-        procedure handle_calling_convention(pd: tabstractprocdef);
+        //procedure handle_calling_convention(pd: tabstractprocdef);
         procedure id_type(var def: tdef; isforwarddef: boolean);
         function inline_copy: tnode;
         function inline_finalize: tnode;
         function inline_initialize: tnode;
         function inline_setlength: tnode;
-        procedure insertobjectfile;
         procedure label_dec;
         procedure loadautounits;
         procedure loadunits;
@@ -119,6 +118,7 @@ uses
         function object_dec(objecttype: tobjecttyp; const n: tidstring;
           genericdef: tstoreddef; genericlist: TFPObjectList; fd: tobjectdef
           ): tobjectdef;
+        procedure parse_body(procinfo: tprocinfo);
         procedure parse_classrefdef(list: tasmlist; def: tclassrefdef);
         procedure parse_floatdef(list: tasmlist; def: tfloatdef);
         procedure parse_implementation_uses;
@@ -130,6 +130,8 @@ uses
         procedure parse_pointerdef(list: tasmlist; def: tpointerdef);
         function parse_proc_dec(isclassmethod: boolean; aclass: tobjectdef
           ): tprocdef;
+        function parse_proc_direc(pd: tabstractprocdef; var pdflags: tpdflags
+          ): boolean;
         procedure parse_proc_directives(pd: tabstractprocdef;
           var pdflags: tpdflags);
         function parse_proc_head(aclass: tobjectdef; potype: tproctypeoption;
@@ -182,6 +184,7 @@ uses
       public  //?
         current_debuginfo : tdebuginfo;
         current_module: tmodule;
+        current_procinfo: tprocinfo;
         current_scanner: tscannerfile; //deprecated; - will disappear
       public
         constructor Create;
@@ -202,8 +205,8 @@ implementation
       { symtable }
       defutil,defcmp,
       { pass 1 }
-      pass_1, ppu,
-      nobj, ncgutil,
+      pass_1, ppu, paramgr,
+      nobj, ncgutil, objcutil,
       nmat,nadd,nmem,nset,ncnv,ninl,ncon,nld,nflw,nbas,nutils,
        { codegen }
        //cpuinfo,cgbase,dbgbase,
@@ -752,6 +755,7 @@ procedure write_persistent_type_info(st:tsymtable); forward;
 
 {$I pdecl.inc}
 {$I pinline.inc}
+{$I pdecsub.inc}
 {.$I ptconst.inc}
 {$I ptype.inc}
 {$I psub.inc}
@@ -759,7 +763,6 @@ procedure write_persistent_type_info(st:tsymtable); forward;
 {$I pexpr.inc}
 {$I pdecvar.inc}
 {$I pdecobj.inc}
-{$I pdecsub.inc}
 {$I pexports.inc}
 {$I pstatmnt.inc}
 

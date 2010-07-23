@@ -1694,4 +1694,11 @@ implementation
 {$endif powerpc}
       end;
 
+        procedure TOPLParser.read_typed_const(list: tasmlist;
+          sym: tstaticvarsym;
+      in_class: boolean);
+    begin
+
+    end;
+
 //end.
