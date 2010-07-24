@@ -90,12 +90,18 @@ uses
         function assembler_block: tnode;
         function block(islibrary: boolean; current_procinfo: tprocinfo) : tnode;
         function check_proc_directive(isprocvar: boolean): boolean;
-        function comp_expr(accept_equal: boolean): tnode;
+        function class_constructor_head: tprocdef;
+        function class_destructor_head: tprocdef;
+        function constructor_head: tprocdef;
         procedure consts_dec(in_class: boolean);
         procedure const_dec;
+        function destructor_head: tprocdef;
         //procedure create_objectfile;
         procedure do_member_read(classh: tobjectdef; getaddr: boolean;
           sym: tsym; var p1: tnode; var again: boolean;
+          callflags: tcallnodeflags);
+        procedure do_proc_call(sym: tsym; st: TSymtable; obj: tobjectdef;
+          getaddr: boolean; var again: boolean; var p1: tnode;
           callflags: tcallnodeflags);
         function expr(dotypecheck: boolean): tnode;
         function factor(getaddr: boolean): tnode;
@@ -103,12 +109,16 @@ uses
         procedure generate_specialization_procs;
         function get_intconst: TConstExprInt;
         function get_stringconst: string;
+        procedure handle_propertysym(propsym: tpropertysym; st: TSymtable;
+          var p1: tnode);
         //procedure handle_calling_convention(pd: tabstractprocdef);
         procedure id_type(var def: tdef; isforwarddef: boolean);
         function inline_copy: tnode;
         function inline_finalize: tnode;
         function inline_initialize: tnode;
         function inline_setlength: tnode;
+        procedure insert_generic_parameter_types(genericdef: tstoreddef;
+          genericlist: TFPObjectList);
         procedure label_dec;
         procedure loadautounits;
         procedure loadunits;
@@ -119,15 +129,19 @@ uses
           genericdef: tstoreddef; genericlist: TFPObjectList; fd: tobjectdef
           ): tobjectdef;
         procedure parse_body(procinfo: tprocinfo);
-        procedure parse_classrefdef(list: tasmlist; def: tclassrefdef);
-        procedure parse_floatdef(list: tasmlist; def: tfloatdef);
+        //procedure parse_classrefdef(list: tasmlist; def: tclassrefdef);
+        //procedure parse_floatdef(list: tasmlist; def: tfloatdef);
+        procedure parse_guid;
         procedure parse_implementation_uses;
+        procedure parse_object_members;
+        procedure parse_object_options;
         procedure parse_object_proc_directives(pd: tabstractprocdef);
         procedure parse_orddef(list: tasmlist; def: torddef);
         procedure parse_parameter_dec(pd: tabstractprocdef);
         function parse_paras(__colon, __namedpara: boolean; end_of_paras: ttoken
           ): tnode;
-        procedure parse_pointerdef(list: tasmlist; def: tpointerdef);
+        procedure parse_parent_classes;
+        //procedure parse_pointerdef(list: tasmlist; def: tpointerdef);
         function parse_proc_dec(isclassmethod: boolean; aclass: tobjectdef
           ): tprocdef;
         function parse_proc_direc(pd: tabstractprocdef; var pdflags: tpdflags
@@ -143,9 +157,10 @@ uses
         procedure proc_program(islibrary: boolean);
         procedure proc_set_mangledname(pd: tprocdef);
         procedure proc_unit;
-        procedure property_dec(is_classpropery: boolean);
+        procedure property_dec(is_classproperty: boolean);
         function readconstant(const orgname: string; const filepos: tfileposinfo
           ): tconstsym;
+        procedure readImplementedInterfacesAndProtocols(intf: boolean);
         procedure read_anon_type(var def: tdef; parseprocvardir: boolean);
         procedure read_declarations(islibrary: boolean);
         procedure read_exports;
@@ -157,7 +172,6 @@ uses
         procedure read_proc_body(old_current_procinfo: tprocinfo; pd: tprocdef);
         function read_property_dec(is_classproperty: boolean; aclass: tobjectdef
           ): tpropertysym;
-        procedure read_public_and_external(vs: tabstractvarsym);
         procedure read_public_and_external_sc(sc: TFPObjectList);
         procedure read_record_fields(options: Tvar_dec_options);
         procedure read_typed_const(list: tasmlist; sym: tstaticvarsym;
@@ -170,7 +184,9 @@ uses
         procedure setupglobalswitches;
         procedure single_type(var def: tdef; isforwarddef, allowtypedef: boolean
           );
+        function statement: tnode;
         function statement_block(starttoken: ttoken): tnode;
+        function statement_syssym(l: byte): tnode;
         procedure string_dec(var def: tdef; allowtypedef: boolean);
         function sub_expr(pred_level: Toperator_precedence;
           accept_equal: boolean): tnode;
@@ -181,11 +197,15 @@ uses
         procedure types_dec(in_class: boolean);
         procedure type_dec;
         procedure var_dec;
+        function _asm_statement: tnode;
       public  //?
         current_debuginfo : tdebuginfo;
         current_module: tmodule;
         current_procinfo: tprocinfo;
-        current_scanner: tscannerfile; //deprecated; - will disappear
+        //current_scanner: tscannerfile; //deprecated; - will disappear
+      //for pexpr
+        function comp_expr(accept_equal: boolean): tnode;
+        procedure read_public_and_external(vs: tabstractvarsym);
       public
         constructor Create;
         destructor Destroy; override;
@@ -201,6 +221,7 @@ implementation
 
     uses
       psystem, pmodules, psub, cfileutl, widestr,
+      ptconst,
     //pinline
       { symtable }
       defutil,defcmp,
@@ -211,12 +232,13 @@ implementation
        { codegen }
        //cpuinfo,cgbase,dbgbase,
        wpobase,wpoinfo,//asmutils
+      rabase,cpubase,
        { link }
        import, export
   ;
 
 //this is an attempt to locate non-methods
-procedure write_persistent_type_info(st:tsymtable); forward;
+//procedure write_persistent_type_info(st:tsymtable); forward;
 
 
 {$ifdef PREPROCWRITE}
@@ -436,10 +458,9 @@ procedure write_persistent_type_info(st:tsymtable); forward;
             current_scanner.free;
             current_scanner:=nil;
           end;
-
+       {$ELSE}
          { close scanner }
          DoneScanner;
-       {$ELSE}
         //by creator of the parser instance
        {$ENDIF}
 
@@ -455,15 +476,12 @@ procedure write_persistent_type_info(st:tsymtable); forward;
 
     constructor TOPLParser.Create;
     begin
-      current_scanner := self;  //for now
       //what?
     end;
 
     destructor TOPLParser.Destroy;
     begin
       //what?
-      //FreeAndNil(current_scanner);  //=self!
-      current_scanner := nil; //prevent destruction of self!
       inherited Destroy;
     end;
 
@@ -601,12 +619,11 @@ procedure write_persistent_type_info(st:tsymtable); forward;
          { startup scanner and load the first file }
        {$IFDEF scanner_based}
         //we ARE the scanner
-          current_scanner := self;  //for now
        {$ELSE}
          current_scanner:=tscannerfile.Create(filename);
        {$ENDIF}
-         current_scanner.firstfile;
-         current_module.scanner:=current_scanner;
+         {current_scanner.}firstfile;
+         current_module.scanner:=self;  //current_scanner;
 
          { init macros before anything in the file is parsed.}
          current_module.localmacrosymtable:= tmacrosymtable.create(false);

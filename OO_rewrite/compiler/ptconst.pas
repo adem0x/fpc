@@ -25,10 +25,13 @@ unit ptconst;
 
 interface
 
-   uses symtype,symsym,aasmdata;
+   uses symtype,symsym,aasmdata, parser_opl;
 
     procedure read_typed_const(list:tasmlist;sym:tstaticvarsym;in_class:boolean);
 
+{ TODO : make parser an parameter of all procedures }
+var
+  pp: TOPLParser;
 
 implementation
 
@@ -42,7 +45,7 @@ implementation
        node,htypechk,procinfo,
        nmat,nadd,ncal,nmem,nset,ncnv,ninl,ncon,nld,nflw,
        { parser specific stuff }
-       pbase,pexpr,pdecvar,
+       pbase,//pexpr, pdecvar,
        { codegen }
        cpuinfo,cgbase,dbgbase,
        wpobase,asmutils
@@ -191,7 +194,7 @@ implementation
           end;
 
         begin
-           n:=comp_expr(true);
+           n:=pp.comp_expr(true);
            { for C-style booleans, true=-1 and false=0) }
            if is_cbool(def) then
              inserttypeconv(n,def);
@@ -291,7 +294,7 @@ implementation
           n : tnode;
           value : bestreal;
         begin
-          n:=comp_expr(true);
+          n:=pp.comp_expr(true);
           if is_constrealnode(n) then
             value:=trealconstnode(n).value_real
           else if is_constintnode(n) then
@@ -332,7 +335,7 @@ implementation
         var
           n : tnode;
         begin
-          n:=comp_expr(true);
+          n:=pp.comp_expr(true);
           case n.nodetype of
             loadvmtaddrn:
               begin
@@ -369,7 +372,7 @@ implementation
           ll        : tasmlabel;
           varalign  : shortint;
         begin
-          p:=comp_expr(true);
+          p:=pp.comp_expr(true);
           { remove equal typecasts for pointer/nil addresses }
           if (p.nodetype=typeconvn) then
             with Ttypeconvnode(p) do
@@ -587,7 +590,7 @@ implementation
           p : tnode;
           i : longint;
         begin
-          p:=comp_expr(true);
+          p:=pp.comp_expr(true);
           if p.nodetype=setconstn then
             begin
               { be sure to convert to the correct result, else
@@ -622,7 +625,7 @@ implementation
         var
           p : tnode;
         begin
-          p:=comp_expr(true);
+          p:=pp.comp_expr(true);
           if p.nodetype=ordconstn then
             begin
               if equal_defs(p.resultdef,def) or
@@ -653,7 +656,7 @@ implementation
           ca        : pchar;
           winlike   : boolean;
         begin
-          n:=comp_expr(true);
+          n:=pp.comp_expr(true);
           { load strval and strlength of the constant tree }
           if (n.nodetype=stringconstn) or is_wide_or_unicode_string(def) or is_constwidecharnode(n) or
             ((n.nodetype=typen) and is_interfacecorba(ttypenode(n).typedef)) then
@@ -772,14 +775,14 @@ implementation
             n : tnode;
           begin
             result:=true;
-            n:=comp_expr(true);
+            n:=pp.comp_expr(true);
             if (n.nodetype <> ordconstn) or
                (not equal_defs(n.resultdef,def) and
                 not is_subequal(n.resultdef,def)) then
               begin
                 n.free;
                 incompatibletypes(n.resultdef,def);
-                consume_all_until(_SEMICOLON);
+                pp.consume_all_until(_SEMICOLON);
                 result:=false;
                 exit;
               end;
@@ -802,7 +805,7 @@ implementation
             if not(def.elementdef.typ in [orddef,enumdef]) then
               internalerror(2007022010);
             { begin of the array }
-            consume(_LKLAMMER);
+            pp.consume(_LKLAMMER);
             initbitpackval(bp,def.elepackedbitsize);
             i:=def.lowrange;
             { can't use for-loop, fails when cross-compiling from }
@@ -812,7 +815,7 @@ implementation
                 { get next item of the packed array }
                 if not parse_single_packed_const(list,def.elementdef,bp) then
                   exit;
-                consume(_COMMA);
+                pp.consume(_COMMA);
                 inc(i);
               end;
             { final item }
@@ -821,7 +824,7 @@ implementation
             { flush final incomplete value if necessary }
             if (bp.curbitoffset <> 0) then
               flush_packed_value(list,bp);
-            consume(_RKLAMMER);
+            pp.consume(_RKLAMMER);
           end;
 
 
@@ -839,7 +842,7 @@ implementation
           if is_dynamic_array(def) then
             begin
               { Only allow nil initialization }
-              consume(_NIL);
+              pp.consume(_NIL);
               hr.list.concat(Tai_const.Create_sym(nil));
             end
           { packed array constant }
@@ -850,30 +853,30 @@ implementation
               parse_packed_array_def(hr.list,def);
             end
           { normal array const between brackets }
-          else if try_to_consume(_LKLAMMER) then
+          else if pp.try_to_consume(_LKLAMMER) then
             begin
               hr.offset:=0;
               for i:=def.lowrange to def.highrange-1 do
                 begin
                   read_typed_const_data(hr,def.elementdef);
                   Inc(hr.offset,def.elementdef.size);
-                  if token=_RKLAMMER then
+                  if pp.token=_RKLAMMER then
                     begin
                       Message1(parser_e_more_array_elements_expected,tostr(def.highrange-i));
-                      consume(_RKLAMMER);
+                      pp.consume(_RKLAMMER);
                       exit;
                     end
                   else
-                    consume(_COMMA);
+                    pp.consume(_COMMA);
                 end;
               read_typed_const_data(hr,def.elementdef);
-              consume(_RKLAMMER);
+              pp.consume(_RKLAMMER);
             end
           { if array of char then we allow also a string }
           else if is_anychar(def.elementdef) then
             begin
                char_size:=def.elementdef.size;
-               n:=comp_expr(true);
+               n:=pp.comp_expr(true);
                if n.nodetype=stringconstn then
                  begin
                    len:=tstringconstnode(n).len;
@@ -944,7 +947,7 @@ implementation
           else
             begin
               { we want the ( }
-              consume(_LKLAMMER);
+              pp.consume(_LKLAMMER);
             end;
         end;
 
@@ -955,7 +958,7 @@ implementation
         begin
           { Procvars and pointers are no longer compatible.  }
           { under tp:  =nil or =var under fpc: =nil or =@var }
-          if try_to_consume(_NIL) then
+          if pp.try_to_consume(_NIL) then
             begin
                list.concat(Tai_const.Create_sym(nil));
                if (po_methodpointer in def.procoptions) then
@@ -969,9 +972,9 @@ implementation
           if (po_methodpointer in def.procoptions) then
             Message(parser_e_no_procvarobj_const);
           { parse the rest too, so we can continue with error checking }
-          getprocvardef:=def;
-          n:=comp_expr(true);
-          getprocvardef:=nil;
+          pp.getprocvardef:=def;
+          n:=pp.comp_expr(true);
+          pp.getprocvardef:=nil;
           if codegenerror then
             begin
               n.free;
@@ -1051,9 +1054,9 @@ implementation
 
         begin
           { GUID }
-          if (def=rec_tguid) and (token=_ID) then
+          if (def=rec_tguid) and (pp.token=_ID) then
             begin
-              n:=comp_expr(true);
+              n:=pp.comp_expr(true);
               if n.nodetype=stringconstn then
                 handle_stringconstn
               else
@@ -1074,9 +1077,9 @@ implementation
               n.free;
               exit;
             end;
-          if (def=rec_tguid) and ((token=_CSTRING) or (token=_CCHAR)) then
+          if (def=rec_tguid) and ((pp.token=_CSTRING) or (pp.token=_CCHAR)) then
             begin
-              n:=comp_expr(true);
+              n:=pp.comp_expr(true);
               inserttypeconv(n,cshortstringtype);
               if n.nodetype=stringconstn then
                 handle_stringconstn
@@ -1096,19 +1099,19 @@ implementation
               bp.loadbitsize:=8;
             end;
           { normal record }
-          consume(_LKLAMMER);
+          pp.consume(_LKLAMMER);
           curroffset:=0;
           symidx:=0;
           sorg:='';
           srsym:=tsym(def.symtable.SymList[symidx]);
           recsym := nil;
           startoffset:=hr.offset;
-          while token<>_RKLAMMER do
+          while pp.token<>_RKLAMMER do
             begin
-              s:=pattern;
-              sorg:=orgpattern;
-              consume(_ID);
-              consume(_COLON);
+              s:=pp.pattern;
+              sorg:=pp.orgpattern;
+              pp.consume(_ID);
+              pp.consume(_COLON);
               error := false;
               recsym := tsym(def.symtable.Find(s));
               if not assigned(recsym) then
@@ -1158,7 +1161,7 @@ implementation
                     end;
                 end;
               if error then
-                consume_all_until(_SEMICOLON)
+                pp.consume_all_until(_SEMICOLON)
               else
                 begin
                   { if needed fill (alignment) }
@@ -1214,10 +1217,10 @@ implementation
                   else
                     srsym:=nil;
 
-                  if token=_SEMICOLON then
-                    consume(_SEMICOLON)
-                  else if (token=_COMMA) and (m_mac in current_settings.modeswitches) then
-                    consume(_COMMA)
+                  if pp.token=_SEMICOLON then
+                    pp.consume(_SEMICOLON)
+                  else if (pp.token=_COMMA) and (m_mac in current_settings.modeswitches) then
+                    pp.consume(_COMMA)
                   else
                     break;
                 end;
@@ -1243,7 +1246,7 @@ implementation
           for i:=1 to fillbytes do
             hr.list.concat(Tai_const.Create_8bit(0));
 
-          consume(_RKLAMMER);
+          pp.consume(_RKLAMMER);
         end;
 
         { note: hr is passed by value }
@@ -1269,11 +1272,11 @@ implementation
           { only allow nil for class and interface }
           if is_class_or_interface_or_dispinterface_or_objc(def) then
             begin
-              n:=comp_expr(true);
+              n:=pp.comp_expr(true);
               if n.nodetype<>niln then
                 begin
                   Message(parser_e_type_const_not_possible);
-                  consume_all_until(_SEMICOLON);
+                  pp.consume_all_until(_SEMICOLON);
                 end
               else
                 hr.list.concat(Tai_const.Create_sym(nil));
@@ -1289,16 +1292,16 @@ implementation
               exit;
             end;
 
-          consume(_LKLAMMER);
+          pp.consume(_LKLAMMER);
           startoffset:=hr.offset;
           curroffset:=0;
           vmtwritten:=false;
-          while token<>_RKLAMMER do
+          while pp.token<>_RKLAMMER do
             begin
-              s:=pattern;
-              sorg:=orgpattern;
-              consume(_ID);
-              consume(_COLON);
+              s:=pp.pattern;
+              sorg:=pp.orgpattern;
+              pp.consume(_ID);
+              pp.consume(_COLON);
               srsym:=nil;
               obj:=tobjectdef(def);
               st:=obj.symtable;
@@ -1320,7 +1323,7 @@ implementation
                     Message1(sym_e_id_not_found,sorg)
                   else
                     Message1(sym_e_illegal_field,sorg);
-                  consume_all_until(_RKLAMMER);
+                  pp.consume_all_until(_RKLAMMER);
                   break;
                 end
               else
@@ -1356,7 +1359,7 @@ implementation
                     hr.offset:=startoffset+fieldoffset;
                     read_typed_const_data(hr,vardef);
 
-                    if not try_to_consume(_SEMICOLON) then
+                    if not pp.try_to_consume(_SEMICOLON) then
                       break;
                   end;
             end;
@@ -1372,7 +1375,7 @@ implementation
             end;
           for i:=1 to def.size-curroffset do
             hr.list.concat(Tai_const.Create_8bit(0));
-          consume(_RKLAMMER);
+          pp.consume(_RKLAMMER);
         end;
 
     procedure read_typed_const_data(var hr:threc;def:tdef);
@@ -1407,10 +1410,10 @@ implementation
           errordef:
             begin
                { try to consume something useful }
-               if token=_LKLAMMER then
-                 consume_all_until(_RKLAMMER)
+               if pp.token=_LKLAMMER then
+                 pp.consume_all_until(_RKLAMMER)
                else
-                 consume_all_until(_SEMICOLON);
+                 pp.consume_all_until(_SEMICOLON);
             end;
           else
             Message(parser_e_type_const_not_possible);
@@ -1447,16 +1450,16 @@ implementation
         read_typed_const_data(hrec,sym.vardef);
 
         { Parse hints }
-        try_consume_hintdirective(sym.symoptions,sym.deprecatedmsg);
+        pp.try_consume_hintdirective(sym.symoptions,sym.deprecatedmsg);
 
-        consume(_SEMICOLON);
+        pp.consume(_SEMICOLON);
 
         { parse public/external/export/... }
         if not in_class and
            (
             (
-             (token = _ID) and
-             (idtoken in [_EXPORT,_EXTERNAL,_WEAKEXTERNAL,_PUBLIC,_CVAR]) and
+             (pp.token = _ID) and
+             (pp.idtoken in [_EXPORT,_EXTERNAL,_WEAKEXTERNAL,_PUBLIC,_CVAR]) and
              (m_cvar_support in current_settings.modeswitches)
             ) or
             (
@@ -1467,7 +1470,7 @@ implementation
              )
             )
            ) then
-          read_public_and_external(sym);
+          pp.read_public_and_external(sym);
 
         { only now add items based on the symbolname, because it may }
         { have been modified by the directives parsed above          }

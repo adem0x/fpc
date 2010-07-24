@@ -26,7 +26,7 @@ Unit Rax86int;
   interface
 
     uses
-      cclasses,
+      cclasses, scanner,
       cpubase,
       globtype,
       aasmbase,
@@ -51,7 +51,7 @@ Unit Rax86int;
          actasmtoken : tasmtoken;
          prevasmtoken : tasmtoken;
          ActOpsize : topsize;
-         constructor create;override;
+         constructor create(AScannter: tscannerfile);override;
          function is_asmopcode(const s: string):boolean;
          function is_asmoperator(const s: string):boolean;
          function is_asmdirective(const s: string):boolean;
@@ -86,7 +86,7 @@ Unit Rax86int;
        { symtable }
        symconst,symbase,symtype,symsym,symdef,symtable,
        { parser }
-       scanner,
+       //scanner,
        { register allocator }
        rabase,rautils,itx86int,
        { codegen }
@@ -132,11 +132,11 @@ Unit Rax86int;
     var
       inexpression   : boolean;
 
-    constructor tx86intreader.create;
+    constructor tx86intreader.create(AScannter: tscannerfile);
       var
         i : tasmop;
       Begin
-        inherited create;
+        inherited;  //create;
         iasmops:=TFPHashList.create;
         for i:=firstop to lastop do
           iasmops.Add(upper(std_op2str[i]),Pointer(PtrInt(i)));

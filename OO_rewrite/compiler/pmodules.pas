@@ -44,7 +44,7 @@ uses  //argument types!
     procedure proc_program_done(islibrary : boolean; current_module: tmodule);
 //insert non-parser procedures here (ppu/code generation)
     procedure AddUnit(const s:string);
-    function  create_main_proc(const name:string;potype:tproctypeoption;st:TSymtable):tcgprocinfo;
+    function  create_main_proc(const name:string;potype:tproctypeoption;st:TSymtable; parse_only: boolean):tcgprocinfo;
     procedure release_main_proc(pi:tcgprocinfo);
     procedure loaddefaultunits;
     //Function  RewritePPU(const PPUFn,PPLFn:String):Boolean;
@@ -63,12 +63,12 @@ implementation
        wpoinfo,
        aasmtai,aasmdata,aasmcpu,aasmbase,
        cgbase,cgobj,
-       nbas,ncgutil,
+       nbas,ncgutil,nobj,ncgrtti,
        link,assemble,import,export,gendef,ppu,comprsrc,dbgbase,
        cresstr,procinfo,
        //pexports,
       psystem,
-       objcgutl,
+       objcgutl, defutil,
        wpobase,
        scanner
       //,pbase,pexpr,psystem,psub,pdecsub,ptype
@@ -938,7 +938,7 @@ implementation
 {$endif ARM}
       end;
 
-    function create_main_proc(const name:string;potype:tproctypeoption;st:TSymtable):tcgprocinfo;
+    function create_main_proc(const name:string;potype:tproctypeoption;st:TSymtable; parse_only: boolean):tcgprocinfo;
       var
         ps  : tprocsym;
         pd  : tprocdef;
@@ -962,7 +962,7 @@ implementation
         pd.forwarddef:=false;
         pd.setmangledname(target_info.cprefix+name);
         pd.aliasnames.insert(pd.mangledname);
-        handle_calling_convention(pd);
+        handle_calling_convention(pd, parse_only);
         { We don't need is a local symtable. Change it into the static
           symtable }
         pd.localst.free;
@@ -983,6 +983,69 @@ implementation
         current_module.procinfo:=nil;
         pi.free;
         pi:=nil;
+      end;
+
+//moved from ptype.inc
+    procedure write_persistent_type_info(st:tsymtable);
+      var
+        i : longint;
+        def : tdef;
+        vmtwriter  : TVMTWriter;
+      begin
+        for i:=0 to st.DefList.Count-1 do
+          begin
+            def:=tdef(st.DefList[i]);
+            case def.typ of
+              recorddef :
+                write_persistent_type_info(trecorddef(def).symtable);
+              objectdef :
+                begin
+                  { Skip generics and forward defs }
+                  if (df_generic in def.defoptions) or
+                     (oo_is_forward in tobjectdef(def).objectoptions) then
+                    continue;
+                  write_persistent_type_info(tobjectdef(def).symtable);
+                  { Write also VMT if not done yet }
+                  if not(ds_vmt_written in def.defstates) then
+                    begin
+                      vmtwriter:=TVMTWriter.create(tobjectdef(def));
+                      if is_interface(tobjectdef(def)) then
+                        vmtwriter.writeinterfaceids;
+                      if (oo_has_vmt in tobjectdef(def).objectoptions) then
+                        vmtwriter.writevmt;
+                      vmtwriter.free;
+                      include(def.defstates,ds_vmt_written);
+                    end;
+                end;
+              procdef :
+                begin
+                  if assigned(tprocdef(def).localst) and
+                     (tprocdef(def).localst.symtabletype=localsymtable) then
+                    write_persistent_type_info(tprocdef(def).localst);
+                  if assigned(tprocdef(def).parast) then
+                    write_persistent_type_info(tprocdef(def).parast);
+                end;
+            end;
+            { generate always persistent tables for types in the interface so it can
+              be reused in other units and give always the same pointer location. }
+            { Init }
+            if (
+                assigned(def.typesym) and
+                (st.symtabletype=globalsymtable) and
+                not is_objc_class_or_protocol(def)
+               ) or
+               is_managed_type(def) or
+               (ds_init_table_used in def.defstates) then
+              RTTIWriter.write_rtti(def,initrtti);
+            { RTTI }
+            if (
+                assigned(def.typesym) and
+                (st.symtabletype=globalsymtable) and
+                not is_objc_class_or_protocol(def)
+               ) or
+               (ds_rtti_table_used in def.defstates) then
+              RTTIWriter.write_rtti(def,fullrtti);
+          end;
       end;
 
 
@@ -1155,9 +1218,6 @@ implementation
             def_system_macro('PIC');
           end;
       end;
-{$ELSE}
-{$ENDIF}
-
 
     function gen_implicit_initfinal(flag:word;st:TSymtable):tcgprocinfo;
       begin
@@ -1182,6 +1242,26 @@ implementation
         end;
         result.code:=cnothingnode.create;
       end;
+{$ELSE}
+{$ENDIF}
+
+
+    function is_assembler_generated:boolean;
+      var
+        hal : tasmlisttype;
+      begin
+        result:=false;
+        if Errorcount=0 then
+          begin
+            for hal:=low(TasmlistType) to high(TasmlistType) do
+              if not current_asmdata.asmlists[hal].empty then
+                begin
+                  result:=true;
+                  exit;
+                end;
+          end;
+      end;
+
 
 {$IFDEF parse}
 
@@ -1244,41 +1324,24 @@ implementation
       end;
 
     procedure proc_unit;
-
-      function is_assembler_generated:boolean;
-      var
-        hal : tasmlisttype;
-      begin
-        result:=false;
-        if Errorcount=0 then
-          begin
-            for hal:=low(TasmlistType) to high(TasmlistType) do
-              if not current_asmdata.asmlists[hal].empty then
-                begin
-                  result:=true;
-                  exit;
-                end;
-          end;
-      end;
-
       var
          main_file: tinputfile;
 {$ifdef EXTDEBUG}
          store_crc,
 {$endif EXTDEBUG}
-         store_interface_crc,
-         store_indirect_crc: cardinal;
+         //store_interface_crc,
+         //store_indirect_crc: cardinal;
          s1,s2  : ^string; {Saves stack space}
          force_init_final : boolean;
          init_procinfo,
          finalize_procinfo : tcgprocinfo;
          unitname8 : string[8];
-         ag: boolean;
+         //ag: boolean;
 {$ifdef i386}
          gotvarsym : tstaticvarsym;
 {$endif i386}
 {$ifdef debug_devirt}
-         i: longint;
+         //i: longint;
 {$endif debug_devirt}
       begin
          init_procinfo:=nil;
@@ -1543,6 +1606,13 @@ implementation
 {$ELSE}
 {$ENDIF}
     procedure proc_unit_done(current_module: tmodule);
+    var
+         store_interface_crc,
+         store_indirect_crc: cardinal;
+         ag: boolean;
+{$ifdef debug_devirt}
+         i: longint;
+{$endif debug_devirt}
       begin
          { reset wpo flags for all defs }
          reset_all_defs;
@@ -2087,12 +2157,12 @@ implementation
     procedure proc_program(islibrary : boolean);
       var
          main_file : tinputfile;
-         hp,hp2    : tmodule;
+         //hp,hp2    : tmodule;
          finalize_procinfo,
          init_procinfo,
          main_procinfo : tcgprocinfo;
          force_init_final : boolean;
-         resources_used : boolean;
+         //resources_used : boolean;
       begin
          DLLsource:=islibrary;
          Status.IsLibrary:=IsLibrary;
@@ -2301,8 +2371,11 @@ implementation
 {$ELSE}
 //moved into parser (pmodule.inc)
 {$ENDIF}
-      procedure proc_program_done(islibrary : boolean; current_module: tmodule);
-         begin  //proc_program_done
+    procedure proc_program_done(islibrary : boolean; current_module: tmodule);
+      var
+         hp,hp2    : tmodule;
+         resources_used : boolean;
+      begin  //proc_program_done
          { reset wpo flags for all defs }
          reset_all_defs;
 
@@ -2480,6 +2553,6 @@ implementation
                 status.skip_error:=true;
               end;
           end;
-         end;
+       end;
 
 end.

@@ -497,7 +497,7 @@ implementation
                           { read is function returning the type of the property }
                           readprocdef.returndef:=p.propdef;
                           { Insert hidden parameters }
-                          handle_calling_convention(readprocdef);
+                          handle_calling_convention(readprocdef, parse_only);
                           { search procdefs matching readprocdef }
                           { we ignore hidden stuff here because the property access symbol might have
                             non default calling conventions which might change the hidden stuff;
@@ -547,7 +547,7 @@ implementation
                           hparavs:=tparavarsym.create('$value',10*paranr,vs_value,p.propdef,[]);
                           writeprocdef.parast.insert(hparavs);
                           { Insert hidden parameters }
-                          handle_calling_convention(writeprocdef);
+                          handle_calling_convention(writeprocdef, parse_only);
                           { search procdefs matching writeprocdef }
                           if cs_varpropsetter in current_settings.localswitches then
                             p.propaccesslist[palt_write].procdef:=Tprocsym(sym).Find_procdef_bypara(writeprocdef.paras,writeprocdef.returndef,[cpo_allowdefaults,cpo_ignorevarspez])
@@ -638,7 +638,7 @@ implementation
                               procsym :
                                 begin
                                    { Insert hidden parameters }
-                                   handle_calling_convention(storedprocdef);
+                                   handle_calling_convention(storedprocdef, parse_only);
                                    p.propaccesslist[palt_stored].procdef:=Tprocsym(sym).Find_procdef_bypara(storedprocdef.paras,storedprocdef.returndef,[cpo_allowdefaults,cpo_ignorehidden]);
                                    if not assigned(p.propaccesslist[palt_stored].procdef) then
                                      message(parser_e_ill_property_storage_sym);
@@ -1300,7 +1300,7 @@ implementation
                  { Add calling convention for procvar }
                  if (hdef.typ=procvardef) and
                     (hdef.typesym=nil) then
-                   handle_calling_convention(tprocvardef(hdef));
+                   handle_calling_convention(tprocvardef(hdef), parse_only);
                  read_default_value(sc);
                  hasdefaultvalue:=true;
                end
@@ -1318,7 +1318,7 @@ implementation
                  { Parse procvar directives after ; }
                  maybe_parse_proc_directives(hdef);
                  { Add calling convention for procvar }
-                 handle_calling_convention(tprocvardef(hdef));
+                 handle_calling_convention(tprocvardef(hdef), parse_only);
                  { Handling of Delphi typed const = initialized vars }
                  if (token=_EQUAL) and
                     not(m_tp7 in current_settings.modeswitches) and
@@ -1516,7 +1516,7 @@ implementation
              { Add calling convention for procvar }
              if (hdef.typ=procvardef) and
                 (hdef.typesym=nil) then
-               handle_calling_convention(tprocvardef(hdef));
+               handle_calling_convention(tprocvardef(hdef), parse_only);
 
              { check if it is a class field }
              if (vd_object in options) then

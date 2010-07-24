@@ -1001,8 +1001,12 @@ implementation
         pi:=nil;
       end;
 
+{$ELSE}
+//above procedures retained in pmodules.pas
+{$ENDIF}
 
-    function gen_implicit_initfinal(flag:word;st:TSymtable):tcgprocinfo;
+
+    function gen_implicit_initfinal(flag:word;st:TSymtable; parse_only: boolean):tcgprocinfo;
       begin
         { update module flags }
         current_module.flags:=current_module.flags or flag;
@@ -1010,12 +1014,12 @@ implementation
         case flag of
           uf_init :
             begin
-              result:=create_main_proc(make_mangledname('',current_module.localsymtable,'init_implicit'),potype_unitinit,st);
+              result:=create_main_proc(make_mangledname('',current_module.localsymtable,'init_implicit'),potype_unitinit,st, parse_only);
               result.procdef.aliasnames.insert(make_mangledname('INIT$',current_module.localsymtable,''));
             end;
           uf_finalize :
             begin
-              result:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize_implicit'),potype_unitfinalize,st);
+              result:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize_implicit'),potype_unitfinalize,st, parse_only);
               result.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
               if (not current_module.is_unit) then
                 result.procdef.aliasnames.insert('PASCALFINALIZE');
@@ -1025,10 +1029,6 @@ implementation
         end;
         result.code:=cnothingnode.create;
       end;
-
-{$ELSE}
-//above procedures retained in pmodules.pas
-{$ENDIF}
 
 
     procedure TOPLParser.loadautounits;
@@ -1456,7 +1456,7 @@ implementation
                internalerror(200212285);
 
              { Compile the unit }
-             init_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'init'),potype_unitinit,current_module.localsymtable);
+             init_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'init'),potype_unitinit,current_module.localsymtable, parse_only);
              init_procinfo.procdef.aliasnames.insert(make_mangledname('INIT$',current_module.localsymtable,''));
            {$IFDEF old}
              init_procinfo.parse_body;
@@ -1482,7 +1482,7 @@ implementation
              { first release the not used init procinfo }
              if assigned(init_procinfo) then
                release_main_proc(init_procinfo);
-             init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable);
+             init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable, parse_only);
            end;
          { finalize? }
          if not current_module.interface_only and (token=_FINALIZATION) then
@@ -1491,12 +1491,12 @@ implementation
                 wasn't empty }
 
               { Compile the finalize }
-              finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable);
+              finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable, parse_only);
               finalize_procinfo.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
-              finalize_procinfo.parse_body;
+              parse_body(finalize_procinfo);  //finalize_procinfo.parse_body;
            end
          else if force_init_final then
-           finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
+           finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable, parse_only);
 
          { Now both init and finalize bodies are read and it is known
            which variables are used in both init and finalize we can now
@@ -2191,7 +2191,7 @@ implementation
            from the bootstrap code.}
          if islibrary then
           begin
-            main_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,mainaliasname),potype_proginit,current_module.localsymtable);
+            main_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,mainaliasname),potype_proginit,current_module.localsymtable, parse_only);
             { Win32 startup code needs a single name }
             if not(target_info.system in systems_darwin) then
               main_procinfo.procdef.aliasnames.insert('PASCALMAIN')
@@ -2200,14 +2200,14 @@ implementation
           end
          else if (target_info.system in ([system_i386_netware,system_i386_netwlibc,system_powerpc_macos]+systems_darwin)) then
            begin
-             main_procinfo:=create_main_proc('PASCALMAIN',potype_proginit,current_module.localsymtable);
+             main_procinfo:=create_main_proc('PASCALMAIN',potype_proginit,current_module.localsymtable, parse_only);
            end
          else
            begin
-             main_procinfo:=create_main_proc(mainaliasname,potype_proginit,current_module.localsymtable);
+             main_procinfo:=create_main_proc(mainaliasname,potype_proginit,current_module.localsymtable, parse_only);
              main_procinfo.procdef.aliasnames.insert('PASCALMAIN');
            end;
-         main_procinfo.parse_body;
+         parse_body(main_procinfo); // main_procinfo.parse_body;
          { save file pos for debuginfo }
          current_module.mainfilepos:=main_procinfo.entrypos;
 
@@ -2217,7 +2217,7 @@ implementation
          { should we force unit initialization? }
          force_init_final:=tstaticsymtable(current_module.localsymtable).needs_init_final;
          if force_init_final then
-           init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable);
+           init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable, parse_only);
 
          { Add symbol to the exports section for win32 so smartlinking a
            DLL will include the edata section }
@@ -2233,14 +2233,14 @@ implementation
                 wasn't empty }
 
               { Parse the finalize }
-              finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable);
+              finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable, parse_only);
               finalize_procinfo.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
               finalize_procinfo.procdef.aliasnames.insert('PASCALFINALIZE');
-              finalize_procinfo.parse_body;
+              parse_body(finalize_procinfo); //finalize_procinfo.parse_body;
            end
          else
            if force_init_final then
-             finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
+             finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable, parse_only);
 
           { the finalization routine of libraries is generic (and all libraries need to }
           { be finalized, so they can finalize any units they use                       }

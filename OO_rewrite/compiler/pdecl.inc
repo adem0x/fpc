@@ -45,7 +45,7 @@ interface
     procedure types_dec(in_class: boolean);
     procedure var_dec;
     procedure threadvar_dec;
-    procedure property_dec(is_classpropery: boolean);
+    //procedure property_dec(is_classpropery: boolean);
     procedure resourcestring_dec;
 
 implementation
@@ -248,7 +248,7 @@ implementation
                           parse_var_proc_directives(sym);
                        end;
                       { add default calling convention }
-                      handle_calling_convention(tabstractprocdef(hdef));
+                      handle_calling_convention(tabstractprocdef(hdef), parse_only);
                     end;
                    if not skipequal then
                     begin
@@ -574,7 +574,7 @@ implementation
                            consume(_SEMICOLON);
                          end;
                        parse_var_proc_directives(tsym(newtype));
-                       handle_calling_convention(tprocvardef(hdef));
+                       handle_calling_convention(tprocvardef(hdef), parse_only);
                        if try_consume_hintdirective(newtype.symoptions,newtype.deprecatedmsg) then
                          consume(_SEMICOLON);
                      end;
@@ -667,7 +667,8 @@ implementation
         read_var_decls([]);
       end;
 
-
+{$IFDEF old}
+{ TODO : this version of property_dec seems to be unused??? }
     procedure TOPLParser.property_dec(is_classpropery: boolean);
       var
          old_block_type : tblock_type;
@@ -683,6 +684,8 @@ implementation
          until token<>_ID;
          block_type:=old_block_type;
       end;
+{$ELSE}
+{$ENDIF}
 
 
     procedure TOPLParser.threadvar_dec;

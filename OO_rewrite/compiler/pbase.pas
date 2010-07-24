@@ -54,13 +54,12 @@ interface
   type
   {$IFDEF consume_in_parser}
     TParserBase = class(tscannerfile)
-    public
   {$ELSE}
     TParserBase = class //(tscannerfile)
+  {$ENDIF}
     public  //really?
      current_scanner : tscannerfile;  { current scanner in use }
-     //current_module: tmodule;
-  {$ENDIF}
+     //current_module: tmodule; //circular reference!
 
      { true, if we are after an assignement }
      afterassignment : boolean; // = false;
@@ -89,6 +88,9 @@ interface
      { true, if we are parsing generic declaration }
      parse_generic : boolean;
 
+{$IFDEF consume_in_parser}
+  //everything inherited
+{$ELSE}
     procedure identifier_not_found(const s:string);
 
     { consumes token i, if the current token is unequal i }
@@ -114,6 +116,7 @@ interface
     function try_consume_unitsym(var srsym:tsym;var srsymtable:TSymtable;var tokentoconsume : ttoken):boolean;
 
     function try_consume_hintdirective(var symopt:tsymoptions; var deprecatedmsg:pshortstring):boolean;
+{$ENDIF}
   protected
     ffilename: string;
   public
@@ -163,15 +166,16 @@ implementation
                                Token Parsing
 ****************************************************************************}
 
-{$IFDEF consume_in_parser}
+{$IFDEF old}
+{$IFnDEF consume_in_parser}
      procedure TParserBase.identifier_not_found(const s:string);
        begin
          Message1(sym_e_id_not_found,s);
          { show a fatal that you need -S2 or -Sd, but only
            if we just parsed the a token that has m_class }
          if not(m_class in current_settings.modeswitches) and
-            (Upper(s)=current_scanner.pattern) and
-            (tokeninfo^[current_scanner.idtoken].keyword=m_class) then
+            (Upper(s)={current_scanner.}pattern) and
+            (tokeninfo^[{current_scanner.}idtoken].keyword=m_class) then
            Message(parser_f_need_objfpc_or_delphi_mode);
        end;
 
@@ -188,7 +192,7 @@ implementation
           begin
             if token=_END then
               last_endtoken_filepos:=current_tokenpos;
-            current_scanner.readtoken(true);
+            {current_scanner.}readtoken(true);
           end;
       end;
 
@@ -201,7 +205,7 @@ implementation
            try_to_consume:=true;
            if token=_END then
             last_endtoken_filepos:=current_tokenpos;
-           current_scanner.readtoken(true);
+           {current_scanner.}readtoken(true);
          end;
       end;
 
@@ -219,7 +223,6 @@ implementation
              end;
           end;
       end;
-
 
     procedure TParserBase.consume_emptystats;
       begin
@@ -447,6 +450,8 @@ begin
   Result := current_scanner.try_consume_hintdirective(symopt, deprecatedmsg);
 end;
 
+{$ENDIF}
+{$ELSE}
 {$ENDIF}
 
 end.

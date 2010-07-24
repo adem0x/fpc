@@ -45,16 +45,16 @@ implementation
       fmodule,scanner,
       pbase,pexpr,pdecsub,pdecvar,ptype,pdecl,ppu
       ;
-{$ENDIF}
 
     const
       { Please leave this here, this module should NOT use
         these variables.
         Declaring it as string here results in an error when compiling (PFV) }
       current_procinfo = 'error';
+{$ENDIF}
+      //TOPLParser.current_procinfo
 
-
-    function class_constructor_head:tprocdef;
+    function TOPLParser.class_constructor_head:tprocdef;
       var
         pd : tprocdef;
       begin
@@ -78,7 +78,7 @@ implementation
         result:=pd;
       end;
 
-    function constructor_head:tprocdef;
+    function TOPLParser.constructor_head:tprocdef;
       var
         pd : tprocdef;
       begin
@@ -110,7 +110,7 @@ implementation
       end;
 
 
-    procedure property_dec(is_classproperty:boolean);
+    procedure TOPLParser.property_dec(is_classproperty:boolean);
       var
         p : tpropertysym;
       begin
@@ -168,7 +168,7 @@ implementation
       end;
 
 
-    function class_destructor_head:tprocdef;
+    function TOPLParser.class_destructor_head:tprocdef;
       var
         pd : tprocdef;
       begin
@@ -191,7 +191,7 @@ implementation
         result:=pd;
       end;
 
-    function destructor_head:tprocdef;
+    function TOPLParser.destructor_head:tprocdef;
       var
         pd : tprocdef;
       begin
@@ -290,7 +290,7 @@ implementation
       end;
 
 
-    procedure readImplementedInterfacesAndProtocols(intf: boolean);
+    procedure TOPLParser.readImplementedInterfacesAndProtocols(intf: boolean);
       var
         hdef : tdef;
       begin
@@ -313,28 +313,7 @@ implementation
       end;
 
 
-    procedure readinterfaceiid;
-      var
-        p : tnode;
-        valid : boolean;
-      begin
-        p:=comp_expr(true);
-        if p.nodetype=stringconstn then
-          begin
-            stringdispose(current_objectdef.iidstr);
-            current_objectdef.iidstr:=stringdup(strpas(tstringconstnode(p).value_str));
-            valid:=string2guid(current_objectdef.iidstr^,current_objectdef.iidguid^);
-            if (current_objectdef.objecttype in [odt_interfacecom,odt_dispinterface]) and
-               not valid then
-              Message(parser_e_improper_guid_syntax);
-            include(current_objectdef.objectoptions,oo_has_valid_guid);
-          end
-        else
-          Message(parser_e_illegal_expression);
-        p.free;
-      end;
-
-    procedure parse_object_options;
+    procedure TOPLParser.parse_object_options;
       begin
         if current_objectdef.objecttype in [odt_object,odt_class] then
           begin
@@ -353,7 +332,7 @@ implementation
           end;
       end;
 
-    procedure parse_parent_classes;
+    procedure TOPLParser.parse_parent_classes;
       var
         intfchildof,
         childof : tobjectdef;
@@ -508,21 +487,42 @@ implementation
       end;
 
 
-    procedure parse_guid;
-      begin
-        { read GUID }
-        if (current_objectdef.objecttype in [odt_interfacecom,odt_interfacecorba,odt_dispinterface]) and
-           try_to_consume(_LECKKLAMMER) then
-          begin
-            readinterfaceiid;
-            consume(_RECKKLAMMER);
-          end
-        else if (current_objectdef.objecttype=odt_dispinterface) then
-          message(parser_e_dispinterface_needs_a_guid);
-      end;
+    procedure TOPLParser.parse_guid;
+
+      procedure readinterfaceiid;
+        var
+          p : tnode;
+          valid : boolean;
+        begin
+          p:=comp_expr(true);
+          if p.nodetype=stringconstn then
+            begin
+              stringdispose(current_objectdef.iidstr);
+              current_objectdef.iidstr:=stringdup(strpas(tstringconstnode(p).value_str));
+              valid:=string2guid(current_objectdef.iidstr^,current_objectdef.iidguid^);
+              if (current_objectdef.objecttype in [odt_interfacecom,odt_dispinterface]) and
+                 not valid then
+                Message(parser_e_improper_guid_syntax);
+              include(current_objectdef.objectoptions,oo_has_valid_guid);
+            end
+          else
+            Message(parser_e_illegal_expression);
+          p.free;
+        end;
+        begin
+          { read GUID }
+          if (current_objectdef.objecttype in [odt_interfacecom,odt_interfacecorba,odt_dispinterface]) and
+             try_to_consume(_LECKKLAMMER) then
+            begin
+              readinterfaceiid;
+              consume(_RECKKLAMMER);
+            end
+          else if (current_objectdef.objecttype=odt_dispinterface) then
+            message(parser_e_dispinterface_needs_a_guid);
+        end;
 
 
-    procedure insert_generic_parameter_types(genericdef:tstoreddef;genericlist:TFPObjectList);
+    procedure TOPLParser.insert_generic_parameter_types(genericdef:tstoreddef;genericlist:TFPObjectList);
       var
         i : longint;
         generictype : ttypesym;
@@ -542,15 +542,15 @@ implementation
        end;
 
 
-    procedure parse_object_members;
+    procedure TOPLParser.parse_object_members;
 
-      procedure chkobjc(pd: tprocdef);
-        begin
-          if is_objc_class_or_protocol(pd._class) then
-            begin
-              include(pd.procoptions,po_objc);
-            end;
-        end;
+        procedure chkobjc(pd: tprocdef);
+          begin
+            if is_objc_class_or_protocol(pd._class) then
+              begin
+                include(pd.procoptions,po_objc);
+              end;
+          end;
 
 
         procedure chkcpp(pd:tprocdef);
@@ -799,7 +799,7 @@ implementation
                     if (m_mac in current_settings.modeswitches) then
                       include(pd.procoptions,po_virtualmethod);
 
-                    handle_calling_convention(pd);
+                    handle_calling_convention(pd, parse_only);
 
                     { add definition to procsym }
                     proc_add_definition(pd);
@@ -849,7 +849,7 @@ implementation
                 else
                   pd:=constructor_head;
                 parse_object_proc_directives(pd);
-                handle_calling_convention(pd);
+                handle_calling_convention(pd, parse_only);
 
                 { add definition to procsym }
                 proc_add_definition(pd);
@@ -897,7 +897,7 @@ implementation
                 else
                   pd:=destructor_head;
                 parse_object_proc_directives(pd);
-                handle_calling_convention(pd);
+                handle_calling_convention(pd, parse_only);
 
                 { add definition to procsym }
                 proc_add_definition(pd);
@@ -1056,16 +1056,5 @@ implementation
         { restore old state }
         current_objectdef:=old_current_objectdef;
       end;
-
-        procedure TOPLParser.parse_classrefdef(list: tasmlist; def: tclassrefdef
-          );
-    begin
-???
-    end;
-
-        procedure TOPLParser.parse_floatdef(list: tasmlist; def: tfloatdef);
-    begin
-???
-    end;
 
 //end.

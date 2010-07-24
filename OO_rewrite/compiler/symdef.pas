@@ -628,7 +628,7 @@ interface
        end;
 
 //become methods??
-procedure handle_calling_convention(pd:tabstractprocdef);
+procedure handle_calling_convention(pd:tabstractprocdef; parse_only: boolean);
 
     var
        current_objectdef : tobjectdef;  { used for private functions check !! }
@@ -3017,7 +3017,246 @@ implementation
 {$IFDEF old}
   //in pdecsub
 {$ELSE}
-    procedure handle_calling_convention(pd:tabstractprocdef);
+//from pdecsub
+
+    procedure set_addr_param_regable(p:TObject;arg:pointer);
+      begin
+        if (tsym(p).typ<>paravarsym) then
+         exit;
+        with tparavarsym(p) do
+         begin
+           if not is_managed_type(vardef) and
+              paramanager.push_addr_param(varspez,vardef,tprocdef(arg).proccalloption) then
+             varregable:=vr_intreg;
+         end;
+      end;
+
+    procedure insert_funcret_para(pd:tabstractprocdef);
+      var
+        storepos : tfileposinfo;
+        vs       : tparavarsym;
+        paranr   : word;
+      begin
+        if not(pd.proctypeoption in [potype_constructor,potype_destructor]) and
+           not is_void(pd.returndef) and
+           paramanager.ret_in_param(pd.returndef,pd.proccalloption) then
+         begin
+           storepos:=current_tokenpos;
+           if pd.typ=procdef then
+            current_tokenpos:=tprocdef(pd).fileinfo;
+
+{$if defined(i386)}
+           { For left to right add it at the end to be delphi compatible }
+           if (target_info.system in systems_all_windows) and
+              (pd.proccalloption in (pushleftright_pocalls+[pocall_safecall])) then
+             paranr:=paranr_result_leftright
+           else
+{$elseif defined(x86) or defined(arm)}
+           { other platforms don't have a "safecall" convention,
+             and never reverse the parameter pushing order
+           }
+           if (target_info.system in systems_all_windows) and
+              (pd.proccalloption = pocall_safecall)  then
+             paranr:=paranr_result_leftright
+           else
+{$endif}
+             paranr:=paranr_result;
+           { Generate result variable accessing function result }
+           vs:=tparavarsym.create('$result',paranr,vs_var,pd.returndef,[vo_is_funcret,vo_is_hidden_para]);
+           pd.parast.insert(vs);
+           { Store the this symbol as funcretsym for procedures }
+           if pd.typ=procdef then
+            tprocdef(pd).funcretsym:=vs;
+
+           current_tokenpos:=storepos;
+         end;
+      end;
+
+    procedure insert_parentfp_para(pd:tabstractprocdef);
+      var
+        storepos : tfileposinfo;
+        vs       : tparavarsym;
+      begin
+        if pd.parast.symtablelevel>normal_function_level then
+          begin
+            storepos:=current_tokenpos;
+            if pd.typ=procdef then
+             current_tokenpos:=tprocdef(pd).fileinfo;
+
+            { Generate result variable accessing function result, it
+              can't be put in a register since it must be accessable
+              from the framepointer }
+            vs:=tparavarsym.create('$parentfp',paranr_parentfp,vs_value
+                  ,voidpointertype,[vo_is_parentfp,vo_is_hidden_para]);
+            vs.varregable:=vr_none;
+            pd.parast.insert(vs);
+
+            current_tokenpos:=storepos;
+          end;
+      end;
+
+    procedure insert_self_and_vmt_para(pd:tabstractprocdef);
+      var
+        storepos : tfileposinfo;
+        vs       : tparavarsym;
+        hdef     : tdef;
+        vsp      : tvarspez;
+        aliasvs  : tabsolutevarsym;
+        sl       : tpropaccesslist;
+      begin
+        if (pd.typ=procdef) and
+           is_objc_class_or_protocol(tprocdef(pd)._class) and
+           (pd.parast.symtablelevel=normal_function_level) then
+          begin
+            { insert Objective-C self and selector parameters }
+            vs:=tparavarsym.create('$_cmd',paranr_objc_cmd,vs_value,objc_seltype,[vo_is_msgsel,vo_is_hidden_para]);
+            pd.parast.insert(vs);
+            { make accessible to code }
+            sl:=tpropaccesslist.create;
+            sl.addsym(sl_load,vs);
+            aliasvs:=tabsolutevarsym.create_ref('_CMD',objc_seltype,sl);
+            include(aliasvs.varoptions,vo_is_msgsel);
+            tlocalsymtable(tprocdef(pd).localst).insert(aliasvs);
+
+            if (po_classmethod in pd.procoptions) then
+              { compatible with what gcc does }
+              hdef:=objc_idtype
+            else
+              hdef:=tprocdef(pd)._class;
+
+            vs:=tparavarsym.create('$self',paranr_objc_self,vs_value,hdef,[vo_is_self,vo_is_hidden_para]);
+            pd.parast.insert(vs);
+          end
+        else if (pd.typ=procvardef) and
+           pd.is_methodpointer then
+          begin
+            { Generate self variable }
+            vs:=tparavarsym.create('$self',paranr_self,vs_value,voidpointertype,[vo_is_self,vo_is_hidden_para]);
+            pd.parast.insert(vs);
+          end
+        else
+          begin
+             if (pd.typ=procdef) and
+                assigned(tprocdef(pd)._class) and
+                (pd.parast.symtablelevel=normal_function_level) then
+              begin
+                { static class methods have no hidden self/vmt pointer }
+                if pd.no_self_node then
+                   exit;
+
+                storepos:=current_tokenpos;
+                current_tokenpos:=tprocdef(pd).fileinfo;
+
+                { Generate VMT variable for constructor/destructor }
+                if (pd.proctypeoption in [potype_constructor,potype_destructor]) and not(is_cppclass(tprocdef(pd)._class)) then
+                 begin
+                   { can't use classrefdef as type because inheriting
+                     will then always file because of a type mismatch }
+                   vs:=tparavarsym.create('$vmt',paranr_vmt,vs_value,voidpointertype,[vo_is_vmt,vo_is_hidden_para]);
+                   pd.parast.insert(vs);
+                 end;
+
+                { Generate self variable, for classes we need
+                  to use the generic voidpointer to be compatible with
+                  methodpointers }
+                vsp:=vs_value;
+                if (po_staticmethod in pd.procoptions) or
+                   (po_classmethod in pd.procoptions) then
+                  hdef:=tclassrefdef.create(tprocdef(pd)._class)
+                else
+                  begin
+                    if is_object(tprocdef(pd)._class) then
+                      vsp:=vs_var;
+                    hdef:=tprocdef(pd)._class;
+                  end;
+                vs:=tparavarsym.create('$self',paranr_self,vsp,hdef,[vo_is_self,vo_is_hidden_para]);
+                pd.parast.insert(vs);
+
+                current_tokenpos:=storepos;
+              end;
+          end;
+      end;
+
+    procedure insert_hidden_para(p:TObject;arg:pointer);
+      var
+        hvs : tparavarsym;
+        pd  : tabstractprocdef absolute arg;
+      begin
+        if (tsym(p).typ<>paravarsym) then
+         exit;
+        with tparavarsym(p) do
+         begin
+           { We need a local copy for a value parameter when only the
+             address is pushed. Open arrays and Array of Const are
+             an exception because they are allocated at runtime and the
+             address that is pushed is patched }
+           if (varspez=vs_value) and
+              paramanager.push_addr_param(varspez,vardef,pd.proccalloption) and
+              not(is_open_array(vardef) or
+                  is_array_of_const(vardef)) then
+             include(varoptions,vo_has_local_copy);
+
+           { needs high parameter ? }
+           if paramanager.push_high_param(varspez,vardef,pd.proccalloption) then
+             begin
+               hvs:=tparavarsym.create('$high'+name,paranr+1,vs_const,sinttype,[vo_is_high_para,vo_is_hidden_para]);
+               hvs.symoptions:=[];
+               owner.insert(hvs);
+             end
+           else
+            begin
+              { Give a warning that cdecl routines does not include high()
+                support }
+              if (pd.proccalloption in [pocall_cdecl,pocall_cppdecl]) and
+                 paramanager.push_high_param(varspez,vardef,pocall_default) then
+               begin
+                 if is_open_string(vardef) then
+                    MessagePos(fileinfo,parser_w_cdecl_no_openstring);
+                 if not(po_external in pd.procoptions) and
+                    (pd.typ<>procvardef) and
+                    not is_objc_class_or_protocol(tprocdef(pd)._class) then
+                   if is_array_of_const(vardef) then
+                     MessagePos(fileinfo,parser_e_varargs_need_cdecl_and_external)
+                   else
+                     MessagePos(fileinfo,parser_w_cdecl_has_no_high);
+               end;
+              if (vardef.typ=formaldef) and (Tformaldef(vardef).typed) then
+                begin
+                  hvs:=tparavarsym.create('$typinfo'+name,paranr+1,vs_const,voidpointertype,
+                                          [vo_is_typinfo_para,vo_is_hidden_para]);
+                  owner.insert(hvs);
+                end;
+            end;
+         end;
+      end;
+
+    procedure check_c_para(pd:Tabstractprocdef);
+      var
+        i,
+        lastparaidx : longint;
+        sym : TSym;
+      begin
+        lastparaidx:=pd.parast.SymList.Count-1;
+        for i:=0 to pd.parast.SymList.Count-1 do
+          begin
+            sym:=tsym(pd.parast.SymList[i]);
+            if (sym.typ=paravarsym) and
+               (tparavarsym(sym).vardef.typ=arraydef) then
+              begin
+                if not is_variant_array(tparavarsym(sym).vardef) and
+                   not is_array_of_const(tparavarsym(sym).vardef) and
+                   (tparavarsym(sym).varspez<>vs_var) then
+                  MessagePos(tparavarsym(sym).fileinfo,parser_h_c_arrays_are_references);
+                if is_array_of_const(tparavarsym(sym).vardef) and
+                   (i<lastparaidx) and
+                   (tsym(pd.parast.SymList[i+1]).typ=paravarsym) and
+                   not(vo_is_high_para in tparavarsym(pd.parast.SymList[i+1]).varoptions) then
+                  MessagePos(tparavarsym(sym).fileinfo,parser_e_C_array_of_const_must_be_last);
+              end;
+          end;
+      end;
+
+    procedure handle_calling_convention(pd:tabstractprocdef; parse_only: boolean);
       begin
         { set the default calling convention if none provided }
         if (pd.typ=procdef) and

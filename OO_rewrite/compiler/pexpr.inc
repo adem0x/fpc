@@ -79,7 +79,7 @@ implementation
     const
       highest_precedence = oppower;
 
-    function sub_expr(pred_level:Toperator_precedence;accept_equal : boolean):tnode;forward;
+    //function sub_expr(pred_level:Toperator_precedence;accept_equal : boolean):tnode;forward;
 
     const
        { true, if the inherited call is anonymous }
@@ -212,13 +212,6 @@ implementation
          parse_paras:=p2;
       end;
 
-        procedure TOPLParser.parse_pointerdef(list: tasmlist; def: tpointerdef
-          );
-    begin
-
-    end;
-
-
      function gen_c_style_operator(ntyp:tnodetype;p1,p2:tnode) : tnode;
        var
          hp    : tnode;
@@ -262,7 +255,7 @@ implementation
        end;
 
 
-     function statement_syssym(l : byte) : tnode;
+     function TOPLParser.statement_syssym(l : byte) : tnode;
       var
         p1,p2,paras  : tnode;
         err,
@@ -831,7 +824,7 @@ implementation
       end;
 
 
-    function maybe_load_methodpointer(st:TSymtable;var p1:tnode):boolean;
+    function maybe_load_methodpointer(st:TSymtable;var p1:tnode; current_procinfo: tprocinfo):boolean;
       begin
         maybe_load_methodpointer:=false;
         if not assigned(p1) then
@@ -858,7 +851,7 @@ implementation
 
 
     { reads the parameter for a subroutine call }
-    procedure do_proc_call(sym:tsym;st:TSymtable;obj:tobjectdef;getaddr:boolean;var again : boolean;var p1:tnode;callflags:tcallnodeflags);
+    procedure TOPLParser.do_proc_call(sym:tsym;st:TSymtable;obj:tobjectdef;getaddr:boolean;var again : boolean;var p1:tnode;callflags:tcallnodeflags);
       var
          membercall,
          prevafterassn : boolean;
@@ -875,7 +868,7 @@ implementation
          { when it is a call to a member we need to load the
            methodpointer first
          }
-         membercall:=maybe_load_methodpointer(st,p1);
+         membercall:=maybe_load_methodpointer(st,p1, current_procinfo);
 
          { When we are expecting a procvar we also need
            to get the address in some cases }
@@ -1020,7 +1013,7 @@ implementation
 
 
     { the following procedure handles the access to a property symbol }
-    procedure handle_propertysym(propsym : tpropertysym;st : TSymtable;var p1 : tnode);
+    procedure TOPLParser.handle_propertysym(propsym : tpropertysym;st : TSymtable;var p1 : tnode);
       var
          paras : tnode;
          p2    : tnode;
@@ -1062,7 +1055,7 @@ implementation
                        begin
                          callflags:=[];
                          { generate the method call }
-                         membercall:=maybe_load_methodpointer(st,p1);
+                         membercall:=maybe_load_methodpointer(st,p1,current_procinfo);
                          if membercall then
                            include(callflags,cnf_member_call);
                          p1:=ccallnode.create(paras,tprocsym(sym),st,p1,callflags);
@@ -1153,7 +1146,7 @@ implementation
                        begin
                           callflags:=[];
                           { generate the method call }
-                          membercall:=maybe_load_methodpointer(st,p1);
+                          membercall:=maybe_load_methodpointer(st,p1,current_procinfo);
                           if membercall then
                             include(callflags,cnf_member_call);
                           p1:=ccallnode.create(paras,tprocsym(sym),st,p1,callflags);

@@ -94,6 +94,8 @@ implementation
       current_procinfo = 'error';
 
 
+{$IFDEF old}
+
     procedure insert_funcret_para(pd:tabstractprocdef);
       var
         storepos : tfileposinfo;
@@ -242,7 +244,6 @@ implementation
           end;
       end;
 
-
     procedure insert_hidden_para(p:TObject;arg:pointer);
       var
         hvs : tparavarsym;
@@ -296,7 +297,6 @@ implementation
          end;
       end;
 
-
     procedure check_c_para(pd:Tabstractprocdef);
       var
         i,
@@ -322,6 +322,9 @@ implementation
               end;
           end;
       end;
+{$ELSE}
+//moved into symdef
+{$ENDIF}
 
 
     procedure check_msg_para(p:TObject;arg:pointer);
@@ -338,19 +341,6 @@ implementation
                (varspez<>vs_var) then
               MessagePos(fileinfo,parser_e_ill_msg_param);
           end;
-      end;
-
-
-    procedure set_addr_param_regable(p:TObject;arg:pointer);
-      begin
-        if (tsym(p).typ<>paravarsym) then
-         exit;
-        with tparavarsym(p) do
-         begin
-           if not is_managed_type(vardef) and
-              paramanager.push_addr_param(varspez,vardef,tprocdef(arg).proccalloption) then
-             varregable:=vr_intreg;
-         end;
       end;
 
 
@@ -471,7 +461,7 @@ implementation
                   dummytype.free;
                end;
              { Add implicit hidden parameters and function result }
-             handle_calling_convention(pv);
+             handle_calling_convention(pv, parse_only);
            end
           else
           { read type declaration, force reading for value paras }
@@ -2529,6 +2519,19 @@ const
       end;
 
 {$IFDEF old}
+
+    procedure set_addr_param_regable(p:TObject;arg:pointer);
+      begin
+        if (tsym(p).typ<>paravarsym) then
+         exit;
+        with tparavarsym(p) do
+         begin
+           if not is_managed_type(vardef) and
+              paramanager.push_addr_param(varspez,vardef,tprocdef(arg).proccalloption) then
+             varregable:=vr_intreg;
+         end;
+      end;
+
     //procedure TOPLParser.handle_calling_convention(pd:tabstractprocdef);
     procedure handle_calling_convention(pd:tabstractprocdef);
       begin

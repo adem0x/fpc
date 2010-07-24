@@ -39,7 +39,8 @@ uses
   fksysutl,
 {$ENDIF}
   verbose,comphook,systems,
-  cutils,cfileutl,cclasses,globals,options,fmodule,parser_opl,symtable,
+  cutils,cfileutl,cclasses,globals,options,fmodule, pbase, //parser_opl,
+  symtable,
   assemble,link,dbgbase,import,export,tokens,pass_1,wpobase,wpo
   { cpu parameter handling }
   ,cpupara
@@ -179,7 +180,7 @@ begin
 { this is needed here for the IDE
   in case of compilation failure
   at the previous compile }
-  set_current_module(nil);
+  //set_current_module(nil);
 { read the arguments }
   read_arguments(cmd);
 { inits which depend on arguments }

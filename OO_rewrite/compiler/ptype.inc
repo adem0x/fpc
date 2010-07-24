@@ -1087,7 +1087,7 @@ implementation
                          newtype.free;
                       end;
                     { Add implicit hidden parameters and function result }
-                    handle_calling_convention(pd);
+                    handle_calling_convention(pd, parse_only);
                   end;
               end;
             else
@@ -1104,7 +1104,7 @@ implementation
         read_named_type(def,'',nil,nil,parseprocvardir);
       end;
 
-
+{$IFDEF old}
     procedure write_persistent_type_info(st:tsymtable);
       var
         i : longint;
@@ -1166,5 +1166,8 @@ implementation
               RTTIWriter.write_rtti(def,fullrtti);
           end;
       end;
+{$ELSE}
+//moved into pmodules.pas
+{$ENDIF}
 
 //end.

@@ -27,11 +27,14 @@ unit rabase;
 
     uses
       cclasses,
-      systems;
+      systems, scanner;
 
     type
        tbaseasmreader = class
-         constructor create;virtual;
+       protected
+         current_scanner: tscannerfile;
+       public
+         constructor create(AScannter: tscannerfile);virtual;
          { the real return type is TAsmList, but this would introduce too much unit circles }
          function Assemble: tlinkedlist;virtual;abstract;
        end;
@@ -89,8 +92,9 @@ unit rabase;
       end;
 
 
-    constructor tbaseasmreader.create;
+    constructor tbaseasmreader.create(AScannter: tscannerfile);
       begin
+        current_scanner := AScannter;
         inherited create;
       end;
 

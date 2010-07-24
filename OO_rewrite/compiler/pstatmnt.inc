@@ -69,6 +69,8 @@ implementation
     function statement : tnode;forward;
 {$ENDIF}
 
+//made all other statement parsers local subroutines
+  function TOPLParser.statement : tnode;
 
     function if_statement : tnode;
       var
@@ -713,7 +715,7 @@ implementation
                consume(_DO);
                { ignore all }
                if token<>_SEMICOLON then
-                statement;
+                hp := statement;  //illegal expression?
              end;
             result:=nil;
           end;
@@ -946,79 +948,7 @@ implementation
       end;
 
 
-    function _asm_statement : tnode;
-      var
-        asmstat : tasmnode;
-        Marker  : tai;
-        reg     : tregister;
-        asmreader : tbaseasmreader;
-      begin
-         Inside_asm_statement:=true;
-         if assigned(asmmodeinfos[current_settings.asmmode]) then
-           begin
-             asmreader:=asmmodeinfos[current_settings.asmmode]^.casmreader.create;
-             asmstat:=casmnode.create(asmreader.assemble as TAsmList);
-             asmreader.free;
-           end
-         else
-           Message(parser_f_assembler_reader_not_supported);
-
-         { Mark procedure that it has assembler blocks }
-         include(current_procinfo.flags,pi_has_assembler_block);
-
-         { Read first the _ASM statement }
-         consume(_ASM);
-
-         { END is read, got a list of changed registers? }
-         if try_to_consume(_LECKKLAMMER) then
-           begin
-{$ifdef cpunofpu}
-             asmstat.used_regs_fpu:=[0..first_int_imreg-1];
-{$else cpunofpu}
-             asmstat.used_regs_fpu:=[0..first_fpu_imreg-1];
-{$endif cpunofpu}
-             if token<>_RECKKLAMMER then
-              begin
-                if po_assembler in current_procinfo.procdef.procoptions then
-                  Message(parser_w_register_list_ignored);
-                repeat
-                  { it's possible to specify the modified registers }
-                  reg:=std_regnum_search(lower(cstringpattern));
-                  if reg<>NR_NO then
-                    begin
-                      if (getregtype(reg)=R_INTREGISTER) and not(po_assembler in current_procinfo.procdef.procoptions) then
-                        include(asmstat.used_regs_int,getsupreg(reg));
-                    end
-                  else
-                    Message(asmr_e_invalid_register);
-                  consume(_CSTRING);
-                  if not try_to_consume(_COMMA) then
-                    break;
-                until false;
-              end;
-             consume(_RECKKLAMMER);
-           end
-         else
-           begin
-              asmstat.used_regs_int:=paramanager.get_volatile_registers_int(current_procinfo.procdef.proccalloption);
-              asmstat.used_regs_fpu:=paramanager.get_volatile_registers_fpu(current_procinfo.procdef.proccalloption);
-           end;
-
-         { mark the start and the end of the assembler block
-           this is needed for the optimizer }
-         If Assigned(AsmStat.p_asm) Then
-           Begin
-             Marker := Tai_Marker.Create(mark_AsmBlockStart);
-             AsmStat.p_asm.Insert(Marker);
-             Marker := Tai_Marker.Create(mark_AsmBlockEnd);
-             AsmStat.p_asm.Concat(Marker);
-           End;
-         Inside_asm_statement:=false;
-         _asm_statement:=asmstat;
-      end;
-
-
-    function statement : tnode;
+    //function statement : tnode;
       var
          p       : tnode;
          code    : tnode;
@@ -1252,6 +1182,78 @@ implementation
          last:=cblocknode.create(first);
          last.fileinfo:=filepos;
          statement_block:=last;
+      end;
+
+
+    function TOPLParser._asm_statement : tnode;
+      var
+        asmstat : tasmnode;
+        Marker  : tai;
+        reg     : tregister;
+        asmreader : tbaseasmreader;
+      begin
+         Inside_asm_statement:=true;
+         if assigned(asmmodeinfos[current_settings.asmmode]) then
+           begin
+             asmreader:=asmmodeinfos[current_settings.asmmode]^.casmreader.create(self);
+             asmstat:=casmnode.create(asmreader.assemble as TAsmList);
+             asmreader.free;
+           end
+         else
+           Message(parser_f_assembler_reader_not_supported);
+
+         { Mark procedure that it has assembler blocks }
+         include(current_procinfo.flags,pi_has_assembler_block);
+
+         { Read first the _ASM statement }
+         consume(_ASM);
+
+         { END is read, got a list of changed registers? }
+         if try_to_consume(_LECKKLAMMER) then
+           begin
+{$ifdef cpunofpu}
+             asmstat.used_regs_fpu:=[0..first_int_imreg-1];
+{$else cpunofpu}
+             asmstat.used_regs_fpu:=[0..first_fpu_imreg-1];
+{$endif cpunofpu}
+             if token<>_RECKKLAMMER then
+              begin
+                if po_assembler in current_procinfo.procdef.procoptions then
+                  Message(parser_w_register_list_ignored);
+                repeat
+                  { it's possible to specify the modified registers }
+                  reg:=std_regnum_search(lower(cstringpattern));
+                  if reg<>NR_NO then
+                    begin
+                      if (getregtype(reg)=R_INTREGISTER) and not(po_assembler in current_procinfo.procdef.procoptions) then
+                        include(asmstat.used_regs_int,getsupreg(reg));
+                    end
+                  else
+                    Message(asmr_e_invalid_register);
+                  consume(_CSTRING);
+                  if not try_to_consume(_COMMA) then
+                    break;
+                until false;
+              end;
+             consume(_RECKKLAMMER);
+           end
+         else
+           begin
+              asmstat.used_regs_int:=paramanager.get_volatile_registers_int(current_procinfo.procdef.proccalloption);
+              asmstat.used_regs_fpu:=paramanager.get_volatile_registers_fpu(current_procinfo.procdef.proccalloption);
+           end;
+
+         { mark the start and the end of the assembler block
+           this is needed for the optimizer }
+         If Assigned(AsmStat.p_asm) Then
+           Begin
+             Marker := Tai_Marker.Create(mark_AsmBlockStart);
+             AsmStat.p_asm.Insert(Marker);
+             Marker := Tai_Marker.Create(mark_AsmBlockEnd);
+             AsmStat.p_asm.Concat(Marker);
+           End;
+         Inside_asm_statement:=false;
+         _asm_statement:=asmstat;
       end;
 
 

@@ -46,8 +46,9 @@ interface
        globtype,finput,ogbase,
        symbase,symsym,
        wpobase,
-       aasmbase,aasmtai,aasmdata,
-      pbase;
+       aasmbase,aasmtai,aasmdata
+      //,pbase
+      ;
 
 
     const

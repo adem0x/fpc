@@ -26,7 +26,7 @@ unit rasm;
   interface
 
     uses
-      cclasses,
+      cclasses, scanner,
       rabase,
       aasmtai,aasmdata,
       systems,
@@ -44,15 +44,15 @@ unit rasm;
          actasmregister : tregister;
          actcondition   : tasmcond;
          iasmops        : TFPHashList;
-         constructor create;override;
+         constructor create(AScannter: tscannerfile);override;
          destructor destroy;override;
        end;
 
   implementation
 
-    constructor tasmreader.create;
+    constructor tasmreader.create(AScannter: tscannerfile);
       begin
-        inherited create;
+        inherited;  // create;
         firsttoken:=true;
       end;
 
