@@ -428,14 +428,17 @@ interface
          procedure Add(const s:string);
          procedure AddSpace;
        end;
-{$endif PREPROCWRITE}
 
-      //var current_scanner : tscannerfile;  { current scanner in use }
-
-{$ifdef PREPROCWRITE}
       var
         preprocfile     : tpreprocfile;  { used with only preprocessing }
+
 {$endif PREPROCWRITE}
+
+{$IFDEF NoGlobals}
+{$ELSE}
+     var
+       current_scanner : tscannerfile;  { current scanner in use }
+{$ENDIF}
 
     type
         tdirectivemode = (directive_all, directive_turbo, directive_mac);
@@ -2100,6 +2103,7 @@ In case not, the value returned can be arbitrary.
         inputfile:=do_openinputfile(fn);
         if assigned(current_module) then
           current_module.sourcefiles.register_file(inputfile);
+      {$IFDEF old}
       { reset localinput }
         inputbuffer:=nil;
         inputpointer:=nil;
@@ -2109,7 +2113,7 @@ In case not, the value returned can be arbitrary.
         replaystack:=nil;
         comment_level:=0;
         yylexcount:=0;
-        block_type:=bt_general;
+        //block_type:=bt_general;
         line_no:=0;
         lastlinepos:=0;
         lasttokenpos:=0;
@@ -2117,9 +2121,13 @@ In case not, the value returned can be arbitrary.
         lasttoken:=NOTOKEN;
         nexttoken:=NOTOKEN;
         lastasmgetchar:=#0;
-        ignoredirectives:=TFPHashList.Create;
+        //ignoredirectives:=TFPHashList.Create;
         in_asm_string:=false;
+      {$ELSE}
+      {$ENDIF}
       //OO
+        block_type:=bt_general;
+        ignoredirectives:=TFPHashList.Create;
         initwidestring(patternw);
       end;
 

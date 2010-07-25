@@ -39,7 +39,8 @@ type
       ansistring; respath: ansistring; out ObjUsed : boolean) : ansistring; virtual;
    public
       constructor Create(const fn : ansistring);override;
-      function Compile(output: tresoutput; const OutName: ansistring) : boolean; virtual;
+      function Compile(output: tresoutput; const OutName: ansistring  //; current_module: tmodule
+        ) : boolean; virtual;
       procedure PostProcessResourcefile(const s : ansistring);virtual;
       function IsCompiled(const fn : ansistring) : boolean;virtual;
       procedure Collect(const fn : ansistring);virtual;
@@ -132,8 +133,9 @@ begin
   Result:=s;
 end;
 
-function tresourcefile.compile(output: tresoutput; const OutName: ansistring)
-  : boolean;
+function tresourcefile.compile(output: tresoutput; const OutName: ansistring
+  //;current_module: tmodule
+  ) : boolean;
 
   Function SelectBin(Const Bin1,Bin2 : String) : String;
   begin

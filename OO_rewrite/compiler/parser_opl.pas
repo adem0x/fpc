@@ -199,15 +199,19 @@ uses
         procedure var_dec;
         function _asm_statement: tnode;
       public  //?
+      {$IFDEF NoGlobals}
         current_debuginfo : tdebuginfo;
         current_module: tmodule;
         current_procinfo: tprocinfo;
         //current_scanner: tscannerfile; //deprecated; - will disappear
+      {$ELSE}
+        //everything global
+      {$ENDIF}
       //for pexpr
         function comp_expr(accept_equal: boolean): tnode;
         procedure read_public_and_external(vs: tabstractvarsym);
       public
-        constructor Create;
+        constructor Create; override;
         destructor Destroy; override;
         procedure Execute;  //in preparation of threads
         procedure preprocess(const Afilename:string);
@@ -340,15 +344,15 @@ implementation
 
     procedure initparser;
       begin
-        {$IFDEF old}
+        {$IFDEF NoGlobals}
+          InitModules;
+        {$ELSE}
          { Current compiled module/proc }
          set_current_module(nil);
          current_module:=nil;
          current_asmdata:=nil;
          current_procinfo:=nil;
          current_objectdef:=nil;
-        {$ELSE}
-        {$ENDIF}
 
          loaded_units:=TLinkedList.Create;
 
@@ -356,13 +360,15 @@ implementation
 
          unloaded_units:=TLinkedList.Create;
 
+        { DONE : move into parser constructor }
          { global switches }
          current_settings.globalswitches:=init_settings.globalswitches;
 
          current_settings.sourcecodepage:=init_settings.sourcecodepage;
 
          { initialize scanner }
-         InitScanner;
+         InitScanner; // !!!global!!!
+
        {$IFDEF old}
          InitScannerDirectives; //in InitScanner
 
@@ -374,9 +380,11 @@ implementation
          current_scanner:=nil;
          switchesstatestackpos:=0;
        {$ELSE}
-        //in scanner constructor
+        //in InitScanner and constructor
+       {$ENDIF}
        {$ENDIF}
 
+       { TODO : become globals? - preprocessor? }
          { register all nodes and tais }
          registernodes;
          registertais;
@@ -400,13 +408,9 @@ implementation
          { list of generated .o files, so the linker can remove them }
          SmartLinkOFiles:=TCmdStrList.Create;
 
-       {$IFDEF old}
          { codegen }
          if paraprintnodetree<>0 then
            printnode_reset;
-       {$ELSE}
-        //?
-       {$ENDIF}
 
          { target specific stuff }
          case target_info.system of
@@ -477,6 +481,7 @@ implementation
     constructor TOPLParser.Create;
     begin
       //what?
+      inherited Create;
     end;
 
     destructor TOPLParser.Destroy;

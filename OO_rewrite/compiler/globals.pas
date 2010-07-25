@@ -104,6 +104,7 @@ interface
     type
        tcodepagestring = string[20];
 
+{ TODO : separate global from module and parser specific settings }
        { this is written to ppus during token recording for generics so it must be packed }
        tsettings = packed record
          alignment       : talignmentinfo;
@@ -258,8 +259,16 @@ interface
        RelocSectionSetExplicitly : boolean;
        LinkTypeSetExplicitly : boolean;
 
+      {$IFnDEF new}
+      //to be moved into module or parser
        current_tokenpos,                  { position of the last token }
        current_filepos : tfileposinfo;    { current position }
+       current_settings   : tsettings;
+       pendingstate       : tpendingstate;
+
+       block_type : tblock_type;         { type of currently parsed block }
+      {$ELSE}
+      {$ENDIF}
 
        nwscreenname : string;
        nwthreadname : string;
@@ -267,18 +276,14 @@ interface
 
        codegenerror : boolean;           { true if there is an error reported }
 
-       block_type : tblock_type;         { type of currently parsed block }
-
        compile_level : word;  { TODO : move into class }
        exceptblockcounter    : integer;  { each except block gets a unique number check gotos      }
        current_exceptblock        : integer;  { the exceptblock number of the current block (0 if none) }
        LinkLibraryAliases : TLinkStrMap;
        LinkLibraryOrder   : TLinkStrMap;
 
-       init_settings,
-       current_settings   : tsettings;
+       init_settings      : tsettings;
 
-       pendingstate       : tpendingstate;
      { Memory sizes }
        heapsize,
        stacksize,
@@ -458,12 +463,12 @@ interface
 
     {# Routine to get the required alignment for size of data, which will
        be placed in bss segment, according to the current alignment requirements }
-    function var_align(want_align: longint): shortint;
-    function var_align_size(siz: longint): shortint;
+    function var_align(want_align: longint{; const current_settings: tsettings}): shortint;
+    function var_align_size(siz: longint{; const current_settings: tsettings}): shortint;
     {# Routine to get the required alignment for size of data, which will
        be placed in data/const segment, according to the current alignment requirements }
-    function const_align(want_align: longint): shortint;
-    function const_align_size(siz: longint): shortint;
+    function const_align(want_align: longint{; const current_settings: tsettings}): shortint;
+    function const_align_size(siz: longint{; const current_settings: tsettings}): shortint;
 {$ifdef ARM}
     function is_double_hilo_swapped: boolean;{$ifdef USEINLINE}inline;{$endif}
 {$endif ARM}
@@ -1285,29 +1290,37 @@ implementation
       end;
 
 
-    function var_align(want_align: longint): shortint;
+    function var_align(want_align: longint
+      //; const current_settings: tsettings
+      ): shortint;
       begin
         var_align := used_align(want_align,current_settings.alignment.varalignmin,current_settings.alignment.varalignmax);
       end;
 
 
-    function var_align_size(siz: longint): shortint;
+    function var_align_size(siz: longint
+      //; const current_settings: tsettings
+      ): shortint;
       begin
         siz := size_2_align(siz);
-        var_align_size := var_align(siz);
+        var_align_size := var_align(siz); //, current_settings);
       end;
 
 
-    function const_align(want_align: longint): shortint;
+    function const_align(want_align: longint
+      //; const current_settings: tsettings
+      ): shortint;
       begin
         const_align := used_align(want_align,current_settings.alignment.constalignmin,current_settings.alignment.constalignmax);
       end;
 
 
-    function const_align_size(siz: longint): shortint;
+    function const_align_size(siz: longint
+      //; const current_settings: tsettings
+      ): shortint;
       begin
         siz := size_2_align(siz);
-        const_align_size := const_align(siz);
+        const_align_size := const_align(siz); //, current_settings);
       end;
 
 

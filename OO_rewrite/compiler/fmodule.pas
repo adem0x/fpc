@@ -217,20 +217,26 @@ interface
           constructor create(_u : tmodule);
        end;
 
-{ TODO : make class members }
+{ TODO : make class and members - singleton for project/program }
     var
        main_module       : tmodule;     { Main module of the program }
+     {$IFDEF NoGlobals}
+     {$ELSE}
        current_module    : tmodule;     { Current module which is compiled or loaded }
        compiled_module   : tmodule;     { Current module which is compiled }
+     {$ENDIF}
        usedunits         : tlinkedlist; { Used units for this program }
        loaded_units      : tlinkedlist; { All loaded units }
        unloaded_units    : tlinkedlist; { Units removed from loaded_units, to be freed }
        SmartLinkOFiles   : TCmdStrList; { List of .o files which are generated,
                                           used to delete them after linking }
 
-{$IFDEF old}
-    procedure set_current_module(p:tmodule);
+//init/finalize Modules
+    procedure InitModules;
+    procedure DoneModules;
+{$IFDEF NoGlobals}
 {$ELSE}
+    procedure set_current_module(p:tmodule);
 {$ENDIF}
     function get_module(moduleindex : longint) : tmodule;
     function get_source_file(moduleindex,fileindex : longint) : tinputfile;
@@ -253,7 +259,26 @@ implementation
 
 {*****************************************************************************
                              Global Functions
+                            (Modules singleton)
 *****************************************************************************}
+
+    procedure InitModules;
+    begin
+    { TODO : copy from InitCompiler, InitParser... }
+    //from InitCompiler
+    //from InitParser
+         loaded_units:=TLinkedList.Create;
+
+         usedunits:=TLinkedList.Create;
+
+         unloaded_units:=TLinkedList.Create;
+    end;
+
+    procedure DoneModules;
+    begin
+    { TODO : copy from DoneCompiler, DoneParser... }
+
+    end;
 
     function find_module_from_symtable(st:tsymtable):tmodule;
       var
@@ -273,7 +298,7 @@ implementation
          end;
       end;
 
-{$IFDEF old}
+{$IFnDEF NoGlobals}
     procedure set_current_module(p:tmodule);
       begin
         { save the state of the scanner }

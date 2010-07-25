@@ -85,13 +85,13 @@ implementation
        scanner,
        pbase,pexpr,ptype,pdecl
        ;
-{$ENDIF}
 
     const
       { Please leave this here, this module should NOT use
         these variables.
         Declaring it as string here results in an error when compiling (PFV) }
       current_procinfo = 'error';
+{$ENDIF}
 
 
 {$IFDEF old}

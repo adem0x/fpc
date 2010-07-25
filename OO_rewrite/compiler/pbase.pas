@@ -41,7 +41,7 @@ interface
 
     uses
        cutils,cclasses,
-       tokens,globtype,
+       tokens,globtype,globals,
        symconst,symbase,symtype,symdef,symsym,symtable
       ,scanner
        ;
@@ -58,8 +58,12 @@ interface
     TParserBase = class //(tscannerfile)
   {$ENDIF}
     public  //really?
+    {$IFDEF NoGlobals}
+    {$ELSE}
      current_scanner : tscannerfile;  { current scanner in use }
      //current_module: tmodule; //circular reference!
+     current_settings: tsettings;
+    {$ENDIF}
 
      { true, if we are after an assignement }
      afterassignment : boolean; // = false;
@@ -120,6 +124,8 @@ interface
   protected
     ffilename: string;
   public
+    constructor Create; virtual;
+    destructor Destroy; override;
     class procedure compile(const filename:string); //should return the compiled module?
 {$ifdef PREPROCWRITE}
     class procedure preprocess(const filename:string);
@@ -130,12 +136,35 @@ interface
 implementation
 
     uses
-       globals,htypechk,//scanner,
+       //globals,
+      htypechk,//scanner,
       systems,verbose,fmodule,
+    //specialized parsers
       parser_opl;
 
 
       { TParserBase }
+
+      constructor TParserBase.Create;
+      begin
+      //the filename is not yet known!
+      //from InitParser
+         { global switches }
+         current_settings.globalswitches:=init_settings.globalswitches;
+
+         current_settings.sourcecodepage:=init_settings.sourcecodepage;
+
+         { initialize scanner }
+         InitScanner;
+        //what?
+        //inherited Create; - nothing to inherit
+      end;
+
+      destructor TParserBase.Destroy;
+      begin
+        //what?
+        inherited Destroy;
+      end;
 
       class procedure TParserBase.compile(const filename: string);
       var
@@ -146,7 +175,7 @@ implementation
       *)
         parser := TOPLParser.Create;
         parser.ffilename := filename;
-        parser.Execute;
+        parser.Execute; //must init all class members
         parser.Free;
       end;
 

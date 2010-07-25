@@ -144,7 +144,7 @@ begin
   if CompilerInitedAfterArgs then
    begin
      CompilerInitedAfterArgs:=false;
-     DoneParser;
+     //DoneParser;
      DoneImport;
      DoneExport;
      DoneLinker;
@@ -184,7 +184,7 @@ begin
 { read the arguments }
   read_arguments(cmd);
 { inits which depend on arguments }
-  InitParser;
+  //InitParser;
   InitImport;
   InitExport;
   InitLinker;
@@ -244,10 +244,10 @@ begin
        { Compile the program }
   {$ifdef PREPROCWRITE}
        if parapreprocess then
-        TParser.preprocess(inputfilepath+inputfilename)
+        TParserBase.preprocess(inputfilepath+inputfilename)
        else
   {$endif PREPROCWRITE}
-        TParser.compile(inputfilepath+inputfilename);
+        TParserBase.compile(inputfilepath+inputfilename);
 
        { Show statistics }
        if status.errorcount=0 then
