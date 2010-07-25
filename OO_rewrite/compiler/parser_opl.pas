@@ -217,9 +217,13 @@ uses
         procedure preprocess(const Afilename:string);
       end;
 
+{$IFDEF old}
 { TODO : these will disappear }
   procedure initparser;
   procedure doneparser;
+{$ELSE}
+//in pbase
+{$ENDIF}
 
 implementation
 
@@ -277,7 +281,13 @@ implementation
 
          main_module:=current_module;
        { startup scanner, and save in current_module }
-         //current_scanner:=tscannerfile.Create(AFilename);
+       {$IFDEF old}
+         current_scanner:=tscannerfile.Create(AFilename);
+       {$ELSE}
+        current_scanner:=self;  //non-OO!
+        ffilename := AFilename;
+        Init(AFilename);
+       {$ENDIF}
          {current_scanner.}firstfile;
        { loop until EOF is found }
          repeat
@@ -342,6 +352,7 @@ implementation
 
 { TODO : initparser and doneparser must disappear, all done in classes }
 
+{$IFDEF old}
     procedure initparser;
       begin
         {$IFDEF NoGlobals}
@@ -477,6 +488,9 @@ implementation
          { free list of .o files }
          SmartLinkOFiles.Free;
       end;
+{$ELSE}
+  //moved into pbase
+{$ENDIF}
 
     constructor TOPLParser.Create;
     begin

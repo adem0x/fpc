@@ -144,7 +144,7 @@ begin
   if CompilerInitedAfterArgs then
    begin
      CompilerInitedAfterArgs:=false;
-     //DoneParser;
+     DoneParser;
      DoneImport;
      DoneExport;
      DoneLinker;
@@ -180,11 +180,11 @@ begin
 { this is needed here for the IDE
   in case of compilation failure
   at the previous compile }
-  //set_current_module(nil);
+  set_current_module(nil);
 { read the arguments }
   read_arguments(cmd);
 { inits which depend on arguments }
-  //InitParser;
+  InitParser;
   InitImport;
   InitExport;
   InitLinker;

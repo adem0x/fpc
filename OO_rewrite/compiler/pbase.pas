@@ -133,15 +133,167 @@ interface
     property filename: string read ffilename;
   end;
 
+  procedure initparser;
+  procedure doneparser;
+
 implementation
 
     uses
        //globals,
       htypechk,//scanner,
       systems,verbose,fmodule,
+      aasmdata, //current_asmdata
+      procinfo, //current_procinfo
+      psystem,  //registernodes
+      ncgrtti,  //RTTIWriter
+      script,   //GenerateAsmRes
+      sysutils, //ChangeFileExt
+      gendef,   //DefFile
+      psub,     //printnode_reset
+      cpuinfo,  //supported_calling_conventions
     //specialized parsers
       parser_opl;
 
+{$IFnDEF old}
+//moved from parser
+    procedure initparser;
+      begin
+        {$IFDEF NoGlobals}
+          InitModules;
+        {$ELSE}
+         { Current compiled module/proc }
+         set_current_module(nil);
+         current_module:=nil;
+         current_asmdata:=nil;
+         current_procinfo:=nil;
+         current_objectdef:=nil;
+
+         loaded_units:=TLinkedList.Create;
+
+         usedunits:=TLinkedList.Create;
+
+         unloaded_units:=TLinkedList.Create;
+
+        { DONE : move into parser constructor }
+         { global switches }
+         current_settings.globalswitches:=init_settings.globalswitches;
+
+         current_settings.sourcecodepage:=init_settings.sourcecodepage;
+
+         { initialize scanner }
+         InitScanner; // !!!global!!!
+
+       {$IFDEF old}
+         InitScannerDirectives; //in InitScanner
+
+         { scanner }
+         c:=#0;
+         pattern:='';
+         orgpattern:='';
+         cstringpattern:='';
+         current_scanner:=nil;
+         switchesstatestackpos:=0;
+       {$ELSE}
+        //in InitScanner and constructor
+       {$ENDIF}
+       {$ENDIF}
+
+       { TODO : become globals? - preprocessor? }
+         { register all nodes and tais }
+         registernodes;
+         registertais;
+
+         { memory sizes }
+         if stacksize=0 then
+           stacksize:=target_info.stacksize;
+
+         { RTTI writer }
+         RTTIWriter:=TRTTIWriter.Create;
+
+         { open assembler response }
+         if cs_link_on_target in current_settings.globalswitches then
+           GenerateAsmRes(outputexedir+ChangeFileExt(inputfilename,'_ppas'))
+         else
+           GenerateAsmRes(outputexedir+'ppas');
+
+         { open deffile }
+         DefFile:=TDefFile.Create(outputexedir+ChangeFileExt(inputfilename,target_info.defext));
+
+         { list of generated .o files, so the linker can remove them }
+         SmartLinkOFiles:=TCmdStrList.Create;
+
+         { codegen }
+         if paraprintnodetree<>0 then
+           printnode_reset;
+
+         { target specific stuff }
+         case target_info.system of
+           system_powerpc_amiga:
+             include(supported_calling_conventions,pocall_syscall);
+           system_powerpc_morphos:
+             include(supported_calling_conventions,pocall_syscall);
+           system_m68k_amiga:
+             include(supported_calling_conventions,pocall_syscall);
+         end;
+      end;
+
+
+    procedure doneparser;
+      begin
+        {$IFDEF old}
+         { Reset current compiling info, so destroy routines can't
+           reference the data that might already be destroyed }
+         set_current_module(nil);
+         current_module:=nil;
+         current_procinfo:=nil;
+         current_asmdata:=nil;
+         current_objectdef:=nil;
+        {$ELSE}
+        {$ENDIF}
+
+         { unload units }
+         if assigned(loaded_units) then
+           begin
+             loaded_units.free;
+             loaded_units:=nil;
+           end;
+         if assigned(usedunits) then
+           begin
+             usedunits.free;
+             usedunits:=nil;
+           end;
+         if assigned(unloaded_units) then
+           begin
+             unloaded_units.free;
+             unloaded_units:=nil;
+           end;
+
+       {$IFDEF old}
+         { if there was an error in the scanner, the scanner is
+           still assinged }
+         if assigned(current_scanner) then
+          begin
+            current_scanner.free;
+            current_scanner:=nil;
+          end;
+       {$ELSE}
+         { close scanner }
+         DoneScanner;
+        //by creator of the parser instance
+       {$ENDIF}
+
+         RTTIWriter.free;
+
+         { close ppas,deffile }
+         asmres.free;
+         deffile.free;
+
+         { free list of .o files }
+         SmartLinkOFiles.Free;
+      end;
+{$ELSE}
+//in parser
+{$ENDIF}
 
       { TParserBase }
 

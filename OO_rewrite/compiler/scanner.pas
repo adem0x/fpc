@@ -361,6 +361,7 @@ interface
 
           constructor Create(const fn:string);
           destructor Destroy;override;
+          procedure Init(const fn:string);
         { File buffer things }
           function  openinputfile:boolean;
           procedure closeinputfile;
@@ -2099,6 +2100,13 @@ In case not, the value returned can be arbitrary.
  ****************************************************************************}
 
     constructor tscannerfile.create(const fn:string);
+      begin
+      (* This constructor is no more called in OO
+      *)
+        Init(fn);
+      end;
+
+    procedure tscannerfile.Init(const fn: string);
       begin
         inputfile:=do_openinputfile(fn);
         if assigned(current_module) then
