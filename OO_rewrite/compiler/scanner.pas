@@ -2132,6 +2132,7 @@ In case not, the value returned can be arbitrary.
         //ignoredirectives:=TFPHashList.Create;
         in_asm_string:=false;
       {$ELSE}
+        current_scanner := self;
       {$ENDIF}
       //OO
         block_type:=bt_general;
@@ -4857,6 +4858,8 @@ exit_label:
 
     procedure InitScanner;
       begin
+        if Assigned(turbo_scannerdirectives) then
+          exit;
         turbo_scannerdirectives:=TFPHashObjectList.Create;
         mac_scannerdirectives:=TFPHashObjectList.Create;
 

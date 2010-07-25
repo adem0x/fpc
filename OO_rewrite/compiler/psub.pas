@@ -1909,10 +1909,9 @@ implementation
 
 
     procedure generate_specialization_procs(current_module: tmodule);
-    var
-      current_scanner: tscannerfile;
+    //var current_scanner: tscannerfile;
       begin
-        current_scanner := tscannerfile(current_module.scanner);
+        //current_scanner := tscannerfile(current_module.scanner);
         if assigned(current_module.globalsymtable) then
           current_module.globalsymtable.SymList.ForEachCall(@specialize_objectdefs, current_scanner);
         if assigned(current_module.localsymtable) then

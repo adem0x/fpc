@@ -636,8 +636,9 @@ implementation
          current_asmdata:=TAsmData(current_module.asmdata);
 
          { startup scanner and load the first file }
-       {$IFDEF scanner_based}
+       {$IF scanner_based}
         //we ARE the scanner
+          Init(filename);
        {$ELSE}
          current_scanner:=tscannerfile.Create(filename);
        {$ENDIF}
@@ -650,7 +651,7 @@ implementation
          macrosymtablestack.push(current_module.localmacrosymtable);
 
          { read the first token }
-         current_scanner.readtoken(false);
+         readtoken(false);
 
          { If the compile level > 1 we get a nice "unit expected" error
            message if we are trying to use a program as unit.}

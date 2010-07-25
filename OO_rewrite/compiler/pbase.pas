@@ -21,21 +21,14 @@
 }
 (* OO modifications
 
-In a first try this unit (singleton) has been converted into a class.
-  The methods should reside in the scanner,
-  but to reduce the modifications of all calls we implement stubs here, at least.
-  Exact placement of the method implementation is subject to optimization (profiling)
-In a second try it may be more efficient to base the parser on the scanner class,
-  provided that every parser uses exactly one scanner (not so likely?)
-
-  All other parser units must become include files of the parser unit,
-  their procedures become methods of the parser.
+  This singleton (unit) has been converted into a class,
+  based on tscannerfile (if scanner_based)
 *)
 
 unit pbase;
 
 {$i fpcdefs.inc}
-{$DEFINE consume_in_parser}
+{$DEFINE consume_in_parser} //scanner_based
 
 interface
 
@@ -47,22 +40,26 @@ interface
        ;
 
     const
+      scanner_based = True;
+
+    const
        { tokens that end a block or statement. And don't require
          a ; on the statement before }
        endtokens = [_SEMICOLON,_END,_ELSE,_UNTIL,_EXCEPT,_FINALLY];
 
   type
-  {$IFDEF consume_in_parser}
+  {.$IFDEF consume_in_parser}
+  {$IF scanner_based}
     TParserBase = class(tscannerfile)
   {$ELSE}
     TParserBase = class //(tscannerfile)
   {$ENDIF}
     public  //really?
     {$IFDEF NoGlobals}
-    {$ELSE}
      current_scanner : tscannerfile;  { current scanner in use }
      //current_module: tmodule; //circular reference!
      current_settings: tsettings;
+    {$ELSE}
     {$ENDIF}
 
      { true, if we are after an assignement }
@@ -92,7 +89,7 @@ interface
      { true, if we are parsing generic declaration }
      parse_generic : boolean;
 
-{$IFDEF consume_in_parser}
+{$IF scanner_based}
   //everything inherited
 {$ELSE}
     procedure identifier_not_found(const s:string);
@@ -158,8 +155,11 @@ implementation
 //moved from parser
     procedure initparser;
       begin
+      (* Init all (global) parser-related resources.
+      *)
         {$IFDEF NoGlobals}
-          InitModules;
+         InitScanner;
+         InitModules;
         {$ELSE}
          { Current compiled module/proc }
          set_current_module(nil);
@@ -181,7 +181,7 @@ implementation
          current_settings.sourcecodepage:=init_settings.sourcecodepage;
 
          { initialize scanner }
-         InitScanner; // !!!global!!!
+         InitScanner;
 
        {$IFDEF old}
          InitScannerDirectives; //in InitScanner
@@ -196,7 +196,7 @@ implementation
        {$ELSE}
         //in InitScanner and constructor
        {$ENDIF}
-       {$ENDIF}
+       {$ENDIF NoGlobals}
 
        { TODO : become globals? - preprocessor? }
          { register all nodes and tais }
@@ -240,7 +240,10 @@ implementation
 
     procedure doneparser;
       begin
-        {$IFDEF old}
+      (* Release all (global) parser-related resources.
+      *)
+        {$IFDEF NoGlobals}
+        {$ELSE}
          { Reset current compiling info, so destroy routines can't
            reference the data that might already be destroyed }
          set_current_module(nil);
@@ -248,7 +251,6 @@ implementation
          current_procinfo:=nil;
          current_asmdata:=nil;
          current_objectdef:=nil;
-        {$ELSE}
         {$ENDIF}
 
          { unload units }
@@ -268,7 +270,10 @@ implementation
              unloaded_units:=nil;
            end;
 
-       {$IFDEF old}
+       {$IF scanner_based}
+         { close scanner }
+         DoneScanner;
+       {$ELSE}
          { if there was an error in the scanner, the scanner is
            still assinged }
          if assigned(current_scanner) then
@@ -276,10 +281,6 @@ implementation
             current_scanner.free;
             current_scanner:=nil;
           end;
-       {$ELSE}
-         { close scanner }
-         DoneScanner;
-        //by creator of the parser instance
        {$ENDIF}
 
          RTTIWriter.free;
@@ -306,8 +307,10 @@ implementation
 
          current_settings.sourcecodepage:=init_settings.sourcecodepage;
 
-         { initialize scanner }
-         InitScanner;
+       {$IFDEF NoGlobals}
+       {$ELSE}
+         current_scanner := self;
+       {$ENDIF}
         //what?
         //inherited Create; - nothing to inherit
       end;
@@ -342,297 +345,5 @@ implementation
         parser.preprocess(filename);
         parser.Free;
       end;
-
-{****************************************************************************
-                               Token Parsing
-****************************************************************************}
-
-{$IFDEF old}
-{$IFnDEF consume_in_parser}
-     procedure TParserBase.identifier_not_found(const s:string);
-       begin
-         Message1(sym_e_id_not_found,s);
-         { show a fatal that you need -S2 or -Sd, but only
-           if we just parsed the a token that has m_class }
-         if not(m_class in current_settings.modeswitches) and
-            (Upper(s)={current_scanner.}pattern) and
-            (tokeninfo^[{current_scanner.}idtoken].keyword=m_class) then
-           Message(parser_f_need_objfpc_or_delphi_mode);
-       end;
-
-
-    { consumes token i, write error if token is different }
-    procedure TParserBase.consume(i : ttoken);
-      begin
-        if (token<>i) and (idtoken<>i) then
-          if token=_id then
-            Message2(scan_f_syn_expected,tokeninfo^[i].str,'identifier '+pattern)
-          else
-            Message2(scan_f_syn_expected,tokeninfo^[i].str,tokeninfo^[token].str)
-        else
-          begin
-            if token=_END then
-              last_endtoken_filepos:=current_tokenpos;
-            {current_scanner.}readtoken(true);
-          end;
-      end;
-
-
-    function TParserBase.try_to_consume(i:Ttoken):boolean;
-      begin
-        try_to_consume:=false;
-        if (token=i) or (idtoken=i) then
-         begin
-           try_to_consume:=true;
-           if token=_END then
-            last_endtoken_filepos:=current_tokenpos;
-           {current_scanner.}readtoken(true);
-         end;
-      end;
-
-
-    procedure TParserBase.consume_all_until(atoken : ttoken);
-      begin
-         while (token<>atoken) and (idtoken<>atoken) do
-          begin
-            Consume(token);
-            if token=_EOF then
-             begin
-               Consume(atoken);
-               Message(scan_f_end_of_file);
-               exit;
-             end;
-          end;
-      end;
-
-    procedure TParserBase.consume_emptystats;
-      begin
-         repeat
-         until not try_to_consume(_SEMICOLON);
-      end;
-
-
-    { check if a symbol contains the hint directive, and if so gives out a hint
-      if required.
-
-      If this code is changed, it's likly that consume_sym_orgid and factor_read_id
-      must be changed as well (FK)
-    }
-    function TParserBase.consume_sym(var srsym:tsym;var srsymtable:TSymtable):boolean;
-      var
-        t : ttoken;
-      begin
-        { first check for identifier }
-        if token<>_ID then
-          begin
-            consume(_ID);
-            srsym:=generrorsym;
-            srsymtable:=nil;
-            result:=false;
-            exit;
-          end;
-        searchsym(pattern,srsym,srsymtable);
-        { handle unit specification like System.Writeln }
-        try_consume_unitsym(srsym,srsymtable,t);
-        { if nothing found give error and return errorsym }
-        if assigned(srsym) then
-          check_hints(srsym,srsym.symoptions,srsym.deprecatedmsg)
-        else
-          begin
-            identifier_not_found(orgpattern);
-            srsym:=generrorsym;
-            srsymtable:=nil;
-          end;
-        consume(t);
-        result:=assigned(srsym);
-      end;
-
-
-    { check if a symbol contains the hint directive, and if so gives out a hint
-      if required and returns the id with it's original casing
-    }
-    function TParserBase.consume_sym_orgid(var srsym:tsym;var srsymtable:TSymtable;var s : string):boolean;
-      var
-        t : ttoken;
-      begin
-        { first check for identifier }
-        if token<>_ID then
-          begin
-            consume(_ID);
-            srsym:=generrorsym;
-            srsymtable:=nil;
-            result:=false;
-            exit;
-          end;
-        searchsym(pattern,srsym,srsymtable);
-        { handle unit specification like System.Writeln }
-        try_consume_unitsym(srsym,srsymtable,t);
-        { if nothing found give error and return errorsym }
-        if assigned(srsym) then
-          check_hints(srsym,srsym.symoptions,srsym.deprecatedmsg)
-        else
-          begin
-            identifier_not_found(orgpattern);
-            srsym:=generrorsym;
-            srsymtable:=nil;
-          end;
-        s:=orgpattern;
-        consume(t);
-        result:=assigned(srsym);
-      end;
-
-
-    function TParserBase.try_consume_unitsym(var srsym:tsym;var srsymtable:TSymtable;var tokentoconsume : ttoken):boolean;
-      begin
-        result:=false;
-        tokentoconsume:=_ID;
-        if assigned(srsym) and
-           (srsym.typ=unitsym) then
-          begin
-            if not(srsym.owner.symtabletype in [staticsymtable,globalsymtable]) then
-              internalerror(200501154);
-            { only allow unit.symbol access if the name was
-              found in the current module }
-            if srsym.owner.iscurrentunit then
-              begin
-                consume(_ID);
-                consume(_POINT);
-                case token of
-                  _ID:
-                     searchsym_in_module(tunitsym(srsym).module,pattern,srsym,srsymtable);
-                  _STRING:
-                    begin
-                      { system.string? }
-                      if tmodule(tunitsym(srsym).module).globalsymtable=systemunit then
-                        begin
-                          if cs_ansistrings in current_settings.localswitches then
-                            searchsym_in_module(tunitsym(srsym).module,'ANSISTRING',srsym,srsymtable)
-                          else
-                            searchsym_in_module(tunitsym(srsym).module,'SHORTSTRING',srsym,srsymtable);
-                          tokentoconsume:=_STRING;
-                        end;
-                    end
-                  end;
-              end
-            else
-              begin
-                srsym:=nil;
-                srsymtable:=nil;
-              end;
-            result:=true;
-          end;
-      end;
-
-
-    function TParserBase.try_consume_hintdirective(var symopt:tsymoptions; var deprecatedmsg:pshortstring):boolean;
-      var
-        last_is_deprecated:boolean;
-      begin
-        try_consume_hintdirective:=false;
-        if not(m_hintdirective in current_settings.modeswitches) then
-         exit;
-        repeat
-          last_is_deprecated:=false;
-          case idtoken of
-            _LIBRARY :
-              begin
-                include(symopt,sp_hint_library);
-                try_consume_hintdirective:=true;
-              end;
-            _DEPRECATED :
-              begin
-                include(symopt,sp_hint_deprecated);
-                try_consume_hintdirective:=true;
-                last_is_deprecated:=true;
-              end;
-            _EXPERIMENTAL :
-              begin
-                include(symopt,sp_hint_experimental);
-                try_consume_hintdirective:=true;
-              end;
-            _PLATFORM :
-              begin
-                include(symopt,sp_hint_platform);
-                try_consume_hintdirective:=true;
-              end;
-            _UNIMPLEMENTED :
-              begin
-                include(symopt,sp_hint_unimplemented);
-                try_consume_hintdirective:=true;
-              end;
-            else
-              break;
-          end;
-          consume(Token);
-          { handle deprecated message }
-          if ((token=_CSTRING) or (token=_CCHAR)) and last_is_deprecated then
-            begin
-              if deprecatedmsg<>nil then
-                internalerror(200910181);
-              if token=_CSTRING then
-                deprecatedmsg:=stringdup(cstringpattern)
-              else
-                deprecatedmsg:=stringdup(pattern);
-              consume(token);
-              include(symopt,sp_has_deprecated_msg);
-            end;
-        until false;
-      end;
-{$ELSE}
-
-{ TParserBase }
-
-procedure TParserBase.identifier_not_found(const s: string);
-begin
-  current_scanner.identifier_not_found(s);
-end;
-
-procedure TParserBase.consume(i: ttoken);
-begin
-  current_scanner.consume(i);
-end;
-
-function TParserBase.try_to_consume(i: Ttoken): boolean;
-begin
-  Result := current_scanner.try_to_consume(i);
-end;
-
-procedure TParserBase.consume_all_until(atoken: ttoken);
-begin
-  current_scanner.consume_all_until(atoken);
-end;
-
-procedure TParserBase.consume_emptystats;
-begin
-  current_scanner.consume_emptystats;
-end;
-
-function TParserBase.consume_sym(var srsym: tsym; var srsymtable: TSymtable
-  ): boolean;
-begin
-  Result :=  current_scanner.consume_sym(srsym,srsymtable);
-end;
-
-function TParserBase.consume_sym_orgid(var srsym: tsym;
-  var srsymtable: TSymtable; var s: string): boolean;
-begin
-  Result := current_scanner.consume_sym_orgid(srsym, srsymtable, s);
-end;
-
-function TParserBase.try_consume_unitsym(var srsym: tsym;
-  var srsymtable: TSymtable; var tokentoconsume: ttoken): boolean;
-begin
-  Result :=   current_scanner.try_consume_unitsym(srsym, srsymtable, tokentoconsume);
-end;
-
-function TParserBase.try_consume_hintdirective(var symopt: tsymoptions;
-  var deprecatedmsg: pshortstring): boolean;
-begin
-  Result := current_scanner.try_consume_hintdirective(symopt, deprecatedmsg);
-end;
-
-{$ENDIF}
-{$ELSE}
-{$ENDIF}
 
 end.
