@@ -188,67 +188,70 @@ interface
          function opt_check(var valuedescr: String): Boolean;
          function parse_compiler_expr(var compileExprType: TCTETypeSet): string;
        private
+       {$IFDEF old}
          procedure dir_a1;
          procedure dir_a2;
          procedure dir_a4;
          procedure dir_a8;
-         procedure dir_align;
-         procedure dir_apptype;
-         procedure dir_asmmode;
          procedure dir_assertions;
-         procedure dir_bitpacking;
          procedure dir_booleval;
-         procedure dir_calling;
+         procedure dir_bitpacking;
          procedure dir_checkpointer;
-         procedure dir_codealign;
-         procedure dir_codepage;
          procedure dir_coperators;
-         procedure dir_copyright;
          procedure dir_debuginfo;
-         procedure dir_description;
          procedure dir_endregion;
          procedure dir_error;
          procedure dir_extendedsyntax;
          procedure dir_externalsym;
          procedure dir_fatal;
-         procedure dir_fputype;
-         procedure dir_frameworkpath;
          procedure dir_goto;
          procedure dir_hint;
          procedure dir_hints;
          procedure dir_hppemit;
-         procedure dir_imagebase;
+         procedure dir_iochecks;
          procedure dir_implicitexceptions;
-         procedure dir_includepath;
          procedure dir_info;
          procedure dir_inline;
-         procedure dir_interfaces;
-         procedure dir_iochecks;
          procedure dir_libexport;
+         procedure dir_localsymbols;
+         procedure dir_longstrings;
+         procedure dir_macro;
+         procedure dir_mmx;
+         procedure dir_nodefine;
+         procedure dir_note;
+         procedure dir_notes;
+         procedure dir_objectchecks;
+         procedure dir_openstrings;
+         procedure dir_overflowchecks;
+       {$ELSE}
+       {$ENDIF}
+         procedure dir_align;
+         procedure dir_apptype;
+         procedure dir_asmmode;
+         procedure dir_calling;
+         procedure dir_codealign;
+         procedure dir_codepage;
+         procedure dir_copyright;
+         procedure dir_description;
+         procedure dir_fputype;
+         procedure dir_frameworkpath;
+         procedure dir_imagebase;
+         procedure dir_includepath;
+         procedure dir_interfaces;
          procedure dir_librarypath;
          procedure dir_link;
          procedure dir_linkframework;
          procedure dir_linklib;
-         procedure dir_localsymbols;
-         procedure dir_longstrings;
-         procedure dir_macro;
          procedure dir_maxfpuregisters;
          procedure dir_maxstacksize;
          procedure dir_memory;
          procedure dir_message;
          procedure dir_minfpconstprec;
          procedure dir_minstacksize;
-         procedure dir_mmx;
          procedure dir_mode;
          procedure dir_modeswitch;
-         procedure dir_nodefine;
-         procedure dir_note;
-         procedure dir_notes;
-         procedure dir_objectchecks;
          procedure dir_objectpath;
-         procedure dir_openstrings;
          procedure dir_optimization;
-         procedure dir_overflowchecks;
          procedure dir_packenum;
          procedure dir_packrecords;
          procedure dir_packset;
@@ -257,27 +260,20 @@ interface
          procedure dir_pop;
          procedure dir_profile;
          procedure dir_push;
+       {$IFDEF old}
          procedure dir_rangechecks;
          procedure dir_referenceinfo;
          procedure dir_region;
-         procedure dir_resource;
          procedure dir_safefpuexceptions;
          procedure dir_saturation;
          procedure dir_scopedenums;
-         procedure dir_screenname;
-         procedure dir_setpeflags;
          procedure dir_smartlink;
          procedure dir_stackframes;
          procedure dir_stop;
-         procedure dir_threadname;
          procedure dir_typedaddress;
          procedure dir_typeinfo;
-         procedure dir_unitpath;
          procedure dir_varpropsetter;
          procedure dir_varstringchecks;
-         procedure dir_version;
-         procedure dir_wait;
-         procedure dir_warn;
          procedure dir_warning;
          procedure dir_warnings;
          procedure dir_weakpackageunit;
@@ -285,6 +281,16 @@ interface
          procedure dir_z1;
          procedure dir_z2;
          procedure dir_z4;
+       {$ELSE}
+       {$ENDIF}
+         procedure dir_resource;
+         procedure dir_screenname;
+         procedure dir_setpeflags;
+         procedure dir_threadname;
+         procedure dir_unitpath;
+         procedure dir_version;
+         procedure dir_wait;
+         procedure dir_warn;
          procedure do_delphiswitch(sw: char);
          procedure do_gettokenpos(out tokenpos: longint; out filepos: tfileposinfo);
          procedure cachenexttokenpos;
@@ -416,8 +422,6 @@ interface
           function  asmgetchar:char;
        end;
 
-{$ifdef PREPROCWRITE}
-{ TODO : move into compiler? }
        tpreprocfile=class
          f   : text;
          buf : pointer;
@@ -432,8 +436,6 @@ interface
 
       var
         preprocfile     : tpreprocfile;  { used with only preprocessing }
-
-{$endif PREPROCWRITE}
 
 {$IFDEF NoGlobals}
 {$ELSE}
@@ -2005,7 +2007,6 @@ In case not, the value returned can be arbitrary.
                             Preprocessor writing
 *****************************************************************************}
 
-{$ifdef PREPROCWRITE}
     constructor tpreprocfile.create(const fn:string);
       begin
       { open outputfile }
@@ -2051,7 +2052,6 @@ In case not, the value returned can be arbitrary.
             spacefound:=false;
           end;
       end;
-{$endif PREPROCWRITE}
 
 
 {*****************************************************************************
@@ -2889,6 +2889,112 @@ In case not, the value returned can be arbitrary.
       diIfOpt:      dir_ifopt;
       diSetC:       dir_setc;
       diDefineC:    dir_define_impl(True);
+      diA1:         current_settings.packrecords:=1;  //dir_a1;
+      diA2:         current_settings.packrecords:=2;  //dir_a2;
+      diA4:         current_settings.packrecords:=4;  //dir_a4;
+      diA8:         current_settings.packrecords:=8;  //dir_a8;
+      diAlign:      dir_align;
+    {$IFDEF m68k}
+      diAppId:      dir_appid;
+      diAppName:    dir_appname;
+    {$ENDIF}
+      diAppType:    dir_apptype;
+      diAsmMode:    dir_asmmode;
+      diAssertions: do_delphiswitch('C'); //dir_assertions;
+      diBoolEval:   do_delphiswitch('B'); //dir_booleval;
+      diBitPacking: do_localswitch(cs_bitpacking);  //dir_bitpacking;
+      diCalling:    dir_calling;
+      diCheckPointer: do_localswitchdefault(cs_checkpointer); //dir_checkpointer;
+      diCodeAlign:  dir_codealign;
+      diCodePage:   dir_codepage;
+      diCOperators: do_moduleswitch(cs_support_c_operators);  //dir_coperators;
+      diCopyright:  dir_copyright;
+      diDescription:  dir_description;
+      diDebugInfo:  do_delphiswitch('D'); //dir_debuginfo;
+      diEndRegion:  ; //dir_endregion;
+      diError:      do_message(scan_e_user_defined);  //dir_error;
+      diExtendedSyntax:  do_delphiswitch('X');  //dir_extendedsyntax;
+      diExternalSym:  ; //dir_externalsym;
+      diFatal:      do_message(scan_f_user_defined);  //dir_fatal;
+      diFpuType:    dir_fputype;
+      diFrameworkPath:  dir_frameworkpath;
+      diGoto:       do_moduleswitch(cs_support_goto); //dir_goto;
+      diHint:       do_message(scan_h_user_defined);  //dir_hint;
+      diHints:      do_setverbose('H'); //dir_hints;
+      diHppEmit:    ; //dir_hppemit;
+      diIOChecks:   do_delphiswitch('I'); //dir_iochecks;
+      diImageBase:  dir_imagebase;
+      diImplicitExceptions:  do_moduleswitch(cs_implicit_exceptions); //dir_implicitexceptions;
+      diIncludePath:  dir_includepath;
+      diInfo:       do_message(scan_i_user_defined);  //dir_info;
+      diInline:     do_localswitch(cs_do_inline); //dir_inline;
+      diInterfaces: dir_interfaces;
+      diLink:       dir_link;
+      diLibExport:  ; //dir_libexport;
+      diLibraryPath:  dir_librarypath;
+      diLinkFramework:  dir_linkframework;
+      diLinkLib:    dir_linklib;
+      diLocalSymbols:   do_delphiswitch('L'); //dir_localsymbols;
+      diLongStrings:    do_delphiswitch('H'); //dir_longstrings;
+      diMemory:     dir_memory;
+      diMacro:      do_moduleswitch(cs_support_macro);  //dir_macro;
+      diMaxFpuRegisters:  dir_maxfpuregisters;
+      diMaxStackSize: dir_maxstacksize;
+      diMessage:      dir_message;
+      diMinFPConstPrec:  dir_minfpconstprec;
+      diMinStackSize:  dir_minstacksize;
+      diMMX:          do_localswitch(cs_mmx); //dir_mmx;
+      diMode:         dir_mode;
+      diModeSwitch:   dir_modeswitch;
+      diNoDefine:     ; //dir_nodefine;
+      diNote:         do_message(scan_n_user_defined);  //dir_note;
+      diNotes:        do_setverbose('N'); //dir_notes;
+      diObjectChecks: do_localswitch(cs_check_object); //dir_objectchecks;
+      diObjectPath:   dir_objectpath;
+      diOpenStrings:  do_delphiswitch('P'); //dir_openstrings;
+      diOptimization:  dir_optimization;
+      diOverflowChecks:  do_delphiswitch('Q');  //dir_overflowchecks;
+      diPackEnum:     dir_packenum;
+      diPackRecords:  dir_packrecords;
+      diPackSet:      dir_packset;
+      diPascalMainName:  dir_pascalmainname;
+      diPic:          dir_pic;
+      diPop:          dir_pop;
+      diProfile:      dir_profile;
+      diPush:         dir_push;
+      diRangeChecks:  do_delphiswitch('R'); //dir_rangechecks;
+      diReferenceInfo:  do_delphiswitch('Y'); //dir_referenceinfo;
+      diRegion:     ; //dir_region;
+      diResource:     dir_resource;
+      diSaturation:   do_localswitch(cs_mmx_saturation);  //dir_saturation;
+      diSafeFpuExceptions:  do_localswitch(cs_fpu_fwait); //dir_safefpuexceptions;
+      diScopedEnums:  do_localswitch(cs_scopedenums);  //dir_scopedenums;
+      diSetPEFlags:   dir_setpeflags;
+      diScreenName:   dir_screenname;
+      diSmartLink:    do_moduleswitch(cs_create_smart); //dir_smartlink;
+      diStackFrames:  do_delphiswitch('W'); //dir_stackframes:
+      diStop:         do_message(scan_f_user_defined);  //dir_stop;
+    {$IFDEF powerpc}
+      diSysCall:  dir_syscall;
+    {$ENDIF}
+      diThreadName:   dir_threadname;
+      diTypedAddress: do_delphiswitch('T'); //dir_typedaddress;
+      diTypeInfo:     do_delphiswitch('M'); //dir_typeinfo;
+      diUnitPath:     dir_unitpath;
+      diVarPropSetter:  do_localswitch(cs_varpropsetter); //dir_varpropsetter;
+      diVarStringChecks:  do_delphiswitch('V'); //dir_varstringchecks;
+      diVersion:      dir_version;
+      diWait:         dir_wait;
+      diWarn:         dir_warn;
+      diWarning:      do_message(scan_w_user_defined);  //dir_warning;
+      diWarnings:     do_setverbose('W'); //dir_warnings;
+      diWeakPackageUnit:  ; //dir_weakpackageunit;
+      diWriteableConst:  do_delphiswitch('J');  //dir_writeableconst;
+      diZ1:           current_settings.packenum:=1; //dir_z1;
+      diZ2:           current_settings.packenum:=2; //dir_z2;
+      diZ4:           current_settings.packenum:=4; //dir_z4;
+      else
+        Internalerror(20100726);
       end;
     end;
 
@@ -2938,7 +3044,6 @@ In case not, the value returned can be arbitrary.
              Message1(scan_w_illegal_switch,'$');
              exit;
            end;
-{$ifdef PREPROCWRITE}
          if parapreprocess then
           begin
             t:=Get_Directive(hs);
@@ -2950,7 +3055,6 @@ In case not, the value returned can be arbitrary.
                exit;
              end;
           end;
-{$endif PREPROCWRITE}
          { skip this directive? }
          if (ignoredirectives.find(hs)<>nil) then
           begin
@@ -3679,16 +3783,13 @@ In case not, the value returned can be arbitrary.
               end;
             ' ',#9..#13 :
               begin
-{$ifdef PREPROCWRITE}
                 if parapreprocess then
                  begin
-                   //if c=#10 then  //never matched???
                    if c in [#10,#13] then
                     preprocfile.eolfound:=true
                    else
                     preprocfile.spacefound:=true;
                  end;
-{$endif PREPROCWRITE}
                 skipspace;
               end
             else

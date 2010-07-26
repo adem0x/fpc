@@ -245,11 +245,7 @@ implementation
        import, export
   ;
 
-//this is an attempt to locate non-methods
-//procedure write_persistent_type_info(st:tsymtable); forward;
 
-
-{$ifdef PREPROCWRITE}
     procedure TOPLParser.preprocess(const AFilename:string);
       var
         i : longint;
@@ -346,7 +342,6 @@ implementation
        { close }
          preprocfile.Free;
       end;
-{$endif PREPROCWRITE}
 
     { TOPLParser }
 

@@ -178,6 +178,7 @@ unit scandir;
          end;
       end;
 
+{$IFDEF old}
     procedure tscannerfile.dir_a1;
       begin
         current_settings.packrecords:=1;
@@ -197,6 +198,8 @@ unit scandir;
       begin
         current_settings.packrecords:=8;
       end;
+{$ELSE}
+{$ENDIF}
 
     procedure tscannerfile.dir_asmmode;
       var
@@ -290,7 +293,7 @@ unit scandir;
           recordpendingcallingswitch(hs);
       end;
 
-
+{$IFDEF old}
     procedure tscannerfile.dir_checkpointer;
       begin
         do_localswitchdefault(cs_checkpointer);
@@ -317,6 +320,8 @@ unit scandir;
       begin
         do_delphiswitch('D');
       end;
+{$ELSE}
+{$ENDIF}
 
     procedure tscannerfile.dir_description;
       begin
@@ -357,6 +362,7 @@ unit scandir;
         nwcopyright:=readcomment;
       end;
 
+{$IFDEF old}
     procedure tscannerfile.dir_error;
       begin
         do_message(scan_e_user_defined);
@@ -371,6 +377,8 @@ unit scandir;
       begin
         do_message(scan_f_user_defined);
       end;
+{$ELSE}
+{$ENDIF}
 
     procedure tscannerfile.dir_fputype;
       begin
@@ -398,6 +406,7 @@ unit scandir;
           end;
       end;
 
+{$IFDEF old}
     procedure tscannerfile.dir_goto;
       begin
         do_moduleswitch(cs_support_goto);
@@ -413,6 +422,23 @@ unit scandir;
         do_setverbose('H');
       end;
 
+    procedure tscannerfile.dir_implicitexceptions;
+      begin
+        do_moduleswitch(cs_implicit_exceptions);
+      end;
+
+    procedure tscannerfile.dir_info;
+      begin
+        do_message(scan_i_user_defined);
+      end;
+
+    procedure tscannerfile.dir_inline;
+      begin
+        do_localswitch(cs_do_inline);
+      end;
+{$ELSE}
+{$ENDIF}
+
     procedure tscannerfile.dir_imagebase;
       begin
         if not (target_info.system in (systems_windows+systems_wince)) then
@@ -420,11 +446,6 @@ unit scandir;
         skipspace;
         imagebase:=readval;
         ImageBaseSetExplicity:=true
-      end;
-
-    procedure tscannerfile.dir_implicitexceptions;
-      begin
-        do_moduleswitch(cs_implicit_exceptions);
       end;
 
     procedure tscannerfile.dir_includepath;
@@ -436,16 +457,6 @@ unit scandir;
             skipspace;
             current_module.localincludesearchpath.AddPath(readcomment,false);
           end;
-      end;
-
-    procedure tscannerfile.dir_info;
-      begin
-        do_message(scan_i_user_defined);
-      end;
-
-    procedure tscannerfile.dir_inline;
-      begin
-        do_localswitch(cs_do_inline);
       end;
 
     procedure tscannerfile.dir_interfaces;
@@ -465,6 +476,7 @@ unit scandir;
           Message(scan_e_invalid_interface_type);
       end;
 
+{$IFDEF old}
     procedure tscannerfile.dir_iochecks;
       begin
         do_delphiswitch('I');
@@ -474,6 +486,8 @@ unit scandir;
       begin
         {not implemented}
       end;
+{$ELSE}
+{$ENDIF}
 
     procedure tscannerfile.dir_librarypath;
       begin
@@ -593,6 +607,7 @@ unit scandir;
          current_module.linkOtherSharedLibs.add(libname,link_always);
       end;
 
+{$IFDEF old}
     procedure tscannerfile.dir_localsymbols;
       begin
         do_delphiswitch('L');
@@ -607,6 +622,8 @@ unit scandir;
       begin
         do_moduleswitch(cs_support_macro);
       end;
+{$ELSE}
+{$ENDIF}
 
     procedure tscannerfile.dir_pascalmainname;
       var
@@ -774,7 +791,7 @@ unit scandir;
           end;
       end;
 
-
+{$IFDEF old}
     procedure tscannerfile.dir_mmx;
       begin
         do_localswitch(cs_mmx);
@@ -790,6 +807,18 @@ unit scandir;
         do_setverbose('N');
       end;
 
+    procedure tscannerfile.dir_openstrings;
+      begin
+        do_delphiswitch('P');
+      end;
+
+    procedure tscannerfile.dir_overflowchecks;
+      begin
+        do_delphiswitch('Q');
+      end;
+{$ELSE}
+{$ENDIF}
+
     procedure tscannerfile.dir_objectpath;
       begin
         if not current_module.in_global then
@@ -799,11 +828,6 @@ unit scandir;
             skipspace;
             current_module.localobjectsearchpath.AddPath(readcomment,false);
           end;
-      end;
-
-    procedure tscannerfile.dir_openstrings;
-      begin
-        do_delphiswitch('P');
       end;
 
     procedure tscannerfile.dir_optimization;
@@ -824,11 +848,6 @@ unit scandir;
             if not UpdateOptimizerStr(hs,current_settings.optimizerswitches) then
               Message1(scan_e_illegal_optimization_specifier,hs);
           end;
-      end;
-
-    procedure tscannerfile.dir_overflowchecks;
-      begin
-        do_delphiswitch('Q');
       end;
 
     procedure tscannerfile.dir_packenum;
@@ -967,6 +986,7 @@ unit scandir;
       Inc(switchesstatestackpos);
     end;
 
+{$IFDEF old}
     procedure tscannerfile.dir_rangechecks;
       begin
         do_delphiswitch('R');
@@ -976,6 +996,8 @@ unit scandir;
       begin
         do_delphiswitch('Y');
       end;
+{$ELSE}
+{$ENDIF}
 
     procedure tscannerfile.dir_resource;
       var
@@ -1014,6 +1036,7 @@ unit scandir;
           Message(scan_e_resourcefiles_not_supported);
       end;
 
+{$IFDEF old}
     procedure tscannerfile.dir_saturation;
       begin
         do_localswitch(cs_mmx_saturation);
@@ -1028,6 +1051,8 @@ unit scandir;
       begin
         do_localswitch(cs_scopedenums);
       end;
+{$ELSE}
+{$ENDIF}
 
     procedure tscannerfile.dir_setpeflags;
       begin
@@ -1038,6 +1063,7 @@ unit scandir;
         SetPEFlagsSetExplicity:=true;
       end;
 
+{$IFDEF old}
     procedure tscannerfile.dir_smartlink;
       begin
         do_moduleswitch(cs_create_smart);
@@ -1052,6 +1078,8 @@ unit scandir;
       begin
         do_message(scan_f_user_defined);
       end;
+{$ELSE}
+{$ENDIF}
 
 {$ifdef powerpc}
     procedure tscannerfile.dir_syscall;
@@ -1075,6 +1103,7 @@ unit scandir;
       end;
 {$endif}
 
+{$IFDEF old}
     procedure tscannerfile.dir_typedaddress;
       begin
         do_delphiswitch('T');
@@ -1084,6 +1113,18 @@ unit scandir;
       begin
         do_delphiswitch('M');
       end;
+
+    procedure tscannerfile.dir_varpropsetter;
+      begin
+        do_localswitch(cs_varpropsetter);
+      end;
+
+    procedure tscannerfile.dir_varstringchecks;
+      begin
+        do_delphiswitch('V');
+      end;
+{$ELSE}
+{$ENDIF}
 
     procedure tscannerfile.dir_unitpath;
       begin
@@ -1095,16 +1136,6 @@ unit scandir;
               skipspace;
               AddPath(path^,readcomment,false);
             end;
-      end;
-
-    procedure tscannerfile.dir_varpropsetter;
-      begin
-        do_localswitch(cs_varpropsetter);
-      end;
-
-    procedure tscannerfile.dir_varstringchecks;
-      begin
-        do_delphiswitch('V');
       end;
 
     procedure tscannerfile.dir_version;
@@ -1271,6 +1302,7 @@ unit scandir;
           Message1(scanner_w_illegal_warn_identifier,ident);
       end;
 
+{$IFDEF old}
     procedure tscannerfile.dir_warning;
       begin
         do_message(scan_w_user_defined);
@@ -1316,6 +1348,8 @@ unit scandir;
     procedure tscannerfile.dir_weakpackageunit;
       begin
       end;
+{$ELSE}
+{$ENDIF}
 
     procedure tscannerfile.dir_codealign;
       var
@@ -1345,6 +1379,7 @@ unit scandir;
           end;
       end;
 
+{$IFDEF old}
     procedure tscannerfile.dir_coperators;
       begin
         do_moduleswitch(cs_support_c_operators);
@@ -1363,6 +1398,8 @@ unit scandir;
     procedure tscannerfile.dir_endregion;
       begin
       end;
+{$ELSE}
+{$ENDIF}
 
 
 //end.

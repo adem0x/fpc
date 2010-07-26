@@ -124,9 +124,7 @@ interface
     constructor Create; virtual;
     destructor Destroy; override;
     class procedure compile(const filename:string); //should return the compiled module?
-{$ifdef PREPROCWRITE}
     class procedure preprocess(const filename:string);
-{$endif PREPROCWRITE}
     property filename: string read ffilename;
   end;
 

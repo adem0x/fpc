@@ -242,11 +242,9 @@ begin
        WritePathList(general_t_objectpath,objectsearchpath);
 
        { Compile the program }
-  {$ifdef PREPROCWRITE}
        if parapreprocess then
         TParserBase.preprocess(inputfilepath+inputfilename)
        else
-  {$endif PREPROCWRITE}
         TParserBase.compile(inputfilepath+inputfilename);
 
        { Show statistics }

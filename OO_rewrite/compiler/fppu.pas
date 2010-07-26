@@ -1284,7 +1284,9 @@ var
     procedure tppumodule.load_usedunits;
       var
         pu           : tused_unit;
+        test: tmodule;
       begin
+        test := self;
         if current_module<>self then
          internalerror(200212284);
 
@@ -1469,9 +1471,9 @@ var
       var
         do_load,
         second_time        : boolean;
-        old_current_module : tmodule absolute from;
+        old_current_module : tmodule; // absolute from;
       begin
-        //old_current_module:=current_module;
+        old_current_module:=current_module;
         Message3(unit_u_load_unit,old_current_module.modulename^,
                  ImplIntf[old_current_module.in_interface],
                  modulename^);
@@ -1488,10 +1490,7 @@ var
         { reset }
         do_load:=true;
         second_time:=false;
-      {$IFDEF old}
         set_current_module(self);
-      {$ELSE}
-      {$ENDIF}
 
         { A force reload }
         if do_reload then
@@ -1567,13 +1566,9 @@ var
            { close old_current_ppu on system that are
              short on file handles like DOS PM }
 {$ifdef SHORT_ON_FILE_HANDLES}
-{$IFDEF old}
            if old_current_module.is_unit and
               assigned(tppumodule(old_current_module).ppufile) then
              tppumodule(old_current_module).ppufile.tempclose;
-{$ELSE}
-  //close what?
-{$ENDIF}
 {$endif SHORT_ON_FILE_HANDLES}
 
            { try to opening ppu, skip this when we already
@@ -1655,11 +1650,8 @@ var
 {$endif SHORT_ON_FILE_HANDLES}
          end;
 
-      {$IFDEF old}
         { we are back, restore current_module }
         set_current_module(old_current_module);
-      {$ELSE}
-      {$ENDIF}
       end;
 
 
