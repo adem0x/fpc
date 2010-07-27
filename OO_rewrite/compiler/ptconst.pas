@@ -27,11 +27,8 @@ interface
 
    uses symtype,symsym,aasmdata, parser_opl;
 
-    procedure read_typed_const(list:tasmlist;sym:tstaticvarsym;in_class:boolean);
-
-{ TODO : make parser an parameter of all procedures }
-var
-  pp: TOPLParser;
+    procedure read_typed_const(list:tasmlist;sym:tstaticvarsym;in_class:boolean;
+      Aparser: TOPLParser);
 
 implementation
 
@@ -50,6 +47,10 @@ implementation
        cpuinfo,cgbase,dbgbase,
        wpobase,asmutils
        ;
+
+{ TODO : make parser an parameter of all procedures }
+var
+  pp: TOPLParser;
 
 {$maxfpuregisters 0}
 
@@ -1423,12 +1424,18 @@ implementation
 
 {$maxfpuregisters default}
 
-    procedure read_typed_const(list:tasmlist;sym:tstaticvarsym;in_class:boolean);
-      var
+    procedure read_typed_const(list:tasmlist;sym:tstaticvarsym;in_class:boolean;
+      Aparser: TOPLParser);
+    var
         storefilepos : tfileposinfo;
         cursectype   : TAsmSectionType;
         hrec         : threc;
+        old_parser: TOPLParser;
       begin
+      (* Hack: preserve old pp across calls.
+      *)
+        old_parser := pp;
+        pp := Aparser;
         { mark the staticvarsym as typedconst }
         include(sym.varoptions,vo_is_typed_const);
         { The variable has a value assigned }
@@ -1489,6 +1496,7 @@ implementation
         hrec.list.free;
         list.concat(tai_symbol_end.Createname(sym.mangledname));
         current_filepos:=storefilepos;
+        pp := old_parser;
       end;
 
 end.

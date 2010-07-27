@@ -51,8 +51,8 @@ implementation
         these variables.
         Declaring it as string here results in an error when compiling (PFV) }
       current_procinfo = 'error';
-{$ENDIF}
       //TOPLParser.current_procinfo
+{$ENDIF}
 
     function TOPLParser.class_constructor_head:tprocdef;
       var

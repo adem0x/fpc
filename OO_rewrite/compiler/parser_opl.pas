@@ -88,7 +88,7 @@ uses
        testcurobject : byte;
 
         function assembler_block: tnode;
-        function block(islibrary: boolean; current_procinfo: tprocinfo) : tnode;
+        function block(islibrary: boolean) : tnode;
         function check_proc_directive(isprocvar: boolean): boolean;
         function class_constructor_head: tprocdef;
         function class_destructor_head: tprocdef;
@@ -202,12 +202,12 @@ uses
       {$IFDEF NoGlobals}
         current_debuginfo : tdebuginfo;
         current_module: tmodule;
-        current_procinfo: tprocinfo;
         //current_scanner: tscannerfile; //deprecated; - will disappear
+      //for pexpr
+        current_procinfo: tprocinfo;
       {$ELSE}
         //everything global
       {$ENDIF}
-      //for pexpr
         function comp_expr(accept_equal: boolean): tnode;
         procedure read_public_and_external(vs: tabstractvarsym);
       public
@@ -700,7 +700,11 @@ implementation
                  begin
                    if current_scanner=tscannerfile(current_module.scanner) then
                      current_scanner:=nil;
+                 {$IFDEF old}
                    tscannerfile(current_module.scanner).free;
+                 {$ELSE}
+                  //WE are the scanner!
+                 {$ENDIF}
                    current_module.scanner:=nil;
                  end;
 

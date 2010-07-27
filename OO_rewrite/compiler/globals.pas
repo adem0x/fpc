@@ -259,15 +259,15 @@ interface
        RelocSectionSetExplicitly : boolean;
        LinkTypeSetExplicitly : boolean;
 
-      {$IFnDEF new}
+      {$IFDEF NoGlobals}
       //to be moved into module or parser
+      {$ELSE}
        current_tokenpos,                  { position of the last token }
        current_filepos : tfileposinfo;    { current position }
        current_settings   : tsettings;
        pendingstate       : tpendingstate;
 
        block_type : tblock_type;         { type of currently parsed block }
-      {$ELSE}
       {$ENDIF}
 
        nwscreenname : string;

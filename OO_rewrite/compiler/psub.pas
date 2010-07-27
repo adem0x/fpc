@@ -26,14 +26,29 @@ unit psub;
 interface
 
     uses
-      cclasses,globals,
-      node,nbas, fmodule, // parser_opl,
+      cclasses,globals,globtype,
+      node,nbas, fmodule,
       symdef,procinfo,optdfa;
 
+(* This callback looks like the block parser must use a (local) procinfo,
+  of the current (local) subroutine.
+
+  The tblockparser callback should preserve the old current_procinfo.
+  Why can this not be done by the caller???
+*)
     type
+    {$IFDEF old}
       {# callback for parsing blocks}
       tblockparser = function (islibrary: boolean;
         current_procinfo: tprocinfo): tnode of object; //tcgprocinfo?
+    {$ELSE}
+      TSavedProc = record
+        old_procinfo: tprocinfo;
+        old_objectdef: tobjectdef;
+        old_blocktype: tblock_type;
+        recording: boolean; //turn token recorder on/off?
+      end;
+    {$ENDIF}
 
       tcgprocinfo = class(tprocinfo)
       private
@@ -63,14 +78,13 @@ interface
         //procedure parse_body; - moved into parser
         procedure parse_body(block: tblockparser);
       {$ELSE}
-        procedure parse_body_init;
-        procedure parse_body_done;
+        procedure parse_body_init(var saved: TSavedProc); //save current_procdef...
+        procedure parse_body_done(const saved: TSavedProc); //restore...
       {$ENDIF}
 
         function stack_tainting_parameter : boolean;
         function has_assembler_child : boolean;
       end;
-
 
     procedure printnode_reset;
 {$IFDEF old}
@@ -92,7 +106,7 @@ implementation
        { common }
        cutils,
        { global }
-       globtype,tokens,verbose,comphook,constexp,
+       tokens,verbose,comphook,constexp,
        systems,
        { aasm }
        cpuinfo,cpubase,aasmbase,aasmtai,aasmdata,
@@ -1335,24 +1349,23 @@ implementation
 
       //procedure tcgprocinfo.parse_body;
       //procedure tcgprocinfo.parse_body(block: tblockparser);
-      procedure tcgprocinfo.parse_body_init;
+      procedure tcgprocinfo.parse_body_init(var saved: TSavedProc);
+      (* The current procinfo must be saved here (init),
+        and restored later (done).
+      *)
       {$IFDEF old}
         var
+           st : TSymtable;
            old_current_procinfo : tprocinfo;
            old_block_type : tblock_type;
-           st : TSymtable;
            old_current_objectdef : tobjectdef;
       {$ELSE}
+        //in saved
       {$ENDIF}
       begin
-        {$IFDEF old}
-         old_current_procinfo:=current_procinfo;
-         old_block_type:=block_type;
-         old_current_objectdef:=current_objectdef;
-        {$ELSE}
-        //no more globals
-        //also remove following
-        {$ENDIF}
+         saved.old_procinfo:=current_procinfo;
+         saved.old_blocktype:=block_type;
+         saved.old_objectdef:=current_objectdef;
          current_procinfo:=self;
          current_objectdef:=procdef._class;
 
@@ -1376,6 +1389,7 @@ implementation
          entrypos:=current_filepos;
          entryswitches:=current_settings.localswitches;
 
+         saved.recording := (df_generic in procdef.defoptions);
          if (df_generic in procdef.defoptions) then
            begin
              { start token recorder for generic template }
@@ -1390,12 +1404,12 @@ implementation
 
 {$IFDEF old}
          { parse the code ... }
-         code:=block(current_module.islibrary, self);
+         code:=block(current_module.islibrary);
 {$ELSE}
   //in parser
 {$ENDIF}
 
-      procedure tcgprocinfo.parse_body_done;
+      procedure tcgprocinfo.parse_body_done(const saved: TSavedProc);
       var
            st : TSymtable;
       begin
@@ -1478,15 +1492,14 @@ implementation
 {    aktstate.destroy;}
     {$endif state_tracking}
 
-        {$IFDEF old}
-         current_objectdef:=old_current_objectdef;
-         current_procinfo:=old_current_procinfo;
-
+    {$IFnDEF old}
          { Restore old state }
-         block_type:=old_block_type;
-        {$ELSE}
-        //no more globals
-        {$ENDIF}
+         current_objectdef:=saved.old_objectdef;
+         current_procinfo:=saved.old_procinfo;
+         block_type:=saved.old_blocktype;
+    {$ELSE}
+      //this can be done by the caller
+    {$ENDIF}
       end;
 
 

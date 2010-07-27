@@ -26,11 +26,11 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="-MObjFPC -O1 -g -gl -vei -Se50 -l ../systems.pas"/>
+        <CommandLineParams Value="-MObjFPC -O1 -g -gl -vei -Se50 -l ../testconst.pas"/>
         <LaunchingApplication PathPlusParams="\usr\bin\xterm -T 'Lazarus Run Output' -e $(LazarusDir)\tools\runwait.sh $(TargetCmdLine)"/>
       </local>
     </RunParams>
-    <Units Count="4">
+    <Units Count="5">
       <Unit0>
         <Filename Value="pp.pas"/>
         <IsPartOfProject Value="True"/>
@@ -49,6 +49,11 @@
         <Filename Value="procdef.inc"/>
         <IsPartOfProject Value="True"/>
       </Unit3>
+      <Unit4>
+        <Filename Value="testconst.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="testconst"/>
+      </Unit4>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
