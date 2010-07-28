@@ -2333,7 +2333,7 @@ const
         if pointer(proc_direcdata[p].handler)<>nil then
           proc_direcdata[p].handler(pd);
       {$ELSE}
-        case idtoken of
+        case proc_direcdata[p].idtok of
         _ABSTRACT:    pd_abstract;
         _ALIAS:       pd_alias;
         _ASMNAME:     pd_asmname;

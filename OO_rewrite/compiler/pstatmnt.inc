@@ -80,12 +80,12 @@ implementation
          ex:=comp_expr(true);
          consume(_THEN);
          if token<>_ELSE then
-           if_a:=statement
+           if_a:=statement()
          else
            if_a:=nil;
 
          if try_to_consume(_ELSE) then
-            else_a:=statement
+            else_a:=statement()
          else
            else_a:=nil;
          result:=cifnode.create(ex,if_a,else_a);
@@ -103,12 +103,12 @@ implementation
            begin
               if first=nil then
                 begin
-                   last:=cstatementnode.create(statement,nil);
+                   last:=cstatementnode.create(statement(),nil);
                    first:=last;
                 end
               else
                 begin
-                   last.right:=cstatementnode.create(statement,nil);
+                   last.right:=cstatementnode.create(statement(),nil);
                    last:=tstatementnode(last.right);
                 end;
               if not try_to_consume(_SEMICOLON) then
@@ -124,6 +124,7 @@ implementation
       var
          casedef : tdef;
          caseexpr,p : tnode;
+         stmt : tnode;  //debug only
          blockid : longint;
          hl1,hl2 : TConstExprInt;
          sl1,sl2 : tstringconstnode;
@@ -248,15 +249,19 @@ implementation
              sl1.free;
              sl2.free;
 
+        {$IFDEF old}
              if token=_COMMA then
                consume(_COMMA)
              else
                break;
            until false;
+        {$ELSE}
+          until not try_to_consume(_COMMA);
+        {$ENDIF}
            consume(_COLON);
 
            { add instruction block }
-           casenode.addblock(blockid,statement);
+           casenode.addblock(blockid,statement());
 
            { next block }
            inc(blockid);
@@ -269,7 +274,7 @@ implementation
            begin
               if not try_to_consume(_ELSE) then
                 consume(_OTHERWISE);
-              casenode.addelseblock(statements_til_end);
+              casenode.addelseblock(statements_til_end());
            end
          else
            consume(_END);
@@ -291,12 +296,12 @@ implementation
            begin
               if first=nil then
                 begin
-                   last:=cstatementnode.create(statement,nil);
+                   last:=cstatementnode.create(statement(),nil);
                    first:=last;
                 end
               else
                 begin
-                   tstatementnode(last).right:=cstatementnode.create(statement,nil);
+                   tstatementnode(last).right:=cstatementnode.create(statement(),nil);
                    last:=tstatementnode(last).right;
                 end;
               if not try_to_consume(_SEMICOLON) then
@@ -320,7 +325,7 @@ implementation
          consume(_WHILE);
          p_e:=comp_expr(true);
          consume(_DO);
-         p_a:=statement;
+         p_a:=statement();
          result:=cwhilerepeatnode.create(p_e,p_a,true,false);
       end;
 
@@ -472,7 +477,7 @@ implementation
              set_varstate(hloopvar,vs_read,[vsf_must_be_valid]);
 
              { ... now the instruction block }
-             hblock:=statement;
+             hblock:=statement();
 
              { variable is not used for loop counter anymore }
              if assigned(loopvarsym) then
@@ -493,7 +498,7 @@ implementation
               set_varstate(hloopvar,vs_written,[]);
               set_varstate(hloopvar,vs_read,[vsf_must_be_valid]);
 
-              result:=create_for_in_loop(hloopvar,statement,expr);
+              result:=create_for_in_loop(hloopvar,statement(),expr);
 
               expr.free;
             end;
@@ -676,7 +681,7 @@ implementation
               begin
                 consume(_DO);
                 if token<>_SEMICOLON then
-                  p:=statement
+                  p:=statement()
                 else
                   p:=cnothingnode.create;
               end;
@@ -715,7 +720,7 @@ implementation
                consume(_DO);
                { ignore all }
                if token<>_SEMICOLON then
-                hp := statement;  //illegal expression?
+                hp := statement();  //illegal expression?
              end;
             result:=nil;
           end;
@@ -787,12 +792,12 @@ implementation
            begin
               if first=nil then
                 begin
-                   last:=cstatementnode.create(statement,nil);
+                   last:=cstatementnode.create(statement(),nil);
                    first:=last;
                 end
               else
                 begin
-                   tstatementnode(last).right:=cstatementnode.create(statement,nil);
+                   tstatementnode(last).right:=cstatementnode.create(statement(),nil);
                    last:=tstatementnode(last).right;
                 end;
               if not try_to_consume(_SEMICOLON) then
@@ -805,7 +810,7 @@ implementation
            begin
               inc(exceptblockcounter);
               current_exceptblock := exceptblockcounter;
-              p_finally_block:=statements_til_end;
+              p_finally_block:=statements_til_end();
               try_statement:=ctryfinallynode.create(p_try_block,p_finally_block);
            end
          else
@@ -892,7 +897,7 @@ implementation
                      else
                        consume(_ID);
                      consume(_DO);
-                     hp:=connode.create(nil,statement);
+                     hp:=connode.create(nil,statement());
                      if ot.typ=errordef then
                        begin
                           hp.free;
@@ -930,7 +935,7 @@ implementation
                    if try_to_consume(_ELSE) then
                      begin
                        { catch the other exceptions }
-                       p_default:=statements_til_end;
+                       p_default:=statements_til_end();
                      end
                    else
                      consume(_END);
@@ -938,7 +943,7 @@ implementation
               else
                 begin
                    { catch all exceptions }
-                   p_default:=statements_til_end;
+                   p_default:=statements_til_end();
                 end;
 
               block_type:=old_block_type;
@@ -1005,7 +1010,7 @@ implementation
            _BEGIN :
              code:=statement_block(_BEGIN);
            _IF :
-             code:=if_statement;
+             code:=if_statement();
            _CASE :
              code:=case_statement;
            _REPEAT :
@@ -1080,7 +1085,7 @@ implementation
                  if token in endtokens then
                    tlabelnode(p).left:=cnothingnode.create
                  else
-                   tlabelnode(p).left:=statement();
+                   tlabelnode(p).left:=statement; //()???
                  { be sure to have left also typecheckpass }
                  typecheckpass(tlabelnode(p).left);
                end

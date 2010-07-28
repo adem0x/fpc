@@ -33,10 +33,8 @@ unit pbase;
 interface
 
     uses
-       cutils,cclasses,
-       tokens,globtype,globals,
-       symconst,symbase,symtype,symdef,symsym,symtable
-      ,scanner
+       cclasses,
+       tokens,globtype,globals,symdef,scanner
        ;
 
     const
@@ -55,10 +53,11 @@ interface
     TParserBase = class //(tscannerfile)
   {$ENDIF}
     public  //really?
-    {$IFDEF NoGlobals}
-     current_scanner : tscannerfile;  { current scanner in use }
+   {$IFDEF NoGlobals}
+      current_debuginfo : tdebuginfo;
+      current_scanner : tscannerfile;  { current scanner in use }
      //current_module: tmodule; //circular reference!
-     current_settings: tsettings;
+      current_settings: tsettings;
     {$ELSE}
     {$ENDIF}
 
@@ -88,6 +87,15 @@ interface
 
      { true, if we are parsing generic declaration }
      parse_generic : boolean;
+
+  {$IFDEF NoGlobals}
+    current_module: tmodule;
+    //current_scanner: tscannerfile; //deprecated; - will disappear
+  //for pexpr
+    current_procinfo: tprocinfo;
+  {$ELSE}
+    //everything global
+  {$ENDIF}
 
 {$IF scanner_based}
   //everything inherited
@@ -134,8 +142,6 @@ interface
 implementation
 
     uses
-       //globals,
-      htypechk,//scanner,
       systems,verbose,fmodule,
       aasmdata, //current_asmdata
       procinfo, //current_procinfo

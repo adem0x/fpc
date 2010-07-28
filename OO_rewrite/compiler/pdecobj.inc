@@ -115,56 +115,61 @@ implementation
         p : tpropertysym;
       begin
         { check for a class }
-        if not((is_class_or_interface_or_dispinterface(current_objectdef)) or
-           (not(m_tp7 in current_settings.modeswitches) and (is_object(current_objectdef)))) then
+        if is_classproperty
+           and not( (is_class_or_interface_or_dispinterface(current_objectdef))
+                  or (  not(m_tp7 in current_settings.modeswitches)
+                        and (is_object(current_objectdef)) )
+        ) then
           Message(parser_e_syntax_error);
         consume(_PROPERTY);
-        p:=read_property_dec(is_classproperty, current_objectdef);
-        consume(_SEMICOLON);
-        if try_to_consume(_DEFAULT) then
-          begin
-            if oo_has_default_property in current_objectdef.objectoptions then
-              message(parser_e_only_one_default_property);
-            include(current_objectdef.objectoptions,oo_has_default_property);
-            include(p.propoptions,ppo_defaultproperty);
-            if not(ppo_hasparameters in p.propoptions) then
-              message(parser_e_property_need_paras);
-            if (token=_COLON) then
-              begin
-                Message(parser_e_field_not_allowed_here);
-                consume_all_until(_SEMICOLON);
-              end;
-            consume(_SEMICOLON);
-          end;
-        { parse possible enumerator modifier }
-        if try_to_consume(_ENUMERATOR) then
-          begin
-            if (token = _ID) then
+        while token = _ID do begin
+          p:=read_property_dec(is_classproperty, current_objectdef);
+          consume(_SEMICOLON);
+          if try_to_consume(_DEFAULT) then
             begin
-              if pattern='CURRENT' then
-              begin
-                if oo_has_enumerator_current in current_objectdef.objectoptions then
-                  message(parser_e_only_one_enumerator_current);
-                if not p.propaccesslist[palt_read].empty then
+              if oo_has_default_property in current_objectdef.objectoptions then
+                message(parser_e_only_one_default_property);
+              include(current_objectdef.objectoptions,oo_has_default_property);
+              include(p.propoptions,ppo_defaultproperty);
+              if not(ppo_hasparameters in p.propoptions) then
+                message(parser_e_property_need_paras);
+              if (token=_COLON) then
                 begin
-                  include(current_objectdef.objectoptions,oo_has_enumerator_current);
-                  include(p.propoptions,ppo_enumerator_current);
+                  Message(parser_e_field_not_allowed_here);
+                  consume_all_until(_SEMICOLON);
+                end;
+              consume(_SEMICOLON);
+            end;
+          { parse possible enumerator modifier }
+          if try_to_consume(_ENUMERATOR) then
+            begin
+              if (token = _ID) then
+              begin
+                if pattern='CURRENT' then
+                begin
+                  if oo_has_enumerator_current in current_objectdef.objectoptions then
+                    message(parser_e_only_one_enumerator_current);
+                  if not p.propaccesslist[palt_read].empty then
+                  begin
+                    include(current_objectdef.objectoptions,oo_has_enumerator_current);
+                    include(p.propoptions,ppo_enumerator_current);
+                  end
+                  else
+                    Message(parser_e_enumerator_current_is_not_valid) // property has no reader
                 end
                 else
-                  Message(parser_e_enumerator_current_is_not_valid) // property has no reader
+                  Message1(parser_e_invalid_enumerator_identifier, pattern);
+                consume(token);
               end
               else
-                Message1(parser_e_invalid_enumerator_identifier, pattern);
-              consume(token);
-            end
-            else
-              Message(parser_e_enumerator_identifier_required);
-            consume(_SEMICOLON);
-          end;
-        { hint directives, these can be separated by semicolons here,
-          that needs to be handled here with a loop (PFV) }
-        while try_consume_hintdirective(p.symoptions,p.deprecatedmsg) do
-          Consume(_SEMICOLON);
+                Message(parser_e_enumerator_identifier_required);
+              consume(_SEMICOLON);
+            end;
+          { hint directives, these can be separated by semicolons here,
+            that needs to be handled here with a loop (PFV) }
+          while try_consume_hintdirective(p.symoptions,p.deprecatedmsg) do
+            Consume(_SEMICOLON);
+        end;
       end;
 
 

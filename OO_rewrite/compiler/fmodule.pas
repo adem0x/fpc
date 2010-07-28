@@ -47,7 +47,8 @@ interface
        symbase,symsym,
        wpobase,
        aasmbase,aasmtai,aasmdata
-      //,pbase
+     //test further modules (not required)
+      ,pbase,globals
       ;
 
 
@@ -247,7 +248,7 @@ interface
 implementation
 
     uses
-      SysUtils,globals,
+      SysUtils, //globals,
       verbose,systems,
       scanner,ppu,dbgbase,
       procinfo,symdef;

@@ -319,9 +319,11 @@ implementation
          storedprocdef,
          readprocdef,
          writeprocdef : tprocvardef;
-      begin
+      begin //read_property_dec
          { Generate temp procvardefs to search for matching read/write
-           procedures. the readprocdef will store all definitions }
+           procedures.
+          [no more: the readprocdef will store all definitions]
+        }
          paranr:=0;
          readprocdef:=tprocvardef.create(normal_function_level);
          writeprocdef:=tprocvardef.create(normal_function_level);
@@ -340,7 +342,7 @@ implementation
 
          if token<>_ID then
            begin
-              consume(_ID);
+              consume(_ID); //force error
               consume(_SEMICOLON);
               exit;
            end;
@@ -351,7 +353,7 @@ implementation
          if is_classproperty then
            include(p.symoptions, sp_static);
          symtablestack.top.insert(p);
-         consume(_ID);
+         consume(_ID);  //the property name
          { property parameters ? }
          if try_to_consume(_LECKKLAMMER) then
            begin
@@ -414,12 +416,12 @@ implementation
               if paranr>0 then
                 include(p.propoptions,ppo_hasparameters);
            end;
-         { overriden property ?                                 }
-         { force property interface
+         { overridden property ?                                 }
+         { force property interface if either
              there is a property parameter
-             a global property }
+             it is a global property }
          if (token=_COLON) or (paranr>0) or (aclass=nil) then
-           begin
+           begin //cannot be override
               consume(_COLON);
               single_type(p.propdef,false,false);
               if (idtoken=_INDEX) then
@@ -453,8 +455,8 @@ implementation
                 end;
            end
          else
-           begin
-              { do an property override }
+           begin  //override class/interface property
+              { do an property (visibility) override }
               overriden:=search_class_member(aclass.childof,p.name);
               if assigned(overriden) and
                  (overriden.typ=propertysym) and

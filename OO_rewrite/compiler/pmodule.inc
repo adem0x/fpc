@@ -1259,7 +1259,7 @@ implementation
 {$ifdef debug_devirt}
          i: longint;
 {$endif debug_devirt}
-      begin
+      begin //proc_unit
          init_procinfo:=nil;
          finalize_procinfo:=nil;
 

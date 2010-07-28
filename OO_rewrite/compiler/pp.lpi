@@ -26,7 +26,7 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="-MObjFPC -O1 -g -gl -vei -Se50 -l ../testconst.pas"/>
+        <CommandLineParams Value="-MObjFPC -O1 -g -gl -veit -Se50 -l testprop.pp"/>
         <LaunchingApplication PathPlusParams="\usr\bin\xterm -T 'Lazarus Run Output' -e $(LazarusDir)\tools\runwait.sh $(TargetCmdLine)"/>
       </local>
     </RunParams>
