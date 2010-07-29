@@ -171,7 +171,7 @@ uses
     catch,
   {$endif}
 {$endif NOCATCH}
-  globals,compiler, testconst;
+  globals,compiler;
 
 var
   oldexit : pointer;

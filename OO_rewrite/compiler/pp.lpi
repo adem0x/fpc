@@ -30,7 +30,7 @@
         <LaunchingApplication PathPlusParams="\usr\bin\xterm -T 'Lazarus Run Output' -e $(LazarusDir)\tools\runwait.sh $(TargetCmdLine)"/>
       </local>
     </RunParams>
-    <Units Count="5">
+    <Units Count="2">
       <Unit0>
         <Filename Value="pp.pas"/>
         <IsPartOfProject Value="True"/>
@@ -41,19 +41,6 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="aasmcpu"/>
       </Unit1>
-      <Unit2>
-        <Filename Value="psub.inc"/>
-        <IsPartOfProject Value="True"/>
-      </Unit2>
-      <Unit3>
-        <Filename Value="procdef.inc"/>
-        <IsPartOfProject Value="True"/>
-      </Unit3>
-      <Unit4>
-        <Filename Value="testconst.pas"/>
-        <IsPartOfProject Value="True"/>
-        <UnitName Value="testconst"/>
-      </Unit4>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

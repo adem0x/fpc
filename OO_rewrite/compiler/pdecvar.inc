@@ -225,7 +225,7 @@ implementation
              end;
           end;
 
-          function allow_default_property(p : tpropertysym) : boolean;
+        function allow_default_property(p : tpropertysym) : boolean;
 
           begin
              allow_default_property:=
@@ -245,7 +245,7 @@ implementation
                (ppo_hasparameters in p.propoptions);
           end;
 
-          procedure parse_dispinterface(p : tpropertysym);
+        procedure parse_dispinterface(p : tpropertysym);
             var
               {procsym: tprocsym;
               procdef: tprocdef;
@@ -286,7 +286,7 @@ implementation
                 p.dispid:=aclass.get_next_dispid;
             end;
 
-          procedure add_index_parameter(var paranr: word; p: tpropertysym; readprocdef, writeprocdef, storedprocdef: tprocvardef);
+        procedure add_index_parameter(var paranr: word; p: tpropertysym; readprocdef, writeprocdef, storedprocdef: tprocvardef);
             var
               hparavs: tparavarsym;
             begin

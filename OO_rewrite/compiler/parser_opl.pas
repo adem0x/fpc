@@ -157,7 +157,10 @@ uses
         procedure proc_program(islibrary: boolean);
         procedure proc_set_mangledname(pd: tprocdef);
         procedure proc_unit;
-        procedure property_dec(is_classproperty: boolean);
+
+        procedure property_dec; //(is_classproperty: boolean);
+        procedure property_dec_obj(is_classproperty: boolean);
+
         function readconstant(const orgname: string; const filepos: tfileposinfo
           ): tconstsym;
         procedure readImplementedInterfacesAndProtocols(intf: boolean);

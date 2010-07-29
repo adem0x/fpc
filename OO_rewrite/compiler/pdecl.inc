@@ -377,7 +377,7 @@ implementation
         end;
 
 
-        function parse_generic_parameters:TFPObjectList;
+      function parse_generic_parameters:TFPObjectList;
         var
           generictype : ttypesym;
         begin
@@ -667,25 +667,30 @@ implementation
         read_var_decls([]);
       end;
 
-{$IFDEF old}
-{ TODO : this version of property_dec seems to be unused??? }
-    procedure TOPLParser.property_dec(is_classpropery: boolean);
+
+//name conflict with pdecobj.inc!!!
+    procedure TOPLParser.property_dec;  //(is_classproperty: boolean);
       var
          old_block_type : tblock_type;
+      const
+        is_classproperty = False; //no class properties outside class declarations
       begin
+      (* name conflict with pdecobj.inc!!!
+        This is the (new) unit syntax version.
+
+        Why must block_type be preserved???
+      *)
          consume(_PROPERTY);
          if not(symtablestack.top.symtabletype in [staticsymtable,globalsymtable]) then
            message(parser_e_resourcestring_only_sg);
          old_block_type:=block_type;
          block_type:=bt_const;
          repeat
-           read_property_dec(is_classpropery, nil);
+           read_property_dec(is_classproperty, nil);
            consume(_SEMICOLON);
          until token<>_ID;
-         block_type:=old_block_type;
+         block_type:=old_block_type;  //???why that???
       end;
-{$ELSE}
-{$ENDIF}
 
 
     procedure TOPLParser.threadvar_dec;
