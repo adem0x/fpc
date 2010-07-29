@@ -83,6 +83,7 @@ interface
         procedure write_used_unit_type_info(list:TAsmList;hp:tmodule);
       public
         constructor Create;virtual;
+        destructor Destroy; override;
         procedure inserttypeinfo;virtual;
         procedure insertmoduleinfo;virtual;
         procedure insertlineinfo(list:TAsmList);virtual;
@@ -109,6 +110,16 @@ implementation
     constructor TDebugInfo.Create;
       begin
       end;
+
+    destructor TDebugInfo.Destroy;
+var
+  p: PtrUInt;
+begin
+  //p := Self;
+  //WriteLn('---destroy TDebugInfo @$', HexStr(integer(p),sizeof(p)*2));
+  WriteLn('---destroy TDebugInfo @$', PtrUInt(self));
+  inherited Destroy;
+end;
 
 
     procedure TDebugInfo.insertmoduleinfo;
