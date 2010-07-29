@@ -1085,7 +1085,7 @@ implementation
                  if token in endtokens then
                    tlabelnode(p).left:=cnothingnode.create
                  else
-                   tlabelnode(p).left:=statement; //()???
+                   tlabelnode(p).left:=statement();
                  { be sure to have left also typecheckpass }
                  typecheckpass(tlabelnode(p).left);
                end
@@ -1155,12 +1155,12 @@ implementation
            begin
               if first=nil then
                 begin
-                   last:=cstatementnode.create(statement,nil);
+                   last:=cstatementnode.create(statement(),nil);
                    first:=last;
                 end
               else
                 begin
-                   tstatementnode(last).right:=cstatementnode.create(statement,nil);
+                   tstatementnode(last).right:=cstatementnode.create(statement(),nil);
                    last:=tstatementnode(last).right;
                 end;
               if (token in [_END,_FINALIZATION]) then
