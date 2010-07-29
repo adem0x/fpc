@@ -93,12 +93,21 @@ interface
 
     var
       CDebugInfo : array[tdbg] of TDebugInfoClass;
-      current_debuginfo : tdebuginfo; { TODO : move into parser class }
+      _current_debuginfo : tdebuginfo; { TODO : move into parser class }
 
     procedure InitDebugInfo(hp:tmodule);
     procedure DoneDebugInfo(hp:tmodule);
     procedure RegisterDebugInfo(const r:tdbginfo;c:TDebugInfoClass);
 
+    function  GetCurrentDebugInfo: TDebugInfo;
+    procedure SetCurrentDebugInfo(dbginfo: TDebugInfo);
+
+(* todo: check
+  "property" not in VAR section (becomes var name!)
+  read: only procedure?
+*)
+//property current_debuginfo : tdebuginfo read _current_debuginfo write SetCurrentDebugInfo;
+property current_debuginfo : tdebuginfo read GetCurrentDebugInfo write SetCurrentDebugInfo;
 
 implementation
 
@@ -109,15 +118,18 @@ implementation
 
     constructor TDebugInfo.Create;
       begin
+        WriteLn('+++ create TDebugInfo @ $', HexStr(PtrUInt(Self),sizeof(pointer)*2));
       end;
 
-    destructor TDebugInfo.Destroy;
-var
-  p: PtrUInt;
+destructor TDebugInfo.Destroy;
 begin
-  //p := Self;
-  //WriteLn('---destroy TDebugInfo @$', HexStr(integer(p),sizeof(p)*2));
-  WriteLn('---destroy TDebugInfo @$', PtrUInt(self));
+  WriteLn('---destroy TDebugInfo @ $', HexStr(PtrUInt(Self),sizeof(pointer)*2));
+{$IFDEF NoGlobals}
+  references are where?
+{$ELSE}
+  if current_debuginfo = self then
+    current_debuginfo := nil;
+{$ENDIF}
   inherited Destroy;
 end;
 
@@ -595,12 +607,13 @@ end;
             exit;
           end;
         hp.DebugInfo:=CDebugInfo[target_dbg.id].Create;
+        { TODO : set current_debuginfo? }
       end;
 
 
     procedure DoneDebugInfo(hp:tmodule);
       begin
-        if assigned(hp.DebugInfo) then
+        if assigned(TDebugInfo(hp.DebugInfo)) then
           begin
             hp.DebugInfo.Free;
             hp.DebugInfo:=nil;
@@ -621,6 +634,19 @@ end;
         CDebugInfo[t]:=c;
       end;
 
+    function  GetCurrentDebugInfo: TDebugInfo;
+    begin
+      result := _current_debuginfo;
+    end;
+
+    procedure SetCurrentDebugInfo(dbginfo: TDebugInfo);
+    begin
+      _current_debuginfo := dbginfo;
+      if dbginfo = nil then
+        WriteLn('---current_debuginfo')
+      else
+        WriteLn('+++current_debuginfo $', hexStr(pointer(dbginfo)));
+    end;
 
     const
       dbg_none_info : tdbginfo =

@@ -580,15 +580,19 @@ implementation
     var
         hpi : tprocinfo;
     begin
-        FreeAndNil(scanner);
-        FreeAndNil(asmdata);
+    (* Free Scanner, Procinfo, Asmdata...
+      all current_xyz references to destroyed objects are nil'ed
+    *)
+        FreeAndNil(tscannerfile(scanner));
+        scanner := nil;
         while assigned(procinfo) do begin
           hpi := tprocinfo(procinfo);
           procinfo := hpi.parent;
           hpi.Free;
         end;
+        FreeAndNil(TAsmData(asmdata));
         DoneDebugInfo(self);
-        FreeAndNil(globalsymtable);
+        FreeAndNil(TSymtable(globalsymtable));
         FreeAndNil(localsymtable);
         FreeAndNil(globalmacrosymtable);
         FreeAndNil(localmacrosymtable);
@@ -663,6 +667,7 @@ implementation
         i   : longint;
       begin
         FreeSPA;
+      { TODO : re-use already existing objects }
         deflist.free;
         deflist:=TFPObjectList.Create(false);
         symlist.free;
@@ -691,6 +696,8 @@ implementation
         sourcefiles:=tinputfilemanager.create;
         asmdata:=TAsmData.create(realmodulename^);
         InitDebugInfo(self);
+        //set current_debuginfo??? (normally set in set_current_module, but not here!)
+        current_debuginfo := TDebugInfo(self.debuginfo);
         _exports.free;
         _exports:=tlinkedlist.create;
         dllscannerinputlist.free;

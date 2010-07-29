@@ -162,18 +162,6 @@ interface
          function try_to_consume(i: Ttoken): boolean;
        {$ENDIF}
 
-       {$IFDEF old}
-         procedure dir_define;
-         procedure dir_if;
-         procedure dir_ifdef;
-         procedure dir_ifndef;
-         procedure dir_else;
-         procedure dir_elseif;
-         procedure dir_endif;
-         procedure dir_definec;
-       {$ELSE}
-        //use method with params
-       {$ENDIF}
          procedure dir_define_impl(macstyle: boolean);
          procedure dir_extension;
          procedure dir_ifopt;
@@ -188,43 +176,6 @@ interface
          function opt_check(var valuedescr: String): Boolean;
          function parse_compiler_expr(var compileExprType: TCTETypeSet): string;
        private
-       {$IFDEF old}
-         procedure dir_a1;
-         procedure dir_a2;
-         procedure dir_a4;
-         procedure dir_a8;
-         procedure dir_assertions;
-         procedure dir_booleval;
-         procedure dir_bitpacking;
-         procedure dir_checkpointer;
-         procedure dir_coperators;
-         procedure dir_debuginfo;
-         procedure dir_endregion;
-         procedure dir_error;
-         procedure dir_extendedsyntax;
-         procedure dir_externalsym;
-         procedure dir_fatal;
-         procedure dir_goto;
-         procedure dir_hint;
-         procedure dir_hints;
-         procedure dir_hppemit;
-         procedure dir_iochecks;
-         procedure dir_implicitexceptions;
-         procedure dir_info;
-         procedure dir_inline;
-         procedure dir_libexport;
-         procedure dir_localsymbols;
-         procedure dir_longstrings;
-         procedure dir_macro;
-         procedure dir_mmx;
-         procedure dir_nodefine;
-         procedure dir_note;
-         procedure dir_notes;
-         procedure dir_objectchecks;
-         procedure dir_openstrings;
-         procedure dir_overflowchecks;
-       {$ELSE}
-       {$ENDIF}
          procedure dir_align;
          procedure dir_apptype;
          procedure dir_asmmode;
@@ -260,29 +211,6 @@ interface
          procedure dir_pop;
          procedure dir_profile;
          procedure dir_push;
-       {$IFDEF old}
-         procedure dir_rangechecks;
-         procedure dir_referenceinfo;
-         procedure dir_region;
-         procedure dir_safefpuexceptions;
-         procedure dir_saturation;
-         procedure dir_scopedenums;
-         procedure dir_smartlink;
-         procedure dir_stackframes;
-         procedure dir_stop;
-         procedure dir_typedaddress;
-         procedure dir_typeinfo;
-         procedure dir_varpropsetter;
-         procedure dir_varstringchecks;
-         procedure dir_warning;
-         procedure dir_warnings;
-         procedure dir_weakpackageunit;
-         procedure dir_writeableconst;
-         procedure dir_z1;
-         procedure dir_z2;
-         procedure dir_z4;
-       {$ELSE}
-       {$ENDIF}
          procedure dir_resource;
          procedure dir_screenname;
          procedure dir_setpeflags;
@@ -2152,6 +2080,12 @@ In case not, the value returned can be arbitrary.
 
     destructor tscannerfile.destroy;
       begin
+      {$IFDEF NoGlobals}
+        references are where?
+      {$ELSE}
+        if current_scanner = self then
+          current_scanner := nil;
+      {$ENDIF}
         if assigned(current_module) and
            (current_module.state=ms_compiled) and
            (status.errorcount=0) then

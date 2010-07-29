@@ -239,6 +239,7 @@ implementation
         SymList.Free;
         stringdispose(name);
         stringdispose(realname);
+        //any current_??? reference to clear?
       end;
 
 

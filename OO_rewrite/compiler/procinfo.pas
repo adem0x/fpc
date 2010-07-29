@@ -172,6 +172,14 @@ implementation
       begin
          aktproccode.free;
          aktlocaldata.free;
+      {$IFDEF NoGlobals}
+        references are where?
+      {$ELSE}
+        if current_procinfo = self then begin
+          current_procinfo := nil;
+          current_objectdef := nil; //free where?
+        end;
+      {$ENDIF}
       end;
 
 

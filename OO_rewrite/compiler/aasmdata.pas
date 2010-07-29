@@ -345,6 +345,13 @@ implementation
         hal : TAsmListType;
         hp  : TConstPoolType;
       begin
+      {$IFDEF NoGlobals}
+        references are where?
+      {$ELSE}
+        if current_asmdata = self then
+          current_asmdata := nil;
+      {$ENDIF}
+
         { Symbols }
 {$ifdef MEMDEBUG}
         memasmsymbols.start;
