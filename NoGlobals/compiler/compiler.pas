@@ -246,7 +246,7 @@ begin
         parser.preprocess(inputfilepath+inputfilename)
        else
   {$endif PREPROCWRITE}
-        parser.compile(inputfilepath+inputfilename);
+        parser.compileMain(inputfilepath+inputfilename);
 
        { Show statistics }
        if status.errorcount=0 then

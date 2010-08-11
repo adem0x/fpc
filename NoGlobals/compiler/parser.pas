@@ -32,6 +32,7 @@ uses
       procedure preprocess(const filename:string);
   {$endif PREPROCWRITE}
       procedure compile(const filename:string);
+      procedure compileMain(const filename:string);
       procedure initparser;
       procedure doneparser;
 
@@ -398,31 +399,9 @@ implementation
 
 
     procedure NewParser(const filename:string);
-      var
-         p: TParser;
       begin
         parser_current_file:=filename;
-        p := TParser.Compile(filename); //factory request
-        inc(compile_level);
-       { reset the unit or create a new program }
-         { a unit compiled at command line must be inside the loaded_unit list }
-         if (compile_level=1) then
-           begin  //compile main module
-             if assigned(current_module) then
-               internalerror(200501158);
-             main_module := tppumodule.create(nil,filename,'',false);
-             main_module.scanner := p;
-             PushModule(main_module); //also activate scanner
-             addloadedunit(current_module);
-             current_module.state:=ms_compile;
-           end
-         else
-           begin
-             if not(assigned(current_module) and
-                  (current_module.state in [ms_compile,ms_second_compile])) then
-               internalerror(200212281);
-             current_module.scanner:=p; //current_scanner; //if not main unit
-           end;
+        current_module.scanner:=TParser.Compile(filename); //factory request
 
        { reset parser, a previous fatal error could have left these variables in an unreliable state, this is
          important for the IDE }
@@ -495,6 +474,13 @@ implementation
            internalerror(200811122);
 
         SaveParser(olddata);
+
+        inc(compile_level);
+       { reset the unit or create a new program }
+             if not(assigned(current_module) and
+                  (current_module.state in [ms_compile,ms_second_compile])) then
+               internalerror(200212281);
+
         NewParser(filename);
         try
           Parse;
@@ -502,5 +488,17 @@ implementation
           ParseFinished(olddata);
         end;
       end;
+
+      procedure compileMain(const filename:string);
+       begin  //compile main module
+         if assigned(current_module) then
+           internalerror(200501158);
+         main_module := tppumodule.create(nil,filename,'',false);
+         PushModule(main_module);
+         { a unit compiled at command line must be inside the loaded_unit list }
+         addloadedunit(main_module);
+         main_module.state:=ms_compile;
+         compile(filename);
+       end;
 
 end.
