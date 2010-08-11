@@ -208,6 +208,9 @@ interface
          NameMappings : TFPHashList;
          ProcDefs     : TFPObjectList;
          ImplementsGetter :  tsym;
+       private
+          isClone: boolean;
+       public
          constructor create(aintf: tobjectdef);
          constructor create_deref(d:tderef);
          destructor  destroy; override;
@@ -5051,6 +5054,9 @@ implementation
         i : longint;
         mappedname : pshortstring;
       begin
+        if isClone then
+          exit; //nothing owned - nothing todo
+
         if assigned(NameMappings) then
           begin
             for i:=0 to NameMappings.Count-1 do
@@ -5152,6 +5158,7 @@ implementation
           3) idem for the name mappings
         }
         Move(pointer(self)^,pointer(result)^,InstanceSize);
+        Result.isClone := True;
       end;
 
 
