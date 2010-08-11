@@ -1413,7 +1413,7 @@ implementation
          old_current_objectdef : tobjectdef;
       begin
          old_current_procinfo:=current_procinfo;
-         old_block_type:=block_type;
+         old_block_type:=current_scanner.block_type;
          old_current_objectdef:=current_objectdef;
 
          current_procinfo:=self;
@@ -1422,7 +1422,7 @@ implementation
          { calculate the lexical level }
          if procdef.parast.symtablelevel>maxnesting then
            Message(parser_e_too_much_lexlevel);
-         block_type:=bt_body;
+         current_scanner.block_type:=bt_body;
 
     {$ifdef state_tracking}
 {    aktstate:=Tstate_storage.create;}
@@ -1527,7 +1527,7 @@ implementation
          current_procinfo:=old_current_procinfo;
 
          { Restore old state }
-         block_type:=old_block_type;
+         current_scanner.block_type:=old_block_type;
       end;
 
 

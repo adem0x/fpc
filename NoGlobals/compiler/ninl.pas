@@ -85,7 +85,7 @@ implementation
       verbose,globals,systems,constexp,
       globtype, cutils,
       symconst,symdef,symsym,symtable,paramgr,defutil,
-      pass_1,
+      scanner, pass_1,
       ncal,ncon,ncnv,nadd,nld,nbas,nflw,nmem,nmat,nutils,
       nobjc,objcdef,
       cgbase,procinfo
@@ -1839,7 +1839,7 @@ implementation
                 end;
               in_pi_real :
                  begin
-                   if block_type=bt_const then
+                   if current_scanner.block_type=bt_const then
                      setconstrealvalue(getpi)
                  end;
               in_cos_real :

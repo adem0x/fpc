@@ -280,7 +280,7 @@ implementation
             oldcurrent_procinfo:=current_procinfo;
 
           //todo: these should become scanner elements as well
-            old_block_type:=block_type;
+            //old_block_type:=current_scanner.block_type;
             oldtokenpos:=current_tokenpos;
             old_switchesstatestack:=switchesstatestack;
             old_switchesstatestackpos:=switchesstatestackpos;
@@ -300,7 +300,7 @@ implementation
             begin
               { restore scanner }
               current_tokenpos:=oldtokenpos;
-              block_type:=old_block_type;
+              //current_scanner.block_type:=old_block_type;
               switchesstatestack:=old_switchesstatestack;
               switchesstatestackpos:=old_switchesstatestackpos;
 
@@ -310,8 +310,10 @@ implementation
               current_procinfo:=oldcurrent_procinfo;
               current_filepos:=oldcurrent_filepos;
               current_settings:=old_settings;
+            (* these don't look correct :-(
               current_exceptblock:=0;
               exceptblockcounter:=0;
+            *)
             end;
         end;
 
@@ -402,6 +404,8 @@ implementation
       begin
         parser_current_file:=filename;
         current_module.scanner:=TParser.Compile(filename); //factory request
+        if not assigned(current_module.scanner) then
+          Internalerror(20100810);  //no parser for this file!
 
        { reset parser, a previous fatal error could have left these variables in an unreliable state, this is
          important for the IDE }
@@ -409,11 +413,12 @@ implementation
          symtablestack:=TSymtablestack.create;
          macrosymtablestack:=TSymtablestack.create;
          systemunit:=nil;
+       {$IFDEF old}
          current_settings.defproccall:=init_settings.defproccall;
-         current_exceptblock:=0;
-         exceptblockcounter:=0;
          current_settings.maxfpuregisters:=-1;
-
+       {$ELSE}
+        //overwritten just below
+       {$ENDIF}
          { Load current state from the init values }
          current_settings:=init_settings;
 

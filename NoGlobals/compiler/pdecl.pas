@@ -174,8 +174,8 @@ implementation
          tclist : tasmlist;
          varspez : tvarspez;
       begin
-         old_block_type:=block_type;
-         block_type:=bt_const;
+         old_block_type:=current_scanner.block_type;
+         current_scanner.block_type:=bt_const;
          repeat
            orgname:=current_scanner.orgpattern;
            filepos:=current_tokenpos;
@@ -206,10 +206,10 @@ implementation
                 begin
                    { set the blocktype first so a consume also supports a
                      caret, to support const s : ^string = nil }
-                   block_type:=bt_const_type;
+                   current_scanner.block_type:=bt_const_type;
                    current_scanner.consume(_COLON);
                    read_anon_type(hdef,false);
-                   block_type:=bt_const;
+                   current_scanner.block_type:=bt_const;
                    skipequal:=false;
                    { create symbol }
                    storetokenpos:=current_tokenpos;
@@ -263,7 +263,7 @@ implementation
                 current_scanner.consume(_EQUAL);
            end;
          until (current_scanner.token<>_ID)or(in_class and (current_scanner.idtoken in [_PRIVATE,_PROTECTED,_PUBLIC,_PUBLISHED,_STRICT]));
-         block_type:=old_block_type;
+         current_scanner.block_type:=old_block_type;
       end;
 
 
@@ -405,8 +405,8 @@ implementation
          generictokenbuf : tdynamicarray;
          vmtbuilder : TVMTBuilder;
       begin
-         old_block_type:=block_type;
-         block_type:=bt_type;
+         old_block_type:=current_scanner.block_type;
+         current_scanner.block_type:=bt_type;
          repeat
            defpos:=current_tokenpos;
            istyperenaming:=false;
@@ -643,7 +643,7 @@ implementation
              generictypelist.free;
          until (current_scanner.token<>_ID)or(in_class and (current_scanner.idtoken in [_PRIVATE,_PROTECTED,_PUBLIC,_PUBLISHED,_STRICT]));
          resolve_forward_types;
-         block_type:=old_block_type;
+         current_scanner.block_type:=old_block_type;
       end;
 
 
@@ -671,13 +671,13 @@ implementation
          current_scanner.consume(_PROPERTY);
          if not(symtablestack.top.symtabletype in [staticsymtable,globalsymtable]) then
            message(parser_e_resourcestring_only_sg);
-         old_block_type:=block_type;
-         block_type:=bt_const;
+         old_block_type:=current_scanner.block_type;
+         current_scanner.block_type:=bt_const;
          repeat
            read_property_dec(is_classpropery, nil);
            current_scanner.consume(_SEMICOLON);
          until current_scanner.token<>_ID;
-         block_type:=old_block_type;
+         current_scanner.block_type:=old_block_type;
       end;
 
 
@@ -706,8 +706,8 @@ implementation
          current_scanner.consume(_RESOURCESTRING);
          if not(symtablestack.top.symtabletype in [staticsymtable,globalsymtable]) then
            message(parser_e_resourcestring_only_sg);
-         old_block_type:=block_type;
-         block_type:=bt_const;
+         old_block_type:=current_scanner.block_type;
+         current_scanner.block_type:=bt_const;
          repeat
            orgname:=current_scanner.orgpattern;
            filepos:=current_tokenpos;
@@ -762,7 +762,7 @@ implementation
               else current_scanner.consume(_EQUAL);
            end;
          until current_scanner.token<>_ID;
-         block_type:=old_block_type;
+         current_scanner.block_type:=old_block_type;
       end;
 
 end.

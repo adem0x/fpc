@@ -744,7 +744,7 @@ implementation
            end
          else
            begin
-              if (block_type<>bt_except) then
+              if (current_scanner.block_type<>bt_except) then
                 Message(parser_e_no_reraise_possible);
            end;
          p:=craisenode.create(pobj,paddr,pframe);
@@ -763,7 +763,7 @@ implementation
          objname,objrealname : TIDString;
          srsym : tsym;
          srsymtable : TSymtable;
-         oldcurrent_exceptblock: integer;
+         oldcurrent_exceptblock: TExceptionCount; //integer;
       begin
          include(current_procinfo.flags,pi_uses_exceptions);
 
@@ -773,9 +773,13 @@ implementation
          { read statements to try }
          current_scanner.consume(_TRY);
          first:=nil;
+         oldcurrent_exceptblock := current_parser.current_exceptblock;
+      {$IFDEF old}
          inc(exceptblockcounter);
-         oldcurrent_exceptblock := current_exceptblock;
          current_exceptblock := exceptblockcounter;
+      {$ELSE}
+        current_parser.NewExceptBlock;
+      {$ENDIF}
 
          while (current_scanner.token<>_FINALLY) and (current_scanner.token<>_EXCEPT) do
            begin
@@ -797,18 +801,26 @@ implementation
 
          if current_scanner.try_to_consume(_FINALLY) then
            begin
+            {$IFDEF old}
               inc(exceptblockcounter);
               current_exceptblock := exceptblockcounter;
+            {$ELSE}
+              current_parser.NewExceptBlock;
+            {$ENDIF}
               p_finally_block:=statements_til_end;
               try_statement:=ctryfinallynode.create(p_try_block,p_finally_block);
            end
          else
            begin
               current_scanner.consume(_EXCEPT);
-              old_block_type:=block_type;
-              block_type:=bt_except;
+              old_block_type:=current_scanner.block_type;
+              current_scanner.block_type:=bt_except;
+            {$IFDEF old}
               inc(exceptblockcounter);
               current_exceptblock := exceptblockcounter;
+            {$ELSE}
+              current_parser.NewExceptBlock;
+            {$ENDIF}
               ot:=generrordef;
               p_specific:=nil;
               if (current_scanner.idtoken=_ON) then
@@ -935,10 +947,10 @@ implementation
                    p_default:=statements_til_end;
                 end;
 
-              block_type:=old_block_type;
+              current_scanner.block_type:=old_block_type;
               try_statement:=ctryexceptnode.create(p_try_block,p_specific,p_default);
            end;
-         current_exceptblock := oldcurrent_exceptblock;
+         current_parser.current_exceptblock := oldcurrent_exceptblock;
       end;
 
 

@@ -170,6 +170,7 @@ interface
           { if nexttoken<>NOTOKEN, then nexttokenpos holds its filepos }
           next_filepos   : tfileposinfo;
 
+          block_type : tblock_type;         { type of currently parsed block }
           comment_level,
           yylexcount     : longint;
           lastasmgetchar : char;
@@ -255,12 +256,10 @@ interface
         preprocfile     : tpreprocfile;  { used with only preprocessing }
 {$endif PREPROCWRITE}
 
-function GetScanner: tscannerfile;
-procedure SetScanner(s: tscannerfile);
-
-property
-    { current scanner in use }
-    current_scanner : tscannerfile read GetScanner;
+{ current scanner in use }
+function current_scanner: tscannerfile; inline;
+//procedure SetScanner(s: tscannerfile);
+//property current_scanner : tscannerfile read GetScanner;
 
     type
         tdirectivemode = (directive_all, directive_turbo, directive_mac);
@@ -292,7 +291,7 @@ implementation
       turbo_scannerdirectives : TFPHashObjectList;     { for other modes }
       mac_scannerdirectives   : TFPHashObjectList;     { for mode mac }
 
-function GetScanner: tscannerfile;
+function current_scanner: tscannerfile;
 begin
   Result := tscannerfile(current_module.scanner); // _current_scanner;
 end;

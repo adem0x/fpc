@@ -38,7 +38,6 @@ interface
        endtokens = [_SEMICOLON,_END,_ELSE,_UNTIL,_EXCEPT,_FINALLY];
 
     type
-
       { TParser }
 
       TParser = class(tscannerfile)
@@ -70,6 +69,13 @@ interface
        { true, if we are parsing generic declaration }
        parse_generic : boolean;
 
+      //here or in module?
+    private
+       exceptblockcounter: TExceptionCount; { each except block gets a unique number check gotos      }
+    public
+       current_exceptblock: TExceptionCount;  { the exceptblock number of the current block (0 if none) }
+       procedure  NewExceptBlock;
+
     protected //disallow arbitrary creation
        constructor Create(const fn:string); override;
     public
@@ -81,8 +87,8 @@ interface
        procedure Execute; virtual;
     end;
 
-function GetParser: TParser; inline; //does "inline" work with properties?
-property current_parser: TParser read GetParser;
+function current_parser: TParser; inline; //does "inline" work with properties?
+//property current_parser: TParser read GetParser;
 
 
 implementation
@@ -91,7 +97,7 @@ implementation
        globals,htypechk,
        systems,verbose,fmodule;
 
-function GetParser: TParser;
+function current_parser: TParser;
 begin
   Result := TParser(current_module.scanner);
 end;
@@ -120,6 +126,14 @@ procedure TParser.Execute;
 begin
 //to come, from body of old compile()
   //compile/Parse
+end;
+
+procedure TParser.NewExceptBlock;
+begin
+  if exceptblockcounter = high(exceptblockcounter) then
+    Internalerror(201009112); //exceeds ppu file storage
+  inc(exceptblockcounter);
+  current_exceptblock := exceptblockcounter;
 end;
 
 end.

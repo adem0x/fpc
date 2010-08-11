@@ -157,7 +157,7 @@ interface
          cs_link_strip,cs_link_staticflag,cs_link_on_target,cs_link_extern,cs_link_opt_vtable,
          cs_link_opt_used_sections,cs_link_separate_dbg_file,
          cs_link_map,cs_link_pthread,cs_link_no_default_lib_order,
-	 cs_link_native
+	       cs_link_native
        );
        tglobalswitches = set of tglobalswitch;
 
@@ -299,6 +299,9 @@ interface
        tblock_type = (bt_none,
          bt_general,bt_type,bt_const,bt_const_type,bt_var,bt_var_type,bt_except,bt_body
        );
+
+      { exceptionblock is stored as a byte in the ppu file }
+      TExceptionCount = byte; //was: integer
 
        { Temp types }
        ttemptype = (tt_none,

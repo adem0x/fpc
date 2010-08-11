@@ -445,7 +445,7 @@ implementation
         need_array,
         is_univ: boolean;
       begin
-        old_block_type:=block_type;
+        old_block_type:=current_scanner.block_type;
         explicit_paraloc:=false;
         current_scanner.consume(_LKLAMMER);
         { Delphi/Kylix supports nonsense like }
@@ -460,7 +460,7 @@ implementation
         defaultrequired:=false;
         paranr:=0;
         inc(testcurobject);
-        block_type:=bt_var;
+        current_scanner.block_type:=bt_var;
         is_univ:=false;
         repeat
           parseprocvar:=pv_none;
@@ -520,10 +520,10 @@ implementation
                parse_parameter_dec(pv);
              if parseprocvar=pv_func then
               begin
-                block_type:=bt_var_type;
+                current_scanner.block_type:=bt_var_type;
                 current_scanner.consume(_COLON);
                 single_type(pv.returndef,false,false);
-                block_type:=bt_var;
+                current_scanner.block_type:=bt_var;
               end;
              hdef:=pv;
              { possible proc directives }
@@ -583,9 +583,9 @@ implementation
                   hdef:=ctypedformaltype
                 else
                   begin
-                    block_type:=bt_var_type;
+                    current_scanner.block_type:=bt_var_type;
                     single_type(hdef,false,false);
-                    block_type:=bt_var;
+                    current_scanner.block_type:=bt_var;
                   end;
 
                 { open string ? }
@@ -706,7 +706,7 @@ implementation
         sc.free;
         { reset object options }
         dec(testcurobject);
-        block_type:=old_block_type;
+        current_scanner.block_type:=old_block_type;
         current_scanner.consume(_RKLAMMER);
       end;
 
@@ -2700,7 +2700,7 @@ const
              because a constant/default value follows }
            if res then
             begin
-              if (block_type=bt_const_type) and
+              if (current_scanner.block_type=bt_const_type) and
                  (current_scanner.token=_EQUAL) then
                break;
               { support procedure proc;stdcall export; }

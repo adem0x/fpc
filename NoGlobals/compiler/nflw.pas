@@ -30,7 +30,7 @@ interface
       cclasses,
       node,cpubase,
       symnot,
-      symtype,symbase,symdef,symsym,
+      globtype,symtype,symbase,symdef,symsym,
       optloop;
 
     type
@@ -133,7 +133,7 @@ interface
        public
           labelsym : tlabelsym;
           labelnode : tlabelnode;
-          exceptionblock : integer;
+          exceptionblock : TExceptionCount; //integer;
           constructor create(p : tlabelsym);virtual;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
@@ -148,7 +148,7 @@ interface
        tgotonodeclass = class of tgotonode;
 
        tlabelnode = class(tunarynode)
-          exceptionblock : integer;
+          exceptionblock : TExceptionCount; //integer;
           { when copying trees, this points to the newly created copy of a label }
           copiedto : tlabelnode;
           labsym : tlabelsym;
@@ -228,9 +228,9 @@ function create_for_in_loop(hloopvar, hloopbody, expr: tnode): tnode;
 implementation
 
     uses
-      globtype,systems,constexp,
+      systems,constexp,
       cutils,verbose,globals,
-      symconst,symtable,paramgr,defcmp,defutil,htypechk,pass_1,
+      symconst,symtable,paramgr,defcmp,defutil,htypechk,pbase, pass_1,
       ncal,nadd,ncon,nmem,nld,ncnv,nbas,cgobj,nutils,ninl,nset,
     {$ifdef state_tracking}
       nstate,
@@ -1630,7 +1630,7 @@ implementation
     constructor tgotonode.create(p : tlabelsym);
       begin
         inherited create(goton);
-        exceptionblock:=current_exceptblock;
+        exceptionblock:=current_parser.current_exceptblock;
         labelnode:=nil;
         labelsym:=p;
       end;
@@ -1744,7 +1744,7 @@ implementation
     constructor tlabelnode.create(l:tnode;alabsym:tlabelsym);
       begin
         inherited create(labeln,l);
-        exceptionblock:=current_exceptblock;
+        exceptionblock:=current_parser.current_exceptblock;
         labsym:=alabsym;
         { Register labelnode in labelsym }
         labsym.code:=self;
@@ -1754,7 +1754,7 @@ implementation
     constructor tlabelnode.ppuload(t:tnodetype;ppufile:tcompilerppufile);
       begin
         inherited ppuload(t,ppufile);
-        exceptionblock:=ppufile.getbyte;
+        exceptionblock:=ppufile.getbyte;  //this limits the exception count!
       end;
 
 

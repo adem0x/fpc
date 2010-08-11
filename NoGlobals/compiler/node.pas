@@ -484,7 +484,7 @@ implementation
 
     uses
        cutils,verbose,ppu,comphook,
-       symconst,
+       symconst,scanner,
        nutils,nflw,
        defutil;
 
@@ -723,7 +723,7 @@ implementation
       begin
          inherited create;
          nodetype:=t;
-         blocktype:=block_type;
+         blocktype:=current_scanner.block_type;
          { updated by firstpass }
          expectloc:=LOC_INVALID;
          { updated by secondpass }
@@ -761,7 +761,7 @@ implementation
 
     procedure tnode.ppuwrite(ppufile:tcompilerppufile);
       begin
-        ppufile.putbyte(byte(block_type));
+        ppufile.putbyte(byte(current_scanner.block_type));
         ppufile.putposinfo(fileinfo);
         ppufile.putsmallset(localswitches);
         ppufile.putlongint(verbosity);

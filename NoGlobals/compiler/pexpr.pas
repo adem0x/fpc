@@ -879,7 +879,7 @@ implementation
            to get the address in some cases }
          if assigned(current_parser.getprocvardef) then
           begin
-            if (block_type=bt_const) or
+            if (current_scanner.block_type=bt_const) or
                getaddr then
              begin
                aprocdef:=Tprocsym(sym).Find_procdef_byprocvardef(current_parser.getprocvardef);
@@ -1283,7 +1283,7 @@ implementation
                        begin
                          p1:=ctypenode.create(ttypesym(sym).typedef);
                          if (is_class(ttypesym(sym).typedef) or is_objcclass(ttypesym(sym).typedef)) and
-                            not(block_type in [bt_type,bt_const_type,bt_var_type]) then
+                            not(current_scanner.block_type in [bt_type,bt_const_type,bt_var_type]) then
                            p1:=cloadvmtaddrnode.create(p1);
                        end;
                    end;
@@ -1584,7 +1584,7 @@ implementation
                                 { For a type block we simply return only
                                   the type. For all other blocks we return
                                   a loadvmt node }
-                                if not(block_type in [bt_type,bt_const_type,bt_var_type]) then
+                                if not(current_scanner.block_type in [bt_type,bt_const_type,bt_var_type]) then
                                   p1:=cloadvmtaddrnode.create(p1);
                               end;
                            end
@@ -2295,7 +2295,7 @@ implementation
            again:=true;
            { Handle references to self }
            if (current_scanner.idtoken=_SELF) and
-              not(block_type in [bt_const,bt_type,bt_const_type,bt_var_type]) and
+              not(current_scanner.block_type in [bt_const,bt_type,bt_const_type,bt_var_type]) and
               assigned(current_objectdef) then
              begin
                p1:=load_self_node;

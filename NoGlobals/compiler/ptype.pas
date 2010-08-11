@@ -546,7 +546,7 @@ implementation
            old_block_type : tblock_type;
            dospecialize : boolean;
         begin
-           old_block_type:=block_type;
+           old_block_type:=current_scanner.block_type;
            dospecialize:=false;
            { use of current parsed object:
               - classes can be used also in classes
@@ -641,7 +641,7 @@ implementation
                  Message(sym_e_error_in_type_def);
              end;
            pt1.free;
-           block_type:=old_block_type;
+           current_scanner.block_type:=old_block_type;
         end;
 
 
@@ -923,7 +923,7 @@ implementation
            _CARET:
               begin
                 current_scanner.consume(_CARET);
-                single_type(tt2,(block_type=bt_type),false);
+                single_type(tt2,(current_scanner.block_type=bt_type),false);
                 def:=tpointerdef.create(tt2);
                 if tt2.typ=forwarddef then
                   current_module.checkforwarddefs.add(def);
@@ -986,11 +986,11 @@ implementation
                 if (current_scanner.token=_OF) and
                    (
                     not(m_delphi in current_settings.modeswitches) or
-                    (block_type=bt_type)
+                    (current_scanner.block_type=bt_type)
                    ) then
                   begin
                     current_scanner.consume(_OF);
-                    single_type(hdef,(block_type=bt_type),false);
+                    single_type(hdef,(current_scanner.block_type=bt_type),false);
                     if is_class(hdef) or
                        is_objcclass(hdef) then
                       def:=tclassrefdef.create(hdef)
@@ -1097,7 +1097,7 @@ implementation
               if (current_scanner.token=_KLAMMERAFFE) and (m_iso in current_settings.modeswitches) then
                 begin
                   current_scanner.consume(_KLAMMERAFFE);
-                  single_type(tt2,(block_type=bt_type),false);
+                  single_type(tt2,(current_scanner.block_type=bt_type),false);
                   def:=tpointerdef.create(tt2);
                   if tt2.typ=forwarddef then
                     current_module.checkforwarddefs.add(def);

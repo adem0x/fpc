@@ -1200,9 +1200,9 @@ implementation
          hintsymoptions  : tsymoptions;
          deprecatedmsg   : pshortstring;
          old_block_type  : tblock_type;
-      begin
-         old_block_type:=block_type;
-         block_type:=bt_var;
+      begin //read_var_decls
+         old_block_type:= current_scanner.block_type;
+         current_scanner.block_type:=bt_var;
          { Force an expected ID error message }
          if not (current_scanner.token in [_ID,_CASE,_END]) then
            current_scanner.consume(_ID);
@@ -1237,7 +1237,7 @@ implementation
              until not current_scanner.try_to_consume(_COMMA);
 
              { read variable type def }
-             block_type:=bt_var_type;
+             current_scanner.block_type:=bt_var_type;
              current_scanner.consume(_COLON);
 
 {$ifdef gpc_mode}
@@ -1253,7 +1253,7 @@ implementation
                  vs:=tabstractvarsym(sc[i]);
                  vs.vardef:=hdef;
                end;
-             block_type:=bt_var;
+             current_scanner.block_type:=bt_var;
 
              { Process procvar directives }
              if maybe_parse_proc_directives(hdef) then
@@ -1351,7 +1351,7 @@ implementation
                    insertbssdata(tstaticvarsym(vs));
                end;
            end;
-         block_type:=old_block_type;
+         current_scanner.block_type:=old_block_type;
          { free the list }
          sc.free;
       end;

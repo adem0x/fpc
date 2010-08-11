@@ -1388,8 +1388,8 @@ implementation
       var
         old_block_type : tblock_type;
       begin
-        old_block_type:=block_type;
-        block_type:=bt_const;
+        old_block_type:=current_scanner.block_type;
+        current_scanner.block_type:=bt_const;
         case def.typ of
           orddef :
             parse_orddef(hr.list,torddef(def));
@@ -1424,7 +1424,7 @@ implementation
           else
             Message(parser_e_type_const_not_possible);
         end;
-        block_type:=old_block_type;
+        current_scanner.block_type:=old_block_type;
       end;
 
 {$maxfpuregisters default}
