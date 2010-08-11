@@ -63,12 +63,7 @@ implementation
          testcurobject:=0;
 
          { Current compiled module/proc }
-      {$IFDEF old}
-         set_current_module(nil);
-         current_module:=nil;
-      {$ELSE}
-        InvalidateModule;
-      {$ENDIF}
+         InvalidateModule;
          current_asmdata:=nil;
          current_procinfo:=nil;
          current_objectdef:=nil;
@@ -89,15 +84,6 @@ implementation
          InitScannerDirectives;
 
          { scanner - should be moved into InitScanner }
-         {$IFDEF old}
-         c:=#0;
-         pattern:='';
-         orgpattern:='';
-         cstringpattern:='';
-         {$ELSE}
-         //in TScannerFile
-         {$ENDIF}
-         //current_scanner:=nil;
          switchesstatestackpos:=0;
 
          { register all nodes and tais }
@@ -143,24 +129,15 @@ implementation
       begin
          { Reset current compiling info, so destroy routines can't
            reference the data that might already be destroyed }
-      {$IFDEF old}
-         set_current_module(nil);
-         current_module:=nil;
-      {$ELSE}
-
          { if there was an error in the scanner, the scanner is
            still assigned }
-         //FreeAndNil(_current_scanner);  //before nilled in InvalidateModule
-        InvalidateModule;
-      {$ENDIF}
+         InvalidateModule;
          current_procinfo:=nil;
          current_asmdata:=nil;
          current_objectdef:=nil;
 
          { unload units }
-//WriteLn('---before FreeAndNil(loaded_units);---');
          FreeAndNil(loaded_units);
-//WriteLn('---after  FreeAndNil(loaded_units);---');
          FreeAndNil(usedunits);
          FreeAndNil(unloaded_units);
          { close scanner }
@@ -258,35 +235,16 @@ implementation
                              Compile a source file
 *****************************************************************************}
 
-{
-    procedure compile(const filename:string);
-    var
-      p: TParser;
-    begin
-      p := TParser.Create(filename);
-      p.compile;
-      p.Free;
-    end;
-}
-
   type
     polddata=^tolddata;
     tolddata=record
     { scanner }
-      //oldparser: TParser;
-      oldidtoken,
-      oldtoken       : ttoken;
       oldtokenpos    : tfileposinfo;
-      oldc           : char;
-      oldpattern,
-      oldorgpattern  : string;
       old_block_type : tblock_type;
     { symtable }
       oldsymtablestack,
       oldmacrosymtablestack : TSymtablestack;
       oldaktprocsym    : tprocsym;
-    { cg }
-      oldparse_only  : boolean;
     { akt.. things }
       oldcurrent_filepos      : tfileposinfo;
       old_current_module : tmodule;
@@ -312,8 +270,7 @@ implementation
            recursively }
          new(olddata);
          with olddata^ do
-          begin
-            //oldparser := current_parser;
+          begin //removed all local variables
             old_current_module:=current_module;
 
             { save symtable state }
@@ -321,17 +278,6 @@ implementation
             oldmacrosymtablestack:=macrosymtablestack;
             oldcurrent_procinfo:=current_procinfo;
 
-            { save scanner state }
-            if assigned(current_module) and assigned(current_module.scanner) then
-            begin
-              oldc:=current_scanner.c;
-              oldpattern:=current_scanner.pattern;
-              oldorgpattern:=current_scanner.orgpattern;
-              oldtoken:=current_scanner.token;
-              oldidtoken:=current_scanner.idtoken;
-              { save cg }
-              oldparse_only:=current_parser.parse_only;
-            end;
           //todo: these should become scanner elements as well
             old_block_type:=block_type;
             oldtokenpos:=current_tokenpos;
@@ -340,7 +286,7 @@ implementation
 
             { save akt... state }
             { handle the postponed case first }
-            flushpendingswitchesstate;
+            //flushpendingswitchesstate;
             oldcurrent_filepos:=current_filepos;
             old_settings:=current_settings;
           end;
@@ -351,22 +297,8 @@ implementation
         //must have reset to old module before
           with olddata^ do
             begin
-            {$IFDEF old}
               { restore scanner }
-              //current_scanner := oldparser;
-              if assigned(current_scanner) then begin
-                current_scanner.c:=oldc;
-                current_scanner.pattern:=oldpattern;
-                current_scanner.orgpattern:=oldorgpattern;
-                current_scanner.token:=oldtoken;
-                current_scanner.idtoken:=oldidtoken;
-                current_tokenpos:=oldtokenpos;
-
-                { restore cg }
-                current_parser.parse_only:=oldparse_only;
-              end;
-            {$ELSE}
-            {$ENDIF}
+              current_tokenpos:=oldtokenpos;
               block_type:=old_block_type;
               switchesstatestack:=old_switchesstatestack;
               switchesstatestackpos:=old_switchesstatestackpos;
@@ -405,20 +337,6 @@ implementation
                    current_module.asmdata:=nil;
                  end;
 
-             {$IFDEF old}
-               { free scanner }
-               if assigned(current_module.scanner) then
-                 begin
-                   if current_scanner=tscannerfile(current_module.scanner) then
-                     current_scanner:=nil;  //todo: in destructor
-                   if current_module <> main_module then
-                     tscannerfile(current_module.scanner).free; //else here, later!
-                   current_module.scanner:=nil;
-                 end;
-             {$ELSE}
-              //in module.destroy
-             {$ENDIF}
-
                { free symtable stack }
                if assigned(symtablestack) then
                  begin
@@ -454,7 +372,7 @@ implementation
 
               { free now what we did not free earlier in
                 proc_program PM }
-              if {(compile_level=1) and} needsymbolinfo then
+              if needsymbolinfo then
                 begin
                   hp:=tmodule(loaded_units.first);
                   while assigned(hp) do
@@ -472,12 +390,8 @@ implementation
                  end;
             end;
            dec(compile_level);
-         {$IFDEF old}
-           set_current_module(olddata^.old_current_module);
-         {$ELSE}
-          PopModule(olddata^.old_current_module);
-         {$ENDIF}
-          RestoreParser(olddata);
+           PopModule(olddata^.old_current_module);
+           RestoreParser(olddata);
 
            dispose(olddata);
          end;
@@ -588,21 +502,5 @@ implementation
           ParseFinished(olddata);
         end;
       end;
-
-(*
-{ TOPLParser }
-
-constructor TOPLParser.Create(const fn: string);
-begin
-  inherited Create(fn);
-end;
-
-procedure TOPLParser.Execute;
-begin
-  //inherited Execute;
-  //initparser;
-  compile;
-end;
-*)
 
 end.

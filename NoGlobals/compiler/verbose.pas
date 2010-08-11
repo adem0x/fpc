@@ -918,7 +918,7 @@ implementation
 {$else EXTERN_MSG}
         LoadMsgFile(exepath+'errore.msg');
 {$endif EXTERN_MSG}
-        FillChar(Status,sizeof(TCompilerStatus),0);
+        //FillChar(Status,sizeof(TCompilerStatus),0); - contains strings!
         status.verbosity:=V_Default;
         Status.MaxErrorCount:=50;
         Status.codesize:=aword(-1);

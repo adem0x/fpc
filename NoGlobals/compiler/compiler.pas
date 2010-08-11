@@ -179,11 +179,7 @@ begin
 { this is needed here for the IDE
   in case of compilation failure
   at the previous compile }
-{$IFDEF old}
-  set_current_module(nil);
-{$ELSE}
   InvalidateModule;
-{$ENDIF}
 { read the arguments }
   read_arguments(cmd);
 { inits which depend on arguments }

@@ -275,20 +275,12 @@ implementation
          end;
       end;
 
-{$IFnDEF old}
     { intentionally invalidate current module, return previous module }
     function  InvalidateModule: tmodule;
     begin
-    {$IFDEF debug}
-      if assigned(current_module) and (current_module.scanner <> current_scanner) then
-        Internalerror(10809);  //every module must have proper scanner reference
-    {$ELSE}
-    {$ENDIF}
-
       Result := current_module;
       current_module:=nil;
       current_asmdata:=nil;
-      //current_scanner:=nil;
       current_debuginfo:=nil;
       parser_current_file:='';
       if false then //restore how?
@@ -307,11 +299,8 @@ implementation
         current_asmdata:=tasmdata(current_module.asmdata);
         current_debuginfo:=tdebuginfo(current_module.debuginfo);
         { restore scanner and file positions }
-        //if assigned(current_module.scanner) then
-        //current_scanner:=tscannerfile(current_module.scanner);
         if assigned(current_scanner) then
           begin
-            //current_scanner.tempopeninputfile;
             current_scanner.gettokenpos;
             parser_current_file:=current_scanner.inputfile.name^;
           end
@@ -327,52 +316,9 @@ implementation
     begin
         Result := current_module;
         if not assigned(p) then
-          Internalerror(20809);  //use set_current_module_none instead!
-        if assigned(current_module) and (current_module.scanner <> current_scanner) then
-          Internalerror(30809);  //every module must have proper scanner reference
+          Internalerror(20100809);  //use set_current_module_none instead!
         PopModule(p);
     end;
-{$ELSE}
-
-    function  old_set_current_module(p:tmodule): tmodule;
-      begin
-      (* remove scanner handling in OO.
-        The new scanner/parser already has been created.
-      *)
-        { save the state of the scanner }
-        if assigned(current_scanner) then
-          current_scanner.tempcloseinputfile;
-        { set new module }
-        current_module:=p;
-        { restore previous module settings }
-        Fillchar(current_filepos,0,sizeof(current_filepos));
-        if assigned(current_module) then
-          begin
-            current_asmdata:=tasmdata(current_module.asmdata);
-            current_debuginfo:=tdebuginfo(current_module.debuginfo);
-            { restore scanner and file positions }
-            if assigned(current_module.scanner) then
-              current_scanner:=tscannerfile(current_module.scanner);
-            if assigned(current_scanner) then
-              begin
-                current_scanner.tempopeninputfile;
-                current_scanner.gettokenpos;
-                parser_current_file:=current_scanner.inputfile.name^;
-              end
-            else
-              begin
-                current_filepos.moduleindex:=current_module.unit_index;
-                parser_current_file:='';
-              end;
-          end
-        else
-          begin
-            current_asmdata:=nil;
-            current_scanner:=nil;
-            current_debuginfo:=nil;
-          end;
-      end;
-{$ENDIF}
 
 
     function get_module(moduleindex : longint) : tmodule;

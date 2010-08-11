@@ -181,7 +181,7 @@ interface
           preproc_pattern : string;
           preproc_token   : ttoken;
 
-       protected
+       protected //not to be used from outside
           constructor Create(const fn:string); virtual;
           function  tempopeninputfile:boolean;
           procedure tempcloseinputfile;
@@ -217,7 +217,6 @@ interface
           procedure stoprecordtokens;
           procedure replaytoken;
           procedure startreplaytokens(buf:tdynamicarray);
-          //procedure readchar;
           function  readchar: char;
           procedure readstring;
           procedure readnumber;
@@ -228,7 +227,6 @@ interface
           function  readquotedstring:string;
           function  readstate:char;
           function  readstatedefault:char;
-          //procedure skipspace;
           function  skipspace: char;
           procedure skipuntildirective;
           procedure skipcomment;
@@ -241,6 +239,7 @@ interface
        end;
 
 {$ifdef PREPROCWRITE}
+    type
        tpreprocfile=class
          f   : text;
          buf : pointer;
@@ -251,20 +250,17 @@ interface
          procedure Add(const s:string);
          procedure AddSpace;
        end;
-{$endif PREPROCWRITE}
 
-{$ifdef PREPROCWRITE}
     var
         preprocfile     : tpreprocfile;  { used with only preprocessing }
 {$endif PREPROCWRITE}
 
-        //var _current_scanner : tscannerfile;  { current scanner in use }
 function GetScanner: tscannerfile;
 procedure SetScanner(s: tscannerfile);
 
 property
-    current_scanner : tscannerfile read GetScanner; // write SetScanner;
     { current scanner in use }
+    current_scanner : tscannerfile read GetScanner;
 
     type
         tdirectivemode = (directive_all, directive_turbo, directive_mac);
@@ -296,9 +292,6 @@ implementation
       turbo_scannerdirectives : TFPHashObjectList;     { for other modes }
       mac_scannerdirectives   : TFPHashObjectList;     { for mode mac }
 
-{$IFDEF old}
-{$ELSE}
-
 function GetScanner: tscannerfile;
 begin
   Result := tscannerfile(current_module.scanner); // _current_scanner;
@@ -306,11 +299,8 @@ end;
 
 procedure SetScanner(s: tscannerfile);
 begin
-  //_current_scanner := s;
   current_module.scanner := s;
 end;
-
-{$ENDIF}
 
 {*****************************************************************************
                               Helper routines
@@ -708,7 +698,7 @@ that some errors might not be detected.
 
 Instead of returning a particular data type, a set of possible data types
 are returned. This way ambigouos types can be handled.  For instance a
-value of 1 can be both a boolean and and integer.
+value of 1 can be both a boolean and an integer.
 
 Booleans
 --------
@@ -721,8 +711,8 @@ Thus boolean mac compile time variables are always stored as TRUE/FALSE.
 When a compile time expression is evaluated, they are then translated
 to C coded booleans (0/1), to simplify for the expression evaluator.
 
-Note that this scheme then also of support mac compile time variables which
-are 0/1 but with a boolean meaning.
+Note that this scheme also supports mac compile time variables,
+which are 0/1 but with a boolean meaning.
 
 The TRUE/FALSE format is new from 22 august 2005, but the above scheme
 means that units which is not recompiled, and thus stores
@@ -784,7 +774,7 @@ In case not, the value returned can be arbitrary.
         end;
 
         function preproc_substitutedtoken(var macroType: TCTETypeSet; eval : Boolean): string;
-                                { Currently this parses identifiers as well as numbers.
+        { Currently this parses identifiers as well as numbers.
           The result from this procedure can either be that the token
           itself is a value, or that it is a compile time variable/macro,
           which then is substituted for another value (for macros
@@ -845,7 +835,7 @@ In case not, the value returned can be arbitrary.
               break;
           until false;
 
-          { At this point, result do contain the value. Do some decoding and
+          { At this point, result contains the value. Do some decoding and
             determine the type.}
           val(result,numres,w);
           if (w=0) then {It is an integer}
@@ -869,7 +859,7 @@ In case not, the value returned can be arbitrary.
                   (not assigned(mac) or not mac.defined) and
                   (macrocount = 1) then
             begin
-              {Errors in mode mac is issued here. For non macpas modes there is
+              {Errors in mode mac are issued here. For non macpas modes there is
                more liberty, but the error will eventually be caught at a later stage.}
               Message1(scan_e_error_macro_undefined, result);
               macroType:= [ctetString]; {Just to have something}
@@ -4384,9 +4374,6 @@ exit_label:
          until false;
       end;
 
-{$IFDEF old}
-  //in pbase
-{$ELSE}
 {****************************************************************************
                                Token Parsing
 ****************************************************************************}
@@ -4628,7 +4615,6 @@ exit_label:
             end;
         until false;
       end;
-{$ENDIF}
 
 {*****************************************************************************
                                    Helpers
@@ -4656,7 +4642,6 @@ exit_label:
 
     procedure InitScanner;
       begin
-        //InitWideString(patternw);
         turbo_scannerdirectives:=TFPHashObjectList.Create;
         mac_scannerdirectives:=TFPHashObjectList.Create;
 
@@ -4697,7 +4682,6 @@ exit_label:
       begin
         turbo_scannerdirectives.Free;
         mac_scannerdirectives.Free;
-        //DoneWideString(patternw);
       end;
 
 

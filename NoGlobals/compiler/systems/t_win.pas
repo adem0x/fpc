@@ -969,7 +969,7 @@ implementation
                   if target_info.system in systems_wince then
                     imagebase:=$10000
                   else
-                    imagebase:={$ifdef cpu64bitaddr} $100000000 {$else} $400000 {$endif};
+                    imagebase:={$ifdef cpu64bitaddr} $1000000 {$else} $400000 {$endif};
               end;
             Concat('IMAGEBASE $' + hexStr(imagebase, SizeOf(imagebase)*2));
             Concat('HEADER');

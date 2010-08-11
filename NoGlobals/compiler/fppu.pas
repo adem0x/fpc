@@ -133,11 +133,8 @@ var
 
     destructor tppumodule.Destroy;
       begin
-        if assigned(ppufile) then
-         ppufile.free;
-        ppufile:=nil;
-        comments.free;
-        comments:=nil;
+        FreeAndNil(ppufile);
+        FreeAndNil(comments);
         stringdispose(sourcefn);
         inherited Destroy;
       end;
@@ -146,11 +143,7 @@ var
     procedure tppumodule.reset;
       begin
         inc(currentdefgeneration);
-        if assigned(ppufile) then
-         begin
-           ppufile.free;
-           ppufile:=nil;
-         end;
+        FreeAndNil(ppufile);
         inherited reset;
       end;
 
@@ -1472,17 +1465,13 @@ var
         second_time        : boolean;
         old_current_module : tmodule;
       begin
-      {$IFDEF old}
         old_current_module:=current_module;
-      {$ELSE}
-        //old_current_module := PushModule(self);
-      {$ENDIF}
-        Message3(unit_u_load_unit,current_module.modulename^,
-                 ImplIntf[current_module.in_interface],
+        Message3(unit_u_load_unit,old_current_module.modulename^,
+                 ImplIntf[old_current_module.in_interface],
                  modulename^);
 
         { Update loaded_from to detect cycles }
-        loaded_from:=current_module;
+        loaded_from:=old_current_module;
 
         { check if the globalsymtable is already available, but
           we must reload when the do_reload flag is set }
@@ -1493,11 +1482,7 @@ var
         { reset }
         do_load:=true;
         second_time:=false;
-      {$IFDEF old}
-        set_current_module(self);
-      {$ELSE}
         old_current_module := PushModule(self);
-      {$ENDIF}
 
         { A force reload }
         if do_reload then
@@ -1663,11 +1648,7 @@ var
          end;
 
         { we are back, restore current_module }
-      {$IFDEF old}
-        set_current_module(old_current_module);
-      {$ELSE}
         PopModule(old_current_module);
-      {$ENDIF}
       end;
 
 

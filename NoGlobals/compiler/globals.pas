@@ -260,8 +260,10 @@ interface
        RelocSectionSetExplicitly : boolean;
        LinkTypeSetExplicitly : boolean;
 
+    //+globals, for post-mortem dump
        current_tokenpos,                  { position of the last token }
        current_filepos : tfileposinfo;    { current position }
+    //-
 
        nwscreenname : string;
        nwthreadname : string;
@@ -296,20 +298,20 @@ interface
 
        features : tfeatures;
 
-    const
-       DLLsource : boolean = false;
+    var
+       DLLsource : boolean;
 
        { used to set all registers used for each global function
          this should dramatically decrease the number of
          recompilations needed PM }
        simplify_ppu : boolean = true;
 
-       Inside_asm_statement : boolean = false;
+       Inside_asm_statement : boolean;
 
-       global_unit_count : word = 0;
+       global_unit_count : word;
 
        { for error info in pp.pas }
-       parser_current_file : string = '';
+       parser_current_file : string;  //global,for post-mortem dump
 
 {$if defined(m68k) or defined(arm)}
        { PalmOS resources }
@@ -324,11 +326,14 @@ interface
 
        { default name of the C-style "main" procedure of the library/program }
        { (this will be prefixed with the target_info.cprefix)                }
+    const
        defaultmainaliasname = 'main';
+    var
        mainaliasname : string = defaultmainaliasname;
 
        { by default no local variable trashing }
        localvartrashing: longint = -1;
+    const
        { actual values are defined in ncgutil.pas }
        nroftrashvalues = 4;
 
