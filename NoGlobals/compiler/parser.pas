@@ -66,7 +66,11 @@ implementation
          { Current compiled module/proc }
          InvalidateModule;
          current_asmdata:=nil;
+      {$IFDEF old}
          current_procinfo:=nil;
+      {$ELSE}
+         //member of parser
+      {$ENDIF}
          current_objectdef:=nil;
 
          loaded_units:=TLinkedList.Create;
@@ -133,7 +137,11 @@ implementation
          { if there was an error in the scanner, the scanner is
            still assigned }
          InvalidateModule;
+      {$IFDEF old}
          current_procinfo:=nil;
+      {$ELSE}
+        //field of scanner!
+      {$ENDIF}
          current_asmdata:=nil;
          current_objectdef:=nil;
 
@@ -277,9 +285,9 @@ implementation
             { save symtable state }
             oldsymtablestack:=symtablestack;
             oldmacrosymtablestack:=macrosymtablestack;
-            oldcurrent_procinfo:=current_procinfo;
 
           //todo: these should become scanner elements as well
+            //oldcurrent_procinfo:=current_procinfo;
             //old_block_type:=current_scanner.block_type;
             oldtokenpos:=current_tokenpos;
             old_switchesstatestack:=switchesstatestack;
@@ -307,7 +315,11 @@ implementation
               { restore symtable state }
               symtablestack:=oldsymtablestack;
               macrosymtablestack:=oldmacrosymtablestack;
+            {$IFDEF old}
               current_procinfo:=oldcurrent_procinfo;
+            {$ELSE}
+              RestoreProc(oldcurrent_procinfo);
+            {$ENDIF}
               current_filepos:=oldcurrent_filepos;
               current_settings:=old_settings;
             (* these don't look correct :-(
@@ -327,11 +339,7 @@ implementation
                tppumodule(current_module).state:=ms_compiled;
 
                { free ppu }
-               if assigned(tppumodule(current_module).ppufile) then
-                 begin
-                   tppumodule(current_module).ppufile.free;
-                   tppumodule(current_module).ppufile:=nil;
-                 end;
+               FreeAndNil(tppumodule(current_module).ppufile);
 
                { free asmdata }
                if assigned(current_module.asmdata) then
@@ -473,8 +481,12 @@ implementation
 
       begin  //compile
          { parsing a procedure or declaration should be finished }
+      {$IFDEF old}
          if assigned(current_procinfo) then
            internalerror(200811121);
+      {$ELSE}
+        //member of parser!
+      {$ENDIF}
          if assigned(current_objectdef) then
            internalerror(200811122);
 

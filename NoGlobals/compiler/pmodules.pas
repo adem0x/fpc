@@ -934,7 +934,7 @@ implementation
         { remove localst as it was replaced by staticsymtable }
         pi.procdef.localst:=nil;
         { remove procinfo }
-        current_module.procinfo:=nil;
+        current_module.fprocinfo:=nil;
         pi.free;
         pi:=nil;
       end;

@@ -149,7 +149,7 @@ interface
         globalmacrosymtable,           { pointer to the global macro symtable of this unit }
         localmacrosymtable : TSymtable;{ pointer to the local macro symtable of this unit }
         scanner       : TObject;  { scanner object used }
-        procinfo      : TObject;  { current procedure being compiled }
+        fprocinfo      : TObject;  { current procedure being compiled }
         asmdata       : TObject;  { Assembler data }
         asmprefix     : pshortstring;  { prefix for the smartlink asmfiles }
         debuginfo     : TObject;
@@ -185,6 +185,7 @@ interface
         constructor create(LoadedFrom:TModule;const s:string;_is_unit:boolean);
         destructor destroy;override;
         procedure reset;virtual;
+        procedure DoneProc;
         procedure adddependency(callermodule:tmodule);
         procedure flagdependent(callermodule:tmodule);
         function  addusedunit(hp:tmodule;inuses:boolean;usym:tunitsym):tused_unit;
@@ -560,10 +561,35 @@ implementation
       end;
 
 
-    destructor tmodule.Destroy;
+    procedure tmodule.DoneProc;
       var
         i : longint;
         hpi : tprocinfo;
+    begin
+      if assigned(fprocinfo) then
+        begin
+          if current_procinfo=tprocinfo(fprocinfo) then
+            begin
+            {$IFDEF old}
+              current_procinfo:=nil;
+            {$ELSE}
+              RestoreProc(nil);
+            {$ENDIF}
+              current_objectdef:=nil;
+            end;
+          { release procinfo tree }
+          while assigned(fprocinfo) do
+           begin
+             hpi:=tprocinfo(fprocinfo).parent;
+             tprocinfo(fprocinfo).free;
+             fprocinfo:=hpi;
+           end;
+        end;
+    end;
+
+    destructor tmodule.Destroy;
+      var
+        i : longint;
       begin
         if assigned(unitmap) then
           freemem(unitmap);
@@ -578,21 +604,7 @@ implementation
         FreeAndNil(dllscannerinputlist);
         FreeAndNil(scanner);
         FreeAndNil(asmdata);
-        if assigned(procinfo) then
-          begin
-            if current_procinfo=tprocinfo(procinfo) then
-              begin
-                current_procinfo:=nil;
-                current_objectdef:=nil;
-              end;
-            { release procinfo tree }
-            while assigned(procinfo) do
-             begin
-               hpi:=tprocinfo(procinfo).parent;
-               tprocinfo(procinfo).free;
-               procinfo:=hpi;
-             end;
-          end;
+        DoneProc;
         DoneDebugInfo(self);
         used_units.free;
         dependent_units.free;
@@ -651,6 +663,7 @@ implementation
         hpi : tprocinfo;
         i   : longint;
       begin
+      {$IFDEF old}
         if assigned(scanner) then
           begin
             { also update current_scanner if it was pointing
@@ -658,21 +671,10 @@ implementation
             //if current_scanner=tscannerfile(scanner) then current_scanner:=nil;
             FreeAndNil(scanner);
           end;
-        if assigned(procinfo) then
-          begin
-            if current_procinfo=tprocinfo(procinfo) then
-              begin
-                current_procinfo:=nil;
-                current_objectdef:=nil;
-              end;
-            { release procinfo tree }
-            while assigned(procinfo) do
-             begin
-               hpi:=tprocinfo(procinfo).parent;
-               tprocinfo(procinfo).free;
-               procinfo:=hpi;
-             end;
-          end;
+      {$ELSE}
+        //destroy scanner moved below!
+      {$ENDIF}
+        DoneProc;
         if assigned(asmdata) then
           begin
             if current_asmdata=TAsmData(asmdata) then
@@ -763,6 +765,8 @@ implementation
         mainfilepos.column:=0;
         mainfilepos.fileindex:=0;
         recompile_reason:=rr_unknown;
+
+        FreeAndNil(scanner);  //after scanner fields have been processed!
         {
           The following fields should not
           be reset:

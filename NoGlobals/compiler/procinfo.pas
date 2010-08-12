@@ -128,18 +128,49 @@ unit procinfo;
 
     var
        cprocinfo : tcprocinfo;
+    {$IFDEF old}
        { information about the current sub routine being parsed (@var(pprocinfo))}
        current_procinfo : tprocinfo;
+    {$ELSE}
+       { information about the current sub routine being parsed (@var(pprocinfo))}
+    function  current_procinfo : tprocinfo; inline;
+    function  EnterProc(AProc: tprocinfo): tprocinfo; inline;
+    procedure RestoreProc(AProc: tprocinfo); inline;
+    procedure DestroyCurrentProc;
+    {$ENDIF}
 
 
 implementation
 
      uses
+        sysutils,
         cutils,systems,
         tgobj,cgobj,
-        paramgr
+        paramgr,
+        pbase //fmodule //procinfo
         ;
 
+//shortcuts, should reside in TParser
+    function current_procinfo : tprocinfo;
+    begin
+      Result := tprocinfo(current_parser.current_procinfo);
+    end;
+
+    function  EnterProc(AProc: tprocinfo): tprocinfo;
+    begin
+      Result := current_procinfo;
+      current_parser.current_procinfo := AProc;
+    end;
+
+    procedure RestoreProc(AProc: tprocinfo);
+    begin
+      current_parser.current_procinfo := AProc;
+    end;
+
+    procedure DestroyCurrentProc;
+    begin
+      FreeAndNil(current_parser.current_procinfo);
+    end;
 
 {****************************************************************************
                                  TProcInfo

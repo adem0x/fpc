@@ -27,7 +27,7 @@ interface
 
     uses
        cutils,cclasses,
-       tokens,globtype,
+       tokens,globtype,procinfo,
        symconst,symbase,symtype,symdef,symsym,symtable,
        scanner
        ;
@@ -68,6 +68,9 @@ interface
 
        { true, if we are parsing generic declaration }
        parse_generic : boolean;
+
+       { information about the current sub routine being parsed (@var(pprocinfo))}
+       current_procinfo : tprocinfo;
 
       //here or in module?
     private

@@ -113,7 +113,7 @@ implementation
 {$endif arm}
        {$ifndef NOOPT}
          {$ifdef i386}
-           ,aopt386
+           //,aopt386 todo: restore!!!
          {$else i386}
            ,aopt
          {$endif i386}
@@ -838,12 +838,17 @@ implementation
         if assigned(tg) then
           internalerror(200309201);
 
-        old_current_procinfo:=current_procinfo;
+        //old_current_procinfo:=current_procinfo;
         oldfilepos:=current_filepos;
         old_current_objectdef:=current_objectdef;
         oldmaxfpuregisters:=current_settings.maxfpuregisters;
 
+      {$IFDEF old}
+        old_current_procinfo:=current_procinfo;
         current_procinfo:=self;
+      {$ELSE}
+        old_current_procinfo:=EnterProc(self);
+      {$ENDIF}
         current_filepos:=entrypos;
         current_objectdef:=procdef._class;
 
@@ -1276,7 +1281,11 @@ implementation
         current_settings.maxfpuregisters:=oldmaxfpuregisters;
         current_filepos:=oldfilepos;
         current_objectdef:=old_current_objectdef;
+      {$IFDEF old}
         current_procinfo:=old_current_procinfo;
+      {$ELSE}
+        RestoreProc(old_current_procinfo);
+      {$ENDIF}
       end;
 
 
@@ -1412,11 +1421,16 @@ implementation
          st : TSymtable;
          old_current_objectdef : tobjectdef;
       begin
-         old_current_procinfo:=current_procinfo;
+         //old_current_procinfo:=current_procinfo;
          old_block_type:=current_scanner.block_type;
          old_current_objectdef:=current_objectdef;
 
+      {$IFDEF old}
+         old_current_procinfo:=current_procinfo;
          current_procinfo:=self;
+      {$ELSE}
+        old_current_procinfo:=EnterProc(self);
+      {$ENDIF}
          current_objectdef:=procdef._class;
 
          { calculate the lexical level }
@@ -1524,7 +1538,11 @@ implementation
     {$endif state_tracking}
 
          current_objectdef:=old_current_objectdef;
+      {$IFDEF old}
          current_procinfo:=old_current_procinfo;
+      {$ELSE}
+         RestoreProc(old_current_procinfo);
+      {$ENDIF}
 
          { Restore old state }
          current_scanner.block_type:=old_block_type;
@@ -1577,8 +1595,12 @@ implementation
         Message1(parser_d_procedure_start,pd.fullprocname(false));
 
         { create a new procedure }
+      {$IFDEF old}
         current_procinfo:=cprocinfo.create(old_current_procinfo);
-        current_module.procinfo:=current_procinfo;
+      {$ELSE}
+        EnterProc(cprocinfo.create(old_current_procinfo));
+      {$ENDIF}
+        current_module.fprocinfo:=current_procinfo;
         current_procinfo.procdef:=pd;
         isnestedproc:=(current_procinfo.procdef.parast.symtablelevel>normal_function_level);
 
@@ -1643,9 +1665,9 @@ implementation
           tokeninfo^[_FAIL].keyword:=oldfailtokenmode;
 
         { release procinfo }
-        if tprocinfo(current_module.procinfo)<>current_procinfo then
+        if tprocinfo(current_module.fprocinfo)<>current_procinfo then
           internalerror(200304274);
-        current_module.procinfo:=current_procinfo.parent;
+        current_module.fprocinfo:=current_procinfo.parent;
 
         { For specialization we didn't record the last semicolon. Moving this parsing
           into the parse_body routine is not done because of having better file position
@@ -1655,7 +1677,11 @@ implementation
 
         if not isnestedproc then
           { current_procinfo is checked for nil later on }
+        {$IFDEF old}
           freeandnil(current_procinfo);
+        {$ELSE}
+          DestroyCurrentProc;
+        {$ENDIF}
       end;
 
 
@@ -1673,12 +1699,17 @@ implementation
         s          : string;
       begin
          { save old state }
-         old_current_procinfo:=current_procinfo;
+         //old_current_procinfo:=current_procinfo;
          old_current_objectdef:=current_objectdef;
 
          { reset current_procinfo.procdef to nil to be sure that nothing is writing
            to an other procdef }
+      {$IFDEF old}
+         old_current_procinfo:=current_procinfo;
          current_procinfo:=nil;
+      {$ELSE}
+          old_current_procinfo:=EnterProc(nil);
+      {$ENDIF}
          current_objectdef:=nil;
 
          { parse procedure declaration }
@@ -1808,7 +1839,11 @@ implementation
            end;
 
          current_objectdef:=old_current_objectdef;
+      {$IFDEF old}
          current_procinfo:=old_current_procinfo;
+      {$ELSE}
+        RestoreProc(old_current_procinfo);
+      {$ENDIF}
       end;
 
 
