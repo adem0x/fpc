@@ -360,7 +360,7 @@ implementation
       begin
         result := nil;
         { divide/mod a number by a constant which is a power of 2? }
-        if (cs_opt_peephole in current_settings.optimizerswitches) and
+        if (cs_opt_peephole in current_settings^.optimizerswitches) and
            (right.nodetype = ordconstn) and
 {           ((nodetype = divn) or
             not is_signed(resultdef)) and}
@@ -673,7 +673,7 @@ implementation
         if codegenerror then
           exit;
 
-        if (cs_fp_emulation in current_settings.moduleswitches) and (left.resultdef.typ=floatdef) then
+        if (cs_fp_emulation in current_settings^.moduleswitches) and (left.resultdef.typ=floatdef) then
           begin
             if not(target_info.system in systems_wince) then
               begin

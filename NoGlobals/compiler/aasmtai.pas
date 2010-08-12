@@ -1997,7 +1997,7 @@ implementation
             if (ref^.segment<>NR_NO) and (ref^.segment<>NR_DS) then
               segprefix:=ref^.segment;
 {$endif}
-            if (cs_create_pic in current_settings.moduleswitches) and
+            if (cs_create_pic in current_settings^.moduleswitches) and
               assigned(r.symbol) and
               not assigned(r.relsymbol) and
               (r.refaddr=addr_no) then

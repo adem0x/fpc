@@ -174,10 +174,10 @@ begin
     end;
   { get also the path to be searched for the windres.h }
   respath:=ExtractFilePath(resbin);
-  if (not resfound) and not(cs_link_nolink in current_settings.globalswitches) then
+  if (not resfound) and not(cs_link_nolink in current_settings^.globalswitches) then
    begin
      Message1(exec_e_res_not_found, utilsprefix+bin+source_info.exeext);
-     current_settings.globalswitches:=current_settings.globalswitches+[cs_link_nolink];
+     current_settings^.globalswitches:=current_settings^.globalswitches+[cs_link_nolink];
      Result:=false;
    end;
   s:=SetupCompilerArguments(output,OutName,respath,objused);
@@ -191,23 +191,23 @@ begin
      try
        if ExecuteProcess(resbin,s) <> 0 then
        begin
-         if not (cs_link_nolink in current_settings.globalswitches) then
+         if not (cs_link_nolink in current_settings^.globalswitches) then
            Message(exec_e_error_while_compiling_resources);
-         current_settings.globalswitches:=current_settings.globalswitches+[cs_link_nolink];
+         current_settings^.globalswitches:=current_settings^.globalswitches+[cs_link_nolink];
          Result:=false;
        end;
      except
        on E:EOSError do
        begin
-         if not (cs_link_nolink in current_settings.globalswitches) then
+         if not (cs_link_nolink in current_settings^.globalswitches) then
            Message1(exec_e_cant_call_resource_compiler, resbin);
-         current_settings.globalswitches:=current_settings.globalswitches+[cs_link_nolink];
+         current_settings^.globalswitches:=current_settings^.globalswitches+[cs_link_nolink];
          Result:=false;
        end
      end;
     end;
   { Update asmres when externmode is set and resource compiling failed }
-  if (not Result) and (cs_link_nolink in current_settings.globalswitches) then
+  if (not Result) and (cs_link_nolink in current_settings^.globalswitches) then
     AsmRes.AddLinkCommand(resbin,s,OutName);
   if Result and (output=roOBJ) and ObjUsed then
     current_module.linkunitofiles.add(OutName,link_always);
@@ -385,14 +385,14 @@ begin
   if CStreamError<>0 then
     begin
       Message1(exec_e_cant_open_resource_file, src.FileName);
-      Include(current_settings.globalswitches, cs_link_nolink);
+      Include(current_settings^.globalswitches, cs_link_nolink);
       exit;
     end;
   dst:=TCFileStream.Create(current_module.outputpath^+outf,fmCreate);
   if CStreamError<>0 then
     begin
       Message1(exec_e_cant_write_resource_file, dst.FileName);
-      Include(current_settings.globalswitches, cs_link_nolink);
+      Include(current_settings^.globalswitches, cs_link_nolink);
       exit;
     end;
   dst.CopyFrom(src,src.Size);
@@ -425,7 +425,7 @@ begin
       if not FileExists(s, True) then
         begin
           Message1(exec_e_cant_open_resource_file, s);
-          Include(current_settings.globalswitches, cs_link_nolink);
+          Include(current_settings^.globalswitches, cs_link_nolink);
           exit;
         end;
       resourcefile:=TResourceFile(resinfos[target_info.res]^.resourcefileclass.create(s));

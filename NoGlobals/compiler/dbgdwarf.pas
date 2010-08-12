@@ -2970,7 +2970,7 @@ implementation
             current_asmdata.RefAsmSymbol(target_asm.labelprefix+'debug_linesection0'),
             current_asmdata.RefAsmSymbol(target_asm.labelprefix+'debug_line0'));
 
-        if (m_objectivec1 in current_settings.modeswitches) then
+        if (m_objectivec1 in current_settings^.modeswitches) then
           append_attribute(DW_AT_APPLE_major_runtime_vers,DW_FORM_data1,[1]);
 
         dbgname:=make_mangledname('DEBUGSTART',current_module.localsymtable,'');
@@ -3081,7 +3081,7 @@ implementation
         else if (sym.typ=typesym) and
                 is_objc_class_or_protocol(ttypesym(sym).typedef) then
           result:=tobjectdef(ttypesym(sym).typedef).objextname^
-        else if (ds_dwarf_method_class_prefix in current_settings.debugswitches) and
+        else if (ds_dwarf_method_class_prefix in current_settings^.debugswitches) and
                 (sym.typ=procsym) and
                 (tprocsym(sym).owner.symtabletype=objectsymtable) then
           result:=tprocsym(sym).owner.name^+'__'+sym.name
@@ -3447,7 +3447,7 @@ implementation
         lab: tasmlabel;
       begin
         if force_tag_set or
-           (ds_dwarf_sets in current_settings.debugswitches) then
+           (ds_dwarf_sets in current_settings^.debugswitches) then
           begin
             { current (20070704 -- patch was committed on 20060513) gdb cvs supports set types }
 

@@ -129,7 +129,7 @@ implementation
                 begin
                   { give an error as the implementation may follow in an
                     other type block which is allowed by FPC modes }
-                  if not(m_fpc in current_settings.modeswitches) and
+                  if not(m_fpc in current_settings^.modeswitches) and
                      (oo_is_forward in tobjectdef(def).objectoptions) then
                     MessagePos1(def.typesym.fileinfo,type_e_type_is_not_completly_defined,def.typename);
                  end;
@@ -510,7 +510,7 @@ implementation
          recst : trecordsymtable;
       begin
          { create recdef }
-         recst:=trecordsymtable.create(current_settings.packrecords);
+         recst:=trecordsymtable.create(current_settings^.packrecords);
          record_dec:=trecorddef.create(recst);
          { insert in symtablestack }
          symtablestack.push(recst);
@@ -698,7 +698,7 @@ implementation
                 begin
                   lowval:=tenumdef(def).min;
                   highval:=tenumdef(def).max;
-                  if (m_fpc in current_settings.modeswitches) and
+                  if (m_fpc in current_settings^.modeswitches) and
                      (tenumdef(def).has_jumps) then
                    Message(type_e_array_index_enums_with_assign_not_possible);
                   indexdef:=def;
@@ -863,19 +863,19 @@ implementation
                   defpos:=current_tokenpos;
                   current_scanner.consume(_ID);
                   { only allow assigning of specific numbers under fpc mode }
-                  if not(m_tp7 in current_settings.modeswitches) and
+                  if not(m_tp7 in current_settings^.modeswitches) and
                      (
                       { in fpc mode also allow := to be compatible
                         with previous 1.0.x versions }
-                      ((m_fpc in current_settings.modeswitches) and
+                      ((m_fpc in current_settings^.modeswitches) and
                        current_scanner.try_to_consume(_ASSIGNMENT)) or
                       current_scanner.try_to_consume(_EQUAL)
                      ) then
                     begin
-                       oldlocalswitches:=current_settings.localswitches;
-                       include(current_settings.localswitches,cs_allow_enum_calc);
+                       oldlocalswitches:=current_settings^.localswitches;
+                       include(current_settings^.localswitches,cs_allow_enum_calc);
                        p:=comp_expr(true);
-                       current_settings.localswitches:=oldlocalswitches;
+                       current_settings^.localswitches:=oldlocalswitches;
                        if (p.nodetype=ordconstn) then
                         begin
                           { we expect an integer or an enum of the
@@ -905,7 +905,7 @@ implementation
                   storepos:=current_tokenpos;
                   current_tokenpos:=defpos;
                   tenumsymtable(aktenumdef.symtable).insert(tenumsym.create(s,aktenumdef,longint(l.svalue)));
-                  if not (cs_scopedenums in current_settings.localswitches) then
+                  if not (cs_scopedenums in current_settings^.localswitches) then
                     tstoredsymtable(aktenumdef.owner).insert(tenumsym.create(s,aktenumdef,longint(l.svalue)));
                   current_tokenpos:=storepos;
                 until not current_scanner.try_to_consume(_COMMA);
@@ -936,7 +936,7 @@ implementation
             _BITPACKED:
               begin
                 bitpacking :=
-                  (cs_bitpacking in current_settings.localswitches) or
+                  (cs_bitpacking in current_settings^.localswitches) or
                   (current_scanner.token = _BITPACKED);
                 current_scanner.consume;  //(token);
                 if current_scanner.token=_ARRAY then
@@ -947,12 +947,12 @@ implementation
                   single_type(def,false,true)
                 else
                   begin
-                    oldpackrecords:=current_settings.packrecords;
+                    oldpackrecords:=current_settings^.packrecords;
                     if (not bitpacking) or
                        (current_scanner.token in [_CLASS,_OBJECT]) then
-                      current_settings.packrecords:=1
+                      current_settings^.packrecords:=1
                     else
-                      current_settings.packrecords:=bit_alignment;
+                      current_settings^.packrecords:=bit_alignment;
                     case current_scanner.token of
                       _CLASS :
                         begin
@@ -967,14 +967,14 @@ implementation
                       else
                         def:=record_dec;
                     end;
-                    current_settings.packrecords:=oldpackrecords;
+                    current_settings^.packrecords:=oldpackrecords;
                   end;
               end;
             _DISPINTERFACE :
               begin
                 { need extra check here since interface is a keyword
                   in all pascal modes }
-                if not(m_class in current_settings.modeswitches) then
+                if not(m_class in current_settings^.modeswitches) then
                   Message(parser_f_need_objfpc_or_delphi_mode);
                 current_scanner.consume(current_scanner.token);
                 def:=object_dec(odt_dispinterface,name,genericdef,genericlist,nil);
@@ -985,7 +985,7 @@ implementation
                 { Delphi only allows class of in type blocks }
                 if (current_scanner.token=_OF) and
                    (
-                    not(m_delphi in current_settings.modeswitches) or
+                    not(m_delphi in current_settings^.modeswitches) or
                     (current_scanner.block_type=bt_type)
                    ) then
                   begin
@@ -1013,7 +1013,7 @@ implementation
               end;
             _OBJCCLASS :
               begin
-                if not(m_objectivec1 in current_settings.modeswitches) then
+                if not(m_objectivec1 in current_settings^.modeswitches) then
                   Message(parser_f_need_objc);
 
                 current_scanner.consume;  //(token);
@@ -1023,17 +1023,17 @@ implementation
               begin
                 { need extra check here since interface is a keyword
                   in all pascal modes }
-                if not(m_class in current_settings.modeswitches) then
+                if not(m_class in current_settings^.modeswitches) then
                   Message(parser_f_need_objfpc_or_delphi_mode);
                 current_scanner.consume;  //(token);
-                if current_settings.interfacetype=it_interfacecom then
+                if current_settings^.interfacetype=it_interfacecom then
                   def:=object_dec(odt_interfacecom,name,genericdef,genericlist,nil)
                 else {it_interfacecorba}
                   def:=object_dec(odt_interfacecorba,name,genericdef,genericlist,nil);
               end;
             _OBJCPROTOCOL :
                begin
-                if not(m_objectivec1 in current_settings.modeswitches) then
+                if not(m_objectivec1 in current_settings^.modeswitches) then
                   Message(parser_f_need_objc);
 
                 current_scanner.consume;  //(token);
@@ -1041,7 +1041,7 @@ implementation
                end;
             _OBJCCATEGORY :
                begin
-                if not(m_objectivec1 in current_settings.modeswitches) then
+                if not(m_objectivec1 in current_settings^.modeswitches) then
                   Message(parser_f_need_objc);
 
                 current_scanner.consume;  //(token);
@@ -1070,7 +1070,7 @@ implementation
                     current_scanner.consume(_OBJECT);
                     include(pd.procoptions,po_methodpointer);
                   end
-                else if (m_nested_procvars in current_settings.modeswitches) and
+                else if (m_nested_procvars in current_settings^.modeswitches) and
                         current_scanner.try_to_consume(_IS) then
                   begin
                     current_scanner.consume(_NESTED);
@@ -1094,7 +1094,7 @@ implementation
                   end;
               end;
             else
-              if (current_scanner.token=_KLAMMERAFFE) and (m_iso in current_settings.modeswitches) then
+              if (current_scanner.token=_KLAMMERAFFE) and (m_iso in current_settings^.modeswitches) then
                 begin
                   current_scanner.consume(_KLAMMERAFFE);
                   single_type(tt2,(current_scanner.block_type=bt_type),false);

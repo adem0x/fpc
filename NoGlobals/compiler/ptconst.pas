@@ -228,7 +228,7 @@ implementation
               uchar :
                 begin
                    if is_constcharnode(n) or
-                     ((m_delphi in current_settings.modeswitches) and
+                     ((m_delphi in current_settings^.modeswitches) and
                       is_constwidecharnode(n) and
                       (tordconstnode(n).value <= 255)) then
                      list.concat(Tai_const.Create_8bit(byte(tordconstnode(n).value.svalue)))
@@ -423,7 +423,7 @@ implementation
                   begin
                     len:=tstringconstnode(p).len;
                     { For tp7 the maximum lentgh can be 255 }
-                    if (m_tp7 in current_settings.modeswitches) and
+                    if (m_tp7 in current_settings^.modeswitches) and
                        (len>255) then
                      len:=255;
                     getmem(ca,len+2);
@@ -891,7 +891,7 @@ implementation
                         internalerror(2010033005);
                     end;
                    { For tp7 the maximum lentgh can be 255 }
-                   if (m_tp7 in current_settings.modeswitches) and
+                   if (m_tp7 in current_settings^.modeswitches) and
                       (len>255) then
                     len:=255;
                  end
@@ -1154,7 +1154,7 @@ implementation
                       error := true;
                     end
                   { Delphi allows you to skip fields }
-                  else if (m_delphi in current_settings.modeswitches) then
+                  else if (m_delphi in current_settings^.modeswitches) then
                     begin
                       Message1(parser_w_skipped_fields_before,sorg);
                       srsym := recsym;
@@ -1225,7 +1225,7 @@ implementation
 
                   if current_scanner.token=_SEMICOLON then
                     current_scanner.consume(_SEMICOLON)
-                  else if (current_scanner.token=_COMMA) and (m_mac in current_settings.modeswitches) then
+                  else if (current_scanner.token=_COMMA) and (m_mac in current_settings^.modeswitches) then
                     current_scanner.consume(_COMMA)
                   else
                     break;
@@ -1292,7 +1292,7 @@ implementation
 
           { for objects we allow it only if it doesn't contain a vmt }
           if (oo_has_vmt in def.objectoptions) and
-             (m_fpc in current_settings.modeswitches) then
+             (m_fpc in current_settings^.modeswitches) then
             begin
               Message(parser_e_type_object_constants);
               exit;
@@ -1341,7 +1341,7 @@ implementation
 
                     { check in VMT needs to be added for TP mode }
                     if not(vmtwritten) and
-                       not(m_fpc in current_settings.modeswitches) and
+                       not(m_fpc in current_settings^.modeswitches) and
                        (oo_has_vmt in def.objectoptions) and
                        (def.vmt_offset<fieldoffset) then
                       begin
@@ -1369,7 +1369,7 @@ implementation
                       break;
                   end;
             end;
-          if not(m_fpc in current_settings.modeswitches) and
+          if not(m_fpc in current_settings^.modeswitches) and
              (oo_has_vmt in def.objectoptions) and
              (def.vmt_offset>=curroffset) then
             begin
@@ -1466,13 +1466,13 @@ implementation
             (
              (current_scanner.token = _ID) and
              (current_scanner.idtoken in [_EXPORT,_EXTERNAL,_WEAKEXTERNAL,_PUBLIC,_CVAR]) and
-             (m_cvar_support in current_settings.modeswitches)
+             (m_cvar_support in current_settings^.modeswitches)
             ) or
             (
-             (m_mac in current_settings.modeswitches) and
+             (m_mac in current_settings^.modeswitches) and
              (
-              (cs_external_var in current_settings.localswitches) or
-              (cs_externally_visible in current_settings.localswitches)
+              (cs_external_var in current_settings^.localswitches) or
+              (cs_externally_visible in current_settings^.localswitches)
              )
             )
            ) then

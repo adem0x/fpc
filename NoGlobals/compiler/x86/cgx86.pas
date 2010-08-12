@@ -396,7 +396,7 @@ unit cgx86;
 
         if assigned(ref.symbol) and not((ref.symbol.bind=AB_LOCAL) and (ref.symbol.typ in [AT_LABEL,AT_FUNCTION])) then
           begin
-            if cs_create_pic in current_settings.moduleswitches then
+            if cs_create_pic in current_settings^.moduleswitches then
               begin
                 { Local data symbols must not be accessed via the GOT on
                   darwin/x86_64 under certain circumstances (and do not
@@ -641,7 +641,7 @@ unit cgx86;
          list.concat(Taicpu.Op_ref(op,s,tmpref));
          { storing non extended floats can cause a floating point overflow }
          if (t<>OS_F80) and
-            (cs_fpu_fwait in current_settings.localswitches) then
+            (cs_fpu_fwait in current_settings^.localswitches) then
            list.concat(Taicpu.Op_none(A_FWAIT,S_NO));
          dec_fpu_stack;
       end;
@@ -719,7 +719,7 @@ unit cgx86;
             else
               sym:=current_asmdata.WeakRefAsmSymbol(s);
             reference_reset_symbol(r,sym,0,sizeof(pint));
-            if (cs_create_pic in current_settings.moduleswitches) and
+            if (cs_create_pic in current_settings^.moduleswitches) and
                { darwin/x86_64's assembler doesn't want @PLT after call symbols }
                (target_info.system<>system_x86_64_darwin) then
               begin
@@ -911,10 +911,10 @@ unit cgx86;
                   begin
                     if (target_info.system=system_i386_darwin) and
                        ((ref.symbol.bind in [AB_EXTERNAL,AB_WEAK_EXTERNAL]) or
-                        (cs_create_pic in current_settings.moduleswitches)) then
+                        (cs_create_pic in current_settings^.moduleswitches)) then
                       begin
                         if (ref.symbol.bind in [AB_EXTERNAL,AB_WEAK_EXTERNAL]) or
-                           ((cs_create_pic in current_settings.moduleswitches) and
+                           ((cs_create_pic in current_settings^.moduleswitches) and
                             (ref.symbol.bind in [AB_COMMON,AB_GLOBAL,AB_PRIVATE_EXTERN])) then
                           begin
                              reference_reset_base(tmpref,
@@ -931,7 +931,7 @@ unit cgx86;
                            list.concat(Taicpu.op_ref_reg(A_LEA,tcgsize2opsize[OS_ADDR],tmpref,r));
                          end;
                       end
-                    else if (cs_create_pic in current_settings.moduleswitches)
+                    else if (cs_create_pic in current_settings^.moduleswitches)
 {$ifdef x86_64}
                              and not((ref.symbol.bind=AB_LOCAL) and
                                      (ref.symbol.typ=AT_DATA) and
@@ -958,7 +958,7 @@ unit cgx86;
 {$ifdef x86_64}
                     else if (target_info.system in (systems_all_windows+[system_x86_64_darwin]))
 			 or ((target_info.system = system_x86_64_solaris) and
-                             (cs_create_pic in current_settings.moduleswitches))
+                             (cs_create_pic in current_settings^.moduleswitches))
 			 then
                       begin
                         { Win64 and Darwin/x86_64 always require RIP-relative addressing }
@@ -1369,7 +1369,7 @@ unit cgx86;
             end;
           OP_MUL,OP_IMUL:
             begin
-              if not(cs_check_overflow in current_settings.localswitches) and
+              if not(cs_check_overflow in current_settings^.localswitches) and
                  ispowerof2(int64(a),power) then
                 begin
                   list.concat(taicpu.op_const_reg(A_SHL,TCgSize2OpSize[size],power,reg));
@@ -1383,7 +1383,7 @@ unit cgx86;
                 internalerror(200109225);
             end;
           OP_ADD, OP_AND, OP_OR, OP_SUB, OP_XOR:
-            if not(cs_check_overflow in current_settings.localswitches) and
+            if not(cs_check_overflow in current_settings^.localswitches) and
                (a = 1) and
                (op in [OP_ADD,OP_SUB]) then
               if op = OP_ADD then
@@ -1482,7 +1482,7 @@ unit cgx86;
             End;
           OP_MUL,OP_IMUL:
             begin
-              if not(cs_check_overflow in current_settings.localswitches) and
+              if not(cs_check_overflow in current_settings^.localswitches) and
                  ispowerof2(int64(a),power) then
                 begin
                   list.concat(taicpu.op_const_ref(A_SHL,TCgSize2OpSize[size],
@@ -1498,7 +1498,7 @@ unit cgx86;
                 internalerror(200109232);
             end;
           OP_ADD, OP_AND, OP_OR, OP_SUB, OP_XOR:
-            if not(cs_check_overflow in current_settings.localswitches) and
+            if not(cs_check_overflow in current_settings^.localswitches) and
                (a = 1) and
                (op in [OP_ADD,OP_SUB]) then
               if op = OP_ADD then
@@ -1806,15 +1806,15 @@ unit cgx86;
     begin
       cm:=copy_move;
       helpsize:=3*sizeof(aword);
-      if cs_opt_size in current_settings.optimizerswitches then
+      if cs_opt_size in current_settings^.optimizerswitches then
         helpsize:=2*sizeof(aword);
-      if (cs_mmx in current_settings.localswitches) and
+      if (cs_mmx in current_settings^.localswitches) and
          not(pi_uses_fpu in current_procinfo.flags) and
          ((len=8) or (len=16) or (len=24) or (len=32)) then
         cm:=copy_mmx;
       if (len>helpsize) then
         cm:=copy_string;
-      if (cs_opt_size in current_settings.optimizerswitches) and
+      if (cs_opt_size in current_settings^.optimizerswitches) and
          not((len<=16) and (cm=copy_mmx)) then
         cm:=copy_string;
       if (source.segment<>NR_NO) or
@@ -1932,7 +1932,7 @@ unit cgx86;
 {$ifdef i386}
            list.concat(Taicpu.op_none(A_CLD,S_NO));
 {$endif i386}
-            if (cs_opt_size in current_settings.optimizerswitches) and
+            if (cs_opt_size in current_settings^.optimizerswitches) and
                (len>sizeof(aint)+(sizeof(aint) div 2)) then
               begin
                 a_load_const_reg(list,OS_INT,len,REGCX);
@@ -2195,7 +2195,7 @@ unit cgx86;
          ai : taicpu;
          cond : TAsmCond;
       begin
-         if not(cs_check_overflow in current_settings.localswitches) then
+         if not(cs_check_overflow in current_settings^.localswitches) then
           exit;
          current_asmdata.getjumplabel(hl);
          if not ((def.typ=pointerdef) or
@@ -2229,7 +2229,7 @@ unit cgx86;
         reference_reset_symbol(ref,sym,0,sizeof(pint));
 
         { create pic'ed? }
-        if (cs_create_pic in current_settings.moduleswitches) and
+        if (cs_create_pic in current_settings^.moduleswitches) and
            { darwin/x86_64's assembler doesn't want @PLT after call symbols }
            (target_info.system<>system_x86_64_darwin) then
           ref.refaddr:=addr_pic

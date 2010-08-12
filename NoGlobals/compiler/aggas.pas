@@ -379,7 +379,7 @@ implementation
         sep     : string[3];
         secname : string;
       begin
-        if (cs_create_pic in current_settings.moduleswitches) and
+        if (cs_create_pic in current_settings^.moduleswitches) and
            not(target_info.system in systems_darwin) then
           secname:=secnames_pic[atype]
         else
@@ -467,14 +467,14 @@ implementation
                 { they don't work and gcc doesn't use them either...     }
                 system_powerpc_darwin,
                 system_powerpc64_darwin:
-                  if (cs_create_pic in current_settings.moduleswitches) then
+                  if (cs_create_pic in current_settings^.moduleswitches) then
                     AsmWriteln('__TEXT,__picsymbolstub1,symbol_stubs,pure_instructions,32')
                   else
                     AsmWriteln('__TEXT,__symbol_stub1,symbol_stubs,pure_instructions,16');
                 system_i386_darwin:
                   AsmWriteln('__IMPORT,__jump_table,symbol_stubs,self_modifying_code+pure_instructions,5');
                 system_arm_darwin:
-                  if (cs_create_pic in current_settings.moduleswitches) then
+                  if (cs_create_pic in current_settings^.moduleswitches) then
                     AsmWriteln('.section __TEXT,__picsymbolstub4,symbol_stubs,none,16')
                   else
                     AsmWriteln('.section __TEXT,__symbol_stub4,symbol_stubs,none,12')
@@ -589,8 +589,8 @@ implementation
       last_align := 2;
       InlineLevel:=0;
       { lineinfo is only needed for al_procedures (PFV) }
-      do_line:=(cs_asm_source in current_settings.globalswitches) or
-               ((cs_lineinfo in current_settings.moduleswitches)
+      do_line:=(cs_asm_source in current_settings^.globalswitches) or
+               ((cs_lineinfo in current_settings^.moduleswitches)
                  and (p=current_asmdata.asmlists[al_procedures]));
       hp:=tai(p.first);
       while assigned(hp) do
@@ -610,7 +610,7 @@ implementation
                    if assigned(infile) then
                     begin
                       { open only if needed !! }
-                      if (cs_asm_source in current_settings.globalswitches) then
+                      if (cs_asm_source in current_settings^.globalswitches) then
                        infile.open;
                     end;
                    { avoid unnecessary reopens of the same file !! }
@@ -619,7 +619,7 @@ implementation
                    lastfileinfo.line:=-1;
                  end;
               { write source }
-                if (cs_asm_source in current_settings.globalswitches) and
+                if (cs_asm_source in current_settings^.globalswitches) and
                    assigned(infile) then
                  begin
                    if (infile<>lastinfile) then
@@ -657,7 +657,7 @@ implementation
 
            ait_regalloc :
              begin
-               if (cs_asm_regalloc in current_settings.globalswitches) then
+               if (cs_asm_regalloc in current_settings^.globalswitches) then
                  begin
                    AsmWrite(#9+target_asm.comment+'Register ');
                    repeat
@@ -676,7 +676,7 @@ implementation
 
            ait_tempalloc :
              begin
-               if (cs_asm_tempalloc in current_settings.globalswitches) then
+               if (cs_asm_tempalloc in current_settings^.globalswitches) then
                  begin
 {$ifdef EXTDEBUG}
                    if assigned(tai_tempalloc(hp).problem) then
@@ -1053,7 +1053,7 @@ implementation
                    AsmWriteln(tai_symbol(hp).sym.name);
                  end;
                if (target_info.system = system_powerpc64_linux) and
-                 (tai_symbol(hp).sym.typ = AT_FUNCTION) and (cs_profile in current_settings.moduleswitches) then
+                 (tai_symbol(hp).sym.typ = AT_FUNCTION) and (cs_profile in current_settings^.moduleswitches) then
                  begin
                  AsmWriteLn('.globl _mcount');
                end;
@@ -1249,7 +1249,7 @@ implementation
 
       { "no executable stack" marker for Linux }
       if (target_info.system in systems_linux) and
-         not(cs_executable_stack in current_settings.moduleswitches) then
+         not(cs_executable_stack in current_settings^.moduleswitches) then
         begin
           AsmWriteLn('.section .note.GNU-stack,"",%progbits');
         end;

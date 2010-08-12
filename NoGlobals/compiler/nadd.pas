@@ -752,7 +752,7 @@ implementation
           equal if some previous optimizations were done so don't check
           this simplification always
         }
-        if (cs_opt_level2 in current_settings.optimizerswitches) and
+        if (cs_opt_level2 in current_settings^.optimizerswitches) and
           is_boolean(left.resultdef) and is_boolean(right.resultdef) and
           { since the expressions might have sideeffects, we may only remove them
             if short boolean evaluation is turned on }
@@ -866,7 +866,7 @@ implementation
 
          { Kylix allows enum+ordconstn in an enum type declaration, we need to do
            the conversion here before the constant folding }
-         if (m_delphi in current_settings.modeswitches) and
+         if (m_delphi in current_settings^.modeswitches) and
             (blocktype in [bt_type,bt_const_type,bt_var_type]) then
           begin
             if (left.resultdef.typ=enumdef) and
@@ -949,7 +949,7 @@ implementation
 
          { 4 character constant strings are compatible with orddef }
          { in macpas mode (become cardinals)                       }
-         if (m_mac in current_settings.modeswitches) and
+         if (m_mac in current_settings^.modeswitches) and
             { only allow for comparisons, additions etc are }
             { normally program errors                       }
             (nodetype in [ltn,lten,gtn,gten,unequaln,equaln]) and
@@ -1048,7 +1048,7 @@ implementation
                   unequaln,
                   equaln:
                     begin
-                      if not(cs_full_boolean_eval in current_settings.localswitches) or
+                      if not(cs_full_boolean_eval in current_settings^.localswitches) or
                          (nf_short_bool in flags) then
                        begin
                          { Remove any compares with constants }
@@ -1445,7 +1445,7 @@ implementation
                  end;
                ltn,lten,gtn,gten:
                  begin
-                    if (cs_extsyntax in current_settings.moduleswitches) then
+                    if (cs_extsyntax in current_settings^.moduleswitches) then
                      begin
                        if is_voidpointer(right.resultdef) then
                         inserttypeconv(right,left.resultdef)
@@ -1459,7 +1459,7 @@ implementation
                  end;
                subn:
                  begin
-                    if (cs_extsyntax in current_settings.moduleswitches) then
+                    if (cs_extsyntax in current_settings^.moduleswitches) then
                       begin
                         if is_voidpointer(right.resultdef) then
                         begin
@@ -1518,7 +1518,7 @@ implementation
                     strtype:=st_widestring
                 else
                   if is_ansistring(rd) or is_ansistring(ld) or
-                     ((cs_ansistrings in current_settings.localswitches) and
+                     ((cs_ansistrings in current_settings^.localswitches) and
                      //todo: Move some of this to longstring's then they are implemented?
                       (
                        is_pchar(rd) or (is_chararray(rd) and (rd.size > 255)) or is_open_chararray(rd) or (lt = stringconstn) or
@@ -1697,7 +1697,7 @@ implementation
 {$endif SUPPORT_MMX}
          { vector support, this must be before the zero based array
            check }
-         else if (cs_support_vectors in current_settings.globalswitches) and
+         else if (cs_support_vectors in current_settings^.globalswitches) and
                  is_vector(ld) and
                  is_vector(rd) and
                  equal_defs(ld,rd) then
@@ -1723,8 +1723,8 @@ implementation
             inserttypeconv(left,sinttype);
             if nodetype=addn then
               begin
-                if not(cs_extsyntax in current_settings.moduleswitches) or
-                   (not(is_pchar(ld)) and not(m_add_pointer in current_settings.modeswitches)) then
+                if not(cs_extsyntax in current_settings^.moduleswitches) or
+                   (not(is_pchar(ld)) and not(m_add_pointer in current_settings^.modeswitches)) then
                   CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),ld.typename,rd.typename);
                 if (rd.typ=pointerdef) and
                    (tpointerdef(rd).pointeddef.size>1) then
@@ -1754,8 +1754,8 @@ implementation
                begin
                  if (lt=niln) then
                    CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),'NIL',rd.typename);
-                 if not(cs_extsyntax in current_settings.moduleswitches) or
-                    (not(is_pchar(ld)) and not(m_add_pointer in current_settings.modeswitches)) then
+                 if not(cs_extsyntax in current_settings^.moduleswitches) or
+                    (not(is_pchar(ld)) and not(m_add_pointer in current_settings^.modeswitches)) then
                    CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),ld.typename,rd.typename);
                  if (ld.typ=pointerdef) then
                  begin
@@ -2276,7 +2276,7 @@ implementation
           end;
 
         { can we use a shift instead of a mul? }
-        if not (cs_check_overflow in current_settings.localswitches) and
+        if not (cs_check_overflow in current_settings^.localswitches) and
            (right.nodetype = ordconstn) and
            ispowerof2(tordconstnode(right).value,power) then
           begin
@@ -2303,7 +2303,7 @@ implementation
 
         { otherwise, create the parameters for the helper }
         right := ccallparanode.create(
-          cordconstnode.create(ord(cs_check_overflow in current_settings.localswitches),booltype,true),
+          cordconstnode.create(ord(cs_check_overflow in current_settings^.localswitches),booltype,true),
           ccallparanode.create(right,ccallparanode.create(left,nil)));
         left := nil;
         { only qword needs the unsigned code, the
@@ -2329,7 +2329,7 @@ implementation
         { In non-emulation mode, real opcodes are
           emitted for floating point values.
         }
-        if not (cs_fp_emulation in current_settings.moduleswitches) then
+        if not (cs_fp_emulation in current_settings^.moduleswitches) then
           exit;
 
         if not(target_info.system in systems_wince) then
@@ -2502,7 +2502,7 @@ implementation
          else if (ld.typ=orddef) and (rd.typ=orddef) then
            begin
              { optimize multiplacation by a power of 2 }
-             if not(cs_check_overflow in current_settings.localswitches) and
+             if not(cs_check_overflow in current_settings^.localswitches) and
                 (nodetype = muln) and
                 (((left.nodetype = ordconstn) and
                   ispowerof2(tordconstnode(left).value,i)) or
@@ -2527,7 +2527,7 @@ implementation
            { 2 booleans ? }
              if is_boolean(ld) and is_boolean(rd) then
               begin
-                if (not(cs_full_boolean_eval in current_settings.localswitches) or
+                if (not(cs_full_boolean_eval in current_settings^.localswitches) or
                     (nf_short_bool in flags)) and
                    (nodetype in [andn,orn]) then
                   expectloc:=LOC_JUMP

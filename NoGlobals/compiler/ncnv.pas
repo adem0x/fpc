@@ -362,7 +362,7 @@ implementation
                  { for constant set elements, delphi allows the usage of elements of enumerations which
                    have value>255 if there is no element with a value > 255 used }
                  if (maybetruncenumrange) and
-                    (m_delphi in current_settings.modeswitches) then
+                    (m_delphi in current_settings^.modeswitches) then
                    begin
                     if constsethi>255 then
                       constsethi:=255;
@@ -611,7 +611,7 @@ implementation
               begin
                 if is_integer(p.resultdef) and
                    not(is_64bitint(p.resultdef)) then
-                  if not(m_delphi in current_settings.modeswitches) then
+                  if not(m_delphi in current_settings^.modeswitches) then
                     p:=ctypeconvnode.create(p,s32inttype)
                   else
                     { delphi doesn't generate a range error when passing a
@@ -624,7 +624,7 @@ implementation
                 else if is_void(p.resultdef) then
                   CGMessagePos1(p.fileinfo,type_e_wrong_type_in_array_constructor,p.resultdef.typename)
                 else if iscvarargs and is_currency(p.resultdef)
-                    and (current_settings.fputype<>fpu_none) then
+                    and (current_settings^.fputype<>fpu_none) then
                   p:=ctypeconvnode.create(p,s64floattype);
               end;
             floatdef :
@@ -685,8 +685,8 @@ implementation
         hp: tnode;
       begin
         result:=false;
-        if (m_nested_procvars in current_settings.modeswitches) and
-           not(m_tp_procvar in current_settings.modeswitches) and
+        if (m_nested_procvars in current_settings^.modeswitches) and
+           not(m_tp_procvar in current_settings^.modeswitches) and
            (todef.typ=procvardef) and
            is_nested_pd(tprocvardef(todef)) and
            (fromnode.nodetype=typeconvn) and
@@ -1610,7 +1610,7 @@ implementation
              a methodpointer. }
            if (left.nodetype=loadn) and
               not assigned(tloadnode(left).left) and
-              (not(m_nested_procvars in current_settings.modeswitches) or
+              (not(m_nested_procvars in current_settings^.modeswitches) or
                not is_nested_pd(tprocvardef(resultdef))) then
              include(tprocvardef(resultdef).procoptions,po_addressonly);
 
@@ -1811,8 +1811,8 @@ implementation
                      (tcallnode(left).required_para_count=0) and
                      (resultdef.typ=procvardef) and
                      (
-                      (m_tp_procvar in current_settings.modeswitches) or
-                      (m_mac_procvar in current_settings.modeswitches)
+                      (m_tp_procvar in current_settings^.modeswitches) or
+                      (m_mac_procvar in current_settings^.modeswitches)
                      ) then
                    begin
                      if assigned(tcallnode(left).right) then
@@ -1915,7 +1915,7 @@ implementation
                          { Add runtime check? }
                          if not is_objc_class_or_protocol(resultdef) and
                             not is_objc_class_or_protocol(left.resultdef) and
-                            (cs_check_object in current_settings.localswitches) and
+                            (cs_check_object in current_settings^.localswitches) and
                             not(nf_internal in flags) then
                            begin
                              { we can translate the typeconvnode to 'as' when
@@ -3071,7 +3071,7 @@ implementation
                  (
                   not is_bitpacked_access(left) and
                   (resultdef.size=left.resultdef.size) or
-                  ((m_tp7 in current_settings.modeswitches) and
+                  ((m_tp7 in current_settings^.modeswitches) and
                    (resultdef.size<left.resultdef.size))
                  )
                 ) or

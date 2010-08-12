@@ -178,10 +178,10 @@ implementation
          if not(nf_error in p.flags) then
           begin
             oldcodegenerror:=codegenerror;
-            oldlocalswitches:=current_settings.localswitches;
+            oldlocalswitches:=current_settings^.localswitches;
             oldpos:=current_filepos;
             current_filepos:=p.fileinfo;
-            current_settings.localswitches:=p.localswitches;
+            current_settings^.localswitches:=p.localswitches;
             codegenerror:=false;
 {$ifdef EXTDEBUG}
             if (p.expectloc=LOC_INVALID) then
@@ -206,7 +206,7 @@ implementation
             if codegenerror then
               include(p.flags,nf_error);
             codegenerror:=codegenerror or oldcodegenerror;
-            current_settings.localswitches:=oldlocalswitches;
+            current_settings^.localswitches:=oldlocalswitches;
             current_filepos:=oldpos;
           end
          else

@@ -137,13 +137,14 @@ interface
 
          minfpconstprec  : tfloattype;
 
-         disabledircache : boolean;
+         disabledircache : boolean; //questionable - should be global setting!
 
         { CPU targets with microcontroller support can add a controller specific unit }
 {$if defined(ARM) or defined(AVR)}
         controllertype   : tcontrollertype;
 {$endif defined(ARM) or defined(AVR)}
        end;
+       PSettings = ^tsettings;
 
     const
       LinkMapWeightDefault = 1000;
@@ -283,9 +284,14 @@ interface
        LinkLibraryAliases : TLinkStrMap;
        LinkLibraryOrder   : TLinkStrMap;
 
-       init_settings,
+       init_settings      : tsettings;
+    {$IFDEF old}
        current_settings   : tsettings;
-
+    {$ELSE}
+      //in scanner
+       function current_settings   : psettings; inline;
+    {$ENDIF}
+    var
        pendingstate       : tpendingstate;
      { Memory sizes }
        heapsize,
@@ -486,7 +492,13 @@ implementation
 {$ifdef macos}
       macutils,
 {$endif}
+      scanner,  //current_settings
       comphook;
+
+    function current_settings   : psettings;
+    begin
+      Result := @current_scanner.current_settings;
+    end;
 
 {****************************************************************************
                                  TLinkStrMap
@@ -1298,7 +1310,7 @@ implementation
 
     function var_align(want_align: longint): shortint;
       begin
-        var_align := used_align(want_align,current_settings.alignment.varalignmin,current_settings.alignment.varalignmax);
+        var_align := used_align(want_align,current_settings^.alignment.varalignmin,current_settings^.alignment.varalignmax);
       end;
 
 
@@ -1311,7 +1323,7 @@ implementation
 
     function const_align(want_align: longint): shortint;
       begin
-        const_align := used_align(want_align,current_settings.alignment.constalignmin,current_settings.alignment.constalignmax);
+        const_align := used_align(want_align,current_settings^.alignment.constalignmin,current_settings^.alignment.constalignmax);
       end;
 
 
@@ -1337,8 +1349,8 @@ implementation
 
     function floating_point_range_check_error : boolean;
       begin
-        result:=((([cs_check_range,cs_check_overflow]*current_settings.localswitches)<>[]) and not
-                   (m_delphi in current_settings.modeswitches)
+        result:=((([cs_check_range,cs_check_overflow]*current_settings^.localswitches)<>[]) and not
+                   (m_delphi in current_settings^.modeswitches)
                 ); // or (cs_ieee_errors in current_settings.localswitches);
       end;
 

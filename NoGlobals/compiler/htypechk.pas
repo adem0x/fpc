@@ -238,9 +238,9 @@ implementation
             arraydef :
               begin
                 { not vector/mmx }
-                if ((cs_mmx in current_settings.localswitches) and
+                if ((cs_mmx in current_settings^.localswitches) and
                    is_mmx_able_array(ld)) or
-                   ((cs_support_vectors in current_settings.globalswitches) and
+                   ((cs_support_vectors in current_settings^.globalswitches) and
                    is_vector(ld)) then
                  begin
                    allowed:=false;
@@ -775,8 +775,8 @@ implementation
       begin
         result:=false;
         { remove voidpointer typecast for tp procvars }
-        if ((m_tp_procvar in current_settings.modeswitches) or
-            (m_mac_procvar in current_settings.modeswitches)) and
+        if ((m_tp_procvar in current_settings^.modeswitches) or
+            (m_mac_procvar in current_settings^.modeswitches)) and
            (p.nodetype=typeconvn) and
            is_voidpointer(p.resultdef) then
           p:=tunarynode(p).left;
@@ -790,7 +790,7 @@ implementation
     { local routines can't be assigned to procvars }
     procedure test_local_to_procvar(from_def:tprocvardef;to_def:tdef);
       begin
-         if not(m_nested_procvars in current_settings.modeswitches) and
+         if not(m_nested_procvars in current_settings^.modeswitches) and
             (from_def.parast.symtablelevel>normal_function_level) and
             (to_def.typ=procvardef) then
            CGMessage(type_e_cannot_local_proc_to_procvar);
@@ -877,7 +877,7 @@ implementation
                        begin
                          { Give warning/note for uninitialized locals }
                          if assigned(hsym.owner) and
-                           not(cs_opt_nodedfa in current_settings.optimizerswitches) and
+                           not(cs_opt_nodedfa in current_settings^.optimizerswitches) and
                             not(vo_is_external in hsym.varoptions) and
                             (hsym.owner.symtabletype in [parasymtable,localsymtable,staticsymtable]) and
                             ((hsym.owner=current_procinfo.procdef.localst) or
@@ -1101,7 +1101,7 @@ implementation
                   begin
                     { in TP it is allowed to typecast to smaller types. But the variable can't
                       be in a register }
-                    if (m_tp7 in current_settings.modeswitches) or
+                    if (m_tp7 in current_settings^.modeswitches) or
                        (todef.size<fromdef.size) then
                       make_not_regable(hp,[ra_addr_regable])
                     else
@@ -1154,7 +1154,7 @@ implementation
                    end;
                  gotvec:=true;
                  { accesses to dyn. arrays override read only access in delphi }
-                 if (m_delphi in current_settings.modeswitches) and is_dynamic_array(tunarynode(hp).left.resultdef) then
+                 if (m_delphi in current_settings^.modeswitches) and is_dynamic_array(tunarynode(hp).left.resultdef) then
                    gotdynarray:=true;
                  hp:=tunarynode(hp).left;
                end;
@@ -1239,7 +1239,7 @@ implementation
                  else
                  { Temp strings are stored in memory, for compatibility with
                    delphi only }
-                   if (m_delphi in current_settings.modeswitches) and
+                   if (m_delphi in current_settings^.modeswitches) and
                       ((valid_addr in opts) or
                        (valid_const in opts)) and
                       (hp.resultdef.typ=stringdef) then
@@ -1324,7 +1324,7 @@ implementation
                  else
                  { Temp strings are stored in memory, for compatibility with
                    delphi only }
-                   if (m_delphi in current_settings.modeswitches) and
+                   if (m_delphi in current_settings^.modeswitches) and
                       (valid_addr in opts) and
                       (hp.resultdef.typ=stringdef) then
                      result:=true
@@ -1485,7 +1485,7 @@ implementation
             begin
               { allows conversion from word to integer and
                 byte to shortint, but only for TP7 compatibility }
-              if (m_tp7 in current_settings.modeswitches) and
+              if (m_tp7 in current_settings^.modeswitches) and
                  (def_from.typ=orddef) and
                  (def_from.size=def_to.size) then
                 eq:=te_convert_l1;
@@ -1589,12 +1589,12 @@ implementation
             begin
               tmpeq:=te_incompatible;
               { in tp/macpas mode proc -> procvar is allowed }
-              if ((m_tp_procvar in current_settings.modeswitches) or
-                  (m_mac_procvar in current_settings.modeswitches)) and
+              if ((m_tp_procvar in current_settings^.modeswitches) or
+                  (m_mac_procvar in current_settings^.modeswitches)) and
                  (p.left.nodetype=calln) then
                 tmpeq:=proc_to_procvar_equal(tprocdef(tcallnode(p.left).procdefinition),tprocvardef(def_to),false);
               if (tmpeq=te_incompatible) and
-                 (m_nested_procvars in current_settings.modeswitches) and
+                 (m_nested_procvars in current_settings^.modeswitches) and
                  is_proc2procvar_load(p.left,realprocdef) then
                 tmpeq:=proc_to_procvar_equal(realprocdef,tprocvardef(def_to),false);
               if tmpeq<>te_incompatible then
@@ -1604,8 +1604,8 @@ implementation
             begin
               { an arrayconstructor of proccalls may have to be converted to
                 an array of procvars }
-              if ((m_tp_procvar in current_settings.modeswitches) or
-                  (m_mac_procvar in current_settings.modeswitches)) and
+              if ((m_tp_procvar in current_settings^.modeswitches) or
+                  (m_mac_procvar in current_settings^.modeswitches)) and
                  (tarraydef(def_to).elementdef.typ=procvardef) and
                  is_array_constructor(p.resultdef) and
                  not is_variant_array(p.resultdef) then
@@ -1635,7 +1635,7 @@ implementation
     function allowenumop(nt:tnodetype):boolean;
       begin
         result:=(nt in [equaln,unequaln,ltn,lten,gtn,gten]) or
-                ((cs_allow_enum_calc in current_settings.localswitches) and
+                ((cs_allow_enum_calc in current_settings^.localswitches) and
                  (nt in [addn,subn]));
       end;
 
@@ -2698,7 +2698,7 @@ implementation
 
     procedure check_ranges(const location: tfileposinfo; source: tnode; destdef: tdef);
       begin
-        if not(cs_check_ordinal_size in current_settings.localswitches) then
+        if not(cs_check_ordinal_size in current_settings^.localswitches) then
           exit;
         { check if the assignment may cause a range check error }
         { if its not explicit, and only if the values are       }
@@ -2721,7 +2721,7 @@ implementation
                (source.resultdef.typ<>floatdef) and
                not is_in_limit(source.resultdef,destdef)) then
              begin
-               if (cs_check_range in current_settings.localswitches) then
+               if (cs_check_range in current_settings^.localswitches) then
                  MessagePos(location,type_w_smaller_possible_range_check)
                else
                  MessagePos(location,type_h_smaller_possible_range_check);

@@ -1778,8 +1778,8 @@ const pemagic : array[0..3] of byte = (
           begin
             { Skip debug sections }
             if (oso_debug in secoptions) and
-               (cs_link_strip in current_settings.globalswitches) and
-               not(cs_link_separate_dbg_file in current_settings.globalswitches) then
+               (cs_link_strip in current_settings^.globalswitches) and
+               not(cs_link_separate_dbg_file in current_settings^.globalswitches) then
               exit;
 
             if assigned(data) then
@@ -1801,8 +1801,8 @@ const pemagic : array[0..3] of byte = (
           begin
             { Skip debug sections }
             if (oso_debug in secoptions)  and
-               (cs_link_strip in current_settings.globalswitches) and
-               not(cs_link_separate_dbg_file in current_settings.globalswitches) then
+               (cs_link_strip in current_settings^.globalswitches) and
+               not(cs_link_separate_dbg_file in current_settings^.globalswitches) then
               exit;
 
             if coffrelocs>0 then
@@ -2231,9 +2231,9 @@ const pemagic : array[0..3] of byte = (
         hassymbols:=(ExeWriteMode=ewm_dbgonly) or
                     (
                      (ExeWriteMode=ewm_exefull) and
-                     not(cs_link_strip in current_settings.globalswitches)
+                     not(cs_link_strip in current_settings^.globalswitches)
                     );
-        writeDbgStrings:=hassymbols or ((ExeWriteMode=ewm_exeonly) and (cs_link_separate_dbg_file in current_settings.globalswitches));
+        writeDbgStrings:=hassymbols or ((ExeWriteMode=ewm_exeonly) and (cs_link_separate_dbg_file in current_settings^.globalswitches));
         { Stub }
         if win32 then
           begin
@@ -2563,7 +2563,7 @@ const pemagic : array[0..3] of byte = (
           with internalobjdata do
             begin
               secname:=basedllname+'_i_'+amangledname;
-              textobjsection:=createsection(sectionname(sec_code,secname,secorder_default),current_settings.alignment.procalign,sectiontype2options(sec_code) - [oso_keep]);
+              textobjsection:=createsection(sectionname(sec_code,secname,secorder_default),current_settings^.alignment.procalign,sectiontype2options(sec_code) - [oso_keep]);
               idata4objsection:=createsection(sec_idata4, secname);
               idata5objsection:=createsection(sec_idata5, secname);
               idata6objsection:=createsection(sec_idata6, secname);

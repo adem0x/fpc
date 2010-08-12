@@ -254,7 +254,7 @@ implementation
          if not assigned(left.resultdef) then
            internalerror(20021126);
 
-         if (m_tp7 in current_settings.modeswitches) then
+         if (m_tp7 in current_settings^.modeswitches) then
            begin
              { insert a hint that a range check error might occur on non-byte
                elements with the in operator.

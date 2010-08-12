@@ -111,7 +111,7 @@ unit cgcpu;
         stacksize : longint;
       begin
         { Release PIC register }
-        if cs_create_pic in current_settings.moduleswitches then
+        if cs_create_pic in current_settings^.moduleswitches then
           list.concat(tai_regalloc.dealloc(NR_PIC_OFFSET_REG,nil));
 
         { remove stackframe }
@@ -188,7 +188,7 @@ unit cgcpu;
           begin
             sym:=current_asmdata.RefAsmSymbol(procdef.mangledname);
             reference_reset_symbol(r,sym,0,sizeof(pint));
-            if (cs_create_pic in current_settings.moduleswitches) and
+            if (cs_create_pic in current_settings^.moduleswitches) and
                { darwin/x86_64's assembler doesn't want @PLT after call symbols }
                (target_info.system<>system_x86_64_darwin) then
               r.refaddr:=addr_pic

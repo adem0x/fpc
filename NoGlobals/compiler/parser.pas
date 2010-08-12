@@ -79,10 +79,14 @@ implementation
 
          unloaded_units:=TLinkedList.Create;
 
+      {$IFDEF old}
          { global switches }
-         current_settings.globalswitches:=init_settings.globalswitches;
+         current_settings^.globalswitches:=init_settings.globalswitches;
 
-         current_settings.sourcecodepage:=init_settings.sourcecodepage;
+         current_settings^.sourcecodepage:=init_settings.sourcecodepage;
+      {$ELSE}
+        //scanner with current_settings does not yet exist!
+      {$ENDIF}
 
          { initialize scanner }
          InitScanner;
@@ -107,7 +111,12 @@ implementation
          RTTIWriter:=TRTTIWriter.Create;
 
          { open assembler response }
-         if cs_link_on_target in current_settings.globalswitches then
+      {$IFDEF old}
+         if cs_link_on_target in current_settings^.globalswitches then
+      {$ELSE}
+      //scanner with current_settings does not yet exist!
+         if cs_link_on_target in init_settings.globalswitches then
+      {$ENDIF}
            GenerateAsmRes(outputexedir+ChangeFileExt(inputfilename,'_ppas'))
          else
            GenerateAsmRes(outputexedir+'ppas');
@@ -262,9 +271,9 @@ implementation
       oldcurrent_filepos      : tfileposinfo;
       old_current_module : tmodule;
       oldcurrent_procinfo : tprocinfo;
-      old_settings : tsettings;
       oldsourcecodepage : tcodepagestring;
     {$IFDEF old}
+      old_settings : tsettings;
       old_switchesstatestack : tswitchesstatestack;
       old_switchesstatestackpos : Integer;
     {$ELSE}
@@ -301,6 +310,7 @@ implementation
           {$IFDEF old}
             old_switchesstatestack:=switchesstatestack;
             old_switchesstatestackpos:=switchesstatestackpos;
+            old_settings:=current_settings;
           {$ELSE}
             //in scanner
           {$ENDIF}
@@ -309,7 +319,6 @@ implementation
             { handle the postponed case first }
             //flushpendingswitchesstate;
             oldcurrent_filepos:=current_filepos;
-            old_settings:=current_settings;
           end;
         end;
 
@@ -333,11 +342,11 @@ implementation
               macrosymtablestack:=oldmacrosymtablestack;
             {$IFDEF old}
               current_procinfo:=oldcurrent_procinfo;
+              current_settings:=old_settings;
             {$ELSE}
               RestoreProc(oldcurrent_procinfo);
             {$ENDIF}
               current_filepos:=oldcurrent_filepos;
-              current_settings:=old_settings;
             (* these don't look correct :-(
               current_exceptblock:=0;
               exceptblockcounter:=0;
@@ -440,11 +449,11 @@ implementation
        {$IFDEF old}
          current_settings.defproccall:=init_settings.defproccall;
          current_settings.maxfpuregisters:=-1;
+         { Load current state from the init values }
+         current_settings:=init_settings;
        {$ELSE}
         //overwritten just below
        {$ENDIF}
-         { Load current state from the init values }
-         current_settings:=init_settings;
 
          { load current asmdata from current_module }
          current_asmdata:=TAsmData(current_module.asmdata);

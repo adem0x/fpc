@@ -171,7 +171,7 @@ end;
 
 Procedure FWaitWarning;
 begin
-  if (target_info.system=system_i386_GO32V2) and (cs_fp_emulation in current_settings.moduleswitches) then
+  if (target_info.system=system_i386_GO32V2) and (cs_fp_emulation in current_settings^.moduleswitches) then
    Message(asmr_w_fwait_emu_prob);
 end;
 
@@ -227,7 +227,7 @@ begin
           else if (getsupreg(opr.ref.base)=RS_ESP) and (opr.ref.offset<0) then
             message(asmr_w_direct_esp_neg_offset);
         end;
-      if (cs_create_pic in current_settings.moduleswitches) and
+      if (cs_create_pic in current_settings^.moduleswitches) and
          assigned(opr.ref.symbol) and
          not assigned(opr.ref.relsymbol) and
          (opr.ref.refaddr<>addr_pic) then
@@ -307,7 +307,7 @@ begin
                           tx86operand(operands[i]).opsize:=opsize
                         else
                          begin
-                           if (m_delphi in current_settings.modeswitches) then
+                           if (m_delphi in current_settings^.modeswitches) then
                              Message(asmr_w_unable_to_determine_reference_size_using_dword)
                            else
                              Message(asmr_e_unable_to_determine_reference_size);
@@ -373,7 +373,7 @@ begin
               if tx86operand(operands[1]).opsize=S_NO then
                 begin
                   tx86operand(operands[1]).opsize:=S_B;
-                  if (m_delphi in current_settings.modeswitches) then
+                  if (m_delphi in current_settings^.modeswitches) then
                     Message(asmr_w_unable_to_determine_reference_size_using_byte)
                   else
                     Message(asmr_e_unable_to_determine_reference_size);
@@ -464,8 +464,8 @@ begin
   if sizeerr then
    begin
      { if range checks are on then generate an error }
-     if (cs_compilesystem in current_settings.moduleswitches) or
-        not (cs_check_range in current_settings.localswitches) then
+     if (cs_compilesystem in current_settings^.moduleswitches) or
+        not (cs_check_range in current_settings^.localswitches) then
        Message(asmr_w_size_suffix_and_dest_dont_match)
      else
        Message(asmr_e_size_suffix_and_dest_dont_match);

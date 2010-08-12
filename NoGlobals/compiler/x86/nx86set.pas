@@ -193,7 +193,7 @@ implementation
              { Lots of comparisions take a lot of time, so do not allow
                too much comparisions. 8 comparisions are, however, still
                smalller than emitting the set }
-             if cs_opt_size in current_settings.optimizerswitches then
+             if cs_opt_size in current_settings^.optimizerswitches then
                maxcompares:=8
              else
                maxcompares:=5;

@@ -199,7 +199,7 @@ implementation
 
     function create_smartlink_library:boolean;inline;
       begin
-        result:=(cs_Create_smart in current_settings.moduleswitches) and
+        result:=(cs_Create_smart in current_settings^.moduleswitches) and
                 (tf_smartlink_library in target_info.flags) and
                 not create_smartlink_sections;
       end;
@@ -212,7 +212,7 @@ implementation
                  (tf_smartlink_sections in target_info.flags)
                 ) or
                 (
-                 (cs_Create_smart in current_settings.moduleswitches) and
+                 (cs_Create_smart in current_settings^.moduleswitches) and
                  (tf_smartlink_library in target_info.flags)
                 );
       end;

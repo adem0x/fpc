@@ -2602,7 +2602,8 @@ begin
         inputfilename:=ChangeFileExt(inputfilename,sourceext)
       else if FileExists(inputfilepath+ChangeFileExt(inputfilename,pasext)) then
         inputfilename:=ChangeFileExt(inputfilename,pasext)
-      else if ((m_mac in current_settings.modeswitches) or
+      //else if ((m_mac in current_settings^.modeswitches) or
+      else if ((m_mac in init_settings.modeswitches) or
               (tf_p_ext_support in target_info.flags))
              and FileExists(inputfilepath+ChangeFileExt(inputfilename,pext)) then
         inputfilename:=ChangeFileExt(inputfilename,pext);
@@ -2798,7 +2799,8 @@ if (target_info.system=system_arm_darwin) then
     2. override with generic optimizer setting (little size)
     3. override with the user specified -Oa }
   UpdateAlignment(init_settings.alignment,target_info.alignment);
-  if (cs_opt_size in current_settings.optimizerswitches) then
+  //if (cs_opt_size in current_settings^.optimizerswitches) then
+  if (cs_opt_size in init_settings.optimizerswitches) then
    begin
      init_settings.alignment.procalign:=1;
      init_settings.alignment.jumpalign:=1;

@@ -140,7 +140,7 @@ implementation
          { case of string must be rejected in delphi-, }
          { tp7/bp7-, mac-compatibility modes.          }
          caseofstring :=
-           ([m_delphi, m_mac, m_tp7] * current_settings.modeswitches = []) and
+           ([m_delphi, m_mac, m_tp7] * current_settings^.modeswitches = []) and
            is_string(casedef);
 
          if (not assigned(casedef)) or
@@ -362,7 +362,7 @@ implementation
                     { record/object fields and array elements are allowed }
                     { in tp7 mode only                                    }
                     (
-                     (m_tp7 in current_settings.modeswitches) and
+                     (m_tp7 in current_settings^.modeswitches) and
                      (
                       ((hp.nodetype=subscriptn) and
                        ((tsubscriptnode(hp).left.resultdef.typ=recorddef) or
@@ -411,7 +411,7 @@ implementation
                           ([vo_is_thread_var,vo_is_typed_const] * tabstractvarsym(tloadnode(hp).symtableentry).varoptions=[]) then
                          begin
                            { Assigning for-loop variable is only allowed in tp7 and macpas }
-                           if ([m_tp7,m_mac] * current_settings.modeswitches = []) then
+                           if ([m_tp7,m_mac] * current_settings^.modeswitches = []) then
                              begin
                                if not assigned(loopvarsym) then
                                  loopvarsym:=tabstractvarsym(tloadnode(hp).symtableentry);
@@ -421,7 +421,7 @@ implementation
                        else
                          begin
                            { Typed const is allowed in tp7 }
-                           if not(m_tp7 in current_settings.modeswitches) or
+                           if not(m_tp7 in current_settings^.modeswitches) or
                               not(vo_is_typed_const in tabstractvarsym(tloadnode(hp).symtableentry).varoptions) then
                              MessagePos(hp.fileinfo,type_e_illegal_count_var);
                          end;
@@ -584,7 +584,7 @@ implementation
                  must remain constant)
                }
                not(is_class(hp.resultdef) and
-                   (m_mac in current_settings.modeswitches)) then
+                   (m_mac in current_settings^.modeswitches)) then
               begin
                 { simple load, we can reference direct }
                 refnode:=p;
@@ -962,9 +962,9 @@ implementation
         asmreader : tbaseasmreader;
       begin
          Inside_asm_statement:=true;
-         if assigned(asmmodeinfos[current_settings.asmmode]) then
+         if assigned(asmmodeinfos[current_settings^.asmmode]) then
            begin
-             asmreader:=asmmodeinfos[current_settings.asmmode]^.casmreader.create;
+             asmreader:=asmmodeinfos[current_settings^.asmmode]^.casmreader.create;
              asmstat:=casmnode.create(asmreader.assemble as TAsmList);
              asmreader.free;
            end
@@ -1039,7 +1039,7 @@ implementation
          case current_scanner.token of
            _GOTO :
              begin
-                if not(cs_support_goto in current_settings.moduleswitches) then
+                if not(cs_support_goto in current_settings^.moduleswitches) then
                  Message(sym_e_goto_and_label_not_supported);
                 current_scanner.consume(_GOTO);
                 if (current_scanner.token<>_INTCONST) and (current_scanner.token<>_ID) then
@@ -1057,7 +1057,7 @@ implementation
                           internalerror(201008021);
 
                         { strip leading 0's in iso mode }
-                        if m_iso in current_settings.modeswitches then
+                        if m_iso in current_settings^.modeswitches then
                           while current_scanner.pattern[1]='0' do
                             delete(current_scanner.pattern,1,1);
 
@@ -1142,7 +1142,7 @@ implementation
                 current_scanner.try_to_consume(_COLON) then
               begin
                 { in iso mode, 0003: is equal to 3: }
-                if m_iso in current_settings.modeswitches then
+                if m_iso in current_settings^.modeswitches then
                   searchsym(tostr(tordconstnode(p).value),srsym,srsymtable)
                 else
                   searchsym(s,srsym,srsymtable);
@@ -1207,7 +1207,7 @@ implementation
                  exclude(tcallnode(p).callnodeflags,cnf_return_value_used);
 
                  { in $x- state, the function result must not be ignored }
-                 if not(cs_extsyntax in current_settings.moduleswitches) and
+                 if not(cs_extsyntax in current_settings^.moduleswitches) and
                     not(is_void(p.resultdef)) and
                     not((tcallnode(p).procdefinition.proctypeoption=potype_constructor) and
                         assigned(tprocdef(tcallnode(p).procdefinition)._class) and
@@ -1293,7 +1293,7 @@ implementation
            end;
 
          { delphi uses register calling for assembler methods }
-         if (m_delphi in current_settings.modeswitches) and
+         if (m_delphi in current_settings^.modeswitches) and
             (po_assembler in current_procinfo.procdef.procoptions) and
             not(po_hascallingconvention in current_procinfo.procdef.procoptions) then
            current_procinfo.procdef.proccalloption:=pocall_register;

@@ -1244,8 +1244,8 @@ implementation
     function TObjOutput.newObjData(const n:string):TObjData;
       begin
         result:=CObjData.create(n);
-        if (cs_use_lineinfo in current_settings.globalswitches) or
-           (cs_debuginfo in current_settings.moduleswitches) then
+        if (cs_use_lineinfo in current_settings^.globalswitches) or
+           (cs_debuginfo in current_settings^.moduleswitches) then
           result.CreateDebugSections;
       end;
 
@@ -1946,7 +1946,7 @@ implementation
                 VTENTRY and VTINHERIT symbols }
               if objsym.bind=AB_LOCAL then
                 begin
-                  if cs_link_opt_vtable in current_settings.globalswitches then
+                  if cs_link_opt_vtable in current_settings^.globalswitches then
                     begin
                       hs:=objsym.name;
                       if (hs[1]='V') then
@@ -2117,7 +2117,7 @@ implementation
           Comment(V_Error,'Entrypoint '+EntryName+' not defined');
 
         { Generate VTable tree }
-        if cs_link_opt_vtable in current_settings.globalswitches then
+        if cs_link_opt_vtable in current_settings^.globalswitches then
           BuildVTableTree(VTInheritList,VTEntryList);
         VTInheritList.Free;
         VTEntryList.Free;
@@ -2435,8 +2435,8 @@ implementation
                 (
                  (exesec.ObjSectionlist.count=0) or
                  (
-                  (cs_link_strip in current_settings.globalswitches) and
-                  not(cs_link_separate_dbg_file in current_settings.globalswitches) and
+                  (cs_link_strip in current_settings^.globalswitches) and
+                  not(cs_link_separate_dbg_file in current_settings^.globalswitches) and
                   (oso_debug in exesec.SecOptions)
                  )
                 );
@@ -2602,7 +2602,7 @@ implementation
               DoReloc(TObjRelocation(objsec.ObjRelocations[i]));
 
             { Process Virtual Entry calls }
-            if cs_link_opt_vtable in current_settings.globalswitches then
+            if cs_link_opt_vtable in current_settings^.globalswitches then
               begin
                 for i:=0 to objsec.VTRefList.count-1 do
                   begin

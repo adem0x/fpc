@@ -354,7 +354,7 @@ implementation
       begin
          result:=nil;
          expectloc:=LOC_REFERENCE;
-         if (cs_create_pic in current_settings.moduleswitches) and
+         if (cs_create_pic in current_settings^.moduleswitches) and
            not(symtableentry.typ in [paravarsym,localvarsym]) then
            include(current_procinfo.flags,pi_needs_got);
 
@@ -392,7 +392,7 @@ implementation
             procsym :
                 begin
                    { initialise left for nested procs if necessary }
-                   if (m_nested_procvars in current_settings.modeswitches) then
+                   if (m_nested_procvars in current_settings^.modeswitches) then
                      setprocdef(fprocdef);
                    { method pointer or nested proc ? }
                    if assigned(left) then
@@ -437,7 +437,7 @@ implementation
         if assigned(p) and
            is_nested_pd(p) then
           begin
-            if not(m_nested_procvars in current_settings.modeswitches) then
+            if not(m_nested_procvars in current_settings^.modeswitches) then
               CGMessage(type_e_cant_take_address_of_local_subroutine)
             else
               begin

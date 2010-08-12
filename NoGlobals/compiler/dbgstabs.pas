@@ -119,7 +119,7 @@ implementation
 
     function GetSymName(Sym : TSymEntry) : string;
     begin
-      if Not (cs_stabs_preservecase in current_settings.globalswitches) then
+      if Not (cs_stabs_preservecase in current_settings^.globalswitches) then
         result := Sym.Name
       else
         result := Sym.RealName;
@@ -127,7 +127,7 @@ implementation
 
     function GetSymTableName(SymTable : TSymTable) : string;
     begin
-      if Not (cs_stabs_preservecase in current_settings.globalswitches) then
+      if Not (cs_stabs_preservecase in current_settings^.globalswitches) then
         result := SymTable.Name^
       else
         result := SymTable.RealName^;
@@ -609,7 +609,7 @@ implementation
         ss : ansistring;
       begin
         ss:='';
-        if cs_gdb_valgrind in current_settings.globalswitches then
+        if cs_gdb_valgrind in current_settings^.globalswitches then
           begin
             case def.ordtype of
               uvoid :
@@ -1036,7 +1036,7 @@ implementation
                 templist.concat(Tai_stab.create(stab_stabs,strpnew(
                    '"'+GetSymName(def.procsym)+':'+hs+def_stab_number(def.returndef)+'",'+
                    tostr(N_tsym)+',0,0,'+tostr(tabstractnormalvarsym(def.funcretsym).localloc.reference.offset))));
-                if (m_result in current_settings.modeswitches) then
+                if (m_result in current_settings^.modeswitches) then
                   templist.concat(Tai_stab.create(stab_stabs,strpnew(
                      '"RESULT:'+hs+def_stab_number(def.returndef)+'",'+
                      tostr(N_tsym)+',0,0,'+tostr(tabstractnormalvarsym(def.funcretsym).localloc.reference.offset))));
@@ -1109,7 +1109,7 @@ implementation
           begin
             if (def.owner.symtabletype = objecTSymtable) then
               obj := GetSymTableName(def.owner)+'__'+GetSymName(def.procsym);
-            if not(cs_gdb_valgrind in current_settings.globalswitches) and
+            if not(cs_gdb_valgrind in current_settings^.globalswitches) and
                (def.owner.symtabletype=localsymtable) and
                assigned(def.owner.defowner) and
                assigned(tprocdef(def.owner.defowner).procsym) then
@@ -1429,7 +1429,7 @@ implementation
           the N_Func for the function itself.
           Valgrind does not support constants }
         if (sym.owner.symtabletype=parasymtable) or
-           (cs_gdb_valgrind in current_settings.globalswitches) then
+           (cs_gdb_valgrind in current_settings^.globalswitches) then
           exit;
         case sym.consttyp of
           conststring:
@@ -1606,7 +1606,7 @@ implementation
                       begin
                         current_asmdata.getlabel(hlabel,alt_dbgfile);
                         { emit stabs }
-                        if not(ds_stabs_abs_include_files in current_settings.debugswitches) or
+                        if not(ds_stabs_abs_include_files in current_settings^.debugswitches) or
                            path_absolute(infile.path^) then
                           list.insertbefore(Tai_stab.Create_str(stab_stabs,'"'+BsToSlash(FixPath(infile.path^,false))+FixFileName(infile.name^)+'",'+tostr(n_includefile)+
                                             ',0,0,'+hlabel.name),hp)

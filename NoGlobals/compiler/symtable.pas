@@ -593,7 +593,7 @@ implementation
                      { don't warn about the result of constructors }
                      if ((tsym(sym).owner.symtabletype<>localsymtable) or
                         (tprocdef(tsym(sym).owner.defowner).proctypeoption<>potype_constructor)) and
-                        not(cs_opt_nodedfa in current_settings.optimizerswitches) then
+                        not(cs_opt_nodedfa in current_settings^.optimizerswitches) then
                        MessagePos(tsym(sym).fileinfo,sym_w_function_result_not_set)
                    end
                  else if (tsym(sym).owner.symtabletype=parasymtable) then
@@ -821,7 +821,7 @@ implementation
       begin
         case usefieldalignment of
           C_alignment:
-            varalignrecord:=used_align(varalign,current_settings.alignment.recordalignmin,current_settings.alignment.maxCrecordalign);
+            varalignrecord:=used_align(varalign,current_settings^.alignment.recordalignmin,current_settings^.alignment.maxCrecordalign);
           mac68k_alignment:
             varalignrecord:=2;
           else
@@ -897,7 +897,7 @@ implementation
                 Message1(sym_w_wrong_C_pack,vardef.typename);
               if varalign=0 then
                 varalign:=l;
-              if (fieldalignment<current_settings.alignment.maxCrecordalign) then
+              if (fieldalignment<current_settings^.alignment.maxCrecordalign) then
                 begin
                   if (varalign>16) and (fieldalignment<32) then
                     fieldalignment:=32
@@ -913,7 +913,7 @@ implementation
                   else if (varalign>1) and (fieldalignment<2) then
                     fieldalignment:=2;
                 end;
-              fieldalignment:=min(fieldalignment,current_settings.alignment.maxCrecordalign);
+              fieldalignment:=min(fieldalignment,current_settings^.alignment.maxCrecordalign);
             end;
           mac68k_alignment:
             begin
@@ -931,7 +931,7 @@ implementation
         end;
         if varalign=0 then
           varalign:=size_2_align(l);
-        varalignfield:=used_align(varalign,current_settings.alignment.recordalignmin,fieldalignment);
+        varalignfield:=used_align(varalign,current_settings^.alignment.recordalignmin,fieldalignment);
 
         sym.fieldoffset:=align(_datasize,varalignfield);
         if l>high(aint)-sym.fieldoffset then
@@ -1175,14 +1175,14 @@ implementation
               if assigned(hsym) and
                  (
                   (
-                   not(m_delphi in current_settings.modeswitches) and
+                   not(m_delphi in current_settings^.modeswitches) and
                    is_visible_for_object(hsym,tobjectdef(defowner))
                   ) or
                   (
                    { In Delphi, you can repeat members of a parent class. You can't }
                    { do this for objects however, and you (obviouly) can't          }
                    { declare two fields with the same name in a single class        }
-                   (m_delphi in current_settings.modeswitches) and
+                   (m_delphi in current_settings^.modeswitches) and
                    (
                     is_object(tdef(defowner)) or
                     (hsym.owner = self)
@@ -1196,7 +1196,7 @@ implementation
            end
          else
            begin
-             if not(m_duplicate_names in current_settings.modeswitches) then
+             if not(m_duplicate_names in current_settings^.modeswitches) then
                result:=inherited checkduplicate(hashedid,sym);
            end;
       end;
@@ -1268,10 +1268,10 @@ implementation
           begin
             { a local and the function can have the same
               name in TP and Delphi, but RESULT not }
-            if (m_duplicate_names in current_settings.modeswitches) and
+            if (m_duplicate_names in current_settings^.modeswitches) and
                (hsym.typ in [absolutevarsym,localvarsym]) and
                (vo_is_funcret in tabstractvarsym(hsym).varoptions) and
-               not((m_result in current_settings.modeswitches) and
+               not((m_result in current_settings^.modeswitches) and
                    (vo_is_result in tabstractvarsym(hsym).varoptions)) then
               HideSym(hsym)
             else
@@ -1288,10 +1288,10 @@ implementation
           begin
             { a local and the function can have the same
               name in TP and Delphi, but RESULT not }
-            if (m_duplicate_names in current_settings.modeswitches) and
+            if (m_duplicate_names in current_settings^.modeswitches) and
                (sym.typ in [absolutevarsym,localvarsym]) and
                (vo_is_funcret in tabstractvarsym(sym).varoptions) and
-               not((m_result in current_settings.modeswitches) and
+               not((m_result in current_settings^.modeswitches) and
                    (vo_is_result in tabstractvarsym(sym).varoptions)) then
               Hidesym(sym)
             else
@@ -1308,7 +1308,7 @@ implementation
            assigned(tprocdef(defowner)._class) and
            (tprocdef(defowner).owner.defowner=tprocdef(defowner)._class) and
            (
-            not(m_delphi in current_settings.modeswitches) or
+            not(m_delphi in current_settings^.modeswitches) or
             is_object(tprocdef(defowner)._class)
            ) then
           result:=tprocdef(defowner)._class.symtable.checkduplicate(hashedid,sym);
@@ -1333,12 +1333,12 @@ implementation
         result:=inherited checkduplicate(hashedid,sym);
         if result then
           exit;
-        if not(m_duplicate_names in current_settings.modeswitches) and
+        if not(m_duplicate_names in current_settings^.modeswitches) and
            (defowner.typ=procdef) and
            assigned(tprocdef(defowner)._class) and
            (tprocdef(defowner).owner.defowner=tprocdef(defowner)._class) and
            (
-            not(m_delphi in current_settings.modeswitches) or
+            not(m_delphi in current_settings^.modeswitches) or
             is_object(tprocdef(defowner)._class)
            ) then
           result:=tprocdef(defowner)._class.symtable.checkduplicate(hashedid,sym);
@@ -1404,7 +1404,7 @@ implementation
             { Delphi (contrary to TP) you can have a symbol with the same name as the
               unit, the unit can then not be accessed anymore using
               <unit>.<id>, so we can hide the symbol }
-            if (m_delphi in current_settings.modeswitches) and
+            if (m_delphi in current_settings^.modeswitches) and
                (hsym.typ=symconst.unitsym) then
               HideSym(hsym)
             else
@@ -1458,7 +1458,7 @@ implementation
             { Delphi (contrary to TP) you can have a symbol with the same name as the
               unit, the unit can then not be accessed anymore using
               <unit>.<id>, so we can hide the symbol }
-            if (m_delphi in current_settings.modeswitches) and
+            if (m_delphi in current_settings^.modeswitches) and
                (hsym.typ=symconst.unitsym) then
               HideSym(hsym)
             else

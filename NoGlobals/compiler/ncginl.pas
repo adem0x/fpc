@@ -185,7 +185,7 @@ implementation
        paraloc3,paraloc4 : tcgpara;
      begin
        { the node should be removed in the firstpass }
-       if not (cs_do_assertion in current_settings.localswitches) then
+       if not (cs_do_assertion in current_settings^.localswitches) then
           internalerror(7123458);
        paraloc1.init;
        paraloc2.init;
@@ -491,7 +491,7 @@ implementation
               { implement these methods since they don't exist for all cpus (JM)  }
               { Similarly, range checking also has to be handled separately, }
               { see mantis #14841 (JM)                                       }
-              if ([cs_check_overflow,cs_check_range] * current_settings.localswitches <> []) then
+              if ([cs_check_overflow,cs_check_range] * current_settings^.localswitches <> []) then
                 internalerror(2006111010);
 //              cg.g_overflowcheck(current_asmdata.CurrAsmList,tcallparanode(left).left.location,tcallparanode(left).resultdef);
 //              cg.g_rangecheck(current_asmdata.CurrAsmList,tcallparanode(left).left.location,tcallparanode(left).left.resultdef,

@@ -240,7 +240,7 @@ implementation
         location_force_reg(current_asmdata.CurrAsmList,location,OS_SINT,false);
         cg.a_op_reg_reg(current_asmdata.CurrAsmList,OP_NEG,OS_SINT,location.register,location.register);
 
-        if (cs_check_overflow in current_settings.localswitches) then
+        if (cs_check_overflow in current_settings^.localswitches) then
           begin
             current_asmdata.getjumplabel(hl);
             cg.a_cmp_const_reg_label(current_asmdata.CurrAsmList,OS_SINT,OC_NE,low(aint),location.register,hl);
@@ -258,7 +258,7 @@ implementation
          else
 {$endif not cpu64bitalu}
 {$ifdef SUPPORT_MMX}
-           if (cs_mmx in current_settings.localswitches) and is_mmx_able_array(left.resultdef) then
+           if (cs_mmx in current_settings^.localswitches) and is_mmx_able_array(left.resultdef) then
              second_mmx
          else
 {$endif SUPPORT_MMX}

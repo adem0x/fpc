@@ -540,7 +540,7 @@ unit rgobj;
         ibitmap:=tinterferencebitmap.create;
         generate_interference_graph(list,headertai);
         { Don't do the real allocation when -sr is passed }
-        if (cs_no_regalloc in current_settings.globalswitches) then
+        if (cs_no_regalloc in current_settings^.globalswitches) then
           exit;
         {Do register allocation.}
         spillingcounter:=0;

@@ -556,7 +556,7 @@ implementation
                 { For mode macpas. Make implicit externals (procedures declared in the interface
                   section which do not have a counterpart in the implementation)
                   to be an imported procedure }
-                if (m_mac in current_settings.modeswitches) and
+                if (m_mac in current_settings^.modeswitches) and
                    (pd.interfacedef) then
                   begin
                     pd.setmangledname(target_info.CPrefix+tprocdef(pd).procsym.realname);
@@ -1052,7 +1052,7 @@ implementation
                registers is not valid anymore)
            - it has a local copy
            - the value needs to be in memory (i.e. reference counted) }
-        result:=(cs_opt_regvar in current_settings.optimizerswitches) and
+        result:=(cs_opt_regvar in current_settings^.optimizerswitches) and
                 not(pi_has_assembler_block in current_procinfo.flags) and
                 not(pi_uses_exceptions in current_procinfo.flags) and
                 not(vo_has_local_copy in varoptions) and
@@ -1130,7 +1130,7 @@ implementation
            (owner.symtabletype in [localsymtable,parasymtable]) or
            (
             (owner.symtabletype=staticsymtable) and
-            not(cs_create_pic in current_settings.moduleswitches)
+            not(cs_create_pic in current_settings^.moduleswitches)
            ) then
           begin
             if tstoreddef(vardef).is_intregable then

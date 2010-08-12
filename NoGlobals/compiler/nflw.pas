@@ -260,7 +260,7 @@ implementation
         sym: tsym;
       begin
         { Objective-C enumerators require Objective-C 2.0 }
-        if not(m_objectivec2 in current_settings.modeswitches) then
+        if not(m_objectivec2 in current_settings^.modeswitches) then
           begin
             result:=cerrornode.create;
             MessagePos(expr.fileinfo,parser_e_objc_enumerator_2_0);
@@ -1465,7 +1465,7 @@ implementation
          set_varstate(left,vs_written,[]);
 
          { loop unrolling }
-         if cs_opt_loopunroll in current_settings.optimizerswitches then
+         if cs_opt_loopunroll in current_settings^.optimizerswitches then
            begin
              res:=unroll_loop(self);
              if assigned(res) then

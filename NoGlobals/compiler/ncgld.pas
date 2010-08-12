@@ -146,7 +146,7 @@ implementation
 
         { only do for -O2 or higher (breaks debugging since }
         { variables move to different memory locations)     }
-        if not(cs_opt_level2 in current_settings.optimizerswitches) or
+        if not(cs_opt_level2 in current_settings^.optimizerswitches) or
            { must be a copy to a memory location ... }
            (n.location.loc <> LOC_REFERENCE) or
            { not inside a control flow statement and no goto's in sight }

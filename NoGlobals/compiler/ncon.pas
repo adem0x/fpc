@@ -299,7 +299,7 @@ implementation
           conststring :
             begin
               len:=p.value.len;
-              if not(cs_ansistrings in current_settings.localswitches) and (len>255) then
+              if not(cs_ansistrings in current_settings^.localswitches) and (len>255) then
                 begin
                   message(parser_e_string_const_too_long);
                   len:=255;
@@ -515,7 +515,7 @@ implementation
     {   i386           }
     constructor trealconstnode.create(v : bestreal;def:tdef);
       begin
-         if current_settings.fputype=fpu_none then
+         if current_settings^.fputype=fpu_none then
             internalerror(2008022401);
          inherited create(realconstn);
          typedef:=def;

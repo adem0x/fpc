@@ -181,7 +181,7 @@ Implementation
          so there is no object files to look for at
          the host. Look for the corresponding assembler file instead,
          because it will be assembled to object file on the target.}
-        if isunit and (cs_link_on_target in current_settings.globalswitches) then
+        if isunit and (cs_link_on_target in current_settings^.globalswitches) then
           s:=ChangeFileExt(s,target_info.asmext);
 
         { when it does not belong to the unit then check if
@@ -222,13 +222,13 @@ Implementation
          found:=current_module.localobjectsearchpath.FindFile(s,false,foundfile);
         if (not found) then
          found:=objectsearchpath.FindFile(s,false,foundfile);
-        if not(cs_link_on_target in current_settings.globalswitches) and (not found) then
+        if not(cs_link_on_target in current_settings^.globalswitches) and (not found) then
          found:=FindFile(s,exepath,false,foundfile);
-        if not(cs_link_nolink in current_settings.globalswitches) and (not found) then
+        if not(cs_link_nolink in current_settings^.globalswitches) and (not found) then
          Message1(exec_w_objfile_not_found,s);
 
         {Restore file extension}
-        if isunit and (cs_link_on_target in current_settings.globalswitches) then
+        if isunit and (cs_link_on_target in current_settings^.globalswitches) then
           foundfile:= ChangeFileExt(foundfile,target_info.objext);
 
         findobjectfile:=ScriptFixFileName(foundfile);
@@ -303,7 +303,7 @@ Implementation
          found:=current_module.locallibrarysearchpath.FindFile(s,false,foundfile);
         if (not found) then
          found:=librarysearchpath.FindFile(s,false,foundfile);
-        if not(cs_link_on_target in current_settings.globalswitches) and (not found) then
+        if not(cs_link_on_target in current_settings^.globalswitches) and (not found) then
          found:=FindFile(s,exepath,false,foundfile);
         foundfile:=ScriptFixFileName(foundfile);
         findlibraryfile:=found;
@@ -352,7 +352,7 @@ Implementation
               { create mask which unit files need linking }
               mask:=link_always;
               { static linking ? }
-              if (cs_link_static in current_settings.globalswitches) then
+              if (cs_link_static in current_settings^.globalswitches) then
                begin
                  if (flags and uf_static_linked)=0 then
                   begin
@@ -369,7 +369,7 @@ Implementation
                    mask:=mask or link_static;
                end;
               { smart linking ? }
-              if (cs_link_smart in current_settings.globalswitches) then
+              if (cs_link_smart in current_settings^.globalswitches) then
                begin
                  if (flags and uf_smart_linked)=0 then
                   begin
@@ -390,7 +390,7 @@ Implementation
                   mask:=mask or link_smart;
                end;
               { shared linking }
-              if (cs_link_shared in current_settings.globalswitches) then
+              if (cs_link_shared in current_settings^.globalswitches) then
                begin
                  if (flags and uf_shared_linked)=0 then
                   begin
@@ -472,7 +472,7 @@ Implementation
         if s='' then
           exit;
         found:=FindLibraryFile(s,target_info.staticlibprefix,target_info.staticlibext,ns);
-        if not(cs_link_nolink in current_settings.globalswitches) and (not found) then
+        if not(cs_link_nolink in current_settings^.globalswitches) and (not found) then
           Message1(exec_w_libfile_not_found,s);
         StaticLibFiles.Concat(ns);
       end;
@@ -510,7 +510,7 @@ Implementation
         if s='' then
          exit;
         found:=FindLibraryFile(s,target_info.staticclibprefix,target_info.staticclibext,ns);
-        if not(cs_link_nolink in current_settings.globalswitches) and (not found) then
+        if not(cs_link_nolink in current_settings^.globalswitches) and (not found) then
          Message1(exec_w_libfile_not_found,s);
         StaticLibFiles.Concat(ns);
       end;
@@ -594,7 +594,7 @@ Implementation
         inherited Create;
         { set generic defaults }
         FillChar(Info,sizeof(Info),0);
-        if cs_link_on_target in current_settings.globalswitches then
+        if cs_link_on_target in current_settings^.globalswitches then
           begin
             Info.ResName:=outputexedir+ChangeFileExt(inputfilename,'_link.res');
             Info.ScriptName:=outputexedir+ChangeFileExt(inputfilename,'_script.res');
@@ -634,7 +634,7 @@ Implementation
         FoundBin : TCmdStr;
         UtilExe  : TCmdStr;
       begin
-        if cs_link_on_target in current_settings.globalswitches then
+        if cs_link_on_target in current_settings^.globalswitches then
           begin
             { If linking on target, don't add any path PM }
             FindUtil:=ChangeFileExt(s,target_info.exeext);
@@ -647,10 +647,10 @@ Implementation
          Found:=FindFile(utilexe,utilsdirectory,false,Foundbin);
         if (not Found) then
          Found:=FindExe(utilexe,false,Foundbin);
-        if (not Found) and not(cs_link_nolink in current_settings.globalswitches) then
+        if (not Found) and not(cs_link_nolink in current_settings^.globalswitches) then
          begin
            Message1(exec_e_util_not_found,utilexe);
-           current_settings.globalswitches:=current_settings.globalswitches+[cs_link_nolink];
+           current_settings^.globalswitches:=current_settings^.globalswitches+[cs_link_nolink];
          end;
         if (FoundBin<>'') then
          Message1(exec_t_using_util,FoundBin);
@@ -663,7 +663,7 @@ Implementation
         exitcode: longint;
       begin
         DoExec:=true;
-        if not(cs_link_nolink in current_settings.globalswitches) then
+        if not(cs_link_nolink in current_settings^.globalswitches) then
          begin
            FlushOutput;
            if useshell then
@@ -674,19 +674,19 @@ Implementation
              except on E:EOSError do
                begin
                  Message(exec_e_cant_call_linker);
-                 current_settings.globalswitches:=current_settings.globalswitches+[cs_link_nolink];
+                 current_settings^.globalswitches:=current_settings^.globalswitches+[cs_link_nolink];
                  DoExec:=false;
                end;
              end;
            if (exitcode<>0) then
              begin
                Message(exec_e_error_while_linking);
-               current_settings.globalswitches:=current_settings.globalswitches+[cs_link_nolink];
+               current_settings^.globalswitches:=current_settings^.globalswitches+[cs_link_nolink];
                DoExec:=false;
              end;
          end;
       { Update asmres when externmode is set }
-        if cs_link_nolink in current_settings.globalswitches then
+        if cs_link_nolink in current_settings^.globalswitches then
          begin
            if showinfo then
              begin
@@ -774,8 +774,8 @@ Implementation
           end;
 
         { Clean up }
-        if not(cs_asm_leave in current_settings.globalswitches) then
-         if not(cs_link_nolink in current_settings.globalswitches) then
+        if not(cs_asm_leave in current_settings^.globalswitches) then
+         if not(cs_link_nolink in current_settings^.globalswitches) then
           begin
             while not SmartLinkOFiles.Empty do
               DeleteFile(SmartLinkOFiles.GetFirst);
@@ -1036,7 +1036,7 @@ Implementation
 
         exeoutput:=CExeOutput.Create;
 
-        if (cs_link_map in current_settings.globalswitches) then
+        if (cs_link_map in current_settings^.globalswitches) then
           exemap:=texemap.create(current_module.mapfilename^);
 
         PrintLinkerScript;
@@ -1066,7 +1066,7 @@ Implementation
         if ErrorCount>0 then
           goto myexit;
 
-        if cs_link_separate_dbg_file in current_settings.globalswitches then
+        if cs_link_separate_dbg_file in current_settings^.globalswitches then
           begin
             { create debuginfo, which is an executable without data on disk }
             dbgname:=ChangeFileExt(outputname,'.dbg');
@@ -1141,7 +1141,7 @@ Implementation
       var
         lk : TlinkerClass;
       begin
-        if (cs_link_extern in current_settings.globalswitches) and
+        if (cs_link_extern in current_settings^.globalswitches) and
            assigned(target_info.linkextern) then
           begin
             lk:=TlinkerClass(target_info.linkextern);

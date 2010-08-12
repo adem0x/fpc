@@ -338,7 +338,7 @@ implementation
           tfiledef(left.resultdef).typedfiledef.size,s32inttype,true),
           ccallparanode.create(left,nil));
         { create the correct call }
-        if m_iso in current_settings.modeswitches then
+        if m_iso in current_settings^.modeswitches then
           begin
             if inlinenumber=in_reset_typedfile then
               result := ccallnode.createintern('fpc_reset_typed_iso',left)
@@ -481,7 +481,7 @@ implementation
                     begin
                       name := procprefixes[do_read]+'char';
                       { iso pascal needs a different handler }
-                      if (m_iso in current_settings.modeswitches) and do_read then
+                      if (m_iso in current_settings^.modeswitches) and do_read then
                         name:=name+'_iso';
                       readfunctype:=cchartype;
                     end;
@@ -554,7 +554,7 @@ implementation
           end;
 
           { iso pascal needs a different handler }
-          if (m_iso in current_settings.modeswitches) and not(do_read) then
+          if (m_iso in current_settings^.modeswitches) and not(do_read) then
             name:=name+'_iso';
 
           { check for length/fractional colon para's }
@@ -605,7 +605,7 @@ implementation
                     begin
                       if not assigned(lenpara) then
                         begin
-                          if m_iso in current_settings.modeswitches then
+                          if m_iso in current_settings^.modeswitches then
                             lenpara := ccallparanode.create(
                               cordconstnode.create(-1,s32inttype,false),nil)
                           else
@@ -784,7 +784,7 @@ implementation
             in_readln_x:
               begin
                 name:='fpc_readln_end';
-                if m_iso in current_settings.modeswitches then
+                if m_iso in current_settings^.modeswitches then
                   name:=name+'_iso';
               end;
             in_writeln_x:
@@ -1664,7 +1664,7 @@ implementation
                       end;
                     pointerdef :
                       begin
-                        if m_mac in current_settings.modeswitches then
+                        if m_mac in current_settings^.modeswitches then
                           begin
                             result:=ctypeconvnode.create_internal(left,ptruinttype);
                             left:=nil;
@@ -1901,7 +1901,7 @@ implementation
                 end;
               in_assert_x_y :
                 begin
-                  if not(cs_do_assertion in current_settings.localswitches) then
+                  if not(cs_do_assertion in current_settings^.localswitches) then
                     { we need a valid node, so insert a nothingn }
                     result:=cnothingnode.create;
                 end;
@@ -2046,8 +2046,8 @@ implementation
                 begin
                   { give warning for incompatibility with tp and delphi }
                   if (inlinenumber in [in_lo_long,in_hi_long,in_lo_qword,in_hi_qword]) and
-                     ((m_tp7 in current_settings.modeswitches) or
-                      (m_delphi in current_settings.modeswitches)) then
+                     ((m_tp7 in current_settings^.modeswitches) or
+                      (m_delphi in current_settings^.modeswitches)) then
                     CGMessage(type_w_maybe_wrong_hi_lo);
                   set_varstate(left,vs_read,[vsf_must_be_valid]);
                   if not is_integer(left.resultdef) then
@@ -2124,7 +2124,7 @@ implementation
                        ;
                      pointerdef :
                        begin
-                         if not(m_mac in current_settings.modeswitches) then
+                         if not(m_mac in current_settings^.modeswitches) then
                            CGMessage1(type_e_ordinal_expr_expected,left.resultdef.typename);
                        end
                      else
@@ -2277,7 +2277,7 @@ implementation
                      begin
                        if (resultdef.typ=enumdef) and
                           (tenumdef(resultdef).has_jumps) and
-                          not(m_delphi in current_settings.modeswitches) then
+                          not(m_delphi in current_settings^.modeswitches) then
                          CGMessage(type_e_succ_and_pred_enums_with_assign_not_possible);
                      end;
                 end;
@@ -2315,7 +2315,7 @@ implementation
                                  { when range/overflow checking is on, we
                                    convert this to a regular add, and for proper
                                    checking we need the original type }
-                                 if ([cs_check_range,cs_check_overflow]*current_settings.localswitches=[]) then
+                                 if ([cs_check_range,cs_check_overflow]*current_settings^.localswitches=[]) then
                                    if is_integer(tcallparanode(left).left.resultdef) then
                                      inserttypeconv(tcallparanode(tcallparanode(left).right).left,tcallparanode(left).left.resultdef)
                                    else
@@ -2552,7 +2552,7 @@ implementation
                   else
                     CGMessage(type_e_mismatch);
 
-                  if (cs_do_assertion in current_settings.localswitches) then
+                  if (cs_do_assertion in current_settings^.localswitches) then
                     include(current_procinfo.flags,pi_do_call);
                 end;
               in_prefetch_var:
@@ -2690,7 +2690,7 @@ implementation
               expectloc:=LOC_REGISTER;
               { in case of range/overflow checking, use a regular addnode
                 because it's too complex to handle correctly otherwise }
-              if ([cs_check_overflow,cs_check_range]*current_settings.localswitches)<>[] then
+              if ([cs_check_overflow,cs_check_range]*current_settings^.localswitches)<>[] then
                 begin
                   { create constant 1 }
                   hp:=cordconstnode.create(1,left.resultdef,false);
@@ -2748,7 +2748,7 @@ implementation
 
                { range/overflow checking doesn't work properly }
                { with the inc/dec code that's generated (JM)   }
-               if (current_settings.localswitches * [cs_check_overflow,cs_check_range] <> []) and
+               if (current_settings^.localswitches * [cs_check_overflow,cs_check_range] <> []) and
                  { No overflow check for pointer operations, because inc(pointer,-1) will always
                    trigger an overflow. For uint32 it works because then the operation is done
                    in 64bit. Range checking is not applicable to pointers either }

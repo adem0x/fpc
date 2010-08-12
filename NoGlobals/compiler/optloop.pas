@@ -88,7 +88,7 @@ unit optloop;
         unrollblock : tblocknode;
       begin
         result:=nil;
-        if (cs_opt_size in current_settings.optimizerswitches) then
+        if (cs_opt_size in current_settings^.optimizerswitches) then
           exit;
         if not(node.nodetype in [forn]) then
           exit;

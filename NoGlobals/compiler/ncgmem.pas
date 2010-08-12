@@ -255,9 +255,9 @@ implementation
             else
               internalerror(200507031);
          end;
-         if (cs_use_heaptrc in current_settings.globalswitches) and
-            (cs_checkpointer in current_settings.localswitches) and
-            not(cs_compilesystem in current_settings.moduleswitches) and
+         if (cs_use_heaptrc in current_settings^.globalswitches) and
+            (cs_checkpointer in current_settings^.localswitches) and
+            not(cs_compilesystem in current_settings^.moduleswitches) and
             not(tpointerdef(left.resultdef).is_far) and
             not(nf_no_checkpointer in flags) and
             { can be NR_NO in case of LOC_CONSTANT }
@@ -326,9 +326,9 @@ implementation
                   internalerror(2009092401);
              end;
              { implicit deferencing }
-             if (cs_use_heaptrc in current_settings.globalswitches) and
-                (cs_checkpointer in current_settings.localswitches) and
-                not(cs_compilesystem in current_settings.moduleswitches) then
+             if (cs_use_heaptrc in current_settings^.globalswitches) and
+                (cs_checkpointer in current_settings^.localswitches) and
+                not(cs_compilesystem in current_settings^.moduleswitches) then
               begin
                 paramanager.getintparaloc(pocall_default,1,paraloc1);
                 cg.a_load_reg_cgpara(current_asmdata.CurrAsmList, OS_ADDR,location.reference.base,paraloc1);
@@ -344,9 +344,9 @@ implementation
              tg.GetTempTyped(current_asmdata.CurrAsmList,left.resultdef,tt_normal,location.reference);
              cg.a_load_loc_ref(current_asmdata.CurrAsmList,OS_ADDR,left.location,location.reference);
              { implicit deferencing also for interfaces }
-             if (cs_use_heaptrc in current_settings.globalswitches) and
-                (cs_checkpointer in current_settings.localswitches) and
-                not(cs_compilesystem in current_settings.moduleswitches) then
+             if (cs_use_heaptrc in current_settings^.globalswitches) and
+                (cs_checkpointer in current_settings^.localswitches) and
+                not(cs_compilesystem in current_settings^.moduleswitches) then
               begin
                 paramanager.getintparaloc(pocall_default,1,paraloc1);
                 cg.a_load_reg_cgpara(current_asmdata.CurrAsmList, OS_ADDR,location.reference.base,paraloc1);
@@ -766,7 +766,7 @@ implementation
 
               { check for a zero length string,
                 we can use the ansistring routine here }
-              if (cs_check_range in current_settings.localswitches) then
+              if (cs_check_range in current_settings^.localswitches) then
                 begin
                    paramanager.getintparaloc(pocall_default,1,paraloc1);
                    cg.a_load_reg_cgpara(current_asmdata.CurrAsmList,OS_ADDR,location.reference.base,paraloc1);
@@ -853,7 +853,7 @@ implementation
                                (tordconstnode(right).value.svalue<tarraydef(left.resultdef).lowrange) then
                               begin
                                 { this should be caught in the typecheckpass! (JM) }
-                                if (cs_check_range in current_settings.localswitches) then
+                                if (cs_check_range in current_settings^.localswitches) then
                                   CGMessage(parser_e_range_check_error)
                                 else
                                   CGMessage(parser_w_range_check_error);
@@ -864,14 +864,14 @@ implementation
                               { range checking for open and dynamic arrays needs
                                 runtime code }
                               secondpass(right);
-                              if (cs_check_range in current_settings.localswitches) then
+                              if (cs_check_range in current_settings^.localswitches) then
                                 rangecheck_array;
                            end;
 		       end;
                   end;
                 stringdef :
                   begin
-                    if (cs_check_range in current_settings.localswitches) then
+                    if (cs_check_range in current_settings^.localswitches) then
                      begin
                        case tstringdef(left.resultdef).stringtype of
                          { it's the same for ansi- and wide strings }
@@ -955,11 +955,11 @@ implementation
          else
          { not nodetype=ordconstn }
            begin
-              if (cs_opt_level1 in current_settings.optimizerswitches) and
+              if (cs_opt_level1 in current_settings^.optimizerswitches) and
                  { if we do range checking, we don't }
                  { need that fancy code (it would be }
                  { buggy)                            }
-                 not(cs_check_range in current_settings.localswitches) and
+                 not(cs_check_range in current_settings^.localswitches) and
                  (left.resultdef.typ=arraydef) and
                  not is_packed_array(left.resultdef) then
                 begin
@@ -1022,7 +1022,7 @@ implementation
                 internalerror(2006010801);
 
             { produce possible range check code: }
-              if cs_check_range in current_settings.localswitches then
+              if cs_check_range in current_settings^.localswitches then
                begin
                  if left.resultdef.typ=arraydef then
                    begin

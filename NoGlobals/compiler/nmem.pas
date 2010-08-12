@@ -426,8 +426,8 @@ implementation
         if (left.resultdef.typ=procdef) or
            (
             (left.resultdef.typ=procvardef) and
-            ((m_tp_procvar in current_settings.modeswitches) or
-             (m_mac_procvar in current_settings.modeswitches))
+            ((m_tp_procvar in current_settings^.modeswitches) or
+             (m_mac_procvar in current_settings^.modeswitches))
            ) then
           begin
             isprocvar:=(left.resultdef.typ=procvardef);
@@ -442,8 +442,8 @@ implementation
             { In tp procvar mode the result is always a voidpointer. Insert
               a typeconversion to voidpointer. For methodpointers we need
               to load the proc field }
-            if (m_tp_procvar in current_settings.modeswitches) or
-               (m_mac_procvar in current_settings.modeswitches) then
+            if (m_tp_procvar in current_settings^.modeswitches) or
+               (m_mac_procvar in current_settings^.modeswitches) then
               begin
                 if tabstractprocdef(left.resultdef).is_addressonly then
                   begin
@@ -805,7 +805,7 @@ implementation
                { assigned (pass_1 is also already too late, because then the  }
                { regvars of the parent are also already assigned).            }
                { webtbs/tw8975                                                }
-               if (cs_check_range in current_settings.localswitches) and
+               if (cs_check_range in current_settings^.localswitches) and
                   (is_open_array(left.resultdef) or
                    is_array_of_const(left.resultdef)) and
                   { cdecl functions don't have high() so we can not check the range }
@@ -826,7 +826,7 @@ implementation
                  (except voidpointer) in delphi/tp7 it's only allowed for pchars. }
                if not is_voidpointer(left.resultdef) and
                   (
-                   (m_fpc in current_settings.modeswitches) or
+                   (m_fpc in current_settings^.modeswitches) or
                    is_pchar(left.resultdef) or
                    is_pwidechar(left.resultdef)
                   ) then

@@ -208,7 +208,14 @@ end;
         Result:=True;
         if FCached then
           exit;
-        if not current_settings.disabledircache then
+        (* Problem: at compiler start no scanner exists!
+          --> disabledircache must be a global setting
+        *)
+      {$IFDEF localDirCached}
+        if not current_settings^.disabledircache then
+      {$ELSE}
+        if not init_settings.disabledircache then
+      {$ENDIF}
           ForceUseCache
         else
           Result:=False;

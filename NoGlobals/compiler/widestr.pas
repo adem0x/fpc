@@ -163,9 +163,9 @@ unit widestr;
       var
          m : punicodemap;
       begin
-         if (current_settings.sourcecodepage <> 'utf8') then
+         if (current_settings^.sourcecodepage <> 'utf8') then
            begin
-             m:=getmap(current_settings.sourcecodepage);
+             m:=getmap(current_settings^.sourcecodepage);
              asciichar2unicode:=getunicode(c,m);
            end
          else
@@ -187,11 +187,11 @@ unit widestr;
          i      : SizeInt;
          m      : punicodemap;
       begin
-         m:=getmap(current_settings.sourcecodepage);
+         m:=getmap(current_settings^.sourcecodepage);
          setlengthwidestring(r,l);
          source:=p;
          dest:=tcompilerwidecharptr(r^.data);
-         if (current_settings.sourcecodepage <> 'utf8') then
+         if (current_settings^.sourcecodepage <> 'utf8') then
            begin
              for i:=1 to l do
                 begin

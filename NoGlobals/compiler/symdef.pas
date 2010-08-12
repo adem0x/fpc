@@ -1380,7 +1380,7 @@ implementation
               { char to string accesses byte 0 and 1 with one word access }
             if (tf_requires_proper_alignment in target_info.flags) or
               { macpas needs an alignment of 2 (MetroWerks compatible) }
-               (m_mac in current_settings.modeswitches) then
+               (m_mac in current_settings^.modeswitches) then
               alignment:=size_2_align(2)
             else
               alignment:=size_2_align(1);
@@ -1481,13 +1481,13 @@ implementation
 
     procedure tenumdef.calcsavesize;
       begin
-        if (current_settings.packenum=8) or (min<low(longint)) or (int64(max)>high(cardinal)) then
+        if (current_settings^.packenum=8) or (min<low(longint)) or (int64(max)>high(cardinal)) then
          savesize:=8
         else
-         if (current_settings.packenum=4) or (min<low(smallint)) or (max>high(word)) then
+         if (current_settings^.packenum=4) or (min<low(smallint)) or (max>high(word)) then
           savesize:=4
         else
-         if (current_settings.packenum=2) or (min<low(shortint)) or (max>high(byte)) then
+         if (current_settings^.packenum=2) or (min<low(shortint)) or (max>high(byte)) then
           savesize:=2
         else
          savesize:=1;
@@ -2209,7 +2209,7 @@ implementation
          inherited create(setdef);
          elementdef:=def;
          setmax:=high;
-         if (current_settings.setalloc=0) then
+         if (current_settings^.setalloc=0) then
            begin
              setbase:=0;
              if (high<32) then
@@ -2221,9 +2221,9 @@ implementation
            end
          else
            begin
-             setallocbits:=current_settings.setalloc*8;
+             setallocbits:=current_settings^.setalloc*8;
              setbase:=low and not(setallocbits-1);
-             packedsavesize:=current_settings.setalloc*((((high+setallocbits)-setbase)) DIV setallocbits);
+             packedsavesize:=current_settings^.setalloc*((((high+setallocbits)-setbase)) DIV setallocbits);
              savesize:=packedsavesize;
              if savesize=3 then
                savesize:=4;
@@ -3021,7 +3021,7 @@ implementation
          { nested procvars require that nested functions use the Delphi-style
            nested procedure calling convention }
          if (parast.symtablelevel>normal_function_level) and
-            (m_nested_procvars in current_settings.modeswitches) then
+            (m_nested_procvars in current_settings^.modeswitches) then
            include(procoptions,po_delphi_nested_cc);
       end;
 
@@ -3129,7 +3129,7 @@ implementation
          if (po_has_inlininginfo in procoptions) then
            inlininginfo^.code:=ppuloadnodetree(ppufile);
          { default values for no persistent data }
-         if (cs_link_deffile in current_settings.globalswitches) and
+         if (cs_link_deffile in current_settings^.globalswitches) and
             (tf_need_export in target_info.flags) and
             (po_exports in procoptions) then
            deffile.AddExport(mangledname);
@@ -3349,7 +3349,7 @@ implementation
       begin
         result:=assigned(owner) and
                 (owner.symtabletype<>ObjectSymtable) and
-                (not(m_nested_procvars in current_settings.modeswitches) or
+                (not(m_nested_procvars in current_settings^.modeswitches) or
                  not is_nested_pd(self));
       end;
 
@@ -3696,7 +3696,7 @@ implementation
         { Exception: interface definitions in mode macpas, since in that }
         {   case no reference to the old name can exist yet (JM)         }
         if assigned(_mangledname) then
-          if ((m_mac in current_settings.modeswitches) and
+          if ((m_mac in current_settings^.modeswitches) and
               (interfacedef)) then
             stringdispose(_mangledname)
           else
@@ -3873,7 +3873,7 @@ implementation
         objecttype:=ot;
         objectoptions:=[];
         childof:=nil;
-        symtable:=tObjectSymtable.create(self,n,current_settings.packrecords);
+        symtable:=tObjectSymtable.create(self,n,current_settings^.packrecords);
         { create space for vmt !! }
         vmtentries:=TFPList.Create;
         vmt_offset:=0;
@@ -5455,12 +5455,12 @@ implementation
       begin
 {$ifdef x86}
 {$define use_vectorfpuimplemented}
-        use_vectorfpu:=(is_single(def) and (current_settings.fputype in sse_singlescalar)) or
-          (is_double(def) and (current_settings.fputype in sse_doublescalar));
+        use_vectorfpu:=(is_single(def) and (current_settings^.fputype in sse_singlescalar)) or
+          (is_double(def) and (current_settings^.fputype in sse_doublescalar));
 {$endif x86}
 {$ifdef arm}
 {$define use_vectorfpuimplemented}
-        use_vectorfpu:=(current_settings.fputype in vfp_scalar);
+        use_vectorfpu:=(current_settings^.fputype in vfp_scalar);
 {$endif arm}
 {$ifndef use_vectorfpuimplemented}
         use_vectorfpu:=false;

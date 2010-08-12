@@ -103,7 +103,7 @@ interface
         emit_ref(A_MUL,S_Q,ref)
       else
         emit_reg(A_MUL,S_Q,reg);
-      if cs_check_overflow in current_settings.localswitches  then
+      if cs_check_overflow in current_settings^.localswitches  then
        begin
          current_asmdata.getjumplabel(hl4);
          cg.a_jmp_flags(current_asmdata.CurrAsmList,F_AE,hl4);

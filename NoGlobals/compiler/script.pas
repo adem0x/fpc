@@ -119,7 +119,7 @@ uses
 
     Function ScriptFixFileName(const s:TCmdStr):TCmdStr;
      begin
-       if cs_link_on_target in current_settings.globalswitches then
+       if cs_link_on_target in current_settings^.globalswitches then
          ScriptFixFileName:=TargetFixFileName(s)
        else
          ScriptFixFileName:=FixFileName(s);
@@ -140,7 +140,7 @@ end;
 constructor TScript.CreateExec(const s:TCmdStr);
 begin
   fn:=FixFileName(s);
-  if cs_link_on_target in current_settings.globalswitches then
+  if cs_link_on_target in current_settings^.globalswitches then
     fn:=ChangeFileExt(fn,target_info.scriptext)
   else
     fn:=ChangeFileExt(fn,source_info.scriptext);
@@ -181,7 +181,7 @@ var
 
 begin
   Assign(t,fn);
-  if cs_link_on_target in current_settings.globalswitches then
+  if cs_link_on_target in current_settings^.globalswitches then
     le:= target_info.newline
   else
     le:= source_info.newline;
@@ -462,7 +462,7 @@ Procedure GenerateAsmRes(const st : TCmdStr);
 var
   scripttyp : tscripttype;
 begin
-  if cs_link_on_target in current_settings.globalswitches then
+  if cs_link_on_target in current_settings^.globalswitches then
     scripttyp := target_info.script
   else
     scripttyp := source_info.script;
@@ -500,7 +500,7 @@ begin
    begin
      if not(s[1] in ['a'..'z','A'..'Z','/','\','.','"']) then
       begin
-        if cs_link_on_target in current_settings.globalswitches then
+        if cs_link_on_target in current_settings^.globalswitches then
           inherited Add('.'+target_info.DirSep+s)
         else
           inherited Add('.'+source_info.DirSep+s);

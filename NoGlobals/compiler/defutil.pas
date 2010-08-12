@@ -765,8 +765,8 @@ implementation
                  if ((todef.typ=enumdef) and
                      { delphi allows range check errors in
                       enumeration type casts FK }
-                     not(m_delphi in current_settings.modeswitches)) or
-                    (cs_check_range in current_settings.localswitches) then
+                     not(m_delphi in current_settings^.modeswitches)) or
+                    (cs_check_range in current_settings^.localswitches) then
                    Message(parser_e_range_check_error)
                  else
                    Message(parser_w_range_check_error);
@@ -1006,7 +1006,7 @@ implementation
                 result:=int_cgsize(def.size);
             end;
           floatdef:
-            if cs_fp_emulation in current_settings.moduleswitches then
+            if cs_fp_emulation in current_settings^.moduleswitches then
               result:=int_cgsize(def.size)
             else
               result:=tfloat2tcgsize[tfloatdef(def).floattype];

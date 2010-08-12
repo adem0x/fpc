@@ -189,7 +189,7 @@ Begin
   if not(target_info.system in systems_darwin) then
     begin
       if (target_info.system =system_i386_freebsd) and
-         not (cs_link_no_default_lib_order in  current_settings.globalswitches) Then
+         not (cs_link_no_default_lib_order in  current_settings^.globalswitches) Then
         Begin
           LinkLibraryOrder.add('gcc','',15);
           LinkLibraryOrder.add('c','',50);		     // c and c_p mutual. excl?
@@ -197,7 +197,7 @@ Begin
           LinkLibraryOrder.add('pthread','',75);	     // pthread and c_r should be mutually exclusive
           LinkLibraryOrder.add('c_r','',76);
           LinkLibraryOrder.add('kvm','',80);		     // must be before ncurses
-          if (cs_link_pthread in current_settings.globalswitches) Then     // convert libpthread to libc_r.
+          if (cs_link_pthread in current_settings^.globalswitches) Then     // convert libpthread to libc_r.
             LinkLibraryAliases.add('pthread','c_r');
         end;
     end
@@ -212,7 +212,7 @@ End;
 Function TLinkerBSD.GetDarwinPrtobjName(isdll: boolean): TCmdStr;
 begin
   if not(isdll) then
-    if not(cs_profile in current_settings.moduleswitches) then
+    if not(cs_profile in current_settings^.moduleswitches) then
       begin
         if not librarysearchpath.FindFile('crt1.o',false,result) then
           result:='/usr/lib/crt1.o';
@@ -272,8 +272,8 @@ begin
                 (
                   ReorderEntries
                    or
-                  (cs_link_pthread in current_settings.globalswitches));
-      if cs_profile in current_settings.moduleswitches then
+                  (cs_link_pthread in current_settings^.globalswitches));
+      if cs_profile in current_settings^.moduleswitches then
        begin
          prtobj:=gprtobj;
          AddSharedLibrary('c');
@@ -293,7 +293,7 @@ begin
       linklibc := true;
 {$ifdef MACOSX104ORHIGHER}
       { not sure what this is for, but gcc always links against it }
-      if not(cs_profile in current_settings.moduleswitches) then
+      if not(cs_profile in current_settings^.moduleswitches) then
         AddSharedLibrary('SystemStubs')
       else
         AddSharedLibrary('SystemStubs_profile');
@@ -450,7 +450,7 @@ begin
              LinkRes.Add('-lc');
        end;
      { when we have -static for the linker the we also need libgcc }
-     if (cs_link_staticflag in current_settings.globalswitches) then
+     if (cs_link_staticflag in current_settings^.globalswitches) then
       LinkRes.Add('-lgcc');
      if linkdynamic and (Info.DynamicLinker<>'') then
       LinkRes.AddFileName(Info.DynamicLinker);
@@ -503,7 +503,7 @@ var
   StripStr   : string[63];
   success : boolean;
 begin
-  if not(cs_link_nolink in current_settings.globalswitches) then
+  if not(cs_link_nolink in current_settings^.globalswitches) then
    Message1(exec_i_linking,current_module.exefilename^);
 
 { Create some replacements }
@@ -511,22 +511,22 @@ begin
   StripStr:='';
   DynLinkStr:='';
   GCSectionsStr:='';
-  if (cs_link_staticflag in current_settings.globalswitches) then
+  if (cs_link_staticflag in current_settings^.globalswitches) then
     begin
       if (target_info.system=system_m68k_netbsd) and
-         ((cs_link_on_target in current_settings.globalswitches) or
+         ((cs_link_on_target in current_settings^.globalswitches) or
           (target_info.system=source_info.system)) then
         StaticStr:='-Bstatic'
       else
         StaticStr:='-static';
     end;
-  if (cs_link_strip in current_settings.globalswitches) then
+  if (cs_link_strip in current_settings^.globalswitches) then
     if (target_info.system in systems_darwin) then
       StripStr:='-x'
     else
       StripStr:='-s';
 
-  if (cs_link_smart in current_settings.globalswitches) and
+  if (cs_link_smart in current_settings^.globalswitches) and
      (tf_smartlink_sections in target_info.flags) then
     if not(target_info.system in systems_darwin) then
       GCSectionsStr:='--gc-sections'
@@ -534,7 +534,7 @@ begin
       GCSectionsStr:='-dead_strip -no_dead_strip_inits_and_terms';
 
    if(not(target_info.system in systems_darwin) and
-      (cs_profile in current_settings.moduleswitches)) or
+      (cs_profile in current_settings^.moduleswitches)) or
      ((Info.DynamicLinker<>'') and (not SharedLibFiles.Empty)) then
    DynLinkStr:='-dynamic-linker='+Info.DynamicLinker;
 
@@ -566,14 +566,14 @@ begin
   extdbgcmdstr:='';
   if (target_info.system in systems_darwin) and
      (target_dbg.id in [dbg_dwarf2,dbg_dwarf3]) and
-     (cs_link_separate_dbg_file in current_settings.globalswitches) then
+     (cs_link_separate_dbg_file in current_settings^.globalswitches) then
     begin
       extdbgbinstr:=FindUtil(utilsprefix+'dsymutil');
       extdbgcmdstr:=maybequoted(current_module.exefilename^);
     end;
 
   if (LdSupportsNoResponseFile) and
-     not(cs_link_nolink in current_settings.globalswitches) then
+     not(cs_link_nolink in current_settings^.globalswitches) then
     begin
       { we have to use a script to use the IFS hack }
       linkscript:=TAsmScriptUnix.create(outputexedir+'ppaslink');
@@ -590,11 +590,11 @@ begin
   success:=DoExec(BinStr,CmdStr,true,LdSupportsNoResponseFile);
   if (success and
       (extdbgbinstr<>'') and
-      (cs_link_nolink in current_settings.globalswitches)) then
+      (cs_link_nolink in current_settings^.globalswitches)) then
     success:=DoExec(extdbgbinstr,extdbgcmdstr,false,LdSupportsNoResponseFile);
 
 { Remove ReponseFile }
-  if (success) and not(cs_link_nolink in current_settings.globalswitches) then
+  if (success) and not(cs_link_nolink in current_settings^.globalswitches) then
    begin
      DeleteFile(outputexedir+Info.ResName);
      if LdSupportsNoResponseFile Then
@@ -624,13 +624,13 @@ var
 begin
   MakeSharedLibrary:=false;
   GCSectionsStr:='';
-  if not(cs_link_nolink in current_settings.globalswitches) then
+  if not(cs_link_nolink in current_settings^.globalswitches) then
    Message1(exec_i_linking,current_module.sharedlibfilename^);
 
 { Write used files and libraries }
   WriteResponseFile(true);
 
-  if (cs_link_smart in current_settings.globalswitches) and
+  if (cs_link_smart in current_settings^.globalswitches) and
      (tf_smartlink_sections in target_info.flags) then
     if not(target_info.system in systems_darwin) then
      { disabled because not tested
@@ -664,7 +664,7 @@ begin
   extdbgcmdstr:='';
   if (target_info.system in systems_darwin) and
      (target_dbg.id in [dbg_dwarf2,dbg_dwarf3]) and
-     (cs_link_separate_dbg_file in current_settings.globalswitches) then
+     (cs_link_separate_dbg_file in current_settings^.globalswitches) then
     begin
       extdbgbinstr:=FindUtil(utilsprefix+'dsymutil');
       extdbgcmdstr:=maybequoted(current_module.sharedlibfilename^);
@@ -686,7 +686,7 @@ begin
     end;
 
   if (LdSupportsNoResponseFile) and
-     not(cs_link_nolink in current_settings.globalswitches) then
+     not(cs_link_nolink in current_settings^.globalswitches) then
     begin
       { we have to use a script to use the IFS hack }
       linkscript:=TAsmScriptUnix.create(outputexedir+'ppaslink');
@@ -703,11 +703,11 @@ begin
   success:=DoExec(BinStr,cmdstr,true,LdSupportsNoResponseFile);
   if (success and
       (extdbgbinstr<>'') and
-      (cs_link_nolink in current_settings.globalswitches)) then
+      (cs_link_nolink in current_settings^.globalswitches)) then
     success:=DoExec(extdbgbinstr,extdbgcmdstr,false,LdSupportsNoResponseFile);
 
 { Strip the library ? }
-  if success and (cs_link_strip in current_settings.globalswitches) then
+  if success and (cs_link_strip in current_settings^.globalswitches) then
    begin
      SplitBinCmd(Info.DllCmd[2],binstr,cmdstr);
      Replace(cmdstr,'$EXE',maybequoted(current_module.sharedlibfilename^));
@@ -715,7 +715,7 @@ begin
    end;
 
 { Remove ReponseFile }
-  if (success) and not(cs_link_nolink in current_settings.globalswitches) then
+  if (success) and not(cs_link_nolink in current_settings^.globalswitches) then
     begin
       DeleteFile(outputexedir+Info.ResName);
       if LdSupportsNoResponseFile Then

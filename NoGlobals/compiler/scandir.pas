@@ -95,9 +95,9 @@ unit scandir;
         if (sw<>cs_modulenone) and (state in ['-','+']) then
          begin
            if state='-' then
-            exclude(current_settings.moduleswitches,sw)
+            exclude(current_settings^.moduleswitches,sw)
            else
-            include(current_settings.moduleswitches,sw);
+            include(current_settings^.moduleswitches,sw);
          end;
       end;
 
@@ -141,20 +141,20 @@ unit scandir;
            { Support also the ON and OFF as switch }
            hs:=current_scanner.readid;
            if (hs='ON') then
-            current_settings.packrecords:=4
+            current_settings^.packrecords:=4
            else if (hs='OFF') then
-             current_settings.packrecords:=1
-           else if m_mac in current_settings.modeswitches then
+             current_settings^.packrecords:=1
+           else if m_mac in current_settings^.modeswitches then
              begin
                { Support switches used in Apples Universal Interfaces}
                if (hs='MAC68K') then
-                 current_settings.packrecords:=mac68k_alignment
+                 current_settings^.packrecords:=mac68k_alignment
                { "power" alignment is the default C packrecords setting on
                  Mac OS X }
                else if (hs='POWER') or (hs='POWERPC') then
-                 current_settings.packrecords:=C_alignment
+                 current_settings^.packrecords:=C_alignment
                else if (hs='RESET') then
-                 current_settings.packrecords:=0
+                 current_settings^.packrecords:=0
                else
                  Message1(scan_e_illegal_pack_records,hs);
              end
@@ -164,12 +164,12 @@ unit scandir;
         else
          begin
            case current_scanner.readval of
-             1 : current_settings.packrecords:=1;
-             2 : current_settings.packrecords:=2;
-             4 : current_settings.packrecords:=4;
-             8 : current_settings.packrecords:=8;
-            16 : current_settings.packrecords:=16;
-            32 : current_settings.packrecords:=32;
+             1 : current_settings^.packrecords:=1;
+             2 : current_settings^.packrecords:=2;
+             4 : current_settings^.packrecords:=4;
+             8 : current_settings^.packrecords:=8;
+            16 : current_settings^.packrecords:=16;
+            32 : current_settings^.packrecords:=32;
            else
             Message1(scan_e_illegal_pack_records,hs);
            end;
@@ -178,22 +178,22 @@ unit scandir;
 
     procedure dir_a1;
       begin
-        current_settings.packrecords:=1;
+        current_settings^.packrecords:=1;
       end;
 
     procedure dir_a2;
       begin
-        current_settings.packrecords:=2;
+        current_settings^.packrecords:=2;
       end;
 
     procedure dir_a4;
       begin
-        current_settings.packrecords:=4;
+        current_settings^.packrecords:=4;
       end;
 
     procedure dir_a8;
       begin
-        current_settings.packrecords:=8;
+        current_settings^.packrecords:=8;
       end;
 
     procedure dir_asmmode;
@@ -205,9 +205,9 @@ unit scandir;
         If Inside_asm_statement then
           Message1(scan_w_no_asm_reader_switch_inside_asm,s);
         if s='DEFAULT' then
-         current_settings.asmmode:=init_settings.asmmode
+         current_settings^.asmmode:=init_settings.asmmode
         else
-         if not SetAsmReadMode(s,current_settings.asmmode) then
+         if not SetAsmReadMode(s,current_settings^.asmmode) then
            Message1(scan_e_illegal_asmmode_specifier,s);
       end;
 
@@ -241,7 +241,7 @@ unit scandir;
                                        system_i386_emx, system_powerpc_macos,
                                        system_arm_nds] + systems_nativent) then
           begin
-            if m_delphi in current_settings.modeswitches then
+            if m_delphi in current_settings^.modeswitches then
               Message(scan_n_app_type_not_support)
             else
               Message(scan_w_app_type_not_support);
@@ -373,10 +373,10 @@ unit scandir;
     procedure dir_fputype;
       begin
         current_scanner.skipspace;
-        undef_system_macro('FPU'+fputypestr[current_settings.fputype]);
-        if not(SetFPUType(upper(current_scanner.readcomment),current_settings.fputype)) then
+        undef_system_macro('FPU'+fputypestr[current_settings^.fputype]);
+        if not(SetFPUType(upper(current_scanner.readcomment),current_settings^.fputype)) then
           comment(V_Error,'Illegal FPU type');
-        def_system_macro('FPU'+fputypestr[current_settings.fputype]);
+        def_system_macro('FPU'+fputypestr[current_settings^.fputype]);
      end;
 
     procedure dir_frameworkpath;
@@ -454,11 +454,11 @@ unit scandir;
         current_scanner.skipspace;
         hs:=current_scanner.readid;
         if (hs='CORBA') then
-          current_settings.interfacetype:=it_interfacecorba
+          current_settings^.interfacetype:=it_interfacecorba
         else if (hs='COM') then
-          current_settings.interfacetype:=it_interfacecom
+          current_settings^.interfacetype:=it_interfacecom
         else if (hs='DEFAULT') then
-          current_settings.interfacetype:=init_settings.interfacetype
+          current_settings^.interfacetype:=init_settings.interfacetype
         else
           Message(scan_e_invalid_interface_type);
       end;
@@ -636,7 +636,7 @@ unit scandir;
            begin
               hs:=current_scanner.readid;
               if (hs='NORMAL') or (hs='DEFAULT') then
-                current_settings.maxfpuregisters:=-1
+                current_settings^.maxfpuregisters:=-1
               else
                 Message(scan_e_invalid_maxfpureg_value);
            end
@@ -645,7 +645,7 @@ unit scandir;
               l:=current_scanner.readval;
               case l of
                  0..8:
-                   current_settings.maxfpuregisters:=l;
+                   current_settings^.maxfpuregisters:=l;
                  else
                    Message(scan_e_invalid_maxfpureg_value);
               end;
@@ -745,7 +745,7 @@ unit scandir;
           current_scanner.skipspace;
           current_scanner.readstring;
           if not current_module.mode_switch_allowed and
-              not ((m_mac in current_settings.modeswitches) and (current_scanner.pattern='MACPAS')) then
+              not ((m_mac in current_settings^.modeswitches) and (current_scanner.pattern='MACPAS')) then
             Message1(scan_e_mode_switch_not_allowed,current_scanner.pattern)
           else if not SetCompileMode(current_scanner.pattern,false) then
             Message1(scan_w_illegal_switch,current_scanner.pattern)
@@ -812,14 +812,14 @@ unit scandir;
         { Support also the ON and OFF as switch }
         hs:=current_scanner.readid;
         if (hs='ON') then
-          current_settings.optimizerswitches:=level2optimizerswitches
+          current_settings^.optimizerswitches:=level2optimizerswitches
         else if (hs='OFF') then
-          current_settings.optimizerswitches:=[]
+          current_settings^.optimizerswitches:=[]
         else if (hs='DEFAULT') then
-          current_settings.optimizerswitches:=init_settings.optimizerswitches
+          current_settings^.optimizerswitches:=init_settings.optimizerswitches
         else
           begin
-            if not UpdateOptimizerStr(hs,current_settings.optimizerswitches) then
+            if not UpdateOptimizerStr(hs,current_settings^.optimizerswitches) then
               Message1(scan_e_illegal_optimization_specifier,hs);
           end;
       end;
@@ -838,16 +838,16 @@ unit scandir;
          begin
            hs:=current_scanner.readid;
            if (hs='NORMAL') or (hs='DEFAULT') then
-            current_settings.packenum:=4
+            current_settings^.packenum:=4
            else
             Message1(scan_e_illegal_pack_enum, hs);
          end
         else
          begin
            case current_scanner.readval of
-            1 : current_settings.packenum:=1;
-            2 : current_settings.packenum:=2;
-            4 : current_settings.packenum:=4;
+            1 : current_settings^.packenum:=1;
+            2 : current_settings^.packenum:=2;
+            4 : current_settings^.packenum:=4;
            else
             Message1(scan_e_illegal_pack_enum, current_scanner.pattern);
            end;
@@ -858,7 +858,7 @@ unit scandir;
     procedure dir_minfpconstprec;
       begin
         current_scanner.skipspace;
-        if not SetMinFPConstPrec(current_scanner.readid,current_settings.minfpconstprec) then
+        if not SetMinFPConstPrec(current_scanner.readid,current_settings^.minfpconstprec) then
           Message1(scan_e_illegal_minfpconstprec, current_scanner.pattern);
       end;
 
@@ -873,22 +873,22 @@ unit scandir;
            hs:=current_scanner.readid;
            { C has the special recordalignmax of C_alignment }
            if (hs='C') then
-            current_settings.packrecords:=C_alignment
+            current_settings^.packrecords:=C_alignment
            else
             if (hs='NORMAL') or (hs='DEFAULT') then
-             current_settings.packrecords:=0
+             current_settings^.packrecords:=0
            else
             Message1(scan_e_illegal_pack_records,hs);
          end
         else
          begin
            case current_scanner.readval of
-             1 : current_settings.packrecords:=1;
-             2 : current_settings.packrecords:=2;
-             4 : current_settings.packrecords:=4;
-             8 : current_settings.packrecords:=8;
-            16 : current_settings.packrecords:=16;
-            32 : current_settings.packrecords:=32;
+             1 : current_settings^.packrecords:=1;
+             2 : current_settings^.packrecords:=2;
+             4 : current_settings^.packrecords:=4;
+             8 : current_settings^.packrecords:=8;
+            16 : current_settings^.packrecords:=16;
+            32 : current_settings^.packrecords:=32;
            else
             Message1(scan_e_illegal_pack_records,current_scanner.pattern);
            end;
@@ -905,17 +905,17 @@ unit scandir;
          begin
            hs:=current_scanner.readid;
            if (hs='FIXED') or ((hs='DEFAULT') OR (hs='NORMAL')) then
-            current_settings.setalloc:=0               {Fixed mode, sets are 4 or 32 bytes}
+            current_settings^.setalloc:=0               {Fixed mode, sets are 4 or 32 bytes}
            else
             Message(scan_e_only_packset);
          end
         else
          begin
            case current_scanner.readval of
-            1 : current_settings.setalloc:=1;
-            2 : current_settings.setalloc:=2;
-            4 : current_settings.setalloc:=4;
-            8 : current_settings.setalloc:=8;
+            1 : current_settings^.setalloc:=1;
+            2 : current_settings^.setalloc:=2;
+            4 : current_settings^.setalloc:=4;
+            8 : current_settings^.setalloc:=8;
            else
             Message(scan_e_only_packset);
            end;
@@ -950,7 +950,7 @@ unit scandir;
       begin
         do_moduleswitch(cs_profile);
         { defined/undefine FPC_PROFILE }
-        if cs_profile in current_settings.moduleswitches then
+        if cs_profile in current_settings^.moduleswitches then
           def_system_macro('FPC_PROFILE')
         else
           undef_system_macro('FPC_PROFILE');
@@ -964,7 +964,7 @@ unit scandir;
 
       flushpendingswitchesstate;
 
-      switchesstatestack[switchesstatestackpos].localsw:= current_settings.localswitches;
+      switchesstatestack[switchesstatestackpos].localsw:= current_settings^.localswitches;
       switchesstatestack[switchesstatestackpos].verbosity:=status.verbosity;
       Inc(switchesstatestackpos);
     {$ELSE}
@@ -1293,17 +1293,17 @@ unit scandir;
 
     procedure dir_z1;
       begin
-        current_settings.packenum:=1;
+        current_settings^.packenum:=1;
       end;
 
     procedure dir_z2;
       begin
-        current_settings.packenum:=2;
+        current_settings^.packenum:=2;
       end;
 
     procedure dir_z4;
       begin
-        current_settings.packenum:=4;
+        current_settings^.packenum:=4;
       end;
 
     procedure dir_externalsym;
@@ -1328,7 +1328,7 @@ unit scandir;
       begin
         current_scanner.skipspace;
         s:=current_scanner.readcomment;
-        UpdateAlignmentStr(s,current_settings.alignment);
+        UpdateAlignmentStr(s,current_settings^.alignment);
       end;
 
     procedure dir_codepage;
@@ -1342,11 +1342,11 @@ unit scandir;
              current_scanner.skipspace;
              s:=current_scanner.readcomment;
              if (upper(s)='UTF8') or (upper(s)='UTF-8') then
-               current_settings.sourcecodepage:='utf8'
+               current_settings^.sourcecodepage:='utf8'
              else if not(cpavailable(s)) then
                Message1(option_code_page_not_available,s)
              else
-               current_settings.sourcecodepage:=s;
+               current_settings^.sourcecodepage:=s;
           end;
       end;
 

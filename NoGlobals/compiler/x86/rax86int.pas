@@ -1686,7 +1686,7 @@ Unit Rax86int;
                  end
                 else
                 { support result for delphi modes }
-                 if (m_objpas in current_settings.modeswitches) and (actasmpattern='RESULT') then
+                 if (m_objpas in current_settings^.modeswitches) and (actasmpattern='RESULT') then
                   begin
                     oper.SetUpResult;
                     Consume(AS_ID);

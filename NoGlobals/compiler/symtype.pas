@@ -360,7 +360,7 @@ implementation
     procedure Tsym.IncRefCount;
       begin
         inc(refs);
-        if cs_browser in current_settings.moduleswitches then
+        if cs_browser in current_settings^.moduleswitches then
           begin
             MaybeCreateRefList;
             AddRef;

@@ -197,7 +197,7 @@ begin
 {  prtobj:='prt0';
   cprtobj:='cprt0';
   gprtobj:='gprt0';}
-  if cs_profile in current_settings.moduleswitches then
+  if cs_profile in current_settings^.moduleswitches then
    begin
 {     prtobj:=gprtobj;}
      if not glibc2 then
@@ -318,7 +318,7 @@ begin
      if linklibc then
       LinkRes.Add('-lc');
      { when we have -static for the linker the we also need libgcc }
-     if (cs_link_staticflag in current_settings.globalswitches) then begin
+     if (cs_link_staticflag in current_settings^.globalswitches) then begin
       LinkRes.Add('-lgcc');
      end;
      if linkdynamic and (Info.DynamicLinker<>'') then { gld has a default, DynamicLinker is not set in solaris }
@@ -442,7 +442,7 @@ begin
      if linklibc then
       LinkRes.Add('-lc');
      { when we have -static for the linker the we also need libgcc }
-     if (cs_link_staticflag in current_settings.globalswitches) then begin
+     if (cs_link_staticflag in current_settings^.globalswitches) then begin
       LinkRes.Add('-lgcc');
      end;
      if linkdynamic and (Info.DynamicLinker<>'') then { gld has a default, DynamicLinker is not set in solaris }
@@ -477,18 +477,18 @@ var
   StaticStr,
   StripStr   : string[40];
 begin
-  if not(cs_link_nolink in current_settings.globalswitches) then
+  if not(cs_link_nolink in current_settings^.globalswitches) then
    Message1(exec_i_linking,current_module.exefilename^);
 
 { Create some replacements }
   StaticStr:='';
   StripStr:='';
   DynLinkStr:='';
-  if (cs_link_staticflag in current_settings.globalswitches) then
+  if (cs_link_staticflag in current_settings^.globalswitches) then
     StaticStr:='-Bstatic';
-  if (cs_link_strip in current_settings.globalswitches) then
+  if (cs_link_strip in current_settings^.globalswitches) then
    StripStr:='-s';
-  If (cs_profile in current_settings.moduleswitches) or
+  If (cs_profile in current_settings^.moduleswitches) or
      ((Info.DynamicLinker<>'') and (not SharedLibFiles.Empty)) then
    DynLinkStr:='-dynamic-linker='+Info.DynamicLinker;
   if rlinkpath<>'' then
@@ -533,7 +533,7 @@ begin
 { Remove ReponseFile }
 {$IFNDEF LinkTest}
   if (success) and use_gnu_ld and
-     not(cs_link_nolink in current_settings.globalswitches) then
+     not(cs_link_nolink in current_settings^.globalswitches) then
    DeleteFile(outputexedir+Info.ResName);
 {$ENDIF}
   MakeExecutable:=success;   { otherwise a recursive call to link method }
@@ -549,7 +549,7 @@ var
   success : boolean;
 begin
   MakeSharedLibrary:=false;
-  if not(cs_link_nolink in current_settings.globalswitches) then
+  if not(cs_link_nolink in current_settings^.globalswitches) then
    Message1(exec_i_linking,current_module.sharedlibfilename^);
 
 { Write used files and libraries }
@@ -562,13 +562,13 @@ begin
   if use_gnu_ld then
     begin
       InitFiniStr:='-init ';
-      if cs_link_nolink in current_settings.globalswitches then
+      if cs_link_nolink in current_settings^.globalswitches then
         InitFiniStr:=InitFiniStr+''''+exportlib.initname+''''
       else
         InitFiniStr:=InitFiniStr+exportlib.initname;
       if (exportlib.fininame<>'') then
         begin
-          if cs_link_nolink in current_settings.globalswitches then
+          if cs_link_nolink in current_settings^.globalswitches then
             InitFiniStr:=InitFiniStr+' -fini '''+exportlib.initname+''''
           else
             InitFiniStr:=InitFiniStr+' -fini '+exportlib.fininame;
@@ -577,13 +577,13 @@ begin
   else
     begin
       InitFiniStr:='-z initarray=';
-      if cs_link_nolink in current_settings.globalswitches then
+      if cs_link_nolink in current_settings^.globalswitches then
         InitFiniStr:=InitFiniStr+''''+exportlib.initname+''''
       else
         InitFiniStr:=InitFiniStr+exportlib.initname;
       if (exportlib.fininame<>'') then
         begin
-          if cs_link_nolink in current_settings.globalswitches then
+          if cs_link_nolink in current_settings^.globalswitches then
             InitFiniStr:=InitFiniStr+' -z finiarray='''+exportlib.initname+''''
           else
             InitFiniStr:=InitFiniStr+' -z finiarray='+exportlib.fininame;
@@ -620,7 +620,7 @@ begin
 
 
 { Strip the library ? }
-  if success and (cs_link_strip in current_settings.globalswitches) then
+  if success and (cs_link_strip in current_settings^.globalswitches) then
    begin
      SplitBinCmd(Info.DllCmd[2],binstr,cmdstr);
      Replace(cmdstr,'$EXE',maybequoted(current_module.sharedlibfilename^));
@@ -629,7 +629,7 @@ begin
 
 { Remove ReponseFile }
 {$IFNDEF LinkTest}
-  if (success) and not(cs_link_nolink in current_settings.globalswitches) then
+  if (success) and not(cs_link_nolink in current_settings^.globalswitches) then
    DeleteFile(outputexedir+Info.ResName);
 {$ENDIF}
   MakeSharedLibrary:=success;   { otherwise a recursive call to link method }

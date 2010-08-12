@@ -132,7 +132,7 @@ begin
    end;
 
 { Select switch table }
-  if m_mac in current_settings.modeswitches  then
+  if m_mac in current_settings^.modeswitches  then
     switchTablePtr:= @macSwitchTable
   else
     switchTablePtr:= @turboSwitchTable;
@@ -143,15 +143,15 @@ begin
      case typesw of
        alignsw:
          if state='+' then
-           current_settings.packrecords:=4
+           current_settings^.packrecords:=4
          else
-           current_settings.packrecords:=1;
+           current_settings^.packrecords:=1;
        optimizersw :
          begin
            if state='+' then
-             current_settings.optimizerswitches:=level2optimizerswitches
+             current_settings^.optimizerswitches:=level2optimizerswitches
            else
-             current_settings.optimizerswitches:=[];
+             current_settings^.optimizerswitches:=[];
          end;
        ignoredsw :
          Message1(scan_n_ignored_switch,'$'+switch);
@@ -174,14 +174,14 @@ begin
 {$endif cpufpemu}
                 begin
                   if state='+' then
-                    include(current_settings.moduleswitches,tmoduleswitch(setsw))
+                    include(current_settings^.moduleswitches,tmoduleswitch(setsw))
                   else
                     begin
                       { Turning off debuginfo when lineinfo is requested
                         is not possible }
-                      if not((cs_use_lineinfo in current_settings.globalswitches) and
+                      if not((cs_use_lineinfo in current_settings^.globalswitches) and
                              (tmoduleswitch(setsw)=cs_debuginfo)) then
-                        exclude(current_settings.moduleswitches,tmoduleswitch(setsw));
+                        exclude(current_settings^.moduleswitches,tmoduleswitch(setsw));
                     end;
                 end;
             end
@@ -193,9 +193,9 @@ begin
            if current_module.in_global and (current_module=main_module) then
             begin
               if state='+' then
-               include(current_settings.globalswitches,tglobalswitch(setsw))
+               include(current_settings^.globalswitches,tglobalswitch(setsw))
               else
-               exclude(current_settings.globalswitches,tglobalswitch(setsw));
+               exclude(current_settings^.globalswitches,tglobalswitch(setsw));
             end
            else
             Message(scan_w_switch_is_global);
@@ -203,9 +203,9 @@ begin
        packenumsw:
          begin
            if state='-' then
-             current_settings.packenum:=1
+             current_settings^.packenum:=1
            else
-             current_settings.packenum:=4;
+             current_settings^.packenum:=4;
          end;
        pentiumfdivsw:
          begin
@@ -236,7 +236,7 @@ begin
    end;
 
 { Select switch table }
-  if m_mac in current_settings.modeswitches then
+  if m_mac in current_settings^.modeswitches then
     switchTablePtr:= @macSwitchTable
   else
     switchTablePtr:= @turboSwitchTable;
@@ -245,10 +245,10 @@ begin
    with switchTablePtr^[switch] do
    begin
      case typesw of
-      localsw : found:=(tlocalswitch(setsw) in current_settings.localswitches);
-     modulesw : found:=(tmoduleswitch(setsw) in current_settings.moduleswitches);
-     globalsw : found:=(tglobalswitch(setsw) in current_settings.globalswitches);
-     packenumsw : found := (current_settings.packenum = 4);
+      localsw : found:=(tlocalswitch(setsw) in current_settings^.localswitches);
+     modulesw : found:=(tmoduleswitch(setsw) in current_settings^.moduleswitches);
+     globalsw : found:=(tglobalswitch(setsw) in current_settings^.globalswitches);
+     packenumsw : found := (current_settings^.packenum = 4);
      else
       found:=false;
      end;
@@ -272,7 +272,7 @@ procedure recordpendingmessagestate(msg: longint; state: tmsgstate);
 procedure recordpendinglocalswitch(sw: tlocalswitch; state: char);
   begin
     if not pendingstate.localswitcheschanged then
-       pendingstate.nextlocalswitches:=current_settings.localswitches;
+       pendingstate.nextlocalswitches:=current_settings^.localswitches;
     if state='-' then
       exclude(pendingstate.nextlocalswitches,sw)
     else if state='+' then
@@ -315,7 +315,7 @@ procedure flushpendingswitchesstate;
     { process pending localswitches (range checking, etc) }
     if pendingstate.localswitcheschanged then
       begin
-        current_settings.localswitches:=pendingstate.nextlocalswitches;
+        current_settings^.localswitches:=pendingstate.nextlocalswitches;
         pendingstate.localswitcheschanged:=false;
       end;
     { process pending verbosity changes (warnings on, etc) }
@@ -337,7 +337,7 @@ procedure flushpendingswitchesstate;
         else if not(tmpproccal in supported_calling_conventions) then
           Message1(parser_e_illegal_calling_convention,pendingstate.nextcallingstr)
         else
-          current_settings.defproccall:=tmpproccal;
+          current_settings^.defproccall:=tmpproccal;
         pendingstate.nextcallingstr:='';
       end;
   end;

@@ -249,8 +249,8 @@ Implementation
 
     Function DoPipe:boolean;
       begin
-        DoPipe:=(cs_asm_pipe in current_settings.globalswitches) and
-                (([cs_asm_leave,cs_link_on_target] * current_settings.globalswitches) = []) and
+        DoPipe:=(cs_asm_pipe in current_settings^.globalswitches) and
+                (([cs_asm_leave,cs_link_on_target] * current_settings^.globalswitches) = []) and
                 ((target_asm.id in [as_gas,as_ggas,as_darwin]));
       end;
 
@@ -314,7 +314,7 @@ Implementation
         UtilExe  : string;
       begin
         asfound:=false;
-        if cs_link_on_target in current_settings.globalswitches then
+        if cs_link_on_target in current_settings^.globalswitches then
          begin
            { If linking on target, don't add any path PM }
            FindAssembler:=utilsprefix+ChangeFileExt(target_asm.asmbin,target_info.exeext);
@@ -330,10 +330,10 @@ Implementation
              asfound:=FindFile(UtilExe,utilsdirectory,false,LastASBin);
            if not AsFound then
              asfound:=FindExe(UtilExe,false,LastASBin);
-           if (not asfound) and not(cs_asm_extern in current_settings.globalswitches) then
+           if (not asfound) and not(cs_asm_extern in current_settings^.globalswitches) then
             begin
               Message1(exec_e_assembler_not_found,LastASBin);
-              current_settings.globalswitches:=current_settings.globalswitches+[cs_asm_extern];
+              current_settings^.globalswitches:=current_settings^.globalswitches+[cs_asm_extern];
             end;
            if asfound then
             Message1(exec_t_using_assembler,LastASBin);
@@ -347,7 +347,7 @@ Implementation
         DosExitCode : Integer;
       begin
         result:=true;
-        if (cs_asm_extern in current_settings.globalswitches) then
+        if (cs_asm_extern in current_settings^.globalswitches) then
           begin
             AsmRes.AddAsmCommand(command,para,name);
             exit;
@@ -363,7 +363,7 @@ Implementation
         except on E:EOSError do
           begin
             Message1(exec_e_cant_call_assembler,tostr(E.ErrorCode));
-            current_settings.globalswitches:=current_settings.globalswitches+[cs_asm_extern];
+            current_settings^.globalswitches:=current_settings^.globalswitches+[cs_asm_extern];
             result:=false;
           end;
         end;
@@ -374,9 +374,9 @@ Implementation
       var
         g : file;
       begin
-        if cs_asm_leave in current_settings.globalswitches then
+        if cs_asm_leave in current_settings^.globalswitches then
          exit;
-        if cs_asm_extern in current_settings.globalswitches then
+        if cs_asm_extern in current_settings^.globalswitches then
          AsmRes.AddDeleteCommand(AsmFileName)
         else
          begin
@@ -394,7 +394,7 @@ Implementation
         DoAssemble:=true;
         if DoPipe then
          exit;
-        if not(cs_asm_extern in current_settings.globalswitches) then
+        if not(cs_asm_extern in current_settings^.globalswitches) then
          begin
            if SmartAsm then
             begin
@@ -476,7 +476,7 @@ Implementation
       begin
         if OutCnt>=AsmOutSize-2 then
          AsmFlush;
-        if (cs_link_on_target in current_settings.globalswitches) then
+        if (cs_link_on_target in current_settings^.globalswitches) then
           begin
             OutBuf[OutCnt]:=target_info.newline[1];
             inc(OutCnt);
@@ -516,7 +516,7 @@ Implementation
         if (target_info.system=system_arm_darwin) then
           Replace(result,'$ARCH',lower(cputypestr[current_settings.cputype]));
 {$endif arm}
-        if (cs_link_on_target in current_settings.globalswitches) then
+        if (cs_link_on_target in current_settings^.globalswitches) then
          begin
            Replace(result,'$ASM',maybequoted(ScriptFixFileName(AsmFileName)));
            Replace(result,'$OBJ',maybequoted(ScriptFixFileName(ObjFileName)));
@@ -1415,7 +1415,7 @@ Implementation
         place: tcutplace;
         ObjWriter : TObjectWriter;
       begin
-        if not(cs_asm_leave in current_settings.globalswitches) then
+        if not(cs_asm_leave in current_settings^.globalswitches) then
           ObjWriter:=TARObjectWriter.create(current_module.staticlibfilename^)
         else
           ObjWriter:=TObjectwriter.create;

@@ -87,7 +87,7 @@ implementation
             current_scanner.consume(_SEMICOLON);
             exit;
           end;
-        if (cs_constructor_name in current_settings.globalswitches) and
+        if (cs_constructor_name in current_settings^.globalswitches) and
            (pd.procsym.name<>'INIT') then
           Message(parser_e_constructorname_must_be_init);
         current_scanner.consume(_SEMICOLON);
@@ -112,7 +112,7 @@ implementation
       begin
         { check for a class }
         if not((is_class_or_interface_or_dispinterface(current_objectdef)) or
-           (not(m_tp7 in current_settings.modeswitches) and (is_object(current_objectdef)))) then
+           (not(m_tp7 in current_settings^.modeswitches) and (is_object(current_objectdef)))) then
           Message(parser_e_syntax_error);
         current_scanner.consume(_PROPERTY);
         p:=read_property_dec(is_classproperty, current_objectdef);
@@ -199,12 +199,12 @@ implementation
             current_scanner.consume(_SEMICOLON);
             exit;
           end;
-        if (cs_constructor_name in current_settings.globalswitches) and
+        if (cs_constructor_name in current_settings^.globalswitches) and
            (pd.procsym.name<>'DONE') then
           Message(parser_e_destructorname_must_be_done);
         pd.calcparas;
         if not(pd.maxparacount=0) and
-           (m_fpc in current_settings.modeswitches) then
+           (m_fpc in current_settings^.modeswitches) then
           Message(parser_e_no_paras_for_destructor);
         current_scanner.consume(_SEMICOLON);
         include(current_objectdef.objectoptions,oo_has_destructor);
@@ -797,7 +797,7 @@ implementation
                     { all Macintosh Object Pascal methods are virtual.  }
                     { this can't be a class method, because macpas mode }
                     { has no m_class                                    }
-                    if (m_mac in current_settings.modeswitches) then
+                    if (m_mac in current_settings^.modeswitches) then
                       include(pd.procoptions,po_virtualmethod);
 
                     handle_calling_convention(pd);
@@ -969,7 +969,7 @@ implementation
               added. This is to prevent circular childof loops }
             include(current_objectdef.objectoptions,oo_is_forward);
 
-            if (cs_compilesystem in current_settings.moduleswitches) then
+            if (cs_compilesystem in current_settings^.moduleswitches) then
               begin
                 case current_objectdef.objecttype of
                   odt_interfacecom :
@@ -992,7 +992,7 @@ implementation
 
         { set published flag in $M+ mode, it can also be inherited and will
           be added when the parent class set with tobjectdef.set_parent (PFV) }
-        if (cs_generate_rtti in current_settings.localswitches) and
+        if (cs_generate_rtti in current_settings^.localswitches) and
            (current_objectdef.objecttype in [odt_interfacecom,odt_class]) then
           include(current_objectdef.objectoptions,oo_can_have_published);
 

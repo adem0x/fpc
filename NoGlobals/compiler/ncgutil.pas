@@ -1103,7 +1103,7 @@ implementation
       begin
         l.size:=def_cgsize(def);
         if (def.typ=floatdef) and
-           not(cs_fp_emulation in current_settings.moduleswitches) then
+           not(cs_fp_emulation in current_settings^.moduleswitches) then
           begin
             if use_vectorfpu(def) then
               begin
@@ -1471,7 +1471,7 @@ implementation
            not(vo_is_typed_const in tabstractvarsym(p).varoptions) and
            not(vo_is_external in tabstractvarsym(p).varoptions) and
            (is_managed_type(tabstractvarsym(p).vardef) or
-            ((m_iso in current_settings.modeswitches) and (tabstractvarsym(p).vardef.typ=filedef))
+            ((m_iso in current_settings^.modeswitches) and (tabstractvarsym(p).vardef.typ=filedef))
            ) then
          begin
            OldAsmList:=current_asmdata.CurrAsmList;
@@ -1619,7 +1619,7 @@ implementation
                        (see tcallnode.funcret_can_be_reused)
                      }
                      reference_reset_base(href,tmpreg,0,
-                       used_align(tparavarsym(p).vardef.alignment,current_settings.alignment.localalignmin,current_settings.alignment.localalignmax));
+                       used_align(tparavarsym(p).vardef.alignment,current_settings^.alignment.localalignmin,current_settings^.alignment.localalignmax));
                      { may be an open string, even if is_open_string() returns }
                      { false (for some helpers in the system unit)             }
                      if not is_shortstring(tparavarsym(p).vardef) then
@@ -2162,7 +2162,7 @@ implementation
           therefore if the context must be saved, do it before
           the actual call to the profile code
         }
-        if (cs_profile in current_settings.moduleswitches) and
+        if (cs_profile in current_settings^.moduleswitches) and
            not(po_assembler in current_procinfo.procdef.procoptions) then
           begin
             { non-win32 can call mcout even in main }
@@ -2257,7 +2257,7 @@ implementation
             if assigned(previtem) and
                (target_info.system in systems_darwin) then
               list.concat(tai_directive.create(asd_reference,item.str));
-            if (cs_profile in current_settings.moduleswitches) or
+            if (cs_profile in current_settings^.moduleswitches) or
               (po_global in current_procinfo.procdef.procoptions) then
               list.concat(Tai_symbol.createname_global(item.str,AT_FUNCTION,0))
             else
@@ -2309,7 +2309,7 @@ implementation
         current_asmdata.asmcfi.start_frame(list);
 
         { All temps are know, write offsets used for information }
-        if (cs_asm_source in current_settings.globalswitches) then
+        if (cs_asm_source in current_settings^.globalswitches) then
           begin
             if tg.direction>0 then
               begin
@@ -2425,8 +2425,8 @@ implementation
         create_codegen;
         { add the procedure to the al_procedures }
         maybe_new_object_file(list);
-        new_section(list,sec_code,lower(pd.mangledname),current_settings.alignment.procalign);
-        list.concat(Tai_align.create(current_settings.alignment.procalign));
+        new_section(list,sec_code,lower(pd.mangledname),current_settings^.alignment.procalign);
+        list.concat(Tai_align.create(current_settings^.alignment.procalign));
         if (po_global in pd.procoptions) then
           list.concat(Tai_symbol.createname_global(pd.mangledname,AT_FUNCTION,0))
         else
@@ -2501,7 +2501,7 @@ implementation
 
         procedure setlocalloc(vs:tabstractnormalvarsym);
         begin
-          if cs_asm_source in current_settings.globalswitches then
+          if cs_asm_source in current_settings^.globalswitches then
             begin
               case vs.initialloc.loc of
                 LOC_REFERENCE :
@@ -2582,7 +2582,7 @@ implementation
                 begin
                   vs:=tabstractnormalvarsym(sym);
                   vs.initialloc.size:=def_cgsize(vs.vardef);
-                  if (m_delphi in current_settings.modeswitches) and
+                  if (m_delphi in current_settings^.modeswitches) and
                      (po_assembler in current_procinfo.procdef.procoptions) and
                      (vo_is_funcret in vs.varoptions) and
                      (vs.refs=0) then
@@ -2655,7 +2655,7 @@ implementation
               add_regvars(rv^,tabstractnormalvarsym(tloadnode(n).symtableentry).localloc);
           vecn:
             { range checks sometimes need the high parameter }
-            if (cs_check_range in current_settings.localswitches) and
+            if (cs_check_range in current_settings^.localswitches) and
                (is_open_array(tvecnode(n).left.resultdef) or
                 is_array_of_const(tvecnode(n).left.resultdef)) and
                not(current_procinfo.procdef.proccalloption in [pocall_cdecl,pocall_cppdecl]) then
@@ -3038,10 +3038,10 @@ implementation
     function getprocalign : shortint;
       begin
         { gprof uses 16 byte granularity }
-        if (cs_profile in current_settings.moduleswitches) then
+        if (cs_profile in current_settings^.moduleswitches) then
           result:=16
         else
-         result:=current_settings.alignment.procalign;
+         result:=current_settings^.alignment.procalign;
       end;
 
 

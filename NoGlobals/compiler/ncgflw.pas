@@ -107,7 +107,7 @@ implementation
 
     procedure tcgwhilerepeatnode.sync_regvars(checkusedregvars: boolean);
       begin
-         if (cs_opt_regvar in current_settings.optimizerswitches) and
+         if (cs_opt_regvar in current_settings^.optimizerswitches) and
             not(pi_has_goto in current_procinfo.flags) then
            begin
              if checkusedregvars then
@@ -160,9 +160,9 @@ implementation
          if lnf_testatbegin in loopflags then
            cg.a_jmp_always(current_asmdata.CurrAsmList,lcont);
 
-         if not(cs_opt_size in current_settings.optimizerswitches) then
+         if not(cs_opt_size in current_settings^.optimizerswitches) then
             { align loop target }
-            current_asmdata.CurrAsmList.concat(Tai_align.Create(current_settings.alignment.loopalign));
+            current_asmdata.CurrAsmList.concat(Tai_align.Create(current_settings^.alignment.loopalign));
 
          cg.a_label(current_asmdata.CurrAsmList,lloop);
 
@@ -389,7 +389,7 @@ implementation
 
     procedure tcgfornode.sync_regvars(checkusedregvars: boolean);
       begin
-         if (cs_opt_regvar in current_settings.optimizerswitches) and
+         if (cs_opt_regvar in current_settings^.optimizerswitches) and
             not(pi_has_goto in current_procinfo.flags) then
            begin
              if checkusedregvars then
@@ -572,8 +572,8 @@ implementation
            cg.a_jmp_always(current_asmdata.CurrAsmList,tcglabelnode(entrylabel).getasmlabel);
 
          { align loop target }
-         if not(cs_opt_size in current_settings.optimizerswitches) then
-            current_asmdata.CurrAsmList.concat(Tai_align.Create(current_settings.alignment.loopalign));
+         if not(cs_opt_size in current_settings^.optimizerswitches) then
+            current_asmdata.CurrAsmList.concat(Tai_align.Create(current_settings^.alignment.loopalign));
          cg.a_label(current_asmdata.CurrAsmList,l3);
 
          {If the loopvar doesn't mind on exit, we avoid the loopvar inc/dec

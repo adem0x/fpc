@@ -100,8 +100,8 @@ implementation
 
         { Start and end module debuginfo, at least required for stabs
           to insert n_sourcefile lines }
-        if (cs_debuginfo in current_settings.moduleswitches) or
-           (cs_use_lineinfo in current_settings.globalswitches) then
+        if (cs_debuginfo in current_settings^.moduleswitches) or
+           (cs_use_lineinfo in current_settings^.globalswitches) then
           current_debuginfo.insertmoduleinfo;
 
         { create the .s file and assemble it }
@@ -514,7 +514,7 @@ implementation
         maybe_new_object_file(current_asmdata.asmlists[al_globals]);
         new_section(current_asmdata.asmlists[al_globals],sec_data,'__fpc_valgrind',sizeof(boolean));
         current_asmdata.asmlists[al_globals].concat(Tai_symbol.Createname_global('__fpc_valgrind',AT_DATA,sizeof(boolean)));
-        current_asmdata.asmlists[al_globals].concat(Tai_const.create_8bit(byte(cs_gdb_valgrind in current_settings.globalswitches)));
+        current_asmdata.asmlists[al_globals].concat(Tai_const.create_8bit(byte(cs_gdb_valgrind in current_settings^.globalswitches)));
       end;
 
 
@@ -529,7 +529,7 @@ implementation
         hp.adddependency(current_module);
         { add to symtable stack }
         symtablestack.push(hp.globalsymtable);
-        if (m_mac in current_settings.modeswitches) and
+        if (m_mac in current_settings^.modeswitches) and
            assigned(hp.globalmacrosymtable) then
           macrosymtablestack.push(hp.globalmacrosymtable);
         { insert unitsym }
@@ -626,7 +626,7 @@ implementation
         macrosymtablestack.push(initialmacrosymtable);
 
         { are we compiling the system unit? }
-        if (cs_compilesystem in current_settings.moduleswitches) then
+        if (cs_compilesystem in current_settings^.moduleswitches) then
          begin
            systemunit:=tglobalsymtable(current_module.localsymtable);
            { create system defines }
@@ -654,17 +654,17 @@ implementation
         if not(current_module.is_unit) then
          begin
            { Heaptrc unit, load heaptrace before any other units especially objpas }
-           if (cs_use_heaptrc in current_settings.globalswitches) then
+           if (cs_use_heaptrc in current_settings^.globalswitches) then
              AddUnit('heaptrc');
            { Lineinfo unit }
-           if (cs_use_lineinfo in current_settings.globalswitches) then begin
+           if (cs_use_lineinfo in current_settings^.globalswitches) then begin
              if (paratargetdbg = dbg_stabs) then
                AddUnit('lineinfo')
              else
                AddUnit('lnfodwrf');
            end;
            { Valgrind requires c memory manager }
-           if (cs_gdb_valgrind in current_settings.globalswitches) then
+           if (cs_gdb_valgrind in current_settings^.globalswitches) then
              AddUnit('cmem');
 {$ifdef cpufpemu}
            { Floating point emulation unit?
@@ -683,18 +683,18 @@ implementation
                AddUnit('fpintres');
          end;
         { Objpas unit? }
-        if m_objpas in current_settings.modeswitches then
+        if m_objpas in current_settings^.modeswitches then
           AddUnit('objpas');
 
         { Macpas unit? }
-        if m_mac in current_settings.modeswitches then
+        if m_mac in current_settings^.modeswitches then
           AddUnit('macpas');
 
-        if m_iso in current_settings.modeswitches then
+        if m_iso in current_settings^.modeswitches then
           AddUnit('iso7185');
 
         { Objective-C support unit? }
-        if (m_objectivec1 in current_settings.modeswitches) then
+        if (m_objectivec1 in current_settings^.modeswitches) then
           begin
             { interface to Objective-C run time }
             AddUnit('objc');
@@ -705,10 +705,10 @@ implementation
               AddUnit('objcbase');
           end;
         { Profile unit? Needed for go32v2 only }
-        if (cs_profile in current_settings.moduleswitches) and
+        if (cs_profile in current_settings^.moduleswitches) and
            (target_info.system in [system_i386_go32v2,system_i386_watcom]) then
           AddUnit('profile');
-        if (cs_load_fpcylix_unit in current_settings.globalswitches) then
+        if (cs_load_fpcylix_unit in current_settings^.globalswitches) then
           begin
             AddUnit('fpcylix');
             AddUnit('dynlibs');
@@ -716,7 +716,7 @@ implementation
 
         { CPU targets with microcontroller support can add a controller specific unit }
 {$if defined(ARM)}
-        if (target_info.system in systems_embedded) and (current_settings.controllertype<>ct_none) then
+        if (target_info.system in systems_embedded) and (current_settings^.controllertype<>ct_none) then
           AddUnit(controllerunitstr[current_settings.controllertype]);
 {$endif ARM}
       end;
@@ -752,7 +752,7 @@ implementation
            current_scanner.consume(_ID);
            { support "<unit> in '<file>'" construct, but not for tp7 }
            fn:='';
-           if not(m_tp7 in current_settings.modeswitches) and
+           if not(m_tp7 in current_settings^.modeswitches) and
               current_scanner.try_to_consume(_OP_IN) then
              fn:=FixFileName(get_stringconst);
            { Give a warning if lineinfo is loaded }
@@ -829,7 +829,7 @@ implementation
                pu.unitsym.module:=pu.u;
                { add to symtable stack }
                symtablestack.push(pu.u.globalsymtable);
-               if (m_mac in current_settings.modeswitches) and
+               if (m_mac in current_settings^.modeswitches) and
                   assigned(pu.u.globalmacrosymtable) then
                  macrosymtablestack.push(pu.u.globalmacrosymtable);
                { check hints }
@@ -884,7 +884,7 @@ implementation
 
     procedure setupglobalswitches;
       begin
-        if (cs_create_pic in current_settings.moduleswitches) then
+        if (cs_create_pic in current_settings^.moduleswitches) then
           begin
             def_system_macro('FPC_PIC');
             def_system_macro('PIC');
@@ -1064,7 +1064,7 @@ implementation
          init_procinfo:=nil;
          finalize_procinfo:=nil;
 
-         if m_mac in current_settings.modeswitches then
+         if m_mac in current_settings^.modeswitches then
            current_module.mode_switch_allowed:= false;
 
          current_scanner.consume(_UNIT);
@@ -1087,7 +1087,7 @@ implementation
              new(s2);
              s2^:=upper(ChangeFileExt(ExtractFileName(main_file.name^),''));
              unitname8:=copy(current_module.modulename^,1,8);
-             if (cs_check_unit_name in current_settings.globalswitches) and
+             if (cs_check_unit_name in current_settings^.globalswitches) and
                 (
                  not(
                      (current_module.modulename^=s2^) or
@@ -1104,7 +1104,7 @@ implementation
                 ) then
               Message1(unit_e_illegal_unit_name,current_module.realmodulename^);
              if (current_module.modulename^='SYSTEM') then
-              include(current_settings.moduleswitches,cs_compilesystem);
+              include(current_settings^.moduleswitches,cs_compilesystem);
              dispose(s2);
              dispose(s1);
           end;
@@ -1132,11 +1132,11 @@ implementation
 
          { maybe turn off m_objpas if we are compiling objpas }
          if (current_module.modulename^='OBJPAS') then
-           exclude(current_settings.modeswitches,m_objpas);
+           exclude(current_settings^.modeswitches,m_objpas);
 
          { maybe turn off m_mac if we are compiling macpas }
          if (current_module.modulename^='MACPAS') then
-           exclude(current_settings.modeswitches,m_mac);
+           exclude(current_settings^.modeswitches,m_mac);
 
          current_parser.parse_only:=true;
 
@@ -1162,7 +1162,7 @@ implementation
           Internalerror(70810);
 
          { insert qualifier for the system unit (allows system.writeln) }
-         if not(cs_compilesystem in current_settings.moduleswitches) and
+         if not(cs_compilesystem in current_settings^.moduleswitches) and
             (current_scanner.token=_USES) then
            begin
              loadunits;
@@ -1193,7 +1193,7 @@ implementation
          { Export macros defined in the interface for macpas. The macros
            are put in the globalmacrosymtable that will only be used by other
            units. The current unit continues to use the localmacrosymtable }
-         if (m_mac in current_settings.modeswitches) then
+         if (m_mac in current_settings^.modeswitches) then
           begin
             current_module.globalmacrosymtable:=tmacrosymtable.create(true);
             current_module.localmacrosymtable.SymList.ForEachCall(@copy_macro,nil);
@@ -1208,7 +1208,7 @@ implementation
           end;
 
          { Our interface is compiled, generate CRC and switch to implementation }
-         if not(cs_compilesystem in current_settings.moduleswitches) and
+         if not(cs_compilesystem in current_settings^.moduleswitches) and
             (Errorcount=0) then
            tppumodule(current_module).getppucrc;
          current_module.in_interface:=false;
@@ -1220,7 +1220,7 @@ implementation
          tppumodule(current_module).reload_flagged_units;
 
          { Parse the implementation section }
-         if (m_mac in current_settings.modeswitches) and current_scanner.try_to_consume(_END) then
+         if (m_mac in current_settings^.modeswitches) and current_scanner.try_to_consume(_END) then
            current_module.interface_only:=true
          else
            current_module.interface_only:=false;
@@ -1231,7 +1231,7 @@ implementation
          current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
 
 {$ifdef i386}
-         if cs_create_pic in current_settings.moduleswitches then
+         if cs_create_pic in current_settings^.moduleswitches then
            begin
              { insert symbol for got access in assembler code}
              gotvarsym:=tstaticvarsym.create('_GLOBAL_OFFSET_TABLE_',vs_value,voidpointertype,[vo_is_external]);
@@ -1383,7 +1383,7 @@ implementation
          InsertWideInits;
 
          { generate debuginfo }
-         if (cs_debuginfo in current_settings.moduleswitches) then
+         if (cs_debuginfo in current_settings^.moduleswitches) then
            current_debuginfo.inserttypeinfo;
 
          { generate imports }
@@ -1418,7 +1418,7 @@ implementation
          if (Errorcount=0) then
            tppumodule(current_module).writeppu;
 
-         if not(cs_compilesystem in current_settings.moduleswitches) then
+         if not(cs_compilesystem in current_settings^.moduleswitches) then
            begin
              if store_interface_crc<>current_module.interface_crc then
                Message1(unit_u_interface_crc_changed,current_module.ppufilename^);
@@ -1426,7 +1426,7 @@ implementation
                Message1(unit_u_indirect_crc_changed,current_module.ppufilename^);
            end;
 {$ifdef EXTDEBUG}
-         if not(cs_compilesystem in current_settings.moduleswitches) then
+         if not(cs_compilesystem in current_settings^.moduleswitches) then
            if (store_crc<>current_module.crc) and simplify_ppu then
              Message1(unit_u_implementation_crc_changed,current_module.ppufilename^);
 {$endif EXTDEBUG}
@@ -1794,16 +1794,16 @@ implementation
          { Internal linker does not have this problem.            }
          if RelocSection and
             (target_info.system in systems_all_windows+[system_i386_wdosx]) and
-            (cs_link_extern in current_settings.globalswitches) then
+            (cs_link_extern in current_settings^.globalswitches) then
            begin
-              include(current_settings.globalswitches,cs_link_strip);
+              include(current_settings^.globalswitches,cs_link_strip);
               { Warning stabs info does not work with reloc section !! }
-              if (cs_debuginfo in current_settings.moduleswitches) and
+              if (cs_debuginfo in current_settings^.moduleswitches) and
                  (target_dbg.id=dbg_stabs) then
                 begin
                   Message1(parser_w_parser_reloc_no_debug,current_module.mainsource^);
                   Message(parser_w_parser_win32_debug_needs_WN);
-                  exclude(current_settings.moduleswitches,cs_debuginfo);
+                  exclude(current_settings^.moduleswitches,cs_debuginfo);
                 end;
            end;
          { get correct output names }
@@ -1819,7 +1819,7 @@ implementation
          exportlib.preparelib(current_scanner.orgpattern);
 
          if tf_library_needs_pic in target_info.flags then
-           include(current_settings.moduleswitches,cs_create_pic);
+           include(current_settings^.moduleswitches,cs_create_pic);
 
          current_scanner.consume(_ID);
          current_scanner.consume(_SEMICOLON);
@@ -1965,7 +1965,7 @@ implementation
 {$endif arm}
 
          { generate debuginfo }
-         if (cs_debuginfo in current_settings.moduleswitches) then
+         if (cs_debuginfo in current_settings^.moduleswitches) then
            current_debuginfo.inserttypeinfo;
 
          exportlib.generatelib;
@@ -1979,7 +1979,7 @@ implementation
            importlib.generatelib;
 
          { Reference all DEBUGINFO sections from the main .fpc section }
-         if (cs_debuginfo in current_settings.moduleswitches) then
+         if (cs_debuginfo in current_settings^.moduleswitches) then
            current_debuginfo.referencesections(current_asmdata.asmlists[al_procedures]);
 
          { insert own objectfile }
@@ -2020,7 +2020,7 @@ implementation
                  { create global resource file by collecting all resource files }
                  CollectResourceFiles;
                  { write .def file }
-                 if (cs_link_deffile in current_settings.globalswitches) then
+                 if (cs_link_deffile in current_settings^.globalswitches) then
                    deffile.writefile;
                  { insert all .o files from all loaded units and
                    unload the units, we don't need them anymore.
@@ -2086,16 +2086,16 @@ implementation
          { Internal linker does not have this problem.            }
          if RelocSection and
             (target_info.system in systems_all_windows+[system_i386_wdosx]) and
-            (cs_link_extern in current_settings.globalswitches) then
+            (cs_link_extern in current_settings^.globalswitches) then
            begin
-              include(current_settings.globalswitches,cs_link_strip);
+              include(current_settings^.globalswitches,cs_link_strip);
               { Warning stabs info does not work with reloc section !! }
-              if (cs_debuginfo in current_settings.moduleswitches) and
+              if (cs_debuginfo in current_settings^.moduleswitches) and
                  (target_dbg.id=dbg_stabs) then
                 begin
                   Message1(parser_w_parser_reloc_no_debug,current_module.mainsource^);
                   Message(parser_w_parser_win32_debug_needs_WN);
-                  exclude(current_settings.moduleswitches,cs_debuginfo);
+                  exclude(current_settings^.moduleswitches,cs_debuginfo);
                 end;
            end;
          { get correct output names }
@@ -2113,7 +2113,7 @@ implementation
               exportlib.preparelib(current_scanner.orgpattern);
 
               if tf_library_needs_pic in target_info.flags then
-                include(current_settings.moduleswitches,cs_create_pic);
+                include(current_settings^.moduleswitches,cs_create_pic);
 
               current_scanner.consume(_ID);
               current_scanner.consume(_SEMICOLON);
@@ -2340,14 +2340,14 @@ implementation
            importlib.generatelib;
 
          { generate debuginfo }
-         if (cs_debuginfo in current_settings.moduleswitches) then
+         if (cs_debuginfo in current_settings^.moduleswitches) then
            current_debuginfo.inserttypeinfo;
 
          if islibrary or (target_info.system in systems_unit_program_exports) then
            exportlib.generatelib;
 
          { Reference all DEBUGINFO sections from the main .fpc section }
-         if (cs_debuginfo in current_settings.moduleswitches) then
+         if (cs_debuginfo in current_settings^.moduleswitches) then
            current_debuginfo.referencesections(current_asmdata.asmlists[al_procedures]);
 
          { Resource strings }
@@ -2380,7 +2380,7 @@ implementation
            which is a dummy function PM }
          needsymbolinfo:=
            (do_extractsymbolinfo<>@def_extractsymbolinfo) or
-           ((current_settings.genwpoptimizerswitches*WPOptimizationsNeedingAllUnitInfo)<>[]);
+           ((current_settings^.genwpoptimizerswitches*WPOptimizationsNeedingAllUnitInfo)<>[]);
 
          { release all local symtables that are not needed anymore }
          if (not needsymbolinfo) then
@@ -2402,7 +2402,7 @@ implementation
                  { create global resource file by collecting all resource files }
                  CollectResourceFiles;
                  { write .def file }
-                 if (cs_link_deffile in current_settings.globalswitches) then
+                 if (cs_link_deffile in current_settings^.globalswitches) then
                   deffile.writefile;
                  { insert all .o files from all loaded units and
                    unload the units, we don't need them anymore.

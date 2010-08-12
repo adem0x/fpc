@@ -166,12 +166,12 @@ interface
           lasttoken,
           nexttoken    : ttoken;
 
-
           replaytokenbuf,
           recordtokenbuf : tdynamicarray;
 
           { last settings we stored }
           last_settings : tsettings;
+          current_settings   : tsettings;
 
           { last filepos we stored }
           last_filepos,
@@ -347,29 +347,29 @@ end;
     Procedure HandleModeSwitches(changeInit: boolean);
       begin
         { turn ansistrings on by default ? }
-        if (m_default_ansistring in current_settings.modeswitches) then
+        if (m_default_ansistring in current_settings^.modeswitches) then
          begin
-           include(current_settings.localswitches,cs_ansistrings);
+           include(current_settings^.localswitches,cs_ansistrings);
            if changeinit then
             include(init_settings.localswitches,cs_ansistrings);
          end
         else
          begin
-           exclude(current_settings.localswitches,cs_ansistrings);
+           exclude(current_settings^.localswitches,cs_ansistrings);
            if changeinit then
             exclude(init_settings.localswitches,cs_ansistrings);
          end;
 
         { turn inline on by default ? }
-        if (m_default_inline in current_settings.modeswitches) then
+        if (m_default_inline in current_settings^.modeswitches) then
          begin
-           include(current_settings.localswitches,cs_do_inline);
+           include(current_settings^.localswitches,cs_do_inline);
            if changeinit then
             include(init_settings.localswitches,cs_do_inline);
          end
         else
          begin
-           exclude(current_settings.localswitches,cs_ansistrings);
+           exclude(current_settings^.localswitches,cs_ansistrings);
            if changeinit then
             exclude(init_settings.localswitches,cs_ansistrings);
          end;
@@ -381,25 +381,25 @@ end;
         b : boolean;
         oldmodeswitches : tmodeswitches;
       begin
-        oldmodeswitches:=current_settings.modeswitches;
+        oldmodeswitches:=current_settings^.modeswitches;
 
         b:=true;
         if s='DEFAULT' then
-          current_settings.modeswitches:=fpcmodeswitches
+          current_settings^.modeswitches:=fpcmodeswitches
         else
          if s='DELPHI' then
-          current_settings.modeswitches:=delphimodeswitches
+          current_settings^.modeswitches:=delphimodeswitches
         else
          if s='TP' then
-          current_settings.modeswitches:=tpmodeswitches
+          current_settings^.modeswitches:=tpmodeswitches
         else
          if s='FPC' then begin
-          current_settings.modeswitches:=fpcmodeswitches;
+          current_settings^.modeswitches:=fpcmodeswitches;
           { TODO: enable this for 2.3/2.9 }
           //  include(current_settings.localswitches, cs_typed_addresses);
         end else
          if s='OBJFPC' then begin
-          current_settings.modeswitches:=objfpcmodeswitches;
+          current_settings^.modeswitches:=objfpcmodeswitches;
           { TODO: enable this for 2.3/2.9 }
           //  include(current_settings.localswitches, cs_typed_addresses);
         end
@@ -409,15 +409,15 @@ end;
 {$endif}
         else
          if s='MACPAS' then
-          current_settings.modeswitches:=macmodeswitches
+          current_settings^.modeswitches:=macmodeswitches
         else
          if s='ISO' then
-          current_settings.modeswitches:=isomodeswitches
+          current_settings^.modeswitches:=isomodeswitches
         else
          b:=false;
 
         if b and changeInit then
-          init_settings.modeswitches := current_settings.modeswitches;
+          init_settings.modeswitches := current_settings^.modeswitches;
 
         if b then
          begin
@@ -427,35 +427,35 @@ end;
            HandleModeSwitches(changeinit);
 
            { turn on bitpacking for mode macpas and iso pascal }
-           if ([m_mac,m_iso] * current_settings.modeswitches <> []) then
+           if ([m_mac,m_iso] * current_settings^.modeswitches <> []) then
              begin
-               include(current_settings.localswitches,cs_bitpacking);
+               include(current_settings^.localswitches,cs_bitpacking);
                if changeinit then
                  include(init_settings.localswitches,cs_bitpacking);
              end;
 
            { support goto/label by default in delphi/tp7/mac modes }
-           if ([m_delphi,m_tp7,m_mac,m_iso] * current_settings.modeswitches <> []) then
+           if ([m_delphi,m_tp7,m_mac,m_iso] * current_settings^.modeswitches <> []) then
              begin
-               include(current_settings.moduleswitches,cs_support_goto);
+               include(current_settings^.moduleswitches,cs_support_goto);
                if changeinit then
                  include(init_settings.moduleswitches,cs_support_goto);
              end;
 
            { Default enum and set packing for delphi/tp7 }
-           if (m_tp7 in current_settings.modeswitches) or
-              (m_delphi in current_settings.modeswitches) then
+           if (m_tp7 in current_settings^.modeswitches) or
+              (m_delphi in current_settings^.modeswitches) then
              begin
-               current_settings.packenum:=1;
-               current_settings.setalloc:=1;
+               current_settings^.packenum:=1;
+               current_settings^.setalloc:=1;
              end
-           else if (m_mac in current_settings.modeswitches) then
+           else if (m_mac in current_settings^.modeswitches) then
              { compatible with Metrowerks Pascal }
-             current_settings.packenum:=2
+             current_settings^.packenum:=2
            else
-             current_settings.packenum:=4;
+             current_settings^.packenum:=4;
            if changeinit then
-             init_settings.packenum:=current_settings.packenum;
+             init_settings.packenum:=current_settings^.packenum;
 {$ifdef i386}
            { Default to intel assembler for delphi/tp7 on i386 }
            if (m_delphi in current_settings.modeswitches) or
@@ -467,13 +467,13 @@ end;
 
            { Exception support explicitly turned on (mainly for macpas, to }
            { compensate for lack of interprocedural goto support)          }
-           if (cs_support_exceptions in current_settings.globalswitches) then
-             include(current_settings.modeswitches,m_except);
+           if (cs_support_exceptions in current_settings^.globalswitches) then
+             include(current_settings^.modeswitches,m_except);
 
            { Default strict string var checking in TP/Delphi modes }
-           if ([m_delphi,m_tp7] * current_settings.modeswitches <> []) then
+           if ([m_delphi,m_tp7] * current_settings^.modeswitches <> []) then
              begin
-               include(current_settings.localswitches,cs_strict_var_strings);
+               include(current_settings^.localswitches,cs_strict_var_strings);
                if changeinit then
                  include(init_settings.localswitches,cs_strict_var_strings);
              end;
@@ -493,17 +493,17 @@ end;
               undef_system_macro('FPC_MACPAS');
 
             { define new symbol in delphi,objfpc,tp,gpc,macpas mode }
-            if (m_delphi in current_settings.modeswitches) then
+            if (m_delphi in current_settings^.modeswitches) then
               def_system_macro('FPC_DELPHI')
-            else if (m_tp7 in current_settings.modeswitches) then
+            else if (m_tp7 in current_settings^.modeswitches) then
               def_system_macro('FPC_TP')
-            else if (m_objfpc in current_settings.modeswitches) then
+            else if (m_objfpc in current_settings^.modeswitches) then
               def_system_macro('FPC_OBJFPC')
 {$ifdef gpc_mode}
-            else if (m_gpc in current_settings.modeswitches) then
+            else if (m_gpc in current_settings^.modeswitches) then
               def_system_macro('FPC_GPC')
 {$endif}
-            else if (m_mac in current_settings.modeswitches) then
+            else if (m_mac in current_settings^.modeswitches) then
               def_system_macro('FPC_MACPAS');
          end;
 
@@ -544,33 +544,33 @@ end;
                 end;
 
               if changeInit then
-                current_settings.modeswitches:=init_settings.modeswitches;
+                current_settings^.modeswitches:=init_settings.modeswitches;
               Result:=true;
               if doinclude then
                 begin
-                  include(current_settings.modeswitches,i);
+                  include(current_settings^.modeswitches,i);
                   { Objective-C 2.0 support implies 1.0 support }
                   if (i=m_objectivec2) then
-                    include(current_settings.modeswitches,m_objectivec1);
+                    include(current_settings^.modeswitches,m_objectivec1);
                   if (i in [m_objectivec1,m_objectivec2]) then
-                    include(current_settings.modeswitches,m_class);
+                    include(current_settings^.modeswitches,m_class);
                 end
               else
                 begin
-                  exclude(current_settings.modeswitches,i);
+                  exclude(current_settings^.modeswitches,i);
                   { Objective-C 2.0 support implies 1.0 support }
                   if (i=m_objectivec2) then
-                    exclude(current_settings.modeswitches,m_objectivec1);
+                    exclude(current_settings^.modeswitches,m_objectivec1);
                   if (i in [m_objectivec1,m_objectivec2]) and
-                     ([m_delphi,m_objfpc]*current_settings.modeswitches=[]) then
-                    exclude(current_settings.modeswitches,m_class);
+                     ([m_delphi,m_objfpc]*current_settings^.modeswitches=[]) then
+                    exclude(current_settings^.modeswitches,m_class);
                 end;
 
               { set other switches depending on changed mode switch }
               HandleModeSwitches(changeinit);
 
               if changeInit then
-                init_settings.modeswitches:=current_settings.modeswitches;
+                init_settings.modeswitches:=current_settings^.modeswitches;
 
               break;
             end;
@@ -852,17 +852,17 @@ In case not, the value returned can be arbitrary.
               else
                 macroType := [ctetInteger];
             end
-          else if assigned(mac) and (m_mac in current_settings.modeswitches) and (result='FALSE') then
+          else if assigned(mac) and (m_mac in current_settings^.modeswitches) and (result='FALSE') then
             begin
               result:= '0';
               macroType:= [ctetBoolean];
             end
-          else if assigned(mac) and (m_mac in current_settings.modeswitches) and (result='TRUE') then
+          else if assigned(mac) and (m_mac in current_settings^.modeswitches) and (result='TRUE') then
             begin
               result:= '1';
               macroType:= [ctetBoolean];
             end
-          else if (m_mac in current_settings.modeswitches) and
+          else if (m_mac in current_settings^.modeswitches) and
                   (not assigned(mac) or not mac.defined) and
                   (macrocount = 1) then
             begin
@@ -901,7 +901,7 @@ In case not, the value returned can be arbitrary.
                         current_scanner.skipspace;
                         hasKlammer:= true;
                       end
-                    else if (m_mac in current_settings.modeswitches) then
+                    else if (m_mac in current_settings^.modeswitches) then
                       hasKlammer:= false
                     else
                       Message(scan_e_error_in_preproc_expr);
@@ -931,7 +931,7 @@ In case not, the value returned can be arbitrary.
                         Message(scan_e_error_in_preproc_expr);
                   end
                 else
-                if (m_mac in current_settings.modeswitches) and (current_scanner.preproc_pattern='UNDEFINED') then
+                if (m_mac in current_settings^.modeswitches) and (current_scanner.preproc_pattern='UNDEFINED') then
                   begin
                     factorType:= [ctetBoolean];
                     preproc_consume(_ID);
@@ -955,7 +955,7 @@ In case not, the value returned can be arbitrary.
                       Message(scan_e_error_in_preproc_expr);
                   end
                 else
-                if (m_mac in current_settings.modeswitches) and (current_scanner.preproc_pattern='OPTION') then
+                if (m_mac in current_settings^.modeswitches) and (current_scanner.preproc_pattern='OPTION') then
                   begin
                     factorType:= [ctetBoolean];
                     preproc_consume(_ID);
@@ -1155,14 +1155,14 @@ In case not, the value returned can be arbitrary.
                       read_factor:='0'; {Just to have something}
                   end
                 else
-                if (m_mac in current_settings.modeswitches) and (current_scanner.preproc_pattern='TRUE') then
+                if (m_mac in current_settings^.modeswitches) and (current_scanner.preproc_pattern='TRUE') then
                   begin
                     factorType:= [ctetBoolean];
                     preproc_consume(_ID);
                     read_factor:='1';
                   end
                 else
-                if (m_mac in current_settings.modeswitches) and (current_scanner.preproc_pattern='FALSE') then
+                if (m_mac in current_settings^.modeswitches) and (current_scanner.preproc_pattern='FALSE') then
                   begin
                     factorType:= [ctetBoolean];
                     preproc_consume(_ID);
@@ -1174,7 +1174,7 @@ In case not, the value returned can be arbitrary.
 
                     { Default is to return the original symbol }
                     read_factor:=hs;
-                    if eval and ([m_delphi,m_objfpc]*current_settings.modeswitches<>[]) and (ctetString in factorType) then
+                    if eval and ([m_delphi,m_objfpc]*current_settings^.modeswitches<>[]) and (ctetString in factorType) then
                       if searchsym(current_scanner.preproc_pattern,srsym,srsymtable) then
                         begin
                           case srsym.typ of
@@ -1507,7 +1507,7 @@ In case not, the value returned can be arbitrary.
           end;
         Message1(parser_c_macro_defined,mac.name);
         mac.is_used:=true;
-        if (cs_support_macro in current_settings.moduleswitches) then
+        if (cs_support_macro in current_settings^.moduleswitches) then
           begin
              current_scanner.skipspace;
 
@@ -1957,6 +1957,8 @@ In case not, the value returned can be arbitrary.
         ignoredirectives:=TFPHashList.Create;
         in_asm_string:=false;
         InitWideString(patternw);
+         { Load current state from the init values }
+         current_settings:=init_settings;
       end;
 
 

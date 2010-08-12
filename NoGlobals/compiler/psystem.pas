@@ -347,7 +347,7 @@ implementation
           end;
         addtype('$s64currency',s64currencytype);
         { Add a type for virtual method tables }
-        hrecst:=trecordsymtable.create(current_settings.packrecords);
+        hrecst:=trecordsymtable.create(current_settings^.packrecords);
         vmttype:=trecorddef.create(hrecst);
         pvmttype:=tpointerdef.create(vmttype);
         { can't use addtype for pvmt because the rtti of the pointed

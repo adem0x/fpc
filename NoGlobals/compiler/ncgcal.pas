@@ -914,7 +914,7 @@ implementation
          release_para_temps;
 
          { perhaps i/o check ? }
-         if (cs_check_io in current_settings.localswitches) and
+         if (cs_check_io in current_settings^.localswitches) and
             (po_iocheck in procdefinition.procoptions) and
             not(po_iocheck in current_procinfo.procdef.procoptions) and
             { no IO check for methods and procedure variables }

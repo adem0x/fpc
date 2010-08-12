@@ -139,7 +139,7 @@ implementation
            break;
          hp:=tmodule(hp.next);
        end;
-      if cs_profile in current_settings.moduleswitches then
+      if cs_profile in current_settings^.moduleswitches then
         linker.sysinitunit:='sysinitgprof'
       else if linkcygwin or (Linker.SharedLibFiles.Find('cygwin')<>nil) or (Linker.StaticLibFiles.Find('cygwin')<>nil) then
         linker.sysinitunit:='sysinitcyg'
@@ -524,7 +524,7 @@ implementation
                   {$endif ARM}
                     { add jump field to al_imports }
                     new_section(current_asmdata.asmlists[al_imports],sec_idata5,'',0);
-                    if (cs_debuginfo in current_settings.moduleswitches) then
+                    if (cs_debuginfo in current_settings^.moduleswitches) then
                       begin
                         if ImportSymbol.MangledName<>'' then
                           begin
@@ -1120,7 +1120,7 @@ implementation
       begin
         WriteResponseFile:=False;
 
-        if (cs_profile in current_settings.moduleswitches) then
+        if (cs_profile in current_settings^.moduleswitches) then
           begin
             SharedLibFiles.Concat('gmon');
             SharedLibFiles.Concat('c');
@@ -1330,7 +1330,7 @@ implementation
         EntryStr,
         ImageBaseStr : string[40];
       begin
-        if not(cs_link_nolink in current_settings.globalswitches) then
+        if not(cs_link_nolink in current_settings^.globalswitches) then
          Message1(exec_i_linking,current_module.exefilename^);
 
         { Create some replacements }
@@ -1359,9 +1359,9 @@ implementation
           EntryStr:='--entry=_mainCRTStartup';
         if ImageBaseSetExplicity then
           ImageBaseStr:='--image-base=0x'+hexStr(imagebase, SizeOf(imagebase)*2);
-        if (cs_link_strip in current_settings.globalswitches) then
+        if (cs_link_strip in current_settings^.globalswitches) then
           StripStr:='-s';
-        if (cs_link_map in current_settings.globalswitches) then
+        if (cs_link_map in current_settings^.globalswitches) then
           MapStr:='-Map '+maybequoted(ChangeFileExt(current_module.exefilename^,'.map'));
 
       { Write used files and libraries }
@@ -1407,7 +1407,7 @@ implementation
          success:=PostProcessExecutable(current_module.exefilename^,false);
 
       { Remove ReponseFile }
-        if (success) and not(cs_link_nolink in current_settings.globalswitches) then
+        if (success) and not(cs_link_nolink in current_settings^.globalswitches) then
          begin
            DeleteFile(outputexedir+Info.ResName);
            DeleteFile('base.$$$');
@@ -1436,7 +1436,7 @@ implementation
         ImageBaseStr : string[40];
       begin
         MakeSharedLibrary:=false;
-        if not(cs_link_nolink in current_settings.globalswitches) then
+        if not(cs_link_nolink in current_settings^.globalswitches) then
          Message1(exec_i_linking,current_module.sharedlibfilename^);
 
       { Create some replacements }
@@ -1461,9 +1461,9 @@ implementation
           EntryStr:='--entry _DLLMainCRTStartup';
         if ImageBaseSetExplicity then
           ImageBaseStr:='--image-base=0x'+hexStr(imagebase, SizeOf(imagebase)*2);
-        if (cs_link_strip in current_settings.globalswitches) then
+        if (cs_link_strip in current_settings^.globalswitches) then
           StripStr:='-s';
-        if (cs_link_map in current_settings.globalswitches) then
+        if (cs_link_map in current_settings^.globalswitches) then
           MapStr:='-Map '+maybequoted(ChangeFileExt(current_module.exefilename^,'.map'));
 
       { Write used files and libraries }
@@ -1509,7 +1509,7 @@ implementation
          success:=PostProcessExecutable(current_module.sharedlibfilename^,true);
 
       { Remove ReponseFile }
-        if (success) and not(cs_link_nolink in current_settings.globalswitches) then
+        if (success) and not(cs_link_nolink in current_settings^.globalswitches) then
          begin
            DeleteFile(outputexedir+Info.ResName);
            DeleteFile('base.$$$');
@@ -1564,7 +1564,7 @@ implementation
       begin
         postprocessexecutable:=false;
         { when -s is used or it's a dll then quit }
-        if (cs_link_nolink in current_settings.globalswitches) then
+        if (cs_link_nolink in current_settings^.globalswitches) then
          begin
            case apptype of
              app_native :

@@ -214,7 +214,7 @@ implementation
                    { create symbol }
                    storetokenpos:=current_tokenpos;
                    current_tokenpos:=filepos;
-                   if not (cs_typed_const_writable in current_settings.localswitches) then
+                   if not (cs_typed_const_writable in current_settings^.localswitches) then
                      varspez:=vs_const
                    else
                      varspez:=vs_value;
@@ -250,7 +250,7 @@ implementation
                     begin
                       { get init value }
                       current_scanner.consume(_EQUAL);
-                      if (cs_typed_const_writable in current_settings.localswitches) then
+                      if (cs_typed_const_writable in current_settings^.localswitches) then
                         tclist:=current_asmdata.asmlists[al_rotypedconsts]
                       else
                         tclist:=current_asmdata.asmlists[al_typedconsts];
@@ -270,7 +270,7 @@ implementation
     procedure label_dec;
       begin
          current_scanner.consume(_LABEL);
-         if not(cs_support_goto in current_settings.moduleswitches) then
+         if not(cs_support_goto in current_settings^.moduleswitches) then
            Message(sym_e_goto_and_label_not_supported);
          repeat
            if not(current_scanner.token in [_ID,_INTCONST]) then
@@ -435,7 +435,7 @@ implementation
 
            { MacPas object model is more like Delphi's than like TP's, but }
            { uses the object keyword instead of class                      }
-           if (m_mac in current_settings.modeswitches) and
+           if (m_mac in current_settings^.modeswitches) and
               (current_scanner.token = _OBJECT) then
              current_scanner.token := _CLASS;
 
@@ -468,7 +468,7 @@ implementation
                       _CLASS :
                         objecttype:=odt_class;
                       _INTERFACE :
-                        if current_settings.interfacetype=it_interfacecom then
+                        if current_settings^.interfacetype=it_interfacecom then
                           objecttype:=odt_interfacecom
                         else
                           objecttype:=odt_interfacecorba;
@@ -536,7 +536,7 @@ implementation
                 end;
               newtype.typedef:=hdef;
               { KAZ: handle TGUID declaration in system unit }
-              if (cs_compilesystem in current_settings.moduleswitches) and not assigned(rec_tguid) and
+              if (cs_compilesystem in current_settings^.moduleswitches) and not assigned(rec_tguid) and
                  (typename='TGUID') and { name: TGUID and size=16 bytes that is 128 bits }
                  assigned(hdef) and (hdef.typ=recorddef) and (hdef.size=16) then
                 rec_tguid:=trecorddef(hdef);

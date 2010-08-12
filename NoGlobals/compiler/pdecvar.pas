@@ -352,7 +352,7 @@ implementation
          if current_scanner.try_to_consume(_LECKKLAMMER) then
            begin
               if (p.visibility=vis_published) and
-                not (m_delphi in current_settings.modeswitches) then
+                not (m_delphi in current_settings^.modeswitches) then
                 Message(parser_e_cant_publish_that_property);
               { create a list of the parameters }
               symtablestack.push(readprocdef.parast);
@@ -363,7 +363,7 @@ implementation
                   varspez:=vs_var
                 else if current_scanner.try_to_consume(_CONST) then
                   varspez:=vs_const
-                else if (m_out in current_settings.modeswitches) and current_scanner.try_to_consume(_OUT) then
+                else if (m_out in current_settings^.modeswitches) and current_scanner.try_to_consume(_OUT) then
                   varspez:=vs_out
                 else
                   varspez:=vs_value;
@@ -545,7 +545,7 @@ implementation
                           { Insert hidden parameters }
                           handle_calling_convention(writeprocdef);
                           { search procdefs matching writeprocdef }
-                          if cs_varpropsetter in current_settings.localswitches then
+                          if cs_varpropsetter in current_settings^.localswitches then
                             p.propaccesslist[palt_write].procdef:=Tprocsym(sym).Find_procdef_bypara(writeprocdef.paras,writeprocdef.returndef,[cpo_allowdefaults,cpo_ignorevarspez])
                           else
                             p.propaccesslist[palt_write].procdef:=Tprocsym(sym).Find_procdef_bypara(writeprocdef.paras,writeprocdef.returndef,[cpo_allowdefaults]);
@@ -889,14 +889,14 @@ implementation
       C_name:=vs.realname;
 
       { macpas specific handling due to some switches}
-      if (m_mac in current_settings.modeswitches) then
+      if (m_mac in current_settings^.modeswitches) then
         begin
-          if (cs_external_var in current_settings.localswitches) then
+          if (cs_external_var in current_settings^.localswitches) then
             begin {The effect of this is the same as if cvar; external; has been given as directives.}
               is_cdecl:=true;
               is_external_var:=true;
             end
-          else if (cs_externally_visible in current_settings.localswitches) then
+          else if (cs_externally_visible in current_settings^.localswitches) then
             begin {The effect of this is the same as if cvar has been given as directives and it's made public.}
               is_cdecl:=true;
               is_public_var:=true;
@@ -1290,7 +1290,7 @@ implementation
              { Handling of Delphi typed const = initialized vars }
              if allowdefaultvalue and
                 (current_scanner.token=_EQUAL) and
-                not(m_tp7 in current_settings.modeswitches) and
+                not(m_tp7 in current_settings^.modeswitches) and
                 (symtablestack.top.symtabletype<>parasymtable) then
                begin
                  { Add calling convention for procvar }
@@ -1317,7 +1317,7 @@ implementation
                  handle_calling_convention(tprocvardef(hdef));
                  { Handling of Delphi typed const = initialized vars }
                  if (current_scanner.token=_EQUAL) and
-                    not(m_tp7 in current_settings.modeswitches) and
+                    not(m_tp7 in current_settings^.modeswitches) and
                     (symtablestack.top.symtabletype<>parasymtable) then
                    begin
                      read_default_value(sc);
@@ -1329,13 +1329,13 @@ implementation
              if (
                  (
                   (current_scanner.idtoken in [_EXPORT,_EXTERNAL,_WEAKEXTERNAL,_PUBLIC,_CVAR]) and
-                  (m_cvar_support in current_settings.modeswitches)
+                  (m_cvar_support in current_settings^.modeswitches)
                  ) or
                  (
-                  (m_mac in current_settings.modeswitches) and
+                  (m_mac in current_settings^.modeswitches) and
                   (
-                   (cs_external_var in current_settings.localswitches) or
-                   (cs_externally_visible in current_settings.localswitches)
+                   (cs_external_var in current_settings^.localswitches) or
+                   (cs_externally_visible in current_settings^.localswitches)
                   )
                  )
                 ) then
@@ -1551,7 +1551,7 @@ implementation
 
              if (visibility=vis_published) and
                 not(oo_can_have_published in tobjectdef(hdef).objectoptions) and
-                not(m_delphi in current_settings.modeswitches) then
+                not(m_delphi in current_settings^.modeswitches) then
                begin
                  Message(parser_e_only_publishable_classes_can_be_published);
                  visibility:=vis_public;
@@ -1601,7 +1601,7 @@ implementation
                 Message(type_e_ordinal_expr_expected);
               current_scanner.consume(_OF);
 
-              UnionSymtable:=trecordsymtable.create(current_settings.packrecords);
+              UnionSymtable:=trecordsymtable.create(current_settings^.packrecords);
               UnionDef:=trecorddef.create(unionsymtable);
               uniondef.isunion:=true;
               startvarrecsize:=UnionSymtable.datasize;
@@ -1663,7 +1663,7 @@ implementation
                 { (within the global min/max limits)                     }
                 0, { default }
                 C_alignment:
-                  usedalign:=used_align(unionsymtable.recordalignment,current_settings.alignment.recordalignmin,current_settings.alignment.maxCrecordalign);
+                  usedalign:=used_align(unionsymtable.recordalignment,current_settings^.alignment.recordalignmin,current_settings^.alignment.maxCrecordalign);
                 { 1 byte alignment if we are bitpacked }
                 bit_alignment:
                   usedalign:=1;
@@ -1672,7 +1672,7 @@ implementation
                 { otherwise alignment at the packrecords alignment of the }
                 { current record                                          }
                 else
-                  usedalign:=used_align(recst.fieldalignment,current_settings.alignment.recordalignmin,current_settings.alignment.recordalignmax);
+                  usedalign:=used_align(recst.fieldalignment,current_settings^.alignment.recordalignmin,current_settings^.alignment.recordalignmax);
               end;
               offset:=align(recst.datasize,usedalign);
               recst.datasize:=offset+unionsymtable.datasize;

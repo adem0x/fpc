@@ -132,7 +132,7 @@ implementation
       { Lots of comparisions take a lot of time, so do not allow
         too much comparisions. 8 comparisions are, however, still
         smalller than emitting the set }
-      if cs_opt_size in current_settings.optimizerswitches then
+      if cs_opt_size in current_settings^.optimizerswitches then
         maxcompares:=8
       else
         maxcompares:=5;
@@ -755,7 +755,7 @@ implementation
          else
 {$endif not cpu64bitalu}
            begin
-              if cs_opt_level1 in current_settings.optimizerswitches then
+              if cs_opt_level1 in current_settings^.optimizerswitches then
                 begin
                    { procedures are empirically passed on }
                    { consumption can also be calculated   }
@@ -782,7 +782,7 @@ implementation
                      dist:=-distv.svalue;
 
                    { optimize for size ? }
-                   if cs_opt_size in current_settings.optimizerswitches  then
+                   if cs_opt_size in current_settings^.optimizerswitches  then
                      begin
                        if has_jumptable and
                           (min_label>=int64(low(aint))) and
@@ -839,7 +839,7 @@ implementation
          { generate the instruction blocks }
          for i:=0 to blocks.count-1 do
            begin
-              current_asmdata.CurrAsmList.concat(cai_align.create(current_settings.alignment.jumpalign));
+              current_asmdata.CurrAsmList.concat(cai_align.create(current_settings^.alignment.jumpalign));
               cg.a_label(current_asmdata.CurrAsmList,pcaseblock(blocks[i])^.blocklabel);
               secondpass(pcaseblock(blocks[i])^.statement);
               { don't come back to case line }
@@ -849,7 +849,7 @@ implementation
 {$endif OLDREGVARS}
               cg.a_jmp_always(current_asmdata.CurrAsmList,endlabel);
            end;
-         current_asmdata.CurrAsmList.concat(cai_align.create(current_settings.alignment.jumpalign));
+         current_asmdata.CurrAsmList.concat(cai_align.create(current_settings^.alignment.jumpalign));
          { ...and the else block }
          cg.a_label(current_asmdata.CurrAsmList,elselabel);
          if assigned(elseblock) then
@@ -862,7 +862,7 @@ implementation
 
          cg.executionweight:=oldexecutionweight;
 
-         current_asmdata.CurrAsmList.concat(cai_align.create(current_settings.alignment.jumpalign));
+         current_asmdata.CurrAsmList.concat(cai_align.create(current_settings^.alignment.jumpalign));
          cg.a_label(current_asmdata.CurrAsmList,endlabel);
 
          { Reset labels }

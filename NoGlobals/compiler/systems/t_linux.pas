@@ -243,7 +243,7 @@ procedure TLinkerLinux.LoadPredefinedLibraryOrder;
 // put your linkorder/linkalias overrides here.
 // Note: assumes only called when reordering/aliasing is used.
 Begin
-   if not (cs_link_no_default_lib_order in  current_settings.globalswitches) Then
+   if not (cs_link_no_default_lib_order in  current_settings^.globalswitches) Then
         Begin
           LinkLibraryOrder.add('gcc','',15);
           LinkLibraryOrder.add('c','',100);
@@ -302,7 +302,7 @@ begin
          gsysinitunit:='g';
      end;
    end;
-  if cs_profile in current_settings.moduleswitches then
+  if cs_profile in current_settings^.moduleswitches then
    begin
      prtobj:=gprtobj;
      sysinitunit:=gsysinitunit;
@@ -330,7 +330,7 @@ Var
 begin
   result:=False;
 { set special options for some targets }
-  if cs_profile in current_settings.moduleswitches then
+  if cs_profile in current_settings^.moduleswitches then
    begin
      if not(libctype in [glibc2,glibc21]) then
        AddSharedLibrary('gmon');
@@ -401,7 +401,7 @@ begin
            end
          else
 {$endif x86_64}
-           if (cs_link_staticflag in current_settings.globalswitches) and
+           if (cs_link_staticflag in current_settings^.globalswitches) and
               librarysearchpath.FindFile('crtbeginT.o',false,s) then
              AddFileName(s)
            else if librarysearchpath.FindFile('crtbegin.o',false,s) then
@@ -463,12 +463,12 @@ begin
            end
          else
            linklibc:=true;
-         if (cs_link_staticflag in current_settings.globalswitches) or
+         if (cs_link_staticflag in current_settings^.globalswitches) or
             (linklibc and not reorder) then
            begin
              Add('GROUP(');
              { when we have -static for the linker the we also need libgcc }
-             if (cs_link_staticflag in current_settings.globalswitches) then
+             if (cs_link_staticflag in current_settings^.globalswitches) then
                begin
                  Add('-lgcc');
                  if librarysearchpath.FindFile('libgcc_eh.a',false,s1) then
@@ -992,7 +992,7 @@ var
   StaticStr,
   StripStr   : string[40];
 begin
-  if not(cs_link_nolink in current_settings.globalswitches) then
+  if not(cs_link_nolink in current_settings^.globalswitches) then
    Message1(exec_i_linking,current_module.exefilename^);
 
 { Create some replacements }
@@ -1000,16 +1000,16 @@ begin
   StripStr:='';
   GCSectionsStr:='';
   DynLinkStr:='';
-  if (cs_link_staticflag in current_settings.globalswitches) then
+  if (cs_link_staticflag in current_settings^.globalswitches) then
    StaticStr:='-static';
-  if (cs_link_strip in current_settings.globalswitches) and
-     not(cs_link_separate_dbg_file in current_settings.globalswitches) then
+  if (cs_link_strip in current_settings^.globalswitches) and
+     not(cs_link_separate_dbg_file in current_settings^.globalswitches) then
    StripStr:='-s';
-  if (cs_link_map in current_settings.globalswitches) then
+  if (cs_link_map in current_settings^.globalswitches) then
    StripStr:='-Map '+maybequoted(ChangeFileExt(current_module.exefilename^,'.map'));
   if create_smartlink_sections then
    GCSectionsStr:='--gc-sections';
-  If (cs_profile in current_settings.moduleswitches) or
+  If (cs_profile in current_settings^.moduleswitches) or
      ((Info.DynamicLinker<>'') and (not SharedLibFiles.Empty)) then
    begin
      DynLinkStr:='--dynamic-linker='+Info.DynamicLinker;
@@ -1039,7 +1039,7 @@ begin
   success:=DoExec(FindUtil(utilsprefix+BinStr),CmdStr,true,false);
 
   { Create external .dbg file with debuginfo }
-  if success and (cs_link_separate_dbg_file in current_settings.globalswitches) then
+  if success and (cs_link_separate_dbg_file in current_settings^.globalswitches) then
     begin
       for i:=1 to 3 do
         begin
@@ -1054,7 +1054,7 @@ begin
     end;
 
   { Remove ReponseFile }
-  if (success) and not(cs_link_nolink in current_settings.globalswitches) then
+  if (success) and not(cs_link_nolink in current_settings^.globalswitches) then
    DeleteFile(outputexedir+Info.ResName);
 
   MakeExecutable:=success;   { otherwise a recursive call to link method }
@@ -1071,7 +1071,7 @@ var
   success : boolean;
 begin
   MakeSharedLibrary:=false;
-  if not(cs_link_nolink in current_settings.globalswitches) then
+  if not(cs_link_nolink in current_settings^.globalswitches) then
    Message1(exec_i_linking,current_module.sharedlibfilename^);
 
 { Write used files and libraries }
@@ -1094,7 +1094,7 @@ begin
   success:=DoExec(FindUtil(utilsprefix+binstr),cmdstr,true,false);
 
 { Strip the library ? }
-  if success and (cs_link_strip in current_settings.globalswitches) then
+  if success and (cs_link_strip in current_settings^.globalswitches) then
    begin
      { only remove non global symbols and debugging info for a library }
      Info.DllCmd[2]:='strip --discard-all --strip-debug $EXE';
@@ -1104,7 +1104,7 @@ begin
    end;
 
 { Remove ReponseFile }
-  if (success) and not(cs_link_nolink in current_settings.globalswitches) then
+  if (success) and not(cs_link_nolink in current_settings^.globalswitches) then
    DeleteFile(outputexedir+Info.ResName);
 
   MakeSharedLibrary:=success;   { otherwise a recursive call to link method }

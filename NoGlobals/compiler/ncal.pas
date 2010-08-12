@@ -376,7 +376,7 @@ implementation
               end
             { force automatable float type }
             else if is_extended(para.left.resultdef)
-                and (current_settings.fputype<>fpu_none) then
+                and (current_settings^.fputype<>fpu_none) then
               begin
                 para.left:=ctypeconvnode.create_internal(para.left,s64floattype);
                 typecheckpass(para.left);
@@ -668,7 +668,7 @@ implementation
 
              { Remove implicitly inserted typecast to pointer for
                @procvar in macpas }
-             if (m_mac_procvar in current_settings.modeswitches) and
+             if (m_mac_procvar in current_settings^.modeswitches) and
                 (parasym.vardef.typ=procvardef) and
                 (left.nodetype=typeconvn) and
                 is_voidpointer(left.resultdef) and
@@ -797,7 +797,7 @@ implementation
                    end;
 
                  { check var strings }
-                 if (cs_strict_var_strings in current_settings.localswitches) and
+                 if (cs_strict_var_strings in current_settings^.localswitches) and
                     is_shortstring(left.resultdef) and
                     is_shortstring(parasym.vardef) and
                     (parasym.varspez in [vs_out,vs_var]) and
@@ -814,8 +814,8 @@ implementation
                  if (parasym.univpara) then
                    begin
                      { load procvar if a procedure is passed }
-                     if ((m_tp_procvar in current_settings.modeswitches) or
-                         (m_mac_procvar in current_settings.modeswitches)) and
+                     if ((m_tp_procvar in current_settings^.modeswitches) or
+                         (m_mac_procvar in current_settings^.modeswitches)) and
                         (left.nodetype=calln) and
                         (is_void(left.resultdef)) then
                        begin
@@ -834,8 +834,8 @@ implementation
                  if (parasym.vardef.typ=formaldef) then
                    begin
                      { load procvar if a procedure is passed }
-                     if ((m_tp_procvar in current_settings.modeswitches) or
-                         (m_mac_procvar in current_settings.modeswitches)) and
+                     if ((m_tp_procvar in current_settings^.modeswitches) or
+                         (m_mac_procvar in current_settings^.modeswitches)) and
                         (left.nodetype=calln) and
                         (is_void(left.resultdef)) then
                        load_procvar_from_calln(left);
@@ -1001,7 +1001,7 @@ implementation
        begin
          srsym := tsym(systemunit.Find(name));
          if not assigned(srsym) and
-            (cs_compilesystem in current_settings.moduleswitches) then
+            (cs_compilesystem in current_settings^.moduleswitches) then
            srsym := tsym(systemunit.Find(upper(name)));
          if not assigned(srsym) or
             (srsym.typ<>procsym) then
@@ -1790,7 +1790,7 @@ implementation
         srsymtable    : tsymtable;
         msgsendname   : string;
       begin
-        if not(m_objectivec1 in current_settings.modeswitches) then
+        if not(m_objectivec1 in current_settings^.modeswitches) then
           Message(parser_f_modeswitch_objc_required);
         { typecheck pass must already have run on the call node,
           because pass1 calls this method
@@ -2154,7 +2154,7 @@ implementation
             { ensure that it is aligned using the default alignment }
             alignment:=tabstractvarsym(tloadnode(realassignmenttarget).symtableentry).vardef.alignment;
             if (used_align(alignment,target_info.alignment.localalignmin,target_info.alignment.localalignmax)<>
-                used_align(alignment,current_settings.alignment.localalignmin,current_settings.alignment.localalignmax)) then
+                used_align(alignment,current_settings^.alignment.localalignmin,current_settings^.alignment.localalignmax)) then
               result:=false;
             exit;
           end;
@@ -2279,12 +2279,12 @@ implementation
                 else
                  if vo_is_range_check in para.parasym.varoptions then
                    begin
-                     para.left:=cordconstnode.create(Ord(cs_check_range in current_settings.localswitches),booltype,false);
+                     para.left:=cordconstnode.create(Ord(cs_check_range in current_settings^.localswitches),booltype,false);
                    end
                 else
                  if vo_is_overflow_check in para.parasym.varoptions then
                    begin
-                     para.left:=cordconstnode.create(Ord(cs_check_overflow in current_settings.localswitches),booltype,false);
+                     para.left:=cordconstnode.create(Ord(cs_check_overflow in current_settings^.localswitches),booltype,false);
                    end
                 else
                   if vo_is_msgsel in para.parasym.varoptions then
@@ -2638,7 +2638,7 @@ implementation
                 begin
                   { ignore possible private for properties or in delphi mode for anon. inherited (FK) }
                   ignorevisibility:=(nf_isproperty in flags) or
-                                    ((m_delphi in current_settings.modeswitches) and (cnf_anon_inherited in callnodeflags));
+                                    ((m_delphi in current_settings^.modeswitches) and (cnf_anon_inherited in callnodeflags));
                   candidates:=tcallcandidates.create(symtableprocentry,symtableproc,left,ignorevisibility,not(nf_isproperty in flags),cnf_objc_id_call in callnodeflags);
 
                    { no procedures found? then there is something wrong
@@ -2653,7 +2653,7 @@ implementation
                         this inherited by inserting a nothingn. Only
                         do this ugly hack in Delphi mode as it looks more
                         like a bug. It's also not documented }
-                      if (m_delphi in current_settings.modeswitches) and
+                      if (m_delphi in current_settings^.modeswitches) and
                          (cnf_anon_inherited in callnodeflags) and
                          (symtableprocentry.owner.symtabletype=ObjectSymtable) and
                          (po_overload in tprocdef(symtableprocentry.ProcdefList[0]).procoptions) and
@@ -2665,8 +2665,8 @@ implementation
                             there are no parameters specified }
                           if not(assigned(left)) and
                              not(cnf_inherited in callnodeflags) and
-                             ((m_tp_procvar in current_settings.modeswitches) or
-                              (m_mac_procvar in current_settings.modeswitches)) and
+                             ((m_tp_procvar in current_settings^.modeswitches) or
+                              (m_mac_procvar in current_settings^.modeswitches)) and
                              (not assigned(methodpointer) or
                               (methodpointer.nodetype <> typen)) then
                             begin
@@ -2843,7 +2843,7 @@ implementation
             if (cnf_inherited in callnodeflags) and
                (po_abstractmethod in procdefinition.procoptions) then
               begin
-                if (m_delphi in current_settings.modeswitches) and
+                if (m_delphi in current_settings^.modeswitches) and
                   (cnf_anon_inherited in callnodeflags) then
                   begin
                     CGMessage(cg_h_inherited_ignored);
@@ -3194,7 +3194,7 @@ implementation
 
          { check for stacked parameters }
          if assigned(left) and
-            (current_settings.optimizerswitches*[cs_opt_stackframe,cs_opt_level1]<>[]) then
+            (current_settings^.optimizerswitches*[cs_opt_stackframe,cs_opt_level1]<>[]) then
            check_stack_parameters;
 
          if assigned(callinitblock) then

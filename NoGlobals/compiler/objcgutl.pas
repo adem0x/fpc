@@ -1602,7 +1602,7 @@ procedure MaybeGenerateObjectiveCImageInfo(globalst, localst: tsymtable);
   var
     objcrttiwriter: tobjcrttiwriter;
   begin
-    if (m_objectivec1 in current_settings.modeswitches) then
+    if (m_objectivec1 in current_settings^.modeswitches) then
       begin
         { first 4 bytes contain version information about this section (currently version 0),
           next 4 bytes contain flags (currently only regarding whether the code in the object

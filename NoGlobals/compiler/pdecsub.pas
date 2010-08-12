@@ -148,7 +148,7 @@ implementation
             { if no support for nested procvars is activated, use the old
               calling convention to pass the parent frame pointer for backwards
               compatibility }
-            if not(m_nested_procvars in current_settings.modeswitches) then
+            if not(m_nested_procvars in current_settings^.modeswitches) then
               paranr:=paranr_parentfp
             { nested procvars require Delphi-style parentfp passing, see
               po_delphi_nested_cc declaration for more info }
@@ -292,7 +292,7 @@ implementation
            tlocalsymtable(pd.localst).insert(aliasvs);
 
            { insert result also if support is on }
-           if (m_result in current_settings.modeswitches) then
+           if (m_result in current_settings^.modeswitches) then
             begin
               sl:=tpropaccesslist.create;
               sl.addsym(sl_load,pd.funcretsym);
@@ -451,7 +451,7 @@ implementation
         { Delphi/Kylix supports nonsense like }
         { procedure p();                      }
         if current_scanner.try_to_consume(_RKLAMMER) and
-          not(m_tp7 in current_settings.modeswitches) then
+          not(m_tp7 in current_settings^.modeswitches) then
           exit;
         { parsing a proc or procvar ? }
         currparast:=tparasymtable(pd.parast);
@@ -470,25 +470,25 @@ implementation
             if current_scanner.try_to_consume(_CONST) then
               varspez:=vs_const
           else
-            if (m_out in current_settings.modeswitches) and
+            if (m_out in current_settings^.modeswitches) and
                current_scanner.try_to_consume(_OUT) then
               varspez:=vs_out
           else
-            if (m_mac in current_settings.modeswitches) and
+            if (m_mac in current_settings^.modeswitches) and
                current_scanner.try_to_consume(_POINTPOINTPOINT) then
               begin
                 include(pd.procoptions,po_varargs);
                 break;
               end
           else
-            if (m_nested_procvars in current_settings.modeswitches) and
+            if (m_nested_procvars in current_settings^.modeswitches) and
                current_scanner.try_to_consume(_PROCEDURE) then
               begin
                 parseprocvar:=pv_proc;
                 varspez:=vs_const;
               end
           else
-            if (m_nested_procvars in current_settings.modeswitches) and
+            if (m_nested_procvars in current_settings^.modeswitches) and
                current_scanner.try_to_consume(_FUNCTION) then
               begin
                 parseprocvar:=pv_func;
@@ -547,7 +547,7 @@ implementation
              need_array:=false;
              { bitpacked open array are not yet supported }
              if (current_scanner.token=_PACKED) and
-                not(cs_bitpacking in current_settings.localswitches) then
+                not(cs_bitpacking in current_settings^.localswitches) then
                begin
                  current_scanner.consume(_PACKED);
                  need_array:=true;
@@ -560,7 +560,7 @@ implementation
                 { define range and type of range }
                 hdef:=tarraydef.create(0,-1,s32inttype);
                 { array of const ? }
-                if (current_scanner.token=_CONST) and (m_objpas in current_settings.modeswitches) then
+                if (current_scanner.token=_CONST) and (m_objpas in current_settings^.modeswitches) then
                  begin
                    current_scanner.consume(_CONST);
                    srsym:=search_system_type('TVARREC');
@@ -576,7 +576,7 @@ implementation
               end
              else
               begin
-                if (m_mac in current_settings.modeswitches) then
+                if (m_mac in current_settings^.modeswitches) then
                   is_univ:=current_scanner.try_to_consume(_UNIV);
 
                 if current_scanner.try_to_consume(_TYPE) then
@@ -596,7 +596,7 @@ implementation
                         begin
                           { not 100% Delphi-compatible: type xstr=string[255] cannot
                             become an openstring there, while here it can }
-                          if (cs_openstring in current_settings.moduleswitches) and
+                          if (cs_openstring in current_settings^.moduleswitches) and
                              (tstringdef(hdef).len=255) then
                             hdef:=openshortstringtype
                         end;
@@ -631,7 +631,7 @@ implementation
                   locationstr:='';
 
                 { default parameter }
-                if (m_default_para in current_settings.modeswitches) then
+                if (m_default_para in current_settings^.modeswitches) then
                  begin
                    if current_scanner.try_to_consume(_EQUAL) then
                     begin
@@ -832,7 +832,7 @@ implementation
                    else
                      begin
                        {  we use a different error message for tp7 so it looks more compatible }
-                       if (m_fpc in current_settings.modeswitches) then
+                       if (m_fpc in current_settings^.modeswitches) then
                          Message1(parser_e_overloaded_no_procedure,srsym.realname)
                        else
                          Message(parser_e_methode_id_expected);
@@ -884,7 +884,7 @@ implementation
                    begin
                      { when the other symbol is a unit symbol then hide the unit
                        symbol, this is not supported in tp7 }
-                     if not(m_tp7 in current_settings.modeswitches) and
+                     if not(m_tp7 in current_settings^.modeswitches) and
                         (srsym.typ=unitsym) then
                       begin
                         HideSym(srsym);
@@ -893,7 +893,7 @@ implementation
                      else
                       begin
                         {  we use a different error message for tp7 so it looks more compatible }
-                        if (m_fpc in current_settings.modeswitches) then
+                        if (m_fpc in current_settings^.modeswitches) then
                           Message1(parser_e_overloaded_no_procedure,srsym.realname)
                         else
                           Message1(sym_e_duplicate_id,srsym.realname);
@@ -1090,7 +1090,7 @@ implementation
                               current_parser.parse_only and
                               not(is_interface(pd._class))
                              ) or
-                             (m_repeat_forward in current_settings.modeswitches) then
+                             (m_repeat_forward in current_settings^.modeswitches) then
                           begin
                             current_scanner.consume(_COLON);
                             current_scanner.consume_all_until(_SEMICOLON);
@@ -1196,7 +1196,7 @@ implementation
                     Message(parser_e_no_local_operator);
                   if current_scanner.token<>_ID then
                     begin
-                       if not(m_result in current_settings.modeswitches) then
+                       if not(m_result in current_settings^.modeswitches) then
                          current_scanner.consume(_ID);
                     end
                   else
@@ -2262,7 +2262,7 @@ const
         found:=false;
 
       { Hint directive? Then exit immediatly }
-        if (m_hintdirective in current_settings.modeswitches) then
+        if (m_hintdirective in current_settings^.modeswitches) then
          begin
            case current_scanner.idtoken of
              _LIBRARY,
@@ -2277,7 +2277,7 @@ const
         { C directive is MacPas only, because it breaks too much existing code
           on other platforms (PFV) }
         if (current_scanner.idtoken=_C) and
-           not(m_mac in current_settings.modeswitches) then
+           not(m_mac in current_settings^.modeswitches) then
           exit;
 
       { retrieve data for directive if found }
@@ -2470,7 +2470,7 @@ const
               else
                 begin
                   {In MacPas a single "external" has the same effect as "external name 'xxx'" }
-                  if (m_mac in current_settings.modeswitches) then
+                  if (m_mac in current_settings^.modeswitches) then
                     result:=tprocdef(pd).procsym.realname;
                 end;
             end;
@@ -2566,7 +2566,7 @@ const
               pd.proccalloption:=pocall_cdecl;
           end
         else if not(po_hascallingconvention in pd.procoptions) then
-          pd.proccalloption:=current_settings.defproccall
+          pd.proccalloption:=current_settings^.defproccall
         else
           begin
             if pd.proccalloption=pocall_none then
@@ -2590,11 +2590,11 @@ const
 
         { Inlining is enabled and supported? }
         if (po_inline in pd.procoptions) and
-           not(cs_do_inline in current_settings.localswitches) then
+           not(cs_do_inline in current_settings^.localswitches) then
           begin
             { Give an error if inline is not supported by the compiler mode,
               otherwise only give a warning that this procedure will not be inlined }
-            if not(m_default_inline in current_settings.modeswitches) then
+            if not(m_default_inline in current_settings^.modeswitches) then
               Message(parser_e_proc_inline_not_supported)
             else
               Message(parser_w_inlining_disabled);
@@ -2661,7 +2661,7 @@ const
       var
         res : boolean;
       begin
-        if (m_mac in current_settings.modeswitches) and (cs_externally_visible in current_settings.localswitches) then
+        if (m_mac in current_settings^.modeswitches) and (cs_externally_visible in current_settings^.localswitches) then
           begin
             tprocdef(pd).aliasnames.insert(tprocdef(pd).procsym.realname);
             include(pd.procoptions,po_public);
@@ -2797,7 +2797,7 @@ const
              But for an overload declared function this is not allowed }
            if { check if empty implementation arguments match is allowed }
               (
-               not(m_repeat_forward in current_settings.modeswitches) and
+               not(m_repeat_forward in current_settings^.modeswitches) and
                not(currpd.forwarddef) and
                is_bareprocdef(currpd) and
                not(po_overload in fwpd.procoptions)
@@ -2816,7 +2816,7 @@ const
                  begin
                    forwardfound:=true;
 
-                   if not(m_repeat_forward in current_settings.modeswitches) and
+                   if not(m_repeat_forward in current_settings^.modeswitches) and
                       (fwpd.proccalloption<>currpd.proccalloption) then
                      paracompopt:=[cpo_ignorehidden,cpo_comparedefaultvalue,cpo_openequalisexact,cpo_ignoreuniv]
                    else
@@ -2829,7 +2829,7 @@ const
                         convention in the interface or implementation if
                         there was no convention specified in the other
                         part }
-                      if (m_delphi in current_settings.modeswitches) then
+                      if (m_delphi in current_settings^.modeswitches) then
                         begin
                           if not(po_hascallingconvention in currpd.procoptions) then
                             currpd.proccalloption:=fwpd.proccalloption
@@ -2874,7 +2874,7 @@ const
 
                    { Check if the procedure type and return type are correct,
                      also the parameters must match also with the type }
-                   if ((m_repeat_forward in current_settings.modeswitches) or
+                   if ((m_repeat_forward in current_settings^.modeswitches) or
                        not is_bareprocdef(currpd)) and
                       ((compare_paras(currpd.paras,fwpd.paras,cp_all,paracompopt)<>te_exact) or
                        (fwpd.returndef<>currpd.returndef)) then
@@ -2901,7 +2901,7 @@ const
 
                    { Check procedure options, Delphi requires that class is
                      repeated in the implementation for class methods }
-                   if (m_fpc in current_settings.modeswitches) then
+                   if (m_fpc in current_settings^.modeswitches) then
                      po_comp:=[po_classmethod,po_varargs,po_methodpointer,po_interrupt]
                    else
                      po_comp:=[po_classmethod,po_methodpointer];
@@ -2920,7 +2920,7 @@ const
                      MessagePos(currpd.fileinfo,parser_e_proc_already_external);
 
                    { Check parameters }
-                   if (m_repeat_forward in current_settings.modeswitches) or
+                   if (m_repeat_forward in current_settings^.modeswitches) or
                       (currpd.minparacount>0) then
                     begin
                       { If mangled names are equal then they have the same amount of arguments }
@@ -3031,7 +3031,7 @@ const
              end;
 
            { check for allowing overload directive }
-           if not(m_fpc in current_settings.modeswitches) then
+           if not(m_fpc in current_settings^.modeswitches) then
             begin
               { overload directive turns on overloading }
               if ((po_overload in currpd.procoptions) or
@@ -3053,7 +3053,7 @@ const
                begin
                  if not(fwpd.forwarddef) then
                   begin
-                    if (m_tp7 in current_settings.modeswitches) then
+                    if (m_tp7 in current_settings^.modeswitches) then
                       MessagePos(currpd.fileinfo,parser_e_procedure_overloading_is_off)
                     else
                       MessagePos1(currpd.fileinfo,parser_e_no_overload_for_all_procs,currpd.procsym.realname);

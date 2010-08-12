@@ -132,7 +132,7 @@ implementation
            end
           else
             begin
-              if cs_ansistrings in current_settings.localswitches then
+              if cs_ansistrings in current_settings^.localswitches then
                 def:=cansistringtype
               else
                 def:=cshortstringtype;
@@ -296,7 +296,7 @@ implementation
             begin
               if current_scanner.try_to_consume(_LKLAMMER) then
                 begin
-                  if not (m_mac in current_settings.modeswitches) then
+                  if not (m_mac in current_settings^.modeswitches) then
                     begin
                       if not(current_scanner.try_to_consume(_RKLAMMER)) then
                         begin
@@ -340,7 +340,7 @@ implementation
 
           in_leave :
             begin
-              if m_mac in current_settings.modeswitches then
+              if m_mac in current_settings^.modeswitches then
                 statement_syssym:=cbreaknode.create
               else
                 begin
@@ -351,7 +351,7 @@ implementation
 
           in_cycle :
             begin
-              if m_mac in current_settings.modeswitches then
+              if m_mac in current_settings^.modeswitches then
                 statement_syssym:=ccontinuenode.create
               else
                 begin
@@ -429,7 +429,7 @@ implementation
           in_objc_encode_x :
             begin
               if (l=in_typeinfo_x) or
-                 (m_objectivec1 in current_settings.modeswitches) then
+                 (m_objectivec1 in current_settings^.modeswitches) then
                 begin
                   current_scanner.consume(_LKLAMMER);
                   current_parser.in_args:=true;
@@ -537,7 +537,7 @@ implementation
               current_parser.in_args:=true;
               p1:=comp_expr(true);
               p1:=caddrnode.create(p1);
-              if cs_typed_addresses in current_settings.localswitches then
+              if cs_typed_addresses in current_settings^.localswitches then
                 include(p1.flags,nf_typedaddr);
               current_scanner.consume(_RKLAMMER);
               statement_syssym:=p1;
@@ -696,7 +696,7 @@ implementation
 
           in_objc_selector_x:
             begin
-              if (m_objectivec1 in current_settings.modeswitches) then
+              if (m_objectivec1 in current_settings^.modeswitches) then
                 begin
                   current_scanner.consume(_LKLAMMER);
                   current_parser.in_args:=true;
@@ -886,8 +886,8 @@ implementation
                getaddr:=true;
              end
             else
-             if (m_tp_procvar in current_settings.modeswitches) or
-                (m_mac_procvar in current_settings.modeswitches) then
+             if (m_tp_procvar in current_settings^.modeswitches) or
+                (m_mac_procvar in current_settings^.modeswitches) then
               begin
                 aprocdef:=Tprocsym(sym).Find_procdef_byprocvardef(current_parser.getprocvardef);
                 if assigned(aprocdef) then
@@ -986,8 +986,8 @@ implementation
       begin
         if not assigned(pv) then
          internalerror(200301121);
-        if (m_tp_procvar in current_settings.modeswitches) or
-           (m_mac_procvar in current_settings.modeswitches) then
+        if (m_tp_procvar in current_settings^.modeswitches) or
+           (m_mac_procvar in current_settings^.modeswitches) then
          begin
            hp:=p2;
            hpp:=@p2;
@@ -1414,8 +1414,8 @@ implementation
                (current_scanner.token=_LKLAMMER) or
                (
                 (
-                 (m_tp7 in current_settings.modeswitches) or
-                 (m_delphi in current_settings.modeswitches)
+                 (m_tp7 in current_settings^.modeswitches) or
+                 (m_delphi in current_settings^.modeswitches)
                 ) and
                 (current_parser.afterassignment or current_parser.in_args)
                )
@@ -1499,7 +1499,7 @@ implementation
                      begin
                        { We need to know if this unit uses Variants }
                        if (hdef=cvarianttype) and
-                          not(cs_compilesystem in current_settings.moduleswitches) then
+                          not(cs_compilesystem in current_settings^.moduleswitches) then
                          current_module.flags:=current_module.flags or uf_uses_variants;
                        if current_scanner.try_to_consume(_LKLAMMER) then
                         begin
@@ -1891,8 +1891,8 @@ implementation
 
                     { support tp/mac procvar^ if the procvar returns a
                       pointer type }
-                    if ((m_tp_procvar in current_settings.modeswitches) or
-                        (m_mac_procvar in current_settings.modeswitches)) and
+                    if ((m_tp_procvar in current_settings^.modeswitches) or
+                        (m_mac_procvar in current_settings^.modeswitches)) and
                        (p1.resultdef.typ=procvardef) and
                        (tprocvardef(p1.resultdef).returndef.typ=pointerdef) then
                       begin
@@ -1943,7 +1943,7 @@ implementation
                               begin
                                  { support delphi autoderef }
                                  if (tpointerdef(p1.resultdef).pointeddef.typ=arraydef) and
-                                    (m_autoderef in current_settings.modeswitches) then
+                                    (m_autoderef in current_settings^.modeswitches) then
                                    p1:=cderefnode.create(p1);
                                  p2:=comp_expr(true);
                                  { Support Pbytevar[0..9] which returns array [0..9].}
@@ -2029,7 +2029,7 @@ implementation
                   begin
                     current_scanner.consume(_POINT);
                     if (p1.resultdef.typ=pointerdef) and
-                       (m_autoderef in current_settings.modeswitches) and
+                       (m_autoderef in current_settings^.modeswitches) and
                        { don't auto-deref objc.id, because then the code
                          below for supporting id.anyobjcmethod isn't triggered }
                        (p1.resultdef<>objc_idtype) then
@@ -2486,12 +2486,12 @@ implementation
                   end;
                  current_scanner.consume(_REALNUMBER);
 {$ifdef FPC_REAL2REAL_FIXED}
-                 if current_settings.fputype=fpu_none then
+                 if current_settings^.fputype=fpu_none then
                    Message(parser_e_unsupported_real);
-                 if (current_settings.minfpconstprec=s32real) and
+                 if (current_settings^.minfpconstprec=s32real) and
                     (d = single(d)) then
                    p1:=crealconstnode.create(d,s32floattype)
-                 else if (current_settings.minfpconstprec=s64real) and
+                 else if (current_settings^.minfpconstprec=s64real) and
                          (d = double(d)) then
                    p1:=crealconstnode.create(d,s64floattype)
                  else
@@ -2591,7 +2591,7 @@ implementation
                  current_parser.got_addrn:=false;
                  p1:=caddrnode.create(p1);
                  p1.fileinfo:=filepos;
-                 if cs_typed_addresses in current_settings.localswitches then
+                 if cs_typed_addresses in current_settings^.localswitches then
                    include(p1.flags,nf_typedaddr);
                  { Store the procvar that we are expecting, the
                    addrn will use the information to find the correct

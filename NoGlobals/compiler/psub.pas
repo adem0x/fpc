@@ -172,7 +172,7 @@ implementation
 
          { do we have an assembler block without the po_assembler?
            we should allow this for Delphi compatibility (PFV) }
-         if (current_scanner.token=_ASM) and (m_delphi in current_settings.modeswitches) then
+         if (current_scanner.token=_ASM) and (m_delphi in current_settings^.modeswitches) then
            include(current_procinfo.procdef.procoptions,po_assembler);
 
          { Handle assembler block different }
@@ -384,8 +384,8 @@ implementation
             { before. Further, in case of TThread the thread may    }
             { free the class instance right after AfterConstruction }
             { has been called, so it may no longer be valid (JM)    }
-            oldlocalswitches:=current_settings.localswitches;
-            current_settings.localswitches:=oldlocalswitches-[cs_check_object,cs_check_range];
+            oldlocalswitches:=current_settings^.localswitches;
+            current_settings^.localswitches:=oldlocalswitches-[cs_check_object,cs_check_range];
 
             { a destructor needs a help procedure }
             if (current_procinfo.procdef.proctypeoption=potype_destructor) then
@@ -439,7 +439,7 @@ implementation
                 else
                   internalerror(200305105);
               end;
-            current_settings.localswitches:=oldlocalswitches;
+            current_settings^.localswitches:=oldlocalswitches;
           end;
       end;
 
@@ -584,8 +584,8 @@ implementation
           begin
             { Don't test self and the vmt here. See generate_bodyexit_block }
             { why (JM)                                                      }
-            oldlocalswitches:=current_settings.localswitches;
-            current_settings.localswitches:=oldlocalswitches-[cs_check_object,cs_check_range];
+            oldlocalswitches:=current_settings^.localswitches;
+            current_settings^.localswitches:=oldlocalswitches-[cs_check_object,cs_check_range];
 
             { call AfterConstruction for classes }
             if is_class(current_objectdef) then
@@ -655,7 +655,7 @@ implementation
                     tocode:=newblock;
                   end;
               end;
-            current_settings.localswitches:=oldlocalswitches;
+            current_settings^.localswitches:=oldlocalswitches;
           end;
       end;
 
@@ -690,7 +690,7 @@ implementation
           depending on the implicit finally we need to add
           an try...finally...end wrapper }
         newblock:=internalstatements(newstatement);
-        if (cs_implicit_exceptions in current_settings.moduleswitches) and
+        if (cs_implicit_exceptions in current_settings^.moduleswitches) and
            (pi_needs_implicit_finally in flags) and
            { but it's useless in init/final code of units }
            not(procdef.proctypeoption in [potype_unitfinalize,potype_unitinit]) then
@@ -758,9 +758,9 @@ implementation
             (tabstractnormalvarsym(p).localloc.loc in [LOC_REGISTER,LOC_CREGISTER,LOC_MMREGISTER,
               LOC_CMMREGISTER,LOC_FPUREGISTER,LOC_CFPUREGISTER]) then
            begin
-             if not(cs_no_regalloc in current_settings.globalswitches) then
+             if not(cs_no_regalloc in current_settings^.globalswitches) then
                cg.translate_register(tabstractnormalvarsym(p).localloc.register);
-             if cs_asm_source in current_settings.globalswitches then
+             if cs_asm_source in current_settings^.globalswitches then
                TAsmList(list).concat(Tai_comment.Create(strpnew('Var '+tabstractnormalvarsym(p).realname+' located in register '+
                  std_regname(tabstractnormalvarsym(p).localloc.register))))
            end;
@@ -841,7 +841,7 @@ implementation
         //old_current_procinfo:=current_procinfo;
         oldfilepos:=current_filepos;
         old_current_objectdef:=current_objectdef;
-        oldmaxfpuregisters:=current_settings.maxfpuregisters;
+        oldmaxfpuregisters:=current_settings^.maxfpuregisters;
 
       {$IFDEF old}
         old_current_procinfo:=current_procinfo;
@@ -892,11 +892,11 @@ implementation
         { do this before adding the entry code else the tail recursion recognition won't work,
           if this causes troubles, it must be if'ed
         }
-        if (cs_opt_tailrecursion in current_settings.optimizerswitches) and
+        if (cs_opt_tailrecursion in current_settings^.optimizerswitches) and
           (pi_is_recursive in flags) then
           do_opttail(code,procdef);
 
-        if (cs_opt_nodedfa in current_settings.optimizerswitches) and
+        if (cs_opt_nodedfa in current_settings^.optimizerswitches) and
           { creating dfa is not always possible }
           ((flags*[pi_has_assembler_block,pi_uses_exceptions,pi_is_assembler,
                   pi_needs_implicit_finally,pi_has_implicit_finally])=[]) then
@@ -933,7 +933,7 @@ implementation
             include(flags,pi_dfaavailable);
           end;
 
-        if (cs_opt_loopstrength in current_settings.optimizerswitches)
+        if (cs_opt_loopstrength in current_settings^.optimizerswitches)
           { our induction variable strength reduction doesn't like
             for loops with more than one entry }
           and not(pi_has_goto in current_procinfo.flags) then
@@ -941,7 +941,7 @@ implementation
             {RedoDFA:=}OptimizeInductionVariables(code);
           end;
 
-        if cs_opt_nodecse in current_settings.optimizerswitches then
+        if cs_opt_nodecse in current_settings^.optimizerswitches then
           do_optcse(code);
 
         { add implicit entry and exit code }
@@ -977,12 +977,12 @@ implementation
               - no local variables
             }
             if ((po_assembler in procdef.procoptions) and
-                (m_delphi in current_settings.modeswitches) and
+                (m_delphi in current_settings^.modeswitches) and
                 { localst at main_program_level is a staticsymtable }
                 (procdef.localst.symtablelevel<>main_program_level) and
                 (tabstractlocalsymtable(procdef.localst).count_locals = 0)) or
-               ((cs_opt_stackframe in current_settings.optimizerswitches) and
-                not(cs_generate_stackframes in current_settings.localswitches) and
+               ((cs_opt_stackframe in current_settings^.optimizerswitches) and
+                not(cs_generate_stackframes in current_settings^.localswitches) and
                 not(po_assembler in procdef.procoptions) and
                 ((flags*[pi_has_assembler_block,pi_uses_exceptions,pi_is_assembler,
                         pi_needs_implicit_finally,pi_has_implicit_finally,pi_has_stackparameter,
@@ -1053,7 +1053,7 @@ implementation
             { first generate entry and initialize code with the correct
               position and switches }
             current_filepos:=entrypos;
-            current_settings.localswitches:=entryswitches;
+            current_settings^.localswitches:=entryswitches;
 
             cg.set_regalloc_live_range_direction(rad_backwards);
 
@@ -1065,7 +1065,7 @@ implementation
             { now generate finalize and exit code with the correct position
               and switches }
             current_filepos:=exitpos;
-            current_settings.localswitches:=exitswitches;
+            current_settings^.localswitches:=exitswitches;
 
             cg.set_regalloc_live_range_direction(rad_forward);
 
@@ -1113,7 +1113,7 @@ implementation
 
             { make sure the got/pic register doesn't get freed in the }
             { middle of a loop                                        }
-            if (cs_create_pic in current_settings.moduleswitches) and
+            if (cs_create_pic in current_settings^.moduleswitches) and
                (pi_needs_got in current_procinfo.flags) and
                (current_procinfo.got<>NR_NO) then
               cg.a_reg_sync(aktproccode,current_procinfo.got);
@@ -1173,9 +1173,9 @@ implementation
               maintain location lists }
             current_procinfo.procdef.parast.SymList.ForEachCall(@translate_registers,templist);
             current_procinfo.procdef.localst.SymList.ForEachCall(@translate_registers,templist);
-            if (cs_create_pic in current_settings.moduleswitches) and
+            if (cs_create_pic in current_settings^.moduleswitches) and
                (pi_needs_got in current_procinfo.flags) and
-               not(cs_no_regalloc in current_settings.globalswitches) and
+               not(cs_no_regalloc in current_settings^.globalswitches) and
                (current_procinfo.got<>NR_NO) then
               cg.translate_register(current_procinfo.got);
 
@@ -1202,7 +1202,7 @@ implementation
             aktproccode.insertlistafter(headertai,templist);
 {$if defined(x86) or defined(arm)}
             { Set return value of safecall procedure if implicit try/finally blocks are disabled }
-            if not (cs_implicit_exceptions in current_settings.moduleswitches) and
+            if not (cs_implicit_exceptions in current_settings^.moduleswitches) and
                (target_info.system in systems_all_windows) and
                (procdef.proccalloption=pocall_safecall) then
               cg.a_load_const_reg(aktproccode,OS_ADDR,0,NR_FUNCTION_RETURN_REG);
@@ -1214,16 +1214,16 @@ implementation
 
             { check if the implicit finally has been generated. The flag
               should already be set in pass1 }
-            if (cs_implicit_exceptions in current_settings.moduleswitches) and
+            if (cs_implicit_exceptions in current_settings^.moduleswitches) and
                not(procdef.proctypeoption in [potype_unitfinalize,potype_unitinit]) and
                (pi_needs_implicit_finally in flags) and
                not(pi_has_implicit_finally in flags) then
              internalerror(200405231);
 
 {$ifndef NoOpt}
-            if not(cs_no_regalloc in current_settings.globalswitches) then
+            if not(cs_no_regalloc in current_settings^.globalswitches) then
               begin
-                if (cs_opt_level1 in current_settings.optimizerswitches) and
+                if (cs_opt_level1 in current_settings^.optimizerswitches) and
                    { do not optimize pure assembler procedures }
                    not(pi_is_assembler in flags)  then
                   optimize(aktproccode);
@@ -1248,8 +1248,8 @@ implementation
             fixup_jmps(aktproccode);
 {$endif}
             { insert line debuginfo }
-            if (cs_debuginfo in current_settings.moduleswitches) or
-               (cs_use_lineinfo in current_settings.globalswitches) then
+            if (cs_debuginfo in current_settings^.moduleswitches) or
+               (cs_use_lineinfo in current_settings^.globalswitches) then
               current_debuginfo.insertlineinfo(aktproccode);
 
             { add the procedure to the al_procedures }
@@ -1278,7 +1278,7 @@ implementation
 
         { restore }
         templist.free;
-        current_settings.maxfpuregisters:=oldmaxfpuregisters;
+        current_settings^.maxfpuregisters:=oldmaxfpuregisters;
         current_filepos:=oldfilepos;
         current_objectdef:=old_current_objectdef;
       {$IFDEF old}
@@ -1450,7 +1450,7 @@ implementation
 
          { save entry info }
          entrypos:=current_filepos;
-         entryswitches:=current_settings.localswitches;
+         entryswitches:=current_settings^.localswitches;
 
          if (df_generic in procdef.defoptions) then
            begin
@@ -1478,7 +1478,7 @@ implementation
            end;
 
          { save exit info }
-         exitswitches:=current_settings.localswitches;
+         exitswitches:=current_settings^.localswitches;
          exitpos:=current_scanner.last_endtoken_filepos;
 
          { the procedure is now defined }
@@ -1612,7 +1612,7 @@ implementation
            (target_info.system in [system_i386_os2,system_i386_emx]) then
           begin
             pd.aliasnames.insert(pd.procsym.realname);
-            if cs_link_deffile in current_settings.globalswitches then
+            if cs_link_deffile in current_settings^.globalswitches then
               deffile.AddExport(pd.mangledname);
           end;
 
@@ -1736,7 +1736,7 @@ implementation
                 taking addresses of static procedures goes wrong
                 if they aren't global when pic is used (FK)
               }
-              (cs_create_pic in current_settings.moduleswitches) then
+              (cs_create_pic in current_settings^.moduleswitches) then
               include(pd.procoptions,po_global);
             pd.forwarddef:=false;
           end;
@@ -1774,7 +1774,7 @@ implementation
                    firstpd.interfacedef and
                    not(tprocsym(pd.procsym).ProcdefList.Count>2) and
                    { don't give an error if it may be an overload }
-                   not(m_fpc in current_settings.modeswitches) and
+                   not(m_fpc in current_settings^.modeswitches) and
                    (not(po_overload in pd.procoptions) or
                     not(po_overload in firstpd.procoptions)) then
                  begin
@@ -1832,7 +1832,7 @@ implementation
          if not(po_external in pd.procoptions) then
            begin
              if (po_global in pd.procoptions) or
-                (cs_profile in current_settings.moduleswitches) then
+                (cs_profile in current_settings^.moduleswitches) then
                current_asmdata.DefineAsmSymbol(pd.mangledname,AB_GLOBAL,AT_FUNCTION)
              else
                current_asmdata.DefineAsmSymbol(pd.mangledname,AB_LOCAL,AT_FUNCTION);
@@ -1936,7 +1936,7 @@ implementation
                       end;
                     _PROPERTY:
                       begin
-                        if (m_fpc in current_settings.modeswitches) then
+                        if (m_fpc in current_settings^.modeswitches) then
                         begin
                           property_dec(is_classdef);
                           is_classdef:=false;
@@ -1953,7 +1953,7 @@ implementation
 
          { check for incomplete class definitions, this is only required
            for fpc modes }
-         if (m_fpc in current_settings.modeswitches) then
+         if (m_fpc in current_settings^.modeswitches) then
            current_procinfo.procdef.localst.SymList.ForEachCall(@check_forward_class,nil);
       end;
 
@@ -1981,7 +1981,7 @@ implementation
                      resourcestring_dec;
                    _PROPERTY:
                      begin
-                       if (m_fpc in current_settings.modeswitches) then
+                       if (m_fpc in current_settings^.modeswitches) then
                          property_dec(false)
                        else
                          break;
@@ -1994,7 +1994,7 @@ implementation
          until false;
          { check for incomplete class definitions, this is only required
            for fpc modes }
-         if (m_fpc in current_settings.modeswitches) then
+         if (m_fpc in current_settings^.modeswitches) then
           symtablestack.top.SymList.ForEachCall(@check_forward_class,nil);
       end;
 

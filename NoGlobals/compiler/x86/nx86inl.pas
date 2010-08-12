@@ -152,7 +152,7 @@ implementation
 
      function tx86inlinenode.first_trunc_real: tnode;
        begin
-         if (cs_opt_size in current_settings.optimizerswitches)
+         if (cs_opt_size in current_settings^.optimizerswitches)
 {$ifdef x86_64}
            and not(use_vectorfpu(left.resultdef))
 {$endif x86_64}
@@ -282,7 +282,7 @@ implementation
        begin
 {$ifdef x86_64}
          if use_vectorfpu(left.resultdef) and
-           not((left.location.loc=LOC_FPUREGISTER) and (current_settings.fputype>=fpu_sse3)) then
+           not((left.location.loc=LOC_FPUREGISTER) and (current_settings^.fputype>=fpu_sse3)) then
            begin
              secondpass(left);
              location_force_mmregscalar(current_asmdata.CurrAsmList,left.location,false);
@@ -300,7 +300,7 @@ implementation
          else
 {$endif x86_64}
           begin
-            if (current_settings.fputype>=fpu_sse3) then
+            if (current_settings^.fputype>=fpu_sse3) then
               begin
                 load_fpu_location;
                 location_reset_ref(location,LOC_REFERENCE,OS_S64,0);

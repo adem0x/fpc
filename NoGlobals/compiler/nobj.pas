@@ -148,7 +148,7 @@ implementation
           MessagePos1(pd.fileinfo,parser_e_nothing_to_be_overridden,pd.fullprocname(false));
 
         { check that all methods have overload directive }
-        if not(m_fpc in current_settings.modeswitches) then
+        if not(m_fpc in current_settings^.modeswitches) then
           begin
             for i:=0 to _class.vmtentries.count-1 do
               begin

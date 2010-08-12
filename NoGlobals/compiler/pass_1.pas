@@ -71,11 +71,11 @@ implementation
          begin
            oldcodegenerror:=codegenerror;
            oldpos:=current_filepos;
-           oldlocalswitches:=current_settings.localswitches;
+           oldlocalswitches:=current_settings^.localswitches;
            oldverbosity:=status.verbosity;
            codegenerror:=false;
            current_filepos:=p.fileinfo;
-           current_settings.localswitches:=p.localswitches;
+           current_settings^.localswitches:=p.localswitches;
            status.verbosity:=p.verbosity;
            hp:=p.pass_typecheck;
            { should the node be replaced? }
@@ -88,7 +88,7 @@ implementation
                { run typecheckpass }
                typecheckpass(p);
             end;
-           current_settings.localswitches:=oldlocalswitches;
+           current_settings^.localswitches:=oldlocalswitches;
            current_filepos:=oldpos;
            status.verbosity:=oldverbosity;
            if codegenerror then
@@ -147,14 +147,14 @@ implementation
            begin
               oldcodegenerror:=codegenerror;
               oldpos:=current_filepos;
-              oldlocalswitches:=current_settings.localswitches;
+              oldlocalswitches:=current_settings^.localswitches;
               oldverbosity:=status.verbosity;
               codegenerror:=false;
               current_filepos:=p.fileinfo;
-              current_settings.localswitches:=p.localswitches;
+              current_settings^.localswitches:=p.localswitches;
               status.verbosity:=p.verbosity;
               { checks make always a call }
-              if ([cs_check_range,cs_check_overflow,cs_check_stack] * current_settings.localswitches <> []) then
+              if ([cs_check_range,cs_check_overflow,cs_check_stack] * current_settings^.localswitches <> []) then
                 include(current_procinfo.flags,pi_do_call);
               { determine the resultdef if not done }
               if (p.resultdef=nil) then
@@ -215,7 +215,7 @@ implementation
                end;
               include(p.flags,nf_pass1_done);
               codegenerror:=codegenerror or oldcodegenerror;
-              current_settings.localswitches:=oldlocalswitches;
+              current_settings^.localswitches:=oldlocalswitches;
               current_filepos:=oldpos;
               status.verbosity:=oldverbosity;
            end

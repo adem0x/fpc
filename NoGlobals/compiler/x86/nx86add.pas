@@ -129,7 +129,7 @@ unit nx86add;
                  if (op=A_ADD) and
                     (right.location.loc=LOC_CONSTANT) and
                     (right.location.value=1) and
-                    not(cs_check_overflow in current_settings.localswitches) then
+                    not(cs_check_overflow in current_settings^.localswitches) then
                   begin
                     emit_reg(A_INC,TCGSize2Opsize[opsize],left.location.register);
                   end
@@ -137,7 +137,7 @@ unit nx86add;
                  if (op=A_SUB) and
                     (right.location.loc=LOC_CONSTANT) and
                     (right.location.value=1) and
-                    not(cs_check_overflow in current_settings.localswitches) then
+                    not(cs_check_overflow in current_settings^.localswitches) then
                   begin
                     emit_reg(A_DEC,TCGSize2Opsize[opsize],left.location.register);
                   end
@@ -145,7 +145,7 @@ unit nx86add;
                  if (op=A_IMUL) and
                     (right.location.loc=LOC_CONSTANT) and
                     (ispowerof2(int64(right.location.value),power)) and
-                    not(cs_check_overflow in current_settings.localswitches) then
+                    not(cs_check_overflow in current_settings^.localswitches) then
                   begin
                     emit_const_reg(A_SHL,TCGSize2Opsize[opsize],power,left.location.register);
                   end
@@ -172,7 +172,7 @@ unit nx86add;
         { is in unsigned VAR!!                                   }
         if mboverflow then
          begin
-           if cs_check_overflow in current_settings.localswitches  then
+           if cs_check_overflow in current_settings^.localswitches  then
             begin
               current_asmdata.getjumplabel(hl4);
               if unsigned then
