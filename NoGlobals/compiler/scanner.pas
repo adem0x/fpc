@@ -34,6 +34,7 @@ interface
        verbose,comphook,
        symtype,symbase,symconst,htypechk,
        finput,
+       scandir, //switches...
        widestr;
 
     const
@@ -142,6 +143,13 @@ interface
           idtoken    : ttoken;          { holds the token if the pattern is a known word }
 
           aktcommentstyle : tcommentstyle; { needed to use read_comment from directives }
+
+       protected
+          switchesstatestack:tswitchesstatestack;
+          switchesstatestackpos: Integer;
+       public
+          procedure dir_push;
+          procedure dir_pop;
        public
           inputfile    : tinputfile;  { current inputfile list }
           inputfilecount : longint;
@@ -2486,6 +2494,28 @@ In case not, the value returned can be arbitrary.
         current_filepos:=oldcurrent_filepos;
         current_tokenpos:=oldcurrent_tokenpos;
       end;
+
+    procedure tscannerfile.dir_push;
+    begin
+      if switchesstatestackpos > switchesstatestackmax then
+        Message(scan_e_too_many_push);
+
+      flushpendingswitchesstate;
+
+      switchesstatestack[switchesstatestackpos].localsw:= current_settings.localswitches;
+      switchesstatestack[switchesstatestackpos].verbosity:=status.verbosity;
+      Inc(switchesstatestackpos);
+    end;
+
+    procedure tscannerfile.dir_pop;
+    begin
+      if switchesstatestackpos < 1 then
+        Message(scan_e_too_many_pop);
+
+      Dec(switchesstatestackpos);
+      recordpendinglocalfullswitch(switchesstatestack[switchesstatestackpos].localsw);
+      recordpendingverbosityfullswitch(switchesstatestack[switchesstatestackpos].verbosity);
+    end;
 
 
     procedure tscannerfile.inc_comment_level;

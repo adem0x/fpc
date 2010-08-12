@@ -88,8 +88,12 @@ implementation
          InitScanner;
          InitScannerDirectives;
 
+      {$IFDEF old}
          { scanner - should be moved into InitScanner }
          switchesstatestackpos:=0;
+      {$ELSE}
+        //in scanner
+      {$ENDIF}
 
          { register all nodes and tais }
          registernodes;
@@ -260,8 +264,12 @@ implementation
       oldcurrent_procinfo : tprocinfo;
       old_settings : tsettings;
       oldsourcecodepage : tcodepagestring;
+    {$IFDEF old}
       old_switchesstatestack : tswitchesstatestack;
       old_switchesstatestackpos : Integer;
+    {$ELSE}
+      //in scanner
+    {$ENDIF}
     end;
 
 
@@ -290,8 +298,12 @@ implementation
             //oldcurrent_procinfo:=current_procinfo;
             //old_block_type:=current_scanner.block_type;
             oldtokenpos:=current_tokenpos;
+          {$IFDEF old}
             old_switchesstatestack:=switchesstatestack;
             old_switchesstatestackpos:=switchesstatestackpos;
+          {$ELSE}
+            //in scanner
+          {$ENDIF}
 
             { save akt... state }
             { handle the postponed case first }
@@ -308,9 +320,13 @@ implementation
             begin
               { restore scanner }
               current_tokenpos:=oldtokenpos;
-              //current_scanner.block_type:=old_block_type;
+            {$IFDEF old}
+              block_type:=old_block_type;
               switchesstatestack:=old_switchesstatestack;
               switchesstatestackpos:=old_switchesstatestackpos;
+            {$ELSE}
+              //in scanner
+            {$ENDIF}
 
               { restore symtable state }
               symtablestack:=oldsymtablestack;
