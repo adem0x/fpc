@@ -289,7 +289,7 @@ interface
        current_settings   : tsettings;
     {$ELSE}
       //in scanner
-       function current_settings   : psettings; inline;
+       function current_settings   : psettings; //inline;
     {$ENDIF}
     var
        pendingstate       : tpendingstate;
@@ -492,12 +492,24 @@ implementation
 {$ifdef macos}
       macutils,
 {$endif}
-      scanner,  //current_settings
+      scanner,fmodule,  //current_settings
       comphook;
 
     function current_settings   : psettings;
+    var
+      s: tscannerfile;
     begin
-      Result := @current_scanner.current_settings;
+    (* we have to handle situations, where no current module/scanner exists
+    *)
+      if assigned(current_module) then begin
+        s := current_scanner;
+        if assigned(s) then begin
+          Result := @current_scanner.current_settings;
+          exit;
+        end;
+      end;
+    //fallback
+      Result := @init_settings;
     end;
 
 {****************************************************************************
