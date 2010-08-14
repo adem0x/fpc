@@ -148,6 +148,7 @@ interface
         localsymtable : TSymtable;{ pointer to the local symtable of this unit }
         globalmacrosymtable,           { pointer to the global macro symtable of this unit }
         localmacrosymtable : TSymtable;{ pointer to the local macro symtable of this unit }
+       symtablestack        : TSymtablestack;
         scanner       : TObject;  { scanner object used }
         fprocinfo      : TObject;  { current procedure being compiled }
         asmdata       : TObject;  { Assembler data }
@@ -240,6 +241,8 @@ interface
     procedure addloadedunit(hp:tmodule);
     function find_module_from_symtable(st:tsymtable):tmodule;
 
+    function  PushSymbolStack: TSymtablestack; { returns old stack }
+    procedure PopSymbolStack(s: TSymtablestack); { activate previous stack }
 
 implementation
 
@@ -253,6 +256,18 @@ implementation
     var
       memsymtable : TMemDebug;
 {$endif}
+
+    function  PushSymbolStack: TSymtablestack; { returns old stack }
+    begin
+      Result := current_module.symtablestack;
+      current_module.symtablestack := TSymtablestack.create;
+    end;
+
+    procedure PopSymbolStack(s: TSymtablestack); { activate previous stack }
+    begin
+      current_module.symtablestack.Free;
+      current_module.symtablestack := s;
+    end;
 
 {*****************************************************************************
                              Global Functions

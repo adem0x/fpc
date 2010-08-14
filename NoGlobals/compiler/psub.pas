@@ -2023,8 +2023,12 @@ implementation
 
         { Setup symtablestack a definition time }
         specobj:=tobjectdef(ttypesym(p).typedef);
+      {$IFDEF old}
         oldsymtablestack:=symtablestack;
         symtablestack:=tsymtablestack.create;
+      {$ELSE}
+        oldsymtablestack := PushSymbolStack;
+      {$ENDIF}
         if not assigned(tobjectdef(ttypesym(p).typedef).genericdef) then
           internalerror(200705151);
         hmodule:=find_module_from_symtable(specobj.genericdef.owner);
@@ -2071,8 +2075,12 @@ implementation
           end;
 
         { Restore symtablestack }
+      {$IFDEF old}
         symtablestack.free;
         symtablestack:=oldsymtablestack;
+      {$ELSE}
+        PopSymbolStack(oldsymtablestack);
+      {$ENDIF}
       end;
 
 

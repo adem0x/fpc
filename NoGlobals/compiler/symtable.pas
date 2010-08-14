@@ -2636,7 +2636,11 @@ implementation
    procedure InitSymtable;
      begin
        { Reset symbolstack }
+     {$IFDEF old}
        symtablestack:=nil;
+     {$ELSE}
+      //in module
+     {$ENDIF}
        systemunit:=nil;
        { create error syms and def }
        generrorsym:=terrorsym.create;

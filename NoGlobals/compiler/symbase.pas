@@ -136,8 +136,12 @@ interface
        initialmacrosymtable: TSymtable;   { macros initially defined by the compiler or
                                             given on the command line. Is common
                                             for all files compiled and do not change. }
-       macrosymtablestack,
+       macrosymtablestack   : TSymtablestack;
+{$IFDEF old}
        symtablestack        : TSymtablestack;
+{$ELSE}
+    function symtablestack        : TSymtablestack;
+{$ENDIF}
 
 {$ifdef MEMDEBUG}
     var
@@ -148,7 +152,12 @@ interface
 implementation
 
     uses
-       verbose;
+       verbose, fmodule;
+
+    function symtablestack        : TSymtablestack;
+    begin
+      Result := current_module.symtablestack;
+    end;
 
 {****************************************************************************
                               THashedIDString

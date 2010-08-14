@@ -280,8 +280,12 @@ implementation
             { Setup symtablestack at definition time
               to get types right, however this is not perfect, we should probably record
               the resolved symbols }
+          {$IFDEF old}
             oldsymtablestack:=symtablestack;
             symtablestack:=tsymtablestack.create;
+          {$ELSE}
+            oldsymtablestack := PushSymbolStack;
+          {$ENDIF}
             if not assigned(genericdef) then
               internalerror(200705151);
             hmodule:=find_module_from_symtable(genericdef.owner);
@@ -330,8 +334,12 @@ implementation
               end;
 
             { Restore symtablestack }
+          {$IFDEF old}
             symtablestack.free;
             symtablestack:=oldsymtablestack;
+          {$ELSE}
+            PopSymbolStack(oldsymtablestack);
+          {$ENDIF}
           end;
 
         generictypelist.free;

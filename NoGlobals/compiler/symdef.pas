@@ -958,7 +958,12 @@ implementation
              DefId:=current_module.deflist.Count-1;
            end;
          { Register in symtable stack }
+      {$IFDEF old}
          if assigned(symtablestack) then
+      {$ELSE}
+      //on compiler initialization symtablestack=nil
+         if assigned(current_module) and assigned(symtablestack) then
+      {$ENDIF}
            begin
              insertstack:=symtablestack.stack;
              while assigned(insertstack) and

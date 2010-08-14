@@ -262,17 +262,17 @@ implementation
     tolddata=record
     { scanner }
       oldtokenpos    : tfileposinfo;
-      old_block_type : tblock_type;
     { symtable }
-      oldsymtablestack,
       oldmacrosymtablestack : TSymtablestack;
-      oldaktprocsym    : tprocsym;
     { akt.. things }
       oldcurrent_filepos      : tfileposinfo;
       old_current_module : tmodule;
       oldcurrent_procinfo : tprocinfo;
-      oldsourcecodepage : tcodepagestring;
     {$IFDEF old}
+      oldsourcecodepage : tcodepagestring;
+      old_block_type : tblock_type;
+      oldaktprocsym    : tprocsym;
+      oldsymtablestack : TSymtablestack;
       old_settings : tsettings;
       old_switchesstatestack : tswitchesstatestack;
       old_switchesstatestackpos : Integer;
@@ -300,7 +300,11 @@ implementation
             old_current_module:=current_module;
 
             { save symtable state }
+          {$IFDEF old}
             oldsymtablestack:=symtablestack;
+          {$ELSE}
+            //local in module
+          {$ENDIF}
             oldmacrosymtablestack:=macrosymtablestack;
 
           //todo: these should become scanner elements as well
@@ -338,7 +342,11 @@ implementation
             {$ENDIF}
 
               { restore symtable state }
+            {$IFDEF old}
               symtablestack:=oldsymtablestack;
+            {$ELSE}
+              //local in module
+            {$ENDIF}
               macrosymtablestack:=oldmacrosymtablestack;
             {$IFDEF old}
               current_procinfo:=oldcurrent_procinfo;
@@ -374,11 +382,15 @@ implementation
                  end;
 
                { free symtable stack }
+             {$IFDEF old}
                if assigned(symtablestack) then
                  begin
                    symtablestack.free;
                    symtablestack:=nil;
                  end;
+             {$ELSE}
+              PopSymbolStack(nil); //local in module!
+             {$ENDIF}
                if assigned(macrosymtablestack) then
                  begin
                    macrosymtablestack.free;
@@ -443,7 +455,11 @@ implementation
        { reset parser, a previous fatal error could have left these variables in an unreliable state, this is
          important for the IDE }
        { reset symtable }
+       {$IFDEF old}
          symtablestack:=TSymtablestack.create;
+       {$ELSE}
+        PushSymbolStack;  //create new
+       {$ENDIF}
          macrosymtablestack:=TSymtablestack.create;
          systemunit:=nil;
        {$IFDEF old}
