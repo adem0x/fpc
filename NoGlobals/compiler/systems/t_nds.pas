@@ -112,7 +112,7 @@ begin
   while assigned(HPath) do
    begin
     s:=HPath.Str;
-    if (cs_link_on_target in current_settings.globalswitches) then
+    if (cs_link_on_target in current_settings^.globalswitches) then
      s:=ScriptFixFileName(s);
     LinkRes.Add('-L'+s);
     HPath:=TCmdStrListItem(HPath.Next);
@@ -148,7 +148,7 @@ begin
     if s<>'' then
      begin
       { vlink doesn't use SEARCH_DIR for object files }
-      if not(cs_link_on_target in current_settings.globalswitches) then
+      if not(cs_link_on_target in current_settings^.globalswitches) then
        s:=FindObjectFile(s,'',false);
       LinkRes.AddFileName((maybequoted(s)));
      end;
@@ -158,7 +158,7 @@ begin
   if not StaticLibFiles.Empty then
    begin
     { vlink doesn't need, and doesn't support GROUP }
-    if (cs_link_on_target in current_settings.globalswitches) then
+    if (cs_link_on_target in current_settings^.globalswitches) then
      begin
       LinkRes.Add(')');
       LinkRes.Add('GROUP(');
@@ -170,7 +170,7 @@ begin
      end;
    end;
 
-  if (cs_link_on_target in current_settings.globalswitches) then
+  if (cs_link_on_target in current_settings^.globalswitches) then
    begin
     LinkRes.Add(')');
 
@@ -729,14 +729,14 @@ begin
    app_arm7: preName:='.nlf';
   end;
 
-  if (cs_link_strip in current_settings.globalswitches) and
-     not(cs_link_separate_dbg_file in current_settings.globalswitches) then
+  if (cs_link_strip in current_settings^.globalswitches) and
+     not(cs_link_separate_dbg_file in current_settings^.globalswitches) then
    StripStr:='-s';
-  if (cs_link_map in current_settings.globalswitches) then
+  if (cs_link_map in current_settings^.globalswitches) then
    StripStr:='-Map '+maybequoted(ChangeFileExt(current_module.exefilename^,'.map'));
   if create_smartlink_sections then
    GCSectionsStr:='--gc-sections';
-  if not(cs_link_nolink in current_settings.globalswitches) then
+  if not(cs_link_nolink in current_settings^.globalswitches) then
    Message1(exec_i_linking,current_module.exefilename^);
 
 { Write used files and libraries }
@@ -757,7 +757,7 @@ begin
   success:=DoExec(FindUtil(utilsprefix+BinStr),cmdstr,true,false);
 
 { Remove ReponseFile }
-  if (success) and not(cs_link_nolink in current_settings.globalswitches) then
+  if (success) and not(cs_link_nolink in current_settings^.globalswitches) then
    DeleteFile(outputexedir+Info.ResName);
 
 { Post process }

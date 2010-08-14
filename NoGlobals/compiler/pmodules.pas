@@ -669,7 +669,7 @@ implementation
 {$ifdef cpufpemu}
            { Floating point emulation unit?
              softfpu must be in the system unit anyways (FK)
-           if (cs_fp_emulation in current_settings.moduleswitches) and not(target_info.system in system_wince) then
+           if (cs_fp_emulation in current_settings^.moduleswitches) and not(target_info.system in system_wince) then
              AddUnit('softfpu');
            }
 {$endif cpufpemu}
@@ -717,7 +717,7 @@ implementation
         { CPU targets with microcontroller support can add a controller specific unit }
 {$if defined(ARM)}
         if (target_info.system in systems_embedded) and (current_settings^.controllertype<>ct_none) then
-          AddUnit(controllerunitstr[current_settings.controllertype]);
+          AddUnit(controllerunitstr[current_settings^.controllertype]);
 {$endif ARM}
       end;
 

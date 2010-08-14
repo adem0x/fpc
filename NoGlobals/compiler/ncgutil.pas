@@ -369,10 +369,10 @@ implementation
             end;
           LOC_CREFERENCE,LOC_REFERENCE:
             begin
-              if not(cs_opt_regvar in current_settings.optimizerswitches) or
+              if not(cs_opt_regvar in current_settings^.optimizerswitches) or
                  (getsupreg(t.reference.base) in cg.rgint.usableregs) then
                 exclude(regs,getsupreg(t.reference.base));
-              if not(cs_opt_regvar in current_settings.optimizerswitches) or
+              if not(cs_opt_regvar in current_settings^.optimizerswitches) or
                  (getsupreg(t.reference.index) in cg.rgint.usableregs) then
                 exclude(regs,getsupreg(t.reference.index));
             end;
@@ -2247,7 +2247,7 @@ implementation
         while assigned(item) do
           begin
 {$ifdef arm}
-            if current_settings.cputype in cpu_thumb2 then
+            if current_settings^.cputype in cpu_thumb2 then
               list.concat(tai_thumb_func.create);
 {$endif arm}
             { "double link" all procedure entry symbols via .reference }

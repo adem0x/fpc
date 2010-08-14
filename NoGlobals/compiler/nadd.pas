@@ -1678,7 +1678,7 @@ implementation
 {$ifdef SUPPORT_MMX}
        { mmx support, this must be before the zero based array
          check }
-         else if (cs_mmx in current_settings.localswitches) and
+         else if (cs_mmx in current_settings^.localswitches) and
                  is_mmx_able_array(ld) and
                  is_mmx_able_array(rd) and
                  equal_defs(ld,rd) then
@@ -2488,7 +2488,7 @@ implementation
          if nodetype=slashn then
            begin
 {$ifdef cpufpemu}
-             if (current_settings.fputype=fpu_soft) or (cs_fp_emulation in current_settings.moduleswitches) then
+             if (current_settings^.fputype=fpu_soft) or (cs_fp_emulation in current_settings^.moduleswitches) then
                begin
                  result:=first_addfloat;
                  if assigned(result) then
@@ -2675,7 +2675,7 @@ implementation
          else if (rd.typ=floatdef) or (ld.typ=floatdef) then
             begin
 {$ifdef cpufpemu}
-             if (current_settings.fputype=fpu_soft) or (cs_fp_emulation in current_settings.moduleswitches) then
+             if (current_settings^.fputype=fpu_soft) or (cs_fp_emulation in current_settings^.moduleswitches) then
                begin
                  result:=first_addfloat;
                  if assigned(result) then
@@ -2717,7 +2717,7 @@ implementation
 {$ifdef SUPPORT_MMX}
        { mmx support, this must be before the zero based array
          check }
-         else if (cs_mmx in current_settings.localswitches) and is_mmx_able_array(ld) and
+         else if (cs_mmx in current_settings^.localswitches) and is_mmx_able_array(ld) and
                  is_mmx_able_array(rd) then
             begin
               expectloc:=LOC_MMXREGISTER;
@@ -2742,7 +2742,7 @@ implementation
            end
 
 {$ifdef SUPPORT_MMX}
-         else if (cs_mmx in current_settings.localswitches) and
+         else if (cs_mmx in current_settings^.localswitches) and
                  is_mmx_able_array(ld) and
                  is_mmx_able_array(rd) then
             begin

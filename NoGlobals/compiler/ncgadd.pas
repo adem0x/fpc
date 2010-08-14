@@ -588,11 +588,11 @@ interface
               if (right.location.loc = LOC_CONSTANT) then
                 cg64.a_op64_const_reg_reg_checkoverflow(current_asmdata.CurrAsmList,op,location.size,right.location.value64,
                   left.location.register64,location.register64,
-                  checkoverflow and (cs_check_overflow in current_settings.localswitches),ovloc)
+                  checkoverflow and (cs_check_overflow in current_settings^.localswitches),ovloc)
               else
                 cg64.a_op64_reg_reg_reg_checkoverflow(current_asmdata.CurrAsmList,op,location.size,right.location.register64,
                   left.location.register64,location.register64,
-                  checkoverflow and (cs_check_overflow in current_settings.localswitches),ovloc);
+                  checkoverflow and (cs_check_overflow in current_settings^.localswitches),ovloc);
             end;
           subn:
             begin
@@ -606,13 +606,13 @@ interface
                     cg64.a_op64_reg_reg_reg_checkoverflow(current_asmdata.CurrAsmList,OP_SUB,location.size,
                       right.location.register64,left.location.register64,
                       location.register64,
-                      checkoverflow and (cs_check_overflow in current_settings.localswitches),ovloc)
+                      checkoverflow and (cs_check_overflow in current_settings^.localswitches),ovloc)
                   else
                     // reg64 - const64
                     cg64.a_op64_const_reg_reg_checkoverflow(current_asmdata.CurrAsmList,OP_SUB,location.size,
                       right.location.value64,left.location.register64,
                       location.register64,
-                      checkoverflow and (cs_check_overflow in current_settings.localswitches),ovloc)
+                      checkoverflow and (cs_check_overflow in current_settings^.localswitches),ovloc)
                 end
               else
                 begin
@@ -621,7 +621,7 @@ interface
                   cg64.a_op64_reg_reg_reg_checkoverflow(current_asmdata.CurrAsmList,OP_SUB,location.size,
                     right.location.register64,left.location.register64,
                     location.register64,
-                    checkoverflow and (cs_check_overflow in current_settings.localswitches),ovloc);
+                    checkoverflow and (cs_check_overflow in current_settings^.localswitches),ovloc);
                 end;
             end;
           else

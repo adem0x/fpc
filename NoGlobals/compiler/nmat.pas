@@ -373,7 +373,7 @@ implementation
                 if is_signed(resultdef) then
                   begin
                     if is_64bitint(left.resultdef) then
-                      if not (cs_opt_size in current_settings.optimizerswitches) then
+                      if not (cs_opt_size in current_settings^.optimizerswitches) then
                         shiftval := 63
                       else
                         { the shift code is a lot bigger than the call to }
@@ -622,12 +622,12 @@ implementation
            begin
            end
 {$ifdef SUPPORT_MMX}
-         else if (cs_mmx in current_settings.localswitches) and
+         else if (cs_mmx in current_settings^.localswitches) and
            is_mmx_able_array(left.resultdef) then
              begin
                { if saturation is on, left.resultdef isn't
                  "mmx able" (FK)
-               if (cs_mmx_saturation in current_settings.localswitches^) and
+               if (cs_mmx_saturation in current_settings^.localswitches^) and
                  (torddef(tarraydef(resultdef).definition).typ in
                  [s32bit,u32bit]) then
                  CGMessage(type_e_mismatch);
@@ -721,7 +721,7 @@ implementation
             if (left.resultdef.typ=floatdef) then
               expectloc:=LOC_FPUREGISTER
 {$ifdef SUPPORT_MMX}
-             else if (cs_mmx in current_settings.localswitches) and
+             else if (cs_mmx in current_settings^.localswitches) and
                is_mmx_able_array(left.resultdef) then
               expectloc:=LOC_MMXREGISTER
 {$endif SUPPORT_MMX}
@@ -855,7 +855,7 @@ implementation
            end
          else
 {$ifdef SUPPORT_MMX}
-           if (cs_mmx in current_settings.localswitches) and
+           if (cs_mmx in current_settings^.localswitches) and
              is_mmx_able_array(left.resultdef) then
              begin
              end
@@ -906,7 +906,7 @@ implementation
            end
          else
 {$ifdef SUPPORT_MMX}
-           if (cs_mmx in current_settings.localswitches) and
+           if (cs_mmx in current_settings^.localswitches) and
              is_mmx_able_array(left.resultdef) then
              expectloc:=LOC_MMXREGISTER
          else

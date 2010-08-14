@@ -1677,7 +1677,7 @@ implementation
                        result:=cordconstnode.create(
                          tordconstnode(left).value,sinttype,true);
                      end
-                   else if (m_mac in current_settings.modeswitches) and
+                   else if (m_mac in current_settings^.modeswitches) and
                            (left.ndoetype=pointerconstn) then
                        result:=cordconstnode.create(
                          tpointerconstnode(left).value,ptruinttype,true);

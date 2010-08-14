@@ -218,7 +218,7 @@ unit widestr;
          i : longint;
 
       begin
-         m:=getmap(current_settings.sourcecodepage);
+         m:=getmap(current_settings^.sourcecodepage);
          { should be a very good estimation :) }
          setlengthwidestring(r,length(s));
          // !!!! MBCS

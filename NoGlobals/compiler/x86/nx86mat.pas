@@ -78,7 +78,7 @@ interface
            end
 {$ifdef SUPPORT_MMX}
          else
-           if (cs_mmx in current_settings.localswitches) and
+           if (cs_mmx in current_settings^.localswitches) and
               is_mmx_able_array(left.resultdef) then
              begin
                expectloc:=LOC_MMXREGISTER;
@@ -118,7 +118,7 @@ interface
           else
             internalerror(200203225);
         end;
-        if cs_mmx_saturation in current_settings.localswitches then
+        if cs_mmx_saturation in current_settings^.localswitches then
           case mmx_type(resultdef) of
              mmxs8bit:
                op:=A_PSUBSB;

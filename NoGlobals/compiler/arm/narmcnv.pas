@@ -76,7 +76,7 @@ implementation
       var
         fname: string[19];
       begin
-        if cs_fp_emulation in current_settings.moduleswitches then
+        if cs_fp_emulation in current_settings^.moduleswitches then
           result:=inherited first_int_to_real
         else
           begin
@@ -110,7 +110,7 @@ implementation
                 firstpass(left);
               end;
             result := nil;
-            case current_settings.fputype of
+            case current_settings^.fputype of
               fpu_fpa,
               fpu_fpa10,
               fpu_fpa11:
@@ -137,7 +137,7 @@ implementation
         hregister : tregister;
         signed : boolean;
       begin
-        case current_settings.fputype of
+        case current_settings^.fputype of
           fpu_fpa,
           fpu_fpa10,
           fpu_fpa11:

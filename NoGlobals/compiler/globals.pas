@@ -1349,8 +1349,8 @@ implementation
 {$ifdef ARM}
     function is_double_hilo_swapped: boolean;{$ifdef USEINLINE}inline;{$endif}
       begin
-        result := (current_settings.fputype in [fpu_fpa,fpu_fpa10,fpu_fpa11]) and
-          not(cs_fp_emulation in current_settings.moduleswitches);
+        result := (current_settings^.fputype in [fpu_fpa,fpu_fpa10,fpu_fpa11]) and
+          not(cs_fp_emulation in current_settings^.moduleswitches);
 {$ifdef FPC_DOUBLE_HILO_SWAPPED}
         { inverse result if compiler was compiled with swapped hilo already }
         result := not result;
@@ -1363,7 +1363,7 @@ implementation
       begin
         result:=((([cs_check_range,cs_check_overflow]*current_settings^.localswitches)<>[]) and not
                    (m_delphi in current_settings^.modeswitches)
-                ); // or (cs_ieee_errors in current_settings.localswitches);
+                ); // or (cs_ieee_errors in current_settings^.localswitches);
       end;
 
 {****************************************************************************

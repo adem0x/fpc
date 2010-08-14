@@ -86,7 +86,7 @@ unit cgcpu;
       begin
         inherited init_register_allocators;
         if (target_info.system<>system_i386_darwin) and
-           (cs_create_pic in current_settings.moduleswitches) then
+           (cs_create_pic in current_settings^.moduleswitches) then
           rg[R_INTREGISTER]:=trgcpu.create(R_INTREGISTER,R_SUBWHOLE,[RS_EAX,RS_EDX,RS_ECX,RS_ESI,RS_EDI],first_int_imreg,[RS_EBP])
         else
           rg[R_INTREGISTER]:=trgcpu.create(R_INTREGISTER,R_SUBWHOLE,[RS_EAX,RS_EDX,RS_ECX,RS_EBX,RS_ESI,RS_EDI],first_int_imreg,[RS_EBP]);
@@ -511,7 +511,7 @@ unit cgcpu;
         notdarwin: boolean;
       begin
         { allocate PIC register }
-        if (cs_create_pic in current_settings.moduleswitches) and
+        if (cs_create_pic in current_settings^.moduleswitches) and
            (tf_pic_uses_got in target_info.flags) and
            (pi_needs_got in current_procinfo.flags) then
           begin
@@ -524,7 +524,7 @@ unit cgcpu;
               current_procinfo.got:=NR_EBX;
             if notdarwin { needs testing before it can be enabled for non-darwin platforms
                 and
-               (current_settings.optimizecputype in [cpu_Pentium2,cpu_Pentium3,cpu_Pentium4]) } then
+               (current_settings^.optimizecputype in [cpu_Pentium2,cpu_Pentium3,cpu_Pentium4]) } then
               begin
                 current_module.requires_ebx_pic_helper:=true;
                 cg.a_call_name_static(list,'fpc_geteipasebx');

@@ -507,14 +507,14 @@ Implementation
       begin
         result:=target_asm.asmcmd;
 {$ifdef m68k}
-        if current_settings.cputype = cpu_MC68020 then
+        if current_settings^.cputype = cpu_MC68020 then
           result:='-m68020 '+result
         else
           result:='-m68000 '+result;
 {$endif}
 {$ifdef arm}
         if (target_info.system=system_arm_darwin) then
-          Replace(result,'$ARCH',lower(cputypestr[current_settings.cputype]));
+          Replace(result,'$ARCH',lower(cputypestr[current_settings^.cputype]));
 {$endif arm}
         if (cs_link_on_target in current_settings^.globalswitches) then
          begin

@@ -2483,7 +2483,7 @@ implementation
     function ttypeconvnode.first_real_to_real : tnode;
       begin
 {$ifdef cpufpemu}
-        if cs_fp_emulation in current_settings.moduleswitches then
+        if cs_fp_emulation in current_settings^.moduleswitches then
           begin
             if target_info.system in systems_wince then
               begin

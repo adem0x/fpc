@@ -69,7 +69,7 @@ implementation
 
     function tgppcinlinenode.first_sqrt_real : tnode;
       begin
-        if (current_settings.cputype >= cpu_PPC970) then
+        if (current_settings^.cputype >= cpu_PPC970) then
           begin
             expectloc:=LOC_FPUREGISTER;
             first_sqrt_real := nil;
@@ -95,7 +95,7 @@ implementation
 
      function tgppcinlinenode.first_trunc_real : tnode;
       begin
-       if (current_settings.cputype >= cpu_PPC970) then
+       if (current_settings^.cputype >= cpu_PPC970) then
           begin
             expectloc:=LOC_REFERENCE;
             first_trunc_real := nil;
@@ -107,7 +107,7 @@ implementation
 
      function tgppcinlinenode.first_round_real : tnode;
       begin
-       if (current_settings.cputype >= cpu_PPC970) then
+       if (current_settings^.cputype >= cpu_PPC970) then
           begin
             expectloc:=LOC_REFERENCE;
             first_round_real := nil;
@@ -130,7 +130,7 @@ implementation
 
     procedure tgppcinlinenode.second_sqrt_real;
       begin
-        if (current_settings.cputype < cpu_PPC970) then
+        if (current_settings^.cputype < cpu_PPC970) then
           internalerror(2007020910);
         location.loc:=LOC_FPUREGISTER;
         load_fpu_location;
@@ -175,7 +175,7 @@ implementation
        var
          tmpreg: tregister;
        begin
-         if (current_settings.cputype < cpu_PPC970) then
+         if (current_settings^.cputype < cpu_PPC970) then
            internalerror(2007020910);
          secondpass(left);
          location_force_fpureg(current_asmdata.CurrAsmList,left.location,true);

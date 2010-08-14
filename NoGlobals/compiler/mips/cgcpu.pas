@@ -305,7 +305,7 @@ begin
     ref.base  := ref.index;
     ref.index := NR_NO;
   end;
-  if (cs_create_pic in current_settings.moduleswitches) and
+  if (cs_create_pic in current_settings^.moduleswitches) and
     assigned(ref.symbol) then
   begin
     tmpreg := GetIntRegister(list, OS_INT);
@@ -401,7 +401,7 @@ begin
     ref.base  := ref.index;
     ref.index := NR_NO;
   end;
-  if (cs_create_pic in current_settings.moduleswitches) and
+  if (cs_create_pic in current_settings^.moduleswitches) and
     assigned(ref.symbol) then
   begin
     tmpreg := GetIntRegister(list, OS_INT);
@@ -498,7 +498,7 @@ procedure TCgMPSel.init_register_allocators;
 begin
   inherited init_register_allocators;
 
-  if (cs_create_pic in current_settings.moduleswitches) and
+  if (cs_create_pic in current_settings^.moduleswitches) and
     (pi_needs_got in current_procinfo.flags) then
   begin
     current_procinfo.got := NR_GP;
@@ -826,7 +826,7 @@ begin
   if (href.base = NR_NO) and (href.index <> NR_NO) then
     internalerror(200306171);
 
-  if (cs_create_pic in current_settings.moduleswitches) and
+  if (cs_create_pic in current_settings^.moduleswitches) and
     assigned(href.symbol) then
   begin
     tmpreg := r; //GetIntRegister(list, OS_ADDR);
@@ -1388,7 +1388,7 @@ begin
   list.concat(Taicpu.Op_reg_reg_const(A_P_SW, NR_R31, NR_STACK_POINTER_REG, -LocalSize + 4));
   list.concat(Taicpu.op_reg_reg(A_MOVE, NR_FRAME_POINTER_REG, NR_STACK_POINTER_REG));
   list.concat(Taicpu.Op_reg_reg_const(A_ADDIU, NR_STACK_POINTER_REG, NR_STACK_POINTER_REG, -LocalSize));
-  if (cs_create_pic in current_settings.moduleswitches) and
+  if (cs_create_pic in current_settings^.moduleswitches) and
     (pi_needs_got in current_procinfo.flags) then
   begin
     current_procinfo.got := NR_GP;

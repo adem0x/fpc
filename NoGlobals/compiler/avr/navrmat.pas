@@ -92,7 +92,7 @@ implementation
              begin
                // note: only in the signed case possible..., may overflow
                current_asmdata.CurrAsmList.concat(setoppostfix(taicpu.op_reg_reg(A_MVN,
-                 resultreg,numerator),toppostfix(ord(cs_check_overflow in current_settings.localswitches)*ord(PF_S))));
+                 resultreg,numerator),toppostfix(ord(cs_check_overflow in current_settings^.localswitches)*ord(PF_S))));
              end
            else if ispowerof2(tordconstnode(right).value,power) then
              begin

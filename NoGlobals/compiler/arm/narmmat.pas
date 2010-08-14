@@ -97,7 +97,7 @@ implementation
              begin
                // note: only in the signed case possible..., may overflow
                current_asmdata.CurrAsmList.concat(setoppostfix(taicpu.op_reg_reg(A_MVN,
-                 resultreg,numerator),toppostfix(ord(cs_check_overflow in current_settings.localswitches)*ord(PF_S))));
+                 resultreg,numerator),toppostfix(ord(cs_check_overflow in current_settings^.localswitches)*ord(PF_S))));
              end
            else if ispowerof2(tordconstnode(right).value,power) then
              begin
@@ -261,7 +261,7 @@ implementation
         op: tasmop;
       begin
         secondpass(left);
-        case current_settings.fputype of
+        case current_settings^.fputype of
           fpu_fpa,
           fpu_fpa10,
           fpu_fpa11:

@@ -191,7 +191,7 @@ interface
         { is in unsigned VAR!!                              }
         if mboverflow then
          begin
-           if cs_check_overflow in current_settings.localswitches  then
+           if cs_check_overflow in current_settings^.localswitches  then
             begin
               current_asmdata.getjumplabel(hl4);
               if unsigned then
@@ -411,7 +411,7 @@ interface
         emit_ref(asmops[unsigned],S_L,ref)
       else
         emit_reg(asmops[unsigned],S_L,reg);
-      if (cs_check_overflow in current_settings.localswitches) and
+      if (cs_check_overflow in current_settings^.localswitches) and
         { 32->64 bit cannot overflow }
         (not is_64bit(resultdef)) then
         begin

@@ -188,12 +188,12 @@ implementation
               Comment(V_Warning,'ExpectLoc is not set before secondpass: '+nodetype2str[p.nodetype]);
             if (p.location.loc<>LOC_INVALID) then
               Comment(V_Warning,'Location.Loc is already set before secondpass: '+nodetype2str[p.nodetype]);
-            if (cs_asm_nodes in current_settings.globalswitches) then
+            if (cs_asm_nodes in current_settings^.globalswitches) then
               logsecond(p.nodetype,true);
 {$endif EXTDEBUG}
             p.pass_generate_code;
 {$ifdef EXTDEBUG}
-            if (cs_asm_nodes in current_settings.globalswitches) then
+            if (cs_asm_nodes in current_settings^.globalswitches) then
               logsecond(p.nodetype,false);
             if (not codegenerror) then
              begin

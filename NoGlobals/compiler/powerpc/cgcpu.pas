@@ -885,7 +885,7 @@ const
                     reference_reset_base(href,NR_STACK_POINTER_REG,LA_LR_SYSV,4);
                 end;
                 list.concat(taicpu.op_reg_ref(A_STW,NR_R0,href));
-                if not(cs_profile in current_settings.moduleswitches) then
+                if not(cs_profile in current_settings^.moduleswitches) then
                   a_reg_dealloc(list,NR_R0);
               end;
 
@@ -933,7 +933,7 @@ const
         if usesgpr then
           begin
             if (firstregint <= RS_R22) or
-               ((cs_opt_size in current_settings.optimizerswitches) and
+               ((cs_opt_size in current_settings^.optimizerswitches) and
                { with RS_R30 it's also already smaller, but too big a speed trade-off to make }
                 (firstregint <= RS_R29)) then
               begin
@@ -1049,7 +1049,7 @@ const
         if (usesgpr) then
           begin
             if (firstregint <= RS_R22) or
-               ((cs_opt_size in current_settings.optimizerswitches) and
+               ((cs_opt_size in current_settings^.optimizerswitches) and
                 { with RS_R30 it's also already smaller, but too big a speed trade-off to make }
                 (firstregint <= RS_R29)) then
               begin

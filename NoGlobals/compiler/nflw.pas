@@ -1176,7 +1176,7 @@ implementation
 {$ifdef prefetchnext}
          { do at the end so all complex typeconversions are already }
          { converted to calln's                                     }
-         if (cs_opt_level1 in current_settings.optimizerswitches) and
+         if (cs_opt_level1 in current_settings^.optimizerswitches) and
             (lnf_testatbegin in loopflags) then
            begin
              { get first component of the while check }

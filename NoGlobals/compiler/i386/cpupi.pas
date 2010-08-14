@@ -73,7 +73,7 @@ unit cpupi;
         { align to 4 bytes at least
           otherwise all those subl $2,%esp are meaningless PM }
         if (target_info.system <> system_i386_darwin) then
-          result:=Align(tg.direction*tg.lasttemp,min(current_settings.alignment.localalignmin,4))
+          result:=Align(tg.direction*tg.lasttemp,min(current_settings^.alignment.localalignmin,4))
         else
           result:=tg.direction*tg.lasttemp+maxpushedparasize;
       end;
@@ -92,7 +92,7 @@ unit cpupi;
     procedure ti386procinfo.allocate_got_register(list: tasmlist);
       begin
         if (target_info.system = system_i386_darwin) and
-           (cs_create_pic in current_settings.moduleswitches) then
+           (cs_create_pic in current_settings^.moduleswitches) then
           begin
             got := cg.getaddressregister(list);
           end;

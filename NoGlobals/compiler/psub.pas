@@ -113,7 +113,7 @@ implementation
 {$endif arm}
        {$ifndef NOOPT}
          {$ifdef i386}
-           //,aopt386 todo: restore!!!
+           ,aopt386
          {$else i386}
            ,aopt
          {$endif i386}
@@ -1929,7 +1929,7 @@ implementation
                       begin
                         { m_class is needed, because the resourcestring
                           loading is in the ObjPas unit }
-{                        if (m_class in current_settings.modeswitches) then}
+{                        if (m_class in current_settings^.modeswitches) then}
                           resourcestring_dec
 {                        else
                           break;}

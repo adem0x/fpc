@@ -1093,7 +1093,7 @@ implementation
 {$ifdef i386}
               abssym.absseg:=false;
               if (target_info.system in [system_i386_go32v2,system_i386_watcom]) and
-                  try_to_consume(_COLON) then
+                  current_scanner.try_to_consume(_COLON) then
                 begin
                   pt.free;
                   pt:=expr(true);
@@ -1241,7 +1241,7 @@ implementation
              current_scanner.consume(_COLON);
 
 {$ifdef gpc_mode}
-             if (m_gpc in current_settings.modeswitches) and
+             if (m_gpc in current_settings^.modeswitches) and
                 (token=_ID) and
                 (orgpattern='__asmname__') then
                read_gpc_name(sc);

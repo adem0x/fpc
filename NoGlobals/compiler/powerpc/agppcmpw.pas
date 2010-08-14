@@ -727,8 +727,8 @@ interface
        exit;
       InlineLevel:=0;
       { lineinfo is only needed for al_procedures (PFV) }
-      do_line:=((cs_asm_source in current_settings.globalswitches) or
-                (cs_lineinfo in current_settings.moduleswitches))
+      do_line:=((cs_asm_source in current_settings^.globalswitches) or
+                (cs_lineinfo in current_settings^.moduleswitches))
                  and (p=current_asmdata.asmlists[al_procedures]);
       DoNotSplitLine:=false;
       hp:=tai(p.first);
@@ -748,7 +748,7 @@ interface
                 if assigned(infile) then
                  begin
                    { open only if needed !! }
-                   if (cs_asm_source in current_settings.globalswitches) then
+                   if (cs_asm_source in current_settings^.globalswitches) then
                     infile.open;
                  end;
                 { avoid unnecessary reopens of the same file !! }
@@ -757,7 +757,7 @@ interface
                 lastfileinfo.line:=-1;
               end;
            { write source }
-             if (cs_asm_source in current_settings.globalswitches) and
+             if (cs_asm_source in current_settings^.globalswitches) and
                 assigned(infile) then
               begin
                 if (infile<>lastinfile) then

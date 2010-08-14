@@ -1822,7 +1822,7 @@ begin
         refsEq := @refsOverlapping;
       invalsmemwrite :=
         assigned(c.memwrite) and
-        ((not(cs_opt_size in current_settings.optimizerswitches) and
+        ((not(cs_opt_size in current_settings^.optimizerswitches) and
           containsPointerRef(c.memwrite)) or
          refsEq(c.memwrite.oper[1]^.ref^,ref,topsize2tcgsize[c.memwrite.opsize],size));
       if not(c.typ in [con_ref,con_noRemoveRef,con_invalid]) then
@@ -1843,7 +1843,7 @@ begin
       with c do
         writeToMemDestroysContents :=
           (typ in [con_ref,con_noRemoveRef]) and
-          ((not(cs_opt_size in current_settings.optimizerswitches) and
+          ((not(cs_opt_size in current_settings^.optimizerswitches) and
             containsPointerLoad(c)
            ) or
            (refInSequence(ref,c,refsEq,size) and
@@ -1867,7 +1867,7 @@ begin
     begin
       invalsmemwrite :=
         assigned(c.memwrite) and
-        (not(cs_opt_size in current_settings.optimizerswitches) or
+        (not(cs_opt_size in current_settings^.optimizerswitches) or
          containsPointerRef(c.memwrite));
       if not(c.typ in [con_ref,con_noRemoveRef,con_invalid]) then
         begin
@@ -1877,7 +1877,7 @@ begin
       with c do
         writeToMemDestroysContents :=
           (typ in [con_ref,con_noRemoveRef]) and
-          (not(cs_opt_size in current_settings.optimizerswitches) or
+          (not(cs_opt_size in current_settings^.optimizerswitches) or
          { for movsl }
            ((ref.base = NR_EDI) and (ref.index = NR_EDI)) or
          { don't destroy if reg contains a parameter, local or global variable }

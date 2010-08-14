@@ -225,7 +225,7 @@ var
        { check if floating point emulation is on?
          fpu emulation isn't unit levelwise because it affects calling convention }
        if ((ppufile.header.flags and uf_fpu_emulation)<>0) xor
-            (cs_fp_emulation in current_settings.moduleswitches) then
+            (cs_fp_emulation in current_settings^.moduleswitches) then
          begin
            ppufile.free;
            ppufile:=nil;
@@ -1034,7 +1034,7 @@ var
          if assigned(localsymtable) then
            flags:=flags or uf_local_symtable;
 {$ifdef cpufpemu}
-         if (cs_fp_emulation in current_settings.moduleswitches) then
+         if (cs_fp_emulation in current_settings^.moduleswitches) then
            flags:=flags or uf_fpu_emulation;
 {$endif cpufpemu}
 {$ifdef Test_Double_checksum_write}

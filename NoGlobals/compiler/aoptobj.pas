@@ -510,7 +510,7 @@ Unit AoptObj;
               With Regs[Counter] Do
                 Begin
                   If (typ = Con_Ref) And
-                     ((Not(cs_opt_size in current_settings.optimizerswitches) And
+                     ((Not(cs_opt_size in current_settings^.optimizerswitches) And
                        (NrOfMods <> 1)
                       ) Or
                       (RefInSequence(Ref,Regs[Counter], RefsEq) And
@@ -538,7 +538,7 @@ Unit AoptObj;
             For Counter := LoGPReg to HiGPReg Do
               With Regs[Counter] Do
                 If (typ = Con_Ref) And
-                   (Not(cs_opt_size in current_settings.optimizerswitches) Or
+                   (Not(cs_opt_size in current_settings^.optimizerswitches) Or
       {$ifdef x86}
               {for movsl}
                     (Ref.Base = R_EDI) Or

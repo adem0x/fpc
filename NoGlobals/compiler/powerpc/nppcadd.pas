@@ -308,11 +308,11 @@ interface
         if not cmpop then
           location_reset(location,LOC_REGISTER,def_cgsize(resultdef));
 
-        load_left_right(cmpop,((cs_check_overflow in current_settings.localswitches) and
+        load_left_right(cmpop,((cs_check_overflow in current_settings^.localswitches) and
             (nodetype in [addn,subn])) or (nodetype = muln));
 
         if (nodetype <> muln) and
-           (not(cs_check_overflow in current_settings.localswitches) or
+           (not(cs_check_overflow in current_settings^.localswitches) or
             not(nodetype in [addn,subn])) then
           begin
             case nodetype of
@@ -564,7 +564,7 @@ interface
         case nodetype of
           addn :
             begin
-              if (cs_mmx_saturation in current_settings.localswitches) then
+              if (cs_mmx_saturation in current_settings^.localswitches) then
                 begin
                    case mmxbase of
                       mmxs8bit:
@@ -600,7 +600,7 @@ interface
             end;
           subn :
             begin
-              if (cs_mmx_saturation in current_settings.localswitches) then
+              if (cs_mmx_saturation in current_settings^.localswitches) then
                 begin
                    case mmxbase of
                       mmxs8bit:
@@ -821,7 +821,7 @@ interface
 
          checkoverflow:=
            (nodetype in [addn,subn,muln]) and
-           (cs_check_overflow in current_settings.localswitches) and
+           (cs_check_overflow in current_settings^.localswitches) and
            (left.resultdef.typ<>pointerdef) and
            (right.resultdef.typ<>pointerdef);
 

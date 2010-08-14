@@ -242,7 +242,7 @@ implementation
         { Normal types }
         (* we use the same types as without emulator, the only
           difference is that direct calls to the emulator are generated
-        if (cs_fp_emulation in current_settings.moduleswitches) then
+        if (cs_fp_emulation in current_settings^.moduleswitches) then
           begin
             addtype('Single',s32floattype);
             { extended size is the best real type for the target }

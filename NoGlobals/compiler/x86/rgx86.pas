@@ -388,7 +388,7 @@ implementation
       var
         r: Tregister;
       begin
-        if not(cs_opt_regvar in current_settings.optimizerswitches) then
+        if not(cs_opt_regvar in current_settings^.optimizerswitches) then
           exit;
         if firstsavefpureg <> NR_NO then
           for r.enum := firstsavefpureg to lastsavefpureg do

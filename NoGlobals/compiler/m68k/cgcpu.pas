@@ -420,7 +420,7 @@ unit cgcpu;
            addressing capabilities with a 32-bit
            displacement.
          }
-         if (current_settings.cputype<>cpu_MC68000) then
+         if (current_settings^.cputype<>cpu_MC68000) then
            exit;
          if (ref.base<>NR_NO) then
            begin
@@ -594,7 +594,7 @@ unit cgcpu;
     procedure tcg68k.a_loadfpu_reg_reg(list: TAsmList; fromsize, tosize: tcgsize; reg1, reg2: tregister);
       begin
         { in emulation mode, only 32-bit single is supported }
-        if cs_fp_emulation in current_settings.moduleswitches then
+        if cs_fp_emulation in current_settings^.moduleswitches then
           list.concat(taicpu.op_reg_reg(A_MOVE,S_L,reg1,reg2))
         else
           list.concat(taicpu.op_reg_reg(A_FMOVE,tcgsize2opsize[tosize],reg1,reg2));
@@ -614,7 +614,7 @@ unit cgcpu;
         href := ref;
         fixref(list,href);
         { in emulation mode, only 32-bit single is supported }
-        if cs_fp_emulation in current_settings.moduleswitches then
+        if cs_fp_emulation in current_settings^.moduleswitches then
            list.concat(taicpu.op_ref_reg(A_MOVE,S_L,href,reg))
         else
            begin
@@ -633,7 +633,7 @@ unit cgcpu;
         if opsize = S_FX then
           internalerror(20020729);
         { in emulation mode, only 32-bit single is supported }
-        if cs_fp_emulation in current_settings.moduleswitches then
+        if cs_fp_emulation in current_settings^.moduleswitches then
           list.concat(taicpu.op_reg_ref(A_MOVE,S_L,reg, ref))
         else
           list.concat(taicpu.op_reg_ref(A_FMOVE,opsize,reg, ref));
@@ -708,7 +708,7 @@ unit cgcpu;
               end;
           OP_IMUL :
               begin
-                if current_settings.cputype = cpu_MC68000 then
+                if current_settings^.cputype = cpu_MC68000 then
                    begin
                      r:=NR_D0;
                      r2:=NR_D1;
@@ -737,7 +737,7 @@ unit cgcpu;
               end;
           OP_MUL :
               begin
-                 if current_settings.cputype = cpu_MC68000 then
+                 if current_settings^.cputype = cpu_MC68000 then
                    begin
                      r:=NR_D0;
                      r2:=NR_D1;
@@ -850,7 +850,7 @@ unit cgcpu;
         case op of
           OP_ADD :
               begin
-                 if current_settings.cputype = cpu_ColdFire then
+                 if current_settings^.cputype = cpu_ColdFire then
                   begin
                     { operation only allowed only a longword }
                     sign_extend(list, size, reg1);
@@ -883,7 +883,7 @@ unit cgcpu;
                  else
                    hreg2 := reg2;
 
-                 if current_settings.cputype = cpu_ColdFire then
+                 if current_settings^.cputype = cpu_ColdFire then
                   begin
                     { operation only allowed only a longword }
                     {!***************************************
@@ -920,7 +920,7 @@ unit cgcpu;
               begin
                  sign_extend(list, size,reg1);
                  sign_extend(list, size,reg2);
-                 if current_settings.cputype = cpu_MC68000 then
+                 if current_settings^.cputype = cpu_MC68000 then
                    begin
                      r:=NR_D0;
                      r2:=NR_D1;
@@ -963,7 +963,7 @@ unit cgcpu;
               begin
                  sign_extend(list, size,reg1);
                  sign_extend(list, size,reg2);
-                 if current_settings.cputype = cpu_MC68000 then
+                 if current_settings^.cputype = cpu_MC68000 then
                    begin
                      r:=NR_D0;
                      r2:=NR_D1;
@@ -1022,7 +1022,7 @@ unit cgcpu;
                     hreg2 := reg2;
 
                 { coldfire only supports long version }
-                if current_settings.cputype = cpu_ColdFire then
+                if current_settings^.cputype = cpu_ColdFire then
                   begin
                     sign_extend(list, size,hreg2);
                     list.concat(taicpu.op_reg(topcg2tasmop[op],S_L,hreg2));
@@ -1056,7 +1056,7 @@ unit cgcpu;
          end
        else
          begin
-           if (current_settings.cputype = cpu_ColdFire) then
+           if (current_settings^.cputype = cpu_ColdFire) then
              begin
                {
                  only longword comparison is supported,
@@ -1118,7 +1118,7 @@ unit cgcpu;
               ai.SetCondition(flags_to_cond(f));
               list.concat(ai);
 
-              if (current_settings.cputype = cpu_ColdFire) then
+              if (current_settings^.cputype = cpu_ColdFire) then
                 begin
                  { neg.b does not exist on the Coldfire
                    so we need to sign extend the value
@@ -1140,7 +1140,7 @@ unit cgcpu;
             ai.SetCondition(flags_to_cond(f));
             list.concat(ai);
 
-            if (current_settings.cputype = cpu_ColdFire) then
+            if (current_settings^.cputype = cpu_ColdFire) then
               begin
                  { neg.b does not exist on the Coldfire
                    so we need to sign extend the value
@@ -1189,7 +1189,7 @@ unit cgcpu;
 //            reference_release(list,source);
 
          { from 12 bytes movs is being used }
-         if {(not loadref) and} ((len<=8) or (not(cs_opt_size in current_settings.optimizerswitches) and (len<=12))) then
+         if {(not loadref) and} ((len<=8) or (not(cs_opt_size in current_settings^.optimizerswitches) and (len<=12))) then
            begin
               srcref := source;
               dstref := dest;
@@ -1243,7 +1243,7 @@ unit cgcpu;
               { double word move only on 68020+ machines }
               { because of possible alignment problems   }
               { use fast loop mode }
-              if (current_settings.cputype=cpu_MC68020) then
+              if (current_settings^.cputype=cpu_MC68020) then
                 begin
                    helpsize := len - len mod 4;
                    len := len mod 4;
@@ -1413,7 +1413,7 @@ unit cgcpu;
             { return with immediate size possible here
               signed!
               RTD is not supported on the coldfire     }
-            if (current_settings.cputype=cpu_MC68020) and (parasize<$7FFF) then
+            if (current_settings^.cputype=cpu_MC68020) and (parasize<$7FFF) then
                 list.concat(taicpu.op_const(A_RTD,S_NO,parasize))
             { manually restore the stack }
             else
@@ -1498,7 +1498,7 @@ unit cgcpu;
               begin
                 if (isaddressregister(reg)) then
                    internalerror(20020729);
-                if (current_settings.cputype = cpu_MC68000) then
+                if (current_settings^.cputype = cpu_MC68000) then
                   begin
                     list.concat(taicpu.op_reg(A_EXT,S_W,reg));
                     list.concat(taicpu.op_reg(A_EXT,S_L,reg));

@@ -539,7 +539,7 @@ unit cpubase;
       var
          i : longint;
       begin
-        if current_settings.cputype in cpu_thumb2 then
+        if current_settings^.cputype in cpu_thumb2 then
           begin
             for i:=0 to 24 do
               begin

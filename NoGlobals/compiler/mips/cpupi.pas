@@ -67,7 +67,7 @@ implementation
           Alignment must be the max available, as doubles require
           8 byte alignment
         }
-        result:=Align(tg.direction*tg.lasttemp+maxpushedparasize+target_info.first_parm_offset,current_settings.alignment.localalignmax);
+        result:=Align(tg.direction*tg.lasttemp+maxpushedparasize+target_info.first_parm_offset,current_settings^.alignment.localalignmax);
       end;
 
 

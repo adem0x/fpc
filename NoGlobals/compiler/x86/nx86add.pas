@@ -492,7 +492,7 @@ unit nx86add;
         case nodetype of
           addn :
             begin
-              if (cs_mmx_saturation in current_settings.localswitches) then
+              if (cs_mmx_saturation in current_settings^.localswitches) then
                 begin
                    case mmxbase of
                       mmxs8bit:
@@ -528,7 +528,7 @@ unit nx86add;
             end;
           subn :
             begin
-              if (cs_mmx_saturation in current_settings.localswitches) then
+              if (cs_mmx_saturation in current_settings^.localswitches) then
                 begin
                    case mmxbase of
                       mmxs8bit:
@@ -888,7 +888,7 @@ unit nx86add;
         check_left_and_right_fpureg(true);
 
 {$ifndef x86_64}
-        if current_settings.cputype<cpu_Pentium2 then
+        if current_settings^.cputype<cpu_Pentium2 then
           begin
             emit_none(A_FCOMPP,S_NO);
             tcgx86(cg).dec_fpu_stack;

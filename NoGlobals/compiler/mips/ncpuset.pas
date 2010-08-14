@@ -116,7 +116,7 @@ begin
   { Delay slot }
   current_asmdata.CurrAsmList.concat(taicpu.op_none(A_NOP));
   { generate jump table }
-  if not(cs_opt_size in current_settings.optimizerswitches) then
+  if not(cs_opt_size in current_settings^.optimizerswitches) then
     jumpSegment.concat(Tai_Align.Create_Op(4, 0));
   jumpSegment.concat(Tai_label.Create(table));
   last := min_;

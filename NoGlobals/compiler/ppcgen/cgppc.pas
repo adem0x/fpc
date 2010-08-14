@@ -153,7 +153,7 @@ unit cgppc;
         (not (po_assembler in current_procinfo.procdef.procoptions) and
          ((pi_do_call in current_procinfo.flags) or 
           (cs_profile in init_settings.moduleswitches)))  or
-        ([cs_lineinfo,cs_debuginfo] * current_settings.moduleswitches <> []);
+        ([cs_lineinfo,cs_debuginfo] * current_settings^.moduleswitches <> []);
       end;
 
 
@@ -214,7 +214,7 @@ unit cgppc;
       begin
         if not(po_assembler in current_procinfo.procdef.procoptions) then
           begin
-            if (cs_create_pic in current_settings.moduleswitches) and
+            if (cs_create_pic in current_settings^.moduleswitches) and
                (pi_needs_got in current_procinfo.flags) then
               case target_info.system of
                 system_powerpc_darwin,
@@ -267,7 +267,7 @@ unit cgppc;
         if current_asmdata.asmlists[al_imports]=nil then
           current_asmdata.asmlists[al_imports]:=TAsmList.create;
 
-        if (cs_create_pic in current_settings.moduleswitches) then
+        if (cs_create_pic in current_settings^.moduleswitches) then
           stubalign:=32
         else
           stubalign:=16;
@@ -281,7 +281,7 @@ unit cgppc;
         l1 := current_asmdata.RefAsmSymbol('L'+s+'$lazy_ptr');
         reference_reset_symbol(href,l1,0,sizeof(pint));
         href.refaddr := addr_higha;
-        if (cs_create_pic in current_settings.moduleswitches) then
+        if (cs_create_pic in current_settings^.moduleswitches) then
           begin
             current_asmdata.getjumplabel(localgotlab);
             href.relsymbol:=localgotlab;
@@ -525,7 +525,7 @@ unit cgppc;
          { as single corrupts the value -> convert double to single }
          { first (bug confirmed on some G4s, but not on G5s)        }
          if (tosize < fromsize) and
-            (current_settings.cputype < cpu_PPC970) then
+            (current_settings^.cputype < cpu_PPC970) then
            begin
              reg2:=getfpuregister(list,tosize);
              a_loadfpu_reg_reg(list,fromsize,tosize,reg,reg2);
@@ -575,15 +575,15 @@ unit cgppc;
       hl : tasmlabel;
       flags : TResFlags;
     begin
-      if not(cs_check_overflow in current_settings.localswitches) then
+      if not(cs_check_overflow in current_settings^.localswitches) then
         exit;
       current_asmdata.getjumplabel(hl);
       if not ((def.typ=pointerdef) or
              ((def.typ=orddef) and
               (torddef(def).ordtype in [u64bit,u16bit,u32bit,u8bit,uchar,pasbool]))) then
         begin
-          if (current_settings.optimizecputype >= cpu_ppc970) or
-             (current_settings.cputype >= cpu_ppc970) then
+          if (current_settings^.optimizecputype >= cpu_ppc970) or
+             (current_settings^.cputype >= cpu_ppc970) then
             begin
               { ... instructions setting overflow flag ...
               mfxerf R0
@@ -782,10 +782,10 @@ unit cgppc;
            assigned(ref.symbol) and
            not assigned(ref.relsymbol) and
            ((ref.symbol.bind in [AB_EXTERNAL,AB_WEAK_EXTERNAL]) or
-            (cs_create_pic in current_settings.moduleswitches))then
+            (cs_create_pic in current_settings^.moduleswitches))then
           begin
             if (ref.symbol.bind in [AB_EXTERNAL,AB_WEAK_EXTERNAL]) or
-               ((cs_create_pic in current_settings.moduleswitches) and
+               ((cs_create_pic in current_settings^.moduleswitches) and
                 (ref.symbol.bind in [AB_COMMON,AB_GLOBAL,AB_PRIVATE_EXTERN])) then
               begin
                 tmpreg := g_indirect_sym_load(list,ref.symbol.name,ref.symbol.bind=AB_WEAK_EXTERNAL);
@@ -812,7 +812,7 @@ unit cgppc;
 
         { if we have to create PIC, add the symbol to the TOC/GOT }
         if (target_info.system = system_powerpc64_linux) and
-           (cs_create_pic in current_settings.moduleswitches) and 
+           (cs_create_pic in current_settings^.moduleswitches) and
            (assigned(ref.symbol)) then
           begin
             tmpreg := load_got_symbol(list, ref.symbol.name);

@@ -224,7 +224,7 @@ unit cgcpu;
           non-overlapping subregs per register, so we can only use
           half the single precision registers for now (as sub registers of the
           double precision ones). }
-        if current_settings.fputype=fpu_vfpv3 then
+        if current_settings^.fputype=fpu_vfpv3 then
           rg[R_MMREGISTER]:=trgcpu.create(R_MMREGISTER,R_SUBFD,
               [RS_D0,RS_D1,RS_D2,RS_D3,RS_D4,RS_D5,RS_D6,RS_D7,
                RS_D16,RS_D17,RS_D18,RS_D19,RS_D20,RS_D21,RS_D22,RS_D23,RS_D24,RS_D25,RS_D26,RS_D27,RS_D28,RS_D29,RS_D30,RS_D31,
@@ -531,7 +531,7 @@ unit cgcpu;
     procedure tcgarm.a_call_reg(list : TAsmList;reg: tregister);
       begin
         { check not really correct: should only be used for non-Thumb cpus }
-        if (current_settings.cputype<cpu_armv6) then
+        if (current_settings^.cputype<cpu_armv6) then
           begin
             list.concat(taicpu.op_reg_reg(A_MOV,NR_R14,NR_PC));
             list.concat(taicpu.op_reg_reg(A_MOV,NR_PC,reg));
@@ -1405,7 +1405,7 @@ unit cgcpu;
           begin
             firstfloatreg:=RS_NO;
             mmregs:=[];
-            case current_settings.fputype of
+            case current_settings^.fputype of
               fpu_fpa,
               fpu_fpa10,
               fpu_fpa11:
@@ -1466,13 +1466,13 @@ unit cgcpu;
                 a_reg_dealloc(list,NR_R12);
               end;
 
-            stackmisalignment:=stackmisalignment mod current_settings.alignment.localalignmax;
+            stackmisalignment:=stackmisalignment mod current_settings^.alignment.localalignmax;
             if (LocalSize<>0) or
                ((stackmisalignment<>0) and
                 ((pi_do_call in current_procinfo.flags) or
                  (po_assembler in current_procinfo.procdef.procoptions))) then
               begin
-                localsize:=align(localsize+stackmisalignment,current_settings.alignment.localalignmax)-stackmisalignment;
+                localsize:=align(localsize+stackmisalignment,current_settings^.alignment.localalignmax)-stackmisalignment;
                 if not(is_shifter_const(localsize,shift)) then
                   begin
                     if current_procinfo.framepointer=NR_STACK_POINTER_REG then
@@ -1493,7 +1493,7 @@ unit cgcpu;
              begin
                reference_reset(ref,4);
                if (tg.direction*tarmprocinfo(current_procinfo).floatregstart>=1023) or
-                  (current_settings.fputype in [fpu_vfpv2,fpu_vfpv3]) then
+                  (current_settings^.fputype in [fpu_vfpv2,fpu_vfpv3]) then
                  begin
                    if not is_shifter_const(tarmprocinfo(current_procinfo).floatregstart,shift) then
                      begin
@@ -1512,7 +1512,7 @@ unit cgcpu;
                    ref.offset:=tarmprocinfo(current_procinfo).floatregstart;
                  end;
 
-               case current_settings.fputype of
+               case current_settings^.fputype of
                  fpu_fpa,
                  fpu_fpa10,
                  fpu_fpa11:
@@ -1526,7 +1526,7 @@ unit cgcpu;
                      ref.index:=ref.base;
                      ref.base:=NR_NO;
                      { FSTMX is deprecated on ARMv6 and later }
-                     if (current_settings.cputype<cpu_armv6) then
+                     if (current_settings^.cputype<cpu_armv6) then
                        postfix:=PF_IAX
                      else
                        postfix:=PF_IAD;
@@ -1555,7 +1555,7 @@ unit cgcpu;
             stackmisalignment:=0;
             firstfloatreg:=RS_NO;
             mmregs:=[];
-            case current_settings.fputype of
+            case current_settings^.fputype of
               fpu_fpa,
               fpu_fpa10,
               fpu_fpa11:
@@ -1587,7 +1587,7 @@ unit cgcpu;
               begin
                 reference_reset(ref,4);
                 if (tg.direction*tarmprocinfo(current_procinfo).floatregstart>=1023) or
-                   (current_settings.fputype in [fpu_vfpv2,fpu_vfpv3]) then
+                   (current_settings^.fputype in [fpu_vfpv2,fpu_vfpv3]) then
                   begin
                     if not is_shifter_const(tarmprocinfo(current_procinfo).floatregstart,shift) then
                       begin
@@ -1605,7 +1605,7 @@ unit cgcpu;
                     ref.base:=current_procinfo.framepointer;
                     ref.offset:=tarmprocinfo(current_procinfo).floatregstart;
                   end;
-                case current_settings.fputype of
+                case current_settings^.fputype of
                   fpu_fpa,
                   fpu_fpa10,
                   fpu_fpa11:
@@ -1619,7 +1619,7 @@ unit cgcpu;
                       ref.index:=ref.base;
                       ref.base:=NR_NO;
                       { FLDMX is deprecated on ARMv6 and later }
-                      if (current_settings.cputype<cpu_armv6) then
+                      if (current_settings^.cputype<cpu_armv6) then
                         mmpostfix:=PF_IAX
                       else
                         mmpostfix:=PF_IAD;
@@ -1643,7 +1643,7 @@ unit cgcpu;
             for r:=RS_R0 to RS_R15 do
               if (r in regs) then
                 inc(stackmisalignment,4);
-            stackmisalignment:=stackmisalignment mod current_settings.alignment.localalignmax;
+            stackmisalignment:=stackmisalignment mod current_settings^.alignment.localalignmax;
             if (current_procinfo.framepointer=NR_STACK_POINTER_REG) then
               begin
                 LocalSize:=current_procinfo.calc_stackframe_size;
@@ -1652,7 +1652,7 @@ unit cgcpu;
                     ((pi_do_call in current_procinfo.flags) or
                      (po_assembler in current_procinfo.procdef.procoptions))) then
                   begin
-                    localsize:=align(localsize+stackmisalignment,current_settings.alignment.localalignmax)-stackmisalignment;
+                    localsize:=align(localsize+stackmisalignment,current_settings^.alignment.localalignmax)-stackmisalignment;
                     if not(is_shifter_const(LocalSize,shift)) then
                       begin
                         a_reg_alloc(list,NR_R12);
@@ -1668,7 +1668,7 @@ unit cgcpu;
 
                 if regs=[] then
                   begin
-                    if (current_settings.cputype<cpu_armv6) then
+                    if (current_settings^.cputype<cpu_armv6) then
                       list.concat(taicpu.op_reg_reg(A_MOV,NR_PC,NR_R14))
                     else
                       list.concat(taicpu.op_reg(A_BX,NR_R14))
@@ -1689,7 +1689,7 @@ unit cgcpu;
                 list.concat(setoppostfix(taicpu.op_ref_regset(A_LDM,ref,R_INTREGISTER,R_SUBWHOLE,regs),PF_EA));
               end;
           end
-        else if (current_settings.cputype<cpu_armv6) then
+        else if (current_settings^.cputype<cpu_armv6) then
           list.concat(taicpu.op_reg_reg(A_MOV,NR_PC,NR_R14))
         else
           list.concat(taicpu.op_reg(A_BX,NR_R14))
@@ -1925,7 +1925,7 @@ unit cgcpu;
         helpsize:=12+maxtmpreg*4;//52 with maxtmpreg=10
         dstref:=dest;
         srcref:=source;
-        if cs_opt_size in current_settings.optimizerswitches then
+        if cs_opt_size in current_settings^.optimizerswitches then
           helpsize:=8;
         if (len<=helpsize) and aligned then
           begin
@@ -2032,7 +2032,7 @@ unit cgcpu;
 
                 countreg:=getintregister(list,OS_32);
 
-//            if cs_opt_size in current_settings.optimizerswitches  then
+//            if cs_opt_size in current_settings^.optimizerswitches  then
                 { roozbeh : it seems loading 1 byte is faster becouse of caching/fetching(?) }
                 {if aligned then
                 genloop(len,4)
@@ -2073,7 +2073,7 @@ unit cgcpu;
         ai:TAiCpu;
         hflags : tresflags;
       begin
-        if not(cs_check_overflow in current_settings.localswitches) then
+        if not(cs_check_overflow in current_settings^.localswitches) then
           exit;
         current_asmdata.getjumplabel(hl);
         case ovloc.loc of
@@ -2541,7 +2541,7 @@ unit cgcpu;
           current_asmdata.weakrefasmsymbol(s);
         current_asmdata.asmlists[al_imports].concat(tai_directive.create(asd_indirect_symbol,s));
 
-        if not(cs_create_pic in current_settings.moduleswitches) then
+        if not(cs_create_pic in current_settings^.moduleswitches) then
           begin
             l1 := current_asmdata.RefAsmSymbol('L'+s+'$slp');
             reference_reset_symbol(href,l1,0,sizeof(pint));
@@ -3339,13 +3339,13 @@ unit cgcpu;
             if current_procinfo.framepointer<>NR_STACK_POINTER_REG then
               list.concat(taicpu.op_reg_reg(A_MOV,NR_FRAME_POINTER_REG,NR_R12));
 
-            stackmisalignment:=stackmisalignment mod current_settings.alignment.localalignmax;
+            stackmisalignment:=stackmisalignment mod current_settings^.alignment.localalignmax;
             if (LocalSize<>0) or
                ((stackmisalignment<>0) and
                 ((pi_do_call in current_procinfo.flags) or
                  (po_assembler in current_procinfo.procdef.procoptions))) then
               begin
-                localsize:=align(localsize+stackmisalignment,current_settings.alignment.localalignmax)-stackmisalignment;
+                localsize:=align(localsize+stackmisalignment,current_settings^.alignment.localalignmax)-stackmisalignment;
                 if not(is_shifter_const(localsize,shift)) then
                   begin
                     if current_procinfo.framepointer=NR_STACK_POINTER_REG then
@@ -3441,7 +3441,7 @@ unit cgcpu;
               if (r in regs) then
                 inc(stackmisalignment,4);
 
-            stackmisalignment:=stackmisalignment mod current_settings.alignment.localalignmax;
+            stackmisalignment:=stackmisalignment mod current_settings^.alignment.localalignmax;
             if (current_procinfo.framepointer=NR_STACK_POINTER_REG) then
               begin
                 LocalSize:=current_procinfo.calc_stackframe_size;
@@ -3450,7 +3450,7 @@ unit cgcpu;
                     ((pi_do_call in current_procinfo.flags) or
                      (po_assembler in current_procinfo.procdef.procoptions))) then
                   begin
-                    localsize:=align(localsize+stackmisalignment,current_settings.alignment.localalignmax)-stackmisalignment;
+                    localsize:=align(localsize+stackmisalignment,current_settings^.alignment.localalignmax)-stackmisalignment;
                     if not(is_shifter_const(LocalSize,shift)) then
                       begin
                         a_reg_alloc(list,NR_R12);
@@ -3670,7 +3670,7 @@ unit cgcpu;
 
     procedure create_codegen;
       begin
-        if current_settings.cputype in cpu_thumb2 then
+        if current_settings^.cputype in cpu_thumb2 then
           begin
             cg:=tthumb2cgarm.create;
             cg64:=tthumb2cg64farm.create;

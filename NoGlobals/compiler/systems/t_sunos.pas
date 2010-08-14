@@ -130,9 +130,9 @@ begin
    LibrarySearchPath.AddPath(sysrootpath,'/lib;/usr/lib;/usr/X11R6/lib;/opt/sfw/lib',true);
 {$endif not x86_64}
 {$ifdef  LinkTest}
-     if (cs_link_staticflag in current_settings.globalswitches) then  WriteLN('ForceLinkStaticFlag');
-     if (cs_link_static in current_settings.globalswitches) then  WriteLN('LinkStatic-Flag');
-     if (cs_link_shared in current_settings.globalswitches) then  WriteLN('LinkSynamicFlag');
+     if (cs_link_staticflag in current_settings^.globalswitches) then  WriteLN('ForceLinkStaticFlag');
+     if (cs_link_static in current_settings^.globalswitches) then  WriteLN('LinkStatic-Flag');
+     if (cs_link_shared in current_settings^.globalswitches) then  WriteLN('LinkSynamicFlag');
 {$EndIf}
 end;
 

@@ -334,7 +334,7 @@ implementation
                 exit;
 
 {$ifdef SUPPORT_MMX}
-              if (cs_mmx in current_settings.localswitches) and
+              if (cs_mmx in current_settings^.localswitches) and
                  is_mmx_able_array(ld) then
                 exit;
 {$endif SUPPORT_MMX}
@@ -348,7 +348,7 @@ implementation
                 exit;
 
 {$ifdef SUPPORT_MMX}
-              if (cs_mmx in current_settings.localswitches) and
+              if (cs_mmx in current_settings^.localswitches) and
                  is_mmx_able_array(ld) then
                 exit;
 {$endif SUPPORT_MMX}

@@ -223,7 +223,7 @@ begin
 
   prtobj:='prt0';
   cprtobj:='cprt0';
-  if (cs_profile in current_settings.moduleswitches) or
+  if (cs_profile in current_settings^.moduleswitches) or
      (not SharedLibFiles.Empty) then
    begin
      AddSharedLibrary('root');
@@ -369,7 +369,7 @@ var
   StaticStr,
   StripStr   : string[40];
 begin
-  if not(cs_link_nolink in current_settings.globalswitches) then
+  if not(cs_link_nolink in current_settings^.globalswitches) then
    Message1(exec_i_linking,current_module.exefilename^);
 
 { Create some replacements }
@@ -377,16 +377,16 @@ begin
   StripStr:='';
   DynLinkStr:='';
   GCSectionsStr:='';
-  if (cs_link_staticflag in current_settings.globalswitches) then
+  if (cs_link_staticflag in current_settings^.globalswitches) then
    StaticStr:='-static';
-  if (cs_link_strip in current_settings.globalswitches) then
+  if (cs_link_strip in current_settings^.globalswitches) then
    StripStr:='-s';
 
-  if (cs_link_smart in current_settings.globalswitches) and
+  if (cs_link_smart in current_settings^.globalswitches) and
      (tf_smartlink_sections in target_info.flags) then
       GCSectionsStr:='--gc-sections';
 
-  If (cs_profile in current_settings.moduleswitches) or
+  If (cs_profile in current_settings^.moduleswitches) or
      ((Info.DynamicLinker<>'') and (not SharedLibFiles.Empty)) then
    begin
      DynLinkStr:='-dynamic-linker='+Info.DynamicLinker;
@@ -411,7 +411,7 @@ begin
   success:=DoExec(FindUtil(utilsprefix+BinStr),CmdStr,true,true);
 
 { Remove ReponseFile }
-  if (success) and not(cs_link_nolink in current_settings.globalswitches) then
+  if (success) and not(cs_link_nolink in current_settings^.globalswitches) then
    DeleteFile(outputexedir+Info.ResName);
 
   MakeExecutable:=success;   { otherwise a recursive call to link method }
@@ -430,18 +430,18 @@ var
 
  begin
   MakeSharedLibrary:=false;
-  if not(cs_link_nolink in current_settings.globalswitches) then
+  if not(cs_link_nolink in current_settings^.globalswitches) then
    Message1(exec_i_linking,current_module.sharedlibfilename^);
 
 { Create some replacements }
   StaticStr:='';
   StripStr:='';
   DynLinkStr:='';
-  if (cs_link_staticflag in current_settings.globalswitches) then
+  if (cs_link_staticflag in current_settings^.globalswitches) then
    StaticStr:='-static';
-  if (cs_link_strip in current_settings.globalswitches) then
+  if (cs_link_strip in current_settings^.globalswitches) then
    StripStr:='-s';
-  If (cs_profile in current_settings.moduleswitches) or
+  If (cs_profile in current_settings^.moduleswitches) or
      ((Info.DynamicLinker<>'') and (not SharedLibFiles.Empty)) then
    begin
      DynLinkStr:='-dynamic-linker='+Info.DynamicLinker;
@@ -468,7 +468,7 @@ var
   success:=DoExec(FindUtil(utilsprefix+binstr),cmdstr,true,true);
 
 { Strip the library ? }
-  if success and (cs_link_strip in current_settings.globalswitches) then
+  if success and (cs_link_strip in current_settings^.globalswitches) then
    begin
      SplitBinCmd(Info.DllCmd[2],binstr,cmdstr);
      Replace(cmdstr,'$EXE',maybequoted(current_module.sharedlibfilename^));
@@ -476,7 +476,7 @@ var
    end;
 
 { Remove ReponseFile }
-  if (success) and not(cs_link_nolink in current_settings.globalswitches) then
+  if (success) and not(cs_link_nolink in current_settings^.globalswitches) then
    DeleteFile(outputexedir+Info.ResName);
 
   MakeSharedLibrary:=success;   { otherwise a recursive call to link method }

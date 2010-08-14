@@ -458,11 +458,11 @@ end;
              init_settings.packenum:=current_settings^.packenum;
 {$ifdef i386}
            { Default to intel assembler for delphi/tp7 on i386 }
-           if (m_delphi in current_settings.modeswitches) or
-              (m_tp7 in current_settings.modeswitches) then
-             current_settings.asmmode:=asmmode_i386_intel;
+           if (m_delphi in current_settings^.modeswitches) or
+              (m_tp7 in current_settings^.modeswitches) then
+             current_settings^.asmmode:=asmmode_i386_intel;
            if changeinit then
-             init_settings.asmmode:=current_settings.asmmode;
+             init_settings.asmmode:=current_settings^.asmmode;
 {$endif i386}
 
            { Exception support explicitly turned on (mainly for macpas, to }

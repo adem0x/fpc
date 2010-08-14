@@ -110,7 +110,7 @@ begin
   if info.ExtraOptions<>'' then
     LinkRes.Add(Info.ExtraOptions);
 (* Potential issues with older ld version??? *)
-  if (cs_link_strip in current_settings.globalswitches) then
+  if (cs_link_strip in current_settings^.globalswitches) then
     LinkRes.Add('-s');
   LinkRes.Add('-o '+maybequoted(current_module.exefilename^));
 
@@ -270,7 +270,7 @@ var
   cmdstr  : TCmdStr;
   success : boolean;
 begin
-  if not(cs_link_nolink in current_settings.globalswitches) then
+  if not(cs_link_nolink in current_settings^.globalswitches) then
    Message1(exec_i_linking,current_module.exefilename^);
 
   { Write used files and libraries and our own ld script }
@@ -283,7 +283,7 @@ begin
   success:=DoExec(FindUtil(utilsprefix+BinStr),cmdstr,true,false);
 
 { Remove ReponseFile }
-  if (success) and not(cs_link_nolink in current_settings.globalswitches) then
+  if (success) and not(cs_link_nolink in current_settings^.globalswitches) then
    begin
      DeleteFile(outputexedir+Info.ResName);
      DeleteFile(outputexedir+Info.ScriptName);
@@ -334,7 +334,7 @@ var
   zerobuf : pointer;
 begin
   { when -s is used quit, because there is no .exe }
-  if cs_link_nolink in current_settings.globalswitches then
+  if cs_link_nolink in current_settings^.globalswitches then
    exit;
   { open file }
   assign(f,n);

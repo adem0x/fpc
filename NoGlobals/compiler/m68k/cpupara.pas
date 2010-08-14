@@ -230,7 +230,7 @@ unit cpupara;
 
         paraloc:=result.add_location;
         { Return in FPU register? }
-        if not(cs_fp_emulation in current_settings.moduleswitches) and (p.returndef.typ=floatdef) then
+        if not(cs_fp_emulation in current_settings^.moduleswitches) and (p.returndef.typ=floatdef) then
           begin
             paraloc^.loc:=LOC_FPUREGISTER;
             paraloc^.register:=NR_FPU_RESULT_REG;

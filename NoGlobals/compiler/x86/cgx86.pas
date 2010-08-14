@@ -499,10 +499,10 @@ unit cgx86;
             if assigned(ref.symbol) and
                not(assigned(ref.relsymbol)) and
                ((ref.symbol.bind in [AB_EXTERNAL,AB_WEAK_EXTERNAL]) or
-                (cs_create_pic in current_settings.moduleswitches)) then
+                (cs_create_pic in current_settings^.moduleswitches)) then
              begin
                if (ref.symbol.bind in [AB_EXTERNAL,AB_WEAK_EXTERNAL]) or
-                  ((cs_create_pic in current_settings.moduleswitches) and
+                  ((cs_create_pic in current_settings^.moduleswitches) and
                    (ref.symbol.bind in [AB_COMMON,AB_GLOBAL,AB_PRIVATE_EXTERN])) then
                  begin
                    hreg:=g_indirect_sym_load(list,ref.symbol.name,ref.symbol.bind=AB_WEAK_EXTERNAL);
@@ -517,7 +517,7 @@ unit cgx86;
                add_hreg:=true
              end
           end
-        else if (cs_create_pic in current_settings.moduleswitches) and
+        else if (cs_create_pic in current_settings^.moduleswitches) and
            assigned(ref.symbol) and
            not((ref.symbol.bind=AB_LOCAL) and
                (ref.symbol.typ in [AT_LABEL,AT_FUNCTION])) then

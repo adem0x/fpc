@@ -398,7 +398,7 @@ unit agppcgas;
 {$ifdef cpu64bitaddr}
         Replace(result,'$ARCH','ppc64')
 {$else cpu64bitaddr}
-        case current_settings.cputype of
+        case current_settings^.cputype of
           cpu_PPC7400:
             Replace(result,'$ARCH','ppc7400');
           cpu_PPC970:

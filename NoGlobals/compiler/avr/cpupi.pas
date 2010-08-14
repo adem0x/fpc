@@ -75,7 +75,7 @@ unit cpupi;
          r : byte;
          floatsavesize : aword;
       begin
-        maxpushedparasize:=align(maxpushedparasize,max(current_settings.alignment.localalignmin,4));
+        maxpushedparasize:=align(maxpushedparasize,max(current_settings^.alignment.localalignmin,4));
       end;
 
 

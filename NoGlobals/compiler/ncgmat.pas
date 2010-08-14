@@ -184,7 +184,7 @@ implementation
         cg64.a_op64_loc_reg(current_asmdata.CurrAsmList,OP_NEG,OS_S64,
           left.location,joinreg64(location.register64.reglo,location.register64.reghi));
         { there's only overflow in case left was low(int64) -> -left = left }
-        if (cs_check_overflow in current_settings.localswitches) then
+        if (cs_check_overflow in current_settings^.localswitches) then
           begin
             tr:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
             cg.a_op_const_reg_reg(current_asmdata.CurrAsmList,OP_XOR,OS_INT,
@@ -495,7 +495,7 @@ implementation
         if is_boolean(resultdef) then
           second_boolean
 {$ifdef SUPPORT_MMX}
-        else if (cs_mmx in current_settings.localswitches) and is_mmx_able_array(left.resultdef) then
+        else if (cs_mmx in current_settings^.localswitches) and is_mmx_able_array(left.resultdef) then
           second_mmx
 {$endif SUPPORT_MMX}
 {$ifndef cpu64bitalu}

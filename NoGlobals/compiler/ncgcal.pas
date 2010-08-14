@@ -355,7 +355,7 @@ implementation
 {$ifdef arm}
                 if (resultdef.typ=floatdef) and
                    (location.loc=LOC_REGISTER) and
-                   (current_settings.fputype in [fpu_fpa,fpu_fpa10,fpu_fpa11]) then
+                   (current_settings^.fputype in [fpu_fpa,fpu_fpa10,fpu_fpa11]) then
                   begin
                     location_force_mem(current_asmdata.CurrAsmList,location);
                   end;

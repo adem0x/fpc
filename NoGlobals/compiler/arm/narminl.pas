@@ -75,7 +75,7 @@ implementation
     procedure tarminlinenode.load_fpu_location(out singleprec: boolean);
       begin
         secondpass(left);
-        case current_settings.fputype of
+        case current_settings^.fputype of
           fpu_fpa,
           fpu_fpa10,
           fpu_fpa11:
@@ -108,11 +108,11 @@ implementation
 
     function tarminlinenode.first_abs_real : tnode;
       begin
-        if (cs_fp_emulation in current_settings.moduleswitches) then
+        if (cs_fp_emulation in current_settings^.moduleswitches) then
           result:=inherited first_abs_real
         else
           begin
-            case current_settings.fputype of
+            case current_settings^.fputype of
               fpu_fpa,
               fpu_fpa10,
               fpu_fpa11:
@@ -130,11 +130,11 @@ implementation
 
     function tarminlinenode.first_sqr_real : tnode;
       begin
-        if (cs_fp_emulation in current_settings.moduleswitches) then
+        if (cs_fp_emulation in current_settings^.moduleswitches) then
           result:=inherited first_sqr_real
         else
           begin
-            case current_settings.fputype of
+            case current_settings^.fputype of
               fpu_fpa,
               fpu_fpa10,
               fpu_fpa11:
@@ -152,11 +152,11 @@ implementation
 
     function tarminlinenode.first_sqrt_real : tnode;
       begin
-        if cs_fp_emulation in current_settings.moduleswitches then
+        if cs_fp_emulation in current_settings^.moduleswitches then
           result:=inherited first_sqrt_real
         else
           begin
-            case current_settings.fputype of
+            case current_settings^.fputype of
               fpu_fpa,
               fpu_fpa10,
               fpu_fpa11:
@@ -207,7 +207,7 @@ implementation
         op: TAsmOp;
       begin
         load_fpu_location(singleprec);
-        case current_settings.fputype of
+        case current_settings^.fputype of
           fpu_fpa,
           fpu_fpa10,
           fpu_fpa11:
@@ -233,7 +233,7 @@ implementation
         op: TAsmOp;
       begin
         load_fpu_location(singleprec);
-        case current_settings.fputype of
+        case current_settings^.fputype of
           fpu_fpa,
           fpu_fpa10,
           fpu_fpa11:
@@ -259,7 +259,7 @@ implementation
         op: TAsmOp;
       begin
         load_fpu_location(singleprec);
-        case current_settings.fputype of
+        case current_settings^.fputype of
           fpu_fpa,
           fpu_fpa10,
           fpu_fpa11:
@@ -312,7 +312,7 @@ implementation
         ref : treference;
         r : tregister;
       begin
-        if current_settings.cputype>=cpu_armv5 then
+        if current_settings^.cputype>=cpu_armv5 then
           begin
             secondpass(left);
             case left.location.loc of

@@ -109,7 +109,7 @@ unit cpupara;
             orddef:
               getparaloc:=LOC_REGISTER;
             floatdef:
-              if (calloption in [pocall_cdecl,pocall_cppdecl,pocall_softfloat]) or (cs_fp_emulation in current_settings.moduleswitches) then
+              if (calloption in [pocall_cdecl,pocall_cppdecl,pocall_softfloat]) or (cs_fp_emulation in current_settings^.moduleswitches) then
                 getparaloc:=LOC_REGISTER
               else
                 getparaloc:=LOC_FPUREGISTER;
@@ -453,7 +453,7 @@ unit cpupara;
         { Return in FPU register? }
         if def.typ=floatdef then
           begin
-            if (p.proccalloption in [pocall_softfloat]) or (cs_fp_emulation in current_settings.moduleswitches) then
+            if (p.proccalloption in [pocall_softfloat]) or (cs_fp_emulation in current_settings^.moduleswitches) then
               begin
                 case retcgsize of
                   OS_64,

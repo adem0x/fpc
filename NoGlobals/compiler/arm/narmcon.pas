@@ -78,8 +78,8 @@ interface
                 begin
                   current_procinfo.aktlocaldata.concat(Tai_real_32bit.Create(ts32real(value_real)));
                   { range checking? }
-                  if ((cs_check_range in current_settings.localswitches) or
-                    (cs_check_overflow in current_settings.localswitches)) and
+                  if ((cs_check_range in current_settings^.localswitches) or
+                    (cs_check_overflow in current_settings^.localswitches)) and
                     (tai_real_32bit(current_procinfo.aktlocaldata.last).value=MathInf.Value) then
                     Message(parser_e_range_check_error);
                 end;
@@ -92,8 +92,8 @@ interface
                     current_procinfo.aktlocaldata.concat(Tai_real_64bit.Create(ts64real(value_real)));
 
                   { range checking? }
-                  if ((cs_check_range in current_settings.localswitches) or
-                    (cs_check_overflow in current_settings.localswitches)) and
+                  if ((cs_check_range in current_settings^.localswitches) or
+                    (cs_check_overflow in current_settings^.localswitches)) and
                     (tai_real_64bit(current_procinfo.aktlocaldata.last).value=MathInf.Value) then
                     Message(parser_e_range_check_error);
                end;
@@ -103,8 +103,8 @@ interface
                   current_procinfo.aktlocaldata.concat(Tai_real_80bit.Create(value_real,tfloatdef(resultdef).size));
 
                   { range checking? }
-                  if ((cs_check_range in current_settings.localswitches) or
-                    (cs_check_overflow in current_settings.localswitches)) and
+                  if ((cs_check_range in current_settings^.localswitches) or
+                    (cs_check_overflow in current_settings^.localswitches)) and
                     (tai_real_80bit(current_procinfo.aktlocaldata.last).value=MathInf.Value) then
                     Message(parser_e_range_check_error);
                 end;
@@ -114,8 +114,8 @@ interface
                   current_procinfo.aktlocaldata.concat(Tai_real_128bit.Create(value_real));
 
                   { range checking? }
-                  if ((cs_check_range in current_settings.localswitches) or
-                    (cs_check_overflow in current_settings.localswitches)) and
+                  if ((cs_check_range in current_settings^.localswitches) or
+                    (cs_check_overflow in current_settings^.localswitches)) and
                     (tai_real_128bit(current_procinfo.aktlocaldata.last).value=MathInf.Value) then
                     Message(parser_e_range_check_error);
                 end;

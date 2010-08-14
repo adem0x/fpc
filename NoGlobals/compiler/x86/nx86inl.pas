@@ -395,7 +395,7 @@ implementation
          r : tregister;
        begin
 {$ifdef i386}
-         if current_settings.cputype>=cpu_Pentium3 then
+         if current_settings^.cputype>=cpu_Pentium3 then
 {$endif i386}
            begin
              secondpass(left);
@@ -422,7 +422,7 @@ implementation
         hp : taicpu;
       begin
 {$ifdef i386}
-        if current_settings.cputype<cpu_Pentium2 then
+        if current_settings^.cputype<cpu_Pentium2 then
           begin
             opsize:=def_cgsize(left.resultdef);
             secondpass(left);

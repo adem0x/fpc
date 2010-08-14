@@ -494,7 +494,7 @@ begin
   if (target_info.res=res_none) or ((target_res.resbin='')
     and (ResCompiler='')) then
       exit;
-//  if cs_link_nolink in current_settings.globalswitches then
+//  if cs_link_nolink in current_settings^.globalswitches then
 //    exit;
   s:=ChangeFileExt(current_module.ppufilename^,target_info.resobjext);
   if (res_arch_in_file_name in target_res.resflags) then

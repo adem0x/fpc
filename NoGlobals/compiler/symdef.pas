@@ -1200,7 +1200,7 @@ implementation
 {$ifdef x86}
        result:=use_vectorfpu(self);
 {$else x86}
-       result:=(typ=floatdef) and not(cs_fp_emulation in current_settings.moduleswitches);
+       result:=(typ=floatdef) and not(cs_fp_emulation in current_settings^.moduleswitches);
 {$endif x86}
      end;
 

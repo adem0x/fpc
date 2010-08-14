@@ -85,9 +85,9 @@ unit cpupi;
          floatsavesize : aword;
          regs: tcpuregisterset;
       begin
-        maxpushedparasize:=align(maxpushedparasize,max(current_settings.alignment.localalignmin,4));
+        maxpushedparasize:=align(maxpushedparasize,max(current_settings^.alignment.localalignmin,4));
         floatsavesize:=0;
-        case current_settings.fputype of
+        case current_settings^.fputype of
           fpu_fpa,
           fpu_fpa10,
           fpu_fpa11:
@@ -115,8 +115,8 @@ unit cpupi;
                   inc(floatsavesize,8);
             end;
         end;
-        floatsavesize:=align(floatsavesize,max(current_settings.alignment.localalignmin,4));
-        result:=Align(tg.direction*tg.lasttemp,max(current_settings.alignment.localalignmin,4))+maxpushedparasize+aint(floatsavesize);
+        floatsavesize:=align(floatsavesize,max(current_settings^.alignment.localalignmin,4));
+        result:=Align(tg.direction*tg.lasttemp,max(current_settings^.alignment.localalignmin,4))+maxpushedparasize+aint(floatsavesize);
         floatregstart:=tg.direction*result+maxpushedparasize;
         if tg.direction=1 then
           dec(floatregstart,floatsavesize);

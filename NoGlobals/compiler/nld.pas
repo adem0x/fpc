@@ -595,7 +595,7 @@ implementation
                 not is_constrealnode(right)
 {$ifdef cpufpemu}
                 { the emulator can't do this obviously }
-                and not(current_settings.fputype in [fpu_libgcc,fpu_soft])
+                and not(current_settings^.fputype in [fpu_libgcc,fpu_soft])
 {$endif cpufpemu}
 
 {$ifdef x86}

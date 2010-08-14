@@ -46,8 +46,8 @@ implementation
   procedure tarmcallnode.set_result_location(realresdef: tstoreddef);
     begin
       if (realresdef.typ=floatdef) and
-         ((cs_fp_emulation in current_settings.moduleswitches) or
-          (current_settings.fputype in [fpu_vfpv2,fpu_vfpv3])) then
+         ((cs_fp_emulation in current_settings^.moduleswitches) or
+          (current_settings^.fputype in [fpu_vfpv2,fpu_vfpv3])) then
         begin
           { keep the fpu values in integer registers for now, the code
             generator will move them to memory or an mmregister when necessary
