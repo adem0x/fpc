@@ -40,14 +40,6 @@ unit scandir;
     type
       tswitchesstatestack = array[0..switchesstatestackmax] of tsavedswitchesstate;
 
-{$IFDEF old}
-    var
-      switchesstatestack:tswitchesstatestack;
-      switchesstatestackpos: Integer;
-{$ELSE}
-  //in scanner
-{$ENDIF}
-
     procedure InitScannerDirectives;
 
   implementation
@@ -934,16 +926,7 @@ unit scandir;
 
     procedure dir_pop;
     begin
-    {$IFDEF old}
-      if switchesstatestackpos < 1 then
-        Message(scan_e_too_many_pop);
-
-      Dec(switchesstatestackpos);
-      recordpendinglocalfullswitch(switchesstatestack[switchesstatestackpos].localsw);
-      recordpendingverbosityfullswitch(switchesstatestack[switchesstatestackpos].verbosity);
-    {$ELSE}
       current_scanner.dir_pop;
-    {$ENDIF}
     end;
 
     procedure dir_profile;
@@ -958,18 +941,7 @@ unit scandir;
 
     procedure dir_push;
     begin
-    {$IFDEF old}
-      if switchesstatestackpos > switchesstatestackmax then
-        Message(scan_e_too_many_push);
-
-      flushpendingswitchesstate;
-
-      switchesstatestack[switchesstatestackpos].localsw:= current_settings^.localswitches;
-      switchesstatestack[switchesstatestackpos].verbosity:=status.verbosity;
-      Inc(switchesstatestackpos);
-    {$ELSE}
       current_scanner.dir_push;
-    {$ENDIF}
     end;
 
     procedure dir_rangechecks;

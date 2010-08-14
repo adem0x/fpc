@@ -585,11 +585,7 @@ implementation
         begin
           if current_procinfo=tprocinfo(fprocinfo) then
             begin
-            {$IFDEF old}
-              current_procinfo:=nil;
-            {$ELSE}
               RestoreProc(nil);
-            {$ENDIF}
               current_objectdef:=nil;
             end;
           { release procinfo tree }
@@ -678,17 +674,7 @@ implementation
         hpi : tprocinfo;
         i   : longint;
       begin
-      {$IFDEF old}
-        if assigned(scanner) then
-          begin
-            { also update current_scanner if it was pointing
-              to this module }
-            //if current_scanner=tscannerfile(scanner) then current_scanner:=nil;
-            FreeAndNil(scanner);
-          end;
-      {$ELSE}
-        //destroy scanner moved below!
-      {$ENDIF}
+        //destroy scanner moved below! (may be referenced)
         DoneProc;
         if assigned(asmdata) then
           begin

@@ -128,16 +128,12 @@ unit procinfo;
 
     var
        cprocinfo : tcprocinfo;
-    {$IFDEF old}
-       { information about the current sub routine being parsed (@var(pprocinfo))}
-       current_procinfo : tprocinfo;
-    {$ELSE}
-       { information about the current sub routine being parsed (@var(pprocinfo))}
+
+    { information about the current sub routine being parsed (@var(pprocinfo))}
     function  current_procinfo : tprocinfo; inline;
     function  EnterProc(AProc: tprocinfo): tprocinfo; inline;
     procedure RestoreProc(AProc: tprocinfo); inline;
     procedure DestroyCurrentProc;
-    {$ENDIF}
 
 
 implementation

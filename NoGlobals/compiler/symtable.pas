@@ -2635,9 +2635,17 @@ implementation
 
    procedure InitSymtable;
      begin
+     (* Problem: symbols tend to check for duplicates in symtablestack and
+        in macrosymtablestack - which do not exist on compiler initialization.
+
+        Either a dummy GlobalModule has to be used for all global/initial settings,
+        or (time consuming) workarounds have to be implemented in the getters.
+        Eventually current_module can be tested for nil, in order to determine
+        compiler initialization state.
+     *)
        { Reset symbolstack }
-     {$IFDEF old}
-       symtablestack:=nil;
+     {$IFDEF GlobalModule}
+       symtablestack:=nil;  //todo: fix symtablestack implementation for this case
      {$ELSE}
       //in module
      {$ENDIF}

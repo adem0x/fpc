@@ -843,12 +843,7 @@ implementation
         old_current_objectdef:=current_objectdef;
         oldmaxfpuregisters:=current_settings^.maxfpuregisters;
 
-      {$IFDEF old}
-        old_current_procinfo:=current_procinfo;
-        current_procinfo:=self;
-      {$ELSE}
         old_current_procinfo:=EnterProc(self);
-      {$ENDIF}
         current_filepos:=entrypos;
         current_objectdef:=procdef._class;
 
@@ -1281,11 +1276,7 @@ implementation
         current_settings^.maxfpuregisters:=oldmaxfpuregisters;
         current_filepos:=oldfilepos;
         current_objectdef:=old_current_objectdef;
-      {$IFDEF old}
-        current_procinfo:=old_current_procinfo;
-      {$ELSE}
         RestoreProc(old_current_procinfo);
-      {$ENDIF}
       end;
 
 
@@ -1425,12 +1416,7 @@ implementation
          old_block_type:=current_scanner.block_type;
          old_current_objectdef:=current_objectdef;
 
-      {$IFDEF old}
-         old_current_procinfo:=current_procinfo;
-         current_procinfo:=self;
-      {$ELSE}
-        old_current_procinfo:=EnterProc(self);
-      {$ENDIF}
+         old_current_procinfo:=EnterProc(self);
          current_objectdef:=procdef._class;
 
          { calculate the lexical level }
@@ -1538,11 +1524,7 @@ implementation
     {$endif state_tracking}
 
          current_objectdef:=old_current_objectdef;
-      {$IFDEF old}
-         current_procinfo:=old_current_procinfo;
-      {$ELSE}
          RestoreProc(old_current_procinfo);
-      {$ENDIF}
 
          { Restore old state }
          current_scanner.block_type:=old_block_type;
@@ -1595,11 +1577,7 @@ implementation
         Message1(parser_d_procedure_start,pd.fullprocname(false));
 
         { create a new procedure }
-      {$IFDEF old}
-        current_procinfo:=cprocinfo.create(old_current_procinfo);
-      {$ELSE}
         EnterProc(cprocinfo.create(old_current_procinfo));
-      {$ENDIF}
         current_module.fprocinfo:=current_procinfo;
         current_procinfo.procdef:=pd;
         isnestedproc:=(current_procinfo.procdef.parast.symtablelevel>normal_function_level);
@@ -1677,11 +1655,7 @@ implementation
 
         if not isnestedproc then
           { current_procinfo is checked for nil later on }
-        {$IFDEF old}
-          freeandnil(current_procinfo);
-        {$ELSE}
           DestroyCurrentProc;
-        {$ENDIF}
       end;
 
 
@@ -1699,17 +1673,11 @@ implementation
         s          : string;
       begin
          { save old state }
-         //old_current_procinfo:=current_procinfo;
          old_current_objectdef:=current_objectdef;
 
          { reset current_procinfo.procdef to nil to be sure that nothing is writing
            to an other procdef }
-      {$IFDEF old}
-         old_current_procinfo:=current_procinfo;
-         current_procinfo:=nil;
-      {$ELSE}
-          old_current_procinfo:=EnterProc(nil);
-      {$ENDIF}
+         old_current_procinfo:=EnterProc(nil);
          current_objectdef:=nil;
 
          { parse procedure declaration }
@@ -1839,11 +1807,7 @@ implementation
            end;
 
          current_objectdef:=old_current_objectdef;
-      {$IFDEF old}
-         current_procinfo:=old_current_procinfo;
-      {$ELSE}
-        RestoreProc(old_current_procinfo);
-      {$ENDIF}
+         RestoreProc(old_current_procinfo);
       end;
 
 
@@ -2021,14 +1985,9 @@ implementation
               ) then
           exit;
 
-        { Setup symtablestack a definition time }
+        { Setup symtablestack at definition time }
         specobj:=tobjectdef(ttypesym(p).typedef);
-      {$IFDEF old}
-        oldsymtablestack:=symtablestack;
-        symtablestack:=tsymtablestack.create;
-      {$ELSE}
         oldsymtablestack := PushSymbolStack;
-      {$ENDIF}
         if not assigned(tobjectdef(ttypesym(p).typedef).genericdef) then
           internalerror(200705151);
         hmodule:=find_module_from_symtable(specobj.genericdef.owner);
@@ -2075,12 +2034,7 @@ implementation
           end;
 
         { Restore symtablestack }
-      {$IFDEF old}
-        symtablestack.free;
-        symtablestack:=oldsymtablestack;
-      {$ELSE}
         PopSymbolStack(oldsymtablestack);
-      {$ENDIF}
       end;
 
 

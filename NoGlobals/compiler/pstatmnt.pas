@@ -774,12 +774,7 @@ implementation
          current_scanner.consume(_TRY);
          first:=nil;
          oldcurrent_exceptblock := current_parser.current_exceptblock;
-      {$IFDEF old}
-         inc(exceptblockcounter);
-         current_exceptblock := exceptblockcounter;
-      {$ELSE}
-        current_parser.NewExceptBlock;
-      {$ENDIF}
+         current_parser.NewExceptBlock;
 
          while (current_scanner.token<>_FINALLY) and (current_scanner.token<>_EXCEPT) do
            begin
@@ -801,12 +796,7 @@ implementation
 
          if current_scanner.try_to_consume(_FINALLY) then
            begin
-            {$IFDEF old}
-              inc(exceptblockcounter);
-              current_exceptblock := exceptblockcounter;
-            {$ELSE}
               current_parser.NewExceptBlock;
-            {$ENDIF}
               p_finally_block:=statements_til_end;
               try_statement:=ctryfinallynode.create(p_try_block,p_finally_block);
            end
@@ -815,12 +805,7 @@ implementation
               current_scanner.consume(_EXCEPT);
               old_block_type:=current_scanner.block_type;
               current_scanner.block_type:=bt_except;
-            {$IFDEF old}
-              inc(exceptblockcounter);
-              current_exceptblock := exceptblockcounter;
-            {$ELSE}
               current_parser.NewExceptBlock;
-            {$ENDIF}
               ot:=generrordef;
               p_specific:=nil;
               if (current_scanner.idtoken=_ON) then

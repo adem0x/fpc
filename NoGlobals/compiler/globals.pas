@@ -273,24 +273,15 @@ interface
        codegenerror : boolean;           { true if there is an error reported }
 
        compile_level : word;
-    {$IFDEF old}
-       block_type : tblock_type;         { type of currently parsed block }
 
-       exceptblockcounter    : integer;  { each except block gets a unique number check gotos      }
-       current_exceptblock        : integer;  { the exceptblock number of the current block (0 if none) }
-    {$ELSE}
-      //in TParser
-    {$ENDIF}
        LinkLibraryAliases : TLinkStrMap;
        LinkLibraryOrder   : TLinkStrMap;
 
        init_settings      : tsettings;
-    {$IFDEF old}
-       current_settings   : tsettings;
-    {$ELSE}
-      //in scanner
+
+       { moved current_settings into scanner }
        function current_settings   : psettings; //inline;
-    {$ENDIF}
+
     var
        pendingstate       : tpendingstate;
      { Memory sizes }

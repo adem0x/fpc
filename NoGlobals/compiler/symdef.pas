@@ -958,7 +958,7 @@ implementation
              DefId:=current_module.deflist.Count-1;
            end;
          { Register in symtable stack }
-      {$IFDEF old}
+      {$IFDEF GlobalModule}
          if assigned(symtablestack) then
       {$ELSE}
       //on compiler initialization symtablestack=nil

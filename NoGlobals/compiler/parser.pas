@@ -66,11 +66,6 @@ implementation
          { Current compiled module/proc }
          InvalidateModule;
          current_asmdata:=nil;
-      {$IFDEF old}
-         current_procinfo:=nil;
-      {$ELSE}
-         //member of parser
-      {$ENDIF}
          current_objectdef:=nil;
 
          loaded_units:=TLinkedList.Create;
@@ -79,7 +74,7 @@ implementation
 
          unloaded_units:=TLinkedList.Create;
 
-      {$IFDEF old}
+      {$IFDEF GlobalModule}
          { global switches }
          current_settings^.globalswitches:=init_settings.globalswitches;
 
@@ -91,13 +86,6 @@ implementation
          { initialize scanner }
          InitScanner;
          InitScannerDirectives;
-
-      {$IFDEF old}
-         { scanner - should be moved into InitScanner }
-         switchesstatestackpos:=0;
-      {$ELSE}
-        //in scanner
-      {$ENDIF}
 
          { register all nodes and tais }
          registernodes;
@@ -111,7 +99,8 @@ implementation
          RTTIWriter:=TRTTIWriter.Create;
 
          { open assembler response }
-      {$IFDEF old}
+      {$IFDEF GlobalModule}
+      //a dummy module provides global settings and symbol tables
          if cs_link_on_target in current_settings^.globalswitches then
       {$ELSE}
       //scanner with current_settings does not yet exist!
@@ -150,11 +139,6 @@ implementation
          { if there was an error in the scanner, the scanner is
            still assigned }
          InvalidateModule;
-      {$IFDEF old}
-         current_procinfo:=nil;
-      {$ELSE}
-        //field of scanner!
-      {$ENDIF}
          current_asmdata:=nil;
          current_objectdef:=nil;
 
@@ -268,17 +252,6 @@ implementation
       oldcurrent_filepos      : tfileposinfo;
       old_current_module : tmodule;
       oldcurrent_procinfo : tprocinfo;
-    {$IFDEF old}
-      oldsourcecodepage : tcodepagestring;
-      old_block_type : tblock_type;
-      oldaktprocsym    : tprocsym;
-      oldsymtablestack : TSymtablestack;
-      old_settings : tsettings;
-      old_switchesstatestack : tswitchesstatestack;
-      old_switchesstatestackpos : Integer;
-    {$ELSE}
-      //in scanner
-    {$ENDIF}
     end;
 
 
@@ -300,24 +273,12 @@ implementation
             old_current_module:=current_module;
 
             { save symtable state }
-          {$IFDEF old}
-            oldsymtablestack:=symtablestack;
-          {$ELSE}
-            //local in module
-          {$ENDIF}
             oldmacrosymtablestack:=macrosymtablestack;
 
           //todo: these should become scanner elements as well
             //oldcurrent_procinfo:=current_procinfo;
             //old_block_type:=current_scanner.block_type;
             oldtokenpos:=current_tokenpos;
-          {$IFDEF old}
-            old_switchesstatestack:=switchesstatestack;
-            old_switchesstatestackpos:=switchesstatestackpos;
-            old_settings:=current_settings;
-          {$ELSE}
-            //in scanner
-          {$ENDIF}
 
             { save akt... state }
             { handle the postponed case first }
@@ -333,32 +294,11 @@ implementation
             begin
               { restore scanner }
               current_tokenpos:=oldtokenpos;
-            {$IFDEF old}
-              block_type:=old_block_type;
-              switchesstatestack:=old_switchesstatestack;
-              switchesstatestackpos:=old_switchesstatestackpos;
-            {$ELSE}
-              //in scanner
-            {$ENDIF}
 
               { restore symtable state }
-            {$IFDEF old}
-              symtablestack:=oldsymtablestack;
-            {$ELSE}
-              //local in module
-            {$ENDIF}
               macrosymtablestack:=oldmacrosymtablestack;
-            {$IFDEF old}
-              current_procinfo:=oldcurrent_procinfo;
-              current_settings:=old_settings;
-            {$ELSE}
               RestoreProc(oldcurrent_procinfo);
-            {$ENDIF}
               current_filepos:=oldcurrent_filepos;
-            (* these don't look correct :-(
-              current_exceptblock:=0;
-              exceptblockcounter:=0;
-            *)
             end;
         end;
 
@@ -382,15 +322,7 @@ implementation
                  end;
 
                { free symtable stack }
-             {$IFDEF old}
-               if assigned(symtablestack) then
-                 begin
-                   symtablestack.free;
-                   symtablestack:=nil;
-                 end;
-             {$ELSE}
               PopSymbolStack(nil); //local in module!
-             {$ENDIF}
                if assigned(macrosymtablestack) then
                  begin
                    macrosymtablestack.free;
@@ -455,21 +387,9 @@ implementation
        { reset parser, a previous fatal error could have left these variables in an unreliable state, this is
          important for the IDE }
        { reset symtable }
-       {$IFDEF old}
-         symtablestack:=TSymtablestack.create;
-       {$ELSE}
         PushSymbolStack;  //create new
-       {$ENDIF}
          macrosymtablestack:=TSymtablestack.create;
          systemunit:=nil;
-       {$IFDEF old}
-         current_settings.defproccall:=init_settings.defproccall;
-         current_settings.maxfpuregisters:=-1;
-         { Load current state from the init values }
-         current_settings:=init_settings;
-       {$ELSE}
-        //overwritten just below
-       {$ENDIF}
 
          { load current asmdata from current_module }
          current_asmdata:=TAsmData(current_module.asmdata);
@@ -522,12 +442,6 @@ implementation
 
       begin  //compile
          { parsing a procedure or declaration should be finished }
-      {$IFDEF old}
-         if assigned(current_procinfo) then
-           internalerror(200811121);
-      {$ELSE}
-        //member of parser!
-      {$ENDIF}
          if assigned(current_objectdef) then
            internalerror(200811122);
 

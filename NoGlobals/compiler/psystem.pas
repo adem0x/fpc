@@ -399,12 +399,7 @@ implementation
         if target_info.system=system_x86_64_win64 then
           pbestrealtype:=@s64floattype;
 
-      {$IFDEF old}
-        oldcurrentmodule:=current_module;
-        set_current_module(nil);
-      {$ELSE}
         oldcurrentmodule := InvalidateModule;
-      {$ENDIF}
         loadtype('byte',u8inttype);
         loadtype('shortint',s8inttype);
         loadtype('word',u16inttype);
@@ -469,11 +464,7 @@ implementation
         ptruinttype:=u16inttype;
         ptrsinttype:=s16inttype;
 {$endif cpu16bit}
-      {$IFDEF old}
-        set_current_module(oldcurrentmodule);
-      {$ELSE}
         PopModule(oldcurrentmodule);
-      {$ENDIF}
       end;
 
 
