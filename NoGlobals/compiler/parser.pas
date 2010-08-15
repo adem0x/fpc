@@ -242,78 +242,47 @@ implementation
 *****************************************************************************}
 
   type
-    polddata=^tolddata;
     tolddata=record
     { scanner }
       oldtokenpos    : tfileposinfo;
-    { symtable }
-    {$IFDEF old}
-      oldmacrosymtablestack : TSymtablestack;
-    {$ELSE}
-    {$ENDIF}
     { akt.. things }
       oldcurrent_filepos      : tfileposinfo;
       old_current_module : tmodule;
-      oldcurrent_procinfo : tprocinfo;
     end;
+    polddata=tolddata;
 
 
     procedure compile(const filename:string);
-      var
-         olddata : polddata;
 
        procedure SaveParser(var olddata: polddata);
        begin
        (*todo: saving the scanner/parser state will no more be required
           with scanner/parser objects.
+
+          These are (currently) global variables, for error/exception log
        *)
-         { Uses heap memory instead of placing everything on the
-           stack. This is needed because compile() can be called
-           recursively }
-         new(olddata);
-         with olddata^ do
+         with olddata do
           begin //removed all local variables
             old_current_module:=current_module;
 
-            { save symtable state }
-          {$IFDEF old}
-            oldmacrosymtablestack:=macrosymtablestack;
-          {$ELSE}
-          {$ENDIF}
-
-          //todo: these should become scanner elements as well
-            //oldcurrent_procinfo:=current_procinfo;
-            //old_block_type:=current_scanner.block_type;
             oldtokenpos:=current_tokenpos;
-
-            { save akt... state }
-            { handle the postponed case first }
-            //flushpendingswitchesstate;
             oldcurrent_filepos:=current_filepos;
           end;
         end;
 
        procedure RestoreParser(var olddata: polddata);
         begin
-        //must have reset to old module before
-          with olddata^ do
+          with olddata do
             begin
+              PopModule(old_current_module);
               { restore scanner }
               current_tokenpos:=oldtokenpos;
-
-              { restore symtable state }
-            {$IFDEF old}
-              macrosymtablestack:=oldmacrosymtablestack;
-            {$ELSE}
-            {$ENDIF}
-              RestoreProc(oldcurrent_procinfo);
               current_filepos:=oldcurrent_filepos;
             end;
         end;
 
        procedure ParseFinished(var olddata: polddata);
-         var
-           hp,hp2 : tmodule;
+         //var hp,hp2 : tmodule;
          begin
            if assigned(current_module) then
              begin  //todo: move into module
@@ -332,29 +301,20 @@ implementation
 
                { free symtable stack }
               PopSymbolStack(nil); //local in module!
-             {$IFDEF old}
-               if assigned(macrosymtablestack) then
-                 begin
-                   macrosymtablestack.free;
-                   macrosymtablestack:=nil;
-                 end;
-             {$ELSE}
               FreeAndNil(current_module.macrosymtablestack);
-             {$ENDIF}
              end;
 
-            if (compile_level=1) and
-               (status.errorcount=0) then
-              { Write Browser Collections }
-              do_extractsymbolinfo;
+         {$IFDEF old}
+            if (compile_level=1) then
+            begin
+            { Shut down things when the last file is compiled succesfull }
+              if (status.errorcount=0) then begin
+                { Write Browser Collections }
+                do_extractsymbolinfo;
 
             //RestoreParser(olddata); - moved below
 
-            { Shut down things when the last file is compiled succesfull }
-            if (compile_level=1) then begin
-              if (status.errorcount=0) then
-              begin
-                parser_current_file:='';
+                parser_current_file:='';  //here???
                 { Close script }
                 if (not AsmRes.Empty) then
                 begin
@@ -382,11 +342,9 @@ implementation
                   unloaded_units.Clear;
                  end;
             end;
-           dec(compile_level);
-           PopModule(olddata^.old_current_module);
-           RestoreParser(olddata);
-
-           dispose(olddata);
+         {$ELSE}
+          //in compileMain
+         {$ENDIF}
          end;
 
 
@@ -401,12 +359,8 @@ implementation
          important for the IDE }
        { reset symtable }
         PushSymbolStack;  //create new
-       {$IFDEF old}
-         macrosymtablestack:=TSymtablestack.create;
-       {$ELSE}
-          current_module.macrosymtablestack := TMacroStack.Create;
-          WhichMs:=msModule;
-       {$ENDIF}
+        current_module.macrosymtablestack := TMacroStack.Create;
+        WhichMs:=msModule;
          systemunit:=nil;
 
          { load current asmdata from current_module }
@@ -424,11 +378,7 @@ implementation
 
          { init macros before anything in the file is parsed.}
          current_module.localmacrosymtable:= tmacrosymtable.create(false);
-       {$IFDEF old}
-         macrosymtablestack.push(initialmacrosymtable);
-       {$ELSE}
           macrosymtablestack.Init;
-       {$ENDIF}
          macrosymtablestack.push(current_module.localmacrosymtable);
 
          { read the first token }
@@ -462,13 +412,14 @@ implementation
            end;
         end;  //Parse
 
+      var
+         olddata : polddata;
       begin  //compile
          { parsing a procedure or declaration should be finished }
          if assigned(current_objectdef) then
            internalerror(200811122);
 
         SaveParser(olddata);
-
         inc(compile_level);
        { reset the unit or create a new program }
              if not(assigned(current_module) and
@@ -480,10 +431,14 @@ implementation
           Parse;
         finally
           ParseFinished(olddata);
+          dec(compile_level);
+          RestoreParser(olddata);
         end;
       end;
 
       procedure compileMain(const filename:string);
+       var
+         hp,hp2 : tmodule;
        begin  //compile main module
          if assigned(current_module) then
            internalerror(200501158);
@@ -493,6 +448,44 @@ implementation
          addloadedunit(main_module);
          main_module.state:=ms_compile;
          compile(filename);
+         {$IFDEF old}
+          //moved here
+         {$ELSE}
+        { Shut down things when the last file is compiled succesfull }
+          if (status.errorcount=0) then begin
+            { Write Browser Collections }
+            do_extractsymbolinfo;
+
+        //RestoreParser(olddata); - moved below
+
+            parser_current_file:='';  //here???
+            { Close script }
+            if (not AsmRes.Empty) then
+            begin
+              Message1(exec_i_closing_script,AsmRes.Fn);
+              AsmRes.WriteToDisk;
+            end;
+          end;
+
+          { free now what we did not free earlier in
+            proc_program PM }
+          if needsymbolinfo then
+            begin
+              hp:=tmodule(loaded_units.first);
+              while assigned(hp) do
+               begin
+                 hp2:=tmodule(hp.next);
+                 if (hp<>current_module) then
+                   begin
+                     loaded_units.remove(hp);
+                     hp.free;
+                   end;
+                 hp:=hp2;
+               end;
+              { free also unneeded units we didn't free before }
+              unloaded_units.Clear;
+            end;
+         {$ENDIF}
        end;
 
 end.

@@ -131,19 +131,11 @@ interface
          function  top:TSymtable;
        end;
 
-
-{$IFDEF old}
-    var
-       initialmacrosymtable: TSymtable;   { macros initially defined by the compiler or
-                                            given on the command line. Is common
-                                            for all files compiled and do not change. }
-       macrosymtablestack   : TSymtablestack;
-{$ELSE}
     type
       eMacroStack = (
-        msNone, //nil
+        msNone,     //nil
         msInitial,  //InitialMacroStack
-        msModule
+        msModule    //from module
       );
 
       { TMacroStack }
@@ -153,20 +145,18 @@ interface
         constructor Create;
         destructor Destroy; override;
         procedure Init; //push InitialMacroSymTable
-        //class procedure InsertSystemMacro(mac: TSymEntry);
       end;
 
     var
         WhichMs: eMacroStack;
 
-      function macrosymtablestack   : TMacroStack;
-
-      procedure InitMacros;
-      procedure DoneMacros;
-      procedure InsertSystemMacro(mac: TSymEntry);
-{$ENDIF}
-
     function symtablestack        : TSymtablestack;
+    function macrosymtablestack   : TMacroStack;
+
+    procedure InitMacros;
+    procedure DoneMacros;
+    procedure InsertSystemMacro(mac: TSymEntry);
+
 
 {$ifdef MEMDEBUG}
     var

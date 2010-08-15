@@ -2485,14 +2485,7 @@ implementation
          if not assigned(mac) then
            begin
              mac:=tmacro.create(s);
-           {$IFDEF old}
-             if assigned(current_module) then
-               current_module.localmacrosymtable.insert(mac)
-             else
-               initialmacrosymtable.insert(mac);
-           {$ELSE}
              InsertSystemMacro(mac);
-           {$ENDIF}
            end;
          if not mac.defined then
            Message1(parser_c_macro_defined,mac.name);
@@ -2512,14 +2505,7 @@ implementation
          if not assigned(mac) then
            begin
              mac:=tmacro.create(s);
-           {$IFDEF old}
-             if assigned(current_module) then
-               current_module.localmacrosymtable.insert(mac)
-             else
-               initialmacrosymtable.insert(mac);
-           {$ELSE}
             InsertSystemMacro(mac);
-           {$ENDIF}
            end
          else
            begin
@@ -2548,14 +2534,7 @@ implementation
            begin
              mac:=tmacro.create(s);
              mac.is_compiler_var:=true;
-           {$IFDEF old}
-             if assigned(current_module) then
-               current_module.localmacrosymtable.insert(mac)
-             else
-               initialmacrosymtable.insert(mac);
-           {$ELSE}
             InsertSystemMacro(mac);
-           {$ENDIF}
            end
          else
            begin
@@ -2666,13 +2645,7 @@ implementation
        generrorsym:=terrorsym.create;
        generrordef:=terrordef.create;
        { macros }
-     {$IFDEF old}
-       initialmacrosymtable:=tmacrosymtable.create(false);
-       macrosymtablestack:=TSymtablestack.create;
-       macrosymtablestack.push(initialmacrosymtable);
-     {$ELSE}
         InitMacros;
-     {$ENDIF}
 {$ifdef UNITALIASES}
        { unit aliases }
        unitaliases:=TFPHashObjectList.create;
@@ -2691,13 +2664,7 @@ implementation
         generrorsym.free;
         generrordef.owner:=nil;
         generrordef.free;
-      {$IFDEF old}
-        WhichMs:=msNone;
-        initialmacrosymtable.free;
-        macrosymtablestack.free;
-      {$ELSE}
         DoneMacros;
-      {$ENDIF}
 {$ifdef UNITALIASES}
         unitaliases.free;
 {$endif}

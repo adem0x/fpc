@@ -227,9 +227,6 @@ interface
        SmartLinkOFiles   : TCmdStrList; { List of .o files which are generated,
                                           used to delete them after linking }
 
-
-    //procedure set_current_module(p:tmodule); deprecated;
-
     { switch to new module (push), return previous module }
     function  PushModule(p:tmodule): tmodule;
     { intentionally invalidate current module, return previous module }
