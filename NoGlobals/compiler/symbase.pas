@@ -132,11 +132,39 @@ interface
        end;
 
 
+{$IFDEF old}
     var
        initialmacrosymtable: TSymtable;   { macros initially defined by the compiler or
                                             given on the command line. Is common
                                             for all files compiled and do not change. }
        macrosymtablestack   : TSymtablestack;
+{$ELSE}
+    type
+      eMacroStack = (
+        msNone, //nil
+        msInitial,  //InitialMacroStack
+        msModule
+      );
+
+      { TMacroStack }
+
+      TMacroStack = class(TSymtablestack) { this class mostly used for debugging }
+      public
+        constructor Create;
+        destructor Destroy; override;
+        procedure Init; //push InitialMacroSymTable
+        //class procedure InsertSystemMacro(mac: TSymEntry);
+      end;
+
+    var
+        WhichMs: eMacroStack;
+
+      function macrosymtablestack   : TMacroStack;
+
+      procedure InitMacros;
+      procedure DoneMacros;
+      procedure InsertSystemMacro(mac: TSymEntry);
+{$ENDIF}
 
     function symtablestack        : TSymtablestack;
 
@@ -149,11 +177,55 @@ interface
 implementation
 
     uses
-       verbose, fmodule;
+      sysutils,
+      verbose, fmodule, symtable;
+
+(* The use of macro symtables are very critical :-(
+  The initialization phase should be strictly separated from "normal" mode,
+  where the current_module contains a current macrosymtable and stack.
+*)
+    var
+       initialmacrosymtable: TSymtable;   { macros initially defined by the compiler or
+                                            given on the command line. Is common
+                                            for all files compiled and do not change. }
+      InitialMacroStack: TMacroStack;
 
     function symtablestack        : TSymtablestack;
     begin
       Result := current_module.symtablestack;
+    end;
+
+    function macrosymtablestack   : TMacroStack;
+    begin
+      case WhichMs of
+      msNone: Result := nil;
+      msInitial: Result := InitialMacroStack;
+      msModule: Result := current_module.macrosymtablestack;
+      end;
+    end;
+
+    procedure InitMacros;
+    begin
+      InitialMacroStack := TMacroStack.Create;
+      WhichMs:=msInitial;
+      initialmacrosymtable:=tmacrosymtable.create(false);
+      InitialMacroStack.push(initialmacrosymtable);
+    end;
+
+    procedure DoneMacros;
+    begin
+      WhichMs:=msNone;
+      FreeAndNil(InitialMacroStack);
+      FreeAndNil(initialmacrosymtable);
+    end;
+
+    procedure InsertSystemMacro(mac: TSymEntry);
+    begin
+    //should depende on WhichMs?
+       if assigned(current_module) then
+         current_module.localmacrosymtable.insert(mac)
+       else
+         initialmacrosymtable.insert(mac);
     end;
 
 {****************************************************************************
@@ -420,4 +492,23 @@ initialization
 finalization
   memrealnames.free;
 {$endif MEMDEBUG}
+
+{ TMacroStack }
+
+constructor TMacroStack.Create;
+begin
+  inherited Create;
+end;
+
+destructor TMacroStack.Destroy;
+begin
+  inherited Destroy;
+end;
+
+procedure TMacroStack.Init;
+begin
+  clear;
+  push(initialmacrosymtable);
+end;
+
 end.

@@ -620,10 +620,14 @@ implementation
       begin
         { we are going to rebuild the symtablestack, clear it first }
         symtablestack.clear;
+      {$IFDEF old}
         macrosymtablestack.clear;
 
         { macro symtable }
         macrosymtablestack.push(initialmacrosymtable);
+      {$ELSE}
+        macrosymtablestack.Init;
+      {$ENDIF}
 
         { are we compiling the system unit? }
         if (cs_compilesystem in current_settings^.moduleswitches) then

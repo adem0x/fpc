@@ -149,6 +149,7 @@ interface
         globalmacrosymtable,           { pointer to the global macro symtable of this unit }
         localmacrosymtable : TSymtable;{ pointer to the local macro symtable of this unit }
        symtablestack        : TSymtablestack;
+       macrosymtablestack   : TMacroStack;  // TSymtablestack;
         scanner       : TObject;  { scanner object used }
         fprocinfo      : TObject;  { current procedure being compiled }
         asmdata       : TObject;  { Assembler data }

@@ -247,7 +247,10 @@ implementation
     { scanner }
       oldtokenpos    : tfileposinfo;
     { symtable }
+    {$IFDEF old}
       oldmacrosymtablestack : TSymtablestack;
+    {$ELSE}
+    {$ENDIF}
     { akt.. things }
       oldcurrent_filepos      : tfileposinfo;
       old_current_module : tmodule;
@@ -273,7 +276,10 @@ implementation
             old_current_module:=current_module;
 
             { save symtable state }
+          {$IFDEF old}
             oldmacrosymtablestack:=macrosymtablestack;
+          {$ELSE}
+          {$ENDIF}
 
           //todo: these should become scanner elements as well
             //oldcurrent_procinfo:=current_procinfo;
@@ -296,7 +302,10 @@ implementation
               current_tokenpos:=oldtokenpos;
 
               { restore symtable state }
+            {$IFDEF old}
               macrosymtablestack:=oldmacrosymtablestack;
+            {$ELSE}
+            {$ENDIF}
               RestoreProc(oldcurrent_procinfo);
               current_filepos:=oldcurrent_filepos;
             end;
@@ -323,11 +332,15 @@ implementation
 
                { free symtable stack }
               PopSymbolStack(nil); //local in module!
+             {$IFDEF old}
                if assigned(macrosymtablestack) then
                  begin
                    macrosymtablestack.free;
                    macrosymtablestack:=nil;
                  end;
+             {$ELSE}
+              FreeAndNil(current_module.macrosymtablestack);
+             {$ENDIF}
              end;
 
             if (compile_level=1) and
@@ -388,7 +401,12 @@ implementation
          important for the IDE }
        { reset symtable }
         PushSymbolStack;  //create new
+       {$IFDEF old}
          macrosymtablestack:=TSymtablestack.create;
+       {$ELSE}
+          current_module.macrosymtablestack := TMacroStack.Create;
+          WhichMs:=msModule;
+       {$ENDIF}
          systemunit:=nil;
 
          { load current asmdata from current_module }
@@ -406,7 +424,11 @@ implementation
 
          { init macros before anything in the file is parsed.}
          current_module.localmacrosymtable:= tmacrosymtable.create(false);
+       {$IFDEF old}
          macrosymtablestack.push(initialmacrosymtable);
+       {$ELSE}
+          macrosymtablestack.Init;
+       {$ENDIF}
          macrosymtablestack.push(current_module.localmacrosymtable);
 
          { read the first token }
