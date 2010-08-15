@@ -188,6 +188,7 @@ interface
         destructor destroy;override;
         procedure reset;virtual;
         procedure DoneProc;
+        procedure ParseFinished; virtual; //override in tppumodule
         procedure adddependency(callermodule:tmodule);
         procedure flagdependent(callermodule:tmodule);
         function  addusedunit(hp:tmodule;inuses:boolean;usym:tunitsym):tused_unit;
@@ -576,7 +577,6 @@ implementation
 
     procedure tmodule.DoneProc;
       var
-        i : longint;
         hpi : tprocinfo;
     begin
       if assigned(fprocinfo) then
@@ -594,6 +594,23 @@ implementation
              fprocinfo:=hpi;
            end;
         end;
+    end;
+
+    procedure tmodule.ParseFinished;
+    begin
+       { module is now compiled }
+       state:=ms_compiled;
+
+       { free asmdata }
+       FreeAndNil(asmdata);
+
+       { free symtable stack }
+    {$IFDEF old}
+      PopSymbolStack(nil);
+    {$ELSE}
+      FreeAndNil(symtablestack);
+    {$ENDIF}
+      FreeAndNil(macrosymtablestack);
     end;
 
     destructor tmodule.Destroy;
@@ -614,7 +631,11 @@ implementation
         FreeAndNil(scanner);
         FreeAndNil(asmdata);
         DoneProc;
+      {$IFDEF old}
         DoneDebugInfo(self);
+      {$ELSE}
+        FreeAndNil(DebugInfo);
+      {$ENDIF}
         used_units.free;
         dependent_units.free;
         resourcefiles.Free;
@@ -669,7 +690,6 @@ implementation
 
     procedure tmodule.reset;
       var
-        hpi : tprocinfo;
         i   : longint;
       begin
         //destroy scanner moved below! (may be referenced)
@@ -681,7 +701,11 @@ implementation
             asmdata.free;
             asmdata:=nil;
           end;
+      {$IFDEF old}
         DoneDebugInfo(self);
+      {$ELSE}
+        FreeAndNil(DebugInfo);
+      {$ENDIF}
         globalsymtable.free;
         globalsymtable:=nil;
         localsymtable.free;

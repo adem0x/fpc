@@ -56,6 +56,7 @@ interface
           constructor create(LoadedFrom:TModule;const s:string;const fn:string;_is_unit:boolean);
           destructor destroy;override;
           procedure reset;override;
+          procedure ParseFinished; override;
           function  openppu:boolean;
           procedure getppucrc;
           procedure writeppu;
@@ -146,6 +147,14 @@ var
         FreeAndNil(ppufile);
         inherited reset;
       end;
+
+    procedure tppumodule.ParseFinished;
+    begin
+       { free ppu }
+       FreeAndNil(ppufile);
+
+      inherited ParseFinished;
+    end;
 
     procedure tppumodule.queuecomment(s:string;v,w:longint);
     begin

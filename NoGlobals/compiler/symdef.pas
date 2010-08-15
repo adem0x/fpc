@@ -2861,8 +2861,6 @@ implementation
 
 
     constructor tabstractprocdef.ppuload(dt:tdeftyp;ppufile:tcompilerppufile);
-      var
-        b : byte;
       begin
          inherited ppuload(dt,ppufile);
          parast:=nil;

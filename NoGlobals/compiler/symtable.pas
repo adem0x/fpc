@@ -182,7 +182,7 @@ interface
        end;
 
     var
-       systemunit     : tglobalsymtable; { pointer to the system unit }
+       systemunit     : tglobalsymtable; { pointer to the system unit, owner of all global symbols }
 
 
 {****************************************************************************

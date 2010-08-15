@@ -1698,7 +1698,7 @@ In case not, the value returned can be arbitrary.
         var
           found  : boolean;
           hpath  : TCmdStr;
-          hasExt: boolean;
+          //hasExt: boolean;
         begin
           (* look for the include file
            If path was absolute and specified as part of {$I } then
@@ -2028,6 +2028,7 @@ In case not, the value returned can be arbitrary.
       begin
       {$IFDEF KeepOpen}
         restoreinputfile;
+        Result := True;
       {$ELSE}
         if inputfile.is_macro then
           exit;

@@ -281,8 +281,9 @@ implementation
             end;
         end;
 
+
+    {$IFDEF old}
        procedure ParseFinished(var olddata: polddata);
-         //var hp,hp2 : tmodule;
          begin
            if assigned(current_module) then
              begin  //todo: move into module
@@ -303,49 +304,10 @@ implementation
               PopSymbolStack(nil); //local in module!
               FreeAndNil(current_module.macrosymtablestack);
              end;
-
-         {$IFDEF old}
-            if (compile_level=1) then
-            begin
-            { Shut down things when the last file is compiled succesfull }
-              if (status.errorcount=0) then begin
-                { Write Browser Collections }
-                do_extractsymbolinfo;
-
-            //RestoreParser(olddata); - moved below
-
-                parser_current_file:='';  //here???
-                { Close script }
-                if (not AsmRes.Empty) then
-                begin
-                  Message1(exec_i_closing_script,AsmRes.Fn);
-                  AsmRes.WriteToDisk;
-                end;
-              end;
-
-              { free now what we did not free earlier in
-                proc_program PM }
-              if needsymbolinfo then
-                begin
-                  hp:=tmodule(loaded_units.first);
-                  while assigned(hp) do
-                   begin
-                     hp2:=tmodule(hp.next);
-                     if (hp<>current_module) then
-                       begin
-                         loaded_units.remove(hp);
-                         hp.free;
-                       end;
-                     hp:=hp2;
-                   end;
-                  { free also unneeded units we didn't free before }
-                  unloaded_units.Clear;
-                 end;
-            end;
-         {$ELSE}
-          //in compileMain
-         {$ENDIF}
          end;
+    {$ELSE}
+      //in module
+    {$ENDIF}
 
 
     procedure NewParser(const filename:string);
@@ -353,14 +315,14 @@ implementation
         parser_current_file:=filename;
         current_module.scanner:=TParser.Compile(filename); //factory request
         if not assigned(current_module.scanner) then
-          Internalerror(20100810);  //no parser for this file!
+          Internalerror(20100810);  //todo: regular error message: no parser for this file
 
        { reset parser, a previous fatal error could have left these variables in an unreliable state, this is
          important for the IDE }
        { reset symtable }
         PushSymbolStack;  //create new
         current_module.macrosymtablestack := TMacroStack.Create;
-        WhichMs:=msModule;
+        WhichMs:=msModule;  //todo: move to after global initialize
          systemunit:=nil;
 
          { load current asmdata from current_module }
@@ -430,7 +392,11 @@ implementation
         try
           Parse;
         finally
+        {$IFDEF old}
           ParseFinished(olddata);
+        {$ELSE}
+          current_module.ParseFinished;
+        {$ENDIF}
           dec(compile_level);
           RestoreParser(olddata);
         end;
