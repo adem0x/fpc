@@ -205,7 +205,7 @@ implementation
        { First call secondpass() before we can push the parameters, otherwise
          parameters allocated in the registers can be destroyed }
        { generate filename string parameter }
-       hp2:=ctypeconvnode.create(cstringconstnode.createstr(current_module.sourcefiles.get_file_name(current_filepos.fileindex)),cshortstringtype);
+       hp2:=ctypeconvnode.create(cstringconstnode.createstr(current_module.sourcefiles.get_file_name(current_filepos^.fileindex)),cshortstringtype);
        firstpass(hp2);
        secondpass(hp2);
        if codegenerror then
@@ -218,7 +218,7 @@ implementation
        { push erroraddr }
        cg.a_load_reg_cgpara(current_asmdata.CurrAsmList,OS_ADDR,NR_FRAME_POINTER_REG,paraloc4);
        { push lineno }
-       cg.a_load_const_cgpara(current_asmdata.CurrAsmList,OS_INT,current_filepos.line,paraloc3);
+       cg.a_load_const_cgpara(current_asmdata.CurrAsmList,OS_INT,current_filepos^.line,paraloc3);
        { push filename }
        cg.a_loadaddr_ref_cgpara(current_asmdata.CurrAsmList,hp2.location.reference,paraloc2);
        { push msg }

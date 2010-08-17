@@ -1181,7 +1181,7 @@ implementation
         optimize }
         if (Insentry=nil) or ((InsEntry^.flags and IF_PASS2)<>0) then
          begin
-           current_filepos:=fileinfo;
+           current_filepos^:=fileinfo;
            { We need intel style operands }
            SetOperandOrder(op_intel);
            { create the .ot fields }
@@ -1228,7 +1228,7 @@ implementation
         if (Insentry=nil) and (InsSize=-1) then
           exit;
         { set the file postion }
-        current_filepos:=fileinfo;
+        current_filepos^:=fileinfo;
         { Get InsEntry }
         if FindInsEntry(ObjData) then
          begin
@@ -1273,7 +1273,7 @@ implementation
         { error in pass1 ? }
         if insentry=nil then
          exit;
-        current_filepos:=fileinfo;
+        current_filepos^:=fileinfo;
         { Segment override }
         if (segprefix<>NR_NO) then
          begin

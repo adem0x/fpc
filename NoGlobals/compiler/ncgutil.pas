@@ -298,8 +298,8 @@ implementation
       begin
          if nf_error in p.flags then
            exit;
-         storepos:=current_filepos;
-         current_filepos:=p.fileinfo;
+         storepos:=current_filepos^;
+         current_filepos^:=p.fileinfo;
          if is_boolean(p.resultdef) then
            begin
 {$ifdef OLDREGVARS}
@@ -349,7 +349,7 @@ implementation
            end
          else
            internalerror(200112305);
-         current_filepos:=storepos;
+         current_filepos^:=storepos;
       end;
 
 
@@ -2448,8 +2448,8 @@ implementation
         list : TAsmList;
         sectype : TAsmSectiontype;
       begin
-        storefilepos:=current_filepos;
-        current_filepos:=sym.fileinfo;
+        storefilepos:=current_filepos^;
+        current_filepos^:=sym.fileinfo;
         l:=sym.getsize;
         varalign:=sym.vardef.alignment;
         if (varalign=0) then
@@ -2493,7 +2493,7 @@ implementation
           list.concat(Tai_datablock.create_global(sym.mangledname,l))
         else
           list.concat(Tai_datablock.create(sym.mangledname,l));
-        current_filepos:=storefilepos;
+        current_filepos^:=storefilepos;
       end;
 
 

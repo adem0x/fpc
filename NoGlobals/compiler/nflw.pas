@@ -825,8 +825,8 @@ implementation
         current: tpropertysym;
         storefilepos: tfileposinfo;
       begin
-        storefilepos:=current_filepos;
-        current_filepos:=hloopvar.fileinfo;
+        storefilepos:=current_filepos^;
+        current_filepos^:=hloopvar.fileinfo;
         if expr.nodetype=typen then
           begin
             if (expr.resultdef.typ=enumdef) and tenumdef(expr.resultdef).has_jumps then
@@ -902,7 +902,7 @@ implementation
                   end;
               end;
           end;
-        current_filepos:=storefilepos;
+        current_filepos^:=storefilepos;
       end;
 
 {****************************************************************************

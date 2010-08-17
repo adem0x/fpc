@@ -179,8 +179,8 @@ implementation
           begin
             oldcodegenerror:=codegenerror;
             oldlocalswitches:=current_settings^.localswitches;
-            oldpos:=current_filepos;
-            current_filepos:=p.fileinfo;
+            oldpos:=current_filepos^;
+            current_filepos^:=p.fileinfo;
             current_settings^.localswitches:=p.localswitches;
             codegenerror:=false;
 {$ifdef EXTDEBUG}
@@ -207,7 +207,7 @@ implementation
               include(p.flags,nf_error);
             codegenerror:=codegenerror or oldcodegenerror;
             current_settings^.localswitches:=oldlocalswitches;
-            current_filepos:=oldpos;
+            current_filepos^:=oldpos;
           end
          else
            codegenerror:=true;

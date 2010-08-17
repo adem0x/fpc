@@ -2288,7 +2288,7 @@ implementation
           p1 may be freed and reallocated in the same place!  }
         updatefpos:=false;
         p1:=nil;
-        filepos:=current_tokenpos;
+        filepos:=current_tokenpos^;
         again:=false;
         if current_scanner.token=_ID then
          begin
@@ -2311,7 +2311,7 @@ implementation
                 and in case of _SELF the filepos will already be the
                 same as filepos (so setting it again doesn't hurt).  }
               p1.fileinfo:=filepos;
-              filepos:=current_tokenpos;
+              filepos:=current_tokenpos^;
             end;
            { handle post fix operators }
            updatefpos:=postfixoperators(p1,again);
@@ -2777,7 +2777,7 @@ implementation
              ((current_scanner.token<>_EQUAL) or accept_equal) then
            begin
              oldt:=current_scanner.token;
-             filepos:=current_tokenpos;
+             filepos:=current_tokenpos^;
              current_scanner.consume; //(token);
              if pred_level=highest_precedence then
                p2:=factor(false)
@@ -2883,7 +2883,7 @@ implementation
          if not assigned(p1.resultdef) and
             dotypecheck then
           do_typecheckpass(p1);
-         filepos:=current_tokenpos;
+         filepos:=current_tokenpos^;
          if current_scanner.token in [_ASSIGNMENT,_PLUSASN,_MINUSASN,_STARASN,_SLASHASN] then
            current_parser.afterassignment:=true;
          updatefpos:=true;

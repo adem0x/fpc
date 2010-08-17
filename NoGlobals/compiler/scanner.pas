@@ -1765,10 +1765,10 @@ In case not, the value returned can be arbitrary.
              hs:=getdatestr
            else
             if hs='FILE' then
-             hs:=current_module.sourcefiles.get_file_name(current_filepos.fileindex)
+             hs:=current_module.sourcefiles.get_file_name(current_filepos^.fileindex)
            else
             if hs='LINE' then
-             hs:=tostr(current_filepos.line)
+             hs:=tostr(current_filepos^.line)
            else
             if hs='FPCVERSION' then
              hs:=version_string
@@ -1802,7 +1802,7 @@ In case not, the value returned can be arbitrary.
              by the file name of the current source file.  }
            if (length(name)>=1) and
               (name[1]='*') then
-             name:=ChangeFileExt(current_module.sourcefiles.get_file_name(current_filepos.fileindex),'')+ExtractFileExt(name);
+             name:=ChangeFileExt(current_module.sourcefiles.get_file_name(current_filepos^.fileindex),'')+ExtractFileExt(name);
 
            { try to find the file }
            found:=findincludefile(path,name,foundfile);
@@ -2078,8 +2078,12 @@ In case not, the value returned can be arbitrary.
         inputpointer:=inputfile.saveinputpointer;
         lastlinepos:=inputfile.savelastlinepos;
         line_no:=inputfile.saveline_no;
+      {$IFDEF NoGlobals}
+        //UpdateStatus? - in Message only?
+      {$ELSE}
         if not inputfile.is_macro then
           parser_current_file:=inputfile.name^;
+      {$ENDIF}
       end;
 
 
@@ -2145,29 +2149,29 @@ In case not, the value returned can be arbitrary.
           end;
 
         { file pos changes? }
-        if current_tokenpos.line<>last_filepos.line then
+        if current_tokenpos^.line<>last_filepos.line then
           begin
             a[0]:=byte(_GENERICSPECIALTOKEN);
             a[1]:=byte(ST_LINE);
             recordtokenbuf.write(a,2);
-            recordtokenbuf.write(current_tokenpos.line,sizeof(current_tokenpos.line));
-            last_filepos.line:=current_tokenpos.line;
+            recordtokenbuf.write(current_tokenpos^.line,sizeof(current_tokenpos^.line));
+            last_filepos.line:=current_tokenpos^.line;
           end;
-        if current_tokenpos.column<>last_filepos.column then
+        if current_tokenpos^.column<>last_filepos.column then
           begin
             a[0]:=byte(_GENERICSPECIALTOKEN);
             a[1]:=byte(ST_COLUMN);
             recordtokenbuf.write(a,2);
-            recordtokenbuf.write(current_tokenpos.column,sizeof(current_tokenpos.column));
-            last_filepos.column:=current_tokenpos.column;
+            recordtokenbuf.write(current_tokenpos^.column,sizeof(current_tokenpos^.column));
+            last_filepos.column:=current_tokenpos^.column;
           end;
-        if current_tokenpos.fileindex<>last_filepos.fileindex then
+        if current_tokenpos^.fileindex<>last_filepos.fileindex then
           begin
             a[0]:=byte(_GENERICSPECIALTOKEN);
             a[1]:=byte(ST_FILEINDEX);
             recordtokenbuf.write(a,2);
-            recordtokenbuf.write(current_tokenpos.fileindex,sizeof(current_tokenpos.fileindex));
-            last_filepos.fileindex:=current_tokenpos.fileindex;
+            recordtokenbuf.write(current_tokenpos^.fileindex,sizeof(current_tokenpos^.fileindex));
+            last_filepos.fileindex:=current_tokenpos^.fileindex;
           end;
 
         recordtokenbuf.write(token,1);
@@ -2297,36 +2301,36 @@ In case not, the value returned can be arbitrary.
                     replaytokenbuf.read(current_settings,sizeof(current_settings));
                   ST_LINE:
                     begin
-                      replaytokenbuf.read(current_tokenpos.line,sizeof(current_tokenpos.line));
+                      replaytokenbuf.read(current_tokenpos^.line,sizeof(current_tokenpos^.line));
 
                       { don't generate invalid line info if no sources are available for the current module }
-                      if not(get_module(current_filepos.moduleindex).sources_avail) then
-                        current_tokenpos.line:=0;
+                      if not(get_module(current_filepos^.moduleindex).sources_avail) then
+                        current_tokenpos^.line:=0;
 
-                      current_filepos:=current_tokenpos;
+                      current_filepos^:=current_tokenpos^;
                     end;
                   ST_COLUMN:
                     begin
-                      replaytokenbuf.read(current_tokenpos.column,sizeof(current_tokenpos.column));
+                      replaytokenbuf.read(current_tokenpos^.column,sizeof(current_tokenpos^.column));
 
                       { don't generate invalid line info if no sources are available for the current module }
-                      if not(get_module(current_filepos.moduleindex).sources_avail) then
-                        current_tokenpos.column:=0;
+                      if not(get_module(current_filepos^.moduleindex).sources_avail) then
+                        current_tokenpos^.column:=0;
 
-                      current_filepos:=current_tokenpos;
+                      current_filepos^:=current_tokenpos^;
                     end;
                   ST_FILEINDEX:
                     begin
-                      replaytokenbuf.read(current_tokenpos.fileindex,sizeof(current_tokenpos.fileindex));
+                      replaytokenbuf.read(current_tokenpos^.fileindex,sizeof(current_tokenpos^.fileindex));
 
                       { don't generate invalid line info if no sources are available for the current module }
-                      if not(get_module(current_filepos.moduleindex).sources_avail) then
+                      if not(get_module(current_filepos^.moduleindex).sources_avail) then
                         begin
-                          current_tokenpos.column:=0;
-                          current_tokenpos.line:=0;
+                          current_tokenpos^.column:=0;
+                          current_tokenpos^.line:=0;
                         end;
 
-                      current_filepos:=current_tokenpos;
+                      current_filepos^:=current_tokenpos^;
                     end;
                   else
                     internalerror(2006103010);
@@ -2355,7 +2359,7 @@ In case not, the value returned can be arbitrary.
         with inputfile do
          begin
            { when nothing more to read then leave immediatly, so we
-             don't change the current_filepos and leave it point to the last
+             don't change the current_filepos^ and leave it point to the last
              char }
            if (c=#26) and (not assigned(next)) then
             exit;
@@ -2399,7 +2403,7 @@ In case not, the value returned can be arbitrary.
               end
              else
               begin
-              { load eof position in tokenpos/current_filepos }
+              { load eof position in tokenpos/current_filepos^ }
                 gettokenpos;
               { close file }
                 closeinputfile;
@@ -2467,8 +2471,8 @@ In case not, the value returned can be arbitrary.
     procedure tscannerfile.gettokenpos;
     { load the values of tokenpos and lasttokenpos }
       begin
-        do_gettokenpos(lasttokenpos,current_tokenpos);
-        current_filepos:=current_tokenpos;
+        do_gettokenpos(lasttokenpos,current_tokenpos^);
+        current_filepos^:=current_tokenpos^;
       end;
 
 
@@ -2483,8 +2487,8 @@ In case not, the value returned can be arbitrary.
         token:=nexttoken;
         nexttoken:=NOTOKEN;
         lasttokenpos:=nexttokenpos;
-        current_tokenpos:=next_filepos;
-        current_filepos:=current_tokenpos;
+        current_tokenpos^:=next_filepos;
+        current_filepos^:=current_tokenpos^;
         nexttokenpos:=0;
       end;
 
@@ -2492,16 +2496,16 @@ In case not, the value returned can be arbitrary.
     procedure tscannerfile.savetokenpos;
       begin
         oldlasttokenpos:=lasttokenpos;
-        oldcurrent_filepos:=current_filepos;
-        oldcurrent_tokenpos:=current_tokenpos;
+        oldcurrent_filepos:=current_filepos^;
+        oldcurrent_tokenpos:=current_tokenpos^;
       end;
 
 
     procedure tscannerfile.restoretokenpos;
       begin
         lasttokenpos:=oldlasttokenpos;
-        current_filepos:=oldcurrent_filepos;
-        current_tokenpos:=oldcurrent_tokenpos;
+        current_filepos^:=oldcurrent_filepos;
+        current_tokenpos^:=oldcurrent_tokenpos;
       end;
 
     procedure tscannerfile.dir_push;
@@ -2580,7 +2584,7 @@ In case not, the value returned can be arbitrary.
            if cs_asm_source in current_settings.globalswitches then
              inputfile.setline(line_no,lastlinepos);
            { update for status and call the show status routine,
-             but don't touch current_filepos ! }
+             but don't touch current_filepos^ ! }
            savetokenpos;
            gettokenpos; { update for v_status }
            inc(status.compiledlines);
@@ -4439,7 +4443,7 @@ exit_label:
         else
           begin
             if token=_END then
-              last_endtoken_filepos:=current_tokenpos;
+              last_endtoken_filepos:=current_tokenpos^;
             readtoken(true);
           end;
       end;
@@ -4447,7 +4451,7 @@ exit_label:
     procedure tscannerfile.consume;
       begin
           if token=_END then
-            last_endtoken_filepos:=current_tokenpos;
+            last_endtoken_filepos:=current_tokenpos^;
           readtoken(true);
       end;
 
@@ -4459,7 +4463,7 @@ exit_label:
          begin
            try_to_consume:=true;
            if token=_END then
-            last_endtoken_filepos:=current_tokenpos;
+            last_endtoken_filepos:=current_tokenpos^;
            readtoken(true);
          end;
       end;

@@ -137,7 +137,7 @@ interface
         unitmapsize   : longint;  { number of units in the map }
         derefmap      : pderefmap; { mapping of all units needed for deref }
         derefmapcnt   : longint;  { number of units in the map }
-        derefmapsize  : longint;  { number of units in the map }
+        derefmapsize  : longint;  { number of ??? in the map }
         derefdataintflen : longint;
         derefdata     : tdynamicarray;
         checkforwarddefs,
@@ -183,6 +183,9 @@ interface
 
         moduleoptions: tmoduleoptions;
         deprecatedmsg: pshortstring;
+
+        current_tokenpos,                  { position of the last token }
+        current_filepos : tfileposinfo;    { current position }
 
         {create creates a new module which name is stored in 's'. LoadedFrom
         points to the module calling it. It is nil for the first compiled
@@ -272,7 +275,7 @@ implementation
     uses
       SysUtils,globals,
       verbose,systems,
-      scanner,ppu,dbgbase,
+      scanner,pbase,ppu,dbgbase,
       procinfo,symdef;
 
 {$ifdef MEMDEBUG}
@@ -336,14 +339,19 @@ end;
       current_module:=nil;
       current_asmdata:=nil;
       current_debuginfo:=nil;
+    {$IFDEF NoGlobals}
+      //update status?
+    {$ELSE}
       parser_current_file:='';
-      if false then //restore how?
-        Fillchar(current_filepos,0,sizeof(current_filepos));
+    {$ENDIF}
+    //restore how?
+      //if false then Fillchar(current_filepos,0,sizeof(current_filepos));
     end;
 
     { restore saved module }
     procedure PopModule(p: tmodule);
     begin
+    //todo: no save/restore, with all global vars moved into current_module!
       if not assigned(p) then
         InvalidateModule
       else begin
@@ -352,6 +360,8 @@ end;
         { restore previous module settings }
         current_asmdata:=tasmdata(current_module.asmdata);
         current_debuginfo:=tdebuginfo(current_module.debuginfo);
+      {$IFDEF NoGlobals}
+      {$ELSE}
         { restore scanner and file positions }
         if assigned(current_scanner) then
           begin
@@ -363,6 +373,7 @@ end;
             current_filepos.moduleindex:=current_module.unit_index;
             parser_current_file:='';
           end;
+      {$ENDIF}
       end
     end;
 
@@ -618,10 +629,24 @@ end;
     procedure tmodule.DoneProc;
       var
         hpi : tprocinfo;
+      {$IFDEF NoGlobals}
+        ppi: tprocinfo;
+      {$ELSE}
+      {$ENDIF}
     begin
       if assigned(fprocinfo) then
         begin
-          if current_procinfo=tprocinfo(fprocinfo) then
+        {$IFDEF NoGlobals}
+        (* current_procinfo = current_parser.current_procinfo
+        *)
+          if assigned(scanner) then
+            ppi := TParser(scanner).current_procinfo
+          else
+            ppi := nil;
+        {$ELSE}
+          ppi := current_procinfo;
+        {$ENDIF}
+          if ppi=tprocinfo(fprocinfo) then
             begin
               RestoreProc(nil);
               current_objectdef:=nil;

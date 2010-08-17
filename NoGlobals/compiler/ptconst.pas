@@ -1443,8 +1443,8 @@ implementation
         sym.varregable:=vr_none;
 
         { generate data for typed const }
-        storefilepos:=current_filepos;
-        current_filepos:=sym.fileinfo;
+        storefilepos:=current_filepos^;
+        current_filepos^:=sym.fileinfo;
         if sym.varspez=vs_const then
           cursectype:=sec_rodata
         else
@@ -1494,7 +1494,7 @@ implementation
         list.concatlist(hrec.list);
         hrec.list.free;
         list.concat(tai_symbol_end.Createname(sym.mangledname));
-        current_filepos:=storefilepos;
+        current_filepos^:=storefilepos;
       end;
 
 end.

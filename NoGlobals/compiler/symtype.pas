@@ -343,7 +343,7 @@ implementation
          typ:=st;
          RefList:=nil;
          symoptions:=[];
-         fileinfo:=current_tokenpos;
+         fileinfo:=current_tokenpos^;
          isdbgwritten := false;
          visibility:=vis_public;
          deprecatedmsg:=nil;
@@ -382,7 +382,7 @@ implementation
       var
         RefItem: TRefItem;
       begin
-        RefItem:=TRefItem.Create(current_tokenpos);
+        RefItem:=TRefItem.Create(current_tokenpos^);
         RefList.Concat(RefItem);
       end;
 

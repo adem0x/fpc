@@ -70,11 +70,11 @@ implementation
         if (p.resultdef=nil) then
          begin
            oldcodegenerror:=codegenerror;
-           oldpos:=current_filepos;
+           oldpos:=current_filepos^;
            oldlocalswitches:=current_settings^.localswitches;
            oldverbosity:=status.verbosity;
            codegenerror:=false;
-           current_filepos:=p.fileinfo;
+           current_filepos^:=p.fileinfo;
            current_settings^.localswitches:=p.localswitches;
            status.verbosity:=p.verbosity;
            hp:=p.pass_typecheck;
@@ -89,7 +89,7 @@ implementation
                typecheckpass(p);
             end;
            current_settings^.localswitches:=oldlocalswitches;
-           current_filepos:=oldpos;
+           current_filepos^:=oldpos;
            status.verbosity:=oldverbosity;
            if codegenerror then
             begin
@@ -146,11 +146,11 @@ implementation
          if not(nf_error in p.flags) then
            begin
               oldcodegenerror:=codegenerror;
-              oldpos:=current_filepos;
+              oldpos:=current_filepos^;
               oldlocalswitches:=current_settings^.localswitches;
               oldverbosity:=status.verbosity;
               codegenerror:=false;
-              current_filepos:=p.fileinfo;
+              current_filepos^:=p.fileinfo;
               current_settings^.localswitches:=p.localswitches;
               status.verbosity:=p.verbosity;
               { checks make always a call }
@@ -216,7 +216,7 @@ implementation
               include(p.flags,nf_pass1_done);
               codegenerror:=codegenerror or oldcodegenerror;
               current_settings^.localswitches:=oldlocalswitches;
-              current_filepos:=oldpos;
+              current_filepos^:=oldpos;
               status.verbosity:=oldverbosity;
            end
          else

@@ -71,7 +71,7 @@ type
   PCompilerStatus = ^TCompilerStatus;
   TCompilerStatus = record
   { Current status }
-    currentmodule,
+    currentmodule,  { unit name? }
     currentsourcepath,
     currentsource : string;   { filename }
     currentline,
@@ -211,6 +211,9 @@ constructor EControlCAbort.Create;
 
 constructor ECompilerAbort.Create;
   begin
+  //todo: save current module state, for error log
+  (* parser_current_file, current_tokenpos/filepos
+  *)
     inherited Create('Compilation Aborted');
   end;
 

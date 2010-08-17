@@ -2625,7 +2625,7 @@ implementation
                   not assigned(tparavarsym(procdefinition.paras[paraidx]).defaultconstsym)) then
                 begin
                    if assigned(pt) then
-                     current_filepos:=pt.fileinfo;
+                     current_filepos^:=pt.fileinfo;
                    CGMessage1(parser_e_wrong_parameter_size,'<Procedure Variable>');
                    goto errorexit;
                 end;

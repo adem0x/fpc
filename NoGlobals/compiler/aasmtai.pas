@@ -792,7 +792,7 @@ implementation
     constructor tailineinfo.create;
      begin
        inherited create;
-       fileinfo:=current_filepos;
+       fileinfo:=current_filepos^;
      end;
 
 

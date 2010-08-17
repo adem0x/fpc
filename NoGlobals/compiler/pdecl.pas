@@ -86,8 +86,8 @@ implementation
          internalerror(9584582);
         hp:=nil;
         p:=comp_expr(true);
-        storetokenpos:=current_tokenpos;
-        current_tokenpos:=filepos;
+        storetokenpos:=current_tokenpos^;
+        current_tokenpos^:=filepos;
         case p.nodetype of
            ordconstn:
              begin
@@ -150,7 +150,7 @@ implementation
            else
              Message(parser_e_illegal_expression);
         end;
-        current_tokenpos:=storetokenpos;
+        current_tokenpos^:=storetokenpos;
         p.free;
         readconstant:=hp;
       end;
@@ -178,7 +178,7 @@ implementation
          current_scanner.block_type:=bt_const;
          repeat
            orgname:=current_scanner.orgpattern;
-           filepos:=current_tokenpos;
+           filepos:=current_tokenpos^;
            current_scanner.consume(_ID);
            case current_scanner.token of
 
@@ -212,15 +212,15 @@ implementation
                    current_scanner.block_type:=bt_const;
                    skipequal:=false;
                    { create symbol }
-                   storetokenpos:=current_tokenpos;
-                   current_tokenpos:=filepos;
+                   storetokenpos:=current_tokenpos^;
+                   current_tokenpos^:=filepos;
                    if not (cs_typed_const_writable in current_settings^.localswitches) then
                      varspez:=vs_const
                    else
                      varspez:=vs_value;
                    sym:=tstaticvarsym.create(orgname,varspez,hdef,[]);
                    sym.visibility:=symtablestack.top.currentvisibility;
-                   current_tokenpos:=storetokenpos;
+                   current_tokenpos^:=storetokenpos;
                    symtablestack.top.insert(sym);
                    { procvar can have proc directives, but not type references }
                    if (hdef.typ=procvardef) and
@@ -408,7 +408,7 @@ implementation
          old_block_type:=current_scanner.block_type;
          current_scanner.block_type:=bt_type;
          repeat
-           defpos:=current_tokenpos;
+           defpos:=current_tokenpos^;
            istyperenaming:=false;
            generictypelist:=nil;
            generictokenbuf:=nil;
@@ -499,12 +499,12 @@ implementation
                 referencing the type before it's really set it
                 will give an error (PFV) }
               hdef:=generrordef;
-              storetokenpos:=current_tokenpos;
+              storetokenpos:=current_tokenpos^;
               newtype:=ttypesym.create(orgtypename,hdef);
               newtype.visibility:=symtablestack.top.currentvisibility;
               symtablestack.top.insert(newtype);
-              current_tokenpos:=defpos;
-              current_tokenpos:=storetokenpos;
+              current_tokenpos^:=defpos;
+              current_tokenpos^:=storetokenpos;
               { read the type definition }
               read_named_type(hdef,orgtypename,nil,generictypelist,false);
               { update the definition of the type }
@@ -710,15 +710,15 @@ implementation
          current_scanner.block_type:=bt_const;
          repeat
            orgname:=current_scanner.orgpattern;
-           filepos:=current_tokenpos;
+           filepos:=current_tokenpos^;
            current_scanner.consume(_ID);
            case current_scanner.token of
              _EQUAL:
                 begin
                    current_scanner.consume(_EQUAL);
                    p:=comp_expr(true);
-                   storetokenpos:=current_tokenpos;
-                   current_tokenpos:=filepos;
+                   storetokenpos:=current_tokenpos^;
+                   current_tokenpos^:=filepos;
                    sym:=nil;
                    case p.nodetype of
                       ordconstn:
@@ -743,7 +743,7 @@ implementation
                       else
                         Message(parser_e_illegal_expression);
                    end;
-                   current_tokenpos:=storetokenpos;
+                   current_tokenpos^:=storetokenpos;
                    { Support hint directives }
                    dummysymoptions:=[];
                    deprecatedmsg:=nil;

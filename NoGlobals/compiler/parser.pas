@@ -248,10 +248,13 @@ implementation
 
   type
     tolddata=record
+    {$IFDEF NoGlobals}
+    {$ELSE}
     { scanner }
       oldtokenpos    : tfileposinfo;
     { akt.. things }
       oldcurrent_filepos      : tfileposinfo;
+    {$ENDIF}
       old_current_module : tmodule;
     end;
     polddata=tolddata;
@@ -270,8 +273,11 @@ implementation
           begin //removed all local variables
             old_current_module:=current_module;
 
+          {$IFDEF NoGlobals}
+          {$ELSE}
             oldtokenpos:=current_tokenpos;
             oldcurrent_filepos:=current_filepos;
+          {$ENDIF}
           end;
         end;
 
@@ -280,9 +286,12 @@ implementation
           with olddata do
             begin
               PopModule(old_current_module);
+            {$IFDEF NoGlobals}
+            {$ELSE}
               { restore scanner }
               current_tokenpos:=oldtokenpos;
               current_filepos:=oldcurrent_filepos;
+            {$ENDIF}
             end;
         end;
 
@@ -317,7 +326,11 @@ implementation
 
     procedure NewParser(const filename:string);
       begin
+      {$IFDEF NoGlobals}
+        //update status, later?
+      {$ELSE}
         parser_current_file:=filename;
+      {$ENDIF}
         current_module.scanner:=TParser.Compile(filename); //factory request
         if not assigned(current_module.scanner) then
           Internalerror(20100810);  //todo: regular error message: no parser for this file
@@ -328,7 +341,7 @@ implementation
         PushSymbolStack;  //create new
         current_module.macrosymtablestack := TMacroStack.Create;
         WhichMs:=msModule;  //todo: move to after global initialize
-         systemunit:=nil;
+         systemunit:=nil; //???
 
          { load current asmdata from current_module }
          current_asmdata:=TAsmData(current_module.asmdata);
@@ -336,12 +349,12 @@ implementation
 
     procedure Parse;
       begin
-       { show info }
-         Message1(parser_i_compiling, parser_current_file);  // filename);
-
        { startup scanner and load the first file }
 
          current_scanner.firstfile;
+
+       { show info }
+         Message1(parser_i_compiling, current_scanner.inputfile.name^);
 
          { init macros before anything in the file is parsed.}
          current_module.localmacrosymtable:= tmacrosymtable.create(false);
@@ -429,7 +442,10 @@ implementation
 
         //RestoreParser(olddata); - moved below
 
+        {$IFDEF NoGlobals}
+        {$ELSE}
             parser_current_file:='';  //here???
+        {$ENDIF}
             { Close script }
             if (not AsmRes.Empty) then
             begin

@@ -943,7 +943,7 @@ implementation
          inherited create(dt);
          savesize := 0;
 {$ifdef EXTDEBUG}
-         fileinfo := current_filepos;
+         fileinfo := current_filepos^;
 {$endif}
          generictokenbuf:=nil;
          genericdef:=nil;
@@ -3038,7 +3038,7 @@ implementation
          inherited create(procdef,level);
          localst:=tlocalsymtable.create(self,parast.symtablelevel);
          _mangledname:=nil;
-         fileinfo:=current_filepos;
+         fileinfo:=current_filepos^;
          extnumber:=$ffff;
          aliasnames:=TCmdStrList.create;
          funcretsym:=nil;

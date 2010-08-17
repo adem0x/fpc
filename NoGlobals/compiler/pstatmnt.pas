@@ -1020,7 +1020,7 @@ implementation
          srsymtable : TSymtable;
          s       : TIDString;
       begin
-         filepos:=current_tokenpos;
+         filepos:=current_tokenpos^;
          case current_scanner.token of
            _GOTO :
              begin
@@ -1219,7 +1219,7 @@ implementation
 
       begin
          first:=nil;
-         filepos:=current_tokenpos;
+         filepos:=current_tokenpos^;
          current_scanner.consume(starttoken);
 
          while not(current_scanner.token in [_END,_FINALIZATION]) do
@@ -1327,7 +1327,7 @@ implementation
 
         { because the END is already read we need to get the
           last_endtoken_filepos here (PFV) }
-        current_scanner.last_endtoken_filepos:=current_tokenpos;
+        current_scanner.last_endtoken_filepos:=current_tokenpos^;
 
         assembler_block:=p;
       end;

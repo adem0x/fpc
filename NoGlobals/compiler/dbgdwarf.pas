@@ -2910,8 +2910,8 @@ implementation
         dbgname: string;
       begin
         current_module.flags:=current_module.flags or uf_has_dwarf_debuginfo;
-        storefilepos:=current_filepos;
-        current_filepos:=current_module.mainfilepos;
+        storefilepos:=current_filepos^;
+        current_filepos^:=current_module.mainfilepos;
 
         currabbrevnumber:=0;
 
@@ -3036,7 +3036,7 @@ implementation
         deftowritelist.free;
         deftowritelist:=nil;
 
-        current_filepos:=storefilepos;
+        current_filepos^:=storefilepos;
       end;
 
 

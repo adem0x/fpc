@@ -434,8 +434,8 @@ implementation
                 end;
               if codegenerror then
                break;
-              oldfilepos:=current_filepos;
-              current_filepos:=p2.fileinfo;
+              oldfilepos:=current_filepos^;
+              current_filepos^:=p2.fileinfo;
               case p2.resultdef.typ of
                  enumdef,
                  orddef:
@@ -456,7 +456,7 @@ implementation
                              inserttypeconv(p3,cchartype);
                              if (p3.nodetype<>ordconstn) then
                                begin
-                                 current_filepos:=p3.fileinfo;
+                                 current_filepos^:=p3.fileinfo;
                                  incompatibletypes(cwidechartype,cchartype);
                                end;
                            end;
@@ -565,7 +565,7 @@ implementation
               hp:=tarrayconstructornode(tarrayconstructornode(p2).right);
               tarrayconstructornode(p2).right:=nil;
               p2.free;
-              current_filepos:=oldfilepos;
+              current_filepos^:=oldfilepos;
             end;
            if (hdef=nil) then
             hdef:=u8inttype;

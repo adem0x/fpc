@@ -1496,8 +1496,8 @@ implementation
         storefilepos  : tfileposinfo;
         i  : longint;
       begin
-        storefilepos:=current_filepos;
-        current_filepos:=current_module.mainfilepos;
+        storefilepos:=current_filepos^;
+        current_filepos^:=current_module.mainfilepos;
 
         global_stab_number:=0;
         defnumberlist:=TFPObjectlist.create(false);
@@ -1563,7 +1563,7 @@ implementation
 
         stabsvarlist.free;
         stabstypelist.free;
-        current_filepos:=storefilepos;
+        current_filepos^:=storefilepos;
       end;
 
 

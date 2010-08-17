@@ -351,7 +351,7 @@ implementation
       begin
          s:=current_scanner.pattern;
          sorg:=current_scanner.orgpattern;
-         pos:=current_tokenpos;
+         pos:=current_tokenpos^;
          { use of current parsed object:
             - classes can be used also in classes
             - objects can be parameters }
@@ -858,7 +858,7 @@ implementation
                 aktenumdef:=tenumdef.create;
                 repeat
                   s:=current_scanner.orgpattern;
-                  defpos:=current_tokenpos;
+                  defpos:=current_tokenpos^;
                   current_scanner.consume(_ID);
                   { only allow assigning of specific numbers under fpc mode }
                   if not(m_tp7 in current_settings^.modeswitches) and
@@ -900,12 +900,12 @@ implementation
                   else
                     inc(l.svalue);
                   first := false;
-                  storepos:=current_tokenpos;
-                  current_tokenpos:=defpos;
+                  storepos:=current_tokenpos^;
+                  current_tokenpos^:=defpos;
                   tenumsymtable(aktenumdef.symtable).insert(tenumsym.create(s,aktenumdef,longint(l.svalue)));
                   if not (cs_scopedenums in current_settings^.localswitches) then
                     tstoredsymtable(aktenumdef.owner).insert(tenumsym.create(s,aktenumdef,longint(l.svalue)));
-                  current_tokenpos:=storepos;
+                  current_tokenpos^:=storepos;
                 until not current_scanner.try_to_consume(_COMMA);
                 def:=aktenumdef;
                 current_scanner.consume(_RKLAMMER);
