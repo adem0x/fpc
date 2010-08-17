@@ -146,10 +146,14 @@ interface
         wpoinfo       : tunitwpoinfobase; { whole program optimization-related information that is generated during the current run for this unit }
         globalsymtable,           { pointer to the global symtable of this unit }
         localsymtable : TSymtable;{ pointer to the local symtable of this unit }
-        globalmacrosymtable,           { pointer to the global macro symtable of this unit }
-        localmacrosymtable : TSymtable;{ pointer to the local macro symtable of this unit }
        symtablestack        : TSymtablestack;
+
+        globalmacrosymtable,           { pointer to the global macro symtable of this unit.
+                                          Only contains a copy of the local table??? }
+        localmacrosymtable : TSymtable;{ pointer to the local macro symtable of this unit.
+                                          All macros pushed here, by default. }
        macrosymtablestack   : TMacroStack;  // TSymtablestack;
+
         scanner       : TObject;  { scanner object used }
         fprocinfo      : TObject;  { current procedure being compiled }
         asmdata       : TObject;  { Assembler data }
@@ -220,13 +224,33 @@ interface
 
     var
        main_module       : tmodule;     { Main module of the program }
-       current_module    : tmodule;     { Current module which is compiled or loaded }
-       compiled_module   : tmodule;     { Current module which is compiled }
        usedunits         : tlinkedlist; { Used units for this program }
        loaded_units      : tlinkedlist; { All loaded units }
        unloaded_units    : tlinkedlist; { Units removed from loaded_units, to be freed }
        SmartLinkOFiles   : TCmdStrList; { List of .o files which are generated,
                                           used to delete them after linking }
+
+{.$DEFINE GlobalDebug}
+
+{$IFDEF GlobalDebug}
+var
+  _current_module: tmodule;
+procedure SetCurrentModule(m: tmodule);
+function  GetCurrentModule: tmodule;
+{ Current module which is compiled or loaded }
+property current_module: tmodule read GetCurrentModule write SetCurrentModule;
+{$ELSE}
+var
+       current_module    : tmodule;     { Current module which is compiled or loaded }
+{$ENDIF}
+
+{$IFDEF GlobalModule}
+type
+  TGlobalModule = tmodule; //eventual extensions required?
+var
+  GlobalModule: TGlobalModule;
+{$ELSE}
+{$ENDIF}
 
     { switch to new module (push), return previous module }
     function  PushModule(p:tmodule): tmodule;
@@ -256,13 +280,14 @@ implementation
       memsymtable : TMemDebug;
 {$endif}
 
-    function  PushSymbolStack: TSymtablestack; { returns old stack }
+//these push/pop an temporary symtable stack
+    function  PushSymbolStack: TSymtablestack;
     begin
       Result := current_module.symtablestack;
       current_module.symtablestack := TSymtablestack.create;
     end;
 
-    procedure PopSymbolStack(s: TSymtablestack); { activate previous stack }
+    procedure PopSymbolStack(s: TSymtablestack);
     begin
       current_module.symtablestack.Free;
       current_module.symtablestack := s;
@@ -289,6 +314,20 @@ implementation
             hp:=tmodule(hp.next);
          end;
       end;
+
+{$IFDEF GlobalDebug}
+procedure SetCurrentModule(m: tmodule);
+begin
+  _current_module := m;
+end;
+
+function  GetCurrentModule: tmodule;
+begin
+  Result := _current_module;
+end;
+
+{$ELSE}
+{$ENDIF}
 
     { intentionally invalidate current module, return previous module }
     function  InvalidateModule: tmodule;
@@ -549,6 +588,7 @@ implementation
         checkforwarddefs:=TFPObjectList.Create(false);
         globalsymtable:=nil;
         localsymtable:=nil;
+        //!GlobalModule?
         globalmacrosymtable:=nil;
         localmacrosymtable:=nil;
         loaded_from:=LoadedFrom;
@@ -661,11 +701,13 @@ implementation
         stringdispose(mainsource);
         stringdispose(asmprefix);
         stringdispose(deprecatedmsg);
+        //!GlobalModule?
         localunitsearchpath.Free;
         localobjectsearchpath.free;
         localincludesearchpath.free;
         locallibrarysearchpath.free;
         localframeworksearchpath.free;
+
 {$ifdef MEMDEBUG}
         memsymtable.start;
 {$endif}
@@ -674,10 +716,14 @@ implementation
         symlist.free;
         wpoinfo.free;
         checkforwarddefs.free;
+
         globalsymtable.free;
         localsymtable.free;
+        FreeAndNil(symtablestack);
+
         globalmacrosymtable.free;
         localmacrosymtable.free;
+        FreeAndNil(macrosymtablestack);
 {$ifdef MEMDEBUG}
         memsymtable.stop;
 {$endif}
@@ -710,10 +756,12 @@ implementation
         globalsymtable:=nil;
         localsymtable.free;
         localsymtable:=nil;
+        //!GlobalModule?
         globalmacrosymtable.free;
         globalmacrosymtable:=nil;
         localmacrosymtable.free;
         localmacrosymtable:=nil;
+
         deflist.free;
         deflist:=TFPObjectList.Create(false);
         symlist.free;

@@ -64,7 +64,10 @@ implementation
          testcurobject:=0;
 
          { Current compiled module/proc }
+      {$IFDEF GlobalModule}
+      {$ELSE}
          InvalidateModule;
+      {$ENDIF}
          current_asmdata:=nil;
          current_objectdef:=nil;
 
@@ -76,9 +79,11 @@ implementation
 
       {$IFDEF GlobalModule}
          { global switches }
+      {nonsense here - copy onto self
          current_settings^.globalswitches:=init_settings.globalswitches;
 
          current_settings^.sourcecodepage:=init_settings.sourcecodepage;
+      }
       {$ELSE}
         //scanner with current_settings does not yet exist!
       {$ENDIF}

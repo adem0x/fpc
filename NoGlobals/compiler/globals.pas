@@ -177,16 +177,6 @@ interface
         property items[I:longint]:TLinkRec read getlinkrec; default;
       end;
 
-      tpendingstate = record
-        nextverbositystr : shortstring;
-        nextlocalswitches : tlocalswitches;
-        nextverbosityfullswitch: longint;
-        nextcallingstr : shortstring;
-        verbosityfullswitched,
-        localswitcheschanged : boolean;
-      end;
-
-
     var
        { specified inputfile }
        inputfilepath     : string;
@@ -282,8 +272,24 @@ interface
        { moved current_settings into scanner }
        function current_settings   : psettings; //inline;
 
+{$IFDEF NoGlobals}
+//moved into scanner, switches
+    //function pendingstate: tpendingstate; //???
+{$ELSE}
+    type
+      tpendingstate = record
+        nextverbositystr : shortstring;
+        nextlocalswitches : tlocalswitches;
+        nextverbosityfullswitch: longint;
+        nextcallingstr : shortstring;
+        verbosityfullswitched,
+        localswitcheschanged : boolean;
+      end;
     var
        pendingstate       : tpendingstate;
+{$ENDIF}
+
+    var
      { Memory sizes }
        heapsize,
        stacksize,

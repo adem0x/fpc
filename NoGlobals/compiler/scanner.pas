@@ -34,7 +34,7 @@ interface
        verbose,comphook,
        symtype,symbase,symconst,htypechk,
        finput,
-       scandir, //switches...
+       scandir, switches, //pendingstate
        widestr;
 
     const
@@ -172,6 +172,11 @@ interface
           { last settings we stored }
           last_settings : tsettings;
           current_settings   : tsettings;
+       {$IFDEF NoGlobals}
+          Pending_State       : tpendingstate;
+       {$ELSE}
+        //in globals
+       {$ENDIF}
 
           { last filepos we stored }
           last_filepos,
@@ -289,7 +294,7 @@ implementation
       SysUtils,
       cutils,cfileutl,
       systems,
-      switches,
+      //switches,
       //symbase,symtype,symconst,
       symtable,symsym,symdef,defutil,
       fmodule;
@@ -422,7 +427,7 @@ end;
         if b then
          begin
            { resolve all postponed switch changes }
-           flushpendingswitchesstate;
+           pendingstate^.flushpendingswitchesstate;
 
            HandleModeSwitches(changeinit);
 
@@ -640,7 +645,7 @@ end;
           begin
             state:=current_scanner.ReadState;
             if state in ['-','+'] then
-              opt_check:=CheckSwitch(hs[1],state)
+              opt_check:= PendingState^.CheckSwitch(hs[1],state)
             else
               Message(scan_e_error_in_preproc_expr);
           end;
@@ -648,7 +653,7 @@ end;
 
     procedure dir_ifopt;
       begin
-        flushpendingswitchesstate;
+        PendingState^.flushpendingswitchesstate;
         current_scanner.ifpreprocstack(pp_ifopt,@opt_check,scan_c_ifopt_found);
       end;
 
@@ -977,7 +982,7 @@ In case not, the value returned can be arbitrary.
                       Message(scan_e_error_in_preproc_expr)
                     else
                       begin
-                        if CheckSwitch(hs[1],'+') then
+                        if PendingState^.CheckSwitch(hs[1],'+') then
                           read_factor := '1'
                         else
                           read_factor := '0';
@@ -1959,6 +1964,7 @@ In case not, the value returned can be arbitrary.
         InitWideString(patternw);
          { Load current state from the init values }
          current_settings:=init_settings;
+         Pending_State.Init(@current_settings);
       end;
 
 
@@ -2503,7 +2509,7 @@ In case not, the value returned can be arbitrary.
       if switchesstatestackpos > switchesstatestackmax then
         Message(scan_e_too_many_push);
 
-      flushpendingswitchesstate;
+      Pending_State.flushpendingswitchesstate;
 
       switchesstatestack[switchesstatestackpos].localsw:= current_settings.localswitches;
       switchesstatestack[switchesstatestackpos].verbosity:=status.verbosity;
@@ -2516,8 +2522,8 @@ In case not, the value returned can be arbitrary.
         Message(scan_e_too_many_pop);
 
       Dec(switchesstatestackpos);
-      recordpendinglocalfullswitch(switchesstatestack[switchesstatestackpos].localsw);
-      recordpendingverbosityfullswitch(switchesstatestack[switchesstatestackpos].verbosity);
+      Pending_State.recordpendinglocalfullswitch(switchesstatestack[switchesstatestackpos].localsw);
+      Pending_State.recordpendingverbosityfullswitch(switchesstatestack[switchesstatestackpos].verbosity);
     end;
 
 
@@ -2791,7 +2797,7 @@ In case not, the value returned can be arbitrary.
          { Check for compiler switches }
          while (length(hs)=1) and (c in ['-','+']) do
           begin
-            HandleSwitch(hs[1],c);
+            Pending_State.HandleSwitch(hs[1],c);
             current_scanner.readchar; {Remove + or -}
             if c=',' then
              begin
@@ -3462,7 +3468,7 @@ In case not, the value returned can be arbitrary.
       label
          exit_label;
       begin
-        flushpendingswitchesstate;
+        Pending_State.flushpendingswitchesstate;
 
         { record tokens? }
         if allowrecordtoken and

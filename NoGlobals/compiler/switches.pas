@@ -26,8 +26,44 @@ unit switches;
 interface
 
 uses
-  globtype;
+  globtype, globals;
 
+{$IFDEF NoGlobals}
+(* pendingstate moved into scanner, from globals.
+  Retyped into object, to eliminate indirect references.
+*)
+    type
+
+      { tpendingstate }
+
+      TPendingState = object //was: record
+      private //?
+        nextverbositystr : shortstring;
+        nextlocalswitches : tlocalswitches;
+        nextverbosityfullswitch: longint;
+        nextcallingstr : shortstring;
+        verbosityfullswitched,
+        localswitcheschanged : boolean;
+        current_settings: psettings;  //to be inited by scanner
+      public
+        constructor Init(scanner_settings: psettings);
+        function CheckSwitch(switch, state: char): boolean;
+        procedure HandleSwitch(switch, state: char);
+
+        procedure flushpendingswitchesstate;
+        procedure recordpendingcallingswitch(const str: shortstring);
+        procedure recordpendinglocalfullswitch(const switches: tlocalswitches);
+        procedure recordpendinglocalswitch(sw: tlocalswitch; state: char);
+        procedure recordpendingmessagestate(msg: longint; state: tmsgstate);
+        procedure recordpendingverbosityfullswitch(verbosity: longint);
+        procedure recordpendingverbosityswitch(sw: char; state: char);
+      end;
+      PPendingState = ^tpendingstate;
+
+function PendingState: PPendingState;
+
+{$ELSE}
+//in globals
 procedure HandleSwitch(switch,state:char);
 function CheckSwitch(switch,state:char):boolean;
 
@@ -38,12 +74,15 @@ procedure recordpendinglocalfullswitch(const switches: tlocalswitches);
 procedure recordpendingverbosityfullswitch(verbosity: longint);
 procedure recordpendingcallingswitch(const str: shortstring);
 procedure flushpendingswitchesstate;
+{$ENDIF}
+
 
 implementation
 uses
   systems,cpuinfo,
-  globals,verbose,comphook,
-  fmodule;
+  //globals,
+  verbose,comphook,
+  fmodule, scanner;
 
 {****************************************************************************
                           Main Switches Parsing
@@ -117,7 +156,24 @@ const
    {Z} (typesw:localsw; setsw:ord(cs_externally_visible))
     );
 
-procedure HandleSwitch(switch,state:char);
+
+{ tpendingstate }
+
+{$IFDEF NoGlobals}
+constructor tpendingstate.Init(scanner_settings: psettings);
+begin
+  current_settings := scanner_settings;
+end;
+
+function PendingState: PPendingState;
+begin
+  Result := @current_scanner.Pending_State;
+end;
+
+{$ELSE}
+{$ENDIF}
+
+procedure tpendingstate.HandleSwitch(switch,state:char);
 
 var
   switchTablePtr: ^SwitchRecTable;
@@ -219,7 +275,7 @@ begin
 end;
 
 
-function CheckSwitch(switch,state:char):boolean;
+function tpendingstate.CheckSwitch(switch,state:char):boolean;
 
 var
   found : boolean;
@@ -259,86 +315,86 @@ begin
 end;
 
 
-procedure recordpendingverbosityswitch(sw: char; state: char);
+procedure tpendingstate.recordpendingverbosityswitch(sw: char; state: char);
   begin
-    pendingstate.nextverbositystr:=pendingstate.nextverbositystr+sw+state;
+    {pendingstate.}nextverbositystr:={pendingstate.}nextverbositystr+sw+state;
   end;
 
-procedure recordpendingmessagestate(msg: longint; state: tmsgstate);
+procedure tpendingstate.recordpendingmessagestate(msg: longint; state: tmsgstate);
   begin
     { todo }
   end;
 
-procedure recordpendinglocalswitch(sw: tlocalswitch; state: char);
+procedure tpendingstate.recordpendinglocalswitch(sw: tlocalswitch; state: char);
   begin
-    if not pendingstate.localswitcheschanged then
-       pendingstate.nextlocalswitches:=current_settings^.localswitches;
+    if not localswitcheschanged then
+       nextlocalswitches:=current_settings^.localswitches;
     if state='-' then
-      exclude(pendingstate.nextlocalswitches,sw)
+      exclude(nextlocalswitches,sw)
     else if state='+' then
-      include(pendingstate.nextlocalswitches,sw)
+      include(nextlocalswitches,sw)
     else { state = '*' }
       begin
         if sw in init_settings.localswitches then
-         include(pendingstate.nextlocalswitches,sw)
+         include(nextlocalswitches,sw)
         else
-         exclude(pendingstate.nextlocalswitches,sw);
+         exclude(nextlocalswitches,sw);
       end;
-    pendingstate.localswitcheschanged:=true;
+    localswitcheschanged:=true;
   end;
 
 
-procedure recordpendinglocalfullswitch(const switches: tlocalswitches);
+procedure tpendingstate.recordpendinglocalfullswitch(const switches: tlocalswitches);
   begin
-    pendingstate.nextlocalswitches:=switches;
-    pendingstate.localswitcheschanged:=true;
+    nextlocalswitches:=switches;
+    localswitcheschanged:=true;
   end;
 
 
-procedure recordpendingverbosityfullswitch(verbosity: longint);
+procedure tpendingstate.recordpendingverbosityfullswitch(verbosity: longint);
   begin
-    pendingstate.nextverbositystr:='';
-    pendingstate.nextverbosityfullswitch:=verbosity;
-    pendingstate.verbosityfullswitched:=true;
+    nextverbositystr:='';
+    nextverbosityfullswitch:=verbosity;
+    verbosityfullswitched:=true;
   end;
 
-procedure recordpendingcallingswitch(const str: shortstring);
+procedure tpendingstate.recordpendingcallingswitch(const str: shortstring);
   begin
-    pendingstate.nextcallingstr:=str;
+    nextcallingstr:=str;
   end;
 
 
-procedure flushpendingswitchesstate;
+procedure tpendingstate.flushpendingswitchesstate;
   var
     tmpproccal: tproccalloption;
   begin
     { process pending localswitches (range checking, etc) }
-    if pendingstate.localswitcheschanged then
+    if localswitcheschanged then
       begin
-        current_settings^.localswitches:=pendingstate.nextlocalswitches;
-        pendingstate.localswitcheschanged:=false;
+        current_settings^.localswitches:=nextlocalswitches;
+        localswitcheschanged:=false;
       end;
     { process pending verbosity changes (warnings on, etc) }
-    if pendingstate.verbosityfullswitched then
+    if verbosityfullswitched then
       begin
-        status.verbosity:=pendingstate.nextverbosityfullswitch;
-        pendingstate.verbosityfullswitched:=false;
+        status.verbosity:=nextverbosityfullswitch;
+        verbosityfullswitched:=false;
       end;
-    if pendingstate.nextverbositystr<>'' then
+    if nextverbositystr<>'' then
       begin
-        setverbosity(pendingstate.nextverbositystr);
-        pendingstate.nextverbositystr:='';
+        setverbosity(nextverbositystr);
+        nextverbositystr:='';
       end;
     { process pending calling convention changes (calling x) }
-    if pendingstate.nextcallingstr<>'' then
+    if nextcallingstr<>'' then
       begin
-        if not SetAktProcCall(pendingstate.nextcallingstr,tmpproccal) then
-          Message1(parser_w_unknown_proc_directive_ignored,pendingstate.nextcallingstr)
+        if not SetAktProcCall(nextcallingstr,tmpproccal) then
+          Message1(parser_w_unknown_proc_directive_ignored,nextcallingstr)
         else if not(tmpproccal in supported_calling_conventions) then
-          Message1(parser_e_illegal_calling_convention,pendingstate.nextcallingstr)
+          Message1(parser_e_illegal_calling_convention,nextcallingstr)
         else
           current_settings^.defproccall:=tmpproccal;
-        pendingstate.nextcallingstr:='';
+        nextcallingstr:='';
       end;
   end;
 

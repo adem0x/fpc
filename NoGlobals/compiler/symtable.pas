@@ -255,7 +255,7 @@ interface
 {$endif UNITALIASES}
 
 {*** Init / Done ***}
-    procedure IniTSymtable;
+    procedure InitSymtable;
     procedure DoneSymtable;
 
     const
@@ -2636,7 +2636,7 @@ implementation
      *)
        { Reset symbolstack }
      {$IFDEF GlobalModule}
-       symtablestack:=nil;  //todo: fix symtablestack implementation for this case
+       //symtablestack:=nil;  //todo: fix symtablestack implementation for this case
      {$ELSE}
       //in module
      {$ENDIF}

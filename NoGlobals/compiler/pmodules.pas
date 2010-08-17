@@ -1170,8 +1170,12 @@ implementation
            end;
 
          { move the global symtable from the temporary local to global }
+         (* Symbols are added to the local symtable, by default(?).
+            So we must make the current local symtable, created from interface,
+            the global symtable, for further use by other modules.
+         *)
          current_module.globalsymtable:=current_module.localsymtable;
-         current_module.localsymtable:=nil;
+         current_module.localsymtable:=nil; //not needed any more???
 
          { number all units, so we know if a unit is used by this unit or
            needs to be added implicitly }
@@ -1191,6 +1195,8 @@ implementation
          { Export macros defined in the interface for macpas. The macros
            are put in the globalmacrosymtable that will only be used by other
            units. The current unit continues to use the localmacrosymtable }
+         (* ToDo: use macro stack, no need for copies then!
+         *)
          if (m_mac in current_settings^.modeswitches) then
           begin
             current_module.globalmacrosymtable:=tmacrosymtable.create(true);

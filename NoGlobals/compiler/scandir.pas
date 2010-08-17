@@ -65,7 +65,7 @@ unit scandir;
       { c contains the next char, a + or - would be fine }
         state:=current_scanner.readstate;
         if state in ['-','+'] then
-          HandleSwitch(sw,state);
+          PendingState^.HandleSwitch(sw,state);
       end;
 
 
@@ -75,7 +75,7 @@ unit scandir;
       begin
       { support ON/OFF }
         state:=current_scanner.ReadState;
-        recordpendingverbosityswitch(flag,state);
+        PendingState^.recordpendingverbosityswitch(flag,state);
       end;
 
 
@@ -100,7 +100,7 @@ unit scandir;
       begin
         state:=current_scanner.readstate;
         if (sw<>cs_localnone) and (state in ['-','+']) then
-          recordpendinglocalswitch(sw,state);
+          PendingState^.recordpendinglocalswitch(sw,state);
       end;
 
     procedure do_localswitchdefault(sw:tlocalswitch);
@@ -109,7 +109,7 @@ unit scandir;
       begin
         state:=current_scanner.readstatedefault;
         if (sw<>cs_localnone) and (state in ['-','+','*']) then
-          recordpendinglocalswitch(sw,state);
+          PendingState^.recordpendinglocalswitch(sw,state);
       end;
 
 
@@ -277,7 +277,7 @@ unit scandir;
         if (hs='') then
           Message(parser_e_proc_directive_expected)
         else
-          recordpendingcallingswitch(hs);
+          PendingState^.recordpendingcallingswitch(hs);
       end;
 
 
@@ -1198,52 +1198,52 @@ unit scandir;
         end;
 
         if ident='CONSTRUCTING_ABSTRACT' then
-          recordpendingmessagestate(type_w_instance_with_abstract, msgstate)
+          PendingState^.recordpendingmessagestate(type_w_instance_with_abstract, msgstate)
         else
         if ident='IMPLICIT_VARIANTS' then
-          recordpendingmessagestate(parser_w_implicit_uses_of_variants_unit, msgstate)
+          PendingState^.recordpendingmessagestate(parser_w_implicit_uses_of_variants_unit, msgstate)
         else
         if ident='NO_RETVAL' then
-          recordpendingmessagestate(sym_w_function_result_not_set, msgstate)
+          PendingState^.recordpendingmessagestate(sym_w_function_result_not_set, msgstate)
         else
         if ident='SYMBOL_DEPRECATED' then
           begin
-            recordpendingmessagestate(sym_w_deprecated_symbol, msgstate);
-            recordpendingmessagestate(sym_w_deprecated_symbol_with_msg, msgstate);
+            PendingState^.recordpendingmessagestate(sym_w_deprecated_symbol, msgstate);
+            PendingState^.recordpendingmessagestate(sym_w_deprecated_symbol_with_msg, msgstate);
           end
         else
         if ident='SYMBOL_EXPERIMENTAL' then
-          recordpendingmessagestate(sym_w_experimental_symbol, msgstate)
+          PendingState^.recordpendingmessagestate(sym_w_experimental_symbol, msgstate)
         else
         if ident='SYMBOL_LIBRARY' then
-          recordpendingmessagestate(sym_w_library_symbol, msgstate)
+          PendingState^.recordpendingmessagestate(sym_w_library_symbol, msgstate)
         else
         if ident='SYMBOL_PLATFORM' then
-          recordpendingmessagestate(sym_w_non_portable_symbol, msgstate)
+          PendingState^.recordpendingmessagestate(sym_w_non_portable_symbol, msgstate)
         else
         if ident='SYMBOL_UNIMPLEMENTED' then
-          recordpendingmessagestate(sym_w_non_implemented_symbol, msgstate)
+          PendingState^.recordpendingmessagestate(sym_w_non_implemented_symbol, msgstate)
         else
         if ident='UNIT_DEPRECATED' then
           begin
-            recordpendingmessagestate(sym_w_deprecated_unit, msgstate);
-            recordpendingmessagestate(sym_w_deprecated_unit_with_msg, msgstate);
+            PendingState^.recordpendingmessagestate(sym_w_deprecated_unit, msgstate);
+            PendingState^.recordpendingmessagestate(sym_w_deprecated_unit_with_msg, msgstate);
           end
         else
         if ident='UNIT_EXPERIMENTAL' then
-          recordpendingmessagestate(sym_w_experimental_unit, msgstate)
+          PendingState^.recordpendingmessagestate(sym_w_experimental_unit, msgstate)
         else
         if ident='UNIT_LIBRARY' then
-          recordpendingmessagestate(sym_w_library_unit, msgstate)
+          PendingState^.recordpendingmessagestate(sym_w_library_unit, msgstate)
         else
         if ident='UNIT_PLATFORM' then
-          recordpendingmessagestate(sym_w_non_portable_unit, msgstate)
+          PendingState^.recordpendingmessagestate(sym_w_non_portable_unit, msgstate)
         else
         if ident='UNIT_UNIMPLEMENTED' then
-          recordpendingmessagestate(sym_w_non_implemented_unit, msgstate)
+          PendingState^.recordpendingmessagestate(sym_w_non_implemented_unit, msgstate)
         else
         if ident='ZERO_NIL_COMPAT' then
-          recordpendingmessagestate(type_w_zero_to_nil, msgstate)
+          PendingState^.recordpendingmessagestate(type_w_zero_to_nil, msgstate)
         else
           Message1(scanner_w_illegal_warn_identifier,ident);
       end;

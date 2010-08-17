@@ -1,4 +1,9 @@
 {$mode objfpc}
+
+//NoGlobals version - by DoDi
+{$DEFINE NoGlobals}
+{$DEFINE GlobalModule}
+
 {$asmmode default}
 {$H-}
 {$goto on}

@@ -165,6 +165,12 @@ begin
   if CompilerInited then
    DoneCompiler;
 { inits which need to be done before the arguments are parsed }
+{$IFDEF GlobalModule}
+  GlobalModule := TGlobalModule.Create(nil, '$Global$', true);  //???
+  //current_module := GlobalModule;
+  PushModule(GlobalModule);
+{$ELSE}
+{$ENDIF}
   InitSystems;
   { fileutils depends on source_info so it must be after systems }
   InitFileUtils;
@@ -173,13 +179,17 @@ begin
   { verbose depends on exe_path and must be after globals }
   InitVerbose;
   inittokens;
-  IniTSymtable; {Must come before read_arguments, to enable macrosymstack}
+  InitSymtable; {Must come before read_arguments, to enable macrosymstack}
   do_initSymbolInfo;
   CompilerInited:=true;
 { this is needed here for the IDE
   in case of compilation failure
   at the previous compile }
+{$IFDEF GlobalModule}
+//stays current
+{$ELSE}
   InvalidateModule;
+{$ENDIF}
 { read the arguments }
   read_arguments(cmd);
 { inits which depend on arguments }
@@ -241,6 +251,7 @@ begin
        WritePathList(general_t_objectpath,objectsearchpath);
 
        { Compile the program }
+       InvalidateModule;  //hide the global module
   {$ifdef PREPROCWRITE}
        if parapreprocess then
         parser.preprocess(inputfilepath+inputfilename)
