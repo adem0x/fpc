@@ -208,83 +208,7 @@ implementation
                              Compile a source file
 *****************************************************************************}
 
-  type
-    tolddata=record
-    {$IFDEF NoGlobals}
-    {$ELSE}
-    { scanner }
-      oldtokenpos    : tfileposinfo;
-    { akt.. things }
-      oldcurrent_filepos      : tfileposinfo;
-    {$ENDIF}
-      old_current_module : tmodule;
-    end;
-    polddata=tolddata;
-
-
-    procedure compile(const filename:string);
-
-       procedure SaveParser(var olddata: polddata);
-       begin
-       (*todo: saving the scanner/parser state will no more be required
-          with scanner/parser objects.
-
-          These are (currently) global variables, for error/exception log
-       *)
-         with olddata do
-          begin //removed all local variables
-            old_current_module:=current_module;
-
-          {$IFDEF NoGlobals}
-          {$ELSE}
-            oldtokenpos:=current_tokenpos;
-            oldcurrent_filepos:=current_filepos;
-          {$ENDIF}
-          end;
-        end;
-
-       procedure RestoreParser(var olddata: polddata);
-        begin
-          with olddata do
-            begin
-              PopModule(old_current_module);
-            {$IFDEF NoGlobals}
-            {$ELSE}
-              { restore scanner }
-              current_tokenpos:=oldtokenpos;
-              current_filepos:=oldcurrent_filepos;
-            {$ENDIF}
-            end;
-        end;
-
-
-    {$IFDEF old}
-       procedure ParseFinished(var olddata: polddata);
-         begin
-           if assigned(current_module) then
-             begin  //todo: move into module
-               { module is now compiled }
-               tppumodule(current_module).state:=ms_compiled;
-
-               { free ppu }
-               FreeAndNil(tppumodule(current_module).ppufile);
-
-               { free asmdata }
-               if assigned(current_module.asmdata) then
-                 begin
-                   current_module.asmdata.free;
-                   current_module.asmdata:=nil;
-                 end;
-
-               { free symtable stack }
-              PopSymbolStack(nil); //local in module!
-              FreeAndNil(current_module.macrosymtablestack);
-             end;
-         end;
-    {$ELSE}
-      //in module
-    {$ENDIF}
-
+  procedure compile(const filename:string);
 
     procedure NewParser(const filename:string);
       begin
@@ -302,7 +226,6 @@ implementation
     procedure Parse;
       begin
        { startup scanner and load the first file }
-
          current_scanner.firstfile;
 
        { show info }
@@ -310,7 +233,7 @@ implementation
 
          { init macros before anything in the file is parsed.}
          current_module.localmacrosymtable:= tmacrosymtable.create(false);
-          macrosymtablestack.Init;
+         macrosymtablestack.Init;
          macrosymtablestack.push(current_module.localmacrosymtable);
 
          { read the first token }
@@ -344,14 +267,7 @@ implementation
            end;
         end;  //Parse
 
-      var
-         olddata : polddata;
       begin  //compile
-         { parsing a procedure or declaration should be finished }
-         if assigned(current_objectdef) then
-           internalerror(200811122);
-
-        SaveParser(olddata);
         inc(compile_level);
        { reset the unit or create a new program }
              if not(assigned(current_module) and
@@ -362,13 +278,8 @@ implementation
         try
           Parse;
         finally
-        {$IFDEF old}
-          ParseFinished(olddata);
-        {$ELSE}
           current_module.ParseFinished;
-        {$ENDIF}
           dec(compile_level);
-          RestoreParser(olddata);
         end;
       end;
 
@@ -384,20 +295,11 @@ implementation
          addloadedunit(main_module);
          main_module.state:=ms_compile;
          compile(filename);
-         {$IFDEF old}
-          //moved here
-         {$ELSE}
+
         { Shut down things when the last file is compiled succesfull }
           if (status.errorcount=0) then begin
             { Write Browser Collections }
             do_extractsymbolinfo;
-
-        //RestoreParser(olddata); - moved below
-
-        {$IFDEF NoGlobals}
-        {$ELSE}
-            parser_current_file:='';  //here???
-        {$ENDIF}
             { Close script }
             if (not AsmRes.Empty) then
             begin
@@ -424,7 +326,6 @@ implementation
               { free also unneeded units we didn't free before }
               unloaded_units.Clear;
             end;
-         {$ENDIF}
        end;
 
 end.

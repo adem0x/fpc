@@ -291,7 +291,6 @@ interface
           function  asmgetchar:char;
        end;
 
-{$ifdef PREPROCWRITE}
     type
        tpreprocfile=class
        private
@@ -306,9 +305,8 @@ interface
          procedure Add(const s:string);
        end;
 
-    var
+    var //to be moved into scanner?
         preprocfile     : tpreprocfile;  { used with only preprocessing }
-{$endif PREPROCWRITE}
 
 { current scanner in use }
 function current_scanner: tscannerfile; inline;
@@ -1883,7 +1881,6 @@ In case not, the value returned can be arbitrary.
                             Preprocessor writing
 *****************************************************************************}
 
-{$ifdef PREPROCWRITE}
     constructor tpreprocfile.create(const fn:string);
       begin
       { open outputfile }
@@ -1926,7 +1923,6 @@ In case not, the value returned can be arbitrary.
             spacefound:=false;
           end;
       end;
-{$endif PREPROCWRITE}
 
 
 {*****************************************************************************
@@ -2823,7 +2819,6 @@ In case not, the value returned can be arbitrary.
              Message1(scan_w_illegal_switch,'$');
              exit;
            end;
-{$ifdef PREPROCWRITE}
          if parapreprocess then
           begin
             t:=Get_Directive(hs);
@@ -2833,7 +2828,6 @@ In case not, the value returned can be arbitrary.
                exit;
              end;
           end;
-{$endif PREPROCWRITE}
          { skip this directive? }
          if (ignoredirectives.find(hs)<>nil) then
           begin
@@ -3551,7 +3545,6 @@ In case not, the value returned can be arbitrary.
               end;
             ' ',#9..#13 :
               begin
-{$ifdef PREPROCWRITE}
                 if parapreprocess then
                  begin
                    if c in [#10,#13] then
@@ -3559,7 +3552,6 @@ In case not, the value returned can be arbitrary.
                    else
                     preprocfile.spacefound:=true;
                  end;
-{$endif PREPROCWRITE}
                 skipspace;
               end
             else

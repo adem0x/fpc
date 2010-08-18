@@ -167,7 +167,7 @@ end;
 
 function PendingState: PPendingState;
 begin
-  Result := @current_scanner.Pending_State;
+  Result := current_module.PendingState; //special in GlobalModule
 end;
 
 {$ELSE}

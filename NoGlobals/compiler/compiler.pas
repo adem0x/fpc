@@ -240,11 +240,9 @@ begin
 
        { Compile the program }
        InvalidateModule;  //hide the global module
-  {$ifdef PREPROCWRITE}
        if parapreprocess then
         parser.preprocess(inputfilepath+inputfilename)
        else
-  {$endif PREPROCWRITE}
         parser.compileMain(inputfilepath+inputfilename);
 
        { Show statistics }

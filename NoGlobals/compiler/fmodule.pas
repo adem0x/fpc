@@ -45,6 +45,7 @@ interface
        cutils,cclasses,cfileutl,
        globtype,finput,ogbase,
        symbase,symsym,
+       switches,  //pendingstate
        wpobase,
        aasmbase,aasmtai,aasmdata;
 
@@ -207,6 +208,7 @@ interface
         procedure setmodulename(const s:string);
         procedure AddExternalImport(const libname,symname:string;OrdNr: longint;isvar:boolean;ImportByOrdinalOnly:boolean);
         property ImportLibraryList : TFPHashObjectList read FImportLibraryList;
+        function  PendingState: PPendingState; virtual;
       end;
 
        tused_unit = class(tlinkedlistitem)
@@ -248,7 +250,16 @@ var
 {$ENDIF}
 
 type
-  TGlobalModule = tmodule; //eventual extensions required?
+
+  { TGlobalModule }
+
+  TGlobalModule = class(tmodule) //eventual extensions required?
+  protected
+    pending_state: TPendingState;
+  public
+    function  PendingState: PPendingState; override;
+  end;
+
 var
   GlobalModule: TGlobalModule;
 
@@ -1081,6 +1092,18 @@ end;
           end;
       end;
 
+    function tmodule.PendingState: PPendingState;
+    begin
+      Result := @tscannerfile(scanner).Pending_State;
+    end;
+
+
+{ TGlobalModule }
+
+function TGlobalModule.PendingState: PPendingState;
+begin
+  Result:=@pending_state;
+end;
 
 initialization
 {$ifdef MEMDEBUG}
