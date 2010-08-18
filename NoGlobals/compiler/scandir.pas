@@ -1348,6 +1348,7 @@ unit scandir;
 
     procedure InitScannerDirectives;
       begin
+      //todo: add kind
         AddDirective('A1',directive_all, @dir_a1);
         AddDirective('A2',directive_all, @dir_a2);
         AddDirective('A4',directive_all, @dir_a4);

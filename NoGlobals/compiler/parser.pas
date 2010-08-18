@@ -28,9 +28,7 @@ interface
 uses
   pbase;
 
-  {$ifdef PREPROCWRITE}
       procedure preprocess(const filename:string);
-  {$endif PREPROCWRITE}
       procedure compile(const filename:string);
       procedure compileMain(const filename:string);
       procedure initparser;
@@ -138,79 +136,72 @@ implementation
 
 
 
-{$ifdef PREPROCWRITE}
     procedure preprocess(const filename:string);
       var
         i : longint;
+        scn: tscannerfile;
       begin
-         new(preprocfile,init('pre'));
-       { initialize a module }
-         set_current_module(new(pmodule,init(filename,false)));
-
-         macrosymtablestack:= initialmacrosymtable;
-         current_module.localmacrosymtable:= tmacrosymtable.create(false);
-         current_module.localmacrosymtable.next:= initialmacrosymtable;
-         macrosymtablestack:= current_module.localmacrosymtable;
-
-         main_module:=current_module;
+        Message1(parser_i_compiling, Filename);
+        preprocfile := tpreprocfile.create(Filename + '.pre'); //???
+       { initialize a module, for symbol tables etc. }
+         main_module := tmodule.create(nil, Filename, true);
        { startup scanner, and save in current_module }
-         current_scanner:=new(pscannerfile,Init(filename));
-         current_module.scanner:=current_scanner;
+         PushModule(main_module);
+         //macrosymtablestack:= current_module.macrosymtablestack;
+
+       { startup scanner, and save in current_module }
+         scn:=tscannerfile.Create(filename);
+         main_module.scanner:=scn;
        { loop until EOF is found }
          repeat
-           current_scanner^.readtoken(true);
-           preprocfile^.AddSpace;
-           case token of
+           scn.readtoken(true);
+           case scn.token of
              _ID :
                begin
-                 preprocfile^.Add(orgpattern);
+                 preprocfile.Add(scn.orgpattern);
                end;
              _REALNUMBER,
              _INTCONST :
-               preprocfile^.Add(pattern);
+               preprocfile.Add(scn.pattern);
              _CSTRING :
                begin
                  i:=0;
-                 while (i<length(cstringpattern)) do
+                 while (i<length(scn.cstringpattern)) do
                   begin
                     inc(i);
-                    if cstringpattern[i]='''' then
+                    if scn.cstringpattern[i]='''' then
                      begin
-                       insert('''',cstringpattern,i);
+                       insert('''',scn.cstringpattern,i);
                        inc(i);
                      end;
                   end;
-                 preprocfile^.Add(''''+cstringpattern+'''');
+                 preprocfile.Add(''''+scn.cstringpattern+'''');
                end;
              _CCHAR :
                begin
-                 case pattern[1] of
+                 case scn.pattern[1] of
                    #39 :
-                     pattern:='''''''';
+                     scn.pattern:='''''''';
                    #0..#31,
                    #128..#255 :
                      begin
-                       str(ord(pattern[1]),pattern);
-                       pattern:='#'+pattern;
+                       str(ord(scn.pattern[1]),scn.pattern);
+                       scn.pattern:='#'+scn.pattern;
                      end;
                    else
-                     pattern:=''''+pattern[1]+'''';
+                     scn.pattern:=''''+scn.pattern[1]+'''';
                  end;
-                 preprocfile^.Add(pattern);
+                 preprocfile.Add(scn.pattern);
                end;
              _EOF :
                break;
              else
-               preprocfile^.Add(tokeninfo^[token].str)
+               preprocfile.Add(tokeninfo^[scn.token].str)
            end;
          until false;
-       { free scanner }
-         dispose(current_scanner,done);
-         current_scanner:=nil;
        { close }
-         dispose(preprocfile,done);
+         preprocfile.Free;
       end;
-{$endif PREPROCWRITE}
 
 
 {*****************************************************************************
