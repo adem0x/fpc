@@ -181,8 +181,14 @@ interface
           constructor create(adefowner:tdef);
        end;
 
+{$DEFINE DebugSysUnit}
+{$IFDEF DebugSysUnit}
+    function systemunit: tglobalsymtable; { pointer to the system unit, owner of all global symbols }
+{$ELSE}
     var
        systemunit     : tglobalsymtable; { pointer to the system unit, owner of all global symbols }
+{$ENDIF}
+    procedure SetSystemUnit(stb: tglobalsymtable);
 
 
 {****************************************************************************
@@ -289,6 +295,25 @@ implementation
 
     var
       dupnr : longint; { unique number for duplicate symbols }
+
+{$IFDEF DebugSysUnit}
+  var
+    SystemSymbols: tglobalsymtable;
+    function systemunit: tglobalsymtable; { pointer to the system unit, owner of all global symbols }
+    begin
+      Result := SystemSymbols;
+    end;
+{$ELSE}
+{$ENDIF}
+
+    procedure SetSystemUnit(stb: tglobalsymtable);
+    begin
+    {$IFDEF NoGlobals}
+      SystemSymbols := stb;
+    {$ELSE}
+      sytemunit := stb;
+    {$ENDIF}
+    end;
 
 
 {*****************************************************************************
@@ -2640,8 +2665,10 @@ implementation
      {$ELSE}
       //in module
      {$ENDIF}
-       systemunit:=nil;
-       { create error syms and def }
+     //called from InitCompiler, it's okay to clear systemunit here!
+       SetSystemUnit(nil);
+       { create error syms and def - may be needed during parse of the system unit?
+        The owner has to be set later, when the system unit is loaded! }
        generrorsym:=terrorsym.create;
        generrordef:=terrordef.create;
        { macros }

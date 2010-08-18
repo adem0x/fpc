@@ -540,6 +540,12 @@ implementation
         current_module.addusedunit(hp,false,unitsym);
       end;
 
+    procedure AddSystemUnit;
+    begin
+      AddUnit('system');
+      if not assigned(systemunit) then
+        SetSystemUnit(tglobalsymtable(symtablestack.top));  //set only once
+    end;
 
     procedure maybeloadvariantsunit;
       var
@@ -618,6 +624,11 @@ implementation
 
     procedure loaddefaultunits;
       begin
+      (* called for program and *every* unit.
+
+        Handling of (global) systemunit should either occur once,
+        or systemunit should be local to every module!
+      *)
         { we are going to rebuild the symtablestack, clear it first }
         symtablestack.clear;
         { macro symtable }
@@ -626,7 +637,11 @@ implementation
         { are we compiling the system unit? }
         if (cs_compilesystem in current_settings^.moduleswitches) then
          begin
+         {$IFDEF NoGlobals}
+           SetSystemUnit(tglobalsymtable(current_module.localsymtable));
+         {$ELSE}
            systemunit:=tglobalsymtable(current_module.localsymtable);
+         {$ENDIF}
            { create system defines }
            create_intern_symbols;
            create_intern_types;
@@ -637,10 +652,17 @@ implementation
            exit;
          end;
 
-        { insert the system unit, it is allways the first. Load also the
+        { insert the system unit, it is always the first. Load also the
           internal types from the system unit }
+      {$IFDEF NoGlobals}
+        AddSystemUnit;
+        if not assigned(systemunit) then
+          Internalerror(20100818);  //must be assigned once (above)
+        //SetSystemUnit(tglobalsymtable(symtablestack.top));
+      {$ELSE}
         AddUnit('system');
         systemunit:=tglobalsymtable(symtablestack.top);
+      {$ENDIF}
         load_intern_types;
 
         { Set the owner of errorsym and errortype to symtable to

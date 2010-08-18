@@ -184,14 +184,21 @@ interface
 
     var
       CAsmCFI : TAsmCFIClass;
+
+  {$IFDEF NoGlobals}
+    function current_asmdata : TAsmData;
+  {$ELSE}
+    var
       current_asmdata : TAsmData;
+  {$ENDIF}
 
 
 implementation
 
     uses
       verbose,
-      aasmtai;
+      aasmtai,
+      fmodule;
 
 {$ifdef MEMDEBUG}
     var
@@ -200,6 +207,13 @@ implementation
       memasmlists : TMemDebug;
 {$endif MEMDEBUG}
 
+{$IFDEF NoGlobals}
+    function current_asmdata : TAsmData;
+    begin
+      Result := TAsmData(current_module.asmdata);
+    end;
+{$ELSE}
+{$ENDIF}
 
 {*****************************************************************************
                                  TAsmCFI
@@ -376,8 +390,11 @@ implementation
          for hp := low(TConstPoolType) to high(TConstPoolType) do
            ConstPools[hp].Free;
 
+      {$IFDEF NoGlobals}
+      {$ELSE}
          if current_asmdata = self then
           current_asmdata := nil;
+      {$ENDIF}
       end;
 
 

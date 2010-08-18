@@ -92,7 +92,11 @@ interface
 
     var
       CDebugInfo : array[tdbg] of TDebugInfoClass;
+  {$IFDEF NoGlobals}
+    function  current_debuginfo : tdebuginfo;
+  {$ELSE}
       current_debuginfo : tdebuginfo;
+  {$ENDIF}
 
     procedure InitDebugInfo(hp:tmodule);
     procedure DoneDebugInfo(hp:tmodule);
@@ -105,6 +109,14 @@ implementation
       cutils,
       verbose;
 
+{$IFDEF NoGlobals}
+    function  current_debuginfo : tdebuginfo;
+    begin
+      Result := tdebuginfo(current_module.debuginfo);
+    end;
+{$ELSE}
+//global var
+{$ENDIF}
 
     constructor TDebugInfo.Create;
       begin

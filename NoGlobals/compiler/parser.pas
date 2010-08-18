@@ -68,8 +68,11 @@ implementation
       {$ELSE}
          InvalidateModule;
       {$ENDIF}
+      {$IFDEF NoGlobals}
+      {$ELSE}
          current_asmdata:=nil;
          current_objectdef:=nil;
+      {$ENDIF}
 
          loaded_units:=TLinkedList.Create;
 
@@ -144,8 +147,11 @@ implementation
          { if there was an error in the scanner, the scanner is
            still assigned }
          InvalidateModule;
+      {$IFDEF NoGlobals}
+      {$ELSE}
          current_asmdata:=nil;
          current_objectdef:=nil;
+      {$ENDIF}
 
          { unload units }
          FreeAndNil(loaded_units);
@@ -339,12 +345,19 @@ implementation
          important for the IDE }
        { reset symtable }
         PushSymbolStack;  //create new
-        current_module.macrosymtablestack := TMacroStack.Create;
-        WhichMs:=msModule;  //todo: move to after global initialize
-         systemunit:=nil; //???
+        PushMacroStack;
+       {$IFDEF old}
+        SetSystemUnit(nil); //???
+       {$ELSE}
+        //reset only once per compile!
+       {$ENDIF}
 
+       {$IFDEF NoGlobals}
+        //stay in module
+       {$ELSE}
          { load current asmdata from current_module }
          current_asmdata:=TAsmData(current_module.asmdata);
+       {$ENDIF}
       end;
 
     procedure Parse;

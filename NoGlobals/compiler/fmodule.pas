@@ -337,11 +337,11 @@ end;
     begin
       Result := current_module;
       current_module:=nil;
-      current_asmdata:=nil;
-      current_debuginfo:=nil;
     {$IFDEF NoGlobals}
       //update status?
     {$ELSE}
+      current_asmdata:=nil;
+      current_debuginfo:=nil;
       parser_current_file:='';
     {$ENDIF}
     //restore how?
@@ -358,10 +358,10 @@ end;
         { set new module }
         current_module:=p;
         { restore previous module settings }
-        current_asmdata:=tasmdata(current_module.asmdata);
-        current_debuginfo:=tdebuginfo(current_module.debuginfo);
       {$IFDEF NoGlobals}
       {$ELSE}
+        current_asmdata:=tasmdata(current_module.asmdata);
+        current_debuginfo:=tdebuginfo(current_module.debuginfo);
         { restore scanner and file positions }
         if assigned(current_scanner) then
           begin
@@ -763,8 +763,11 @@ end;
       var
         i   : longint;
       begin
-        //destroy scanner moved below! (may be referenced)
+        //destroy scanner moved below! (may be referenced?)
         DoneProc;
+      {$IFDEF NoGlobals}
+        FreeAndNil(asmdata);
+      {$ELSE}
         if assigned(asmdata) then
           begin
             if current_asmdata=TAsmData(asmdata) then
@@ -772,10 +775,11 @@ end;
             asmdata.free;
             asmdata:=nil;
           end;
+      {$ENDIF}
       {$IFDEF old}
-        DoneDebugInfo(self);
+        DoneDebugInfo(self); //global
       {$ELSE}
-        FreeAndNil(DebugInfo);
+        FreeAndNil(DebugInfo);  //local
       {$ENDIF}
         globalsymtable.free;
         globalsymtable:=nil;

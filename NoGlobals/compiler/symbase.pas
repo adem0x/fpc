@@ -150,8 +150,8 @@ interface
     var
         WhichMs: eMacroStack;
 
-    function symtablestack        : TSymtablestack;
-    function macrosymtablestack   : TMacroStack;
+    function symtablestack        : TSymtablestack; { current_module.symtablestack }
+    function macrosymtablestack   : TMacroStack;  { current_module.macrosymtablestack }
 
 {$IFDEF new}
     function initialmacrosymtable: TSymtable;
@@ -162,6 +162,7 @@ interface
 
     procedure InitMacros;
     procedure DoneMacros;
+    procedure PushMacroStack; { new MacroStack for current module }
     procedure InsertSystemMacro(mac: TSymEntry);
 
 
@@ -226,14 +227,15 @@ implementation
       //standard in GlobalModule?
       if not assigned(GlobalModule.macrosymtablestack) then
       begin
+      //create table in GlobalModule
         InitialMacroStack := TMacroStack.Create;
-        //WhichMs:=msInitial;
         initialmacrosymtable:=tmacrosymtable.create(false); //???
         InitialMacroStack.push(initialmacrosymtable);
-        //GlobalModule.globalmacrosymtable := initialmacrosymtable;
+        //GlobalModule.globalmacrosymtable := initialmacrosymtable; - rarely used
         GlobalModule.localmacrosymtable := initialmacrosymtable;
         GlobalModule.macrosymtablestack :=InitialMacroStack;
       end else begin
+      //copy tables from GlobalModule
         InitialMacroStack := GlobalModule.macrosymtablestack;
         //initialmacrosymtable := GlobalModule.globalmacrosymtable;
         initialmacrosymtable := GlobalModule.localmacrosymtable;  //standard place for adding macros?
@@ -257,6 +259,12 @@ implementation
       FreeAndNil(InitialMacroStack);
       FreeAndNil(initialmacrosymtable);
     {$ENDIF}
+    end;
+
+    procedure PushMacroStack;
+    begin
+      current_module.macrosymtablestack := TMacroStack.Create;
+      WhichMs:=msModule;  //todo: move to after global initialize
     end;
 
     procedure InsertSystemMacro(mac: TSymEntry);
