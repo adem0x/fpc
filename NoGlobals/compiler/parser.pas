@@ -61,35 +61,11 @@ implementation
       begin
          { we didn't parse a object or class declaration }
          { and no function header                        }
-         testcurobject:=0;
-
-         { Current compiled module/proc }
-      {$IFDEF GlobalModule}
-      {$ELSE}
-         InvalidateModule;
-      {$ENDIF}
-      {$IFDEF NoGlobals}
-      {$ELSE}
-         current_asmdata:=nil;
-         current_objectdef:=nil;
-      {$ENDIF}
+         //testcurobject^:=0; - no parser created right now
 
          loaded_units:=TLinkedList.Create;
-
          usedunits:=TLinkedList.Create;
-
          unloaded_units:=TLinkedList.Create;
-
-      {$IFDEF GlobalModule}
-         { global switches }
-      {nonsense here - copy onto self
-         current_settings^.globalswitches:=init_settings.globalswitches;
-
-         current_settings^.sourcecodepage:=init_settings.sourcecodepage;
-      }
-      {$ELSE}
-        //scanner with current_settings does not yet exist!
-      {$ENDIF}
 
          { initialize scanner }
          InitScanner;
@@ -107,13 +83,7 @@ implementation
          RTTIWriter:=TRTTIWriter.Create;
 
          { open assembler response }
-      {$IFDEF GlobalModule}
-      //a dummy module provides global settings and symbol tables
          if cs_link_on_target in current_settings^.globalswitches then
-      {$ELSE}
-      //scanner with current_settings does not yet exist!
-         if cs_link_on_target in init_settings.globalswitches then
-      {$ENDIF}
            GenerateAsmRes(outputexedir+ChangeFileExt(inputfilename,'_ppas'))
          else
            GenerateAsmRes(outputexedir+'ppas');
@@ -147,11 +117,6 @@ implementation
          { if there was an error in the scanner, the scanner is
            still assigned }
          InvalidateModule;
-      {$IFDEF NoGlobals}
-      {$ELSE}
-         current_asmdata:=nil;
-         current_objectdef:=nil;
-      {$ENDIF}
 
          { unload units }
          FreeAndNil(loaded_units);
@@ -332,11 +297,6 @@ implementation
 
     procedure NewParser(const filename:string);
       begin
-      {$IFDEF NoGlobals}
-        //update status, later?
-      {$ELSE}
-        parser_current_file:=filename;
-      {$ENDIF}
         current_module.scanner:=TParser.Compile(filename); //factory request
         if not assigned(current_module.scanner) then
           Internalerror(20100810);  //todo: regular error message: no parser for this file
@@ -346,18 +306,6 @@ implementation
        { reset symtable }
         PushSymbolStack;  //create new
         PushMacroStack;
-       {$IFDEF old}
-        SetSystemUnit(nil); //???
-       {$ELSE}
-        //reset only once per compile!
-       {$ENDIF}
-
-       {$IFDEF NoGlobals}
-        //stay in module
-       {$ELSE}
-         { load current asmdata from current_module }
-         current_asmdata:=TAsmData(current_module.asmdata);
-       {$ENDIF}
       end;
 
     procedure Parse;

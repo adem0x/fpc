@@ -165,12 +165,8 @@ begin
   if CompilerInited then
    DoneCompiler;
 { inits which need to be done before the arguments are parsed }
-{$IFDEF GlobalModule}
   GlobalModule := TGlobalModule.Create(nil, '$Global$', true);  //???
-  //current_module := GlobalModule;
   PushModule(GlobalModule);
-{$ELSE}
-{$ENDIF}
   InitSystems;
   { fileutils depends on source_info so it must be after systems }
   InitFileUtils;
@@ -182,14 +178,6 @@ begin
   InitSymtable; {Must come before read_arguments, to enable macrosymstack}
   do_initSymbolInfo;
   CompilerInited:=true;
-{ this is needed here for the IDE
-  in case of compilation failure
-  at the previous compile }
-{$IFDEF GlobalModule}
-//stays current
-{$ELSE}
-  InvalidateModule;
-{$ENDIF}
 { read the arguments }
   read_arguments(cmd);
 { inits which depend on arguments }

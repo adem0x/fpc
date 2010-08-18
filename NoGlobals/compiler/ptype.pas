@@ -29,10 +29,14 @@ interface
        globtype,cclasses,
        symtype,symdef,symbase;
 
-    var
        { hack, which allows to use the current parsed }
        { object type as function argument type  }
+    {$IFDEF NoGlobals}
+    function testcurobject : pbyte;
+    {$ELSE}
+    var
        testcurobject : byte;
+    {$ENDIF}
 
     procedure resolve_forward_types;
 
@@ -74,6 +78,15 @@ implementation
        scanner,
        pbase,pexpr,pdecsub,pdecvar,pdecobj;
 
+    {$IFDEF NoGlobals}
+    function testcurobject : pbyte;
+    begin
+      Result := @current_parser.testcurobject;
+    end;
+
+    {$ELSE}
+       testcurobject : byte;
+    {$ENDIF}
 
     procedure resolve_forward_types;
       var
@@ -358,7 +371,7 @@ implementation
          if assigned(current_objectdef) and
             (current_objectdef.objname^=current_scanner.pattern) and
             (
-             (testcurobject=2) or
+             (testcurobject^=2) or
              is_class_or_interface_or_objc(current_objectdef)
             )then
            begin
@@ -553,7 +566,7 @@ implementation
               assigned(current_objectdef) and
               (current_objectdef.objname^=current_scanner.pattern) and
               (
-               (testcurobject=2) or
+               (testcurobject^=2) or
                is_class_or_interface_or_objc(current_objectdef)
               )then
              begin

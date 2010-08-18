@@ -247,13 +247,10 @@ var
        current_module    : tmodule;     { Current module which is compiled or loaded }
 {$ENDIF}
 
-{$IFDEF GlobalModule}
 type
   TGlobalModule = tmodule; //eventual extensions required?
 var
   GlobalModule: TGlobalModule;
-{$ELSE}
-{$ENDIF}
 
     { switch to new module (push), return previous module }
     function  PushModule(p:tmodule): tmodule;

@@ -132,33 +132,15 @@ interface
        end;
 
     type
-      eMacroStack = (
-        msNone,     //nil
-        msInitial,  //InitialMacroStack
-        msModule    //from module
-      );
-
-      { TMacroStack }
-
-      TMacroStack = class(TSymtablestack) { this class mostly used for debugging }
+      TMacroStack = class(TSymtablestack)
       public
         constructor Create;
         destructor Destroy; override;
         procedure Init; //push InitialMacroSymTable
       end;
 
-    var
-        WhichMs: eMacroStack;
-
     function symtablestack        : TSymtablestack; { current_module.symtablestack }
     function macrosymtablestack   : TMacroStack;  { current_module.macrosymtablestack }
-
-{$IFDEF new}
-    function initialmacrosymtable: TSymtable;
-    function InitialMacroStack: TMacroStack;
-{$ELSE}
-//only if required
-{$ENDIF}
 
     procedure InitMacros;
     procedure DoneMacros;
@@ -178,30 +160,12 @@ implementation
       sysutils,
       verbose, fmodule, symtable;
 
-(* The use of macro symtables are very critical :-(
-  The initialization phase should be strictly separated from "normal" mode,
-  where the current_module contains a current macrosymtable and stack.
-*)
-{$IFDEF NewGlobalModule}
-//everything in GlobalModule
-    function initialmacrosymtable: TSymtable;
-    begin
-      Result := GlobalModule.globalmacrosymtable; //global?
-    end;
-
-    function InitialMacroStack: TMacroStack;
-    begin
-      Result := GlobalModule.macrosymtablestack;
-    end;
-
-{$ELSE}
     var
        initialmacrosymtable: TSymtable;   { macros initially defined by the compiler or
                                             given on the command line. Is common
                                             for all files compiled and do not change.
                                             Pushed on every module macro stack? }
       InitialMacroStack: TMacroStack; { for insert (find!) macros during initialization? }
-{$ENDIF}
 
     function symtablestack        : TSymtablestack;
     begin
@@ -210,20 +174,11 @@ implementation
 
     function macrosymtablestack   : TMacroStack;
     begin
-    {$IFDEF GlobalModule}
       Result := current_module.macrosymtablestack;
-    {$ELSE}
-      case WhichMs of
-      msNone: Result := nil;
-      msInitial: Result := InitialMacroStack;
-      msModule: Result := current_module.macrosymtablestack;
-      end;
-    {$ENDIF}
     end;
 
     procedure InitMacros;
     begin
-    {$IFDEF GlobalModule}
       //standard in GlobalModule?
       if not assigned(GlobalModule.macrosymtablestack) then
       begin
@@ -240,45 +195,21 @@ implementation
         //initialmacrosymtable := GlobalModule.globalmacrosymtable;
         initialmacrosymtable := GlobalModule.localmacrosymtable;  //standard place for adding macros?
       end;
-    {$ELSE}
-      begin
-        InitialMacroStack := TMacroStack.Create;
-        WhichMs:=msInitial;
-        initialmacrosymtable:=tmacrosymtable.create(false);
-        InitialMacroStack.push(initialmacrosymtable);
-      end;
-    {$ENDIF}
     end;
 
     procedure DoneMacros;
     begin
-    {$IFDEF GlobalModule}
       //in GlobalModule.destroy
-    {$ELSE}
-      WhichMs:=msNone;
-      FreeAndNil(InitialMacroStack);
-      FreeAndNil(initialmacrosymtable);
-    {$ENDIF}
     end;
 
     procedure PushMacroStack;
     begin
       current_module.macrosymtablestack := TMacroStack.Create;
-      WhichMs:=msModule;  //todo: move to after global initialize
     end;
 
     procedure InsertSystemMacro(mac: TSymEntry);
     begin
-    {$IFDEF GlobalModule}
-         current_module.localmacrosymtable.insert(mac)
-    {$ELSE}
-    //should depende on WhichMs?
-       if assigned(current_module) then
-       //really insert into local table?
-         current_module.localmacrosymtable.insert(mac)
-       else
-         initialmacrosymtable.insert(mac);
-    {$ENDIF}
+      current_module.localmacrosymtable.insert(mac)
     end;
 
 {****************************************************************************

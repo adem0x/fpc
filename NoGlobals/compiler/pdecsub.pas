@@ -459,7 +459,7 @@ implementation
         sc:=TFPObjectList.create(false);
         defaultrequired:=false;
         paranr:=0;
-        inc(testcurobject);
+        inc(testcurobject^);
         current_scanner.block_type:=bt_var;
         is_univ:=false;
         repeat
@@ -705,7 +705,7 @@ implementation
         { remove parasymtable from stack }
         sc.free;
         { reset object options }
-        dec(testcurobject);
+        dec(testcurobject^);
         current_scanner.block_type:=old_block_type;
         current_scanner.consume(_RKLAMMER);
       end;
@@ -1038,7 +1038,7 @@ implementation
                       if current_scanner.try_to_consume(_COLON) then
                        begin
                          old_parse_generic:=current_parser.parse_generic;
-                         inc(testcurobject);
+                         inc(testcurobject^);
                          { Add ObjectSymtable to be able to find generic type definitions }
                          popclass:=false;
                          if assigned(pd._class) and
@@ -1057,7 +1057,7 @@ implementation
                              current_objectdef:=old_current_objectdef;
                              symtablestack.pop(pd._class.symtable);
                            end;
-                         dec(testcurobject);
+                         dec(testcurobject^);
                          current_parser.parse_generic:=old_parse_generic;
 
                          if (target_info.system in [system_m68k_amiga]) then

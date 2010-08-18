@@ -594,7 +594,7 @@ implementation
           current_objectdef.symtable.currentvisibility:=vis_published
         else
           current_objectdef.symtable.currentvisibility:=vis_public;
-        testcurobject:=1;
+        testcurobject^:=1;
         has_destructor:=false;
         fields_allowed:=true;
         is_classdef:=false;
@@ -925,7 +925,7 @@ implementation
         until false;
 
         { restore }
-        testcurobject:=0;
+        testcurobject^:=0;
         current_parser.parse_generic:=old_parse_generic;
       end;
 

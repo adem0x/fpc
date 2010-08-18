@@ -72,6 +72,10 @@ interface
        { information about the current sub routine being parsed (@var(pprocinfo))}
        current_procinfo : tprocinfo;
 
+       { hack, which allows to use the current parsed }
+       { object type as function argument/result type }
+       testcurobject : byte;
+
       //here or in module?
     private
        exceptblockcounter: TExceptionCount; { each except block gets a unique number check gotos      }

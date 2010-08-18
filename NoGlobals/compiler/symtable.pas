@@ -181,7 +181,7 @@ interface
           constructor create(adefowner:tdef);
        end;
 
-{$DEFINE DebugSysUnit}
+{.$DEFINE DebugSysUnit}
 {$IFDEF DebugSysUnit}
     function systemunit: tglobalsymtable; { pointer to the system unit, owner of all global symbols }
 {$ELSE}
@@ -308,10 +308,10 @@ implementation
 
     procedure SetSystemUnit(stb: tglobalsymtable);
     begin
-    {$IFDEF NoGlobals}
+    {$IFDEF DebugSysUnit}
       SystemSymbols := stb;
     {$ELSE}
-      sytemunit := stb;
+      systemunit := stb;
     {$ENDIF}
     end;
 
@@ -2651,20 +2651,6 @@ implementation
 
    procedure InitSymtable;
      begin
-     (* Problem: symbols tend to check for duplicates in symtablestack and
-        in macrosymtablestack - which do not exist on compiler initialization.
-
-        Either a dummy GlobalModule has to be used for all global/initial settings,
-        or (time consuming) workarounds have to be implemented in the getters.
-        Eventually current_module can be tested for nil, in order to determine
-        compiler initialization state.
-     *)
-       { Reset symbolstack }
-     {$IFDEF GlobalModule}
-       //symtablestack:=nil;  //todo: fix symtablestack implementation for this case
-     {$ELSE}
-      //in module
-     {$ENDIF}
      //called from InitCompiler, it's okay to clear systemunit here!
        SetSystemUnit(nil);
        { create error syms and def - may be needed during parse of the system unit?

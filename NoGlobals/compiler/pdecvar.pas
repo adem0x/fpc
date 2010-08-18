@@ -357,7 +357,7 @@ implementation
               { create a list of the parameters }
               symtablestack.push(readprocdef.parast);
               sc:=TFPObjectList.create(false);
-              inc(testcurobject);
+              inc(testcurobject^);
               repeat
                 if current_scanner.try_to_consume(_VAR) then
                   varspez:=vs_var
@@ -401,7 +401,7 @@ implementation
                   end;
               until not current_scanner.try_to_consume(_SEMICOLON);
               sc.free;
-              dec(testcurobject);
+              dec(testcurobject^);
               symtablestack.pop(readprocdef.parast);
               current_scanner.consume(_RECKKLAMMER);
 
