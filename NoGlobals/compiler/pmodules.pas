@@ -1160,16 +1160,12 @@ implementation
 
          if current_scanner = nil then
           Internalerror(40810);
-         if current_module.scanner <> current_scanner then
-          Internalerror(50810);
 
          { load default units, like the system unit }
          loaddefaultunits;
 
          if current_scanner = nil then
           Internalerror(60810); //!!!!!!!!!!!!!!!
-         if current_module.scanner <> current_scanner then
-          Internalerror(70810);
 
          { insert qualifier for the system unit (allows system.writeln) }
          if not(cs_compilesystem in current_settings^.moduleswitches) and
@@ -1182,12 +1178,8 @@ implementation
            end;
 
          { move the global symtable from the temporary local to global }
-         (* Symbols are added to the local symtable, by default(?).
-            So we must make the current local symtable, created from interface,
-            the global symtable, for further use by other modules.
-         *)
          current_module.globalsymtable:=current_module.localsymtable;
-         current_module.localsymtable:=nil; //not needed any more???
+         current_module.localsymtable:=nil; //not needed until the implementation is parsed
 
          { number all units, so we know if a unit is used by this unit or
            needs to be added implicitly }
@@ -1270,6 +1262,8 @@ implementation
          if current_module.state=ms_compiled then
            exit;
 
+(* Following code can be executed in parallel to other tasks.
+*)
          { All units are read, now give them a number }
          current_module.updatemaps;
 

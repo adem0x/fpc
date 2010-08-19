@@ -352,6 +352,7 @@ implementation
       begin
          if checkdup then
            begin
+           //todo: move this part up, for use just below
              if sym.realname[1]='$' then
                hashedid.id:=Copy(sym.realname,2,255)
              else
