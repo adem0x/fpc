@@ -235,25 +235,14 @@ interface
        SmartLinkOFiles   : TCmdStrList; { List of .o files which are generated,
                                           used to delete them after linking }
 
-{.$DEFINE GlobalDebug}
-
-{$IFDEF GlobalDebug}
-var
-  _current_module: tmodule;
-procedure SetCurrentModule(m: tmodule);
-function  GetCurrentModule: tmodule;
-{ Current module which is compiled or loaded }
-property current_module: tmodule read GetCurrentModule write SetCurrentModule;
-{$ELSE}
-var
+var //to become threadvar
        current_module    : tmodule;     { Current module which is compiled or loaded }
-{$ENDIF}
 
 type
 
   { TGlobalModule }
 
-  TGlobalModule = class(tmodule) //eventual extensions required?
+  TGlobalModule = class(tmodule)
   protected
     pending_state: TPendingState;
   public
@@ -326,62 +315,22 @@ implementation
          end;
       end;
 
-{$IFDEF GlobalDebug}
-procedure SetCurrentModule(m: tmodule);
-begin
-  _current_module := m;
-end;
-
-function  GetCurrentModule: tmodule;
-begin
-  Result := _current_module;
-end;
-
-{$ELSE}
-{$ENDIF}
-
     { intentionally invalidate current module, return previous module }
     function  InvalidateModule: tmodule;
     begin
       Result := current_module;
       current_module:=nil;
-    {$IFDEF NoGlobals}
       //update status?
-    {$ELSE}
-      current_asmdata:=nil;
-      current_debuginfo:=nil;
-      parser_current_file:='';
-    {$ENDIF}
-    //restore how?
-      //if false then Fillchar(current_filepos,0,sizeof(current_filepos));
     end;
 
     { restore saved module }
     procedure PopModule(p: tmodule);
     begin
-    //todo: no save/restore, with all global vars moved into current_module!
       if not assigned(p) then
         InvalidateModule
       else begin
         { set new module }
         current_module:=p;
-        { restore previous module settings }
-      {$IFDEF NoGlobals}
-      {$ELSE}
-        current_asmdata:=tasmdata(current_module.asmdata);
-        current_debuginfo:=tdebuginfo(current_module.debuginfo);
-        { restore scanner and file positions }
-        if assigned(current_scanner) then
-          begin
-            current_scanner.gettokenpos;
-            parser_current_file:=current_scanner.inputfile.name^;
-          end
-        else
-          begin
-            current_filepos.moduleindex:=current_module.unit_index;
-            parser_current_file:='';
-          end;
-      {$ENDIF}
       end
     end;
 
@@ -389,7 +338,7 @@ end;
     begin
         Result := current_module;
         if not assigned(p) then
-          Internalerror(20100809);  //use set_current_module_none instead!
+          Internalerror(20100809);  //use InvalidateModule instead!
         PopModule(p);
     end;
 
@@ -637,23 +586,16 @@ end;
     procedure tmodule.DoneProc;
       var
         hpi : tprocinfo;
-      {$IFDEF NoGlobals}
         ppi: tprocinfo;
-      {$ELSE}
-      {$ENDIF}
     begin
       if assigned(fprocinfo) then
         begin
-        {$IFDEF NoGlobals}
         (* current_procinfo = current_parser.current_procinfo
         *)
           if assigned(scanner) then
             ppi := TParser(scanner).current_procinfo
           else
             ppi := nil;
-        {$ELSE}
-          ppi := current_procinfo;
-        {$ENDIF}
           if ppi=tprocinfo(fprocinfo) then
             begin
               RestoreProc(nil);
@@ -678,11 +620,7 @@ end;
        FreeAndNil(asmdata);
 
        { free symtable stack }
-    {$IFDEF old}
-      PopSymbolStack(nil);
-    {$ELSE}
-      FreeAndNil(symtablestack);
-    {$ENDIF}
+      FreeAndNil(symtablestack);  // PopSymbolStack(nil);
       FreeAndNil(macrosymtablestack);
     end;
 
@@ -704,11 +642,7 @@ end;
         FreeAndNil(scanner);
         FreeAndNil(asmdata);
         DoneProc;
-      {$IFDEF old}
-        DoneDebugInfo(self);
-      {$ELSE}
-        FreeAndNil(DebugInfo);
-      {$ENDIF}
+        FreeAndNil(DebugInfo); //DoneDebugInfo(self);
         used_units.free;
         dependent_units.free;
         resourcefiles.Free;
@@ -773,22 +707,8 @@ end;
       begin
         //destroy scanner moved below! (may be referenced?)
         DoneProc;
-      {$IFDEF NoGlobals}
         FreeAndNil(asmdata);
-      {$ELSE}
-        if assigned(asmdata) then
-          begin
-            if current_asmdata=TAsmData(asmdata) then
-             current_asmdata:=nil;
-            asmdata.free;
-            asmdata:=nil;
-          end;
-      {$ENDIF}
-      {$IFDEF old}
-        DoneDebugInfo(self); //global
-      {$ELSE}
-        FreeAndNil(DebugInfo);  //local
-      {$ENDIF}
+        FreeAndNil(DebugInfo);
         globalsymtable.free;
         globalsymtable:=nil;
         localsymtable.free;

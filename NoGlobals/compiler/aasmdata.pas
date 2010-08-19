@@ -185,12 +185,7 @@ interface
     var
       CAsmCFI : TAsmCFIClass;
 
-  {$IFDEF NoGlobals}
-    function current_asmdata : TAsmData;
-  {$ELSE}
-    var
-      current_asmdata : TAsmData;
-  {$ENDIF}
+    function current_asmdata : TAsmData; { global variable replacement }
 
 
 implementation
@@ -207,13 +202,10 @@ implementation
       memasmlists : TMemDebug;
 {$endif MEMDEBUG}
 
-{$IFDEF NoGlobals}
     function current_asmdata : TAsmData;
     begin
       Result := TAsmData(current_module.asmdata);
     end;
-{$ELSE}
-{$ENDIF}
 
 {*****************************************************************************
                                  TAsmCFI
@@ -389,12 +381,6 @@ implementation
 {$endif}
          for hp := low(TConstPoolType) to high(TConstPoolType) do
            ConstPools[hp].Free;
-
-      {$IFDEF NoGlobals}
-      {$ELSE}
-         if current_asmdata = self then
-          current_asmdata := nil;
-      {$ENDIF}
       end;
 
 

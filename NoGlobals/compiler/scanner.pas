@@ -210,11 +210,7 @@ interface
           { last settings we stored }
           last_settings : tsettings;
           current_settings   : tsettings;
-       {$IFDEF NoGlobals}
           Pending_State       : tpendingstate;
-       {$ELSE}
-        //in globals
-       {$ENDIF}
 
           { last filepos we stored }
           last_filepos,
@@ -2112,12 +2108,6 @@ In case not, the value returned can be arbitrary.
         inputpointer:=inputfile.saveinputpointer;
         lastlinepos:=inputfile.savelastlinepos;
         line_no:=inputfile.saveline_no;
-      {$IFDEF NoGlobals}
-        //UpdateStatus? - in Message only?
-      {$ELSE}
-        if not inputfile.is_macro then
-          parser_current_file:=inputfile.name^;
-      {$ENDIF}
       end;
 
 

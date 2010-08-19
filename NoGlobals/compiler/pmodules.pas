@@ -637,11 +637,7 @@ implementation
         { are we compiling the system unit? }
         if (cs_compilesystem in current_settings^.moduleswitches) then
          begin
-         {$IFDEF NoGlobals}
            SetSystemUnit(tglobalsymtable(current_module.localsymtable));
-         {$ELSE}
-           systemunit:=tglobalsymtable(current_module.localsymtable);
-         {$ENDIF}
            { create system defines }
            create_intern_symbols;
            create_intern_types;
@@ -654,15 +650,9 @@ implementation
 
         { insert the system unit, it is always the first. Load also the
           internal types from the system unit }
-      {$IFDEF NoGlobals}
         AddSystemUnit;
         if not assigned(systemunit) then
           Internalerror(20100818);  //must be assigned once (above)
-        //SetSystemUnit(tglobalsymtable(symtablestack.top));
-      {$ELSE}
-        AddUnit('system');
-        systemunit:=tglobalsymtable(symtablestack.top);
-      {$ENDIF}
         load_intern_types;
 
         { Set the owner of errorsym and errortype to symtable to

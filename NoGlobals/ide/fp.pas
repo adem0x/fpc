@@ -57,8 +57,8 @@ uses
 {$ifdef HasSignal}
   fpcatch,
 {$endif HasSignal}
-  Dos,Objects,
-  BrowCol,Version,
+  Dos,Objects,BrowCol,
+  Version,
 {$ifndef NODEBUG}
   gdbint,
 {$endif NODEBUG}
@@ -342,6 +342,8 @@ const bullet='*';
 {$else}
 const bullet='þ';
 {$endif}
+
+{$R *.res}
 
 BEGIN
 {$IFDEF HasSignal}

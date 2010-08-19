@@ -2613,6 +2613,9 @@ var
   startpara,
   nrfile,i  : longint;
   para      : string;
+
+{$R *.res}
+
 begin
   writeln(Title+' '+Version);
   writeln(Copyright);

@@ -28,7 +28,6 @@ interface
 uses
   globtype, globals;
 
-{$IFDEF NoGlobals}
 (* pendingstate moved into scanner, from globals.
   Retyped into object, to eliminate indirect references.
 *)
@@ -61,21 +60,6 @@ uses
       PPendingState = ^tpendingstate;
 
 function PendingState: PPendingState;
-
-{$ELSE}
-//in globals
-procedure HandleSwitch(switch,state:char);
-function CheckSwitch(switch,state:char):boolean;
-
-procedure recordpendingverbosityswitch(sw: char; state: char);
-procedure recordpendingmessagestate(msg: longint; state: tmsgstate);
-procedure recordpendinglocalswitch(sw: tlocalswitch; state: char);
-procedure recordpendinglocalfullswitch(const switches: tlocalswitches);
-procedure recordpendingverbosityfullswitch(verbosity: longint);
-procedure recordpendingcallingswitch(const str: shortstring);
-procedure flushpendingswitchesstate;
-{$ENDIF}
-
 
 implementation
 uses
@@ -159,7 +143,6 @@ const
 
 { tpendingstate }
 
-{$IFDEF NoGlobals}
 constructor tpendingstate.Init(scanner_settings: psettings);
 begin
   current_settings := scanner_settings;
@@ -169,9 +152,6 @@ function PendingState: PPendingState;
 begin
   Result := current_module.PendingState; //special in GlobalModule
 end;
-
-{$ELSE}
-{$ENDIF}
 
 procedure tpendingstate.HandleSwitch(switch,state:char);
 

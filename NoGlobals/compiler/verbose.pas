@@ -409,11 +409,8 @@ implementation
         module : tmodulebase;
       begin
       { fix status }
-      {$IFDEF NoGlobals}
         if not assigned(current_module) then
           exit; //too late for collecting module information
-      {$ELSE}
-      {$ENDIF}
         status.currentline:=current_filepos^.line;
         status.currentcolumn:=current_filepos^.column;
         if (current_filepos^.moduleindex <> lastmoduleidx) or

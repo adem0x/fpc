@@ -251,16 +251,6 @@ interface
        RelocSectionSetExplicitly : boolean;
        LinkTypeSetExplicitly : boolean;
 
-    {$IFDEF NoGlobals}
-       function current_tokenpos: pfileposinfo;    { position of the last token }
-       function current_filepos : pfileposinfo;    { current position }
-    {$ELSE}
-    //+globals, for error messages
-       current_tokenpos,                  { position of the last token }
-       current_filepos : tfileposinfo;    { current position }
-    //-
-    {$ENDIF}
-     var
        nwscreenname : string;
        nwthreadname : string;
        nwcopyright  : string;
@@ -274,25 +264,10 @@ interface
 
        init_settings      : tsettings;
 
-       { moved current_settings into scanner }
+       { moved global variables into scanner and current_module }
        function current_settings   : psettings; //inline;
-
-{$IFDEF NoGlobals}
-//moved into scanner, switches
-    //function pendingstate: tpendingstate; //???
-{$ELSE}
-    type
-      tpendingstate = record
-        nextverbositystr : shortstring;
-        nextlocalswitches : tlocalswitches;
-        nextverbosityfullswitch: longint;
-        nextcallingstr : shortstring;
-        verbosityfullswitched,
-        localswitcheschanged : boolean;
-      end;
-    var
-       pendingstate       : tpendingstate;
-{$ENDIF}
+       function current_tokenpos: pfileposinfo;    { position of the last token }
+       function current_filepos : pfileposinfo;    { current position }
 
     var
      { Memory sizes }
@@ -321,13 +296,6 @@ interface
        Inside_asm_statement : boolean;
 
        global_unit_count : word;
-
-    {$IFDEF NoGlobals}
-      //everything in status
-    {$ELSE}
-       { for error info in pp.pas }
-       parser_current_file : string;  //global,for post-mortem dump
-    {$ENDIF}
 
 {$if defined(m68k) or defined(arm)}
        { PalmOS resources }
