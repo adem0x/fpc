@@ -34,7 +34,7 @@ implementation
        { common }
        cutils,
        { global }
-       globals,globtype,tokens,verbose,constexp,
+       globals,globtype,GlobVars,tokens,verbose,constexp,
        systems,
        ppu,fmodule,
        { symtable }

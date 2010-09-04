@@ -204,20 +204,24 @@ interface
     function reverseparameters(p: tcallparanode): tcallparanode;
     function translate_disp_call(selfnode,parametersnode,putvalue : tnode;methodname : ansistring;dispid : longint;resultdef : tdef) : tnode;
 
+{$IFDEF fix}
     var
       ccallnode : tcallnodeclass;
       ccallparanode : tcallparanodeclass;
-
+    var
       { Current callnode, this is needed for having a link
        between the callparanodes and the callnode they belong to }
       aktcallnode : tcallnode;
+{$ELSE}
+//in Globvars
+{$ENDIF}
 
 
 implementation
 
     uses
       systems,
-      verbose,globals,
+      verbose,globals,GlobVars,
       symconst,defutil,defcmp,
       htypechk,scanner, pbase,pass_1,
       ncnv,nld,ninl,nadd,ncon,nmem,nset,nobjc,
@@ -2550,8 +2554,12 @@ implementation
          result:=nil;
          candidates:=nil;
 
+      {$IFDEF fix}
          oldcallnode:=aktcallnode;
          aktcallnode:=self;
+      {$ELSE}
+          oldcallnode := PushCallNode(self);
+      {$ENDIF}
 
          { determine length of parameter list }
          pt:=tcallparanode(left);
@@ -2958,7 +2966,11 @@ implementation
            end;
 
       errorexit:
+      {$IFDEF fix}
          aktcallnode:=oldcallnode;
+      {$ELSE}
+          PopCallNode(oldcallnode);
+      {$ENDIF}
       end;
 
 

@@ -166,7 +166,7 @@ unit optvirt;
   implementation
 
     uses
-      cutils,
+      GlobVars, cutils,
       fmodule,
       symconst,
       symbase,

@@ -50,7 +50,7 @@ implementation
 
     uses
       SysUtils,
-      cutils,globtype,globals,systems,cclasses,
+      cutils,globtype,globals,GlobVars,systems,cclasses,
       verbose,finput,fmodule,script,cpuinfo,
       itx86int,
       cgbase

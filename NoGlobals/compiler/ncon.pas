@@ -176,7 +176,7 @@ interface
           function docompare(p: tnode) : boolean; override;
        end;
        tguidconstnodeclass = class of tguidconstnode;
-
+{$IFDEF fix}
     var
        cdataconstnode : tdataconstnodeclass;
        crealconstnode : trealconstnodeclass;
@@ -186,6 +186,9 @@ interface
        csetconstnode : tsetconstnodeclass;
        cguidconstnode : tguidconstnodeclass;
        cnilnode : tnilnodeclass;
+{$ELSE}
+//in globvars
+{$ENDIF}
 
     function genintconstnode(v : TConstExprInt) : tordconstnode;
     function genenumnode(v : tenumsym) : tordconstnode;
@@ -200,7 +203,7 @@ interface
 implementation
 
     uses
-      cutils,
+      cutils,GlobVars,
       verbose,systems,sysutils,
       defutil,
       cpubase,cgbase,

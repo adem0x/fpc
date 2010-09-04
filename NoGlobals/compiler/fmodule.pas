@@ -33,7 +33,7 @@ unit fmodule;
   {$define shortasmprefix}
 {$endif}
 {$ifdef OS2}
-  { Allthough OS/2 supports long filenames I play it safe and
+  { Although OS/2 supports long filenames I play it safe and
     use 8.3 filenames, because this allows the compiler to run
     on a FAT partition. (DM) }
   {$define shortasmprefix}
@@ -188,6 +188,10 @@ interface
         current_tokenpos,                  { position of the last token }
         current_filepos : tfileposinfo;    { current position }
 
+       //current nodes - in tprocinfo???
+        callnode: TObject;  //tcallnode
+        assignnode: TObject;  //tassignmentnode
+
         {create creates a new module which name is stored in 's'. LoadedFrom
         points to the module calling it. It is nil for the first compiled
         module. This allow inheritence of all path lists. MUST pay attention
@@ -235,9 +239,6 @@ interface
        SmartLinkOFiles   : TCmdStrList; { List of .o files which are generated,
                                           used to delete them after linking }
 
-var //to become threadvar
-       current_module    : tmodule;     { Current module which is compiled or loaded }
-
 type
 
   { TGlobalModule }
@@ -249,8 +250,14 @@ type
     function  PendingState: PPendingState; override;
   end;
 
+{$IFDEF fix}
+var //to become threadvar
+  current_module    : tmodule;     { Current module which is compiled or loaded }
 var
   GlobalModule: TGlobalModule;
+{$ELSE}
+//in GlobVars
+{$ENDIF}
 
     { switch to new module (push), return previous module }
     function  PushModule(p:tmodule): tmodule;
@@ -270,7 +277,7 @@ var
 implementation
 
     uses
-      SysUtils,globals,
+      SysUtils,globals,GlobVars,
       verbose,systems,
       scanner,pbase,ppu,dbgbase,
       procinfo,symdef;

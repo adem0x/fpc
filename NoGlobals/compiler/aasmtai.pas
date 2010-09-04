@@ -567,12 +567,15 @@ interface
 
         { Class template for assembler instructions
         }
+
+        { tai_cpu_abstract }
+
         tai_cpu_abstract = class(tailineinfo)
         protected
            procedure ppuloadoper(ppufile:tcompilerppufile;var o:toper);virtual;
            procedure ppuwriteoper(ppufile:tcompilerppufile;const o:toper);virtual;
-           procedure ppubuildderefimploper(var o:toper);virtual;abstract;
-           procedure ppuderefoper(var o:toper);virtual;abstract;
+           procedure ppubuildderefimploper(var o:toper);virtual;//abstract;
+           procedure ppuderefoper(var o:toper);virtual;//abstract;
         public
            { Condition flags for instruction }
            condition : TAsmCond;
@@ -641,9 +644,13 @@ interface
       { array with all class types for tais }
       aiclass : taiclassarray;
 
+    {$IFDEF fix}
       { target specific tais }
       cai_align : tai_align_class;
       cai_cpu   : tai_cpu_class;
+    {$ELSE}
+      //in globvars
+    {$ENDIF}
 
       { hook to notify uses of registers }
       add_reg_instruction_hook : tadd_reg_instruction_proc;
@@ -663,8 +670,8 @@ implementation
     uses
       SysUtils,
       verbose,
-      globals,
-      fmodule;
+      globals,GlobVars,
+      fmodule,symsym;
 
     const
       pputaimarker = 254;
@@ -2326,6 +2333,25 @@ implementation
             internalerror(2007010211);
         end;
       end;
+
+    procedure tai_cpu_abstract.ppubuildderefimploper(var o: toper);
+    begin
+        case o.typ of
+          top_local :
+            o.localoper^.localsymderef.build(tlocalvarsym(o.localoper^.localsym));
+        end;
+    end;
+
+    procedure tai_cpu_abstract.ppuderefoper(var o: toper);
+    begin
+        case o.typ of
+          top_ref :
+            begin
+            end;
+          top_local :
+            o.localoper^.localsym:=tlocalvarsym(o.localoper^.localsymderef.resolve);
+        end;
+    end;
 
 {****************************************************************************
                               tai_align_abstract

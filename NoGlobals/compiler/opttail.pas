@@ -33,7 +33,7 @@ unit opttail;
   implementation
 
     uses
-      globtype,
+      globtype,GlobVars,
       symconst,symsym,
       defcmp,defutil,
       nutils,nbas,nflw,ncal,nld,ncnv,

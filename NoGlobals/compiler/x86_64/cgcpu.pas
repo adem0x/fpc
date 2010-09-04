@@ -49,7 +49,7 @@ unit cgcpu;
   implementation
 
     uses
-       globtype,globals,verbose,systems,cutils,
+       globtype,globals,GlobVars,verbose,systems,cutils,
        symsym,defutil,paramgr,fmodule,
        rgobj,tgobj,rgcpu;
 

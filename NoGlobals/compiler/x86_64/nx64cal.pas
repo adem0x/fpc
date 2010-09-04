@@ -40,7 +40,7 @@ interface
 implementation
 
     uses
-      globtype,
+      globtype,GlobVars,
       systems,
       cpubase,cgbase,cgutils,cgobj,
       aasmtai,aasmdata,aasmcpu;

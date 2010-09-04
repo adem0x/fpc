@@ -118,7 +118,7 @@ interface
 implementation
 
     uses
-      comphook,fmodule,constexp,globals,cfileutl;
+      comphook,fmodule,constexp,globals,GlobVars,cfileutl;
 
 {****************************************************************************
                        Extra Handlers for default compiler

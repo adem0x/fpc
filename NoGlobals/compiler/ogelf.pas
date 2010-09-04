@@ -103,7 +103,7 @@ implementation
       uses
         SysUtils,
         verbose,
-        cutils,globals,fmodule;
+        cutils,globals,GlobVars,fmodule;
 
     const
       symbolresize = 200*18;

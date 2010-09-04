@@ -120,7 +120,7 @@ function Compile(const cmd:string):longint;
 implementation
 
 uses
-  aasmcpu;
+  GlobVars,aasmcpu;
 
 {$if defined(EXTDEBUG) or defined(MEMDEBUG)}
   {$define SHOWUSEDMEM}

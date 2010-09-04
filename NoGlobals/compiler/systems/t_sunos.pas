@@ -36,7 +36,7 @@ implementation
   uses
     sysutils,
     cutils,cfileutl,cclasses,
-    verbose,systems,globtype,globals,
+    verbose,systems,globtype,globals,GlobVars,
     symconst,script,
     fmodule,aasmbase,aasmtai,aasmdata,aasmcpu,cpubase,symsym,symdef,
     cgobj,

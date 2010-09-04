@@ -54,16 +54,20 @@ interface
         function  get_rtti_label_ord2str(def:tdef;rt:trttitype):tasmsymbol;
         function  get_rtti_label_str2ord(def:tdef;rt:trttitype):tasmsymbol;
       end;
-
+{$IFDEF fix}
     var
       RTTIWriter : TRTTIWriter;
+{$ELSE}
+//in GlobVars
+{$ENDIF}
 
 
 implementation
 
     uses
        cutils,
-       globals,globtype,verbose,systems,
+       globals,globtype,GlobVars,
+       verbose,systems,
        fmodule,
        symsym,
        aasmtai,aasmdata,

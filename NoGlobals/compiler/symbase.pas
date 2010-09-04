@@ -158,7 +158,7 @@ implementation
 
     uses
       sysutils,
-      verbose, fmodule, symtable;
+      GlobVars, verbose, fmodule, symtable;
 
     var
        initialmacrosymtable: TSymtable;   { macros initially defined by the compiler or

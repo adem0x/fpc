@@ -178,7 +178,7 @@ Implementation
 {$ifdef memdebug}
       cclasses,
 {$endif memdebug}
-      script,fmodule,verbose,
+      script,fmodule,GlobVars,verbose,
 {$if defined(m68k) or defined(arm)}
       cpuinfo,
 {$endif m68k or arm}

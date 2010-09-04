@@ -463,6 +463,7 @@ interface
 implementation
 
     uses
+      GlobVars,
 {$ifdef macos}
       macutils,
 {$endif}

@@ -451,11 +451,16 @@ interface
        tnormalset = set of byte; { 256 elements set }
        pnormalset = ^tnormalset;
 
+    {$IFDEF fix}
        pboolean   = ^boolean;
        pdouble    = ^double;
        pbyte      = ^byte;
        pword      = ^word;
        plongint   = ^longint;
+    {$ELSE}
+    //removed redefinitions
+      //test = System.PGuid;
+    {$ENDIF}
        plongintarray = plongint;
 
        pfileposinfo = ^tfileposinfo;
@@ -467,6 +472,7 @@ interface
          moduleindex : word;
        end;
 
+{$IFDEF fix}
   {$ifndef xFPC}
     type
       pguid = ^tguid;
@@ -477,6 +483,9 @@ interface
         D4: array[0..7] of Byte;
       end;
   {$endif}
+{$ELSE}
+//removed redefinitions
+{$ENDIF}
 
     const
        { link options }

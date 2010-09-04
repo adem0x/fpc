@@ -45,7 +45,7 @@ unit aasmcpu;
         end;
 
 
-      taicpu = class(tai_cpu_abstract_sym)
+      taicpu = class(tai_cpu_abstract)
          constructor op_none(op : tasmop);
 
          constructor op_reg(op : tasmop;_op1 : tregister);

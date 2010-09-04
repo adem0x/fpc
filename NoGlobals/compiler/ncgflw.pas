@@ -91,7 +91,7 @@ interface
 implementation
 
     uses
-      verbose,globals,systems,globtype,constexp,
+      verbose,globals,GlobVars,systems,globtype,constexp,
       symconst,symdef,symsym,aasmtai,aasmdata,aasmcpu,defutil,
       procinfo,cgbase,pass_2,parabase,
       cpubase,cpuinfo,

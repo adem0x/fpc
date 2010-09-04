@@ -281,7 +281,7 @@ implementation
 
     uses
       { global }
-      verbose,globals,
+      verbose,globals,GlobVars,
       { target }
       systems,
       { symtable }

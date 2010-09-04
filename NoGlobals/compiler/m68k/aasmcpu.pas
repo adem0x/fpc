@@ -26,7 +26,7 @@ unit aasmcpu;
 interface
 
 uses
-  cclasses,aasmtai,aasmdata,aasmsym,
+  cclasses,aasmtai,aasmdata,
   aasmbase,globals,verbose,symtype,
   cpubase,cpuinfo,cgbase,cgutils;
 
@@ -38,7 +38,7 @@ const
   O_MOV_DEST = 1;
 type
 
-  taicpu = class(tai_cpu_abstract_sym)
+  taicpu = class(tai_cpu_abstract)
      opsize : topsize;
      constructor op_none(op : tasmop);
      constructor op_none(op : tasmop;_size : topsize);

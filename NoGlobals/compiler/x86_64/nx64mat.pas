@@ -26,7 +26,7 @@ unit nx64mat;
 interface
 
     uses
-      node,nmat,ncgmat,nx86mat;
+      node,nmat,nx86mat;
 
     type
       tx8664moddivnode = class(tmoddivnode)
@@ -46,13 +46,12 @@ interface
 implementation
 
     uses
-      globtype,systems,constexp,
+      GlobVars,globtype,systems,constexp,
       cutils,verbose,globals,
-      symconst,symdef,aasmbase,aasmtai,aasmdata,defutil,
-      pass_1,pass_2,
+      symconst,symdef,aasmdata,defutil,pass_2,
       ncon,
-      cpubase,cpuinfo,
-      cgbase,cgutils,cga,cgobj,cgx86,
+      cpubase,
+      cgbase,cgutils,cga,cgx86,
       ncgutil;
 
 {*****************************************************************************

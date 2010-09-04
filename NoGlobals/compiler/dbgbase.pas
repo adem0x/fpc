@@ -103,7 +103,7 @@ interface
 implementation
 
     uses
-      cutils,
+      cutils,GlobVars,
       verbose;
 
     function  current_debuginfo : tdebuginfo;

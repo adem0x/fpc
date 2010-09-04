@@ -109,11 +109,15 @@ interface
        end;
        tcasenodeclass = class of tcasenode;
 
+{$IFDEF fix}
     var
        csetelementnode : tsetelementnodeclass;
        cinnode : tinnodeclass;
        crangenode : trangenodeclass;
        ccasenode : tcasenodeclass;
+{$ELSE}
+//in globvars
+{$ENDIF}
 
     { counts the labels }
     function case_count_labels(root : pcaselabel) : longint;
@@ -127,7 +131,7 @@ implementation
 
     uses
       systems,
-      verbose,
+      verbose,GlobVars,
       symconst,symdef,symsym,symtable,defutil,defcmp,
       htypechk,pass_1,
       nadd,nbas,ncnv,nld,cgobj,cgbase,

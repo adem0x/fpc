@@ -382,7 +382,7 @@ implementation
 
     uses
       sysutils,cutils,cfileutl,constexp,
-      version,globals,verbose,systems,
+      version,globals,GlobVars,verbose,systems,
       cpubase,cpuinfo,cgbase,paramgr,
       fmodule,
       defutil,symtable,ppu

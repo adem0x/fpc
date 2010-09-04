@@ -125,7 +125,7 @@ interface
 implementation
 
     uses
-      globtype,systems,
+      globtype,GlobVars,systems,
       cutils,verbose,globals,
       symconst,aasmbase,aasmtai,aasmdata,aasmcpu,defutil,
       parabase,
@@ -507,8 +507,8 @@ implementation
       end;
 
 begin
-   cmoddivnode:=tcgmoddivnode;
+   //cmoddivnode:=tcgmoddivnode; - abstract class
    cunaryminusnode:=tcgunaryminusnode;
    cshlshrnode:=tcgshlshrnode;
-   cnotnode:=tcgnotnode;
+   //cnotnode:=tcgnotnode; - abstract class
 end.

@@ -300,7 +300,7 @@ implementation
        Windows,
 {$endif win32}
        SysUtils,
-       cutils,verbose,globals,
+       cutils,verbose,globals,GlobVars,
        fmodule,aasmtai,aasmdata,
        ogmap,
        version

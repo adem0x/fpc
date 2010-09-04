@@ -54,7 +54,7 @@ implementation
     uses
       cutils,
       systems,
-      verbose,globtype,globals,constexp,
+      verbose,globtype,globals,GlobVars,constexp,
       nutils,
       symtable,symconst,symtype,symdef,symsym,defutil,paramgr,
       ncnv,ncon,nmem,nbas,ncgrtti,

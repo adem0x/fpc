@@ -69,7 +69,7 @@ implementation
        { common }
        cutils,cclasses,
        { global }
-       globtype,globals,verbose,constexp,
+       globtype,globals,GlobVars, verbose,constexp,
        systems,
        cpuinfo,
        { symtable }

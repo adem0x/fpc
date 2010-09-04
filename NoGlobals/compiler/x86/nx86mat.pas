@@ -1,7 +1,7 @@
 {
     Copyright (c) 1998-2002 by Florian Klaempfl
 
-    Generate x86 code for math nodes
+    Generate x86 code for math nodes - all intermediate classes!
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ interface
   implementation
 
     uses
-      globtype,
+      globtype,GlobVars,
       systems,
       cutils,verbose,globals,
       symconst,symdef,

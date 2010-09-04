@@ -193,6 +193,7 @@ type
         end;
        ttempdeletenodeclass = class of ttempdeletenode;
 
+{$IFDEF fix}
     var
        cnothingnode : tnothingnodeclass;
        cerrornode : terrornodeclass;
@@ -202,6 +203,9 @@ type
        ctempcreatenode : ttempcreatenodeclass;
        ctemprefnode : ttemprefnodeclass;
        ctempdeletenode : ttempdeletenodeclass;
+{$ELSE}
+//in globvars
+{$ENDIF}
 
        { Create a blocknode and statement node for multiple statements
          generated internally by the parser }
@@ -214,7 +218,7 @@ implementation
 
     uses
       cutils,
-      verbose,globals,systems,
+      verbose,globals,GlobVars,systems,
       symconst,symdef,defutil,defcmp,
       pass_1,
       nutils,nld,ncal,nflw,

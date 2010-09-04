@@ -166,7 +166,7 @@ implementation
   uses
     version,
     cutils,cclasses,
-    globals,systems,verbose,export,
+    globals,GlobVars,systems,verbose,export,
     ppu,defutil,
     procinfo,paramgr,fmodule,
     regvars,dbgbase,

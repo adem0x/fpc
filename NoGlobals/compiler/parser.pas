@@ -43,7 +43,7 @@ implementation
       fksysutl,
 {$ENDIF}
       cutils,cclasses,
-      globtype,version,tokens,systems,globals,verbose,switches,
+      globtype,GlobVars,version,tokens,systems,globals,verbose,switches,
       symbase,symtable,symdef,symsym,
       finput,fmodule,fppu,
       aasmbase,aasmtai,aasmdata,

@@ -50,7 +50,7 @@ unit optcse;
   implementation
 
     uses
-      globtype,
+      globtype,GlobVars,
       cclasses,
       verbose,
       nutils,

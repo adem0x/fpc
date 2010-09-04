@@ -66,7 +66,7 @@ interface
   implementation
 
     uses
-      globtype,globals,systems,
+      globtype,globals,GlobVars,systems,
       cutils,verbose,
       aasmbase,aasmtai,aasmdata,aasmcpu,
       symsym,symconst,symdef,defutil,

@@ -45,7 +45,7 @@ implementation
 
   uses
     SysUtils,
-    cfileutl,
+    cfileutl,globvars,
     cpuinfo,cgutils,dbgbase,
     owar,ogbase,ogcoff, t_win;
 

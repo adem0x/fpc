@@ -32,7 +32,12 @@ const
   maxmsgidxparts = 20;
 
 type
+{$IFDEF fix}
   ppchar=^pchar;
+{$ELSE}
+//removed redefinition
+//test = PPChar;
+{$ENDIF}
 
   TArrayOfPChar = array[0..1000] of pchar;
   PArrayOfPChar = ^TArrayOfPChar;

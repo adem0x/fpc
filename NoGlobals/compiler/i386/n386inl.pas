@@ -35,7 +35,7 @@ interface
 implementation
 
   uses
-    ninl;
+    ninl,globvars;
 
 begin
    cinlinenode:=ti386inlinenode;

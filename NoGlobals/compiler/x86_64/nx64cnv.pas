@@ -59,7 +59,7 @@ interface
 implementation
 
     uses
-      verbose,systems,globals,globtype,
+      verbose,systems,globals,globtype,GlobVars,
       aasmbase,aasmtai,aasmdata,aasmcpu,
       symconst,symdef,
       cgbase,cga,procinfo,pass_2,

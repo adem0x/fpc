@@ -202,6 +202,7 @@ interface
        end;
        tonnodeclass = class of tonnode;
 
+{$IFDEF fix}
     var
        cwhilerepeatnode : twhilerepeatnodeclass;
        cifnode : tifnodeclass;
@@ -215,6 +216,9 @@ interface
        ctryexceptnode : ttryexceptnodeclass;
        ctryfinallynode : ttryfinallynodeclass;
        connode : tonnodeclass;
+{$ELSE}
+//in globvars
+{$ENDIF}
 
 // for-in loop helpers
 function create_type_for_in_loop(hloopvar, hloopbody, expr: tnode): tnode;
@@ -229,7 +233,7 @@ implementation
 
     uses
       systems,constexp,
-      cutils,verbose,globals,
+      cutils,verbose,globals,GlobVars,
       symconst,symtable,paramgr,defcmp,defutil,htypechk,pbase, pass_1,
       ncal,nadd,ncon,nmem,nld,ncnv,nbas,cgobj,nutils,ninl,nset,
     {$ifdef state_tracking}

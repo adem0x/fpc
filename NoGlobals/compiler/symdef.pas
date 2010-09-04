@@ -782,7 +782,7 @@ implementation
       SysUtils,
       cutils,
       { global }
-      verbose,
+      GlobVars, verbose,
       { target }
       systems,aasmcpu,paramgr,
       { symtable }

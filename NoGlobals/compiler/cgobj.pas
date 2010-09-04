@@ -613,6 +613,7 @@ unit cgobj;
     end;
 {$endif cpu64bitalu}
 
+{$IFDEF fix}
     var
        {# Main code generator class }
        cg : tcg;
@@ -620,13 +621,15 @@ unit cgobj;
        {# Code generator class for all operations working with 64-Bit operands }
        cg64 : tcg64;
 {$endif cpu64bitalu}
+{$ELSE}
+{$ENDIF}
 
     procedure destroy_codegen;
 
 implementation
 
     uses
-       globals,options,systems,
+       globals,GlobVars, options,systems,
        verbose,defutil,paramgr,symsym,
        tgobj,cutils,procinfo,
        ncgrtti;

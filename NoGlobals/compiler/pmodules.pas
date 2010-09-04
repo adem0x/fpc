@@ -34,7 +34,7 @@ implementation
 
     uses
        SysUtils,
-       globtype,version,systems,tokens,
+       globtype,GlobVars,version,systems,tokens,
        cutils,cfileutl,cclasses,comphook,
        globals,verbose,fmodule,finput,fppu,
        symconst,symbase,symtype,symdef,symsym,symtable,

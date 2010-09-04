@@ -32,7 +32,7 @@ implementation
     uses
        link,
        SysUtils,
-       cclasses,cutils,cfileutl,globtype,globals,
+       cclasses,cutils,cfileutl,globtype,globals,globvars,
        systems,verbose,script,fmodule,i_watcom;
 
 

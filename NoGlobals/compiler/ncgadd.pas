@@ -70,7 +70,7 @@ interface
 
     uses
       globtype,systems,
-      cutils,verbose,globals,
+      cutils,verbose,globals,GlobVars,
       symconst,symdef,paramgr,
       aasmbase,aasmtai,aasmdata,defutil,
       cgbase,procinfo,pass_2,tgobj,
@@ -833,6 +833,6 @@ interface
         end;
       end;
 
-begin
-   caddnode:=tcgaddnode;
+//begin
+  //caddnode:=tcgaddnode; //abstract class!
 end.

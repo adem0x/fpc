@@ -94,7 +94,7 @@ interface
 implementation
 
   uses
-    SysUtils,
+    SysUtils,GlobVars,
     cfileutl,
     cpuinfo,cgutils,dbgbase,
     owar,ogbase,ogcoff;

@@ -28,7 +28,6 @@ unit cgutils;
 
     uses
       globtype,
-      cclasses,
       aasmbase,
       cpubase,cgbase;
 

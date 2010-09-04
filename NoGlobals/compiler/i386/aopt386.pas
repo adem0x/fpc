@@ -36,7 +36,7 @@ Implementation
 
 Uses
   globtype,
-  globals,
+  globals,globvars,
   DAOpt386,POpt386,CSOpt386;
 
 

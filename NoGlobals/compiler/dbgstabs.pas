@@ -111,7 +111,7 @@ implementation
 
     uses
       SysUtils,cutils,cfileutl,
-      systems,globals,globtype,verbose,constexp,
+      systems,globals,globtype,GlobVars,verbose,constexp,
       symconst,defutil,
       cpuinfo,cpubase,paramgr,
       aasmbase,procinfo,

@@ -218,10 +218,14 @@ interface
        end;
        tisnodeclass = class of tisnode;
 
+{$IFDEF fix}
     var
        ctypeconvnode : ttypeconvnodeclass;
        casnode : tasnodeclass;
        cisnode : tisnodeclass;
+{$ELSE}
+//in globvars
+{$ENDIF}
 
     procedure inserttypeconv(var p:tnode;def:tdef);
     procedure inserttypeconv_explicit(var p:tnode;def:tdef);
@@ -235,7 +239,7 @@ interface
 implementation
 
    uses
-      globtype,systems,constexp,
+      globtype,GlobVars,systems,constexp,
       cutils,verbose,globals,widestr,
       symconst,symdef,symsym,symbase,symtable,
       ncon,ncal,nset,nadd,ninl,nmem,nmat,nbas,nutils,

@@ -203,7 +203,7 @@ implementation
 
     uses
        crefs,
-       verbose,
+       GlobVars, verbose,
        fmodule
        ;
 

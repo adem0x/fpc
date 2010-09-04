@@ -33,7 +33,7 @@ implementation
 uses
    SysUtils,
    cclasses,
-   cutils,globtype,globals,systems,
+   cutils,globtype,globals,GlobVars,systems,
    symconst,symtype,symdef,symsym,
    verbose,fmodule,ppu,
    aasmbase,aasmtai,aasmdata,

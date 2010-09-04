@@ -49,7 +49,7 @@ interface
   implementation
 
     uses
-      cutils,globtype,globals,systems,cclasses,
+      cutils,globtype,globals,globvars,systems,cclasses,
       fmodule,finput,verbose,cpuinfo,cgbase
       ;
 

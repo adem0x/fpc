@@ -116,6 +116,7 @@ interface
        end;
        twithnodeclass = class of twithnode;
 
+{$IFDEF fix}
     var
        cloadvmtaddrnode : tloadvmtaddrnodeclass;
        cloadparentfpnode : tloadparentfpnodeclass;
@@ -124,6 +125,9 @@ interface
        csubscriptnode : tsubscriptnodeclass;
        cvecnode : tvecnodeclass;
        cwithnode : twithnodeclass;
+{$ELSE}
+//in Globvars
+{$ENDIF}
 
     function is_big_untyped_addrnode(p: tnode): boolean;
 
@@ -131,7 +135,7 @@ implementation
 
     uses
       globtype,systems,constexp,
-      cutils,verbose,globals,
+      cutils,verbose,globals,GlobVars,
       symconst,symbase,defutil,defcmp,
       nbas,nutils,
       wpobase,
@@ -993,6 +997,7 @@ implementation
 	  not (nf_typedaddr in p.flags) and (taddrnode(p).left.resultdef.size > 1);
       end;
 
+{$IFDEF fix}
 begin
   cloadvmtaddrnode := tloadvmtaddrnode;
   caddrnode := taddrnode;
@@ -1000,4 +1005,7 @@ begin
   csubscriptnode := tsubscriptnode;
   cvecnode := tvecnode;
   cwithnode := twithnode;
+{$ELSE}
+//to be overridden!
+{$ENDIF}
 end.

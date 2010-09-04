@@ -104,7 +104,7 @@ interface
 implementation
 
     uses
-      cutils,verbose,constexp,globals,
+      cutils,verbose,constexp,globals,GlobVars,
       symconst,symdef,
       defutil,defcmp,
       nbas,ncon,ncnv,nld,nflw,nset,ncal,nadd,nmem,ninl,

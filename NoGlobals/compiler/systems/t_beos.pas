@@ -58,7 +58,7 @@ implementation
   uses
     SysUtils,
     cutils,cfileutl,cclasses,
-    verbose,systems,globtype,globals,
+    verbose,systems,globtype,globals,globvars,
     symconst,script,
     fmodule,aasmbase,aasmtai,aasmdata,aasmcpu,cpubase,i_beos,ogbase;
 

@@ -98,7 +98,7 @@ implementation
     uses
       SysUtils,
       cutils,cfileutl,systems,
-      fmodule,finput,verbose,
+      fmodule,finput,verbose,GlobVars,
       itcpugas,cpubase
       ;
 

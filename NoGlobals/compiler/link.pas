@@ -129,6 +129,7 @@ interface
 Implementation
 
     uses
+      GlobVars,
       cutils,cfileutl,cstreams,
       script,globals,verbose,comphook,ppu,fpccrc,
       aasmbase,aasmtai,aasmdata,aasmcpu,

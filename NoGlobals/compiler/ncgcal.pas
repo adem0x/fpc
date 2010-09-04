@@ -85,7 +85,7 @@ implementation
 
     uses
       systems,
-      cutils,verbose,globals,
+      cutils,verbose,globals,GlobVars,
       cpuinfo,
       symconst,symtable,defutil,paramgr,
       cgbase,pass_2,
@@ -666,11 +666,19 @@ implementation
          { Process parameters, register parameters will be loaded
            in imaginary registers. The actual load to the correct
            register is done just before the call }
+      {$IFDEF fix}
          oldaktcallnode:=aktcallnode;
          aktcallnode:=self;
          if assigned(left) then
            tcallparanode(left).secondcallparan;
          aktcallnode:=oldaktcallnode;
+      {$ELSE}
+         if assigned(left) then begin
+            oldaktcallnode := PushCallNode(self);
+            tcallparanode(left).secondcallparan;
+            PopCallNode(oldaktcallnode);
+         end;
+      {$ENDIF}
 
          { procedure variable or normal function call ? }
          if (right=nil) then
@@ -938,5 +946,5 @@ implementation
 
 begin
    ccallparanode:=tcgcallparanode;
-   ccallnode:=tcgcallnode;
+   //ccallnode:=tcgcallnode; - abstract class!
 end.

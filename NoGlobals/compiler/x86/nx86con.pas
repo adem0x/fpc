@@ -37,7 +37,7 @@ interface
 implementation
 
     uses
-      systems,globals,
+      systems,globals,GlobVars,
       symdef,
       defutil,
       cpubase,

@@ -58,7 +58,7 @@ implementation
 
 uses
   sysutils,
-  globtype,globals,cclasses,systems,
+  globtype,globals,GlobVars,cclasses,systems,
   verbose,pass_1,
   defutil,
   symtype,symtable,symdef,symconst,symsym,

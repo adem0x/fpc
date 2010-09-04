@@ -101,7 +101,7 @@ function current_parser: TParser; inline; //does "inline" work with properties?
 implementation
 
     uses
-       globals,htypechk,
+       globals,GlobVars,htypechk,
        systems,verbose,fmodule;
 
 function current_parser: TParser;

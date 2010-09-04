@@ -27,7 +27,7 @@ interface
 
 uses
   cclasses,globtype,globals,verbose,
-  aasmbase,aasmtai,aasmdata,aasmsym,
+  aasmbase,aasmtai,aasmdata,
   ogbase,
   symtype,
   cpubase,cpuinfo,cgbase,cgutils;
@@ -156,7 +156,7 @@ uses
       InsTabCache : PInsTabCache;
 
     type
-      taicpu = class(tai_cpu_abstract_sym)
+      taicpu = class(tai_cpu_abstract)
          oppostfix : TOpPostfix;
          roundingmode : troundingmode;
          procedure loadshifterop(opidx:longint;const so:tshifterop);

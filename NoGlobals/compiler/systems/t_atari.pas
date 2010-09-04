@@ -32,7 +32,7 @@ implementation
     uses
        link,
        cutils,cclasses,
-       globtype,globals,systems,verbose,script,fmodule,i_atari;
+       globtype,globals,globvars,systems,verbose,script,fmodule,i_atari;
 
 {*****************************************************************************
                                      Initialize

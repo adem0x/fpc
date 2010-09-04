@@ -42,7 +42,7 @@ implementation
 
     uses
       systems,
-      globals,
+      globals,GlobVars,
       cutils,
       symconst,
       tgobj;

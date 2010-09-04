@@ -79,13 +79,16 @@ interface
            function try_make_mul32to64: boolean;
        end;
        taddnodeclass = class of taddnode;
-
+{$IFDEF fix}
     var
        { caddnode is used to create nodes of the add type }
        { the virtual constructor allows to assign         }
        { another class type to caddnode => processor      }
        { specific node types can be created               }
        caddnode : taddnodeclass;
+{$ELSE}
+//moved into globvars
+{$ENDIF}
 
 implementation
 
@@ -95,7 +98,7 @@ implementation
 {$ELSE}
       fksysutl,
 {$ENDIF}
-      globtype,systems,constexp,
+      globtype,GlobVars,systems,constexp,
       cutils,verbose,globals,widestr,
       symconst,symdef,symsym,symtable,defutil,defcmp,
       cgbase,
@@ -2793,6 +2796,10 @@ implementation
     end;
 {$endif}
 
+{$IFDEF fix}
 begin
-   caddnode:=taddnode;
+  if not assigned(caddnode) then
+    caddnode:=taddnode; //overridden in ncgadd and by targets!
+{$ELSE}
+{$ENDIF}
 end.

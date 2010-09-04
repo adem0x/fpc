@@ -154,8 +154,12 @@ type
 
 implementation
 
+{$IFDEF fix}
   Type
     PByte = ^Byte;
+{$ELSE}
+//removed redefinition
+{$ENDIF}
 
 {*****************************************************************************
                                    TCStream

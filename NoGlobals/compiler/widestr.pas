@@ -28,7 +28,7 @@ unit widestr;
   interface
 
     uses
-       {$ifdef VER2_2}ccharset{$else VER2_2}charset{$endif VER2_2},globtype;
+       {$ifdef VER2_2}ccharset{$else VER2_2}charset{$endif VER2_2};
 
 
     type

@@ -45,10 +45,11 @@ Uses
   cpubase,aasmcpu,AOptBase;
 
 Type
-
+{
 { type of a normal instruction }
   TInstr = Taicpu;
   PInstr = ^TInstr;
+}
 
 { ************************************************************************* }
 { **************************** TCondRegs ********************************** }
@@ -62,9 +63,39 @@ Type
 { ************************************************************************* }
 { **************************** TAoptBaseCpu ******************************* }
 { ************************************************************************* }
-
+{$IFDEF fix}
   TAoptBaseCpu = class(TAoptBase)
   End;
+{$ELSE}
+(* Override virtual methods of TAoptBase
+*)
+  TPaiPropCpu = class(TPaiProp)
+  protected
+    //function CanSkip(Current: tai): boolean; override;
+  public
+    { returns the maximum width component of Reg. Only has to be }
+    { overridden for the 80x86 (afaik)                           }
+    //Function RegMaxSize(Reg: TRegister): TRegister; override;
+
+    { returns true if Reg1 and Reg2 are of the samae width. Only has to }
+    { overridden for the 80x86 (afaik)                                  }
+    //Function RegsSameSize(Reg1, Reg2: TRegister): Boolean; override;
+
+    { returns whether P is a load instruction (load contents from a }
+    { memory location or (register) variable into a register)       }
+    Function IsLoadMemReg(p: tai): Boolean; override;
+    { returns whether P is a load constant instruction (load a constant }
+    { into a register)                                                  }
+    Function IsLoadConstReg(p: tai): Boolean; override;
+    { returns whether P is a store instruction (store contents from a }
+    { register to a memory location or to a (register) variable)      }
+    Function IsStoreRegMem(p: tai): Boolean; override;
+
+    { create a taicpu Object that loads the contents of reg1 into reg2 }
+    Function a_load_reg_reg(reg1, reg2: TRegister): taicpu; override;
+  end;
+
+{$ENDIF}
 
 
 { ************************************************************************* }

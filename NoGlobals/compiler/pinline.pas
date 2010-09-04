@@ -46,7 +46,7 @@ implementation
        { common }
        cutils,
        { global }
-       globtype,tokens,verbose,constexp,
+       globtype,GlobVars,tokens,verbose,constexp,
        systems,
        { symtable }
        symbase,symconst,symdef,symsym,symtable,defutil,

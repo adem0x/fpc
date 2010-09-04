@@ -35,7 +35,7 @@ unit optloop;
 
     uses
       cutils,cclasses,
-      globtype,globals,constexp,
+      globtype,globals,GlobVars,constexp,
       symdef,symsym,
       defutil,
       cpuinfo,

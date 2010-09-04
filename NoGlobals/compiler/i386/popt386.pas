@@ -35,7 +35,7 @@ procedure PostPeepHoleOpts(asml: TAsmList; BlockStart, BlockEnd: tai);
 implementation
 
 uses
-  globtype,systems,
+  globtype,globvars,systems,
   globals,cgbase,procinfo,
   symsym,
 {$ifdef finaldestdebug}

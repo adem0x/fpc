@@ -88,7 +88,7 @@ interface
 implementation
 
     uses
-      verbose;
+      verbose,GlobVars;
 
     const
       { Call frame information }

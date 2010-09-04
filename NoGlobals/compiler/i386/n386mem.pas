@@ -48,7 +48,7 @@ implementation
 
     uses
       systems,
-      cutils,verbose,
+      cutils,verbose,globvars,
       symdef,paramgr,
       aasmtai,aasmdata,
       nld,ncon,nadd,

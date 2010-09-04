@@ -79,7 +79,7 @@ implementation
 
     uses
       systems,
-      cutils,cclasses,verbose,globals,constexp,
+      cutils,cclasses,verbose,globals,GlobVars,constexp,
       symconst,symdef,symsym,symtable,defutil,paramgr,
       aasmbase,aasmtai,aasmdata,
       procinfo,pass_2,parabase,

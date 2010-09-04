@@ -41,7 +41,7 @@ interface
 implementation
 
   uses
-    globtype,globals,fmodule,
+    globtype,GlobVars,globals,fmodule,
     systems,
     aasmtai,
     cgbase,

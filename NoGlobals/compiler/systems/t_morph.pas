@@ -32,7 +32,7 @@ implementation
     uses
        SysUtils,
        cutils,cfileutl,cclasses,
-       globtype,globals,systems,verbose,script,fmodule,i_morph,link;
+       globtype,globals,globvars,systems,verbose,script,fmodule,i_morph,link;
 
     type
        PlinkerMorphOS=^TlinkerMorphOS;

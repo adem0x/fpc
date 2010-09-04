@@ -27,7 +27,7 @@ interface
 
 uses
   globtype,verbose,
-  aasmbase,aasmtai,aasmdata,aasmsym,
+  aasmbase,aasmtai,aasmdata,
   cpubase,cgbase,cgutils;
 
     const
@@ -38,7 +38,7 @@ uses
 
 
     type
-      taicpu = class(tai_cpu_abstract_sym)
+      taicpu = class(tai_cpu_abstract)
          constructor op_none(op : tasmop);
 
          constructor op_reg(op : tasmop;_op1 : tregister);

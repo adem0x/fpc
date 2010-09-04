@@ -36,7 +36,7 @@ implementation
 
     uses
       cutils,
-      globals,verbose,systems,tokens,
+      globals,GlobVars,verbose,systems,tokens,
       symbase,symsym,symtable,
       node,nld,nmem,ncon,ncnv,ncal,
       fmodule,scanner,

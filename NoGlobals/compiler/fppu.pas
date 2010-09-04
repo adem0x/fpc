@@ -106,7 +106,7 @@ interface
 implementation
 
 uses
-  SysUtils,
+  SysUtils,GlobVars,
   cfileutl,
   verbose,systems,version,
   symtable, symsym,

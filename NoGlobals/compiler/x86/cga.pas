@@ -52,7 +52,7 @@ interface
 implementation
 
     uses
-       cutils,
+       cutils,GlobVars,
        systems,verbose,
        cgobj,cgx86;
 

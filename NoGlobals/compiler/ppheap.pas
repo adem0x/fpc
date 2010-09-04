@@ -38,7 +38,8 @@ interface
 implementation
 
     uses
-       cutils,globtype,globals,fmodule;
+       cutils,globtype,globals,fmodule,
+       GlobVars;
 
 {*****************************************************************************
                             Filename registration
@@ -106,12 +107,13 @@ implementation
       begin
         with pextra_info(p)^ do
          begin
-           line:=current_filepos^.line;
-           col:=current_filepos^.column;
-           if assigned(current_module) then
-            fileindex:=current_module.unit_index*100000+current_filepos^.fileindex
+           if assigned(current_module) then begin
+             line:=current_filepos^.line;
+             col:=current_filepos^.column;
+              fileindex:=current_module.unit_index*100000+current_filepos^.fileindex
+           end
            else
-            fileindex:=current_filepos^.fileindex;
+            fileindex:=0; //current_filepos^.fileindex;
          end;
       end;
 

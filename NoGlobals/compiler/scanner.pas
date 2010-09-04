@@ -325,6 +325,7 @@ implementation
 
     uses
       SysUtils,
+      GlobVars,
       cutils,cfileutl,
       systems,
       //switches,

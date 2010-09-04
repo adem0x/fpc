@@ -182,8 +182,12 @@ interface
         constructor Create(asym: tsym; aoffset: aint; alabel: TAsmLabel);
       end;
 
+{$IFDEF fix}
     var
       CAsmCFI : TAsmCFIClass;
+{$ELSE}
+//in GlobVars
+{$ENDIF}
 
     function current_asmdata : TAsmData; { global variable replacement }
 
@@ -191,7 +195,7 @@ interface
 implementation
 
     uses
-      verbose,
+      GlobVars, verbose,
       aasmtai,
       fmodule;
 

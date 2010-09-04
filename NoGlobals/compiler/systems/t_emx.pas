@@ -39,7 +39,7 @@ implementation
   uses
      sysutils,
      cutils,cfileutl,cclasses,
-     globtype,comphook,systems,symconst,symsym,symdef,
+     globtype,globvars,comphook,systems,symconst,symsym,symdef,
      globals,verbose,fmodule,script,ogbase,
      comprsrc,import,link,i_emx,ppu;
 

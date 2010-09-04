@@ -325,7 +325,7 @@ implementation
 
     uses
        { global }
-       verbose,
+       GlobVars, verbose,
        { target }
        systems,
        { symtable }

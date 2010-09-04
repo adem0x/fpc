@@ -327,7 +327,7 @@ type
     odt_objccategory { note that these are changed into odt_class afterwards }
   );
 
-  { Variations in interfaces implementation }
+  { Extension of interfaces implementation }
   { Beware, this data is duplicated in the compiler and rtl. }
   { Do not change the order of the fields. }
   tinterfaceentrytype = (etStandard,

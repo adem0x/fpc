@@ -112,7 +112,7 @@ implementation
 
     uses
        SysUtils,
-       globals,verbose,systems,
+       globals,GlobVars, verbose,systems,
        node,
        symbase,symtable,symconst,symtype,defcmp,
        dbgbase,

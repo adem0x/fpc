@@ -99,7 +99,7 @@ unit cg64f32;
   implementation
 
     uses
-       globtype,systems,constexp,
+       globtype,GlobVars,systems,constexp,
        verbose,cutils,
        symbase,symconst,symdef,symtable,defutil,paramgr,
        tgobj;

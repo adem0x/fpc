@@ -59,7 +59,7 @@ unit nx86add;
   implementation
 
     uses
-      globtype,globals,
+      globtype,globals,GlobVars,
       verbose,cutils,
       cpuinfo,
       aasmbase,aasmtai,aasmdata,aasmcpu,

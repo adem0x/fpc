@@ -78,17 +78,21 @@ interface
        end;
        tnotnodeclass = class of tnotnode;
 
+{$IFDEF fix}
     var
        cmoddivnode : tmoddivnodeclass;
        cshlshrnode : tshlshrnodeclass;
        cunaryminusnode : tunaryminusnodeclass;
        cnotnode : tnotnodeclass;
+{$ELSE}
+//in globvars
+{$ENDIF}
 
 implementation
 
     uses
       systems,
-      verbose,globals,cutils,
+      verbose,globals,GlobVars,cutils,
       globtype,constexp,
       symconst,symtype,symdef,symtable,
       defutil,

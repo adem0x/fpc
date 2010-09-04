@@ -80,7 +80,7 @@ implementation
        { common }
        cutils,
        { global }
-       globtype,tokens,verbose,comphook,constexp,
+       globtype,GlobVars,tokens,verbose,comphook,constexp,
        systems,
        { aasm }
        cpuinfo,cpubase,aasmbase,aasmtai,aasmdata,

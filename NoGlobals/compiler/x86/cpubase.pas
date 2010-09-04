@@ -34,8 +34,7 @@ unit cpubase;
 interface
 
 uses
-  cutils,cclasses,
-  globtype,
+  cutils,
   cgbase
   ;
 

@@ -126,8 +126,12 @@ unit procinfo;
        end;
        tcprocinfo = class of tprocinfo;
 
+{$IFDEF fix}
     var
        cprocinfo : tcprocinfo;
+{$ELSE}
+//in globvars
+{$ENDIF}
 
     { information about the current sub routine being parsed (@var(pprocinfo))}
     function  current_procinfo : tprocinfo; inline;

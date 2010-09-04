@@ -49,7 +49,7 @@ implementation
 
     uses
       globtype,systems,constexp,
-      cutils,verbose,globals,
+      cutils,verbose,globals,globvars,
       symconst,symdef,aasmbase,aasmtai,aasmdata,defutil,
       cgbase,pass_2,
       ncon,

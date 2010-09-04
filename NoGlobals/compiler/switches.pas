@@ -64,7 +64,7 @@ function PendingState: PPendingState;
 implementation
 uses
   systems,cpuinfo,
-  //globals,
+  GlobVars,
   verbose,comphook,
   fmodule, scanner;
 

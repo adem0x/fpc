@@ -86,7 +86,7 @@ unit optdead;
   uses
     cutils,cfileutl,
     sysutils,
-    globals,systems,fmodule,
+    globals,GlobVars,systems,fmodule,
     verbose;
 
 

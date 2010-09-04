@@ -37,7 +37,7 @@ interface
   implementation
 
     uses
-      globtype,globals,
+      globtype,globals,GlobVars,
       aasmbase,aasmtai,aasmdata,
       defutil,
       cgbase,cgutils,cga,cgobj,

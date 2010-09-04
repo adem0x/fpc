@@ -40,7 +40,7 @@ interface
 implementation
 
     uses
-      globals,globtype,verbose,constexp,cpuinfo,
+      globals,globtype,GlobVars,verbose,constexp,cpuinfo,
       systems,
       symconst,symtype,symsym,symdef,symtable,
       aasmtai,aasmdata,aasmcpu,
@@ -474,14 +474,24 @@ implementation
         will be used for loading the nodes from a ppu
       }
       begin
+        if not assigned(caddnode) then
+          caddnode := taddnode;
         nodeclass[addn]:=caddnode;
         nodeclass[muln]:=caddnode;
         nodeclass[subn]:=caddnode;
+        if not assigned(cmoddivnode) then
+          cmoddivnode:=tmoddivnode;
         nodeclass[divn]:=cmoddivnode;
         nodeclass[symdifn]:=caddnode;
         nodeclass[modn]:=cmoddivnode;
+        if not Assigned(cassignmentnode) then
+          cassignmentnode:=tassignmentnode;
         nodeclass[assignn]:=cassignmentnode;
+        if not assigned(cloadnode) then
+          cloadnode:=tloadnode;
         nodeclass[loadn]:=cloadnode;
+        if not assigned(crangenode) then
+          crangenode := trangenode;
         nodeclass[rangen]:=crangenode;
         nodeclass[ltn]:=caddnode;
         nodeclass[lten]:=caddnode;
@@ -489,62 +499,162 @@ implementation
         nodeclass[gten]:=caddnode;
         nodeclass[equaln]:=caddnode;
         nodeclass[unequaln]:=caddnode;
+        if not assigned(cinnode) then
+          cinnode:=tinnode;
         nodeclass[inn]:=cinnode;
         nodeclass[orn]:=caddnode;
         nodeclass[xorn]:=caddnode;
+        if not Assigned(cshlshrnode) then
+          cshlshrnode:=tshlshrnode;
         nodeclass[shrn]:=cshlshrnode;
         nodeclass[shln]:=cshlshrnode;
         nodeclass[slashn]:=caddnode;
         nodeclass[andn]:=caddnode;
+        if not assigned(csubscriptnode) then
+          csubscriptnode:=tsubscriptnode;
         nodeclass[subscriptn]:=csubscriptnode;
+        if not assigned(cderefnode) then
+          cderefnode:=tderefnode;
         nodeclass[derefn]:=cderefnode;
+        if not assigned(caddrnode) then
+          caddrnode := taddrnode;
         nodeclass[addrn]:=caddrnode;
+        if not assigned(cordconstnode) then
+          cordconstnode:=tordconstnode;
         nodeclass[ordconstn]:=cordconstnode;
+        if not assigned(ctypeconvnode) then
+          ctypeconvnode := ttypeconvnode;
         nodeclass[typeconvn]:=ctypeconvnode;
+        if not assigned(ccallnode) then
+          ccallnode := tcallnode;
         nodeclass[calln]:=ccallnode;
+        if not Assigned(ccallparanode) then
+          ccallparanode := tcallparanode;
         nodeclass[callparan]:=ccallparanode;
+        if not assigned(crealconstnode) then
+          crealconstnode:=trealconstnode;
         nodeclass[realconstn]:=crealconstnode;
+        if not assigned(cunaryminusnode) then
+          cunaryminusnode:= tunaryminusnode;
         nodeclass[unaryminusn]:=cunaryminusnode;
+        if not Assigned(casmnode) then
+          casmnode := tasmnode;
         nodeclass[asmn]:=casmnode;
+        if not assigned(cvecnode) then
+          cvecnode:=tvecnode;
         nodeclass[vecn]:=cvecnode;
+        if not assigned(cpointerconstnode) then
+          cpointerconstnode:=tpointerconstnode;
         nodeclass[pointerconstn]:=cpointerconstnode;
+        if not assigned(cstringconstnode) then
+          cstringconstnode:=tstringconstnode;
         nodeclass[stringconstn]:=cstringconstnode;
+        if not assigned(cnotnode) then
+          cnotnode := tnotnode;
         nodeclass[notn]:=cnotnode;
+        if not assigned(cinlinenode) then
+          cinlinenode:=tinlinenode;
         nodeclass[inlinen]:=cinlinenode;
+        if not assigned(cnilnode) then
+          cnilnode:=tnilnode;
         nodeclass[niln]:=cnilnode;
+        if not assigned(cerrornode) then
+          cerrornode:=terrornode;
         nodeclass[errorn]:=cerrornode;
+        if not assigned(ctypenode) then
+          ctypenode := ttypenode;
         nodeclass[typen]:=ctypenode;
+        if not assigned(csetelementnode) then
+          csetelementnode := tsetelementnode;
         nodeclass[setelementn]:=csetelementnode;
+        if not assigned(csetconstnode) then
+          csetconstnode := tsetconstnode;
         nodeclass[setconstn]:=csetconstnode;
+        if not Assigned(cblocknode) then
+          cblocknode:=tblocknode;
         nodeclass[blockn]:=cblocknode;
+        if not assigned(cstatementnode) then
+          cstatementnode := tstatementnode;
         nodeclass[statementn]:=cstatementnode;
+        if not assigned(cifnode) then
+          cifnode:=tifnode;
         nodeclass[ifn]:=cifnode;
+        if not assigned(cbreaknode) then
+          cbreaknode:=tbreaknode;
         nodeclass[breakn]:=cbreaknode;
+        if not assigned(ccontinuenode) then
+          ccontinuenode:=tcontinuenode;
         nodeclass[continuen]:=ccontinuenode;
+        if not assigned(cwhilerepeatnode) then
+          cwhilerepeatnode:=twhilerepeatnode;
         nodeclass[whilerepeatn]:=cwhilerepeatnode;
+        if not Assigned(cfornode) then
+          cfornode := tfornode;
         nodeclass[forn]:=cfornode;
+        if not assigned(cexitnode) then
+          cexitnode:=texitnode;
         nodeclass[exitn]:=cexitnode;
+        if not assigned(cwithnode) then
+          cwithnode:=twithnode;
         nodeclass[withn]:=cwithnode;
+        if not assigned(ccasenode) then
+          ccasenode:=tcasenode;
         nodeclass[casen]:=ccasenode;
+        if not assigned(clabelnode) then
+          clabelnode:=tlabelnode;
         nodeclass[labeln]:=clabelnode;
+        if not assigned(cgotonode) then
+          cgotonode:=tgotonode;
         nodeclass[goton]:=cgotonode;
+        if not assigned(ctryexceptnode) then
+          ctryexceptnode := ttryexceptnode;
         nodeclass[tryexceptn]:=ctryexceptnode;
+        if not assigned(craisenode) then
+          craisenode:=traisenode;
         nodeclass[raisen]:=craisenode;
+        if not assigned(ctryfinallynode) then
+          ctryfinallynode:=ttryfinallynode;
         nodeclass[tryfinallyn]:=ctryfinallynode;
+        if not assigned(connode) then
+          connode:=tonnode;
         nodeclass[onn]:=connode;
+        if not assigned(cisnode) then
+          cisnode:=tisnode;
         nodeclass[isn]:=cisnode;
+        if not assigned(casnode) then
+          casnode := tasnode;
         nodeclass[asn]:=casnode;
         nodeclass[starstarn]:=caddnode;
+        if not assigned(carrayconstructornode) then
+          carrayconstructornode := tarrayconstructornode;
         nodeclass[arrayconstructorn]:=carrayconstructornode;
+        if not assigned(carrayconstructorrangenode) then
+          carrayconstructorrangenode:=tarrayconstructorrangenode;
         nodeclass[arrayconstructorrangen]:=carrayconstructorrangenode;
+        if not assigned(ctempcreatenode) then
+          ctempcreatenode := ttempcreatenode;
         nodeclass[tempcreaten]:=ctempcreatenode;
+        if not assigned(ctemprefnode) then
+          ctemprefnode:=ttemprefnode;
         nodeclass[temprefn]:=ctemprefnode;
+        if not assigned(ctempdeletenode) then
+          ctempdeletenode := ttempdeletenode;
         nodeclass[tempdeleten]:=ctempdeletenode;
         nodeclass[addoptn]:=caddnode;
+        if not assigned(cnothingnode) then
+          cnothingnode:=tnothingnode;
         nodeclass[nothingn]:=cnothingnode;
+        if not assigned(cloadvmtaddrnode) then
+          cloadvmtaddrnode := tloadvmtaddrnode;
         nodeclass[loadvmtaddrn]:=cloadvmtaddrnode;
+        if not assigned(cguidconstnode) then
+          cguidconstnode:=tguidconstnode;
         nodeclass[guidconstn]:=cguidconstnode;
+        if not assigned(crttinode) then
+          crttinode:=trttinode;
         nodeclass[rttin]:=crttinode;
+        if not assigned(cloadparentfpnode) then
+          cloadparentfpnode := tloadparentfpnode;
         nodeclass[loadparentfpn]:=cloadparentfpnode;
       end;
 

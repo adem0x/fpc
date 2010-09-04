@@ -80,14 +80,20 @@ function genmultistringadd(p: taddnode): tnode;
 
 function is_addsstringoptnode(p: tnode): boolean;
 
+{$IFDEF fix}
 var
    caddsstringcharoptnode: taddsstringcharoptnodeclass;
    caddsstringcsstringoptnode: taddsstringcsstringoptnodeclass;
+{$ELSE}
+//in globvars
+{$ENDIF}
 
 implementation
 
-uses cutils, htypechk, defutil, defcmp, globtype, globals, cpubase, ncnv, ncon,ncal,nld,nmem,
-     verbose, symconst,symdef, cgbase, procinfo;
+uses
+  cutils, htypechk, defutil, defcmp, globtype, globals, GlobVars,
+  cpubase, ncnv, ncon,ncal,nld,nmem,
+  verbose, symconst,symdef, cgbase, procinfo;
 
 
 {*****************************************************************************

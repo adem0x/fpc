@@ -75,7 +75,7 @@ implementation
 uses
   SysUtils,
   cutils,cfileutl,cclasses,
-  Globtype,Globals,Verbose,Fmodule, comphook;
+  Globtype,Globals,GlobVars, Verbose,Fmodule, comphook;
 
 {****************************************************************************
                               TRESOURCEFILE

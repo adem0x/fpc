@@ -133,6 +133,7 @@ interface
        end;
        trttinodeclass = class of trttinode;
 
+{$IFDEF fix}
     var
        cloadnode : tloadnodeclass;
        cassignmentnode : tassignmentnodeclass;
@@ -143,12 +144,14 @@ interface
 
        { Current assignment node }
        aktassignmentnode : tassignmentnode;
+{$ELSE}
+{$ENDIF}
 
 
 implementation
 
     uses
-      cutils,verbose,globtype,globals,systems,
+      cutils,verbose,globtype,globals,GlobVars,systems,
       symnot,
       defutil,defcmp,
       htypechk,pbase,pass_1,procinfo,paramgr,
@@ -670,10 +673,18 @@ implementation
            This is especially usefull for string routines where the destination
            is pushed as a parameter. Using the final destination of left directly
            save a temp allocation and copy of data (PFV) }
+      {$IFDEF fix}
          oldassignmentnode:=aktassignmentnode;
          aktassignmentnode:=self;
+      {$ELSE}
+          oldassignmentnode := PushAssignmentNode(self);
+      {$ENDIF}
          firstpass(right);
+      {$IFDEF fix}
          aktassignmentnode:=oldassignmentnode;
+      {$ELSE}
+          PopAssignmentNode(oldassignmentnode);
+      {$ENDIF}
          if nf_assign_done_in_right in flags then
            begin
              result:=right;

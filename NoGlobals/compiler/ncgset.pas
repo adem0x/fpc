@@ -82,7 +82,7 @@ interface
 implementation
 
     uses
-      systems,
+      systems,GlobVars,
       verbose,
       symconst,symdef,defutil,
       paramgr,
