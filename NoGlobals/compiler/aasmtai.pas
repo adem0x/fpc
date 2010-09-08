@@ -574,8 +574,8 @@ interface
         protected
            procedure ppuloadoper(ppufile:tcompilerppufile;var o:toper);virtual;
            procedure ppuwriteoper(ppufile:tcompilerppufile;const o:toper);virtual;
-           procedure ppubuildderefimploper(var o:toper);virtual;//abstract;
-           procedure ppuderefoper(var o:toper);virtual;//abstract;
+           procedure ppubuildderefimploper(var o:toper);virtual;abstract;
+           procedure ppuderefoper(var o:toper);virtual;abstract;
         public
            { Condition flags for instruction }
            condition : TAsmCond;
@@ -671,7 +671,7 @@ implementation
       SysUtils,
       verbose,
       globals,cgGlobVars,
-      fmodule,symsym; //todo: remove symsym dependency, restore aasmsym unit
+      fmodule;
 
     const
       pputaimarker = 254;
@@ -2333,25 +2333,6 @@ implementation
             internalerror(2007010211);
         end;
       end;
-
-    procedure tai_cpu_abstract.ppubuildderefimploper(var o: toper);
-    begin
-        case o.typ of
-          top_local :
-            o.localoper^.localsymderef.build(tlocalvarsym(o.localoper^.localsym));
-        end;
-    end;
-
-    procedure tai_cpu_abstract.ppuderefoper(var o: toper);
-    begin
-        case o.typ of
-          top_ref :
-            begin
-            end;
-          top_local :
-            o.localoper^.localsym:=tlocalvarsym(o.localoper^.localsymderef.resolve);
-        end;
-    end;
 
 {****************************************************************************
                               tai_align_abstract

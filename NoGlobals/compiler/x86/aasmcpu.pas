@@ -34,7 +34,7 @@ interface
       cpubase,
       cgbase,cgutils,
       symtype,
-      aasmbase,aasmtai,
+      aasmbase,aasmtai,aasmsym,
       ogbase;
 
     const
@@ -192,7 +192,7 @@ interface
          function calculatefillbuf(var buf : tfillbuffer;executable : boolean):pchar;override;
       end;
 
-      taicpu = class(tai_cpu_abstract)
+      taicpu = class(tai_cpu_abstract_sym)
          opsize    : topsize;
          constructor op_none(op : tasmop);
          constructor op_none(op : tasmop;_size : topsize);
