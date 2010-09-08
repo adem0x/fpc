@@ -151,7 +151,7 @@ interface
 implementation
 
     uses
-      cutils,verbose,globtype,globals,GlobVars,systems,
+      cutils,verbose,globtype,globals,cgGlobVars,systems,
       symnot,
       defutil,defcmp,
       htypechk,pbase,pass_1,procinfo,paramgr,

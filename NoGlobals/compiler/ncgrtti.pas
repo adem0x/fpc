@@ -66,7 +66,7 @@ implementation
 
     uses
        cutils,
-       globals,globtype,GlobVars,
+       globals,globtype,GlobVars,cgGlobVars,
        verbose,systems,
        fmodule,
        symsym,

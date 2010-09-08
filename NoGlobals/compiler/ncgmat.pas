@@ -125,7 +125,7 @@ interface
 implementation
 
     uses
-      globtype,GlobVars,systems,
+      globtype,cgGlobVars,systems,
       cutils,verbose,globals,
       symconst,aasmbase,aasmtai,aasmdata,aasmcpu,defutil,
       parabase,

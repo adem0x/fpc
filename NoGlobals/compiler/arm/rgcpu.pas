@@ -29,7 +29,7 @@ unit rgcpu;
 
      uses
        aasmbase,aasmtai,aasmdata,aasmcpu,
-       cgbase,cgutils,
+       cgbase,cgutils,cgGlobVars,
        cpubase,
        rgobj;
 

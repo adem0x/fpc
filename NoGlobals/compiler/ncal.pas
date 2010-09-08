@@ -221,7 +221,7 @@ implementation
 
     uses
       systems,
-      verbose,globals,GlobVars,
+      verbose,globals,cgGlobVars,
       symconst,defutil,defcmp,
       htypechk,scanner, pbase,pass_1,
       ncnv,nld,ninl,nadd,ncon,nmem,nset,nobjc,

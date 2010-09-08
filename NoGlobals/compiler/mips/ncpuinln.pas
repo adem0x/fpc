@@ -45,7 +45,7 @@ implementation
 
 uses
   systems,
-  globtype,
+  globtype,cgGlobVars,
   cutils, verbose,
   symconst, symdef,
   aasmtai, aasmcpu, aasmdata,

@@ -42,7 +42,7 @@ unit ncpuset;
   implementation
 
     uses
-      globals,constexp,
+      globals,cgGlobVars,constexp,
       systems,
       cpubase,
       aasmbase,aasmtai,aasmdata,aasmcpu,

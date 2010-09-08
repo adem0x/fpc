@@ -98,7 +98,7 @@ implementation
 {$ELSE}
       fksysutl,
 {$ENDIF}
-      globtype,GlobVars,systems,constexp,
+      globtype,cgGlobVars,systems,constexp,
       cutils,verbose,globals,widestr,
       symconst,symdef,symsym,symtable,defutil,defcmp,
       cgbase,

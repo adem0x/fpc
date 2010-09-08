@@ -44,7 +44,7 @@ Type
 Implementation
 
   uses
-    cutils, cgbase, cgcpu, cgobj;
+    cutils,cgGlobVars, cgbase, cgcpu, cgobj;
 
 const
   calculation_target_op0: array[tasmop] of tasmop = (a_none,

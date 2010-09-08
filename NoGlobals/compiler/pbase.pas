@@ -137,7 +137,7 @@ end;
 
 procedure TParser.NewExceptBlock;
 begin
-  if exceptblockcounter = high(exceptblockcounter) then
+  if exceptblockcounter >= high(exceptblockcounter) then
     Internalerror(201009112); //exceeds ppu file storage
   inc(exceptblockcounter);
   current_exceptblock := exceptblockcounter;

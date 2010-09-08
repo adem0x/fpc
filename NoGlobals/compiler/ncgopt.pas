@@ -37,7 +37,7 @@ type
 implementation
 
 uses
-  globtype,globals,GlobVars,
+  globtype,globals,cgGlobVars,
   pass_1,defutil,htypechk,
   symdef,paramgr,
   aasmbase,aasmtai,aasmdata,

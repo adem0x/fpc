@@ -68,7 +68,7 @@ implementation
 
     uses
       systems,
-      globtype,globals,GlobVars,
+      globtype,globals,cgGlobVars,
       cutils,verbose,
       symconst,
       defutil,

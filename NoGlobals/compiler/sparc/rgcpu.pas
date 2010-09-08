@@ -44,7 +44,7 @@ implementation
 
     uses
       verbose,cutils,
-      globtype,
+      globtype,cgGlobVars,
       cgobj;
 
     procedure trgcpu.add_constraints(reg:tregister);

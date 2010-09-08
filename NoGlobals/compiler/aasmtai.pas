@@ -670,8 +670,8 @@ implementation
     uses
       SysUtils,
       verbose,
-      globals,GlobVars,
-      fmodule,symsym;
+      globals,cgGlobVars,
+      fmodule,symsym; //todo: remove symsym dependency, restore aasmsym unit
 
     const
       pputaimarker = 254;

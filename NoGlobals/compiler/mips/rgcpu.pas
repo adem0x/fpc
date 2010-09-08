@@ -44,7 +44,7 @@ unit rgcpu;
 implementation
 
     uses
-      globtype,
+      globtype,cgGlobVars,
       verbose,cutils,
       cgobj;
 

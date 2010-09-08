@@ -49,7 +49,7 @@ implementation
 
 uses
   globtype, systems,
-  cutils, verbose, globals,
+  cutils, verbose, globals,cgGlobVars,
   symconst,
   aasmbase, aasmcpu, aasmtai, aasmdata,
   defutil,

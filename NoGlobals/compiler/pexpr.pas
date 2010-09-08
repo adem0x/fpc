@@ -55,7 +55,7 @@ implementation
        { common }
        cutils,
        { global }
-       GlobVars, verbose,
+       GlobVars, cgGlobVars, verbose,
        systems,widestr,
        { symtable }
        symconst,symtable,symsym,defutil,defcmp,

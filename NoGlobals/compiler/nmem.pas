@@ -135,7 +135,7 @@ implementation
 
     uses
       globtype,systems,constexp,
-      cutils,verbose,globals,GlobVars,
+      cutils,verbose,globals,cgGlobVars,
       symconst,symbase,defutil,defcmp,
       nbas,nutils,
       wpobase,

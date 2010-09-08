@@ -104,7 +104,7 @@ uses
 
 implementation
 
-uses cutils, cclasses;
+uses cutils, cclasses,cgGlobVars;
 
 {*****************************************************************************
                                  taicpu Constructors

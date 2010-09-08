@@ -239,7 +239,7 @@ interface
 implementation
 
    uses
-      globtype,GlobVars,systems,constexp,
+      globtype,cgGlobVars,systems,constexp,
       cutils,verbose,globals,widestr,
       symconst,symdef,symsym,symbase,symtable,
       ncon,ncal,nset,nadd,ninl,nmem,nmat,nbas,nutils,

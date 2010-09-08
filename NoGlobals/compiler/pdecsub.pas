@@ -1613,7 +1613,7 @@ begin
     begin
       include(pd.procoptions,po_syscall_basesysv);
 
-      if consume_sym(sym,symtable) then
+      if current_scanner.consume_sym(sym,symtable) then
         begin
           if (sym.typ=staticvarsym) and
              (
@@ -1641,29 +1641,29 @@ begin
 
    if target_info.system = system_powerpc_morphos then
     begin
-      if idtoken=_LEGACY then
+      if current_scanner.idtoken=_LEGACY then
         begin
-          consume(_LEGACY);
+          current_scanner.consume();
           include(pd.procoptions,po_syscall_legacy);
         end
-      else if idtoken=_SYSV then
+      else if current_scanner.idtoken=_SYSV then
         begin
-          consume(_SYSV);
+          current_scanner.consume();
           include(pd.procoptions,po_syscall_sysv);
         end
-      else if idtoken=_BASESYSV then
+      else if current_scanner.idtoken=_BASESYSV then
         begin
-          consume(_BASESYSV);
+          current_scanner.consume();
           include(pd.procoptions,po_syscall_basesysv);
         end
-      else if idtoken=_SYSVBASE then
+      else if current_scanner.idtoken=_SYSVBASE then
         begin
-          consume(_SYSVBASE);
+          current_scanner.consume();
           include(pd.procoptions,po_syscall_sysvbase);
         end
-      else if idtoken=_R12BASE then
+      else if current_scanner.idtoken=_R12BASE then
         begin
-          consume(_R12BASE);
+          current_scanner.consume();
           include(pd.procoptions,po_syscall_r12base);
         end
       else
@@ -1680,7 +1680,7 @@ begin
         else
           internalerror(2005010404);
 
-      if consume_sym(sym,symtable) then
+      if current_scanner.consume_sym(sym,symtable) then
         begin
           if (sym.typ=staticvarsym) and
              (

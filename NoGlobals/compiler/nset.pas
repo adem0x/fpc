@@ -131,7 +131,7 @@ implementation
 
     uses
       systems,
-      verbose,GlobVars,
+      verbose,cgGlobVars,
       symconst,symdef,symsym,symtable,defutil,defcmp,
       htypechk,pass_1,
       nadd,nbas,ncnv,nld,cgobj,cgbase,

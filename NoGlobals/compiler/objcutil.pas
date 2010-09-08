@@ -48,7 +48,7 @@ interface
 implementation
 
     uses
-      globtype,GlobVars,
+      globtype,cgGlobVars,
       cutils,cclasses,
       pass_1,
       verbose,systems,

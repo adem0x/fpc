@@ -39,7 +39,7 @@ implementation
 
     uses
       globtype,systems,
-      cutils,verbose,globals,
+      cutils,verbose,globals,cgGlobVars,
       symconst,symbase,symsym,symtable,defutil,paramgr,parabase,
       cgbase,pass_2,
       cpuinfo,cpubase,aasmbase,aasmtai,aasmdata,aasmcpu,

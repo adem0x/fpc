@@ -42,7 +42,7 @@ type
 implementation
 
 uses
-  globals,
+  globals,cgGlobVars,
   systems,
   constexp,
   cpubase,

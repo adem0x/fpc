@@ -58,7 +58,7 @@ implementation
 
     uses
       globtype,systems,
-      cutils,verbose,globals,fmodule,
+      cutils,verbose,globals,cgGlobVars,fmodule,
       cpuinfo,
       symconst,symdef,
       aasmbase,aasmtai,aasmdata,aasmcpu,

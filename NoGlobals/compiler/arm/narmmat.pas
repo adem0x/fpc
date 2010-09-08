@@ -47,7 +47,7 @@ implementation
 
     uses
       globtype,systems,
-      cutils,verbose,globals,constexp,
+      cutils,verbose,globals,cgGlobVars,constexp,
       aasmbase,aasmcpu,aasmtai,aasmdata,
       defutil,
       cgbase,cgobj,cgutils,

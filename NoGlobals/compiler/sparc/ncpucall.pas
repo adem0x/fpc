@@ -37,7 +37,7 @@ interface
 implementation
 
     uses
-      cpubase,
+      cpubase,cgGlobVars,
       aasmtai,aasmdata,
       aasmcpu,
       paramgr,

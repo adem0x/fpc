@@ -47,7 +47,7 @@ interface
   implementation
 
     uses
-      globtype,GlobVars,
+      globtype,cgGlobVars,
       systems,
       cutils,verbose,globals,
       symconst,symdef,

@@ -463,7 +463,7 @@ interface
 implementation
 
     uses
-      GlobVars,
+      GlobVars, //cgGlobVars - should NOT be needed!
 {$ifdef macos}
       macutils,
 {$endif}

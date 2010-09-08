@@ -70,7 +70,7 @@ interface
 
     uses
       globtype,systems,
-      cutils,verbose,globals,GlobVars,
+      cutils,verbose,globals,cgGlobVars,
       symconst,symdef,paramgr,
       aasmbase,aasmtai,aasmdata,defutil,
       cgbase,procinfo,pass_2,tgobj,

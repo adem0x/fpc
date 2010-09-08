@@ -85,7 +85,7 @@ implementation
 
     uses
       systems,
-      cutils,verbose,globals,GlobVars,
+      cutils,verbose,globals,cgGlobVars,
       cpuinfo,
       symconst,symtable,defutil,paramgr,
       cgbase,pass_2,

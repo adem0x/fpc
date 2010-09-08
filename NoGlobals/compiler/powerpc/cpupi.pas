@@ -28,7 +28,7 @@ unit cpupi;
   interface
 
     uses
-       cutils,globtype,
+       cutils,globtype,cgGlobVars,
        cgbase,aasmdata,
        procinfo,cpuinfo,psub;
 
@@ -58,7 +58,7 @@ unit cpupi;
   implementation
 
     uses
-       globals,systems,
+       globals,globvars,systems,
        cpubase,
        aasmtai,
        tgobj,cgobj,

@@ -92,7 +92,7 @@ implementation
 
     uses
       systems,
-      verbose,globals,GlobVars,cutils,
+      verbose,globals,cgGlobVars,cutils,
       globtype,constexp,
       symconst,symtype,symdef,symtable,
       defutil,

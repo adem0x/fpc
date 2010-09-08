@@ -629,7 +629,7 @@ unit cgobj;
 implementation
 
     uses
-       globals,GlobVars, options,systems,
+       globals,cgGlobVars, options,systems,
        verbose,defutil,paramgr,symsym,
        tgobj,cutils,procinfo,
        ncgrtti;

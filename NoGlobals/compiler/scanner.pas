@@ -2220,8 +2220,9 @@ In case not, the value returned can be arbitrary.
           _REALNUMBER :
             begin
               { pexpr.pas messes with pattern in case of negative integer consts,
-                see around line 2562 the comment of JM; remove the - before recording it
-                                                     (FK)
+                see around line 2562 the comment of JM;
+                  DoDi: no such comment :-(
+                remove the - before recording it (FK)
               }
               if (token=_INTCONST) and (pattern[1]='-') then
                 delete(pattern,1,1);

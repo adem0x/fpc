@@ -120,7 +120,7 @@ const
   implementation
 
     uses
-       globals,verbose,systems,cutils,
+       globals,cgGlobVars,verbose,systems,cutils,
        symconst,symsym,fmodule,
        rgobj,tgobj,cpupi,procinfo,paramgr;
 

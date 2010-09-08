@@ -126,7 +126,7 @@ unit procinfo;
        end;
        tcprocinfo = class of tprocinfo;
 
-{$IFDEF fix}
+{$IFnDEF fix} //stay here?
     var
        cprocinfo : tcprocinfo;
 {$ELSE}

@@ -150,7 +150,7 @@ unit cgx86;
   implementation
 
     uses
-       globals,GlobVars,verbose,systems,cutils,
+       globals,cgGlobVars,verbose,systems,cutils,
        defutil,paramgr,procinfo,
        tgobj,ncgutil,
        fmodule;

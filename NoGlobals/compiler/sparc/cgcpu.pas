@@ -126,7 +126,7 @@ interface
 implementation
 
   uses
-    globals,verbose,systems,cutils,
+    globals,GlobVars,cgGlobVars,verbose,systems,cutils,
     paramgr,fmodule,
     tgobj,
     procinfo,cpupi;

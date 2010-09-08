@@ -51,7 +51,7 @@ type
 implementation
 
 uses
-  globtype, globals, systems,
+  globtype, globals,cgGlobVars, systems,
   cpubase, cgbase,
   aasmtai,
   tgobj,cgobj,

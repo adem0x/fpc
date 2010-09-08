@@ -57,7 +57,7 @@ implementation
        { common }
        cutils,
        { global }
-       globals,GlobVars,tokens,verbose,constexp,
+       globals,GlobVars,cgGlobVars,tokens,verbose,constexp,
        systems,
        { target }
        paramgr,procinfo,

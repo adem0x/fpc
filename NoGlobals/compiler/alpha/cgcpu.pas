@@ -56,7 +56,7 @@ procedure create_codegen;
 implementation
 
 uses
-   globtype,globals;
+   globtype,globals,globvars;
 
 procedure tcgalpha.g_stackframe_entry(list : TAsmList;localsize : longint);
 

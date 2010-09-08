@@ -233,7 +233,7 @@ implementation
 
     uses
       systems,constexp,
-      cutils,verbose,globals,GlobVars,
+      cutils,verbose,globals,cgGlobVars,
       symconst,symtable,paramgr,defcmp,defutil,htypechk,pbase, pass_1,
       ncal,nadd,ncon,nmem,nld,ncnv,nbas,cgobj,nutils,ninl,nset,
     {$ifdef state_tracking}

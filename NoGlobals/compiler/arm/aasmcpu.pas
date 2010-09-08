@@ -258,7 +258,7 @@ uses
 implementation
 
   uses
-    cutils,rgobj,itcpugas;
+    cutils,rgobj,itcpugas,globvars;
 
 
     procedure taicpu.loadshifterop(opidx:longint;const so:tshifterop);

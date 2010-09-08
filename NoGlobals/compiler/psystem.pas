@@ -40,7 +40,7 @@ interface
 implementation
 
     uses
-      globals,globtype,GlobVars,verbose,constexp,cpuinfo,
+      globals,globtype,cgGlobVars,verbose,constexp,cpuinfo,
       systems,
       symconst,symtype,symsym,symdef,symtable,
       aasmtai,aasmdata,aasmcpu,

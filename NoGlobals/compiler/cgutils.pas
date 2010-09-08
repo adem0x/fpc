@@ -28,6 +28,7 @@ unit cgutils;
 
     uses
       globtype,
+      cclasses, //for arm
       aasmbase,
       cpubase,cgbase;
 

@@ -40,7 +40,7 @@ implementation
 
     uses
       systems,
-      verbose,globals,globvars,constexp,
+      verbose,globals,cgGlobVars,constexp,
       symconst,symdef,defutil,
       aasmbase,aasmtai,aasmdata,aasmcpu,
       cgbase,pass_2,

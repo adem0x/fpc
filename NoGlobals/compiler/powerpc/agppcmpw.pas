@@ -53,7 +53,7 @@ interface
   implementation
 
     uses
-      cutils,globtype,systems,cclasses,
+      cutils,globtype,GlobVars,systems,cclasses,
       verbose,finput,fmodule,script,cpuinfo,
       cgbase,cgutils,
       itcpugas

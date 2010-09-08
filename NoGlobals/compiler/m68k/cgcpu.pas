@@ -135,7 +135,7 @@ unit cgcpu;
   implementation
 
     uses
-       globals,verbose,systems,cutils,
+       globals,GlobVars,cgGlobVars,verbose,systems,cutils,
        symsym,defutil,paramgr,procinfo,
        rgobj,tgobj,rgcpu,fmodule;
 

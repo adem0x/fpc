@@ -203,7 +203,7 @@ interface
 implementation
 
     uses
-      cutils,GlobVars,
+      cutils,cgGlobVars,
       verbose,systems,sysutils,
       defutil,
       cpubase,cgbase,

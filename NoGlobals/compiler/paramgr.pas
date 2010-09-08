@@ -136,7 +136,7 @@ unit paramgr;
 implementation
 
     uses
-       systems,GlobVars,
+       systems,cgGlobVars,
        cgobj,tgobj,
        defutil,verbose;
 

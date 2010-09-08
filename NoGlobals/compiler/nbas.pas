@@ -218,7 +218,7 @@ implementation
 
     uses
       cutils,
-      verbose,globals,GlobVars,systems,
+      verbose,globals,cgGlobVars,systems,
       symconst,symdef,defutil,defcmp,
       pass_1,
       nutils,nld,ncal,nflw,

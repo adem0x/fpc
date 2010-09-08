@@ -106,7 +106,7 @@ unit cgppc;
 
     uses
        {$ifdef extdebug}sysutils,{$endif}
-       globals,verbose,systems,cutils,
+       globals,GlobVars,cgGlobVars,verbose,systems,cutils,
        symconst,symsym,fmodule,
        rgobj,tgobj,cpupi,procinfo,paramgr;
 

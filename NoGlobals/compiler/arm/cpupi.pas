@@ -44,7 +44,7 @@ unit cpupi;
   implementation
 
     uses
-       globals,systems,
+       globals,cgGlobVars,systems,
        cpubase,
        aasmtai,aasmdata,
        tgobj,

@@ -42,7 +42,7 @@ implementation
 
     uses
       globtype,systems,
-      cutils,verbose,globals,globvars,
+      cutils,verbose,globals,cgGlobVars,
       cgbase,cgutils,
       cpubase,paramgr,
       aasmtai,aasmdata,aasmcpu,

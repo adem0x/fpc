@@ -41,7 +41,7 @@ interface
 
     uses
       globtype,systems,
-      cutils,verbose,globals,globvars,
+      cutils,verbose,globals,cgGlobVars,
       symconst,symdef,paramgr,defutil,
       aasmbase,aasmtai,aasmdata,aasmcpu,
       cgbase,procinfo,

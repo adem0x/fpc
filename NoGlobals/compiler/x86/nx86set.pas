@@ -44,7 +44,7 @@ implementation
 
     uses
       systems,constexp,
-      verbose,globals,GlobVars,
+      verbose,globals,cgGlobVars,
       symconst,symdef,defutil,
       aasmbase,aasmtai,aasmdata,aasmcpu,
       cgbase,pass_2,tgobj,

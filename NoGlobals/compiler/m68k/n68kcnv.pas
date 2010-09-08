@@ -40,7 +40,7 @@ interface
 implementation
 
    uses
-      verbose,globals,systems,
+      verbose,globals,cgGlobVars,systems,
       symconst,symdef,aasmbase,aasmtai,aasmdata,
       defutil,
       cgbase,pass_1,pass_2,

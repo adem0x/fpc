@@ -83,7 +83,7 @@ implementation
 
     uses
       verbose,globals,systems,constexp,
-      globtype,GlobVars, cutils,
+      globtype,cgGlobVars, cutils,
       symconst,symdef,symsym,symtable,paramgr,defutil,
       scanner, pass_1,
       ncal,ncon,ncnv,nadd,nld,nbas,nflw,nmem,nmat,nutils,

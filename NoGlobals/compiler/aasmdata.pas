@@ -195,7 +195,7 @@ interface
 implementation
 
     uses
-      GlobVars, verbose,
+      GlobVars, cgGlobVars, verbose,
       aasmtai,
       fmodule;
 

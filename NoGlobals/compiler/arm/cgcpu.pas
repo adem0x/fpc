@@ -175,7 +175,7 @@ unit cgcpu;
 
 
     uses
-       globals,verbose,systems,cutils,
+       globals,globvars,verbose,systems,cutils,
        aopt,aoptcpu,
        fmodule,
        symconst,symsym,

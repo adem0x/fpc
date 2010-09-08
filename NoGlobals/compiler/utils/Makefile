@@ -2512,8 +2512,6 @@ endif
 .NOTPARALLEL:
 ppu$(PPUEXT): ppu.pas
 ppufiles$(EXEEXT): ppufiles.pp ppu$(PPUEXT)
-ppudump$(EXEEXT): ppudump.pp ppu$(PPUEXT)
- 	$(COMPILER) ppudump.pp -Fu../$(CPU_TARGET) -Fi..
 ppumove$(EXEEXT): ppumove.pp ppu$(PPUEXT)
 msg2inc$(EXEEXT): $(COMPILER_UNITTARGETDIR) msg2inc.pp
 fpcsubst$(EXEEXT): fpcsubst.pp usubst.pp

@@ -48,7 +48,7 @@ implementation
        { common }
        cutils,cclasses,
        { global }
-       globtype,globals,GlobVars, tokens,verbose,constexp,
+       globtype,globals,GlobVars, cgGlobVars, tokens,verbose,constexp,
        systems,
        { symtable }
        symconst,symbase,symtype,symtable,defutil,defcmp,

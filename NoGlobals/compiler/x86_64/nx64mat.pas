@@ -46,8 +46,8 @@ interface
 implementation
 
     uses
-      GlobVars,globtype,systems,constexp,
-      cutils,verbose,globals,
+      globtype,systems,constexp,
+      cutils,verbose,globals,cgGlobVars,
       symconst,symdef,aasmdata,defutil,pass_2,
       ncon,
       cpubase,

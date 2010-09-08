@@ -41,7 +41,7 @@ implementation
        { common }
        cutils,cclasses,
        { global }
-       globtype,globals,GlobVars,verbose,constexp,
+       globtype,globals,cgGlobVars,verbose,constexp,
        systems,
        { aasm }
        cpubase,aasmbase,aasmtai,aasmdata,

@@ -46,7 +46,7 @@ interface
 
     uses
       systems,
-      cutils,verbose,
+      cutils,cgGlobVars,verbose,
       paramgr,procinfo,
       aasmtai,aasmdata,aasmcpu,defutil,
       cgbase,cgcpu,cgutils,

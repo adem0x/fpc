@@ -69,7 +69,7 @@ unit cgcpu;
   implementation
 
     uses
-       globals,globvars,verbose,systems,cutils,
+       globals,Globvars,cgGlobvars,verbose,systems,cutils,
        paramgr,procinfo,fmodule,
        rgcpu,rgx86,cpuinfo;
 

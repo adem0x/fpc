@@ -273,7 +273,7 @@ implementation
 
      uses
        cutils,
-       globals,GlobVars,
+       globals,cgGlobVars,
        itcpugas,
        symsym;
 

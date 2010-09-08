@@ -165,7 +165,7 @@ implementation
 
     uses
        sysutils,
-       systems,constexp,globals, GlobVars,
+       systems,constexp,globals, cgGlobVars,
        cutils,verbose,
        symtable,
        defutil,defcmp,

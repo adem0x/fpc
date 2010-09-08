@@ -53,7 +53,7 @@ implementation
 
 uses
   systems,
-  cutils, verbose,
+  cutils, cgGlobVars,verbose,
   paramgr,
   aasmtai, aasmcpu, aasmdata,
   defutil,

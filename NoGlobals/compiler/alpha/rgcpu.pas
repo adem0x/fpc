@@ -41,7 +41,7 @@ unit rgcpu;
   implementation
 
     uses
-      cgobj;
+      cgobj,globvars;
 
     function trgcpu.getcpuregisterint(list: TAsmList; reg: tregister): tregister;
 

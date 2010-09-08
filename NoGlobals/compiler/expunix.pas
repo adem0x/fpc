@@ -55,7 +55,7 @@ implementation
 
 uses
   symconst,
-  globtype,globals,GlobVars,
+  globtype,globals,GlobVars,cgGlobVars,
   aasmdata,aasmtai,aasmcpu,
   fmodule,
   cgbase,cgutils,cpubase,cgobj,

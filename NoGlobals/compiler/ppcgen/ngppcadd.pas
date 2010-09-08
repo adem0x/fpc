@@ -52,7 +52,7 @@ implementation
 
     uses
       globtype,systems,
-      cutils,verbose,globals,
+      cutils,verbose,globals,cgGlobVars,
       symconst,symdef,paramgr,
       aasmbase,aasmtai,aasmdata,aasmcpu,defutil,htypechk,
       cgbase,cpuinfo,pass_1,pass_2,regvars,

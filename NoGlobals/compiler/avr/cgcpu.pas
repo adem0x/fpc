@@ -121,7 +121,7 @@ unit cgcpu;
 
 
     uses
-       globals,verbose,systems,cutils,
+       globals,cgGlobVars,verbose,systems,cutils,
        fmodule,
        symconst,symsym,
        tgobj,

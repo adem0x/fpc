@@ -57,7 +57,7 @@ interface
 implementation
 
    uses
-      verbose,globtype,globals,systems,
+      verbose,globtype,globals,cgGlobVars,systems,
       symconst,symdef,aasmbase,aasmtai,aasmdata,
       defutil,
       cgbase,cgutils,

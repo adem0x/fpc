@@ -58,7 +58,7 @@ interface
   implementation
 
     uses
-      cutils,verbose,globtype,globals,GlobVars,
+      cutils,verbose,globtype,globals,cgGlobVars,
       aasmbase,aasmtai,aasmdata,aasmcpu,symconst,symdef,paramgr,
       nutils,ncon,ncal,
       cpubase,systems,
