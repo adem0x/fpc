@@ -1425,7 +1425,7 @@ implementation
      {$IFDEF fix}
         DLLsource:=false;
      {$ELSE}
-        status.PrjType:=piUnknown;
+        status.PrjType:=ptUnit;
      {$ENDIF}
         paratarget:=system_none;
         paratargetasm:=as_none;

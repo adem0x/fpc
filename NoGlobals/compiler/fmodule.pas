@@ -114,7 +114,6 @@ interface
         sources_avail,            { if all sources are reachable }
         interface_compiled,       { if the interface section has been parsed/compiled/loaded }
         is_dbginfo_written,
-        is_unit,
         in_interface,             { processing the implementation part? }
         { allow global settings }
         in_global     : boolean;
@@ -131,10 +130,12 @@ interface
         interface_crc,
         indirect_crc  : cardinal;
         flags         : cardinal;  { the PPU flags }
+      {$IFDEF fix}
+        is_unit,
         islibrary     : boolean;  { if it is a library (win32 dll) }
-      {$IFDEF Package}
         IsPackage     : boolean;
       {$ELSE}
+        PrjType: eProjectType;
       {$ENDIF}
         moduleid      : longint;
         unitmap       : punitmap; { mapping of all used units }
@@ -217,6 +218,8 @@ interface
         procedure AddExternalImport(const libname,symname:string;OrdNr: longint;isvar:boolean;ImportByOrdinalOnly:boolean);
         property ImportLibraryList : TFPHashObjectList read FImportLibraryList;
         function  PendingState: PPendingState; virtual;
+        function  is_unit: boolean;
+        function  isLibrary: boolean;
       end;
 
        tused_unit = class(tlinkedlistitem)
@@ -580,9 +583,14 @@ implementation
         recompile_reason:=rr_unknown;
         in_interface:=true;
         in_global:=true;
+      {$IFDEF fix}
         is_unit:=_is_unit;
         islibrary:=false;
-        //ispackage:=false;
+        ispackage:=false;
+      {$ELSE}
+        if not _is_unit then
+          PrjType:=ptProgram;
+      {$ENDIF}
         is_dbginfo_written:=false;
         mode_switch_allowed:= true;
         moduleoptions:=[];
@@ -1026,6 +1034,16 @@ implementation
     function tmodule.PendingState: PPendingState;
     begin
       Result := @tscannerfile(scanner).Pending_State;
+    end;
+
+    function tmodule.is_unit: boolean;
+    begin
+      Result := PrjType=ptUnit;
+    end;
+
+    function tmodule.isLibrary: boolean;
+    begin
+      Result := PrjType=ptLibrary;
     end;
 
 

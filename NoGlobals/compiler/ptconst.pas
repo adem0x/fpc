@@ -1488,7 +1488,7 @@ implementation
         {$IFDEF fix}
            DLLSource
         {$ELSE}
-          (status.PrjType = piLibrary)
+          (status.PrjType = ptLibrary)
         {$ENDIF}
         then
           list.concat(Tai_symbol.Createname_global(sym.mangledname,AT_DATA,0))

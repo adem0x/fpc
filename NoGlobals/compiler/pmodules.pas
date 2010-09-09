@@ -2079,9 +2079,9 @@ implementation
          DLLsource:=islibrary;
       {$ELSE}
         if islibrary then
-          status.PrjType:=piLibrary
+          status.PrjType:=ptLibrary
         else
-          status.PrjType := piExe;
+          status.PrjType := ptProgram;
       {$ENDIF}
       {$IFDEF ProgramInfo}
          Status.IsLibrary:=IsLibrary;
@@ -2100,6 +2100,7 @@ implementation
            begin
              if not RelocSectionSetExplicitly then
                RelocSection:=true;
+              current_module.PrjType:=ptLibrary;
            end;
 
          { Relocation works only without stabs under Windows when }
@@ -2132,7 +2133,7 @@ implementation
            begin
               current_scanner.consume(_LIBRARY);
               current_module.setmodulename(current_scanner.orgpattern);
-              current_module.islibrary:=true;
+              //current_module.islibrary:=true;
               exportlib.preparelib(current_scanner.orgpattern);
 
               if tf_library_needs_pic in target_info.flags then
@@ -2456,8 +2457,8 @@ implementation
                    linker.MakeExecutable;
                {$ELSE}
                 case status.PrjType of
-                piLibrary: linker.MakeSharedLibrary;
-                piExe: linker.MakeExecutable;
+                ptLibrary: linker.MakeSharedLibrary;
+                ptProgram: linker.MakeExecutable;
                 //else nothing to link
                 end;
                {$ENDIF}

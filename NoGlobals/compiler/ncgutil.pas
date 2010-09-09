@@ -2200,7 +2200,7 @@ implementation
         {$IFDEF fix}
          (not DLLsource)
         {$ELSE}
-          (status.PrjType <> piLibrary)
+          (status.PrjType <> ptLibrary)
         {$ENDIF}
         and
            (current_procinfo.procdef.proctypeoption=potype_proginit) then
@@ -2495,7 +2495,7 @@ implementation
         {$IFDEF fix}
            DLLSource
         {$ELSE}
-          (status.PrjType = piLibrary)
+          (status.PrjType = ptLibrary)
         {$ENDIF}
            or
            (assigned(current_procinfo) and

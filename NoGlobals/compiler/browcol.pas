@@ -2010,10 +2010,19 @@ begin
     begin
       obj:=ExpandFileName(m.objfilename^);
       ppu:=''; source:='';
+    {$IFDEF fix}
       if m.is_unit then
-        ppu:=ExpandFileName(m.ppufilename^);
-      if (m.is_unit=false) and (m.islibrary=false) then
+        ppu:=ExpandFileName(m.ppufilename^)
+      else if (m.islibrary=false) then
         ppu:=ExpandFileName(m.exefilename^);
+    {$ELSE}
+      case m.PrjType of
+      piUnknown: ppu:=ExpandFileName(m.ppufilename^);
+      piLibrary: ;
+      else  //piExe?
+        ppu:=ExpandFileName(m.exefilename^);
+      end;
+    {$ENDIF}
       if assigned(m.sourcefiles) then
         begin
           s:=m.sourcefiles.files;

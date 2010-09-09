@@ -694,7 +694,7 @@ Implementation
              {$IFDEF fix}
                if DLLsource then
              {$ELSE}
-               if status.PrjType = piLibrary then
+               if status.PrjType = ptLibrary then
              {$ENDIF}
                  AsmRes.AddLinkCommand(Command,Para,current_module.sharedlibfilename^)
                else

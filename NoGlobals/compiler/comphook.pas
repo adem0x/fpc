@@ -68,14 +68,6 @@ const
   hintstr       : string[20] = 'Hint:';
 
 type
-//replaces IsExe, IsPackage and IsLibrary booleans. If ever used...
-  eProgramInfo = (
-    piUnknown,
-    piExe,
-    piLibrary,
-    piPackage
-  );
-
   PCompilerStatus = ^TCompilerStatus;
   TCompilerStatus = record
   { Current status }
@@ -99,7 +91,7 @@ type
     ispackage,
     islibrary     : boolean;
   {$ELSE}
-    PrjType: eProgramInfo;
+    PrjType: eProjectType;
   {$ENDIF}
   { Settings for the output }
     showmsgnrs    : boolean;

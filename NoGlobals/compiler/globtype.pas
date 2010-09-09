@@ -289,6 +289,14 @@ interface
          app_bundle     { dynamically loadable bundle, Darwin only }
        );
 
+      //replaces IsExe, IsPackage and IsLibrary booleans. If ever used...
+        eProjectType = (
+          ptUnit,     //default: unit
+          ptProgram,  //program, to be linked
+          ptLibrary,  //shared library, to be linked
+          ptPackage   //undefined and unused, so far
+        );
+
        { interface types }
        tinterfacetypes = (
          it_interfacecom,

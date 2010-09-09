@@ -241,15 +241,11 @@ implementation
            try
              if (current_scanner.token=_UNIT) or (compile_level>1) then
                begin
-                 current_module.is_unit:=true;
+                 //current_module.is_unit:=true; default
                  proc_unit;
                end
              else if (current_scanner.token=_ID) and (current_scanner.idtoken=_PACKAGE) then
                begin
-               {$IFDEF Package}
-                 current_module.IsPackage:=true;
-               {$ELSE}
-               {$ENDIF}
                  proc_package;
                end
              else
