@@ -132,7 +132,10 @@ interface
         indirect_crc  : cardinal;
         flags         : cardinal;  { the PPU flags }
         islibrary     : boolean;  { if it is a library (win32 dll) }
+      {$IFDEF Package}
         IsPackage     : boolean;
+      {$ELSE}
+      {$ENDIF}
         moduleid      : longint;
         unitmap       : punitmap; { mapping of all used units }
         unitmapsize   : longint;  { number of units in the map }
@@ -150,7 +153,8 @@ interface
        symtablestack        : TSymtablestack;
 
         globalmacrosymtable,           { pointer to the global macro symtable of this unit.
-                                          Only contains a copy of the local table??? }
+                                          A copy of the local table, after interface has been parsed,
+                                          for use by other units. }
         localmacrosymtable : TSymtable;{ pointer to the local macro symtable of this unit.
                                           All macros pushed here, by default. }
        macrosymtablestack   : TMacroStack;  // TSymtablestack;
@@ -578,7 +582,7 @@ implementation
         in_global:=true;
         is_unit:=_is_unit;
         islibrary:=false;
-        ispackage:=false;
+        //ispackage:=false;
         is_dbginfo_written:=false;
         mode_switch_allowed:= true;
         moduleoptions:=[];

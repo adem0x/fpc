@@ -1070,7 +1070,7 @@ implementation
 {$ifdef debug_devirt}
          i: longint;
 {$endif debug_devirt}
-      begin
+      begin //proc_unit
          init_procinfo:=nil;
          finalize_procinfo:=nil;
 
@@ -1078,8 +1078,11 @@ implementation
            current_module.mode_switch_allowed:= false;
 
          current_scanner.consume(_UNIT);
+      {$IFDEF ProgramInfo}
          if compile_level=1 then
           Status.IsExe:=false;
+      {$ELSE}
+      {$ENDIF}
 
          if current_scanner.token=_ID then
           begin
@@ -1158,14 +1161,8 @@ implementation
            the same name }
          current_module.localsymtable.insert(tunitsym.create(current_module.realmodulename^,current_module));
 
-         if current_scanner = nil then
-          Internalerror(40810);
-
          { load default units, like the system unit }
          loaddefaultunits;
-
-         if current_scanner = nil then
-          Internalerror(60810); //!!!!!!!!!!!!!!!
 
          { insert qualifier for the system unit (allows system.writeln) }
          if not(cs_compilesystem in current_settings^.moduleswitches) and
@@ -1787,8 +1784,11 @@ implementation
         force_init_final : boolean;
         uu : tused_unit;
       begin
+      {$IFDEF ProgramInfo}
          Status.IsPackage:=true;
          Status.IsExe:=true;
+      {$ELSE}
+      {$ENDIF}
          current_parser.parse_only:=false;
          {main_procinfo:=nil;
          init_procinfo:=nil;
@@ -1825,7 +1825,10 @@ implementation
 
          current_scanner.consume(_ID);
          current_module.setmodulename(current_scanner.orgpattern);
+      {$IFDEF Package}
          current_module.ispackage:=true;
+      {$ELSE}
+      {$ENDIF}
          exportlib.preparelib(current_scanner.orgpattern);
 
          if tf_library_needs_pic in target_info.flags then
@@ -2072,10 +2075,20 @@ implementation
          force_init_final : boolean;
          resources_used : boolean;
       begin
+      {$IFDEF fix}
          DLLsource:=islibrary;
+      {$ELSE}
+        if islibrary then
+          status.PrjType:=piLibrary
+        else
+          status.PrjType := piExe;
+      {$ENDIF}
+      {$IFDEF ProgramInfo}
          Status.IsLibrary:=IsLibrary;
          Status.IsPackage:=false;
          Status.IsExe:=true;
+      {$ELSE}
+      {$ENDIF}
          current_parser.parse_only:=false;
          main_procinfo:=nil;
          init_procinfo:=nil;
@@ -2132,14 +2145,14 @@ implementation
            { is there an program head ? }
            if current_scanner.token=_PROGRAM then
             begin
-              current_scanner.consume(_PROGRAM);
+              current_scanner.consume();
               current_module.setmodulename(current_scanner.orgpattern);
               if (target_info.system in systems_unit_program_exports) then
                 exportlib.preparelib(current_scanner.orgpattern);
               current_scanner.consume(_ID);
               if current_scanner.token=_LKLAMMER then
                 begin
-                   current_scanner.consume(_LKLAMMER);
+                   current_scanner.consume();
                    repeat
                      current_scanner.consume(_ID);
                    until not current_scanner.try_to_consume(_COMMA);
@@ -2208,7 +2221,9 @@ implementation
              main_procinfo:=create_main_proc(mainaliasname,potype_proginit,current_module.localsymtable);
              main_procinfo.procdef.aliasnames.insert('PASCALMAIN');
            end;
+
          main_procinfo.parse_body;
+
          { save file pos for debuginfo }
          current_module.mainfilepos:=main_procinfo.entrypos;
 
@@ -2434,10 +2449,18 @@ implementation
                  if not needsymbolinfo then
                    unloaded_units.Clear;
                  { finally we can create a executable }
+               {$IFDEF fix}
                  if DLLSource then
                    linker.MakeSharedLibrary
                  else
                    linker.MakeExecutable;
+               {$ELSE}
+                case status.PrjType of
+                piLibrary: linker.MakeSharedLibrary;
+                piExe: linker.MakeExecutable;
+                //else nothing to link
+                end;
+               {$ENDIF}
 
                  { collect all necessary information for whole-program optimization }
                  wpoinfomanager.extractwpoinfofromprogram;

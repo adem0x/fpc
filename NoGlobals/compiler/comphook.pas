@@ -68,6 +68,14 @@ const
   hintstr       : string[20] = 'Hint:';
 
 type
+//replaces IsExe, IsPackage and IsLibrary booleans. If ever used...
+  eProgramInfo = (
+    piUnknown,
+    piExe,
+    piLibrary,
+    piPackage
+  );
+
   PCompilerStatus = ^TCompilerStatus;
   TCompilerStatus = record
   { Current status }
@@ -86,9 +94,13 @@ type
     codesize,
     datasize      : aword;
   { program info }
+  {$IFDEF ProgramInfo}
     isexe,
     ispackage,
     islibrary     : boolean;
+  {$ELSE}
+    PrjType: eProgramInfo;
+  {$ENDIF}
   { Settings for the output }
     showmsgnrs    : boolean;
     verbosity     : longint;

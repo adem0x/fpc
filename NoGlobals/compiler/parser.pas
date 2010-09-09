@@ -221,21 +221,18 @@ implementation
        { reset symtable }
         PushSymbolStack;  //create new
         PushMacroStack;
+        { init macros before anything in the file is parsed.}
+        current_module.localmacrosymtable:= tmacrosymtable.create(false);
+        macrosymtablestack.Init;
+        macrosymtablestack.push(current_module.localmacrosymtable);
       end;
 
     procedure Parse;
       begin
        { startup scanner and load the first file }
          current_scanner.firstfile;
-
        { show info }
          Message1(parser_i_compiling, current_scanner.inputfile.name^);
-
-         { init macros before anything in the file is parsed.}
-         current_module.localmacrosymtable:= tmacrosymtable.create(false);
-         macrosymtablestack.Init;
-         macrosymtablestack.push(current_module.localmacrosymtable);
-
          { read the first token }
          current_scanner.readtoken(false);
 
@@ -249,7 +246,10 @@ implementation
                end
              else if (current_scanner.token=_ID) and (current_scanner.idtoken=_PACKAGE) then
                begin
+               {$IFDEF Package}
                  current_module.IsPackage:=true;
+               {$ELSE}
+               {$ENDIF}
                  proc_package;
                end
              else

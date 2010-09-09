@@ -286,7 +286,11 @@ interface
        features : tfeatures;
 
     var
-       DLLsource : boolean;
+    {$IFDEF fix}
+       DLLsource : boolean; //identical to status/module IsLibrary
+    {$ELSE}
+      //in tstatus.PrjType
+    {$ENDIF}
 
        { used to set all registers used for each global function
          this should dramatically decrease the number of
@@ -1418,7 +1422,11 @@ implementation
         do_make:=true;
         compile_level:=0;
         codegenerror:=false;
+     {$IFDEF fix}
         DLLsource:=false;
+     {$ELSE}
+        status.PrjType:=piUnknown;
+     {$ENDIF}
         paratarget:=system_none;
         paratargetasm:=as_none;
         paratargetdbg:=dbg_none;

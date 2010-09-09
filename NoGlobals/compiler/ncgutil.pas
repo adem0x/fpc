@@ -166,7 +166,7 @@ implementation
   uses
     version,
     cutils,cclasses,
-    globals,GlobVars,cgGlobVars,systems,verbose,export,
+    globals,GlobVars,cgGlobVars,systems,verbose,comphook,export,
     ppu,defutil,
     procinfo,paramgr,fmodule,
     regvars,dbgbase,
@@ -2196,7 +2196,13 @@ implementation
     procedure gen_exit_code(list:TAsmList);
       begin
         { call __EXIT for main program }
-        if (not DLLsource) and
+        if
+        {$IFDEF fix}
+         (not DLLsource)
+        {$ELSE}
+          (status.PrjType <> piLibrary)
+        {$ENDIF}
+        and
            (current_procinfo.procdef.proctypeoption=potype_proginit) then
           cg.a_call_name(list,'FPC_DO_EXIT',false);
       end;
@@ -2486,7 +2492,12 @@ implementation
         new_section(list,sectype,lower(sym.mangledname),varalign);
         if (sym.owner.symtabletype=globalsymtable) or
            create_smartlink or
-           DLLSource or
+        {$IFDEF fix}
+           DLLSource
+        {$ELSE}
+          (status.PrjType = piLibrary)
+        {$ENDIF}
+           or
            (assigned(current_procinfo) and
             (po_inline in current_procinfo.procdef.procoptions)) or
            (vo_is_public in sym.varoptions) then

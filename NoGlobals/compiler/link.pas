@@ -691,7 +691,11 @@ Implementation
          begin
            if showinfo then
              begin
+             {$IFDEF fix}
                if DLLsource then
+             {$ELSE}
+               if status.PrjType = piLibrary then
+             {$ENDIF}
                  AsmRes.AddLinkCommand(Command,Para,current_module.sharedlibfilename^)
                else
                  AsmRes.AddLinkCommand(Command,Para,current_module.exefilename^);

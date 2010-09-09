@@ -34,7 +34,7 @@ implementation
 
     uses
        SysUtils,
-       globtype,systems,tokens,verbose,constexp,
+       globtype,systems,tokens,verbose,comphook,constexp,
        cutils,globals,widestr,scanner,
        symconst,symbase,symdef,symtable,
        aasmbase,aasmtai,aasmcpu,defutil,defcmp,
@@ -1485,7 +1485,12 @@ implementation
            create_smartlink or
            (assigned(current_procinfo) and
             (po_inline in current_procinfo.procdef.procoptions)) or
-           DLLSource then
+        {$IFDEF fix}
+           DLLSource
+        {$ELSE}
+          (status.PrjType = piLibrary)
+        {$ENDIF}
+        then
           list.concat(Tai_symbol.Createname_global(sym.mangledname,AT_DATA,0))
         else
           list.concat(Tai_symbol.Createname(sym.mangledname,AT_DATA,0));
