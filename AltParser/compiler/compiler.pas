@@ -113,7 +113,10 @@ uses
 {$ifdef nativent}
   ,i_nativent
 {$endif nativent}
-  ,globtype;
+  ,globtype
+//add more parsers here
+  ,parserOPL
+;
 
 function Compile(const cmd:string):longint;
 

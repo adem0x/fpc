@@ -87,6 +87,8 @@ interface
     { Register an parser with a filetype }
     procedure RegisterParser(pcl: PParserListItem);
 
+    { Get the current parser }
+    function current_parser: TParser;
 
     procedure identifier_not_found(const s:string);
 
@@ -373,17 +375,20 @@ implementation
       const
         OPLpas: TParserListItem = (
           ext: '.pas'; cls: TParser;
+          alt:nil; next:nil;
         );
         OPLpp: TParserListItem = (
           ext: '.pp'; cls: TParser;
+          alt:nil; next:nil;
         );
         OPLlpr: TParserListItem = (
           ext: '.lpr'; cls: TParser;
+          alt:nil; next:nil;
         );
 
       function current_parser: TParser;
       begin
-        TObject(Result) := current_module.scanner;
+        TObject(Result) := current_scanner;
       end;
 
       function ParserForExtension(const ext: string): PParserListItem;
@@ -417,6 +422,8 @@ implementation
           p^.alt := pcl^.cls;
         end;
       end;
+
+//const ParaAltParser = True; //debug: force use of alternative parser
 
       function  ParserFor(const filename: string): TParser;
       var
