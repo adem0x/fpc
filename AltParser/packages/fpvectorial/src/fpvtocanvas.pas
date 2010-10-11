@@ -1,0 +1,99 @@
+unit fpvtocanvas;
+
+{$mode objfpc}{$H+}
+
+interface
+
+uses
+  Classes, SysUtils,
+  fpcanvas,
+  fpvectorial;
+
+procedure DrawFPVectorialToCanvas(ASource: TvVectorialDocument; ADest: TFPCustomCanvas;
+  ADestX: Integer = 0; ADestY: Integer = 0; AMulX: Double = 1.0; AMulY: Double = 1.0);
+
+implementation
+
+{@@
+  This function draws a FPVectorial vectorial image to a TFPCustomCanvas
+  descendent, such as TCanvas from the LCL.
+
+  Be careful that by default this routine does not execute coordinate transformations,
+  and that FPVectorial works with a start point in the bottom-left corner, with
+  the X growing to the right and the Y growing to the top. This will result in
+  an image in TFPCustomCanvas mirrored in the Y axis in relation with the document
+  as seen in a PDF viewer, for example. This can be easily changed with the
+  provided parameters. To have the standard view of an image viewer one could
+  use this function like this:
+
+  DrawFPVectorialToCanvas(ASource, ADest, 0, ASource.Height, 1.0, -1.0);
+}
+procedure DrawFPVectorialToCanvas(ASource: TvVectorialDocument; ADest: TFPCustomCanvas;
+  ADestX: Integer = 0; ADestY: Integer = 0; AMulX: Double = 1.0; AMulY: Double = 1.0);
+var
+  i, j, k: Integer;
+  PosX, PosY: Integer; // Not modified by ADestX, etc
+  CurSegment: TPathSegment;
+  // For bezier
+  CurX, CurY: Integer; // Not modified by ADestX, etc
+  CurveLength: Integer;
+  t: Double;
+begin
+  {$ifdef FPVECTORIALDEBUG}
+  WriteLn(':>DrawFPVectorialToCanvas');
+  {$endif}
+
+  PosX := 0;
+  PosY := 0;
+
+  ADest.MoveTo(ADestX, ADestY);
+
+  for i := 0 to ASource.PathCount - 1 do
+  begin
+    //WriteLn('i = ', i);
+    for j := 0 to Length(ASource.Paths[i].Points) - 1 do
+    begin
+      //WriteLn('j = ', j);
+      CurSegment := ASource.Paths[i].Points[j];
+      case CurSegment.SegmentType of
+      st2DLine, st3DLine:
+      begin
+        PosX := Round(CurSegment.X);
+        PosY := Round(CurSegment.Y);
+        ADest.LineTo(
+          Round(ADestX + AMulX * PosX),
+          Round(ADestY + AMulY * PosY)
+          );
+      end;
+      { To draw a bezier we need to divide the interval in parts and make
+        lines between this parts }
+      st2DBezier, st3DBezier:
+      begin
+        CurveLength :=
+          Round(sqrt(sqr(CurSegment.X3 - PosX) + sqr(CurSegment.Y3 - PosY))) +
+          Round(sqrt(sqr(CurSegment.X2 - CurSegment.X3) + sqr(CurSegment.Y2 - CurSegment.Y3))) +
+          Round(sqrt(sqr(CurSegment.X - CurSegment.X3) + sqr(CurSegment.Y - CurSegment.Y3)));
+
+        for k := 1 to CurveLength do
+        begin
+          t := k / CurveLength;
+          CurX := Round(sqr(1 - t) * (1 - t) * PosX + 3 * t * sqr(1 - t) * CurSegment.X2 + 3 * t * t * (1 - t) * CurSegment.X3 + t * t * t * CurSegment.X);
+          CurY := Round(sqr(1 - t) * (1 - t) * PosY + 3 * t * sqr(1 - t) * CurSegment.Y2 + 3 * t * t * (1 - t) * CurSegment.Y3 + t * t * t * CurSegment.Y);
+          ADest.LineTo(
+            Round(ADestX + AMulX * CurX),
+            Round(ADestY + AMulY * CurY));
+        end;
+        PosX := Round(CurSegment.X);
+        PosY := Round(CurSegment.Y);
+      end;
+      end;
+    end;
+  end;
+
+  {$ifdef FPVECTORIALDEBUG}
+  WriteLn(':<DrawFPVectorialToCanvas');
+  {$endif}
+end;
+
+end.
+
