@@ -423,8 +423,6 @@ implementation
         end;
       end;
 
-//const ParaAltParser = True; //debug: force use of alternative parser
-
       function  ParserFor(const filename: string): TParser;
       var
         ext: string;

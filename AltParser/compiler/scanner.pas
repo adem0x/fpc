@@ -208,7 +208,13 @@ interface
         token,                        { current token being parsed }
         idtoken    : ttoken;          { holds the token if the pattern is a known word }
 
+    {$IFDEF gbl}
         current_scanner : tscannerfile;  { current scanner in use }
+    {$ELSE}
+        function current_scanner : tscannerfile;  { current scanner in use }
+        procedure SetScanner(s: tscannerfile);
+    var
+    {$ENDIF}
 
         aktcommentstyle : tcommentstyle; { needed to use read_comment from directives }
 {$ifdef PREPROCWRITE}
@@ -244,6 +250,18 @@ implementation
       turbo_scannerdirectives : TFPHashObjectList;     { for other modes }
       mac_scannerdirectives   : TFPHashObjectList;     { for mode mac }
 
+{$IFDEF gbl}
+{$ELSE}
+    function current_scanner : tscannerfile;  { current scanner in use }
+    begin
+      TObject(Result) := current_module.scanner;
+    end;
+
+    procedure SetScanner(s: tscannerfile);
+    begin
+      current_module.scanner := s;
+    end;
+{$ENDIF}
 
 {*****************************************************************************
                               Helper routines

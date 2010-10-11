@@ -272,7 +272,7 @@ implementation
     procedure set_current_module(p:tmodule);
       begin
         { save the state of the scanner }
-        if assigned(current_scanner) then
+        if assigned(current_module) and assigned(current_scanner) then
           current_scanner.tempcloseinputfile;
         { set new module }
         current_module:=p;
@@ -283,7 +283,11 @@ implementation
             current_asmdata:=tasmdata(current_module.asmdata);
             current_debuginfo:=tdebuginfo(current_module.debuginfo);
             { restore scanner and file positions }
+          {$IFDEF gbl}
             current_scanner:=tscannerfile(current_module.scanner);
+          {$ELSE}
+            //SetScanner(tscannerfile(current_module.scanner));
+          {$ENDIF}
             if assigned(current_scanner) then
               begin
                 current_scanner.tempopeninputfile;
@@ -299,7 +303,10 @@ implementation
         else
           begin
             current_asmdata:=nil;
+          {$IFDEF gbl}
             current_scanner:=nil;
+          {$ELSE}
+          {$ENDIF}
             current_debuginfo:=nil;
           end;
       end;
@@ -571,9 +578,13 @@ implementation
          begin
             { also update current_scanner if it was pointing
               to this module }
+         {$IFDEF gbl}
             if current_scanner=tscannerfile(scanner) then
              current_scanner:=nil;
-            tscannerfile(scanner).free;
+            tscannerfile(scanner).free; //todo: also set scanner to nil!
+         {$ELSE}
+            FreeAndNil(scanner);
+         {$ENDIF}
          end;
         if assigned(asmdata) then
           begin
@@ -656,8 +667,11 @@ implementation
           begin
             { also update current_scanner if it was pointing
               to this module }
+          {$IFDEF gbl}
             if current_scanner=tscannerfile(scanner) then
              current_scanner:=nil;
+          {$ELSE}
+          {$ENDIF}
             tscannerfile(scanner).free;
             scanner:=nil;
           end;
