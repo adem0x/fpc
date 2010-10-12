@@ -43,17 +43,53 @@ uses
 const
   Sem = True; //False; //use semantic procedures?
   Buggy = True; //False;  //use selected semantic procedures?
-  BugHere = False;  //enable buggy semantic procedures?
+  BugHere = True; // False;  //enable buggy semantic procedures?
 
 {***************************************************************
                 From pmodules
 ***************************************************************}
 
+    procedure SUsesDone;
+    var
+      pu      : tused_unit;
+    begin //SUsesDone;
+     { Load the units }
+     pu:=tused_unit(current_module.used_units.first);
+     while assigned(pu) do
+      begin
+        { Only load the units that are in the current
+          (interface/implementation) uses clause }
+        if pu.in_uses and
+           (pu.in_interface=current_module.in_interface) then
+         begin
+           tppumodule(pu.u).loadppu;
+           { is our module compiled? then we can stop }
+           if current_module.state=ms_compiled then
+            exit;
+           { add this unit to the dependencies }
+           pu.u.adddependency(current_module);
+           { save crc values }
+           pu.checksum:=pu.u.crc;
+           pu.interface_checksum:=pu.u.interface_crc;
+           pu.indirect_checksum:=pu.u.indirect_crc;
+           { connect unitsym to the module }
+           pu.unitsym.module:=pu.u;
+           { add to symtable stack }
+           symtablestack.push(pu.u.globalsymtable);
+           if (m_mac in current_settings.modeswitches) and
+              assigned(pu.u.globalmacrosymtable) then
+             macrosymtablestack.push(pu.u.globalmacrosymtable);
+           { check hints }
+           pu.u.check_hints;
+         end;
+        pu:=tused_unit(pu.next);
+      end;
+    end;
+
     procedure loadunits;
       var
          s,sorg  : TIDString;
          fn      : string;
-         pu      : tused_unit;
          hp2     : tmodule;
          unitsym : tunitsym;
 
@@ -99,41 +135,6 @@ const
            else
             Message1(sym_e_duplicate_id,s);
          end;
-
-        procedure SUsesDone;
-        begin //SUsesDone;
-         { Load the units }
-         pu:=tused_unit(current_module.used_units.first);
-         while assigned(pu) do
-          begin
-            { Only load the units that are in the current
-              (interface/implementation) uses clause }
-            if pu.in_uses and
-               (pu.in_interface=current_module.in_interface) then
-             begin
-               tppumodule(pu.u).loadppu;
-               { is our module compiled? then we can stop }
-               if current_module.state=ms_compiled then
-                exit;
-               { add this unit to the dependencies }
-               pu.u.adddependency(current_module);
-               { save crc values }
-               pu.checksum:=pu.u.crc;
-               pu.interface_checksum:=pu.u.interface_crc;
-               pu.indirect_checksum:=pu.u.indirect_crc;
-               { connect unitsym to the module }
-               pu.unitsym.module:=pu.u;
-               { add to symtable stack }
-               symtablestack.push(pu.u.globalsymtable);
-               if (m_mac in current_settings.modeswitches) and
-                  assigned(pu.u.globalmacrosymtable) then
-                 macrosymtablestack.push(pu.u.globalmacrosymtable);
-               { check hints }
-               pu.u.check_hints;
-             end;
-            pu:=tused_unit(pu.next);
-          end;
-        end;
 
       begin //loadunits
          {If you use units, you likely need unit initializations.}
