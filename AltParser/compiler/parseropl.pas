@@ -50,6 +50,53 @@ const
                 From pmodules
 ***************************************************************}
 
+    procedure SUsesAdd(s,sorg:TIDString; const fn: string);
+      var
+        pu      : tused_unit;
+        hp2     : tmodule;
+        unitsym : tunitsym;
+     begin  //SUsesAdd
+       { Give a warning if lineinfo is loaded }
+       if s='LINEINFO' then begin
+        Message(parser_w_no_lineinfo_use_switch);
+        if (paratargetdbg in [dbg_dwarf2, dbg_dwarf3]) then
+          s := 'LNFODWRF';
+        sorg := s;
+       end;
+       { Give a warning if objpas is loaded }
+       if s='OBJPAS' then
+        Message(parser_w_no_objpas_use_mode);
+       { Using the unit itself is not possible }
+       if (s<>current_module.modulename^) then
+        begin
+          { check if the unit is already used }
+          hp2:=nil;
+          pu:=tused_unit(current_module.used_units.first);
+          while assigned(pu) do
+           begin
+             if (pu.u.modulename^=s) then
+              begin
+                hp2:=pu.u;
+                break;
+              end;
+             pu:=tused_unit(pu.next);
+           end;
+          if not assigned(hp2) then
+            hp2:=registerunit(current_module,sorg,fn)
+          else
+            Message1(sym_e_duplicate_id,s);
+          { Create unitsym, we need to use the name as specified, we
+            can not use the modulename because that can be different
+            when -Un is used }
+          unitsym:=tunitsym.create(sorg,nil);
+          current_module.localsymtable.insert(unitsym);
+          { the current module uses the unit hp2 }
+          current_module.addusedunit(hp2,true,unitsym);
+        end
+       else
+        Message1(sym_e_duplicate_id,s);
+     end;
+
     procedure SUsesDone;
     var
       pu      : tused_unit;
@@ -91,56 +138,11 @@ const
       var
          s,sorg  : TIDString;
          fn      : string;
-         hp2     : tmodule;
-         unitsym : tunitsym;
-
-        procedure SUsesAdd {(var s,sorg:TIDString)};
-          var
-            pu      : tused_unit;
-         begin  //SUsesAdd
-           { Give a warning if lineinfo is loaded }
-           if s='LINEINFO' then begin
-            Message(parser_w_no_lineinfo_use_switch);
-            if (paratargetdbg in [dbg_dwarf2, dbg_dwarf3]) then
-              s := 'LNFODWRF';
-            sorg := s;
-           end;
-           { Give a warning if objpas is loaded }
-           if s='OBJPAS' then
-            Message(parser_w_no_objpas_use_mode);
-           { Using the unit itself is not possible }
-           if (s<>current_module.modulename^) then
-            begin
-              { check if the unit is already used }
-              hp2:=nil;
-              pu:=tused_unit(current_module.used_units.first);
-              while assigned(pu) do
-               begin
-                 if (pu.u.modulename^=s) then
-                  begin
-                    hp2:=pu.u;
-                    break;
-                  end;
-                 pu:=tused_unit(pu.next);
-               end;
-              if not assigned(hp2) then
-                hp2:=registerunit(current_module,sorg,fn)
-              else
-                Message1(sym_e_duplicate_id,s);
-              { Create unitsym, we need to use the name as specified, we
-                can not use the modulename because that can be different
-                when -Un is used }
-              unitsym:=tunitsym.create(sorg,nil);
-              current_module.localsymtable.insert(unitsym);
-              { the current module uses the unit hp2 }
-              current_module.addusedunit(hp2,true,unitsym);
-            end
-           else
-            Message1(sym_e_duplicate_id,s);
-         end;
 
       var //for inlined procedures only - remove together with inlined code!
         pu      : tused_unit;
+        hp2     : tmodule;
+        unitsym : tunitsym;
       begin //loadunits
          {If you use units, you likely need unit initializations.}
          current_module.micro_exe_allowed:=false;
@@ -156,7 +158,7 @@ const
               try_to_consume(_OP_IN) then
              fn:=FixFileName(get_stringconst);
 
-         if Sem then SUsesAdd else
+         if Sem then SUsesAdd(s,sorg,fn) else
          begin  //SUsesAdd
            { Give a warning if lineinfo is loaded }
            if s='LINEINFO' then begin
