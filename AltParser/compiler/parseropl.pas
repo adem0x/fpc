@@ -278,6 +278,58 @@ const
          consume(_SEMICOLON);
       end;
 
+{$IFDEF outline}
+{ main module specific variables - to be moved into TParser? }
+{ from ProcUnit }
+    var
+       main_file: tinputfile;
+{$ifdef EXTDEBUG}
+       store_crc,
+{$endif EXTDEBUG}
+       store_interface_crc,
+       store_indirect_crc: cardinal;  //SUnitDone, SUnitFinalDone
+(*
+       s1,s2  : ^string; {Saves stack space}
+*)
+       force_init_final : boolean;
+       init_procinfo,
+       finalize_procinfo : tcgprocinfo;
+(* local where?
+       unitname8 : string[8];
+       ag: boolean; //
+{$ifdef debug_devirt}
+       i: longint;
+{$endif debug_devirt}
+*)
+
+{ from ProcProgram }
+    var
+(*
+       main_file : tinputfile;
+       hp,hp2    : tmodule;
+       finalize_procinfo,
+       init_procinfo,
+*)
+       main_procinfo : tcgprocinfo;
+(*
+       force_init_final : boolean;
+*)
+       resources_used : boolean;
+
+{ from ProcPackage }
+(*
+    var
+      main_file : tinputfile;
+      hp,hp2    : tmodule;
+      {finalize_procinfo,
+      init_procinfo,
+      main_procinfo : tcgprocinfo;}
+      force_init_final : boolean;
+      uu : tused_unit;
+*)
+{$ELSE}
+{$ENDIF}
+
     procedure ProcUnit;
 
     {$IFDEF outline}
@@ -300,24 +352,7 @@ const
       end;
     {$ENDIF}
 
-      var
-         main_file: tinputfile;
-{$ifdef EXTDEBUG}
-         store_crc,
-{$endif EXTDEBUG}
-         store_interface_crc,
-         store_indirect_crc: cardinal;
-         s1,s2  : ^string; {Saves stack space}
-         force_init_final : boolean;
-         init_procinfo,
-         finalize_procinfo : tcgprocinfo;
-         unitname8 : string[8];
-         ag: boolean;
-{$ifdef debug_devirt}
-         i: longint;
-{$endif debug_devirt}
-
-      {$IFDEF outline}
+    {$IFDEF outline}
         procedure SModuleInitUnit;
         begin //SModuleInitUnit;
          init_procinfo:=nil;
@@ -328,45 +363,48 @@ const
         end;
 
         procedure SUnitName;
-            begin //SUnitName
-             { create filenames and unit name }
-             main_file := current_scanner.inputfile;
-             while assigned(main_file.next) do
-               main_file := main_file.next;
+          var
+            s1,s2  : ^string; {Saves stack space}
+            unitname8 : string[8];  //todo: dotted unit names will be much longer!
+          begin //SUnitName
+           { create filenames and unit name }
+           main_file := current_scanner.inputfile;
+           while assigned(main_file.next) do
+             main_file := main_file.next;
 
-             new(s1);
-             s1^:=current_module.modulename^;
-             current_module.SetFileName(main_file.path^+main_file.name^,true);
-             current_module.SetModuleName(orgpattern);
+           new(s1);
+           s1^:=current_module.modulename^;
+           current_module.SetFileName(main_file.path^+main_file.name^,true);
+           current_module.SetModuleName(orgpattern);
 
-             { check for system unit }
-             new(s2);
-             s2^:=upper(ChangeFileExt(ExtractFileName(main_file.name^),''));
-             unitname8:=copy(current_module.modulename^,1,8);
-             if (cs_check_unit_name in current_settings.globalswitches) and
-                (
-                 not(
-                     (current_module.modulename^=s2^) or
-                     (
-                      (length(current_module.modulename^)>8) and
-                      (unitname8=s2^)
-                     )
-                    )
-                 or
-                 (
-                  (length(s1^)>8) and
-                  (s1^<>current_module.modulename^)
-                 )
-                ) then
-              Message1(unit_e_illegal_unit_name,current_module.realmodulename^);
-             if (current_module.modulename^='SYSTEM') then
-              include(current_settings.moduleswitches,cs_compilesystem);
-             dispose(s2);
-             dispose(s1);
+           { check for system unit }
+           new(s2);
+           s2^:=upper(ChangeFileExt(ExtractFileName(main_file.name^),''));
+           unitname8:=copy(current_module.modulename^,1,8);
+           if (cs_check_unit_name in current_settings.globalswitches) and
+              (
+               not(
+                   (current_module.modulename^=s2^) or
+                   (
+                    (length(current_module.modulename^)>8) and
+                    (unitname8=s2^)
+                   )
+                  )
+               or
+               (
+                (length(s1^)>8) and
+                (s1^<>current_module.modulename^)
+               )
+              ) then
+            Message1(unit_e_illegal_unit_name,current_module.realmodulename^);
+           if (current_module.modulename^='SYSTEM') then
+            include(current_settings.moduleswitches,cs_compilesystem);
+           dispose(s2);
+           dispose(s1);
 
-         if (target_info.system in systems_unit_program_exports) then
-           exportlib.preparelib(current_module.realmodulename^);
-        end;
+       if (target_info.system in systems_unit_program_exports) then
+         exportlib.preparelib(current_module.realmodulename^);
+      end; //SUnitName
 
         procedure SUnitInterface;
         begin //SUnitInterface
@@ -568,6 +606,8 @@ const
               end;
           end;
 
+        var
+          ag: boolean;
         begin //SUnitDone;
          { reset wpo flags for all defs }
          reset_all_defs;
@@ -722,8 +762,24 @@ const
            end;
 {$endif debug_devirt}
         end; //SUnitDone;
-      {$ELSE}
-      {$ENDIF}
+    {$ELSE}
+      var
+         main_file: tinputfile;
+{$ifdef EXTDEBUG}
+         store_crc,
+{$endif EXTDEBUG}
+         store_interface_crc,
+         store_indirect_crc: cardinal;
+         s1,s2  : ^string; {Saves stack space}
+         force_init_final : boolean;
+         init_procinfo,
+         finalize_procinfo : tcgprocinfo;
+         unitname8 : string[8];
+         ag: boolean;
+{$ifdef debug_devirt}
+         i: longint;
+{$endif debug_devirt}
+    {$ENDIF}
 
       begin
       {$IFDEF outline}
@@ -1003,7 +1059,7 @@ const
          {$ENDIF}
               finalize_procinfo.parse_body;
            end
-         else if force_init_final then
+         else if force_init_final then begin
          {$IFDEF outline}
           SUnitFinalInit(False);
          {$ELSE}
@@ -1012,6 +1068,7 @@ const
            finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
           end;
          {$ENDIF}
+         end;
 
       {$IFDEF outline}
         SUnitFinalDone;
@@ -1208,14 +1265,6 @@ const
 
 
     procedure ProcPackage;
-      var
-        main_file : tinputfile;
-        hp,hp2    : tmodule;
-        {finalize_procinfo,
-        init_procinfo,
-        main_procinfo : tcgprocinfo;}
-        force_init_final : boolean;
-        uu : tused_unit;
 
     {$IFDEF outline}
       procedure SModuleInitPackage;
@@ -1320,6 +1369,9 @@ const
         end; //SPackageImplInit
 
       procedure SPackageDone;
+        var
+          hp,hp2    : tmodule;
+          uu : tused_unit;
         begin //SPackageDone
          if (Errorcount=0) then
            begin
@@ -1477,7 +1529,14 @@ const
           end;
         end; //SPackageDone
     {$ELSE}
-    //inlined
+      var
+        main_file : tinputfile;
+        hp,hp2    : tmodule;
+        {finalize_procinfo,
+        init_procinfo,
+        main_procinfo : tcgprocinfo;}
+        force_init_final : boolean;
+        uu : tused_unit;
     {$ENDIF}
 
       begin //ProcPackage
@@ -1794,14 +1853,6 @@ const
 
 
     procedure ProcProgram(islibrary : boolean);
-      var
-         main_file : tinputfile;
-         hp,hp2    : tmodule;
-         finalize_procinfo,
-         init_procinfo,
-         main_procinfo : tcgprocinfo;
-         force_init_final : boolean;
-         resources_used : boolean;
 
     {$IFDEF outline}
       procedure SModuleInitProgLib;
@@ -2000,6 +2051,8 @@ const
         end; //SPrgLibFinalDone
 
       procedure SPrgLibDone;
+        var
+          hp,hp2    : tmodule;
         begin //SPrgLibDone
          { reset wpo flags for all defs }
          reset_all_defs;
@@ -2180,7 +2233,14 @@ const
           end;
         end; //SPrgLibDone
     {$ELSE}
-    //inlined
+      var
+         main_file : tinputfile;
+         hp,hp2    : tmodule;
+         finalize_procinfo,
+         init_procinfo,
+         main_procinfo : tcgprocinfo;
+         force_init_final : boolean;
+         resources_used : boolean;
     {$ENDIF}
 
       begin //ProcProgram
