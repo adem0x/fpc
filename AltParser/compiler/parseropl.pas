@@ -1,3 +1,9 @@
+{
+    Copyright (c) 1998-2010 by Florian Klaempfl and Dr. Diettrich
+
+    This unit implements the parsing of modules (unit,program,library,package).
+    Handling of ppufiles and other semantics will be moved somewhere else.
+}
 unit parserOPL;
 
 {$i fpcdefs.inc}
@@ -30,8 +36,6 @@ uses
   ;
 
 (* These constants are for debugging the semantic procedures.
-  It looks as if the same code behaves differently,
-  when used in a global or local procedure :-(
 
   When different behaviour is assumed, set the condition to Buggy
   to use the inlined code (known to work correctly).
@@ -40,16 +44,22 @@ uses
   so that correct (inlined) code is enabled by default.
   Set BugHere to True to use the code in the subroutine.
 *)
+{$DEFINE outline} //not using inlined (original) code for semantics?
+{$IFDEF outline}
+//constants are inapplicable
+{$ELSE}
 const
   Sem = True; //False; //use semantic procedures?
   Buggy = True; //False;  //use selected semantic procedures?
-  BugHere = False;  //enable buggy semantic procedures?
-  //BugHere = True; // False;  //enable buggy semantic procedures?
+  //BugHere = False;  //disable buggy semantic procedures
+  BugHere = True; //enable buggy semantic procedures
+{$ENDIF}
 
 {***************************************************************
                 From pmodules
 ***************************************************************}
 
+{$IFDEF outline}
     procedure SUsesAdd(s,sorg:TIDString; const fn: string);
       var
         pu      : tused_unit;
@@ -97,7 +107,7 @@ const
         Message1(sym_e_duplicate_id,s);
      end;
 
-    procedure SUsesDone;
+    function SUsesDone: boolean;
     var
       pu      : tused_unit;
     begin //SUsesDone;
@@ -113,7 +123,7 @@ const
            tppumodule(pu.u).loadppu;
            { is our module compiled? then we can stop }
            if current_module.state=ms_compiled then
-            exit;
+            exit(True); //!exit caller, too!
            { add this unit to the dependencies }
            pu.u.adddependency(current_module);
            { save crc values }
@@ -132,17 +142,25 @@ const
          end;
         pu:=tused_unit(pu.next);
       end;
+      Result := False;
     end;
+{$ELSE}
+//inlined in loadunits()
+{$ENDIF}
 
     procedure loadunits;
       var
          s,sorg  : TIDString;
          fn      : string;
 
+    {$IFDEF outline}
+    //local vars in outlined procedures
+    {$ELSE}
       var //for inlined procedures only - remove together with inlined code!
         pu      : tused_unit;
         hp2     : tmodule;
         unitsym : tunitsym;
+    {$ENDIF}
       begin //loadunits
          {If you use units, you likely need unit initializations.}
          current_module.micro_exe_allowed:=false;
@@ -158,6 +176,9 @@ const
               try_to_consume(_OP_IN) then
              fn:=FixFileName(get_stringconst);
 
+      {$IFDEF outline}
+          SUsesAdd(s,sorg,fn);
+      {$ELSE}
          if Sem then SUsesAdd(s,sorg,fn) else
          begin  //SUsesAdd
            { Give a warning if lineinfo is loaded }
@@ -200,6 +221,7 @@ const
            else
             Message1(sym_e_duplicate_id,s);
          end; //SUsesAdd
+      {$ENDIF}
 
            if token=_COMMA then
             begin
@@ -210,7 +232,14 @@ const
             break;
          until false;
 
-        if BugHere {Sem} {Buggy} then SUsesDone else
+      {$IFDEF outline}
+        if SUsesDone() then
+          exit; //using ppu file, parse finished
+      {$ELSE}
+        if Sem then begin
+          if SUsesDone then exit; //this fixed the (my) bug
+        end
+        else
         begin //SUsesDone;
          { Load the units }
          pu:=tused_unit(current_module.used_units.first);
@@ -244,12 +273,16 @@ const
             pu:=tused_unit(pu.next);
           end;
         end; //UsesDone;
+      {$ENDIF}
 
          consume(_SEMICOLON);
       end;
 
     procedure ProcUnit;
 
+    {$IFDEF outline}
+    //become local procedure of SUnitDone
+    {$ELSE}
       function is_assembler_generated:boolean;
       var
         hal : tasmlisttype;
@@ -265,6 +298,7 @@ const
                 end;
           end;
       end;
+    {$ENDIF}
 
       var
          main_file: tinputfile;
@@ -283,6 +317,7 @@ const
          i: longint;
 {$endif debug_devirt}
 
+      {$IFDEF outline}
         procedure SModuleInitUnit;
         begin //SModuleInitUnit;
          init_procinfo:=nil;
@@ -516,6 +551,23 @@ const
         end; //SUnitFinalDone
 
         procedure SUnitDone;
+
+          function is_assembler_generated:boolean;
+          var
+            hal : tasmlisttype;
+          begin
+            result:=false;
+            if Errorcount=0 then
+              begin
+                for hal:=low(TasmlistType) to high(TasmlistType) do
+                  if not current_asmdata.asmlists[hal].empty then
+                    begin
+                      result:=true;
+                      exit;
+                    end;
+              end;
+          end;
+
         begin //SUnitDone;
          { reset wpo flags for all defs }
          reset_all_defs;
@@ -670,8 +722,13 @@ const
            end;
 {$endif debug_devirt}
         end; //SUnitDone;
+      {$ELSE}
+      {$ENDIF}
 
       begin
+      {$IFDEF outline}
+        SModuleInitUnit;
+      {$ELSE}
         if Sem then SModuleInitUnit else
         begin //SModuleInitUnit;
          init_procinfo:=nil;
@@ -680,12 +737,15 @@ const
          if m_mac in current_settings.modeswitches then
            current_module.mode_switch_allowed:= false;
         end; //SModuleInitUnit;
-
+      {$ENDIF}
          consume(_UNIT);
          if compile_level=1 then
           Status.IsExe:=false;
 
          if token=_ID then
+         {$IFDEF outline}
+          SUnitName;
+         {$ELSE}
           if Sem then SUnitName else
             begin //SUnitName
              { create filenames and unit name }
@@ -726,6 +786,7 @@ const
          if (target_info.system in systems_unit_program_exports) then
            exportlib.preparelib(current_module.realmodulename^);
         end; //SUnitName
+         {$ENDIF}
 
          consume(_ID);
 
@@ -735,6 +796,9 @@ const
          consume(_SEMICOLON);
          consume(_INTERFACE);
 
+        {$IFDEF outline}
+          SUnitInterface;
+        {$ELSE}
          if Sem then SUnitInterface else
          begin //SUnitInterface
          { global switches are read, so further changes aren't allowed }
@@ -769,17 +833,21 @@ const
          { load default units, like the system unit }
          loaddefaultunits;
       end; //SUnitInterface
+        {$ENDIF}
 
          { insert qualifier for the system unit (allows system.writeln) }
          if not(cs_compilesystem in current_settings.moduleswitches) and
             (token=_USES) then
            begin
-             loadunits;
+             loadunits; //parse USES clause
              { has it been compiled at a higher level ?}
              if current_module.state=ms_compiled then
                exit;
            end;
 
+        {$IFDEF outline}
+          SUnitIntfDone;
+        {$ELSE}
          if Sem then SUnitIntfDone else
          begin //SUnitIntfDone
          { move the global symtable from the temporary local to global }
@@ -844,6 +912,7 @@ const
          { Insert _GLOBAL_OFFSET_TABLE_ symbol if system uses it }
          maybe_load_got;
       end; //SUnitIntfDone
+        {$ENDIF}
 
          if not current_module.interface_only then
            begin
@@ -852,9 +921,12 @@ const
              { Read the implementation units }
              //inlined parse_implementation_uses;
              if token=_USES then
-               loadunits;
+               loadunits; //parse USES clause
            end;
 
+      {$IFDEF outline}
+        SUnitImplInit;
+      {$ELSE}
         if Sem then SUnitImplInit else
         begin //SUnitImplInit;
          if current_module.state=ms_compiled then
@@ -866,9 +938,13 @@ const
          symtablestack.push(current_module.globalsymtable);
          symtablestack.push(current_module.localsymtable);
         end; //SUnitImplInit;
+      {$ENDIF}
 
         if not current_module.interface_only then
           begin
+          {$IFDEF outline}
+            SUnitBodyInit;
+          {$ELSE}
             if Sem then SUnitBodyInit else
             begin //SUnitBodyInit;
              Message1(parser_u_parsing_implementation,current_module.modulename^);
@@ -879,12 +955,15 @@ const
              init_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'init'),potype_unitinit,current_module.localsymtable);
              init_procinfo.procdef.aliasnames.insert(make_mangledname('INIT$',current_module.localsymtable,''));
             end; //SUnitBodyInit;
-
+          {$ENDIF}
              init_procinfo.parse_body;
              { save file pos for debuginfo }
              current_module.mainfilepos:=init_procinfo.entrypos;
           end;
 
+      {$IFDEF outline}
+        SUnitBodyDone;
+      {$ELSE}
         if Sem then SUnitBodyDone else
         begin //SUnitBodyDone;
          { Generate specializations of objectdefs methods }
@@ -905,10 +984,13 @@ const
              init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable);
            end;
         end; //SUnitBodyDone;
-
+      {$ENDIF}
          { finalize? }
          if not current_module.interface_only and (token=_FINALIZATION) then
            begin
+         {$IFDEF outline}
+            SUnitFinalInit(True);
+         {$ELSE}
               if Sem then SUnitFinalInit(True) else
             begin //finalize_procinfo:= SUnitFinalInit;
               { the uf_finalize flag is only set after we checked that it
@@ -918,15 +1000,22 @@ const
               finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable);
               finalize_procinfo.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
             end; //SUnitFinalInit;
-
+         {$ENDIF}
               finalize_procinfo.parse_body;
            end
          else if force_init_final then
+         {$IFDEF outline}
+          SUnitFinalInit(False);
+         {$ELSE}
           if Sem then SUnitFinalInit(False) else
           begin //SUnitFinalInit(False)
            finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
           end;
+         {$ENDIF}
 
+      {$IFDEF outline}
+        SUnitFinalDone;
+      {$ELSE}
          if Sem then SUnitFinalDone else
         begin //SUnitFinalDone
          { Now both init and finalize bodies are read and it is known
@@ -949,10 +1038,14 @@ const
          symtablestack.pop(current_module.localsymtable);
          symtablestack.pop(current_module.globalsymtable);
         end; //SUnitFinalDone
+      {$ENDIF}
 
          { the last char should always be a point }
          consume(_POINT);
 
+      {$IFDEF outline}
+        SUnitDone;
+      {$ELSE}
         if Sem then SUnitDone else
         begin //SUnitDone;
          { reset wpo flags for all defs }
@@ -1108,8 +1201,9 @@ const
            end;
 {$endif debug_devirt}
         end; //SUnitDone;
+      {$ENDIF}
 
-        Message1(unit_u_finished_compiling,current_module.modulename^);
+        Message1(unit_u_finished_compiling,current_module.modulename^); //move into SUnitDone?
       end;
 
 
@@ -1123,6 +1217,7 @@ const
         force_init_final : boolean;
         uu : tused_unit;
 
+    {$IFDEF outline}
       procedure SModuleInitPackage;
         begin //SModuleInitPackage
          Status.IsPackage:=true;
@@ -1381,9 +1476,14 @@ const
               end;
           end;
         end; //SPackageDone
-
+    {$ELSE}
+    //inlined
+    {$ENDIF}
 
       begin //ProcPackage
+      {$IFDEF outline}
+        SModuleInitPackage;
+      {$ELSE}
         if Sem then SModuleInitPackage else
         begin //SModuleInitPackage
          Status.IsPackage:=true;
@@ -1422,9 +1522,13 @@ const
 
          current_module.SetFileName(main_file.path^+main_file.name^,true);
         end; //SModuleInitPackage
+      {$ENDIF}
 
          consume(_ID);  //PACKAGE
 
+      {$IFDEF outline}
+        SPackageName;
+      {$ELSE}
         if Sem then SPackageName else
         begin //SPackageName
          current_module.setmodulename(orgpattern);
@@ -1434,10 +1538,14 @@ const
          if tf_library_needs_pic in target_info.flags then
            include(current_settings.moduleswitches,cs_create_pic);
         end; //SPackageName
+      {$ENDIF}
 
          consume(_ID);
          consume(_SEMICOLON);
 
+      {$IFDEF outline}
+        SPackageInterface;
+      {$ELSE}
         if Sem then SPackageInterface else
         begin //SPackageInterface
          { global switches are read, so further changes aren't allowed }
@@ -1454,6 +1562,7 @@ const
          { of the program                                             }
          current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
         end; //SPackageInterface
+      {$ENDIF}
 
          {Load the units used by the program we compile.}
          if token=_REQUIRES then
@@ -1477,6 +1586,9 @@ const
              consume(_SEMICOLON);
            end;
 
+      {$IFDEF outline}
+        SPackageImplInit;
+      {$ELSE}
         if Sem then SPackageImplInit else
         begin //SPackageImplInit
          { All units are read, now give them a number }
@@ -1511,11 +1623,15 @@ const
 
          symtablestack.pop(current_module.localsymtable);
         end; //SPackageImplInit
+      {$ENDIF}
 
          { consume the last point }
          consume(_END);
          consume(_POINT);
 
+      {$IFDEF outline}
+        SPackageDone;
+      {$ELSE}
         if Sem then SPackageDone else
         begin //SPackageDone
          if (Errorcount=0) then
@@ -1673,6 +1789,7 @@ const
               end;
           end;
         end; //SPackageDone
+      {$ENDIF}
       end;
 
 
@@ -1686,6 +1803,7 @@ const
          force_init_final : boolean;
          resources_used : boolean;
 
+    {$IFDEF outline}
       procedure SModuleInitProgLib;
         begin //SModuleInitProgLib
          DLLsource:=islibrary;
@@ -2061,9 +2179,14 @@ const
               end;
           end;
         end; //SPrgLibDone
-
+    {$ELSE}
+    //inlined
+    {$ENDIF}
 
       begin //ProcProgram
+      {$IFDEF outline}
+        SModuleInitProgLib;
+      {$ELSE}
         if Sem then SModuleInitProgLib else
         begin //SModuleInitProgLib
          DLLsource:=islibrary;
@@ -2109,18 +2232,23 @@ const
 
          current_module.SetFileName(main_file.path^+main_file.name^,true);
         end; //SModuleInitProgLib
+      {$ENDIF}
 
          if islibrary then
            begin
               consume(_LIBRARY);
 
               //if token=_ID then ...
+         {$IFDEF outline}
+            SLibName;
+         {$ELSE}
             if Sem then SLibName else
             begin //SLibName
               current_module.setmodulename(orgpattern);
               current_module.islibrary:=true;
               exportlib.preparelib(orgpattern);
             end; //SLibName
+         {$ENDIF}
 
             //where???
               if tf_library_needs_pic in target_info.flags then
@@ -2134,12 +2262,16 @@ const
            if token=_PROGRAM then //PROGRAM header
             begin
               consume(_PROGRAM);
+           {$IFDEF outline}
+              SProgName;
+           {$ELSE}
               if Sem then SProgName else
-            begin //SProgName
+              begin //SProgName
               current_module.setmodulename(orgpattern);
               if (target_info.system in systems_unit_program_exports) then
                 exportlib.preparelib(orgpattern);
-            end; //SProgName
+              end; //SProgName
+           {$ENDIF}
               consume(_ID);
               if token=_LKLAMMER then
                 begin
@@ -2152,12 +2284,19 @@ const
               consume(_SEMICOLON);
             end
          else
+       {$IFDEF outline}
+          SProgNameNone;
+       {$ELSE}
           if Sem then SProgNameNone else
           begin //SProgNameNone
           if (target_info.system in systems_unit_program_exports) then
            exportlib.preparelib(current_module.realmodulename^);
           end; //SProgNameNone
+       {$ENDIF}
 
+       {$IFDEF outline}
+          SProgLibImplInit;
+       {$ELSE}
         if Sem then SProgLibImplInit else
         begin //SProgLibImplInit
          { global switches are read, so further changes aren't allowed }
@@ -2180,11 +2319,15 @@ const
          { Load units provided on the command line }
          loadautounits;
         end; //SProgLibImplInit
+       {$ENDIF}
 
          {Load the units used by the program we compile.}
          if token=_USES then
            loadunits;
 
+       {$IFDEF outline}
+        SProgLibBodyInit;
+       {$ELSE}
         if Sem then SProgLibBodyInit else
         begin //SProgLibBodyInit
          { All units are read, now give them a number }
@@ -2225,11 +2368,15 @@ const
              main_procinfo.procdef.aliasnames.insert('PASCALMAIN');
            end;
         end; //SProgLibImplInit
+       {$ENDIF}
 
          main_procinfo.parse_body;
          { save file pos for debuginfo }
          current_module.mainfilepos:=main_procinfo.entrypos;
 
+       {$IFDEF outline}
+        SProgLibBodyDone;
+       {$ELSE}
         if Sem then SProgLibBodyDone else
         begin //SProgLibBodyDone
          { Generate specializations of objectdefs methods }
@@ -2247,12 +2394,16 @@ const
             ((current_module.flags and uf_has_exports)<>0) then
            current_asmdata.asmlists[al_procedures].concat(tai_const.createname(make_mangledname('EDATA',current_module.localsymtable,''),0));
         end; //SProgLibBodyDone
+       {$ENDIF}
 
          { finalize? }
          if token=_FINALIZATION then
            begin
-            if sem then SProgLibFinalInit(True) else
-            begin //SProgLibFinalInit(True)
+           {$IFDEF outline}
+              SProgLibFinalInit(True);
+           {$ELSE}
+              if sem then SProgLibFinalInit(True) else
+              begin //SProgLibFinalInit(True)
               { the uf_finalize flag is only set after we checked that it
                 wasn't empty }
 
@@ -2260,19 +2411,27 @@ const
               finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable);
               finalize_procinfo.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
               finalize_procinfo.procdef.aliasnames.insert('PASCALFINALIZE');
-            end; //SProgLibFinalInit(True)
+              end; //SProgLibFinalInit(True)
+           {$ENDIF}
 
               finalize_procinfo.parse_body;
            end
          else
            if force_init_final then
+         {$IFDEF outline}
+            SProgLibFinalInit(False);
+         {$ELSE}
             if Sem then SProgLibFinalInit(False) else
             begin //SPrgLibFinalInit(False)
              finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
             end; //SPrgLibFinalInit(False)
+         {$ENDIF}
 
+       {$IFDEF outline}
+          SPrgLibFinalDone;
+       {$ELSE}
          if Sem then SPrgLibFinalDone else
-        begin //SPrgLibFinalDone
+         begin //SPrgLibFinalDone
           { the finalization routine of libraries is generic (and all libraries need to }
           { be finalized, so they can finalize any units they use                       }
           if (islibrary) then
@@ -2301,10 +2460,14 @@ const
 
          symtablestack.pop(current_module.localsymtable);
         end; //SPrgLibFinalDone
+       {$ENDIF}
 
          { consume the last point }
          consume(_POINT);
 
+       {$IFDEF outline}
+          SPrgLibDone;
+       {$ELSE}
         if Sem then SPrgLibDone else
         begin //SPrgLibDone
          { reset wpo flags for all defs }
@@ -2485,6 +2648,7 @@ const
               end;
           end;
         end; //SPrgLibDone
+       {$ENDIF}
       end;
 
 
