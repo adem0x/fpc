@@ -43,7 +43,8 @@ uses
 const
   Sem = True; //False; //use semantic procedures?
   Buggy = True; //False;  //use selected semantic procedures?
-  BugHere = True; // False;  //enable buggy semantic procedures?
+  BugHere = False;  //enable buggy semantic procedures?
+  //BugHere = True; // False;  //enable buggy semantic procedures?
 
 {***************************************************************
                 From pmodules
@@ -93,8 +94,10 @@ const
          hp2     : tmodule;
          unitsym : tunitsym;
 
-        procedure SIntfUses;
-         begin  //SIntfUses
+        procedure SUsesAdd {(var s,sorg:TIDString)};
+          var
+            pu      : tused_unit;
+         begin  //SUsesAdd
            { Give a warning if lineinfo is loaded }
            if s='LINEINFO' then begin
             Message(parser_w_no_lineinfo_use_switch);
@@ -136,6 +139,8 @@ const
             Message1(sym_e_duplicate_id,s);
          end;
 
+      var //for inlined procedures only - remove together with inlined code!
+        pu      : tused_unit;
       begin //loadunits
          {If you use units, you likely need unit initializations.}
          current_module.micro_exe_allowed:=false;
@@ -151,8 +156,8 @@ const
               try_to_consume(_OP_IN) then
              fn:=FixFileName(get_stringconst);
 
-         if Sem then SIntfUses else
-         begin  //SIntfUses
+         if Sem then SUsesAdd else
+         begin  //SUsesAdd
            { Give a warning if lineinfo is loaded }
            if s='LINEINFO' then begin
             Message(parser_w_no_lineinfo_use_switch);
@@ -192,7 +197,7 @@ const
             end
            else
             Message1(sym_e_duplicate_id,s);
-         end; //SIntfUses
+         end; //SUsesAdd
 
            if token=_COMMA then
             begin
@@ -1766,11 +1771,10 @@ const
 
          { Load units provided on the command line }
          loadautounits;
+        end; //SProgLibImplInit
 
-         {Load the units used by the program we compile.}
-         if token=_USES then
-           loadunits;
-
+      procedure SProgLibBodyInit;
+      begin //SProgLibBodyInit
          { All units are read, now give them a number }
          current_module.updatemaps;
 
@@ -1808,7 +1812,7 @@ const
              main_procinfo:=create_main_proc(mainaliasname,potype_proginit,current_module.localsymtable);
              main_procinfo.procdef.aliasnames.insert('PASCALMAIN');
            end;
-        end; //SProgLibImplInit
+        end; //SProgLibBodyInit
 
       procedure SProgLibBodyDone;
         begin //SProgLibBodyDone
@@ -2173,11 +2177,14 @@ const
 
          { Load units provided on the command line }
          loadautounits;
+        end; //SProgLibImplInit
 
          {Load the units used by the program we compile.}
          if token=_USES then
            loadunits;
 
+        if Sem then SProgLibBodyInit else
+        begin //SProgLibBodyInit
          { All units are read, now give them a number }
          current_module.updatemaps;
 
