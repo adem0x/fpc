@@ -60,7 +60,7 @@ uses
     function MaybeRemoveResUnit : boolean;
     procedure maybe_load_got;
     procedure procexport(const s : string);
-    procedure release_main_proc(pi:tcgprocinfo);
+    procedure release_main_proc(var pi:tcgprocinfo);
     procedure reset_all_defs;
     Function RewritePPU(const PPUFn,PPLFn:String):Boolean;
     procedure setupglobalswitches;
@@ -965,14 +965,14 @@ implementation
       end;
 
 
-    procedure release_main_proc(pi:tcgprocinfo);
+    procedure release_main_proc(var pi:tcgprocinfo);
       begin
         { remove localst as it was replaced by staticsymtable }
         pi.procdef.localst:=nil;
         { remove procinfo }
         current_module.procinfo:=nil;
         pi.free;
-        pi:=nil;
+        pi:=nil;  //useless if pi is not a VAR parameter
       end;
 
 
