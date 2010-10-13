@@ -384,11 +384,11 @@ Unit Rax86int;
                        c:=current_scanner.asmgetchar;
                      end;
                   end;
-                 if is_register(actasmpattern) then
-                  exit;
                  if is_asmdirective(actasmpattern) then
                   exit;
                  if is_asmoperator(actasmpattern) then
+                  exit;
+                 if is_register(actasmpattern) then
                   exit;
                  { allow spaces }
                  while (c in [' ',#9]) do
@@ -397,7 +397,7 @@ Unit Rax86int;
                    parse the identifier }
                  if (c='.') then
                   begin
-                    searchsym(actasmpattern,srsym,srsymtable);
+                    asmsearchsym(actasmpattern,srsym,srsymtable);
                     if assigned(srsym) and
                        (srsym.typ=unitsym) and
                        (srsym.owner.symtabletype in [staticsymtable,globalsymtable]) and
@@ -895,7 +895,7 @@ Unit Rax86int;
                      end
                    else
                     begin
-                      searchsym(tempstr,sym,srsymtable);
+                      asmsearchsym(tempstr,sym,srsymtable);
                       if assigned(sym) then
                        begin
                          case sym.typ of
@@ -978,7 +978,7 @@ Unit Rax86int;
                       end
                    else
                     begin
-                      searchsym(tempstr,sym,srsymtable);
+                      asmsearchsym(tempstr,sym,srsymtable);
                       if assigned(sym) then
                        begin
                          case sym.typ of
@@ -1626,6 +1626,14 @@ Unit Rax86int;
               begin
                 case oper.opr.typ of
                   OPR_REFERENCE :
+                    if (actasmtoken=AS_OFFSET) and
+                       (cs_create_pic in current_settings.moduleswitches) then
+                      begin
+                        Consume(AS_OFFSET);
+                        oper.opr.ref.refaddr:=addr_pic;
+                        BuildOperand(oper,false);
+                      end
+                    else
                     inc(oper.opr.ref.offset,BuildRefConstExpression);
                   OPR_LOCAL :
                     inc(oper.opr.localsymofs,BuildConstExpression);

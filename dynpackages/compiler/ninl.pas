@@ -75,7 +75,7 @@ interface
        tinlinenodeclass = class of tinlinenode;
 
     var
-       cinlinenode : tinlinenodeclass;
+       cinlinenode : tinlinenodeclass = tinlinenode;
 
    function geninlinenode(number : byte;is_const:boolean;l : tnode) : tinlinenode;
 
@@ -1711,7 +1711,12 @@ implementation
                       end;
                     arraydef :
                       begin
-                        if not is_open_array(left.resultdef) and
+                        if (left.nodetype=stringconstn) then
+                          begin
+                            result:=cordconstnode.create(
+                              tstringconstnode(left).len,sinttype,true);
+                          end
+                        else if not is_open_array(left.resultdef) and
                            not is_array_of_const(left.resultdef) and
                            not is_dynamic_array(left.resultdef) then
                           result:=cordconstnode.create(tarraydef(left.resultdef).highrange-
@@ -3224,6 +3229,4 @@ implementation
          result := loop;
        end;
 
-begin
-   cinlinenode:=tinlinenode;
 end.
