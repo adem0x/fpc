@@ -36,7 +36,16 @@ uses
   aasmbase,aasmdata,aasmcpu,aasmtai,wpobase, wpoinfo,link
   ;
 
-{.$DEFINE semclass}  //using classes in SModules?
+{$DEFINE semclass}  //using classes in SModules?
+
+{ References to external parsing procedures:
+  ProcUnit
+  -> pmodules.try_consume_hintdirective
+    - clean
+  -> psub.read_interface_declarations
+    -> pdecl...
+  -> psub.init_procinfo.parse_body
+}
 
 {***************************************************************
                     From pmodules
@@ -340,7 +349,7 @@ uses
           begin
 {$IFDEF semclass}
             sm.SUnitBodyInit;
-             sm.init_procinfo.parse_body;
+             sm.init_procinfo.parse_body; // <----- parse!
              { save file pos for debuginfo }
              current_module.mainfilepos:=sm.init_procinfo.entrypos;
 {$ELSE}
@@ -1007,12 +1016,11 @@ uses
               current_module.setmodulename(orgpattern);
               current_module.islibrary:=true;
               exportlib.preparelib(orgpattern);
-            end; //SLibName
-{$ENDIF}
             //where???
               if tf_library_needs_pic in target_info.flags then
                 include(current_settings.moduleswitches,cs_create_pic);
-
+            end; //SLibName
+{$ENDIF}
               consume(_ID);
               consume(_SEMICOLON);
            end
@@ -1022,6 +1030,7 @@ uses
             begin
               consume(_PROGRAM);
 {$IFDEF semclass}
+              //if token=_ID...
               sm.SProgName;
 {$ELSE}
               begin //SProgName
@@ -1044,6 +1053,7 @@ uses
 {$IFDEF semclass}
          else
             sm.SProgNameNone;
+
           sm.SProgLibImplInit;
 {$ELSE}
          else

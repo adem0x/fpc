@@ -13,7 +13,7 @@ unit SModules;
 interface
 
 uses
-  globtype,
+  globtype,finput,
   pmodules,psub;
 
 type
@@ -32,10 +32,15 @@ type
   public //protected?
     Kind: eModuleKind;
     force_init_final : boolean;
+    resources_used : boolean;
     main_procinfo, {for program...}
     init_procinfo,
     finalize_procinfo : tcgprocinfo;
-    resources_used : boolean;
+    main_file: tinputfile;
+  protected //for internal use, for now
+    procedure SModuleInit(mk: eModuleKind);
+    procedure SModuleName(const orgpattern: string);
+    procedure SPrepareLib(const orgpattern: string; fAlways: boolean);
   public //from pmodules.proc_unit
     procedure SModuleInitUnit;  //(mi)
     procedure SUnitName;  //(mi)
@@ -74,7 +79,7 @@ implementation
 
 uses
   sysutils,
-  cutils,finput,comphook,verbose,
+  cutils,comphook,verbose,
   globals,
   symbase,symtable,symsym,symdef,symconst,
   scanner, fmodule,
@@ -173,6 +178,9 @@ end;
 
 procedure TSemModule.SModuleInitUnit;
 begin //SModuleInitUnit;
+{$IFnDEF old}
+  SModuleInit(mkUnit);
+{$ELSE}
   Kind := mkUnit;
   //init_procinfo:=nil;
   //finalize_procinfo:=nil;
@@ -181,11 +189,10 @@ begin //SModuleInitUnit;
     current_module.mode_switch_allowed:= false;
   if compile_level=1 then
     Status.IsExe:=false;
+{$ENDIF}
 end;
 
 procedure TSemModule.SUnitName;
-var
-  main_file: tinputfile;
 
   procedure CheckUnitName;
   var
@@ -201,23 +208,31 @@ var
   end;
 
 begin //SUnitName
+{$IFDEF old}
 { create filenames and unit name }
   main_file := current_scanner.inputfile;
   while assigned(main_file.next) do
     main_file := main_file.next;
-
   current_module.SetFileName(main_file.path^+main_file.name^,true);
+{$ELSE}
+//in ModuleInit
+{$ENDIF}
+
+{$IFnDEF old}
+  SModuleName(orgpattern);
+  SPrepareLib(current_module.realmodulename^, False);
+{$ELSE}
   current_module.SetModuleName(orgpattern);
 
+  if (target_info.system in systems_unit_program_exports) then
+    exportlib.preparelib(current_module.realmodulename^);
+{$ENDIF}
   if (cs_check_unit_name in current_settings.globalswitches) then
     CheckUnitName;
 
 { check for system unit }
   if (current_module.modulename^='SYSTEM') then
     include(current_settings.moduleswitches,cs_compilesystem);
-
-  if (target_info.system in systems_unit_program_exports) then
-    exportlib.preparelib(current_module.realmodulename^);
 end; //SUnitName
 
 procedure TSemModule.SUnitInterface;
@@ -565,10 +580,10 @@ begin //SUnitDone;
 end; //SUnitDone;
 
 procedure TSemModule.SModuleInitPackage;
-var
-  main_file: tinputfile;
-
 begin //SModuleInitPackage
+{$IFnDEF old}
+  SModuleInit(mkPkg);
+{$ELSE}
   Kind := mkPkg;
   Status.IsPackage:=true;
   Status.IsExe:=true;
@@ -605,14 +620,19 @@ begin //SModuleInitPackage
    main_file := main_file.next;
 
   current_module.SetFileName(main_file.path^+main_file.name^,true);
+{$ENDIF}
 end; //SModuleInitPackage
 
 procedure TSemModule.SPackageName;
 begin //SPackageName
+{$IFnDEF old}
+  SModuleName(orgpattern);
+  SPrepareLib(orgpattern, True);
+{$ELSE}
   current_module.setmodulename(orgpattern);
   current_module.ispackage:=true;
   exportlib.preparelib(orgpattern);
-
+{$ENDIF}
   if tf_library_needs_pic in target_info.flags then
     include(current_settings.moduleswitches,cs_create_pic);
 end; //SPackageName
@@ -809,9 +829,13 @@ begin //SPackageDone
 end; //SPackageDone
 
 procedure TSemModule.SModuleInitProgLib(isLibrary: boolean);
-var
-   main_file : tinputfile;
 begin //SModuleInitProgLib
+{$IFnDEF old}
+  if isLibrary then
+    SModuleInit(mkLib)
+  else
+    SModuleInit(mkProg);
+{$ELSE}
   Kind := mkProg;
   DLLsource:=islibrary;
   Status.IsLibrary:=IsLibrary;
@@ -853,26 +877,43 @@ begin //SModuleInitProgLib
    main_file := main_file.next;
 
   current_module.SetFileName(main_file.path^+main_file.name^,true);
+{$ENDIF}
 end; //SModuleInitProgLib
 
 procedure TSemModule.SLibName;
 begin //SLibName
+{$IFnDEF old}
+  SModuleName(orgpattern);
+  SPrepareLib(orgpattern, True);
+{$ELSE}
   current_module.setmodulename(orgpattern);
   current_module.islibrary:=true;
   exportlib.preparelib(orgpattern);
+{$ENDIF}
+  if tf_library_needs_pic in target_info.flags then
+    include(current_settings.moduleswitches,cs_create_pic);
 end; //SLibName
 
 procedure TSemModule.SProgName;
 begin //SProgName
+{$IFnDEF old}
+  SModuleName(orgpattern);
+  SPrepareLib(orgpattern, False);
+{$ELSE}
   current_module.setmodulename(orgpattern);
   if (target_info.system in systems_unit_program_exports) then
     exportlib.preparelib(orgpattern);
+{$ENDIF}
 end; //SProgName
 
 procedure TSemModule.SProgNameNone;
 begin //SProgNameNone
+{$IFnDEF old}
+  SPrepareLib(current_module.realmodulename^, False);
+{$ELSE}
   if (target_info.system in systems_unit_program_exports) then
     exportlib.preparelib(current_module.realmodulename^);
+{$ENDIF}
 end; //SProgNameNone
 
 procedure TSemModule.SProgLibImplInit;
@@ -1151,6 +1192,92 @@ begin //SPrgLibDone
   end;
   Result := false; //okay, continue parsing
 end; //SPrgLibDone
+
+{ ------------ shared implementations --------}
+
+procedure TSemModule.SModuleInit(mk: eModuleKind);
+
+  procedure GetOutputName;
+  begin
+  { get correct output names - not bound to tokens }
+    main_file := current_scanner.inputfile;
+    while assigned(main_file.next) do
+      main_file := main_file.next;
+    current_module.SetFileName(main_file.path^+main_file.name^,true);
+  end;
+
+begin
+  Kind := mk;
+  case mk of
+  mkUnit:
+    begin
+      if m_mac in current_settings.modeswitches then
+        current_module.mode_switch_allowed:= false;
+      if compile_level=1 then
+        Status.IsExe:=false; //else not affected by units
+      GetOutputName;
+      exit; //all done
+    end;
+  mkLib:
+    begin
+      DLLsource:=True;  //islibrary;
+      Status.IsLibrary:=True; //IsLibrary;
+      Status.IsPackage:=false;
+      current_module.islibrary:=true;
+    { DLL defaults to create reloc info }
+      if not RelocSectionSetExplicitly then
+        RelocSection:=true;
+    end;
+  mkProg:
+    begin
+      DLLsource:=False; //islibrary;
+      Status.IsLibrary:=False;  //IsLibrary;
+      Status.IsPackage:=false;
+    end;
+  mkPkg:
+    begin
+      Status.IsPackage:=true;
+      current_module.ispackage:=true;
+      if not RelocSectionSetExplicitly then
+        RelocSection:=true;
+    end;
+  end;
+//common to non-units
+  Status.IsExe:=true;
+
+{ Relocation works only without stabs under Windows when }
+  { external linker (LD) is used.  LD generates relocs for }
+  { stab sections which is not loaded in memory. It causes }
+  { AV error when DLL is loaded and relocation is needed.  }
+  { Internal linker does not have this problem.            }
+  if RelocSection and
+    (target_info.system in systems_all_windows+[system_i386_wdosx]) and
+    (cs_link_extern in current_settings.globalswitches) then
+   begin
+      include(current_settings.globalswitches,cs_link_strip);
+      { Warning stabs info does not work with reloc section !! }
+      if (cs_debuginfo in current_settings.moduleswitches) and
+         (target_dbg.id=dbg_stabs) then
+        begin
+          Message1(parser_w_parser_reloc_no_debug,current_module.mainsource^);
+          Message(parser_w_parser_win32_debug_needs_WN);
+          exclude(current_settings.moduleswitches,cs_debuginfo);
+        end;
+   end;
+
+   GetOutputName;
+end;
+
+procedure TSemModule.SModuleName(const orgpattern: string);
+begin
+  current_module.setmodulename(orgpattern);
+end;
+
+procedure TSemModule.SPrepareLib(const orgpattern: string; fAlways: boolean);
+begin
+  if fAlways or (target_info.system in systems_unit_program_exports) then
+    exportlib.preparelib(orgpattern);
+end;
 
 end.
 
