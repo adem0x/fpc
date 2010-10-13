@@ -24,6 +24,7 @@ implementation
 uses
   globals,globtype,cfileutl,
   fmodule,scanner,tokens,
+  SModules,
   pmodules,pexpr,psub,
 //for semantic
   sysutils,
@@ -279,6 +280,9 @@ const
          consume(_SEMICOLON);
       end;
 
+{$IFDEF semclass}
+//no globals
+{$ELSE}
 {$IFDEF outline}
 { module specific variables }
     type
@@ -325,9 +329,14 @@ const
 *)
 {$ELSE}
 {$ENDIF}
+{$ENDIF}
 
     procedure ProcUnit;
 
+{$IFDEF semclass}
+    var
+      sm: TSemModule;
+{$ELSE}
     {$IFDEF outline}
     //become local procedure of SUnitDone
     {$ELSE}
@@ -462,7 +471,7 @@ const
          current_module.wpoinfo:=tunitwpoinfo.create;
         end; //SUnitIntfInit
 
-        function SUnitIntfDone: boolean;
+        function SUnitIntfDone(fHitEnd: boolean): boolean;
         begin //SUnitIntfDone
          { Export macros defined in the interface for macpas. The macros
            are put in the globalmacrosymtable that will only be used by other
@@ -494,7 +503,8 @@ const
          tppumodule(current_module).reload_flagged_units;
 
          { Parse the implementation section }
-         if (m_mac in current_settings.modeswitches) and try_to_consume(_END) then
+         //if (m_mac in current_settings.modeswitches) and try_to_consume(_END) then
+         if fHitEnd then
            current_module.interface_only:=true
          else
            current_module.interface_only:=false;
@@ -792,8 +802,13 @@ const
          i: longint;
 {$endif debug_devirt}
     {$ENDIF}
+{$ENDIF semclass}
 
       begin //ProcUnit
+{$IFDEF semclass}
+        sm := TSemModule.Create;
+        sm.SModuleInitUnit;
+{$ELSE}
       {$IFDEF outline}
         SModuleInitUnit(mi);
       {$ELSE}
@@ -806,11 +821,15 @@ const
            current_module.mode_switch_allowed:= false;
         end; //SModuleInitUnit;
       {$ENDIF}
+{$ENDIF}
          consume(_UNIT);
          if compile_level=1 then
           Status.IsExe:=false;
 
          if token=_ID then
+{$IFDEF semclass}
+          sm.SUnitName;
+{$ELSE}
          {$IFDEF outline}
           SUnitName(mi);
          {$ELSE}
@@ -855,6 +874,7 @@ const
            exportlib.preparelib(current_module.realmodulename^);
         end; //SUnitName
          {$ENDIF}
+{$ENDIF}
 
          consume(_ID);
 
@@ -864,6 +884,9 @@ const
          consume(_SEMICOLON);
          consume(_INTERFACE);
 
+{$IFDEF semclass}
+        sm.SUnitInterface;
+{$ELSE}
         {$IFDEF outline}
           SUnitInterface;
         {$ELSE}
@@ -902,7 +925,7 @@ const
          loaddefaultunits;
       end; //SUnitInterface
         {$ENDIF}
-
+{$ENDIF}
          { insert qualifier for the system unit (allows system.writeln) }
          if not(cs_compilesystem in current_settings.moduleswitches) and
             (token=_USES) then
@@ -913,6 +936,9 @@ const
                exit;
            end;
 
+{$IFDEF semclass}
+        sm.SUnitIntfInit;
+{$ELSE}
        {$IFDEF outline}
          SUnitIntfInit;
        {$ELSE}
@@ -932,17 +958,21 @@ const
          current_module.wpoinfo:=tunitwpoinfo.create;
          end;
        {$ENDIF}
-
+{$ENDIF}
          { ... parse the declarations }
          Message1(parser_u_parsing_interface,current_module.realmodulename^);
          symtablestack.push(current_module.globalsymtable);
            read_interface_declarations; //<--------------------- parse!
          symtablestack.pop(current_module.globalsymtable);
 
+{$IFDEF semclass}
+          if sm.SUnitIntfDone((m_mac in current_settings.modeswitches) and try_to_consume(_END)) then
+            exit;
+{$ELSE}
         {$IFDEF outline}
-          SUnitIntfDone;
+          SUnitIntfDone((m_mac in current_settings.modeswitches) and try_to_consume(_END));
         {$ELSE}
-         if Sem then SUnitIntfDone else
+         if Sem then SUnitIntfDone((m_mac in current_settings.modeswitches) and try_to_consume(_END)) else
          begin //SUnitIntfDone
          { Export macros defined in the interface for macpas. The macros
            are put in the globalmacrosymtable that will only be used by other
@@ -988,6 +1018,7 @@ const
          maybe_load_got;
       end; //SUnitIntfDone
         {$ENDIF}
+{$ENDIF}
 
          if not current_module.interface_only then
            begin
@@ -999,6 +1030,10 @@ const
                loadunits; //parse USES clause
            end;
 
+{$IFDEF semclass}
+        if sm.SUnitImplInit then
+          exit;
+{$ELSE}
       {$IFDEF outline}
         SUnitImplInit;
       {$ELSE}
@@ -1014,9 +1049,13 @@ const
          symtablestack.push(current_module.localsymtable);
         end; //SUnitImplInit;
       {$ENDIF}
+{$ENDIF}
 
         if not current_module.interface_only then
           begin
+{$IFDEF semclass}
+            sm.SUnitBodyInit;
+{$ELSE}
           {$IFDEF outline}
             SUnitBodyInit(mi);
           {$ELSE}
@@ -1031,11 +1070,14 @@ const
              init_procinfo.procdef.aliasnames.insert(make_mangledname('INIT$',current_module.localsymtable,''));
             end; //SUnitBodyInit;
           {$ENDIF}
-             mi.init_procinfo.parse_body;
+{$ENDIF}
+             sm.init_procinfo.parse_body;
              { save file pos for debuginfo }
-             current_module.mainfilepos:=mi.init_procinfo.entrypos;
+             current_module.mainfilepos:=sm.init_procinfo.entrypos;
           end;
-
+{$IFDEF semclass}
+        sm.SUnitBodyDone;
+{$ELSE}
       {$IFDEF outline}
         SUnitBodyDone(mi);
       {$ELSE}
@@ -1060,9 +1102,13 @@ const
            end;
         end; //SUnitBodyDone;
       {$ENDIF}
+{$ENDIF}
          { finalize? }
          if not current_module.interface_only and (token=_FINALIZATION) then
            begin
+{$IFDEF semclass}
+            sm.SUnitFinalInit(True);
+{$ELSE}
          {$IFDEF outline}
             SUnitFinalInit(mi,True);
          {$ELSE}
@@ -1076,9 +1122,13 @@ const
               finalize_procinfo.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
             end; //SUnitFinalInit;
          {$ENDIF}
-              mi.finalize_procinfo.parse_body;
+{$ENDIF}
+              sm.finalize_procinfo.parse_body;
            end
-         else if mi.force_init_final then begin
+         else if sm.force_init_final then begin
+{$IFDEF semclass}
+          sm.SUnitFinalInit(False);
+{$ELSE}
          {$IFDEF outline}
           SUnitFinalInit(mi,False);
          {$ELSE}
@@ -1087,8 +1137,11 @@ const
            finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
           end;
          {$ENDIF}
+{$ENDIF}
          end;
-
+{$IFDEF semclass}
+        sm.SUnitFinalDone;
+{$ELSE}
       {$IFDEF outline}
         SUnitFinalDone(mi);
       {$ELSE}
@@ -1115,10 +1168,14 @@ const
          symtablestack.pop(current_module.globalsymtable);
         end; //SUnitFinalDone
       {$ENDIF}
+{$ENDIF}
 
          { the last char should always be a point }
          consume(_POINT);
-
+{$IFDEF semclass}
+        sm.SUnitDone;
+        sm.Free;
+{$ELSE}
       {$IFDEF outline}
         SUnitDone(mi);
       {$ELSE}
@@ -1278,13 +1335,16 @@ const
 {$endif debug_devirt}
         end; //SUnitDone;
       {$ENDIF}
-
+{$ENDIF}
         Message1(unit_u_finished_compiling,current_module.modulename^); //move into SUnitDone?
       end;
 
 
     procedure ProcPackage;
-
+{$IFDEF semclass}
+    var
+      sm: TSemModule;
+{$ELSE}
     {$IFDEF outline}
       procedure SModuleInitPackage(var mi: RModuleInfo);
         var
@@ -1564,7 +1624,12 @@ const
         uu : tused_unit;
     {$ENDIF}
 
+{$ENDIF}
       begin //ProcPackage
+{$IFDEF semclass}
+        sm := TSemModule.Create;
+        sm.SModuleInitPackage;
+{$ELSE}
       {$IFDEF outline}
         SModuleInitPackage(mi);
       {$ELSE}
@@ -1607,9 +1672,11 @@ const
          current_module.SetFileName(main_file.path^+main_file.name^,true);
         end; //SModuleInitPackage
       {$ENDIF}
-
+{$ENDIF}
          consume(_ID);  //PACKAGE
-
+{$IFDEF semclass}
+        sm.SPackageName;
+{$ELSE}
       {$IFDEF outline}
         SPackageName;
       {$ELSE}
@@ -1623,10 +1690,12 @@ const
            include(current_settings.moduleswitches,cs_create_pic);
         end; //SPackageName
       {$ENDIF}
-
+{$ENDIF}
          consume(_ID);
          consume(_SEMICOLON);
-
+{$IFDEF semclass}
+        sm.SPackageInterface;
+{$ELSE}
       {$IFDEF outline}
         SPackageInterface;
       {$ELSE}
@@ -1647,7 +1716,7 @@ const
          current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
         end; //SPackageInterface
       {$ENDIF}
-
+{$ENDIF}
          {Load the units used by the program we compile.}
          if token=_REQUIRES then
            begin
@@ -1669,7 +1738,9 @@ const
                end;
              consume(_SEMICOLON);
            end;
-
+{$IFDEF semclass}
+        sm.SPackageImplInit;
+{$ELSE}
       {$IFDEF outline}
         SPackageImplInit(mi);
       {$ELSE}
@@ -1708,11 +1779,14 @@ const
          symtablestack.pop(current_module.localsymtable);
         end; //SPackageImplInit
       {$ENDIF}
-
+{$ENDIF}
          { consume the last point }
          consume(_END);
          consume(_POINT);
-
+{$IFDEF semclass}
+        sm.SPackageDone;
+        sm.Free;
+{$ELSE}
       {$IFDEF outline}
         SPackageDone;
       {$ELSE}
@@ -1874,11 +1948,15 @@ const
           end;
         end; //SPackageDone
       {$ENDIF}
+{$ENDIF}
       end;
 
 
     procedure ProcProgram(islibrary : boolean);
-
+{$IFDEF semclass}
+    var
+      sm: TSemModule;
+{$ELSE}
     {$IFDEF outline}
       procedure SModuleInitProgLib(var mi: RModuleInfo);
         var
@@ -2272,8 +2350,13 @@ const
     {$ENDIF}
       var
         mi: RModuleInfo;
+{$ENDIF}
 
       begin //ProcProgram
+{$IFDEF semclass}
+        sm := TSemModule.Create;
+        sm.SModuleInitProgLib;
+{$ELSE}
       {$IFDEF outline}
         SModuleInitProgLib(mi);
       {$ELSE}
@@ -2323,11 +2406,13 @@ const
          current_module.SetFileName(main_file.path^+main_file.name^,true);
         end; //SModuleInitProgLib
       {$ENDIF}
-
+{$ENDIF}
          if islibrary then
            begin
               consume(_LIBRARY);
-
+{$IFDEF semclass}
+            sm.SLibName;
+{$ELSE}
               //if token=_ID then ...
          {$IFDEF outline}
             SLibName;
@@ -2339,7 +2424,7 @@ const
               exportlib.preparelib(orgpattern);
             end; //SLibName
          {$ENDIF}
-
+{$ENDIF}
             //where???
               if tf_library_needs_pic in target_info.flags then
                 include(current_settings.moduleswitches,cs_create_pic);
@@ -2352,6 +2437,9 @@ const
            if token=_PROGRAM then //PROGRAM header
             begin
               consume(_PROGRAM);
+{$IFDEF semclass}
+              sm.SProgName;
+{$ELSE}
            {$IFDEF outline}
               SProgName;
            {$ELSE}
@@ -2362,6 +2450,7 @@ const
                 exportlib.preparelib(orgpattern);
               end; //SProgName
            {$ENDIF}
+{$ENDIF}
               consume(_ID);
               if token=_LKLAMMER then
                 begin
@@ -2374,6 +2463,10 @@ const
               consume(_SEMICOLON);
             end
          else
+{$IFDEF semclass}
+          sm.SProgNameNone;
+          sm.SProgLibImplInit;
+{$ELSE}
        {$IFDEF outline}
           SProgNameNone;
        {$ELSE}
@@ -2383,7 +2476,6 @@ const
            exportlib.preparelib(current_module.realmodulename^);
           end; //SProgNameNone
        {$ENDIF}
-
        {$IFDEF outline}
           SProgLibImplInit;
        {$ELSE}
@@ -2410,11 +2502,13 @@ const
          loadautounits;
         end; //SProgLibImplInit
        {$ENDIF}
-
+{$ENDIF}
          {Load the units used by the program we compile.}
          if token=_USES then
            loadunits;
-
+{$IFDEF semclass}
+        sm.SProgLibBodyInit;
+{$ELSE}
        {$IFDEF outline}
         SProgLibBodyInit;
        {$ELSE}
@@ -2459,11 +2553,14 @@ const
            end;
         end; //SProgLibImplInit
        {$ENDIF}
+{$ENDIF}
 
-         main_procinfo.parse_body;
+         sm.main_procinfo.parse_body;
          { save file pos for debuginfo }
-         current_module.mainfilepos:=main_procinfo.entrypos;
-
+         current_module.mainfilepos:=sm.main_procinfo.entrypos;
+{$IFDEF semclass}
+        sm.SProgLibBodyDone;
+{$ELSE}
        {$IFDEF outline}
         SProgLibBodyDone(mi);
        {$ELSE}
@@ -2485,10 +2582,13 @@ const
            current_asmdata.asmlists[al_procedures].concat(tai_const.createname(make_mangledname('EDATA',current_module.localsymtable,''),0));
         end; //SProgLibBodyDone
        {$ENDIF}
-
+{$ENDIF}
          { finalize? }
          if token=_FINALIZATION then
            begin
+{$IFDEF semclass}
+              sm.SProgLibFinalInit(True);
+{$ELSE}
            {$IFDEF outline}
               SProgLibFinalInit(mi, True);
            {$ELSE}
@@ -2503,11 +2603,14 @@ const
               finalize_procinfo.procdef.aliasnames.insert('PASCALFINALIZE');
               end; //SProgLibFinalInit(True)
            {$ENDIF}
-
-              mi.finalize_procinfo.parse_body;
+{$ENDIF}
+              sm.finalize_procinfo.parse_body;
            end
          else
-           if mi.force_init_final then
+           if sm.force_init_final then
+{$IFDEF semclass}
+            sm.SProgLibFinalInit(False);
+{$ELSE}
          {$IFDEF outline}
             SProgLibFinalInit(mi, False);
          {$ELSE}
@@ -2516,7 +2619,10 @@ const
              finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
             end; //SPrgLibFinalInit(False)
          {$ENDIF}
-
+{$ENDIF}
+{$IFDEF semclass}
+          sm.SPrgLibFinalDone;
+{$ELSE}
        {$IFDEF outline}
           SPrgLibFinalDone(mi);
        {$ELSE}
@@ -2551,10 +2657,13 @@ const
          symtablestack.pop(current_module.localsymtable);
         end; //SPrgLibFinalDone
        {$ENDIF}
-
+{$ENDIF}
          { consume the last point }
          consume(_POINT);
-
+{$IFDEF semclass}
+          sm.SPrgLibDone;
+          sm.Free;
+{$ELSE}
        {$IFDEF outline}
           SPrgLibDone;
        {$ELSE}
@@ -2739,6 +2848,7 @@ const
           end;
         end; //SPrgLibDone
        {$ENDIF}
+{$ENDIF}
       end;
 
 

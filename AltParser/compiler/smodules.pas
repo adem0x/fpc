@@ -31,14 +31,16 @@ type
   public //protected?
     Kind: eModuleKind;
     force_init_final : boolean;
+    main_procinfo, {for program...}
     init_procinfo,
     finalize_procinfo : tcgprocinfo;
+    resources_used : boolean;
   public //from pmodules.proc_unit
     procedure SModuleInitUnit;  //(mi)
     procedure SUnitName;  //(mi)
     procedure SUnitInterface;
     procedure SUnitIntfInit;
-    function  SUnitIntfDone: boolean;  //True means: stop parsing
+    function  SUnitIntfDone(fHitEnd: boolean): boolean;  //True means: stop parsing
     function  SUnitImplInit: boolean;
     procedure SUnitBodyInit;  //(mi)
     procedure SUnitBodyDone;  //(mi)
@@ -171,7 +173,7 @@ begin //SUnitIntfInit
   current_module.wpoinfo:=tunitwpoinfo.create;
 end; //SUnitIntfInit
 
-function TSemModule.SUnitIntfDone: boolean;
+function TSemModule.SUnitIntfDone(fHitEnd: boolean): boolean;
 begin //SUnitIntfDone
 { Export macros defined in the interface for macpas.
   The macros are put in the globalmacrosymtable that will only be used by other
@@ -200,10 +202,8 @@ begin //SUnitIntfDone
   tppumodule(current_module).reload_flagged_units;
 
 { Parse the implementation section }
-  if (m_mac in current_settings.modeswitches) and try_to_consume(_END) then
-   current_module.interface_only:=true
-  else
-   current_module.interface_only:=false;
+  //if (m_mac in current_settings.modeswitches) and try_to_consume(_END) then
+  current_module.interface_only:=fHitEnd;
 
   parse_only:=false;
 
@@ -553,7 +553,7 @@ begin //SPackageImplInit
 { create whole program optimisation information }
   current_module.wpoinfo:=tunitwpoinfo.create;
 { should we force unit initialization? }
-  mi.force_init_final:=tstaticsymtable(current_module.localsymtable).needs_init_final;
+  force_init_final:=tstaticsymtable(current_module.localsymtable).needs_init_final;
   //if mi.force_init_final then
    {init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable)};
 { Add symbol to the exports section for win32 so smartlinking a
@@ -726,8 +726,8 @@ begin //SModuleInitProgLib
   Status.IsExe:=true;
   parse_only:=false;
   main_procinfo:=nil;
-  mi.init_procinfo:=nil;
-  mi.finalize_procinfo:=nil;
+  init_procinfo:=nil;
+  finalize_procinfo:=nil;
   resources_used:=false;
 { DLL defaults to create reloc info }
   if islibrary then
