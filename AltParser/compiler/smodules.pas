@@ -13,6 +13,7 @@ unit SModules;
 interface
 
 uses
+  globtype,
   pmodules,psub;
 
 type
@@ -54,7 +55,7 @@ type
     procedure SPackageImplInit; //(mi)
     function  SPackageDone: boolean;
   public //from pmodules.proc_program
-    procedure SModuleInitProgLib; //(mi)
+    procedure SModuleInitProgLib(isLibrary: boolean); //(mi)
     procedure SLibName; //(orgpattern)
     procedure SProgName; //(orgpattern)
     procedure SProgNameNone;
@@ -66,12 +67,15 @@ type
     function  SPrgLibDone: boolean;
   end;
 
+procedure SUsesAdd(s,sorg:TIDString; const fn: string);
+function SUsesDone: boolean;
+
 implementation
 
 uses
   sysutils,
   cutils,finput,comphook,verbose,
-  globtype,globals,
+  globals,
   symbase,symtable,symsym,symdef,symconst,
   scanner, fmodule,
   pbase, ptype,
@@ -79,6 +83,91 @@ uses
   cpubase, ppu,fppu,export, systems,
   aasmbase,aasmdata,aasmcpu,aasmtai,wpobase, wpoinfo,link
   ;
+
+procedure SUsesAdd(s,sorg:TIDString; const fn: string);
+var
+  pu      : tused_unit;
+  hp2     : tmodule;
+  unitsym : tunitsym;
+begin  //SUsesAdd
+{ Give a warning if lineinfo is loaded }
+  if s='LINEINFO' then begin
+    Message(parser_w_no_lineinfo_use_switch);
+    if (paratargetdbg in [dbg_dwarf2, dbg_dwarf3]) then
+      s := 'LNFODWRF';
+    sorg := s;
+  end;
+{ Give a warning if objpas is loaded }
+  if s='OBJPAS' then
+    Message(parser_w_no_objpas_use_mode);
+{ Using the unit itself is not possible }
+  if (s<>current_module.modulename^) then
+  begin
+    { check if the unit is already used }
+    hp2:=nil;
+    pu:=tused_unit(current_module.used_units.first);
+    while assigned(pu) do
+     begin
+       if (pu.u.modulename^=s) then
+        begin
+          hp2:=pu.u;
+          break;
+        end;
+       pu:=tused_unit(pu.next);
+     end;
+    if not assigned(hp2) then
+      hp2:=registerunit(current_module,sorg,fn)
+    else
+      Message1(sym_e_duplicate_id,s);
+    { Create unitsym, we need to use the name as specified, we
+      can not use the modulename because that can be different
+      when -Un is used }
+    unitsym:=tunitsym.create(sorg,nil);
+    current_module.localsymtable.insert(unitsym);
+    { the current module uses the unit hp2 }
+    current_module.addusedunit(hp2,true,unitsym);
+  end
+  else
+  Message1(sym_e_duplicate_id,s);
+end;
+
+function SUsesDone: boolean;
+var
+  pu      : tused_unit;
+begin //SUsesDone;
+{ Load the units }
+  pu:=tused_unit(current_module.used_units.first);
+  while assigned(pu) do
+  begin
+    { Only load the units that are in the current
+      (interface/implementation) uses clause }
+    if pu.in_uses and
+       (pu.in_interface=current_module.in_interface) then
+     begin
+       tppumodule(pu.u).loadppu;
+       { is our module compiled? then we can stop }
+       if current_module.state=ms_compiled then
+        exit(True); //!exit caller, too!
+       { add this unit to the dependencies }
+       pu.u.adddependency(current_module);
+       { save crc values }
+       pu.checksum:=pu.u.crc;
+       pu.interface_checksum:=pu.u.interface_crc;
+       pu.indirect_checksum:=pu.u.indirect_crc;
+       { connect unitsym to the module }
+       pu.unitsym.module:=pu.u;
+       { add to symtable stack }
+       symtablestack.push(pu.u.globalsymtable);
+       if (m_mac in current_settings.modeswitches) and
+          assigned(pu.u.globalmacrosymtable) then
+         macrosymtablestack.push(pu.u.globalmacrosymtable);
+       { check hints }
+       pu.u.check_hints;
+     end;
+    pu:=tused_unit(pu.next);
+  end;
+  Result := False;
+end;
 
 { TSemModule }
 
@@ -89,7 +178,9 @@ begin //SModuleInitUnit;
   //finalize_procinfo:=nil;
 
   if m_mac in current_settings.modeswitches then
-   current_module.mode_switch_allowed:= false;
+    current_module.mode_switch_allowed:= false;
+  if compile_level=1 then
+    Status.IsExe:=false;
 end;
 
 procedure TSemModule.SUnitName;
@@ -478,6 +569,7 @@ var
   main_file: tinputfile;
 
 begin //SModuleInitPackage
+  Kind := mkPkg;
   Status.IsPackage:=true;
   Status.IsExe:=true;
   parse_only:=false;
@@ -716,10 +808,11 @@ begin //SPackageDone
   Result := False;  //continue parsing
 end; //SPackageDone
 
-procedure TSemModule.SModuleInitProgLib;
+procedure TSemModule.SModuleInitProgLib(isLibrary: boolean);
 var
    main_file : tinputfile;
 begin //SModuleInitProgLib
+  Kind := mkProg;
   DLLsource:=islibrary;
   Status.IsLibrary:=IsLibrary;
   Status.IsPackage:=false;
