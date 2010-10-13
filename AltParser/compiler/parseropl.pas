@@ -44,6 +44,7 @@ uses
   so that correct (inlined) code is enabled by default.
   Set BugHere to True to use the code in the subroutine.
 *)
+{$DEFINE semclass}  //using classes in SModules?
 {$DEFINE outline} //not using inlined (original) code for semantics?
 {$IFDEF outline}
 //constants are inapplicable
@@ -285,7 +286,7 @@ const
        //main_file: tinputfile;
 (*
 {$ifdef EXTDEBUG}
-       store_crc,
+       store_crc: cardinal;
 {$endif EXTDEBUG}
 *)
 (* local in SUnitIntfDone
@@ -461,7 +462,7 @@ const
          current_module.wpoinfo:=tunitwpoinfo.create;
         end; //SUnitIntfInit
 
-        procedure SUnitIntfDone;
+        function SUnitIntfDone: boolean;
         begin //SUnitIntfDone
          { Export macros defined in the interface for macpas. The macros
            are put in the globalmacrosymtable that will only be used by other
@@ -477,7 +478,7 @@ const
           begin
             Message1(unit_f_errors_in_unit,tostr(Errorcount));
             status.skip_error:=true;
-            exit;
+            exit(True);
           end;
 
          { Our interface is compiled, generate CRC and switch to implementation }
@@ -505,18 +506,20 @@ const
 
          { Insert _GLOBAL_OFFSET_TABLE_ symbol if system uses it }
          maybe_load_got;
+         Result := False; //continue parsing
       end; //SUnitIntfDone
 
-        procedure SUnitImplInit;
+        function SUnitImplInit: boolean;
         begin //SUnitImplInit;
          if current_module.state=ms_compiled then
-           exit;
+           exit(True);
 
          { All units are read, now give them a number }
          current_module.updatemaps;
 
          symtablestack.push(current_module.globalsymtable);
          symtablestack.push(current_module.localsymtable);
+         Result := False;
         end; //SUnitImplInit;
 
         procedure SUnitBodyInit(var mi: RModuleInfo);
@@ -589,7 +592,7 @@ const
          symtablestack.pop(current_module.globalsymtable);
         end; //SUnitFinalDone
 
-        procedure SUnitDone(var mi: RModuleInfo);
+        function SUnitDone(var mi: RModuleInfo): boolean;
 
           function is_assembler_generated:boolean;
           var
@@ -609,6 +612,9 @@ const
 
         var
           ag: boolean;
+{$ifdef EXTDEBUG}
+         store_crc,
+{$endif EXTDEBUG}
           store_interface_crc,
           store_indirect_crc: cardinal;
         begin //SUnitDone;
@@ -637,7 +643,7 @@ const
           begin
             Message1(unit_f_errors_in_unit,tostr(Errorcount));
             status.skip_error:=true;
-            exit;
+            exit(True);
           end;
 
          { if an Objective-C module, generate rtti and module info }
@@ -724,7 +730,7 @@ const
           begin
             Message1(unit_f_errors_in_unit,tostr(Errorcount));
             status.skip_error:=true;
-            exit;
+            exit(True);
           end;
 
 {$ifdef debug_devirt}
@@ -764,6 +770,7 @@ const
              end;
            end;
 {$endif debug_devirt}
+          Result := False; //continue parsing
         end; //SUnitDone;
       var
         mi: RModuleInfo;
