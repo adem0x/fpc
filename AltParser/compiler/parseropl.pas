@@ -279,28 +279,23 @@ const
       end;
 
 {$IFDEF outline}
-{ main module specific variables - to be moved into TParser? }
-{ from ProcUnit }
-    var
-       main_file: tinputfile;
+{ module specific variables }
+    type
+      RModuleInfo = record
+       //main_file: tinputfile;
+(*
 {$ifdef EXTDEBUG}
        store_crc,
 {$endif EXTDEBUG}
+*)
+(* local in SUnitIntfDone
        store_interface_crc,
-       store_indirect_crc: cardinal;  //SUnitDone, SUnitFinalDone
-(*
-       s1,s2  : ^string; {Saves stack space}
+       store_indirect_crc: cardinal;
 *)
        force_init_final : boolean;
        init_procinfo,
        finalize_procinfo : tcgprocinfo;
-(* local where?
-       unitname8 : string[8];
-       ag: boolean; //
-{$ifdef debug_devirt}
-       i: longint;
-{$endif debug_devirt}
-*)
+      end;
 
 { from ProcProgram }
     var
@@ -353,58 +348,67 @@ const
     {$ENDIF}
 
     {$IFDEF outline}
-        procedure SModuleInitUnit;
+        procedure SModuleInitUnit(var mi: RModuleInfo);
         begin //SModuleInitUnit;
-         init_procinfo:=nil;
-         finalize_procinfo:=nil;
+         mi.init_procinfo:=nil;
+         mi.finalize_procinfo:=nil;
 
          if m_mac in current_settings.modeswitches then
            current_module.mode_switch_allowed:= false;
         end;
 
-        procedure SUnitName;
+        procedure SUnitName(var mi: RModuleInfo);
           var
-            s1,s2  : ^string; {Saves stack space}
-            unitname8 : string[8];  //todo: dotted unit names will be much longer!
+            //s1,s2  : ^string; {Saves stack space}
+            //unitname8 : string[8];  //todo: dotted unit names will be much longer!
+            main_file: tinputfile;
+
+            procedure CheckUnitName;
+            var
+              s1  : PShortString;
+              s2  : string; { only temporary waste of stack space }
+              unitname8 : string[8];  //todo: dotted unit names will be much longer!
+            begin
+               s1:=current_module.modulename; //s1 is never changed - why copy?
+               s2:=upper(ChangeFileExt(ExtractFileName(main_file.name^),''));
+               unitname8:=copy(s1^,1,8);
+               if //(cs_check_unit_name in current_settings.globalswitches) and //checked before call
+                  (
+                   not(
+                       (s1^=s2) or
+                       (
+                        (length(s1^)>8) and (unitname8=s2)
+                       )
+                      )
+               { this is always False
+                   or
+                   (
+                    (length(s1^)>8) and (s1^<>current_module.modulename^ <--this is always False )
+                   )
+               }
+                  ) then
+                Message1(unit_e_illegal_unit_name,current_module.realmodulename^);
+            end;
+
           begin //SUnitName
            { create filenames and unit name }
            main_file := current_scanner.inputfile;
            while assigned(main_file.next) do
              main_file := main_file.next;
 
-           new(s1);
-           s1^:=current_module.modulename^;
            current_module.SetFileName(main_file.path^+main_file.name^,true);
            current_module.SetModuleName(orgpattern);
 
+           if (cs_check_unit_name in current_settings.globalswitches) then
+             CheckUnitName;
+
            { check for system unit }
-           new(s2);
-           s2^:=upper(ChangeFileExt(ExtractFileName(main_file.name^),''));
-           unitname8:=copy(current_module.modulename^,1,8);
-           if (cs_check_unit_name in current_settings.globalswitches) and
-              (
-               not(
-                   (current_module.modulename^=s2^) or
-                   (
-                    (length(current_module.modulename^)>8) and
-                    (unitname8=s2^)
-                   )
-                  )
-               or
-               (
-                (length(s1^)>8) and
-                (s1^<>current_module.modulename^)
-               )
-              ) then
-            Message1(unit_e_illegal_unit_name,current_module.realmodulename^);
            if (current_module.modulename^='SYSTEM') then
             include(current_settings.moduleswitches,cs_compilesystem);
-           dispose(s2);
-           dispose(s1);
 
-       if (target_info.system in systems_unit_program_exports) then
-         exportlib.preparelib(current_module.realmodulename^);
-      end; //SUnitName
+           if (target_info.system in systems_unit_program_exports) then
+             exportlib.preparelib(current_module.realmodulename^);
+          end; //SUnitName
 
         procedure SUnitInterface;
         begin //SUnitInterface
@@ -439,10 +443,10 @@ const
 
          { load default units, like the system unit }
          loaddefaultunits;
-      end;
+        end; //SUnitInterface
 
-        procedure SUnitIntfDone;
-        begin //SUnitIntfDone
+        procedure SUnitIntfInit;
+        begin //SUnitIntfInit
          { move the global symtable from the temporary local to global }
          current_module.globalsymtable:=current_module.localsymtable;
          current_module.localsymtable:=nil;
@@ -455,13 +459,10 @@ const
            updated in the interface, e.g., in case of classrefdef typed
            constants }
          current_module.wpoinfo:=tunitwpoinfo.create;
+        end; //SUnitIntfInit
 
-         { ... parse the declarations }
-         Message1(parser_u_parsing_interface,current_module.realmodulename^);
-         symtablestack.push(current_module.globalsymtable);
-         read_interface_declarations;
-         symtablestack.pop(current_module.globalsymtable);
-
+        procedure SUnitIntfDone;
+        begin //SUnitIntfDone
          { Export macros defined in the interface for macpas. The macros
            are put in the globalmacrosymtable that will only be used by other
            units. The current unit continues to use the localmacrosymtable }
@@ -518,39 +519,39 @@ const
          symtablestack.push(current_module.localsymtable);
         end; //SUnitImplInit;
 
-        procedure SUnitBodyInit;
+        procedure SUnitBodyInit(var mi: RModuleInfo);
             begin //SUnitBodyInit;
              Message1(parser_u_parsing_implementation,current_module.modulename^);
              if current_module.in_interface then
                internalerror(200212285);
 
              { Compile the unit }
-             init_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'init'),potype_unitinit,current_module.localsymtable);
-             init_procinfo.procdef.aliasnames.insert(make_mangledname('INIT$',current_module.localsymtable,''));
+             mi.init_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'init'),potype_unitinit,current_module.localsymtable);
+             mi.init_procinfo.procdef.aliasnames.insert(make_mangledname('INIT$',current_module.localsymtable,''));
             end; //SUnitBodyInit;
 
-        procedure SUnitBodyDone;
+        procedure SUnitBodyDone(var mi: RModuleInfo);
         begin //SUnitBodyDone;
          { Generate specializations of objectdefs methods }
          generate_specialization_procs;
 
          { if the unit contains ansi/widestrings, initialization and
            finalization code must be forced }
-         force_init_final:=tglobalsymtable(current_module.globalsymtable).needs_init_final or
+         mi.force_init_final:=tglobalsymtable(current_module.globalsymtable).needs_init_final or
                            tstaticsymtable(current_module.localsymtable).needs_init_final;
 
          { should we force unit initialization? }
          { this is a hack, but how can it be done better ? }
-         if force_init_final and ((current_module.flags and uf_init)=0) then
+         if mi.force_init_final and ((current_module.flags and uf_init)=0) then
            begin
              { first release the not used init procinfo }
-             if assigned(init_procinfo) then
-               release_main_proc(init_procinfo);
-             init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable);
+             if assigned(mi.init_procinfo) then
+               release_main_proc(mi.init_procinfo);
+             mi.init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable);
            end;
         end; //SUnitBodyDone;
 
-        procedure SUnitFinalInit(fPresent: boolean);
+        procedure SUnitFinalInit(var mi: RModuleInfo; fPresent: boolean);
         begin
           if fPresent then
             begin //finalize_procinfo:= SUnitFinalInit;
@@ -558,37 +559,37 @@ const
                 wasn't empty }
 
               { Compile the finalize }
-              finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable);
-              finalize_procinfo.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
+              mi.finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable);
+              mi.finalize_procinfo.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
             end
           else
-           finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
+           mi.finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
         end;
 
-        procedure SUnitFinalDone;
+        procedure SUnitFinalDone(var mi: RModuleInfo);
         begin //SUnitFinalDone
          { Now both init and finalize bodies are read and it is known
            which variables are used in both init and finalize we can now
            generate the code. This is required to prevent putting a variable in
            a register that is also used in the finalize body (PFV) }
-         if assigned(init_procinfo) then
+         if assigned(mi.init_procinfo) then
            begin
-             init_procinfo.generate_code;
-             init_procinfo.resetprocdef;
-             release_main_proc(init_procinfo);
+             mi.init_procinfo.generate_code;
+             mi.init_procinfo.resetprocdef;
+             release_main_proc(mi.init_procinfo);
            end;
-         if assigned(finalize_procinfo) then
+         if assigned(mi.finalize_procinfo) then
            begin
-             finalize_procinfo.generate_code;
-             finalize_procinfo.resetprocdef;
-             release_main_proc(finalize_procinfo);
+             mi.finalize_procinfo.generate_code;
+             mi.finalize_procinfo.resetprocdef;
+             release_main_proc(mi.finalize_procinfo);
            end;
 
          symtablestack.pop(current_module.localsymtable);
          symtablestack.pop(current_module.globalsymtable);
         end; //SUnitFinalDone
 
-        procedure SUnitDone;
+        procedure SUnitDone(var mi: RModuleInfo);
 
           function is_assembler_generated:boolean;
           var
@@ -608,6 +609,8 @@ const
 
         var
           ag: boolean;
+          store_interface_crc,
+          store_indirect_crc: cardinal;
         begin //SUnitDone;
          { reset wpo flags for all defs }
          reset_all_defs;
@@ -762,6 +765,8 @@ const
            end;
 {$endif debug_devirt}
         end; //SUnitDone;
+      var
+        mi: RModuleInfo;
     {$ELSE}
       var
          main_file: tinputfile;
@@ -781,11 +786,11 @@ const
 {$endif debug_devirt}
     {$ENDIF}
 
-      begin
+      begin //ProcUnit
       {$IFDEF outline}
-        SModuleInitUnit;
+        SModuleInitUnit(mi);
       {$ELSE}
-        if Sem then SModuleInitUnit else
+        if Sem then SModuleInitUnit(mi) else
         begin //SModuleInitUnit;
          init_procinfo:=nil;
          finalize_procinfo:=nil;
@@ -800,9 +805,9 @@ const
 
          if token=_ID then
          {$IFDEF outline}
-          SUnitName;
+          SUnitName(mi);
          {$ELSE}
-          if Sem then SUnitName else
+          if Sem then SUnitName(mi) else
             begin //SUnitName
              { create filenames and unit name }
              main_file := current_scanner.inputfile;
@@ -901,11 +906,11 @@ const
                exit;
            end;
 
-        {$IFDEF outline}
-          SUnitIntfDone;
-        {$ELSE}
-         if Sem then SUnitIntfDone else
-         begin //SUnitIntfDone
+       {$IFDEF outline}
+         SUnitIntfInit;
+       {$ELSE}
+         if Sem then SUnitIntfInit else
+         begin
          { move the global symtable from the temporary local to global }
          current_module.globalsymtable:=current_module.localsymtable;
          current_module.localsymtable:=nil;
@@ -918,13 +923,20 @@ const
            updated in the interface, e.g., in case of classrefdef typed
            constants }
          current_module.wpoinfo:=tunitwpoinfo.create;
+         end;
+       {$ENDIF}
 
          { ... parse the declarations }
          Message1(parser_u_parsing_interface,current_module.realmodulename^);
          symtablestack.push(current_module.globalsymtable);
-         read_interface_declarations;
+           read_interface_declarations; //<--------------------- parse!
          symtablestack.pop(current_module.globalsymtable);
 
+        {$IFDEF outline}
+          SUnitIntfDone;
+        {$ELSE}
+         if Sem then SUnitIntfDone else
+         begin //SUnitIntfDone
          { Export macros defined in the interface for macpas. The macros
            are put in the globalmacrosymtable that will only be used by other
            units. The current unit continues to use the localmacrosymtable }
@@ -999,9 +1011,9 @@ const
         if not current_module.interface_only then
           begin
           {$IFDEF outline}
-            SUnitBodyInit;
+            SUnitBodyInit(mi);
           {$ELSE}
-            if Sem then SUnitBodyInit else
+            if Sem then SUnitBodyInit(mi) else
             begin //SUnitBodyInit;
              Message1(parser_u_parsing_implementation,current_module.modulename^);
              if current_module.in_interface then
@@ -1012,15 +1024,15 @@ const
              init_procinfo.procdef.aliasnames.insert(make_mangledname('INIT$',current_module.localsymtable,''));
             end; //SUnitBodyInit;
           {$ENDIF}
-             init_procinfo.parse_body;
+             mi.init_procinfo.parse_body;
              { save file pos for debuginfo }
-             current_module.mainfilepos:=init_procinfo.entrypos;
+             current_module.mainfilepos:=mi.init_procinfo.entrypos;
           end;
 
       {$IFDEF outline}
-        SUnitBodyDone;
+        SUnitBodyDone(mi);
       {$ELSE}
-        if Sem then SUnitBodyDone else
+        if Sem then SUnitBodyDone(mi) else
         begin //SUnitBodyDone;
          { Generate specializations of objectdefs methods }
          generate_specialization_procs;
@@ -1045,9 +1057,9 @@ const
          if not current_module.interface_only and (token=_FINALIZATION) then
            begin
          {$IFDEF outline}
-            SUnitFinalInit(True);
+            SUnitFinalInit(mi,True);
          {$ELSE}
-              if Sem then SUnitFinalInit(True) else
+              if Sem then SUnitFinalInit((mi,True) else
             begin //finalize_procinfo:= SUnitFinalInit;
               { the uf_finalize flag is only set after we checked that it
                 wasn't empty }
@@ -1057,13 +1069,13 @@ const
               finalize_procinfo.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
             end; //SUnitFinalInit;
          {$ENDIF}
-              finalize_procinfo.parse_body;
+              mi.finalize_procinfo.parse_body;
            end
-         else if force_init_final then begin
+         else if mi.force_init_final then begin
          {$IFDEF outline}
-          SUnitFinalInit(False);
+          SUnitFinalInit(mi,False);
          {$ELSE}
-          if Sem then SUnitFinalInit(False) else
+          if Sem then SUnitFinalInit(mi,False) else
           begin //SUnitFinalInit(False)
            finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
           end;
@@ -1071,9 +1083,9 @@ const
          end;
 
       {$IFDEF outline}
-        SUnitFinalDone;
+        SUnitFinalDone(mi);
       {$ELSE}
-         if Sem then SUnitFinalDone else
+         if Sem then SUnitFinalDone(mi) else
         begin //SUnitFinalDone
          { Now both init and finalize bodies are read and it is known
            which variables are used in both init and finalize we can now
@@ -1101,9 +1113,9 @@ const
          consume(_POINT);
 
       {$IFDEF outline}
-        SUnitDone;
+        SUnitDone(mi);
       {$ELSE}
-        if Sem then SUnitDone else
+        if Sem then SUnitDone(mi) else
         begin //SUnitDone;
          { reset wpo flags for all defs }
          reset_all_defs;
@@ -1267,7 +1279,10 @@ const
     procedure ProcPackage;
 
     {$IFDEF outline}
-      procedure SModuleInitPackage;
+      procedure SModuleInitPackage(var mi: RModuleInfo);
+        var
+          main_file: tinputfile;
+
         begin //SModuleInitPackage
          Status.IsPackage:=true;
          Status.IsExe:=true;
@@ -1333,7 +1348,7 @@ const
          current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
         end; //SPackageInterface
 
-      procedure SPackageImplInit;
+      procedure SPackageImplInit(var mi: RModuleInfo);
         begin //SPackageImplInit
          { All units are read, now give them a number }
          current_module.updatemaps;
@@ -1350,8 +1365,8 @@ const
          current_module.wpoinfo:=tunitwpoinfo.create;
 
          { should we force unit initialization? }
-         force_init_final:=tstaticsymtable(current_module.localsymtable).needs_init_final;
-         if force_init_final then
+         mi.force_init_final:=tstaticsymtable(current_module.localsymtable).needs_init_final;
+         if mi.force_init_final then
            {init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable)};
 
          { Add symbol to the exports section for win32 so smartlinking a
@@ -1528,22 +1543,25 @@ const
               end;
           end;
         end; //SPackageDone
+
+      var
+        mi: RModuleInfo;
     {$ELSE}
       var
-        main_file : tinputfile;
+        //main_file : tinputfile;
         hp,hp2    : tmodule;
         {finalize_procinfo,
         init_procinfo,
         main_procinfo : tcgprocinfo;}
-        force_init_final : boolean;
+        //force_init_final : boolean;
         uu : tused_unit;
     {$ENDIF}
 
       begin //ProcPackage
       {$IFDEF outline}
-        SModuleInitPackage;
+        SModuleInitPackage(mi);
       {$ELSE}
-        if Sem then SModuleInitPackage else
+        if Sem then SModuleInitPackage(mi) else
         begin //SModuleInitPackage
          Status.IsPackage:=true;
          Status.IsExe:=true;
@@ -1646,9 +1664,9 @@ const
            end;
 
       {$IFDEF outline}
-        SPackageImplInit;
+        SPackageImplInit(mi);
       {$ELSE}
-        if Sem then SPackageImplInit else
+        if Sem then SPackageImplInit(mi) else
         begin //SPackageImplInit
          { All units are read, now give them a number }
          current_module.updatemaps;
@@ -1855,7 +1873,10 @@ const
     procedure ProcProgram(islibrary : boolean);
 
     {$IFDEF outline}
-      procedure SModuleInitProgLib;
+      procedure SModuleInitProgLib(var mi: RModuleInfo);
+        var
+           main_file : tinputfile;
+
         begin //SModuleInitProgLib
          DLLsource:=islibrary;
          Status.IsLibrary:=IsLibrary;
@@ -1863,8 +1884,8 @@ const
          Status.IsExe:=true;
          parse_only:=false;
          main_procinfo:=nil;
-         init_procinfo:=nil;
-         finalize_procinfo:=nil;
+         mi.init_procinfo:=nil;
+         mi.finalize_procinfo:=nil;
          resources_used:=false;
 
          { DLL defaults to create reloc info }
@@ -1985,15 +2006,15 @@ const
            end;
         end; //SProgLibBodyInit
 
-      procedure SProgLibBodyDone;
+      procedure SProgLibBodyDone(var mi: RModuleInfo);
         begin //SProgLibBodyDone
          { Generate specializations of objectdefs methods }
          generate_specialization_procs;
 
          { should we force unit initialization? }
-         force_init_final:=tstaticsymtable(current_module.localsymtable).needs_init_final;
-         if force_init_final then
-           init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable);
+         mi.force_init_final:=tstaticsymtable(current_module.localsymtable).needs_init_final;
+         if mi.force_init_final then
+           mi.init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable);
 
          { Add symbol to the exports section for win32 so smartlinking a
            DLL will include the edata section }
@@ -2003,7 +2024,7 @@ const
            current_asmdata.asmlists[al_procedures].concat(tai_const.createname(make_mangledname('EDATA',current_module.localsymtable,''),0));
         end; //SProgLibBodyDone
 
-      procedure SProgLibFinalInit(fExplicit: boolean);
+      procedure SProgLibFinalInit(var mi: RModuleInfo; fExplicit: boolean);
       begin
         if fExplicit then
             begin //SProgLibFinalInit(True)
@@ -2011,15 +2032,15 @@ const
                 wasn't empty }
 
               { Parse the finalize }
-              finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable);
-              finalize_procinfo.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
-              finalize_procinfo.procdef.aliasnames.insert('PASCALFINALIZE');
+              mi.finalize_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,'finalize'),potype_unitfinalize,current_module.localsymtable);
+              mi.finalize_procinfo.procdef.aliasnames.insert(make_mangledname('FINALIZE$',current_module.localsymtable,''));
+              mi.finalize_procinfo.procdef.aliasnames.insert('PASCALFINALIZE');
             end //SProgLibFinalInit(True)
         else
-             finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
+             mi.finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
       end;
 
-      procedure SPrgLibFinalDone;
+      procedure SPrgLibFinalDone(var mi: RModuleInfo);
         begin //SPrgLibFinalDone
           { the finalization routine of libraries is generic (and all libraries need to }
           { be finalized, so they can finalize any units they use                       }
@@ -2034,17 +2055,17 @@ const
          main_procinfo.generate_code;
          main_procinfo.resetprocdef;
          release_main_proc(main_procinfo);
-         if assigned(init_procinfo) then
+         if assigned(mi.init_procinfo) then
            begin
-             init_procinfo.generate_code;
-             init_procinfo.resetprocdef;
-             release_main_proc(init_procinfo);
+             mi.init_procinfo.generate_code;
+             mi.init_procinfo.resetprocdef;
+             release_main_proc(mi.init_procinfo);
            end;
-         if assigned(finalize_procinfo) then
+         if assigned(mi.finalize_procinfo) then
            begin
-             finalize_procinfo.generate_code;
-             finalize_procinfo.resetprocdef;
-             release_main_proc(finalize_procinfo);
+             mi.finalize_procinfo.generate_code;
+             mi.finalize_procinfo.resetprocdef;
+             release_main_proc(mi.finalize_procinfo);
            end;
 
          symtablestack.pop(current_module.localsymtable);
@@ -2236,18 +2257,20 @@ const
       var
          main_file : tinputfile;
          hp,hp2    : tmodule;
-         finalize_procinfo,
-         init_procinfo,
+         //finalize_procinfo,
+         //init_procinfo,
          main_procinfo : tcgprocinfo;
-         force_init_final : boolean;
+         //force_init_final : boolean;
          resources_used : boolean;
     {$ENDIF}
+      var
+        mi: RModuleInfo;
 
       begin //ProcProgram
       {$IFDEF outline}
-        SModuleInitProgLib;
+        SModuleInitProgLib(mi);
       {$ELSE}
-        if Sem then SModuleInitProgLib else
+        if Sem then SModuleInitProgLib(mi) else
         begin //SModuleInitProgLib
          DLLsource:=islibrary;
          Status.IsLibrary:=IsLibrary;
@@ -2435,9 +2458,9 @@ const
          current_module.mainfilepos:=main_procinfo.entrypos;
 
        {$IFDEF outline}
-        SProgLibBodyDone;
+        SProgLibBodyDone(mi);
        {$ELSE}
-        if Sem then SProgLibBodyDone else
+        if Sem then SProgLibBodyDone(mi) else
         begin //SProgLibBodyDone
          { Generate specializations of objectdefs methods }
          generate_specialization_procs;
@@ -2460,9 +2483,9 @@ const
          if token=_FINALIZATION then
            begin
            {$IFDEF outline}
-              SProgLibFinalInit(True);
+              SProgLibFinalInit(mi, True);
            {$ELSE}
-              if sem then SProgLibFinalInit(True) else
+              if sem then SProgLibFinalInit(mi, True) else
               begin //SProgLibFinalInit(True)
               { the uf_finalize flag is only set after we checked that it
                 wasn't empty }
@@ -2474,23 +2497,23 @@ const
               end; //SProgLibFinalInit(True)
            {$ENDIF}
 
-              finalize_procinfo.parse_body;
+              mi.finalize_procinfo.parse_body;
            end
          else
-           if force_init_final then
+           if mi.force_init_final then
          {$IFDEF outline}
-            SProgLibFinalInit(False);
+            SProgLibFinalInit(mi, False);
          {$ELSE}
-            if Sem then SProgLibFinalInit(False) else
+            if Sem then SProgLibFinalInit(mi, False) else
             begin //SPrgLibFinalInit(False)
              finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
             end; //SPrgLibFinalInit(False)
          {$ENDIF}
 
        {$IFDEF outline}
-          SPrgLibFinalDone;
+          SPrgLibFinalDone(mi);
        {$ELSE}
-         if Sem then SPrgLibFinalDone else
+         if Sem then SPrgLibFinalDone(mi) else
          begin //SPrgLibFinalDone
           { the finalization routine of libraries is generic (and all libraries need to }
           { be finalized, so they can finalize any units they use                       }
