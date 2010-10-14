@@ -27,10 +27,17 @@ interface
 
     uses
       cclasses,globals,
+      globtype, //for tblock_type
       node,nbas,
       symdef,procinfo,optdfa;
 
     type
+      RParseBody = record
+         old_current_procinfo : tprocinfo;
+         old_block_type : tblock_type;
+         old_current_objectdef : tobjectdef;
+      end;
+
       tcgprocinfo = class(tprocinfo)
       private
         procedure maybe_add_constructor_wrapper(var tocode: tnode; withexceptblock: boolean);
@@ -55,7 +62,10 @@ interface
         procedure resetprocdef;
         procedure add_to_symtablestack;
         procedure remove_from_symtablestack;
+        { parse_body is now split in two parts }
         procedure parse_body;
+        procedure ParseBodyInit(var rpb: RParseBody);
+        procedure ParseBodyDone(var rpb: RParseBody);
 
         function has_assembler_child : boolean;
       end;
@@ -79,7 +89,7 @@ implementation
        { common }
        cutils,
        { global }
-       globtype,tokens,verbose,comphook,constexp,
+       tokens,verbose,comphook,constexp,
        systems,
        { aasm }
        cpuinfo,cpubase,aasmbase,aasmtai,aasmdata,
@@ -1394,17 +1404,21 @@ implementation
         result:=true;
       end;
 
-
     procedure tcgprocinfo.parse_body;
       var
-         old_current_procinfo : tprocinfo;
-         old_block_type : tblock_type;
-         st : TSymtable;
-         old_current_objectdef : tobjectdef;
+        rpb: RParseBody;
       begin
-         old_current_procinfo:=current_procinfo;
-         old_block_type:=block_type;
-         old_current_objectdef:=current_objectdef;
+        ParseBodyInit(rpb);
+         { parse the code ... }
+         code:=block(current_module.islibrary);
+        ParseBodyDone(rpb);
+      end;
+
+    procedure tcgprocinfo.ParseBodyInit(var rpb: RParseBody);
+      begin
+         rpb.old_current_procinfo:=current_procinfo;
+         rpb.old_block_type:=block_type;
+         rpb.old_current_objectdef:=current_objectdef;
 
          current_procinfo:=self;
          current_objectdef:=procdef._class;
@@ -1434,10 +1448,12 @@ implementation
              procdef.initgeneric;
              current_scanner.startrecordtokens(procdef.generictokenbuf);
            end;
+      end;
 
-         { parse the code ... }
-         code:=block(current_module.islibrary);
-
+    procedure tcgprocinfo.ParseBodyDone(var rpb: RParseBody);
+      var
+         st : TSymtable;
+      begin
          if (df_generic in procdef.defoptions) then
            begin
              { stop token recorder for generic template }
@@ -1513,11 +1529,11 @@ implementation
 {    aktstate.destroy;}
     {$endif state_tracking}
 
-         current_objectdef:=old_current_objectdef;
-         current_procinfo:=old_current_procinfo;
+         current_objectdef:=rpb.old_current_objectdef;
+         current_procinfo:=rpb.old_current_procinfo;
 
          { Restore old state }
-         block_type:=old_block_type;
+         block_type:=rpb.old_block_type;
       end;
 
 
