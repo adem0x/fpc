@@ -5,10 +5,13 @@
 
     Initial code is imported from pmodules.
 }
-
 unit SModules;
 
 {$i fpcdefs.inc}
+
+{ common code re-use steps }
+{$DEFINE share1}  //checked
+{$DEFINE share2}
 
 interface
 
@@ -41,6 +44,8 @@ type
     procedure SModuleInit(mk: eModuleKind);
     procedure SModuleName(const orgpattern: string);
     procedure SPrepareLib(const orgpattern: string; fAlways: boolean);
+    procedure SModuleGlobalDone;
+    procedure SModuleIntfDone;
   public //from pmodules.proc_unit
     procedure SModuleInitUnit;  //(mi)
     procedure SUnitName;  //(mi)
@@ -178,7 +183,7 @@ end;
 
 procedure TSemModule.SModuleInitUnit;
 begin //SModuleInitUnit;
-{$IFnDEF old}
+{$IFDEF share1}
   SModuleInit(mkUnit);
 {$ELSE}
   Kind := mkUnit;
@@ -208,17 +213,17 @@ procedure TSemModule.SUnitName;
   end;
 
 begin //SUnitName
-{$IFDEF old}
+{$IFDEF share1}
+//in ModuleInit
+{$ELSE}
 { create filenames and unit name }
   main_file := current_scanner.inputfile;
   while assigned(main_file.next) do
     main_file := main_file.next;
   current_module.SetFileName(main_file.path^+main_file.name^,true);
-{$ELSE}
-//in ModuleInit
 {$ENDIF}
 
-{$IFnDEF old}
+{$IFDEF share1}
   SModuleName(orgpattern);
   SPrepareLib(current_module.realmodulename^, False);
 {$ELSE}
@@ -237,10 +242,18 @@ end; //SUnitName
 
 procedure TSemModule.SUnitInterface;
 begin //SUnitInterface
-{ global switches are read, so further changes aren't allowed }
-  current_module.in_global:=false;
-{ handle the global switches }
-  setupglobalswitches;
+{$IFDEF share2}
+  SModuleGlobalDone;
+{$ELSE}
+  begin //SModuleGlobalDone
+    { global switches are read, so further changes aren't allowed }
+      current_module.in_global:=false;
+    { handle the global switches }
+      setupglobalswitches;
+  end; //SModuleGlobalDone
+{$ENDIF}
+
+// --- unit/interface specific ---
 
   message1(unit_u_loading_interface_units,current_module.modulename^);
 
@@ -253,7 +266,9 @@ begin //SUnitInterface
   if (current_module.modulename^='MACPAS') then
    exclude(current_settings.modeswitches,m_mac);
 
-  parse_only:=true;
+  parse_only:=true; //in interface, no codegen!
+
+// --- global STB ---
 
 { generate now the global symboltable,
    define first as local to overcome dependency conflicts }
@@ -261,7 +276,8 @@ begin //SUnitInterface
 { insert unitsym of this unit to prevent other units having
    the same name }
   current_module.localsymtable.insert(tunitsym.create(current_module.realmodulename^,current_module));
-{ load default units, like the system unit }
+
+{ load default units (system,objpas,profile unit) }
   loaddefaultunits;
 end; //SUnitInterface
 
@@ -270,9 +286,11 @@ begin //SUnitIntfInit
 { move the global symtable from the temporary local to global }
   current_module.globalsymtable:=current_module.localsymtable;
   current_module.localsymtable:=nil;
+
 { number all units, so we know if a unit is used by this unit or
    needs to be added implicitly }
   current_module.updatemaps;
+
 { create whole program optimisation information (may already be
    updated in the interface, e.g., in case of classrefdef typed
    constants }
@@ -296,6 +314,7 @@ begin //SUnitIntfDone
     status.skip_error:=true;
     exit(True);
   end;
+
 { Our interface is compiled, generate CRC and switch to implementation }
   if not(cs_compilesystem in current_settings.moduleswitches)
   and (Errorcount=0) then
@@ -307,7 +326,7 @@ begin //SUnitIntfDone
   tppumodule(current_module).setdefgeneration;
   tppumodule(current_module).reload_flagged_units;
 
-{ Parse the implementation section }
+{ Parse the implementation section - mac cond checked by caller }
   //if (m_mac in current_settings.modeswitches) and try_to_consume(_END) then
   current_module.interface_only:=fHitEnd;
 
@@ -581,7 +600,7 @@ end; //SUnitDone;
 
 procedure TSemModule.SModuleInitPackage;
 begin //SModuleInitPackage
-{$IFnDEF old}
+{$IFDEF share1}
   SModuleInit(mkPkg);
 {$ELSE}
   Kind := mkPkg;
@@ -625,7 +644,7 @@ end; //SModuleInitPackage
 
 procedure TSemModule.SPackageName;
 begin //SPackageName
-{$IFnDEF old}
+{$IFDEF share1}
   SModuleName(orgpattern);
   SPrepareLib(orgpattern, True);
 {$ELSE}
@@ -639,34 +658,49 @@ end; //SPackageName
 
 procedure TSemModule.SPackageInterface;
 begin //SPackageInterface
-{ global switches are read, so further changes aren't allowed }
-  current_module.in_global:=false;
-{ setup things using the switches }
-  setupglobalswitches;
-{ set implementation flag }
-  current_module.in_interface:=false;
-  current_module.interface_compiled:=true;
-{ insert after the unit symbol tables the static symbol table }
-  { of the program                                             }
-  current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
+{$IFDEF share2}
+  SModuleGlobalDone;
+  SModuleIntfDone;
+{$ELSE}
+  begin //SModuleGlobalDone
+    { global switches are read, so further changes aren't allowed }
+      current_module.in_global:=false;
+    { setup things using the switches }
+      setupglobalswitches;
+  end; //SModuleGlobalDone
+
+  begin //cont'd SProgLibImplInit;
+  { set implementation flag }
+    current_module.in_interface:=false;
+    current_module.interface_compiled:=true;
+  { insert after the unit symbol tables the static symbol table }
+    { of the program                                             }
+    current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
+  end;
+{$ENDIF}
 end; //SPackageInterface
 
 procedure TSemModule.SPackageImplInit;
 begin //SPackageImplInit
-{ All units are read, now give them a number }
-  current_module.updatemaps;
-{Insert the name of the main program into the symbol table.}
-  if current_module.realmodulename^<>'' then
-   current_module.localsymtable.insert(tunitsym.create(current_module.realmodulename^,current_module));
+  begin
+  { All units are read, now give them a number }
+    current_module.updatemaps;
+  {Insert the name of the main program into the symbol table.}
+    if current_module.realmodulename^<>'' then
+     current_module.localsymtable.insert(tunitsym.create(current_module.realmodulename^,current_module));
 
-  Message1(parser_u_parsing_implementation,current_module.mainsource^);
+    Message1(parser_u_parsing_implementation,current_module.mainsource^);
 
-  symtablestack.push(current_module.localsymtable);
+    symtablestack.push(current_module.localsymtable);
+  end;
+
+//seems not to depend on context
 { create whole program optimisation information }
   current_module.wpoinfo:=tunitwpoinfo.create;
+
 { should we force unit initialization? }
   force_init_final:=tstaticsymtable(current_module.localsymtable).needs_init_final;
-  //if mi.force_init_final then
+  //if force_init_final then
    {init_procinfo:=gen_implicit_initfinal(uf_init,current_module.localsymtable)};
 { Add symbol to the exports section for win32 so smartlinking a
    DLL will include the edata section }
@@ -830,7 +864,7 @@ end; //SPackageDone
 
 procedure TSemModule.SModuleInitProgLib(isLibrary: boolean);
 begin //SModuleInitProgLib
-{$IFnDEF old}
+{$IFDEF share1}
   if isLibrary then
     SModuleInit(mkLib)
   else
@@ -882,7 +916,7 @@ end; //SModuleInitProgLib
 
 procedure TSemModule.SLibName;
 begin //SLibName
-{$IFnDEF old}
+{$IFDEF share1}
   SModuleName(orgpattern);
   SPrepareLib(orgpattern, True);
 {$ELSE}
@@ -896,7 +930,7 @@ end; //SLibName
 
 procedure TSemModule.SProgName;
 begin //SProgName
-{$IFnDEF old}
+{$IFDEF share1}
   SModuleName(orgpattern);
   SPrepareLib(orgpattern, False);
 {$ELSE}
@@ -908,7 +942,7 @@ end; //SProgName
 
 procedure TSemModule.SProgNameNone;
 begin //SProgNameNone
-{$IFnDEF old}
+{$IFDEF share1}
   SPrepareLib(current_module.realmodulename^, False);
 {$ELSE}
   if (target_info.system in systems_unit_program_exports) then
@@ -918,37 +952,56 @@ end; //SProgNameNone
 
 procedure TSemModule.SProgLibImplInit;
 begin //SProgLibImplInit
-{ global switches are read, so further changes aren't allowed }
-  current_module.in_global:=false;
-{ setup things using the switches }
-  setupglobalswitches;
-{ set implementation flag }
-  current_module.in_interface:=false;
-  current_module.interface_compiled:=true;
-{ insert after the unit symbol tables the static symbol table }
-  { of the program                                             }
-  current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
+{$IFDEF share2}
+  SModuleGlobalDone;
+  SModuleIntfDone;
+{$ELSE}
+  begin //SModuleGlobalDone
+    { global switches are read, so further changes aren't allowed }
+      current_module.in_global:=false;
+    { setup things using the switches }
+      setupglobalswitches;
+  end; //SModuleGlobalDone
+
+  begin
+  { set implementation flag }
+    current_module.in_interface:=false;
+    current_module.interface_compiled:=true;
+  { insert after the unit symbol tables the static symbol table }
+    { of the program                                             }
+    current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
+  end;
+{$ENDIF}
+
 { load standard units (system,objpas,profile unit) }
   loaddefaultunits;
+
 { Load units provided on the command line }
   loadautounits;
 end; //SProgLibImplInit
 
 procedure TSemModule.SProgLibBodyInit;
 begin //SProgLibBodyInit
-{ All units are read, now give them a number }
-  current_module.updatemaps;
-{Insert the name of the main program into the symbol table.}
-  if current_module.realmodulename^<>'' then
-   current_module.localsymtable.insert(tunitsym.create(current_module.realmodulename^,current_module));
+  begin
+  { All units are read, now give them a number }
+    current_module.updatemaps;
+  {Insert the name of the main program into the symbol table.}
+    if current_module.realmodulename^<>'' then
+     current_module.localsymtable.insert(tunitsym.create(current_module.realmodulename^,current_module));
 
-  Message1(parser_u_parsing_implementation,current_module.mainsource^);
+    Message1(parser_u_parsing_implementation,current_module.mainsource^);
 
-  symtablestack.push(current_module.localsymtable);
+    symtablestack.push(current_module.localsymtable);
+  end;
+
+// --- prg/lib specific (OS loader, initialization=MainProc) ---
+
 { Insert _GLOBAL_OFFSET_TABLE_ symbol if system uses it }
   maybe_load_got;
+
 { create whole program optimisation information }
   current_module.wpoinfo:=tunitwpoinfo.create;
+
 { The program intialization needs an alias, so it can be called
    from the bootstrap code.}
   if islibrary then
@@ -1193,7 +1246,7 @@ begin //SPrgLibDone
   Result := false; //okay, continue parsing
 end; //SPrgLibDone
 
-{ ------------ shared implementations --------}
+{ ------------ share1 implementations --------}
 
 procedure TSemModule.SModuleInit(mk: eModuleKind);
 
@@ -1277,6 +1330,26 @@ procedure TSemModule.SPrepareLib(const orgpattern: string; fAlways: boolean);
 begin
   if fAlways or (target_info.system in systems_unit_program_exports) then
     exportlib.preparelib(orgpattern);
+end;
+
+{ ------------ share2 implementations --------}
+
+procedure TSemModule.SModuleGlobalDone;
+begin //SModuleGlobalDone
+  { global switches are read, so further changes aren't allowed }
+    current_module.in_global:=false;
+  { setup things using the switches }
+    setupglobalswitches;
+end; //SModuleGlobalDone
+
+procedure TSemModule.SModuleIntfDone;
+begin
+{ set implementation flag }
+  current_module.in_interface:=false;
+  current_module.interface_compiled:=true;
+{ insert after the unit symbol tables the static symbol table }
+  { of the program                                             }
+  current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
 end;
 
 end.

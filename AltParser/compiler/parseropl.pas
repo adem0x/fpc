@@ -221,6 +221,7 @@ uses
          if (current_module.modulename^='MACPAS') then
            exclude(current_settings.modeswitches,m_mac);
 
+
          parse_only:=true;
 
          { generate now the global symboltable,
