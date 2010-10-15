@@ -59,6 +59,7 @@ interface
         destructor  destroy;override;
         procedure printproc(pass:string);
         procedure generate_code;
+        procedure do_generate_code; { also for nested procedures }
         procedure resetprocdef;
         procedure add_to_symtablestack;
         procedure remove_from_symtablestack;
@@ -815,6 +816,23 @@ implementation
       end;
 
 
+    procedure tcgprocinfo.do_generate_code;
+    { from read_proc_body() }
+        var
+          hpi : tcgprocinfo;
+        begin
+          { generate code for this procedure }
+          generate_code;
+          { process nested procs }
+          hpi:=tcgprocinfo(nestedprocs.first);
+          while assigned(hpi) do
+           begin
+             hpi.do_generate_code;
+             hpi:=tcgprocinfo(hpi.next);
+           end;
+          resetprocdef;
+        end;
+
     procedure tcgprocinfo.generate_code;
       var
         old_current_procinfo : tprocinfo;
@@ -1563,23 +1581,6 @@ implementation
         Parses the procedure directives, then parses the procedure body, then
         generates the code for it
       }
-
-      procedure do_generate_code(pi:tcgprocinfo);
-        var
-          hpi : tcgprocinfo;
-        begin
-          { generate code for this procedure }
-          pi.generate_code;
-          { process nested procs }
-          hpi:=tcgprocinfo(pi.nestedprocs.first);
-          while assigned(hpi) do
-           begin
-             do_generate_code(hpi);
-             hpi:=tcgprocinfo(hpi.next);
-           end;
-          pi.resetprocdef;
-        end;
-
       var
         oldfailtokenmode : tmodeswitch;
         isnestedproc     : boolean;
@@ -1645,7 +1646,7 @@ implementation
         else
           begin
             if not(df_generic in current_procinfo.procdef.defoptions) then
-              do_generate_code(tcgprocinfo(current_procinfo));
+              tcgprocinfo(current_procinfo).do_generate_code;
           end;
 
         { reset _FAIL as _SELF normal }
