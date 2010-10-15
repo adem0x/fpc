@@ -25,7 +25,7 @@ uses
   globals,globtype,cfileutl,
   fmodule,scanner,tokens,
   SModules,
-  pmodules,pexpr,psub,
+  pmodules,pexpr,psub,psubOPL,
 //for semantic
   sysutils,
   cutils,finput,comphook,verbose,
@@ -92,6 +92,7 @@ uses
 {$IFDEF semclass}
       var
         sm: TSemModule;
+        rpb: RParseBody;
 {$ELSE}
 
       function is_assembler_generated:boolean;
@@ -350,7 +351,19 @@ uses
           begin
 {$IFDEF semclass}
             sm.SUnitBodyInit;
+          (* We cannot subclass tcgprocinfo class,
+              because it's subclassed for every target CPU.
+            But we can split tcgprocinfo.parse_body, so that the block() call
+            can be redirected to another procedure.
+          *)
+          {$IFDEF old}
              sm.init_procinfo.parse_body; // <----- parse!
+          {$ELSE}
+             sm.init_procinfo.ParseBodyInit(rpb);
+             //sm.init_procinfo.code := ParseBlock(sm.Kind=mkLib);
+             sm.init_procinfo.code := ParseBlock(current_module.islibrary);
+             sm.init_procinfo.ParseBodyDone(rpb);
+          {$ENDIF}
              { save file pos for debuginfo }
              current_module.mainfilepos:=sm.init_procinfo.entrypos;
 {$ELSE}
