@@ -59,7 +59,7 @@ interface
         destructor  destroy;override;
         procedure printproc(pass:string);
         procedure generate_code;
-        procedure do_generate_code; { also for nested procedures }
+        procedure do_generate_code; { including nested procedures }
         procedure resetprocdef;
         procedure add_to_symtablestack;
         procedure remove_from_symtablestack;

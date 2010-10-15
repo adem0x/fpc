@@ -24,9 +24,8 @@ unit psubOPL;
 
 {$i fpcdefs.inc}
 
-//problem: neither works - why???
-{.$DEFINE sem} //using semantic class TSemSub?
-{$DEFINE imports} //importing additional units?
+{$DEFINE sem} //using semantic class TSemSub?
+{.$DEFINE imports} //importing additional units?
 
 interface
 
@@ -121,13 +120,13 @@ implementation
             exit;
           end;
 
-         {Unit initialization?.}
+         {Unit initialization?}
          if (
              assigned(current_procinfo.procdef.localst) and
              (current_procinfo.procdef.localst.symtablelevel=main_program_level) and
              (current_module.is_unit or islibrary)
             ) then
-           begin
+           begin //unit or library module block (module body)
              if (token=_END) then
                 begin
                    consume(_END);
@@ -180,10 +179,14 @@ implementation
                 end;
             end
          else
-            begin
+            begin //any other statement block (module or procedure level)
                Result:=statement_block(_BEGIN); //<----------- parse!
+            {$IFDEF sem}
+              SBlockVarInitialization(Result);
+            {$ELSE}
                if current_procinfo.procdef.localst.symtabletype=localsymtable then
                  current_procinfo.procdef.localst.SymList.ForEachCall(@initializevars,Result);
+            {$ENDIF}
             end;
       end;
 

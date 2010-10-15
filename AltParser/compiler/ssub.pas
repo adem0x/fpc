@@ -13,7 +13,8 @@ interface
 uses
   symdef,
   procinfo,
-  pdecsub;
+  pdecsub,
+  node; //for SBlockVarInitialization
 
 type
   TSemSub = class
@@ -33,17 +34,26 @@ type
     procedure SProcDone;
   end;
 
+procedure SBlockVarInitialization(n: tnode);
+
 implementation
 
 uses
   globtype,globals,verbose,
   symconst,symsym,
   fmodule,systems,
-  pbase,
+  pbase, psub, {SBlockVarInitialization}
+
   aasmbase,aasmdata, ncgutil;
 
 const //debug: ambiguous symbol, also in system.pas
   IsLibrary = 'dummy';
+
+procedure SBlockVarInitialization(n: tnode);
+begin
+  if current_procinfo.procdef.localst.symtabletype=localsymtable then
+    current_procinfo.procdef.localst.SymList.ForEachCall(@initializevars,n);
+end;
 
 { TSemSub }
 
