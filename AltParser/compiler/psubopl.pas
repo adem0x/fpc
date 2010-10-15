@@ -24,7 +24,7 @@ unit psubOPL;
 
 {$i fpcdefs.inc}
 
-{$DEFINE sem} //using semantic class TSemSub?
+{$DEFINE semclass} //using semantic class TSemSub?
 {.$DEFINE imports} //importing additional units?
 
 interface
@@ -50,7 +50,7 @@ implementation
        { global }
        globals,globtype,tokens,verbose,comphook,constexp,
        systems,procinfo,
-{$IFDEF sem}
+{$IFDEF semclass}
        SSub,
 {$ELSE}
 {$ENDIF}
@@ -181,7 +181,7 @@ implementation
          else
             begin //any other statement block (module or procedure level)
                Result:=statement_block(_BEGIN); //<----------- parse!
-            {$IFDEF sem}
+            {$IFDEF semclass}
               SBlockVarInitialization(Result);
             {$ELSE}
                if current_procinfo.procdef.localst.symtabletype=localsymtable then
@@ -291,7 +291,7 @@ implementation
       }
 
       var
-      {$IFDEF sem}
+      {$IFDEF semclass}
         ss: TSemSub;
       {$ELSE}
         old_current_procinfo : tprocinfo;
@@ -302,7 +302,7 @@ implementation
         s          : string;
       {$ENDIF}
       begin
-      {$IFDEF sem}
+      {$IFDEF semclass}
         ss := TSemSub.Create;
         try
          { parse procedure declaration }
@@ -321,7 +321,7 @@ implementation
          { parse procedure declaration }
          pd:=parse_proc_dec(isclassmethod, old_current_objectdef);
       {$ENDIF}
-      {$IFDEF sem}
+      {$IFDEF semclass}
          ss.SDefaultProcOptions;
          { parse the directives that may follow }
          parse_proc_directives(ss.pd,ss.pdflags); //<--------------- parse
@@ -367,7 +367,7 @@ implementation
           Consume(_SEMICOLON);
       {$ENDIF}
 
-      {$IFDEF sem}
+      {$IFDEF semclass}
         ss.SProcDirectivesDone;
          { compile procedure when a body is needed }
          if (pd_body in ss.pdflags) then
@@ -454,7 +454,7 @@ implementation
                end;
            end;
       {$ENDIF}
-      {$IFDEF sem}
+      {$IFDEF semclass}
           ss.SProcDone;
       {$ELSE}
         begin //SProcDone
@@ -472,7 +472,7 @@ implementation
            end;
         end;
       {$ENDIF}
-      {$IFDEF sem}
+      {$IFDEF semclass}
         finally
           ss.Free;
         end;
@@ -488,7 +488,7 @@ implementation
 
     procedure read_declarations(islibrary : boolean);
       var
-        is_classdef:boolean;
+        is_classdef:boolean; {found "class" prefix on method...}
       begin
         is_classdef:=false;
         repeat
@@ -508,7 +508,8 @@ implementation
               _CLASS:
                 begin
                   is_classdef:=false;
-                  if try_to_consume(_CLASS) then
+                  //if try_to_consume(_CLASS) then
+                  consume(_CLASS);
                    begin
                      { class modifier is only allowed for procedures, functions, }
                      { constructors, destructors, fields and properties          }
@@ -578,8 +579,12 @@ implementation
 
          { check for incomplete class definitions, this is only required
            for fpc modes }
+        {$IFDEF semclass}
+         SCheckIncompleteClassDefinitions;
+        {$ELSE}
          if (m_fpc in current_settings.modeswitches) then
            current_procinfo.procdef.localst.SymList.ForEachCall(@check_forward_class,nil);
+        {$ENDIF}
       end;
 
     procedure read_interface_declarations;

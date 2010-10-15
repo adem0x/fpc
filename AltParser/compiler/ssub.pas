@@ -35,6 +35,7 @@ type
   end;
 
 procedure SBlockVarInitialization(n: tnode);
+procedure SCheckIncompleteClassDefinitions;
 
 implementation
 
@@ -53,6 +54,12 @@ procedure SBlockVarInitialization(n: tnode);
 begin
   if current_procinfo.procdef.localst.symtabletype=localsymtable then
     current_procinfo.procdef.localst.SymList.ForEachCall(@initializevars,n);
+end;
+
+procedure SCheckIncompleteClassDefinitions;
+begin
+  if (m_fpc in current_settings.modeswitches) then
+    current_procinfo.procdef.localst.SymList.ForEachCall(@check_forward_class,nil);
 end;
 
 { TSemSub }
