@@ -81,6 +81,10 @@ interface
 
     procedure generate_specialization_procs;
 
+{ for alternate parsers }
+    procedure check_forward_class(p:TObject;arg:pointer);
+    procedure check_init_paras(p:TObject;arg:pointer);
+    procedure initializevars(p:TObject;arg:pointer);
 
 implementation
 
