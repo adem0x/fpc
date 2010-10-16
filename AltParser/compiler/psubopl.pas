@@ -24,16 +24,20 @@ unit psubOPL;
 
 {$i fpcdefs.inc}
 
-{$DEFINE semclass} //using semantic class TSemSub?
+{$DEFINE semclass} //using semantic class/object TSemSub?
+{$DEFINE semobj} //using semantic Object instead of Class?
 {.$DEFINE imports} //importing additional units?
+{$DEFINE FastSpecialize} //speedup specialize_objectdefs()?
 
 interface
 
     uses
-      node;
+      node,psub;
 
     { new name for block() }
     function ParseBlock(islibrary : boolean) : tnode;
+    { wrapper for ParseBlock }
+    procedure ParseBody(pi: tcgprocinfo);
 
 {$IFDEF exports}
     procedure read_declarations(islibrary : boolean);
@@ -76,7 +80,7 @@ implementation
 {$endif}
        { parser }
        scanner,import,gendef,
-       pbase,pstatmnt,pdecl,pdecsub,pexports,psub
+       pbase,pstatmnt,pdecl,pdecsub,pexports
 {$IFDEF imports}
        { codegen }
        ,tgobj,cgbase,cgobj,cgcpu,dbgbase,
@@ -99,9 +103,24 @@ implementation
 {$ENDIF}
        ;
 
+{$IFDEF exports}
+{$ELSE}
+    procedure read_declarations(islibrary : boolean); forward;
+    procedure read_interface_declarations; forward;
+{$ENDIF}
+
 {****************************************************************************
                       PROCEDURE/FUNCTION BODY PARSING
 ****************************************************************************}
+
+    procedure ParseBody(pi: tcgprocinfo);
+    var
+      rpb: RParseBody;
+    begin
+      pi.ParseBodyInit(rpb);
+      pi.code := ParseBlock(current_module.islibrary);
+      pi.ParseBodyDone(rpb);
+    end;
 
     function ParseBlock(islibrary : boolean) : tnode;
       begin
@@ -195,10 +214,19 @@ implementation
         Parses the procedure directives, then parses the procedure body, then
         generates the code for it
       }
+    {$IFDEF semclass}
+      var
+        rrpb: RReadProcBody;
+    {$ELSE}
       var
         oldfailtokenmode : tmodeswitch;
         isnestedproc     : boolean;
+    {$ENDIF}
       begin
+    {$IFDEF semclass}
+        rrpb.old_current_procinfo := old_current_procinfo;
+        SReadProcBodyInit(rrpb, pd);
+    {$ELSE}
         Message1(parser_d_procedure_start,pd.fullprocname(false));
 
         { create a new procedure }
@@ -233,9 +261,17 @@ implementation
            oldfailtokenmode:=tokeninfo^[_FAIL].keyword;
            tokeninfo^[_FAIL].keyword:=m_all;
          end;
+    {$ENDIF}
 
+    {$IFDEF semclass}
+        ParseBody(tcgprocinfo(current_procinfo));
+    {$ELSE}
         tcgprocinfo(current_procinfo).parse_body; //<----------- parse!
+    {$ENDIF}
 
+    {$IFDEF semclass}
+        SReadProcBodyDone(rrpb, pd);
+    {$ELSE}
         { We can't support inlining for procedures that have nested
           procedures because the nested procedures use a fixed offset
           for accessing locals in the parent procedure (PFV) }
@@ -271,14 +307,15 @@ implementation
         if tprocinfo(current_module.procinfo)<>current_procinfo then
           internalerror(200304274);
         current_module.procinfo:=current_procinfo.parent;
+    {$ENDIF}
 
         { For specialization we didn't record the last semicolon. Moving this parsing
           into the parse_body routine is not done because of having better file position
           information available }
         if not(df_specialization in current_procinfo.procdef.defoptions) then
-          consume(_SEMICOLON);
+          consume(_SEMICOLON); //<---------------------------------------- parse!
 
-        if not isnestedproc then
+        if not rrpb.isnestedproc then
           { current_procinfo is checked for nil later on }
           freeandnil(current_procinfo);
       end;
@@ -303,11 +340,10 @@ implementation
       {$ENDIF}
       begin
       {$IFDEF semclass}
-        ss := TSemSub.Create;
-        try
+        ss.Init;
          { parse procedure declaration }
          ss.pd:=parse_proc_dec(isclassmethod, ss.old_current_objectdef);
-      {$ELSE}
+      {$ELSE semclass}
         begin //constructor
          { save old state }
          old_current_procinfo:=current_procinfo;
@@ -472,14 +508,12 @@ implementation
            end;
         end;
       {$ENDIF}
-      {$IFDEF semclass}
-        finally
-          ss.Free;
-        end;
-      {$ELSE}
+{$IFDEF semclass}
+        ss.done;
+{$ELSE}
          current_objectdef:=old_current_objectdef;
          current_procinfo:=old_current_procinfo;
-      {$ENDIF}
+{$ENDIF}
       end;
 
 {****************************************************************************
@@ -537,15 +571,15 @@ implementation
                    if (current_procinfo.procdef.localst.symtablelevel>main_program_level) then
                      begin
                         Message(parser_e_syntax_error);
-                        consume_all_until(_SEMICOLON);
+                        consume_all_until(_SEMICOLON); //recover: skip to end of clause
                      end
                    else if islibrary or
                      (target_info.system in systems_unit_program_exports) then
-                     read_exports
+                     read_exports //<------------------------------------- parse.
                    else
                      begin
                         Message(parser_w_unsupported_feature);
-                        consume(_BEGIN);
+                        consume(_BEGIN); //force error
                      end;
                 end
               else
@@ -556,7 +590,7 @@ implementation
                         { m_class is needed, because the resourcestring
                           loading is in the ObjPas unit }
 {                        if (m_class in current_settings.modeswitches) then}
-                          resourcestring_dec
+                          resourcestring_dec //<-------------------------- parse!
 {                        else
                           break;}
                       end;
@@ -564,7 +598,7 @@ implementation
                       begin
                         if (m_fpc in current_settings.modeswitches) then
                         begin
-                          property_dec(is_classdef);
+                          property_dec(is_classdef); //<------------------ parse!
                           is_classdef:=false;
                         end
                         else
@@ -623,10 +657,13 @@ implementation
          until false;
          { check for incomplete class definitions, this is only required
            for fpc modes }
+      {$IFDEF semclass}
+         SCheckInterfaceIncompleteClassDefinitions;
+      {$ELSE}
          if (m_fpc in current_settings.modeswitches) then
           symtablestack.top.SymList.ForEachCall(@check_forward_class,nil);
+      {$ENDIF}
       end;
-{$IFDEF old}
 
 
 {****************************************************************************
@@ -653,6 +690,10 @@ implementation
 
         { Setup symtablestack a definition time }
         specobj:=tobjectdef(ttypesym(p).typedef);
+      {$IFDEF FastSpecialize}
+        if not(is_class(specobj) or is_object(specobj)) then // ---- check before???
+          exit;
+      {$ENDIF}
         oldsymtablestack:=symtablestack;
         symtablestack:=tsymtablestack.create;
         if not assigned(tobjectdef(ttypesym(p).typedef).genericdef) then
@@ -674,7 +715,11 @@ implementation
           symtablestack.push(hmodule.localsymtable);
 
         { procedure definitions for classes or objects }
-        if is_class(specobj) or is_object(specobj) then
+      {$IFDEF FastSpecialize}
+        //checked above
+      {$ELSE}
+        if is_class(specobj) or is_object(specobj) then // ---- check before???
+      {$ENDIF}
           begin
             for i:=0 to specobj.symtable.DefList.Count-1 do
               begin
@@ -691,7 +736,7 @@ implementation
                        current_filepos.moduleindex:=hmodule.unit_index;
                        current_tokenpos:=current_filepos;
                        current_scanner.startreplaytokens(tprocdef(tprocdef(hp).genericdef).generictokenbuf);
-                       read_proc_body(nil,tprocdef(hp));
+                       read_proc_body(nil,tprocdef(hp));  //<------------ parse!
                        current_filepos:=oldcurrent_filepos;
                      end
                    else
@@ -705,6 +750,7 @@ implementation
         symtablestack:=oldsymtablestack;
       end;
 
+{$IFDEF old}
 
     procedure generate_specialization_procs;
       begin

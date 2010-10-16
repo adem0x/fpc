@@ -31,7 +31,7 @@ type
   The //(mi) comment indicates true methods, using fields.
   Other methods can become class methods, or ordinary procedures.
 }
-  TSemModule = class
+  TSemModule = object
   public //protected?
     Kind: eModuleKind;
     force_init_final : boolean;
@@ -47,7 +47,8 @@ type
     procedure SModuleGlobalDone;
     procedure SModuleIntfDone;
   public //from pmodules.proc_unit
-    procedure SModuleInitUnit;  //(mi)
+    { specialized constructors, no destructors }
+    constructor SModuleInitUnit;  //(mi)
     procedure SUnitName;  //(mi)
     procedure SUnitInterface;
     procedure SUnitIntfInit;
@@ -59,13 +60,13 @@ type
     procedure SUnitFinalDone; //(mi)
     function  SUnitDone: boolean;  //(mi)
   public //from pmodules.proc_package
-    procedure SModuleInitPackage; //(mi)
+    constructor SModuleInitPackage; //(mi)
     procedure SPackageName;
     procedure SPackageInterface;
     procedure SPackageImplInit; //(mi)
     function  SPackageDone: boolean;
   public //from pmodules.proc_program
-    procedure SModuleInitProgLib(isLibrary: boolean); //(mi)
+    constructor SModuleInitProgLib(isLibrary: boolean); //(mi)
     procedure SLibName; //(orgpattern)
     procedure SProgName; //(orgpattern)
     procedure SProgNameNone;
@@ -181,7 +182,8 @@ end;
 
 { TSemModule }
 
-procedure TSemModule.SModuleInitUnit;
+//procedure TSemModule.SModuleInitUnit;
+constructor TSemModule.SModuleInitUnit;
 begin //SModuleInitUnit;
 {$IFDEF share1}
   SModuleInit(mkUnit);
@@ -598,7 +600,7 @@ begin //SUnitDone;
   Result := False; //continue parsing
 end; //SUnitDone;
 
-procedure TSemModule.SModuleInitPackage;
+constructor TSemModule.SModuleInitPackage;
 begin //SModuleInitPackage
 {$IFDEF share1}
   SModuleInit(mkPkg);
@@ -862,7 +864,7 @@ begin //SPackageDone
   Result := False;  //continue parsing
 end; //SPackageDone
 
-procedure TSemModule.SModuleInitProgLib(isLibrary: boolean);
+constructor TSemModule.SModuleInitProgLib(isLibrary: boolean);
 begin //SModuleInitProgLib
 {$IFDEF share1}
   if isLibrary then

@@ -36,7 +36,7 @@ uses
   aasmbase,aasmdata,aasmcpu,aasmtai,wpobase, wpoinfo,link
   ;
 
-{$DEFINE semclass}  //using classes in SModules?
+{$DEFINE semclass}  //using semantic classes/objects?
 
 { References to external parsing procedures:
   ProcUnit
@@ -92,7 +92,11 @@ uses
 {$IFDEF semclass}
       var
         sm: TSemModule;
+      {$IFDEF old}
         rpb: RParseBody;
+      {$ELSE}
+        //in ParseBody
+      {$ENDIF}
 {$ELSE}
 
       function is_assembler_generated:boolean;
@@ -131,9 +135,7 @@ uses
 
     begin //ProcUnit
 {$IFDEF semclass}
-      sm := TSemModule.Create;
-      try
-        sm.SModuleInitUnit;
+      sm.SModuleInitUnit;
 {$ELSE}
         begin //SModuleInitUnit;
          init_procinfo:=nil;
@@ -357,12 +359,12 @@ uses
             can be redirected to another procedure.
           *)
           {$IFDEF old}
-             sm.init_procinfo.parse_body; // <----- parse!
-          {$ELSE}
              sm.init_procinfo.ParseBodyInit(rpb);
              //sm.init_procinfo.code := ParseBlock(sm.Kind=mkLib);
              sm.init_procinfo.code := ParseBlock(current_module.islibrary);
              sm.init_procinfo.ParseBodyDone(rpb);
+          {$ELSE}
+            ParseBody(sm.init_procinfo);
           {$ENDIF}
              { save file pos for debuginfo }
              current_module.mainfilepos:=sm.init_procinfo.entrypos;
@@ -620,12 +622,6 @@ uses
         end; //SUnitDone;
 {$ENDIF}
         Message1(unit_u_finished_compiling,current_module.modulename^); //move into SUnitDone?
-{$IFDEF semclass}
-      finally
-        sm.Free;
-      end;
-{$ELSE}
-{$ENDIF}
     end;
 
 
@@ -646,9 +642,7 @@ uses
 {$ENDIF}
     begin //ProcPackage
 {$IFDEF semclass}
-      sm := TSemModule.Create;
-      try
-        sm.SModuleInitPackage;
+      sm.SModuleInitPackage;
 {$ELSE}
         begin //SModuleInitPackage
          Status.IsPackage:=true;
@@ -944,12 +938,6 @@ uses
           end;
         end; //SPackageDone
 {$ENDIF}
-{$IFDEF semclass}
-      finally
-        sm.Free;
-      end;
-{$ELSE}
-{$ENDIF}
     end;
 
 
@@ -970,9 +958,7 @@ uses
 
     begin //ProcProgram
 {$IFDEF semclass}
-      sm := TSemModule.Create;
-      try
-        sm.SModuleInitProgLib(isLibrary);
+      sm.SModuleInitProgLib(isLibrary);
 {$ELSE}
         begin //SModuleInitProgLib
          DLLsource:=islibrary;
@@ -1418,12 +1404,6 @@ uses
               end;
           end;
         end; //SPrgLibDone
-{$ENDIF}
-{$IFDEF semclass}
-      finally
-        sm.Free;
-      end;
-{$ELSE}
 {$ENDIF}
     end;
 
