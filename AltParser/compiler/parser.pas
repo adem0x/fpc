@@ -86,9 +86,9 @@ implementation
          pattern:='';
          orgpattern:='';
          cstringpattern:='';
-      {$IFDEF gbl}
-         current_scanner:=nil;
+      {$IFDEF DebugScanner}
       {$ELSE}
+         current_scanner:=nil;
       {$ENDIF}
          switchesstatestackpos:=0;
 
@@ -160,15 +160,15 @@ implementation
 
          { if there was an error in the scanner, the scanner is
            still assinged }
-      {$IFDEF gbl}
+      {$IFDEF DebugScanner}
+         if assigned(current_module) then
+          FreeAndNil(current_module.scanner);
+      {$ELSE}
          if assigned(current_scanner) then
           begin
             current_scanner.free;
             current_scanner:=nil;
           end;
-      {$ELSE}
-       if assigned(current_module) then
-        FreeAndNil(current_module.scanner);
       {$ENDIF}
 
          { close scanner }
@@ -381,13 +381,13 @@ implementation
          current_asmdata:=TAsmData(current_module.asmdata);
 
          { startup scanner and load the first file }
-       {$IFDEF gbl}
+       {$IFDEF DebugScanner}
+         SetScanner(ParserFor(filename));
+         current_scanner.firstfile;
+       {$ELSE}
          current_scanner:=ParserFor(filename);
          current_scanner.firstfile;
          current_module.scanner:=current_scanner;
-       {$ELSE}
-         SetScanner(ParserFor(filename));
-         current_scanner.firstfile;
        {$ENDIF}
 
          { init macros before anything in the file is parsed.}
@@ -432,10 +432,10 @@ implementation
                { free scanner }
                if assigned(current_module.scanner) then
                  begin
-                 {$IFDEF gbl}
+                 {$IFDEF DebugScanner}
+                 {$ELSE}
                    if current_scanner=tscannerfile(current_module.scanner) then
                      current_scanner:=nil;
-                 {$ELSE}
                  {$ENDIF}
                    tscannerfile(current_module.scanner).free;
                    current_module.scanner:=nil;

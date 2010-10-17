@@ -283,10 +283,9 @@ implementation
             current_asmdata:=tasmdata(current_module.asmdata);
             current_debuginfo:=tdebuginfo(current_module.debuginfo);
             { restore scanner and file positions }
-          {$IFDEF gbl}
-            current_scanner:=tscannerfile(current_module.scanner);
+          {$IFDEF DebugScanner}
           {$ELSE}
-            //SetScanner(tscannerfile(current_module.scanner));
+            current_scanner:=tscannerfile(current_module.scanner);
           {$ENDIF}
             if assigned(current_scanner) then
               begin
@@ -303,9 +302,9 @@ implementation
         else
           begin
             current_asmdata:=nil;
-          {$IFDEF gbl}
-            current_scanner:=nil;
+          {$IFDEF DebugScanner}
           {$ELSE}
+            current_scanner:=nil;
           {$ENDIF}
             current_debuginfo:=nil;
           end;
@@ -578,12 +577,12 @@ implementation
          begin
             { also update current_scanner if it was pointing
               to this module }
-         {$IFDEF gbl}
+         {$IFDEF DebugScanner}
+            FreeAndNil(scanner);
+         {$ELSE}
             if current_scanner=tscannerfile(scanner) then
              current_scanner:=nil;
             tscannerfile(scanner).free; //todo: also set scanner to nil!
-         {$ELSE}
-            FreeAndNil(scanner);
          {$ENDIF}
          end;
         if assigned(asmdata) then
@@ -667,10 +666,10 @@ implementation
           begin
             { also update current_scanner if it was pointing
               to this module }
-          {$IFDEF gbl}
+          {$IFDEF DebugScanner}
+          {$ELSE}
             if current_scanner=tscannerfile(scanner) then
              current_scanner:=nil;
-          {$ELSE}
           {$ENDIF}
             tscannerfile(scanner).free;
             scanner:=nil;

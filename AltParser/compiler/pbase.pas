@@ -95,7 +95,7 @@ interface
     procedure RegisterParser(pcl: PParserListItem);
 
     { Get the current parser }
-    function current_parser: TParser;
+    function current_parser: TParser; inline;
 
     procedure identifier_not_found(const s:string);
 
