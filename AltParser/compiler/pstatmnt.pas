@@ -29,10 +29,19 @@ interface
       tokens,node;
 
 
-    function statement_block(starttoken : ttoken) : tnode;
+    { renamed statement_block() }
+    function _statement_block(starttoken : ttoken) : tnode;
 
     { reads an assembler block }
     function assembler_block : tnode;
+
+    { renamed and exported statement() }
+    function _statement : tnode;
+
+    { creates a block (list) of statements, til the next END token.
+      make more general, passing in a (list of) token(s)?
+    }
+    function statements_til_end : tnode;
 
 
 implementation
@@ -61,9 +70,6 @@ implementation
        { wide- and unicodestrings}
        widestr
        ;
-
-
-    function statement : tnode;forward;
 
 
     function if_statement : tnode;
@@ -1014,7 +1020,7 @@ implementation
       end;
 
 
-    function statement : tnode;
+    function _statement : tnode;
       var
          p       : tnode;
          code    : tnode;
@@ -1222,11 +1228,11 @@ implementation
              typecheckpass(code);
              code.fileinfo:=filepos;
            end;
-         statement:=code;
+         Result:=code;
       end;
 
 
-    function statement_block(starttoken : ttoken) : tnode;
+    function _statement_block(starttoken : ttoken) : tnode;
 
       var
          first,last : tnode;
@@ -1272,7 +1278,7 @@ implementation
 
          last:=cblocknode.create(first);
          last.fileinfo:=filepos;
-         statement_block:=last;
+         Result:=last;
       end;
 
 

@@ -28,7 +28,8 @@ interface
     uses
        cutils,cclasses,
        tokens,globtype,scanner,
-       symconst,symbase,symtype,symdef,symsym,symtable
+       symconst,symbase,symtype,symdef,symsym,symtable,
+       node
        ;
 
     const
@@ -70,6 +71,12 @@ interface
         constructor CreateFor(const filename: string); virtual;
       public
         procedure Compile; virtual;
+        function statement: tnode; virtual;
+        function statement_block(starttoken : ttoken) : tnode; virtual;
+        { reads a whole expression }
+        function expr(dotypecheck : boolean) : tnode; virtual;
+        { reads an expression without assignements and .. }
+        function comp_expr(accept_equal : boolean):tnode; virtual;
       end;
 
       TParserClass = class of TParser;
@@ -118,6 +125,16 @@ interface
 
     function try_consume_hintdirective(var symopt:tsymoptions; var deprecatedmsg:pshortstring):boolean;
 
+    { parses a statement }
+    function statement: tnode;
+    function statement_block(starttoken : ttoken) : tnode;
+
+    { reads a whole expression }
+    function expr(dotypecheck : boolean) : tnode;
+
+    { reads an expression without assignements and .. }
+    function comp_expr(accept_equal : boolean):tnode;
+
     { just for an accurate position of the end of a procedure (PM) }
     var
        last_endtoken_filepos: tfileposinfo;
@@ -126,8 +143,10 @@ interface
 implementation
 
     uses
-       sysutils,pmodules,
-       globals,htypechk,systems,verbose,fmodule;
+       sysutils,
+       globals,htypechk,systems,verbose,
+       pmodules,pstatmnt,pexpr,
+       fmodule;
 
 {****************************************************************************
                                Token Parsing
@@ -473,5 +492,51 @@ implementation
            proc_program(token=_LIBRARY);
       end;
 
+{***************** language specifics **********************}
+
+      function TParser.statement: tnode;
+      begin
+        Result := pstatmnt._statement;
+      end;
+
+      function TParser.statement_block(starttoken: ttoken): tnode;
+      begin
+        Result := pstatmnt._statement_block(starttoken);
+      end;
+
+      function TParser.comp_expr(accept_equal: boolean): tnode;
+      begin
+        Result := pexpr.comp_expr(accept_equal);
+      end;
+
+      function TParser.expr(dotypecheck: boolean): tnode;
+      begin
+        Result := pexpr.expr(dotypecheck);
+      end;
+
+{********************* forwarders ********************}
+
+    { parses a statement }
+    function statement: tnode;
+    begin
+      Result := current_parser.statement;
+    end;
+
+    function statement_block(starttoken : ttoken) : tnode;
+    begin
+      Result := current_parser.statement_block(starttoken);
+    end;
+
+    { reads a whole expression }
+    function expr(dotypecheck : boolean) : tnode;
+    begin
+      Result := current_parser.expr(dotypecheck);
+    end;
+
+    { reads an expression without assignements and .. }
+    function comp_expr(accept_equal : boolean):tnode;
+    begin
+      Result := current_parser.comp_expr(accept_equal);
+    end;
 
 end.

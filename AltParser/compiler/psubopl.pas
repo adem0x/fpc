@@ -25,7 +25,6 @@ unit psubOPL;
 {$i fpcdefs.inc}
 
 {$DEFINE semclass} //using semantic class/object TSemSub?
-{$DEFINE semobj} //using semantic Object instead of Class?
 {.$DEFINE imports} //importing additional units?
 {$DEFINE FastSpecialize} //speedup specialize_objectdefs()?
 
@@ -55,14 +54,20 @@ implementation
        globals,globtype,tokens,verbose,comphook,constexp,
        systems,procinfo,
 {$IFDEF semclass}
-       SSub,
+       SSub,pstatmnt,
+       { symtable }
+       symconst,symbase,symsym,symtype,{symtable,defutil,}symdef,
+       //paramgr,
+       ppu,fmodule,
+       { pass 1 }
+       //nutils,nld,ncal,ncon,nflw,nadd,ncnv,nmem,
+       nbas,
+       //pass_1,
 {$ELSE}
 {$ENDIF}
 {$IFDEF imports}
        { aasm }
        cpuinfo,cpubase,aasmbase,aasmtai,aasmdata,
-{$ELSE}
-{$ENDIF}
        { symtable }
        symconst,symbase,symsym,symtype,symtable,defutil,symdef,
        paramgr,
@@ -78,9 +83,11 @@ implementation
 {$ifndef NOPASS2}
        pass_2,
 {$endif}
+{$ENDIF imports}
        { parser }
        scanner,import,gendef,
-       pbase,pstatmnt,pdecl,pdecsub,pexports
+       pbase,PStatmntOPL,
+       pdecl,pdecsub,pexports
 {$IFDEF imports}
        { codegen }
        ,tgobj,cgbase,cgobj,cgcpu,dbgbase,
@@ -100,7 +107,7 @@ implementation
          {$endif i386}
        {$endif}
 {$ELSE}
-{$ENDIF}
+{$ENDIF imports}
        ;
 
 {$IFDEF exports}
@@ -117,6 +124,7 @@ implementation
     var
       rpb: RParseBody;
     begin
+    { wrapper, replaces tcgprocinfo.parse_block() }
       pi.ParseBodyInit(rpb);
       pi.code := ParseBlock(current_module.islibrary);
       pi.ParseBodyDone(rpb);
@@ -162,7 +170,7 @@ implementation
                      begin
                         { The library init code is already called and does not
                           need to be in the initfinal table (PFV) }
-                        Result:=statement_block(_INITIALIZATION); //<----------- parse!
+                        Result:=statement_blockOPL(_INITIALIZATION);
                         { optimize empty initialization block away }
                         if (Result.nodetype=blockn) and (tblocknode(Result).left=nil) then
                           FreeAndNil(Result)
@@ -177,7 +185,7 @@ implementation
                          so we've to check if we are really try to parse the finalization }
                        if current_procinfo.procdef.proctypeoption=potype_unitfinalize then
                          begin
-                           Result:=statement_block(_FINALIZATION); //<----------- parse!
+                           Result:=statement_blockOPL(_FINALIZATION);
                            { optimize empty finalization block away }
                            if (Result.nodetype=blockn) and (tblocknode(Result).left=nil) then
                              FreeAndNil(Result)
@@ -193,13 +201,13 @@ implementation
                           need to be in the initfinal table (PFV) }
                         if not islibrary then
                           current_module.flags:=current_module.flags or uf_init;
-                        Result:=statement_block(_BEGIN); //<----------- parse!
+                        Result:=statement_blockOPL(_BEGIN);
                      end;
                 end;
             end
          else
             begin //any other statement block (module or procedure level)
-               Result:=statement_block(_BEGIN); //<----------- parse!
+               Result:=statement_blockOPL(_BEGIN);
             {$IFDEF semclass}
               SBlockVarInitialization(Result);
             {$ELSE}
@@ -209,14 +217,14 @@ implementation
             end;
       end;
 
-    procedure read_proc_body(old_current_procinfo:tprocinfo;pd:tprocdef);
+    procedure ReadProcBody(old_current_procinfo:tprocinfo;pd:tprocdef);
       {
         Parses the procedure directives, then parses the procedure body, then
         generates the code for it
       }
     {$IFDEF semclass}
       var
-        rrpb: RReadProcBody;
+        rrpb: TReadProcBody;
     {$ELSE}
       var
         oldfailtokenmode : tmodeswitch;
@@ -224,8 +232,7 @@ implementation
     {$ENDIF}
       begin
     {$IFDEF semclass}
-        rrpb.old_current_procinfo := old_current_procinfo;
-        SReadProcBodyInit(rrpb, pd);
+        rrpb.ProcBodyInit(pd, old_current_procinfo);
     {$ELSE}
         Message1(parser_d_procedure_start,pd.fullprocname(false));
 
@@ -270,7 +277,8 @@ implementation
     {$ENDIF}
 
     {$IFDEF semclass}
-        SReadProcBodyDone(rrpb, pd);
+        //SReadProcBodyDone(rrpb, pd);
+        rrpb.ProcBodyDone;
     {$ELSE}
         { We can't support inlining for procedures that have nested
           procedures because the nested procedures use a fixed offset
@@ -408,7 +416,7 @@ implementation
          { compile procedure when a body is needed }
          if (pd_body in ss.pdflags) then
            begin
-             read_proc_body(ss.old_current_procinfo,ss.pd);
+             ReadProcBody(ss.old_current_procinfo,ss.pd);
            end
          else
             ss.SHandleImports;
@@ -736,7 +744,7 @@ implementation
                        current_filepos.moduleindex:=hmodule.unit_index;
                        current_tokenpos:=current_filepos;
                        current_scanner.startreplaytokens(tprocdef(tprocdef(hp).genericdef).generictokenbuf);
-                       read_proc_body(nil,tprocdef(hp));  //<------------ parse!
+                       ReadProcBody(nil,tprocdef(hp));  //<------------ parse!
                        current_filepos:=oldcurrent_filepos;
                      end
                    else

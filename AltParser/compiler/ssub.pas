@@ -41,15 +41,18 @@ procedure SBlockVarInitialization(n: tnode);
 procedure SCheckIncompleteClassDefinitions;
 procedure SCheckInterfaceIncompleteClassDefinitions;
 
+{ from read_proc_body }
 type
-  RReadProcBody = record
+  TReadProcBody = object
+  public
     oldfailtokenmode: tmodeswitch;
     isnestedproc: boolean;
     old_current_procinfo: tprocinfo;
+    pd: tprocdef;
+    constructor ProcBodyInit(thispd:tprocdef; oldpi: tprocinfo);
+    procedure ProcBodyDone;
   end;
 
-procedure SReadProcBodyInit(var rrpb: RReadProcBody; pd:tprocdef);
-procedure SReadProcBodyDone(var rrpb: RReadProcBody; pd:tprocdef);
 
 implementation
 
@@ -85,71 +88,6 @@ begin
   if (m_fpc in current_settings.modeswitches) then
     symtablestack.top.
       SymList.ForEachCall(@check_forward_class,nil);
-end;
-
-procedure SReadProcBodyInit(var rrpb: RReadProcBody; pd:tprocdef);
-begin
-  Message1(parser_d_procedure_start,pd.fullprocname(false));
-{ create a new procedure }
-  current_procinfo:=cprocinfo.create(rrpb.old_current_procinfo);
-  current_module.procinfo:=current_procinfo;
-  current_procinfo.procdef:=pd;
-  rrpb.isnestedproc:=(current_procinfo.procdef.parast.symtablelevel>normal_function_level);
-{ Insert mangledname }
-  pd.aliasnames.insert(pd.mangledname);
-{ Handle Export of this procedure }
-  if (po_exports in pd.procoptions) and
-     (target_info.system in [system_i386_os2,system_i386_emx]) then
-    begin
-      pd.aliasnames.insert(pd.procsym.realname);
-      if cs_link_deffile in current_settings.globalswitches then
-        deffile.AddExport(pd.mangledname);
-    end;
-{ Insert result variables in the localst }
-  insert_funcret_local(pd);
-{ check if there are para's which require initing -> set }
-  { pi_do_call (if not yet set)                            }
-  if not(pi_do_call in current_procinfo.flags) then
-    pd.parast.SymList.ForEachCall(@check_init_paras,nil);
-{ set _FAIL as keyword if constructor }
-  if (pd.proctypeoption=potype_constructor) then
-   begin
-     rrpb.oldfailtokenmode:=tokeninfo^[_FAIL].keyword;
-     tokeninfo^[_FAIL].keyword:=m_all;
-   end;
-end;
-
-procedure SReadProcBodyDone(var rrpb: RReadProcBody; pd:tprocdef);
-begin
-{ We can't support inlining for procedures that have nested
-    procedures because the nested procedures use a fixed offset
-    for accessing locals in the parent procedure (PFV) }
-  if (tcgprocinfo(current_procinfo).nestedprocs.count>0) then
-    begin
-      if (df_generic in current_procinfo.procdef.defoptions) then
-        Comment(V_Error,'Generic methods cannot have nested procedures')
-      else
-       if (po_inline in current_procinfo.procdef.procoptions) then
-        begin
-          Message1(parser_w_not_supported_for_inline,'nested procedures');
-          Message(parser_w_inlining_disabled);
-          exclude(current_procinfo.procdef.procoptions,po_inline);
-        end;
-    end;
-{ When it's a nested procedure then defer the code generation,
-    when back at normal function level then generate the code
-    for all defered nested procedures and the current procedure }
-  if rrpb.isnestedproc then
-    tcgprocinfo(current_procinfo.parent).nestedprocs.insert(current_procinfo)
-  else if not(df_generic in current_procinfo.procdef.defoptions) then
-        tcgprocinfo(current_procinfo).do_generate_code;
-{ reset _FAIL as _SELF normal }
-  if (pd.proctypeoption=potype_constructor) then
-    tokeninfo^[_FAIL].keyword:=rrpb.oldfailtokenmode;
-{ release procinfo }
-  if tprocinfo(current_module.procinfo)<>current_procinfo then
-    internalerror(200304274);
-  current_module.procinfo:=current_procinfo.parent;
 end;
 
 { TSemSub }
@@ -288,6 +226,75 @@ begin //SProcDone
    else
      current_asmdata.DefineAsmSymbol(pd.mangledname,AB_LOCAL,AT_FUNCTION);
   end;
+end;
+
+{ TReadProcBody }
+
+constructor TReadProcBody.ProcBodyInit(thispd:tprocdef; oldpi: tprocinfo);
+begin
+  pd := thispd;
+  Message1(parser_d_procedure_start,pd.fullprocname(false));
+{ create a new procedure }
+  old_current_procinfo := oldpi;
+  current_procinfo:=cprocinfo.create(old_current_procinfo);
+  current_module.procinfo:=current_procinfo;
+  current_procinfo.procdef:=pd;
+  isnestedproc:=(current_procinfo.procdef.parast.symtablelevel>normal_function_level);
+{ Insert mangledname }
+  pd.aliasnames.insert(pd.mangledname);
+{ Handle Export of this procedure }
+  if (po_exports in pd.procoptions) and
+     (target_info.system in [system_i386_os2,system_i386_emx]) then
+    begin
+      pd.aliasnames.insert(pd.procsym.realname);
+      if cs_link_deffile in current_settings.globalswitches then
+        deffile.AddExport(pd.mangledname);
+    end;
+{ Insert result variables in the localst }
+  insert_funcret_local(pd);
+{ check if there are para's which require initing -> set }
+  { pi_do_call (if not yet set)                            }
+  if not(pi_do_call in current_procinfo.flags) then
+    pd.parast.SymList.ForEachCall(@check_init_paras,nil);
+{ set _FAIL as keyword if constructor }
+  if (pd.proctypeoption=potype_constructor) then
+   begin
+     oldfailtokenmode:=tokeninfo^[_FAIL].keyword;
+     tokeninfo^[_FAIL].keyword:=m_all;
+   end;
+end;
+
+procedure TReadProcBody.ProcBodyDone();
+begin
+{ We can't support inlining for procedures that have nested
+    procedures because the nested procedures use a fixed offset
+    for accessing locals in the parent procedure (PFV) }
+  if (tcgprocinfo(current_procinfo).nestedprocs.count>0) then
+    begin
+      if (df_generic in current_procinfo.procdef.defoptions) then
+        Comment(V_Error,'Generic methods cannot have nested procedures')
+      else
+       if (po_inline in current_procinfo.procdef.procoptions) then
+        begin
+          Message1(parser_w_not_supported_for_inline,'nested procedures');
+          Message(parser_w_inlining_disabled);
+          exclude(current_procinfo.procdef.procoptions,po_inline);
+        end;
+    end;
+{ When it's a nested procedure then defer the code generation,
+    when back at normal function level then generate the code
+    for all defered nested procedures and the current procedure }
+  if isnestedproc then
+    tcgprocinfo(current_procinfo.parent).nestedprocs.insert(current_procinfo)
+  else if not(df_generic in current_procinfo.procdef.defoptions) then
+        tcgprocinfo(current_procinfo).do_generate_code;
+{ reset _FAIL as _SELF normal }
+  if (pd.proctypeoption=potype_constructor) then
+    tokeninfo^[_FAIL].keyword:=oldfailtokenmode;
+{ release procinfo }
+  if tprocinfo(current_module.procinfo)<>current_procinfo then
+    internalerror(200304274);
+  current_module.procinfo:=current_procinfo.parent;
 end;
 
 end.

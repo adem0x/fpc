@@ -11,12 +11,22 @@ unit parserOPL;
 interface
 
 uses
-  pbase;
+  pbase,node;
 
 type
+{ In order to support multiple parsers, some general procedures are virtualized.
+  The original procedures (statement,expr...) have been renamed and replaced
+  by forwarders to virtual TParser methods.
+}
   TParserOPL = class(TParser)
   public
     procedure Compile; override;
+  //redirectors
+    function statement: tnode; override;
+    { reads a whole expression }
+    function expr(dotypecheck : boolean) : tnode; override;
+    { reads an expression without assignements and .. }
+    function comp_expr(accept_equal : boolean):tnode; override;
   end;
 
 implementation
@@ -24,7 +34,7 @@ implementation
 uses
   globals,globtype,cfileutl,
   fmodule,scanner,tokens,
-  SModules,
+  SModules,PStatmntOPL,
   pmodules,pexpr,psub,psubOPL,
 //for semantic
   sysutils,
@@ -1429,6 +1439,22 @@ WriteLn('*** using alternate parser ***');
   else
    ProcProgram(token=_LIBRARY);
 end;
+
+function TParserOPL.comp_expr(accept_equal: boolean): tnode;
+begin
+  Result:=pexpr.comp_expr(accept_equal); //unless implemented differently
+end;
+
+function TParserOPL.expr(dotypecheck: boolean): tnode;
+begin
+  Result:=pexpr.expr(dotypecheck); //unless implemented differently
+end;
+
+function TParserOPL.statement: tnode;
+begin
+  Result:=PStatmntOPL.statementOPL;
+end;
+
 
 const
   OPLpas2: TParserListItem = (
