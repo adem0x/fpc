@@ -34,15 +34,16 @@ interface
       node,psub;
 
     { new name for block() }
-    function ParseBlock(islibrary : boolean) : tnode;
-    { wrapper for ParseBlock }
+    function  ParseBlock(is_Library : boolean) : tnode;
+    { wrapper for ParseBlock, original tcgprocinfo.parse_body }
     procedure ParseBody(pi: tcgprocinfo);
 
-{$IFDEF exports}
-    procedure read_declarations(islibrary : boolean);
-    procedure read_interface_declarations;
-{$ELSE}
-{$ENDIF}
+    { new name for read_declarations }
+    procedure ReadDeclarations(is_Library : boolean);
+    { new name for read_interface_declarations }
+    procedure ReadInterfaceDeclarations;
+    { new name for generate_specialization_procs }
+    procedure _generate_specialization_procs;
 
 implementation
 
@@ -54,7 +55,7 @@ implementation
        globals,globtype,tokens,verbose,comphook,constexp,
        systems,procinfo,
 {$IFDEF semclass}
-       SSub,pstatmnt,
+       SSub,pstatmnt,PStatmntOPL,
        { symtable }
        symconst,symbase,symsym,symtype,{symtable,defutil,}symdef,
        //paramgr,
@@ -64,6 +65,7 @@ implementation
        nbas,
        //pass_1,
 {$ELSE}
+  {$DEFINE imports}
 {$ENDIF}
 {$IFDEF imports}
        { aasm }
@@ -86,8 +88,7 @@ implementation
 {$ENDIF imports}
        { parser }
        scanner,import,gendef,
-       pbase,PStatmntOPL,
-       pdecl,pdecsub,pexports
+       pbase,pdecl,pdecsub,{PDecSubOPL,}pexports
 {$IFDEF imports}
        { codegen }
        ,tgobj,cgbase,cgobj,cgcpu,dbgbase,
@@ -110,30 +111,46 @@ implementation
 {$ENDIF imports}
        ;
 
-{$IFDEF exports}
-{$ELSE}
-    procedure read_declarations(islibrary : boolean); forward;
-    procedure read_interface_declarations; forward;
-{$ENDIF}
+{ References to external parser procedures:
+  ParseBlock
+  -> read_declarations
+    [here]
+  -> pstatmnt.assembler_block
+    [deserves no modifications]
+  -> pstatmnt.statement_block
+    [virtualized]
+  ParseBody
+  -> ParseBlock
+    [here]
+  read_proc_body
+  -> ParseBody
+    [here]
+  read_proc
+  -> pdecsub.parse_proc_dec
+  -> pdecsub.parse_proc_directives
+  -> pbase.try_consume_hintdirective
+    [clean]
+  -> (here.)read_proc_body
+  ReadDeclarations
+  -> pdecl.label_dec, const_dec, type_dec, var_dec, resourcestring_dec, property_dec
+  -> (here.)read_proc
+  -> pexports.read_exports
+  ReadInterfaceDeclarations
+  -> (same as read_declarations)
+  -> var_dec, threadvar_dec
+  -> (here.)read_proc
+  specialize_objectdefs
+  -> (here.)read_proc_body
+}
 
 {****************************************************************************
                       PROCEDURE/FUNCTION BODY PARSING
 ****************************************************************************}
 
-    procedure ParseBody(pi: tcgprocinfo);
-    var
-      rpb: RParseBody;
-    begin
-    { wrapper, replaces tcgprocinfo.parse_block() }
-      pi.ParseBodyInit(rpb);
-      pi.code := ParseBlock(current_module.islibrary);
-      pi.ParseBodyDone(rpb);
-    end;
-
-    function ParseBlock(islibrary : boolean) : tnode;
+    function ParseBlock(is_Library : boolean) : tnode;
       begin
          { parse const,types and vars }
-         read_declarations(islibrary);  //<---------- parse!
+         ReadDeclarations(is_Library);  //<---------- parse!
 
          { do we have an assembler block without the po_assembler?
            we should allow this for Delphi compatibility (PFV) }
@@ -151,7 +168,7 @@ implementation
          if (
              assigned(current_procinfo.procdef.localst) and
              (current_procinfo.procdef.localst.symtablelevel=main_program_level) and
-             (current_module.is_unit or islibrary)
+             (current_module.is_unit or is_Library)
             ) then
            begin //unit or library module block (module body)
              if (token=_END) then
@@ -159,7 +176,7 @@ implementation
                    consume(_END);
                    { We need at least a node, else the entry/exit code is not
                      generated and thus no PASCALMAIN symbol which we need (PFV) }
-                   if islibrary then
+                   if is_Library then
                     Result:=cnothingnode.create
                    else
                     Result:=nil;
@@ -175,7 +192,7 @@ implementation
                         if (Result.nodetype=blockn) and (tblocknode(Result).left=nil) then
                           FreeAndNil(Result)
                         else
-                          if not islibrary then
+                          if not is_Library then
                             current_module.flags:=current_module.flags or uf_init;
                      end
                    else if token=_FINALIZATION then
@@ -199,7 +216,7 @@ implementation
                      begin
                         { The library init code is already called and does not
                           need to be in the initfinal table (PFV) }
-                        if not islibrary then
+                        if not is_Library then
                           current_module.flags:=current_module.flags or uf_init;
                         Result:=statement_blockOPL(_BEGIN);
                      end;
@@ -217,7 +234,17 @@ implementation
             end;
       end;
 
-    procedure ReadProcBody(old_current_procinfo:tprocinfo;pd:tprocdef);
+    procedure ParseBody(pi: tcgprocinfo);
+    var
+      rpb: RParseBody;
+    begin
+    { wrapper, replaces tcgprocinfo.parse_block() }
+      pi.ParseBodyInit(rpb);
+      pi.code := ParseBlock(current_module.isLibrary);
+      pi.ParseBodyDone(rpb);
+    end;
+
+    procedure Read_Proc_Body(_old_current_procinfo:tprocinfo;_pd:tprocdef);
       {
         Parses the procedure directives, then parses the procedure body, then
         generates the code for it
@@ -226,46 +253,54 @@ implementation
       var
         rrpb: TReadProcBody;
     {$ELSE}
-      var
+      type
+        RReadProcBody = record
         oldfailtokenmode : tmodeswitch;
         isnestedproc     : boolean;
+        pd: tprocdef;
+        old_current_procinfo:tprocinfo;
+        end;
+      var
+        rrpb: RReadProcBody;
     {$ENDIF}
       begin
     {$IFDEF semclass}
-        rrpb.ProcBodyInit(pd, old_current_procinfo);
+        rrpb.ProcBodyInit(_pd, _old_current_procinfo);
     {$ELSE}
-        Message1(parser_d_procedure_start,pd.fullprocname(false));
+        rrpb.old_current_procinfo := _old_current_procinfo;
+        rrpb.pd := _pd;
+        Message1(parser_d_procedure_start,rrpb.pd.fullprocname(false));
 
         { create a new procedure }
-        current_procinfo:=cprocinfo.create(old_current_procinfo);
+        current_procinfo:=cprocinfo.create(rrpb.old_current_procinfo);
         current_module.procinfo:=current_procinfo;
-        current_procinfo.procdef:=pd;
-        isnestedproc:=(current_procinfo.procdef.parast.symtablelevel>normal_function_level);
+        current_procinfo.procdef:=rrpb.pd;
+        rrpb.isnestedproc:=(current_procinfo.procdef.parast.symtablelevel>normal_function_level);
 
         { Insert mangledname }
-        pd.aliasnames.insert(pd.mangledname);
+        rrpb.pd.aliasnames.insert(rrpb.pd.mangledname);
 
         { Handle Export of this procedure }
-        if (po_exports in pd.procoptions) and
+        if (po_exports in rrpb.pd.procoptions) and
            (target_info.system in [system_i386_os2,system_i386_emx]) then
           begin
-            pd.aliasnames.insert(pd.procsym.realname);
+            rrpb.pd.aliasnames.insert(rrpb.pd.procsym.realname);
             if cs_link_deffile in current_settings.globalswitches then
-              deffile.AddExport(pd.mangledname);
+              deffile.AddExport(rrpb.pd.mangledname);
           end;
 
         { Insert result variables in the localst }
-        insert_funcret_local(pd);
+        insert_funcret_local(rrpb.pd);
 
         { check if there are para's which require initing -> set }
         { pi_do_call (if not yet set)                            }
         if not(pi_do_call in current_procinfo.flags) then
-          pd.parast.SymList.ForEachCall(@check_init_paras,nil);
+          rrpb.pd.parast.SymList.ForEachCall(@check_init_paras,nil);
 
         { set _FAIL as keyword if constructor }
-        if (pd.proctypeoption=potype_constructor) then
+        if (rrpb.pd.proctypeoption=potype_constructor) then
          begin
-           oldfailtokenmode:=tokeninfo^[_FAIL].keyword;
+           rrpb.oldfailtokenmode:=tokeninfo^[_FAIL].keyword;
            tokeninfo^[_FAIL].keyword:=m_all;
          end;
     {$ENDIF}
@@ -299,7 +334,7 @@ implementation
         { When it's a nested procedure then defer the code generation,
           when back at normal function level then generate the code
           for all defered nested procedures and the current procedure }
-        if isnestedproc then
+        if rrpb.isnestedproc then
           tcgprocinfo(current_procinfo.parent).nestedprocs.insert(current_procinfo)
         else
           begin
@@ -308,8 +343,8 @@ implementation
           end;
 
         { reset _FAIL as _SELF normal }
-        if (pd.proctypeoption=potype_constructor) then
-          tokeninfo^[_FAIL].keyword:=oldfailtokenmode;
+        if (rrpb.pd.proctypeoption=potype_constructor) then
+          tokeninfo^[_FAIL].keyword:=rrpb.oldfailtokenmode;
 
         { release procinfo }
         if tprocinfo(current_module.procinfo)<>current_procinfo then
@@ -335,40 +370,43 @@ implementation
         generates the code for it
       }
 
-      var
       {$IFDEF semclass}
+      var
         ss: TSemSub;
       {$ELSE}
+      type
+        RSemSub = record
         old_current_procinfo : tprocinfo;
         old_current_objectdef : tobjectdef;
         pd: tprocdef;
-        pdflags    : tpdflags;
-        firstpd : tprocdef;
+        end;
+      var
+        ss: RSemSub;
         s          : string;
+        firstpd : tprocdef;
       {$ENDIF}
+        pdflags    : tpdflags;
       begin
       {$IFDEF semclass}
         ss.Init;
-         { parse procedure declaration }
-         ss.pd:=parse_proc_dec(isclassmethod, ss.old_current_objectdef);
       {$ELSE semclass}
         begin //constructor
          { save old state }
-         old_current_procinfo:=current_procinfo;
-         old_current_objectdef:=current_objectdef;
+         ss.old_current_procinfo:=current_procinfo;
+         ss.old_current_objectdef:=current_objectdef;
 
          { reset current_procinfo.procdef to nil to be sure that nothing is writing
            to another procdef }
          current_procinfo:=nil;
          current_objectdef:=nil;
         end;
-         { parse procedure declaration }
-         pd:=parse_proc_dec(isclassmethod, old_current_objectdef);
       {$ENDIF}
+         { parse procedure declaration }
+         ss.pd:=parse_proc_dec(isclassmethod, ss.old_current_objectdef);
       {$IFDEF semclass}
-         ss.SDefaultProcOptions;
+         pdflags := ss.SDefaultProcOptions;
          { parse the directives that may follow }
-         parse_proc_directives(ss.pd,ss.pdflags); //<--------------- parse
+         parse_proc_directives(ss.pd,pdflags); //<--------------- parse
 
          { hint directives, these can be separated by semicolons here,
            that needs to be handled here with a loop (PFV) }
@@ -379,11 +417,11 @@ implementation
          { set the default function options }
          if parse_only then
           begin
-            pd.forwarddef:=true;
+            ss.pd.forwarddef:=true;
             { set also the interface flag, for better error message when the
               implementation doesn't much this header }
-            pd.interfacedef:=true;
-            include(pd.procoptions,po_global);
+            ss.pd.interfacedef:=true;
+            include(ss.pd.procoptions,po_global);
             pdflags:=[pd_interface];
           end
          else
@@ -398,102 +436,102 @@ implementation
                 if they aren't global when pic is used (FK)
               }
               (cs_create_pic in current_settings.moduleswitches) then
-              include(pd.procoptions,po_global);
-            pd.forwarddef:=false;
+              include(ss.pd.procoptions,po_global);
+            ss.pd.forwarddef:=false;
           end;
         end;
          { parse the directives that may follow }
-         parse_proc_directives(pd,pdflags); //<--------------- parse
+         parse_proc_directives(ss.pd,pdflags); //<--------------- parse
 
          { hint directives, these can be separated by semicolons here,
            that needs to be handled here with a loop (PFV) }
-         while try_consume_hintdirective(pd.symoptions,pd.deprecatedmsg) do
+         while try_consume_hintdirective(ss.pd.symoptions,ss.pd.deprecatedmsg) do
           Consume(_SEMICOLON);
       {$ENDIF}
 
       {$IFDEF semclass}
         ss.SProcDirectivesDone;
          { compile procedure when a body is needed }
-         if (pd_body in ss.pdflags) then
+         if (pd_body in pdflags) then
            begin
-             ReadProcBody(ss.old_current_procinfo,ss.pd);
+             Read_Proc_Body(ss.old_current_procinfo,ss.pd);
            end
          else
             ss.SHandleImports;
       {$ELSE}
         begin //SProcDirectivesDone
          { Set calling convention }
-         handle_calling_convention(pd);
+         handle_calling_convention(ss.pd);
 
          { search for forward declarations }
-         if not proc_add_definition(pd) then
+         if not proc_add_definition(ss.pd) then
            begin
              { A method must be forward defined (in the object declaration) }
-             if assigned(pd._class) and
-                (not assigned(old_current_objectdef)) then
+             if assigned(ss.pd._class) and
+                (not assigned(ss.old_current_objectdef)) then
               begin
-                MessagePos1(pd.fileinfo,parser_e_header_dont_match_any_member,pd.fullprocname(false));
-                tprocsym(pd.procsym).write_parameter_lists(pd);
+                MessagePos1(ss.pd.fileinfo,parser_e_header_dont_match_any_member,ss.pd.fullprocname(false));
+                tprocsym(ss.pd.procsym).write_parameter_lists(ss.pd);
               end
              else
               begin
                 { Give a better error if there is a forward def in the interface and only
                   a single implementation }
-                firstpd:=tprocdef(tprocsym(pd.procsym).ProcdefList[0]);
-                if (not pd.forwarddef) and
-                   (not pd.interfacedef) and
-                   (tprocsym(pd.procsym).ProcdefList.Count>1) and
-                   firstpd.forwarddef and
-                   firstpd.interfacedef and
-                   not(tprocsym(pd.procsym).ProcdefList.Count>2) and
+                ss.firstpd:=tprocdef(tprocsym(ss.pd.procsym).ProcdefList[0]);
+                if (not ss.pd.forwarddef) and
+                   (not ss.pd.interfacedef) and
+                   (tprocsym(ss.pd.procsym).ProcdefList.Count>1) and
+                   ss.firstpd.forwarddef and
+                   ss.firstpd.interfacedef and
+                   not(tprocsym(ss.pd.procsym).ProcdefList.Count>2) and
                    { don't give an error if it may be an overload }
                    not(m_fpc in current_settings.modeswitches) and
-                   (not(po_overload in pd.procoptions) or
-                    not(po_overload in firstpd.procoptions)) then
+                   (not(po_overload in ss.pd.procoptions) or
+                    not(po_overload in ss.firstpd.procoptions)) then
                  begin
-                   MessagePos1(pd.fileinfo,parser_e_header_dont_match_forward,pd.fullprocname(false));
-                   tprocsym(pd.procsym).write_parameter_lists(pd);
+                   MessagePos1(ss.pd.fileinfo,parser_e_header_dont_match_forward,ss.pd.fullprocname(false));
+                   tprocsym(ss.pd.procsym).write_parameter_lists(ss.pd);
                  end;
               end;
            end;
 
          { Set mangled name }
-         proc_set_mangledname(pd);
+         proc_set_mangledname(ss.pd);
         end;
          { compile procedure when a body is needed }
          if (pd_body in pdflags) then
            begin
-             read_proc_body(old_current_procinfo,pd);
+             read_proc_body(ss.old_current_procinfo,ss.pd);
            end
          else
            begin  //SHandleImports
              { Handle imports }
-             if (po_external in pd.procoptions) then
+             if (po_external in ss.pd.procoptions) then
                begin
                  { External declared in implementation, and there was already a
                    forward (or interface) declaration then we need to generate
                    a stub that calls the external routine }
-                 if (not pd.forwarddef) and
-                    (pd.hasforward) and
+                 if (not ss.pd.forwarddef) and
+                    (ss.pd.hasforward) and
                     not(
-                        assigned(pd.import_dll) and
+                        assigned(ss.pd.import_dll) and
                         (target_info.system in [system_i386_wdosx,
                                                 system_arm_wince,system_i386_wince])
                        ) then
                    begin
-                     s:=proc_get_importname(pd);
+                     s:=proc_get_importname(ss.pd);
                      if s<>'' then
-                       gen_external_stub(current_asmdata.asmlists[al_procedures],pd,s);
+                       gen_external_stub(current_asmdata.asmlists[al_procedures],ss.pd,s);
                    end;
 
                  { Import DLL specified? }
-                 if assigned(pd.import_dll) then
-                   current_module.AddExternalImport(pd.import_dll^,proc_get_importname(pd),pd.import_nr,false,pd.import_name=nil)
+                 if assigned(ss.pd.import_dll) then
+                   current_module.AddExternalImport(ss.pd.import_dll^,proc_get_importname(ss.pd),ss.pd.import_nr,false,ss.pd.import_name=nil)
                  else
                    begin
                      { add import name to external list for DLL scanning }
                      if tf_has_dllscanner in target_info.flags then
-                       current_module.dllscannerinputlist.Add(proc_get_importname(pd),pd);
+                       current_module.dllscannerinputlist.Add(proc_get_importname(ss.pd),ss.pd);
                    end;
                end;
            end;
@@ -506,21 +544,21 @@ implementation
          { treated as references to external symbols, needed for darwin.   }
 
          { make sure we don't change the binding of real external symbols }
-         if not(po_external in pd.procoptions) then
+         if not(po_external in ss.pd.procoptions) then
            begin
-             if (po_global in pd.procoptions) or
+             if (po_global in ss.pd.procoptions) or
                 (cs_profile in current_settings.moduleswitches) then
-               current_asmdata.DefineAsmSymbol(pd.mangledname,AB_GLOBAL,AT_FUNCTION)
+               current_asmdata.DefineAsmSymbol(ss.pd.mangledname,AB_GLOBAL,AT_FUNCTION)
              else
-               current_asmdata.DefineAsmSymbol(pd.mangledname,AB_LOCAL,AT_FUNCTION);
+               current_asmdata.DefineAsmSymbol(ss.pd.mangledname,AB_LOCAL,AT_FUNCTION);
            end;
         end;
       {$ENDIF}
 {$IFDEF semclass}
         ss.done;
 {$ELSE}
-         current_objectdef:=old_current_objectdef;
-         current_procinfo:=old_current_procinfo;
+         current_objectdef:=ss.old_current_objectdef;
+         current_procinfo:=ss.old_current_procinfo;
 {$ENDIF}
       end;
 
@@ -528,7 +566,7 @@ implementation
                              DECLARATION PARSING
 ****************************************************************************}
 
-    procedure read_declarations(islibrary : boolean);
+    procedure ReadDeclarations(is_Library : boolean);
       var
         is_classdef:boolean; {found "class" prefix on method...}
       begin
@@ -581,7 +619,7 @@ implementation
                         Message(parser_e_syntax_error);
                         consume_all_until(_SEMICOLON); //recover: skip to end of clause
                      end
-                   else if islibrary or
+                   else if is_Library or
                      (target_info.system in systems_unit_program_exports) then
                      read_exports //<------------------------------------- parse.
                    else
@@ -629,7 +667,7 @@ implementation
         {$ENDIF}
       end;
 
-    procedure read_interface_declarations;
+    procedure ReadInterfaceDeclarations;
       begin
          repeat
            case token of
@@ -744,7 +782,7 @@ implementation
                        current_filepos.moduleindex:=hmodule.unit_index;
                        current_tokenpos:=current_filepos;
                        current_scanner.startreplaytokens(tprocdef(tprocdef(hp).genericdef).generictokenbuf);
-                       ReadProcBody(nil,tprocdef(hp));  //<------------ parse!
+                       Read_Proc_Body(nil,tprocdef(hp));  //<------------ parse!
                        current_filepos:=oldcurrent_filepos;
                      end
                    else
@@ -758,16 +796,12 @@ implementation
         symtablestack:=oldsymtablestack;
       end;
 
-{$IFDEF old}
-
-    procedure generate_specialization_procs;
+    procedure _generate_specialization_procs;
       begin
         if assigned(current_module.globalsymtable) then
           current_module.globalsymtable.SymList.ForEachCall(@specialize_objectdefs,nil);
         if assigned(current_module.localsymtable) then
           current_module.localsymtable.SymList.ForEachCall(@specialize_objectdefs,nil);
       end;
-{$ELSE}
-{$ENDIF}
 
 end.

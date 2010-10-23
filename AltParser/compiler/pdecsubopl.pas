@@ -19,34 +19,27 @@
 
  ****************************************************************************
 }
-unit pdecsub;
+unit pdecsubOPL;
 
 {$i fpcdefs.inc}
+
+{$define semclass}
 
 interface
 
     uses
-      tokens,symconst,symtype,symdef,symsym;
+      tokens,symconst,symtype,symdef,symsym,
+      pdecsub; //tpdflag
 
-    type
-      tpdflag=(
-        pd_body,         { directive needs a body }
-        pd_implemen,     { directive can be used implementation section }
-        pd_interface,    { directive can be used interface section }
-        pd_object,       { directive can be used object declaration }
-        pd_procvar,      { directive can be used procvar declaration }
-        pd_notobject,    { directive can not be used object declaration }
-        pd_notobjintf,   { directive can not be used interface declaration }
-        pd_notprocvar,   { directive can not be used procvar declaration }
-        pd_dispinterface,{ directive can be used with dispinterface methods }
-        pd_cppobject,    { directive can be used with cppclass }
-        pd_objcclass,    { directive can be used with objcclass }
-        pd_objcprot      { directive can be used with objcprotocol }
-      );
-      tpdflags=set of tpdflag;
-
+{$IFDEF directives}
     function  check_proc_directive(isprocvar:boolean):boolean;
+{$ELSE}
+{$ENDIF}
 
+{$IFDEF ParaSemanticsHere}
+    procedure parse_proc_directives(pd:tabstractprocdef;var pdflags:tpdflags);
+    procedure parse_var_proc_directives(sym:tsym);
+    procedure parse_object_proc_directives(pd:tabstractprocdef);
     procedure insert_funcret_local(pd:tprocdef);
 
     function  proc_add_definition(var currpd:tprocdef):boolean;
@@ -54,20 +47,31 @@ interface
     procedure proc_set_mangledname(pd:tprocdef);
 
     procedure handle_calling_convention(pd:tabstractprocdef);
+{$ELSE}
+{$ENDIF}
 
-    procedure _parse_parameter_dec(pd:tabstractprocdef);
-    procedure parse_proc_directives(pd:tabstractprocdef;var pdflags:tpdflags);
-    procedure parse_var_proc_directives(sym:tsym);
-    procedure parse_object_proc_directives(pd:tabstractprocdef);
-    function  _parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean;
-    function  _parse_proc_dec(isclassmethod:boolean; aclass:tobjectdef):tprocdef;
+    procedure parse_parameter_dec(_pd:tabstractprocdef);
+    function  _parse_proc_head(_aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean;
+    function  parse_proc_dec(isclassmethod:boolean; aclass:tobjectdef):tprocdef;
 
 implementation
 
     uses
-       SysUtils,
+    {$IFDEF semclass}
+      SDecSub,
        { common }
-       cutils,cclasses,
+       cutils,
+       { global }
+       globtype,globals,verbose,constexp,
+       { symtable }
+       symbase,defcmp,htypechk,
+       { parser }
+       scanner,
+       pbase,ptype,pdecl
+    {$ELSE}
+       { common }
+       cutils,
+       cclasses,
        { global }
        globtype,globals,verbose,constexp,
        systems,
@@ -81,6 +85,7 @@ implementation
        { parser }
        scanner,
        pbase,pexpr,ptype,pdecl
+    {$ENDIF}
        ;
 
     const
@@ -90,6 +95,7 @@ implementation
       current_procinfo = 'error';
 
 
+{$IFDEF ParaSemanticsHere}
     procedure insert_funcret_para(pd:tabstractprocdef);
       var
         storepos : tfileposinfo;
@@ -416,37 +422,55 @@ implementation
              varregable:=vr_intreg;
          end;
       end;
+{$ELSE}
+//in pdecsub
+{$ENDIF}
 
 
-    procedure _parse_parameter_dec(pd:tabstractprocdef);
+    procedure parse_parameter_dec(_pd:tabstractprocdef);
       {
         handle_procvar needs the same changes
       }
+    {$IFDEF semclass}
+      var
+        sds: TSemParaDec;
+    {$ELSE}
       type
         tppv = (pv_none,pv_proc,pv_func);
-      var
+      type
+        RSemDecSub = record
+        pd: tabstractprocdef;
         sc      : TFPObjectList;
         hdef    : tdef;
         arrayelementdef : tdef;
         vs      : tparavarsym;
-        i       : longint;
         srsym   : tsym;
         pv      : tprocvardef;
         varspez : Tvarspez;
-        defaultvalue : tconstsym;
-        defaultrequired : boolean;
         old_block_type : tblock_type;
         currparast : tparasymtable;
         parseprocvar : tppv;
         locationstr : string;
         paranr : integer;
         dummytype : ttypesym;
-        explicit_paraloc,
+        explicit_paraloc: boolean;
+        end;
+      var
+        sds: RSemDecSub;
+        i       : longint;
+    {$ENDIF}
+        defaultrequired : boolean;
+        defaultvalue : tconstsym;
         need_array,
         is_univ: boolean;
       begin
-        old_block_type:=block_type;
-        explicit_paraloc:=false;
+      {$IFDEF semclass}
+        sds.SDSInit(_pd);
+      {$ELSE}
+        sds.pd := _pd;
+        sds.old_block_type:=block_type;
+        sds.explicit_paraloc:=false;
+      {$ENDIF}
         consume(_LKLAMMER);
         { Delphi/Kylix supports nonsense like }
         { procedure p();                      }
@@ -454,93 +478,162 @@ implementation
           not(m_tp7 in current_settings.modeswitches) then
           exit;
         { parsing a proc or procvar ? }
-        currparast:=tparasymtable(pd.parast);
+      {$IFDEF semclass}
+        sds.SParamListInit;
+      {$ELSE}
+        sds.currparast:=tparasymtable(sds.pd.parast);
         { reset }
-        sc:=TFPObjectList.create(false);
-        defaultrequired:=false;
-        paranr:=0;
+        sds.sc:=TFPObjectList.create(false);
+        sds.paranr:=0;
         inc(testcurobject);
         block_type:=bt_var;
+      {$ENDIF}
+        defaultrequired:=false;
         is_univ:=false;
         repeat
-          parseprocvar:=pv_none;
+        {$IFDEF semclass}
+          sds.SParamInit;
+        {$ELSE}
+          sds.parseprocvar:=pv_none;
+        {$ENDIF}
           if try_to_consume(_VAR) then
-            varspez:=vs_var
+          {$IFDEF semclass}
+            sds.SParaVar
+          {$ELSE}
+            sds.varspez:=vs_var
+          {$ENDIF}
           else
             if try_to_consume(_CONST) then
-              varspez:=vs_const
+            {$IFDEF semclass}
+              sds.SParaConst
+            {$ELSE}
+              sds.varspez:=vs_const
+            {$ENDIF}
           else
             if (m_out in current_settings.modeswitches) and
                try_to_consume(_OUT) then
-              varspez:=vs_out
+            {$IFDEF semclass}
+              sds.SParaOut
+            {$ELSE}
+              sds.varspez:=vs_out
+            {$ENDIF}
           else
             if (m_mac in current_settings.modeswitches) and
                try_to_consume(_POINTPOINTPOINT) then
               begin
-                include(pd.procoptions,po_varargs);
+              {$IFDEF semclass}
+                sds.SParaVarargs;
+              {$ELSE}
+                include(sds.pd.procoptions,po_varargs);
+              {$ENDIF}
                 break;
               end
           else
             if (m_nested_procvars in current_settings.modeswitches) and
                try_to_consume(_PROCEDURE) then
               begin
-                parseprocvar:=pv_proc;
-                varspez:=vs_const;
+              {$IFDEF semclass}
+                sds.SParaProc;
+              {$ELSE}
+                sds.parseprocvar:=pv_proc;
+                sds.varspez:=vs_const;
+              {$ENDIF}
               end
           else
             if (m_nested_procvars in current_settings.modeswitches) and
                try_to_consume(_FUNCTION) then
               begin
-                parseprocvar:=pv_func;
-                varspez:=vs_const;
+              {$IFDEF semclass}
+                sds.SParaFunc;
+              {$ELSE}
+                sds.parseprocvar:=pv_func;
+                sds.varspez:=vs_const;
+              {$ENDIF}
               end
+        {$IFDEF semclass}
+          ;
+        {$ELSE}
           else
-              varspez:=vs_value;
+              sds.varspez:=vs_value;
+        {$ENDIF}
           defaultvalue:=nil;
-          hdef:=nil;
+        {$IFDEF semclass}
+          sds.SParamNamesInit;
+        {$ELSE}
+          sds.hdef:=nil;
           { read identifiers and insert with error type }
-          sc.clear;
+          sds.sc.clear;
+        {$ENDIF}
           repeat
-            inc(paranr);
-            vs:=tparavarsym.create(orgpattern,paranr*10,varspez,generrordef,[]);
-            currparast.insert(vs);
-            if assigned(vs.owner) then
-             sc.add(vs)
+          {$IFDEF semclass}
+            sds.SParaName(orgpattern);
+          {$ELSE}
+            inc(sds.paranr);
+            sds.vs:=tparavarsym.create(orgpattern,sds.paranr*10,sds.varspez,generrordef,[]);
+            sds.currparast.insert(sds.vs);
+            if assigned(sds.vs.owner) then
+             sds.sc.add(sds.vs)
             else
-             vs.free;
+             sds.vs.free;
+          {$ENDIF}
             consume(_ID);
           until not try_to_consume(_COMMA);
-          locationstr:='';
+        {$IFDEF semclass}
+        {$ELSE}
+          sds.locationstr:='';
+        {$ENDIF}
           { macpas anonymous procvar }
-          if parseprocvar<>pv_none then
+        {$IFDEF semclass}
+          if sds.ParaIsAnonymousProc then
+           begin
+        {$ELSE}
+          if sds.parseprocvar<>pv_none then
            begin
              { inline procvar definitions are always nested procvars }
-             pv:=tprocvardef.create(normal_function_level+1);
+             sds.pv:=tprocvardef.create(normal_function_level+1);
+        {$ENDIF}
              if token=_LKLAMMER then
-               parse_parameter_dec(pv);
-             if parseprocvar=pv_func then
+               parse_parameter_dec(sds.pv);
+          {$IFDEF semclass}
+             if sds.ParaIsAnonymousFunc then
+          {$ELSE}
+             if sds.parseprocvar=pv_func then
+          {$ENDIF}
               begin
                 block_type:=bt_var_type;
                 consume(_COLON);
-                single_type(pv.returndef,false,false);
+                single_type(sds.pv.returndef,false,false);
                 block_type:=bt_var;
               end;
-             hdef:=pv;
+          {$IFDEF semclass}
+            //in sds.ParaIsAnonymousProc
+          {$ELSE}
+             sds.hdef:=sds.pv;
+          {$ENDIF}
              { possible proc directives }
              if check_proc_directive(true) then
                begin
-                  dummytype:=ttypesym.create('unnamed',hdef);
-                  parse_var_proc_directives(tsym(dummytype));
-                  dummytype.typedef:=nil;
-                  hdef.typesym:=nil;
-                  dummytype.free;
+               {$IFDEF semclass}
+                  parse_var_proc_directives(tsym(sds.GetDummyType));
+                  sds.FreeDummyType;
+               {$ELSE}
+                  sds.dummytype:=ttypesym.create('unnamed',sds.hdef);
+                  parse_var_proc_directives(tsym(sds.dummytype));
+                  sds.dummytype.typedef:=nil;
+                  sds.hdef.typesym:=nil;
+                  sds.dummytype.free;
+               {$ENDIF}
                end;
              { Add implicit hidden parameters and function result }
-             handle_calling_convention(pv);
+             handle_calling_convention(sds.pv);
            end
           else
           { read type declaration, force reading for value paras }
-           if (token=_COLON) or (varspez=vs_value) then
+        {$IFDEF semclass}
+           if (token=_COLON) or (sds.ParaIsValue) then
+        {$ELSE}
+           if (token=_COLON) or (sds.varspez=vs_value) then
+        {$ENDIF}
            begin
              consume(_COLON);
              { check for an open array }
@@ -558,20 +651,28 @@ implementation
                 consume(_ARRAY);
                 consume(_OF);
                 { define range and type of range }
-                hdef:=tarraydef.create(0,-1,s32inttype);
+              {$IFDEF semclass}
+                sds.ArrayParaInit;
+              {$ELSE}
+                sds.hdef:=tarraydef.create(0,-1,s32inttype);
+              {$ENDIF}
                 { array of const ? }
                 if (token=_CONST) and (m_objpas in current_settings.modeswitches) then
                  begin
                    consume(_CONST);
-                   srsym:=search_system_type('TVARREC');
-                   tarraydef(hdef).elementdef:=ttypesym(srsym).typedef;
-                   include(tarraydef(hdef).arrayoptions,ado_IsArrayOfConst);
+                 {$IFDEF semclass}
+                  sds.ArrayParaIsConst;
+                 {$ELSE}
+                   sds.srsym:=search_system_type('TVARREC');
+                   tarraydef(sds.hdef).elementdef:=ttypesym(sds.srsym).typedef;
+                   include(tarraydef(sds.hdef).arrayoptions,ado_IsArrayOfConst);
+                 {$ENDIF}
                  end
                 else
                  begin
                    { define field type }
-                   single_type(arrayelementdef,false,false);
-                   tarraydef(hdef).elementdef:=arrayelementdef;
+                   single_type(sds.arrayelementdef,false,false);
+                   tarraydef(sds.hdef).elementdef:=sds.arrayelementdef;
                  end;
               end
              else
@@ -580,25 +681,28 @@ implementation
                   is_univ:=try_to_consume(_UNIV);
 
                 if try_to_consume(_TYPE) then
-                  hdef:=ctypedformaltype
+                  sds.hdef:=ctypedformaltype
                 else
                   begin
                     block_type:=bt_var_type;
-                    single_type(hdef,false,false);
+                    single_type(sds.hdef,false,false);
                     block_type:=bt_var;
                   end;
 
                 { open string ? }
-                if is_shortstring(hdef) then
+              {$IFDEF semclass}
+                sds.ParaCheckOpenString;
+              {$ELSE}
+                if is_shortstring(sds.hdef) then
                   begin
-                    case varspez of
+                    case sds.varspez of
                       vs_var,vs_out:
                         begin
                           { not 100% Delphi-compatible: type xstr=string[255] cannot
                             become an openstring there, while here it can }
                           if (cs_openstring in current_settings.moduleswitches) and
-                             (tstringdef(hdef).len=255) then
-                            hdef:=openshortstringtype
+                             (tstringdef(sds.hdef).len=255) then
+                            sds.hdef:=openshortstringtype
                         end;
                       vs_value:
                        begin
@@ -607,129 +711,155 @@ implementation
                             use in passing its original length), so change these
                             into regular shortstring parameters (seems to be what
                             Delphi also does) }
-                        if is_open_string(hdef) then
-                          hdef:=cshortstringtype;
+                        if is_open_string(sds.hdef) then
+                          sds.hdef:=cshortstringtype;
                        end;
                     end;
                   end;
+              {$ENDIF}
+              {$IFDEF semclass}
+                sds.HandleLocation;
+              {$ELSE}
                 if (target_info.system in [system_powerpc_morphos,system_m68k_amiga]) then
                   begin
                     if (idtoken=_LOCATION) then
                       begin
                         consume(_LOCATION);
-                        locationstr:=cstringpattern;
+                        sds.locationstr:=cstringpattern;
                         consume(_CSTRING);
                       end
                     else
                       begin
-                        if explicit_paraloc then
+                        if sds.explicit_paraloc then
                           Message(parser_e_paraloc_all_paras);
-                        locationstr:='';
+                        sds.locationstr:='';
                       end;
                   end
                 else
-                  locationstr:='';
+                  sds.locationstr:='';
+              {$ENDIF}
 
                 { default parameter }
                 if (m_default_para in current_settings.modeswitches) then
                  begin
                    if try_to_consume(_EQUAL) then
                     begin
-                      vs:=tparavarsym(sc[0]);
-                      if sc.count>1 then
+                    {$IFDEF semclass}
+                      sds.DefaultParam;
+                    {$ELSE}
+                      sds.vs:=tparavarsym(sds.sc[0]);
+                      if sds.sc.count>1 then
                         Message(parser_e_default_value_only_one_para);
+                    {$ENDIF}
                       { prefix 'def' to the parameter name }
-                      defaultvalue:=ReadConstant('$def'+vs.name,vs.fileinfo);
+                      defaultvalue:=ReadConstant('$def'+sds.vs.name,sds.vs.fileinfo);
                       if assigned(defaultvalue) then
                         begin
                           include(defaultvalue.symoptions,sp_internal);
-                          pd.parast.insert(defaultvalue);
+                          sds.pd.parast.insert(defaultvalue);
                         end;
                       defaultrequired:=true;
                     end
                    else
                     begin
                       if defaultrequired then
-                        Message1(parser_e_default_value_expected_for_para,vs.name);
+                        Message1(parser_e_default_value_expected_for_para,sds.vs.name);
                     end;
                  end;
               end;
            end
           else
-           hdef:=cformaltype;
+           sds.hdef:=cformaltype;
 
+        {$IFDEF semclass}
+          sds.CheckParams(is_univ, defaultvalue);
+        {$ELSE}
           { File types are only allowed for var and out parameters }
-          if (hdef.typ=filedef) and
-             not(varspez in [vs_out,vs_var]) then
+          if (sds.hdef.typ=filedef) and
+             not(sds.varspez in [vs_out,vs_var]) then
             CGMessage(cg_e_file_must_call_by_reference);
 
           { univ cannot be used with types whose size is not known at compile
             time }
           if is_univ and
-             not is_valid_univ_para_type(hdef) then
-            Message1(parser_e_invalid_univ_para,hdef.typename);
+             not is_valid_univ_para_type(sds.hdef) then
+            Message1(parser_e_invalid_univ_para,sds.hdef.typename);
 
-          for i:=0 to sc.count-1 do
+          for i:=0 to sds.sc.count-1 do
             begin
-              vs:=tparavarsym(sc[i]);
-              vs.univpara:=is_univ;
+              sds.vs:=tparavarsym(sds.sc[i]);
+              sds.vs.univpara:=is_univ;
               { update varsym }
-              vs.vardef:=hdef;
-              vs.defaultconstsym:=defaultvalue;
+              sds.vs.vardef:=sds.hdef;
+              sds.vs.defaultconstsym:=defaultvalue;
 
               if (target_info.system in [system_powerpc_morphos,system_m68k_amiga]) then
                 begin
-                  if locationstr<>'' then
+                  if sds.locationstr<>'' then
                     begin
-                      if sc.count>1 then
+                      if sds.sc.count>1 then
                         Message(parser_e_paraloc_only_one_para);
-                      if (paranr>1) and not(explicit_paraloc) then
+                      if (sds.paranr>1) and not(sds.explicit_paraloc) then
                         Message(parser_e_paraloc_all_paras);
-                      explicit_paraloc:=true;
-                      include(vs.varoptions,vo_has_explicit_paraloc);
-                      if not(paramanager.parseparaloc(vs,upper(locationstr))) then
+                      sds.explicit_paraloc:=true;
+                      include(sds.vs.varoptions,vo_has_explicit_paraloc);
+                      if not(paramanager.parseparaloc(sds.vs,upper(sds.locationstr))) then
                         message(parser_e_illegal_explicit_paraloc);
                     end
                   else
-                    if explicit_paraloc then
+                    if sds.explicit_paraloc then
                       Message(parser_e_paraloc_all_paras);
                 end;
             end;
+        {$ENDIF}
         until not try_to_consume(_SEMICOLON);
 
-        if explicit_paraloc then
+      {$IFDEF semclass}
+        sds.SDSDone;
+      {$ELSE}
+        if sds.explicit_paraloc then
           begin
-            pd.has_paraloc_info:=callerside;
-            include(pd.procoptions,po_explicitparaloc);
+            sds.pd.has_paraloc_info:=callerside;
+            include(sds.pd.procoptions,po_explicitparaloc);
           end;
         { remove parasymtable from stack }
-        sc.free;
+        sds.sc.free;
         { reset object options }
         dec(testcurobject);
-        block_type:=old_block_type;
+        block_type:=sds.old_block_type;
+      {$ENDIF}
         consume(_RKLAMMER);
       end;
 
-
-    function _parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean;
+    function _parse_proc_head(_aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean;
+      {$IFDEF semclass}
       var
+        sph: TSemProcHead;
+      {$ELSE}
+      var
+        searchagain : boolean;
         hs       : string;
+        ImplIntf : TImplementedInterface;
+        storepos: tfileposinfo;
         orgsp,sp : TIDString;
         srsym : tsym;
         srsymtable : TSymtable;
         checkstack : psymtablestackitem;
-        storepos,
         procstartfilepos : tfileposinfo;
-        searchagain : boolean;
         st,
         genericst : TSymtable;
         aprocsym : tprocsym;
         popclass : boolean;
-        ImplIntf : TImplementedInterface;
         old_parse_generic : boolean;
         old_current_objectdef: tobjectdef;
+        aclass:tobjectdef absolute _aclass;
+      {$ENDIF}
       begin
         { Save the position where this procedure really starts }
+{$IFDEF semclass}
+        sph.Init(_aclass,potype);
+        result:=false;
+{$ELSE}
         procstartfilepos:=current_tokenpos;
         old_parse_generic:=parse_generic;
 
@@ -748,8 +878,17 @@ implementation
             orgsp:=orgpattern;
             consume(_ID);
           end;
+{$ENDIF}
 
         { examine interface map: function/procedure iname.functionname=locfuncname }
+{$IFDEF semclass}
+        if assigned(sph.aclass) and
+           assigned(sph.aclass.ImplementedInterfaces) and
+           (sph.aclass.ImplementedInterfaces.count>0) and
+           try_to_consume(_POINT) then
+         begin
+            sph.CheckInterfaceResolution;
+{$ELSE}
         if assigned(aclass) and
            assigned(aclass.ImplementedInterfaces) and
            (aclass.ImplementedInterfaces.count>0) and
@@ -780,11 +919,20 @@ implementation
               (token=_ID) then
              ImplIntf.AddMapping(hs,pattern);
            consume(_ID);
+{$ENDIF}
            result:=true;
            exit;
          end;
 
         { method  ? }
+{$IFDEF semclass}
+        if not assigned(sph.aclass) and
+           (potype<>potype_operator) and
+           (symtablestack.top.symtablelevel=main_program_level) and
+           try_to_consume(_POINT) then
+         begin
+           sph.DecMethod;
+{$ELSE}
         if not assigned(aclass) and
            (potype<>potype_operator) and
            (symtablestack.top.symtablelevel=main_program_level) and
@@ -851,9 +999,13 @@ implementation
              else
               Message(parser_e_class_id_expected);
            until not searchagain;
+{$ENDIF}
          end
         else
          begin
+{$IFDEF semclass}
+          sph.CheckOverload;
+{$ELSE}
            { check for constructor/destructor which is not allowed here }
            if (not parse_only) and
               (potype in [potype_constructor,potype_destructor,
@@ -904,8 +1056,12 @@ implementation
                    end;
               end;
            until not searchagain;
+{$ENDIF}
          end;
 
+{$IFDEF semclass}
+        sph.ProcName(pd);
+{$ELSE}
         { test again if assigned, it can be reset to recover }
         if not assigned(aprocsym) then
           begin
@@ -983,10 +1139,14 @@ implementation
         pd.visibility:=symtablestack.top.currentvisibility;
         if symtablestack.top.currentlyoptional then
           include(pd.procoptions,po_optional);
+{$ENDIF}
 
         { parse parameters }
         if token=_LKLAMMER then
           begin
+{$IFDEF semclass}
+            sph.ParamsInit(pd);
+{$ELSE}
             { Add ObjectSymtable to be able to find generic type definitions }
             popclass:=false;
             if assigned(pd._class) and
@@ -1001,7 +1161,11 @@ implementation
             { Add parameter symtable }
             if pd.parast.symtabletype<>staticsymtable then
               symtablestack.push(pd.parast);
+{$ENDIF}
             parse_parameter_dec(pd);
+{$IFDEF semclass}
+            sph.ParamsDone(pd);
+{$ELSE}
             if pd.parast.symtabletype<>staticsymtable then
               symtablestack.pop(pd.parast);
             if popclass then
@@ -1009,23 +1173,39 @@ implementation
               current_objectdef:=old_current_objectdef;
               symtablestack.pop(pd._class.symtable);
             end;
+{$ENDIF}
           end;
-
+{$IFDEF semclass}
+        sph.Done;
+        Result := True;
+{$ELSE}
         parse_generic:=old_parse_generic;
         result:=true;
+{$ENDIF}
       end;
 
 
-    function _parse_proc_dec(isclassmethod:boolean; aclass:tobjectdef):tprocdef;
+    function parse_proc_dec(isclassmethod:boolean; aclass:tobjectdef):tprocdef;
+    {$IFDEF semclass}
+      var
+        spd: TSemProcDec;
+        pd : tprocdef;  //here or in TSemProcDec? mirror?
+    {$ELSE}
       var
         pd : tprocdef;
         locationstr: string;
         old_parse_generic,
         popclass: boolean;
         old_current_objectdef: tobjectdef;
+    {$ENDIF}
       begin
+      {$IFDEF semclass}
+        spd.Init;
+        pd:=nil;
+      {$ELSE}
         locationstr:='';
         pd:=nil;
+      {$ENDIF}
         case token of
           _FUNCTION :
             begin
@@ -1037,6 +1217,9 @@ implementation
                     begin
                       if try_to_consume(_COLON) then
                        begin
+                       {$IFDEF semclass}
+                        spd.TypeInit(pd);
+                       {$ELSE}
                          old_parse_generic:=parse_generic;
                          inc(testcurobject);
                          { Add ObjectSymtable to be able to find generic type definitions }
@@ -1051,7 +1234,11 @@ implementation
                              old_current_objectdef:=current_objectdef;
                              current_objectdef:=pd._class;
                            end;
+                       {$ENDIF}
                          single_type(pd.returndef,false,false);
+                       {$IFDEF semclass}
+                        spd.TypeDone(pd);
+                       {$ELSE}
                          if popclass then
                            begin
                              current_objectdef:=old_current_objectdef;
@@ -1082,6 +1269,7 @@ implementation
                               locationstr:='D0';
                             end;
                           end;
+                       {$ENDIF}
 
                        end
                       else
@@ -1097,7 +1285,11 @@ implementation
                           end;
                        end;
                       if isclassmethod then
+                      {$IFDEF semclass}
+                        spd.MakeClassMethod(pd);
+                      {$ELSE}
                        include(pd.procoptions,po_classmethod);
+                      {$ENDIF}
                     end;
                 end
               else
@@ -1116,9 +1308,13 @@ implementation
                   { pd=nil when it is an interface mapping }
                   if assigned(pd) then
                     begin
+                    {$IFDEF semclass}
+                      spd.MakeProc(pd, isclassmethod);
+                    {$ELSE}
                       pd.returndef:=voidtype;
                       if isclassmethod then
                         include(pd.procoptions,po_classmethod);
+                    {$ENDIF}
                     end;
                 end;
             end;
@@ -1130,6 +1326,9 @@ implementation
                 parse_proc_head(aclass,potype_class_constructor,pd)
               else
                 parse_proc_head(aclass,potype_constructor,pd);
+            {$IFDEF semclass}
+              spd.MakeConstructor(pd, isclassmethod);
+            {$ELSE}
               if not isclassmethod and
                  assigned(pd) and
                  assigned(pd._class) then
@@ -1147,6 +1346,7 @@ implementation
                 end
               else
                 pd.returndef:=voidtype;
+            {$ENDIF}
             end;
 
           _DESTRUCTOR :
@@ -1156,8 +1356,12 @@ implementation
                 parse_proc_head(aclass,potype_class_destructor,pd)
               else
                 parse_proc_head(aclass,potype_destructor,pd);
+            {$IFDEF semclass}
+              spd.MakeDestructor(pd);
+            {$ELSE}
               if assigned(pd) then
                 pd.returndef:=voidtype;
+            {$ENDIF}
             end;
 
           _OPERATOR :
@@ -1249,15 +1453,20 @@ implementation
           end;
         result:=pd;
 
+      {$IFDEF semclass}
+        spd.Done(pd);
+      {$ELSE}
         if locationstr<>'' then
          begin
            if not(paramanager.parsefuncretloc(pd,upper(locationstr))) then
              { I guess this needs a new message... (KB) }
              message(parser_e_illegal_explicit_paraloc);
          end;
+      {$ENDIF}
       end;
 
 
+{$IFDEF directives}
 {****************************************************************************
                         Procedure directive handlers
 ****************************************************************************}
@@ -2477,7 +2686,6 @@ const
           end;
       end;
 
-
     procedure proc_set_mangledname(pd:tprocdef);
       var
         s : string;
@@ -3076,5 +3284,8 @@ const
 
         proc_add_definition:=forwardfound;
       end;
+{$ELSE}
+//left in pdecsub
+{$ENDIF}
 
 end.

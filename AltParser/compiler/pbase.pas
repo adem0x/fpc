@@ -27,9 +27,8 @@ interface
 
     uses
        cutils,cclasses,
-       tokens,globtype,scanner,
-       symconst,symbase,symtype,symdef,symsym,symtable,
-       node
+       tokens,globtype,scanner,node,
+       symconst,symbase,symtype,symdef,symsym,symtable
        ;
 
     const
@@ -69,14 +68,21 @@ interface
       TParser = class(tscannerfile)
       protected
         constructor CreateFor(const filename: string); virtual;
+        function  ParseBlock(_isLibrary: boolean): tnode; virtual;
+        procedure read_declarations(is_library : boolean); virtual;
+        procedure read_interface_declarations; virtual;
+        procedure generate_specialization_procs; virtual;
+        function  statement: tnode; virtual;
+        function  statement_block(starttoken : ttoken) : tnode; virtual;
+        { reads a whole expression }
+        function  expr(dotypecheck : boolean) : tnode; virtual;
+        { reads an expression without assignements and .. }
+        function  comp_expr(accept_equal : boolean):tnode; virtual;
+        procedure Parse_Parameter_Dec(_pd:tabstractprocdef); virtual;
+        function  Parse_Proc_Dec(isclassmethod:boolean; aclass:tobjectdef):tprocdef; virtual;
+        function  parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean; virtual;
       public
         procedure Compile; virtual;
-        function statement: tnode; virtual;
-        function statement_block(starttoken : ttoken) : tnode; virtual;
-        { reads a whole expression }
-        function expr(dotypecheck : boolean) : tnode; virtual;
-        { reads an expression without assignements and .. }
-        function comp_expr(accept_equal : boolean):tnode; virtual;
       end;
 
       TParserClass = class of TParser;
@@ -140,13 +146,49 @@ interface
        last_endtoken_filepos: tfileposinfo;
 
 
+    function block(is_Library: boolean): tnode;
+
+    { reads the declaration blocks }
+    procedure read_declarations(is_library : boolean);
+
+    { reads declarations in the interface part of a unit }
+    procedure read_interface_declarations;
+
+    procedure generate_specialization_procs;
+
+    procedure Parse_Parameter_Dec(_pd:tabstractprocdef);
+    function  Parse_Proc_Dec(isclassmethod:boolean; aclass:tobjectdef):tprocdef;
+    function  parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean;
+
 implementation
 
     uses
        sysutils,
        globals,htypechk,systems,verbose,
-       pmodules,pstatmnt,pexpr,
+       pmodules,psub,pstatmnt,pexpr,pdecsub,
        fmodule;
+
+function block(is_Library: boolean): tnode;
+begin
+  Result := current_parser.ParseBlock(is_Library);
+end;
+
+{ reads the declaration blocks }
+procedure read_declarations(is_library : boolean);
+begin
+  current_parser.read_declarations(is_library);
+end;
+
+{ reads declarations in the interface part of a unit }
+procedure read_interface_declarations;
+begin
+  current_parser.read_interface_declarations;
+end;
+
+procedure generate_specialization_procs;
+begin
+  current_parser.generate_specialization_procs;
+end;
 
 {****************************************************************************
                                Token Parsing
@@ -492,6 +534,26 @@ implementation
            proc_program(token=_LIBRARY);
       end;
 
+      function TParser.ParseBlock(_isLibrary: boolean): tnode;
+      begin
+        Result := psub._block(_isLibrary);
+      end;
+
+      procedure TParser.read_declarations(is_library: boolean);
+      begin
+        psub._read_declarations(is_library);
+      end;
+
+      procedure TParser.read_interface_declarations;
+      begin
+        psub._read_interface_declarations;
+      end;
+
+      procedure TParser.generate_specialization_procs;
+      begin
+        psub._generate_specialization_procs;
+      end;
+
 {***************** language specifics **********************}
 
       function TParser.statement: tnode;
@@ -512,6 +574,23 @@ implementation
       function TParser.expr(dotypecheck: boolean): tnode;
       begin
         Result := pexpr.expr(dotypecheck);
+      end;
+
+      procedure TParser.Parse_Parameter_Dec(_pd: tabstractprocdef);
+      begin
+        pdecsub._parse_parameter_dec(_pd);
+      end;
+
+      function TParser.Parse_Proc_Dec(isclassmethod: boolean;
+              aclass: tobjectdef): tprocdef;
+      begin
+        Result := pdecsub._parse_proc_dec(isclassmethod, aclass);
+      end;
+
+      function TParser.parse_proc_head(aclass: tobjectdef;
+        potype: tproctypeoption; var pd: tprocdef): boolean;
+      begin
+        Result := pdecsub._parse_proc_head(aclass,potype,pd);
       end;
 
 {********************* forwarders ********************}
@@ -537,6 +616,21 @@ implementation
     function comp_expr(accept_equal : boolean):tnode;
     begin
       Result := current_parser.comp_expr(accept_equal);
+    end;
+
+    procedure Parse_Parameter_Dec(_pd:tabstractprocdef);
+    begin
+      current_parser.Parse_Parameter_Dec(_pd);
+    end;
+
+    function  Parse_Proc_Dec(isclassmethod:boolean; aclass:tobjectdef):tprocdef;
+    begin
+      Result := current_parser.Parse_Proc_Dec(isclassmethod, aclass);
+    end;
+
+    function  parse_proc_head(aclass:tobjectdef;potype:tproctypeoption;var pd:tprocdef):boolean;
+    begin
+      Result := current_parser.parse_proc_head(aclass,potype,pd);
     end;
 
 end.

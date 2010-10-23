@@ -56,7 +56,7 @@ type
     function  SUnitImplInit: boolean;
     procedure SUnitBodyInit;  //(mi)
     procedure SUnitBodyDone;  //(mi)
-    procedure SUnitFinalInit(fPresent: boolean); //(mi)
+    function  SUnitFinalInit(fPresent: boolean): boolean; //(mi)
     procedure SUnitFinalDone; //(mi)
     function  SUnitDone: boolean;  //(mi)
   public //from pmodules.proc_package
@@ -66,7 +66,7 @@ type
     procedure SPackageImplInit; //(mi)
     function  SPackageDone: boolean;
   public //from pmodules.proc_program
-    constructor SModuleInitProgLib(isLibrary: boolean); //(mi)
+    constructor SModuleInitProgLib(_isLibrary: boolean); //(mi)
     procedure SLibName; //(orgpattern)
     procedure SProgName; //(orgpattern)
     procedure SProgNameNone;
@@ -384,7 +384,7 @@ begin //SUnitBodyDone;
    end;
 end; //SUnitBodyDone;
 
-procedure TSemModule.SUnitFinalInit(fPresent: boolean);
+function TSemModule.SUnitFinalInit(fPresent: boolean): boolean;
 begin
   if fPresent then
     begin //finalize_procinfo:= SUnitFinalInit;
@@ -397,6 +397,7 @@ begin
     end
   else
     finalize_procinfo:=gen_implicit_initfinal(uf_finalize,current_module.localsymtable);
+  Result := fPresent;
 end;
 
 procedure TSemModule.SUnitFinalDone;
@@ -864,17 +865,17 @@ begin //SPackageDone
   Result := False;  //continue parsing
 end; //SPackageDone
 
-constructor TSemModule.SModuleInitProgLib(isLibrary: boolean);
+constructor TSemModule.SModuleInitProgLib(_isLibrary: boolean);
 begin //SModuleInitProgLib
 {$IFDEF share1}
-  if isLibrary then
+  if _isLibrary then
     SModuleInit(mkLib)
   else
     SModuleInit(mkProg);
 {$ELSE}
   Kind := mkProg;
-  DLLsource:=islibrary;
-  Status.IsLibrary:=IsLibrary;
+  DLLsource:=_isLibrary;
+  Status.IsLibrary:=_isLibrary;
   Status.IsPackage:=false;
   Status.IsExe:=true;
   parse_only:=false;
@@ -883,7 +884,7 @@ begin //SModuleInitProgLib
   finalize_procinfo:=nil;
   resources_used:=false;
 { DLL defaults to create reloc info }
-  if islibrary then
+  if _isLibrary then
    begin
      if not RelocSectionSetExplicitly then
        RelocSection:=true;
@@ -1006,7 +1007,7 @@ begin //SProgLibBodyInit
 
 { The program intialization needs an alias, so it can be called
    from the bootstrap code.}
-  if islibrary then
+  if Kind=mkLib then
   begin
     main_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,mainaliasname),potype_proginit,current_module.localsymtable);
     { Win32 startup code needs a single name }
@@ -1062,7 +1063,7 @@ procedure TSemModule.SPrgLibFinalDone;
 begin //SPrgLibFinalDone
 { the finalization routine of libraries is generic (and all libraries need to }
   { be finalized, so they can finalize any units they use                       }
-  if (islibrary) then
+  if (Kind = mkLib) then
     exportlib.setfininame(current_asmdata.asmlists[al_procedures],'FPC_LIB_EXIT');
 { all labels must be defined before generating code }
   if Errorcount=0 then
@@ -1160,7 +1161,7 @@ begin //SPrgLibDone
   if (cs_debuginfo in current_settings.moduleswitches) then
    current_debuginfo.inserttypeinfo;
 
-  if islibrary or (target_info.system in systems_unit_program_exports) then
+  if (kind = mkLib) or (target_info.system in systems_unit_program_exports) then
    exportlib.generatelib;
 { Reference all DEBUGINFO sections from the main .fpc section }
   if (cs_debuginfo in current_settings.moduleswitches) then
@@ -1263,6 +1264,11 @@ procedure TSemModule.SModuleInit(mk: eModuleKind);
 
 begin
   Kind := mk;
+  main_procinfo := nil;
+  init_procinfo := nil;
+  finalize_procinfo := nil;
+  force_init_final:= False;
+  resources_used := False;
   case mk of
   mkUnit:
     begin

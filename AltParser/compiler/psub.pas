@@ -75,17 +75,19 @@ interface
     procedure printnode_reset;
 
     { reads the declaration blocks }
-    procedure read_declarations(islibrary : boolean);
+    procedure _read_declarations(is_Library : boolean);
 
     { reads declarations in the interface part of a unit }
-    procedure read_interface_declarations;
+    procedure _read_interface_declarations;
 
-    procedure generate_specialization_procs;
+    procedure _generate_specialization_procs;
 
 { for alternate parsers }
+    function _block(is_Library : boolean) : tnode;
     procedure check_forward_class(p:TObject;arg:pointer);
     procedure check_init_paras(p:TObject;arg:pointer);
     procedure initializevars(p:TObject;arg:pointer);
+    procedure read_proc_body(old_current_procinfo:tprocinfo;pd:tprocdef);
 
 implementation
 
@@ -179,10 +181,10 @@ implementation
       end;
 
 
-    function block(islibrary : boolean) : tnode;
+    function _block(is_Library : boolean) : tnode;
       begin
          { parse const,types and vars }
-         read_declarations(islibrary);
+         read_declarations(is_Library);
 
          { do we have an assembler block without the po_assembler?
            we should allow this for Delphi compatibility (PFV) }
@@ -192,7 +194,7 @@ implementation
          { Handle assembler block different }
          if (po_assembler in current_procinfo.procdef.procoptions) then
           begin
-            block:=assembler_block;
+            Result:=assembler_block;
             exit;
           end;
 
@@ -200,7 +202,7 @@ implementation
          if (
              assigned(current_procinfo.procdef.localst) and
              (current_procinfo.procdef.localst.symtablelevel=main_program_level) and
-             (current_module.is_unit or islibrary)
+             (current_module.is_unit or is_Library)
             ) then
            begin
              if (token=_END) then
@@ -208,10 +210,10 @@ implementation
                    consume(_END);
                    { We need at least a node, else the entry/exit code is not
                      generated and thus no PASCALMAIN symbol which we need (PFV) }
-                   if islibrary then
-                    block:=cnothingnode.create
+                   if is_Library then
+                    Result:=cnothingnode.create
                    else
-                    block:=nil;
+                    Result:=nil;
                 end
               else
                 begin
@@ -219,12 +221,12 @@ implementation
                      begin
                         { The library init code is already called and does not
                           need to be in the initfinal table (PFV) }
-                        block:=statement_block(_INITIALIZATION);
+                        Result:=statement_block(_INITIALIZATION);
                         { optimize empty initialization block away }
-                        if (block.nodetype=blockn) and (tblocknode(block).left=nil) then
-                          FreeAndNil(block)
+                        if (Result.nodetype=blockn) and (tblocknode(Result).left=nil) then
+                          FreeAndNil(Result)
                         else
-                          if not islibrary then
+                          if not is_Library then
                             current_module.flags:=current_module.flags or uf_init;
                      end
                    else if token=_FINALIZATION then
@@ -234,31 +236,31 @@ implementation
                          so we've to check if we are really try to parse the finalization }
                        if current_procinfo.procdef.proctypeoption=potype_unitfinalize then
                          begin
-                           block:=statement_block(_FINALIZATION);
+                           Result:=statement_block(_FINALIZATION);
                            { optimize empty finalization block away }
-                           if (block.nodetype=blockn) and (tblocknode(block).left=nil) then
-                             FreeAndNil(block)
+                           if (Result.nodetype=blockn) and (tblocknode(Result).left=nil) then
+                             FreeAndNil(Result)
                            else
                              current_module.flags:=current_module.flags or uf_finalize;
                          end
                          else
-                           block:=nil;
+                           Result:=nil;
                      end
                    else
                      begin
                         { The library init code is already called and does not
                           need to be in the initfinal table (PFV) }
-                        if not islibrary then
+                        if not is_Library then
                           current_module.flags:=current_module.flags or uf_init;
-                        block:=statement_block(_BEGIN);
+                        Result:=statement_block(_BEGIN);
                      end;
                 end;
             end
          else
             begin
-               block:=statement_block(_BEGIN);
+               Result:=statement_block(_BEGIN);
                if current_procinfo.procdef.localst.symtabletype=localsymtable then
-                 current_procinfo.procdef.localst.SymList.ForEachCall(@initializevars,block);
+                 current_procinfo.procdef.localst.SymList.ForEachCall(@initializevars,Result);
             end;
       end;
 
@@ -1432,7 +1434,7 @@ implementation
       begin
         ParseBodyInit(rpb);
          { parse the code ... }
-         code:=block(current_module.islibrary);
+         code:=block(current_module.isLibrary);
         ParseBodyDone(rpb);
       end;
 
@@ -1837,7 +1839,7 @@ implementation
       end;
 
 
-    procedure read_declarations(islibrary : boolean);
+    procedure _read_declarations(is_Library : boolean);
       var
         is_classdef:boolean;
       begin
@@ -1889,7 +1891,7 @@ implementation
                         Message(parser_e_syntax_error);
                         consume_all_until(_SEMICOLON);
                      end
-                   else if islibrary or
+                   else if is_Library or
                      (target_info.system in systems_unit_program_exports) then
                      read_exports
                    else
@@ -1934,7 +1936,7 @@ implementation
       end;
 
 
-    procedure read_interface_declarations;
+    procedure _read_interface_declarations;
       begin
          repeat
            case token of
@@ -2052,7 +2054,7 @@ implementation
       end;
 
 
-    procedure generate_specialization_procs;
+    procedure _generate_specialization_procs;
       begin
         if assigned(current_module.globalsymtable) then
           current_module.globalsymtable.SymList.ForEachCall(@specialize_objectdefs,nil);

@@ -8,8 +8,6 @@ unit SSub;
 
 {$i fpcdefs.inc}
 
-{$DEFINE semobj} //using semantic Object instead of Class?
-
 interface
 
 uses
@@ -22,16 +20,16 @@ uses
 type
   TSemSub = object
   protected
-    firstpd : tprocdef;
+    //firstpd : tprocdef;
   public
     old_current_procinfo : tprocinfo;
     old_current_objectdef : tobjectdef;
     pd: tprocdef;
-    pdflags    : tpdflags;
+    //pdflags    : tpdflags;
   public
     constructor Init; //SSaveProcInfo;
     destructor  Done; //SRestoreProcInfo;
-    procedure SDefaultProcOptions;
+    function  SDefaultProcOptions: tpdflags;
     procedure SProcDirectivesDone;
     procedure SHandleImports;
     procedure SProcDone;
@@ -104,6 +102,7 @@ begin
    to another procdef }
   current_procinfo:=nil;
   current_objectdef:=nil;
+  pd := nil;
 end;
 
 //destructor TSemSub.Destroy;
@@ -115,7 +114,7 @@ begin
   current_procinfo:=old_current_procinfo;
 end;
 
-procedure TSemSub.SDefaultProcOptions;
+function TSemSub.SDefaultProcOptions: tpdflags;
 begin
 //from read_proc
 { set the default function options }
@@ -126,13 +125,13 @@ begin
       implementation doesn't much this header }
     pd.interfacedef:=true;
     include(pd.procoptions,po_global);
-    pdflags:=[pd_interface];
+    Result:=[pd_interface];
   end
   else
   begin
-    pdflags:=[pd_body];
+    Result:=[pd_body];
     if (not current_module.in_interface) then
-      include(pdflags,pd_implemen);
+      include(Result,pd_implemen);
     if (not current_module.is_unit) or
        create_smartlink or
       {
@@ -146,6 +145,8 @@ begin
 end;
 
 procedure TSemSub.SProcDirectivesDone;
+var
+  firstpd: tprocdef;
 begin
 //from read_proc
 { Set calling convention }
