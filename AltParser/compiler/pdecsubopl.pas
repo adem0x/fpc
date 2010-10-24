@@ -718,7 +718,7 @@ implementation
                   end;
               {$ENDIF}
               {$IFDEF semclass}
-                sds.HandleLocation;
+                sds.locationstr := SGetParaLocation(sds.explicit_paraloc);
               {$ELSE}
                 if (target_info.system in [system_powerpc_morphos,system_m68k_amiga]) then
                   begin
@@ -1286,7 +1286,7 @@ implementation
                        end;
                       if isclassmethod then
                       {$IFDEF semclass}
-                        spd.MakeClassMethod(pd);
+                        SMakeClassMethod(pd);
                       {$ELSE}
                        include(pd.procoptions,po_classmethod);
                       {$ENDIF}
@@ -1309,7 +1309,7 @@ implementation
                   if assigned(pd) then
                     begin
                     {$IFDEF semclass}
-                      spd.MakeProc(pd, isclassmethod);
+                      SMakeProc(pd, isclassmethod);
                     {$ELSE}
                       pd.returndef:=voidtype;
                       if isclassmethod then
@@ -1327,7 +1327,7 @@ implementation
               else
                 parse_proc_head(aclass,potype_constructor,pd);
             {$IFDEF semclass}
-              spd.MakeConstructor(pd, isclassmethod);
+              SMakeConstructor(pd, isclassmethod);
             {$ELSE}
               if not isclassmethod and
                  assigned(pd) and
@@ -1357,7 +1357,7 @@ implementation
               else
                 parse_proc_head(aclass,potype_destructor,pd);
             {$IFDEF semclass}
-              spd.MakeDestructor(pd);
+              SMakeDestructor(pd);
             {$ELSE}
               if assigned(pd) then
                 pd.returndef:=voidtype;

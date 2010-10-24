@@ -8,6 +8,8 @@ unit SDecSub;
 
 {$i fpcdefs.inc}
 
+{$DEFINE someProcs} //make some methods ordinary procedures?
+
 interface
 
 uses
@@ -68,7 +70,10 @@ type
     procedure ParaCheckOpenString;
     function  DefaultParam: tparavarsym;
     procedure CheckParams(is_univ: boolean; defaultvalue: tconstsym);
+  {$IFDEF someProcs}
+  {$ELSE}
     procedure HandleLocation; //OS specific attribute
+  {$ENDIF}
   end;
 
   TSemProcHead = object
@@ -114,11 +119,21 @@ type
     procedure Done(pd: tprocdef); //destructor cannot take arguments
     procedure TypeInit(pd: tprocdef);
     procedure TypeDone(pd: tprocdef);
+  {$IFDEF someProcs}
+  {$ELSE}
     procedure MakeClassMethod(pd: tprocdef);
     procedure MakeProc(pd: tprocdef; isclassmethod: boolean);
     procedure MakeConstructor(pd: tprocdef; isclassmethod: boolean);
     procedure MakeDestructor(pd: tprocdef);
+  {$ENDIF}
   end;
+
+function SGetParaLocation(explicit_paraloc: boolean): string;
+//subject to become TProcDef methods/properties
+procedure SMakeClassMethod(pd: tprocdef);
+procedure SMakeProc(pd: tprocdef; isclassmethod: boolean);
+procedure SMakeConstructor(pd: tprocdef; isclassmethod: boolean);
+procedure SMakeDestructor(pd: tprocdef);
 
 implementation
 
@@ -288,50 +303,42 @@ var
   i: integer;
 begin
 { File types are only allowed for var and out parameters }
-  if (hdef.typ=filedef) and
-     not(varspez in [vs_out,vs_var]) then
+  if (hdef.typ=filedef) and not(varspez in [vs_out,vs_var]) then
     CGMessage(cg_e_file_must_call_by_reference);
 { univ cannot be used with types whose size is not known at compile
     time }
-  if is_univ and
-     not is_valid_univ_para_type(hdef) then
+  if is_univ and not is_valid_univ_para_type(hdef) then
     Message1(parser_e_invalid_univ_para,hdef.typename);
 
-  for i:=0 to sc.count-1 do
-    begin
-      vs:=tparavarsym(sc[i]);
-      vs.univpara:=is_univ;
-      { update varsym }
-      vs.vardef:=hdef;
-      vs.defaultconstsym:=defaultvalue;
+  for i:=0 to sc.count-1 do begin
+    vs:=tparavarsym(sc[i]);
+    vs.univpara:=is_univ;
+    { update varsym }
+    vs.vardef:=hdef;
+    vs.defaultconstsym:=defaultvalue; //when a default value is given, only one parameter can exist in sc
 
-      if (target_info.system in [system_powerpc_morphos,system_m68k_amiga]) then
-        begin
-          if locationstr<>'' then
-            begin
-              if sc.count>1 then
-                Message(parser_e_paraloc_only_one_para);
-              if (paranr>1) and not(explicit_paraloc) then
-                Message(parser_e_paraloc_all_paras);
-              explicit_paraloc:=true;
-              include(vs.varoptions,vo_has_explicit_paraloc);
-              if not(paramanager.parseparaloc(vs,upper(locationstr))) then
-                message(parser_e_illegal_explicit_paraloc);
-            end
-          else
-            if explicit_paraloc then
-              Message(parser_e_paraloc_all_paras);
-        end;
+    if (target_info.system in [system_powerpc_morphos,system_m68k_amiga]) then begin
+      if locationstr<>'' then begin
+        if sc.count>1 then
+          Message(parser_e_paraloc_only_one_para);
+        if (paranr>1) and not(explicit_paraloc) then
+          Message(parser_e_paraloc_all_paras);
+        explicit_paraloc:=true;
+        include(vs.varoptions,vo_has_explicit_paraloc);
+        if not(paramanager.parseparaloc(vs,upper(locationstr))) then
+          message(parser_e_illegal_explicit_paraloc);
+      end else if explicit_paraloc then
+        Message(parser_e_paraloc_all_paras);
     end;
+  end;
 end;
 
 destructor TSemParaDec.SDSDone;
 begin
-  if explicit_paraloc then
-    begin
-      pd.has_paraloc_info:=callerside;
-      include(pd.procoptions,po_explicitparaloc);
-    end;
+  if explicit_paraloc then begin
+    pd.has_paraloc_info:=callerside;
+    include(pd.procoptions,po_explicitparaloc);
+  end;
   { remove parasymtable from stack }
   sc.free;
   { reset object options }
@@ -339,25 +346,21 @@ begin
   block_type:=old_block_type;
 end;
 
-procedure TSemParaDec.HandleLocation;
+//TSemParaDec.HandleLocation
+function SGetParaLocation(explicit_paraloc: boolean): string;
 begin
-  if (target_info.system in [system_powerpc_morphos,system_m68k_amiga]) then
-    begin
-      if (idtoken=_LOCATION) then
-        begin
-          consume(_LOCATION);
-          locationstr:=cstringpattern;
-          consume(_CSTRING);
-        end
-      else
-        begin
-          if explicit_paraloc then
-            Message(parser_e_paraloc_all_paras);
-          locationstr:='';
-        end;
-    end
-  else
-    locationstr:='';
+  if (target_info.system in [system_powerpc_morphos,system_m68k_amiga]) then begin
+    if (idtoken=_LOCATION) then begin
+      consume(_LOCATION);
+      Result:=cstringpattern;
+      consume(_CSTRING);
+    end else begin
+      if explicit_paraloc then
+        Message(parser_e_paraloc_all_paras);
+      Result:='';
+    end;
+  end else
+    Result:='';
 end;
 
 { TSemProcHead }
@@ -718,19 +721,19 @@ begin
   end;
 end;
 
-procedure TSemProcDec.MakeClassMethod(pd: tprocdef);
+procedure SMakeClassMethod(pd: tprocdef);
 begin
   include(pd.procoptions,po_classmethod);
 end;
 
-procedure TSemProcDec.MakeProc(pd: tprocdef; isclassmethod: boolean);
+procedure SMakeProc(pd: tprocdef; isclassmethod: boolean);
 begin
   pd.returndef:=voidtype;
   if isclassmethod then
     include(pd.procoptions,po_classmethod); //MakeClassMethod(pd);
 end;
 
-procedure TSemProcDec.MakeConstructor(pd: tprocdef; isclassmethod: boolean);
+procedure SMakeConstructor(pd: tprocdef; isclassmethod: boolean);
 begin
   if not isclassmethod and
      assigned(pd) and
@@ -751,7 +754,7 @@ begin
     pd.returndef:=voidtype;
 end;
 
-procedure TSemProcDec.MakeDestructor(pd: tprocdef);
+procedure SMakeDestructor(pd: tprocdef);
 begin
   if assigned(pd) then
     pd.returndef:=voidtype;

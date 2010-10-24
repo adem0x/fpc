@@ -42,7 +42,7 @@ type
     main_file: tinputfile;
   protected //for internal use, for now
     procedure SModuleInit(mk: eModuleKind);
-    procedure SModuleName(const orgpattern: string);
+    //procedure SModuleName(const orgpattern: string);
     procedure SPrepareLib(const orgpattern: string; fAlways: boolean);
     procedure SModuleGlobalDone;
     procedure SModuleIntfDone;
@@ -80,6 +80,9 @@ type
 
 procedure SUsesAdd(s,sorg:TIDString; const fn: string);
 function SUsesDone: boolean;
+
+{ set name of current_module }
+procedure SModuleName(const orgpattern: string);
 
 implementation
 
@@ -1329,7 +1332,7 @@ begin
    GetOutputName;
 end;
 
-procedure TSemModule.SModuleName(const orgpattern: string);
+procedure SModuleName(const orgpattern: string);
 begin
   current_module.setmodulename(orgpattern);
 end;
