@@ -495,8 +495,11 @@ end;
         InitParsers;  //in case no parser was explicitly registered
         ext := lower(ExtractFileExt(filename));
         p := ParserForExtension(ext);
-        if p = nil then
-          p := FileTypes; //fallback to default parser
+        if p = nil then begin
+          //p := FileTypes; //fallback to default parser
+          WriteLn('*** no parser for ', ext);
+          Internalerror(20101025);
+        end;
         if assigned(p^.alt) and ParaAltParser then
           Result := p^.alt.CreateFor(filename)
         else

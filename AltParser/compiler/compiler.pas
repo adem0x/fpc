@@ -115,7 +115,7 @@ uses
 {$endif nativent}
   ,globtype
 //add more parsers here
-  ,parserOPL
+  ,parserOPL,PComponentPascal
 ;
 
 function Compile(const cmd:string):longint;

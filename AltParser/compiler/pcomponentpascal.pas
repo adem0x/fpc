@@ -32,12 +32,12 @@ type
     procedure Type_;
     procedure FieldList;
     procedure StatementSeq;
-    procedure Statement;
+    function  Statement: tnode; override;
     //procedure Case_;
     //procedure CaseLabels;
     procedure Guard;
     procedure ConstExpr;
-    function  Expr: tnode;
+    function  Expr(dotypecheck: boolean = false): tnode; override;
   {$IFDEF StdExprs}
     //using expr.pas
   {$ELSE}
@@ -56,6 +56,7 @@ type
     procedure QualIdent;
     procedure IdentDef; //function?
     procedure Ident;  //function?
+    function  UnitID: boolean;
   public
     procedure Compile; override;
   end;
@@ -75,9 +76,9 @@ uses
 
 //some token substitutions, for now
 const
-  _MODULE = _UNIT;
-  _IMPORT = _USES;
-  _CLOSE  = _FINALIZATION;
+  //_MODULE = _UNIT;
+  //_IMPORT = _USES;
+  //_CLOSE  = _FINALIZATION;
   _LBRACE = _LECKKLAMMER;
   _RBRACE = _RECKKLAMMER;
 
@@ -111,23 +112,25 @@ begin
 { read the first token }
   current_scanner.readtoken(false);
 //Module
-  if (token=_MODULE) or (compile_level>main_program_level) then begin
+  if TokenIs('MODULE') or (compile_level>main_program_level) then begin
   //non main-level modules can be nothing but units
     current_module.is_unit:=true;
     sm.SModuleInitUnit;  //is this applicable???
   end else begin //assume program
     sm.SModuleInitProgLib(False);
   end;
-  if not try_to_consume(_MODULE) then
-    consume(_PROGRAM);
+  if (token=_PROGRAM) or TokenIs('MODULE') then
+    consume(token);
   sm.SProgName; //expect _ID
   consume(_ID);
   consume(_SEMICOLON);
 //enter implementation body
   sm.SProgLibImplInit;
 //imports/uses?
-  if try_to_consume(_IMPORT) then
+  if TokenIs('IMPORT') then begin
+    consume(token);
     ImportList;
+  end;
 //body
   sm.SProgLibBodyInit;
   DeclSeq;
@@ -137,7 +140,8 @@ begin
   current_module.mainfilepos:=sm.main_procinfo.entrypos;
   sm.SProgLibBodyDone;
 //finalization?
-  if try_to_consume(_CLOSE) then begin
+  if TokenIs('CLOSE') then begin
+    consume(token);
     sm.SProgLibFinalInit(True);
     //sm.finalize_procinfo.parse_body;
     StatementSeq;
@@ -255,7 +259,7 @@ begin
   until not try_to_consume(_SEMICOLON);
 end;
 
-procedure TComponentPascal.Statement;
+function TComponentPascal.Statement: tnode;
 (* Statement =
 [ Designator ":=" Expr
 | Designator ["(" [ExprList] ")"]
@@ -440,6 +444,7 @@ procedure TComponentPascal.Statement;
   end;
 
 begin
+  Result := nil;  //to come!
   case token of
   _ID:    AssignOrCallStmt;
   _IF:    IfStmt;
@@ -464,35 +469,35 @@ procedure TComponentPascal.Designator;
 {"." ident
 | "[" ExprList "]"
 | " ^ "
-| "(" Qualident ")"
-| "(" [ExprList] ")"}
-[ "$" ].
+| "(" Qualident ")" --- type guard ???
+| "(" [ExprList] ")"} --- ActualParameters ???
+[ "$" ].  --- string from char[] ???
 *)
 begin
   QualIdent;
   while token in [_POINT,_LECKKLAMMER,_CARET,_LKLAMMER] do begin
     case token of
-    _POINT:
+    _POINT: //member selector
       begin
         consume(_POINT);
         Ident;  //how?
       end;
-    _LECKKLAMMER:
+    _LECKKLAMMER: //array selector
       begin
         consume(_LECKKLAMMER);
         ExprList;
         consume(_RECKKLAMMER);
       end;
-    _CARET:
+    _CARET: //pointer dereference
       begin
         consume(_CARET);
       end;
-    _LKLAMMER:
+    _LKLAMMER: //???
       begin
         consume(_LKLAMMER);
-        if token=_ID then begin
+        if token=_ID then begin //type guard?
           QualIdent;
-        end else begin //if token in [???]
+        end else begin //procedure call?
           ExprList;
         end;
       end;
@@ -500,12 +505,13 @@ begin
       break;
     end;
   end;
+//unhandled: "$"
 end;
 
-function TComponentPascal.Expr: tnode;
+function TComponentPascal.Expr(dotypecheck: boolean): tnode;
 begin
 {$IFDEF StdExprs}
-  Result := pexpr.expr(False);  //???
+  Result := pexpr.expr(dotypecheck);  //???
 {$ELSE}
 ...
   SimpleExpr;
@@ -742,11 +748,13 @@ procedure TComponentPascal.QualIdent;
 (* Qualident = [ident "."] ident.
 *)
 begin
-  consume(_ID);
-  if try_to_consume(_POINT) then begin
+  if UnitID then begin
+  //unit.ident
+    consume(_ID);
+    consume(_POINT);
     consume(_ID);
   end else begin
-  //unit.ident???
+    consume(_ID);
   end;
 end;
 
@@ -763,40 +771,70 @@ procedure TComponentPascal.Type_;
 | POINTER TO Type
 | PROCEDURE [FormalPars].
 *)
+type
+  TTypeKind = (tkNone, tkRec, tkPtr, tkTypeName); //disambiguate _ID
+var
+  kind: TTypeKind;
 begin
-  QualIdent;
   case token of
   _ARRAY:
     begin
       consume(_ARRAY);
       if token <> _OF then begin
-        ConstExpr;
-        while try_to_consume(_COMMA) do begin
-          ConstExpr;
-        end;
-      end;
+        repeat
+          ConstExpr;  //one dimension
+        until not try_to_consume(_COMMA);
+      end; //else open array
       consume(_OF);
       Type_;
     end;
   _ABSTRACT, _ID, _RECORD:
     begin
+      kind:=tkNone;
       if token=_ABSTRACT then begin
+        kind:=tkRec;
         consume(_ABSTRACT);
+      end else if token=_RECORD then begin
+        kind := tkRec;
+        //consume later
       end else if token=_ID then begin
         if pattern='EXTENSIBLE' then begin
+          kind := tkRec;
           consume(_ID);
         end else if pattern='LIMITED' then begin
+          kind := tkRec;
           consume(_ID);
+        end else if pattern = 'POINTER' then begin
+          kind:=tkPtr;
+          consume(_ID);
+        //... handle pointer
+          try_to_consume(_TO);  //DoDi: made this optional
+          Type_;
+        end else begin
+        //assume/test typename
+          kind := tkTypeName;
+          QualIdent;
+          //...
         end;
       end;
-      consume(_RECORD);
-      if try_to_consume(_LKLAMMER) then begin
-        QualIdent;
-        consume(_RKLAMMER);
-        repeat
-          FieldList;
-        until not try_to_consume(_SEMICOLON);
-        consume(_END);
+    //handle the detected type
+      case kind of
+      tkRec:
+        begin
+          consume(_RECORD);
+          if try_to_consume(_LKLAMMER) then begin
+          //inherit from
+            QualIdent;
+            consume(_RKLAMMER);
+          end;
+        //members
+          repeat
+            FieldList;
+          until not try_to_consume(_SEMICOLON);
+          consume(_END);
+        end;
+      //tkPtr, tkTypeName: finish?
+      //tkNone: error?
       end;
     end;
   _PROCEDURE:
@@ -804,15 +842,15 @@ begin
       consume(_PROCEDURE);
       FormalPars;
     end;
-  else  //_ID:  //workarounds for new keywords
-    if TokenIs('POINTER') then begin
-      consume(token);
-      try_to_consume(_TO);  //DoDi: made this optional
-      Type_;
-      exit;
-    end;
   //else Message...
   end;
+end;
+
+function TComponentPascal.UnitID: boolean;
+begin
+//todo: check if current token is a unit identifier
+  //Result := (token=_ID) and ???;
+  Result := False;  //for now
 end;
 
 initialization

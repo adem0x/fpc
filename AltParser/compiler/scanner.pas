@@ -178,6 +178,9 @@ interface
           procedure skipdelphicomment;
           procedure skipoldtpcomment;
           procedure readtoken(allowrecordtoken:boolean);
+          procedure SkipWhite; virtual;
+          procedure ScanToken; virtual;
+          procedure CheckMacro;
           function  readpreproc:ttoken;
           function  asmgetcharstart : char;
           function  asmgetchar:char;
@@ -3355,46 +3358,8 @@ In case not, the value returned can be arbitrary.
         aktcommentstyle:=comment_none;
       end;
 
-
-
-{****************************************************************************
-                               Token Scanner
-****************************************************************************}
-
-    procedure tscannerfile.readtoken(allowrecordtoken:boolean);
-      var
-        code    : integer;
-        len,
-        low,high,mid : longint;
-        w : word;
-        m       : longint;
-        mac     : tmacro;
-        asciinr : string[6];
-        iswidestring : boolean;
-      label
-         exit_label;
-      begin
-        flushpendingswitchesstate;
-
-        { record tokens? }
-        if allowrecordtoken and
-           assigned(recordtokenbuf) then
-          recordtoken;
-
-        { replay tokens? }
-        if assigned(replaytokenbuf) then
-          begin
-            replaytoken;
-            goto exit_label;
-          end;
-
-      { was there already a token read, then return that token }
-        if nexttoken<>NOTOKEN then
-         begin
-           setnexttoken;
-           goto exit_label;
-         end;
-
+    procedure tscannerfile.SkipWhite;
+    begin
       { Skip all spaces and comments }
         repeat
           case c of
@@ -3423,502 +3388,438 @@ In case not, the value returned can be arbitrary.
               break;
           end;
         until false;
+    end;
+
+
+
+{****************************************************************************
+                               Token Scanner
+****************************************************************************}
+
+    procedure tscannerfile.readtoken(allowrecordtoken:boolean);
+      label
+         exit_label;
+      begin
+        flushpendingswitchesstate;
+
+        { record tokens? }
+        if allowrecordtoken and assigned(recordtokenbuf) then
+          recordtoken;
+
+        { replay tokens? }
+        if assigned(replaytokenbuf) then
+          begin
+            replaytoken;
+            goto exit_label;
+          end;
+
+      { was there already a token read, then return that token }
+        if nexttoken<>NOTOKEN then
+         begin
+           setnexttoken;
+           goto exit_label;
+         end;
+
+      SkipWhite;
 
       { Save current token position, for EOF its already loaded }
         if c<>#26 then
           gettokenpos;
 
-      { Check first for a identifier/keyword, this is 20+% faster (PFV) }
-        if c in ['A'..'Z','a'..'z','_'] then
-         begin
-           readstring;
-           token:=_ID;
-           idtoken:=_ID;
-         { keyword or any other known token,
-           pattern is always uppercased }
-           if (pattern[1]<>'_') and (length(pattern) in [tokenlenmin..tokenlenmax]) then
-            begin
-              low:=ord(tokenidx^[length(pattern),pattern[1]].first);
-              high:=ord(tokenidx^[length(pattern),pattern[1]].last);
-              while low<high do
-               begin
-                 mid:=(high+low+1) shr 1;
-                 if pattern<tokeninfo^[ttoken(mid)].str then
-                  high:=mid-1
-                 else
-                  low:=mid;
-               end;
-              with tokeninfo^[ttoken(high)] do
-                if pattern=str then
-                  begin
-                    if keyword in current_settings.modeswitches then
-                      if op=NOTOKEN then
-                        token:=ttoken(high)
-                      else
-                        token:=op;
-                    idtoken:=ttoken(high);
-                  end;
-            end;
-         { Only process identifiers and not keywords }
-           if token=_ID then
-            begin
-            { this takes some time ... }
-              if (cs_support_macro in current_settings.moduleswitches) then
-               begin
-                 mac:=tmacro(search_macro(pattern));
-                 if assigned(mac) and (not mac.is_compiler_var) and (assigned(mac.buftext)) then
-                  begin
-                    if yylexcount<max_macro_nesting then
-                     begin
-                       mac.is_used:=true;
-                       inc(yylexcount);
-                       insertmacro(pattern,mac.buftext,mac.buflen,
-                         mac.fileinfo.line,mac.fileinfo.fileindex);
-                     { handle empty macros }
-                       if c=#0 then
-                         reload;
-                       readtoken(false);
-                       { that's all folks }
-                       dec(yylexcount);
-                       exit;
-                     end
+        ScanToken;
+exit_label:
+        lasttoken:=token;
+      end;
+
+    procedure tscannerfile.ScanToken;
+    var
+      code    : integer;
+      len,
+      low,high,mid : longint;
+      w : word;
+      m       : longint;
+      mac     : tmacro;
+      asciinr : string[6];
+      iswidestring : boolean;
+begin
+    { Check first for a identifier/keyword, this is 20+% faster (PFV) }
+      if c in ['A'..'Z','a'..'z','_'] then
+       begin
+         readstring;
+         token:=_ID;
+         idtoken:=_ID;
+       { keyword or any other known token,
+         pattern is always uppercased }
+         if (pattern[1]<>'_') and (length(pattern) in [tokenlenmin..tokenlenmax]) then
+          begin
+            low:=ord(tokenidx^[length(pattern),pattern[1]].first);
+            high:=ord(tokenidx^[length(pattern),pattern[1]].last);
+            while low<high do
+             begin
+               mid:=(high+low+1) shr 1;
+               if pattern<tokeninfo^[ttoken(mid)].str then
+                high:=mid-1
+               else
+                low:=mid;
+             end;
+            with tokeninfo^[ttoken(high)] do
+              if pattern=str then
+                begin
+                  if keyword in current_settings.modeswitches then
+                    if op=NOTOKEN then
+                      token:=ttoken(high)
                     else
-                     Message(scan_w_macro_too_deep);
-                  end;
-               end;
-            end;
-         { return token }
-           goto exit_label;
-         end
-        else
-         begin
-           idtoken:=_NOID;
-           case c of
+                      token:=op;
+                  idtoken:=ttoken(high);
+                end;
+          end;
+       { Only process identifiers and not keywords }
+         if token=_ID then
+          CheckMacro;
+       { return token }
+         //goto exit_label;
+       end
+      else
+       begin
+         idtoken:=_NOID;
+         case c of
 
-             '$' :
-               begin
-                 readnumber;
-                 token:=_INTCONST;
-                 goto exit_label;
-               end;
+           '$' :
+             begin
+               readnumber;
+               token:=_INTCONST;
+               //exit;
+             end;
 
-             '%' :
-               begin
-                 if not(m_fpc in current_settings.modeswitches) then
-                  Illegal_Char(c)
-                 else
-                  begin
-                    readnumber;
+           '%' :
+             begin
+               if not(m_fpc in current_settings.modeswitches) then
+                Illegal_Char(c)
+               else
+                begin
+                  readnumber;
+                  token:=_INTCONST;
+                  //goto exit_label;
+                end;
+             end;
+
+           '&' :
+             begin
+               if [m_fpc,m_delphi] * current_settings.modeswitches <> [] then begin
+                  readnumber;
+                  if length(pattern)=1 then
+                    begin
+                      readstring;
+                      token:=_ID;
+                      idtoken:=_ID;
+                    end
+                  else
                     token:=_INTCONST;
-                    goto exit_label;
-                  end;
-               end;
+               end else if m_mac in current_settings.modeswitches then begin
+                  readchar;
+                  token:=_AMPERSAND;
+               end else
+                Illegal_Char(c);
+             end;
 
-             '&' :
-               begin
-                 if [m_fpc,m_delphi] * current_settings.modeswitches <> [] then
-                  begin
-                    readnumber;
-                    if length(pattern)=1 then
-                      begin
-                        readstring;
-                        token:=_ID;
-                        idtoken:=_ID;
-                      end
-                    else
-                      token:=_INTCONST;
-                    goto exit_label;
-                  end
-                 else if m_mac in current_settings.modeswitches then
-                  begin
-                    readchar;
-                    token:=_AMPERSAND;
-                    goto exit_label;
-                  end
-                 else
-                  Illegal_Char(c);
-               end;
-
-             '0'..'9' :
-               begin
-                 readnumber;
-                 if (c in ['.','e','E']) then
-                  begin
-                  { first check for a . }
-                    if c='.' then
-                     begin
-                       cachenexttokenpos;
-                       readchar;
-                       { is it a .. from a range? }
-                       case c of
-                         '.' :
-                           begin
-                             readchar;
-                             token:=_INTCONST;
-                             nexttoken:=_POINTPOINT;
-                             goto exit_label;
-                           end;
-                         ')' :
-                           begin
-                             readchar;
-                             token:=_INTCONST;
-                             nexttoken:=_RECKKLAMMER;
-                             goto exit_label;
-                           end;
-                       end;
-                       { insert the number after the . }
-                       pattern:=pattern+'.';
-                       while c in ['0'..'9'] do
-                        begin
-                          pattern:=pattern+c;
-                          readchar;
-                        end;
+           '0'..'9' :
+             begin
+               readnumber;
+               if (c in ['.','e','E']) then begin
+                { first check for a . }
+                  if c='.' then begin
+                     cachenexttokenpos;
+                     readchar;
+                     { is it a .. from a range? }
+                     case c of
+                       '.' :
+                         begin
+                           readchar;
+                           token:=_INTCONST;
+                           nexttoken:=_POINTPOINT;
+                           exit;
+                         end;
+                       ')' :
+                         begin
+                           readchar;
+                           token:=_INTCONST;
+                           nexttoken:=_RECKKLAMMER;
+                           exit;
+                         end;
                       end;
-                  { E can also follow after a point is scanned }
-                    if c in ['e','E'] then
-                     begin
-                       pattern:=pattern+'E';
-                       readchar;
-                       if c in ['-','+'] then
-                        begin
-                          pattern:=pattern+c;
-                          readchar;
-                        end;
-                       if not(c in ['0'..'9']) then
-                        Illegal_Char(c);
-                       while c in ['0'..'9'] do
-                        begin
-                          pattern:=pattern+c;
-                          readchar;
-                        end;
-                     end;
-                    token:=_REALNUMBER;
-                    goto exit_label;
                   end;
-                 token:=_INTCONST;
-                 goto exit_label;
-               end;
+                   { insert the number after the . }
+                   pattern:=pattern+'.';
+                   while c in ['0'..'9'] do
+                    begin
+                      pattern:=pattern+c;
+                      readchar;
+                    end;
+                { E can also follow after a point is scanned }
+                  if c in ['e','E'] then
+                   begin
+                     pattern:=pattern+'E';
+                     readchar;
+                     if c in ['-','+'] then
+                      begin
+                        pattern:=pattern+c;
+                        readchar;
+                      end;
+                     if not(c in ['0'..'9']) then
+                      Illegal_Char(c);
+                     while c in ['0'..'9'] do
+                      begin
+                        pattern:=pattern+c;
+                        readchar;
+                      end;
+                   end;
+                  token:=_REALNUMBER;
+                  exit;
+                end;
+               token:=_INTCONST;
+             end;
 
-             ';' :
-               begin
-                 readchar;
-                 token:=_SEMICOLON;
-                 goto exit_label;
-               end;
+           ';' :
+             begin
+               readchar;
+               token:=_SEMICOLON;
+             end;
 
-             '[' :
-               begin
-                 readchar;
-                 token:=_LECKKLAMMER;
-                 goto exit_label;
-               end;
+           '[' :
+             begin
+               readchar;
+               token:=_LECKKLAMMER;
+             end;
 
-             ']' :
-               begin
-                 readchar;
-                 token:=_RECKKLAMMER;
-                 goto exit_label;
-               end;
+           ']' :
+             begin
+               readchar;
+               token:=_RECKKLAMMER;
+             end;
 
-             '(' :
-               begin
-                 readchar;
-                 case c of
-                   '*' :
-                     begin
-                       c:=#0;{Signal skipoldtpcomment to reload a char }
-                       skipoldtpcomment;
-                       readtoken(false);
-                       exit;
-                     end;
-                   '.' :
-                     begin
-                       readchar;
-                       token:=_LECKKLAMMER;
-                       goto exit_label;
-                     end;
-                 end;
-                 token:=_LKLAMMER;
-                 goto exit_label;
-               end;
-
-             ')' :
-               begin
-                 readchar;
-                 token:=_RKLAMMER;
-                 goto exit_label;
-               end;
-
-             '+' :
-               begin
-                 readchar;
-                 if (c='=') and (cs_support_c_operators in current_settings.moduleswitches) then
-                  begin
-                    readchar;
-                    token:=_PLUSASN;
-                    goto exit_label;
-                  end;
-                 token:=_PLUS;
-                 goto exit_label;
-               end;
-
-             '-' :
-               begin
-                 readchar;
-                 if (c='=') and (cs_support_c_operators in current_settings.moduleswitches) then
-                  begin
-                    readchar;
-                    token:=_MINUSASN;
-                    goto exit_label;
-                  end;
-                 token:=_MINUS;
-                 goto exit_label;
-               end;
-
-             ':' :
-               begin
-                 readchar;
-                 if c='=' then
-                  begin
-                    readchar;
-                    token:=_ASSIGNMENT;
-                    goto exit_label;
-                  end;
-                 token:=_COLON;
-                 goto exit_label;
-               end;
-
-             '*' :
-               begin
-                 readchar;
-                 if (c='=') and (cs_support_c_operators in current_settings.moduleswitches) then
-                  begin
-                    readchar;
-                    token:=_STARASN;
-                  end
-                 else
-                  if c='*' then
+           '(' :
+             begin
+               readchar;
+               case c of
+                 '*' :
+                   begin
+                     c:=#0;{Signal skipoldtpcomment to reload a char }
+                     skipoldtpcomment;
+                     readtoken(false);
+                   end;
+                 '.' :
                    begin
                      readchar;
-                     token:=_STARSTAR;
-                   end
-                 else
-                  token:=_STAR;
-                 goto exit_label;
-               end;
-
-             '/' :
-               begin
-                 readchar;
-                 case c of
-                   '=' :
-                     begin
-                       if (cs_support_c_operators in current_settings.moduleswitches) then
-                        begin
-                          readchar;
-                          token:=_SLASHASN;
-                          goto exit_label;
-                        end;
-                     end;
-                   '/' :
-                     begin
-                       skipdelphicomment;
-                       readtoken(false);
-                       exit;
-                     end;
-                 end;
-                 token:=_SLASH;
-                 goto exit_label;
-               end;
-
-             '|' :
-               if m_mac in current_settings.modeswitches then
-                begin
-                  readchar;
-                  token:=_PIPE;
-                  goto exit_label;
-                end
+                     token:=_LECKKLAMMER;
+                   end;
                else
-                Illegal_Char(c);
-
-             '=' :
-               begin
-                 readchar;
-                 token:=_EQUAL;
-                 goto exit_label;
+                     token:=_LKLAMMER;
                end;
+             end;
 
-             '.' :
-               begin
-                 readchar;
-                 case c of
-                   '.' :
-                     begin
-                       readchar;
-                       case c of
-                         '.' :
-                         begin
-                           readchar;
-                           token:=_POINTPOINTPOINT;
-                           goto exit_label;
-                         end;
-                       else
-                         begin
-                           token:=_POINTPOINT;
-                           goto exit_label;
-                         end;
-                       end;
-                     end;
-                   ')' :
-                     begin
-                       readchar;
-                       token:=_RECKKLAMMER;
-                       goto exit_label;
-                     end;
+           ')' :
+             begin
+               readchar;
+               token:=_RKLAMMER;
+             end;
+
+           '+' :
+             begin
+               readchar;
+               if (c='=') and (cs_support_c_operators in current_settings.moduleswitches) then begin
+                  readchar;
+                  token:=_PLUSASN;
+               end else
+                 token:=_PLUS;
+             end;
+
+           '-' :
+             begin
+               readchar;
+               if (c='=') and (cs_support_c_operators in current_settings.moduleswitches) then begin
+                  readchar;
+                  token:=_MINUSASN;
+               end else
+                 token:=_MINUS;
+             end;
+
+           ':' :
+             begin
+               readchar;
+               if c='=' then begin
+                  readchar;
+                  token:=_ASSIGNMENT;
+               end else
+                 token:=_COLON;
+             end;
+
+           '*' :
+             begin
+               readchar;
+               if (c='=') and (cs_support_c_operators in current_settings.moduleswitches) then begin
+                  readchar;
+                  token:=_STARASN;
+               end else if c='*' then begin
+                   readchar;
+                   token:=_STARSTAR;
+               end else
+                  token:=_STAR;
+             end;
+
+           '/' :
+             begin
+               readchar;
+               case c of
+               '=' :
+                 begin
+                   if (cs_support_c_operators in current_settings.moduleswitches) then begin
+                      readchar;
+                      token:=_SLASHASN;
+                    end;
                  end;
-                 token:=_POINT;
-                 goto exit_label;
+               '/' :
+                 begin
+                   skipdelphicomment;
+                   readtoken(false);
+                   //exit;
+                 end;
+               else
+                 token:=_SLASH;
                end;
+             end;
 
-             '@' :
-               begin
-                 readchar;
-                 token:=_KLAMMERAFFE;
-                 goto exit_label;
-               end;
+           '|' :
+             if m_mac in current_settings.modeswitches then
+              begin
+                readchar;
+                token:=_PIPE;
+              end
+             else
+              Illegal_Char(c);
 
-             ',' :
-               begin
-                 readchar;
-                 token:=_COMMA;
-                 goto exit_label;
-               end;
+           '=' :
+             begin
+               readchar;
+               token:=_EQUAL;
+             end;
 
-             '''','#','^' :
-               begin
-                 len:=0;
-                 cstringpattern:='';
-                 iswidestring:=false;
-                 if c='^' then
-                  begin
-                    readchar;
-                    c:=upcase(c);
-                    if (block_type in [bt_type,bt_const_type,bt_var_type]) or
-                       (lasttoken=_ID) or (lasttoken=_NIL) or (lasttoken=_OPERATOR) or
-                       (lasttoken=_RKLAMMER) or (lasttoken=_RECKKLAMMER) or (lasttoken=_CARET) then
-                     begin
-                       token:=_CARET;
-                       goto exit_label;
-                     end
-                    else
-                     begin
-                       inc(len);
-                       setlength(cstringpattern,256);
-                       if c<#64 then
-                         cstringpattern[len]:=chr(ord(c)+64)
-                       else
-                         cstringpattern[len]:=chr(ord(c)-64);
-                       readchar;
-                     end;
-                  end;
-                 repeat
-                   case c of
-                     '#' :
+           '.' :
+             begin
+               readchar;
+               case c of
+                 '.' :
+                   begin
+                     readchar;
+                     case c of
+                     '.' :
                        begin
-                         readchar; { read # }
-                         case c of
-                           '$':
-                             begin
-                               readchar; { read leading $ }
-                               asciinr:='$';
-                               while (upcase(c) in ['A'..'F','0'..'9']) and (length(asciinr)<=5) do
-                                 begin
-                                   asciinr:=asciinr+c;
-                                   readchar;
-                                 end;
-                             end;
-                           '&':
-                             begin
-                               readchar; { read leading $ }
-                               asciinr:='&';
-                               while (upcase(c) in ['0'..'7']) and (length(asciinr)<=7) do
-                                 begin
-                                   asciinr:=asciinr+c;
-                                   readchar;
-                                 end;
-                             end;
-                           '%':
-                             begin
-                               readchar; { read leading $ }
-                               asciinr:='%';
-                               while (upcase(c) in ['0','1']) and (length(asciinr)<=17) do
-                                 begin
-                                   asciinr:=asciinr+c;
-                                   readchar;
-                                 end;
-                             end;
-                           else
-                             begin
-                               asciinr:='';
-                               while (c in ['0'..'9']) and (length(asciinr)<=5) do
-                                 begin
-                                   asciinr:=asciinr+c;
-                                   readchar;
-                                 end;
-                             end;
-                         end;
-                         val(asciinr,m,code);
-                         if (asciinr='') or (code<>0) then
-                           Message(scan_e_illegal_char_const)
-                         else if (m<0) or (m>255) or (length(asciinr)>3) then
-                           begin
-                              if (m>=0) and (m<=65535) then
-                                begin
-                                  if not iswidestring then
-                                   begin
-                                     if len>0 then
-                                       ascii2unicode(@cstringpattern[1],len,patternw)
-                                     else
-                                       ascii2unicode(nil,len,patternw);
-                                     iswidestring:=true;
-                                     len:=0;
-                                   end;
-                                  concatwidestringchar(patternw,tcompilerwidechar(m));
-                                end
-                              else
-                                Message(scan_e_illegal_char_const)
-                           end
-                         else if iswidestring then
-                           concatwidestringchar(patternw,asciichar2unicode(char(m)))
-                         else
-                           begin
-                             if len>=length(cstringpattern) then
-                               setlength(cstringpattern,length(cstringpattern)+256);
-                              inc(len);
-                              cstringpattern[len]:=chr(m);
-                           end;
+                         readchar;
+                         token:=_POINTPOINTPOINT;
                        end;
-                     '''' :
-                       begin
-                         repeat
-                           readchar;
-                           case c of
-                             #26 :
-                               end_of_file;
-                             #10,#13 :
-                               Message(scan_f_string_exceeds_line);
-                             '''' :
+                     else
+                         token:=_POINTPOINT;
+                     end;
+                   end;
+                 ')' :
+                   begin
+                     readchar;
+                     token:=_RECKKLAMMER;
+                   end;
+               else
+                 token:=_POINT;
+               end;
+             end;
+
+           '@' :
+             begin
+               readchar;
+               token:=_KLAMMERAFFE;
+             end;
+
+           ',' :
+             begin
+               readchar;
+               token:=_COMMA;
+             end;
+
+           '''','#','^' :
+             begin
+               len:=0;
+               cstringpattern:='';
+               iswidestring:=false;
+               if c='^' then begin
+                  readchar;
+                  c:=upcase(c);
+                  if (block_type in [bt_type,bt_const_type,bt_var_type]) or
+                     (lasttoken=_ID) or (lasttoken=_NIL) or (lasttoken=_OPERATOR) or
+                     (lasttoken=_RKLAMMER) or (lasttoken=_RECKKLAMMER) or (lasttoken=_CARET) then
+                  begin
+                     token:=_CARET;
+                     exit;  //goto exit_label;
+                  end else begin
+                     inc(len);
+                     setlength(cstringpattern,256);
+                     if c<#64 then
+                       cstringpattern[len]:=chr(ord(c)+64)
+                     else
+                       cstringpattern[len]:=chr(ord(c)-64);
+                     readchar;
+                  end;
+               end;
+               repeat
+                 case c of
+                   '#' :
+                     begin
+                       readchar; { read # }
+                       case c of
+                         '$':
+                           begin
+                             readchar; { read leading $ }
+                             asciinr:='$';
+                             while (upcase(c) in ['A'..'F','0'..'9']) and (length(asciinr)<=5) do
                                begin
+                                 asciinr:=asciinr+c;
                                  readchar;
-                                 if c<>'''' then
-                                  break;
                                end;
                            end;
-                           { interpret as utf-8 string? }
-                           if (ord(c)>=$80) and (current_settings.sourcecodepage='utf8') then
-                             begin
-                               { convert existing string to an utf-8 string }
-                               if not iswidestring then
+                         '&':
+                           begin
+                             readchar; { read leading $ }
+                             asciinr:='&';
+                             while (upcase(c) in ['0'..'7']) and (length(asciinr)<=7) do
+                               begin
+                                 asciinr:=asciinr+c;
+                                 readchar;
+                               end;
+                           end;
+                         '%':
+                           begin
+                             readchar; { read leading $ }
+                             asciinr:='%';
+                             while (upcase(c) in ['0','1']) and (length(asciinr)<=17) do
+                               begin
+                                 asciinr:=asciinr+c;
+                                 readchar;
+                               end;
+                           end;
+                         else
+                           begin
+                             asciinr:='';
+                             while (c in ['0'..'9']) and (length(asciinr)<=5) do
+                               begin
+                                 asciinr:=asciinr+c;
+                                 readchar;
+                               end;
+                           end;
+                       end;
+                       val(asciinr,m,code);
+                       if (asciinr='') or (code<>0) then
+                         Message(scan_e_illegal_char_const)
+                       else if (m<0) or (m>255) or (length(asciinr)>3) then
+                         begin
+                            if (m>=0) and (m<=65535) then
+                              begin
+                                if not iswidestring then
                                  begin
                                    if len>0 then
                                      ascii2unicode(@cstringpattern[1],len,patternw)
@@ -3927,66 +3828,90 @@ In case not, the value returned can be arbitrary.
                                    iswidestring:=true;
                                    len:=0;
                                  end;
-                               { four or more chars aren't handled }
-                               if (ord(c) and $f0)=$f0 then
-                                 message(scan_e_utf8_bigger_than_65535)
-                               { three chars }
-                               else if (ord(c) and $e0)=$e0 then
-                                 begin
-                                   w:=ord(c) and $f;
-                                   readchar;
-                                   if (ord(c) and $c0)<>$80 then
-                                     message(scan_e_utf8_malformed);
-                                   w:=(w shl 6) or (ord(c) and $3f);
-                                   readchar;
-                                   if (ord(c) and $c0)<>$80 then
-                                     message(scan_e_utf8_malformed);
-                                   w:=(w shl 6) or (ord(c) and $3f);
-                                   concatwidestringchar(patternw,w);
-                                 end
-                               { two chars }
-                               else if (ord(c) and $c0)<>0 then
-                                 begin
-                                   w:=ord(c) and $1f;
-                                   readchar;
-                                   if (ord(c) and $c0)<>$80 then
-                                     message(scan_e_utf8_malformed);
-                                   w:=(w shl 6) or (ord(c) and $3f);
-                                   concatwidestringchar(patternw,w);
-                                 end
-                               { illegal }
-                               else if (ord(c) and $80)<>0 then
-                                 message(scan_e_utf8_malformed)
-                               else
-                                 concatwidestringchar(patternw,tcompilerwidechar(c))
-                             end
-                           else if iswidestring then
-                             begin
-                               if current_settings.sourcecodepage='utf8' then
-                                 concatwidestringchar(patternw,ord(c))
-                               else
-                                 concatwidestringchar(patternw,asciichar2unicode(c))
-                             end
-                           else
-                             begin
-                               if len>=length(cstringpattern) then
-                                 setlength(cstringpattern,length(cstringpattern)+256);
-                                inc(len);
-                                cstringpattern[len]:=c;
-                             end;
-                         until false;
-                       end;
-                     '^' :
-                       begin
+                                concatwidestringchar(patternw,tcompilerwidechar(m));
+                              end
+                            else
+                              Message(scan_e_illegal_char_const)
+                         end
+                       else if iswidestring then
+                         concatwidestringchar(patternw,asciichar2unicode(char(m)))
+                       else
+                         begin
+                           if len>=length(cstringpattern) then
+                             setlength(cstringpattern,length(cstringpattern)+256);
+                            inc(len);
+                            cstringpattern[len]:=chr(m);
+                         end;
+                     end;
+                   '''' :
+                     begin
+                       repeat
                          readchar;
-                         c:=upcase(c);
-                         if c<#64 then
-                          c:=chr(ord(c)+64)
-                         else
-                          c:=chr(ord(c)-64);
-
-                         if iswidestring then
-                           concatwidestringchar(patternw,asciichar2unicode(c))
+                         case c of
+                           #26 :
+                             end_of_file;
+                           #10,#13 :
+                             Message(scan_f_string_exceeds_line);
+                           '''' :
+                             begin
+                               readchar;
+                               if c<>'''' then
+                                break;
+                             end;
+                         end;
+                         { interpret as utf-8 string? }
+                         if (ord(c)>=$80) and (current_settings.sourcecodepage='utf8') then
+                           begin
+                             { convert existing string to an utf-8 string }
+                             if not iswidestring then
+                               begin
+                                 if len>0 then
+                                   ascii2unicode(@cstringpattern[1],len,patternw)
+                                 else
+                                   ascii2unicode(nil,len,patternw);
+                                 iswidestring:=true;
+                                 len:=0;
+                               end;
+                             { four or more chars aren't handled }
+                             if (ord(c) and $f0)=$f0 then
+                               message(scan_e_utf8_bigger_than_65535)
+                             { three chars }
+                             else if (ord(c) and $e0)=$e0 then
+                               begin
+                                 w:=ord(c) and $f;
+                                 readchar;
+                                 if (ord(c) and $c0)<>$80 then
+                                   message(scan_e_utf8_malformed);
+                                 w:=(w shl 6) or (ord(c) and $3f);
+                                 readchar;
+                                 if (ord(c) and $c0)<>$80 then
+                                   message(scan_e_utf8_malformed);
+                                 w:=(w shl 6) or (ord(c) and $3f);
+                                 concatwidestringchar(patternw,w);
+                               end
+                             { two chars }
+                             else if (ord(c) and $c0)<>0 then
+                               begin
+                                 w:=ord(c) and $1f;
+                                 readchar;
+                                 if (ord(c) and $c0)<>$80 then
+                                   message(scan_e_utf8_malformed);
+                                 w:=(w shl 6) or (ord(c) and $3f);
+                                 concatwidestringchar(patternw,w);
+                               end
+                             { illegal }
+                             else if (ord(c) and $80)<>0 then
+                               message(scan_e_utf8_malformed)
+                             else
+                               concatwidestringchar(patternw,tcompilerwidechar(c))
+                           end
+                         else if iswidestring then
+                           begin
+                             if current_settings.sourcecodepage='utf8' then
+                               concatwidestringchar(patternw,ord(c))
+                             else
+                               concatwidestringchar(patternw,asciichar2unicode(c))
+                           end
                          else
                            begin
                              if len>=length(cstringpattern) then
@@ -3994,112 +3919,152 @@ In case not, the value returned can be arbitrary.
                               inc(len);
                               cstringpattern[len]:=c;
                            end;
-
-                         readchar;
-                       end;
-                     else
-                      break;
-                   end;
-                 until false;
-                 { strings with length 1 become const chars }
-                 if iswidestring then
-                   begin
-                     if patternw^.len=1 then
-                       token:=_CWCHAR
-                     else
-                       token:=_CWSTRING;
-                   end
-                 else
-                   begin
-                     setlength(cstringpattern,len);
-                     if length(cstringpattern)=1 then
-                       begin
-                         token:=_CCHAR;
-                         pattern:=cstringpattern;
-                       end
-                     else
-                       token:=_CSTRING;
-                   end;
-                 goto exit_label;
-               end;
-
-             '>' :
-               begin
-                 readchar;
-                 if (block_type in [bt_type,bt_var_type,bt_const_type]) then
-                   token:=_RSHARPBRACKET
-                 else
-                   begin
-                     case c of
-                       '=' :
-                         begin
-                           readchar;
-                           token:=_GTE;
-                           goto exit_label;
-                         end;
-                       '>' :
-                         begin
-                           readchar;
-                           token:=_OP_SHR;
-                           goto exit_label;
-                         end;
-                       '<' :
-                         begin { >< is for a symetric diff for sets }
-                           readchar;
-                           token:=_SYMDIF;
-                           goto exit_label;
-                         end;
+                       until false;
                      end;
+                   '^' :
+                     begin
+                       readchar;
+                       c:=upcase(c);
+                       if c<#64 then
+                        c:=chr(ord(c)+64)
+                       else
+                        c:=chr(ord(c)-64);
+
+                       if iswidestring then
+                         concatwidestringchar(patternw,asciichar2unicode(c))
+                       else
+                         begin
+                           if len>=length(cstringpattern) then
+                             setlength(cstringpattern,length(cstringpattern)+256);
+                            inc(len);
+                            cstringpattern[len]:=c;
+                         end;
+
+                       readchar;
+                     end;
+                   else
+                    break;
+                 end;
+               until false;
+               { strings with length 1 become const chars }
+               if iswidestring then
+                 begin
+                   if patternw^.len=1 then
+                     token:=_CWCHAR
+                   else
+                     token:=_CWSTRING;
+                 end
+               else
+                 begin
+                   setlength(cstringpattern,len);
+                   if length(cstringpattern)=1 then
+                     begin
+                       token:=_CCHAR;
+                       pattern:=cstringpattern;
+                     end
+                   else
+                     token:=_CSTRING;
+                 end;
+             end;
+
+           '>' :
+             begin
+               readchar;
+               if (block_type in [bt_type,bt_var_type,bt_const_type]) then
+                 token:=_RSHARPBRACKET
+               else
+                 begin
+                   case c of
+                     '=' :
+                       begin
+                         readchar;
+                         token:=_GTE;
+                       end;
+                     '>' :
+                       begin
+                         readchar;
+                         token:=_OP_SHR;
+                       end;
+                     '<' :
+                       begin { >< is for a symetric diff for sets }
+                         readchar;
+                         token:=_SYMDIF;
+                       end;
+                   else
                      token:=_GT;
                    end;
-                 goto exit_label;
-               end;
+                 end;
+             end;
 
-             '<' :
-               begin
-                 readchar;
-                 if (block_type in [bt_type,bt_var_type,bt_const_type]) then
-                   token:=_LSHARPBRACKET
-                 else
-                   begin
-                     case c of
-                       '>' :
-                         begin
-                           readchar;
-                           token:=_UNEQUAL;
-                           goto exit_label;
-                         end;
-                       '=' :
-                         begin
-                           readchar;
-                           token:=_LTE;
-                           goto exit_label;
-                         end;
-                       '<' :
-                         begin
-                           readchar;
-                           token:=_OP_SHL;
-                           goto exit_label;
-                         end;
-                     end;
+           '<' :
+             begin
+               readchar;
+               if (block_type in [bt_type,bt_var_type,bt_const_type]) then
+                 token:=_LSHARPBRACKET
+               else
+                 begin
+                   case c of
+                     '>' :
+                       begin
+                         readchar;
+                         token:=_UNEQUAL;
+                       end;
+                     '=' :
+                       begin
+                         readchar;
+                         token:=_LTE;
+                       end;
+                     '<' :
+                       begin
+                         readchar;
+                         token:=_OP_SHL;
+                       end;
+                   else
                      token:=_LT;
                    end;
-                 goto exit_label;
-               end;
+                 end;
+             end;
 
-             #26 :
-               begin
-                 token:=_EOF;
-                 checkpreprocstack;
-                 goto exit_label;
-               end;
-             else
-               Illegal_Char(c);
-           end;
-        end;
-exit_label:
-        lasttoken:=token;
+           #26 :
+             begin
+               token:=_EOF;
+               checkpreprocstack;
+             end;
+           else
+             Illegal_Char(c);
+         end;
       end;
+    end;
+
+    procedure tscannerfile.CheckMacro;
+    var
+      mac     : tmacro;
+    begin
+    { this takes some time ... }
+      if (cs_support_macro in current_settings.moduleswitches) then
+       begin
+         mac:=tmacro(search_macro(pattern));
+         if assigned(mac) and (not mac.is_compiler_var) and (assigned(mac.buftext)) then
+          begin
+            if yylexcount<max_macro_nesting then
+             begin
+               mac.is_used:=true;
+               inc(yylexcount);
+               insertmacro(pattern,mac.buftext,mac.buflen,
+                 mac.fileinfo.line,mac.fileinfo.fileindex);
+             { handle empty macros }
+               if c=#0 then
+                 reload;
+               readtoken(false);
+               { that's all folks }
+               dec(yylexcount);
+               //exit;
+             end
+            else
+             Message(scan_w_macro_too_deep);
+          end;
+       end;
+    end;
 
 
     function tscannerfile.readpreproc:ttoken;
