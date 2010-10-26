@@ -15,6 +15,24 @@ uses
   pbase,node,symdef,symconst;
 
 type
+  TPreDeclared = (
+    pdNone,
+    pdAbs, pdAnyPtr, pdAnyRec, pdASH, pdAssert,
+    pdBits, pdBoolean, pdByte,
+    pdCap, pdChar, pdChr,
+    pdDec,
+    pdEntier, pdExcl,
+    pdFalse,
+    pdHalt,
+    pdInc, pdIncl, pdInf, pdInteger,
+    pdLen, pdLong, pdLongInt,
+    pdMax, pdMin,
+    pdNew,
+    pdOdd, pdOrd,
+    pdReal,
+    pdSet, pdShort, pdShortChar, pdShortInt, pdShortReal, pdSize,
+    pdTrue
+  );
   TComponentPascal = class(TParser)
   protected //in grammar order
     //procedure Module;
@@ -63,6 +81,9 @@ type
     procedure ScanToken; override;
   end;
 
+var
+  predeclared: TPreDeclared;
+
 implementation
 
 uses
@@ -88,8 +109,6 @@ const
   _LIMITED= _PRIVATE;
   _LOOP   = _LABEL;
   _POINTER= _GOTO;
-//non-keywords
-  _NEW    = _PUBLISHED;
 //tokens
   _LBRACE = _LSHARPBRACKET;
   _RBRACE = _RSHARPBRACKET;
@@ -130,8 +149,13 @@ const //for Latin-1 charset in identifiers
   IDnext = ['A'..'Z','a'..'z','_', '0'..'9', //'À'..'Ö', 'Ø'..'ö', 'ø'..'ÿ',#0];
     #$C0..#$D6, #$D8..#$F6, #$F8..#$FF, #0];
 begin
+  predeclared :=pdNone;
 { Check first for an identifier/keyword, this is 20+% faster (PFV) }
   if c in IDfirst then begin
+  { Only keywords should have token<>_ID,
+    other words have idtoken set differently.
+    idtoken always should equal token, except for _ID (easy parse)
+  }
     //readstring;
     i := 1; //length+1
     while c in IDnext do begin
@@ -155,59 +179,104 @@ begin
     SetLength(orgpattern,i);
     SetLength(pattern,i);
     token:=_ID;
-    idtoken:=_ID;
-  { keyword or any other known token? }
+    idtoken:=_ID; //new: predeclared:TPreDeclared !!!
+  { keyword or any other known word? }
     case pattern[1] of
     'A':  if (i=8) and (pattern='ABSTRACT') then token:=_ABSTRACT else
-          if (i=5) and (pattern='ARRAY')    then token:=_ARRAY;
+          if (i=5) and (pattern='ARRAY')    then token:=_ARRAY else
+          if (i=3) then begin
+            if (pattern='ABS')    then predeclared:=pdAbs else
+            if (pattern='ASH')    then predeclared:=pdASH end else
+          if (i=6) then begin
+            if (pattern='ANYPTR')    then predeclared:=pdAnyPtr else
+            if (pattern='ANYREC')    then predeclared:=pdAnyRec else
+            if (pattern='ASSERT')    then predeclared:=pdAssert end;
     'B':  if (i=5) and (pattern='BEGIN')    then token:=_BEGIN else
-          if (i=2) and (pattern[2]='Y')     then token:=_by;
-    'C':  if (i=4) and (pattern='CASE')     then token:=_CASE else
+          if (i=2) and (pattern[2]='Y')     then token:=_BY else
+          if (i=4) then begin
+            if (pattern='BITS')    then predeclared:=pdBits else
+            if (pattern='BYTE')    then predeclared:=pdByte end else
+          if (i=7) and (pattern='BOOLEAN')  then predeclared:=pdBoolean;
+    'C':  if (i=4) then begin
+                    if (pattern='CASE')     then token:=_CASE else
+                    if (pattern='CHAR') then predeclared:=pdChar end else
           if (i=5) then begin
                     if pattern='CLOSE'      then token:=_close else
-                    if pattern='CONST'      then token:=_CONST;
-          end;
-    'D':  if (i=2) and (pattern='DO')        then token:=_DO else
-          if (i=3) and (pattern='DIV')      then token:=_DIV;
+                    if pattern='CONST'      then token:=_CONST end else
+          if (i=3) then begin
+            if (pattern='CAP')    then predeclared:=pdCap else
+            if (pattern='CHR')    then predeclared:=pdChr end;
+    'D':  if (i=2) and (pattern[2]='O')        then token:=_DO else
+          if (i=3) then begin
+            if (pattern='DIV')      then token:=_DIV else
+            if (pattern='DEC')      then predeclared:=pdDec end;
     'E':  if (i=4) then begin
                     if pattern='ELSE'       then token:=_ELSE else
-                    if pattern='EXIT'       then token:=_EXIT end else
+                    if pattern='EXIT'       then token:=_EXIT else
+                    if pattern='EXCL'     then predeclared:=pdExcl end else
           if (i=3) and (pattern='END')      then token:=_END else
           if (i=5) then begin
-                    if pattern='ELSIF'      then token:=_elseif else
-                    if pattern='EMPTY'      then token:=_empty end else
-          if (i=10) and (pattern='EXTENSIBLE') then token:=_extensible;
-    'F':  if (i=3) and (pattern='FOR')      then token:=_FOR;
-
+                    if pattern='ELSIF'      then token:=_ELSEIF else
+                    if pattern='EMPTY'      then token:=_EMPTY; end else
+          if (i=10) and (pattern='EXTENSIBLE') then token:=_EXTENSIBLE else
+          if (i=6) and (pattern='ENTIER') then predeclared:=pdEntier;
+    'F':  if (i=3) and (pattern='FOR')      then token:=_FOR else
+          if (i=5) and (pattern='FALSE')  then predeclared:=pdFalse;
+    'H':  if (i=4) and (pattern='HALT')   then predeclared:=pdHalt;
     'I':  if (i=2) then begin
             case pattern[2] of
               'F': token:=_IF;
               'N': token:=_IN;
               'S': token:=_IS;
             end
-          end else if (i=6) and (pattern='IMPORT') then token:=_import;
-    'L':  if (i=7) and (pattern='LIMITED')  then token:=_limited else
-          if (i=4) and (pattern='LOOP')     then token:=_loop;
-    'M':  if (i=3) and (pattern='MOD')      then token:=_MOD else
+          end else if (i=6) and (pattern='IMPORT') then token:=_IMPORT else
+          if (i=7) and (pattern='INTEGER')  then predeclared:=pdInteger else
+          if (i=3) then begin
+            if (pattern='INC')    then predeclared:=pdInc else
+            if (pattern='INF')    then predeclared:=pdInf end else
+          if (i=4) and (pattern='INCL') then predeclared:=pdIncl;
+    'L':  if (i=7) then begin
+            if (pattern='LIMITED')    then token:=_LIMITED else
+            if (pattern='LONGINT')  then predeclared:=pdLongInt end else
+          if (i=3) and (pattern='LEN')  then predeclared:=pdLen else
+          if (i=4) then begin
+            if (pattern='LONG')     then predeclared:=pdLong else
+            if (pattern='LOOP')       then token:=_LOOP end;
+    'M':  if (i=3) then begin
+            if (pattern='MOD')      then token:=_MOD else
+            if (pattern='MAX')  then predeclared:=pdMax else
+            if (pattern='MIN')  then predeclared:=pdMin end else
           if (i=6) and (pattern='MODULE')   then token:=_module;
     'N':  if (i=3) then begin
                     if (pattern='NIL')      then token:=_NIL else
-                    if (pattern='NEW')      then token:=_NEW end;
-    'O':  if (i=3) and (pattern='OUT')      then token:=_OUT else
+                    if (pattern='NEW')     then predeclared:=pdNew; end;
+    'O':  if (i=3) then begin
+            if (pattern='OUT')      then token:=_OUT else
+            if (pattern='ODD')     then predeclared:=pdOdd else
+            if (pattern='ORD')     then predeclared:=pdOrd end else
           if (i=2) then
             case pattern[2] of
             'F':  token:=_OF;
             'R':  token:=_OR;
             end;
-    'P':  if (i=7) and (pattern='POINTER')  then token:=_pointer else
+    'P':  if (i=7) and (pattern='POINTER')  then token:=_POINTER else
           if (i=9) and (pattern='PROCEDURE')then token:=_PROCEDURE;
     'R':  if (i=6) then begin
             if pattern='RECORD'             then token:=_RECORD else
             if pattern='REPEAT'             then token:=_REPEAT else
-            if pattern='RETURN'             then token:=_RETURN end;
+            if pattern='RETURN'             then token:=_RETURN end else
+          if (i=4) and (pattern='REAL')     then predeclared:=pdReal;
+    'S':  if (i=4) and (pattern='SIZE')     then predeclared:=pdSize else
+          if (i=3) and (pattern='SET')      then predeclared:=pdSet else
+          if (i=5) and (pattern='SHORT')    then predeclared:=pdShort else
+          if (i=8) and (pattern='SHORTINT') then predeclared:=pdShortInt else
+          if (i=9) then begin
+            if (pattern='SHORTCHAR')        then predeclared:=pdShortChar else
+            if (pattern='SHORTREAL')        then predeclared:=pdShortReal end;
     'T':  if (i=2) and (pattern[2]='O')     then token:=_TO else
           if (i=4) then begin
             if (pattern='THEN')             then token:=_THEN else
+            if (pattern='TRUE')            then predeclared:=pdTrue else
             if (pattern='TYPE')             then token:=_TYPE end;
     'U':  if (i=5) and (pattern='UNTIL')    then token:=_UNTIL;
     'V':  if (i=3) and (pattern='VAR')      then token:=_VAR;
@@ -1382,7 +1451,7 @@ procedure TComponentPascal.MethAttributes;
 begin
 { The leading comma already has been consumed }
   //if try_to_consume(_COMMA) then begin
-    if (token=_NEW) then begin
+    if (predeclared=pdNew) then begin
       consume(token);
       if not try_to_consume(_COMMA) then
         exit; //only NEW
