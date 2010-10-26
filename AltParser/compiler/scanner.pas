@@ -79,7 +79,7 @@ interface
        tspecialgenerictoken = (ST_LOADSETTINGS,ST_LINE,ST_COLUMN,ST_FILEINDEX);
 
        tscannerfile = class
-       private
+       protected
          procedure do_gettokenpos(out tokenpos: longint; out filepos: tfileposinfo);
          procedure cachenexttokenpos;
          procedure setnexttoken;
