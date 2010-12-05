@@ -1,0 +1,53 @@
+Proposed Definitions
+~~~~~~~~~~~~~~~~~~~~
+        <File>.ppl      Free-Pascal Package Library
+                          (shared module, Delphi: bpl)
+        <File>.ppk      Free-Pascal Package
+                          (source, Delphi: dpk)
+        <File>.pcp      Free-Pascal Compiled Packge
+                          (header, ppu's, Delphi: dcp)
+        (skip package collections for now)
+
+        -Fp<Name> packages to compile an application width 
+        -FP<Dir>  separate pcp search directory         
+
+-> M1
+~~~~~
+Goal:   - Compile System unit into a "fpcrtl.ppl"
+        - Create a simple application that uses fpcrtl.ppl.
+          -> Perhaps some simple string sorting program.
+
+Idea: Create a TPackageModule class, might be some descendant of
+      TPpuModule or TModule, that holds the information found in the
+      ppk. Don't include the ppu files in the ppk (yet).
+
+      Change pmodules.proc_package to load all units found in the
+      packages of the requires section, create idata for the ppl,
+      create pcp file.
+
+      Add command line parameter (-Fp) so that applications can be
+      compiled with packages. Change pmodules.proc_program to pre-load
+      all units of all referenced packages.
+
+-> M2
+~~~~~
+Goal:   - RTTI in ppk
+        - Basic OOP support in ppk (ClassInfo etc.)
+        - Include all ppu information in pcp file
+
+To Consider:
+      Add Name mangling for RTTI (etc.) if not yet existant.
+
+      Find code in the rtl that needs to be changed (if any).
+
+      Threads/Thread Local Storage?
+
+      Tests.
+
+-> M3
+~~~~~
+Goal:   - Implement missing functionality
+          (Weakpackage, CompilerSwitches...)
+        - Provide ppk files for class library
+        - add tests
+        - merge into trunk

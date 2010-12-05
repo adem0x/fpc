@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <CONFIG>
   <ProjectOptions>
+    <Version Value="9"/>
     <PathDelim Value="\"/>
-    <Version Value="7"/>
     <General>
       <Flags>
         <MainUnitHasUsesSectionForAllUnits Value="False"/>
@@ -12,9 +12,11 @@
       </Flags>
       <SessionStorage Value="InProjectDir"/>
       <MainUnit Value="0"/>
-      <TargetFileExt Value=".exe"/>
       <Title Value="pp"/>
     </General>
+    <BuildModes Count="1">
+      <Item1 Name="default" Default="True"/>
+    </BuildModes>
     <PublishOptions>
       <Version Value="2"/>
       <DestinationDirectory Value="$(TestDir)\publishedproject\"/>
@@ -24,6 +26,7 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
+        <CommandLineParams Value="C:\source\fpcrepo\dynpackages\tests\packages\test1\rtl.ppk"/>
         <LaunchingApplication PathPlusParams="/usr/X11R6/bin/xterm -T 'Lazarus Run Output' -e $(LazarusDir)/tools/runwait.sh $(TargetCmdLine)"/>
       </local>
     </RunParams>
@@ -41,14 +44,14 @@
     </Units>
   </ProjectOptions>
   <CompilerOptions>
-    <Version Value="8"/>
+    <Version Value="9"/>
     <PathDelim Value="\"/>
     <Target>
       <Filename Value="x86_64\pp"/>
     </Target>
     <SearchPaths>
-      <IncludeFiles Value="x86_64\"/>
-      <OtherUnitFiles Value="x86_64\;x86\;systems\"/>
+      <IncludeFiles Value="x86_64"/>
+      <OtherUnitFiles Value="x86_64;x86;systems"/>
       <UnitOutputDirectory Value="x86_64\lazbuild"/>
     </SearchPaths>
     <Parsing>
@@ -56,11 +59,18 @@
         <CStyleOperator Value="False"/>
         <AllowLabel Value="False"/>
         <CPPInline Value="False"/>
+        <UseAnsiStrings Value="False"/>
       </SyntaxOptions>
     </Parsing>
+    <CodeGeneration>
+      <Optimizations>
+        <OptimizationLevel Value="0"/>
+      </Optimizations>
+    </CodeGeneration>
     <Linking>
       <Debugging>
         <GenerateDebugInfo Value="True"/>
+        <GenerateDwarf Value="True"/>
       </Debugging>
     </Linking>
     <Other>
@@ -72,8 +82,12 @@
       <ConfigFile>
         <StopAfterErrCount Value="50"/>
       </ConfigFile>
-      <CustomOptions Value="-dx86_64
-"/>
+      <CompilerMessages>
+        <UseMsgFile Value="True"/>
+        <MsgFileName Value="C:\source\fpcrepo\build\msg\errord.msg"/>
+        <ErrorNames Hint="Hinweis" Note="Anmerkung" Warning="Warnung" Error="Fehler" Fatal="Fataler Fehler"/>
+      </CompilerMessages>
+      <CustomOptions Value="-dx86_64"/>
       <CompilerPath Value="$(CompPath)"/>
     </Other>
   </CompilerOptions>
