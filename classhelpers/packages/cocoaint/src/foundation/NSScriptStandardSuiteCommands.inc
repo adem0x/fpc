@@ -1,0 +1,183 @@
+{ Parsed from Foundation.framework NSScriptStandardSuiteCommands.h }
+{ Version: 2.1.2 - Wed Dec 8 10:06:43 CET 2010 }
+
+
+{$ifdef TYPES}
+{$ifndef NSSCRIPTSTANDARDSUITECOMMANDS_PAS_T}
+{$define NSSCRIPTSTANDARDSUITECOMMANDS_PAS_T}
+
+{ Constants }
+
+const
+  NSSaveOptionsYes = 0;
+  NSSaveOptionsNo = 0;
+  NSSaveOptionsAsk = 1;
+
+{ Types }
+type
+  NSSaveOptions = NSUInteger;
+  NSSaveOptionsPtr = ^NSSaveOptions;
+
+{$endif}
+{$endif}
+
+{$ifdef RECORDS}
+{$ifndef NSSCRIPTSTANDARDSUITECOMMANDS_PAS_R}
+{$define NSSCRIPTSTANDARDSUITECOMMANDS_PAS_R}
+
+{$endif}
+{$endif}
+
+{$ifdef FUNCTIONS}
+{$ifndef NSSCRIPTSTANDARDSUITECOMMANDS_PAS_F}
+{$define NSSCRIPTSTANDARDSUITECOMMANDS_PAS_F}
+
+{$endif}
+{$endif}
+
+{$ifdef EXTERNAL_SYMBOLS}
+{$ifndef NSSCRIPTSTANDARDSUITECOMMANDS_PAS_S}
+{$define NSSCRIPTSTANDARDSUITECOMMANDS_PAS_S}
+
+{$endif}
+{$endif}
+
+{$ifdef FORWARD}
+  NSCloneCommand = objcclass;
+  NSCloneCommandPointer = ^NSCloneCommand;
+  NSCloneCommandPtr = NSCloneCommandPointer;
+  NSCloseCommand = objcclass;
+  NSCloseCommandPointer = ^NSCloseCommand;
+  NSCloseCommandPtr = NSCloseCommandPointer;
+  NSCountCommand = objcclass;
+  NSCountCommandPointer = ^NSCountCommand;
+  NSCountCommandPtr = NSCountCommandPointer;
+  NSCreateCommand = objcclass;
+  NSCreateCommandPointer = ^NSCreateCommand;
+  NSCreateCommandPtr = NSCreateCommandPointer;
+  NSDeleteCommand = objcclass;
+  NSDeleteCommandPointer = ^NSDeleteCommand;
+  NSDeleteCommandPtr = NSDeleteCommandPointer;
+  NSExistsCommand = objcclass;
+  NSExistsCommandPointer = ^NSExistsCommand;
+  NSExistsCommandPtr = NSExistsCommandPointer;
+  NSGetCommand = objcclass;
+  NSGetCommandPointer = ^NSGetCommand;
+  NSGetCommandPtr = NSGetCommandPointer;
+  NSMoveCommand = objcclass;
+  NSMoveCommandPointer = ^NSMoveCommand;
+  NSMoveCommandPtr = NSMoveCommandPointer;
+  NSQuitCommand = objcclass;
+  NSQuitCommandPointer = ^NSQuitCommand;
+  NSQuitCommandPtr = NSQuitCommandPointer;
+  NSSetCommand = objcclass;
+  NSSetCommandPointer = ^NSSetCommand;
+  NSSetCommandPtr = NSSetCommandPointer;
+
+{$endif}
+
+{$ifdef CLASSES}
+{$ifndef NSSCRIPTSTANDARDSUITECOMMANDS_PAS_C}
+{$define NSSCRIPTSTANDARDSUITECOMMANDS_PAS_C}
+
+{ NSCloneCommand }
+  NSCloneCommand = objcclass(NSScriptCommand)
+  private
+    _keySpecifier: NSScriptObjectSpecifier;
+    
+  public
+    class function alloc: NSCloneCommand; message 'alloc';
+
+    procedure setReceiversSpecifier(receiversRef: NSScriptObjectSpecifier); message 'setReceiversSpecifier:';
+    function keySpecifier: NSScriptObjectSpecifier; message 'keySpecifier';
+  end; external;
+
+{ NSCloseCommand }
+  NSCloseCommand = objcclass(NSScriptCommand)
+    
+  public
+    class function alloc: NSCloseCommand; message 'alloc';
+
+    function saveOptions: NSSaveOptions; message 'saveOptions';
+  end; external;
+
+{ NSCountCommand }
+  NSCountCommand = objcclass(NSScriptCommand)
+    
+  public
+    class function alloc: NSCountCommand; message 'alloc';
+  end; external;
+
+{ NSCreateCommand }
+  NSCreateCommand = objcclass(NSScriptCommand)
+  private
+    _moreVars2: id;
+    
+  public
+    class function alloc: NSCreateCommand; message 'alloc';
+
+    function createClassDescription: NSScriptClassDescription; message 'createClassDescription';
+    function resolvedKeyDictionary: NSDictionary; message 'resolvedKeyDictionary';
+  end; external;
+
+{ NSDeleteCommand }
+  NSDeleteCommand = objcclass(NSScriptCommand)
+  private
+    _keySpecifier: NSScriptObjectSpecifier;
+    
+  public
+    class function alloc: NSDeleteCommand; message 'alloc';
+
+    procedure setReceiversSpecifier(receiversRef: NSScriptObjectSpecifier); message 'setReceiversSpecifier:';
+    function keySpecifier: NSScriptObjectSpecifier; message 'keySpecifier';
+  end; external;
+
+{ NSExistsCommand }
+  NSExistsCommand = objcclass(NSScriptCommand)
+    
+  public
+    class function alloc: NSExistsCommand; message 'alloc';
+  end; external;
+
+{ NSGetCommand }
+  NSGetCommand = objcclass(NSScriptCommand)
+    
+  public
+    class function alloc: NSGetCommand; message 'alloc';
+  end; external;
+
+{ NSMoveCommand }
+  NSMoveCommand = objcclass(NSScriptCommand)
+  private
+    _keySpecifier: NSScriptObjectSpecifier;
+    
+  public
+    class function alloc: NSMoveCommand; message 'alloc';
+
+    procedure setReceiversSpecifier(receiversRef: NSScriptObjectSpecifier); message 'setReceiversSpecifier:';
+    function keySpecifier: NSScriptObjectSpecifier; message 'keySpecifier';
+  end; external;
+
+{ NSQuitCommand }
+  NSQuitCommand = objcclass(NSScriptCommand)
+    
+  public
+    class function alloc: NSQuitCommand; message 'alloc';
+
+    function saveOptions: NSSaveOptions; message 'saveOptions';
+  end; external;
+
+{ NSSetCommand }
+  NSSetCommand = objcclass(NSScriptCommand)
+  private
+    _keySpecifier: NSScriptObjectSpecifier;
+    
+  public
+    class function alloc: NSSetCommand; message 'alloc';
+
+    procedure setReceiversSpecifier(receiversRef: NSScriptObjectSpecifier); message 'setReceiversSpecifier:';
+    function keySpecifier: NSScriptObjectSpecifier; message 'keySpecifier';
+  end; external;
+
+{$endif}
+{$endif}

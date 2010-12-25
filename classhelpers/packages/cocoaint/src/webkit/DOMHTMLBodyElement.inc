@@ -1,0 +1,65 @@
+{ Parsed from Webkit.framework DOMHTMLBodyElement.h }
+{ Version: 2.1.2 - Wed Dec 8 10:06:27 CET 2010 }
+
+
+{$ifdef TYPES}
+{$ifndef DOMHTMLBODYELEMENT_PAS_T}
+{$define DOMHTMLBODYELEMENT_PAS_T}
+
+{$endif}
+{$endif}
+
+{$ifdef RECORDS}
+{$ifndef DOMHTMLBODYELEMENT_PAS_R}
+{$define DOMHTMLBODYELEMENT_PAS_R}
+
+{$endif}
+{$endif}
+
+{$ifdef FUNCTIONS}
+{$ifndef DOMHTMLBODYELEMENT_PAS_F}
+{$define DOMHTMLBODYELEMENT_PAS_F}
+
+{$endif}
+{$endif}
+
+{$ifdef EXTERNAL_SYMBOLS}
+{$ifndef DOMHTMLBODYELEMENT_PAS_S}
+{$define DOMHTMLBODYELEMENT_PAS_S}
+
+{$endif}
+{$endif}
+
+{$ifdef FORWARD}
+  DOMHTMLBodyElement = objcclass;
+  DOMHTMLBodyElementPointer = ^DOMHTMLBodyElement;
+  DOMHTMLBodyElementPtr = DOMHTMLBodyElementPointer;
+
+{$endif}
+
+{$ifdef CLASSES}
+{$ifndef DOMHTMLBODYELEMENT_PAS_C}
+{$define DOMHTMLBODYELEMENT_PAS_C}
+
+{ DOMHTMLBodyElement }
+  DOMHTMLBodyElement = objcclass(DOMHTMLElement)
+    
+  public
+    class function alloc: DOMHTMLBodyElement; message 'alloc';
+
+    procedure setALink (newValue: NSString); message 'setALink:';
+    function aLink: NSString; message 'aLink';
+    procedure setBackground (newValue: NSString); message 'setBackground:';
+    function background: NSString; message 'background';
+    procedure setBgColor (newValue: NSString); message 'setBgColor:';
+    function bgColor: NSString; message 'bgColor';
+    procedure setLink (newValue: NSString); message 'setLink:';
+    function link: NSString; message 'link';
+    procedure setText (newValue: NSString); message 'setText:';
+    function text: NSString; message 'text';
+    procedure setVLink (newValue: NSString); message 'setVLink:';
+    function vLink: NSString; message 'vLink';
+  end; external;
+
+{$endif}
+{$endif}
