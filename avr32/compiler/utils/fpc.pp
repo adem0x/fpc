@@ -151,6 +151,10 @@ program fpc;
      ppcbin:='ppcarm';
      processorname:='arm';
 {$endif arm}
+{$ifdef avr32}
+     ppcbin:='ppcavr32';
+     processorname:='avr32';
+{$endif avr32}
 {$ifdef sparc}
      ppcbin:='ppcsparc';
      processorname:='sparc';
@@ -208,6 +212,8 @@ program fpc;
                              cpusuffix:='ppc64'
                            else if processorstr='arm' then
                              cpusuffix:='arm'
+                           else if processorstr='avr32' then
+                             cpusuffix:='avr32'
                            else if processorstr='sparc' then
                              cpusuffix:='sparc'
                            else if processorstr='ia64' then

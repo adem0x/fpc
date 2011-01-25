@@ -53,7 +53,8 @@ interface
              cpu_arm,                      { 10 }
              cpu_powerpc64,                { 11 }
              cpu_avr,                      { 12 }
-             cpu_mipsel                    { 13 }
+             cpu_mipsel,                   { 13 }
+             cpu_avr32                     { 14 }
        );
 
        tasmmode= (asmmode_none
@@ -70,6 +71,7 @@ interface
             ,asmmode_x86_64_intel
             ,asmmode_x86_64_att
             ,asmmode_avr_gas
+            ,asmmode_avr32_gas
        );
 
      (* IMPORTANT NOTE:
@@ -151,7 +153,8 @@ interface
              system_mips_linux,         { 66 }
              system_mipsel_linux,       { 67 }
              system_i386_nativent,      { 68 }
-             system_i386_iphonesim      { 69 }
+             system_i386_iphonesim,     { 69 }
+             system_avr32_embedded      { 70 }
        );
 
      type
@@ -431,7 +434,8 @@ interface
                            system_sparc_embedded,system_vm_embedded,
                            system_iA64_embedded,system_x86_64_embedded,
                            system_mips_embedded,system_arm_embedded,
-                           system_powerpc64_embedded];
+                           system_powerpc64_embedded,system_avr_embedded,
+                           system_avr32_embedded];
 
        { all systems supporting exports from programs or units }
        systems_unit_program_exports = [system_i386_win32,
@@ -466,7 +470,7 @@ interface
 
        cpu2str : array[TSystemCpu] of string[10] =
             ('','i386','m68k','alpha','powerpc','sparc','vm','ia64','x86_64',
-             'mips','arm', 'powerpc64', 'avr', 'mipsel');
+             'mips','arm', 'powerpc64', 'avr', 'mipsel','avr32');
 
        abi2str : array[tabi] of string[10] =
          ('DEFAULT','SYSV','AIX','EABI','ARMEB');
@@ -998,6 +1002,10 @@ begin
 {$ifdef avr}
   default_target(system_avr_embedded);
 {$endif avr}
+
+{$ifdef avr32}
+  default_target(system_avr32_embedded);
+{$endif avr32}
 
 {$ifdef mips}
 {$ifdef mipsel}

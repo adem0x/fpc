@@ -181,6 +181,13 @@ interface
        ,top_conditioncode
        ,top_modeflags
 {$endif arm}
+{$ifdef avr32}
+       { AVR32 only }
+       ,top_regset
+       ,top_shifterop
+       ,top_coh
+       ,top_selector
+{$endif avr32}
 {$ifdef m68k}
        { m68k only }
        ,top_regset
@@ -218,6 +225,12 @@ interface
           top_conditioncode : (cc : TAsmCond);
           top_modeflags : (modeflags : tcpumodeflags);
       {$endif arm}
+      {$ifdef avr32}
+          top_regset : (regset:^tcpuregisterset; regtyp: tregistertype; subreg: tsubregister);
+          top_shifterop : (shifterop : pshifterop);
+          top_coh : ();
+          top_selector : (topreg : tregister; selector : tregisterselector);
+      {$endif avr32}
       {$ifdef m68k}
           top_regset : (regset:^tcpuregisterset);
       {$endif m68k}
@@ -2032,7 +2045,7 @@ implementation
          end;
         if assigned(add_reg_instruction_hook) then
           add_reg_instruction_hook(self,r);
-{$ifdef ARM}
+{$if defined(ARM) or defined(AVR32)}
         { R15 is the PC on the ARM thus moves to R15 are jumps.
           Due to speed considerations we don't use a virtual overridden method here.
           Because the pc/r15 isn't handled by the reg. allocator this should never cause
@@ -2076,6 +2089,13 @@ implementation
                     add_reg_instruction_hook(self,shifterop^.rs);
                 end;
 {$endif ARM}
+{$ifdef AVR32}
+              top_shifterop:
+                begin
+                  new(shifterop);
+                  shifterop^:=o.shifterop^;
+                end;
+{$endif AVR32}
              end;
           end;
       end;
@@ -2089,7 +2109,7 @@ implementation
                 dispose(ref);
               top_local:
                 dispose(localoper);
-{$ifdef ARM}
+{$if defined(ARM) or defined(AVR32)}
               top_shifterop:
                 dispose(shifterop);
               top_regset:

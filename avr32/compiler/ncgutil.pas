@@ -1820,7 +1820,7 @@ implementation
         paraloc  : pcgparalocation;
         href     : treference;
         sizeleft : aint;
-{$if defined(sparc) or defined(arm)}
+{$if defined(sparc) or defined(arm) or defined(avr32)}
         tempref  : treference;
 {$endif sparc}
 {$ifndef cpu64bitalu}
@@ -1927,8 +1927,8 @@ implementation
           LOC_FPUREGISTER,
           LOC_CFPUREGISTER :
             begin
-{$if defined(sparc) or defined(arm)}
-              { Arm and Sparc passes floats in int registers, when loading to fpu register
+{$if defined(sparc) or defined(arm) or defined(avr32)}
+              { Arm, avr32 and Sparc passes floats in int registers, when loading to fpu register
                 we need a temp }
               sizeleft := TCGSize2Size[destloc.size];
               tg.GetTemp(list,sizeleft,sizeleft,tt_normal,tempref);

@@ -53,6 +53,11 @@ unit cgutils;
          addressmode : taddressmode;
          shiftmode   : tshiftmode;
 {$endif arm}
+{$ifdef avr32}
+         symboldata  : tlinkedlistitem;
+         addressmode : taddressmode;
+         indexselector : tregisterselector;
+{$endif avr32}
 {$ifdef avr}
          addressmode : taddressmode;
 {$endif avr}

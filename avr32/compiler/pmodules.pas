@@ -715,10 +715,10 @@ implementation
           end;
 
         { CPU targets with microcontroller support can add a controller specific unit }
-{$if defined(ARM)}
+{$if defined(ARM) or defined(AVR32)}
         if (target_info.system in systems_embedded) and (current_settings.controllertype<>ct_none) then
           AddUnit(controllerunitstr[current_settings.controllertype]);
-{$endif ARM}
+{$endif}
       end;
 
 

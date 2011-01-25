@@ -107,7 +107,7 @@ implementation
        opttail,
        optcse,optloop,
        optutils
-{$if defined(arm) or defined(powerpc) or defined(powerpc64)}
+{$if defined(arm) or defined(avr32) or defined(powerpc) or defined(powerpc64)}
        ,aasmcpu
 {$endif arm}
        {$ifndef NOOPT}
@@ -1229,6 +1229,10 @@ implementation
             { because of the limited constant size of the arm, all data access is done pc relative }
             finalizearmcode(aktproccode,aktlocaldata);
 {$endif ARM}
+{$ifdef AVR32}
+            { because of the limited constant size of the arm, all data access is done pc relative }
+            finalizeavr32code(aktproccode,aktlocaldata);
+{$endif AVR32}
 
             { Add end symbol and debug info }
             { this must be done after the pcrelativedata is appended else the distance calculation of
