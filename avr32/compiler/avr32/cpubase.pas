@@ -104,7 +104,7 @@ unit cpubase;
         {$i ravr32dwa.inc}
       );
       { registers which may be destroyed by calls }
-      VOLATILE_INTREGISTERS = [RS_R8..RS_R12];
+      VOLATILE_INTREGISTERS = [RS_R8,RS_R9,RS_R10,RS_R12];
       VOLATILE_FPUREGISTERS = [];
       VOLATILE_MMREGISTERS =  [];
 
@@ -214,7 +214,7 @@ unit cpubase;
       maxintregs = 15;
       { to determine how many registers to use for regvars }
       maxintscratchregs = 3;
-      usableregsint = [RS_R0..RS_R11];
+      usableregsint = [RS_R0..RS_R10,RS_R12];
       c_countusableregsint = 12;
 
       maxfpuregs = 0;

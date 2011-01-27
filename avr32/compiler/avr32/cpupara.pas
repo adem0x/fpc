@@ -2,7 +2,7 @@
     Copyright (c) 2003 by Florian Klaempfl
 
     avr32 specific calling conventions
-    - Default follows IAR C/C++ calling conventions(AVR32 IAR C/C++ Compiler Reference Guide)
+     - (R12,R10,R9,R8,FP[4],FP[8]...)
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -215,7 +215,7 @@ unit cpupara;
         begin
           { In case of po_delphi_nested_cc, the parent frame pointer
             is always passed on the stack. }
-           if (nextintreg<=RS_R3) and
+           if (nextintreg>=RS_R8) and
               (not(vo_is_parentfp in hp.varoptions) or
                not(po_delphi_nested_cc in p.procoptions)) then
              begin
@@ -320,23 +320,13 @@ unit cpupara;
                  case loc of
                     LOC_REGISTER:
                       begin
-                        { align registers for eabi }
-                        if (target_info.abi=abi_default) and
-                           firstparaloc and
-                           (paradef.alignment=8) then
-                          begin
-                            if (nextintreg in [RS_R1,RS_R3]) then
-                              inc(nextintreg)
-                            else if nextintreg>RS_R3 then
-                              stack_offset:=align(stack_offset,8);
-                          end;
-                        { this is not abi compliant
-                          why? (FK) }
                         if nextintreg>=RS_R8 then
                           begin
                             paraloc^.loc:=LOC_REGISTER;
                             paraloc^.register:=newreg(R_INTREGISTER,nextintreg,R_SUBWHOLE);
                             dec(nextintreg);
+                            if nextintreg=RS_R11 then
+                              dec(nextintreg);
                           end
                         else
                           begin
@@ -377,11 +367,6 @@ unit cpupara;
                           end
                         else
                           begin
-                            { align stack for eabi }
-                            if firstparaloc and
-                               (paradef.alignment=8) then
-                              stack_offset:=align(stack_offset,8);
-
                              paraloc^.size:=paracgsize;
                              paraloc^.loc:=LOC_REFERENCE;
                              paraloc^.reference.index:=NR_STACK_POINTER_REG;

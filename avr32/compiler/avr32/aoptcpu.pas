@@ -147,7 +147,8 @@ Implementation
                          test_set(taicpu(p).oper[1]^.regset^, [11]) and
                          test_set(taicpu(p).oper[1]^.regset^, [12]) and
                          test_set(taicpu(p).oper[1]^.regset^, [14]) and
-                         test_set(taicpu(p).oper[1]^.regset^, [15]) then
+                         test_set(taicpu(p).oper[1]^.regset^, [15]) and
+                         ((taicpu(p).oper[1]^.regset^ * [13]) = []) then
                         begin
                           taicpu(p).loadregset(0,taicpu(p).oper[1]^.regtyp,taicpu(p).oper[1]^.subreg,taicpu(p).oper[1]^.regset^);
                           taicpu(p).ops:=1;
@@ -172,7 +173,8 @@ Implementation
                          test_set(taicpu(p).oper[1]^.regset^, [11]) and
                          test_set(taicpu(p).oper[1]^.regset^, [12]) and
                          test_set(taicpu(p).oper[1]^.regset^, [14]) and
-                         test_set(taicpu(p).oper[1]^.regset^, [15]) then
+                         test_set(taicpu(p).oper[1]^.regset^, [15]) and
+                         ((taicpu(p).oper[1]^.regset^ * [13]) = []) then
                         begin
                           taicpu(p).loadregset(0,taicpu(p).oper[1]^.regtyp,taicpu(p).oper[1]^.subreg,taicpu(p).oper[1]^.regset^);
                           taicpu(p).ops:=1;

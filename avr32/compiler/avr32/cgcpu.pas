@@ -193,7 +193,7 @@ unit cgcpu;
         rg[R_INTREGISTER]:=trgintcpu.create(R_INTREGISTER,R_SUBWHOLE,
             {[RS_R0,RS_R1,RS_R2,RS_R3,RS_R4,RS_R5,RS_R6,RS_R7,RS_R8,
              RS_R9,RS_R10,RS_R11,RS_R12],first_int_imreg,[]);}
-            [RS_R12,RS_R11,RS_R10,RS_R9,RS_R8,RS_R7,RS_R6,RS_R5,RS_R4,
+            [RS_R12,RS_R10,RS_R9,RS_R8,RS_R7,RS_R6,RS_R5,RS_R4,
              RS_R3,RS_R2,RS_R1,RS_R0],first_int_imreg,[]);
       end;
 
@@ -1026,62 +1026,41 @@ unit cgcpu;
     procedure tcgavr32.g_proc_entry(list : TAsmList;localsize : longint;nostackframe:boolean);
       var
          ref : treference;
-         shift : byte;
          r : byte;
          regs : tcpuregisterset;
-         stackmisalignment : pint;
-         postfix: toppostfix;
+         stackcount : pint;
       begin
-        LocalSize:=align(LocalSize,4);
-        { call instruction does not put anything on the stack }
-        stackmisalignment:=0;
         if not(nostackframe) then
           begin
             a_reg_alloc(list,NR_STACK_POINTER_REG);
-            if current_procinfo.framepointer<>NR_STACK_POINTER_REG then
-              begin
-                a_reg_alloc(list,NR_FRAME_POINTER_REG);
-                a_reg_alloc(list,NR_R12);
 
-                list.concat(taicpu.op_reg_reg(A_MOV,NR_R12,NR_STACK_POINTER_REG));
-              end;
             { save int registers }
             reference_reset(ref,4);
             ref.base:=NR_STACK_POINTER_REG;
             ref.addressmode:=AM_PREINDEXED;
             regs:=rg[R_INTREGISTER].used_in_proc-paramanager.get_volatile_registers_int(pocall_stdcall);
 
+            Exclude(regs,RS_STACK_POINTER_REG);
 
             if current_procinfo.framepointer<>NR_STACK_POINTER_REG then
               regs:=regs+[RS_FRAME_POINTER_REG,RS_R14]
             else
               if (regs<>[]) or (pi_do_call in current_procinfo.flags) then
                 include(regs,RS_R14);
+
             if regs<>[] then
-               begin
-                 for r:=RS_R0 to RS_R15 do
-                   if (r in regs) then
-                     inc(stackmisalignment,4);
-                 list.concat(taicpu.op_ref_regset(A_STM,ref,R_INTREGISTER,R_SUBWHOLE,regs));
-               end;
+              list.concat(taicpu.op_ref_regset(A_STM,ref,R_INTREGISTER,R_SUBWHOLE,regs));
 
             if current_procinfo.framepointer<>NR_STACK_POINTER_REG then
               begin
-                { the framepointer now points to the saved R15, so the saved
-                  framepointer is at R11-12 (for get_caller_frame) }
-                list.concat(taicpu.op_reg_reg_const(A_SUB,NR_FRAME_POINTER_REG,NR_R12,4));
-                a_reg_dealloc(list,NR_R12);
-              end;
+                stackcount:=0;
+                for r:=RS_R0 to RS_R15 do
+                  if (r in regs) then
+                    inc(stackcount,4);
 
-            stackmisalignment:=stackmisalignment mod current_settings.alignment.localalignmax;
-            if (LocalSize<>0) or
-               ((stackmisalignment<>0) and
-                ((pi_do_call in current_procinfo.flags) or
-                 (po_assembler in current_procinfo.procdef.procoptions))) then
-              begin
-                localsize:=align(localsize+stackmisalignment,current_settings.alignment.localalignmax)-stackmisalignment;
-                a_reg_dealloc(list,NR_R12);
-                list.concat(taicpu.op_reg_reg_const(A_SUB,NR_STACK_POINTER_REG,NR_STACK_POINTER_REG,LocalSize));
+                dec(stackcount,4); // Point at LR
+                if stackcount > 0 then
+                  list.concat(taicpu.op_reg_reg_const(A_SUB,NR_FRAME_POINTER_REG,NR_STACK_POINTER_REG,-stackcount));
               end;
           end
         else
@@ -1125,22 +1104,10 @@ unit cgcpu;
             if (current_procinfo.framepointer<>NR_STACK_POINTER_REG) then
               regs:=regs+[RS_FRAME_POINTER_REG,RS_R15];
 
-            for r:=RS_R0 to RS_R15 do
-              if (r in regs) then
-                inc(stackmisalignment,4);
-            stackmisalignment:=stackmisalignment mod current_settings.alignment.localalignmax;
+            Exclude(regs,RS_STACK_POINTER_REG);
+
             if (current_procinfo.framepointer=NR_STACK_POINTER_REG) then
               begin
-                LocalSize:=current_procinfo.calc_stackframe_size;
-                if (LocalSize<>0) or
-                   ((stackmisalignment<>0) and
-                    ((pi_do_call in current_procinfo.flags) or
-                     (po_assembler in current_procinfo.procdef.procoptions))) then
-                  begin
-                    localsize:=align(localsize+stackmisalignment,current_settings.alignment.localalignmax)-stackmisalignment;
-                    list.concat(taicpu.op_reg_reg_const(A_SUB,NR_STACK_POINTER_REG,NR_STACK_POINTER_REG,-LocalSize));
-                  end;
-
                 if regs=[] then
                   list.concat(taicpu.op_reg(A_RET,NR_FUNCTION_RETURN_REG))
                 else
