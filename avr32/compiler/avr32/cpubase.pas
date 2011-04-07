@@ -104,7 +104,7 @@ unit cpubase;
         {$i ravr32dwa.inc}
       );
       { registers which may be destroyed by calls }
-      VOLATILE_INTREGISTERS = [RS_R8,RS_R9,RS_R10,RS_R12];
+      VOLATILE_INTREGISTERS = [RS_R8,RS_R9,RS_R10,RS_R11,RS_R12];
       VOLATILE_FPUREGISTERS = [];
       VOLATILE_MMREGISTERS =  [];
 
@@ -280,8 +280,8 @@ unit cpubase;
       NR_STACK_POINTER_REG = NR_R13;
       RS_STACK_POINTER_REG = RS_R13;
       { Frame pointer register }
-      RS_FRAME_POINTER_REG = RS_R11;
-      NR_FRAME_POINTER_REG = NR_R11;
+      RS_FRAME_POINTER_REG = RS_R7;
+      NR_FRAME_POINTER_REG = NR_R7;
       { Register for addressing absolute data in a position independant way,
         such as in PIC code. The exact meaning is ABI specific. For
         further information look at GCC source : PIC_OFFSET_TABLE_REGNUM

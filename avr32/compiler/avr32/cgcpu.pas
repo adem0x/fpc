@@ -190,11 +190,11 @@ unit cgcpu;
     procedure tcgavr32.init_register_allocators;
       begin
         inherited init_register_allocators;
+        { Reverse order to make it allocate the higher registers first.
+          This makes it more likely to contract a pushm statement into a compact pushm }
         rg[R_INTREGISTER]:=trgintcpu.create(R_INTREGISTER,R_SUBWHOLE,
-            {[RS_R0,RS_R1,RS_R2,RS_R3,RS_R4,RS_R5,RS_R6,RS_R7,RS_R8,
-             RS_R9,RS_R10,RS_R11,RS_R12],first_int_imreg,[]);}
-            [RS_R12,RS_R10,RS_R9,RS_R8,RS_R7,RS_R6,RS_R5,RS_R4,
-             RS_R3,RS_R2,RS_R1,RS_R0],first_int_imreg,[]);
+            [RS_R12,RS_R11,RS_R10,RS_R9,RS_R8,RS_R6,RS_R5,RS_R4,
+             RS_R3,RS_R2,RS_R1,RS_R0],first_int_imreg,[]); 
       end;
 
 

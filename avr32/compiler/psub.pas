@@ -952,7 +952,7 @@ implementation
             { set the start offset to the start of the temp area in the stack }
             tg:=ttgobj.create;
 
-{$if defined(x86) or defined(arm)}
+{$if defined(x86) or defined(arm) or defined(avr32)}
             { try to strip the stack frame }
             { set the framepointer to esp if:
               - no assembler directive, those are handled in assembler_block
