@@ -1,0 +1,123 @@
+#!/bin/sh
+#
+#  $Id: samplecfg,v 1.13 2005/02/19 18:50:20 florian Exp $
+#
+#  Generate Sample Free Pascal configuration file
+#
+
+HOSTOS=`uname -s | tr A-Z a-z`
+echo Running on $HOSTOS
+
+if [ $# = 0 ]; then
+  echo 'Usage :'
+  echo 'samplecfg fpcdir confdir'
+  echo 'fpcdir = Path where FPC is installed'
+  echo 'confdir = Path to /etc'
+  exit 1
+fi
+if [ "$2" ]; then
+  sysdir="$2"
+  [ -d "$sysdir" ] || mkdir "$sysdir"
+else
+  sysdir=/etc
+fi
+FPCBIN=`dirname "$1"`/../../bin/fpc
+FPBIN=`dirname "$1"`/../../bin/fp
+sysfpdirbase=`dirname "$1"`/`"$FPCBIN" -iV`
+sysfpdirbase2=$sysfpdirbase/ide
+sysfpdir=$sysfpdirbase2/text
+
+# Detect if we have write permission in sysdir.
+if [ -w "$sysdir" ] ; then
+  echo Write permission in $sysdir.
+  fpccfgfile="$sysdir"/fpc.cfg
+else
+  echo No write premission in $sysdir.
+  fpccfgfile="$HOME"/.fpc.cfg
+fi
+#
+
+# Don't mess with IDE configuration if fp binary does not exist
+if [ -f "$FPBIN" ] ; then
+
+# Assume local FP IDE configuration unless writing system-wide version possible
+  fpinifile="$HOME"/.fp/fp.ini
+  fpcfgfile="$HOME"/.fp/fp.cfg
+
+# Detect if we have write permission in sysfpdirbase.
+  if [ -w "$sysfpdirbase" ] ; then
+    echo Write permission in $sysfpdirbase.
+    if ! [ -d "$sysfpdirbase2" ] ; then
+      echo Directory $sysfpdirbase2 did not exist, attempting to create it now
+      mkdir $sysfpdirbase2  >/dev/null 2>&1
+      echo Attempting to create directory $sysfpdir
+      mkdir $sysfpdir  >/dev/null 2>&1
+    elif ! [ -d "$sysfpdir" ] ; then
+      echo Directory $sysfpdir did not exist, attempting to create it now
+      mkdir $sysfpdir  >/dev/null 2>&1
+    fi
+    if [ -w "$sysfpdir" ] ; then
+      fpinifile="$sysfpdir"/fp.ini
+      fpcfgfile="$sysfpdir"/fp.cfg
+    fi
+  fi
+#
+
+# When the local FP IDE configuration is used, check if the directory exists
+  if [ $fpcfgfile = "$HOME"/.fp/fp.cfg -a ! -d "$HOME"/.fp ] ; then
+    echo Directory $HOME/.fp did not exist, attempting to create it now
+    mkdir "$HOME"/.fp >/dev/null 2>&1     
+  fi
+fi
+#
+
+if [ -f "$fpccfgfile" ] ; then
+  mv "$fpccfgfile" "$fpccfgfile.orig"  >/dev/null 2>&1
+  if [ $? = 0 ]; then
+    echo Saved old compiler config to $fpccfgfile.orig
+  else
+    echo Could not save old compiler config. Bailing out...
+    exit
+  fi
+fi
+
+if [ -f "$FPBIN" ] ; then
+  if [ -f "$fpinifile" ] ; then
+    mv "$fpinifile" "$fpinifile.orig"  >/dev/null 2>&1
+    if [ $? = 0 ]; then
+      echo Saved old fp.ini to $fpinifile.orig
+    else
+      echo Could not save old fp.ini. Bailing out...
+      exit
+    fi
+  fi
+
+  if [ -f "$fpcfgfile" ] ; then
+    mv "$fpcfgfile" "$fpcfgfile.orig"  >/dev/null 2>&1
+    if [ $? = 0 ]; then
+      echo Saved old fp.cfg to $fpcfgfile.orig
+    else
+      echo Could not save old fp.cfg. Bailing out...
+      exit
+    fi
+  fi
+fi
+
+# set right path to FPC with $fpcversion
+FPCPATH=`dirname "$1"`/\$fpcversion
+
+# Write (.)fpc.cfg
+echo Writing sample configuration file to $fpccfgfile
+fpcmkcfg -d "basepath=$FPCPATH" -o $fpccfgfile
+
+if ! [ -f "$FPBIN" ] ; then
+  exit
+fi
+
+# Write fp.cfg
+echo Writing sample configuration file to $fpcfgfile
+fpcmkcfg -1 -d "basepath=$FPCPATH" -o $fpcfgfile
+
+# Write fp.ini
+echo Writing sample configuration file to $fpinifile
+fpcmkcfg -2 -o $fpinifile
