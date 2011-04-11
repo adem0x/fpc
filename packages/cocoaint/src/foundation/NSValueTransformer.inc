@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSValueTransformer.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSVALUETRANSFORMER_PAS_T}
@@ -29,11 +27,11 @@
 
 { External string constants }
 var
-  NSNegateBooleanTransformerName: NSString; external name '_NSNegateBooleanTransformerName';
-  NSIsNilTransformerName: NSString; external name '_NSIsNilTransformerName';
-  NSIsNotNilTransformerName: NSString; external name '_NSIsNotNilTransformerName';
-  NSUnarchiveFromDataTransformerName: NSString; external name '_NSUnarchiveFromDataTransformerName';
-  NSKeyedUnarchiveFromDataTransformerName: NSString; external name '_NSKeyedUnarchiveFromDataTransformerName';
+  NSNegateBooleanTransformerName: NSString; cvar; external;
+  NSIsNilTransformerName: NSString; cvar; external;
+  NSIsNotNilTransformerName: NSString; cvar; external;
+  NSUnarchiveFromDataTransformerName: NSString; cvar; external;
+  NSKeyedUnarchiveFromDataTransformerName: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -41,6 +39,7 @@ var
 {$ifdef FORWARD}
   NSValueTransformer = objcclass;
   NSValueTransformerPointer = ^NSValueTransformer;
+  NSValueTransformerPtr = NSValueTransformerPointer;
 
 {$endif}
 
@@ -49,11 +48,9 @@ var
 {$define NSVALUETRANSFORMER_PAS_C}
 
 { NSValueTransformer }
-  NSValueTransformer = objcclass(NSObject)
+  NSValueTransformer = objcclass external (NSObject)
     
   public
-    class function alloc: NSValueTransformer; message 'alloc';
-
     class procedure setValueTransformer_forName(transformer: NSValueTransformer; name: NSString); message 'setValueTransformer:forName:';
     class function valueTransformerForName(name: NSString): NSValueTransformer; message 'valueTransformerForName:';
     class function valueTransformerNames: NSArray; message 'valueTransformerNames';
@@ -61,7 +58,7 @@ var
     class function allowsReverseTransformation: Boolean; message 'allowsReverseTransformation';
     function transformedValue(value: id): id; message 'transformedValue:';
     function reverseTransformedValue(value: id): id; message 'reverseTransformedValue:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

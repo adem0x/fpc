@@ -16,6 +16,13 @@ unit gd;
 {$IFDEF GO32V2}
   {$UNDEF FPC_TARGET_SUPPORTS_DYNLIBS}
 {$ENDIF GO32V2}
+{$IFDEF AMIGA}
+  {$UNDEF FPC_TARGET_SUPPORTS_DYNLIBS}
+{$ENDIF AMIGA}
+{$IFDEF MORPHOS}
+  {$UNDEF FPC_TARGET_SUPPORTS_DYNLIBS}
+{$ENDIF MORPHOS}
+
 
 interface
 
@@ -34,6 +41,18 @@ uses
   const
     gdlib = 'libgd.'+sharedsuffix;
     clib = 'libc.'+sharedsuffix;
+{$ENDIF}
+{$IFDEF NETWARE}
+  {$DEFINE EXTDECL := cdecl}
+  const
+    gdlib = 'libgd.nlm';
+    clib = 'clib.nlm';
+{$ENDIF}
+{$IFDEF NETWLIBC}
+  {$DEFINE EXTDECL := cdecl}
+  const
+    gdlib = 'libgd.nlm';
+    clib = 'libc.nlm';
 {$ENDIF}
 {$IFDEF WINDOWS}
   {$DEFINE EXTDECL := stdcall}
@@ -56,6 +75,16 @@ uses
   {$DEFINE gdlib := }
   {$DEFINE clib := }
 {$ENDIF OS2}
+{$IFDEF AMIGA}
+  {$UNDEF LOAD_DYNAMICALLY}
+  {$DEFINE gdlib := }
+  {$DEFINE clib := }
+{$ENDIF AMIGA}
+{$IFDEF MORPHOS}
+  {$UNDEF LOAD_DYNAMICALLY}
+  {$DEFINE gdlib := }
+  {$DEFINE clib := }
+{$ENDIF MORPHOS}
 
 {$IFNDEF LOAD_DYNAMICALLY}
   {$IFDEF darwin}

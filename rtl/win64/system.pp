@@ -55,15 +55,13 @@ const
   StdInputHandle  : THandle = 0;
   StdOutputHandle : THandle = 0;
   StdErrorHandle  : THandle = 0;
+  System_exception_frame : PEXCEPTION_FRAME =nil;
 
   FileNameCaseSensitive : boolean = true;
   CtrlZMarksEOF: boolean = true; (* #26 is considered as end of file *)
 
   sLineBreak = LineEnding;
   DefaultTextLineBreakStyle : TTextLineBreakStyle = tlbsCRLF;
-
-  { Thread count for DLL }
-  Thread_count : longint = 0;
 
 type
   TStartupInfo = record
@@ -400,6 +398,19 @@ procedure Exe_entry;[public,alias:'_FPC_EXE_Entry'];
      install_exception_handlers;
      ExitCode:=0;
      asm
+        { allocate space for an exception frame }
+        pushq $0
+        pushq %gs:(0)
+        { movl  %rsp,%gs:(0)
+          but don't insert it as it doesn't
+          point to anything yet
+          this will be used in signals unit }
+        movq %rsp,%rax
+{$ifdef FPC_HAS_RIP_RELATIVE}
+        movq %rax,System_exception_frame(%rip)
+{$else}
+        movq %rax,System_exception_frame
+{$endif}
         { keep stack aligned }
         pushq $0
         pushq %rbp
@@ -408,14 +419,14 @@ procedure Exe_entry;[public,alias:'_FPC_EXE_Entry'];
      end;
      StackTop:=st;
      asm
-        xorl %rax,%rax
+        xorq %rax,%rax
         movw %ss,%ax
 {$ifdef FPC_HAS_RIP_RELATIVE}
         movl %eax,_SS(%rip)
 {$else}
         movl %eax,_SS
 {$endif}
-        xorl %rbp,%rbp
+        xorq %rbp,%rbp
         call PASCALMAIN
         popq %rbp
         popq %rax
@@ -870,6 +881,56 @@ procedure remove_exception_handlers;
 
 procedure fpc_cpucodeinit;
   begin
+  end;
+
+{****************************************************************************
+                      OS dependend widestrings
+****************************************************************************}
+
+const
+  { MultiByteToWideChar  }
+     MB_PRECOMPOSED = 1;
+     CP_ACP = 0;
+     WC_NO_BEST_FIT_CHARS = $400;
+
+function MultiByteToWideChar(CodePage:UINT; dwFlags:DWORD; lpMultiByteStr:PChar; cchMultiByte:longint; lpWideCharStr:PWideChar;cchWideChar:longint):longint;
+    stdcall; external 'kernel32' name 'MultiByteToWideChar';
+function WideCharToMultiByte(CodePage:UINT; dwFlags:DWORD; lpWideCharStr:PWideChar; cchWideChar:longint; lpMultiByteStr:PChar;cchMultiByte:longint; lpDefaultChar:PChar; lpUsedDefaultChar:pointer):longint;
+    stdcall; external 'kernel32' name 'WideCharToMultiByte';
+function CharUpperBuff(lpsz:LPWSTR; cchLength:DWORD):DWORD;
+    stdcall; external 'user32' name 'CharUpperBuffW';
+function CharLowerBuff(lpsz:LPWSTR; cchLength:DWORD):DWORD;
+    stdcall; external 'user32' name 'CharLowerBuffW';
+
+
+procedure Win32Ansi2WideMove(source:pchar;var dest:widestring;len:SizeInt);
+  var
+    destlen: SizeInt;
+  begin
+    // retrieve length including trailing #0
+    // not anymore, because this must also be usable for single characters
+    destlen:=MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, source, len, nil, 0);
+    // this will null-terminate
+    setlength(dest, destlen);
+    MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, source, len, @dest[1], destlen);
+  end;
+
+
+function Win32WideUpper(const s : WideString) : WideString;
+  begin
+    result:=s;
+    UniqueString(result);
+    if length(result)>0 then
+      CharUpperBuff(LPWSTR(result),length(result));
+  end;
+
+
+function Win32WideLower(const s : WideString) : WideString;
+  begin
+    result:=s;
+    UniqueString(result);
+    if length(result)>0 then
+      CharLowerBuff(LPWSTR(result),length(result));
   end;
 
 {******************************************************************************}

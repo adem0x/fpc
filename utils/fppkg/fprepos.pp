@@ -37,7 +37,7 @@ Type
     linux,go32v2,win32,os2,freebsd,beos,netbsd,
     amiga,atari, solaris, qnx, netware, openbsd,wdosx,
     palmos,macos,darwin,emx,watcom,morphos,netwlibc,
-    win64,wince,gba,nds,embedded,symbian
+    win64,wince,gba,nds,embedded,symbian,haiku
   );
   TOSes = Set of TOS;
 
@@ -113,7 +113,11 @@ type
     FAuthor: String;
     FDescription: String;
     FEmail: String;
+    FFPMakeOptionsString: string;
+    FRecompileBroken: boolean;
+    FSourcePath: string;
     FInstalledLocally: boolean;
+    FIsFPMakeAddIn: boolean;
     FLicense: String;
     FName: String;
     FHomepageURL: String;
@@ -142,6 +146,7 @@ type
     // Only for installed packages: (is false for packages which are installed globally)
     Property InstalledLocally : boolean read FInstalledLocally write FInstalledLocally;
     Property UnusedVersion : TFPVersion Read FUnusedVersion Write SetUnusedVersion;
+    Property RecompileBroken : boolean read FRecompileBroken write FRecompileBroken;
   Published
     Property Name : String Read FName Write SetName;
     Property Author : String Read FAuthor Write FAuthor;
@@ -155,6 +160,10 @@ type
     Property OSes : TOSes Read FOSes Write FOses;
     Property CPUs : TCPUs Read FCPUs Write FCPUs;
     Property Checksum : Cardinal Read FChecksum Write FChecksum;
+    Property IsFPMakeAddIn : boolean read FIsFPMakeAddIn write FIsFPMakeAddIn;
+    // These properties are used to re-compile the package, when it's dependencies are changed.
+    Property SourcePath : string read FSourcePath write FSourcePath;
+    Property FPMakeOptionsString : string read FFPMakeOptionsString write FFPMakeOptionsString;
     // Manual package from commandline not in official repository
     Property LocalFileName : String Read FLocalFileName Write FLocalFileName;
   end;
@@ -659,6 +668,9 @@ begin
       Description:=P.Description;
       HomepageURL:=P.HomepageURL;
       DownloadURL:=P.DownloadURL;
+      SourcePath:=P.SourcePath;
+      FPMakeOptionsString:=P.FPMakeOptionsString;
+      InstalledLocally:=P.InstalledLocally;
       OSes:=P.OSes;
       CPUs:=P.CPUs;
       FileName:=P.FileName;

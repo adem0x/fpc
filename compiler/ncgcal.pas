@@ -167,10 +167,19 @@ implementation
                 is_managed_type(left.resultdef) then
                begin
                  location_get_data_ref(current_asmdata.CurrAsmList,left.location,href,false,sizeof(pint));
-                 cg.g_decrrefcount(current_asmdata.CurrAsmList,left.resultdef,href);
+                 if is_open_array(resultdef) then
+                   begin
+                     if third=nil then
+                       InternalError(201103063);
+                     secondpass(third);
+                     cg.g_array_rtti_helper(current_asmdata.CurrAsmList,tarraydef(resultdef).elementdef,
+                       href,third.location,'FPC_DECREF_ARRAY');
+                   end
+                 else
+                   cg.g_decrrefcount(current_asmdata.CurrAsmList,left.resultdef,href);
                end;
 
-             paramanager.createtempparaloc(current_asmdata.CurrAsmList,aktcallnode.procdefinition.proccalloption,parasym,tempcgpara);
+             paramanager.createtempparaloc(current_asmdata.CurrAsmList,aktcallnode.procdefinition.proccalloption,parasym,not followed_by_stack_tainting_call_cached,tempcgpara);
 
              { handle varargs first, because parasym is not valid }
              if (cpf_varargs_para in callparaflags) then
@@ -379,12 +388,15 @@ implementation
 
             case location.loc of
               LOC_REGISTER :
+                begin
 {$ifndef cpu64bitalu}
-                if location.size in [OS_64,OS_S64] then
-                  cg64.a_load64_reg_loc(current_asmdata.CurrAsmList,location.register64,funcretnode.location)
-                else
+                  if location.size in [OS_64,OS_S64] then
+                    cg64.a_load64_reg_loc(current_asmdata.CurrAsmList,location.register64,funcretnode.location)
+                  else
 {$endif}
-                  cg.a_load_reg_loc(current_asmdata.CurrAsmList,location.size,location.register,funcretnode.location);
+                    cg.a_load_reg_loc(current_asmdata.CurrAsmList,location.size,location.register,funcretnode.location);
+                  location_free(current_asmdata.CurrAsmList,location);
+                end;
               LOC_REFERENCE:
                 begin
                   case funcretnode.location.loc of
@@ -395,6 +407,7 @@ implementation
                     else
                       internalerror(200802121);
                   end;
+                  location_freetemp(current_asmdata.CurrAsmList,location);
                 end;
               else
                 internalerror(200709085);
@@ -485,6 +498,7 @@ implementation
          href : treference;
          calleralignment,
          tmpalignment: longint;
+         skipiffinalloc: boolean;
        begin
          { copy all resources to the allocated registers }
          ppn:=tcgcallparanode(left);
@@ -504,6 +518,9 @@ implementation
                     (calleralignment=0) then
                    internalerror(2009020701);
                  callerparaloc:=ppn.parasym.paraloc[callerside].location;
+                 skipiffinalloc:=
+                   not paramanager.use_fixed_stack or
+                   not(ppn.followed_by_stack_tainting_call_cached);
                  while assigned(callerparaloc) do
                    begin
                      { Every paraloc must have a matching tmpparaloc }
@@ -540,7 +557,8 @@ implementation
                          end;
                        LOC_REFERENCE:
                          begin
-                           if use_fixed_stack then
+                           if not(skipiffinalloc and
+                                  paramanager.is_stack_paraloc(callerparaloc)) then
                              begin
                                { Can't have a data copied to the stack, every location
                                  must contain a valid size field }
@@ -624,7 +642,7 @@ implementation
 {$endif x86_64}
       begin
          if not assigned(procdefinition) or
-            not procdefinition.has_paraloc_info then
+            not(procdefinition.has_paraloc_info in [callerside,callbothsides]) then
            internalerror(200305264);
 
          if assigned(callinitblock) then
@@ -683,12 +701,12 @@ implementation
                 (methodpointer.nodetype<>typen) and
                 (not assigned(current_procinfo) or
                  wpoinfomanager.symbol_live(current_procinfo.procdef.mangledname)) then
-               tprocdef(procdefinition)._class.register_vmt_call(tprocdef(procdefinition).extnumber);
+               tobjectdef(tprocdef(procdefinition).struct).register_vmt_call(tprocdef(procdefinition).extnumber);
 {$ifdef vtentry}
              if not is_interface(tprocdef(procdefinition)._class) then
                begin
                  inc(current_asmdata.NextVTEntryNr);
-                 current_asmdata.CurrAsmList.Concat(tai_symbol.CreateName('VTREF'+tostr(current_asmdata.NextVTEntryNr)+'_'+tprocdef(procdefinition)._class.vmt_mangledname+'$$'+tostr(vmtoffset div sizeof(pint)),AT_FUNCTION,0));
+                 current_asmdata.CurrAsmList.Concat(tai_symbol.CreateName('VTREF'+tostr(current_asmdata.NextVTEntryNr)+'_'+tprocdef(procdefinition).struct.vmt_mangledname+'$$'+tostr(vmtoffset div sizeof(pint)),AT_FUNCTION,0));
                end;
 {$endif vtentry}
 
@@ -720,16 +738,16 @@ implementation
                    end;
 
                  { test validity of VMT }
-                 if not(is_interface(tprocdef(procdefinition)._class)) and
-                    not(is_cppclass(tprocdef(procdefinition)._class)) then
-                   cg.g_maybe_testvmt(current_asmdata.CurrAsmList,vmtreg,tprocdef(procdefinition)._class);
+                 if not(is_interface(tprocdef(procdefinition).struct)) and
+                    not(is_cppclass(tprocdef(procdefinition).struct)) then
+                   cg.g_maybe_testvmt(current_asmdata.CurrAsmList,vmtreg,tobjectdef(tprocdef(procdefinition).struct));
 
                  { Call through VMT, generate a VTREF symbol to notify the linker }
-                 vmtoffset:=tprocdef(procdefinition)._class.vmtmethodoffset(tprocdef(procdefinition).extnumber);
+                 vmtoffset:=tobjectdef(tprocdef(procdefinition).struct).vmtmethodoffset(tprocdef(procdefinition).extnumber);
                  { register call for WPO }
                  if (not assigned(current_procinfo) or
                      wpoinfomanager.symbol_live(current_procinfo.procdef.mangledname)) then
-                   tprocdef(procdefinition)._class.register_vmt_call(tprocdef(procdefinition).extnumber);
+                   tobjectdef(tprocdef(procdefinition).struct).register_vmt_call(tprocdef(procdefinition).extnumber);
 {$ifndef x86}
                  pvreg:=cg.getintregister(current_asmdata.CurrAsmList,OS_ADDR);
 {$endif not x86}
@@ -838,13 +856,22 @@ implementation
           begin
             pop_size:=pushedparasize;
             { for Cdecl functions we don't need to pop the funcret when it
-              was pushed by para }
-            if paramanager.ret_in_param(procdefinition.returndef,procdefinition.proccalloption) then
+              was pushed by para. Except for safecall functions with
+              safecall-exceptions enabled. In that case the funcret is always
+              returned as a para which is considered a normal para on the
+              c-side, so the funcret has to be pop'ed normally. }
+            if not ((procdefinition.proccalloption=pocall_safecall) and
+                    (tf_safecall_exceptions in target_info.flags)) and
+               paramanager.ret_in_param(procdefinition.returndef,procdefinition.proccalloption) then
               dec(pop_size,sizeof(pint));
             { Remove parameters/alignment from the stack }
             pop_parasize(pop_size);
-          end;
-
+          end
+         { frame pointer parameter is popped by the caller when it's passed the
+           Delphi way }
+         else if (po_delphi_nested_cc in procdefinition.procoptions) and
+                 not paramanager.use_fixed_stack then
+           pop_parasize(sizeof(pint));
          { Release registers, but not the registers that contain the
            function result }
          if (not is_void(resultdef)) then
@@ -871,7 +898,7 @@ implementation
 
 {$if defined(x86) or defined(arm)}
          if (procdefinition.proccalloption=pocall_safecall) and
-            (target_info.system in systems_all_windows) then
+            (tf_safecall_exceptions in target_info.flags) then
            begin
 {$ifdef x86_64}
              cgpara.init;

@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSTokenField.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTOKENFIELD_PAS_T}
@@ -31,8 +29,10 @@
 {$endif}
 
 {$ifdef FORWARD}
+  NSTokenFieldDelegateProtocol = objcprotocol;
   NSTokenField = objcclass;
   NSTokenFieldPointer = ^NSTokenField;
+  NSTokenFieldPtr = NSTokenFieldPointer;
 
 {$endif}
 
@@ -41,11 +41,11 @@
 {$define NSTOKENFIELD_PAS_C}
 
 { NSTokenField }
-  NSTokenField = objcclass(NSTextField)
+  NSTokenField = objcclass external (NSTextField)
     
   public
-    class function alloc: NSTokenField; message 'alloc';
-
+    procedure setDelegate(anObject: NSTokenFieldDelegateProtocol); message 'setDelegate:';
+    function delegate: NSTokenFieldDelegateProtocol; message 'delegate';
     procedure setTokenStyle(style: NSTokenStyle); message 'setTokenStyle:';
     function tokenStyle: NSTokenStyle; message 'tokenStyle';
     procedure setCompletionDelay(delay: NSTimeInterval); message 'setCompletionDelay:';
@@ -54,7 +54,27 @@
     procedure setTokenizingCharacterSet(characterSet: NSCharacterSet); message 'setTokenizingCharacterSet:';
     function tokenizingCharacterSet: NSCharacterSet; message 'tokenizingCharacterSet';
     class function defaultTokenizingCharacterSet: NSCharacterSet; message 'defaultTokenizingCharacterSet';
-  end; external;
+  end;
 
+{$endif}
+{$endif}
+{$ifdef PROTOCOLS}
+{$ifndef NSTOKENFIELD_PAS_P}
+{$define NSTOKENFIELD_PAS_P}
+  
+{ NSTokenFieldDelegate Protocol }
+  NSTokenFieldDelegateProtocol = objcprotocol external name 'NSTokenFieldDelegate'
+  optional
+    function tokenField_completionsForSubstring_indexOfToken_indexOfSelectedItem(tokenField: NSTokenField; substring: NSString; tokenIndex: NSInteger; selectedIndex: NSIntegerPtr): NSArray; message 'tokenField:completionsForSubstring:indexOfToken:indexOfSelectedItem:';
+    function tokenField_shouldAddObjects_atIndex(tokenField: NSTokenField; tokens: NSArray; index: NSUInteger): NSArray; message 'tokenField:shouldAddObjects:atIndex:';
+    function tokenField_displayStringForRepresentedObject(tokenField: NSTokenField; representedObject: id): NSString; message 'tokenField:displayStringForRepresentedObject:';
+    function tokenField_editingStringForRepresentedObject(tokenField: NSTokenField; representedObject: id): NSString; message 'tokenField:editingStringForRepresentedObject:';
+    function tokenField_representedObjectForEditingString(tokenField: NSTokenField; editingString: NSString): id; message 'tokenField:representedObjectForEditingString:';
+    function tokenField_writeRepresentedObjects_toPasteboard(tokenField: NSTokenField; objects: NSArray; pboard: NSPasteboard): Boolean; message 'tokenField:writeRepresentedObjects:toPasteboard:';
+    function tokenField_readFromPasteboard(tokenField: NSTokenField; pboard: NSPasteboard): NSArray; message 'tokenField:readFromPasteboard:';
+    function tokenField_menuForRepresentedObject(tokenField: NSTokenField; representedObject: id): NSMenu; message 'tokenField:menuForRepresentedObject:';
+    function tokenField_hasMenuForRepresentedObject(tokenField: NSTokenField; representedObject: id): Boolean; message 'tokenField:hasMenuForRepresentedObject:';
+    function tokenField_styleForRepresentedObject(tokenField: NSTokenField; representedObject: id): NSTokenStyle; message 'tokenField:styleForRepresentedObject:';
+  end;
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLBRElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLBRELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLBRElement = objcclass;
   DOMHTMLBRElementPointer = ^DOMHTMLBRElement;
+  DOMHTMLBRElementPtr = DOMHTMLBRElementPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMHTMLBRELEMENT_PAS_C}
 
 { DOMHTMLBRElement }
-  DOMHTMLBRElement = objcclass(DOMHTMLElement)
+  DOMHTMLBRElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLBRElement; message 'alloc';
-
     procedure setClear (newValue: NSString); message 'setClear:';
     function clear: NSString; message 'clear';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

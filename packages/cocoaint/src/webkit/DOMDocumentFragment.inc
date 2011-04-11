@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMDocumentFragment.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMDOCUMENTFRAGMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMDocumentFragment = objcclass;
   DOMDocumentFragmentPointer = ^DOMDocumentFragment;
+  DOMDocumentFragmentPtr = DOMDocumentFragmentPointer;
 
 {$endif}
 
@@ -41,11 +40,10 @@
 {$define DOMDOCUMENTFRAGMENT_PAS_C}
 
 { DOMDocumentFragment }
-  DOMDocumentFragment = objcclass(DOMNode)
+  DOMDocumentFragment = objcclass external (DOMNode)
     
   public
-    class function alloc: DOMDocumentFragment; message 'alloc';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

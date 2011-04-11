@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLStyleElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLSTYLEELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLStyleElement = objcclass;
   DOMHTMLStyleElementPointer = ^DOMHTMLStyleElement;
+  DOMHTMLStyleElementPtr = DOMHTMLStyleElementPointer;
 
 {$endif}
 
@@ -41,16 +40,17 @@
 {$define DOMHTMLSTYLEELEMENT_PAS_C}
 
 { DOMHTMLStyleElement }
-  DOMHTMLStyleElement = objcclass(DOMHTMLElement)
+  DOMHTMLStyleElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLStyleElement; message 'alloc';
-
+    procedure setDisabled (newValue: Boolean); message 'setDisabled:';
+    function disabled: Boolean; message 'disabled';
     procedure setMedia (newValue: NSString); message 'setMedia:';
     function media: NSString; message 'media';
     procedure setType (newValue: NSString); message 'setType:';
     function type_: NSString; message 'type_';
-  end; external;
+    function sheet: DOMStyleSheet; message 'sheet';
+  end;
 
 {$endif}
 {$endif}

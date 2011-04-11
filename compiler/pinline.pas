@@ -76,7 +76,7 @@ implementation
         storepos : tfileposinfo;
       begin
         consume(_LKLAMMER);
-        p:=comp_expr(true);
+        p:=comp_expr(true,false);
         { calc return type }
         if is_new then
           begin
@@ -98,12 +98,12 @@ implementation
               classh := classh.childof;
             if is_new then
               begin
-                sym:=search_class_member(classh,'CREATE');
+                sym:=search_struct_member(classh,'CREATE');
                 p2 := cloadvmtaddrnode.create(ctypenode.create(p.resultdef));
               end
             else
               begin
-                sym:=search_class_member(classh,'FREE');
+                sym:=search_struct_member(classh,'FREE');
                 p2 := p;
              end;
 
@@ -161,7 +161,7 @@ implementation
               begin
                  Message1(type_e_pointer_type_expected,p.resultdef.typename);
                  p.free;
-                 p:=factor(false);
+                 p:=factor(false,false);
                  p.free;
                  consume(_RKLAMMER);
                  new_dispose_statement:=cerrornode.create;
@@ -172,7 +172,7 @@ implementation
               begin
                  Message(parser_e_pointer_to_class_expected);
                  p.free;
-                 new_dispose_statement:=factor(false);
+                 new_dispose_statement:=factor(false,false);
                  consume_all_until(_RKLAMMER);
                  consume(_RKLAMMER);
                  exit;
@@ -182,7 +182,7 @@ implementation
             if is_class(classh) then
               begin
                  Message(parser_e_no_new_or_dispose_for_classes);
-                 new_dispose_statement:=factor(false);
+                 new_dispose_statement:=factor(false,false);
                  consume_all_until(_RKLAMMER);
                  consume(_RKLAMMER);
                  exit;
@@ -190,7 +190,7 @@ implementation
             { search cons-/destructor, also in parent classes }
             storepos:=current_tokenpos;
             current_tokenpos:=destructorpos;
-            sym:=search_class_member(classh,destructorname);
+            sym:=search_struct_member(classh,destructorname);
             current_tokenpos:=storepos;
 
             { the second parameter of new/dispose must be a call }
@@ -312,7 +312,8 @@ implementation
                          ccallnode.createintern('fpc_getmem',para)));
 
                      { create call to fpc_initialize }
-                     if is_managed_type(tpointerdef(p.resultdef).pointeddef) then
+                     if is_managed_type(tpointerdef(p.resultdef).pointeddef) or
+                       ((m_iso in current_settings.modeswitches) and (tpointerdef(p.resultdef).pointeddef.typ=filedef)) then
                        addstatement(newstatement,initialize_data_node(cderefnode.create(ctemprefnode.create(temp))));
 
                      { copy the temp to the destination }
@@ -352,7 +353,7 @@ implementation
         again  : boolean; { dummy for do_proc_call }
       begin
         consume(_LKLAMMER);
-        p1:=factor(false);
+        p1:=factor(false,false);
         if p1.nodetype<>typen then
          begin
            Message(type_e_type_id_expected);
@@ -587,43 +588,7 @@ implementation
       end;
 
 
-    function inline_initialize : tnode;
-      var
-        newblock,
-        paras   : tnode;
-        ppn     : tcallparanode;
-      begin
-        { for easy exiting if something goes wrong }
-        result := cerrornode.create;
-
-        consume(_LKLAMMER);
-        paras:=parse_paras(false,false,_RKLAMMER);
-        consume(_RKLAMMER);
-        if not assigned(paras) then
-         begin
-           CGMessage1(parser_e_wrong_parameter_size,'Initialize');
-           exit;
-         end;
-
-        ppn:=tcallparanode(paras);
-        { 2 arguments? }
-        if assigned(ppn.right) then
-         begin
-           CGMessage1(parser_e_wrong_parameter_size,'Initialize');
-           paras.free;
-           exit;
-         end;
-
-        newblock:=initialize_data_node(ppn.left);
-        ppn.left:=nil;
-
-        paras.free;
-        result.free;
-        result:=newblock;
-      end;
-
-
-    function inline_finalize : tnode;
+    function inline_initfinal(isinit: boolean): tnode;
       var
         newblock,
         paras   : tnode;
@@ -637,45 +602,59 @@ implementation
         consume(_LKLAMMER);
         paras:=parse_paras(false,false,_RKLAMMER);
         consume(_RKLAMMER);
-        if not assigned(paras) then
+        ppn:=tcallparanode(paras);
+
+        if not assigned(paras) or
+           (assigned(ppn.right) and
+            assigned(tcallparanode(ppn.right).right)) then
          begin
-           CGMessage1(parser_e_wrong_parameter_size,'Finalize');
+           if isinit then
+             CGMessage1(parser_e_wrong_parameter_size,'Initialize')
+           else
+             CGMessage1(parser_e_wrong_parameter_size,'Finalize');
            exit;
          end;
 
-        ppn:=tcallparanode(paras);
         { 2 arguments? }
         if assigned(ppn.right) then
          begin
            destppn:=tcallparanode(ppn.right);
-           { 3 arguments is invalid }
-           if assigned(destppn.right) then
-            begin
-              CGMessage1(parser_e_wrong_parameter_size,'Finalize');
-              paras.free;
-              exit;
-            end;
-           { create call to fpc_finalize_array }
-           npara:=ccallparanode.create(cordconstnode.create
-                     (destppn.left.resultdef.size,s32inttype,true),
-                  ccallparanode.create(ctypeconvnode.create
+           { create call to fpc_initialize/finalize_array }
+           npara:=ccallparanode.create(ctypeconvnode.create
                      (ppn.left,s32inttype),
                   ccallparanode.create(caddrnode.create_internal
                      (crttinode.create(tstoreddef(destppn.left.resultdef),initrtti,rdt_normal)),
                   ccallparanode.create(caddrnode.create_internal
-                     (destppn.left),nil))));
-           newblock:=ccallnode.createintern('fpc_finalize_array',npara);
+                     (destppn.left),nil)));
+           if isinit then
+             newblock:=ccallnode.createintern('fpc_initialize_array',npara)
+           else
+             newblock:=ccallnode.createintern('fpc_finalize_array',npara);
            destppn.left:=nil;
-           ppn.left:=nil;
          end
         else
          begin
-           newblock:=finalize_data_node(ppn.left);
-           ppn.left:=nil;
+           if isinit then
+             newblock:=initialize_data_node(ppn.left)
+           else
+             newblock:=finalize_data_node(ppn.left);
          end;
+        ppn.left:=nil;
         paras.free;
         result.free;
         result:=newblock;
+      end;
+
+
+    function inline_initialize : tnode;
+      begin
+        result:=inline_initfinal(true);
+      end;
+
+
+    function inline_finalize : tnode;
+      begin
+        result:=inline_initfinal(false);
       end;
 
 

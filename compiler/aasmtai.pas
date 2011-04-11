@@ -21,7 +21,7 @@
 }
 { @abstract(This unit implements an abstract asm output class for all processor types)
   This unit implements an abstract assembler output class for all processors, these
-  are then overriden for each assembler writer to actually write the data in these
+  are then overridden for each assembler writer to actually write the data in these
   classes to an assembler file.
 }
 
@@ -179,6 +179,7 @@ interface
        ,top_regset
        ,top_shifterop
        ,top_conditioncode
+       ,top_modeflags
 {$endif arm}
 {$ifdef m68k}
        { m68k only }
@@ -214,7 +215,8 @@ interface
       {$ifdef arm}
           top_regset : (regset:^tcpuregisterset; regtyp: tregistertype; subreg: tsubregister);
           top_shifterop : (shifterop : pshifterop);
-          top_conditioncode: (cc: TAsmCond);
+          top_conditioncode : (cc : TAsmCond);
+          top_modeflags : (modeflags : tcpumodeflags);
       {$endif arm}
       {$ifdef m68k}
           top_regset : (regset:^tcpuregisterset);
@@ -385,10 +387,13 @@ interface
           secalign : byte;
           name     : pshortstring;
           sec      : TObjSection; { used in binary writer }
-          constructor Create(Asectype:TAsmSectiontype;Aname:string;Aalign:byte;Asecorder:TasmSectionorder=secorder_default);
           destructor Destroy;override;
           constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
+         private
+          { this constructor is made private on purpose }
+          { because sections should be created via new_section() }
+          constructor Create(Asectype:TAsmSectiontype;Aname:string;Aalign:byte;Asecorder:TasmSectionorder=secorder_default);
        end;
 
 
@@ -396,9 +401,9 @@ interface
        tai_datablock = class(tailineinfo)
           is_global : boolean;
           sym       : tasmsymbol;
-          size      : aint;
+          size      : asizeint;
           constructor Create(const _name : string;_size : aint);
-          constructor Create_global(const _name : string;_size : aint);
+          constructor Create_global(const _name : string;_size : asizeint);
           constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure derefimpl;override;
@@ -639,9 +644,9 @@ interface
       { array with all class types for tais }
       aiclass : taiclassarray;
 
-      { target specific tais }
-      cai_align : tai_align_class;
-      cai_cpu   : tai_cpu_class;
+      { target specific tais, possibly overwritten in target specific aasmcpu }
+      cai_align : tai_align_class = tai_align_abstract;
+      cai_cpu   : tai_cpu_class = tai_cpu_abstract;
 
       { hook to notify uses of registers }
       add_reg_instruction_hook : tadd_reg_instruction_proc;
@@ -690,8 +695,7 @@ implementation
                                    Aglobal:boolean;Asectype:TAsmSectiontype;Aalign:byte);
       begin
         maybe_new_object_file(list);
-        list.concat(tai_section.create(Asectype,Aname,Aalign));
-        list.concat(cai_align.create(Aalign));
+        new_section(list,Asectype,Aname,Aalign);
         if Aglobal or
            create_smartlink then
           list.concat(tai_symbol.createname_global(Aname,Asymtyp,0))
@@ -879,7 +883,7 @@ implementation
       end;
 
 
-    constructor tai_datablock.Create_global(const _name : string;_size : aint);
+    constructor tai_datablock.Create_global(const _name : string;_size : asizeint);
       begin
          inherited Create;
          typ:=ait_datablock;
@@ -2152,7 +2156,7 @@ implementation
 
     function tai_cpu_abstract.is_same_reg_move(regtype: Tregistertype):boolean;
       begin
-        { When the generic RA is used this needs to be overriden, we don't use
+        { When the generic RA is used this needs to be overridden, we don't use
           virtual;abstract; to prevent a lot of warnings of unimplemented abstract methods
           when tai_cpu is created (PFV) }
         internalerror(200404091);
@@ -2403,11 +2407,4 @@ implementation
         ppufile.putbyte(byte(use_op));
       end;
 
-
-begin
-  cai_cpu:=tai_cpu_abstract;
-  { aasmcpu is earlier in the unit order and can
-    already set the cai_align }
-  if not assigned(cai_align) then
-    cai_align:=tai_align_abstract;
 end.

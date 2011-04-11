@@ -44,7 +44,7 @@ interface
           procedure derefimpl;override;
           function pass_1 : tnode;override;
           function pass_typecheck:tnode;override;
-          function simplify : tnode;override;
+          function simplify(forinline: boolean) : tnode;override;
           function dogetcopy : tnode;override;
           function docompare(p: tnode): boolean; override;
     {$ifdef state_tracking}
@@ -85,7 +85,7 @@ interface
        { the virtual constructor allows to assign         }
        { another class type to caddnode => processor      }
        { specific node types can be created               }
-       caddnode : taddnodeclass;
+       caddnode : taddnodeclass = taddnode;
 
 implementation
 
@@ -173,7 +173,7 @@ implementation
       end;
 
 
-    function taddnode.simplify : tnode;
+    function taddnode.simplify(forinline : boolean) : tnode;
       var
         t, hp   : tnode;
         lt,rt   : tnodetype;
@@ -277,7 +277,7 @@ implementation
                      t := cpointerconstnode.create(qword(v),resultdef)
                    else
                      if is_integer(ld) then
-                       t := genintconstnode(v)
+                       t := create_simplified_ord_const(v,resultdef,forinline)
                      else
                        t := cordconstnode.create(v,resultdef,(ld.typ<>enumdef));
                  end;
@@ -296,13 +296,13 @@ implementation
                        begin
                          if not(nf_has_pointerdiv in flags) then
                            internalerror(2008030101);
-                         t := genintconstnode(v)
+                         t := cpointerconstnode.create(qword(v),resultdef)
                        end
                      else
                        t := cpointerconstnode.create(qword(v),resultdef)
                    else
                      if is_integer(ld) then
-                       t:=genintconstnode(v)
+                       t := create_simplified_ord_const(v,resultdef,forinline)
                      else
                        t:=cordconstnode.create(v,resultdef,(ld.typ<>enumdef));
                  end;
@@ -316,21 +316,21 @@ implementation
                        t:=genintconstnode(0)
                      end
                    else
-                     t:=genintconstnode(v)
+                     t := create_simplified_ord_const(v,resultdef,forinline)
                  end;
                xorn :
                  if is_integer(ld) then
-                   t:=genintconstnode(lv xor rv)
+                   t := create_simplified_ord_const(lv xor rv,resultdef,forinline)
                  else
                    t:=cordconstnode.create(lv xor rv,resultdef,true);
                orn :
                  if is_integer(ld) then
-                   t:=genintconstnode(lv or rv)
+                   t:=create_simplified_ord_const(lv or rv,resultdef,forinline)
                  else
                    t:=cordconstnode.create(lv or rv,resultdef,true);
                andn :
                  if is_integer(ld) then
-                   t:=genintconstnode(lv and rv)
+                   t:=create_simplified_ord_const(lv and rv,resultdef,forinline)
                  else
                    t:=cordconstnode.create(lv and rv,resultdef,true);
                ltn :
@@ -889,7 +889,20 @@ implementation
         { is one a real float, then both need to be floats, this
           need to be done before the constant folding so constant
           operation on a float and int are also handled }
-        resultrealdef:=pbestrealtype^;
+{$ifdef x86}
+        { use extended as default real type only when the x87 fpu is used }
+{$ifdef i386}
+        if not(current_settings.fputype=fpu_x87) then
+{$endif i386}
+{$ifdef x86_64}
+        { x86-64 has no x87 only mode, so use always double as default }
+        if true then
+{$endif x86_6}
+          resultrealdef:=s64floattype
+        else
+{$endif x86}
+          resultrealdef:=pbestrealtype^;
+
         if (right.resultdef.typ=floatdef) or (left.resultdef.typ=floatdef) then
          begin
            { when both floattypes are already equal then use that
@@ -1585,19 +1598,19 @@ implementation
               CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),ld.typename,rd.typename);
           end
 
-         { class or interface equation }
-         else if is_class_or_interface_or_dispinterface_or_objc(rd) or is_class_or_interface_or_dispinterface_or_objc(ld) then
+         { implicit pointer object type comparison }
+         else if is_implicit_pointer_object_type(rd) or is_implicit_pointer_object_type(ld) then
           begin
             if (nodetype in [equaln,unequaln]) then
               begin
-                if is_class_or_interface_or_dispinterface_or_objc(rd) and is_class_or_interface_or_dispinterface_or_objc(ld) then
+                if is_implicit_pointer_object_type(rd) and is_implicit_pointer_object_type(ld) then
                  begin
                    if tobjectdef(rd).is_related(tobjectdef(ld)) then
                     inserttypeconv(right,left.resultdef)
                    else
                     inserttypeconv(left,right.resultdef);
                  end
-                else if is_class_or_interface_or_dispinterface_or_objc(rd) then
+                else if is_implicit_pointer_object_type(rd) then
                   inserttypeconv(left,right.resultdef)
                 else
                   inserttypeconv(right,left.resultdef);
@@ -1620,8 +1633,8 @@ implementation
               CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),ld.typename,rd.typename);
           end
 
-         { allows comperasion with nil pointer }
-         else if is_class_or_interface_or_dispinterface_or_objc(rd) or (rd.typ=classrefdef) then
+         { allow comparison with nil pointer }
+         else if is_implicit_pointer_object_type(rd) or (rd.typ=classrefdef) then
           begin
             if (nodetype in [equaln,unequaln]) then
               inserttypeconv(left,right.resultdef)
@@ -1629,7 +1642,7 @@ implementation
               CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),ld.typename,rd.typename);
           end
 
-         else if is_class_or_interface_or_dispinterface_or_objc(ld) or (ld.typ=classrefdef) then
+         else if is_implicit_pointer_object_type(ld) or (ld.typ=classrefdef) then
           begin
             if (nodetype in [equaln,unequaln]) then
               inserttypeconv(right,left.resultdef)
@@ -1724,7 +1737,9 @@ implementation
             if nodetype=addn then
               begin
                 if not(cs_extsyntax in current_settings.moduleswitches) or
-                   (not(is_pchar(ld)) and not(m_add_pointer in current_settings.modeswitches)) then
+                   (not (is_pchar(ld) or is_chararray(ld) or is_open_chararray(ld) or is_widechar(ld) or is_widechararray(ld) or is_open_widechararray(ld)) and
+                    not(cs_pointermath in current_settings.localswitches) and
+                    not((ld.typ=pointerdef) and tpointerdef(ld).has_pointer_math)) then
                   CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),ld.typename,rd.typename);
                 if (rd.typ=pointerdef) and
                    (tpointerdef(rd).pointeddef.size>1) then
@@ -1755,7 +1770,9 @@ implementation
                  if (lt=niln) then
                    CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),'NIL',rd.typename);
                  if not(cs_extsyntax in current_settings.moduleswitches) or
-                    (not(is_pchar(ld)) and not(m_add_pointer in current_settings.modeswitches)) then
+                   (not (is_pchar(ld) or is_chararray(ld) or is_open_chararray(ld) or is_widechar(ld) or is_widechararray(ld) or is_open_widechararray(ld)) and
+                    not(cs_pointermath in current_settings.localswitches) and
+                    not((ld.typ=pointerdef) and tpointerdef(ld).has_pointer_math)) then
                    CGMessage3(type_e_operator_not_supported_for_types,node2opstr(nodetype),ld.typename,rd.typename);
                  if (ld.typ=pointerdef) then
                  begin
@@ -1877,7 +1894,7 @@ implementation
 
          if not codegenerror and
             not assigned(result) then
-           result:=simplify;
+           result:=simplify(false);
       end;
 
 
@@ -2697,7 +2714,7 @@ implementation
                 expectloc:=LOC_FLAGS;
            end
 
-         else if is_class_or_interface_or_dispinterface_or_objc(ld) then
+         else if is_implicit_pointer_object_type(ld) then
             begin
               expectloc:=LOC_FLAGS;
             end
@@ -2793,6 +2810,4 @@ implementation
     end;
 {$endif}
 
-begin
-   caddnode:=taddnode;
 end.

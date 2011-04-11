@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLOptionsCollection.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLOPTIONSCOLLECTION_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLOptionsCollection = objcclass;
   DOMHTMLOptionsCollectionPointer = ^DOMHTMLOptionsCollection;
+  DOMHTMLOptionsCollectionPtr = DOMHTMLOptionsCollectionPointer;
 
 {$endif}
 
@@ -41,14 +40,18 @@
 {$define DOMHTMLOPTIONSCOLLECTION_PAS_C}
 
 { DOMHTMLOptionsCollection }
-  DOMHTMLOptionsCollection = objcclass(DOMObject)
+  DOMHTMLOptionsCollection = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMHTMLOptionsCollection; message 'alloc';
-
+    procedure setSelectedIndex (newValue: cint); message 'setSelectedIndex:';
+    function selectedIndex: cint; message 'selectedIndex';
+    procedure setLength (newValue: cuint); message 'setLength:';
+    function length: cuint; message 'length';
+    procedure add_index(option: DOMHTMLOptionElement; index: cuint); message 'add:index:';
+    procedure remove(index: cuint); message 'remove:';
     function item(index: cuint): DOMNode; message 'item:';
     function namedItem(name: NSString): DOMNode; message 'namedItem:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

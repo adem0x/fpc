@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCounter.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCOUNTER_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCounter = objcclass;
   DOMCounterPointer = ^DOMCounter;
+  DOMCounterPtr = DOMCounterPointer;
 
 {$endif}
 
@@ -41,15 +40,13 @@
 {$define DOMCOUNTER_PAS_C}
 
 { DOMCounter }
-  DOMCounter = objcclass(DOMObject)
+  DOMCounter = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMCounter; message 'alloc';
-
     function identifier: NSString; message 'identifier';
     function listStyle: NSString; message 'listStyle';
     function separator: NSString; message 'separator';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

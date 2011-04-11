@@ -7,6 +7,7 @@ Created by Jeppe Johansen 2009 - jepjoh2@kom.aau.dk
 unit stm32f103;
 
 {$goto on}
+{$define stm32f103}
 
 interface
 
@@ -16,27 +17,29 @@ type
 {$PACKRECORDS 2}
 const
  PeripheralBase 	= $40000000;
- 
+
  FSMCBase			= $60000000;
- 
+
  APB1Base 			= PeripheralBase;
  APB2Base 			= PeripheralBase+$10000;
  AHBBase 			= PeripheralBase+$20000;
- 
+
+ SCS_BASE         = $E000E000;
+
  { FSMC }
  FSMCBank1NOR1		= FSMCBase+$00000000;
  FSMCBank1NOR2		= FSMCBase+$04000000;
  FSMCBank1NOR3		= FSMCBase+$08000000;
  FSMCBank1NOR4		= FSMCBase+$0C000000;
- 
+
  FSMCBank1PSRAM1	= FSMCBase+$00000000;
  FSMCBank1PSRAM2	= FSMCBase+$04000000;
  FSMCBank1PSRAM3	= FSMCBase+$08000000;
  FSMCBank1PSRAM4	= FSMCBase+$0C000000;
- 
+
  FSMCBank2NAND1	= FSMCBase+$10000000;
  FSMCBank3NAND2	= FSMCBase+$20000000;
- 
+
  FSMCBank4PCCARD	= FSMCBase+$30000000;
 
 type
@@ -62,7 +65,7 @@ type
   DCR, res18,
   DMAR, res19: Word;
  end;
- 
+
  TRTCRegisters = record
   CRH, res1,
   CRL, res2,
@@ -75,20 +78,20 @@ type
   ALRH, res9,
   ALRL, res10: Word;
  end;
- 
+
  TIWDGRegisters = record
   KR, res1,
   PR, res2,
   RLR, res3,
   SR, res4: word;
  end;
- 
+
  TWWDGRegisters = record
   CR, res2,
   CFR, res3,
   SR, res4: word;
  end;
- 
+
  TSPIRegisters = record
   CR1, res1,
   CR2, res2,
@@ -100,7 +103,7 @@ type
   I2SCFGR, res8,
   I2SPR, res9: Word;
  end;
- 
+
  TUSARTRegisters = record
   SR, res1,
   DR, res2,
@@ -110,7 +113,7 @@ type
   CR3, res6,
   GTPR, res7: Word;
  end;
- 
+
  TI2CRegisters = record
   CR1, res1,
   CR2, res2,
@@ -122,28 +125,28 @@ type
   CCR, res8: word;
   TRISE: byte;
  end;
- 
+
  TUSBRegisters = record
   EPR: array[0..7] of DWord;
-  
+
   res: array[0..7] of dword;
-  
+
   CNTR, res1,
   ISTR, res2,
   FNR, res3: Word;
   DADDR: byte; res4: word; res5: byte;
   BTABLE: Word;
  end;
- 
+
  TUSBMem = packed array[0..511] of byte;
- 
+
  TCANMailbox = record
   IR,
   DTR,
   DLR,
   DHR: DWord;
  end;
- 
+
  TCANRegisters = record
   MCR,
   MSR,
@@ -153,14 +156,14 @@ type
   IER,
   ESR,
   BTR: DWord;
-  
+
   res5: array[$020..$17F] of byte;
-  
+
   TX: array[0..2] of TCANMailbox;
   RX: array[0..2] of TCANMailbox;
-  
+
   res6: array[$1D0..$1FF] of byte;
-  
+
   FMR,
   FM1R,
   res9: DWord;
@@ -170,55 +173,55 @@ type
   res13: DWord;
   FA1R, res14: word;
   res15: array[$220..$23F] of byte;
-  
+
   FOR1,
   FOR2: DWord;
-  
+
   FB: array[1..13] of array[1..2] of DWord;
  end;
- 
+
  TBKPRegisters = record
   DR: array[1..10] of record data, res: word; end;
-  
+
   RTCCR,
   CR,
   CSR,
   res1,res2: DWord;
-  
+
   DR2: array[11..42] of record data, res: word; end;
  end;
- 
+
  TPwrRegisters = record
   CR, res: word;
   CSR: Word;
  end;
- 
+
  TDACRegisters = record
   CR,
   SWTRIGR: DWord;
-  
+
   DHR12R1, res2,
   DHR12L1, res3,
   DHR8R1, res4,
   DHR12R2, res5,
   DHR12L2, res6,
   DHR8R2, res7: word;
-  
+
   DHR12RD,
   DHR12LD: DWord;
-  
+
   DHR8RD, res8,
-  
+
   DOR1, res9,
   DOR2, res10: Word;
  end;
- 
+
  TAFIORegisters = record
   EVCR,
   MAPR: DWord;
   EXTICR: array[0..3] of DWord;
  end;
- 
+
  TEXTIRegisters = record
   IMR,
   EMR,
@@ -227,7 +230,7 @@ type
   SWIER,
   PR: DWord;
  end;
- 
+
  TPortRegisters = record
   CRL,
   CRH,
@@ -237,7 +240,7 @@ type
   BRR,
   LCKR: DWord;
  end;
- 
+
  TADCRegisters = record
   SR,
   CR1,
@@ -260,7 +263,7 @@ type
   JDR4, res11: Word;
   DR: DWord;
  end;
- 
+
  TSDIORegisters = record
   POWER,
   CLKCR,
@@ -281,7 +284,7 @@ type
   FIFOCNT,
   FIFO: DWord;
  end;
- 
+
  TDMAChannel = record
   CCR, res1,
   CNDTR, res2: word;
@@ -289,13 +292,13 @@ type
   CMAR,
   res: DWord;
  end;
- 
+
  TDMARegisters = record
   ISR,
   IFCR: DWord;
   Channel: array[0..7] of TDMAChannel;
  end;
- 
+
  TRCCRegisters = record
   CR,
   CFGR,
@@ -308,17 +311,17 @@ type
   BDCR,
   CSR: DWord;
  end;
- 
+
  TCRCRegisters = record
   DR: DWord;
   IDR: byte; res1: word; res2: byte;
   CR: byte;
  end;
- 
+
  TFSMCRegisters = record
   nothingyet: byte;
  end;
- 
+
  TFlashRegisters = record
   ACR,
   KEYR,
@@ -329,6 +332,51 @@ type
   res,
   OBR,
   WRPR: DWord;
+ end;
+
+ TNVICRegisters = packed record
+  ISER: array[0..7] of longword;
+   reserved0: array[0..23] of longword;
+  ICER: array[0..7] of longword;
+   reserved1: array[0..23] of longword;
+  ISPR: array[0..7] of longword;
+   reserved2: array[0..23] of longword;
+  ICPR: array[0..7] of longword;
+   reserved3: array[0..23] of longword;
+  IABR: array[0..7] of longword;
+   reserved4: array[0..55] of longword;
+  IP: array[0..239] of longword;
+   reserved5: array[0..643] of longword;
+  STIR: longword;
+ end;
+
+ TSCBRegisters = packed record
+  CPUID,                            {!< CPU ID Base Register                                     }
+  ICSR,                             {!< Interrupt Control State Register                         }
+  VTOR,                             {!< Vector Table Offset Register                             }
+  AIRCR,                            {!< Application Interrupt / Reset Control Register           }
+  SCR,                              {!< System Control Register                                  }
+  CCR: longword;                    {!< Configuration Control Register                           }
+  SHP: array[0..11] of byte;        {!< System Handlers Priority Registers (4-7, 8-11, 12-15)    }
+  SHCSR,                            {!< System Handler Control and State Register                }
+  CFSR,                             {!< Configurable Fault Status Register                       }
+  HFSR,                             {!< Hard Fault Status Register                               }
+  DFSR,                             {!< Debug Fault Status Register                              }
+  MMFAR,                            {!< Mem Manage Address Register                              }
+  BFAR,                             {!< Bus Fault Address Register                               }
+  AFSR: longword;                   {!< Auxiliary Fault Status Register                          }
+  PFR: array[0..1] of longword;     {!< Processor Feature Register                               }
+  DFR,                              {!< Debug Feature Register                                   }
+  ADR: longword;                    {!< Auxiliary Feature Register                               }
+  MMFR: array[0..3] of longword;    {!< Memory Model Feature Register                            }
+  ISAR: array[0..4] of longword;    {!< ISA Feature Register                                     }
+ end;
+
+ TSysTickRegisters = packed record
+  Ctrl,
+  Load,
+  Val,
+  Calib: longword;
  end;
 
 {$ALIGN 2}
@@ -342,50 +390,50 @@ var
  Timer6: TTimerRegisters 	absolute (APB1Base+$1000);
  Timer7: TTimerRegisters 	absolute (APB1Base+$1400);
  Timer8: TTimerRegisters 	absolute (APB2Base+$3400);
- 
+
  { RTC }
  RTC: TRTCRegisters 			absolute (APB1Base+$2800);
- 
+
  { WDG }
  WWDG: TWWDGRegisters 		absolute (APB1Base+$2C00);
  IWDG: TIWDGRegisters 		absolute (APB1Base+$3000);
- 
+
  { SPI }
  SPI1: TSPIRegisters			absolute (APB2Base+$3000);
  SPI2: TSPIRegisters			absolute (APB1Base+$3800);
  SPI3: TSPIRegisters			absolute (APB1Base+$3C00);
- 
+
  { USART/UART }
  USART1: TUSARTRegisters	absolute (APB2Base+$3800);
  USART2: TUSARTRegisters	absolute (APB1Base+$4400);
  USART3: TUSARTRegisters	absolute (APB1Base+$4800);
  UART4: TUSARTRegisters		absolute (APB1Base+$4C00);
  UART5: TUSARTRegisters		absolute (APB1Base+$5000);
- 
+
  { I2C }
  I2C1: TI2CRegisters			absolute (APB1Base+$5400);
  I2C2: TI2CRegisters			absolute (APB1Base+$5800);
- 
+
  { USB }
  USB: TUSBRegisters			absolute (APB1Base+$5C00);
  USBMem: TUSBMem				absolute (APB1Base+$5C00);
- 
+
  { CAN }
  CAN: TCANRegisters			absolute (APB1Base+$6800);
- 
+
  { BKP }
  BKP: TBKPRegisters			absolute (APB1Base+$6C00);
- 
+
  { PWR }
  PWR: TPwrRegisters			absolute (APB1Base+$7000);
- 
+
  { DAC }
  DAC: TDACRegisters			absolute (APB1Base+$7400);
- 
+
  { GPIO }
  AFIO: TAFIORegisters		absolute (APB2Base+$0);
  EXTI: TEXTIRegisters		absolute (APB2Base+$0400);
- 
+
  PortA: TPortRegisters		absolute (APB2Base+$0800);
  PortB: TPortRegisters		absolute (APB2Base+$0C00);
  PortC: TPortRegisters		absolute (APB2Base+$1000);
@@ -393,27 +441,36 @@ var
  PortE: TPortRegisters		absolute (APB2Base+$1800);
  PortF: TPortRegisters		absolute (APB2Base+$1C00);
  PortG: TPortRegisters		absolute (APB2Base+$2000);
- 
+
  { ADC }
  ADC1: TADCRegisters			absolute (APB2Base+$2400);
  ADC2: TADCRegisters			absolute (APB2Base+$2800);
  ADC3: TADCRegisters			absolute (APB2Base+$3C00);
- 
+
  { SDIO }
  SDIO: TSDIORegisters		absolute (APB2Base+$8000);
- 
+
  { DMA }
  DMA1: TDMARegisters			absolute (AHBBase+$0000);
  DMA2: TDMARegisters			absolute (AHBBase+$0400);
- 
+
  { RCC }
  RCC: TRCCRegisters			absolute (AHBBase+$1000);
- 
+
  { Flash }
  Flash: TFlashRegisters		absolute (AHBBase+$2000);
- 
+
  { CRC }
  CRC: TCRCRegisters			absolute (AHBBase+$3000);
+
+ { SCB }
+ SCB: TSCBRegisters        absolute (SCS_BASE+$0D00);
+
+ { SysTick }
+ SysTick: TSysTickRegisters   absolute (SCS_BASE+$0010);
+
+ { NVIC }
+ NVIC: TNVICRegisters      absolute (SCS_BASE+$0100);
 
 var
 	NMI_Handler,
@@ -423,9 +480,9 @@ var
 	UsageFault_Handler,
 	SWI_Handler,
 	DebugMonitor_Handler,
-  PendingSV_Handler,
-  Systick_Handler: pointer;
-	
+	PendingSV_Handler,
+	Systick_Handler: pointer;
+
 implementation
 
 var
@@ -448,10 +505,10 @@ procedure _FPC_start; assembler; nostackframe;
 label _start;
 asm
 	.init
-	.align 16
+	.balign 16
 	
 	.long _stack_top	 			// First entry in NVIC table is the new stack pointer
-	.long _start
+	.long _start+1
 	//b   _start					// Reset
 	.long _start+1
 	//b	 .LNMI_Addr				// Non maskable interrupt. The RCC Clock Security System (CSS) is linked to the NMI vector.
@@ -575,7 +632,7 @@ asm
 .L8:
 	.long PendingSV_Handler
 .L9:
-	.long Systick_Handler   
+	.long Systick_Handler
 
 	.globl _start
 	.text

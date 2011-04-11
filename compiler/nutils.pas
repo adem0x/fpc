@@ -26,7 +26,7 @@ unit nutils;
 interface
 
   uses
-    globtype,
+    globtype,constexp,
     symtype,symsym,symbase,symtable,
     node;
 
@@ -46,7 +46,8 @@ interface
       fen_norecurse_true
     );
 
-    tforeachprocmethod = (pm_preprocess,pm_postprocess);
+    tforeachprocmethod = (pm_preprocess,pm_postprocess,
+                          pm_postandagain);
 
     foreachnodefunction = function(var n: tnode; arg: pointer): foreachnoderesult of object;
     staticforeachnodefunction = function(var n: tnode; arg: pointer): foreachnoderesult;
@@ -79,8 +80,16 @@ interface
     function node_resources_fpu(p: tnode): cardinal;
     procedure node_tree_set_filepos(var n:tnode;const filepos:tfileposinfo);
 
-    { tries to simplify the given node }
-    procedure dosimplify(var n : tnode);
+    { tries to simplify the given node after inlining }
+    procedure doinlinesimplify(var n : tnode);
+    { creates an ordinal constant, optionally based on the result from a
+      simplify operation: normally the type is the smallest integer type
+      that can hold the value, but when inlining the "def" will be used instead,
+      which was determined during an earlier typecheck pass (because the value
+      may e.g. be a parameter to a call, which needs to be of the declared
+      parameter type) }
+    function create_simplified_ord_const(value: tconstexprint; def: tdef; forinline: boolean): tnode;
+
 
     { returns true if n is only a tree of administrative nodes
       containing no code }
@@ -96,10 +105,15 @@ interface
       bitpacked structure }
     function is_bitpacked_access(n: tnode): boolean;
 
+    { creates a load of field 'fieldname' in the record/class/...
+      represented by n }
+    function genloadfield(n: tnode; const fieldname: string): tnode;
+
+
 implementation
 
     uses
-      cutils,verbose,constexp,globals,
+      cutils,verbose,globals,
       symconst,symdef,
       defutil,defcmp,
       nbas,ncon,ncnv,nld,nflw,nset,ncal,nadd,nmem,ninl,
@@ -178,8 +192,22 @@ implementation
         fen_false:
           result := false; }
       end;
-      if procmethod=pm_postprocess then
+      if (procmethod=pm_postprocess) or (procmethod=pm_postandagain) then
         result:=process_children(result);
+      if procmethod=pm_postandagain then
+        begin
+          case f(n,arg) of
+            fen_norecurse_false:
+              exit;
+            fen_norecurse_true:
+              begin
+                result := true;
+                exit;
+              end;
+            fen_true:
+              result := true;
+          end;
+        end;
     end;
 
 
@@ -261,8 +289,22 @@ implementation
         fen_false:
           result := false; }
       end;
-      if procmethod=pm_postprocess then
+      if (procmethod=pm_postprocess) or (procmethod=pm_postandagain) then
         result:=process_children(result);
+      if procmethod=pm_postandagain then
+        begin
+          case f(n,arg) of
+            fen_norecurse_false:
+              exit;
+            fen_norecurse_true:
+              begin
+                result := true;
+                exit;
+              end;
+            fen_true:
+              result := true;
+          end;
+        end;
     end;
 
 
@@ -483,7 +525,6 @@ implementation
       end;
 
 
-
     function call_fail_node:tnode;
       var
         para : tcallparanode;
@@ -493,9 +534,9 @@ implementation
         result:=internalstatements(newstatement);
 
         { call fail helper and exit normal }
-        if is_class(current_objectdef) then
+        if is_class(current_structdef) then
           begin
-            srsym:=search_class_member(current_objectdef,'FREEINSTANCE');
+            srsym:=search_struct_member(current_structdef,'FREEINSTANCE');
             if assigned(srsym) and
                (srsym.typ=procsym) then
               begin
@@ -515,13 +556,13 @@ implementation
               internalerror(200305108);
           end
         else
-          if is_object(current_objectdef) then
+          if is_object(current_structdef) then
             begin
               { parameter 3 : vmt_offset }
               { parameter 2 : pointer to vmt }
               { parameter 1 : self pointer }
               para:=ccallparanode.create(
-                        cordconstnode.create(current_objectdef.vmt_offset,s32inttype,false),
+                        cordconstnode.create(tobjectdef(current_structdef).vmt_offset,s32inttype,false),
                     ccallparanode.create(
                         ctypeconvnode.create_internal(
                             load_vmt_pointer_node,
@@ -551,7 +592,7 @@ implementation
           typecheckpass(p);
         if is_ansistring(p.resultdef) or
            is_wide_or_unicode_string(p.resultdef) or
-           is_interfacecom(p.resultdef) or
+           is_interfacecom_or_dispinterface(p.resultdef) or
            is_dynamic_array(p.resultdef) then
           begin
             result:=cassignmentnode.create(
@@ -615,7 +656,7 @@ implementation
                cnilnode.create
                ));
           end
-        else if is_interfacecom(p.resultdef) then
+        else if is_interfacecom_or_dispinterface(p.resultdef) then
           begin
             result:=internalstatements(newstatement);
             addstatement(newstatement,ccallnode.createintern('fpc_intf_decr_ref',
@@ -670,6 +711,8 @@ implementation
                 end;
               loadn:
                 begin
+                  if assigned(tloadnode(p).left) then
+                    inc(result,node_complexity(tloadnode(p).left));
                   { threadvars need a helper call }
                   if (tloadnode(p).symtableentry.typ=staticvarsym) and
                      (vo_is_thread_var in tstaticvarsym(tloadnode(p).symtableentry).varoptions) then
@@ -682,7 +725,7 @@ implementation
                 end;
               subscriptn:
                 begin
-                  if is_class_or_interface_or_dispinterface_or_objc(tunarynode(p).left.resultdef) then
+                  if is_implicit_pointer_object_type(tunarynode(p).left.resultdef) then
                     inc(result,2);
                   if (result = NODE_COMPLEXITY_INF) then
                     exit;
@@ -924,39 +967,64 @@ implementation
         foreachnodestatic(n,@setnodefilepos,@filepos);
       end;
 
-{$ifdef FPCMT}
-    threadvar
-{$else FPCMT}
-    var
-{$endif FPCMT}
-      treechanged : boolean;
 
     function callsimplify(var n: tnode; arg: pointer): foreachnoderesult;
       var
         hn : tnode;
+        treechanged : ^boolean;
       begin
         result:=fen_false;
-
-//        do_typecheckpass(n);
-
-        hn:=n.simplify;
-        if assigned(hn) then
+        if n.inheritsfrom(tloopnode) and
+           not (lnf_simplify_processing in tloopnode(n).loopflags) then
           begin
-            treechanged:=true;
-            n.free;
-            n:=hn;
-            typecheckpass(n);
+            // Try to simplify condition
+            doinlinesimplify(tloopnode(n).left);
+            // call directly second part below,
+            // which might change the loopnode into
+            // something else if the conditino is a constant node
+            include(tloopnode(n).loopflags,lnf_simplify_processing);
+            callsimplify(n,arg);
+            // Be careful, n might have change node type
+            if n.inheritsfrom(tloopnode) then
+              exclude(tloopnode(n).loopflags,lnf_simplify_processing);
+          end
+        else
+          begin
+            hn:=n.simplify(true);
+            if assigned(hn) then
+              begin
+                treechanged := arg;
+                if assigned(treechanged) then
+                  treechanged^:=true
+                else
+                  internalerror (201008181);
+                n.free;
+                n:=hn;
+                typecheckpass(n);
+              end;
           end;
       end;
 
 
     { tries to simplify the given node calling the simplify method recursively }
-    procedure dosimplify(var n : tnode);
+    procedure doinlinesimplify(var n : tnode);
+      var
+        treechanged : boolean;
       begin
+        // Optimize if code first
         repeat
           treechanged:=false;
-          foreachnodestatic(pm_preprocess,n,@callsimplify,nil);
+          foreachnodestatic(pm_postandagain,n,@callsimplify,@treechanged);
         until not(treechanged);
+      end;
+
+
+    function create_simplified_ord_const(value: tconstexprint; def: tdef; forinline: boolean): tnode;
+      begin
+        if not forinline then
+          result:=genintconstnode(value)
+        else
+          result:=cordconstnode.create(value,def,cs_check_range in current_settings.localswitches);
       end;
 
 
@@ -965,7 +1033,7 @@ implementation
       hpropsym : tpropertysym;
     begin
       result:=false;
-      { find property in the overriden list }
+      { find property in the overridden list }
       hpropsym:=propsym;
       repeat
         propaccesslist:=hpropsym.propaccesslist[pap];
@@ -974,7 +1042,7 @@ implementation
             result:=true;
             exit;
           end;
-        hpropsym:=hpropsym.overridenpropsym;
+        hpropsym:=hpropsym.overriddenpropsym;
       until not assigned(hpropsym);
     end;
 
@@ -1083,15 +1151,35 @@ implementation
           vecn:
             result:=
               is_packed_array(tvecnode(n).left.resultdef) and
-              (tarraydef(tvecnode(n).left.resultdef).elepackedbitsize mod 8 <> 0);
+              { only orddefs and enumdefs are actually bitpacked. Don't consider
+                e.g. an access to a 3-byte record as "bitpacked", since it
+                isn't }
+              (tvecnode(n).left.resultdef.typ in [orddef,enumdef]) and
+              not(tarraydef(tvecnode(n).left.resultdef).elepackedbitsize in [8,16,32,64]);
           subscriptn:
             result:=
               is_packed_record_or_object(tsubscriptnode(n).left.resultdef) and
-              ((tsubscriptnode(n).vs.vardef.packedbitsize mod 8 <> 0) or
+              { see above }
+              (tsubscriptnode(n).vs.vardef.typ in [orddef,enumdef]) and
+              (not(tsubscriptnode(n).vs.vardef.packedbitsize in [8,16,32,64]) or
                (tsubscriptnode(n).vs.fieldoffset mod 8 <> 0));
           else
             result:=false;
         end;
+      end;
+
+
+    function genloadfield(n: tnode; const fieldname: string): tnode;
+      var
+        vs         : tsym;
+      begin
+        if not assigned(n.resultdef) then
+          typecheckpass(n);
+        vs:=tsym(tabstractrecorddef(n.resultdef).symtable.find(fieldname));
+        if not assigned(vs) or
+           (vs.typ<>fieldvarsym) then
+          internalerror(2010061902);
+        result:=csubscriptnode.create(vs,n);
       end;
 
 

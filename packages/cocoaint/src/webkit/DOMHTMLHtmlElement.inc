@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLHtmlElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLHTMLELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLHtmlElement = objcclass;
   DOMHTMLHtmlElementPointer = ^DOMHTMLHtmlElement;
+  DOMHTMLHtmlElementPtr = DOMHTMLHtmlElementPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMHTMLHTMLELEMENT_PAS_C}
 
 { DOMHTMLHtmlElement }
-  DOMHTMLHtmlElement = objcclass(DOMHTMLElement)
+  DOMHTMLHtmlElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLHtmlElement; message 'alloc';
-
     procedure setVersion (newValue: NSString); message 'setVersion:';
     function version: NSString; message 'version';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

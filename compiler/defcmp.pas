@@ -42,7 +42,8 @@ interface
           cpo_openequalisexact,
           cpo_ignoreuniv,
           cpo_warn_incompatible_univ,
-          cpo_ignorevarspez           // ignore parameter access type
+          cpo_ignorevarspez,          // ignore parameter access type
+          cpo_ignoreframepointer      // ignore frame pointer parameter (for assignment-compatibility of global procedures to nested procvars)
        );
 
        tcompare_paras_options = set of tcompare_paras_option;
@@ -155,8 +156,8 @@ implementation
            uvoid,
            u8bit,u16bit,u32bit,u64bit,
            s8bit,s16bit,s32bit,s64bit,
-           bool8bit,bool16bit,bool32bit,bool64bit,
-           uchar,uwidechar }
+           pasbool, bool8bit,bool16bit,bool32bit,bool64bit,
+           uchar,uwidechar,scurrency }
 
       type
         tbasedef=(bvoid,bchar,bint,bbool);
@@ -281,7 +282,7 @@ implementation
                  objectdef:
                    begin
                      if (m_delphi in current_settings.modeswitches) and
-                        is_class_or_interface_or_dispinterface_or_objc(def_from) and
+                        is_implicit_pointer_object_type(def_from) and
                         (cdo_explicit in cdoptions) then
                       begin
                         eq:=te_convert_l1;
@@ -336,8 +337,9 @@ implementation
                          begin
                            doconv:=tc_string_2_string;
                            { Don't prefer conversions from widestring to a
-                             normal string as we can loose information }
-                           if tstringdef(def_from).stringtype in [st_widestring,st_unicodestring] then
+                             normal string as we can lose information }
+                           if (tstringdef(def_from).stringtype in [st_widestring,st_unicodestring]) and
+                             not (tstringdef(def_to).stringtype in [st_widestring,st_unicodestring]) then
                              eq:=te_convert_l3
                            else if tstringdef(def_to).stringtype in [st_widestring,st_unicodestring] then
                              eq:=te_convert_l2
@@ -364,9 +366,10 @@ implementation
                          case tstringdef(def_from).stringtype of
                            st_widestring :
                              begin
-                               { Prefer conversions to unicodestring first, then ansistring }
+                               { Prefer conversions to unicodestring }
                                if tstringdef(def_to).stringtype=st_unicodestring then
-                                  eq:=te_convert_l1
+                                 eq:=te_convert_l1
+                               { else prefer conversions to ansistring }
                                else if tstringdef(def_to).stringtype=st_ansistring then
                                  eq:=te_convert_l2
                                else
@@ -374,9 +377,10 @@ implementation
                              end;
                            st_unicodestring :
                              begin
-                               { Prefer conversions to widestring first, then ansistring }
+                               { Prefer conversions to widestring }
                                if tstringdef(def_to).stringtype=st_widestring then
                                  eq:=te_convert_l1
+                               { else prefer conversions to ansistring }
                                else if tstringdef(def_to).stringtype=st_ansistring then
                                  eq:=te_convert_l2
                                else
@@ -567,7 +571,8 @@ implementation
                            begin
                              doconv:=tc_real_2_real;
                              { do we lose precision? }
-                             if def_to.size<def_from.size then
+                             if (def_to.size<def_from.size) or
+                               (is_currency(def_from) and (tfloatdef(def_to).floattype in [s32real,s64real])) then
                                eq:=te_convert_l2
                              else
                                eq:=te_convert_l1;
@@ -889,7 +894,9 @@ implementation
                        end;
                      objectdef :
                        begin
-                          if is_interface(def_from) then
+                         { corbainterfaces not accepted, until we have
+                           runtime support for them in Variants (sergei) }
+                          if is_interfacecom_or_dispinterface(def_from) then
                             begin
                                doconv:=tc_interface_2_variant;
                                eq:=te_convert_l1;
@@ -1111,7 +1118,7 @@ implementation
                  procvardef :
                    begin
                      { procedure variable can be assigned to an void pointer,
-                       this not allowed for methodpointers }
+                       this is not allowed for complex procvars }
                      if (is_void(tpointerdef(def_to).pointeddef) or
                          (m_mac_procvar in current_settings.modeswitches)) and
                         tprocvardef(def_from).is_addressonly then
@@ -1134,11 +1141,11 @@ implementation
                  classrefdef,
                  objectdef :
                    begin
-                     { class types and class reference type
+                     { implicit pointer object and class reference types
                        can be assigned to void pointers, but it is less
                        preferred than assigning to a related objectdef }
                      if (
-                         is_class_or_interface_or_dispinterface_or_objc(def_from) or
+                         is_implicit_pointer_object_type(def_from) or
                          (def_from.typ=classrefdef)
                         ) and
                         (tpointerdef(def_to).pointeddef.typ=orddef) and
@@ -1214,7 +1221,10 @@ implementation
                         if subeq>te_incompatible then
                          begin
                            doconv:=tc_proc_2_procvar;
-                           eq:=te_convert_l1;
+                           if subeq>te_convert_l5 then
+                             eq:=pred(subeq)
+                           else
+                             eq:=subeq;
                          end;
                       end;
                    end;
@@ -1252,16 +1262,26 @@ implementation
 
            objectdef :
              begin
-               { object pascal objects }
+               { Objective-C classes (handle anonymous externals) }
                if (def_from.typ=objectdef) and
+                  (find_real_objcclass_definition(tobjectdef(def_from),false) =
+                   find_real_objcclass_definition(tobjectdef(def_to),false)) then
+                 begin
+                   doconv:=tc_equal;
+                   { exact, not equal, because can change between interface
+                     and implementation }
+                   eq:=te_exact;
+                 end
+               { object pascal objects }
+               else if (def_from.typ=objectdef) and
                   (tobjectdef(def_from).is_related(tobjectdef(def_to))) then
                 begin
                   doconv:=tc_equal;
                   eq:=te_convert_l1;
                 end
                else
-               { Class/interface specific }
-                if is_class_or_interface_or_dispinterface_or_objc(def_to) then
+               { specific to implicit pointer object types }
+                if is_implicit_pointer_object_type(def_to) then
                  begin
                    { void pointer also for delphi mode }
                    if (m_delphi in current_settings.modeswitches) and
@@ -1279,7 +1299,7 @@ implementation
                        eq:=te_convert_l1;
                      end
                    { All Objective-C classes are compatible with ID }
-                   else if is_objcclass(def_to) and
+                   else if is_objc_class_or_protocol(def_to) and
                            (def_from=objc_idtype) then
                       begin
                        doconv:=tc_equal;
@@ -1320,8 +1340,10 @@ implementation
                        eq:=te_convert_l1;
                        doconv:=tc_equal;
                      end
-                   else if (def_from.typ=variantdef) and is_interface(def_to) then
+                   else if (def_from.typ=variantdef) and is_interfacecom_or_dispinterface(def_to) then
                      begin
+                     { corbainterfaces not accepted, until we have
+                       runtime support for them in Variants (sergei) }
                        doconv:=tc_variant_2_interface;
                        eq:=te_convert_l2;
                      end
@@ -1437,7 +1459,7 @@ implementation
              begin
                { interface -> guid }
                if (def_to=rec_tguid) and
-                  (is_interfacecom(def_from) or is_dispinterface(def_from)) then
+                  (is_interfacecom_or_dispinterface(def_from)) then
                 begin
                   doconv:=tc_intf_2_guid;
                   eq:=te_convert_l1;
@@ -1475,12 +1497,11 @@ implementation
             { Check for operators? }
             (
              (cdo_check_operator in cdoptions) and
-             ((def_from.typ in [objectdef,recorddef,arraydef,stringdef]) or
-              (def_to.typ in [objectdef,recorddef,arraydef,stringdef]))
+             ((def_from.typ<>variantdef) or (def_to.typ<>variantdef))
             )
            ) then
           begin
-            operatorpd:=search_assignment_operator(def_from,def_to);
+            operatorpd:=search_assignment_operator(def_from,def_to,cdo_explicit in cdoptions);
             if assigned(operatorpd) then
              eq:=te_convert_operator;
           end;
@@ -1616,6 +1637,15 @@ implementation
                    (vo_is_hidden_para in tparavarsym(para2[i2]).varoptions) do
                inc(i2);
            end;
+         if cpo_ignoreframepointer in cpoptions then
+           begin
+             if (i1<para1.count) and
+                (vo_is_parentfp in tparavarsym(para1[i1]).varoptions) then
+               inc(i1);
+             if (i2<para2.count) and
+                (vo_is_parentfp in tparavarsym(para2[i2]).varoptions) then
+               inc(i2);
+           end;
          while (i1<para1.count) and (i2<para2.count) do
            begin
              eq:=te_incompatible;
@@ -1659,8 +1689,8 @@ implementation
                        if (
                            not(cpo_ignorevarspez in cpoptions) and
                            (currpara1.varspez<>currpara2.varspez) and
-                           ((currpara1.varspez in [vs_var,vs_out]) or
-                            (currpara2.varspez in [vs_var,vs_out]))
+                           ((currpara1.varspez in [vs_var,vs_out,vs_constref]) or
+                            (currpara2.varspez in [vs_var,vs_out,vs_constref]))
                           ) then
                          exit;
                        eq:=compare_defs_ext(currpara1.vardef,currpara2.vardef,nothingn,
@@ -1759,6 +1789,15 @@ implementation
                         (vo_is_hidden_para in tparavarsym(para2[i2]).varoptions) do
                     inc(i2);
                 end;
+              if cpo_ignoreframepointer in cpoptions then
+                begin
+                  if (i1<para1.count) and
+                     (vo_is_parentfp in tparavarsym(para1[i1]).varoptions) then
+                    inc(i1);
+                  if (i2<para2.count) and
+                     (vo_is_parentfp in tparavarsym(para2[i2]).varoptions) then
+                    inc(i2);
+                end;
            end;
          { when both lists are empty then the parameters are equal. Also
            when one list is empty and the other has a parameter with default
@@ -1771,7 +1810,7 @@ implementation
       end;
 
 
-    function proc_to_procvar_equal(def1:tabstractprocdef;def2:tprocvardef; checkincompatibleuniv: boolean):tequaltype;
+    function proc_to_procvar_equal(def1:tabstractprocdef;def2:tprocvardef;checkincompatibleuniv: boolean):tequaltype;
       var
         eq : tequaltype;
         po_comp : tprocoptions;
@@ -1780,11 +1819,31 @@ implementation
          proc_to_procvar_equal:=te_incompatible;
          if not(assigned(def1)) or not(assigned(def2)) then
            exit;
-         { check for method pointer }
-         if (def1.is_methodpointer xor def2.is_methodpointer) or
-            (def1.is_addressonly xor def2.is_addressonly) then
+         { check for method pointer and local procedure pointer:
+             a) if one is a procedure of object, the other also has to be one
+             b) if one is a pure address, the other also has to be one
+                except if def1 is a global proc and def2 is a nested procdef
+                (global procedures can be converted into nested procvars)
+             c) if def1 is a nested procedure, then def2 has to be a nested
+                procvar and def1 has to have the po_delphi_nested_cc option
+             d) if def1 is a procvar, def1 and def2 both have to be nested or
+                non-nested (we don't allow assignments from non-nested to
+                nested procvars to make sure that we can still implement
+                nested procvars using trampolines -- e.g., this would be
+                necessary for LLVM or CIL as long as they do not have support
+                for Delphi-style frame pointer parameter passing) }
+         if (def1.is_methodpointer<>def2.is_methodpointer) or  { a) }
+            ((def1.is_addressonly<>def2.is_addressonly) and    { b) }
+             (is_nested_pd(def1) or
+              not is_nested_pd(def2))) or
+            ((def1.typ=procdef) and                            { c) }
+             is_nested_pd(def1) and
+             (not(po_delphi_nested_cc in def1.procoptions) or
+              not is_nested_pd(def2))) or
+            ((def1.typ=procvardef) and                         { d) }
+             (is_nested_pd(def1)<>is_nested_pd(def2))) then
            exit;
-         pa_comp:=[];
+         pa_comp:=[cpo_ignoreframepointer];
          if checkincompatibleuniv then
            include(pa_comp,cpo_warn_incompatible_univ);
          { check return value and options, methodpointer is already checked }
@@ -1802,6 +1861,12 @@ implementation
             eq:=compare_paras(def1.paras,def2.paras,cp_procvar,pa_comp);
             if eq=te_exact then
              eq:=te_equal;
+            if (eq=te_equal) then
+              begin
+                { prefer non-nested to non-nested over non-nested to nested }
+                if (is_nested_pd(def1)<>is_nested_pd(def2)) then
+                  eq:=te_convert_l1;
+              end;
             proc_to_procvar_equal:=eq;
           end;
       end;

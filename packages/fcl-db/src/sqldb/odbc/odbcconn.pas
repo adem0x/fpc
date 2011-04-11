@@ -351,7 +351,7 @@ begin
           SqlType:=SQL_BIGINT;
           ColumnSize:=19;
         end;
-      ftString, ftBlob, ftMemo:
+      ftString, ftFixedChar, ftBlob, ftMemo:
         begin
           StrVal:=AParams[ParamIndex].AsString;
           StrLenOrInd:=Length(StrVal);
@@ -364,16 +364,23 @@ begin
           Size:=Length(StrVal);
           ColumnSize:=Size;
           BufferLength:=Size;
-          if AParams[ParamIndex].DataType = ftString then
-            begin
-            CType:=SQL_C_CHAR;
-            SqlType:=SQL_LONGVARCHAR;
-            end
-          else // ftBlob, ftMemo
-            begin
-            CType:=SQL_C_BINARY;
-            SqlType:=SQL_BINARY;
-            end;
+          case AParams[ParamIndex].DataType of
+            ftBlob:
+              begin
+              CType:=SQL_C_BINARY;
+              SqlType:=SQL_LONGVARBINARY;
+              end;
+            ftMemo:
+              begin
+              CType:=SQL_C_CHAR;
+              SqlType:=SQL_LONGVARCHAR;
+              end
+            else // ftString, ftFixedChar
+              begin
+              CType:=SQL_C_CHAR;
+              SqlType:=SQL_VARCHAR;
+              end;
+          end;
         end;
       ftFloat:
         begin
@@ -639,6 +646,9 @@ begin
 end;
 
 procedure TODBCConnection.Execute(cursor: TSQLCursor; ATransaction: TSQLTransaction; AParams: TParams);
+const
+  TABLE_TYPE_USER='TABLE,VIEW,GLOBAL TEMPORARY,LOCAL TEMPORARY'; //no spaces before/after comma
+  TABLE_TYPE_SYSTEM='SYSTEM TABLE';
 var
   ODBCCursor:TODBCCursor;
   Res:SQLRETURN;
@@ -651,7 +661,8 @@ begin
   // execute the statement
   case ODBCCursor.FSchemaType of
     stNoSchema  : Res:=SQLExecute(ODBCCursor.FSTMTHandle); //SQL_NO_DATA returns searched update or delete statement that does not affect any rows
-    stTables    : Res:=SQLTables (ODBCCursor.FSTMTHandle, nil, 0, nil, 0, nil, 0, nil, 0 );
+    stTables    : Res:=SQLTables (ODBCCursor.FSTMTHandle, nil, 0, nil, 0, nil, 0, TABLE_TYPE_USER, length(TABLE_TYPE_USER) );
+    stSysTables : Res:=SQLTables (ODBCCursor.FSTMTHandle, nil, 0, nil, 0, nil, 0, TABLE_TYPE_SYSTEM, length(TABLE_TYPE_SYSTEM) );
     stColumns   : Res:=SQLColumns(ODBCCursor.FSTMTHandle, nil, 0, nil, 0, @ODBCCursor.FQuery[1], length(ODBCCursor.FQuery), nil, 0 );
     stProcedures: Res:=SQLProcedures(ODBCCursor.FSTMTHandle, nil, 0, nil, 0, nil, 0 );
     else          Res:=SQL_NO_DATA;
@@ -724,9 +735,9 @@ begin
   // TODO: finish this
   case FieldDef.DataType of
     ftWideString,ftFixedWideChar: // mapped to TWideStringField
-      Res:=SQLGetData(ODBCCursor.FSTMTHandle, FieldDef.Index+1, SQL_C_WCHAR, buffer, FieldDef.Size, @StrLenOrInd);
+      Res:=SQLGetData(ODBCCursor.FSTMTHandle, FieldDef.Index+1, SQL_C_WCHAR, buffer, FieldDef.Size+sizeof(WideChar), @StrLenOrInd); //buffer must contain space for the null-termination character
     ftGuid, ftFixedChar,ftString: // are mapped to a TStringField (including TGuidField)
-      Res:=SQLGetData(ODBCCursor.FSTMTHandle, FieldDef.Index+1, SQL_C_CHAR, buffer, FieldDef.Size, @StrLenOrInd);
+      Res:=SQLGetData(ODBCCursor.FSTMTHandle, FieldDef.Index+1, SQL_C_CHAR, buffer, FieldDef.Size+1, @StrLenOrInd);
     ftSmallint:           // mapped to TSmallintField
       Res:=SQLGetData(ODBCCursor.FSTMTHandle, FieldDef.Index+1, SQL_C_SSHORT, buffer, SizeOf(Smallint), @StrLenOrInd);
     ftInteger,ftWord,ftAutoInc:     // mapped to TLongintField
@@ -1012,12 +1023,12 @@ begin
     // convert type
     // NOTE: I made some guesses here after I found only limited information about TFieldType; please report any problems
     case DataType of
-      SQL_CHAR:          begin FieldType:=ftFixedChar;  FieldSize:=ColumnSize+1; end;
-      SQL_VARCHAR:       begin FieldType:=ftString;     FieldSize:=ColumnSize+1; end;
+      SQL_CHAR:          begin FieldType:=ftFixedChar;  FieldSize:=ColumnSize; end;
+      SQL_VARCHAR:       begin FieldType:=ftString;     FieldSize:=ColumnSize; end;
       SQL_LONGVARCHAR:   begin FieldType:=ftMemo;       FieldSize:=BLOB_BUF_SIZE; end; // is a blob
 {$IF (FPC_VERSION>=2) AND (FPC_RELEASE>=1)}
-      SQL_WCHAR:         begin FieldType:=ftFixedWideChar; FieldSize:=(ColumnSize+1)*sizeof(Widechar); end;
-      SQL_WVARCHAR:      begin FieldType:=ftWideString; FieldSize:=(ColumnSize+1)*sizeof(Widechar); end;
+      SQL_WCHAR:         begin FieldType:=ftFixedWideChar; FieldSize:=ColumnSize*sizeof(Widechar); end;
+      SQL_WVARCHAR:      begin FieldType:=ftWideString; FieldSize:=ColumnSize*sizeof(Widechar); end;
       SQL_WLONGVARCHAR:  begin FieldType:=ftWideMemo;   FieldSize:=BLOB_BUF_SIZE; end; // is a blob
 {$ENDIF}
       SQL_DECIMAL:       begin FieldType:=ftFloat;      FieldSize:=0; end;
@@ -1052,7 +1063,7 @@ begin
 {      SQL_INTERVAL_HOUR_TO_SECOND:  FieldType:=ftUnknown;}
 {      SQL_INTERVAL_MINUTE_TO_SECOND:FieldType:=ftUnknown;}
 {$IF (FPC_VERSION>=2) AND (FPC_RELEASE>=1)}
-      SQL_GUID:          begin FieldType:=ftGuid;       FieldSize:=ColumnSize+1; end;
+      SQL_GUID:          begin FieldType:=ftGuid;       FieldSize:=ColumnSize; end;
 {$ENDIF}
     else
       begin FieldType:=ftUnknown; FieldSize:=ColumnSize; end
@@ -1119,7 +1130,7 @@ begin
     end;
 
     // add FieldDef
-    TFieldDef.Create(FieldDefs, ColName, FieldType, FieldSize, False, i);
+    TFieldDef.Create(FieldDefs, FieldDefs.MakeNameUnique(ColName), FieldType, FieldSize, False, i);
   end;
 end;
 
@@ -1216,8 +1227,8 @@ begin
     ODBCCheckResult(
       SQLStatistics(
         StmtHandle,
-        nil, 0, // catalog unkown; request for all catalogs
-        nil, 0, // schema unkown; request for all schemas
+        nil, 0, // catalog unknown; request for all catalogs
+        nil, 0, // schema unknown; request for all schemas
         PChar(TableName), Length(TableName), // request information for TableName
         SQL_INDEX_ALL,
         SQL_QUICK
@@ -1295,7 +1306,7 @@ begin
     Result := SchemaObjectName
   else
     Result := ' ';
-  if not (SchemaType in [stNoSchema, stTables, stColumns, stProcedures]) then
+  if not (SchemaType in [stNoSchema, stTables, stSysTables, stColumns, stProcedures]) then
     DatabaseError(SMetadataUnavailable);
 end;
 

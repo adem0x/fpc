@@ -96,7 +96,9 @@ implementation
                  { stored in memory... }
                  (tabstractnormalvarsym(tloadnode(n).symtableentry).localloc.loc in [LOC_REFERENCE]) and
                  { ... at the place we are looking for }
-                 references_equal(tabstractnormalvarsym(tloadnode(n).symtableentry).localloc.reference,rr^.old^) then
+                 references_equal(tabstractnormalvarsym(tloadnode(n).symtableentry).localloc.reference,rr^.old^) and
+                 { its address cannot have escaped the current routine }
+                 not(tabstractvarsym(tloadnode(n).symtableentry).addr_taken) then
                 begin
                   { relocate variable }
                   tcgloadnode(n).changereflocation(rr^.new^);
@@ -109,7 +111,9 @@ implementation
                  { memory temp... }
                  (ttemprefnode(n).tempinfo^.location.loc in [LOC_REFERENCE]) and
                  { ... at the place we are looking for }
-                 references_equal(ttemprefnode(n).tempinfo^.location.reference,rr^.old^) then
+                 references_equal(ttemprefnode(n).tempinfo^.location.reference,rr^.old^) and
+                 { its address cannot have escaped the current routine }
+                 not(ti_addr_taken in ttemprefnode(n).tempinfo^.flags) then
                 begin
                   { relocate the temp }
                   tcgtemprefnode(n).changelocation(rr^.new^);
@@ -119,11 +123,18 @@ implementation
           { Subscriptn must be rejected, otherwise we may replace an
             an entire record with a temp for its first field, mantis #13948)
             Exception: the field's size is the same as the entire record
+
+            The same goes for array indexing
           }
-          subscriptn:
-            if not(tsubscriptnode(n).left.resultdef.typ in [recorddef,objectdef]) or
-               (tsubscriptnode(n).left.resultdef.size <> tsubscriptnode(n).resultdef.size) then
+          subscriptn,
+          vecn:
+            if not(tunarynode(n).left.resultdef.typ in [recorddef,objectdef,arraydef,stringdef]) or
+               { make sure we don't try to call resultdef.size for types that
+                 don't have a compile-time size such as open arrays }
+               is_special_array(tunarynode(n).left.resultdef) or
+               (tsubscriptnode(n).left.resultdef.size <> tunarynode(n).resultdef.size) then
               result := fen_norecurse_false;
+
           { optimize the searching a bit }
           derefn,addrn,
           calln,inlinen,casen,
@@ -399,7 +410,7 @@ implementation
                 if assigned(left) then
                   begin
                     secondpass(left);
-                    if left.location.loc<>LOC_REGISTER then
+                    if not(left.location.loc in [LOC_REGISTER,LOC_CREGISTER]) then
                       internalerror(200309286);
                     if vs.localloc.loc<>LOC_REFERENCE then
                       internalerror(200409241);
@@ -489,9 +500,9 @@ implementation
                        begin
                          if (not assigned(current_procinfo) or
                              wpoinfomanager.symbol_live(current_procinfo.procdef.mangledname)) then
-                           procdef._class.register_vmt_call(procdef.extnumber);
+                           tobjectdef(procdef.struct).register_vmt_call(procdef.extnumber);
             {$ifdef vtentry}
-                         if not is_interface(procdef._class) then
+                         if not is_interface(procdef.struct) then
                            begin
                              inc(current_asmdata.NextVTEntryNr);
                              current_asmdata.CurrAsmList.Concat(tai_symbol.CreateName('VTREF'+tostr(current_asmdata.NextVTEntryNr)+'_'+procdef._class.vmt_mangledname+'$$'+tostr(vmtoffset div sizeof(pint)),AT_FUNCTION,0));
@@ -501,12 +512,12 @@ implementation
                          if (left.resultdef.typ<>classrefdef) then
                            begin
                              { load vmt pointer }
-                             reference_reset_base(href,hregister,0,sizeof(pint));
+                             reference_reset_base(href,hregister,tobjectdef(left.resultdef).vmt_offset,sizeof(pint));
                              hregister:=cg.getaddressregister(current_asmdata.CurrAsmList);
                              cg.a_load_ref_reg(current_asmdata.CurrAsmList,OS_ADDR,OS_ADDR,href,hregister);
                            end;
                          { load method address }
-                         reference_reset_base(href,hregister,procdef._class.vmtmethodoffset(procdef.extnumber),sizeof(pint));
+                         reference_reset_base(href,hregister,tobjectdef(procdef.struct).vmtmethodoffset(procdef.extnumber),sizeof(pint));
                          hregister:=cg.getaddressregister(current_asmdata.CurrAsmList);
                          cg.a_load_ref_reg(current_asmdata.CurrAsmList,OS_ADDR,OS_ADDR,href,hregister);
                          { ... and store it }
@@ -963,26 +974,27 @@ implementation
 *****************************************************************************}
 
       const
-        vtInteger    = 0;
-        vtBoolean    = 1;
-        vtChar       = 2;
-        vtExtended   = 3;
-        vtString     = 4;
-        vtPointer    = 5;
-        vtPChar      = 6;
-        vtObject     = 7;
-        vtClass      = 8;
-        vtWideChar   = 9;
-        vtPWideChar  = 10;
-        vtAnsiString32 = 11;
-        vtCurrency   = 12;
-        vtVariant    = 13;
-        vtInterface  = 14;
-        vtWideString = 15;
-        vtInt64      = 16;
-        vtQWord      = 17;
-        vtAnsiString16 = 18;
-        vtAnsiString64 = 19;
+        vtInteger       = 0;
+        vtBoolean       = 1;
+        vtChar          = 2;
+        vtExtended      = 3;
+        vtString        = 4;
+        vtPointer       = 5;
+        vtPChar         = 6;
+        vtObject        = 7;
+        vtClass         = 8;
+        vtWideChar      = 9;
+        vtPWideChar     = 10;
+        vtAnsiString32  = 11;
+        vtCurrency      = 12;
+        vtVariant       = 13;
+        vtInterface     = 14;
+        vtWideString    = 15;
+        vtInt64         = 16;
+        vtQWord         = 17;
+        vtUnicodeString = 18;
+        vtAnsiString16  = 19;
+        vtAnsiString64  = 20;
 
     procedure tcgarrayconstructornode.pass_generate_code;
       var
@@ -1140,9 +1152,15 @@ implementation
                            freetemp:=false;
                          end
                        else
-                        if is_widestring(lt) or is_unicodestring(lt) then
+                        if is_widestring(lt) then
                          begin
                            vtype:=vtWideString;
+                           freetemp:=false;
+                         end
+                       else
+                        if is_unicodestring(lt) then
+                         begin
+                           vtype:=vtUnicodeString;
                            freetemp:=false;
                          end;
                      end;

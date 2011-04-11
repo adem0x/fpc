@@ -56,7 +56,7 @@ type
     procedure ConnectFB;
     function GetDialect: integer;
     procedure AllocSQLDA(var aSQLDA : PXSQLDA;Count : integer);
-    procedure TranslateFldType(SQLType, SQLLen, SQLScale : integer;
+    procedure TranslateFldType(SQLType, SQLSubType, SQLLen, SQLScale : integer;
       var TrType : TFieldType; var TrLen : word);
     // conversion methods
     procedure GetDateTime(CurrBuff, Buffer : pointer; AType : integer);
@@ -120,7 +120,8 @@ type
                   
 implementation
 
-uses strutils;
+uses
+  strutils;
 
 type
   TTm = packed record
@@ -433,7 +434,7 @@ begin
     reAllocMem(aSQLDA,0);
 end;
 
-procedure TIBConnection.TranslateFldType(SQLType, SQLLen, SQLScale : integer;
+procedure TIBConnection.TranslateFldType(SQLType, SQLSubType, SQLLen, SQLScale : integer;
            var TrType : TFieldType; var TrLen : word);
 begin
   trlen := 0;
@@ -471,7 +472,10 @@ begin
       end;
     SQL_BLOB :
       begin
-        TrType := ftBlob;
+        if SQLSubType = 1 then
+           TrType := ftMemo
+        else
+           TrType := ftBlob;
         TrLen := SQLLen;
       end;
     SQL_SHORT :
@@ -686,7 +690,7 @@ begin
     setlength(FieldBinding,SQLDA^.SQLD);
     for x := 0 to SQLDA^.SQLD - 1 do
       begin
-      TranslateFldType(SQLDA^.SQLVar[x].SQLType, SQLDA^.SQLVar[x].SQLLen, SQLDA^.SQLVar[x].SQLScale,
+      TranslateFldType(SQLDA^.SQLVar[x].SQLType, SQLDA^.SQLVar[x].sqlsubtype, SQLDA^.SQLVar[x].SQLLen, SQLDA^.SQLVar[x].SQLScale,
         TransType, TransLen);
 
       FD := TFieldDef.Create(FieldDefs, FieldDefs.MakeNameUnique(SQLDA^.SQLVar[x].AliasName), TransType,
@@ -870,7 +874,7 @@ begin
 {$R-}
     x := FieldBinding[FieldDef.FieldNo-1];
 
-    // Joost, 5 jan 2006: I disabled the following, since it's usefull for
+    // Joost, 5 jan 2006: I disabled the following, since it's useful for
     // debugging, but it also slows things down. In principle things can only go
     // wrong when FieldDefs is changed while the dataset is opened. A user just
     // shoudn't do that. ;) (The same is done in PQConnection)
@@ -901,7 +905,7 @@ begin
             case SQLDA^.SQLVar[x].SQLLen of
               2 : begin
                   Move(CurrBuff^, smalli, 2);
-                  c := longi*intpower(10,SQLDA^.SQLVar[x].SQLScale);
+                  c := smalli*intpower(10,SQLDA^.SQLVar[x].SQLScale);
                   end;
               4 : begin
                   Move(CurrBuff^, longi, 4);
@@ -940,16 +944,22 @@ begin
           end;
         ftFloat   :
           GetFloat(CurrBuff, Buffer, SQLDA^.SQLVar[x].SQLLen);
-        ftBlob : begin  // load the BlobIb in field's buffer
+        ftBlob,
+        ftMemo :
+          begin  // load the BlobIb in field's buffer
             FillByte(buffer^,sizeof(TBufBlobField),0);
             Move(CurrBuff^, Buffer^, SQLDA^.SQLVar[x].SQLLen);
-         end
+          end;
 
-      else result := false;
-      end;
-      end;
+        else
+          begin
+            result := false;
+            databaseerrorfmt(SUnsupportedFieldType, [Fieldtypenames[FieldDef.DataType], Self]);
+          end
+      end;  { case }
+      end; { if/else }
 {$R+}
-    end;
+    end; { with cursor }
 end;
 
 procedure TIBConnection.GetDateTime(CurrBuff, Buffer : pointer; AType : integer);

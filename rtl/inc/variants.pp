@@ -161,9 +161,9 @@ type
   private
     FVarType: TVarType;
   protected
-    function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
-    function _AddRef: Integer; stdcall;
-    function _Release: Integer; stdcall;
+    function QueryInterface({$IFDEF FPC_HAS_CONSTREF}constref{$ELSE}const{$ENDIF} IID: TGUID; out Obj): HResult; virtual; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
+    function _AddRef: Integer; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
+    function _Release: Integer; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
     procedure SimplisticClear(var V: TVarData);
     procedure SimplisticCopy(var Dest: TVarData; const Source: TVarData; const Indirect: Boolean = False);
     procedure RaiseInvalidOp;
@@ -265,7 +265,7 @@ type
       CallDesc: PCallDesc; Params: Pointer); cdecl;
 
 Const
-  CMaxNumberOfCustomVarTypes = $06FF;
+  CMaxNumberOfCustomVarTypes = $0EFF;
   CMinVarType = $0100;
   CMaxVarType = CMinVarType + CMaxNumberOfCustomVarTypes;
   CIncVarType = $000F;
@@ -367,6 +367,7 @@ uses
 var
   customvarianttypes    : array of TCustomVariantType;
   customvarianttypelock : trtlcriticalsection;
+  customvariantcurrtype : LongInt;
 
 const
   { all variants for which vType and varComplexType = 0 do not require
@@ -661,12 +662,21 @@ end;
 
 {$ifndef FPUNONE}
 function sysvartoreal (const v : Variant) : Extended;
+var Handler: TCustomVariantType;
+    dest: TVarData;
 begin
   if VarType(v) = varNull then
     if NullStrictConvert then
       VarCastError(varNull, varDouble)
     else
       Result := 0
+  { TODO: performance: custom variants must be handled after standard ones }
+  else if FindCustomVariantType(TVarData(v).vType, Handler) then
+  begin
+    VariantInit(dest);
+    Handler.CastTo(dest, TVarData(v), varDouble);
+    Result := dest.vDouble;
+  end
   else
     Result := VariantToDouble(TVarData(V));
 end;
@@ -684,6 +694,21 @@ begin
     Result := VariantToCurrency(TVarData(V));
 end;
 
+function CustomVarToLStr(const v: TVarData; out s: AnsiString): Boolean;
+var
+  handler: TCustomVariantType;
+  temp: TVarData;
+begin
+  result := FindCustomVariantType(v.vType, handler);
+  if result then
+  begin
+    VariantInit(temp);
+    handler.CastTo(temp, v, varString);
+    { out-semantic ensures that s is finalized,
+      so just copy the pointer and don't finalize the temp }
+    Pointer(s) := temp.vString;
+  end;
+end;
 
 procedure sysvartolstr (var s : AnsiString; const v : Variant);
 begin
@@ -692,20 +717,18 @@ begin
       VarCastError(varNull, varString)
     else
       s := NullAsStringValue
-  else
+  { TODO: performance: custom variants must be handled after standard ones }
+  else if not CustomVarToLStr(TVarData(v), s) then
     S := VariantToAnsiString(TVarData(V));
 end;
 
 
 procedure sysvartopstr (var s; const v : Variant);
+var
+  tmp: AnsiString;
 begin
-  if VarType(v) = varNull then
-    if NullStrictConvert then
-      VarCastError(varNull, varString)
-    else
-      ShortString(s) := NullAsStringValue
-  else
-    ShortString(s) := VariantToShortString(TVarData(V));
+  sysvartolstr(tmp, v);
+  ShortString(s) := tmp;
 end;
 
 
@@ -1217,10 +1240,40 @@ begin
 end;
 
 function DoVarCmpComplex(const Left, Right: TVarData; const OpCode: TVarOp): ShortInt;
+var Handler: TCustomVariantType;
+    CmpRes: boolean;
 begin
-  {!! custom variants? }
+  if FindCustomVariantType(Left.vType, Handler) then
+    CmpRes := Handler.CompareOp(Left, Right, OpCode)
+  else if FindCustomVariantType(Right.vType, Handler) then
+    CmpRes := Handler.CompareOp(Left, Right, OpCode)
+  else
   VarInvalidOp(Left.vType, Right.vType, OpCode);
-  Result:=0;
+
+  case OpCode of
+    opCmpEq:
+      if CmpRes then
+        Result:=0
+      else
+        Result:=1;
+    opCmpNe:
+      if CmpRes then
+        Result:=1
+      else
+        Result:=0;
+    opCmpLt,
+    opCmpLe:
+      if CmpRes then
+        Result:=-1
+      else
+        Result:=1;
+    opCmpGt,
+    opCmpGe:
+      if CmpRes then
+        Result:=1
+      else
+        Result:=-1;
+  end;
 end;
 
 
@@ -1602,8 +1655,13 @@ begin
 end;
 
 procedure DoVarOpComplex(var vl : TVarData; const vr : TVarData; const OpCode : TVarOp);
+var Handler: TCustomVariantType;
 begin
-  {custom Variant support? }
+  if FindCustomVariantType(vl.vType, Handler) then
+    Handler.BinaryOp(vl, vr, OpCode)
+  else if FindCustomVariantType(vr.vType, Handler) then
+    Handler.BinaryOp(vl, vr, OpCode)
+  else
    VarInvalidOp(vl.vType, vr.vType, OpCode);
 end;
 
@@ -2088,10 +2146,17 @@ begin
   with v do
     if vType < varInt64 then
       VarResultCheck(VariantClear(v))
-    else if vType = varString then begin
-      AnsiString(vString) := '';
-      vType := varEmpty
-    end else if vType = varAny then
+    else if vType = varString then
+      begin
+        AnsiString(vString) := '';
+        vType := varEmpty;
+      end
+    else if vType = varUString then
+      begin
+        UnicodeString(vString) := '';
+        vType := varEmpty;
+      end
+    else if vType = varAny then
       ClearAnyProc(v)
     else if vType and varArray <> 0 then
       DoVarClearArray(v)
@@ -2595,7 +2660,6 @@ var
   valuevtype,
   arrayelementtype : TVarType;
   tempvar : Variant;
-  variantmanager : tvariantmanager;
 begin
   Dest:=TVarData(a);
   { get final Variant }
@@ -2638,8 +2702,7 @@ begin
         end
       else
         begin
-          GetVariantManager(variantmanager);
-          variantmanager.varcast(tempvar,value,arrayelementtype);
+          VarCast(tempvar,value,arrayelementtype);
           if arrayelementtype in [varOleStr,varDispatch,varUnknown] then
             VarResultCheck(SafeArrayPutElement(p,PVarArrayCoorArray(indices),TVarData(tempvar).vPointer))
           else
@@ -2804,7 +2867,10 @@ begin
   I:=Low(AVarTypes);
   Result:=False;
   While Not Result and (I<=High(AVarTypes)) do
-    Result:=((TVarData(V).vType and varTypeMask)=AVarTypes[I]);
+    begin
+      Result:=((TVarData(V).vType and varTypeMask)=AVarTypes[I]);
+      inc(i);
+    end;
 end;
 
 
@@ -2850,12 +2916,15 @@ function VarIsClear(const V: Variant): Boolean;
 
 Var
   VT : TVarType;
-
+  CustomType: TCustomVariantType;
 begin
   VT:=TVarData(V).vType and varTypeMask;
-  Result:=(VT=varEmpty) or
-          (((VT=varDispatch) or (VT=varUnknown))
-           and (TVarData(V).vDispatch=Nil));
+  if VT<CFirstUserType then
+    Result:=(VT=varEmpty) or
+            (((VT=varDispatch) or (VT=varUnknown))
+             and (TVarData(V).vDispatch=Nil))
+   else
+     Result:=FindCustomVariantType(VT,CustomType) and CustomType.IsClear(TVarData(V));
 end;
 
 
@@ -2892,6 +2961,7 @@ function VarIsStr(const V: Variant): Boolean;
 begin
   case (TVarData(V).vType and varTypeMask) of
     varOleStr,
+    varUString,
     varString :
       Result:=True;
     else
@@ -3273,17 +3343,13 @@ function VarTypeIsValidElementType(const aVarType: TVarType): Boolean;
   var
     customvarianttype : TCustomVariantType;
   begin
-    if FindCustomVariantType(aVarType,customvarianttype) then
-      Result:=true
-    else
-      begin
-        Result:=(aVarType and not(varByRef) and not(varArray)) in [varEmpty,varNull,varSmallInt,varInteger,
+    Result:=((aVarType and not(varByRef) and not(varArray)) in [varEmpty,varNull,varSmallInt,varInteger,
 {$ifndef FPUNONE}
-          varSingle,varDouble,varDate,
+      varSingle,varDouble,varDate,
 {$endif}
-          varCurrency,varOleStr,varDispatch,varError,varBoolean,
-          varVariant,varUnknown,varShortInt,varByte,varWord,varLongWord,varInt64];
-      end;
+      varCurrency,varOleStr,varDispatch,varError,varBoolean,
+      varVariant,varUnknown,varShortInt,varByte,varWord,varLongWord,varInt64]) or
+    FindCustomVariantType(aVarType,customvarianttype);
   end;
 
 
@@ -3328,7 +3394,6 @@ procedure DynArrayToVariant(var V: Variant; const DynArray: Pointer; TypeInfo: P
     dynarriter : tdynarrayiter;
     p : Pointer;
     temp : Variant;
-    variantmanager : tvariantmanager;
     dynarraybounds : tdynarraybounds;
   type
     TDynArray = array of Pointer;
@@ -3342,8 +3407,6 @@ procedure DynArrayToVariant(var V: Variant; const DynArray: Pointer; TypeInfo: P
 
     if (Dims>1) and not(DynamicArrayIsRectangular(DynArray,TypeInfo)) then
       exit;
-
-    GetVariantManager(variantmanager);
 
     { retrieve Bounds array }
     Setlength(dynarraybounds,Dims);
@@ -3411,7 +3474,7 @@ procedure DynArrayToVariant(var V: Variant; const DynArray: Pointer; TypeInfo: P
               VarClear(temp);
           end;
           dynarriter.next;
-          variantmanager.VarArrayPut(V,temp,Dims,PLongint(iter.Coords));
+          VarArrayPut(V,temp,Slice(iter.Coords^,Dims));
         until not(iter.next);
       finally
         iter.done;
@@ -3432,7 +3495,6 @@ procedure DynArrayFromVariant(var DynArray: Pointer; const V: Variant; TypeInfo:
     dynarriter : tdynarrayiter;
     temp : Variant;
     dynarrvartype : LongInt;
-    variantmanager : tvariantmanager;
     vararraybounds : PVarArrayBoundArray;
     dynarraybounds : tdynarraybounds;
     i : SizeInt;
@@ -3458,14 +3520,13 @@ procedure DynArrayFromVariant(var DynArray: Pointer; const V: Variant; TypeInfo:
           dynarraybounds[i]:=vararraybounds^[i].ElementCount;
         end;
       DynArraySetLength(DynArray,TypeInfo,VarArrayDims,PSizeInt(dynarraybounds));
-      GetVariantManager(variantmanager);
       VarArrayLock(V);
       try
         iter.init(VarArrayDims,PVarArrayBoundArray(vararraybounds));
         dynarriter.init(DynArray,TypeInfo,VarArrayDims,dynarraybounds);
         if not iter.AtEnd then
         repeat
-          temp:=variantmanager.VarArrayGet(V,VarArrayDims,PLongint(iter.Coords));
+          temp:=VarArrayGet(V,Slice(iter.Coords^,VarArrayDims));
           case dynarrvartype of
             varSmallInt:
               PSmallInt(dynarriter.data)^:=temp;
@@ -3545,13 +3606,31 @@ function FindCustomVariantType(const aVarType: TVarType; out CustomVariantType: 
   end;
 
 
-{$warnings off}
 function FindCustomVariantType(const TypeName: string;  out CustomVariantType: TCustomVariantType): Boolean; overload;
-
-begin
-  NotSupported('FindCustomVariantType');
-end;
-{$warnings on}
+  var
+    i: Integer;
+    tmp: TCustomVariantType;
+    ShortTypeName: shortstring;
+  begin
+    ShortTypeName:=TypeName;  // avoid conversion in the loop
+    result:=False;
+    EnterCriticalSection(customvarianttypelock);
+    try
+      for i:=low(customvarianttypes) to high(customvarianttypes) do
+        begin
+          tmp:=customvarianttypes[i];
+          result:=Assigned(tmp) and (tmp<>InvalidCustomVariantType) and
+            tmp.ClassNameIs(ShortTypeName);
+          if result then
+            begin
+              CustomVariantType:=tmp;
+              Exit;
+            end;
+        end;
+    finally
+      LeaveCriticalSection(customvarianttypelock);
+    end;
+  end;
 
 function Unassigned: Variant; // Unassigned standard constant
 begin
@@ -3566,34 +3645,41 @@ function Null: Variant;       // Null standard constant
     TVarData(Result).vType := varNull;
   end;
 
+procedure VarDispInvokeError;
+  begin
+    raise EVariantDispatchError.Create(SDispatchError);
+  end;
 
 { ---------------------------------------------------------------------
     TCustomVariantType Class.
   ---------------------------------------------------------------------}
 
+{ All TCustomVariantType descendants are singletons, they ignore automatic refcounting. }
+function TCustomVariantType.QueryInterface({$IFDEF FPC_HAS_CONSTREF}constref{$ELSE}const{$ENDIF} IID: TGUID; out Obj): HResult;  {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
+  begin
+    if GetInterface(IID, obj) then
+      result := S_OK
+    else
+      result := E_NOINTERFACE;
+  end;
+
+
+function TCustomVariantType._AddRef: Integer; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
+  begin
+    result := -1;
+  end;
+
+
+function TCustomVariantType._Release: Integer; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
+  begin
+    result := -1;
+  end;
+
 {$warnings off}
-function TCustomVariantType.QueryInterface(const IID: TGUID; out Obj): HResult;  stdcall;
-  begin
-    NotSupported('TCustomVariantType.QueryInterface');
-  end;
-
-
-function TCustomVariantType._AddRef: Integer; stdcall;
-  begin
-    NotSupported('TCustomVariantType._AddRef');
-  end;
-
-
-function TCustomVariantType._Release: Integer; stdcall;
-  begin
-    NotSupported('TCustomVariantType._Release');
-  end;
-
-
 procedure TCustomVariantType.SimplisticClear(var V: TVarData);
-  begin
-    NotSupported('TCustomVariantType.SimplisticClear');
-  end;
+begin
+  VarDataInit(V);
+end;
 
 
 procedure TCustomVariantType.SimplisticCopy(var Dest: TVarData; const Source: TVarData;  const Indirect: Boolean = False);
@@ -3604,20 +3690,19 @@ end;
 
 procedure TCustomVariantType.RaiseInvalidOp;
 begin
-  NotSupported('TCustomVariantType.RaiseInvalidOp');
+  VarInvalidOp;
 end;
 
 
 procedure TCustomVariantType.RaiseCastError;
 begin
-  NotSupported('TCustomVariantType.RaiseCastError');
+  VarCastError;
 end;
 
 
 procedure TCustomVariantType.RaiseDispError;
-
 begin
-  NotSupported('TCustomVariantType.RaiseDispError');
+  VarDispInvokeError;
 end;
 
 
@@ -3646,7 +3731,7 @@ end;
 procedure TCustomVariantType.DispInvoke(Dest: PVarData; const Source: TVarData; CallDesc: PCallDesc; Params: Pointer);
 
 begin
-  NotSupported('TCustomVariantType.DispInvoke');
+  RaiseDispError;
 end;
 
 
@@ -3736,7 +3821,7 @@ end;
 function TCustomVariantType.VarDataIsEmptyParam(const V: TVarData): Boolean;
 
 begin
-  VarIsEmptyParam(Variant(V));
+  Result:=VarIsEmptyParam(Variant(V));
 end;
 
 
@@ -3785,24 +3870,53 @@ begin
 end;
 
 
-constructor TCustomVariantType.Create;
+procedure RegisterCustomVariantType(obj: TCustomVariantType; RequestedVarType: TVarType;
+  UseFirstAvailable: Boolean);
+var
+  index,L: Integer;
 begin
-  inherited Create;
   EnterCriticalSection(customvarianttypelock);
   try
-    SetLength(customvarianttypes,Length(customvarianttypes)+1);
-    customvarianttypes[High(customvarianttypes)]:=self;
-    FVarType:=CMinVarType+High(customvarianttypes);
+    L:=Length(customvarianttypes);
+    if UseFirstAvailable then
+    begin
+      repeat
+        inc(customvariantcurrtype);
+        if customvariantcurrtype>=CMaxVarType then
+          raise EVariantError.Create(SVarTypeTooManyCustom);
+      until ((customvariantcurrtype-CMinVarType)>=L) or
+        (customvarianttypes[customvariantcurrtype-CMinVarType]=nil);
+      RequestedVarType:=customvariantcurrtype;
+    end
+    else if (RequestedVarType<CFirstUserType) or (RequestedVarType>CMaxVarType) then
+      raise EVariantError.CreateFmt(SVarTypeOutOfRangeWithPrefix, ['$', RequestedVarType]);
+
+    index:=RequestedVarType-CMinVarType;
+    if index>=L then
+      SetLength(customvarianttypes,L+1);
+    if Assigned(customvarianttypes[index]) then
+    begin
+      if customvarianttypes[index]=InvalidCustomVariantType then
+        raise EVariantError.CreateFmt(SVarTypeNotUsableWithPrefix, ['$', RequestedVarType])
+      else
+        raise EVariantError.CreateFmt(SVarTypeAlreadyUsedWithPrefix,
+          ['$', RequestedVarType, customvarianttypes[index].ClassName]);
+    end;
+    customvarianttypes[index]:=obj;
+    obj.FVarType:=RequestedVarType;
   finally
     LeaveCriticalSection(customvarianttypelock);
   end;
 end;
 
+constructor TCustomVariantType.Create;
+begin
+  RegisterCustomVariantType(Self,0,True);
+end;
 
 constructor TCustomVariantType.Create(RequestedVarType: TVarType);
-
 begin
-  FVarType:=RequestedVarType;
+  RegisterCustomVariantType(Self,RequestedVarType,False);
 end;
 
 
@@ -3821,14 +3935,8 @@ end;
 
 
 function TCustomVariantType.IsClear(const V: TVarData): Boolean;
-
-Var
-  VT : TVarType;
-  
 begin
-  VT:=V.vType and varTypeMask;
-  Result:=(VT=varEmpty) or (((VT=varDispatch) or (VT=varUnknown))
-                            and (TVarData(V).vDispatch=Nil));
+  result:=False;
 end;
 
 
@@ -3857,14 +3965,14 @@ end;
 procedure TCustomVariantType.BinaryOp(var Left: TVarData; const Right: TVarData; const Operation: TVarOp);
 
 begin
-  NotSupported('TCustomVariantType.BinaryOp');
+  RaiseInvalidOp;
 end;
 
 
 procedure TCustomVariantType.UnaryOp(var Right: TVarData; const Operation: TVarOp);
 
 begin
-  NotSupported('TCustomVariantType.UnaryOp');
+  RaiseInvalidOp;
 end;
 
 
@@ -3886,37 +3994,146 @@ end;
     TInvokeableVariantType implementation
   ---------------------------------------------------------------------}
 
-{$warnings off}
-procedure TInvokeableVariantType.DispInvoke(Dest: PVarData; const Source: TVarData; CallDesc: PCallDesc; Params: Pointer);
-
+procedure TInvokeableVariantType.DispInvoke(Dest: PVarData; const Source: TVarData;
+  CallDesc: PCallDesc; Params: Pointer);
+var
+  method_name: ansistring;
+  arg_count: byte;
+  args: TVarDataArray;
+  arg_idx: byte;
+  arg_type: byte;
+  arg_byref, has_result: boolean;
+  arg_ptr: pointer;
+  arg_data: PVarData;
+  dummy_data: TVarData;
+const
+  argtype_mask = $7F;
+  argref_mask = $80;
 begin
-  NotSupported('TInvokeableVariantType.DispInvoke');
+  arg_count := CallDesc^.ArgCount;
+  method_name := ansistring(pchar(@CallDesc^.ArgTypes[arg_count]));
+  setLength(args, arg_count);
+  if arg_count > 0 then
+  begin
+    arg_ptr := Params;
+    for arg_idx := 0 to arg_count - 1 do
+    begin
+      arg_type := CallDesc^.ArgTypes[arg_idx] and argtype_mask;
+      arg_byref := (CallDesc^.ArgTypes[arg_idx] and argref_mask) <> 0;
+      arg_data := @args[arg_count - arg_idx - 1];
+      case arg_type of
+        varUStrArg: arg_data^.vType := varUString;
+        varStrArg: arg_data^.vType := varString;
+      else
+        arg_data^.vType := arg_type
+      end;
+      if arg_byref then
+      begin
+        arg_data^.vType := arg_data^.vType or varByRef;
+        arg_data^.vPointer := PPointer(arg_ptr)^;
+        Inc(arg_ptr,sizeof(Pointer));
+      end
+      else
+        case arg_type of
+          varError:
+            arg_data^.vError:=VAR_PARAMNOTFOUND;
+          varVariant:
+            begin
+              arg_data^ := PVarData(PPointer(arg_ptr)^)^;
+              Inc(arg_ptr,sizeof(Pointer));
+            end;
+          varDouble, varCurrency, varInt64, varQWord:
+            begin
+              arg_data^.vQWord := PQWord(arg_ptr)^; // 64bit on all platforms
+              inc(arg_ptr,sizeof(qword))
+            end
+        else
+          arg_data^.vAny := PPointer(arg_ptr)^; // 32 or 64bit
+          inc(arg_ptr,sizeof(pointer))
+        end;
+    end;
+  end;
+  has_result := (Dest <> nil);
+  if has_result then
+    variant(Dest^) := Unassigned;
+  case CallDesc^.CallType of
+
+    1:     { DISPATCH_METHOD }
+      if has_result then
+      begin
+        if arg_count = 0 then
+        begin
+          // no args -- try GetProperty first, then DoFunction
+          if not (GetProperty(Dest^,Source,method_name) or
+            DoFunction(Dest^,Source,method_name,args)) then
+            RaiseDispError
+        end
+        else
+          if not DoFunction(Dest^,Source,method_name,args) then
+            RaiseDispError;
+      end
+      else
+      begin
+        // may be procedure?
+        if not DoProcedure(Source,method_name,args) then
+        // may be function?
+        try
+          variant(dummy_data) := Unassigned;
+          if not DoFunction(dummy_data,Source,method_name,args) then
+            RaiseDispError;
+        finally
+          VarDataClear(dummy_data)
+        end;
+      end;
+
+    2:     { DISPATCH_PROPERTYGET -- currently never generated by compiler for Variant Dispatch }
+      if has_result then
+      begin
+        // must be property...
+        if not GetProperty(Dest^,Source,method_name) then
+          // may be function?
+          if not DoFunction(Dest^,Source,method_name,args) then
+            RaiseDispError
+      end
+      else
+        RaiseDispError;
+
+    4:    { DISPATCH_PROPERTYPUT }
+      if has_result or (arg_count<>1) or  // must be no result and a single arg
+        (not SetProperty(Source,method_name,args[0])) then
+        RaiseDispError;
+  else
+    RaiseDispError;
+  end;
 end;
 
 function TInvokeableVariantType.DoFunction(var Dest: TVarData; const V: TVarData; const Name: string; const Arguments: TVarDataArray): Boolean;
 
 begin
-  NotSupported('TInvokeableVariantType.DoFunction');
+  result := False;
 end;
 
 function TInvokeableVariantType.DoProcedure(const V: TVarData; const Name: string; const Arguments: TVarDataArray): Boolean;
 begin
-  NotSupported('TInvokeableVariantType.DoProcedure');
+  result := False
 end;
 
 
 function TInvokeableVariantType.GetProperty(var Dest: TVarData; const V: TVarData; const Name: string): Boolean;
   begin
-    NotSupported('TInvokeableVariantType.GetProperty');
+    result := False;
   end;
 
 
 function TInvokeableVariantType.SetProperty(const V: TVarData; const Name: string; const Value: TVarData): Boolean;
   begin
-    NotSupported('TInvokeableVariantType.SetProperty');
+    result := False;
   end;
-{$warnings on}
 
+
+{ ---------------------------------------------------------------------
+    TPublishableVariantType implementation
+  ---------------------------------------------------------------------}
 
 function TPublishableVariantType.GetProperty(var Dest: TVarData; const V: TVarData; const Name: string): Boolean;
   begin
@@ -4421,6 +4638,8 @@ var
 
 Initialization
   InitCriticalSection(customvarianttypelock);
+  // start with one-less value, so first increment yields CFirstUserType
+  customvariantcurrtype:=CFirstUserType-1;
   SetSysVariantManager;
   SetClearVarToEmptyParam(TVarData(EmptyParam));
   VarClearProc:=@DoVarClear;

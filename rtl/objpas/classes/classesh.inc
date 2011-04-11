@@ -36,7 +36,7 @@ type
    TSmallPoint = record
       x,y : smallint;
    end;
-   HMODULE = longint;
+   HMODULE = ptrint; // hmodule is handle on windows. Pointer eq.
 {$else}
    TSmallPoint = Windows.TSmallPoint;
    HModule = System.HModule;
@@ -403,10 +403,10 @@ type
     FOwnerInterface: IInterface;
   protected
     { IInterface }
-    function _AddRef: Integer; stdcall;
-    function _Release: Integer; stdcall;
+    function _AddRef: Integer; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
+    function _Release: Integer; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
   public
-    function QueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
+    function QueryInterface({$IFDEF FPC_HAS_CONSTREF}constref{$ELSE}const{$ENDIF} IID: TGUID; out Obj): HResult; virtual; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
     procedure AfterConstruction; override;
   end;
 
@@ -469,7 +469,7 @@ type
   TCollection = class(TPersistent)
   private
     FItemClass: TCollectionItemClass;
-    FItems: TList;
+    FItems: TFpList;
     FUpdateCount: Integer;
     FNextID: Integer;
     FPropName: string;
@@ -666,6 +666,7 @@ type
     FDuplicates: TDuplicates;
     FCaseSensitive : Boolean;
     FSorted: Boolean;
+    FOwnsObjects : Boolean;
     procedure ExchangeItems(Index1, Index2: Integer);
     procedure Grow;
     procedure QuickSort(L, R: Integer; CompareFn: TStringListSortCompare);
@@ -692,7 +693,7 @@ type
     procedure Clear; override;
     procedure Delete(Index: Integer); override;
     procedure Exchange(Index1, Index2: Integer); override;
-    function Find(const S: string; var Index: Integer): Boolean; virtual;
+    function Find(const S: string; Out Index: Integer): Boolean; virtual;
     function IndexOf(const S: string): Integer; override;
     procedure Insert(Index: Integer; const S: string); override;
     procedure Sort; virtual;
@@ -702,6 +703,7 @@ type
     property CaseSensitive: Boolean read FCaseSensitive write SetCaseSensitive;
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
     property OnChanging: TNotifyEvent read FOnChanging write FOnChanging;
+    property OwnsObjects : boolean read FOwnsObjects write FOwnsObjects;
   end;
 
 {$else}
@@ -717,6 +719,7 @@ type
     FOnChange: TNotifyEvent;
     FOnChanging: TNotifyEvent;
     FOnCompareText: TStringListTextCompare;
+    FOwnsObjects : Boolean;
     procedure SetCaseSensitive(NewSensitive: Boolean);
   protected
     procedure Changed; virtual;
@@ -755,6 +758,7 @@ type
     property OnChange: TNotifyEvent read FOnChange write FOnChange;
     property OnChanging: TNotifyEvent read FOnChanging write FOnChanging;
     property OnCompareText: TStringListTextCompare read FOnCompareText write FOnCompareText;
+    property OwnsObjects : boolean read FOwnsObjects write FOwnsObjects;
   end;
 
 {$endif}
@@ -812,7 +816,7 @@ type
     constructor Create(const Stream: IStream);
     function Read(var Buffer; Count: Longint): Longint; override;
     function Write(const Buffer; Count: Longint): Longint; override;
-    function Seek(Offset: Longint; Origin: Word): Longint; override;
+    function Seek(const Offset: int64; Origin: TSeekOrigin): int64; override;
     procedure Check(err:longint); virtual;
   end;
 
@@ -838,16 +842,16 @@ type
 
   THandleStream = class(TStream)
   private
-    FHandle: Integer;
+    FHandle: THandle;
   protected
     procedure SetSize(NewSize: Longint); override;
     procedure SetSize(const NewSize: Int64); override;
   public
-    constructor Create(AHandle: Integer);
+    constructor Create(AHandle: THandle);
     function Read(var Buffer; Count: Longint): Longint; override;
     function Write(const Buffer; Count: Longint): Longint; override;
     function Seek(const Offset: Int64; Origin: TSeekOrigin): Int64; override;
-    property Handle: Integer read FHandle;
+    property Handle: THandle read FHandle;
   end;
 
 { TFileStream class }
@@ -922,7 +926,7 @@ type
   private
     Res: TFPResourceHandle;
     Handle: THandle;
-    procedure Initialize(Instance: THandle; Name, ResType: PWideChar);
+    procedure Initialize(Instance: THandle; Name, ResType: PWideChar; NameIsID: Boolean);
   public
     constructor Create(Instance: THandle; const ResName: WideString; ResType: PWideChar);
     constructor CreateFromID(Instance: THandle; ResID: Integer; ResType: PWideChar);
@@ -933,7 +937,7 @@ type
   private
     Res: TFPResourceHandle;
     Handle: THandle;
-    procedure Initialize(Instance: THandle; Name, ResType: PChar);
+    procedure Initialize(Instance: THandle; Name, ResType: PChar; NameIsID: Boolean);
   public
     constructor Create(Instance: THandle; const ResName: string; ResType: PChar);
     constructor CreateFromID(Instance: THandle; ResID: Integer; ResType: PChar);
@@ -1131,7 +1135,7 @@ type
     FOwner: TComponent;
     FParent: TComponent;
     FFixups: TObject;
-    FLoaded: TList;
+    FLoaded: TFpList;
     FOnFindMethod: TFindMethodEvent;
     FOnSetMethodProperty: TSetMethodPropertyEvent;
     FOnSetName: TSetNameEvent;
@@ -1484,12 +1488,17 @@ type
     procedure Synchronize(AMethod: TThreadMethod);
     property ReturnValue: Integer read FReturnValue write FReturnValue;
     property Terminated: Boolean read FTerminated;
+{$ifdef windows}
+  private
+    FInitialSuspended: boolean;
+{$endif}
 {$ifdef Unix}
   private
     // see tthread.inc, ThreadFunc and TThread.Resume
     FSem: Pointer;
     FInitialSuspended: boolean;
     FSuspendedExternal: boolean;
+    FSuspendedInternal: longbool;
     FThreadReaped: boolean;
 {$endif}
 {$ifdef netwlibc}
@@ -1506,8 +1515,8 @@ type
     destructor Destroy; override;
     procedure AfterConstruction; override;
     procedure Start;
-    procedure Resume;
-    procedure Suspend;
+    procedure Resume; deprecated;
+    procedure Suspend; deprecated;
     procedure Terminate;
     function WaitFor: Integer;
     class procedure Synchronize(AThread: TThread; AMethod: TThreadMethod);
@@ -1573,9 +1582,9 @@ type
   private
     FOwner: TComponent;
     FName: TComponentName;
-    FTag: Longint;
-    FComponents: TList;
-    FFreeNotifies: TList;
+    FTag: Ptrint;
+    FComponents: TFpList;
+    FFreeNotifies: TFpList;
     FDesignInfo: Longint;
     FVCLComObject: Pointer;
     FComponentState: TComponentState;
@@ -1621,9 +1630,9 @@ type
     procedure ValidateContainer(AComponent: TComponent); dynamic;
     procedure ValidateInsert(AComponent: TComponent); dynamic;
     { IUnknown }
-    function QueryInterface(const IID: TGUID; out Obj): Hresult; virtual; stdcall;
-    function _AddRef: Integer; stdcall;
-    function _Release: Integer; stdcall;
+    function QueryInterface({$IFDEF FPC_HAS_CONSTREF}constref{$ELSE}const{$ENDIF} IID: TGUID; out Obj): Hresult; virtual; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
+    function _AddRef: Integer; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
+    function _Release: Integer; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
     function iicrGetComponent: TComponent;
     { IDispatch }
     function GetTypeInfoCount(out Count: Integer): HResult; stdcall;
@@ -1672,7 +1681,7 @@ type
     property VCLComObject: Pointer read FVCLComObject write FVCLComObject;
   published
     property Name: TComponentName read FName write SetName stored False;
-    property Tag: Longint read FTag write FTag default 0;
+    property Tag: PtrInt read FTag write FTag default 0;
   end;
 
 { TBasicActionLink }
@@ -1707,7 +1716,7 @@ type
     FOnExecute: TNotifyEvent;
     FOnUpdate: TNotifyEvent;
   protected
-    FClients: TList;
+    FClients: TFpList;
     procedure Change; virtual;
     procedure SetOnExecute(Value: TNotifyEvent); virtual;
     property OnChange: TNotifyEvent read FOnChange write FOnChange;

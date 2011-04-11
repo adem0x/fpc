@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSRule.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSRULE_PAS_T}
@@ -16,6 +14,9 @@ const
   DOM_MEDIA_RULE = 4;
   DOM_FONT_FACE_RULE = 5;
   DOM_PAGE_RULE = 6;
+  DOM_VARIABLES_RULE = 7;
+  DOM_WEBKIT_KEYFRAMES_RULE = 8;
+  DOM_WEBKIT_KEYFRAME_RULE = 9;
 
 {$endif}
 {$endif}
@@ -44,6 +45,7 @@ const
 {$ifdef FORWARD}
   DOMCSSRule = objcclass;
   DOMCSSRulePointer = ^DOMCSSRule;
+  DOMCSSRulePtr = DOMCSSRulePointer;
 
 {$endif}
 
@@ -52,17 +54,15 @@ const
 {$define DOMCSSRULE_PAS_C}
 
 { DOMCSSRule }
-  DOMCSSRule = objcclass(DOMObject)
+  DOMCSSRule = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMCSSRule; message 'alloc';
-
-    function type_: cushort; message 'type_';
+    function type_: cuint; message 'type_';
     procedure setCssText (newValue: NSString); message 'setCssText:';
     function cssText: NSString; message 'cssText';
     function parentStyleSheet: DOMCSSStyleSheet; message 'parentStyleSheet';
     function parentRule: DOMCSSRule; message 'parentRule';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

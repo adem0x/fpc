@@ -204,6 +204,11 @@ begin
         OS_32 : opsize:=S_IL;
         OS_64 : opsize:=S_IQ;
       end;
+    end
+  else
+    begin
+      if size=OS_64 then
+        opsize:=S_Q;
     end;
 end;
 
@@ -230,10 +235,15 @@ begin
       if (cs_create_pic in current_settings.moduleswitches) and
          assigned(opr.ref.symbol) and
          not assigned(opr.ref.relsymbol) and
-         (opr.ref.refaddr<>addr_pic) then
+         not(opr.ref.refaddr in [addr_pic,addr_pic_no_got]) then
         begin
-          message(asmr_e_need_pic_ref);
-          result:=false;
+          if (opr.ref.symbol.name <> '_GLOBAL_OFFSET_TABLE_') then
+            begin
+              message(asmr_e_need_pic_ref);
+              result:=false;
+            end
+          else
+            opr.ref.refaddr:=addr_pic;
         end;
     end;
 end;
@@ -734,11 +744,16 @@ begin
                    OS_64,OS_S64:
                      begin
                        { Only FPU operations know about 64bit values, for all
-                         integer operations it is seen as 32bit }
+                         integer operations it is seen as 32bit
+
+                         this applies only to i386, see tw16622}
                        if gas_needsuffix[opcode] in [attsufFPU,attsufFPUint] then
                          asize:=OT_BITS64
+{$ifdef i386}
                        else
-                         asize:=OT_BITS32;
+                         asize:=OT_BITS32
+{$endif i386}
+                         ;
                      end;
                    OS_F64,OS_C64 :
                      asize:=OT_BITS64;
@@ -754,7 +769,7 @@ begin
  { Condition ? }
   if condition<>C_None then
    ai.SetCondition(condition);
-  
+
   { Set is_jmp, it enables asmwriter to emit short jumps if appropriate }
   if (opcode=A_JMP) or (opcode=A_JCC) then
     ai.is_jmp := True;

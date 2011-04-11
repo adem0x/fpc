@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMEventListener.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMEVENTLISTENER_PAS_T}
@@ -39,8 +37,8 @@
 {$define DOMEVENTLISTENER_PAS_P}
   
 { DOMEventListener Protocol }
-  DOMEventListenerProtocol = objcprotocol
+  DOMEventListenerProtocol = objcprotocol external name 'DOMEventListener'
     procedure handleEvent(evt: DOMEvent); message 'handleEvent:';
-  end; external name 'DOMEventListener';
+  end;
 {$endif}
 {$endif}

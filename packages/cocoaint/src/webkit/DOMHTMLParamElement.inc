@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLParamElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLPARAMELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLParamElement = objcclass;
   DOMHTMLParamElementPointer = ^DOMHTMLParamElement;
+  DOMHTMLParamElementPtr = DOMHTMLParamElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLPARAMELEMENT_PAS_C}
 
 { DOMHTMLParamElement }
-  DOMHTMLParamElement = objcclass(DOMHTMLElement)
+  DOMHTMLParamElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLParamElement; message 'alloc';
-
     procedure setName (newValue: NSString); message 'setName:';
     function name: NSString; message 'name';
     procedure setType (newValue: NSString); message 'setType:';
@@ -54,7 +51,7 @@
     function value: NSString; message 'value';
     procedure setValueType (newValue: NSString); message 'setValueType:';
     function valueType: NSString; message 'valueType';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

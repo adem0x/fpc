@@ -128,6 +128,20 @@ begin
 end;
 
 
+{ returns true if p contains a memory operand with a segment set }
+function InsContainsSegRef(p: taicpu): boolean;
+var
+  i: longint;
+begin
+  result:=true;
+  for i:=0 to p.opercnt-1 do
+    if (p.oper[i]^.typ=top_ref) and
+       (p.oper[i]^.ref^.segment<>NR_NO) then
+      exit;
+  result:=false;
+end;
+
+
 procedure PrePeepHoleOpts(asml: TAsmList; BlockStart, BlockEnd: tai);
 var
   p,hp1: tai;
@@ -140,6 +154,11 @@ begin
       case p.Typ Of
         Ait_Instruction:
           begin
+            if InsContainsSegRef(taicpu(p)) then
+              begin
+                p := tai(p.next);
+                continue;
+              end;
             case taicpu(p).opcode Of
               A_IMUL:
                 {changes certain "imul const, %reg"'s to lea sequences}
@@ -168,7 +187,6 @@ begin
                     else if
                      ((taicpu(p).ops <= 2) or
                       (taicpu(p).oper[2]^.typ = Top_Reg)) and
-                     (current_settings.optimizecputype <> cpu_Pentium3) and
                      (taicpu(p).oper[0]^.val <= 12) and
                      not(cs_opt_size in current_settings.optimizerswitches) and
                      (not(GetNextInstruction(p, hp1)) or
@@ -607,6 +625,11 @@ begin
       case p.Typ Of
         ait_instruction:
           begin
+            if InsContainsSegRef(taicpu(p)) then
+              begin
+                p := tai(p.next);
+                continue;
+              end;
             { Handle Jmp Optimizations }
             if taicpu(p).is_jmp then
               begin
@@ -1780,6 +1803,11 @@ begin
       case p.Typ Of
         Ait_Instruction:
           begin
+            if InsContainsSegRef(taicpu(p)) then
+              begin
+                p := tai(p.next);
+                continue;
+              end;
             case taicpu(p).opcode Of
               A_Jcc:
                 begin
@@ -2066,6 +2094,11 @@ begin
       case p.Typ Of
         Ait_Instruction:
           begin
+            if InsContainsSegRef(taicpu(p)) then
+              begin
+                p := tai(p.next);
+                continue;
+              end;
             case taicpu(p).opcode Of
               A_CALL:
                 if (current_settings.optimizecputype < cpu_Pentium2) and

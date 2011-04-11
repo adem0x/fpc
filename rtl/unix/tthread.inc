@@ -40,6 +40,8 @@
 
 { ok, so this is a hack, but it works nicely. Just never use
   a multiline argument with WRITE_DEBUG! }
+
+{.$DEFINE DEBUG_MT}
 {$MACRO ON}
 {$IFDEF DEBUG_MT}
 {$define WRITE_DEBUG := writeln} // actually write something
@@ -120,7 +122,10 @@ begin
       end
      else
        begin
-         WRITE_DEBUG('going into LThread.Execute');
+         LThread.FSuspendedInternal := true;
+         WRITE_DEBUG('waiting for SuspendedInternal - ', LThread.ClassName);
+        CurrentTM.SemaphoreWait(LThread.FSem);
+         WRITE_DEBUG('going into LThread.Execute - ', LThread.ClassName);
          LThread.Execute;
        end;
   except
@@ -143,9 +148,9 @@ begin
   WRITE_DEBUG('thread done running');
   Result := LThread.FReturnValue;
   WRITE_DEBUG('Result is ',Result);
-  LThread.FFinished := True;
   LFreeOnTerminate := LThread.FreeOnTerminate;
   LThread.DoTerminate;
+  LThread.FFinished := True;
   if LFreeOnTerminate then
     begin
       WRITE_DEBUG('Thread ',ptruint(lthread),' should be freed');
@@ -180,6 +185,7 @@ begin
   FThreadReaped := false;
   FInitialSuspended := CreateSuspended;
   FFatalException := nil;
+  FSuspendedInternal := not CreateSuspended;
   WRITE_DEBUG('creating thread, self = ',longint(self));
   FHandle:= BeginThread(@ThreadFunc, Pointer(Self), FThreadID, StackSize);
   if FHandle = TThreadID(0) then
@@ -221,7 +227,7 @@ begin
       if not FThreadReaped then
         begin
           Terminate;
-          if (FInitialSuspended) then
+          if (FSuspendedInternal or FInitialSuspended) then
             Resume;
           WaitFor;
         end;
@@ -263,7 +269,12 @@ end;
 
 procedure TThread.Resume;
 begin
-  if (not FSuspendedExternal) then
+  if FSuspendedInternal and (InterLockedExchange(longint(FSuspendedInternal),ord(false)) = longint(longbool(true))) then
+    begin
+      WRITE_DEBUG('resuming thread after TThread construction',ptruint(self));
+      CurrentTM.SemaphorePost(FSem);
+    end
+  else if (not FSuspendedExternal) then
     begin
       if FSuspended and
          { don't compare with ord(true) or ord(longbool(true)), }
@@ -291,6 +302,14 @@ end;
 function TThread.WaitFor: Integer;
 begin
   WRITE_DEBUG('waiting for thread ',ptruint(FHandle));
+  If (MainThreadID=GetCurrentThreadID) then 
+    {
+     FFinished is set after DoTerminate, which does a synchronize of OnTerminate, 
+     so make sure synchronize works (or indeed any other synchronize that may be 
+     in progress)
+    }
+    While not FFinished do  
+      CheckSynchronize(100);
   WaitFor := WaitForThreadTerminate(FHandle, 0);
   { should actually check for errors in WaitForThreadTerminate, but no }
   { error api is defined for that function                             }

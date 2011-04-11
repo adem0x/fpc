@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLLegendElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLLEGENDELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLLegendElement = objcclass;
   DOMHTMLLegendElementPointer = ^DOMHTMLLegendElement;
+  DOMHTMLLegendElementPtr = DOMHTMLLegendElementPointer;
 
 {$endif}
 
@@ -41,17 +40,15 @@
 {$define DOMHTMLLEGENDELEMENT_PAS_C}
 
 { DOMHTMLLegendElement }
-  DOMHTMLLegendElement = objcclass(DOMHTMLElement)
+  DOMHTMLLegendElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLLegendElement; message 'alloc';
-
     function form: DOMHTMLFormElement; message 'form';
     procedure setAccessKey (newValue: NSString); message 'setAccessKey:';
     function accessKey: NSString; message 'accessKey';
     procedure setAlign (newValue: NSString); message 'setAlign:';
     function align: NSString; message 'align';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

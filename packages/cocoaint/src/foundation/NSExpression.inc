@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSExpression.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSEXPRESSION_PAS_T}
@@ -10,19 +8,21 @@
 
 const
   NSConstantValueExpressionType = 0;
-  NSEvaluatedObjectExpressionType = 0;
-  NSVariableExpressionType = 1;
-  NSKeyPathExpressionType = 2;
-  NSFunctionExpressionType = 3;
-  NSUnionSetExpressionType = 4;
-  NSIntersectSetExpressionType = 5;
-  NSMinusSetExpressionType = 6;
+  NSEvaluatedObjectExpressionType = 1;
+  NSVariableExpressionType = 2;
+  NSKeyPathExpressionType = 3;
+  NSFunctionExpressionType = 4;
+  NSUnionSetExpressionType = 5;
+  NSIntersectSetExpressionType = 6;
+  NSMinusSetExpressionType = 7;
   NSSubqueryExpressionType = 13;
-  NSAggregateExpressionType = 7;
+  NSAggregateExpressionType = 14;
+  NSBlockExpressionType = 19;
 
 { Types }
 type
   NSExpressionType = NSUInteger;
+  NSExpressionTypePtr = ^NSExpressionType;
 
 {$endif}
 {$endif}
@@ -51,6 +51,7 @@ type
 {$ifdef FORWARD}
   NSExpression = objcclass;
   NSExpressionPointer = ^NSExpression;
+  NSExpressionPtr = NSExpressionPointer;
 
 {$endif}
 
@@ -59,14 +60,12 @@ type
 {$define NSEXPRESSION_PAS_C}
 
 { NSExpression }
-  NSExpression = objcclass(NSObject, NSCodingProtocol, NSCopyingProtocol)
+  NSExpression = objcclass external (NSObject, NSCodingProtocol, NSCopyingProtocol)
   private
-    __reserved: Pointer;
-    __expressionType: NSExpressionType;
+    _reserved: Pointer;
+    _expressionType: NSExpressionType;
     
   public
-    class function alloc: NSExpression; message 'alloc';
-
     class function expressionForConstantValue(obj: id): NSExpression; message 'expressionForConstantValue:';
     class function expressionForEvaluatedObject: NSExpression; message 'expressionForEvaluatedObject';
     class function expressionForVariable(string_: NSString): NSExpression; message 'expressionForVariable:';
@@ -91,7 +90,12 @@ type
     function leftExpression: NSExpression; message 'leftExpression';
     function rightExpression: NSExpression; message 'rightExpression';
     function expressionValueWithObject_context(object_: id; context: NSMutableDictionary): id; message 'expressionValueWithObject:context:';
-  end; external;
+
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+    function copyWithZone(zone_: NSZonePtr): id;
+  end;
 
 {$endif}
 {$endif}

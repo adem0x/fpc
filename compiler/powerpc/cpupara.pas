@@ -176,8 +176,8 @@ unit cpupara;
     function tppcparamanager.push_addr_param(varspez:tvarspez;def : tdef;calloption : tproccalloption) : boolean;
       begin
         result:=false;
-        { var,out always require address }
-        if varspez in [vs_var,vs_out] then
+        { var,out,constref always require address }
+        if varspez in [vs_var,vs_out,vs_constref] then
           begin
             result:=true;
             exit;
@@ -486,8 +486,12 @@ unit cpupara;
               while (paralen > 0) do
                 begin
                   paraloc:=hp.paraloc[side].add_location;
+                  { In case of po_delphi_nested_cc, the parent frame pointer
+                    is always passed on the stack. }
                   if (loc = LOC_REGISTER) and
-                     (nextintreg <= RS_R10) then
+                     (nextintreg <= RS_R10) and
+                     (not(vo_is_parentfp in hp.varoptions) or
+                      not(po_delphi_nested_cc in p.procoptions)) then
                     begin
                       paraloc^.loc := loc;
                       { make sure we don't lose whether or not the type is signed }
@@ -699,26 +703,6 @@ unit cpupara;
         end;
         result:=true;
       end;
-
-{
-
-    breaks e.g. tests/test/cg/tpara1
-
-    procedure tppcparamanager.createtempparaloc(list: TAsmList;calloption : tproccalloption;parasym : tparavarsym;var cgpara:TCGPara);
-      var
-        paraloc : pcgparalocation;
-      begin
-        paraloc:=parasym.paraloc[callerside].location;
-        { No need for temps when value is pushed }
-        if assigned(paraloc) and
-           (paraloc^.loc=LOC_REFERENCE) and
-           (paraloc^.reference.index=NR_STACK_POINTER_REG) then
-          duplicateparaloc(list,calloption,parasym,cgpara)
-        else
-          inherited createtempparaloc(list,calloption,parasym,cgpara);
-      end;
-}
-
 
 begin
    paramanager:=tppcparamanager.create;

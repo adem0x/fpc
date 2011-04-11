@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework WebHistory.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef WEBHISTORY_PAS_T}
@@ -29,12 +27,12 @@
 
 { External string constants }
 var
-  WebHistoryItemsAddedNotification: NSString; external name '_WebHistoryItemsAddedNotification';
-  WebHistoryItemsRemovedNotification: NSString; external name '_WebHistoryItemsRemovedNotification';
-  WebHistoryAllItemsRemovedNotification: NSString; external name '_WebHistoryAllItemsRemovedNotification';
-  WebHistoryLoadedNotification: NSString; external name '_WebHistoryLoadedNotification';
-  WebHistorySavedNotification: NSString; external name '_WebHistorySavedNotification';
-  WebHistoryItemsKey: NSString; external name '_WebHistoryItemsKey';
+  WebHistoryItemsAddedNotification: NSString; cvar; external;
+  WebHistoryItemsRemovedNotification: NSString; cvar; external;
+  WebHistoryAllItemsRemovedNotification: NSString; cvar; external;
+  WebHistoryLoadedNotification: NSString; cvar; external;
+  WebHistorySavedNotification: NSString; cvar; external;
+  WebHistoryItemsKey: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -42,6 +40,7 @@ var
 {$ifdef FORWARD}
   WebHistory = objcclass;
   WebHistoryPointer = ^WebHistory;
+  WebHistoryPtr = WebHistoryPointer;
 
 {$endif}
 
@@ -50,13 +49,11 @@ var
 {$define WEBHISTORY_PAS_C}
 
 { WebHistory }
-  WebHistory = objcclass(NSObject)
+  WebHistory = objcclass external (NSObject)
   private
-    __historyPrivate: WebHistoryPrivate;
+    _historyPrivate: WebHistoryPrivate;
     
   public
-    class function alloc: WebHistory; message 'alloc';
-
     class function optionalSharedHistory: WebHistory; message 'optionalSharedHistory';
     class procedure setOptionalSharedHistory(history: WebHistory); message 'setOptionalSharedHistory:';
     function loadFromURL_error(URL: NSURL; error: NSErrorPointer): Boolean; message 'loadFromURL:error:';
@@ -71,7 +68,7 @@ var
     function historyItemLimit: cint; message 'historyItemLimit';
     procedure setHistoryAgeInDaysLimit(limit: cint); message 'setHistoryAgeInDaysLimit:';
     function historyAgeInDaysLimit: cint; message 'historyAgeInDaysLimit';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

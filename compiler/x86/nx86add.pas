@@ -207,10 +207,10 @@ unit nx86add;
             end;
           end;
         if (right.location.loc<>LOC_CONSTANT) and
-           (tcgsize2unsigned[right.location.size]<>opsize) then
+           (tcgsize2unsigned[right.location.size]<>tcgsize2unsigned[opsize]) then
           location_force_reg(current_asmdata.CurrAsmList,right.location,opsize,true);
         if (left.location.loc<>LOC_CONSTANT) and
-           (tcgsize2unsigned[left.location.size]<>opsize) then
+           (tcgsize2unsigned[left.location.size]<>tcgsize2unsigned[opsize]) then
           location_force_reg(current_asmdata.CurrAsmList,left.location,opsize,false);
        end;
 
@@ -451,7 +451,7 @@ unit nx86add;
               if (not(nf_swapped in flags) and (nodetype = lten)) or
                  ((nf_swapped in flags) and (nodetype = gten)) then
                 swapleftright;
-              location_force_reg(current_asmdata.CurrAsmList,left.location,opsize,true);
+              location_force_reg(current_asmdata.CurrAsmList,left.location,opsize,false);
               emit_op_right_left(A_AND,opsize);
               op:=A_CMP;
               { warning: ugly hack, we need a JE so change the node to equaln }

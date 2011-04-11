@@ -162,7 +162,14 @@ const
   sErrDestroying : string = 'finalizing FreeType';
 
   DefaultFontExtention : string = '.ttf';
+
+  // Standard location for fonts in the Operating System
+  {$ifdef Darwin}
+  DefaultSearchPath : string = '/Library/Fonts/';
+  {$else}
   DefaultSearchPath : string = '';
+  {$endif}
+
   {$IFDEF MAC}
   DefaultResolution : integer = 72;
   {$ELSE}
@@ -426,11 +433,17 @@ end;
 
 function TFontManager.GetFont (FontID:integer) : TMgrFont;
 begin
-  result := TMgrFont(FList[FontID]);
-  if result <> CurFont then  // set last used size of the font as current size
+  if (FontID >= 0) and (FontID < FList.Count) then
+  begin
+    result := TMgrFont(FList[FontID]);
+
+    if result <> CurFont then  // set last used size of the font as current size
     begin
-    CurSize := result.LastSize;
+      CurSize := result.LastSize;
     end;
+  end
+  else
+    Result := nil;
 end;
 
 procedure TFontManager.GetSize (aSize, aResolution : integer);
@@ -729,7 +742,10 @@ begin
         end;
       end;
     // place position for next glyph
-    pos.x := pos.x + (gl^.advance.x shr 10);
+    // The previous code in this place used shr 10, which
+    // produces wrongly spaced text and looks very ugly
+    // for more information see: http://bugs.freepascal.org/view.php?id=17156
+    pos.x := pos.x + (gl^.advance.x shr 11);
     // pos.y := pos.y + (gl^.advance.y shr 6); // for angled texts also
     if prevx > pos.x then
       pos.x := prevx;

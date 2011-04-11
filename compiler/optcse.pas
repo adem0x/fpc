@@ -57,21 +57,25 @@ unit optcse;
       procinfo,
       nbas,nld,ninl,ncal,ncnv,nadd,
       pass_1,
-      symconst,symtype,symdef,
+      symconst,symtype,symdef,symsym,
       defutil,
       optbase;
 
     const
-      cseinvariant : set of tnodetype = [loadn,addn,muln,subn,divn,slashn,modn,andn,orn,xorn,notn,vecn,
+      cseinvariant : set of tnodetype = [addn,muln,subn,divn,slashn,modn,andn,orn,xorn,notn,vecn,
         derefn,equaln,unequaln,ltn,gtn,lten,gten,typeconvn,subscriptn,
         inn,symdifn,shrn,shln,ordconstn,realconstn,unaryminusn,pointerconstn,stringconstn,setconstn,
-        isn,asn,starstarn,nothingn,temprefn {,callparan}];
+        isn,asn,starstarn,nothingn,temprefn,loadparentfpn {,callparan}];
 
     function searchsubdomain(var n:tnode; arg: pointer) : foreachnoderesult;
       begin
         if (n.nodetype in cseinvariant) or
           ((n.nodetype=inlinen) and
-            (tinlinenode(n).inlinenumber in [in_assigned_x])
+           (tinlinenode(n).inlinenumber in [in_assigned_x])
+          ) or
+          ((n.nodetype=loadn) and
+            not((tloadnode(n).symtableentry.typ in [staticvarsym,localvarsym,paravarsym]) and
+                (vo_volatile in tabstractvarsym(tloadnode(n).symtableentry).varoptions))
           ) then
           result:=fen_true
         else
@@ -120,7 +124,8 @@ unit optcse;
         { so far, we can handle only nodes being read }
         if (n.flags*[nf_write,nf_modify]=[]) and
           { node possible to add? }
-          assigned(n.resultdef) and (tstoreddef(n.resultdef).is_intregable or tstoreddef(n.resultdef).is_fpuregable) and
+          assigned(n.resultdef) and
+          (tstoreddef(n.resultdef).is_intregable or tstoreddef(n.resultdef).is_fpuregable) and
           { is_int/fpuregable allows arrays and records to be in registers, cse cannot handle this }
           not(n.resultdef.typ in [arraydef,recorddef]) and
           { same for voiddef }
@@ -165,7 +170,7 @@ unit optcse;
                 if tnode(plists(arg)^.nodelist[i]).isequal(n) and DFASetIn(plists(arg)^.avail,i) then
                   begin
                     { use always the first occurence }
-                    if ptrint(plists(arg)^.equalto[i])<>-1 then
+                    if plists(arg)^.equalto[i]<>pointer(-1) then
                       plists(arg)^.equalto[plists(arg)^.nodelist.count-1]:=plists(arg)^.equalto[i]
                     else
                       plists(arg)^.equalto[plists(arg)^.nodelist.count-1]:=pointer(i);
@@ -231,7 +236,7 @@ unit optcse;
                 for i:=0 to lists.nodelist.count-1 do
                   begin
                     { current node used more than once? }
-                    if ptrint(lists.refs[i])<>0 then
+                    if assigned(lists.refs[i]) then
                       begin
                         if not(assigned(statements)) then
                           begin
@@ -263,7 +268,7 @@ unit optcse;
 {$endif csedebug}
                       end
                     { current node reference to another node? }
-                    else if ptrint(lists.equalto[i])<>-1 then
+                    else if lists.equalto[i]<>pointer(-1) then
                       begin
 {$if defined(csedebug) or defined(csestats)}
                         printnode(output,tnode(lists.nodelist[i]));
@@ -281,7 +286,7 @@ unit optcse;
                   end;
                 { clean up unused trees }
                 for i:=0 to lists.nodelist.count-1 do
-                  if ptrint(lists.equalto[i])<>-1 then
+                  if lists.equalto[i]<>pointer(-1) then
                     tnode(lists.nodelist[i]).free;
 {$ifdef csedebug}
                 writeln('nodes: ',lists.nodelist.count);

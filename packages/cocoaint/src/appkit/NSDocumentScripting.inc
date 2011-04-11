@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSDocumentScripting.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSDOCUMENTSCRIPTING_PAS_T}
@@ -26,6 +24,27 @@
 {$ifdef EXTERNAL_SYMBOLS}
 {$ifndef NSDOCUMENTSCRIPTING_PAS_S}
 {$define NSDOCUMENTSCRIPTING_PAS_S}
+
+{$endif}
+{$endif}
+
+{$ifdef FORWARD}
+
+{$endif}
+
+{$ifdef CLASSES}
+{$ifndef NSDOCUMENTSCRIPTING_PAS_C}
+{$define NSDOCUMENTSCRIPTING_PAS_C}
+
+{ NSScripting_NSDocumentCategory }
+  NSScripting_NSDocumentCategory = objccategory external name 'NSScripting' (NSDocument)
+    function lastComponentOfFileName: NSString; message 'lastComponentOfFileName';
+    procedure setLastComponentOfFileName(str: NSString); message 'setLastComponentOfFileName:';
+    function handleSaveScriptCommand(command: NSScriptCommand): id; message 'handleSaveScriptCommand:';
+    function handleCloseScriptCommand(command: NSCloseCommand): id; message 'handleCloseScriptCommand:';
+    function handlePrintScriptCommand(command: NSScriptCommand): id; message 'handlePrintScriptCommand:';
+    function objectSpecifier: NSScriptObjectSpecifier; message 'objectSpecifier';
+  end;
 
 {$endif}
 {$endif}

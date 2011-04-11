@@ -46,6 +46,7 @@ interface
          function docompare(p: tnode) : boolean; override;
          procedure printnodedata(var t:text);override;
          procedure append(const d;len : aint);
+         procedure appendbyte(b : byte);
          procedure align(value : word);
        end;
        tdataconstnodeclass = class of tdataconstnode;
@@ -178,14 +179,14 @@ interface
        tguidconstnodeclass = class of tguidconstnode;
 
     var
-       cdataconstnode : tdataconstnodeclass;
-       crealconstnode : trealconstnodeclass;
-       cordconstnode : tordconstnodeclass;
-       cpointerconstnode : tpointerconstnodeclass;
-       cstringconstnode : tstringconstnodeclass;
-       csetconstnode : tsetconstnodeclass;
-       cguidconstnode : tguidconstnodeclass;
-       cnilnode : tnilnodeclass;
+       crealconstnode : trealconstnodeclass = trealconstnode;
+       cordconstnode : tordconstnodeclass = tordconstnode;
+       cpointerconstnode : tpointerconstnodeclass = tpointerconstnode;
+       cstringconstnode : tstringconstnodeclass = tstringconstnode;
+       csetconstnode : tsetconstnodeclass = tsetconstnode;
+       cguidconstnode : tguidconstnodeclass = tguidconstnode;
+       cnilnode : tnilnodeclass=tnilnode;
+       cdataconstnode : tdataconstnodeclass = tdataconstnode;
 
     function genintconstnode(v : TConstExprInt) : tordconstnode;
     function genenumnode(v : tenumsym) : tordconstnode;
@@ -498,6 +499,11 @@ implementation
         data.write(d,len);
       end;
 
+    procedure tdataconstnode.appendbyte(b : byte);
+      begin
+        data.seek(data.size);
+        data.write(b,1);
+      end;
 
     procedure tdataconstnode.align(value : word);
       begin
@@ -669,7 +675,7 @@ implementation
         { only do range checking when explicitly asked for it
           and if the type can be range checked, see tests/tbs/tb0539.pp }
         if (resultdef.typ in [orddef,enumdef]) then
-           testrange(resultdef,value,not rangecheck)
+           testrange(resultdef,value,not rangecheck,false)
       end;
 
     function tordconstnode.pass_1 : tnode;
@@ -1220,13 +1226,4 @@ implementation
           (guid2string(value) = guid2string(tguidconstnode(p).value));
       end;
 
-
-begin
-   crealconstnode:=trealconstnode;
-   cordconstnode:=tordconstnode;
-   cpointerconstnode:=tpointerconstnode;
-   cstringconstnode:=tstringconstnode;
-   csetconstnode:=tsetconstnode;
-   cnilnode:=tnilnode;
-   cguidconstnode:=tguidconstnode;
 end.

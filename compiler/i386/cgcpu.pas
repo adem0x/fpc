@@ -71,11 +71,11 @@ unit cgcpu;
     uses
        globals,verbose,systems,cutils,
        paramgr,procinfo,fmodule,
-       rgcpu,rgx86;
+       rgcpu,rgx86,cpuinfo;
 
     function use_push(const cgpara:tcgpara):boolean;
       begin
-        result:=(not use_fixed_stack) and
+        result:=(not paramanager.use_fixed_stack) and
                 assigned(cgpara.location) and
                 (cgpara.location^.loc=LOC_REFERENCE) and
                 (cgpara.location^.reference.index=NR_STACK_POINTER_REG);
@@ -85,7 +85,7 @@ unit cgcpu;
     procedure tcg386.init_register_allocators;
       begin
         inherited init_register_allocators;
-        if (target_info.system<>system_i386_darwin) and
+        if not(target_info.system in [system_i386_darwin,system_i386_iphonesim]) and
            (cs_create_pic in current_settings.moduleswitches) then
           rg[R_INTREGISTER]:=trgcpu.create(R_INTREGISTER,R_SUBWHOLE,[RS_EAX,RS_EDX,RS_ECX,RS_ESI,RS_EDI],first_int_imreg,[RS_EBP])
         else
@@ -101,8 +101,6 @@ unit cgcpu;
           begin
             if getsupreg(current_procinfo.got) < first_int_imreg then
               include(rg[R_INTREGISTER].used_in_proc,getsupreg(current_procinfo.got));
-            { ebx is currently always used (do to getiepasebx call) }
-            include(rg[R_INTREGISTER].used_in_proc,RS_EBX);
           end;
         inherited do_register_allocation(list,headertai);
       end;
@@ -269,7 +267,7 @@ unit cgcpu;
             if (current_procinfo.framepointer=NR_STACK_POINTER_REG) then
               begin
                 stacksize:=current_procinfo.calc_stackframe_size;
-                if (target_info.system = system_i386_darwin) and
+                if (target_info.system in [system_i386_darwin,system_i386_iphonesim]) and
                    ((stacksize <> 0) or
                     (pi_do_call in current_procinfo.flags) or
                     { can't detect if a call in this case -> use nostackframe }
@@ -287,7 +285,7 @@ unit cgcpu;
         { return from proc }
         if (po_interrupt in current_procinfo.procdef.procoptions) and
            { this messes up stack alignment }
-           (target_info.system <> system_i386_darwin) then
+           not(target_info.system in [system_i386_darwin,system_i386_iphonesim]) then
           begin
             if assigned(current_procinfo.procdef.funcretloc[calleeside].location) and
                (current_procinfo.procdef.funcretloc[calleeside].location^.loc=LOC_REGISTER) then
@@ -327,11 +325,15 @@ unit cgcpu;
           end
         { Routines with the poclearstack flag set use only a ret }
         else if (current_procinfo.procdef.proccalloption in clearstack_pocalls) and
-                (not use_fixed_stack)  then
+                (not paramanager.use_fixed_stack)  then
          begin
            { complex return values are removed from stack in C code PM }
            { but not on win32 }
+           { and not for safecall with hidden exceptions, because the result }
+           { wich contains the exception is passed in EAX }
            if (target_info.system <> system_i386_win32) and
+              not ((current_procinfo.procdef.proccalloption = pocall_safecall) and
+               (tf_safecall_exceptions in target_info.flags)) and
               paramanager.ret_in_param(current_procinfo.procdef.returndef,
                                        current_procinfo.procdef.proccalloption) then
              list.concat(Taicpu.Op_const(A_RET,S_W,sizeof(aint)))
@@ -359,7 +361,7 @@ unit cgcpu;
         again,ok : tasmlabel;
 {$endif}
       begin
-        if use_fixed_stack then
+        if paramanager.use_fixed_stack then
           begin
             inherited g_copyvaluepara_openarray(list,ref,lenloc,elesize,destreg);
             exit;
@@ -369,6 +371,9 @@ unit cgcpu;
         getcpuregister(list,NR_EDI);
         a_load_loc_reg(list,OS_INT,lenloc,NR_EDI);
         list.concat(Taicpu.op_reg(A_INC,S_L,NR_EDI));
+        { Now EDI contains (high+1). Copy it to ECX for later use. }
+        getcpuregister(list,NR_ECX);
+        list.concat(Taicpu.op_reg_reg(A_MOV,S_L,NR_EDI,NR_ECX));
         if (elesize<>1) then
          begin
            if ispowerof2(elesize, power) then
@@ -392,42 +397,21 @@ unit cgcpu;
              a_jmp_always(list,again);
 
              a_label(list,ok);
-             list.concat(Taicpu.op_reg_reg(A_SUB,S_L,NR_EDI,NR_ESP));
-             ungetcpuregister(list,NR_EDI);
-             { now reload EDI }
-             getcpuregister(list,NR_EDI);
-             a_load_loc_reg(list,OS_INT,lenloc,NR_EDI);
-             list.concat(Taicpu.op_reg(A_INC,S_L,NR_EDI));
-
-             if (elesize<>1) then
-              begin
-                if ispowerof2(elesize, power) then
-                  list.concat(Taicpu.op_const_reg(A_SHL,S_L,power,NR_EDI))
-                else
-                  list.concat(Taicpu.op_const_reg(A_IMUL,S_L,elesize,NR_EDI));
-              end;
-          end
-        else
+          end;
 {$endif __NOWINPECOFF__}
-          list.concat(Taicpu.op_reg_reg(A_SUB,S_L,NR_EDI,NR_ESP));
+        { If we were probing pages, EDI=(size mod pagesize) and ESP is decremented
+          by (size div pagesize)*pagesize, otherwise EDI=size.
+          Either way, subtracting EDI from ESP will set ESP to desired final value. }
+        list.concat(Taicpu.op_reg_reg(A_SUB,S_L,NR_EDI,NR_ESP));
         { align stack on 4 bytes }
         list.concat(Taicpu.op_const_reg(A_AND,S_L,aint($fffffff4),NR_ESP));
         { load destination, don't use a_load_reg_reg, that will add a move instruction
           that can confuse the reg allocator }
         list.concat(Taicpu.Op_reg_reg(A_MOV,S_L,NR_ESP,NR_EDI));
 
-        { Allocate other registers }
-        getcpuregister(list,NR_ECX);
+        { Allocate ESI and load it with source }
         getcpuregister(list,NR_ESI);
-
-        { load count }
-        a_load_loc_reg(list,OS_INT,lenloc,NR_ECX);
-
-        { load source }
         a_loadaddr_ref_reg(list,ref,NR_ESI);
-
-        { scheduled .... }
-        list.concat(Taicpu.op_reg(A_INC,S_L,NR_ECX));
 
         { calculate size }
         len:=elesize;
@@ -444,7 +428,7 @@ unit cgcpu;
             len:=len shr 1;
           end;
 
-        if len<>0 then
+        if len>1 then
           begin
             if ispowerof2(len, power) then
               list.concat(Taicpu.op_const_reg(A_SHL,S_L,power,NR_ECX))
@@ -469,7 +453,7 @@ unit cgcpu;
 
     procedure tcg386.g_releasevaluepara_openarray(list : TAsmList;const l:tlocation);
       begin
-        if use_fixed_stack then
+        if paramanager.use_fixed_stack then
           begin
             inherited g_releasevaluepara_openarray(list,l);
             exit;
@@ -480,7 +464,7 @@ unit cgcpu;
 
     procedure tcg386.g_exception_reason_save(list : TAsmList; const href : treference);
       begin
-        if not use_fixed_stack then
+        if not paramanager.use_fixed_stack then
           list.concat(Taicpu.op_reg(A_PUSH,tcgsize2opsize[OS_INT],NR_FUNCTION_RESULT_REG))
         else
          inherited g_exception_reason_save(list,href);
@@ -489,7 +473,7 @@ unit cgcpu;
 
     procedure tcg386.g_exception_reason_save_const(list : TAsmList;const href : treference; a: aint);
       begin
-        if not use_fixed_stack then
+        if not paramanager.use_fixed_stack then
           list.concat(Taicpu.op_const(A_PUSH,tcgsize2opsize[OS_INT],a))
         else
           inherited g_exception_reason_save_const(list,href,a);
@@ -498,7 +482,7 @@ unit cgcpu;
 
     procedure tcg386.g_exception_reason_load(list : TAsmList; const href : treference);
       begin
-        if not use_fixed_stack then
+        if not paramanager.use_fixed_stack then
           begin
             cg.a_reg_alloc(list,NR_FUNCTION_RESULT_REG);
             list.concat(Taicpu.op_reg(A_POP,tcgsize2opsize[OS_INT],NR_FUNCTION_RESULT_REG))
@@ -509,31 +493,42 @@ unit cgcpu;
 
 
     procedure tcg386.g_maybe_got_init(list: TAsmList);
+      var
+        notdarwin: boolean;
       begin
         { allocate PIC register }
         if (cs_create_pic in current_settings.moduleswitches) and
            (tf_pic_uses_got in target_info.flags) and
            (pi_needs_got in current_procinfo.flags) then
           begin
-            if (target_info.system<>system_i386_darwin) then
+            notdarwin:=not(target_info.system in [system_i386_darwin,system_i386_iphonesim]);
+            { on darwin, the got register is virtual (and allocated earlier
+              already) }
+            if notdarwin then
+              { ecx could be used in leaf procedures that don't use ecx to pass
+                aparameter }
+              current_procinfo.got:=NR_EBX;
+            if notdarwin { needs testing before it can be enabled for non-darwin platforms
+                and
+               (current_settings.optimizecputype in [cpu_Pentium2,cpu_Pentium3,cpu_Pentium4]) } then
               begin
                 current_module.requires_ebx_pic_helper:=true;
                 cg.a_call_name_static(list,'fpc_geteipasebx');
-                list.concat(taicpu.op_sym_ofs_reg(A_ADD,S_L,current_asmdata.RefAsmSymbol('_GLOBAL_OFFSET_TABLE_'),0,NR_PIC_OFFSET_REG));
-                list.concat(tai_regalloc.alloc(NR_PIC_OFFSET_REG,nil));
-                { ecx could be used in leaf procedures }
-                current_procinfo.got:=NR_EBX;
               end
             else
               begin
-                { can't use ecx, since that one may overwrite a parameter }
-                current_module.requires_ebx_pic_helper:=true;
-                cg.a_call_name_static(list,'fpc_geteipasebx');
-                list.concat(tai_regalloc.alloc(NR_EBX,nil));
+                { call/pop is faster than call/ret/mov on Core Solo and later
+                  according to Apple's benchmarking -- and all Intel Macs
+                  have at least a Core Solo (furthermore, the i386 - Pentium 1
+                  don't have a return stack buffer) }
+                a_call_name_static(list,current_procinfo.CurrGOTLabel.name);
                 a_label(list,current_procinfo.CurrGotLabel);
-                { got is already set by ti386procinfo.allocate_got_register }
-                list.concat(tai_regalloc.dealloc(NR_EBX,nil));
-                a_load_reg_reg(list,OS_ADDR,OS_ADDR,NR_EBX,current_procinfo.got);
+                list.concat(taicpu.op_reg(A_POP,S_L,current_procinfo.got))
+              end;
+            if notdarwin then
+              begin
+                list.concat(taicpu.op_sym_ofs_reg(A_ADD,S_L,current_asmdata.RefAsmSymbol('_GLOBAL_OFFSET_TABLE_'),0,NR_PIC_OFFSET_REG));
+                list.concat(tai_regalloc.alloc(NR_PIC_OFFSET_REG,nil));
               end;
           end;
       end;
@@ -543,38 +538,20 @@ unit cgcpu;
       {
       possible calling conventions:
                     default stdcall cdecl pascal register
-      default(0):      OK     OK    OK(1)  OK       OK
-      virtual(2):      OK     OK    OK(3)  OK       OK
+      default(0):      OK     OK    OK     OK       OK
+      virtual(1):      OK     OK    OK     OK       OK(2)
 
       (0):
           set self parameter to correct value
           jmp mangledname
 
-      (1): The code is the following
-           set self parameter to correct value
-           call mangledname
-           set self parameter to interface value
-           ret
-
-           This is different to case (0) because in theory, the caller
-           could reuse the data pushed on the stack so we've to return
-           it unmodified because self is const.
-
-      (2): The wrapper code use %eax to reach the virtual method address
+      (1): The wrapper code use %eax to reach the virtual method address
            set self to correct value
            move self,%eax
            mov  0(%eax),%eax ; load vmt
            jmp  vmtoffs(%eax) ; method offs
 
-      (3): The wrapper code use %eax to reach the virtual method address
-           set self to correct value
-           move self,%eax
-           mov  0(%eax),%eax ; load vmt
-           jmp  vmtoffs(%eax) ; method offs
-           set self parameter to interface value
-
-
-      (4): Virtual use values pushed on stack to reach the method address
+      (2): Virtual use values pushed on stack to reach the method address
            so the following code be generated:
            set self to correct value
            push %ebx ; allocate space for function address
@@ -622,7 +599,7 @@ unit cgcpu;
           if (procdef.extnumber=$ffff) then
             Internalerror(200006139);
           { call/jmp  vmtoffs(%eax) ; method offs }
-          reference_reset_base(href,NR_EAX,procdef._class.vmtmethodoffset(procdef.extnumber),4);
+          reference_reset_base(href,NR_EAX,tobjectdef(procdef.struct).vmtmethodoffset(procdef.extnumber),4);
           list.concat(taicpu.op_ref(op,S_L,href));
         end;
 
@@ -634,7 +611,7 @@ unit cgcpu;
           if (procdef.extnumber=$ffff) then
             Internalerror(200006139);
           { mov vmtoffs(%eax),%eax ; method offs }
-          reference_reset_base(href,NR_EAX,procdef._class.vmtmethodoffset(procdef.extnumber),4);
+          reference_reset_base(href,NR_EAX,tobjectdef(procdef.struct).vmtmethodoffset(procdef.extnumber),4);
           cg.a_load_ref_reg(list,OS_ADDR,OS_ADDR,href,NR_EAX);
         end;
 
@@ -646,7 +623,7 @@ unit cgcpu;
       begin
         if not(procdef.proctypeoption in [potype_function,potype_procedure]) then
           Internalerror(200006137);
-        if not assigned(procdef._class) or
+        if not assigned(procdef.struct) or
            (procdef.procoptions*[po_classmethod, po_staticmethod,
              po_methodpointer, po_interrupt, po_iocheck]<>[]) then
           Internalerror(200006138);
@@ -667,30 +644,11 @@ unit cgcpu;
         { set param1 interface to self  }
         g_adjust_self_value(list,procdef,ioffset);
 
-        { case 1 or 2 }
-        if (procdef.proccalloption in clearstack_pocalls) then
-          begin
-            if po_virtualmethod in procdef.procoptions then
-              begin
-                { case 2 }
-                getselftoeax(0);
-                loadvmttoeax;
-                op_oneaxmethodaddr(A_CALL);
-              end
-            else
-              begin
-                { case 1 }
-                cg.a_call_name(list,procdef.mangledname,false);
-              end;
-            { restore param1 value self to interface }
-            g_adjust_self_value(list,procdef,-ioffset);
-            list.concat(taicpu.op_none(A_RET,S_L));
-          end
-        else if po_virtualmethod in procdef.procoptions then
+        if po_virtualmethod in procdef.procoptions then
           begin
             if (procdef.proccalloption=pocall_register) then
               begin
-                { case 4 }
+                { case 2 }
                 list.concat(taicpu.op_reg(A_PUSH,S_L,NR_EBX)); { allocate space for address}
                 list.concat(taicpu.op_reg(A_PUSH,S_L,NR_EAX));
                 getselftoeax(8);
@@ -706,7 +664,7 @@ unit cgcpu;
               end
             else
               begin
-                { case 3 }
+                { case 1 }
                 getselftoeax(0);
                 loadvmttoeax;
                 op_oneaxmethodaddr(A_JMP);

@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMProcessingInstruction.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMPROCESSINGINSTRUCTION_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMProcessingInstruction = objcclass;
   DOMProcessingInstructionPointer = ^DOMProcessingInstruction;
+  DOMProcessingInstructionPtr = DOMProcessingInstructionPointer;
 
 {$endif}
 
@@ -41,15 +40,14 @@
 {$define DOMPROCESSINGINSTRUCTION_PAS_C}
 
 { DOMProcessingInstruction }
-  DOMProcessingInstruction = objcclass(DOMNode)
+  DOMProcessingInstruction = objcclass external (DOMNode)
     
   public
-    class function alloc: DOMProcessingInstruction; message 'alloc';
-
     function target: NSString; message 'target';
     procedure setData (newValue: NSString); message 'setData:';
     function data: NSString; message 'data';
-  end; external;
+    function sheet: DOMStyleSheet; message 'sheet';
+  end;
 
 {$endif}
 {$endif}

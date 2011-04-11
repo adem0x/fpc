@@ -218,22 +218,34 @@ interface
 {$i UnicodeConverter.pas}
 {unit cblas}
 {$i cblas.pas}
+{unit cssmconfig}
+{$i cssmconfig.pas}
+{unit cssmerr}
+{$i cssmerr.pas}
+{unit cssmtype}
+{$i cssmtype.pas}
 {unit fenv}
 {$i fenv.pas}
 {unit fp}
 {$i fp.pas}
 {unit gliContexts}
 {$i gliContexts.pas}
+{unit kern_return}
+{$i kern_return.pas}
 {unit macgl}
 {$i macgl.pas}
 {unit macglext}
 {$i macglext.pas}
 {unit macglu}
 {$i macglu.pas}
+{unit mach_error}
+{$i mach_error.pas}
 {unit vBLAS}
 {$i vBLAS.pas}
 {unit vDSP}
 {$i vDSP.pas}
+{unit x509defs}
+{$i x509defs.pas}
 {unit xattr}
 {$i xattr.pas}
 {unit ABTypedefs}
@@ -376,6 +388,8 @@ interface
 {$i HostTime.pas}
 {unit ICACamera}
 {$i ICACamera.pas}
+{unit IOKitReturn}
+{$i IOKitReturn.pas}
 {unit IconStorage}
 {$i IconStorage.pas}
 {unit IntlResources}
@@ -450,6 +464,12 @@ interface
 {$i Video.pas}
 {unit WSTypes}
 {$i WSTypes.pas}
+{unit certextensions}
+{$i certextensions.pas}
+{unit cssmapple}
+{$i cssmapple.pas}
+{unit cssmkrapi}
+{$i cssmkrapi.pas}
 {unit gliDispatch}
 {$i gliDispatch.pas}
 {unit gluContext}
@@ -478,6 +498,8 @@ interface
 {$i CFNumberFormatter.pas}
 {unit CFString}
 {$i CFString.pas}
+{unit CFStringTokenizer}
+{$i CFStringTokenizer.pas}
 {unit CFTimeZone}
 {$i CFTimeZone.pas}
 {unit CFUUID}
@@ -514,6 +536,8 @@ interface
 {$i Events.pas}
 {unit HITextLengthFilter}
 {$i HITextLengthFilter.pas}
+{unit IOSurfaceAPI}
+{$i IOSurfaceAPI.pas}
 {unit MDItem}
 {$i MDItem.pas}
 {unit MDQuery}
@@ -538,6 +562,8 @@ interface
 {$i QDOffscreen.pas}
 {unit Scrap}
 {$i Scrap.pas}
+{unit SecTrust}
+{$i SecTrust.pas}
 {unit TypeSelect}
 {$i TypeSelect.pas}
 {unit ABAddressBook}
@@ -1048,6 +1074,73 @@ end;
 procedure DisposeRoutineDescriptor( theUPP: UniversalProcPtr ); inline;
 begin
 end;
+
+{implementation of unit cssmerr}
+
+{$ifc TARGET_OS_MAC}
+
+
+function CSSM_ERRCODE(arg: UInt32): UInt32; inline;
+begin
+  CSSM_ERRCODE:=(arg - CSSM_BASE_ERROR) and (CSSM_ERRORCODE_MODULE_EXTENT - 1)
+end;
+
+function CSSM_ERRBASE(arg: UInt32): UInt32; inline;
+begin
+  CSSM_ERRBASE:=((arg - CSSM_BASE_ERROR) and not(CSSM_ERRORCODE_MODULE_EXTENT - 1)) + CSSM_BASE_ERROR
+end;
+
+function CSSM_ERR_IS_CONVERTIBLE(arg: UInt32): Boolean; inline;
+begin
+  CSSM_ERR_IS_CONVERTIBLE:=CSSM_ERRCODE(arg) < CSSM_ERRORCODE_COMMON_EXTENT
+end;
+
+function CSSM_ERR_TAG(code, base: UInt32): UInt32; inline;
+begin
+  CSSM_ERR_TAG:=CSSM_ERRCODE(code) + base
+end;
+
+{$endc} {TARGET_OS_MAC}
+
+{implementation of unit mach_error}
+
+
+{$push}
+{$R-,Q-}
+
+function err_system(x: mach_error_t): mach_error_t; inline;
+begin
+  err_system:=(((x) and $3f) shl 26)
+end;
+
+function err_sub(x: mach_error_t): mach_error_t; inline;
+begin
+  err_sub:=(((x) shr 14) and $fff)
+end;
+
+
+function err_get_system(err: mach_error_t): mach_error_t; inline;
+begin
+  err_get_system:=(((err) shr 26) and $3f)
+end;
+
+function err_get_sub(err: mach_error_t): mach_error_t; inline;
+begin
+  err_get_sub:=(((err) shr 14) and $fff)
+end;
+
+function err_get_code(err: mach_error_t): mach_error_t; inline;
+begin
+  err_get_code:=((err) and $3fff)
+end;
+
+
+function unix_err(errno: SInt32): mach_error_t; inline;
+begin
+  unix_err:=err_kern or (((3) and $fff) shl 14) or errno;
+end;
+
+{$pop}
 
 {implementation of unit CFByteOrders}
 
@@ -1669,6 +1762,29 @@ end;
 
 
 
+{implementation of unit IOKitReturn}
+
+
+{$push}
+{$R-,Q-}
+
+function iokit_common_err(ret: IOReturn): IOReturn; inline;
+begin
+  iokit_common_err:=(sys_iokit or sub_iokit_common or (ret))
+end;
+
+function iokit_family_err(sub, ret: IOReturn): IOReturn; inline;
+begin
+  iokit_family_err:=(sys_iokit or (sub) or (ret))
+end;
+
+function iokit_vendor_specific_err(ret: IOReturn): IOReturn; inline;
+begin
+  iokit_vendor_specific_err:=(sys_iokit or sub_iokit_vendor_specific or (ret))
+end;
+
+{$pop}
+
 {implementation of unit MIDIServices}
 {$ifc TARGET_OS_MAC}
 
@@ -1706,6 +1822,31 @@ begin
 	mode := true32b;
 end;
 
+
+{$endc} {TARGET_OS_MAC}
+
+{implementation of unit cssmapple}
+
+{$ifc TARGET_OS_MAC}
+
+
+
+function CSSM_ACL_AUTHORIZATION_PREAUTH(slot: UInt32): UInt32; inline;
+begin
+  CSSM_ACL_AUTHORIZATION_PREAUTH:=CSSM_ACL_AUTHORIZATION_PREAUTH_BASE + slot
+end;
+
+function CSSM_ACL_AUTHORIZATION_PREAUTH_SLOT(auth: UInt32): UInt32; inline;
+begin
+  CSSM_ACL_AUTHORIZATION_PREAUTH_SLOT:=auth - CSSM_ACL_AUTHORIZATION_PREAUTH_BASE
+end;
+
+function CSSM_ACL_AUTHORIZATION_IS_PREAUTH(auth: UInt32): Boolean; inline;
+begin
+  CSSM_ACL_AUTHORIZATION_IS_PREAUTH:=
+    (auth >= CSSM_ACL_AUTHORIZATION_PREAUTH_BASE) and
+    (auth < CSSM_ACL_AUTHORIZATION_PREAUTH_END)
+end;
 
 {$endc} {TARGET_OS_MAC}
 

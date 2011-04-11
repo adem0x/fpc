@@ -19,27 +19,39 @@ Var ChPos,OldPos,ArgPos,DoArg,Len : SizeInt;
 
     Procedure ReadInteger;
 
-    var Code: Word;
-
+    var
+      Code: Word;
+      ArgN: SizeInt;
     begin
       If Value<>-1 then exit; // Was already read.
       OldPos:=ChPos;
       While (ChPos<=Len) and
             (Fmt[ChPos]<='9') and (Fmt[ChPos]>='0') do inc(ChPos);
       If ChPos>len then
-        DoFormatError(feInvalidFormat);
+        DoFormatError(feInvalidFormat,Fmt);
       If Fmt[ChPos]='*' then
         begin
-        If (ChPos>OldPos) or (ArgPos>High(Args)) then
-          DoFormatError(feInvalidFormat);
-        case Args[ArgPos].Vtype of
-          vtInteger: Value := Args[ArgPos].VInteger;
-          vtInt64: Value := Args[ArgPos].VInt64^;
-          vtQWord: Value := Args[ArgPos].VQWord^;
+
+        if Index=-1 then
+          ArgN:=Argpos
         else
-          DoFormatError(feInvalidFormat);
+        begin
+          ArgN:=Index;
+          Inc(Index);
         end;
-        Inc(ArgPos);
+
+        If (ChPos>OldPos) or (ArgN>High(Args)) then
+          DoFormatError(feInvalidFormat,Fmt);
+
+        ArgPos:=ArgN+1;
+
+        case Args[ArgN].Vtype of
+          vtInteger: Value := Args[ArgN].VInteger;
+          vtInt64: Value := Args[ArgN].VInt64^;
+          vtQWord: Value := Args[ArgN].VQWord^;
+        else
+          DoFormatError(feInvalidFormat,Fmt);
+        end;
         Inc(ChPos);
         end
       else
@@ -48,7 +60,7 @@ Var ChPos,OldPos,ArgPos,DoArg,Len : SizeInt;
           begin
           Val (Copy(Fmt,OldPos,ChPos-OldPos),value,code);
           // This should never happen !!
-          If Code>0 then DoFormatError (feInvalidFormat);
+          If Code>0 then DoFormatError (feInvalidFormat,Fmt);
           end
         else
           Value:=-1;
@@ -64,7 +76,7 @@ Var ChPos,OldPos,ArgPos,DoArg,Len : SizeInt;
         value:=0; // Delphi undocumented behaviour, assume 0, #11099
       If Fmt[ChPos]=':' then
         begin
-        If Value=-1 then DoFormatError(feMissingArgument);
+        If Value=-1 then DoFormatError(feMissingArgument,fmt);
         Index:=Value;
         Value:=-1;
         Inc(ChPos);
@@ -190,14 +202,12 @@ begin
   If (Doarg>High(Args)) or (Args[Doarg].Vtype<>AT) then
    begin
      if err then
-      DoFormatError(feInvalidArgindex);
+      DoFormatError(feInvalidArgindex,Fmt);
      dec(ArgPos);
      exit;
    end;
   result:=true;
 end;
-
-Const Zero = '000000000000000000000000000000000000000000000000000000000000000';
 
 begin
   Result:='';
@@ -298,8 +308,14 @@ begin
                   if CheckArg(vtWidestring,false) then
                     hs:=WideString(Args[doarg].VWideString)
                 else
-                  if CheckArg(vtAnsiString,true) then
-                    hs:=ansistring(Args[doarg].VAnsiString);
+                  if CheckArg(vtAnsiString,false) then
+                    hs:=ansistring(Args[doarg].VAnsiString)
+                else
+                  if CheckArg(vtUnicodeString,false) then
+                    hs:=UnicodeString(Args[doarg].VUnicodeString)
+                else
+                  if CheckArg(vtVariant,true) then
+                    hs:=Args[doarg].VVariant^;
                 Index:=Length(hs);
                 If (Prec<>-1) and (Index>Prec) then
                   Index:=Prec;

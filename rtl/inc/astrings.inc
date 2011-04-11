@@ -579,16 +579,10 @@ begin
 end;
 
 
-Procedure fpc_AnsiStr_CheckZero(p : pointer);[Public,Alias : 'FPC_ANSISTR_CHECKZERO'];  compilerproc;
-begin
-  if p=nil then
-    HandleErrorFrame(201,get_frame);
-end;
 
-
-Procedure fpc_AnsiStr_CheckRange(len,index : SizeInt);[Public,Alias : 'FPC_ANSISTR_RANGECHECK'];  compilerproc;
+Procedure fpc_AnsiStr_CheckRange(p: Pointer; index: SizeInt);[Public,Alias : 'FPC_ANSISTR_RANGECHECK'];  compilerproc;
 begin
-  if (index>len) or (Index<1) then
+  if (p=nil) or (index>PAnsiRec(p-FirstOff)^.Len) or (Index<1) then
     HandleErrorFrame(201,get_frame);
 end;
 
@@ -982,6 +976,16 @@ begin
   s:=ss;
 end;
 
+
+procedure fpc_ansistr_bool(b : boolean;len:sizeint;out s:ansistring);[public,alias:'FPC_ANSISTR_BOOL'];compilerproc; {$IFNDEF VER2_0} Inline; {$ENDIF}
+var
+  ss:shortstring;
+begin
+  fpc_shortstr_bool(b,len,ss);
+  s:=ss;
+end;
+
+
 function fpc_val_enum_ansistr(str2ordindex:pointer;const s:ansistring;out code:valsint):longint; [public, alias:'FPC_VAL_ENUM_ANSISTR']; compilerproc;
 
 begin
@@ -1094,6 +1098,13 @@ begin
     Move (Buf^,Pointer(S)^,Len);
 end;
 
+Procedure SetString (Out S : AnsiString; Buf : PWideChar; Len : SizeInt);
+begin
+  if (Buf<>nil) and (Len>0) then
+    widestringmanager.Wide2AnsiMoveProc(Buf,S,Len)
+  else
+    SetLength(S, Len);
+end;
 
 function upcase(const s : ansistring) : ansistring;
 var

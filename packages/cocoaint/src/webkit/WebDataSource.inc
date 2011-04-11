@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework WebDataSource.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef WEBDATASOURCE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   WebDataSource = objcclass;
   WebDataSourcePointer = ^WebDataSource;
+  WebDataSourcePtr = WebDataSourcePointer;
 
 {$endif}
 
@@ -41,16 +40,14 @@
 {$define WEBDATASOURCE_PAS_C}
 
 { WebDataSource }
-  WebDataSource = objcclass(NSObject)
+  WebDataSource = objcclass external (NSObject)
   private
-    __private: WebDataSourcePrivate;
+    _private: WebDataSourcePrivate;
     
   public
-    class function alloc: WebDataSource; message 'alloc';
-
     function initWithRequest(request_: NSURLRequest): id; message 'initWithRequest:';
     function data: NSData; message 'data';
-    function representation: id; message 'representation';
+    function representation: WebDocumentRepresentationProtocol; message 'representation';
     function webFrame: WebFrame; message 'webFrame';
     function initialRequest: NSURLRequest; message 'initialRequest';
     function request: NSMutableURLRequest; message 'request';
@@ -64,7 +61,7 @@
     function subresources: NSArray; message 'subresources';
     function subresourceForURL(URL: NSURL): WebResource; message 'subresourceForURL:';
     procedure addSubresource(subresource: WebResource); message 'addSubresource:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

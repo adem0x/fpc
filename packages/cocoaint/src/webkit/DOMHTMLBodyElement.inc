@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLBodyElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLBODYELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLBodyElement = objcclass;
   DOMHTMLBodyElementPointer = ^DOMHTMLBodyElement;
+  DOMHTMLBodyElementPtr = DOMHTMLBodyElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLBODYELEMENT_PAS_C}
 
 { DOMHTMLBodyElement }
-  DOMHTMLBodyElement = objcclass(DOMHTMLElement)
+  DOMHTMLBodyElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLBodyElement; message 'alloc';
-
     procedure setALink (newValue: NSString); message 'setALink:';
     function aLink: NSString; message 'aLink';
     procedure setBackground (newValue: NSString); message 'setBackground:';
@@ -58,7 +55,7 @@
     function text: NSString; message 'text';
     procedure setVLink (newValue: NSString); message 'setVLink:';
     function vLink: NSString; message 'vLink';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

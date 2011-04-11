@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSSliderCell.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSLIDERCELL_PAS_T}
@@ -21,7 +19,9 @@ const
 { Types }
 type
   NSTickMarkPosition = NSUInteger;
+  NSTickMarkPositionPtr = ^NSTickMarkPosition;
   NSSliderType = NSUInteger;
+  NSSliderTypePtr = ^NSSliderType;
 
 {$endif}
 {$endif}
@@ -50,6 +50,7 @@ type
 {$ifdef FORWARD}
   NSSliderCell = objcclass;
   NSSliderCellPointer = ^NSSliderCell;
+  NSSliderCellPtr = NSSliderCellPointer;
 
 {$endif}
 
@@ -58,30 +59,32 @@ type
 {$define NSSLIDERCELL_PAS_C}
 
 { NSSliderCell }
-  NSSliderCell = objcclass(NSActionCell)
+  NSSliderCell = objcclass external (NSActionCell)
   private
         _reserved: array[0..2] of cint;
-    __numberOfTickMarks: cint;
-    __altIncValue: double;
-    __value: double;
-    __maxValue: double;
-    __minValue: double;
-    __trackRect: NSRect;
+    _numberOfTickMarks: cint;
+    _altIncValue: double;
+    _value: double;
+    _maxValue: double;
+    _minValue: double;
+    _trackRect: NSRect;
     __scFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSSliderCell0: cuint);
+       1: (
         weAreVertical: 0..1;
         weAreVerticalSet: 0..1;
         reserved1: 0..1;
         isPressed: 0..1;
-        allowsTickMarkValuesOnly: 0..1;
-        tickMarkPosition: 0..1;
-        sliderType: 0..((1 shl 2)-1);
+        _allowsTickMarkValuesOnly: 0..1;
+        _tickMarkPosition: 0..1;
+        _sliderType: 0..((1 shl 2)-1);
         drawing: 0..1;
         reserved2: 0..((1 shl 23)-1);
+      );
       end;
     
   public
-    class function alloc: NSSliderCell; message 'alloc';
-
     class function prefersTrackingUntilMouseUp: Boolean; message 'prefersTrackingUntilMouseUp';
     function minValue: double; message 'minValue';
     procedure setMinValue(aDouble: double); message 'setMinValue:';
@@ -106,8 +109,10 @@ type
     function trackRect: NSRect; message 'trackRect';
     procedure setSliderType(sliderType_: NSSliderType); message 'setSliderType:';
     function sliderType: NSSliderType; message 'sliderType';
+  end;
 
-    { Category: NSTickMarkSupport }
+{ NSTickMarkSupportCategory }
+  NSTickMarkSupportCategory = objccategory external (NSSliderCell)
     procedure setNumberOfTickMarks(count: NSInteger); message 'setNumberOfTickMarks:';
     function numberOfTickMarks: NSInteger; message 'numberOfTickMarks';
     procedure setTickMarkPosition(position: NSTickMarkPosition); message 'setTickMarkPosition:';
@@ -118,7 +123,7 @@ type
     function rectOfTickMarkAtIndex(index: NSInteger): NSRect; message 'rectOfTickMarkAtIndex:';
     function indexOfTickMarkAtPoint(point: NSPoint): NSInteger; message 'indexOfTickMarkAtPoint:';
     function closestTickMarkValueToValue(value: double): double; message 'closestTickMarkValueToValue:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

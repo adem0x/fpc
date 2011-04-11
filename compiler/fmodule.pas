@@ -113,7 +113,6 @@ interface
         sources_avail,            { if all sources are reachable }
         interface_compiled,       { if the interface section has been parsed/compiled/loaded }
         is_dbginfo_written,
-        is_reset,
         is_unit,
         in_interface,             { processing the implementation part? }
         { allow global settings }
@@ -258,8 +257,7 @@ implementation
         hp:=tmodule(loaded_units.first);
         while assigned(hp) do
           begin
-            if (hp.globalsymtable=st) or
-               (hp.localsymtable=st) then
+            if (hp.moduleid=st.moduleid) then
               begin
                 result:=hp;
                 exit;
@@ -533,7 +531,6 @@ implementation
         islibrary:=false;
         ispackage:=false;
         is_dbginfo_written:=false;
-        is_reset:=false;
         mode_switch_allowed:= true;
         moduleoptions:=[];
         deprecatedmsg:=nil;
@@ -547,7 +544,6 @@ implementation
     destructor tmodule.Destroy;
       var
         i : longint;
-        hpi : tprocinfo;
       begin
         if assigned(unitmap) then
           freemem(unitmap);
@@ -580,15 +576,12 @@ implementation
             if current_procinfo=tprocinfo(procinfo) then
               begin
                 current_procinfo:=nil;
-                current_objectdef:=nil;
+                current_structdef:=nil;
+                current_genericdef:=nil;
+                current_specializedef:=nil;
               end;
             { release procinfo tree }
-            while assigned(procinfo) do
-             begin
-               hpi:=tprocinfo(procinfo).parent;
-               tprocinfo(procinfo).free;
-               procinfo:=hpi;
-             end;
+            tprocinfo(procinfo).destroy_tree;
           end;
         DoneDebugInfo(self);
         used_units.free;
@@ -643,7 +636,6 @@ implementation
 
     procedure tmodule.reset;
       var
-        hpi : tprocinfo;
         i   : longint;
       begin
         if assigned(scanner) then
@@ -660,15 +652,12 @@ implementation
             if current_procinfo=tprocinfo(procinfo) then
               begin
                 current_procinfo:=nil;
-                current_objectdef:=nil;
+                current_structdef:=nil;
+                current_genericdef:=nil;
+                current_specializedef:=nil;
               end;
             { release procinfo tree }
-            while assigned(procinfo) do
-             begin
-               hpi:=tprocinfo(procinfo).parent;
-               tprocinfo(procinfo).free;
-               procinfo:=hpi;
-             end;
+            tprocinfo(procinfo).destroy_tree;
           end;
         if assigned(asmdata) then
           begin
@@ -752,7 +741,6 @@ implementation
         stringdispose(deprecatedmsg);
         moduleoptions:=[];
         is_dbginfo_written:=false;
-        is_reset:=false;
         crc:=0;
         interface_crc:=0;
         indirect_crc:=0;

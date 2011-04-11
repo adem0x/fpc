@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMRange.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMRANGE_PAS_T}
@@ -45,6 +43,7 @@ const
 {$ifdef FORWARD}
   DOMRange = objcclass;
   DOMRangePointer = ^DOMRange;
+  DOMRangePtr = DOMRangePointer;
 
 {$endif}
 
@@ -53,11 +52,9 @@ const
 {$define DOMRANGE_PAS_C}
 
 { DOMRange }
-  DOMRange = objcclass(DOMObject)
+  DOMRange = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMRange; message 'alloc';
-
     function startContainer: DOMNode; message 'startContainer';
     function startOffset: cint; message 'startOffset';
     function endContainer: DOMNode; message 'endContainer';
@@ -83,12 +80,19 @@ const
     function cloneRange: DOMRange; message 'cloneRange';
     function toString: NSString; message 'toString';
     procedure detach; message 'detach';
+    function createContextualFragment(html: NSString): DOMDocumentFragment; message 'createContextualFragment:';
+    function intersectsNode(refNode: DOMNode): Boolean; message 'intersectsNode:';
+    function compareNode(refNode: DOMNode): cshort; message 'compareNode:';
+    function comparePoint_offset(refNode: DOMNode; offset: cint): cshort; message 'comparePoint:offset:';
+    function isPointInRange_offset(refNode: DOMNode; offset: cint): Boolean; message 'isPointInRange:offset:';
+  end;
 
-    { Category: DOMRangeDeprecated }
-    procedure setStart(refNode: DOMNode; offset: cint); message 'setStart:refNode:';
-    procedure setEnd(refNode: DOMNode; offset: cint); message 'setEnd:refNode:';
-    function compareBoundaryPoints(how: cushort; sourceRange: DOMRange): cshort; message 'compareBoundaryPoints:how:';
-  end; external;
+{ DOMRangeDeprecatedCategory }
+  DOMRangeDeprecatedCategory = objccategory external (DOMRange)
+    procedure setStart(refNode: DOMNode; offset: cint); message 'setStart:refNode:'; deprecated 'in_webkit_version_3 and later';
+    procedure setEnd(refNode: DOMNode; offset: cint); message 'setEnd:refNode:'; deprecated 'in_webkit_version_3 and later';
+    function compareBoundaryPoints(how: cushort; sourceRange: DOMRange): cshort; message 'compareBoundaryPoints:how:'; deprecated 'in_webkit_version_3 and later';
+  end;
 
 {$endif}
 {$endif}

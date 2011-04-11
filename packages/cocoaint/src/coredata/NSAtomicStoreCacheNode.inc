@@ -1,6 +1,4 @@
 { Parsed from Coredata.framework NSAtomicStoreCacheNode.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Fri Oct 2 11:46:33 EDT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSATOMICSTORECACHENODE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSAtomicStoreCacheNode = objcclass;
   NSAtomicStoreCacheNodePointer = ^NSAtomicStoreCacheNode;
+  NSAtomicStoreCacheNodePtr = NSAtomicStoreCacheNodePointer;
 
 {$endif}
 
@@ -41,23 +40,21 @@
 {$define NSATOMICSTORECACHENODE_PAS_C}
 
 { NSAtomicStoreCacheNode }
-  NSAtomicStoreCacheNode = objcclass(NSObject)
+  NSAtomicStoreCacheNode = objcclass external (NSObject)
   private
-    __objectID: NSManagedObjectID;
-    ___versionNumber: uintptr_t;
-    __propertyCache: NSMutableDictionary;
-    __reserved1: Pointer;
+    _objectID: NSManagedObjectID;
+    __versionNumber: culong;
+    _propertyCache: NSMutableDictionary;
+    _reserved1: Pointer;
     
   public
-    class function alloc: NSAtomicStoreCacheNode; message 'alloc';
-
     function initWithObjectID(moid: NSManagedObjectID): id; message 'initWithObjectID:';
     function objectID: NSManagedObjectID; message 'objectID';
     function propertyCache: NSMutableDictionary; message 'propertyCache';
     procedure setPropertyCache(propertyCache_: NSMutableDictionary); message 'setPropertyCache:';
     function valueForKey(key: NSString): id; message 'valueForKey:';
     procedure setValue_forKey(value: id; key: NSString); message 'setValue:forKey:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

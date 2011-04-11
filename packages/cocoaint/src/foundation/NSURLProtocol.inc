@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSURLProtocol.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSURLPROTOCOL_PAS_T}
@@ -34,6 +32,7 @@
   NSURLProtocolClientProtocol = objcprotocol;
   NSURLProtocol = objcclass;
   NSURLProtocolPointer = ^NSURLProtocol;
+  NSURLProtocolPtr = NSURLProtocolPointer;
 
 {$endif}
 
@@ -42,15 +41,13 @@
 {$define NSURLPROTOCOL_PAS_C}
 
 { NSURLProtocol }
-  NSURLProtocol = objcclass(NSObject)
+  NSURLProtocol = objcclass external (NSObject)
   private
-    __internal: NSURLProtocolInternal;
+    _internal: NSURLProtocolInternal;
     
   public
-    class function alloc: NSURLProtocol; message 'alloc';
-
-    function initWithRequest_cachedResponse_client(request_: NSURLRequest; cachedResponse_: NSCachedURLResponse; client_: id): id; message 'initWithRequest:cachedResponse:client:';
-    function client: id; message 'client';
+    function initWithRequest_cachedResponse_client(request_: NSURLRequest; cachedResponse_: NSCachedURLResponse; client_: NSURLProtocolClientProtocol): id; message 'initWithRequest:cachedResponse:client:';
+    function client: NSURLProtocolClientProtocol; message 'client';
     function request: NSURLRequest; message 'request';
     function cachedResponse: NSCachedURLResponse; message 'cachedResponse';
     class function canInitWithRequest(request_: NSURLRequest): Boolean; message 'canInitWithRequest:';
@@ -63,7 +60,7 @@
     class procedure removePropertyForKey_inRequest(key: NSString; request_: NSMutableURLRequest); message 'removePropertyForKey:inRequest:';
     class function registerClass(protocolClass: Pobjc_class): Boolean; message 'registerClass:';
     class procedure unregisterClass(protocolClass: Pobjc_class); message 'unregisterClass:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}
@@ -72,7 +69,7 @@
 {$define NSURLPROTOCOL_PAS_P}
   
 { NSURLProtocolClient Protocol }
-  NSURLProtocolClientProtocol = objcprotocol
+  NSURLProtocolClientProtocol = objcprotocol external name 'NSURLProtocolClient'
     procedure URLProtocol_wasRedirectedToRequest_redirectResponse(protocol: NSURLProtocol; request: NSURLRequest; redirectResponse: NSURLResponse); message 'URLProtocol:wasRedirectedToRequest:redirectResponse:';
     procedure URLProtocol_cachedResponseIsValid(protocol: NSURLProtocol; cachedResponse: NSCachedURLResponse); message 'URLProtocol:cachedResponseIsValid:';
     procedure URLProtocol_didReceiveResponse_cacheStoragePolicy(protocol: NSURLProtocol; response: NSURLResponse; policy: NSURLCacheStoragePolicy); message 'URLProtocol:didReceiveResponse:cacheStoragePolicy:';
@@ -81,6 +78,6 @@
     procedure URLProtocol_didFailWithError(protocol: NSURLProtocol; error: NSError); message 'URLProtocol:didFailWithError:';
     procedure URLProtocol_didReceiveAuthenticationChallenge(protocol: NSURLProtocol; challenge: NSURLAuthenticationChallenge); message 'URLProtocol:didReceiveAuthenticationChallenge:';
     procedure URLProtocol_didCancelAuthenticationChallenge(protocol: NSURLProtocol; challenge: NSURLAuthenticationChallenge); message 'URLProtocol:didCancelAuthenticationChallenge:';
-  end; external name 'NSURLProtocolClient';
+  end;
 {$endif}
 {$endif}

@@ -70,7 +70,7 @@ type
     { set if the procedure has to push parameters onto the stack }
     pi_has_stackparameter,
     { set if the procedure has at least one got }
-    pi_has_goto,
+    pi_has_label,
     { calls itself recursive }
     pi_is_recursive,
     { stack frame optimization not possible (only on x86 probably) }
@@ -199,7 +199,8 @@ type
         target_x86_64_solaris,     { 65 }
         target_mips_linux,         { 66 }
         target_mipsel_linux,       { 67 }
-        target_i386_nativent       { 68 }
+        target_i386_nativent,      { 68 }
+        target_i386_iphonesim      { 69 }
   );
 const
   Targets : array[ttarget] of string[18]=(
@@ -271,7 +272,8 @@ const
   { 65 }  'Solaris-x86-64',
   { 66 }  'Linux-MIPS',
   { 67 }  'Linux-MIPSel',
-  { 68 }  'NativeNT-i386'
+  { 68 }  'NativeNT-i386',
+  { 69 }  'iPhoneSim-i386'
   );
 begin
   if w<=ord(high(ttarget)) then
@@ -849,7 +851,7 @@ var
   { needed during tobjectdef parsing... }
   current_defoptions : tdefoptions;
 
-procedure readcommondef(const s:string);
+procedure readcommondef(const s:string; out defoptions: tdefoptions);
 type
   tdefstate=(ds_none,
     ds_vmt_written,
@@ -869,6 +871,7 @@ type
     mask : tdefstate;
     str  : string[30];
   end;
+  ptoken=^ttoken;
 const
   defopt : array[1..ord(high(tdefoption))] of tdefopt=(
      (mask:df_unique;         str:'Unique Type'),
@@ -886,12 +889,12 @@ const
      (mask:ds_dwarf_dbg_info_written;str:'Dwarf DbgInfo Written')
   );
 var
-  defoptions : tdefoptions;
   defstates  : tdefstates;
   i      : longint;
   first  : boolean;
   tokenbufsize : longint;
   tokenbuf : pbyte;
+  token : ttoken;
   len : sizeint;
   wstring : widestring;
   astring : ansistring;
@@ -944,13 +947,14 @@ begin
       write(space,' Tokens: ');
       while i<tokenbufsize do
         begin
-          if ttoken(tokenbuf[i])<>_GENERICSPECIALTOKEN then
-            write(arraytokeninfo[ttoken(tokenbuf[i])].str);
-          case ttoken(tokenbuf[i]) of
+          token:=ptoken(@tokenbuf[i])^;
+          if token<>_GENERICSPECIALTOKEN then
+            write(arraytokeninfo[token].str);
+          inc(i,SizeOf(token));
+          case token of
             _CWCHAR,
             _CWSTRING :
               begin
-                inc(i);
                 len:=psizeint(@tokenbuf[i])^;
                 inc(i,sizeof(sizeint));
                 setlength(wstring,len);
@@ -960,7 +964,6 @@ begin
               end;
             _CSTRING:
               begin
-                inc(i);
                 len:=psizeint(@tokenbuf[i])^;
                 inc(i,sizeof(sizeint));
                 setlength(astring,len);
@@ -972,14 +975,12 @@ begin
             _INTCONST,
             _REALNUMBER :
               begin
-                inc(i);
                 write(' ',pshortstring(@tokenbuf[i])^);
                 inc(i,tokenbuf[i]+1);
               end;
             _ID :
               begin
-                inc(i);
-                inc(i);
+                inc(i,SizeOf(ttoken)); // idtoken
                 write(' ',pshortstring(@tokenbuf[i])^);
                 inc(i,tokenbuf[i]+1);
               {
@@ -990,7 +991,6 @@ begin
               end;
             _GENERICSPECIALTOKEN:
               begin
-                inc(i);
                 case tspecialgenerictoken(tokenbuf[i]) of
                   ST_LOADSETTINGS:
                     begin
@@ -1030,8 +1030,6 @@ begin
                 continue;
               }
               end;
-            else
-              inc(i);
           end;
 
           if i<tokenbufsize then
@@ -1139,7 +1137,6 @@ type
     po_syscall_basesysv,
     po_syscall_sysvbase,
     po_syscall_r12base,
-    po_local,
     { Procedure can be inlined }
     po_inline,
     { Procedure is used for internal compiler calls }
@@ -1156,7 +1153,15 @@ type
     { enumerator support }
     po_enumerator_movenext,
     { optional Objective-C protocol method }
-    po_optional
+    po_optional,
+    { nested procedure that uses Delphi-style calling convention for passing
+      the frame pointer (pushed on the stack, always the last parameter,
+      removed by the caller). Required for nested procvar compatibility,
+      because such procvars can hold both regular and nested procedures
+      (when calling a regular procedure using the above convention, it will
+       simply not see the frame pointer parameter, and since the caller cleans
+       up the stack will also remain balanced) }
+    po_delphi_nested_cc
   );
   tprocoptions=set of tprocoption;
 
@@ -1235,7 +1240,6 @@ const
      (mask:po_syscall_basesysv;str:'SyscallBaseSysV'),
      (mask:po_syscall_sysvbase;str:'SyscallSysVBase'),
      (mask:po_syscall_r12base; str:'SyscallR12Base'),
-     (mask:po_local;           str:'Local'),
      (mask:po_inline;          str:'Inline'),
      (mask:po_compilerproc;    str:'CompilerProc'),
      (mask:po_has_importdll;   str:'HasImportDLL'),
@@ -1245,7 +1249,8 @@ const
      (mask:po_weakexternal;    str:'WeakExternal'),
      (mask:po_objc;            str:'ObjC'),
      (mask:po_enumerator_movenext; str:'EnumeratorMoveNext'),
-     (mask:po_optional;        str: 'Optional')
+     (mask:po_optional;        str: 'Optional'),
+     (mask:po_delphi_nested_cc;str: 'Delphi-style nested frameptr')
   );
 var
   proctypeoption  : tproctypeoption;
@@ -1844,6 +1849,8 @@ begin
              writeln(space,'      Default : ',getlongint);
              write  (space,'   Index Type : ');
              readderef('');
+             { palt_none }
+             readpropaccesslist('');
              write  (space,'   Readaccess : ');
              readpropaccesslist(space+'         Sym: ');
              write  (space,'  Writeaccess : ');
@@ -1905,6 +1912,7 @@ var
   calloption : tproccalloption;
   procoptions : tprocoptions;
   procinfooptions : tprocinfoflag;
+  defoptions: tdefoptions;
 begin
   with ppufile do
    begin
@@ -1918,15 +1926,16 @@ begin
 
          ibpointerdef :
            begin
-             readcommondef('Pointer definition');
+             readcommondef('Pointer definition',defoptions);
              write  (space,'     Pointed Type : ');
              readderef('');
              writeln(space,'           Is Far : ',(getbyte<>0));
+             writeln(space,' Has Pointer Math : ',(getbyte<>0));
            end;
 
          iborddef :
            begin
-             readcommondef('Ordinal definition');
+             readcommondef('Ordinal definition',defoptions);
              write  (space,'        Base type : ');
              b:=getbyte;
              case tordtype(b) of
@@ -1953,13 +1962,13 @@ begin
 
          ibfloatdef :
            begin
-             readcommondef('Float definition');
+             readcommondef('Float definition',defoptions);
              writeln(space,'       Float type : ',getbyte);
            end;
 
          ibarraydef :
            begin
-             readcommondef('Array definition');
+             readcommondef('Array definition',defoptions);
              write  (space,'     Element type : ');
              readderef('');
              write  (space,'       Range Type : ');
@@ -1967,11 +1976,13 @@ begin
              writeln(space,'            Range : ',getaint,' to ',getaint);
              write  (space,'          Options : ');
              readarraydefoptions;
+             readdefinitions('symbols');
+             readsymbols('symbols');
            end;
 
          ibprocdef :
            begin
-             readcommondef('Procedure definition');
+             readcommondef('Procedure definition',defoptions);
              read_abstract_proc_def(calloption,procoptions);
              if (po_has_mangledname in procoptions) then
                writeln(space,'     Mangled name : ',getstring);
@@ -2041,8 +2052,9 @@ begin
 
          ibprocvardef :
            begin
-             readcommondef('Procedural type (ProcVar) definition');
+             readcommondef('Procedural type (ProcVar) definition',defoptions);
              read_abstract_proc_def(calloption,procoptions);
+             writeln(space,'   Symtable level :',ppufile.getbyte);
              if not EndOfEntry then
               Writeln('!! Entry has more information stored');
              space:='    '+space;
@@ -2054,31 +2066,40 @@ begin
 
          ibshortstringdef :
            begin
-             readcommondef('ShortString definition');
+             readcommondef('ShortString definition',defoptions);
              writeln(space,'           Length : ',getbyte);
            end;
 
          ibwidestringdef :
            begin
-             readcommondef('WideString definition');
+             readcommondef('WideString definition',defoptions);
+             writeln(space,'           Length : ',getlongint);
+           end;
+         
+         ibunicodestringdef :
+           begin
+             readcommondef('UnicodeString definition',defoptions);
              writeln(space,'           Length : ',getlongint);
            end;
 
          ibansistringdef :
            begin
-             readcommondef('AnsiString definition');
+             readcommondef('AnsiString definition',defoptions);
              writeln(space,'           Length : ',getlongint);
            end;
 
          iblongstringdef :
            begin
-             readcommondef('Longstring definition');
+             readcommondef('Longstring definition',defoptions);
              writeln(space,'           Length : ',getlongint);
            end;
 
          ibrecorddef :
            begin
-             readcommondef('Record definition');
+             readcommondef('Record definition',defoptions);
+             writeln(space,'   Name of Record : ',getstring);
+             write  (space,'          Options : ');
+             readobjectdefoptions;
              writeln(space,'       FieldAlign : ',getbyte);
              writeln(space,'      RecordAlign : ',getbyte);
              writeln(space,'         PadAlign : ',getbyte);
@@ -2095,7 +2116,10 @@ begin
 
          ibobjectdef :
            begin
-             readcommondef('Object/Class definition');
+             readcommondef('Object/Class definition',defoptions);
+             writeln(space,'    Name of Class : ',getstring);
+             write  (space,'          Options : ');
+             readobjectdefoptions;
              b:=getbyte;
              write  (space,'             Type : ');
              case tobjecttyp(b) of
@@ -2109,7 +2133,6 @@ begin
                odt_objcprotocol   : writeln('objcprotocol');
                else                 writeln('!! Warning: Invalid object type ',b);
              end;
-             writeln(space,'    Name of Class : ',getstring);
              writeln(space,'    External name : ',getstring);
              writeln(space,'       Import lib : ',getstring);
              writeln(space,'         DataSize : ',getaint);
@@ -2118,8 +2141,6 @@ begin
              writeln(space,'       Vmt offset : ',getlongint);
              write  (space,  '   Ancestor Class : ');
              readderef('');
-             write  (space,'          Options : ');
-             readobjectdefoptions;
 
              if tobjecttyp(b) in [odt_interfacecom,odt_interfacecorba,odt_dispinterface] then
                begin
@@ -2127,7 +2148,6 @@ begin
                   for j:=1to 16 do
                    getbyte;
                   writeln(space,'       IID String : ',getstring);
-                  writeln(space,'  Last VTable idx : ',getlongint);
                end;
 
              l:=getlongint;
@@ -2171,7 +2191,7 @@ begin
 
          ibfiledef :
            begin
-             ReadCommonDef('File definition');
+             ReadCommonDef('File definition',defoptions);
              write  (space,'             Type : ');
              case getbyte of
               0 : writeln('Text');
@@ -2186,33 +2206,43 @@ begin
 
          ibformaldef :
            begin
-             readcommondef('Generic definition (void-typ)');
+             readcommondef('Generic definition (void-typ)',defoptions);
              writeln(space,'         Is Typed : ',(getbyte<>0));
            end;
 
          ibundefineddef :
-           readcommondef('Undefined definition (generic parameter)');
+           readcommondef('Undefined definition (generic parameter)',defoptions);
 
          ibenumdef :
            begin
-             readcommondef('Enumeration type definition');
-             write(space,'Base enumeration type : ');
-             readderef('');
+             readcommondef('Enumeration type definition',defoptions);
              writeln(space,' Smallest element : ',getaint);
              writeln(space,'  Largest element : ',getaint);
              writeln(space,'             Size : ',getaint);
+             if df_copied_def in defoptions then
+               begin
+                 write(space,'Base enumeration type : ');
+                 readderef('');
+               end
+             else
+               begin
+                 space:='    '+space;
+                 readdefinitions('elements');
+                 readsymbols('elements');
+                 delete(space,1,4);
+               end;
            end;
 
          ibclassrefdef :
            begin
-             readcommondef('Class reference definition');
+             readcommondef('Class reference definition',defoptions);
              write  (space,'    Pointed Type : ');
              readderef('');
            end;
 
          ibsetdef :
            begin
-             readcommondef('Set definition');
+             readcommondef('Set definition',defoptions);
              write  (space,'     Element type : ');
              readderef('');
              writeln(space,'             Size : ',getaint);
@@ -2222,7 +2252,7 @@ begin
 
          ibvariantdef :
            begin
-             readcommondef('Variant definition');
+             readcommondef('Variant definition',defoptions);
              write  (space,'      Varianttype : ');
              b:=getbyte;
              case tvarianttype(b) of

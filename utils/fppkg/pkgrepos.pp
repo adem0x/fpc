@@ -15,7 +15,8 @@ procedure LoadLocalAvailableRepository;
 procedure LoadUnitConfigFromFile(APackage:TFPPackage;const AFileName: String);
 function LoadManifestFromFile(const AManifestFN:string):TFPPackage;
 procedure FindInstalledPackages(ACompilerOptions:TCompilerOptions;showdups:boolean=true);
-function  PackageIsBroken(APackage:TFPPackage):boolean;
+Procedure AddFPMakeAddIn(APackage: TFPPackage);
+function  PackageIsBroken(APackage:TFPPackage; MarkForReInstall: boolean):boolean;
 function  FindBrokenPackages(SL:TStrings):Boolean;
 procedure CheckFPMakeDependencies;
 function  PackageInstalledVersionStr(const AName:String;const ShowUsed: boolean = false;const Local: boolean = false):string;
@@ -215,6 +216,9 @@ begin
     // Read fpunits.conf
     V:=L.Values['version'];
     APackage.Version.AsString:=V;
+    APackage.IsFPMakeAddIn:=Upcase(L.Values['FPMakeAddIn'])='Y';
+    APackage.SourcePath:=L.Values['SourcePath'];
+    APackage.FPMakeOptionsString:=L.Values['FPMakeOptions'];
     V:=L.Values['checksum'];
     if V<>'' then
       APackage.Checksum:=StrToInt(V)
@@ -305,7 +309,9 @@ procedure FindInstalledPackages(ACompilerOptions:TCompilerOptions;showdups:boole
               if FileExistsLog(UF) then
                 begin
                   P:=AddInstalledPackage(SR.Name,UF,Local);
-                  LoadUnitConfigFromFile(P,UF)
+                  LoadUnitConfigFromFile(P,UF);
+                  if P.IsFPMakeAddIn then
+                    AddFPMakeAddIn(P);
                 end
               else
                 begin
@@ -335,11 +341,23 @@ begin
 end;
 
 
-function PackageIsBroken(APackage:TFPPackage):boolean;
+Procedure AddFPMakeAddIn(APackage: TFPPackage);
+begin
+  Log(vlDebug,SLogFoundFPMakeAddin,[APackage.Name]);
+  setlength(FPMKUnitDeps,length(FPMKUnitDeps)+1);
+  FPMKUnitDeps[high(FPMKUnitDeps)].package:=APackage.Name;
+  FPMKUnitDeps[high(FPMKUnitDeps)].reqver:=APackage.Version.AsString;
+  FPMKUnitDeps[high(FPMKUnitDeps)].def:='HAS_PACKAGE_'+APackage.Name;
+  FPMKUnitDeps[high(FPMKUnitDeps)].available:=true;
+end;
+
+
+function PackageIsBroken(APackage:TFPPackage; MarkForReInstall: boolean):boolean;
 var
   j : integer;
   D : TFPDependency;
   DepPackage : TFPPackage;
+  AvailP: TFPPackage;
 begin
   result:=false;
   for j:=0 to APackage.Dependencies.Count-1 do
@@ -356,6 +374,29 @@ begin
                 begin
                   Log(vlInfo,SLogPackageChecksumChanged,[APackage.Name,D.PackageName]);
                   result:=true;
+                  if MarkForReInstall then
+                    begin
+                      // When the package is re-installed, use the same fpmake-options and sourcepath
+                      // as used during the initial installation. (The AvailableRepository is used to install
+                      // the package so make sure all properties are set there)
+                      AvailP:=AvailableRepository.FindPackage(APackage.Name);
+                      if not assigned(AvailP) then
+                        begin
+                          AvailP := AvailableRepository.AddPackage(APackage.Name);
+                          AvailP.Assign(APackage);
+                        end
+                      else
+                        begin
+                          AvailP.SourcePath := APackage.SourcePath;
+                          AvailP.FPMakeOptionsString := APackage.FPMakeOptionsString;
+                        end;
+                      AvailP.RecompileBroken:=true;
+                      APackage.RecompileBroken:=true;
+                      // If the fpmake.pp of the original installation is not available anymore, do not
+                      // try to use it.
+                      if (AvailP.SourcePath<>'') and not FileExists(IncludeTrailingPathDelimiter(APackage.SourcePath)+'fpmake.pp') then
+                        AvailP.SourcePath:='';
+                    end;
                   exit;
                 end;
             end
@@ -375,8 +416,10 @@ begin
   for i:=0 to InstalledRepository.PackageCount-1 do
     begin
       P:=InstalledRepository.Packages[i];
-      if PackageIsBroken(P) then
-        SL.Add(P.Name);
+      if PackageIsBroken(P,True) then
+        begin
+          SL.Add(P.Name);
+        end;
     end;
   Result:=(SL.Count>0);
 end;
@@ -390,14 +433,14 @@ var
   ReqVer : TFPVersion;
 begin
   // Reset availability
-  for i:=1 to FPMKUnitDepCount do
-    FPMKUnitDepAvailable[i]:=false;
+  for i:=0 to high(FPMKUnitDeps) do
+    FPMKUnitDeps[i].available:=false;
   // Not version check needed in Recovery mode, we always need to use
   // the internal bootstrap procedure
   if GlobalOptions.RecoveryMode then
     exit;
   // Check for fpmkunit dependencies
-  for i:=1 to FPMKUnitDepCount do
+  for i:=0 to high(FPMKUnitDeps) do
     begin
       P:=InstalledRepository.FindPackage(FPMKUnitDeps[i].package);
       if P<>nil then
@@ -411,7 +454,7 @@ begin
           ReqVer.AsString:=FPMKUnitDeps[i].ReqVer;
           Log(vlDebug,SLogFPMKUnitDepVersion,[P.Name,ReqVer.AsString,P.Version.AsString,AvailVerStr]);
           if ReqVer.CompareVersion(P.Version)<=0 then
-            FPMKUnitDepAvailable[i]:=true
+            FPMKUnitDeps[i].available:=true
           else
             Log(vlDebug,SLogFPMKUnitDepTooOld,[FPMKUnitDeps[i].package]);
         end
@@ -495,7 +538,7 @@ var
 begin
   result := '';
   P:=InstalledRepository.FindPackage(AName);
-  if (P<>nil) and PackageIsBroken(P) then
+  if (P<>nil) and PackageIsBroken(P,false) then
     result:='B';
 end;
 

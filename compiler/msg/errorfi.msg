@@ -603,8 +603,8 @@ parser_e_void_function=03080_E_Les procédures ne peuvent pas retourner une valeu
 % In \fpc, you can specify a return value for a function when using
 % the \var{exit} statement. This error occurs when you try to do this with a
 % procedure. Procedures cannot return a value.
-parser_e_constructors_always_objects=03081_E_Les constructeurs et les destructeurs doivent être des méthodes
-% You're declaring a procedure as destructor or constructor, when the
+parser_e_only_methods_allowed=03081_E_Les constructeurs, les destructeurs et les class operators doivent être des méthodes
+% You're declaring a procedure as destructor, constructor or class operators, when the
 % procedure isn't a class method.
 parser_e_operator_not_overloaded=03082_E_L'opérateur n'est pas surchargé
 % You're trying to use an overloaded operator when it is not overloaded for
@@ -816,7 +816,7 @@ parser_e_threadvars_only_sg=03147_E_Les variables de Threads peuvent seulement ê
 % are stored on the stack
 parser_f_direct_assembler_not_allowed=03148_F_Assembleur direct non supporté pour la sortie binaire
 % You can't use direct assembler when using a binary writer, choose an
-% other outputformat or use an other assembler reader
+% other outputformat or use another assembler reader
 parser_w_no_objpas_use_mode=03149_W_Ne chargez pas l'unité OBJPAS manuellement, utilisez de préférence \{\$mode Objfpc\} ou \{\$mode Delphi\}
 % You are trying to load the ObjPas unit manually from a uses clause. This is
 % not a good idea. Use the \var{\{\$mode objfpc\}} or
@@ -1270,7 +1270,7 @@ type_w_signed_unsigned_always_true=04045_W_La comparaison est toujours VRAIE du 
 type_w_instance_with_abstract=04046_W_Construction d´une classe "$1" avec des méthodes abstraites
 % An instance of a class is created which contains non-implemented abstract
 % methods. This will probably lead to a runtime error 211 in the code if that
-% routine is ever called. All abstract methods should be overriden.
+% routine is ever called. All abstract methods should be overridden.
 type_h_in_range_check=L´opérande à gauche de l´opérateur IN doit avoir la longueur d´un octet (8 bits)
 % The left operand of the \var{in} operator is not an ordinal or enumeration which fits
 % within 8-bits, this may lead to range check errors. The \var{in} operator
@@ -2258,7 +2258,7 @@ option_config_is_dir=11040_F_Le fichier de configuration $1 est un répertoire
 # Logo (option -l)
 #
 option_logo=11023_[ Compilateur Free Pascal version $FPCFULLVERSION [$FPCDATE] for $FPCCPU
-Copyright (c) 1993-2009, Florian Klaempfl ]
+Copyright (c) 1993-2011, Florian Klaempfl ]
 #
 # Info (option -i)
 #

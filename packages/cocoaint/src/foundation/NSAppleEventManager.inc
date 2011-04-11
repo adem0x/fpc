@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSAppleEventManager.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSAPPLEEVENTMANAGER_PAS_T}
@@ -8,7 +6,8 @@
 
 { Types }
 type
-  NSAppleEventManagerSuspensionID = __NSAppleEventManagerSuspensionPointer;
+  NSAppleEventManagerSuspensionID = __NSAppleEventManagerSuspensionPtr;
+  NSAppleEventManagerSuspensionIDPtr = ^NSAppleEventManagerSuspensionID;
 
 {$endif}
 {$endif}
@@ -31,12 +30,22 @@ type
 {$ifndef NSAPPLEEVENTMANAGER_PAS_S}
 {$define NSAPPLEEVENTMANAGER_PAS_S}
 
+{ External symbols }
+var
+  NSAppleEventTimeOutDefault: double; cvar; external;
+  NSAppleEventTimeOutNone: double; cvar; external;
+
+{ External string constants }
+var
+  NSAppleEventManagerWillProcessFirstEventNotification: NSString; cvar; external;
+
 {$endif}
 {$endif}
 
 {$ifdef FORWARD}
   NSAppleEventManager = objcclass;
   NSAppleEventManagerPointer = ^NSAppleEventManager;
+  NSAppleEventManagerPtr = NSAppleEventManagerPointer;
 
 {$endif}
 
@@ -45,18 +54,16 @@ type
 {$define NSAPPLEEVENTMANAGER_PAS_C}
 
 { NSAppleEventManager }
-  NSAppleEventManager = objcclass(NSObject)
+  NSAppleEventManager = objcclass external (NSObject)
   private
-    __isPreparedForDispatch: Boolean;
+    _isPreparedForDispatch: Boolean;
         _padding: array[0..2] of char;
     
   public
-    class function alloc: NSAppleEventManager; message 'alloc';
-
     class function sharedAppleEventManager: NSAppleEventManager; message 'sharedAppleEventManager';
     procedure setEventHandler_andSelector_forEventClass_andEventID(handler: id; handleEventSelector: SEL; eventClass: AEEventClass; eventID: AEEventID); message 'setEventHandler:andSelector:forEventClass:andEventID:';
     procedure removeEventHandlerForEventClass_andEventID(eventClass: AEEventClass; eventID: AEEventID); message 'removeEventHandlerForEventClass:andEventID:';
-    function dispatchRawAppleEvent_withRawReply_handlerRefCon(theAppleEvent: AppleEventPointer; theReply: AppleEventPointer; handlerRefCon: SRefCon): OSErr; message 'dispatchRawAppleEvent:withRawReply:handlerRefCon:';
+    function dispatchRawAppleEvent_withRawReply_handlerRefCon(theAppleEvent: AppleEventPtr; theReply: AppleEventPtr; handlerRefCon: SRefCon): OSErr; message 'dispatchRawAppleEvent:withRawReply:handlerRefCon:';
     function currentAppleEvent: NSAppleEventDescriptor; message 'currentAppleEvent';
     function currentReplyAppleEvent: NSAppleEventDescriptor; message 'currentReplyAppleEvent';
     function suspendCurrentAppleEvent: NSAppleEventManagerSuspensionID; message 'suspendCurrentAppleEvent';
@@ -64,7 +71,7 @@ type
     function replyAppleEventForSuspensionID(suspensionID: NSAppleEventManagerSuspensionID): NSAppleEventDescriptor; message 'replyAppleEventForSuspensionID:';
     procedure setCurrentAppleEventAndReplyEventWithSuspensionID(suspensionID: NSAppleEventManagerSuspensionID); message 'setCurrentAppleEventAndReplyEventWithSuspensionID:';
     procedure resumeWithSuspensionID(suspensionID: NSAppleEventManagerSuspensionID); message 'resumeWithSuspensionID:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

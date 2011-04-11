@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSShadow.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSHADOW_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSShadow = objcclass;
   NSShadowPointer = ^NSShadow;
+  NSShadowPtr = NSShadowPointer;
 
 {$endif}
 
@@ -41,18 +40,16 @@
 {$define NSSHADOW_PAS_C}
 
 { NSShadow }
-  NSShadow = objcclass(NSObject, NSCopyingProtocol, NSCodingProtocol)
+  NSShadow = objcclass external (NSObject, NSCopyingProtocol, NSCodingProtocol)
   private
-    __shadowFlags: NSUInteger;
-    __shadowOffset: NSSize;
-    __shadowBlurRadius: CGFloat;
-    __shadowColor: NSColor;
+    _shadowFlags: NSUInteger;
+    _shadowOffset: NSSize;
+    _shadowBlurRadius: CGFloat;
+    _shadowColor: NSColor;
         _reservedFloat: array[0..2] of CGFloat;
-    __reserved: Pointer;
+    _reserved: Pointer;
     
   public
-    class function alloc: NSShadow; message 'alloc';
-
     function init: id; message 'init';
     function shadowOffset: NSSize; message 'shadowOffset';
     procedure setShadowOffset(offset: NSSize); message 'setShadowOffset:';
@@ -61,7 +58,12 @@
     function shadowColor: NSColor; message 'shadowColor';
     procedure setShadowColor(color: NSColor); message 'setShadowColor:';
     procedure set_; message 'set';
-  end; external;
+
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
 
 {$endif}
 {$endif}

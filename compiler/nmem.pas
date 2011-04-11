@@ -117,13 +117,13 @@ interface
        twithnodeclass = class of twithnode;
 
     var
-       cloadvmtaddrnode : tloadvmtaddrnodeclass;
-       cloadparentfpnode : tloadparentfpnodeclass;
-       caddrnode : taddrnodeclass;
-       cderefnode : tderefnodeclass;
-       csubscriptnode : tsubscriptnodeclass;
-       cvecnode : tvecnodeclass;
-       cwithnode : twithnodeclass;
+       cloadvmtaddrnode : tloadvmtaddrnodeclass= tloadvmtaddrnode;
+       caddrnode : taddrnodeclass= taddrnode;
+       cderefnode : tderefnodeclass= tderefnode;
+       csubscriptnode : tsubscriptnodeclass= tsubscriptnode;
+       cvecnode : tvecnodeclass= tvecnode;
+       cwithnode : twithnodeclass= twithnode;
+       cloadparentfpnode : tloadparentfpnodeclass = tloadparentfpnode;
 
     function is_big_untyped_addrnode(p: tnode): boolean;
 
@@ -149,6 +149,8 @@ implementation
 
 
     function tloadvmtaddrnode.pass_typecheck:tnode;
+      var
+        defaultresultdef : boolean;
       begin
         result:=nil;
         typecheckpass(left);
@@ -158,15 +160,27 @@ implementation
         case left.resultdef.typ of
           classrefdef :
             resultdef:=left.resultdef;
-          objectdef :
+          objectdef,
+          recorddef:
             { access to the classtype while specializing? }
-            if (df_generic in left.resultdef.defoptions) and
-              assigned(current_objectdef.genericdef) then
+            if (df_generic in left.resultdef.defoptions) then
               begin
-                if current_objectdef.genericdef=left.resultdef then
-                  resultdef:=tclassrefdef.create(current_objectdef)
+                defaultresultdef:=true;
+                if assigned(current_structdef) then
+                  begin
+                    if assigned(current_structdef.genericdef) then
+                      if current_structdef.genericdef=left.resultdef then
+                        begin
+                          resultdef:=tclassrefdef.create(current_structdef);
+                          defaultresultdef:=false;
+                        end
+                      else
+                        message(parser_e_cant_create_generics_of_this_type);
+                  end
                 else
                   message(parser_e_cant_create_generics_of_this_type);
+                if defaultresultdef then
+                  resultdef:=tclassrefdef.create(left.resultdef);
               end
             else
               resultdef:=tclassrefdef.create(left.resultdef);
@@ -189,7 +203,7 @@ implementation
              if is_objcclass(left.resultdef) and
                 (left.nodetype<>typen) then
                begin
-                 vs:=search_class_member(tobjectdef(left.resultdef),'ISA');
+                 vs:=search_struct_member(tobjectdef(left.resultdef),'ISA');
                  if not assigned(vs) or
                     (tsym(vs).typ<>fieldvarsym) then
                    internalerror(2009092502);
@@ -453,9 +467,10 @@ implementation
                   end
                 else
                   begin
-                    { For procvars we need to return the proc field of the
-                      methodpointer }
-                    if isprocvar then
+                    { For procvars and for nested routines we need to return
+                      the proc field of the methodpointer }
+                    if isprocvar or
+                       is_nested_pd(tabstractprocdef(left.resultdef)) then
                       begin
                         { find proc field in methodpointer record }
                         hsym:=tfieldvarsym(trecorddef(methodpointertype).symtable.Find('proc'));
@@ -498,7 +513,20 @@ implementation
               end
             else
 {$endif i386}
-              if (nf_internal in flags) or
+            if (hp.nodetype=loadn) and
+               (tloadnode(hp).symtableentry.typ=absolutevarsym) and
+{$ifdef i386}
+               not(tabsolutevarsym(tloadnode(hp).symtableentry).absseg) and
+{$endif i386}
+               (tabsolutevarsym(tloadnode(hp).symtableentry).abstyp=toaddr) then
+               begin
+                 if nf_typedaddr in flags then
+                   result:=cpointerconstnode.create(tabsolutevarsym(tloadnode(hp).symtableentry).addroffset,tpointerdef.create(left.resultdef))
+                 else
+                   result:=cpointerconstnode.create(tabsolutevarsym(tloadnode(hp).symtableentry).addroffset,voidpointertype);
+                 exit;
+               end
+              else if (nf_internal in flags) or
                  valid_for_addr(left,true) then
                 begin
                   if not(nf_typedaddr in flags) then
@@ -659,8 +687,8 @@ implementation
          if codegenerror then
           exit;
 
-         { classes must be dereferenced implicitly }
-         if is_class_or_interface_or_dispinterface_or_objc(left.resultdef) then
+         { several object types must be dereferenced implicitly }
+         if is_implicit_pointer_object_type(left.resultdef) then
            expectloc:=LOC_REFERENCE
          else
            begin
@@ -782,6 +810,16 @@ implementation
                inserttypeconv(right,sinttype);
            end;
 
+         { although we never put regular arrays or shortstrings in registers,
+           it's possible that another type was typecasted to a small record
+           that has a field of one of these types -> in that case the record
+           can't be a regvar either }
+         if ((left.resultdef.typ=arraydef) and
+             not is_special_array(left.resultdef)) or
+            ((left.resultdef.typ=stringdef) and
+             (tstringdef(left.resultdef).stringtype in [st_shortstring,st_longstring])) then
+           make_not_regable(left,[ra_addr_regable]);
+
          case left.resultdef.typ of
            arraydef :
              begin
@@ -809,7 +847,7 @@ implementation
                    is_array_of_const(left.resultdef)) and
                   { cdecl functions don't have high() so we can not check the range }
                   { (can't use current_procdef, since it may be a nested procedure) }
-                  not(tprocdef(tparasymtable(tparavarsym(tloadnode(left).symtableentry).owner).defowner).proccalloption in [pocall_cdecl,pocall_cppdecl]) then
+                  not(tprocdef(tparasymtable(tparavarsym(tloadnode(left).symtableentry).owner).defowner).proccalloption in cdecl_pocalls) then
                    begin
                      { load_high_value_node already typechecks }
                      hightree:=load_high_value_node(tparavarsym(tloadnode(left).symtableentry));
@@ -825,7 +863,8 @@ implementation
                  (except voidpointer) in delphi/tp7 it's only allowed for pchars. }
                if not is_voidpointer(left.resultdef) and
                   (
-                   (m_fpc in current_settings.modeswitches) or
+                   (cs_pointermath in current_settings.localswitches) or
+                   tpointerdef(left.resultdef).has_pointer_math or
                    is_pchar(left.resultdef) or
                    is_pwidechar(left.resultdef)
                   ) then
@@ -992,11 +1031,4 @@ implementation
 	  not (nf_typedaddr in p.flags) and (taddrnode(p).left.resultdef.size > 1);
       end;
 
-begin
-  cloadvmtaddrnode := tloadvmtaddrnode;
-  caddrnode := taddrnode;
-  cderefnode := tderefnode;
-  csubscriptnode := tsubscriptnode;
-  cvecnode := tvecnode;
-  cwithnode := twithnode;
 end.

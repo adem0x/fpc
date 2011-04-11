@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLSelectElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLSELECTELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLSelectElement = objcclass;
   DOMHTMLSelectElementPointer = ^DOMHTMLSelectElement;
+  DOMHTMLSelectElementPtr = DOMHTMLSelectElementPointer;
 
 {$endif}
 
@@ -41,27 +40,38 @@
 {$define DOMHTMLSELECTELEMENT_PAS_C}
 
 { DOMHTMLSelectElement }
-  DOMHTMLSelectElement = objcclass(DOMHTMLElement)
+  DOMHTMLSelectElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLSelectElement; message 'alloc';
-
     function type_: NSString; message 'type_';
+    procedure setSelectedIndex (newValue: cint); message 'setSelectedIndex:';
+    function selectedIndex: cint; message 'selectedIndex';
     procedure setValue (newValue: NSString); message 'setValue:';
     function value: NSString; message 'value';
     function length: cint; message 'length';
     function form: DOMHTMLFormElement; message 'form';
+    function willValidate: Boolean; message 'willValidate';
     function options: DOMHTMLOptionsCollection; message 'options';
+    procedure setDisabled (newValue: Boolean); message 'setDisabled:';
+    function disabled: Boolean; message 'disabled';
+    procedure setAutofocus (newValue: Boolean); message 'setAutofocus:';
+    function autofocus: Boolean; message 'autofocus';
+    procedure setMultiple (newValue: Boolean); message 'setMultiple:';
+    function multiple: Boolean; message 'multiple';
     procedure setName (newValue: NSString); message 'setName:';
     function name: NSString; message 'name';
+    procedure setSize (newValue: cint); message 'setSize:';
+    function size: cint; message 'size';
     procedure add_before(element: DOMHTMLElement; before: DOMHTMLElement); message 'add:before:';
     procedure remove(index: cint); message 'remove:';
-    procedure blur; message 'blur';
-    procedure focus; message 'focus';
+    function item(index: cuint): DOMNode; message 'item:';
+    function namedItem(name_: NSString): DOMNode; message 'namedItem:';
+  end;
 
-    { Category: DOMHTMLSelectElementDeprecated }
-    procedure add(element: DOMHTMLElement; before: DOMHTMLElement); message 'add:element:';
-  end; external;
+{ DOMHTMLSelectElementDeprecatedCategory }
+  DOMHTMLSelectElementDeprecatedCategory = objccategory external (DOMHTMLSelectElement)
+    procedure add(element: DOMHTMLElement; before: DOMHTMLElement); message 'add:element:'; deprecated 'in_webkit_version_3 and later';
+  end;
 
 {$endif}
 {$endif}

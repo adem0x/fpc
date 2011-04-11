@@ -7,7 +7,7 @@ main=rtl
 
 [target]
 loaders=$(LOADERS)
-units=system objpas macpas buildrtl lineinfo lnfodwrf
+units=system objpas macpas iso7185 buildrtl lineinfo lnfodwrf
 implicitunits=ctypes strings \
       heaptrc matrix \
       dos crt objects messages \
@@ -17,10 +17,11 @@ implicitunits=ctypes strings \
       varutils variants typinfo fgl classes getopts \
       stdconvs sockets printer charset ucomplex fmtbcd \
       winevent video mouse keyboard \
-      sharemem exeinfo fpintres
+      sharemem exeinfo fpintres windirs \
+      cpu signals
+# mmx
 #      fpcmemdll
 #     winsysut signals
-#     cpu mmx
 #     no cygwin so far
 #	initc
 

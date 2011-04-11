@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSLevelIndicator.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:08 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSLEVELINDICATOR_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSLevelIndicator = objcclass;
   NSLevelIndicatorPointer = ^NSLevelIndicator;
+  NSLevelIndicatorPtr = NSLevelIndicatorPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define NSLEVELINDICATOR_PAS_C}
 
 { NSLevelIndicator }
-  NSLevelIndicator = objcclass(NSControl)
+  NSLevelIndicator = objcclass external (NSControl)
     
   public
-    class function alloc: NSLevelIndicator; message 'alloc';
-
     function minValue: double; message 'minValue';
     procedure setMinValue(minValue_: double); message 'setMinValue:';
     function maxValue: double; message 'maxValue';
@@ -62,7 +59,7 @@
     procedure setNumberOfMajorTickMarks(count: NSInteger); message 'setNumberOfMajorTickMarks:';
     function tickMarkValueAtIndex(index: NSInteger): double; message 'tickMarkValueAtIndex:';
     function rectOfTickMarkAtIndex(index: NSInteger): NSRect; message 'rectOfTickMarkAtIndex:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

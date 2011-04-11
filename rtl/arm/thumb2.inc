@@ -77,12 +77,18 @@ asm
 end;
 {$ENDIF not INTERNAL_BACKTRACE}
 
+{
+ Stack frame on Thumb2:
+  LR    <- FP
+  Old FP
+}
+
 {$define FPC_SYSTEM_HAS_GET_CALLER_ADDR}
 function get_caller_addr(framebp:pointer):pointer;assembler;
 asm
   movs r0,r0
   beq .Lg_a_null
-  ldr r0,[r0,#-4]
+  ldr r0,[r0]
 .Lg_a_null:
 end;
 
@@ -92,7 +98,7 @@ function get_caller_frame(framebp:pointer):pointer;assembler;
 asm
   movs r0,r0
   beq .Lgnf_null
-  ldr r0,[r0,#-12]
+  ldr r0,[r0,#-4]
 .Lgnf_null:
 end;
 
@@ -148,7 +154,7 @@ asm
         moveq pc,lr
         rsb     r1,r1,#7
         mov     r1,r1,lsl #2
-        add     pc,pc,r1
+        add     pc,r1
         mov     r0,r0
         strb r2,[r3],#1
         strb r2,[r3],#1

@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSTextList.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTEXTLIST_PAS_T}
@@ -9,7 +7,7 @@
 { Constants }
 
 const
-  NSTextListPrependEnclosingMarker = 1  shl  0;
+  NSTextListPrependEnclosingMarker = 1 shl 0;
 
 {$endif}
 {$endif}
@@ -38,6 +36,7 @@ const
 {$ifdef FORWARD}
   NSTextList = objcclass;
   NSTextListPointer = ^NSTextList;
+  NSTextListPtr = NSTextListPointer;
 
 {$endif}
 
@@ -46,21 +45,26 @@ const
 {$define NSTEXTLIST_PAS_C}
 
 { NSTextList }
-  NSTextList = objcclass(NSObject, NSCodingProtocol, NSCopyingProtocol)
+  NSTextList = objcclass external (NSObject, NSCodingProtocol, NSCopyingProtocol)
   private
-    __markerFormat: NSString;
-    __listFlags: NSUInteger;
-    __listPrimary: Pointer;
-    __listSecondary: Pointer;
+    _markerFormat: NSString;
+    _listFlags: NSUInteger;
+    _startIndex: NSInteger;
+    _listSecondary: Pointer;
     
   public
-    class function alloc: NSTextList; message 'alloc';
-
     function initWithMarkerFormat_options(format: NSString; mask: NSUInteger): id; message 'initWithMarkerFormat:options:';
     function markerFormat: NSString; message 'markerFormat';
     function listOptions: NSUInteger; message 'listOptions';
     function markerForItemNumber(itemNum: NSInteger): NSString; message 'markerForItemNumber:';
-  end; external;
+    procedure setStartingItemNumber(itemNum: NSInteger); message 'setStartingItemNumber:';
+    function startingItemNumber: NSInteger; message 'startingItemNumber';
+
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+    function copyWithZone(zone_: NSZonePtr): id;
+  end;
 
 {$endif}
 {$endif}

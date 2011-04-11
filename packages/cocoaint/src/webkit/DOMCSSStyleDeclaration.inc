@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSStyleDeclaration.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSSTYLEDECLARATION_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCSSStyleDeclaration = objcclass;
   DOMCSSStyleDeclarationPointer = ^DOMCSSStyleDeclaration;
+  DOMCSSStyleDeclarationPtr = DOMCSSStyleDeclarationPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMCSSSTYLEDECLARATION_PAS_C}
 
 { DOMCSSStyleDeclaration }
-  DOMCSSStyleDeclaration = objcclass(DOMObject)
+  DOMCSSStyleDeclaration = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMCSSStyleDeclaration; message 'alloc';
-
     procedure setCssText (newValue: NSString); message 'setCssText:';
     function cssText: NSString; message 'cssText';
     function length: cuint; message 'length';
@@ -58,10 +55,12 @@
     function item(index: cuint): NSString; message 'item:';
     function getPropertyShorthand(propertyName: NSString): NSString; message 'getPropertyShorthand:';
     function isPropertyImplicit(propertyName: NSString): Boolean; message 'isPropertyImplicit:';
+  end;
 
-    { Category: DOMCSSStyleDeclarationDeprecated }
-    procedure setProperty(propertyName: NSString; value: NSString; priority: NSString); message 'setProperty:propertyName:value:';
-  end; external;
+{ DOMCSSStyleDeclarationDeprecatedCategory }
+  DOMCSSStyleDeclarationDeprecatedCategory = objccategory external (DOMCSSStyleDeclaration)
+    procedure setProperty(propertyName: NSString; value: NSString; priority: NSString); message 'setProperty:propertyName:value:'; deprecated 'in_webkit_version_3 and later';
+  end;
 
 {$endif}
 {$endif}

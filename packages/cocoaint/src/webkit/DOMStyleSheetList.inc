@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMStyleSheetList.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMSTYLESHEETLIST_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMStyleSheetList = objcclass;
   DOMStyleSheetListPointer = ^DOMStyleSheetList;
+  DOMStyleSheetListPtr = DOMStyleSheetListPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMSTYLESHEETLIST_PAS_C}
 
 { DOMStyleSheetList }
-  DOMStyleSheetList = objcclass(DOMObject)
+  DOMStyleSheetList = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMStyleSheetList; message 'alloc';
-
     function length: cuint; message 'length';
     function item(index: cuint): DOMStyleSheet; message 'item:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

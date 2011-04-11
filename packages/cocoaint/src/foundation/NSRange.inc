@@ -1,19 +1,8 @@
 { Parsed from Foundation.framework NSRange.h }
-{ Version 1.0 beta - Wed Mar 18 15:38:12 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSRANGE_PAS_T}
 {$define NSRANGE_PAS_T}
-
-{ Records }
-type
-  NSRange = record
-    location: NSUInteger;
-    length: NSUInteger;
-  end;
-
-NSRangePointer = ^NSRange;
 
 {$endif}
 {$endif}
@@ -22,6 +11,17 @@ NSRangePointer = ^NSRange;
 {$ifndef NSRANGE_PAS_R}
 {$define NSRANGE_PAS_R}
 
+{ Records }
+type
+  _NSRange = record
+    location: NSUInteger;
+    length: NSUInteger;
+  end;
+NSRange = _NSRange;
+NSRangePtr = ^NSRange;
+NSRangePointer = NSRangePtr;
+
+
 {$endif}
 {$endif}
 
@@ -29,9 +29,35 @@ NSRangePointer = ^NSRange;
 {$ifndef NSRANGE_PAS_F}
 {$define NSRANGE_PAS_F}
 
-function NSUnionRange(range1: NSRange; range2: NSRange): NSRange; cdecl; external name 'NSUnionRange';
-function NSIntersectionRange(range1: NSRange; range2: NSRange): NSRange; cdecl; external name 'NSIntersectionRange';
-function NSRangeFromString(var aString: CFStringRef): NSRange; cdecl; external name 'NSRangeFromString';
+{ Functions }
+function NSUnionRange(range1: NSRange; range2: NSRange): NSRange; cdecl; external;
+function NSIntersectionRange(range1: NSRange; range2: NSRange): NSRange; cdecl; external;
+function NSStringFromRange(range: NSRange): NSString; cdecl; external;
+function NSRangeFromString(aString: NSString): NSRange; cdecl; external;
+
+{$endif}
+{$endif}
+
+{$ifdef EXTERNAL_SYMBOLS}
+{$ifndef NSRANGE_PAS_S}
+{$define NSRANGE_PAS_S}
+
+{$endif}
+{$endif}
+
+{$ifdef FORWARD}
+
+{$endif}
+
+{$ifdef CLASSES}
+{$ifndef NSRANGE_PAS_C}
+{$define NSRANGE_PAS_C}
+
+{ NSValueRangeExtensionsCategory }
+  NSValueRangeExtensionsCategory = objccategory external (NSValue)
+    class function valueWithRange(range: NSRange): NSValue; message 'valueWithRange:';
+    function rangeValue: NSRange; message 'rangeValue';
+  end;
 
 {$endif}
 {$endif}

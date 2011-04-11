@@ -45,14 +45,13 @@ end;
     Basic variant handling.
   ---------------------------------------------------------------------}
 
-function VariantInit(var Varg: TVarData): HRESULT;stdcall;
+procedure VariantInit(var Varg: TVarData); stdcall;
 begin
   With Varg do
     begin
       FillChar(VBytes, SizeOf(VBytes), 0);
       VType:=varEmpty;
     end;
-  Result:=VAR_OK;
 end;
 
 function VariantClear(var Varg: TVarData): HRESULT;stdcall;
@@ -84,7 +83,8 @@ begin
           exit(VAR_BADVARTYPE)
         end;
     end;
-  Result:=VariantInit(Varg);
+  VariantInit(Varg);
+  Result:=VAR_OK;
 end;
 
 function VariantCopy(var VargDest: TVarData; const VargSrc: TVarData): HRESULT;stdcall;
@@ -156,7 +156,7 @@ begin
       varVariant  : Variant(VargDest):=Variant(PVarData(VPointer)^);
       varOleStr   : CopyAsWideString(VargDest.VOleStr,PVarData(VPointer)^.VoleStr);
       varDispatch,
-      varUnknown  : NoInterfaces;
+      varUnknown  : IInterface(VargDest.vUnknown):=IInterface(PInterface(VargSrc.VPointer)^);
       else
         Exit(VAR_BADVARTYPE);
       end;
@@ -737,9 +737,11 @@ begin
       vatNormal:
         Move(P^, Data^, psa^.ElementSize);
       vatInterface:
-        NoInterfaces; // Just assign...
+        IInterface(PInterface(Data)^) := IInterface(PInterface(P)^);
       vatWideString:
         CopyAsWideString(PWideChar(Data^), PWideChar(P^));
+      vatVariant:
+        VariantCopy(PVarData(Data)^, PVarData(P)^);
     end;
   except
     On E : Exception do
@@ -762,9 +764,11 @@ begin
       vatNormal:
         Move(Data^,P^,psa^.ElementSize);
       vatInterface:
-        NoInterfaces;
+        IInterface(PInterface(P)^):=IInterface(Data);
       vatWideString:
         CopyAsWideString(PWideChar(P^), PWideChar(Data));
+      vatVariant:
+        VariantCopy(PVarData(P)^, PVarData(Data)^);    // !! Untested
     end;
   except
     On E : Exception do

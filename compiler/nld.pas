@@ -37,8 +37,8 @@ interface
 
        tloadnode = class(tunarynode)
        protected
-          procdef : tprocdef;
-          procdefderef : tderef;
+          fprocdef : tprocdef;
+          fprocdefderef : tderef;
        public
           symtableentry : tsym;
           symtableentryderef : tderef;
@@ -58,6 +58,7 @@ interface
           function  docompare(p: tnode): boolean; override;
           procedure printnodedata(var t:text);override;
           procedure setprocdef(p : tprocdef);
+          property procdef: tprocdef read fprocdef write setprocdef;
        end;
        tloadnodeclass = class of tloadnode;
 
@@ -72,7 +73,7 @@ interface
           function dogetcopy : tnode;override;
           function pass_1 : tnode;override;
           function pass_typecheck:tnode;override;
-          function simplify : tnode;override;
+          function simplify(forinline : boolean) : tnode;override;
        {$ifdef state_tracking}
           function track_state_pass(exec_known:boolean):boolean;override;
        {$endif state_tracking}
@@ -133,12 +134,12 @@ interface
        trttinodeclass = class of trttinode;
 
     var
-       cloadnode : tloadnodeclass;
-       cassignmentnode : tassignmentnodeclass;
-       carrayconstructorrangenode : tarrayconstructorrangenodeclass;
-       carrayconstructornode : tarrayconstructornodeclass;
-       ctypenode : ttypenodeclass;
-       crttinode : trttinodeclass;
+       cloadnode : tloadnodeclass = tloadnode;
+       cassignmentnode : tassignmentnodeclass = tassignmentnode;
+       carrayconstructorrangenode : tarrayconstructorrangenodeclass = tarrayconstructorrangenode;
+       carrayconstructornode : tarrayconstructornodeclass = tarrayconstructornode;
+       ctypenode : ttypenodeclass = ttypenode;
+       crttinode : trttinodeclass = trttinode;
 
        { Current assignment node }
        aktassignmentnode : tassignmentnode;
@@ -167,7 +168,7 @@ implementation
           internalerror(200108121);
          symtableentry:=v;
          symtable:=st;
-         procdef:=nil;
+         fprocdef:=nil;
       end;
 
 
@@ -178,7 +179,7 @@ implementation
           internalerror(200108122);
          symtableentry:=v;
          symtable:=st;
-         procdef:=d;
+         fprocdef:=d;
       end;
 
 
@@ -187,7 +188,7 @@ implementation
         inherited ppuload(t,ppufile);
         ppufile.getderef(symtableentryderef);
         symtable:=nil;
-        ppufile.getderef(procdefderef);
+        ppufile.getderef(fprocdefderef);
       end;
 
 
@@ -195,7 +196,7 @@ implementation
       begin
         inherited ppuwrite(ppufile);
         ppufile.putderef(symtableentryderef);
-        ppufile.putderef(procdefderef);
+        ppufile.putderef(fprocdefderef);
       end;
 
 
@@ -203,7 +204,7 @@ implementation
       begin
         inherited buildderefimpl;
         symtableentryderef.build(symtableentry);
-        procdefderef.build(procdef);
+        fprocdefderef.build(fprocdef);
       end;
 
 
@@ -212,7 +213,7 @@ implementation
         inherited derefimpl;
         symtableentry:=tsym(symtableentryderef.resolve);
         symtable:=symtableentry.owner;
-        procdef:=tprocdef(procdefderef.resolve);
+        fprocdef:=tprocdef(fprocdefderef.resolve);
       end;
 
 
@@ -233,7 +234,7 @@ implementation
          n:=tloadnode(inherited dogetcopy);
          n.symtable:=symtable;
          n.symtableentry:=symtableentry;
-         n.procdef:=procdef;
+         n.fprocdef:=fprocdef;
          result:=n;
       end;
 
@@ -300,17 +301,17 @@ implementation
                  definition }
                if vo_is_self in tabstractvarsym(symtableentry).varoptions then
                  begin
-                   resultdef:=tprocdef(symtableentry.owner.defowner)._class;
+                   resultdef:=tprocdef(symtableentry.owner.defowner).struct;
                    if (po_classmethod in tprocdef(symtableentry.owner.defowner).procoptions) or
                       (po_staticmethod in tprocdef(symtableentry.owner.defowner).procoptions) then
                      resultdef:=tclassrefdef.create(resultdef)
-                   else if is_object(resultdef) and
+                   else if (is_object(resultdef) or is_record(resultdef)) and
                            (nf_load_self_pointer in flags) then
                      resultdef:=tpointerdef.create(resultdef);
                  end
                else if vo_is_vmt in tabstractvarsym(symtableentry).varoptions then
                  begin
-                   resultdef:=tprocdef(symtableentry.owner.defowner)._class;
+                   resultdef:=tprocdef(symtableentry.owner.defowner).struct;
                    resultdef:=tclassrefdef.create(resultdef);
                  end
                else
@@ -322,17 +323,17 @@ implementation
                  procdefs the matching procdef will be choosen
                  when the expected procvardef is known, see get_information
                  in htypechk.pas (PFV) }
-               if not assigned(procdef) then
-                 procdef:=tprocdef(tprocsym(symtableentry).ProcdefList[0])
-               else if po_kylixlocal in procdef.procoptions then
+               if not assigned(fprocdef) then
+                 fprocdef:=tprocdef(tprocsym(symtableentry).ProcdefList[0])
+               else if po_kylixlocal in fprocdef.procoptions then
                  CGMessage(type_e_cant_take_address_of_local_subroutine);
 
-               { the result is a procdef, addrn and proc_to_procvar
+               { the result is a fprocdef, addrn and proc_to_procvar
                  typeconvn need this as resultdef so they know
                  that the address needs to be returned }
-               resultdef:=procdef;
+               resultdef:=fprocdef;
 
-               { process methodpointer }
+               { process methodpointer/framepointer }
                if assigned(left) then
                  typecheckpass(left);
              end;
@@ -390,7 +391,10 @@ implementation
               end;
             procsym :
                 begin
-                   { method pointer ? }
+                   { initialise left for nested procs if necessary }
+                   if (m_nested_procvars in current_settings.modeswitches) then
+                     setprocdef(fprocdef);
+                   { method pointer or nested proc ? }
                    if assigned(left) then
                      begin
                         expectloc:=LOC_CREFERENCE;
@@ -410,7 +414,7 @@ implementation
         docompare :=
           inherited docompare(p) and
           (symtableentry = tloadnode(p).symtableentry) and
-          (procdef = tloadnode(p).procdef) and
+          (fprocdef = tloadnode(p).fprocdef) and
           (symtable = tloadnode(p).symtable);
       end;
 
@@ -420,17 +424,32 @@ implementation
         inherited printnodedata(t);
         write(t,printnodeindention,'symbol = ',symtableentry.name);
         if symtableentry.typ=procsym then
-          write(t,printnodeindention,'procdef = ',procdef.mangledname);
+          write(t,printnodeindention,'procdef = ',fprocdef.mangledname);
         writeln(t,'');
       end;
 
 
     procedure tloadnode.setprocdef(p : tprocdef);
       begin
-        procdef:=p;
+        fprocdef:=p;
         resultdef:=p;
-        if po_local in p.procoptions then
-          CGMessage(type_e_cant_take_address_of_local_subroutine);
+        { nested procedure? }
+        if assigned(p) and
+           is_nested_pd(p) then
+          begin
+            if not(m_nested_procvars in current_settings.modeswitches) then
+              CGMessage(type_e_cant_take_address_of_local_subroutine)
+            else
+              begin
+                { parent frame pointer pointer as "self" }
+                left.free;
+                left:=cloadparentfpnode.create(tprocdef(p.owner.defowner));
+              end;
+          end
+        { we should never go from nested to non-nested }
+        else if assigned(left) and
+                (left.nodetype=loadparentfpn) then
+          internalerror(2010072201);
       end;
 
 {*****************************************************************************
@@ -474,7 +493,7 @@ implementation
       end;
 
 
-    function tassignmentnode.simplify : tnode;
+    function tassignmentnode.simplify(forinline : boolean) : tnode;
       begin
         result:=nil;
         { assignment nodes can perform several floating point }
@@ -607,7 +626,7 @@ implementation
           end;
 
         { call helpers for interface }
-        if is_interfacecom(left.resultdef) then
+        if is_interfacecom_or_dispinterface(left.resultdef) then
          begin
 	   { Normal interface assignments are handled by the generic refcount incr/decr }
            if not right.resultdef.is_related(left.resultdef) then
@@ -648,7 +667,7 @@ implementation
 
          { Optimize the reuse of the destination of the assingment in left.
            Allow the use of the left inside the tree generated on the right.
-           This is especially usefull for string routines where the destination
+           This is especially useful for string routines where the destination
            is pushed as a parameter. Using the final destination of left directly
            save a temp allocation and copy of data (PFV) }
          oldassignmentnode:=aktassignmentnode;
@@ -676,6 +695,9 @@ implementation
               if (right.nodetype<>stringconstn) or
                  (tstringconstnode(right).len<>0) then
                begin
+                 { remove property flag to avoid errors, see comments for }
+                 { tf_winlikewidestring assignments below                 }
+                 exclude(left.flags, nf_isproperty);
                  hp:=ccallparanode.create
                        (right,
                   ccallparanode.create(left,nil));
@@ -690,7 +712,7 @@ implementation
         { call helpers for composite types containing automated types }
         else if is_managed_type(left.resultdef) and
             (left.resultdef.typ in [arraydef,objectdef,recorddef]) and
-            not is_interfacecom(left.resultdef) and
+            not is_interfacecom_or_dispinterface(left.resultdef) and
             not is_dynamic_array(left.resultdef) then
          begin
            hp:=ccallparanode.create(caddrnode.create_internal(
@@ -1165,12 +1187,4 @@ implementation
           (rttitype = trttinode(p).rttitype);
       end;
 
-
-begin
-   cloadnode:=tloadnode;
-   cassignmentnode:=tassignmentnode;
-   carrayconstructorrangenode:=tarrayconstructorrangenode;
-   carrayconstructornode:=tarrayconstructornode;
-   ctypenode:=ttypenode;
-   crttinode:=trttinode;
 end.

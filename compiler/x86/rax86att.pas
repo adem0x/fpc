@@ -176,6 +176,12 @@ Implementation
                  ((oper.opr.typ=OPR_LOCAL) and (oper.opr.localsym.localloc.loc<>LOC_REGISTER)) then
                 message(asmr_e_cannot_index_relative_var);
               oper.opr.ref.base:=actasmregister;
+{$ifdef x86_64}
+              { non-GOT based RIP-relative accesses are also position-independent }
+              if (oper.opr.ref.base=NR_RIP) and
+                 (oper.opr.ref.refaddr<>addr_pic) then
+                oper.opr.ref.refaddr:=addr_pic_no_got;
+{$endif x86_64}
               Consume(AS_REGISTER);
               { can either be a register or a right parenthesis }
               { (reg)        }
@@ -272,7 +278,7 @@ Implementation
             begin
               { darwin/i386 needs a relsym instead, and we can't }
               { generate this automatically                      }
-              if (target_info.system=system_i386_darwin) then
+              if (target_info.system in [system_i386_darwin,system_i386_iphonesim]) then
                 Message(asmr_e_invalid_reference_syntax);
               consume(AS_AT);
               if actasmtoken=AS_ID then
@@ -286,6 +292,15 @@ Implementation
 {$endif i386}
                     begin
                       oper.opr.ref.refaddr:=addr_pic;
+{$ifdef x86_64}
+                      { local symbols don't have to 
+                        be accessed via the GOT
+                      }
+                      if (actasmpattern='GOTPCREL') and
+                         assigned(oper.opr.ref.symbol) and
+                         (oper.opr.ref.symbol.bind=AB_LOCAL) then
+			Message(asmr_w_useless_got_for_local);
+{$endif x86_64}
                       consume(AS_ID);
                     end
                   else

@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSTextFieldCell.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTEXTFIELDCELL_PAS_T}
@@ -15,6 +13,7 @@ const
 { Types }
 type
   NSTextFieldBezelStyle = NSUInteger;
+  NSTextFieldBezelStylePtr = ^NSTextFieldBezelStyle;
 
 {$endif}
 {$endif}
@@ -43,6 +42,7 @@ type
 {$ifdef FORWARD}
   NSTextFieldCell = objcclass;
   NSTextFieldCellPointer = ^NSTextFieldCell;
+  NSTextFieldCellPtr = NSTextFieldCellPointer;
 
 {$endif}
 
@@ -51,13 +51,16 @@ type
 {$define NSTEXTFIELDCELL_PAS_C}
 
 { NSTextFieldCell }
-  NSTextFieldCell = objcclass(NSActionCell)
+  NSTextFieldCell = objcclass external (NSActionCell)
   private
-    __backgroundColor: NSColor;
-    __textColor: NSColor;
+    _backgroundColor: NSColor;
+    _textColor: NSColor;
     __tfFlags: bitpacked record
-        drawsBackground: 0..1;
-        bezelStyle: 0..((1 shl 3)-1);
+      case byte of
+       0: (_anonbitfield_NSTextFieldCell0: cuint);
+       1: (
+        _drawsBackground: 0..1;
+        _bezelStyle: 0..((1 shl 3)-1);
         thcSortDirection: 0..((1 shl 2)-1);
         thcSortPriority: 0..((1 shl 4)-1);
         mini: 0..1;
@@ -67,11 +70,10 @@ type
         invalidTextColor: 0..1;
         notificationForMarkedText: 0..1;
         reservedTextFieldCell: 0..((1 shl 16)-1);
+      );
       end;
     
   public
-    class function alloc: NSTextFieldCell; message 'alloc';
-
     procedure setBackgroundColor(color: NSColor); message 'setBackgroundColor:';
     function backgroundColor: NSColor; message 'backgroundColor';
     procedure setDrawsBackground(flag: Boolean); message 'setDrawsBackground:';
@@ -88,7 +90,7 @@ type
     procedure setWantsNotificationForMarkedText(flag: Boolean); message 'setWantsNotificationForMarkedText:';
     function allowedInputSourceLocales: NSArray; message 'allowedInputSourceLocales';
     procedure setAllowedInputSourceLocales(localeIdentifiers: NSArray); message 'setAllowedInputSourceLocales:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

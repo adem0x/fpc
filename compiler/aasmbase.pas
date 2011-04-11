@@ -21,7 +21,7 @@
 }
 { @abstract(This unit implements an abstract asm output class for all processor types)
   This unit implements an abstract assembler output class for all processors, these
-  are then overriden for each assembler writer to actually write the data in these
+  are then overridden for each assembler writer to actually write the data in these
   classes to an assembler file.
 }
 
@@ -40,7 +40,7 @@ interface
        TAsmsymbind=(
          AB_NONE,AB_EXTERNAL,AB_COMMON,AB_LOCAL,AB_GLOBAL,AB_WEAK_EXTERNAL,
          { global in the current program/library, but not visible outside it }
-         AB_PRIVATE_EXTERN,AB_LAZY);
+         AB_PRIVATE_EXTERN,AB_LAZY,AB_IMPORT);
 
        TAsmsymtype=(
          AT_NONE,AT_FUNCTION,AT_DATA,AT_SECTION,AT_LABEL,
@@ -61,6 +61,8 @@ interface
 
     type
        TAsmSectiontype=(sec_none,
+         { this section type allows to define a user named section }
+         sec_user,
          sec_code,
          sec_data,
          { read-only, but may contain relocations }

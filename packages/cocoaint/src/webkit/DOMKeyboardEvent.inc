@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMKeyboardEvent.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMKEYBOARDEVENT_PAS_T}
@@ -41,6 +39,7 @@ const
 {$ifdef FORWARD}
   DOMKeyboardEvent = objcclass;
   DOMKeyboardEventPointer = ^DOMKeyboardEvent;
+  DOMKeyboardEventPtr = DOMKeyboardEventPointer;
 
 {$endif}
 
@@ -49,21 +48,22 @@ const
 {$define DOMKEYBOARDEVENT_PAS_C}
 
 { DOMKeyboardEvent }
-  DOMKeyboardEvent = objcclass(DOMUIEvent)
+  DOMKeyboardEvent = objcclass external (DOMUIEvent)
     
   public
-    class function alloc: DOMKeyboardEvent; message 'alloc';
-
     function keyIdentifier: NSString; message 'keyIdentifier';
     function keyLocation: cuint; message 'keyLocation';
     function ctrlKey: Boolean; message 'ctrlKey';
     function shiftKey: Boolean; message 'shiftKey';
     function altKey: Boolean; message 'altKey';
     function metaKey: Boolean; message 'metaKey';
+    function altGraphKey: Boolean; message 'altGraphKey';
     function keyCode: cint; message 'keyCode';
     function charCode: cint; message 'charCode';
     function getModifierState(keyIdentifierArg: NSString): Boolean; message 'getModifierState:';
-  end; external;
+    procedure initKeyboardEvent_canBubble_cancelable_view_keyIdentifier_keyLocation_ctrlKey_altKey_shiftKey_metaKey_altGraphKey(type__: NSString; canBubble: Boolean; cancelable_: Boolean; view_: DOMAbstractView; keyIdentifier_: NSString; keyLocation_: cuint; ctrlKey_: Boolean; altKey_: Boolean; shiftKey_: Boolean; metaKey_: Boolean; altGraphKey_: Boolean); message 'initKeyboardEvent:canBubble:cancelable:view:keyIdentifier:keyLocation:ctrlKey:altKey:shiftKey:metaKey:altGraphKey:';
+    procedure initKeyboardEvent_canBubble_cancelable_view_keyIdentifier_keyLocation_ctrlKey_altKey_shiftKey_metaKey(type__: NSString; canBubble: Boolean; cancelable_: Boolean; view_: DOMAbstractView; keyIdentifier_: NSString; keyLocation_: cuint; ctrlKey_: Boolean; altKey_: Boolean; shiftKey_: Boolean; metaKey_: Boolean); message 'initKeyboardEvent:canBubble:cancelable:view:keyIdentifier:keyLocation:ctrlKey:altKey:shiftKey:metaKey:';
+  end;
 
 {$endif}
 {$endif}

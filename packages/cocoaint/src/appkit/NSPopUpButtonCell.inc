@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSPopUpButtonCell.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPOPUPBUTTONCELL_PAS_T}
@@ -16,6 +14,7 @@ const
 { Types }
 type
   NSPopUpArrowPosition = NSUInteger;
+  NSPopUpArrowPositionPtr = ^NSPopUpArrowPosition;
 
 {$endif}
 {$endif}
@@ -40,7 +39,7 @@ type
 
 { External string constants }
 var
-  NSPopUpButtonCellWillPopUpNotification: NSString; external name '_NSPopUpButtonCellWillPopUpNotification';
+  NSPopUpButtonCellWillPopUpNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -48,6 +47,7 @@ var
 {$ifdef FORWARD}
   NSPopUpButtonCell = objcclass;
   NSPopUpButtonCellPointer = ^NSPopUpButtonCell;
+  NSPopUpButtonCellPtr = NSPopUpButtonCellPointer;
 
 {$endif}
 
@@ -56,29 +56,32 @@ var
 {$define NSPOPUPBUTTONCELL_PAS_C}
 
 { NSPopUpButtonCell }
-  NSPopUpButtonCell = objcclass(NSMenuItemCell)
+  NSPopUpButtonCell = objcclass external (NSMenuItemCell)
   private
-    __menu: NSMenu;
-    __selectedIndex: cint;
+    _menu: NSMenu;
+    _selectedIndex: cint;
     __pbcFlags: bitpacked record
-        pullsDown: 0..1;
-        preferredEdge: 0..((1 shl 3)-1);
+      case byte of
+       0: (_anonbitfield_NSPopUpButtonCell0: cuint);
+       1: (
+        _pullsDown: 0..1;
+        _preferredEdge: 0..((1 shl 3)-1);
         menuIsAttached: 0..1;
-        usesItemFromMenu: 0..1;
-        altersStateOfSelectedItem: 0..1;
+        _usesItemFromMenu: 0..1;
+        _altersStateOfSelectedItem: 0..1;
         decoding: 0..1;
-        arrowPosition: 0..((1 shl 2)-1);
+        _arrowPosition: 0..((1 shl 2)-1);
         ignoreMenuLayout: 0..1;
         drawing: 0..1;
-        RESERVED: 0..((1 shl 20)-1);
+        menuShouldBeUniquedAgainstMain: 0..1;
+        RESERVED: 0..((1 shl 19)-1);
+      );
       end;
     {$ifdef cpu64}
-    __popupReserved: id;
+    _popupReserved: id;
     {$endif}
     
   public
-    class function alloc: NSPopUpButtonCell; message 'alloc';
-
     function initTextCell_pullsDown(stringValue_: NSString; pullDown: Boolean): id; message 'initTextCell:pullsDown:';
     procedure setMenu(menu_: NSMenu); message 'setMenu:';
     function menu: NSMenu; message 'menu';
@@ -126,7 +129,7 @@ var
     procedure setArrowPosition(position: NSPopUpArrowPosition); message 'setArrowPosition:';
     function objectValue: id; message 'objectValue';
     procedure setObjectValue(obj: id); message 'setObjectValue:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

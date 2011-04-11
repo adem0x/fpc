@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSEPSImageRep.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSEPSIMAGEREP_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSEPSImageRep = objcclass;
   NSEPSImageRepPointer = ^NSEPSImageRep;
+  NSEPSImageRepPtr = NSEPSImageRepPointer;
 
 {$endif}
 
@@ -41,21 +40,19 @@
 {$define NSEPSIMAGEREP_PAS_C}
 
 { NSEPSImageRep }
-  NSEPSImageRep = objcclass(NSImageRep)
+  NSEPSImageRep = objcclass external (NSImageRep)
   private
-    __bBoxOrigin: NSPoint;
-    __epsData: NSData;
-    __pdfImageRep: NSPDFImageRep;
+    _bBoxOrigin: NSPoint;
+    _epsData: NSData;
+    _pdfImageRep: NSPDFImageRep;
     
   public
-    class function alloc: NSEPSImageRep; message 'alloc';
-
     class function imageRepWithData(epsData: NSData): id; message 'imageRepWithData:';
     function initWithData(epsData: NSData): id; message 'initWithData:';
     procedure prepareGState; message 'prepareGState';
     function EPSRepresentation: NSData; message 'EPSRepresentation';
     function boundingBox: NSRect; message 'boundingBox';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

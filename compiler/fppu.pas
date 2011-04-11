@@ -71,6 +71,7 @@ interface
            avoid endless resolving loops in case of cyclic dependencies. }
           defsgeneration : longint;
 
+          function  search_unit_files(onlysource:boolean):boolean;
           function  search_unit(onlysource,shortname:boolean):boolean;
           procedure load_interface;
           procedure load_implementation;
@@ -259,6 +260,21 @@ var
       end;
 
 
+    function tppumodule.search_unit_files(onlysource:boolean):boolean;
+      var
+        found : boolean;
+      begin
+        found:=false;
+        if search_unit(onlysource,false) then
+          found:=true;
+        if (not found) and
+           (length(modulename^)>8) and
+           search_unit(onlysource,true) then
+          found:=true;
+        search_unit_files:=found;
+      end;
+
+
     function tppumodule.search_unit(onlysource,shortname:boolean):boolean;
       var
          singlepathstring,
@@ -306,7 +322,9 @@ var
               { Check for .pas }
               Found:=UnitExists(pasext,hs);
             end;
-           if not Found and (m_mac in current_settings.modeswitches) then
+           if not Found and
+              ((m_mac in current_settings.modeswitches) or
+               (tf_p_ext_support in target_info.flags)) then
             begin
               { Check for .p, if mode is macpas}
               Found:=UnitExists(pext,hs);
@@ -393,7 +411,9 @@ var
                  Message1(unit_t_unitsearch,ChangeFileExt(sourcefn^,pasext));
                fnd:=FindFile(ChangeFileExt(sourcefn^,pasext),'',true,hs);
              end;
-            if not fnd and ((m_mac in current_settings.modeswitches) or (tf_p_ext_support in target_info.flags)) then
+            if not fnd and
+               ((m_mac in current_settings.modeswitches) or
+                (tf_p_ext_support in target_info.flags)) then
              begin
                if CheckVerbosity(V_Tried) then
                  Message1(unit_t_unitsearch,ChangeFileExt(sourcefn^,pext));
@@ -417,18 +437,6 @@ var
            fnd:=SearchPathList(loaded_from.LocalUnitSearchPath);
          if not fnd then
            fnd:=SearchPathList(UnitSearchPath);
-
-         { try to find a file with the first 8 chars of the modulename, like
-           dos }
-         if (not fnd) and (length(filename)>8) then
-          begin
-            filename:=copy(filename,1,8);
-            fnd:=SearchPath('.');
-            if (not fnd) then
-             fnd:=SearchPathList(LocalUnitSearchPath);
-            if not fnd then
-             fnd:=SearchPathList(UnitSearchPath);
-          end;
          search_unit:=fnd;
       end;
 
@@ -1079,7 +1087,7 @@ var
          writeusedunit(true);
 
          { write the objectfiles and libraries that come for this unit,
-           preserve the containers becuase they are still needed to load
+           preserve the containers because they are still needed to load
            the link.res.
             All doesn't depend on the crc! It doesn't matter
            if a unit is in a .o or .a file }
@@ -1161,7 +1169,7 @@ var
          { write whole program optimisation-related information }
          tunitwpoinfo(wpoinfo).ppuwrite(ppufile);
 
-         { the last entry ibend is written automaticly }
+         { the last entry ibend is written automatically }
 
          { flush to be sure }
          ppufile.flush;
@@ -1575,7 +1583,7 @@ var
            if not do_compile then
             begin
               Message1(unit_u_loading_unit,modulename^);
-              search_unit(false,false);
+              search_unit_files(false);
               if not do_compile then
                begin
                  load_interface;
@@ -1602,9 +1610,7 @@ var
               { recompile the unit or give a fatal error if sources not available }
               if not(sources_avail) then
                begin
-                 if (not search_unit(true,false)) and
-                    (length(modulename^)>8) then
-                   search_unit(true,true);
+                 search_unit_files(true);
                  if not(sources_avail) then
                   begin
                     printcomments;

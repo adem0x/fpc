@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSPredicateEditor.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:08 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPREDICATEEDITOR_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSPredicateEditor = objcclass;
   NSPredicateEditorPointer = ^NSPredicateEditor;
+  NSPredicateEditorPtr = NSPredicateEditorPointer;
 
 {$endif}
 
@@ -41,25 +40,27 @@
 {$define NSPREDICATEEDITOR_PAS_C}
 
 { NSPredicateEditor }
-  NSPredicateEditor = objcclass(NSRuleEditor)
+  NSPredicateEditor = objcclass external (NSRuleEditor)
   private
-    __allTemplates: id;
-    __rootItems: NSArray;
-    __rootHeaderItems: NSArray;
-    __predicateTarget: id;
-    __predicateAction: SEL;
+    _allTemplates: id;
+    _rootTrees: NSArray;
+    _rootHeaderTrees: NSArray;
+    _predicateTarget: id;
+    _predicateAction: SEL;
     __peFlags: bitpacked record
-        settingValue: 0..1;
-        reserved: 0..((1 shl 31)-1);
+      case byte of
+       0: (_anonbitfield_NSPredicateEditor0: cuint);
+       1: (
+        suppressAction: 0..((1 shl 4)-1);
+        reserved: 0..((1 shl 28)-1);
+      );
       end;
         _predicateEditorReserved: array[0..2] of id;
     
   public
-    class function alloc: NSPredicateEditor; message 'alloc';
-
     procedure setRowTemplates(rowTemplates_: NSArray); message 'setRowTemplates:';
     function rowTemplates: NSArray; message 'rowTemplates';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

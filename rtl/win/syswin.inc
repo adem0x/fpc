@@ -34,7 +34,6 @@ function Dll_entry{$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}(const info : TEntry
      case DLLreason of
        DLL_PROCESS_ATTACH :
          begin
-           WinInitCriticalSection(AttachingThread);
            MainThreadIdWin32 := Win32GetCurrentThreadId;
 
            If SetJmp(DLLBuf) = 0 then
@@ -51,9 +50,6 @@ function Dll_entry{$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}(const info : TEntry
          end;
        DLL_THREAD_ATTACH :
          begin
-           inclocked(Thread_count);
-
-           WinEnterCriticalSection(AttachingThread);
            if Win32GetCurrentThreadId <> MainThreadIdWin32 then
            begin
              { Allocate Threadvars  }
@@ -67,11 +63,9 @@ function Dll_entry{$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}(const info : TEntry
            if assigned(Dll_Thread_Attach_Hook) then
              Dll_Thread_Attach_Hook(DllParam);
            Dll_entry:=true; { return value is ignored }
-           WinLeaveCriticalSection(AttachingThread);
         end;
        DLL_THREAD_DETACH :
          begin
-           declocked(Thread_count);
            if assigned(Dll_Thread_Detach_Hook) then
              Dll_Thread_Detach_Hook(DllParam);
            { Release Threadvars }
@@ -82,6 +76,8 @@ function Dll_entry{$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}(const info : TEntry
        DLL_PROCESS_DETACH :
          begin
            Dll_entry:=true; { return value is ignored }
+		   if MainThreadIDWin32=0 then // already been here.
+		     exit;
            If SetJmp(DLLBuf) = 0 then
              FPC_Do_Exit;
            if assigned(Dll_Process_Detach_Hook) then
@@ -90,7 +86,7 @@ function Dll_entry{$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}(const info : TEntry
            DoneThread;
            { Free TLS resources used by ThreadVars }
            SysFiniMultiThreading;
-           WinDoneCriticalSection(AttachingThread);
+		   MainThreadIDWin32:=0;
          end;
      end;
   end;
@@ -382,8 +378,11 @@ procedure InitWin32Widestrings;
       end;
 {$endif}
 
+    { Note: since WideChar=UnicodeChar and PWideChar=PUnicodeChar,
+      Wide2AnsiMoveProc is identical to Unicode2AnsiStrMoveProc. }
+
     { Widestring }
-    widestringmanager.Wide2AnsiMoveProc:=@Win32Wide2AnsiMove;
+    widestringmanager.Wide2AnsiMoveProc:=@Win32Unicode2AnsiMove;
     widestringmanager.Ansi2WideMoveProc:=@Win32Ansi2WideMove;
     widestringmanager.UpperWideStringProc:=@Win32WideUpper;
     widestringmanager.LowerWideStringProc:=@Win32WideLower;

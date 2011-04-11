@@ -29,7 +29,6 @@ interface
     procedure proc_package;
     procedure proc_program(islibrary : boolean);
 
-
 implementation
 
     uses
@@ -47,13 +46,8 @@ implementation
        pexports,
        objcgutl,
        wpobase,
-       scanner,pbase,pexpr,psystem,psub,pdecsub,ptype
-       ,cpuinfo
-{$ifdef i386}
-       { fix me! }
-       ,cpubase
-{$endif i386}
-       ;
+       scanner,pbase,pexpr,psystem,psub,pdecsub,ptype,
+       cpuinfo;
 
 
     procedure create_objectfile;
@@ -376,13 +370,13 @@ implementation
         ResourceStringTables.free;
       end;
 
-    procedure AddToClasInits(p:TObject;arg:pointer);
+    procedure AddToStructInits(p:TObject;arg:pointer);
       var
-        ClassList: TFPList absolute arg;
+        StructList: TFPList absolute arg;
       begin
-        if (tdef(p).typ=objectdef) and
-           ([oo_has_class_constructor,oo_has_class_destructor] * tobjectdef(p).objectoptions <> []) then
-          ClassList.Add(p);
+        if (tdef(p).typ in [objectdef,recorddef]) and
+           ([oo_has_class_constructor,oo_has_class_destructor] * tabstractrecorddef(p).objectoptions <> []) then
+          StructList.Add(p);
       end;
 
     procedure InsertInitFinalTable;
@@ -391,32 +385,32 @@ implementation
         unitinits : TAsmList;
         count : longint;
 
-        procedure write_class_inits(u: tmodule);
+        procedure write_struct_inits(u: tmodule);
           var
             i: integer;
-            classlist: TFPList;
+            structlist: TFPList;
             pd: tprocdef;
           begin
-            classlist := TFPList.Create;
+            structlist := TFPList.Create;
             if assigned(u.globalsymtable) then
-              u.globalsymtable.DefList.ForEachCall(@AddToClasInits,classlist);
-            u.localsymtable.DefList.ForEachCall(@AddToClasInits,classlist);
-            { write classes }
-            for i := 0 to classlist.Count - 1 do
+              u.globalsymtable.DefList.ForEachCall(@AddToStructInits,structlist);
+            u.localsymtable.DefList.ForEachCall(@AddToStructInits,structlist);
+            { write structures }
+            for i := 0 to structlist.Count - 1 do
             begin
-              pd := tobjectdef(classlist[i]).find_procdef_bytype(potype_class_constructor);
+              pd := tabstractrecorddef(structlist[i]).find_procdef_bytype(potype_class_constructor);
               if assigned(pd) then
                 unitinits.concat(Tai_const.Createname(pd.mangledname,0))
               else
                 unitinits.concat(Tai_const.Create_pint(0));
-              pd := tobjectdef(classlist[i]).find_procdef_bytype(potype_class_destructor);
+              pd := tabstractrecorddef(structlist[i]).find_procdef_bytype(potype_class_destructor);
               if assigned(pd) then
                 unitinits.concat(Tai_const.Createname(pd.mangledname,0))
               else
                 unitinits.concat(Tai_const.Create_pint(0));
               inc(count);
             end;
-            classlist.free;
+            structlist.free;
           end;
 
       begin
@@ -427,7 +421,7 @@ implementation
          begin
            { insert class constructors/destructors of the unit }
            if (hp.u.flags and uf_classinits) <> 0 then
-             write_class_inits(hp.u);
+             write_struct_inits(hp.u);
            { call the unit init code and make it external }
            if (hp.u.flags and (uf_init or uf_finalize))<>0 then
              begin
@@ -445,7 +439,7 @@ implementation
          end;
         { insert class constructors/destructor of the program }
         if (current_module.flags and uf_classinits) <> 0 then
-          write_class_inits(current_module);
+          write_struct_inits(current_module);
         { Insert initialization/finalization of the program }
         if (current_module.flags and (uf_init or uf_finalize))<>0 then
           begin
@@ -480,8 +474,7 @@ implementation
       begin
         maybe_new_object_file(current_asmdata.asmlists[al_globals]);
         { Insert Ident of the compiler in the .fpc.version section }
-        current_asmdata.asmlists[al_globals].concat(Tai_section.create(sec_fpc,'version',0));
-        current_asmdata.asmlists[al_globals].concat(Tai_align.Create(const_align(32)));
+        new_section(current_asmdata.asmlists[al_globals],sec_fpc,'version',const_align(32));
         current_asmdata.asmlists[al_globals].concat(Tai_string.Create('FPC '+full_version_string+
           ' ['+date_string+'] for '+target_cpu_string+' - '+target_info.shortname));
         if not(tf_no_generic_stackcheck in target_info.flags) then
@@ -686,10 +679,15 @@ implementation
         { Objpas unit? }
         if m_objpas in current_settings.modeswitches then
           AddUnit('objpas');
+
         { Macpas unit? }
         if m_mac in current_settings.modeswitches then
           AddUnit('macpas');
-        { Objective-C 1.0 support unit? }
+
+        if m_iso in current_settings.modeswitches then
+          AddUnit('iso7185');
+
+        { Objective-C support unit? }
         if (m_objectivec1 in current_settings.modeswitches) then
           begin
             { interface to Objective-C run time }
@@ -711,7 +709,7 @@ implementation
           end;
 
         { CPU targets with microcontroller support can add a controller specific unit }
-{$if defined(ARM)}
+{$if defined(ARM) or defined(AVR)}
         if (target_info.system in systems_embedded) and (current_settings.controllertype<>ct_none) then
           AddUnit(controllerunitstr[current_settings.controllertype]);
 {$endif ARM}
@@ -835,38 +833,9 @@ implementation
 
 
      procedure reset_all_defs;
-
-       procedure reset_used_unit_defs(hp:tmodule);
-         var
-           pu : tused_unit;
-         begin
-           pu:=tused_unit(hp.used_units.first);
-           while assigned(pu) do
-             begin
-               if not pu.u.is_reset then
-                 begin
-                   { prevent infinte loop for circular dependencies }
-                   pu.u.is_reset:=true;
-                   if assigned(pu.u.globalsymtable) then
-                     begin
-                       tglobalsymtable(pu.u.globalsymtable).reset_all_defs;
-                       reset_used_unit_defs(pu.u);
-                     end;
-                 end;
-               pu:=tused_unit(pu.next);
-             end;
-         end;
-
-       var
-         hp2 : tmodule;
        begin
-         hp2:=tmodule(loaded_units.first);
-         while assigned(hp2) do
-           begin
-             hp2.is_reset:=false;
-             hp2:=tmodule(hp2.next);
-           end;
-         reset_used_unit_defs(current_module);
+         if assigned(current_module.wpoinfo) then
+           current_module.wpoinfo.resetdefs;
        end;
 
 
@@ -959,6 +928,31 @@ implementation
         pi:=nil;
       end;
 
+
+
+    { Insert _GLOBAL_OFFSET_TABLE_ symbol if system uses it }
+
+    procedure maybe_load_got;
+{$ifdef i386}
+       var
+         gotvarsym : tstaticvarsym;
+{$endif i386}
+      begin
+{$ifdef i386}
+         if (cs_create_pic in current_settings.moduleswitches) and
+            (tf_pic_uses_got in target_info.flags) then
+           begin
+             { insert symbol for got access in assembler code}
+             gotvarsym:=tstaticvarsym.create('_GLOBAL_OFFSET_TABLE_',
+                          vs_value,voidpointertype,[vo_is_external]);
+             gotvarsym.set_mangledname('_GLOBAL_OFFSET_TABLE_');
+             current_module.localsymtable.insert(gotvarsym);
+             { avoid unnecessary warnings }
+             gotvarsym.varstate:=vs_read;
+             gotvarsym.refs:=1;
+           end;
+{$endif i386}
+      end;
 
     function gen_implicit_initfinal(flag:word;st:TSymtable):tcgprocinfo;
       begin
@@ -1074,9 +1068,6 @@ implementation
          finalize_procinfo : tcgprocinfo;
          unitname8 : string[8];
          ag: boolean;
-{$ifdef i386}
-         gotvarsym : tstaticvarsym;
-{$endif i386}
 {$ifdef debug_devirt}
          i: longint;
 {$endif debug_devirt}
@@ -1185,8 +1176,6 @@ implementation
          current_module.globalsymtable:=current_module.localsymtable;
          current_module.localsymtable:=nil;
 
-         reset_all_defs;
-
          { number all units, so we know if a unit is used by this unit or
            needs to be added implicitly }
          current_module.updatemaps;
@@ -1242,18 +1231,8 @@ implementation
          { create static symbol table }
          current_module.localsymtable:=tstaticsymtable.create(current_module.modulename^,current_module.moduleid);
 
-{$ifdef i386}
-         if cs_create_pic in current_settings.moduleswitches then
-           begin
-             { insert symbol for got access in assembler code}
-             gotvarsym:=tstaticvarsym.create('_GLOBAL_OFFSET_TABLE_',vs_value,voidpointertype,[vo_is_external]);
-             gotvarsym.set_mangledname('_GLOBAL_OFFSET_TABLE_');
-             current_module.localsymtable.insert(gotvarsym);
-             { avoid unnecessary warnings }
-             gotvarsym.varstate:=vs_read;
-             gotvarsym.refs:=1;
-           end;
-{$endif i386}
+         { Insert _GLOBAL_OFFSET_TABLE_ symbol if system uses it }
+         maybe_load_got;
 
          if not current_module.interface_only then
            begin
@@ -1265,9 +1244,6 @@ implementation
 
          if current_module.state=ms_compiled then
            exit;
-
-         { reset ranges/stabs in exported definitions }
-         reset_all_defs;
 
          { All units are read, now give them a number }
          current_module.updatemaps;
@@ -1343,6 +1319,9 @@ implementation
          { the last char should always be a point }
          consume(_POINT);
 
+         { reset wpo flags for all defs }
+         reset_all_defs;
+
          if (Errorcount=0) then
            begin
              { tests, if all (interface) forwards are resolved }
@@ -1375,8 +1354,8 @@ implementation
          maybeloadvariantsunit;
 
          { generate wrappers for interfaces }
-         gen_intf_wrappers(current_asmdata.asmlists[al_procedures],current_module.globalsymtable);
-         gen_intf_wrappers(current_asmdata.asmlists[al_procedures],current_module.localsymtable);
+         gen_intf_wrappers(current_asmdata.asmlists[al_procedures],current_module.globalsymtable,false);
+         gen_intf_wrappers(current_asmdata.asmlists[al_procedures],current_module.localsymtable,false);
 
          { generate pic helpers to load eip if necessary }
          gen_pic_helpers(current_asmdata.asmlists[al_procedures]);
@@ -1715,7 +1694,7 @@ implementation
       { read all entries until the end and write them also to the new ppu }
         repeat
           b:=inppu.readentry;
-        { don't write ibend, that's written automaticly }
+        { don't write ibend, that's written automatically }
           if b<>ibend then
            begin
              if b=iblinkothersharedlibs then
@@ -1871,9 +1850,6 @@ implementation
              consume(_SEMICOLON);
            end;
 
-         { reset ranges/stabs in exported definitions }
-         reset_all_defs;
-
          { All units are read, now give them a number }
          current_module.updatemaps;
 
@@ -1926,11 +1902,7 @@ implementation
 
          new_section(current_asmdata.asmlists[al_procedures],sec_code,'',0);
          current_asmdata.asmlists[al_procedures].concat(tai_symbol.createname_global('_DLLMainCRTStartup',AT_FUNCTION,0));
-{$ifdef i386}
-         { fix me! }
-         current_asmdata.asmlists[al_procedures].concat(Taicpu.Op_const_reg(A_MOV,S_L,1,NR_EAX));
-         current_asmdata.asmlists[al_procedures].concat(Taicpu.Op_const(A_RET,S_W,12));
-{$endif i386}
+         gen_fpc_dummy(current_asmdata.asmlists[al_procedures]);
          current_asmdata.asmlists[al_procedures].concat(tai_const.createname('_FPCDummy',0));
 
          { leave when we got an error }
@@ -2179,9 +2151,6 @@ implementation
          if token=_USES then
            loadunits;
 
-         { reset ranges/stabs in exported definitions }
-         reset_all_defs;
-
          { All units are read, now give them a number }
          current_module.updatemaps;
 
@@ -2192,6 +2161,9 @@ implementation
          Message1(parser_u_parsing_implementation,current_module.mainsource^);
 
          symtablestack.push(current_module.localsymtable);
+
+         { Insert _GLOBAL_OFFSET_TABLE_ symbol if system uses it }
+         maybe_load_got;
 
          { create whole program optimisation information }
          current_module.wpoinfo:=tunitwpoinfo.create;
@@ -2282,6 +2254,9 @@ implementation
          { consume the last point }
          consume(_POINT);
 
+         { reset wpo flags for all defs }
+         reset_all_defs;
+
          if (Errorcount=0) then
            begin
              { test static symtable }
@@ -2348,7 +2323,7 @@ implementation
          MaybeGenerateObjectiveCImageInfo(nil,current_module.localsymtable);
 
          { generate wrappers for interfaces }
-         gen_intf_wrappers(current_asmdata.asmlists[al_procedures],current_module.localsymtable);
+         gen_intf_wrappers(current_asmdata.asmlists[al_procedures],current_module.localsymtable,false);
 
          { generate imports }
          if current_module.ImportLibraryList.Count>0 then
@@ -2377,6 +2352,9 @@ implementation
          InsertResourceTablesTable;
          InsertWideInitsTablesTable;
          InsertMemorySizes;
+
+         if target_info.system in systems_interrupt_table then
+           InsertInterruptTable;
 
          { Insert symbol to resource info }
          InsertResourceInfo(resources_used);

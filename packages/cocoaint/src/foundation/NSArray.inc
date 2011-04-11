@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSArray.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSARRAY_PAS_T}
@@ -9,6 +7,7 @@
 { Callbacks }
 type
   NSArrayComparator = function (param1: id; param2: id; param3: Pointer): NSInteger; cdecl;
+
 
 {$endif}
 {$endif}
@@ -37,8 +36,10 @@ type
 {$ifdef FORWARD}
   NSArray = objcclass;
   NSArrayPointer = ^NSArray;
+  NSArrayPtr = NSArrayPointer;
   NSMutableArray = objcclass;
   NSMutableArrayPointer = ^NSMutableArray;
+  NSMutableArrayPtr = NSMutableArrayPointer;
 
 {$endif}
 
@@ -47,15 +48,33 @@ type
 {$define NSARRAY_PAS_C}
 
 { NSArray }
-  NSArray = objcclass(NSObject, NSCopyingProtocol, NSMutableCopyingProtocol, NSCodingProtocol, NSFastEnumerationProtocol)
+  NSArray = objcclass external (NSObject, NSCopyingProtocol, NSMutableCopyingProtocol, NSCodingProtocol, NSFastEnumerationProtocol)
     
   public
-    class function alloc: NSArray; message 'alloc';
-
     function count: NSUInteger; message 'count';
     function objectAtIndex(index: NSUInteger): id; message 'objectAtIndex:';
 
-    { Category: NSExtendedArray }
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+    function mutableCopyWithZone(zone_: NSZonePtr): id;
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+    function countByEnumeratingWithState_objects_count(state: NSFastEnumerationStatePtr; stackbuf: idPtr; len: NSUInteger): NSUInteger;
+  end;
+
+{ NSMutableArray }
+  NSMutableArray = objcclass external (NSArray)
+    
+  public
+    procedure addObject(anObject: id); message 'addObject:';
+    procedure insertObject_atIndex(anObject: id; index: NSUInteger); message 'insertObject:atIndex:';
+    procedure removeLastObject; message 'removeLastObject';
+    procedure removeObjectAtIndex(index: NSUInteger); message 'removeObjectAtIndex:';
+    procedure replaceObjectAtIndex_withObject(index: NSUInteger; anObject: id); message 'replaceObjectAtIndex:withObject:';
+  end;
+
+{ NSExtendedArrayCategory }
+  NSExtendedArrayCategory = objccategory external (NSArray)
     function arrayByAddingObject(anObject: id): NSArray; message 'arrayByAddingObject:';
     function arrayByAddingObjectsFromArray(otherArray: NSArray): NSArray; message 'arrayByAddingObjectsFromArray:';
     function componentsJoinedByString(separator: NSString): NSString; message 'componentsJoinedByString:';
@@ -64,8 +83,7 @@ type
     function descriptionWithLocale(locale: id): NSString; message 'descriptionWithLocale:';
     function descriptionWithLocale_indent(locale: id; level: NSUInteger): NSString; message 'descriptionWithLocale:indent:';
     function firstObjectCommonWithArray(otherArray: NSArray): id; message 'firstObjectCommonWithArray:';
-    procedure getObjects(objects: id); message 'getObjects:';
-    procedure getObjects_range(objects: id; range: NSRange); message 'getObjects:range:';
+    procedure getObjects_range(objects: idPtr; range: NSRange); message 'getObjects:range:';
     function indexOfObject(anObject: id): NSUInteger; message 'indexOfObject:';
     function indexOfObject_inRange(anObject: id; range: NSRange): NSUInteger; message 'indexOfObject:inRange:';
     function indexOfObjectIdenticalTo(anObject: id): NSUInteger; message 'indexOfObjectIdenticalTo:';
@@ -84,55 +102,32 @@ type
     procedure makeObjectsPerformSelector(aSelector: SEL); message 'makeObjectsPerformSelector:';
     procedure makeObjectsPerformSelector_withObject(aSelector: SEL; argument: id); message 'makeObjectsPerformSelector:withObject:';
     function objectsAtIndexes(indexes: NSIndexSet): NSArray; message 'objectsAtIndexes:';
+  end;
 
-    { Category: NSArrayCreation }
+{ NSArrayCreationCategory }
+  NSArrayCreationCategory = objccategory external (NSArray)
     class function array_: id; message 'array';
     class function arrayWithObject(anObject: id): id; message 'arrayWithObject:';
     class function arrayWithObjects_count(objects: NSObjectArrayOfObjectsPtr; cnt: NSUInteger): id; message 'arrayWithObjects:count:';
-    class function arrayWithObjects(firstObj: id): id; varargs; message 'arrayWithObjects:';
+    class function arrayWithObjects(firstKey: id): id; varargs; message 'arrayWithObjects:';
     class function arrayWithArray(array__: NSArray): id; message 'arrayWithArray:';
     function initWithObjects_count(objects: NSObjectArrayOfObjectsPtr; cnt: NSUInteger): id; message 'initWithObjects:count:';
-    function initWithObjects(firstObj: id): id; varargs; message 'initWithObjects:';
+    function initWithObjects(firstKey: id): id; varargs; message 'initWithObjects:';
     function initWithArray(array__: NSArray): id; message 'initWithArray:';
     function initWithArray_copyItems(array__: NSArray; flag: Boolean): id; message 'initWithArray:copyItems:';
     class function arrayWithContentsOfFile(path: NSString): id; message 'arrayWithContentsOfFile:';
     class function arrayWithContentsOfURL(url: NSURL): id; message 'arrayWithContentsOfURL:';
     function initWithContentsOfFile(path: NSString): id; message 'initWithContentsOfFile:';
     function initWithContentsOfURL(url: NSURL): id; message 'initWithContentsOfURL:';
+  end;
 
-    { Category: NSKeyValueCoding }
-    function valueForKey(key: NSString): id; message 'valueForKey:';
-    procedure setValue_forKey(value: id; key: NSString); message 'setValue:forKey:';
+{ NSDeprecatedCategory }
+  NSDeprecatedCategory = objccategory external (NSArray)
+    procedure getObjects(objects: idPtr); message 'getObjects:';
+  end;
 
-    { Category: NSKeyValueObserverRegistration }
-    procedure addObserver_toObjectsAtIndexes_forKeyPath_options_context(observer: NSObject; indexes: NSIndexSet; keyPath: NSString; options: NSKeyValueObservingOptions; context: Pointer); message 'addObserver:toObjectsAtIndexes:forKeyPath:options:context:';
-    procedure removeObserver_fromObjectsAtIndexes_forKeyPath(observer: NSObject; indexes: NSIndexSet; keyPath: NSString); message 'removeObserver:fromObjectsAtIndexes:forKeyPath:';
-    procedure addObserver_forKeyPath_options_context(observer: NSObject; keyPath: NSString; options: NSKeyValueObservingOptions; context: Pointer); message 'addObserver:forKeyPath:options:context:';
-    procedure removeObserver_forKeyPath(observer: NSObject; keyPath: NSString); message 'removeObserver:forKeyPath:';
-
-    { Category: NSSortDescriptorSorting }
-    function sortedArrayUsingDescriptors(sortDescriptors: NSArray): NSArray; message 'sortedArrayUsingDescriptors:';
-
-    { Category: NSArrayPathExtensions }
-    function pathsMatchingExtensions(filterTypes: NSArray): NSArray; message 'pathsMatchingExtensions:';
-
-    { Category: NSPredicateSupport }
-    function filteredArrayUsingPredicate(predicate: NSPredicate): NSArray; message 'filteredArrayUsingPredicate:';
-  end; external;
-
-{ NSMutableArray }
-  NSMutableArray = objcclass(NSArray)
-    
-  public
-    class function alloc: NSMutableArray; message 'alloc';
-
-    procedure addObject(anObject: id); message 'addObject:';
-    procedure insertObject_atIndex(anObject: id; index: NSUInteger); message 'insertObject:atIndex:';
-    procedure removeLastObject; message 'removeLastObject';
-    procedure removeObjectAtIndex(index: NSUInteger); message 'removeObjectAtIndex:';
-    procedure replaceObjectAtIndex_withObject(index: NSUInteger; anObject: id); message 'replaceObjectAtIndex:withObject:';
-
-    { Category: NSExtendedMutableArray }
+{ NSExtendedMutableArrayCategory }
+  NSExtendedMutableArrayCategory = objccategory external (NSMutableArray)
     procedure addObjectsFromArray(otherArray: NSArray); message 'addObjectsFromArray:';
     procedure exchangeObjectAtIndex_withObjectAtIndex(idx: NSUInteger; idx1: NSUInteger); message 'exchangeObjectAtIndex:withObjectAtIndex:';
     procedure removeAllObjects; message 'removeAllObjects';
@@ -140,7 +135,7 @@ type
     procedure removeObject(anObject: id); message 'removeObject:';
     procedure removeObjectIdenticalTo_inRange(anObject: id; range: NSRange); message 'removeObjectIdenticalTo:inRange:';
     procedure removeObjectIdenticalTo(anObject: id); message 'removeObjectIdenticalTo:';
-    procedure removeObjectsFromIndices_numIndices(indices: NSUIntegerPointer; cnt: NSUInteger); message 'removeObjectsFromIndices:numIndices:';
+    procedure removeObjectsFromIndices_numIndices(indices: NSUIntegerPtr; cnt: NSUInteger); message 'removeObjectsFromIndices:numIndices:'; deprecated 'in Mac OS X 10.6 and later';
     procedure removeObjectsInArray(otherArray: NSArray); message 'removeObjectsInArray:';
     procedure removeObjectsInRange(range: NSRange); message 'removeObjectsInRange:';
     procedure replaceObjectsInRange_withObjectsFromArray_range(range: NSRange; otherArray: NSArray; otherRange: NSRange); message 'replaceObjectsInRange:withObjectsFromArray:range:';
@@ -151,17 +146,13 @@ type
     procedure insertObjects_atIndexes(objects: NSArray; indexes: NSIndexSet); message 'insertObjects:atIndexes:';
     procedure removeObjectsAtIndexes(indexes: NSIndexSet); message 'removeObjectsAtIndexes:';
     procedure replaceObjectsAtIndexes_withObjects(indexes: NSIndexSet; objects: NSArray); message 'replaceObjectsAtIndexes:withObjects:';
+  end;
 
-    { Category: NSMutableArrayCreation }
+{ NSMutableArrayCreationCategory }
+  NSMutableArrayCreationCategory = objccategory external (NSMutableArray)
     class function arrayWithCapacity(numItems: NSUInteger): id; message 'arrayWithCapacity:';
     function initWithCapacity(numItems: NSUInteger): id; message 'initWithCapacity:';
-
-    { Category: NSSortDescriptorSorting }
-    procedure sortUsingDescriptors(sortDescriptors: NSArray); message 'sortUsingDescriptors:';
-
-    { Category: NSPredicateSupport }
-    procedure filterUsingPredicate(predicate: NSPredicate); message 'filterUsingPredicate:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

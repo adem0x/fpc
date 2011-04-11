@@ -59,6 +59,7 @@ interface
          function get_mul_size : aint;
        private
          procedure rangecheck_array;
+         procedure rangecheck_string;
        protected
          {# This routine is used to calculate the address of the reference.
             On entry reg contains the index in the array,
@@ -291,70 +292,60 @@ implementation
          if codegenerror then
            exit;
          paraloc1.init;
-         { classes and interfaces must be dereferenced implicitly }
-         if is_class_or_interface_or_dispinterface_or_objc(left.resultdef) then
+         { several object types must be dereferenced implicitly }
+         if is_implicit_pointer_object_type(left.resultdef) then
            begin
-             { the contents of a class are aligned to a sizeof(pointer) }
-             location_reset_ref(location,LOC_REFERENCE,def_cgsize(resultdef),sizeof(pint));
-             case left.location.loc of
-                LOC_CREGISTER,
-                LOC_REGISTER:
-                  begin
-                  {$ifdef cpu_uses_separate_address_registers}
-                    if getregtype(left.location.register)<>R_ADDRESSREGISTER then
+             if not is_managed_type(left.resultdef) then
+               begin
+                 { the contents of a class are aligned to a sizeof(pointer) }
+                 location_reset_ref(location,LOC_REFERENCE,def_cgsize(resultdef),sizeof(pint));
+                 case left.location.loc of
+                    LOC_CREGISTER,
+                    LOC_REGISTER:
                       begin
-                        location.reference.base:=rg.getaddressregister(current_asmdata.CurrAsmList);
-                        cg.a_load_reg_reg(current_asmdata.CurrAsmList,OS_ADDR,OS_ADDR,
-                          left.location.register,location.reference.base);
-                      end
+                      {$ifdef cpu_uses_separate_address_registers}
+                        if getregtype(left.location.register)<>R_ADDRESSREGISTER then
+                          begin
+                            location.reference.base:=rg.getaddressregister(current_asmdata.CurrAsmList);
+                            cg.a_load_reg_reg(current_asmdata.CurrAsmList,OS_ADDR,OS_ADDR,
+                              left.location.register,location.reference.base);
+                          end
+                        else
+                      {$endif}
+                          location.reference.base := left.location.register;
+                      end;
+                    LOC_CREFERENCE,
+                    LOC_REFERENCE:
+                      begin
+                         location.reference.base:=cg.getaddressregister(current_asmdata.CurrAsmList);
+                         cg.a_load_loc_reg(current_asmdata.CurrAsmList,OS_ADDR,left.location,location.reference.base);
+                      end;
+                    LOC_CONSTANT:
+                      begin
+                        { can happen with @classtype(pointerconst).field }
+                        location.reference.offset:=left.location.value;
+                      end;
                     else
-                  {$endif}
-                      location.reference.base := left.location.register;
-                  end;
-                LOC_CREFERENCE,
-                LOC_REFERENCE:
+                      internalerror(2009092401);
+                 end;
+                 { implicit deferencing }
+                 if (cs_use_heaptrc in current_settings.globalswitches) and
+                    (cs_checkpointer in current_settings.localswitches) and
+                    not(cs_compilesystem in current_settings.moduleswitches) then
                   begin
-                     location.reference.base:=cg.getaddressregister(current_asmdata.CurrAsmList);
-                     cg.a_load_loc_reg(current_asmdata.CurrAsmList,OS_ADDR,left.location,location.reference.base);
+                    paramanager.getintparaloc(pocall_default,1,paraloc1);
+                    cg.a_load_reg_cgpara(current_asmdata.CurrAsmList, OS_ADDR,location.reference.base,paraloc1);
+                    paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
+                    cg.allocallcpuregisters(current_asmdata.CurrAsmList);
+                    cg.a_call_name(current_asmdata.CurrAsmList,'FPC_CHECKPOINTER',false);
+                    cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
                   end;
-                LOC_CONSTANT:
-                  begin
-                    { can happen with @classtype(pointerconst).field }
-                    location.reference.offset:=left.location.value;
-                  end;
-                else
-                  internalerror(2009092401);
-             end;
-             { implicit deferencing }
-             if (cs_use_heaptrc in current_settings.globalswitches) and
-                (cs_checkpointer in current_settings.localswitches) and
-                not(cs_compilesystem in current_settings.moduleswitches) then
-              begin
-                paramanager.getintparaloc(pocall_default,1,paraloc1);
-                cg.a_load_reg_cgpara(current_asmdata.CurrAsmList, OS_ADDR,location.reference.base,paraloc1);
-                paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
-                cg.allocallcpuregisters(current_asmdata.CurrAsmList);
-                cg.a_call_name(current_asmdata.CurrAsmList,'FPC_CHECKPOINTER',false);
-                cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
-              end;
-           end
-         else if is_interfacecom(left.resultdef) then
-           begin
-             location_reset_ref(location,LOC_REFERENCE,def_cgsize(resultdef),sizeof(pint));
-             tg.GetTempTyped(current_asmdata.CurrAsmList,left.resultdef,tt_normal,location.reference);
-             cg.a_load_loc_ref(current_asmdata.CurrAsmList,OS_ADDR,left.location,location.reference);
-             { implicit deferencing also for interfaces }
-             if (cs_use_heaptrc in current_settings.globalswitches) and
-                (cs_checkpointer in current_settings.localswitches) and
-                not(cs_compilesystem in current_settings.moduleswitches) then
-              begin
-                paramanager.getintparaloc(pocall_default,1,paraloc1);
-                cg.a_load_reg_cgpara(current_asmdata.CurrAsmList, OS_ADDR,location.reference.base,paraloc1);
-                paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
-                cg.allocallcpuregisters(current_asmdata.CurrAsmList);
-                cg.a_call_name(current_asmdata.CurrAsmList,'FPC_CHECKPOINTER',false);
-                cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
-              end;
+               end
+             else
+               { reference-counted implicit pointer object types don't have
+                 fields -> cannot be subscripted (calls are handled via call
+                 nodes) }
+               internalerror(2011011901);
            end
          else
            begin
@@ -645,6 +636,10 @@ implementation
          hreg : tregister;
          paraloc1,paraloc2 : tcgpara;
        begin
+         { omit range checking when this is an array access to a pointer which has been
+           typecasted from an array }
+         if (ado_isconvertedpointer in tarraydef(left.resultdef).arrayoptions) then
+           exit;
          paraloc1.init;
          paraloc2.init;
          if is_open_array(left.resultdef) or
@@ -652,7 +647,7 @@ implementation
           begin
             { cdecl functions don't have high() so we can not check the range }
             { (can't use current_procdef, since it may be a nested procedure) }
-            if not(tprocdef(tparasymtable(tparavarsym(tloadnode(left).symtableentry).owner).defowner).proccalloption in [pocall_cdecl,pocall_cppdecl]) then
+            if not(tprocdef(tparasymtable(tparavarsym(tloadnode(left).symtableentry).owner).defowner).proccalloption in cdecl_pocalls) then
              begin
                { Get high value }
                hightree:=load_high_value_node(tparavarsym(tloadnode(left).symtableentry));
@@ -700,6 +695,45 @@ implementation
          paraloc2.done;
        end;
 
+    procedure tcgvecnode.rangecheck_string;
+      var
+        paraloc1,
+        paraloc2: tcgpara;
+      begin
+        paraloc1.init;
+        paraloc2.init;
+        case tstringdef(left.resultdef).stringtype of
+          { it's the same for ansi- and wide strings }
+          st_unicodestring,
+          st_widestring,
+          st_ansistring:
+            begin
+              paramanager.getintparaloc(pocall_default,1,paraloc1);
+              paramanager.getintparaloc(pocall_default,2,paraloc2);
+              cg.a_load_loc_cgpara(current_asmdata.CurrAsmList,left.location,paraloc1);
+              cg.a_load_loc_cgpara(current_asmdata.CurrAsmList,right.location,paraloc2);
+
+              paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
+              paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc2);
+              cg.allocallcpuregisters(current_asmdata.CurrAsmList);
+              cg.a_call_name(current_asmdata.CurrAsmList,'FPC_'+upper(tstringdef(left.resultdef).stringtypname)+'_RANGECHECK',false);
+              cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
+            end;
+
+          st_shortstring:
+            begin
+              {!!!!!!!!!!!!!!!!!}
+              { if this one is implemented making use of the high parameter for openshortstrings, update ncgutils.do_get_used_regvars() too (JM) }
+            end;
+
+          st_longstring:
+            begin
+              {!!!!!!!!!!!!!!!!!}
+            end;
+        end;
+        paraloc1.done;
+        paraloc2.done;
+      end;
 
     procedure tcgvecnode.pass_generate_code;
 
@@ -707,7 +741,6 @@ implementation
          offsetdec,
          extraoffset : aint;
          t        : tnode;
-         href     : treference;
          otl,ofl  : tasmlabel;
          newsize  : tcgsize;
          mulsize,
@@ -736,8 +769,7 @@ implementation
 
          { an ansistring needs to be dereferenced }
          if is_ansistring(left.resultdef) or
-            is_widestring(left.resultdef) or
-            is_unicodestring(left.resultdef) then
+            is_wide_or_unicode_string(left.resultdef) then
            begin
               if nf_callunique in flags then
                 internalerror(200304236);
@@ -763,18 +795,6 @@ implementation
                 else
                   internalerror(2002032218);
               end;
-
-              { check for a zero length string,
-                we can use the ansistring routine here }
-              if (cs_check_range in current_settings.localswitches) then
-                begin
-                   paramanager.getintparaloc(pocall_default,1,paraloc1);
-                   cg.a_load_reg_cgpara(current_asmdata.CurrAsmList,OS_ADDR,location.reference.base,paraloc1);
-                   paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
-                   cg.allocallcpuregisters(current_asmdata.CurrAsmList);
-                   cg.a_call_name(current_asmdata.CurrAsmList,'FPC_'+upper(tstringdef(left.resultdef).stringtypname)+'_CHECKZERO',false);
-                   cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
-                end;
 
               { in ansistrings/widestrings S[1] is p<w>char(S)[0] !! }
               if is_ansistring(left.resultdef) then
@@ -838,84 +858,16 @@ implementation
          if right.nodetype=ordconstn then
            begin
               { offset can only differ from 0 if arraydef }
-              case left.resultdef.typ of
-                arraydef :
-                  begin
-		     { do not do any range checking when this is an array access to a pointer which has been
-		       typecasted from an array }
-		     if (not (ado_isconvertedpointer in tarraydef(left.resultdef).arrayoptions)) then
-		       begin
-                     	if not(is_open_array(left.resultdef)) and
-                           not(is_array_of_const(left.resultdef)) and
-                           not(is_dynamic_array(left.resultdef)) then
-                          begin
-                            if (tordconstnode(right).value.svalue>tarraydef(left.resultdef).highrange) or
-                               (tordconstnode(right).value.svalue<tarraydef(left.resultdef).lowrange) then
-                              begin
-                                { this should be caught in the typecheckpass! (JM) }
-                                if (cs_check_range in current_settings.localswitches) then
-                                  CGMessage(parser_e_range_check_error)
-                                else
-                                  CGMessage(parser_w_range_check_error);
-                              end;
-                           end
-                         else
-                           begin
-                              { range checking for open and dynamic arrays needs
-                                runtime code }
-                              secondpass(right);
-                              if (cs_check_range in current_settings.localswitches) then
-                                rangecheck_array;
-                           end;
-		       end;
+              if cs_check_range in current_settings.localswitches then
+                begin
+                  secondpass(right);
+                  case left.resultdef.typ of
+                    arraydef :
+                      rangecheck_array;
+                    stringdef :
+                      rangecheck_string;
                   end;
-                stringdef :
-                  begin
-                    if (cs_check_range in current_settings.localswitches) then
-                     begin
-                       case tstringdef(left.resultdef).stringtype of
-                         { it's the same for ansi- and wide strings }
-                         st_unicodestring,
-                         st_widestring,
-                         st_ansistring:
-                           begin
-                              paramanager.getintparaloc(pocall_default,1,paraloc1);
-                              paramanager.getintparaloc(pocall_default,2,paraloc2);
-                              cg.a_load_const_cgpara(current_asmdata.CurrAsmList,OS_INT,tordconstnode(right).value.svalue,paraloc2);
-                              href:=location.reference;
-                              if not(tf_winlikewidestring in target_info.flags) or
-                                 (tstringdef(left.resultdef).stringtype<>st_widestring) then
-                                begin
-                                  dec(href.offset,sizeof(pint)-offsetdec);
-                                  cg.a_load_ref_cgpara(current_asmdata.CurrAsmList,OS_ADDR,href,paraloc1);
-                                end
-                              else
-                                begin
-                                  { winlike widestrings have a 4 byte length }
-                                  dec(href.offset,4-offsetdec);
-                                  cg.a_load_ref_cgpara(current_asmdata.CurrAsmList,OS_32,href,paraloc1);
-                                end;
-                              paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
-                              paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc2);
-                              cg.allocallcpuregisters(current_asmdata.CurrAsmList);
-                              cg.a_call_name(current_asmdata.CurrAsmList,'FPC_'+upper(tstringdef(left.resultdef).stringtypname)+'_RANGECHECK',false);
-                              cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
-                           end;
-
-                         st_shortstring:
-                           begin
-                              {!!!!!!!!!!!!!!!!!}
-                              { if this one is implemented making use of the high parameter for openshortstrings, update ncgutils.do_get_used_regvars() too (JM) }
-                           end;
-
-                         st_longstring:
-                           begin
-                              {!!!!!!!!!!!!!!!!!}
-                           end;
-                       end;
-                     end;
-                   end;
-              end;
+                end;
               if not(is_packed_array(left.resultdef)) or
                  ((mulsize mod 8 = 0) and
                   (ispowerof2(mulsize div 8,temp) or
@@ -1025,56 +977,9 @@ implementation
               if cs_check_range in current_settings.localswitches then
                begin
                  if left.resultdef.typ=arraydef then
-                   begin
-		     { do not do any range checking when this is an array access to a pointer which has been
-		       typecasted from an array }
-		     if (not (ado_isconvertedpointer in tarraydef(left.resultdef).arrayoptions)) then
-                       rangecheck_array
-                   end
+                   rangecheck_array
                  else if (left.resultdef.typ=stringdef) then
-                   begin
-                      case tstringdef(left.resultdef).stringtype of
-                         { it's the same for ansi- and wide strings }
-                         st_unicodestring,
-                         st_widestring,
-                         st_ansistring:
-                           begin
-                              paramanager.getintparaloc(pocall_default,1,paraloc1);
-                              paramanager.getintparaloc(pocall_default,2,paraloc2);
-                              cg.a_load_reg_cgpara(current_asmdata.CurrAsmList,OS_INT,right.location.register,paraloc2);
-                              href:=location.reference;
-                              dec(href.offset,sizeof(pint)-offsetdec);
-
-                              href:=location.reference;
-                              if not(tf_winlikewidestring in target_info.flags) or
-                                 (tstringdef(left.resultdef).stringtype<>st_widestring) then
-                                begin
-                                  dec(href.offset,sizeof(pint)-offsetdec);
-                                  cg.a_load_ref_cgpara(current_asmdata.CurrAsmList,OS_ADDR,href,paraloc1);
-                                end
-                              else
-                                begin
-                                  { winlike widestrings have a 4 byte length }
-                                  dec(href.offset,4-offsetdec);
-                                  cg.a_load_ref_cgpara(current_asmdata.CurrAsmList,OS_32,href,paraloc1);
-                                end;
-
-                              paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
-                              paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc2);
-                              cg.allocallcpuregisters(current_asmdata.CurrAsmList);
-                              cg.a_call_name(current_asmdata.CurrAsmList,'FPC_'+upper(tstringdef(left.resultdef).stringtypname)+'_RANGECHECK',false);
-                              cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
-                           end;
-                         st_shortstring:
-                           begin
-                              {!!!!!!!!!!!!!!!!!}
-                           end;
-                         st_longstring:
-                           begin
-                              {!!!!!!!!!!!!!!!!!}
-                           end;
-                      end;
-                   end;
+                   rangecheck_string;
                end;
 
               { insert the register and the multiplication factor in the

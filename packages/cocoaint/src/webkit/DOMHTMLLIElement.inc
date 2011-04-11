@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLLIElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLLIELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLLIElement = objcclass;
   DOMHTMLLIElementPointer = ^DOMHTMLLIElement;
+  DOMHTMLLIElementPtr = DOMHTMLLIElementPointer;
 
 {$endif}
 
@@ -41,14 +40,14 @@
 {$define DOMHTMLLIELEMENT_PAS_C}
 
 { DOMHTMLLIElement }
-  DOMHTMLLIElement = objcclass(DOMHTMLElement)
+  DOMHTMLLIElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLLIElement; message 'alloc';
-
     procedure setType (newValue: NSString); message 'setType:';
     function type_: NSString; message 'type_';
-  end; external;
+    procedure setValue (newValue: cint); message 'setValue:';
+    function value: cint; message 'value';
+  end;
 
 {$endif}
 {$endif}

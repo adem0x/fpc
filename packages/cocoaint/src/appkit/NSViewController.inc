@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSViewController.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSVIEWCONTROLLER_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSViewController = objcclass;
   NSViewControllerPointer = ^NSViewController;
+  NSViewControllerPtr = NSViewControllerPointer;
 
 {$endif}
 
@@ -41,21 +40,20 @@
 {$define NSVIEWCONTROLLER_PAS_C}
 
 { NSViewController }
-  NSViewController = objcclass(NSResponder)
+  NSViewController = objcclass external (NSResponder)
   private
-    __nibName: NSString;
-    __nibBundle: NSBundle;
-    __representedObject: id;
-    __title: NSString;
+    _nibName: NSString;
+    _nibBundle: NSBundle;
+    _representedObject: id;
+    _title: NSString;
     _view: NSView;
-    __topLevelObjects: NSArray;
-    __editors: NSPointerArray;
-    __autounbinder: id;
-        _reserved: array[0..2] of id;
+    _topLevelObjects: NSArray;
+    _editors: NSPointerArray;
+    _autounbinder: id;
+    _designNibBundleIdentifier: NSString;
+        _reserved: array[0..1] of id;
     
   public
-    class function alloc: NSViewController; message 'alloc';
-
     function initWithNibName_bundle(nibNameOrNil: NSString; nibBundleOrNil: NSBundle): id; message 'initWithNibName:bundle:';
     procedure setRepresentedObject(representedObject_: id); message 'setRepresentedObject:';
     function representedObject: id; message 'representedObject';
@@ -69,7 +67,7 @@
     procedure commitEditingWithDelegate_didCommitSelector_contextInfo(delegate: id; didCommitSelector: SEL; contextInfo: Pointer); message 'commitEditingWithDelegate:didCommitSelector:contextInfo:';
     function commitEditing: Boolean; message 'commitEditing';
     procedure discardEditing; message 'discardEditing';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

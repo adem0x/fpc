@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSPICTImageRep.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPICTIMAGEREP_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSPICTImageRep = objcclass;
   NSPICTImageRepPointer = ^NSPICTImageRep;
+  NSPICTImageRepPtr = NSPICTImageRepPointer;
 
 {$endif}
 
@@ -41,28 +40,26 @@
 {$define NSPICTIMAGEREP_PAS_C}
 
 { NSPICTImageRep }
-  NSPICTImageRep = objcclass(NSImageRep)
+  NSPICTImageRep = objcclass external (NSImageRep)
   private
-    __pictOrigin: NSPoint;
-    __pictData: NSData;
+    _pictOrigin: NSPoint;
+    _pictData: NSData;
     {$ifndef cpu64}
-    __reserved1: cuint;
-    __reserved2: cuint;
+    _reserved1: cuint;
+    _reserved2: cuint;
     {$else}
-    __imageRep: id;
-    __pictOffset: NSUInteger;
+    _imageRep: id;
+    _pictOffset: NSUInteger;
     __reserved1: cuint;
     __reserved2: cuint;
     {$endif}
     
   public
-    class function alloc: NSPICTImageRep; message 'alloc';
-
     class function imageRepWithData(pictData: NSData): id; message 'imageRepWithData:';
     function initWithData(pictData: NSData): id; message 'initWithData:';
     function PICTRepresentation: NSData; message 'PICTRepresentation';
     function boundingBox: NSRect; message 'boundingBox';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSFormatter.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSFORMATTER_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSFormatter = objcclass;
   NSFormatterPointer = ^NSFormatter;
+  NSFormatterPtr = NSFormatterPointer;
 
 {$endif}
 
@@ -41,18 +40,21 @@
 {$define NSFORMATTER_PAS_C}
 
 { NSFormatter }
-  NSFormatter = objcclass(NSObject, NSCopyingProtocol, NSCodingProtocol)
+  NSFormatter = objcclass external (NSObject, NSCopyingProtocol, NSCodingProtocol)
     
   public
-    class function alloc: NSFormatter; message 'alloc';
-
     function stringForObjectValue(obj: id): NSString; message 'stringForObjectValue:';
     function attributedStringForObjectValue_withDefaultAttributes(obj: id; attrs: NSDictionary): NSAttributedString; message 'attributedStringForObjectValue:withDefaultAttributes:';
     function editingStringForObjectValue(obj: id): NSString; message 'editingStringForObjectValue:';
-    function getObjectValue_forString_errorDescription(obj: id; string_: NSString; error: NSStringPointer): Boolean; message 'getObjectValue:forString:errorDescription:';
+    function getObjectValue_forString_errorDescription(obj: idPtr; string_: NSString; error: NSStringPointer): Boolean; message 'getObjectValue:forString:errorDescription:';
     function isPartialStringValid_newEditingString_errorDescription(partialString: NSString; newString: NSStringPointer; error: NSStringPointer): Boolean; message 'isPartialStringValid:newEditingString:errorDescription:';
-    function isPartialStringValid_proposedSelectedRange_originalString_originalSelectedRange_errorDescription(partialStringPtr: NSStringPointer; proposedSelRangePtr: NSRangePointerPointer; origString: NSString; origSelRange: NSRange; error: NSStringPointer): Boolean; message 'isPartialStringValid:proposedSelectedRange:originalString:originalSelectedRange:errorDescription:';
-  end; external;
+    function isPartialStringValid_proposedSelectedRange_originalString_originalSelectedRange_errorDescription(partialStringPtr: NSStringPointer; proposedSelRangePtr: NSRangePointer; origString: NSString; origSelRange: NSRange; error: NSStringPointer): Boolean; message 'isPartialStringValid:proposedSelectedRange:originalString:originalSelectedRange:errorDescription:';
+
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
 
 {$endif}
 {$endif}

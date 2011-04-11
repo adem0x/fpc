@@ -56,6 +56,7 @@ interface
           procedure second_abs_long; virtual;
           procedure second_rox; virtual;
           procedure second_sar; virtual;
+          procedure second_bsfbsr; virtual;
        end;
 
 implementation
@@ -169,6 +170,9 @@ implementation
             in_sar_x,
             in_sar_x_y:
               second_sar;
+            in_bsf_x,
+            in_bsr_x:
+               second_BsfBsr;
             else internalerror(9);
          end;
       end;
@@ -393,8 +397,6 @@ implementation
         else
 {$endif not cpu64bitalu}
           cg.a_op_const_reg(current_asmdata.CurrAsmList,cgop,location.size,1,location.register);
-
-        cg.g_rangecheck(current_asmdata.CurrAsmList,location,resultdef,resultdef);
       end;
 
 
@@ -637,9 +639,7 @@ implementation
     procedure tcginlinenode.second_assigned;
       begin
         secondpass(tcallparanode(left).left);
-        { force left to be an OS_ADDR, since in case of method procvars }
-        { the size is 2*OS_ADDR (JM)                                    }
-        cg.a_cmp_const_loc_label(current_asmdata.CurrAsmList,OS_ADDR,OC_NE,0,tcallparanode(left).left.location,current_procinfo.CurrTrueLabel);
+        cg.a_cmp_const_loc_label(current_asmdata.CurrAsmList,def_cgsize(left.resultdef),OC_NE,0,tcallparanode(left).left.location,current_procinfo.CurrTrueLabel);
         cg.a_jmp_always(current_asmdata.CurrAsmList,current_procinfo.CurrFalseLabel);
         location_reset(location,LOC_JUMP,OS_NO);
       end;
@@ -806,6 +806,29 @@ implementation
              end;
           end;
       end;
+
+
+    procedure tcginlinenode.second_BsfBsr;
+    var
+      reverse: boolean;
+      opsize: tcgsize;
+    begin
+      reverse:=(inlinenumber = in_bsr_x);
+      secondpass(left);
+
+      opsize:=tcgsize2unsigned[left.location.size];
+      if opsize < OS_32 then
+        opsize:=OS_32;
+
+      if (left.location.loc <> LOC_REGISTER) or
+         (left.location.size <> opsize) then
+        location_force_reg(current_asmdata.CurrAsmList,left.location,opsize,true);
+
+      location_reset(location,LOC_REGISTER,opsize);
+      location.register := cg.getintregister(current_asmdata.CurrAsmList,opsize);
+      cg.a_bit_scan_reg_reg(current_asmdata.CurrAsmList,reverse,opsize,left.location.register,location.register);
+    end;
+
 
 begin
    cinlinenode:=tcginlinenode;

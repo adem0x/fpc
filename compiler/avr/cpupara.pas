@@ -109,10 +109,7 @@ unit cpupara;
             orddef:
               getparaloc:=LOC_REGISTER;
             floatdef:
-              if (calloption in [pocall_cdecl,pocall_cppdecl,pocall_softfloat]) or (cs_fp_emulation in current_settings.moduleswitches) then
-                getparaloc:=LOC_REGISTER
-              else
-                getparaloc:=LOC_FPUREGISTER;
+              getparaloc:=LOC_REGISTER;
             enumdef:
               getparaloc:=LOC_REGISTER;
             pointerdef:
@@ -155,7 +152,7 @@ unit cpupara;
     function tavrparamanager.push_addr_param(varspez:tvarspez;def : tdef;calloption : tproccalloption) : boolean;
       begin
         result:=false;
-        if varspez in [vs_var,vs_out] then
+        if varspez in [vs_var,vs_out,vs_constref] then
           begin
             result:=true;
             exit;
@@ -226,7 +223,11 @@ unit cpupara;
 
       procedure assignintreg;
         begin
-           if nextintreg<=RS_R3 then
+          { In case of po_delphi_nested_cc, the parent frame pointer
+            is always passed on the stack. }
+           if (nextintreg<=RS_R3) and
+              (not(vo_is_parentfp in hp.varoptions) or
+               not(po_delphi_nested_cc in p.procoptions)) then
              begin
                paraloc^.loc:=LOC_REGISTER;
                paraloc^.register:=newreg(R_INTREGISTER,nextintreg,R_SUBWHOLE);

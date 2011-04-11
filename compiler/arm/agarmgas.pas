@@ -204,6 +204,13 @@ unit agarmgas;
             end;
           top_conditioncode:
             getopstr:=cond2str[o.cc];
+          top_modeflags:
+            begin
+              getopstr:='';
+              if mfA in o.modeflags then getopstr:=getopstr+'a';
+              if mfI in o.modeflags then getopstr:=getopstr+'i';
+              if mfF in o.modeflags then getopstr:=getopstr+'f';
+            end;
           top_ref:
             if o.ref^.refaddr=addr_full then
               begin
@@ -225,17 +232,21 @@ unit agarmgas;
 
     Procedure TArmInstrWriter.WriteInstruction(hp : tai);
     var op: TAsmOp;
-        s: string;
+        postfix,s: string;
         i: byte;
         sep: string[3];
     begin
       op:=taicpu(hp).opcode;
       if current_settings.cputype in cpu_thumb2 then
         begin
+          postfix:='';
+          if taicpu(hp).wideformat then
+            postfix:='.w';
+
           if taicpu(hp).ops = 0 then
             s:=#9+gas_op2str[op]+' '+cond2str[taicpu(hp).condition]+oppostfix2str[taicpu(hp).oppostfix]
           else
-            s:=#9+gas_op2str[op]+oppostfix2str[taicpu(hp).oppostfix]+cond2str[taicpu(hp).condition]; // Conditional infixes are deprecated in unified syntax
+            s:=#9+gas_op2str[op]+oppostfix2str[taicpu(hp).oppostfix]+postfix+cond2str[taicpu(hp).condition]; // Conditional infixes are deprecated in unified syntax
         end
       else
         s:=#9+gas_op2str[op]+cond2str[taicpu(hp).condition]+oppostfix2str[taicpu(hp).oppostfix];

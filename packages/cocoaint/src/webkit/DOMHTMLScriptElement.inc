@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLScriptElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLSCRIPTELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLScriptElement = objcclass;
   DOMHTMLScriptElementPointer = ^DOMHTMLScriptElement;
+  DOMHTMLScriptElementPtr = DOMHTMLScriptElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLSCRIPTELEMENT_PAS_C}
 
 { DOMHTMLScriptElement }
-  DOMHTMLScriptElement = objcclass(DOMHTMLElement)
+  DOMHTMLScriptElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLScriptElement; message 'alloc';
-
     procedure setText (newValue: NSString); message 'setText:';
     function text: NSString; message 'text';
     procedure setHtmlFor (newValue: NSString); message 'setHtmlFor:';
@@ -54,11 +51,13 @@
     function event: NSString; message 'event';
     procedure setCharset (newValue: NSString); message 'setCharset:';
     function charset: NSString; message 'charset';
+    procedure setDefer (newValue: Boolean); message 'setDefer:';
+    function defer: Boolean; message 'defer';
     procedure setSrc (newValue: NSString); message 'setSrc:';
     function src: NSString; message 'src';
     procedure setType (newValue: NSString); message 'setType:';
     function type_: NSString; message 'type_';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

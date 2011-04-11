@@ -49,7 +49,7 @@ unit cgobj;
        {# @abstract(Abstract code generator)
           This class implements an abstract instruction generator. Some of
           the methods of this class are generic, while others must
-          be overriden for all new processors which will be supported
+          be overridden for all new processors which will be supported
           by Free Pascal. For 32-bit processors, the base class
           should be @link(tcg64f32) and not @var(tcg).
        }
@@ -131,7 +131,7 @@ unit cgobj;
           {# Pass a parameter, which is a constant, to a routine.
 
              A generic version is provided. This routine should
-             be overriden for optimization purposes if the cpu
+             be overridden for optimization purposes if the cpu
              permits directly sending this type of parameter.
              It must generate register allocation information for the cgpara in
              case it consists of cpuregisters.
@@ -144,7 +144,7 @@ unit cgobj;
           {# Pass the value of a parameter, which is located in memory, to a routine.
 
              A generic version is provided. This routine should
-             be overriden for optimization purposes if the cpu
+             be overridden for optimization purposes if the cpu
              permits directly sending this type of parameter.
              It must generate register allocation information for the cgpara in
              case it consists of cpuregisters.
@@ -171,7 +171,7 @@ unit cgobj;
              case it consists of cpuregisters.
 
              A generic version is provided. This routine should
-             be overriden for optimization purposes if the cpu
+             be overridden for optimization purposes if the cpu
              permits directly sending this type of parameter.
 
              @param(r reference to get address from)
@@ -222,7 +222,7 @@ unit cgobj;
           }
 
           {# Emits instruction to call the method specified by symbol name.
-             This routine must be overriden for each new target cpu.
+             This routine must be overridden for each new target cpu.
 
              There is no a_call_ref because loading the reference will use
              a temp register on most cpu's resulting in conflicts with the
@@ -231,7 +231,7 @@ unit cgobj;
           procedure a_call_name(list : TAsmList;const s : string; weak: boolean);virtual; abstract;
           procedure a_call_reg(list : TAsmList;reg : tregister);virtual; abstract;
           procedure a_call_ref(list : TAsmList;ref : treference);virtual; abstract;
-          { same as a_call_name, might be overriden on certain architectures to emit
+          { same as a_call_name, might be overridden on certain architectures to emit
             static calls without usage of a got trampoline }
           procedure a_call_name_static(list : TAsmList;const s : string);virtual;
 
@@ -287,6 +287,9 @@ unit cgobj;
           procedure a_bit_set_reg_ref(list: TAsmList; doset: boolean; bitnumbersize: tcgsize; bitnumber: tregister; const ref: treference); virtual;
           procedure a_bit_set_reg_loc(list: TAsmList; doset: boolean; bitnumbersize: tcgsize; bitnumber: tregister; const loc: tlocation);
           procedure a_bit_set_const_loc(list: TAsmList; doset: boolean; bitnumber: aint; const loc: tlocation);
+
+          { bit scan instructions }
+          procedure a_bit_scan_reg_reg(list: TAsmList; reverse: boolean; size: tcgsize; src, dst: TRegister); virtual; abstract;
 
           { fpu move instructions }
           procedure a_loadfpu_reg_reg(list: TAsmList; fromsize, tosize:tcgsize; reg1, reg2: tregister); virtual; abstract;
@@ -419,7 +422,7 @@ unit cgobj;
           {# This should emit the opcode to copy len bytes from the source
              to destination.
 
-             It must be overriden for each new target processor.
+             It must be overridden for each new target processor.
 
              @param(source Source reference of copy)
              @param(dest Destination reference of copy)
@@ -429,7 +432,7 @@ unit cgobj;
           {# This should emit the opcode to copy len bytes from the an unaligned source
              to destination.
 
-             It must be overriden for each new target processor.
+             It must be overridden for each new target processor.
 
              @param(source Source reference of copy)
              @param(dest Destination reference of copy)
@@ -448,11 +451,13 @@ unit cgobj;
 
           procedure g_incrrefcount(list : TAsmList;t: tdef; const ref: treference);
           procedure g_decrrefcount(list : TAsmList;t: tdef; const ref: treference);
+          procedure g_array_rtti_helper(list: TAsmList; t: tdef; const ref: treference; const highloc: tlocation;
+            const name: string);
           procedure g_initialize(list : TAsmList;t : tdef;const ref : treference);
           procedure g_finalize(list : TAsmList;t : tdef;const ref : treference);
 
           {# Generates range checking code. It is to note
-             that this routine does not need to be overriden,
+             that this routine does not need to be overridden,
              as it takes care of everything.
 
              @param(p Node which contains the value to check)
@@ -469,7 +474,7 @@ unit cgobj;
 
           {# Emits instructions when compilation is done in profile
              mode (this is set as a command line option). The default
-             behavior does nothing, should be overriden as required.
+             behavior does nothing, should be overridden as required.
           }
           procedure g_profilecode(list : TAsmList);virtual;
           {# Emits instruction for allocating @var(size) bytes at the stackpointer
@@ -1114,6 +1119,7 @@ implementation
              a_load_reg_cgpara(list,OS_ADDR,hr,cgpara);
            end;
       end;
+
 
     procedure tcg.a_load_cgparaloc_ref(list : TAsmList;const paraloc : TCGParaLocation;const ref : treference;sizeleft : aint;align : longint);
       var
@@ -3469,7 +3475,7 @@ implementation
          cgpara2.init;
          paramanager.getintparaloc(pocall_default,1,cgpara1);
          paramanager.getintparaloc(pocall_default,2,cgpara2);
-         if is_interfacecom(t) then
+         if is_interfacecom_or_dispinterface(t) then
            incrfunc:='FPC_INTF_INCR_REF'
          else if is_ansistring(t) then
            incrfunc:='FPC_ANSISTR_INCR_REF'
@@ -3498,6 +3504,8 @@ implementation
           end
          else
           begin
+            if is_open_array(t) then
+              InternalError(201103054);
             reference_reset_symbol(href,RTTIWriter.get_rtti_label(t,initrtti),0,sizeof(pint));
             a_loadaddr_ref_cgpara(list,href,cgpara2);
             a_loadaddr_ref_cgpara(list,ref,cgpara1);
@@ -3525,7 +3533,7 @@ implementation
         paramanager.getintparaloc(pocall_default,1,cgpara1);
         paramanager.getintparaloc(pocall_default,2,cgpara2);
         needrtti:=false;
-        if is_interfacecom(t) then
+        if is_interfacecom_or_dispinterface(t) then
           decrfunc:='FPC_INTF_DECR_REF'
         else if is_ansistring(t) then
           decrfunc:='FPC_ANSISTR_DECR_REF'
@@ -3563,6 +3571,8 @@ implementation
           end
          else
           begin
+            if is_open_array(t) then
+              InternalError(201103053);
             reference_reset_symbol(href,RTTIWriter.get_rtti_label(t,initrtti),0,sizeof(pint));
             a_loadaddr_ref_cgpara(list,href,cgpara2);
             a_loadaddr_ref_cgpara(list,ref,cgpara1);
@@ -3576,6 +3586,50 @@ implementation
         cgpara1.done;
       end;
 
+    procedure tcg.g_array_rtti_helper(list: TAsmList; t: tdef; const ref: treference; const highloc: tlocation; const name: string);
+      var
+        cgpara1,cgpara2,cgpara3: TCGPara;
+        href: TReference;
+        hreg, lenreg: TRegister;
+      begin
+        cgpara1.init;
+        cgpara2.init;
+        cgpara3.init;
+        paramanager.getintparaloc(pocall_default,1,cgpara1);
+        paramanager.getintparaloc(pocall_default,2,cgpara2);
+        paramanager.getintparaloc(pocall_default,3,cgpara3);
+
+        reference_reset_symbol(href,RTTIWriter.get_rtti_label(t,initrtti),0,sizeof(pint));
+        if highloc.loc=LOC_CONSTANT then
+          a_load_const_cgpara(list,OS_INT,highloc.value+1,cgpara3)
+        else
+          begin
+            if highloc.loc in [LOC_REGISTER,LOC_CREGISTER] then
+              hreg:=highloc.register
+            else
+              begin
+                hreg:=getintregister(list,OS_INT);
+                a_load_loc_reg(list,OS_INT,highloc,hreg);
+              end;
+            { increment, converts high(x) to length(x) }
+            lenreg:=getintregister(list,OS_INT);
+            a_op_const_reg_reg(list,OP_ADD,OS_INT,1,hreg,lenreg);
+            a_load_reg_cgpara(list,OS_INT,lenreg,cgpara3);
+          end;
+
+        a_loadaddr_ref_cgpara(list,href,cgpara2);
+        a_loadaddr_ref_cgpara(list,ref,cgpara1);
+        paramanager.freecgpara(list,cgpara1);
+        paramanager.freecgpara(list,cgpara2);
+        paramanager.freecgpara(list,cgpara3);
+        allocallcpuregisters(list);
+        a_call_name(list,name,false);
+        deallocallcpuregisters(list);
+
+        cgpara3.done;
+        cgpara2.done;
+        cgpara1.done;
+      end;
 
     procedure tcg.g_initialize(list : TAsmList;t : tdef;const ref : treference);
       var
@@ -3589,11 +3643,13 @@ implementation
          if is_ansistring(t) or
             is_widestring(t) or
             is_unicodestring(t) or
-            is_interfacecom(t) or
+            is_interfacecom_or_dispinterface(t) or
             is_dynamic_array(t) then
            a_load_const_ref(list,OS_ADDR,0,ref)
          else
            begin
+              if is_open_array(t) then
+                InternalError(201103052);
               reference_reset_symbol(href,RTTIWriter.get_rtti_label(t,initrtti),0,sizeof(pint));
               a_loadaddr_ref_cgpara(list,href,cgpara2);
               a_loadaddr_ref_cgpara(list,ref,cgpara1);
@@ -3620,13 +3676,15 @@ implementation
          if is_ansistring(t) or
             is_widestring(t) or
             is_unicodestring(t) or
-            is_interfacecom(t) then
+            is_interfacecom_or_dispinterface(t) then
             begin
               g_decrrefcount(list,t,ref);
               a_load_const_ref(list,OS_ADDR,0,ref);
             end
          else
            begin
+              if is_open_array(t) then
+                InternalError(201103051);
               reference_reset_symbol(href,RTTIWriter.get_rtti_label(t,initrtti),0,sizeof(pint));
               a_loadaddr_ref_cgpara(list,href,cgpara2);
               a_loadaddr_ref_cgpara(list,ref,cgpara1);
@@ -3862,7 +3920,7 @@ implementation
            a_cmp_const_reg_label(list,OS_ADDR,OC_NE,0,reg,oklabel);
            cgpara1.init;
            paramanager.getintparaloc(pocall_default,1,cgpara1);
-           a_load_const_cgpara(list,OS_INT,210,cgpara1);
+           a_load_const_cgpara(list,OS_INT,aint(210),cgpara1);
            paramanager.freecgpara(list,cgpara1);
            a_call_name(list,'FPC_HANDLEERROR',false);
            a_label(list,oklabel);
@@ -4123,11 +4181,7 @@ implementation
         paraloc : Pcgparalocation;
       begin
         { calculate the parameter info for the procdef }
-        if not procdef.has_paraloc_info then
-          begin
-            procdef.requiredargarea:=paramanager.create_paraloc_info(procdef,callerside);
-            procdef.has_paraloc_info:=true;
-          end;
+        procdef.init_paraloc_info(callerside);
         hsym:=tsym(procdef.parast.Find('self'));
         if not(assigned(hsym) and
                (hsym.typ=paravarsym)) then
@@ -4169,18 +4223,22 @@ implementation
       var
         l: tasmsymbol;
         ref: treference;
+        nlsymname: string;
       begin
         result := NR_NO;
         case target_info.system of
           system_powerpc_darwin,
           system_i386_darwin,
+          system_i386_iphonesim,
           system_powerpc64_darwin,
           system_arm_darwin:
             begin
-              l:=current_asmdata.getasmsymbol('L'+symname+'$non_lazy_ptr');
+              nlsymname:='L'+symname+'$non_lazy_ptr';
+              l:=current_asmdata.getasmsymbol(nlsymname);
               if not(assigned(l)) then
                 begin
-                  l:=current_asmdata.DefineAsmSymbol('L'+symname+'$non_lazy_ptr',AB_LOCAL,AT_DATA);
+                  new_section(current_asmdata.asmlists[al_picdata],sec_data_nonlazy,'',sizeof(pint));
+                  l:=current_asmdata.DefineAsmSymbol(nlsymname,AB_LOCAL,AT_DATA);
                   current_asmdata.asmlists[al_picdata].concat(tai_symbol.create(l,0));
                   if not(weak) then
                     current_asmdata.asmlists[al_picdata].concat(tai_directive.Create(asd_indirect_symbol,current_asmdata.RefAsmSymbol(symname).Name))

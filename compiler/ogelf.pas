@@ -546,13 +546,28 @@ implementation
 ****************************************************************************}
 
     constructor TElfObjData.create(const n:string);
+      var
+        need_datarel : boolean;
       begin
         inherited create(n);
         CObjSection:=TElfObjSection;
         { we need at least the following sections }
         createsection(sec_code);
+        if (cs_create_pic in current_settings.moduleswitches) and
+           not(target_info.system in systems_darwin) then
+          begin
+            { We still need an empty data section }
+            system.exclude(current_settings.moduleswitches,cs_create_pic);
+            need_datarel:=true;
+          end
+        else
+          need_datarel:=false;
         createsection(sec_data);
+        if need_datarel then
+          system.include(current_settings.moduleswitches,cs_create_pic);
         createsection(sec_bss);
+        if need_datarel then
+          createsection(sec_data);
         if tf_section_threadvars in target_info.flags then
           createsection(sec_threadvar);
         if (tf_needs_dwarf_cfi in target_info.flags) and
@@ -569,7 +584,7 @@ implementation
 
     function TElfObjData.sectionname(atype:TAsmSectiontype;const aname:string;aorder:TAsmSectionOrder):string;
       const
-        secnames : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('',
+        secnames : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('','',
 {$ifdef userodata}
           '.text','.data','.data','.rodata','.bss','.threadvar',
 {$else userodata}
@@ -624,7 +639,7 @@ implementation
           '.obcj_nlcatlist',
           '.objc_protolist'
         );
-        secnames_pic : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('',
+        secnames_pic : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('','',
           '.text',
           '.data.rel',
           '.data.rel',
@@ -685,30 +700,36 @@ implementation
         sep : string[3];
         secname : string;
       begin
-        if (cs_create_pic in current_settings.moduleswitches) and
-           not(target_info.system in systems_darwin) then
-          secname:=secnames_pic[atype]
+        { section type user gives the user full controll on the section name }
+        if atype=sec_user then
+          result:=aname
         else
-          secname:=secnames[atype];
-        if (atype=sec_fpc) and (Copy(aname,1,3)='res') then
           begin
-            result:=secname+'.'+aname;
-            exit;
+            if (cs_create_pic in current_settings.moduleswitches) and
+               not(target_info.system in systems_darwin) then
+              secname:=secnames_pic[atype]
+            else
+              secname:=secnames[atype];
+            if (atype=sec_fpc) and (Copy(aname,1,3)='res') then
+              begin
+                result:=secname+'.'+aname;
+                exit;
+              end;
+            if create_smartlink_sections and (aname<>'') then
+              begin
+                case aorder of
+                  secorder_begin :
+                    sep:='.b_';
+                  secorder_end :
+                    sep:='.z_';
+                  else
+                    sep:='.n_';
+                end;
+                result:=secname+sep+aname
+              end
+            else
+              result:=secname;
           end;
-        if create_smartlink_sections and (aname<>'') then
-          begin
-            case aorder of
-              secorder_begin :
-                sep:='.b_';
-              secorder_end :
-                sep:='.z_';
-              else
-                sep:='.n_';
-            end;
-            result:=secname+sep+aname
-          end
-        else
-          result:=secname;
       end;
 
 
@@ -724,7 +745,7 @@ implementation
 
     procedure TElfObjData.writereloc(data:aint;len:aword;p:TObjSymbol;reltype:TObjRelocationType);
       var
-        symaddr : longint;
+        symaddr : aint;
       begin
         if CurrObjSec=nil then
           internalerror(200403292);
@@ -755,7 +776,7 @@ implementation
              begin
                CurrObjSec.addsymreloc(CurrObjSec.Size,p,reltype);
 {$ifndef x86_64}
-               if reltype=RELOC_RELATIVE then
+               if (reltype=RELOC_RELATIVE) or (reltype=RELOC_PLT32) then
                  dec(data,len);
 {$endif x86_64}
             end;
@@ -822,6 +843,14 @@ implementation
                    reltyp:=R_386_PC32;
                  RELOC_ABSOLUTE :
                    reltyp:=R_386_32;
+                 RELOC_GOT32 :
+                   reltyp:=R_386_GOT32;
+                 RELOC_GOTPC :
+                   reltyp:=R_386_GOTPC;
+                 RELOC_PLT32 :
+                   begin
+                     reltyp:=R_386_PLT32;
+                   end;
 {$endif i386}
 {$ifdef sparc}
                  RELOC_ABSOLUTE :
@@ -1206,7 +1235,7 @@ implementation
             asmbin : '';
             asmcmd : '';
             supported_targets : [system_i386_linux,system_i386_beos,system_i386_freebsd,system_i386_haiku,system_i386_Netware,system_i386_netwlibc,
-	    system_i386_solaris];
+	                              system_i386_solaris,system_i386_embedded];
             flags : [af_outputbinary,af_smartlink_sections,af_supports_dwarf];
             labelprefix : '.L';
             comment : '';

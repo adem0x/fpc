@@ -56,7 +56,9 @@ end;
 
 procedure fpc_cpuinit;
 begin
-  fpc_enable_ppc_fpu_exceptions;
+  { don't let libraries influence the FPU cw set by the host program }
+  if not IsLibrary then
+    fpc_enable_ppc_fpu_exceptions;
 end;
 
 
@@ -1170,7 +1172,7 @@ asm
   addic  r9,r9,-1
   subfe  r9,r9,r9
   and    r8,r4,r9
-  andc   r7,r5,r9
+  andc   r7,r10,r9
   or     r6,r7,r8
   stwcx. r6,0,r3
   bne .LInterlockedCompareExchangeLoop

@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMExtensions.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMEXTENSIONS_PAS_T}
@@ -26,6 +24,34 @@
 {$ifdef EXTERNAL_SYMBOLS}
 {$ifndef DOMEXTENSIONS_PAS_S}
 {$define DOMEXTENSIONS_PAS_S}
+
+{$endif}
+{$endif}
+
+{$ifdef FORWARD}
+
+{$endif}
+
+{$ifdef CLASSES}
+{$ifndef DOMEXTENSIONS_PAS_C}
+{$define DOMEXTENSIONS_PAS_C}
+
+{ DOMNodeExtensionsCategory }
+  DOMNodeExtensionsCategory = objccategory external (DOMNode)
+    function boundingBox: NSRect; message 'boundingBox';
+    function lineBoxRects: NSArray; message 'lineBoxRects';
+  end;
+
+{ DOMElementAppKitExtensionsCategory }
+  DOMElementAppKitExtensionsCategory = objccategory external (DOMElement)
+    function image: NSImage; message 'image';
+  end;
+
+{ DOMHTMLDocumentExtensionsCategory }
+  DOMHTMLDocumentExtensionsCategory = objccategory external (DOMHTMLDocument)
+    function createDocumentFragmentWithMarkupString_baseURL(markupString: NSString; baseURL: NSURL): DOMDocumentFragment; message 'createDocumentFragmentWithMarkupString:baseURL:';
+    function createDocumentFragmentWithText(text: NSString): DOMDocumentFragment; message 'createDocumentFragmentWithText:';
+  end;
 
 {$endif}
 {$endif}

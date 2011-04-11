@@ -9,7 +9,8 @@ uses
   baseunix,
 {$endif}
   SysUtils,
-  Classes;
+  Classes,
+  fprepos;
 
 Const
 {$ifdef unix}
@@ -22,9 +23,11 @@ Const
 
 Type
   TFPMKUnitDep=record
-    package : string[12];
-    reqver  : string[8];
-    undef   : string[16];
+    package  : string[12];
+    reqver   : string[8];
+    undef    : string[32];
+    def      : string[32];
+    available: boolean;
   end;
 
 Const
@@ -32,8 +35,8 @@ Const
   CurrentDirPackageName='<currentdir>';
 
   // Dependencies for compiling the fpmkunit unit
-  FPMKUnitDepCount=4;
-  FPMKUnitDeps : array[1..4] of TFPMKUnitDep = (
+  FPMKUnitDepDefaultCount=4;
+  FPMKUnitDepsDefaults : array[0..FPMKUnitDepDefaultCount-1] of TFPMKUnitDep = (
     (package: 'hash';
      reqver : '2.2.2';
      undef  : 'NO_UNIT_ZIPPER'),
@@ -49,11 +52,11 @@ Const
   );
 
 Type
-  TLogLevel = (vlError,vlWarning,vlInfo,vlCommands,vlDebug);
+  TLogLevel = (vlError,vlWarning,vlInfo,vlCommands,vlDebug,vlProgres);
   TLogLevels = Set of TLogLevel;
 
 const
-  DefaultLogLevels = [vlError,vlWarning];
+  DefaultLogLevels = [vlError,vlWarning, vlProgres];
   AllLogLevels = [vlError,vlWarning,vlCommands,vlInfo];
 
 type
@@ -75,12 +78,13 @@ Function FileExistsLog(const AFileName:string):Boolean;
 procedure BackupFile(const AFileName: String);
 Procedure DeleteDir(const ADir:string);
 Procedure SearchFiles(SL:TStringList;const APattern:string);
-Function GetCompilerInfo(const ACompiler,AOptions:string):string;
+Function GetCompilerInfo(const ACompiler,AOptions:string):string; overload;
+Procedure GetCompilerInfo(const ACompiler, AOptions: string; out AVersion: string; out ACPU: TCpu; out aOS:TOS); overload;
 function IsSuperUser:boolean;
 
 var
   LogLevels : TLogLevels;
-  FPMKUnitDepAvailable : array[1..FPMKUnitDepCount] of boolean;
+  FPMKUnitDeps : array of TFPMKUnitDep;
 
 
 Implementation
@@ -114,11 +118,7 @@ end;
 
 function FPPkgGetApplicationName:string;
 begin
-{$ifdef unix}
   result:='fppkg';
-{$else}
-  result:='Packages'
-{$endif}
 end;
 
 
@@ -356,6 +356,20 @@ begin
   Move(Buf,Result[1],Count);
 end;
 
+
+Procedure GetCompilerInfo(const ACompiler, AOptions: string; out AVersion: string; out ACPU: TCpu; out aOS:TOS); overload;
+var
+  infosl: TStringList;
+begin
+  infosl:=TStringList.Create;
+  infosl.Delimiter:=' ';
+  infosl.DelimitedText:=GetCompilerInfo(ACompiler,AOptions);
+  if infosl.Count<>3 then
+    Raise EPackagerError.Create(SErrInvalidFPCInfo);
+  AVersion:=infosl[0];
+  ACPU:=StringToCPU(infosl[1]);
+  AOS:=StringToOS(infosl[2]);
+end;
 
 function IsSuperUser:boolean;
 begin

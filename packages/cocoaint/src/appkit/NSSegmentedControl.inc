@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSSegmentedControl.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSEGMENTEDCONTROL_PAS_T}
@@ -20,6 +18,7 @@ const
 { Types }
 type
   NSSegmentStyle = NSInteger;
+  NSSegmentStylePtr = ^NSSegmentStyle;
 
 {$endif}
 {$endif}
@@ -48,6 +47,7 @@ type
 {$ifdef FORWARD}
   NSSegmentedControl = objcclass;
   NSSegmentedControlPointer = ^NSSegmentedControl;
+  NSSegmentedControlPtr = NSSegmentedControlPointer;
 
 {$endif}
 
@@ -56,16 +56,14 @@ type
 {$define NSSEGMENTEDCONTROL_PAS_C}
 
 { NSSegmentedControl }
-  NSSegmentedControl = objcclass(NSControl)
+  NSSegmentedControl = objcclass external (NSControl)
   private
-    __reserved1: NSInteger;
-    __reserved2: NSInteger;
-    __reserved3: NSInteger;
-    __reserved4: NSInteger;
+    _reserved1: NSInteger;
+    _reserved2: NSInteger;
+    _reserved3: NSInteger;
+    _reserved4: NSInteger;
     
   public
-    class function alloc: NSSegmentedControl; message 'alloc';
-
     procedure setSegmentCount(count: NSInteger); message 'setSegmentCount:';
     function segmentCount: NSInteger; message 'segmentCount';
     procedure setSelectedSegment(selectedSegment_: NSInteger); message 'setSelectedSegment:';
@@ -87,7 +85,7 @@ type
     function isEnabledForSegment(segment: NSInteger): Boolean; message 'isEnabledForSegment:';
     procedure setSegmentStyle(segmentStyle_: NSSegmentStyle); message 'setSegmentStyle:';
     function segmentStyle: NSSegmentStyle; message 'segmentStyle';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

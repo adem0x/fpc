@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLFieldSetElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLFIELDSETELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLFieldSetElement = objcclass;
   DOMHTMLFieldSetElementPointer = ^DOMHTMLFieldSetElement;
+  DOMHTMLFieldSetElementPtr = DOMHTMLFieldSetElementPointer;
 
 {$endif}
 
@@ -41,13 +40,11 @@
 {$define DOMHTMLFIELDSETELEMENT_PAS_C}
 
 { DOMHTMLFieldSetElement }
-  DOMHTMLFieldSetElement = objcclass(DOMHTMLElement)
+  DOMHTMLFieldSetElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLFieldSetElement; message 'alloc';
-
     function form: DOMHTMLFormElement; message 'form';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSRuleList.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSRULELIST_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCSSRuleList = objcclass;
   DOMCSSRuleListPointer = ^DOMCSSRuleList;
+  DOMCSSRuleListPtr = DOMCSSRuleListPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMCSSRULELIST_PAS_C}
 
 { DOMCSSRuleList }
-  DOMCSSRuleList = objcclass(DOMObject)
+  DOMCSSRuleList = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMCSSRuleList; message 'alloc';
-
     function length: cuint; message 'length';
     function item(index: cuint): DOMCSSRule; message 'item:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

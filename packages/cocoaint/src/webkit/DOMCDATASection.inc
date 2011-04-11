@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCDATASection.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCDATASECTION_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCDATASection = objcclass;
   DOMCDATASectionPointer = ^DOMCDATASection;
+  DOMCDATASectionPtr = DOMCDATASectionPointer;
 
 {$endif}
 
@@ -41,11 +40,10 @@
 {$define DOMCDATASECTION_PAS_C}
 
 { DOMCDATASection }
-  DOMCDATASection = objcclass(DOMText)
+  DOMCDATASection = objcclass external (DOMText)
     
   public
-    class function alloc: DOMCDATASection; message 'alloc';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

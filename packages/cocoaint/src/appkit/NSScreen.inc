@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSScreen.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSCREEN_PAS_T}
@@ -8,8 +6,9 @@
 
 { Types }
 type
-  NSScreenAuxiliary = Pointer;
+  NSScreenAuxiliary = record end;
   NSScreenAuxiliaryOpaque = NSScreenAuxiliary;
+  NSScreenAuxiliaryOpaquePtr = ^NSScreenAuxiliaryOpaque;
 
 {$endif}
 {$endif}
@@ -32,12 +31,17 @@ type
 {$ifndef NSSCREEN_PAS_S}
 {$define NSSCREEN_PAS_S}
 
+{ External string constants }
+var
+  NSScreenColorSpaceDidChangeNotification: NSString; cvar; external;
+
 {$endif}
 {$endif}
 
 {$ifdef FORWARD}
   NSScreen = objcclass;
   NSScreenPointer = ^NSScreen;
+  NSScreenPtr = NSScreenPointer;
 
 {$endif}
 
@@ -46,16 +50,14 @@ type
 {$define NSSCREEN_PAS_C}
 
 { NSScreen }
-  NSScreen = objcclass(NSObject)
+  NSScreen = objcclass external (NSObject)
   private
-    __frame: NSRect;
-    __depth: NSWindowDepth;
-    __screenNumber: cint;
-    __auxiliaryStorage: NSScreenAuxiliaryOpaque;
+    _frame: NSRect;
+    _depth: NSWindowDepth;
+    _screenNumber: cint;
+    _auxiliaryStorage: id;
     
   public
-    class function alloc: NSScreen; message 'alloc';
-
     class function screens: NSArray; message 'screens';
     class function mainScreen: NSScreen; message 'mainScreen';
     class function deepestScreen: NSScreen; message 'deepestScreen';
@@ -63,9 +65,10 @@ type
     function frame: NSRect; message 'frame';
     function visibleFrame: NSRect; message 'visibleFrame';
     function deviceDescription: NSDictionary; message 'deviceDescription';
-    function supportedWindowDepths: NSWindowDepth; message 'supportedWindowDepths';
+    function colorSpace: NSColorSpace; message 'colorSpace';
+    function supportedWindowDepths: NSWindowDepthPtr; message 'supportedWindowDepths';
     function userSpaceScaleFactor: CGFloat; message 'userSpaceScaleFactor';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

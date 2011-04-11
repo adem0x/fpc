@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSPopUpButton.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPOPUPBUTTON_PAS_T}
@@ -29,7 +27,7 @@
 
 { External string constants }
 var
-  NSPopUpButtonWillPopUpNotification: NSString; external name '_NSPopUpButtonWillPopUpNotification';
+  NSPopUpButtonWillPopUpNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -37,6 +35,7 @@ var
 {$ifdef FORWARD}
   NSPopUpButton = objcclass;
   NSPopUpButtonPointer = ^NSPopUpButton;
+  NSPopUpButtonPtr = NSPopUpButtonPointer;
 
 {$endif}
 
@@ -45,19 +44,21 @@ var
 {$define NSPOPUPBUTTON_PAS_C}
 
 { NSPopUpButton }
-  NSPopUpButton = objcclass(NSButton)
+  NSPopUpButton = objcclass external (NSButton)
   private
     __pbFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSPopUpButton0: cuint);
+       1: (
         needsPullsDownFromTemplate: 0..1;
         RESERVED: 0..((1 shl 31)-1);
+      );
       end;
     {$ifdef cpu64}
-    __popupReserved: id;
+    _popupReserved: id;
     {$endif}
     
   public
-    class function alloc: NSPopUpButton; message 'alloc';
-
     function initWithFrame_pullsDown(buttonFrame: NSRect; flag: Boolean): id; message 'initWithFrame:pullsDown:';
     procedure setMenu(menu_: NSMenu); message 'setMenu:';
     function menu: NSMenu; message 'menu';
@@ -94,7 +95,7 @@ var
     function itemTitleAtIndex(index: NSInteger): NSString; message 'itemTitleAtIndex:';
     function itemTitles: NSArray; message 'itemTitles';
     function titleOfSelectedItem: NSString; message 'titleOfSelectedItem';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

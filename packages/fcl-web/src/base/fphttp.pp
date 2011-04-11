@@ -63,6 +63,7 @@ Type
   Protected
     procedure SetContentProducer(const AValue: THTTPContentProducer);virtual;
     Function  GetDisplayName : String; override;
+    Function  GetNamePath : String; override;
     Procedure SetDisplayName(const AValue : String); override;
     Procedure HandleRequest(ARequest : TRequest; AResponse : TResponse; Var Handled : Boolean);
     Procedure DoHandleRequest(ARequest : TRequest; AResponse : TResponse; Var Handled : Boolean); virtual;
@@ -120,9 +121,11 @@ Type
   private
     FModuleClass: TCustomHTTPModuleClass;
     FModuleName: String;
+    FSkipStreaming: Boolean;
   Public
     Property ModuleClass : TCustomHTTPModuleClass Read FModuleClass Write FModuleClass;
     Property ModuleName : String Read FModuleName Write FModuleName;
+    Property SkipStreaming : Boolean Read FSkipStreaming Write FSkipStreaming;
   end;
 
   { TModuleFactory }
@@ -140,8 +143,8 @@ Type
 
   EFPHTTPError = Class(Exception);
 
-Procedure RegisterHTTPModule(ModuleClass : TCustomHTTPModuleClass);
-Procedure RegisterHTTPModule(Const ModuleName : String; ModuleClass : TCustomHTTPModuleClass);
+Procedure RegisterHTTPModule(ModuleClass : TCustomHTTPModuleClass; SkipStreaming : Boolean = False);
+Procedure RegisterHTTPModule(Const ModuleName : String; ModuleClass : TCustomHTTPModuleClass; SkipStreaming : Boolean = False);
 
 Var
   ModuleFactory : TModuleFactory;
@@ -202,13 +205,13 @@ begin
 end;
 
 
-procedure RegisterHTTPModule(ModuleClass: TCustomHTTPModuleClass);
+procedure RegisterHTTPModule(ModuleClass: TCustomHTTPModuleClass; SkipStreaming : Boolean = False);
 begin
   RegisterHTTPModule(ModuleClass.ClassName,ModuleClass);
 end;
 
 procedure RegisterHTTPModule(const ModuleName: String;
-  ModuleClass: TCustomHTTPModuleClass);
+  ModuleClass: TCustomHTTPModuleClass; SkipStreaming : Boolean = False);
   
 Var
   I : Integer;
@@ -224,6 +227,7 @@ begin
   else
     MI:=ModuleFactory[I];
   MI.ModuleClass:=ModuleClass;
+  MI.SkipStreaming:=SkipStreaming;
 end;
 
 { THTTPContentProducer }
@@ -313,6 +317,13 @@ begin
   Result:=FName;
 end;
 
+Function TCustomWebAction.GetNamePath : String;
+begin
+ If (FName='') then
+    FName:=ClassName+IntToStr(self.Index);
+  Result:=FName;
+end;
+
 procedure TCustomWebAction.SetDisplayName(const AValue: String);
 begin
   Inherited;
@@ -394,15 +405,16 @@ end;
 function TCustomWebActions.GetActionName(ARequest: TRequest): String;
 
 begin
+  If (FActionVar<>'') then
+    Result:=ARequest.QueryFields.Values[FActionVar]
+  else
+    Result := '';
   If Assigned(FOnGetAction) then
     FOnGetAction(Self,ARequest,Result);
+  // GetNextPathInfo is only used after OnGetAction, so that the call to 
+  // GetNextPathInfo can be avoided in the event.
   If (Result='') then
-    begin
-    If (FActionVar<>'') then
-      Result:=ARequest.QueryFields.Values[FActionVar];
-    If (Result='') then
-      Result:=ARequest.GetNextPathInfo;
-    end;
+    Result:=ARequest.GetNextPathInfo;
 end;
 
 constructor TCustomWebActions.Create(AItemClass: TCollectionItemClass);

@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSHFSFileTypes.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSHFSFILETYPES_PAS_T}
@@ -21,9 +19,9 @@
 {$define NSHFSFILETYPES_PAS_F}
 
 { Functions }
-function NSFileTypeForHFSTypeCode(hfsFileTypeCode: OSType): NSString; cdecl; external name 'NSFileTypeForHFSTypeCode';
-function NSHFSTypeCodeFromFileType(fileTypeStringPointer: NSString): OSType; cdecl; external name 'NSHFSTypeCodeFromFileType';
-function NSHFSTypeOfFile(fullFilePathPointer: NSString): NSString; cdecl; external name 'NSHFSTypeOfFile';
+function NSFileTypeForHFSTypeCode(hfsFileTypeCode: OSType): NSString; cdecl; external;
+function NSHFSTypeCodeFromFileType(fileTypeString: NSString): OSType; cdecl; external;
+function NSHFSTypeOfFile(fullFilePath: NSString): NSString; cdecl; external;
 
 {$endif}
 {$endif}

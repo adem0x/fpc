@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSAffineTransform.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSAFFINETRANSFORM_PAS_T}
@@ -19,6 +17,7 @@ type
     m11, m12, m21, m22: CGFloat;
     tX, tY: CGFloat;
   end;
+NSAffineTransformStructPtr = ^NSAffineTransformStruct;
 
 
 {$endif}
@@ -41,6 +40,7 @@ type
 {$ifdef FORWARD}
   NSAffineTransform = objcclass;
   NSAffineTransformPointer = ^NSAffineTransform;
+  NSAffineTransformPtr = NSAffineTransformPointer;
 
 {$endif}
 
@@ -49,13 +49,11 @@ type
 {$define NSAFFINETRANSFORM_PAS_C}
 
 { NSAffineTransform }
-  NSAffineTransform = objcclass(NSObject, NSCopyingProtocol, NSCodingProtocol)
+  NSAffineTransform = objcclass external (NSObject, NSCopyingProtocol, NSCodingProtocol)
   private
-    __transformStruct: NSAffineTransformStruct;
+    _transformStruct: NSAffineTransformStruct;
     
   public
-    class function alloc: NSAffineTransform; message 'alloc';
-
     class function transform: NSAffineTransform; message 'transform';
     function initWithTransform(transform_: NSAffineTransform): id; message 'initWithTransform:';
     procedure translateXBy_yBy(deltaX: CGFloat; deltaY: CGFloat); message 'translateXBy:yBy:';
@@ -71,11 +69,18 @@ type
     function transformStruct: NSAffineTransformStruct; message 'transformStruct';
     procedure setTransformStruct(transformStruct_: NSAffineTransformStruct); message 'setTransformStruct:';
 
-    { Category: NSAppKitAdditons }
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
+
+{ NSAppKitAdditonsCategory }
+  NSAppKitAdditonsCategory = objccategory external (NSAffineTransform)
     function transformBezierPath(aPath: NSBezierPath): NSBezierPath; message 'transformBezierPath:';
     procedure set_; message 'set';
     procedure concat; message 'concat';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSSearchFieldCell.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSEARCHFIELDCELL_PAS_T}
@@ -40,6 +38,7 @@ const
 {$ifdef FORWARD}
   NSSearchFieldCell = objcclass;
   NSSearchFieldCellPointer = ^NSSearchFieldCell;
+  NSSearchFieldCellPtr = NSSearchFieldCellPointer;
 
 {$endif}
 
@@ -48,36 +47,37 @@ const
 {$define NSSEARCHFIELDCELL_PAS_C}
 
 { NSSearchFieldCell }
-  NSSearchFieldCell = objcclass(NSTextFieldCell)
+  NSSearchFieldCell = objcclass external (NSTextFieldCell)
   private
     __sfFlags: bitpacked record
-        sendsWholeSearchString: 0..1;
-        maximumRecents: 0..((1 shl 8)-1);
+      case byte of
+       0: (_anonbitfield_NSSearchFieldCell0: cuint);
+       1: (
+        _sendsWholeSearchString: 0..1;
+        _maximumRecents: 0..((1 shl 8)-1);
         cancelVisible: 0..1;
-        drawSize: 0..((1 shl 2)-1);
+        reserved2: 0..((1 shl 2)-1);
         disableText: 0..1;
         menuTracking: 0..1;
         deferredUpdate: 0..1;
         sendsImmediately: 0..1;
-        activeTimer: 0..1;
         
-        reserved: 0..((1 shl 15)-1);
+        reserved: 0..((1 shl 16)-1);
+      );
       end;
-    __searchButtonCell: NSButtonCell;
-    __cancelButtonCell: NSButtonCell;
-    __searchMenuTemplate: NSMenu;
-    __recentsAutosaveName: NSString;
-    __recentSearches: NSMutableArray;
-    __searchMenu: NSMenu;
-    __partialStringTimer: NSTimer;
-    __reserved1: cuint;
-    __reserved2: cuint;
-    __reserved3: cuint;
-    __reserved4: cuint;
+    _searchButtonCell: NSButtonCell;
+    _cancelButtonCell: NSButtonCell;
+    _searchMenuTemplate: NSMenu;
+    _recentsAutosaveName: NSString;
+    _recentSearches: NSMutableArray;
+    _searchMenu: NSMenu;
+    _partialStringTimer: NSTimer;
+    _reserved1: cuint;
+    _reserved2: cuint;
+    _reserved3: cuint;
+    _reserved4: cuint;
     
   public
-    class function alloc: NSSearchFieldCell; message 'alloc';
-
     function searchButtonCell: NSButtonCell; message 'searchButtonCell';
     procedure setSearchButtonCell(cell: NSButtonCell); message 'setSearchButtonCell:';
     function cancelButtonCell: NSButtonCell; message 'cancelButtonCell';
@@ -99,7 +99,7 @@ const
     function recentsAutosaveName: NSString; message 'recentsAutosaveName';
     function sendsSearchStringImmediately: Boolean; message 'sendsSearchStringImmediately';
     procedure setSendsSearchStringImmediately(flag: Boolean); message 'setSendsSearchStringImmediately:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

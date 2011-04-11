@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLDirectoryElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLDIRECTORYELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLDirectoryElement = objcclass;
   DOMHTMLDirectoryElementPointer = ^DOMHTMLDirectoryElement;
+  DOMHTMLDirectoryElementPtr = DOMHTMLDirectoryElementPointer;
 
 {$endif}
 
@@ -41,11 +40,12 @@
 {$define DOMHTMLDIRECTORYELEMENT_PAS_C}
 
 { DOMHTMLDirectoryElement }
-  DOMHTMLDirectoryElement = objcclass(DOMHTMLElement)
+  DOMHTMLDirectoryElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLDirectoryElement; message 'alloc';
-  end; external;
+    procedure setCompact (newValue: Boolean); message 'setCompact:';
+    function compact: Boolean; message 'compact';
+  end;
 
 {$endif}
 {$endif}

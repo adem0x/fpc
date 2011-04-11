@@ -409,71 +409,120 @@ end;
 
 function fpc_shortstr_enum_intern(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out s:shortstring): longint;
 
+{ The following contains the TTypeInfo/TTypeData records from typinfo.pp
+  specialized for the tkEnumeration case (and stripped of unused things). }
 type
-  Ptypeinfo=^Ttypeinfo;
-  Ttypeinfo=record
-    kind:byte;
-    name:shortstring;
+  PPstring=^Pstring;
+
+  Penum_typeinfo=^Tenum_typeinfo;
+  Tenum_typeinfo={$ifndef FPC_REQUIRES_PROPER_ALIGNMENT}packed{$endif}record
+    kind:byte; { always tkEnumeration }
+    num_chars:byte;
+    chars:array[0..0] of char; { variable length with size of num_chars }
   end;
 
-  Penuminfo=^Tenuminfo;
-  Tenuminfo={$ifndef FPC_REQUIRES_PROPER_ALIGNMENT}packed{$endif}record
+  Penum_typedata=^Tenum_typedata;
+  Tenum_typedata={$ifndef FPC_REQUIRES_PROPER_ALIGNMENT}packed{$endif}record
     ordtype:byte;
-    minvalue,maxvalue:longint;
-    basetype:pointer;
-    namelist:shortstring;
+    { this seemingly extraneous inner record is here for alignment purposes, so
+      that its data gets aligned properly (if FPC_REQUIRES_PROPER_ALIGNMENT is
+      set }
+    inner: {$ifndef FPC_REQUIRES_PROPER_ALIGNMENT}packed{$endif}record
+      minvalue,maxvalue:longint;
+      basetype:pointer; { required for alignment }
+    end;
+    { more data here, but not needed }
   end;
 
-  Tsorted_array={$ifndef FPC_REQUIRES_PROPER_ALIGNMENT}packed{$endif}record
-    o:longint;
-    s:Pstring;
+  { Pascal data types for the ordinal enum value to string table. It consists of a header
+    that indicates what type of data the table stores, either a direct lookup table (when
+    o = lookup) or a set of ordered (ordinal value, string) tuples (when o = search). }
+
+  { A single entry in the set of ordered tuples }
+  Psearch_data=^Tsearch_data;
+  Tsearch_data={$ifndef FPC_REQUIRES_PROPER_ALIGNMENT}packed{$endif}record
+    value:longint;
+    name:Pstring;
+  end;
+
+  Penum_ord_to_string=^Tenum_ord_to_string;
+  Tenum_ord_to_string={$ifndef FPC_REQUIRES_PROPER_ALIGNMENT}packed{$endif}record
+    o:(lookup,search);
+    case integer of
+      0: (lookup_data:array[0..0] of Pstring);
+      1: (num_entries:longint;
+          search_data:array[0..0] of Tsearch_data);
   end;
 
 var
-  p:Pstring;
-  l,h,m:cardinal;
-  sorted_array:^Tsorted_array;
-  i,spaces:byte;
+  enum_o2s : Penum_ord_to_string;
+  header:Penum_typeinfo;
+  body:Penum_typedata;
+
+  res:Pshortstring;
+  sorted_data:Psearch_data;
+  spaces,i,m,h,l:longint;
 
 begin
+  { set default return value }
   fpc_shortstr_enum_intern:=107;
-  if Pcardinal(ord2strindex)^=0 then
+
+  enum_o2s:=Penum_ord_to_string(ord2strindex);
+  { depending on the type of table in ord2strindex retrieve the data }
+  if (enum_o2s^.o=lookup) then
     begin
-      {The compiler did generate a lookup table.}
-      with Penuminfo(Pbyte(typinfo)+2+length(Ptypeinfo(typinfo)^.name))^ do
+      { direct lookup table }
+      header:=Penum_typeinfo(typinfo);
+      { calculate address of enum rtti body: add the actual size of the
+        enum_rtti_header, and then align. Use an alignment of 1 (which
+        does nothing) in case FPC_REQUIRES_PROPER_ALIGNMENT is not set
+        to avoid the need for an if in this situation }
+      body:=Penum_typedata(align(ptruint(header) + 2 * sizeof(byte) { kind, num_chars } + header^.num_chars,
+        {$ifndef FPC_REQUIRES_PROPER_ALIGNMENT} 1 {$else} sizeof(pointer) {$endif}));
+      with (body^.inner) do
         begin
+          { Bounds check for the ordinal value for this enum }
           if (ordinal<minvalue) or (ordinal>maxvalue) then
-            exit;  {Invalid ordinal value for this enum.}
+            exit;
+          { make the ordinal index for lookup zero-based }
           dec(ordinal,minvalue);
         end;
-      {Get the address of the string.}
-      p:=Pshortstring((PPpointer(ord2strindex)+1+ordinal)^);
-      if p=nil then
-        exit;      {Invalid ordinal value for this enum.}
-      s:=p^;
+      { temporarily disable range checking because of the access to the array[0..0]
+        member of Tenum_ord_to_string_lookup }
+{$PUSH}{$R-}
+        res:=enum_o2s^.lookup_data[ordinal];
+{$POP}
+        if (not assigned(res)) then
+          exit;
+        s:=res^;
     end
   else
     begin
-      {The compiler did generate a sorted array of (ordvalue,Pstring) tuples.}
-      sorted_array:=pointer(Pcardinal(ord2strindex)+2);
-      {Use a binary search to get the string.}
+      { The compiler did generate a sorted array of (ordvalue,Pstring) tuples }
+      sorted_data:=@enum_o2s^.search_data;
+      { Use a binary search to get the string }
       l:=0;
-      h:=(Pcardinal(ord2strindex)+1)^-1;
+      { temporarily disable range checking because of the access to the array[0..0]
+        member of Tenum_ord_to_string_search }
+{$PUSH}{$R-}
+      h:=enum_o2s^.num_entries-1;
       repeat
         m:=(l+h) div 2;
-        if ordinal>sorted_array[m].o then
+        if ordinal>sorted_data[m].value then
           l:=m+1
-        else if ordinal<sorted_array[m].o then
+        else if ordinal<sorted_data[m].value then
           h:=m-1
         else
           break;
         if l>h then
-          exit; {Ordinal value not found? Kaboom.}
+          exit; { Ordinal value not found? Exit }
       until false;
-      s:=sorted_array[m].s^;
+{$POP}
+      s:=sorted_data[m].name^;
     end;
-  {Pad the string with spaces if necessary.}
-  if len>length(s) then
+
+  { Pad the string with spaces if necessary }
+  if (len>length(s)) then
     begin
       spaces:=len-length(s);
       for i:=1 to spaces do
@@ -495,6 +544,20 @@ end;
 
 { also define alias for internal use in the system unit }
 procedure fpc_shortstr_enum(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out s:shortstring);external name 'FPC_SHORTSTR_ENUM';
+
+
+procedure fpc_shortstr_bool(b : boolean;len:sizeint;out s:shortstring);[public,alias:'FPC_SHORTSTR_BOOL'];compilerproc;
+begin
+  if b then
+    s:='TRUE'
+  else
+    s:='FALSE';
+  if length(s)<len then
+    s:=space(len-length(s))+s;
+end;
+
+{ also define alias for internal use in the system unit }
+procedure fpc_shortstr_bool(b : boolean;len:sizeint;out s:shortstring);external name 'FPC_SHORTSTR_BOOL';
 
 
 procedure fpc_shortstr_currency(c : currency; len,f : SizeInt; out s : shortstring);[public,alias:'FPC_SHORTSTR_CURRENCY']; compilerproc;
@@ -588,7 +651,7 @@ begin
               k:=1
             else
               k:=0;
-            end; 
+            end;
           Inc(i);
           if i>tlen  then
             break;
@@ -613,7 +676,7 @@ begin
 			  inc(reslen);
 			  inc(tlen);
 			end;
-		end;		  
+		end;		
     end;
   { preparing result string }
   if reslen<len then
@@ -782,6 +845,20 @@ begin
 end;
 
 
+procedure fpc_chararray_bool(b : boolean;len:sizeint;out a : array of char);compilerproc;
+var
+  ss : shortstring;
+  maxlen : SizeInt;
+begin
+  fpc_shortstr_bool(b,len,ss);
+  if length(ss)<high(a)+1 then
+    maxlen:=length(ss)
+  else
+    maxlen:=high(a)+1;
+  move(ss[1],pchar(@a)^,maxlen);
+end;
+
+
 {$ifdef FPC_HAS_STR_CURRENCY}
 procedure fpc_chararray_Currency(c : Currency;len,fr : SizeInt;out a : array of char);compilerproc;
 var
@@ -808,7 +885,7 @@ begin
   code:=1;
   negativ:=false;
   base:=10;
-  if length(s)=0 then 
+  if length(s)=0 then
     begin
       InitVal:=code;
       Exit;
@@ -1212,53 +1289,86 @@ end;
 
 function fpc_val_enum_shortstr(str2ordindex:pointer;const s:shortstring;out code:valsint):longint; [public, alias:'FPC_VAL_ENUM_SHORTSTR']; compilerproc;
 
-type  Tsorted_array={$ifndef FPC_REQUIRES_PROPER_ALIGNMENT}packed{$endif}record
+    function string_compare(const s1,s2:shortstring):sizeint;
+
+    {We cannot use the > and < operators to compare a string here, because we if the string is
+     not found in the enum, we need to return the position of error in "code". Code equals the
+     highest matching character of all string compares, which is only known inside the string
+     comparison.}
+
+    var i,l:byte;
+        c1,c2:char;
+
+    begin
+      l:=length(s1);
+      if length(s1)>length(s2) then
+        l:=length(s2);
+      i:=1;
+      while i<=l do
+        begin
+          c1:=s1[i];
+          c2:=s2[i];
+          if c1<>c2 then
+            break;
+          inc(i);
+        end;
+      if i>code then
+        code:=i;
+      if i<=l then
+        string_compare:=byte(c1)-byte(c2)
+      else
+        string_compare:=length(s1)-length(s2);
+    end;
+
+type  Psorted_array=^Tsorted_array;
+      Tsorted_array={$ifndef FPC_REQUIRES_PROPER_ALIGNMENT}packed{$endif}record
         o:longint;
         s:Pstring;
       end;
 
+      Pstring_to_ord=^Tstring_to_ord;
+      Tstring_to_ord={$ifndef FPC_REQUIRES_PROPER_ALIGNMENT}packed{$endif}record
+        count:longint;
+        data:array[0..0] of Tsorted_array;
+      end;
+
 var l,h,m:cardinal;
+    c:sizeint;
     sorted_array:^Tsorted_array;
     spaces:byte;
     t:shortstring;
-
-label error;
 
 begin
   {Val for numbers accepts spaces at the start, so lets do the same
    for enums. Skip spaces at the start of the string.}
   spaces:=1;
+  code:=1;
   while (spaces<=length(s)) and (s[spaces]=' ')  do
     inc(spaces);
   t:=upcase(copy(s,spaces,255));
-  sorted_array:=pointer(Pcardinal(str2ordindex)+1);
+  sorted_array:=pointer(@Pstring_to_ord(str2ordindex)^.data);
   {Use a binary search to get the string.}
   l:=1;
-  h:=Pcardinal(str2ordindex)^;
+  h:=Pstring_to_ord(str2ordindex)^.count;
   repeat
     m:=(l+h) div 2;
-    if t>upcase(sorted_array[m-1].s^) then
+    c:=string_compare(t,upcase(sorted_array[m-1].s^));
+    if c>0 then
       l:=m+1
-    else if t<upcase(sorted_array[m-1].s^) then
+    else if c<0 then
       h:=m-1
     else
       break;
     if l>h then
-      goto error;
+      begin
+        {Not found...}
+        inc(code,spaces-1); {Add skipped spaces again.}
+        {The result of val in case of error is undefined, don't assign a function result.}
+        exit;
+      end;
   until false;
   code:=0;
   fpc_val_enum_shortstr:=sorted_array[m-1].o;
-  exit;
-error:
-  {Not found. Find first error position. Take care of the string length.}
-  code:=1;
-  while (code<=length(s)) and (s[code]=sorted_array[m].s^[code]) do
-    inc(code);
-  if code>length(s) then
-    code:=length(s)+1;
-  inc(code,spaces-1); {Add skipped spaces again.}
-  {The result of val in case of error is undefined, don't assign a function
-   result.}
 end;
 
 {Redeclare fpc_val_enum_shortstr for internal use in the system unit.}

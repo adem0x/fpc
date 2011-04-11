@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLOptionElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLOPTIONELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLOptionElement = objcclass;
   DOMHTMLOptionElementPointer = ^DOMHTMLOptionElement;
+  DOMHTMLOptionElementPtr = DOMHTMLOptionElementPointer;
 
 {$endif}
 
@@ -41,19 +40,23 @@
 {$define DOMHTMLOPTIONELEMENT_PAS_C}
 
 { DOMHTMLOptionElement }
-  DOMHTMLOptionElement = objcclass(DOMHTMLElement)
+  DOMHTMLOptionElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLOptionElement; message 'alloc';
-
     function form: DOMHTMLFormElement; message 'form';
+    procedure setDefaultSelected (newValue: Boolean); message 'setDefaultSelected:';
+    function defaultSelected: Boolean; message 'defaultSelected';
     function text: NSString; message 'text';
     function index: cint; message 'index';
+    procedure setDisabled (newValue: Boolean); message 'setDisabled:';
+    function disabled: Boolean; message 'disabled';
     procedure setLabel (newValue: NSString); message 'setLabel:';
     function label_: NSString; message 'label_';
+    procedure setSelected (newValue: Boolean); message 'setSelected:';
+    function selected: Boolean; message 'selected';
     procedure setValue (newValue: NSString); message 'setValue:';
     function value: NSString; message 'value';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

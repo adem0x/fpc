@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSCell.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCELL_PAS_T}
@@ -51,15 +49,10 @@ const
   NSImageOverlaps = 6;
 
 const
-  NSScaleProportionally = 0;
-  NSScaleToFit = 0;
-  NSScaleNone = 1;
-
-const
   NSImageScaleProportionallyDown = 0;
-  NSImageScaleAxesIndependently = 0;
-  NSImageScaleNone = 1;
-  NSImageScaleProportionallyUpOrDown = 2;
+  NSImageScaleAxesIndependently = 1;
+  NSImageScaleNone = 2;
+  NSImageScaleProportionallyUpOrDown = 3;
 
 const
   NSMixedState = -1;
@@ -82,29 +75,43 @@ const
 const
   NSRegularControlSize = 0;
   NSSmallControlSize = 1;
+  NSMiniControlSize = 2;
 
 const
   NSCellHitNone = 0;
-  NSCellHitContentArea = 1  shl  0;
-  NSCellHitEditableTextArea = 1  shl  1;
-  NSCellHitTrackableArea = 1  shl  2;
+  NSCellHitContentArea = 1 shl 0;
+  NSCellHitEditableTextArea = 1 shl 1;
+  NSCellHitTrackableArea = 1 shl 2;
 
 const
   NSBackgroundStyleLight = 0;
-  NSBackgroundStyleDark = 0;
-  NSBackgroundStyleRaised = 1;
-  NSBackgroundStyleLowered = 2;
+  NSBackgroundStyleDark = 1;
+  NSBackgroundStyleRaised = 2;
+  NSBackgroundStyleLowered = 3;
+
+const
+  NSScaleProportionally = 0;
+  NSScaleToFit = 1;
+  NSScaleNone = 2;
 
 { Types }
 type
   NSCellType = NSUInteger;
+  NSCellTypePtr = ^NSCellType;
   NSCellAttribute = NSUInteger;
+  NSCellAttributePtr = ^NSCellAttribute;
   NSCellImagePosition = NSUInteger;
+  NSCellImagePositionPtr = ^NSCellImagePosition;
   NSImageScaling = NSUInteger;
+  NSImageScalingPtr = ^NSImageScaling;
   NSCellStateValue = NSInteger;
+  NSCellStateValuePtr = ^NSCellStateValue;
   NSControlTint = NSUInteger;
+  NSControlTintPtr = ^NSControlTint;
   NSControlSize = NSUInteger;
+  NSControlSizePtr = ^NSControlSize;
   NSBackgroundStyle = NSInteger;
+  NSBackgroundStylePtr = ^NSBackgroundStyle;
 
 {$endif}
 {$endif}
@@ -116,55 +123,62 @@ type
 { Records }
 type
   __CFlags = bitpacked record
-    state: 0..1;
-    highlighted: 0..1;
-    disabled: 0..1;
-    editable: 0..1;
-    type_: 0..((1 shl 2)-1);
-    vCentered: 0..1;
-    hCentered: 0..1;
-    bordered: 0..1;
-    bezeled: 0..1;
-    selectable: 0..1;
-    scrollable: 0..1;
-    continuous: 0..1;
-    actOnMouseDown: 0..1;
-    isLeaf: 0..1;
-    invalidObjectValue: 0..1;
-    invalidFont: 0..1;
-    lineBreakMode: 0..((1 shl 3)-1);
-    backgroundStyle: 0..((1 shl 2)-1);
-    reserved1: 0..1;
-    actOnMouseDragged: 0..1;
-    isLoaded: 0..1;
-    truncateLastLine: 0..1;
-    dontActOnMouseUp: 0..1;
-    isWhite: 0..1;
-    useUserKeyEquivalent: 0..1;
-    showsFirstResponder: 0..1;
-    focusRingType: 0..((1 shl 2)-1);
-    wasSelectable: 0..1;
-    hasInvalidObject: 0..1;
-    allowsEditingTextAttributes: 0..1;
-    importsGraphics: 0..1;
-    alignment: 0..((1 shl 3)-1);
-    reserved: 0..((1 shl 8)-1);
-    refusesFirstResponder: 0..1;
-    needsHighlightedText: 0..1;
-    dontAllowsUndo: 0..1;
-    currentlyEditing: 0..1;
-    allowsMixedState: 0..1;
-    inMixedState: 0..1;
-    sendsActionOnEndEditing: 0..1;
-    inSendAction: 0..1;
-    menuWasSet: 0..1;
-    controlTint: 0..((1 shl 3)-1);
-    controlSize: 0..((1 shl 2)-1);
-    branchImageDisabled: 0..1;
-    drawingInRevealover: 0..1;
-    needsHighlightedTextHint: 0..1;
+    case byte of
+    0: (_anonbitfield_NSCell0: cuint);
+    1: (
+          state: 0..1;
+          highlighted: 0..1;
+          disabled: 0..1;
+          editable: 0..1;
+          _type: 0..((1 shl 2)-1);
+          vCentered: 0..1;
+          hCentered: 0..1;
+          bordered: 0..1;
+          bezeled: 0..1;
+          selectable: 0..1;
+          scrollable: 0..1;
+          continuous: 0..1;
+          actOnMouseDown: 0..1;
+          isLeaf: 0..1;
+          invalidObjectValue: 0..1;
+          invalidFont: 0..1;
+          lineBreakMode: 0..((1 shl 3)-1);
+          cellReserved1: 0..((1 shl 2)-1);
+          singleLineMode: 0..1;
+          actOnMouseDragged: 0..1;
+          isLoaded: 0..1;
+          truncateLastLine: 0..1;
+          dontActOnMouseUp: 0..1;
+          isWhite: 0..1;
+          useUserKeyEquivalent: 0..1;
+          showsFirstResponder: 0..1;
+          focusRingType: 0..((1 shl 2)-1);
+          wasSelectable: 0..1;
+          hasInvalidObject: 0..1;
+          allowsEditingTextAttributes: 0..1;
+          importsGraphics: 0..1;
+          alignment: 0..((1 shl 3)-1);
+          layoutDirectionRTL: 0..1;
+          backgroundStyle: 0..((1 shl 3)-1);
+          cellReserved2: 0..((1 shl 4)-1);
+          refusesFirstResponder: 0..1;
+          needsHighlightedText: 0..1;
+          dontAllowsUndo: 0..1;
+          currentlyEditing: 0..1;
+          allowsMixedState: 0..1;
+          inMixedState: 0..1;
+          sendsActionOnEndEditing: 0..1;
+          inSendAction: 0..1;
+          menuWasSet: 0..1;
+          controlTint: 0..((1 shl 3)-1);
+          controlSize: 0..((1 shl 2)-1);
+          branchImageDisabled: 0..1;
+          drawingInRevealover: 0..1;
+          needsHighlightedTextHint: 0..1;
+       );
   end;
 _CFlags = __CFlags;
+__CFlagsPtr = ^__CFlags;
 
 
 {$endif}
@@ -175,8 +189,8 @@ _CFlags = __CFlags;
 {$define NSCELL_PAS_F}
 
 { Functions }
-procedure NSDrawThreePartImage(frame: NSRect; startCapPointer: NSImage; centerFillPointer: NSImage; endCapPointer: NSImage; vertical: Boolean; op: NSCompositingOperation; alphaFraction: CGFloat; flipped: Boolean); cdecl; external name 'NSDrawThreePartImage';
-procedure NSDrawNinePartImage(frame: NSRect; topLeftCornerPointer: NSImage; topEdgeFillPointer: NSImage; topRightCornerPointer: NSImage; leftEdgeFillPointer: NSImage; centerFillPointer: NSImage; rightEdgeFillPointer: NSImage; bottomLeftCornerPointer: NSImage; bottomEdgeFillPointer: NSImage; bottomRightCornerPointer: NSImage; op: NSCompositingOperation; alphaFraction: CGFloat; flipped: Boolean); cdecl; external name 'NSDrawNinePartImage';
+procedure NSDrawThreePartImage(frame: NSRect; startCap: NSImage; centerFill: NSImage; endCap: NSImage; vertical: Boolean; op: NSCompositingOperation; alphaFraction: CGFloat; flipped: Boolean); cdecl; external;
+procedure NSDrawNinePartImage(frame: NSRect; topLeftCorner: NSImage; topEdgeFill: NSImage; topRightCorner: NSImage; leftEdgeFill: NSImage; centerFill: NSImage; rightEdgeFill: NSImage; bottomLeftCorner: NSImage; bottomEdgeFill: NSImage; bottomRightCorner: NSImage; op: NSCompositingOperation; alphaFraction: CGFloat; flipped: Boolean); cdecl; external;
 
 {$endif}
 {$endif}
@@ -187,7 +201,7 @@ procedure NSDrawNinePartImage(frame: NSRect; topLeftCornerPointer: NSImage; topE
 
 { External string constants }
 var
-  NSControlTintDidChangeNotification: NSString; external name '_NSControlTintDidChangeNotification';
+  NSControlTintDidChangeNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -195,6 +209,7 @@ var
 {$ifdef FORWARD}
   NSCell = objcclass;
   NSCellPointer = ^NSCell;
+  NSCellPtr = NSCellPointer;
 
 {$endif}
 
@@ -203,15 +218,13 @@ var
 {$define NSCELL_PAS_C}
 
 { NSCell }
-  NSCell = objcclass(NSObject, NSCopyingProtocol, NSCodingProtocol)
+  NSCell = objcclass external (NSObject, NSCopyingProtocol, NSCodingProtocol)
   private
-    __contents: id;
-    __cFlags: _CFlags;
-    __support: id;
+    _contents: id;
+    _cFlags: _CFlags;
+    _support: id;
     
   public
-    class function alloc: NSCell; message 'alloc';
-
     class function prefersTrackingUntilMouseUp: Boolean; message 'prefersTrackingUntilMouseUp';
     function initTextCell(aString: NSString): id; message 'initTextCell:';
     function initImageCell(image_: NSImage): id; message 'initImageCell:';
@@ -253,15 +266,12 @@ var
     procedure setWraps(flag: Boolean); message 'setWraps:';
     function font: NSFont; message 'font';
     procedure setFont(fontObj: NSFont); message 'setFont:';
-    function entryType: NSInteger; message 'entryType';
-    procedure setEntryType(aType: NSInteger); message 'setEntryType:';
     function isEntryAcceptable(aString: NSString): Boolean; message 'isEntryAcceptable:';
-    procedure setFloatingPointFormat_left_right(autoRange: Boolean; leftDigits: NSUInteger; rightDigits: NSUInteger); message 'setFloatingPointFormat:left:right:';
     function keyEquivalent: NSString; message 'keyEquivalent';
     procedure setFormatter(newFormatter: NSFormatter); message 'setFormatter:';
     function formatter: id; message 'formatter';
     function objectValue: id; message 'objectValue';
-    procedure setObjectValue(obj: id); message 'setObjectValue:';
+    procedure setObjectValue(obj: NSCopyingProtocol); message 'setObjectValue:';
     function hasValidObjectValue: Boolean; message 'hasValidObjectValue';
     function stringValue: NSString; message 'stringValue';
     procedure setStringValue(aString: NSString); message 'setStringValue:';
@@ -323,9 +333,22 @@ var
     function integerValue: NSInteger; message 'integerValue';
     procedure setIntegerValue(anInteger: NSInteger); message 'setIntegerValue:';
     procedure takeIntegerValueFrom(sender: id); message 'takeIntegerValueFrom:';
+    function truncatesLastVisibleLine: Boolean; message 'truncatesLastVisibleLine';
     procedure setTruncatesLastVisibleLine(flag: Boolean); message 'setTruncatesLastVisibleLine:';
+    function userInterfaceLayoutDirection: NSUserInterfaceLayoutDirection; message 'userInterfaceLayoutDirection';
+    procedure setUserInterfaceLayoutDirection(layoutDirection: NSUserInterfaceLayoutDirection); message 'setUserInterfaceLayoutDirection:';
+    function fieldEditorForView(aControlView: NSView): NSTextView; message 'fieldEditorForView:';
+    function usesSingleLineMode: Boolean; message 'usesSingleLineMode';
+    procedure setUsesSingleLineMode(flag: Boolean); message 'setUsesSingleLineMode:';
 
-    { Category: NSKeyboardUI }
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
+
+{ NSKeyboardUI_NSCellCategory }
+  NSKeyboardUI_NSCellCategory = objccategory external name 'NSKeyboardUI' (NSCell)
     procedure setRefusesFirstResponder(flag: Boolean); message 'setRefusesFirstResponder:';
     function refusesFirstResponder: Boolean; message 'refusesFirstResponder';
     function acceptsFirstResponder: Boolean; message 'acceptsFirstResponder';
@@ -340,33 +363,50 @@ var
     function focusRingType: NSFocusRingType; message 'focusRingType';
     class function defaultFocusRingType: NSFocusRingType; message 'defaultFocusRingType';
     function wantsNotificationForMarkedText: Boolean; message 'wantsNotificationForMarkedText';
+  end;
 
-    { Category: NSCellAttributedStringMethods }
+{ NSCellAttributedStringMethodsCategory }
+  NSCellAttributedStringMethodsCategory = objccategory external (NSCell)
     function attributedStringValue: NSAttributedString; message 'attributedStringValue';
     procedure setAttributedStringValue(obj: NSAttributedString); message 'setAttributedStringValue:';
     function allowsEditingTextAttributes: Boolean; message 'allowsEditingTextAttributes';
     procedure setAllowsEditingTextAttributes(flag: Boolean); message 'setAllowsEditingTextAttributes:';
     function importsGraphics: Boolean; message 'importsGraphics';
     procedure setImportsGraphics(flag: Boolean); message 'setImportsGraphics:';
+  end;
 
-    { Category: NSCellMixedState }
+{ NSCellMixedStateCategory }
+  NSCellMixedStateCategory = objccategory external (NSCell)
     procedure setAllowsMixedState(flag: Boolean); message 'setAllowsMixedState:';
     function allowsMixedState: Boolean; message 'allowsMixedState';
     function nextState: NSInteger; message 'nextState';
     procedure setNextState; message 'setNextState';
+  end;
 
-    { Category: NSCellHitTest }
+{ NSCellHitTestCategory }
+  NSCellHitTestCategory = objccategory external (NSCell)
     function hitTestForEvent_inRect_ofView(event: NSEvent; cellFrame: NSRect; controlView_: NSView): NSUInteger; message 'hitTestForEvent:inRect:ofView:';
+  end;
 
-    { Category: NSCellExpansion }
+{ NSCellExpansionCategory }
+  NSCellExpansionCategory = objccategory external (NSCell)
     function expansionFrameWithFrame_inView(cellFrame: NSRect; view: NSView): NSRect; message 'expansionFrameWithFrame:inView:';
     procedure drawWithExpansionFrame_inView(cellFrame: NSRect; view: NSView); message 'drawWithExpansionFrame:inView:';
+  end;
 
-    { Category: NSCellBackgroundStyle }
+{ NSCellBackgroundStyleCategory }
+  NSCellBackgroundStyleCategory = objccategory external (NSCell)
     function backgroundStyle: NSBackgroundStyle; message 'backgroundStyle';
     procedure setBackgroundStyle(style: NSBackgroundStyle); message 'setBackgroundStyle:';
     function interiorBackgroundStyle: NSBackgroundStyle; message 'interiorBackgroundStyle';
-  end; external;
+  end;
+
+{ NSDeprecated_NSCellCategory }
+  NSDeprecated_NSCellCategory = objccategory external name 'NSDeprecated' (NSCell)
+    function entryType: NSInteger; message 'entryType'; deprecated 'in Mac OS X 10 and later';
+    procedure setEntryType(aType: NSInteger); message 'setEntryType:'; deprecated 'in Mac OS X 10 and later';
+    procedure setFloatingPointFormat_left_right(autoRange: Boolean; leftDigits: NSUInteger; rightDigits: NSUInteger); message 'setFloatingPointFormat:left:right:'; deprecated 'in Mac OS X 10 and later';
+  end;
 
 {$endif}
 {$endif}

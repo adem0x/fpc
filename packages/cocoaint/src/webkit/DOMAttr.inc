@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMAttr.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMATTR_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMAttr = objcclass;
   DOMAttrPointer = ^DOMAttr;
+  DOMAttrPtr = DOMAttrPointer;
 
 {$endif}
 
@@ -41,18 +40,16 @@
 {$define DOMATTR_PAS_C}
 
 { DOMAttr }
-  DOMAttr = objcclass(DOMNode)
+  DOMAttr = objcclass external (DOMNode)
     
   public
-    class function alloc: DOMAttr; message 'alloc';
-
     function name: NSString; message 'name';
     function specified: Boolean; message 'specified';
     procedure setValue (newValue: NSString); message 'setValue:';
     function value: NSString; message 'value';
     function ownerElement: DOMElement; message 'ownerElement';
     function style: DOMCSSStyleDeclaration; message 'style';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

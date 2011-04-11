@@ -1,6 +1,4 @@
 { Parsed from Coredata.framework CoreDataDefines.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Fri Oct 2 11:46:33 EDT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef COREDATADEFINES_PAS_T}
@@ -10,6 +8,8 @@
 const
   NSCoreDataVersionNumber10_4 = 46.0;
   NSCoreDataVersionNumber10_4_3 = 77.0;
+  NSCoreDataVersionNumber10_5 = 185.0;
+  NSCoreDataVersionNumber10_5_3 = 186.0;
 
 {$endif}
 {$endif}
@@ -34,7 +34,7 @@ const
 
 { External symbols }
 var
-  NSCoreDataVersionNumber: double; external name '_NSCoreDataVersionNumber';
+  NSCoreDataVersionNumber: double; cvar; external;
 
 {$endif}
 {$endif}

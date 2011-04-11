@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSRulerView.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSRULERVIEW_PAS_T}
@@ -15,6 +13,7 @@ const
 { Types }
 type
   NSRulerOrientation = NSUInteger;
+  NSRulerOrientationPtr = ^NSRulerOrientation;
 
 {$endif}
 {$endif}
@@ -43,6 +42,7 @@ type
 {$ifdef FORWARD}
   NSRulerView = objcclass;
   NSRulerViewPointer = ^NSRulerView;
+  NSRulerViewPtr = NSRulerViewPointer;
 
 {$endif}
 
@@ -51,27 +51,25 @@ type
 {$define NSRULERVIEW_PAS_C}
 
 { NSRulerView }
-  NSRulerView = objcclass(NSView)
+  NSRulerView = objcclass external (NSView)
   private
-    __scrollView: NSScrollView;
-    __orientation: NSRulerOrientation;
-    __units: NSString;
-    __originOffset: CGFloat;
-    __ruleThickness: CGFloat;
-    __thicknessForMarkers: CGFloat;
-    __thicknessForAccessoryView: CGFloat;
-    __clientView: NSView;
-    __markers: NSMutableArray;
-    __accessoryView: NSView;
-    __cachedHashDict: NSDictionary;
-    __cachedDocViewToRulerConversion: CGFloat;
-    __cachedContentBoundsOrigin: NSPoint;
-    __draggingMarker: NSRulerMarker;
-    __reservedRulerView1: id;
+    _scrollView: NSScrollView;
+    _orientation: NSRulerOrientation;
+    _units: NSString;
+    _originOffset: CGFloat;
+    _ruleThickness: CGFloat;
+    _thicknessForMarkers: CGFloat;
+    _thicknessForAccessoryView: CGFloat;
+    _clientView: NSView;
+    _markers: NSMutableArray;
+    _accessoryView: NSView;
+    _cachedHashDict: NSDictionary;
+    _cachedDocViewToRulerConversion: CGFloat;
+    _cachedContentBoundsOrigin: NSPoint;
+    _draggingMarker: NSRulerMarker;
+    _reservedRulerView1: id;
     
   public
-    class function alloc: NSRulerView; message 'alloc';
-
     class procedure registerUnitWithName_abbreviation_unitToPointsConversionFactor_stepUpCycle_stepDownCycle(unitName: NSString; abbreviation: NSString; conversionFactor: CGFloat; stepUpCycle: NSArray; stepDownCycle: NSArray); message 'registerUnitWithName:abbreviation:unitToPointsConversionFactor:stepUpCycle:stepDownCycle:';
     function initWithScrollView_orientation(scrollView_: NSScrollView; orientation_: NSRulerOrientation): id; message 'initWithScrollView:orientation:';
     procedure setScrollView(scrollView_: NSScrollView); message 'setScrollView:';
@@ -104,7 +102,21 @@ type
     procedure drawHashMarksAndLabelsInRect(rect: NSRect); message 'drawHashMarksAndLabelsInRect:';
     procedure drawMarkersInRect(rect: NSRect); message 'drawMarkersInRect:';
     function isFlipped: Boolean; message 'isFlipped';
-  end; external;
+  end;
+
+{ NSRulerMarkerClientViewDelegationCategory }
+  NSRulerMarkerClientViewDelegationCategory = objccategory external (NSView)
+    function rulerView_shouldMoveMarker(ruler: NSRulerView; marker: NSRulerMarker): Boolean; message 'rulerView:shouldMoveMarker:';
+    function rulerView_willMoveMarker_toLocation(ruler: NSRulerView; marker: NSRulerMarker; location: CGFloat): CGFloat; message 'rulerView:willMoveMarker:toLocation:';
+    procedure rulerView_didMoveMarker(ruler: NSRulerView; marker: NSRulerMarker); message 'rulerView:didMoveMarker:';
+    function rulerView_shouldRemoveMarker(ruler: NSRulerView; marker: NSRulerMarker): Boolean; message 'rulerView:shouldRemoveMarker:';
+    procedure rulerView_didRemoveMarker(ruler: NSRulerView; marker: NSRulerMarker); message 'rulerView:didRemoveMarker:';
+    function rulerView_shouldAddMarker(ruler: NSRulerView; marker: NSRulerMarker): Boolean; message 'rulerView:shouldAddMarker:';
+    function rulerView_willAddMarker_atLocation(ruler: NSRulerView; marker: NSRulerMarker; location: CGFloat): CGFloat; message 'rulerView:willAddMarker:atLocation:';
+    procedure rulerView_didAddMarker(ruler: NSRulerView; marker: NSRulerMarker); message 'rulerView:didAddMarker:';
+    procedure rulerView_handleMouseDown(ruler: NSRulerView; event: NSEvent); message 'rulerView:handleMouseDown:';
+    procedure rulerView_willSetClientView(ruler: NSRulerView; newClient: NSView); message 'rulerView:willSetClientView:';
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSEnumerator.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSENUMERATOR_PAS_T}
@@ -17,10 +15,11 @@
 type
   NSFastEnumerationState = record
     state: culong;
-    itemsPtr: id;
-    mutationsPtr: culong;
-    extra: culong;
+    itemsPtr: idPtr;
+    mutationsPtr: pculong;
+        extra: array[0..4] of culong;
   end;
+NSFastEnumerationStatePtr = ^NSFastEnumerationState;
 
 
 {$endif}
@@ -44,6 +43,7 @@ type
   NSFastEnumerationProtocol = objcprotocol;
   NSEnumerator = objcclass;
   NSEnumeratorPointer = ^NSEnumerator;
+  NSEnumeratorPtr = NSEnumeratorPointer;
 
 {$endif}
 
@@ -52,16 +52,19 @@ type
 {$define NSENUMERATOR_PAS_C}
 
 { NSEnumerator }
-  NSEnumerator = objcclass(NSObject, NSFastEnumerationProtocol)
+  NSEnumerator = objcclass external (NSObject, NSFastEnumerationProtocol)
     
   public
-    class function alloc: NSEnumerator; message 'alloc';
-
     function nextObject: id; message 'nextObject';
 
-    { Category: NSExtendedEnumerator }
+    { Adopted Protocols }
+    function countByEnumeratingWithState_objects_count(state: NSFastEnumerationStatePtr; stackbuf: idPtr; len: NSUInteger): NSUInteger;
+  end;
+
+{ NSExtendedEnumeratorCategory }
+  NSExtendedEnumeratorCategory = objccategory external (NSEnumerator)
     function allObjects: NSArray; message 'allObjects';
-  end; external;
+  end;
 
 {$endif}
 {$endif}
@@ -70,8 +73,8 @@ type
 {$define NSENUMERATOR_PAS_P}
   
 { NSFastEnumeration Protocol }
-  NSFastEnumerationProtocol = objcprotocol
-    function countByEnumeratingWithState_objects_count(state: NSFastEnumerationStatePointer; stackbuf: id; len: NSUInteger): NSUInteger; message 'countByEnumeratingWithState:objects:count:';
-  end; external name 'NSFastEnumeration';
+  NSFastEnumerationProtocol = objcprotocol external name 'NSFastEnumeration'
+    function countByEnumeratingWithState_objects_count(state: NSFastEnumerationStatePtr; stackbuf: idPtr; len: NSUInteger): NSUInteger; message 'countByEnumeratingWithState:objects:count:';
+  end;
 {$endif}
 {$endif}

@@ -31,10 +31,10 @@ type
     FIndex, FFontID : integer;
     FFace : PFT_Face;
     FAngle : real;
-    procedure DrawChar (x,y:integer; data:PByteArray; pitch, width, height:integer);
-    procedure DrawCharBW (x,y:integer; data:PByteArray; pitch, width, height:integer);
     procedure ClearLastText;
   protected
+    procedure DrawChar (x,y:integer; data:PByteArray; pitch, width, height:integer); virtual;
+    procedure DrawCharBW (x,y:integer; data:PByteArray; pitch, width, height:integer); virtual;
     procedure SetName (AValue:string); override;
     procedure SetIndex (AValue : integer);
     procedure SetSize (AValue : integer); override;
@@ -263,21 +263,11 @@ const
 procedure TFreeTypeFont.DrawChar (x,y:integer; data:PByteArray; pitch, width, height:integer);
 
   procedure Combine (canv:TFPCustomCanvas; x,y:integer; c : TFPColor; t:longword);
-  var a,r,g,b:longword;
+  var
+    pixelcolor: TFPColor;
   begin
-    if t = 255 then
-      canv.colors[x,y] := c
-    else if t <> 0 then
-      begin
-      with canv.colors[x,y] do
-        begin
-        a := 255-t;
-        r := ((red * a) + (c.red * t)) div 255;
-        g := ((green * a) + (c.green * t)) div 255;
-        b := ((blue * a) + (c.blue * t)) div 255;
-        end;
-      canv.colors[x,y] := FPImage.FPColor(r,g,b,alphaOpaque);
-      end;
+    pixelcolor := AlphaBlend(canv.colors[x,y], FPImage.FPColor(c.red, c.green,c.blue, (t+1) shl 8 - 1));
+    canv.colors[x,y] := pixelcolor;
   end;
 
 var b,rx,ry : integer;

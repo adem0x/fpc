@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSPageLayout.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPAGELAYOUT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSPageLayout = objcclass;
   NSPageLayoutPointer = ^NSPageLayout;
+  NSPageLayoutPtr = NSPageLayoutPointer;
 
 {$endif}
 
@@ -41,15 +40,15 @@
 {$define NSPAGELAYOUT_PAS_C}
 
 { NSPageLayout }
-  NSPageLayout = objcclass(NSObject)
+  NSPageLayout = objcclass external (NSObject)
   private
-    __accessoryControllers: NSMutableArray;
-    __originalPrintInfo: NSPrintInfo;
-    __delegate: id;
-    __didEndSelector: SEL;
-    __contextInfo: Pointer;
-    __presentedPrintInfo: NSPrintInfo;
-    __windowController: NSWindowController;
+    _accessoryControllers: NSMutableArray;
+    _originalPrintInfo: NSPrintInfo;
+    _delegate: id;
+    _didEndSelector: SEL;
+    _contextInfo: Pointer;
+    _presentedPrintInfo: NSPrintInfo;
+    _windowController: NSWindowController;
     {$ifdef cpu64}
         _reserved: array[0..3] of id;
     {$else}
@@ -57,8 +56,6 @@
     {$endif}
     
   public
-    class function alloc: NSPageLayout; message 'alloc';
-
     class function pageLayout: NSPageLayout; message 'pageLayout';
     procedure addAccessoryController(accessoryController: NSViewController); message 'addAccessoryController:';
     procedure removeAccessoryController(accessoryController: NSViewController); message 'removeAccessoryController:';
@@ -67,13 +64,20 @@
     function runModalWithPrintInfo(printInfo_: NSPrintInfo): NSInteger; message 'runModalWithPrintInfo:';
     function runModal: NSInteger; message 'runModal';
     function printInfo: NSPrintInfo; message 'printInfo';
+  end;
 
-    { Category: NSDeprecated }
-    procedure setAccessoryView(accessoryView_: NSView); message 'setAccessoryView:';
-    function accessoryView: NSView; message 'accessoryView';
-    procedure readPrintInfo; message 'readPrintInfo';
-    procedure writePrintInfo; message 'writePrintInfo';
-  end; external;
+{ NSDeprecated_NSPageLayoutCategory }
+  NSDeprecated_NSPageLayoutCategory = objccategory external name 'NSDeprecated' (NSPageLayout)
+    procedure setAccessoryView(accessoryView: NSView); message 'setAccessoryView:'; deprecated 'in Mac OS X 10.5 and later';
+    function accessoryView: NSView; message 'accessoryView'; deprecated 'in Mac OS X 10.5 and later';
+    procedure readPrintInfo; message 'readPrintInfo'; deprecated 'in Mac OS X 10.5 and later';
+    procedure writePrintInfo; message 'writePrintInfo'; deprecated 'in Mac OS X 10.5 and later';
+  end;
+
+{ NSPageLayoutPanelCategory }
+  NSPageLayoutPanelCategory = objccategory external (NSApplication)
+    procedure runPageLayout(sender: id); message 'runPageLayout:';
+  end;
 
 {$endif}
 {$endif}

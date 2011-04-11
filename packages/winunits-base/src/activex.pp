@@ -31,6 +31,9 @@ type
    TBStr = POleStr;
    TBStrList = array[0..(high(integer) div sizeof(TBSTR))-1] of TBstr;
    PBStrList = ^TBStrList;
+   POleStrList = ^TOleStrList;
+   TOleStrList = array[0..(high(integer) div sizeof(POleStr))-1] of POleStr;
+
    PBStr = ^TBStr;
    TOleEnum = type LongWord;
    LargeInt = Types.LargeInt;
@@ -813,6 +816,8 @@ TYPE
     lpDISPID            = ^DISPID;
     MEMBERID            = DispId;
     HREFTYPE            = DWord;
+    TResultList		= array[0..high(integer) div 4-50] of HResult;
+    PResultList         = ^TResultList;
 
     PSYSINT = ^SYSINT;
     SYSINT = LongInt;
@@ -1597,7 +1602,7 @@ TYPE
 
   tagFUNCDESC                    = Record
                                      memid             : MEMBERID;
-                                     lprgscode         : pSCODE;
+                                     lprgscode         : PResultList;
                                      lprgelemdescParam : lpELEMDESC;    // array of param types
                                      FUNCKIND          : funckind;
                                      invkind           : INVOKEKIND;
@@ -3391,7 +3396,7 @@ Type
 
    ICatInformation = interface(IUnknown)
      ['{0002E013-0000-0000-C000-000000000046}']
-     function EnumCategories(lcid:lcid;out ppenumCategoryInfo : ICatInformation):HResult; StdCall;
+     function EnumCategories(lcid:lcid;out ppenumCategoryInfo : IEnumCategoryInfo):HResult; StdCall;
      function GetCategoryDesc(rcatid:PCATID;lcid:LCID;out pszdesc:lpwstr):HResult; StdCall;
      function EnumClassesOfCategories(cImplemented : ULong; rgcatidImpl:PCATID;cRequired:ULong; rgcatidreq:PCATID; out ppenumclsid : IEnumClsID):HResult; StdCall;
      function ISClassOfCategories(rclsid:pclsid;cImplemented:ULong;rgcatidimpl:PCATID;CRequired:ULONG;rgcatidreq : pcatid):HResult; StdCall;
@@ -3401,7 +3406,7 @@ Type
 
     IPropertySetStorage = Interface(IUnknown)
      ['{0000013A-0000-0000-C000-000000000046}']
-     function Create(const rfmtid:FMTID; const pclsid:CLSID; grfFlags:DWORD; grfMode:DWORD; out ppprstg:IPropertyStorage):HRESULT;
+     function Create(const rfmtid:FMTID; const pclsid:CLSID; grfFlags:DWORD; grfMode:DWORD; out ppprstg:IPropertyStorage):HRESULT; StdCall;
      function Open(const fmtid:FMTID; grfMode:DWORD; out ppprstg:IPropertyStorage):HRESULT; StdCall;
      function Delete(const rfmtid:FMTID):HRESULT; StdCall;
      function Enum(out ppenum:IEnumSTATPROPSETSTG):HRESULT; StdCall;
@@ -3839,6 +3844,7 @@ type
   function  SysAllocStringLen(psz: pointer; len:dword): Integer; stdcall; external oleaut32dll name 'SysAllocStringLen';
   procedure SysFreeString(bstr:pointer); stdcall; external oleaut32dll name 'SysFreeString';
   function  SysStringLen(bstr:pointer):UINT; stdcall; external oleaut32dll name 'SysStringLen';
+  function  SysStringByteLen(bstr:pointer):UINT; stdcall; external oleaut32dll name 'SysStringByteLen';
   function  SysReAllocString(var bstr:pointer;psz: pointer): Integer; stdcall; external oleaut32dll name 'SysReAllocString';
   function  SysReAllocStringLen(var bstr:pointer;psz: pointer; len:dword): Integer; stdcall; external oleaut32dll name 'SysReAllocStringLen';
 

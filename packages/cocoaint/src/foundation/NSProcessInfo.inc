@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSProcessInfo.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPROCESSINFO_PAS_T}
@@ -10,12 +8,12 @@
 
 const
   NSWindowsNTOperatingSystem = 1;
-  NSWindows95OperatingSystem = 0;
-  NSSolarisOperatingSystem = 1;
-  NSHPUXOperatingSystem = 2;
-  NSMACHOperatingSystem = 3;
-  NSSunOSOperatingSystem = 4;
-  NSOSF1OperatingSystem = 5;
+  NSWindows95OperatingSystem = 2;
+  NSSolarisOperatingSystem = 3;
+  NSHPUXOperatingSystem = 4;
+  NSMACHOperatingSystem = 5;
+  NSSunOSOperatingSystem = 6;
+  NSOSF1OperatingSystem = 7;
 
 {$endif}
 {$endif}
@@ -44,6 +42,7 @@ const
 {$ifdef FORWARD}
   NSProcessInfo = objcclass;
   NSProcessInfoPointer = ^NSProcessInfo;
+  NSProcessInfoPtr = NSProcessInfoPointer;
 
 {$endif}
 
@@ -52,17 +51,15 @@ const
 {$define NSPROCESSINFO_PAS_C}
 
 { NSProcessInfo }
-  NSProcessInfo = objcclass(NSObject)
+  NSProcessInfo = objcclass external (NSObject)
   private
     _environment: NSDictionary;
     _arguments: NSArray;
     _hostName: NSString;
-    _name: NSString;
-    _reserved: Pointer;
+    name: NSString;
+    reserved: Pointer;
     
   public
-    class function alloc: NSProcessInfo; message 'alloc';
-
     class function processInfo: NSProcessInfo; message 'processInfo';
     function environment: NSDictionary; message 'environment';
     function arguments: NSArray; message 'arguments';
@@ -77,7 +74,10 @@ const
     function processorCount: NSUInteger; message 'processorCount';
     function activeProcessorCount: NSUInteger; message 'activeProcessorCount';
     function physicalMemory: culonglong; message 'physicalMemory';
-  end; external;
+    function systemUptime: NSTimeInterval; message 'systemUptime';
+    procedure disableSuddenTermination; message 'disableSuddenTermination';
+    procedure enableSuddenTermination; message 'enableSuddenTermination';
+  end;
 
 {$endif}
 {$endif}

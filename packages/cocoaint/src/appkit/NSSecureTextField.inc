@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSSecureTextField.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSECURETEXTFIELD_PAS_T}
@@ -33,8 +31,10 @@
 {$ifdef FORWARD}
   NSSecureTextField = objcclass;
   NSSecureTextFieldPointer = ^NSSecureTextField;
+  NSSecureTextFieldPtr = NSSecureTextFieldPointer;
   NSSecureTextFieldCell = objcclass;
   NSSecureTextFieldCellPointer = ^NSSecureTextFieldCell;
+  NSSecureTextFieldCellPtr = NSSecureTextFieldCellPointer;
 
 {$endif}
 
@@ -43,23 +43,20 @@
 {$define NSSECURETEXTFIELD_PAS_C}
 
 { NSSecureTextField }
-  NSSecureTextField = objcclass(NSTextField)
+  NSSecureTextField = objcclass external (NSTextField)
     
   public
-    class function alloc: NSSecureTextField; message 'alloc';
-  end; external;
+  end;
 
 { NSSecureTextFieldCell }
-  NSSecureTextFieldCell = objcclass(NSTextFieldCell)
+  NSSecureTextFieldCell = objcclass external (NSTextFieldCell)
   private
-    __echosBullets: Boolean;
+    _echosBullets: Boolean;
     
   public
-    class function alloc: NSSecureTextFieldCell; message 'alloc';
-
     procedure setEchosBullets(flag: Boolean); message 'setEchosBullets:';
     function echosBullets: Boolean; message 'echosBullets';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

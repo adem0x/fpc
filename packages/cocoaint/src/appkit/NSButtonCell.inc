@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSButtonCell.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSBUTTONCELL_PAS_T}
@@ -47,8 +45,11 @@ const
 { Types }
 type
   NSButtonType = NSUInteger;
+  NSButtonTypePtr = ^NSButtonType;
   NSBezelStyle = NSUInteger;
+  NSBezelStylePtr = ^NSBezelStyle;
   NSGradientType = NSUInteger;
+  NSGradientTypePtr = ^NSGradientType;
 
 {$endif}
 {$endif}
@@ -59,7 +60,7 @@ type
 
 { Records }
 type
-  __BCFlags = bitpacked record
+  __BCFlags = record
 {$ifdef fpc_big_endian}
     pushIn: 0..1;
     changeContents: 0..1;
@@ -80,13 +81,15 @@ type
     transparent: 0..1;
     inset: 0..((1 shl 2)-1);
     doesNotDimImage: 0..1;
-    gradientType: 0..((1 shl 3)-1);
+    suppressAXValueChangeNote: 0..1;
+    reserved: 0..((1 shl 2)-1);
     useButtonImageSource: 0..1;
     alternateMnemonicLocation: 0..((1 shl 8)-1);
 {$else}
     alternateMnemonicLocation: 0..((1 shl 8)-1);
     useButtonImageSource: 0..1;
-    gradientType: 0..((1 shl 3)-1);
+    reserved: 0..((1 shl 2)-1);
+    suppressAXValueChangeNote: 0..1;
     doesNotDimImage: 0..1;
     inset: 0..((1 shl 2)-1);
     transparent: 0..1;
@@ -109,9 +112,10 @@ type
 {$endif}
   end;
 _BCFlags = __BCFlags;
+__BCFlagsPtr = ^__BCFlags;
 
 type
-  __BCFlags2 = bitpacked record
+  __BCFlags2 = record
 {$ifdef fpc_big_endian}
     keyEquivalentModifierMask: 0..((1 shl 24)-1);
     imageScaling: 0..((1 shl 2)-1);
@@ -129,6 +133,7 @@ type
 {$endif}
   end;
 _BCFlags2 = __BCFlags2;
+__BCFlags2Ptr = ^__BCFlags2;
 
 
 {$endif}
@@ -151,6 +156,7 @@ _BCFlags2 = __BCFlags2;
 {$ifdef FORWARD}
   NSButtonCell = objcclass;
   NSButtonCellPointer = ^NSButtonCell;
+  NSButtonCellPtr = NSButtonCellPointer;
 
 {$endif}
 
@@ -159,21 +165,19 @@ _BCFlags2 = __BCFlags2;
 {$define NSBUTTONCELL_PAS_C}
 
 { NSButtonCell }
-  NSButtonCell = objcclass(NSActionCell)
+  NSButtonCell = objcclass external (NSActionCell)
   private
-    __altContents: NSString;
-    __sound: id;
-    __keyEquivalent: NSString;
-    __bcFlags2: _BCFlags2;
-    __periodicDelay: cushort;
-    __periodicInterval: cushort;
-    __bcFlags: _BCFlags;
-    __normalImage: NSImage;
-    __alternateImageOrKeyEquivalentFont: id;
+    _altContents: NSString;
+    _sound: id;
+    _keyEquivalent: NSString;
+    _bcFlags2: _BCFlags2;
+    _periodicDelay: cushort;
+    _periodicInterval: cushort;
+    _bcFlags: _BCFlags;
+    _normalImage: NSImage;
+    _alternateImageOrKeyEquivalentFont: id;
     
   public
-    class function alloc: NSButtonCell; message 'alloc';
-
     function title: NSString; message 'title';
     procedure setTitle(aString: NSString); message 'setTitle:';
     function alternateTitle: NSString; message 'alternateTitle';
@@ -206,15 +210,19 @@ _BCFlags2 = __BCFlags2;
     procedure drawImage_withFrame_inView(image_: NSImage; frame: NSRect; controlView_: NSView); message 'drawImage:withFrame:inView:';
     function drawTitle_withFrame_inView(title_: NSAttributedString; frame: NSRect; controlView_: NSView): NSRect; message 'drawTitle:withFrame:inView:';
     procedure drawBezelWithFrame_inView(frame: NSRect; controlView_: NSView); message 'drawBezelWithFrame:inView:';
+  end;
 
-    { Category: NSKeyboardUI }
+{ NSKeyboardUI_NSButtonCellCategory }
+  NSKeyboardUI_NSButtonCellCategory = objccategory external name 'NSKeyboardUI' (NSButtonCell)
     procedure setTitleWithMnemonic(stringWithAmpersand: NSString); message 'setTitleWithMnemonic:';
     procedure setAlternateTitleWithMnemonic(stringWithAmpersand: NSString); message 'setAlternateTitleWithMnemonic:';
     procedure setAlternateMnemonicLocation(location: NSUInteger); message 'setAlternateMnemonicLocation:';
     function alternateMnemonicLocation: NSUInteger; message 'alternateMnemonicLocation';
     function alternateMnemonic: NSString; message 'alternateMnemonic';
+  end;
 
-    { Category: NSButtonCellExtensions }
+{ NSButtonCellExtensionsCategory }
+  NSButtonCellExtensionsCategory = objccategory external (NSButtonCell)
     function gradientType: NSGradientType; message 'gradientType';
     procedure setGradientType(type__: NSGradientType); message 'setGradientType:';
     procedure setImageDimsWhenDisabled(flag: Boolean); message 'setImageDimsWhenDisabled:';
@@ -225,21 +233,27 @@ _BCFlags2 = __BCFlags2;
     procedure mouseExited(event: NSEvent); message 'mouseExited:';
     function backgroundColor: NSColor; message 'backgroundColor';
     procedure setBackgroundColor(color: NSColor); message 'setBackgroundColor:';
+  end;
 
-    { Category: NSButtonCellAttributedStringMethods }
+{ NSButtonCellAttributedStringMethodsCategory }
+  NSButtonCellAttributedStringMethodsCategory = objccategory external (NSButtonCell)
     function attributedTitle: NSAttributedString; message 'attributedTitle';
     procedure setAttributedTitle(obj: NSAttributedString); message 'setAttributedTitle:';
     function attributedAlternateTitle: NSAttributedString; message 'attributedAlternateTitle';
     procedure setAttributedAlternateTitle(obj: NSAttributedString); message 'setAttributedAlternateTitle:';
+  end;
 
-    { Category: NSButtonCellBezelStyles }
+{ NSButtonCellBezelStylesCategory }
+  NSButtonCellBezelStylesCategory = objccategory external (NSButtonCell)
     procedure setBezelStyle(bezelStyle_: NSBezelStyle); message 'setBezelStyle:';
     function bezelStyle: NSBezelStyle; message 'bezelStyle';
+  end;
 
-    { Category: NSButtonCellSoundExtensions }
+{ NSButtonCellSoundExtensionsCategory }
+  NSButtonCellSoundExtensionsCategory = objccategory external (NSButtonCell)
     procedure setSound(aSound: NSSound); message 'setSound:';
     function sound: NSSound; message 'sound';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

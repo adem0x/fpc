@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSHost.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSHOST_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSHost = objcclass;
   NSHostPointer = ^NSHost;
+  NSHostPtr = NSHostPointer;
 
 {$endif}
 
@@ -41,15 +40,13 @@
 {$define NSHOST_PAS_C}
 
 { NSHost }
-  NSHost = objcclass(NSObject)
+  NSHost = objcclass external (NSObject)
   private
     _names: NSArray;
     _addresses: NSArray;
-    _reserved: Pointer;
+    reserved: Pointer;
     
   public
-    class function alloc: NSHost; message 'alloc';
-
     class function currentHost: NSHost; message 'currentHost';
     class function hostWithName(name_: NSString): NSHost; message 'hostWithName:';
     class function hostWithAddress(address_: NSString): NSHost; message 'hostWithAddress:';
@@ -61,7 +58,8 @@
     function names: NSArray; message 'names';
     function address: NSString; message 'address';
     function addresses: NSArray; message 'addresses';
-  end; external;
+    function localizedName: NSString; message 'localizedName';
+  end;
 
 {$endif}
 {$endif}

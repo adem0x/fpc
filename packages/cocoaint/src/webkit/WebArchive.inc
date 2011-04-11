@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework WebArchive.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef WEBARCHIVE_PAS_T}
@@ -29,7 +27,7 @@
 
 { External string constants }
 var
-  WebArchivePboardType: NSString; external name '_WebArchivePboardType';
+  WebArchivePboardType: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -37,6 +35,7 @@ var
 {$ifdef FORWARD}
   WebArchive = objcclass;
   WebArchivePointer = ^WebArchive;
+  WebArchivePtr = WebArchivePointer;
 
 {$endif}
 
@@ -45,20 +44,23 @@ var
 {$define WEBARCHIVE_PAS_C}
 
 { WebArchive }
-  WebArchive = objcclass(NSObject, NSCodingProtocol, NSCopyingProtocol)
+  WebArchive = objcclass external (NSObject, NSCodingProtocol, NSCopyingProtocol)
   private
-    __private: WebArchivePrivate;
+    _private: WebArchivePrivate;
     
   public
-    class function alloc: WebArchive; message 'alloc';
-
     function initWithMainResource_subresources_subframeArchives(mainResource_: WebResource; subresources_: NSArray; subframeArchives_: NSArray): id; message 'initWithMainResource:subresources:subframeArchives:';
     function initWithData(data_: NSData): id; message 'initWithData:';
     function mainResource: WebResource; message 'mainResource';
     function subresources: NSArray; message 'subresources';
     function subframeArchives: NSArray; message 'subframeArchives';
     function data: NSData; message 'data';
-  end; external;
+
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+    function copyWithZone(zone_: NSZonePtr): id;
+  end;
 
 {$endif}
 {$endif}

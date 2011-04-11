@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSColorPanel.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCOLORPANEL_PAS_T}
@@ -9,6 +7,7 @@
 { Types }
 type
   NSColorPanelMode = NSInteger;
+  NSColorPanelModePtr = ^NSColorPanelMode;
 
 { Constants }
 
@@ -57,7 +56,7 @@ const
 
 { External string constants }
 var
-  NSColorPanelColorDidChangeNotification: NSString; external name '_NSColorPanelColorDidChangeNotification';
+  NSColorPanelColorDidChangeNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -65,6 +64,7 @@ var
 {$ifdef FORWARD}
   NSColorPanel = objcclass;
   NSColorPanelPointer = ^NSColorPanel;
+  NSColorPanelPtr = NSColorPanelPointer;
 
 {$endif}
 
@@ -73,43 +73,41 @@ var
 {$define NSCOLORPANEL_PAS_C}
 
 { NSColorPanel }
-  NSColorPanel = objcclass(NSPanel)
+  NSColorPanel = objcclass external (NSPanel)
   private
-    __colorSwatch: id;
-    __reserved1: id;
-    __colorWell: id;
-    __pickersWithLoadedViews: NSMutableArray;
-    __magnifyButton: id;
-    __middleView: id;
-    __opacitySlider: id;
-    __opacityText: id;
-    __opacityView: id;
-    __modalButtons: id;
-    __pickerView: id;
-    __customViewsList: id;
-    __customPickerList: id;
-    __currViewObject: id;
-    __boxAboveSwatch: id;
-    __target: id;
-    __accessoryView: id;
-    __action: SEL;
-    __minColorPanelSize: NSSize;
-    __maxColorPanelSize: NSSize;
-    __reserved2: NSSize;
-    __reserved3: NSSize;
-    __resizeDimple: id;
-    __reserved5: Boolean;
-    __reserved6: Boolean;
-    __handlingOpacityMoveAction: Boolean;
-    __ignoreConstraints: Boolean;
-    __continuous: Boolean;
-    __allowColorSetting: Boolean;
-    __stillInitializing: Boolean;
-    __opacityTextController: id;
+    _colorSwatch: id;
+    _reserved1: id;
+    _colorWell: id;
+    _pickersWithLoadedViews: NSMutableArray;
+    _magnifyButton: id;
+    _middleView: id;
+    _opacitySlider: id;
+    _opacityText: id;
+    _opacityView: id;
+    _modalButtons: id;
+    _pickerView: id;
+    _customViewsList: id;
+    _customPickerList: id;
+    _currViewObject: id;
+    _boxAboveSwatch: id;
+    _target: id;
+    _accessoryView: id;
+    _action: SEL;
+    _minColorPanelSize: NSSize;
+    _maxColorPanelSize: NSSize;
+    _reserved2: NSSize;
+    _reserved3: NSSize;
+    _resizeDimple: id;
+    _reserved5: Boolean;
+    _reserved6: Boolean;
+    _handlingOpacityMoveAction: Boolean;
+    _ignoreConstraints: Boolean;
+    _continuous: Boolean;
+    _allowColorSetting: Boolean;
+    _stillInitializing: Boolean;
+    _opacityTextController: id;
     
   public
-    class function alloc: NSColorPanel; message 'alloc';
-
     class function sharedColorPanel: NSColorPanel; message 'sharedColorPanel';
     class function sharedColorPanelExists: Boolean; message 'sharedColorPanelExists';
     class function dragColor_withEvent_fromView(color_: NSColor; theEvent: NSEvent; sourceView: NSView): Boolean; message 'dragColor:withEvent:fromView:';
@@ -130,7 +128,17 @@ var
     procedure setTarget(anObject: id); message 'setTarget:';
     procedure attachColorList(colorList: NSColorList); message 'attachColorList:';
     procedure detachColorList(colorList: NSColorList); message 'detachColorList:';
-  end; external;
+  end;
+
+{ NSColorPanel_NSApplicationCategory }
+  NSColorPanel_NSApplicationCategory = objccategory external name 'NSColorPanel' (NSApplication)
+    procedure orderFrontColorPanel(sender: id); message 'orderFrontColorPanel:';
+  end;
+
+{ NSColorPanelResponderMethodCategory }
+  NSColorPanelResponderMethodCategory = objccategory external (NSObject)
+    procedure changeColor(sender: id); message 'changeColor:';
+  end;
 
 {$endif}
 {$endif}

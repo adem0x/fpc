@@ -264,7 +264,7 @@ type
   PgmInputs:PChar;            {Command parameters (nil allowed).}
   TermQ:PChar;                {System queue. (nil allowed).}
   Environment:PChar;          {Environment to pass (nil allowed).}
-  InheritOpt:word;            {Inherit enviroment from shell/
+  InheritOpt:word;            {Inherit environment from shell/
                                inherit environment from parent (0/1).}
   SessionType:word;           {Auto/full screen/window/presentation
                                manager/full screen Dos/windowed Dos
@@ -777,7 +777,7 @@ end;
 function SetCurrentDir (const NewDir: string): boolean;
 begin
 {$I-}
-{$WARNING Should be rewritten to avoid unit dos dependancy!}
+{$WARNING Should be rewritten to avoid unit dos dependency!}
  ChDir (NewDir);
  Result := (IOResult = 0);
 {$I+}
@@ -787,7 +787,7 @@ end;
 function CreateDir (const NewDir: string): boolean;
 begin
 {$I-}
-{$WARNING Should be rewritten to avoid unit dos dependancy!}
+{$WARNING Should be rewritten to avoid unit dos dependency!}
  MkDir (NewDir);
  Result := (IOResult = 0);
 {$I+}
@@ -797,7 +797,7 @@ end;
 function RemoveDir (const Dir: string): boolean;
 begin
 {$I-}
-{$WARNING Should be rewritten to avoid unit dos dependancy!}
+{$WARNING Should be rewritten to avoid unit dos dependency!}
  RmDir (Dir);
  Result := (IOResult = 0);
  {$I+}

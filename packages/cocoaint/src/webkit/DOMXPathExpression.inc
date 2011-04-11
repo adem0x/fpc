@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMXPathExpression.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMXPATHEXPRESSION_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMXPathExpression = objcclass;
   DOMXPathExpressionPointer = ^DOMXPathExpression;
+  DOMXPathExpressionPtr = DOMXPathExpressionPointer;
 
 {$endif}
 
@@ -41,16 +40,16 @@
 {$define DOMXPATHEXPRESSION_PAS_C}
 
 { DOMXPathExpression }
-  DOMXPathExpression = objcclass(DOMObject)
+  DOMXPathExpression = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMXPathExpression; message 'alloc';
-
     function evaluate_type_inResult(contextNode: DOMNode; type_: cushort; inResult: DOMXPathResult): DOMXPathResult; message 'evaluate:type:inResult:';
+  end;
 
-    { Category: DOMXPathExpressionDeprecated }
+{ DOMXPathExpressionDeprecatedCategory }
+  DOMXPathExpressionDeprecatedCategory = objccategory external (DOMXPathExpression)
     function evaluate(contextNode: DOMNode; type_: cushort; inResult: DOMXPathResult): DOMXPathResult; message 'evaluate:contextNode:type:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

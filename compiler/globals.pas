@@ -26,7 +26,7 @@ unit globals;
 interface
 
     uses
-{$ifdef win32}
+{$ifdef windows}
       windows,
 {$endif}
 {$ifdef os2}
@@ -51,15 +51,15 @@ interface
        delphimodeswitches =
          [m_delphi,m_all,m_class,m_objpas,m_result,m_string_pchar,
           m_pointer_2_procedure,m_autoderef,m_tp_procvar,m_initfinal,m_default_ansistring,
-          m_out,m_default_para,m_duplicate_names,m_hintdirective,m_add_pointer,
-          m_property,m_default_inline,m_except];
+          m_out,m_default_para,m_duplicate_names,m_hintdirective,
+          m_property,m_default_inline,m_except,m_advanced_records];
        fpcmodeswitches =
          [m_fpc,m_all,m_string_pchar,m_nested_comment,m_repeat_forward,
-          m_cvar_support,m_initfinal,m_add_pointer,m_hintdirective,
+          m_cvar_support,m_initfinal,m_hintdirective,
           m_property,m_default_inline];
        objfpcmodeswitches =
          [m_objfpc,m_fpc,m_all,m_class,m_objpas,m_result,m_string_pchar,m_nested_comment,
-          m_repeat_forward,m_cvar_support,m_initfinal,m_add_pointer,m_out,m_default_para,m_hintdirective,
+          m_repeat_forward,m_cvar_support,m_initfinal,m_out,m_default_para,m_hintdirective,
           m_property,m_default_inline,m_except];
        tpmodeswitches =
          [m_tp7,m_all,m_tp_procvar,m_duplicate_names];
@@ -68,7 +68,9 @@ interface
          [m_gpc,m_all,m_tp_procvar];
 {$endif}
        macmodeswitches =
-         [m_mac,m_all,m_result,m_cvar_support,m_mac_procvar];
+         [m_mac,m_all,m_cvar_support,m_mac_procvar,m_nested_procvars,m_non_local_goto];
+       isomodeswitches =
+         [m_iso,m_all,m_tp_procvar,m_duplicate_names,m_nested_procvars,m_non_local_goto];
 
        { maximum nesting of routines }
        maxnesting = 32;
@@ -351,7 +353,7 @@ interface
         );
         globalswitches : [cs_check_unit_name,cs_link_static];
         moduleswitches : [cs_extsyntax,cs_implicit_exceptions];
-        localswitches : [cs_check_io,cs_typed_const_writable];
+        localswitches : [cs_check_io,cs_typed_const_writable,cs_pointermath];
         modeswitches : fpcmodeswitches;
         optimizerswitches : [];
         genwpoptimizerswitches : [];
@@ -477,6 +479,13 @@ implementation
     uses
 {$ifdef macos}
       macutils,
+{$endif}
+{$ifdef mswindows}
+{$ifdef VER2_4}
+      cwindirs,
+{$else VER2_4}
+      windirs,
+{$endif VER2_4}
 {$endif}
       comphook;
 
@@ -719,7 +728,22 @@ implementation
                           Default Macro Handling
 ****************************************************************************}
 
+
      procedure DefaultReplacements(var s:ansistring);
+{$ifdef mswindows}
+       procedure ReplaceSpecialFolder(const MacroName: string; const ID: integer);
+         begin
+           // Only try to receive the special folders (and thus dynamically
+           // load shfolder.dll) when that's needed.
+           if pos(MacroName,s)>0 then
+             Replace(s,MacroName,GetWindowsSpecialDir(ID));
+         end;
+
+{$endif mswindows}
+       var
+         envstr: string;
+         envvalue: pchar;
+         i: integer;
        begin
          { Replace some macros }
          Replace(s,'$FPCVERSION',version_string);
@@ -731,6 +755,38 @@ implementation
            Replace(s,'$FPCTARGET',target_os_string)
          else
            Replace(s,'$FPCTARGET',target_full_string);
+{$ifdef mswindows}
+         ReplaceSpecialFolder('$LOCAL_APPDATA',CSIDL_LOCAL_APPDATA);
+         ReplaceSpecialFolder('$APPDATA',CSIDL_APPDATA);
+         ReplaceSpecialFolder('$COMMON_APPDATA',CSIDL_COMMON_APPDATA);
+         ReplaceSpecialFolder('$PERSONAL',CSIDL_PERSONAL);
+         ReplaceSpecialFolder('$PROGRAM_FILES',CSIDL_PROGRAM_FILES);
+         ReplaceSpecialFolder('$PROGRAM_FILES_COMMON',CSIDL_PROGRAM_FILES_COMMON);
+         ReplaceSpecialFolder('$PROFILE',CSIDL_PROFILE);
+{$endif mswindows}
+         { Replace environment variables between dollar signs }
+         i := pos('$',s);
+         while i>0 do
+          begin
+            envstr:=copy(s,i+1,length(s)-i);
+            i:=pos('$',envstr);
+            if i>0 then
+             begin
+               envstr := copy(envstr,1,i-1);
+               envvalue := GetEnvPChar(envstr);
+               if assigned(envvalue) then
+                 begin
+                 Replace(s,'$'+envstr+'$',envvalue);
+                 // Look if there is another env.var in the string
+                 i:=pos('$',s);
+                 end
+               else
+                 // if the env.var is not set, do not replace the env.variable
+                 // and stop looking for more env.var within the string
+                 i := 0;
+              FreeEnvPChar(envvalue);
+             end;
+          end;
        end;
 
 
@@ -954,7 +1010,8 @@ implementation
          'SAFECALL',
          'STDCALL',
          'SOFTFLOAT',
-         'MWPASCAL'
+         'MWPASCAL',
+         'INTERRUPT'
         );
       var
         t  : tproccalloption;
@@ -1329,9 +1386,7 @@ implementation
 
     function floating_point_range_check_error : boolean;
       begin
-        result:=((([cs_check_range,cs_check_overflow]*current_settings.localswitches)<>[]) and not
-                   (m_delphi in current_settings.modeswitches)
-                ); // or (cs_ieee_errors in current_settings.localswitches);
+        result:=cs_ieee_errors in current_settings.localswitches;
       end;
 
 {****************************************************************************
@@ -1450,7 +1505,7 @@ implementation
         RelocSection:=false;
         RelocSectionSetExplicitly:=false;
         LinkTypeSetExplicitly:=false;
-        { memory sizes, will be overriden by parameter or default for target
+        { memory sizes, will be overridden by parameter or default for target
           in options or init_parser }
         stacksize:=0;
         { not initialized yet }

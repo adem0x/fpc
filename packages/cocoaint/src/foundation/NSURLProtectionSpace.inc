@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSURLProtectionSpace.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSURLPROTECTIONSPACE_PAS_T}
@@ -27,12 +25,31 @@
 {$ifndef NSURLPROTECTIONSPACE_PAS_S}
 {$define NSURLPROTECTIONSPACE_PAS_S}
 
+{ External string constants }
+var
+  NSURLProtectionSpaceHTTP: NSString; cvar; external;
+  NSURLProtectionSpaceHTTPS: NSString; cvar; external;
+  NSURLProtectionSpaceFTP: NSString; cvar; external;
+  NSURLProtectionSpaceHTTPProxy: NSString; cvar; external;
+  NSURLProtectionSpaceHTTPSProxy: NSString; cvar; external;
+  NSURLProtectionSpaceFTPProxy: NSString; cvar; external;
+  NSURLProtectionSpaceSOCKSProxy: NSString; cvar; external;
+  NSURLAuthenticationMethodDefault: NSString; cvar; external;
+  NSURLAuthenticationMethodHTTPBasic: NSString; cvar; external;
+  NSURLAuthenticationMethodHTTPDigest: NSString; cvar; external;
+  NSURLAuthenticationMethodHTMLForm: NSString; cvar; external;
+  NSURLAuthenticationMethodNTLM: NSString; cvar; external;
+  NSURLAuthenticationMethodNegotiate: NSString; cvar; external;
+  NSURLAuthenticationMethodClientCertificate: NSString; cvar; external;
+  NSURLAuthenticationMethodServerTrust: NSString; cvar; external;
+
 {$endif}
 {$endif}
 
 {$ifdef FORWARD}
   NSURLProtectionSpace = objcclass;
   NSURLProtectionSpacePointer = ^NSURLProtectionSpace;
+  NSURLProtectionSpacePtr = NSURLProtectionSpacePointer;
 
 {$endif}
 
@@ -41,13 +58,11 @@
 {$define NSURLPROTECTIONSPACE_PAS_C}
 
 { NSURLProtectionSpace }
-  NSURLProtectionSpace = objcclass(NSObject, NSCopyingProtocol)
+  NSURLProtectionSpace = objcclass external (NSObject, NSCopyingProtocol)
   private
-    __internal: NSURLProtectionSpaceInternal;
+    _internal: NSURLProtectionSpaceInternal;
     
   public
-    class function alloc: NSURLProtectionSpace; message 'alloc';
-
     function initWithHost_port_protocol_realm_authenticationMethod(host_: NSString; port_: NSInteger; protocol_: NSString; realm_: NSString; authenticationMethod_: NSString): id; message 'initWithHost:port:protocol:realm:authenticationMethod:';
     function initWithProxyHost_port_type_realm_authenticationMethod(host_: NSString; port_: NSInteger; type_: NSString; realm_: NSString; authenticationMethod_: NSString): id; message 'initWithProxyHost:port:type:realm:authenticationMethod:';
     function realm: NSString; message 'realm';
@@ -58,7 +73,20 @@
     function proxyType: NSString; message 'proxyType';
     function protocol: NSString; message 'protocol';
     function authenticationMethod: NSString; message 'authenticationMethod';
-  end; external;
+
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+  end;
+
+{ NSClientCertificateSpaceCategory }
+  NSClientCertificateSpaceCategory = objccategory external (NSURLProtectionSpace)
+    function distinguishedNames: NSArray; message 'distinguishedNames';
+  end;
+
+{ NSServerTrustValidationSpaceCategory }
+  NSServerTrustValidationSpaceCategory = objccategory external (NSURLProtectionSpace)
+    function serverTrust: SecTrustRef; message 'serverTrust';
+  end;
 
 {$endif}
 {$endif}

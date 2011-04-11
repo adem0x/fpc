@@ -1,4 +1,5 @@
 
+
 { $include helper.inc}
 {$include ndstypes.inc}
 {$include bios.inc}
@@ -15,11 +16,10 @@
 {$include timers.inc}
 {$include fifomessages.inc} 
 {$include input.inc} // testing...
-
-{$include linkedlist.inc}
-{$include dynamicArray.inc}
  
 {$ifdef ARM9}
+  {$include arm9/dynamicArray.inc}
+  {$include arm9/linkedlist.inc}
   {$include arm9/sassert.inc}
   {$include arm9/background.inc}
   {$include arm9/cache.inc}
@@ -35,17 +35,21 @@
   {$include arm9/trig_lut.inc}
   {$include arm9/video.inc}
   {$include arm9/videoGL.inc}
-  {$include arm9/postest.inc}
   {$include arm9/boxtest.inc}
+  {$include arm9/postest.inc}
   {$include arm9/sprite.inc}
   {$include arm9/decompress.inc}
   {$include arm9/ndsmotion.inc}
+  {$include arm9/guitarGrip.inc}
+  {$include arm9/paddle.inc}
+  {$include arm9/piano.inc}
 {$endif ARM9}
 
 {$ifdef ARM7}
   {$include arm7/audio.inc}
   {$include arm7/clock.inc}
   {$include arm7/input.inc}
+  {$include arm7/i2c.inc}
   {$include arm7/serial.inc}
   {$include arm7/touch.inc}
 {$endif ARM7}

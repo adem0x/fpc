@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLFormElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLFORMELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLFormElement = objcclass;
   DOMHTMLFormElementPointer = ^DOMHTMLFormElement;
+  DOMHTMLFormElementPtr = DOMHTMLFormElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLFORMELEMENT_PAS_C}
 
 { DOMHTMLFormElement }
-  DOMHTMLFormElement = objcclass(DOMHTMLElement)
+  DOMHTMLFormElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLFormElement; message 'alloc';
-
     function elements: DOMHTMLCollection; message 'elements';
     function length: cint; message 'length';
     procedure setName (newValue: NSString); message 'setName:';
@@ -54,6 +51,8 @@
     function acceptCharset: NSString; message 'acceptCharset';
     procedure setAction (newValue: NSString); message 'setAction:';
     function action: NSString; message 'action';
+    procedure setEncoding (newValue: NSString); message 'setEncoding:';
+    function encoding: NSString; message 'encoding';
     procedure setEnctype (newValue: NSString); message 'setEnctype:';
     function enctype: NSString; message 'enctype';
     procedure setMethod (newValue: NSString); message 'setMethod:';
@@ -62,7 +61,7 @@
     function target: NSString; message 'target';
     procedure submit; message 'submit';
     procedure reset; message 'reset';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

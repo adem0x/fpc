@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSFontFaceRule.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSFONTFACERULE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCSSFontFaceRule = objcclass;
   DOMCSSFontFaceRulePointer = ^DOMCSSFontFaceRule;
+  DOMCSSFontFaceRulePtr = DOMCSSFontFaceRulePointer;
 
 {$endif}
 
@@ -41,13 +40,11 @@
 {$define DOMCSSFONTFACERULE_PAS_C}
 
 { DOMCSSFontFaceRule }
-  DOMCSSFontFaceRule = objcclass(DOMCSSRule)
+  DOMCSSFontFaceRule = objcclass external (DOMCSSRule)
     
   public
-    class function alloc: DOMCSSFontFaceRule; message 'alloc';
-
     function style: DOMCSSStyleDeclaration; message 'style';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

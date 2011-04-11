@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework WebDocument.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef WEBDOCUMENT_PAS_T}
@@ -42,22 +40,22 @@
 {$define WEBDOCUMENT_PAS_P}
   
 { WebDocumentView Protocol }
-  WebDocumentViewProtocol = objcprotocol
+  WebDocumentViewProtocol = objcprotocol external name 'WebDocumentView'
     procedure setDataSource(dataSource: WebDataSource); message 'setDataSource:';
     procedure dataSourceUpdated(dataSource: WebDataSource); message 'dataSourceUpdated:';
     procedure setNeedsLayout(flag: Boolean); message 'setNeedsLayout:';
     procedure layout; message 'layout';
-    procedure viewWillMoveToHostWindow(hostWindow: NSWindowPointer); message 'viewWillMoveToHostWindow:';
+    procedure viewWillMoveToHostWindow(hostWindow: NSWindowPtr); message 'viewWillMoveToHostWindow:';
     procedure viewDidMoveToHostWindow; message 'viewDidMoveToHostWindow';
-  end; external name 'WebDocumentView';
+  end;
   
 { WebDocumentSearching Protocol }
-  WebDocumentSearchingProtocol = objcprotocol
+  WebDocumentSearchingProtocol = objcprotocol external name 'WebDocumentSearching'
     function searchFor_direction_caseSensitive_wrap(string_: NSString; forward: Boolean; caseFlag: Boolean; wrapFlag: Boolean): Boolean; message 'searchFor:direction:caseSensitive:wrap:';
-  end; external name 'WebDocumentSearching';
+  end;
   
 { WebDocumentText Protocol }
-  WebDocumentTextProtocol = objcprotocol
+  WebDocumentTextProtocol = objcprotocol external name 'WebDocumentText'
     function supportsTextEncoding: Boolean; message 'supportsTextEncoding';
     function string_: NSString; message 'string';
     function attributedString: NSAttributedString; message 'attributedString';
@@ -65,10 +63,10 @@
     function selectedAttributedString: NSAttributedString; message 'selectedAttributedString';
     procedure selectAll; message 'selectAll';
     procedure deselectAll; message 'deselectAll';
-  end; external name 'WebDocumentText';
+  end;
   
 { WebDocumentRepresentation Protocol }
-  WebDocumentRepresentationProtocol = objcprotocol
+  WebDocumentRepresentationProtocol = objcprotocol external name 'WebDocumentRepresentation'
     procedure setDataSource(dataSource: WebDataSource); message 'setDataSource:';
     procedure receivedData_withDataSource(data: NSData; dataSource: WebDataSource); message 'receivedData:withDataSource:';
     procedure receivedError_withDataSource(error: NSError; dataSource: WebDataSource); message 'receivedError:withDataSource:';
@@ -76,6 +74,6 @@
     function canProvideDocumentSource: Boolean; message 'canProvideDocumentSource';
     function documentSource: NSString; message 'documentSource';
     function title: NSString; message 'title';
-  end; external name 'WebDocumentRepresentation';
+  end;
 {$endif}
 {$endif}

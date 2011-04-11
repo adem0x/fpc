@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework WebHistoryItem.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef WEBHISTORYITEM_PAS_T}
@@ -29,7 +27,7 @@
 
 { External string constants }
 var
-  WebHistoryItemChangedNotification: NSString; external name '_WebHistoryItemChangedNotification';
+  WebHistoryItemChangedNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -37,6 +35,7 @@ var
 {$ifdef FORWARD}
   WebHistoryItem = objcclass;
   WebHistoryItemPointer = ^WebHistoryItem;
+  WebHistoryItemPtr = WebHistoryItemPointer;
 
 {$endif}
 
@@ -45,13 +44,11 @@ var
 {$define WEBHISTORYITEM_PAS_C}
 
 { WebHistoryItem }
-  WebHistoryItem = objcclass(NSObject, NSCopyingProtocol)
+  WebHistoryItem = objcclass external (NSObject, NSCopyingProtocol)
   private
-    __private: WebHistoryItemPrivate;
+    _private: WebHistoryItemPrivate;
     
   public
-    class function alloc: WebHistoryItem; message 'alloc';
-
     function initWithURLString_title_lastVisitedTimeInterval(URLString_: NSString; title_: NSString; time: NSTimeInterval): id; message 'initWithURLString:title:lastVisitedTimeInterval:';
     function originalURLString: NSString; message 'originalURLString';
     function URLString: NSString; message 'URLString';
@@ -60,7 +57,10 @@ var
     procedure setAlternateTitle(alternateTitle_: NSString); message 'setAlternateTitle:';
     function alternateTitle: NSString; message 'alternateTitle';
     function icon: NSImage; message 'icon';
-  end; external;
+
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+  end;
 
 {$endif}
 {$endif}

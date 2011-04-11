@@ -63,7 +63,7 @@ unit parabase;
 
        TCGPara = object
           Location  : PCGParalocation;
-          IntSize   : aint; { size of the total location in bytes }
+          IntSize   : tcgint; { size of the total location in bytes }
           Alignment : ShortInt;
           Size      : TCGSize;  { Size of the parameter included in all locations }
 {$ifdef powerpc}
@@ -286,6 +286,12 @@ implementation
 {$endif}
                   ppufile.putlongint(longint(hparaloc^.register));
                 end;
+              { This seems to be required for systems using explicitparaloc (eg. MorphOS)
+                or otherwise it hits the internalerror below. I don't know if this is
+                the proper way to fix this, someone else with clue might want to take a
+                look. The compiler cycles on the affected systems with this enabled. (KB) }
+              LOC_VOID:
+                begin end
               else
                 internalerror(2010053115);
             end;
@@ -329,7 +335,13 @@ implementation
                   hparaloc^.shiftval:=ppufile.getbyte;
 {$endif}
                   hparaloc^.register:=tregister(ppufile.getlongint);
-                end
+                end;
+              { This seems to be required for systems using explicitparaloc (eg. MorphOS)
+                or otherwise it hits the internalerror below. I don't know if this is
+                the proper way to fix this, someone else with clue might want to take a
+                look. The compiler cycles on the affected systems with this enabled. (KB) }
+              LOC_VOID:
+                begin end
               else
                 internalerror(2010051301);
             end;

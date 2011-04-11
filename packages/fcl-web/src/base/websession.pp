@@ -36,7 +36,9 @@ Type
     Procedure CheckSession(ARequest : TRequest);
     Procedure InitSession(AResponse : TResponse);
     Procedure UpdateSession(AResponse : TResponse);
+    Procedure DoneSession; virtual;
   Public
+    destructor destroy; override;
     Procedure Notification(AComponent : TComponent;Operation : TOperation); override;
     Procedure Loaded; Override;
     Property CreateSession : Boolean Read FCreateSession Write FCreateSession;
@@ -59,6 +61,7 @@ Type
     SID : String;
   private
     procedure FreeIniFile;
+    function GetSessionDir: String;
   Protected
     Procedure CheckSession;
     Function GetSessionID : String; override;
@@ -66,7 +69,7 @@ Type
     procedure SetSessionVariable(VarName : String; const AValue: String); override;
     Property Cached : Boolean Read FCached Write FCached;
     property SessionCookie : String Read FSessionCookie Write FSessionCookie;
-    Property SessionDir : String Read FSessionDir Write FSessionDir;
+    Property SessionDir : String Read GetSessionDir Write FSessionDir;
     Property SessionCookiePath : String Read FSessionCookiePath write FSessionCookiePath;
   Public
     Destructor Destroy; override;
@@ -107,7 +110,7 @@ Const
   SData      = 'Data';
 
   KeyStart   = 'Start';         // Start time of session
-  KeyLast    = 'Start';         // Last seen time of session
+  KeyLast    = 'Last';          // Last seen time of session
   KeyTimeOut = 'Timeout';       // Timeout in seconds;
 
   SFPWebSession = 'FPWebSession'; // Cookie name for session.
@@ -118,22 +121,20 @@ resourcestring
 
 Function GetDefaultSession : TCustomSession;
 
-Var
-  W : TFPWebSession;
-
 begin
 {$ifdef cgidebug}SendMethodEnter('GetDefaultSession');{$endif}
   Result:=Nil;
   If (GlobalSessionDir='') then
-    GlobalSessionDir:=IncludeTrailingPathDelimiter(GetTempDir(True));
+    GlobalSessionDir:=IncludeTrailingPathDelimiter(GetTempDir(True))
+  else
+    GlobalSessionDir:=IncludeTrailingPathDelimiter(GlobalSessionDir);
+{$ifdef cgidebug}SendDebug('GetDefaultSession, session dir: '+GlobalSessionDir);{$endif}
   If Assigned(OnGetDefaultSession) then
     OnGetDefaultSession(Result);
   if (Result=Nil) then
     begin
     {$ifdef cgidebug}Senddebug('Creating iniwebsession');{$endif}
-    W:=TFPWebSession.Create(Nil);
-    W.SessionDir:=GlobalSessionDir;
-    Result:=W;
+    Result:=TFPWebSession.Create(Nil);
     end;
 {$ifdef cgidebug}SendMethodExit('GetDefaultSession');{$endif}
 end;
@@ -152,6 +153,13 @@ begin
   If Cached and Assigned(FIniFile) then
     TMemIniFile(FIniFile).UpdateFile;
   FreeAndNil(FIniFile);
+end;
+
+function TIniWebSession.GetSessionDir: String;
+begin
+  Result:=FSessionDir;
+  If (Result='') then
+    Result:=GlobalSessionDir;
 end;
 
 Procedure TIniWebSession.CheckSession;
@@ -231,7 +239,7 @@ begin
     L:=Finifile.ReadDateTime(SSession,KeyLast,0);
 {$ifdef cgidebug}
     If (L=0) then
-    SendDebug('No datetime in inifile');
+    SendDebug('No datetime in inifile (or not valid datetime : '+Finifile.ReadString(SSession,KeyLast,''));
 {$endif}
     T:=FIniFile.ReadInteger(SSession,KeyTimeOut,Self.TimeOutMinutes);
 {$ifdef cgidebug}SendDebug('Timeout :'+IntToStr(t));{$endif}
@@ -257,8 +265,9 @@ begin
     If Assigned(OnNewSession) then
       OnNewSession(Self);
     GetSessionID;
-{$ifdef cgidebug}SendDebug('Creating new Ini file : '+SessionID);{$endif}
-    FIniFile:=TMemIniFile.Create(IncludeTrailingPathDelimiter(SessionDir)+SessionID);
+    S:=IncludeTrailingPathDelimiter(SessionDir)+SessionID;
+{$ifdef cgidebug}SendDebug('Creating new Ini file : '+S);{$endif}
+    FIniFile:=TMemIniFile.Create(S);
     FIniFile.WriteDateTime(SSession,KeyStart,Now);
     FIniFile.WriteInteger(SSession,KeyTimeOut,Self.TimeOutMinutes);
     FSessionStarted:=True;
@@ -279,8 +288,12 @@ begin
   If FSessionStarted then
     begin
 {$ifdef cgidebug}SendDebug('Session started');{$endif}
-    C:=AResponse.Cookies.Add;
-    C.Name:=SessionCookie;
+    C:=AResponse.Cookies.FindCookie(SessionCookie);
+    If (C=Nil) then
+      begin
+      C:=AResponse.Cookies.Add;
+      C.Name:=SessionCookie;
+      end;
     C.Value:=SID;
     C.Path:=FSessionCookiePath;
     end
@@ -319,6 +332,7 @@ begin
       begin
 {$ifdef cgidebug}SendDebug('Getting default session');{$endif}
       FSession:=GetDefaultSession;
+      FSession.FreeNotification(Self);
       end;
     Result:=FSession
     end;
@@ -342,8 +356,13 @@ procedure TSessionHTTPModule.CheckSession(ARequest : TRequest);
 
 begin
 {$ifdef cgidebug}SendMethodEnter('SessionHTTPModule('+Name+').CheckSession');{$endif}
-  If CreateSession and Assigned(Session) then
-    Session.InitSession(ARequest,FOnNewSession,FOnSessionExpired);
+  If CreateSession then
+    begin
+    If (FSession=Nil) then
+      FSession:=GetDefaultSession;
+    if Assigned(FSession) then
+      FSession.InitSession(ARequest,FOnNewSession,FOnSessionExpired);
+    end;
 {$ifdef cgidebug}SendMethodExit('SessionHTTPModule('+Name+').CheckSession');{$endif}
 end;
 
@@ -359,6 +378,19 @@ procedure TSessionHTTPModule.UpdateSession(AResponse: TResponse);
 begin
   If CreateSession And Assigned(FSession) then
     FSession.UpdateResponse(AResponse);
+end;
+
+procedure TSessionHTTPModule.DoneSession;
+begin
+  FreeAndNil(FSession);
+end;
+
+destructor TSessionHTTPModule.destroy;
+begin
+  // Prevent memory leaks.
+  If Assigned(FSession) then
+    DoneSession;
+  inherited destroy;
 end;
 
 procedure TSessionHTTPModule.Notification(AComponent: TComponent;

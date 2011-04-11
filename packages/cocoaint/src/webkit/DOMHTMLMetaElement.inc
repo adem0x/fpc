@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLMetaElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLMETAELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLMetaElement = objcclass;
   DOMHTMLMetaElementPointer = ^DOMHTMLMetaElement;
+  DOMHTMLMetaElementPtr = DOMHTMLMetaElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLMETAELEMENT_PAS_C}
 
 { DOMHTMLMetaElement }
-  DOMHTMLMetaElement = objcclass(DOMHTMLElement)
+  DOMHTMLMetaElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLMetaElement; message 'alloc';
-
     procedure setContent (newValue: NSString); message 'setContent:';
     function content: NSString; message 'content';
     procedure setHttpEquiv (newValue: NSString); message 'setHttpEquiv:';
@@ -54,7 +51,7 @@
     function name: NSString; message 'name';
     procedure setScheme (newValue: NSString); message 'setScheme:';
     function scheme: NSString; message 'scheme';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

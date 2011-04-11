@@ -21,9 +21,9 @@
 {$I-,Q-,H-,R-,V-}
 {$mode objfpc}
 
-{ At least 2.0.0 is required }
-{$if defined(VER1) or defined(VER2_0) or defined(VER2_2_0) }
-  {$fatal You need at least FPC 2.2.2 to build this version of FPC}
+{ At least 2.4.0 is required }
+{$if defined(VER1) or defined(VER2_0) or defined(VER2_2) }
+  {$fatal You need at least FPC 2.4.0 to build this version of FPC}
 {$endif}
 
 { Using inlining for small system functions/wrappers }
@@ -80,12 +80,6 @@
 {$define FPC_HAS_FEATURE_OBJECTIVEC1}
 {$endif FPC_HAS_FEATURE_SUPPORT}
 
-{$ifndef VER2_2}
-{$ifndef FPC_HAS_UNICODESTRING}
-{$error Building trunk is only supported when using the latest release as a starting compiler}
-{$endif}
-{$endif}
-
 {****************************************************************************
                          Global Types and Constants
 ****************************************************************************}
@@ -102,9 +96,7 @@ Type
     Delphi allows chose of overloaded procedure depending
     on Real <-> Double, so use type here, see also tw7425.pp (FK) }
 {$ifndef FPUNONE}
-{$ifndef VER2_0}
   Real = type Double;
-{$endif VER2_0}
 {$endif}
 
 {$ifdef CPUI386}
@@ -123,7 +115,7 @@ Type
 {$endif CPUI386}
 
 {$ifdef CPUX86_64}
-{$ifndef WIN64}
+{$ifdef FPC_HAS_TYPE_EXTENDED}
   { win64 doesn't support the legacy fpu }
   {$define DEFAULT_EXTENDED}
   {$define SUPPORT_EXTENDED}
@@ -131,7 +123,7 @@ Type
   {$ifndef FPUNONE}
     ValReal = Extended;
   {$endif}
-{$else WIN64}
+{$else FPC_HAS_TYPE_EXTENDED}
   {$define DEFAULT_DOUBLE}
   {$ifndef FPUNONE}
     ValReal = Double;
@@ -140,7 +132,7 @@ Type
   { map comp to int64, but this doesn't mean we compile the comp support in! }
   Comp = Int64;
   PComp = ^Comp;
-{$endif WIN64}
+{$endif FPC_HAS_TYPE_EXTENDED}
 
   {$define SUPPORT_SINGLE}
   {$define SUPPORT_DOUBLE}
@@ -373,10 +365,6 @@ Type
 
   UnicodeChar         = WideChar;
   PUnicodeChar        = ^UnicodeChar;
-{$ifdef VER2_2}
-  { this is only to avoid too much ifdefs in the code }
-  UnicodeString       = type WideString;
-{$endif VER2_2}
   PUnicodeString      = ^UnicodeString;
 
   TSystemCodePage     = Word;
@@ -773,6 +761,48 @@ function SarInt64(Const AValue : Int64;Shift : Byte): Int64;[internproc:fpc_in_s
 function SarInt64(Const AValue : Int64;Shift : Byte = 1): Int64;
 {$endif FPC_HAS_INTERNAL_SAR_QWORD}
 
+{$ifdef FPC_HAS_INTERNAL_BSX}
+{$if defined(cpui386) or defined(cpux86_64)}
+{$define FPC_HAS_INTERNAL_BSX_BYTE}
+{$define FPC_HAS_INTERNAL_BSX_WORD}
+{$define FPC_HAS_INTERNAL_BSX_DWORD}
+{$endif}
+{$if defined(cpux86_64)}
+{$define FPC_HAS_INTERNAL_BSX_QWORD}
+{$endif}
+{$endif}
+
+{$ifdef FPC_HAS_INTERNAL_BSX_BYTE}
+function BsfByte(Const AValue: Byte): Byte;[internproc:fpc_in_bsf_x];
+function BsrByte(Const AValue: Byte): Byte;[internproc:fpc_in_bsr_x];
+{$else}
+function BsfByte(Const AValue: Byte): Byte;{$ifdef SYSTEMINLINE}inline;{$endif}
+function BsrByte(Const AValue: Byte): Byte;{$ifdef SYSTEMINLINE}inline;{$endif}
+{$endif}
+
+{$ifdef FPC_HAS_INTERNAL_BSX_WORD}
+function BsfWord(Const AValue: Word): cardinal;[internproc:fpc_in_bsf_x];
+function BsrWord(Const AValue: Word): cardinal;[internproc:fpc_in_bsr_x];
+{$else}
+function BsfWord(Const AValue: Word): cardinal;{$ifdef SYSTEMINLINE}inline;{$endif}
+function BsrWord(Const AValue: Word): cardinal;{$ifdef SYSTEMINLINE}inline;{$endif}
+{$endif}
+
+{$ifdef FPC_HAS_INTERNAL_BSX_DWORD}
+function BsfDWord(Const AValue : DWord): cardinal;[internproc:fpc_in_bsf_x];
+function BsrDWord(Const AValue : DWord): cardinal;[internproc:fpc_in_bsr_x];
+{$else}
+function BsfDWord(Const AValue : DWord): cardinal;{$ifdef SYSTEMINLINE}inline;{$endif}
+function BsrDWord(Const AValue : DWord): cardinal;{$ifdef SYSTEMINLINE}inline;{$endif}
+{$endif FPC_HAS_INTERNAL_BSX_DWORD}
+
+{$ifdef FPC_HAS_INTERNAL_BSX_QWORD}
+function BsfQWord(Const AValue : QWord): cardinal;[internproc:fpc_in_bsf_x];
+function BsrQWord(Const AValue : QWord): cardinal;[internproc:fpc_in_bsr_x];
+{$else}
+function BsfQWord(Const AValue : QWord): cardinal;{$ifdef SYSTEMINLINE}inline;{$endif}
+function BsrQWord(Const AValue : QWord): cardinal;{$ifdef SYSTEMINLINE}inline;{$endif}
+{$endif FPC_HAS_INTERNAL_BSF_QWORD}
 
 {$ifndef FPUNONE}
 { float math routines }
@@ -806,6 +836,7 @@ Function  Pos(C:Char;const s:shortstring):SizeInt;
 {$ifdef FPC_HAS_FEATURE_ANSISTRINGS}
 Function  Pos (const Substr : ShortString; const Source : RawByteString) : SizeInt;
 Procedure SetString (out S : AnsiString; Buf : PChar; Len : SizeInt);
+Procedure SetString (out S : AnsiString; Buf : PWideChar; Len : SizeInt);
 {$endif FPC_HAS_FEATURE_ANSISTRINGS}
 Procedure SetString (out S : Shortstring; Buf : PChar; Len : SizeInt);
 function  ShortCompareText(const S1, S2: shortstring): SizeInt;
@@ -856,14 +887,10 @@ procedure SetMultiByteConversionCodePage(CodePage: TSystemCodePage);
 ****************************************************************************}
 
 {$ifdef FPC_HAS_FEATURE_WIDESTRINGS}
-{$ifdef VER2_2}
-{$i wstring22h.inc}
-{$else VER2_2}
   {$i ustringh.inc}
   {$ifndef FPC_WIDESTRING_EQUAL_UNICODESTRING}
     {$i wstringh.inc}
   {$endif FPC_WIDESTRING_EQUAL_UNICODESTRING}
-{$endif VER2_2}
 {$endif FPC_HAS_FEATURE_WIDESTRINGS}
 
 

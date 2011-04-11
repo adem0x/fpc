@@ -75,7 +75,7 @@ interface
        tinnode = class(tbinopnode)
           constructor create(l,r : tnode);virtual;reintroduce;
           function pass_typecheck:tnode;override;
-          function simplify:tnode;override;
+          function simplify(forinline : boolean):tnode;override;
           function pass_1 : tnode;override;
        end;
        tinnodeclass = class of tinnode;
@@ -110,10 +110,10 @@ interface
        tcasenodeclass = class of tcasenode;
 
     var
-       csetelementnode : tsetelementnodeclass;
-       cinnode : tinnodeclass;
-       crangenode : trangenodeclass;
-       ccasenode : tcasenodeclass;
+       csetelementnode : tsetelementnodeclass = tsetelementnode;
+       cinnode : tinnodeclass = tinnode;
+       crangenode : trangenodeclass = trangenode;
+       ccasenode : tcasenodeclass = tcasenode;
 
     { counts the labels }
     function case_count_labels(root : pcaselabel) : longint;
@@ -229,23 +229,6 @@ implementation
              exit;
           end;
 
-         if right.resultdef.typ<>setdef then
-           CGMessage(sym_e_set_expected);
-
-         if codegenerror then
-           exit;
-
-         if (right.nodetype=typen) then
-           begin
-             { we need to create a setconstn }
-             pst:=createsetconst(tsetdef(ttypenode(right).resultdef));
-             t:=csetconstnode.create(pst,ttypenode(right).resultdef);
-             dispose(pst);
-             right.free;
-             right:=t;
-             typecheckpass(right);
-           end;
-
          typecheckpass(left);
          set_varstate(left,vs_read,[vsf_must_be_valid]);
          if codegenerror then
@@ -253,6 +236,19 @@ implementation
 
          if not assigned(left.resultdef) then
            internalerror(20021126);
+
+         t:=self;
+         if isbinaryoverloaded(t) then
+           begin
+             result:=t;
+             exit;
+           end;
+
+         if right.resultdef.typ<>setdef then
+           CGMessage(sym_e_set_expected);
+
+         if codegenerror then
+           exit;
 
          if (m_tp7 in current_settings.modeswitches) then
            begin
@@ -305,11 +301,11 @@ implementation
             exit;
           end;
 
-         result:=simplify;
+         result:=simplify(false);
       end;
 
 
-    function tinnode.simplify:tnode;
+    function tinnode.simplify(forinline : boolean):tnode;
       var
         t : tnode;
       begin
@@ -1017,9 +1013,4 @@ implementation
         insertlabel(labels);
       end;
 
-begin
-   csetelementnode:=tsetelementnode;
-   cinnode:=tinnode;
-   crangenode:=trangenode;
-   ccasenode:=tcasenode;
 end.

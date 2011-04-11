@@ -158,10 +158,12 @@ uses
     type
       taicpu = class(tai_cpu_abstract_sym)
          oppostfix : TOpPostfix;
+         wideformat : boolean;
          roundingmode : troundingmode;
          procedure loadshifterop(opidx:longint;const so:tshifterop);
          procedure loadregset(opidx:longint; regsetregtype: tregistertype; regsetsubregtype: tsubregister; const s:tcpuregisterset);
          procedure loadconditioncode(opidx:longint;const cond:tasmcond);
+         procedure loadmodeflags(opidx:longint;const flags:tcpumodeflags);
          constructor op_none(op : tasmop);
 
          constructor op_reg(op : tasmop;_op1 : tregister);
@@ -185,6 +187,10 @@ uses
 
          { ITxxx }
          constructor op_cond(op: tasmop; cond: tasmcond);
+
+         { CPSxx }
+         constructor op_modeflags(op: tasmop; flags: tcpumodeflags);
+         constructor op_modeflags_const(op: tasmop; flags: tcpumodeflags; a: aint);
 
          { *M*LL }
          constructor op_reg_reg_reg_reg(op : tasmop;_op1,_op2,_op3,_op4 : tregister);
@@ -246,8 +252,9 @@ uses
     function setroundingmode(i : taicpu;rm : troundingmode) : taicpu;
     function setcondition(i : taicpu;c : tasmcond) : taicpu;
 
-    { inserts pc relative symbols at places where they are reachable }
-    procedure insertpcrelativedata(list,listtoinsert : TAsmList);
+    { inserts pc relative symbols at places where they are reachable
+      and transforms special instructions to valid instruction encodings }
+    procedure finalizearmcode(list,listtoinsert : TAsmList);
     { inserts .pdata section and dummy function prolog needed for arm-wince exception handling }
     procedure InsertPData;
 
@@ -326,6 +333,17 @@ implementation
          end;
       end;
 
+    procedure taicpu.loadmodeflags(opidx: longint; const flags: tcpumodeflags);
+      begin
+        allocate_oper(opidx+1);
+        with oper[opidx]^ do
+         begin
+           if typ<>top_modeflags then
+             clearop(opidx);
+           modeflags:=flags;
+           typ:=top_modeflags;
+         end;
+      end;
 
 {*****************************************************************************
                                  taicpu Constructors
@@ -444,6 +462,21 @@ implementation
         inherited create(op);
         ops:=0;
         condition := cond;
+      end;
+
+    constructor taicpu.op_modeflags(op: tasmop; flags: tcpumodeflags);
+      begin
+        inherited create(op);
+        ops := 1;
+        loadmodeflags(0,flags);
+      end;
+
+    constructor taicpu.op_modeflags_const(op: tasmop; flags: tcpumodeflags; a: aint);
+      begin
+        inherited create(op);
+        ops := 2;
+        loadmodeflags(0,flags);
+        loadconst(1,a);
       end;
 
 
@@ -924,7 +957,8 @@ implementation
 
             { don't miss an insert }
             doinsert:=doinsert or
-              (curinspos-lastinspos+penalty+extradataoffset>limit);
+              (not(curdata.empty) and
+               (curinspos-lastinspos+penalty+extradataoffset>limit));
 
             { split only at real instructions else the test below fails }
             if doinsert and (curtai.typ=ait_instruction) and
@@ -939,7 +973,7 @@ implementation
                    )
               ) then
               begin
-                lastinspos:=curinspos;
+                lastinspos:=-1;
                 extradataoffset:=0;
                 limit:=1016;
                 doinsert:=false;
@@ -955,6 +989,74 @@ implementation
           end;
         list.concatlist(curdata);
         curdata.free;
+      end;
+
+
+    procedure ensurethumb2encodings(list: TAsmList);
+      var
+        curtai: tai;
+        op2reg: TRegister;
+      begin
+        { Do Thumb-2 16bit -> 32bit transformations }
+        curtai:=tai(list.first);
+        while assigned(curtai) do
+          begin
+            case curtai.typ of
+              ait_instruction:
+                begin
+                  case taicpu(curtai).opcode of
+                    A_ADD:
+                      begin
+                        { Set wide flag for ADD Rd,Rn,Rm where registers are over R7(high register set) }
+                        if taicpu(curtai).ops = 3 then
+                          begin
+                            if taicpu(curtai).oper[2]^.typ in [top_reg,top_shifterop] then
+                              begin
+                                if taicpu(curtai).oper[2]^.typ = top_reg then
+                                  op2reg := taicpu(curtai).oper[2]^.reg
+                                else if taicpu(curtai).oper[2]^.shifterop^.rs <> NR_NO then
+                                  op2reg := taicpu(curtai).oper[2]^.shifterop^.rs
+                                else
+                                  op2reg := NR_NO;
+
+                                if op2reg <> NR_NO then
+                                  begin
+                                    if (taicpu(curtai).oper[0]^.reg >= NR_R8) or
+                                       (taicpu(curtai).oper[1]^.reg >= NR_R8) or
+                                       (op2reg >= NR_R8) then
+                                      begin
+                                        taicpu(curtai).wideformat:=true;
+
+                                        { Handle special cases where register rules are violated by optimizer/user }
+                                        { if d == 13 || (d == 15 && S == ‚Äò0‚Äô) || n == 15 || m IN [13,15] then UNPREDICTABLE; }
+
+                                        { Transform ADD.W Rx, Ry, R13 into ADD.W Rx, R13, Ry }
+                                        if (op2reg = NR_R13) and (taicpu(curtai).oper[2]^.typ = top_reg) then
+                                          begin
+                                            taicpu(curtai).oper[2]^.reg := taicpu(curtai).oper[1]^.reg;
+                                            taicpu(curtai).oper[1]^.reg := op2reg;
+                                          end;
+                                      end;
+                                  end;
+                              end;
+                          end;
+                      end;
+                  end;
+                end;
+            end;
+
+
+            curtai:=tai(curtai.Next);
+          end;
+      end;
+
+    procedure finalizearmcode(list, listtoinsert: TAsmList);
+      begin
+        insertpcrelativedata(list, listtoinsert);
+
+        { Do Thumb-2 16bit -> 32bit transformations }
+        if current_settings.cputype in cpu_thumb2 then
+          ensurethumb2encodings(list);
       end;
 
     procedure InsertPData;

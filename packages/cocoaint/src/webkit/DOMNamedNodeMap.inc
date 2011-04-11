@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMNamedNodeMap.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMNAMEDNODEMAP_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMNamedNodeMap = objcclass;
   DOMNamedNodeMapPointer = ^DOMNamedNodeMap;
+  DOMNamedNodeMapPtr = DOMNamedNodeMapPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMNAMEDNODEMAP_PAS_C}
 
 { DOMNamedNodeMap }
-  DOMNamedNodeMap = objcclass(DOMObject)
+  DOMNamedNodeMap = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMNamedNodeMap; message 'alloc';
-
     function length: cuint; message 'length';
     function getNamedItem(name: NSString): DOMNode; message 'getNamedItem:';
     function setNamedItem(node: DOMNode): DOMNode; message 'setNamedItem:';
@@ -54,11 +51,13 @@
     function getNamedItemNS_localName(namespaceURI: NSString; localName: NSString): DOMNode; message 'getNamedItemNS:localName:';
     function setNamedItemNS(node: DOMNode): DOMNode; message 'setNamedItemNS:';
     function removeNamedItemNS_localName(namespaceURI: NSString; localName: NSString): DOMNode; message 'removeNamedItemNS:localName:';
+  end;
 
-    { Category: DOMNamedNodeMapDeprecated }
-    function getNamedItemNS(namespaceURI: NSString; localName: NSString): DOMNode; message 'getNamedItemNS:namespaceURI:';
-    function removeNamedItemNS(namespaceURI: NSString; localName: NSString): DOMNode; message 'removeNamedItemNS:namespaceURI:';
-  end; external;
+{ DOMNamedNodeMapDeprecatedCategory }
+  DOMNamedNodeMapDeprecatedCategory = objccategory external (DOMNamedNodeMap)
+    function getNamedItemNS(namespaceURI: NSString; localName: NSString): DOMNode; message 'getNamedItemNS:namespaceURI:'; deprecated 'in_webkit_version_3 and later';
+    function removeNamedItemNS(namespaceURI: NSString; localName: NSString): DOMNode; message 'removeNamedItemNS:namespaceURI:'; deprecated 'in_webkit_version_3 and later';
+  end;
 
 {$endif}
 {$endif}

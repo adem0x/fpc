@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSMethodSignature.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSMETHODSIGNATURE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSMethodSignature = objcclass;
   NSMethodSignaturePointer = ^NSMethodSignature;
+  NSMethodSignaturePtr = NSMethodSignaturePointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define NSMETHODSIGNATURE_PAS_C}
 
 { NSMethodSignature }
-  NSMethodSignature = objcclass(NSObject)
+  NSMethodSignature = objcclass external (NSObject)
   private
-    __private: Pointer;
+    _private: Pointer;
         _reserved: array[0..5] of Pointer;
     
   public
-    class function alloc: NSMethodSignature; message 'alloc';
-
     class function signatureWithObjCTypes(types: PChar): NSMethodSignature; message 'signatureWithObjCTypes:';
     function numberOfArguments: NSUInteger; message 'numberOfArguments';
     function getArgumentTypeAtIndex(idx: NSUInteger): PChar; message 'getArgumentTypeAtIndex:';
@@ -56,7 +53,7 @@
     function isOneway: Boolean; message 'isOneway';
     function methodReturnType: PChar; message 'methodReturnType';
     function methodReturnLength: NSUInteger; message 'methodReturnLength';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

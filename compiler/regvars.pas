@@ -69,7 +69,7 @@ implementation
       begin
          parasym:=pboolean(arg)^;
          if (tsym(p).typ=varsym) and ((tvarsym(p).varregable <> vr_none) or
-             ((tvarsym(p).varspez in [vs_var,vs_const,vs_out]) and
+             ((tvarsym(p).varspez in [vs_var,vs_const,vs_out,vs_constref]) and
               paramanager.push_addr_param(tvarsym(p).varspez,tvarsym(p).vardef,current_procinfo.procdef.proccalloption))) and
             not tvarsym(p).vardef.needs_inittable then
            begin
@@ -148,7 +148,7 @@ implementation
       if (cs_opt_regvar in current_settings.optimizerswitches) and
         { we have to store regvars back to memory in this case (the nested }
         { procedures can access the variables of the parent)               }
-        (tcgprocinfo(current_procinfo).nestedprocs.count = 0) and
+        (not current_procinfo.has_nestedprocs) and
          not(pi_has_assembler_block in current_procinfo.flags) and
          not(pi_uses_exceptions in current_procinfo.flags) then
         begin

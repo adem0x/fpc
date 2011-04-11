@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSXMLDTD.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSXMLDTD_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSXMLDTD = objcclass;
   NSXMLDTDPointer = ^NSXMLDTD;
+  NSXMLDTDPtr = NSXMLDTDPointer;
 
 {$endif}
 
@@ -41,25 +40,23 @@
 {$define NSXMLDTD_PAS_C}
 
 { NSXMLDTD }
-  NSXMLDTD = objcclass(NSXMLNode)
+  NSXMLDTD = objcclass external (NSXMLNode)
   private
-    __name: NSString;
-    __publicID: NSString;
-    __systemID: NSString;
-    __children: NSArray;
-    __childrenHaveMutated: Boolean;
-        _padding3: array[0..2] of byte;
-    __entities: NSMutableDictionary;
-    __elements: NSMutableDictionary;
-    __notations: NSMutableDictionary;
-    __attributes: NSMutableDictionary;
-    __original: NSString;
-    __modified: Boolean;
-        _padding2: array[0..2] of byte;
+    _name: NSString;
+    _publicID: NSString;
+    _systemID: NSString;
+    _children: NSArray;
+    _childrenHaveMutated: Boolean;
+        _padding3: array[0..2] of cuint8;
+    _entities: NSMutableDictionary;
+    _elements: NSMutableDictionary;
+    _notations: NSMutableDictionary;
+    _attributes: NSMutableDictionary;
+    _original: NSString;
+    _modified: Boolean;
+        _padding2: array[0..2] of cuint8;
     
   public
-    class function alloc: NSXMLDTD; message 'alloc';
-
     function initWithContentsOfURL_options_error(url: NSURL; mask: NSUInteger; error: NSErrorPointer): id; message 'initWithContentsOfURL:options:error:';
     function initWithData_options_error(data: NSData; mask: NSUInteger; error: NSErrorPointer): id; message 'initWithData:options:error:';
     procedure setPublicID(publicID_: NSString); message 'setPublicID:';
@@ -77,7 +74,7 @@
     function elementDeclarationForName(name_: NSString): NSXMLDTDNode; message 'elementDeclarationForName:';
     function attributeDeclarationForName_elementName(name_: NSString; elementName: NSString): NSXMLDTDNode; message 'attributeDeclarationForName:elementName:';
     class function predefinedEntityDeclarationForName(name_: NSString): NSXMLDTDNode; message 'predefinedEntityDeclarationForName:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

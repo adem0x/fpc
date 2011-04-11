@@ -735,16 +735,10 @@ begin
     exit(CompareWord(S1[1],S2[1],MaxI));
 end;
 
-Procedure fpc_WideStr_CheckZero(p : pointer);[Public,Alias : 'FPC_WIDESTR_CHECKZERO']; compilerproc;
-begin
-  if p=nil then
-    HandleErrorFrame(201,get_frame);
-end;
 
-
-Procedure fpc_WideStr_CheckRange(len,index : SizeInt);[Public,Alias : 'FPC_WIDESTR_RANGECHECK']; compilerproc;
+Procedure fpc_WideStr_CheckRange(p: Pointer; index: SizeInt);[Public,Alias : 'FPC_WIDESTR_RANGECHECK']; compilerproc;
 begin
-  if (index>len div 2) or (Index<1) then
+  if (p=nil) or (index>PWideRec(p-WideFirstOff)^.len div 2) or (Index<1) then
     HandleErrorFrame(201,get_frame);
 end;
 
@@ -951,23 +945,20 @@ Procedure Delete (Var S : WideString; Index,Size: SizeInt);
 Var
   LS : SizeInt;
 begin
-  If Length(S)=0 then
-   exit;
-  if index<=0 then
-   exit;
-  LS:=PWideRec(Pointer(S)-WideFirstOff)^.Len div sizeof(WideChar);
-  if (Index<=LS) and (Size>0) then
-   begin
-     UniqueString (S);
-     if Size+Index>LS then
-      Size:=LS-Index+1;
-     if Index+Size<=LS then
-      begin
-        Dec(Index);
-        Move(PWideChar(S)[Index+Size],PWideChar(S)[Index],(LS-Index-Size+1)*sizeof(WideChar));
-      end;
-     Setlength(s,LS-Size);
-   end;
+  LS:=Length(S);
+  if (Index>LS) or (Index<=0) or (Size<=0) then
+    exit;
+
+  UniqueString (S);
+  { (Size+Index) will overflow if Size=MaxInt. }
+  if Size>LS-Index then
+    Size:=LS-Index+1;
+  if Size<=LS-Index then
+  begin
+    Dec(Index);
+    Move(PWideChar(S)[Index+Size],PWideChar(S)[Index],(LS-Index-Size+1)*sizeof(WideChar));
+  end;
+  Setlength(s,LS-Size);
 end;
 
 
@@ -1144,6 +1135,15 @@ var ss:shortstring;
 
 begin
   fpc_shortstr_enum(ordinal,len,typinfo,ord2strindex,ss);
+  s:=ss;
+end;
+
+procedure fpc_widestr_bool(b : boolean;len:sizeint;out s:widestring);compilerproc;
+
+var ss:shortstring;
+
+begin
+  fpc_shortstr_bool(b,len,ss);
   s:=ss;
 end;
 
@@ -1679,7 +1679,8 @@ function CompareTextWideString(const s1, s2 : WideString): PtrInt;
 
 {$warnings on}
 
-function CharLengthPChar(const Str: PChar): PtrInt;forward;
+function DefaultCharLengthPChar(const Str: PChar): PtrInt;forward;
+function DefaultCodePointLength(const Str: PChar; MaxLookAead: PtrInt): Ptrint;forward;
 
 
 procedure initwidestringmanager;
@@ -1693,5 +1694,6 @@ procedure initwidestringmanager;
 {$endif HAS_WIDESTRINGMANAGER}
     widestringmanager.CompareWideStringProc:=@CompareWideString;
     widestringmanager.CompareTextWideStringProc:=@CompareTextWideString;
-    widestringmanager.CharLengthPCharProc:=@CharLengthPChar;
+    widestringmanager.CharLengthPCharProc:=@DefaultCharLengthPChar;
+    widestringmanager.CodePointLengthProc:=@DefaultCodePointLength;
   end;

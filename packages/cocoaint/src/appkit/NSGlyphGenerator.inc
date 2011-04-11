@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSGlyphGenerator.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSGLYPHGENERATOR_PAS_T}
@@ -9,9 +7,9 @@
 { Constants }
 
 const
-  NSShowControlGlyphs = 1  shl  0;
-  NSShowInvisibleGlyphs = 1  shl  1;
-  NSWantsBidiLevels = 1  shl  2;
+  NSShowControlGlyphs = 1 shl 0;
+  NSShowInvisibleGlyphs = 1 shl 1;
+  NSWantsBidiLevels = 1 shl 2;
 
 {$endif}
 {$endif}
@@ -41,6 +39,7 @@ const
   NSGlyphStorageProtocol = objcprotocol;
   NSGlyphGenerator = objcclass;
   NSGlyphGeneratorPointer = ^NSGlyphGenerator;
+  NSGlyphGeneratorPtr = NSGlyphGeneratorPointer;
 
 {$endif}
 
@@ -49,14 +48,12 @@ const
 {$define NSGLYPHGENERATOR_PAS_C}
 
 { NSGlyphGenerator }
-  NSGlyphGenerator = objcclass(NSObject)
+  NSGlyphGenerator = objcclass external (NSObject)
     
   public
-    class function alloc: NSGlyphGenerator; message 'alloc';
-
-    procedure generateGlyphsForGlyphStorage_desiredNumberOfCharacters_glyphIndex_characterIndex(glyphStorage: id; nChars: NSUInteger; glyphIndex: NSUIntegerPointer; charIndex: NSUIntegerPointer); message 'generateGlyphsForGlyphStorage:desiredNumberOfCharacters:glyphIndex:characterIndex:';
+    procedure generateGlyphsForGlyphStorage_desiredNumberOfCharacters_glyphIndex_characterIndex(glyphStorage: NSGlyphStorageProtocol; nChars: NSUInteger; glyphIndex: NSUIntegerPtr; charIndex: NSUIntegerPtr); message 'generateGlyphsForGlyphStorage:desiredNumberOfCharacters:glyphIndex:characterIndex:';
     class function sharedGlyphGenerator: id; message 'sharedGlyphGenerator';
-  end; external;
+  end;
 
 {$endif}
 {$endif}
@@ -65,11 +62,11 @@ const
 {$define NSGLYPHGENERATOR_PAS_P}
   
 { NSGlyphStorage Protocol }
-  NSGlyphStorageProtocol = objcprotocol
-    procedure insertGlyphs_length_forStartingGlyphAtIndex_characterIndex(glyphs: NSGlyphPointer; length: NSUInteger; glyphIndex: NSUInteger; charIndex: NSUInteger); message 'insertGlyphs:length:forStartingGlyphAtIndex:characterIndex:';
+  NSGlyphStorageProtocol = objcprotocol external name 'NSGlyphStorage'
+    procedure insertGlyphs_length_forStartingGlyphAtIndex_characterIndex(glyphs: NSGlyphPtr; length: NSUInteger; glyphIndex: NSUInteger; charIndex: NSUInteger); message 'insertGlyphs:length:forStartingGlyphAtIndex:characterIndex:';
     procedure setIntAttribute_value_forGlyphAtIndex(attributeTag: NSInteger; val: NSInteger; glyphIndex: NSUInteger); message 'setIntAttribute:value:forGlyphAtIndex:';
     function attributedString: NSAttributedString; message 'attributedString';
     function layoutOptions: NSUInteger; message 'layoutOptions';
-  end; external name 'NSGlyphStorage';
+  end;
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMUIEvent.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMUIEVENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMUIEvent = objcclass;
   DOMUIEventPointer = ^DOMUIEvent;
+  DOMUIEventPtr = DOMUIEventPointer;
 
 {$endif}
 
@@ -41,18 +40,25 @@
 {$define DOMUIEVENT_PAS_C}
 
 { DOMUIEvent }
-  DOMUIEvent = objcclass(DOMEvent)
+  DOMUIEvent = objcclass external (DOMEvent)
     
   public
-    class function alloc: DOMUIEvent; message 'alloc';
-
     function view: DOMAbstractView; message 'view';
     function detail: cint; message 'detail';
+    function keyCode: cint; message 'keyCode';
+    function charCode: cint; message 'charCode';
+    function layerX: cint; message 'layerX';
+    function layerY: cint; message 'layerY';
+    function pageX: cint; message 'pageX';
+    function pageY: cint; message 'pageY';
+    function which: cint; message 'which';
     procedure initUIEvent_canBubble_cancelable_view_detail(type__: NSString; canBubble: Boolean; cancelable_: Boolean; view_: DOMAbstractView; detail_: cint); message 'initUIEvent:canBubble:cancelable:view:detail:';
+  end;
 
-    { Category: DOMUIEventDeprecated }
-    procedure initUIEvent(type__: NSString; canBubble: Boolean; cancelable_: Boolean; view_: DOMAbstractView; detail_: cint); message 'initUIEvent:type:canBubble:cancelable:view:';
-  end; external;
+{ DOMUIEventDeprecatedCategory }
+  DOMUIEventDeprecatedCategory = objccategory external (DOMUIEvent)
+    procedure initUIEvent(type__: NSString; canBubble: Boolean; cancelable_: Boolean; view_: DOMAbstractView; detail_: cint); message 'initUIEvent:type:canBubble:cancelable:view:'; deprecated 'in_webkit_version_3 and later';
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSDatePicker.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:08 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSDATEPICKER_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSDatePicker = objcclass;
   NSDatePickerPointer = ^NSDatePicker;
+  NSDatePickerPtr = NSDatePickerPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define NSDATEPICKER_PAS_C}
 
 { NSDatePicker }
-  NSDatePicker = objcclass(NSControl)
+  NSDatePicker = objcclass external (NSControl)
     
   public
-    class function alloc: NSDatePicker; message 'alloc';
-
     function datePickerStyle: NSDatePickerStyle; message 'datePickerStyle';
     procedure setDatePickerStyle(newStyle: NSDatePickerStyle); message 'setDatePickerStyle:';
     function isBezeled: Boolean; message 'isBezeled';
@@ -76,9 +73,9 @@
     procedure setMinDate(date: NSDate); message 'setMinDate:';
     function maxDate: NSDate; message 'maxDate';
     procedure setMaxDate(date: NSDate); message 'setMaxDate:';
-    function delegate: id; message 'delegate';
-    procedure setDelegate(anObject: id); message 'setDelegate:';
-  end; external;
+    function delegate: NSDatePickerCellDelegateProtocol; message 'delegate';
+    procedure setDelegate(anObject: NSDatePickerCellDelegateProtocol); message 'setDelegate:';
+  end;
 
 {$endif}
 {$endif}

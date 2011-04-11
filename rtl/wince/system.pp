@@ -57,9 +57,6 @@ const
   sLineBreak = LineEnding;
   DefaultTextLineBreakStyle : TTextLineBreakStyle = tlbsCRLF;
 
-  { Thread count for DLL }
-  Thread_count : longint = 0;
-
 var
 { WinCE Info }
   hprevinst,
@@ -101,7 +98,7 @@ function RemoveDirectory(name:pointer):longbool;
 
 
 {$ifdef CPUARM}
-{ the external directive isn't really necessary here because it is overriden by external (FK) }
+{ the external directive isn't really necessary here because it is overridden by external (FK) }
 
 function addd(d1,d2 : double) : double; compilerproc;
    cdecl;external 'coredll' name '__addd';
@@ -864,14 +861,12 @@ begin
        end;
      DLL_THREAD_ATTACH :
        begin
-         inclocked(Thread_count);
 { Allocate Threadvars ?!}
          if assigned(Dll_Thread_Attach_Hook) then
            Dll_Thread_Attach_Hook(DllParam);
        end;
      DLL_THREAD_DETACH :
        begin
-         declocked(Thread_count);
          if assigned(Dll_Thread_Detach_Hook) then
            Dll_Thread_Detach_Hook(DllParam);
 { Release Threadvars ?!}

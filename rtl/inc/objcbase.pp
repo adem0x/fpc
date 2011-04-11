@@ -25,23 +25,65 @@ uses
   ctypes;
 
 type
-{
-  NSString = objcclass; external;
-  NSInvocation = objcclass; external;
-  NSMethodSignature = objcclass; external;
-  NSCoder = objcclass; external;
-}
+  NSString = objcclass external;
+  NSInvocation = objcclass external;
+  NSMethodSignature = objcclass external;
+  NSCoder = objcclass external;
 
+{ needed by NSZone.h below }
+{$if defined(cpu64) or defined(cpuarm) or defined(win32)}
+  NSInteger = clong;
+  NSUInteger = culong;
+{$else}
+  NSInteger = cint;
+  NSUInteger = cuint;
+{$endif}
+
+
+{ NSZone.h, has to be here because NSObject.h imports NSZone.inc }
+
+{ Types }
+type
   NSZone = record
   end;
   PNSZone = ^NSZone;
+  NSZonePtr = PNSZone;
 
-  Protocol = objcclass
-  end; external;
+{ Constants }
 
-  NSObjectProtocol = objcprotocol
-    function isEqual_(obj: id): boolean; message 'isEqual:';
-    function hash: cuint; message 'hash';
+const
+  NSScannedOption = 1 shl 0;
+  NSCollectorDisabledOption = 1 shl 1;
+
+  { Functions }
+  function NSDefaultMallocZone: NSZonePtr; cdecl; external;
+  function NSCreateZone(startSize: NSUInteger; granularity: NSUInteger; canFree: Boolean): NSZonePtr; cdecl; external;
+  procedure NSRecycleZone(zone_: NSZonePtr); cdecl; external;
+  procedure NSSetZoneName(zone_: NSZonePtr; name: NSString); cdecl; external;
+  function NSZoneName(zone_: NSZonePtr): NSString; cdecl; external;
+  function NSZoneFromPointer(ptr: Pointer): NSZonePtr; cdecl; external;
+  function NSZoneMalloc(zone_: NSZonePtr; size: NSUInteger): Pointer; cdecl; external;
+  function NSZoneCalloc(zone_: NSZonePtr; numElems: NSUInteger; byteSize: NSUInteger): Pointer; cdecl; external;
+  function NSZoneRealloc(zone_: NSZonePtr; ptr: Pointer; size: NSUInteger): Pointer; cdecl; external;
+  procedure NSZoneFree(zone_: NSZonePtr; ptr: Pointer); cdecl; external;
+  function NSAllocateCollectable(size: NSUInteger; options: NSUInteger): Pointer; cdecl; external;
+  function NSReallocateCollectable(ptr: Pointer; size: NSUInteger; options: NSUInteger): Pointer; cdecl; external;
+  function NSPageSize: NSUInteger; cdecl; external;
+  function NSLogPageSize: NSUInteger; cdecl; external;
+  function NSRoundUpToMultipleOfPageSize(bytes: NSUInteger): NSUInteger; cdecl; external;
+  function NSRoundDownToMultipleOfPageSize(bytes: NSUInteger): NSUInteger; cdecl; external;
+  function NSAllocateMemoryPages(bytes: NSUInteger): Pointer; cdecl; external;
+  procedure NSDeallocateMemoryPages(ptr: Pointer; bytes: NSUInteger); cdecl; external;
+  procedure NSCopyMemoryPages(source: Pointer; dest: Pointer; bytes: NSUInteger); cdecl; external;
+  function NSRealMemoryAvailable: NSUInteger; cdecl; external;
+
+type
+  Protocol = objcclass external
+  end;
+
+  NSObjectProtocol = objcprotocol external name 'NSObject'
+    function isEqual(obj: id): boolean; message 'isEqual:';
+    function hash: NSUInteger; message 'hash';
 
     function superclass: pobjc_class; message 'superclass';
     function _class: pobjc_class; message 'class';
@@ -51,35 +93,36 @@ type
     function self: id;  message 'self';
     function zone: PNSZone;  message 'zone';
 
-    function performSelector_(aSelector: SEL): id; message 'performSelector:';
-    function performSelector_withObject_(aSelector: SEL; obj: id): id; message 'performSelector:withObject:';
-    function performSelector_withObject_withObject_(aSelector: SEL; obj1, obj2: id): id; message 'performSelector:withObject:withObject:';
+    function performSelector(aSelector: SEL): id; message 'performSelector:';
+    function performSelector_withObject(aSelector: SEL; obj: id): id; message 'performSelector:withObject:';
+    function performSelector_withObject_withObject(aSelector: SEL; obj1, obj2: id): id; message 'performSelector:withObject:withObject:';
 
     function isProxy: boolean; message 'isProxy';
 
-    function isKindOfClass_(aClass: pobjc_class): boolean; message 'isKindOfClass:';
-    function isMemberOfClass_(aClass: pobjc_class): boolean; message 'isMemberOfClass:';
-    function conformsToProtocol_(aProtocol: Protocol): boolean; message 'conformsToProtocol:';
+    function isKindOfClass(aClass: pobjc_class): boolean; message 'isKindOfClass:';
+    function isMemberOfClass(aClass: pobjc_class): boolean; message 'isMemberOfClass:';
+    function conformsToProtocol(aProtocol: Protocol): boolean; message 'conformsToProtocol:';
 
-    function respondsToSelector_(aSelector: SEL): boolean; message 'respondsToSelector:';
+    function respondsToSelector(aSelector: SEL): boolean; message 'respondsToSelector:';
 
     function retain: id; message 'retain';
     procedure release;  message 'release'; { oneway }
     function autorelease: id; message 'autorelease';
-    function retainCount: cint; message 'retainCount';
+    function retainCount: NSUInteger; message 'retainCount';
 
-    function description: {NSString} id; message 'description';
-  end; external name 'NSObject';
+    function description: NSString; message 'description';
+  end;
 
 
-  NSObject = objcclass(NSObjectProtocol)
+  NSObject = objcclass external (NSObjectProtocol)
    strict protected
     isa: pobjc_class;
    public
     { NSObjectProtocol -- the message names are copied from the protocol
       definition by the compiler, but you can still repeat them if you want }
-    function isEqual_(obj: id): boolean;
-    function hash: cuint;
+    function isEqual(obj: id): boolean;
+    function isEqual_(obj: id): boolean; message 'isEqual:';
+    function hash: NSUInteger;
 
     function superclass: pobjc_class;
     function _class: pobjc_class;
@@ -89,27 +132,35 @@ type
     function self: id;
     function zone: PNSZone;
 
-    function performSelector_(aSelector: SEL): id;
-    function performSelector_withObject_(aSelector: SEL; obj: id): id;
-    function performSelector_withObject_withObject_(aSelector: SEL; obj1, obj2: id): id;
+    function performSelector(aSelector: SEL): id;
+    function performSelector_(aSelector: SEL): id; message 'performSelector:';
+    function performSelector_withObject(aSelector: SEL; obj: id): id;
+    function performSelector_withObject_(aSelector: SEL; obj: id): id; message 'performSelector:withObject:';
+    function performSelector_withObject_withObject(aSelector: SEL; obj1, obj2: id): id;
+    function performSelector_withObject_withObject_(aSelector: SEL; obj1, obj2: id): id; message 'performSelector:withObject:withObject:';
 
     function isProxy: boolean;
 
-    function isKindOfClass_(aClass: pobjc_class): boolean;
-    function isMemberOfClass_(aClass: pobjc_class): boolean;
-    function conformsToProtocol_(aProtocol: Protocol): boolean;
+    function isKindOfClass(aClass: pobjc_class): boolean;
+    function isKindOfClass_(aClass: pobjc_class): boolean; message 'isKindOfClass:';
+    function isMemberOfClass(aClass: pobjc_class): boolean;
+    function isMemberOfClass_(aClass: pobjc_class): boolean; message 'isMemberOfClass:';
+    function conformsToProtocol(aProtocol: Protocol): boolean;
+    function conformsToProtocol_(aProtocol: Protocol): boolean; message 'conformsToProtocol:';
 
-    function respondsToSelector_(aSelector: SEL): boolean;
+    function respondsToSelector(aSelector: SEL): boolean;
+    function respondsToSelector_(aSelector: SEL): boolean; message 'respondsToSelector:';
 
     function retain: id;
     procedure release; { oneway }
     function autorelease: id;
-    function retainCount: cint;
+    function retainCount: NSUInteger;
 
-    function description: {NSString} id;
+    function description: NSString;
 
     { NSObject class }
     { "class" prefix to method name to avoid name collision with NSObjectProtocol }
+    class function classIsEqual(obj: id): boolean; message 'isEqual:';
     class function classIsEqual_(obj: id): boolean; message 'isEqual:';
     { "class" prefix to method name to avoid name collision with NSObjectProtocol }
     class function classHash: cuint; message 'hash';
@@ -122,6 +173,7 @@ type
     function init: id; message 'init';
 
     class function new: id; message 'new';
+    class function allocWithZone(_zone: PNSZone): id; message 'allocWithZone:';
     class function allocWithZone_(_zone: PNSZone): id; message 'allocWithZone:';
     class function alloc: id; message 'alloc';
     procedure dealloc; message 'dealloc';
@@ -133,31 +185,72 @@ type
     function copy: id; message 'copy';
     function mutableCopy: id; message 'mutableCopy';
 
-    class function copyWithZone_(_zone: PNSZone): id; message 'copyWithZone:';
-    class function mutableCopyWithZone_(_zone: PNSZone): id; message 'mutableCopyWithZone:';
+    class function classCopyWithZone(_zone: NSZonePtr): id; message 'copyWithZone:';
+    class function classCopyWithZone_(_zone: NSZonePtr): id; message 'copyWithZone:';
+    class function classMutableCopyWithZone(_zone: NSZonePtr): id; message 'mutableCopyWithZone:';
+    class function classMutableCopyWithZone_(_zone: NSZonePtr): id; message 'mutableCopyWithZone:';
 
     { "class" prefix to method name to avoid name collision with NSObjectProtocol }
     class function classSuperclass: pobjc_class; message 'superclass';
     { "class" prefix to method name to avoid name collision with NSObjectProtocol }
     class function classClass: pobjc_class; message 'class';
+    class procedure poseAsClass(aClass: pobjc_class); message 'poseAsClass:';
     class procedure poseAsClass_(aClass: pobjc_class); message 'poseAsClass:';
+    class function instancesRespondToSelector(aSelector: SEL): boolean; message 'instancesRespondToSelector:';
     class function instancesRespondToSelector_(aSelector: SEL): boolean; message 'instancesRespondToSelector:';
     { "class" prefix to method name to avoid name collision with NSObjectProtocol }
+    class function classConformsToProtocol(aProtocol: Protocol): boolean; message 'conformsToProtocol:';
     class function classConformsToProtocol_(aProtocol: Protocol): boolean; message 'conformsToProtocol:';
+    function methodForSelector(aSelector: SEL): IMP; message 'methodForSelector:';
     function methodForSelector_(aSelector: SEL): IMP; message 'methodForSelector:';
+    class function instanceMethodForSelector(aSelector: SEL): IMP; message 'instanceMethodForSelector:';
     class function instanceMethodForSelector_(aSelector: SEL): IMP; message 'instanceMethodForSelector:';
-    class function version: cint; message 'version';
-    class procedure setVersion_(aVersion: cint); message 'setVersion:';
+    procedure doesNotRecognizeSelector(aSelector: SEL); message 'doesNotRecognizeSelector:';
     procedure doesNotRecognizeSelector_(aSelector: SEL); message 'doesNotRecognizeSelector:';
-    procedure forwardInvocation_(anInvocation: id {NSInvocation}); message 'forwardInvocation:';
-    function methodSignatureForSelector_(aSelector: SEL): id {NSMethodSignature}; message 'methodSignatureForSelector:';
+    procedure forwardInvocation(anInvocation: NSInvocation); message 'forwardInvocation:';
+    procedure forwardInvocation_(anInvocation: NSInvocation); message 'forwardInvocation:';
+    function methodSignatureForSelector(aSelector: SEL): NSMethodSignature; message 'methodSignatureForSelector:';
+    function methodSignatureForSelector_(aSelector: SEL): NSMethodSignature; message 'methodSignatureForSelector:';
 
-    class function classDescription: id {NSString}; message 'description';
+    // can't be classDescription, becaue there's a method in another
+    // class that's also called classDescription
+    class function _classDescription: NSString; message 'description';
 
+  end;
+
+
+  NSCoderMethods = objccategory external (NSObject)
+    class function version: cint; message 'version';
+    class procedure setVersion(aVersion: cint); message 'setVersion:';
     function classForCoder: pobjc_class; message 'classForCoder';
-    function replacementObjectForCoder_(aCoder: id {NSCoder}): id; message 'replacementObjectForCoder:';
-    function awakeAfterUsingCoder_(aDecoder: id {NSCoder}): id; message 'awakeAfterUsingCoder:';
-  end; external;
+    function replacementObjectForCoder(aCoder: NSCoder): id; message 'replacementObjectForCoder:';
+    function awakeAfterUsingCoder(aDecoder: NSCoder): id; message 'awakeAfterUsingCoder:';
+  end;
+
+
+  NSCopyingProtocol = objcprotocol external name 'NSCopying'
+    function copyWithZone(zone_: NSZonePtr): id; message 'copyWithZone:';
+  end;
+
+
+{ NSMutableCopying Protocol }
+  NSMutableCopyingProtocol = objcprotocol external name 'NSMutableCopying'
+    function mutableCopyWithZone(zone_: NSZonePtr): id; message 'mutableCopyWithZone:';
+  end;
+  
+{ NSCoding Protocol }
+  NSCodingProtocol = objcprotocol external name 'NSCoding'
+    procedure encodeWithCoder(aCoder: NSCoder); message 'encodeWithCoder:';
+    function initWithCoder(aDecoder: NSCoder): id; message 'initWithCoder:';
+  end;
+  
+{ NSDiscardableContent Protocol }
+  NSDiscardableContentProtocol = objcprotocol external name 'NSDiscardableContent'
+    function beginContentAccess: Boolean; message 'beginContentAccess';
+    procedure endContentAccess; message 'endContentAccess';
+    procedure discardContentIfPossible; message 'discardContentIfPossible';
+    function isContentDiscarded: Boolean; message 'isContentDiscarded';
+  end;
 
 implementation
 

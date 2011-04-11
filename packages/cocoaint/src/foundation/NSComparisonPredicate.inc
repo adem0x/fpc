@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSComparisonPredicate.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCOMPARISONPREDICATE_PAS_T}
@@ -14,29 +12,31 @@ const
 
 const
   NSDirectPredicateModifier = 0;
-  NSAllPredicateModifier = 0;
-  NSAnyPredicateModifier = 1;
+  NSAllPredicateModifier = 1;
+  NSAnyPredicateModifier = 2;
 
 const
   NSLessThanPredicateOperatorType = 0;
-  NSLessThanOrEqualToPredicateOperatorType = 0;
-  NSGreaterThanPredicateOperatorType = 1;
-  NSGreaterThanOrEqualToPredicateOperatorType = 2;
-  NSEqualToPredicateOperatorType = 3;
-  NSNotEqualToPredicateOperatorType = 4;
-  NSMatchesPredicateOperatorType = 5;
-  NSLikePredicateOperatorType = 6;
-  NSBeginsWithPredicateOperatorType = 7;
-  NSEndsWithPredicateOperatorType = 8;
-  NSInPredicateOperatorType = 9;
-  NSCustomSelectorPredicateOperatorType = 10;
+  NSLessThanOrEqualToPredicateOperatorType = 1;
+  NSGreaterThanPredicateOperatorType = 2;
+  NSGreaterThanOrEqualToPredicateOperatorType = 3;
+  NSEqualToPredicateOperatorType = 4;
+  NSNotEqualToPredicateOperatorType = 5;
+  NSMatchesPredicateOperatorType = 6;
+  NSLikePredicateOperatorType = 7;
+  NSBeginsWithPredicateOperatorType = 8;
+  NSEndsWithPredicateOperatorType = 9;
+  NSInPredicateOperatorType = 10;
+  NSCustomSelectorPredicateOperatorType = 11;
   NSContainsPredicateOperatorType = 99;
-  NSBetweenPredicateOperatorType = 11;
+  NSBetweenPredicateOperatorType = 100;
 
 { Types }
 type
   NSComparisonPredicateModifier = NSUInteger;
+  NSComparisonPredicateModifierPtr = ^NSComparisonPredicateModifier;
   NSPredicateOperatorType = NSUInteger;
+  NSPredicateOperatorTypePtr = ^NSPredicateOperatorType;
 
 {$endif}
 {$endif}
@@ -65,6 +65,7 @@ type
 {$ifdef FORWARD}
   NSComparisonPredicate = objcclass;
   NSComparisonPredicatePointer = ^NSComparisonPredicate;
+  NSComparisonPredicatePtr = NSComparisonPredicatePointer;
 
 {$endif}
 
@@ -73,16 +74,14 @@ type
 {$define NSCOMPARISONPREDICATE_PAS_C}
 
 { NSComparisonPredicate }
-  NSComparisonPredicate = objcclass(NSPredicate)
+  NSComparisonPredicate = objcclass external (NSPredicate)
   private
-    __reserved2: Pointer;
-    __predicateOperator: NSPredicateOperator;
-    __lhs: NSExpression;
-    __rhs: NSExpression;
+    _reserved2: Pointer;
+    _predicateOperator: NSPredicateOperator;
+    _lhs: NSExpression;
+    _rhs: NSExpression;
     
   public
-    class function alloc: NSComparisonPredicate; message 'alloc';
-
     class function predicateWithLeftExpression_rightExpression_modifier_type_options(lhs: NSExpression; rhs: NSExpression; modifier: NSComparisonPredicateModifier; type_: NSPredicateOperatorType; options_: NSUInteger): NSPredicate; message 'predicateWithLeftExpression:rightExpression:modifier:type:options:';
     class function predicateWithLeftExpression_rightExpression_customSelector(lhs: NSExpression; rhs: NSExpression; selector: SEL): NSPredicate; message 'predicateWithLeftExpression:rightExpression:customSelector:';
     function initWithLeftExpression_rightExpression_modifier_type_options(lhs: NSExpression; rhs: NSExpression; modifier: NSComparisonPredicateModifier; type_: NSPredicateOperatorType; options_: NSUInteger): id; message 'initWithLeftExpression:rightExpression:modifier:type:options:';
@@ -93,7 +92,7 @@ type
     function rightExpression: NSExpression; message 'rightExpression';
     function customSelector: SEL; message 'customSelector';
     function options: NSUInteger; message 'options';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

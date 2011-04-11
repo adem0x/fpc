@@ -57,7 +57,7 @@ implementation
 
     procedure ti386callnode.extra_interrupt_code;
       begin
-        if (target_info.system <> system_i386_darwin) then
+        if not(target_info.system in [system_i386_darwin,system_i386_iphonesim]) then
           begin
             emit_none(A_PUSHF,S_L);
             emit_reg(A_PUSH,S_L,NR_CS);
@@ -69,7 +69,7 @@ implementation
       var
         hreg : tregister;
       begin
-        if (use_fixed_stack) then
+        if (paramanager.use_fixed_stack) then
           begin
             { very weird: in this case the callee does a "ret $4" and the }
             { caller immediately a "subl $4,%esp". Possibly this is for   }
@@ -89,7 +89,7 @@ implementation
         { sizeof(aint) in case of ret_in_param())                          }
         if (target_info.system = system_i386_win32) and
             paramanager.ret_in_param(procdefinition.returndef,procdefinition.proccalloption) then
-           inc(pop_size,sizeof(aint));
+          inc(pop_size,sizeof(aint));
 
         { better than an add on all processors }
         if pop_size=4 then

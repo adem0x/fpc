@@ -254,6 +254,7 @@ begin
     deFieldChange   : HandleFieldChange(TField(Info));
     deDataSetChange,
     deDataSetScroll : HandleScrollOrChange;
+    deLayoutChange  : FEnableControlsEvent:=deLayoutChange;    
   end;
 
   if not ControlsDisabled then begin
@@ -900,8 +901,7 @@ begin
           if Required then Attributes := attributes + [faRequired];
           if ReadOnly then Attributes := attributes + [faReadOnly];
           if DataType = ftBCD then precision := (fields[i] as TBCDField).Precision
-          // this must change if TFMTBcdfield is implemented
-          else if DataType = ftFMTBcd then precision := (fields[i] as TBCDField).Precision;
+          else if DataType = ftFMTBcd then precision := (fields[i] as TFMTBCDField).Precision;
           end;
         end;
     finally
@@ -1062,6 +1062,7 @@ begin
     else
       begin
       DoBeforeOpen;
+      FEnableControlsEvent:=deLayoutChange;
       FInternalCalcFields:=False;
       try
         FDefaultFields:=FieldCount=0;

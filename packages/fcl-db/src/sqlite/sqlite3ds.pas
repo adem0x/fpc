@@ -163,7 +163,7 @@ begin
   {$endif}
   FAutoIncFieldNo := -1;
   FieldDefs.Clear;
-  FReturnCode := sqlite3_prepare(FSqliteHandle, PChar(FSQL), -1, @vm, nil);
+  FReturnCode := sqlite3_prepare(FSqliteHandle, PChar(FEffectiveSQL), -1, @vm, nil);
   if FReturnCode <> SQLITE_OK then
     DatabaseError(ReturnString, Self);
   sqlite3_step(vm);
@@ -227,11 +227,15 @@ begin
         SQLITE_FLOAT:
           AType := ftFloat;
       else
-        AType := ftString;
+	    begin
+          AType := ftString;
+		  DataSize := DefaultStringSize;
+		end;  		
       end;
     end else
     begin
       AType := ftString;
+	  DataSize := DefaultStringSize;
     end;
     FieldDefs.Add(String(sqlite3_column_name(vm, i)), AType, DataSize);
     //Set the pchar2sql function
@@ -277,7 +281,7 @@ begin
     sqlite3_exec(FSqliteHandle, PChar('Select Max(' + Fields[FAutoIncFieldNo].FieldName +
       ') from ' + FTableName), @GetAutoIncValue, @FNextAutoInc, nil);
 
-  FReturnCode := sqlite3_prepare(FSqliteHandle, PChar(FSQL), -1, @vm, nil);
+  FReturnCode := sqlite3_prepare(FSqliteHandle, PChar(FEffectiveSQL), -1, @vm, nil);
   if FReturnCode <> SQLITE_OK then
     DatabaseError(ReturnString, Self);
 

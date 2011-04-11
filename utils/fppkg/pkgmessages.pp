@@ -21,7 +21,7 @@ Resourcestring
   SErrMissingInstallPackage  = 'Could not find package "%s"';
   SErrNoPackageSpecified     = 'No package specified';
   SErrNoPackageAvailable     = 'Package %s %s is not available';
-  SErrOnlyLocalDir           = 'The speficied command "%s" works only on current dir, not on a (remote) package';
+  SErrOnlyLocalDir           = 'The specified command "%s" works only on current dir, not on a (remote) package';
   SErrExecutionFPMake        = 'Execution of FPMake %s failed';
   SErrException              = 'The FPC Package tool encountered the following error:';
   SErrActionAlreadyRegistered= 'Action "%s" is already registered';
@@ -65,11 +65,13 @@ Resourcestring
   SLogLoadingFPMakeCompilerConfig = 'Loading compiler configuration for fpmake building from "%s"';
   SLogGeneratingGlobalConfig = 'Generating default global configuration in "%s"';
   SLogDetectedCompiler       = 'Detected compiler "%s" (version %s for %s)';
-  SLogDetectedFPCDIR         = 'Detected %s FPCDIR "%s"';
+  SLogDetectedPrefix         = 'Detected %s prefix "%s"';
+  SLogFPCDirEnv              = 'FPCDIR from environment setting "%s"';
   SLogGeneratingCompilerConfig  = 'Generating default compiler configuration in "%s"';
   SLogLoadingPackagesFile    = 'Loading available packages from "%s"';
   SLogLoadingMirrorsFile     = 'Loading available mirrors from "%s"';
   SLogFindInstalledPackages  = 'Finding installed packages in "%s"';
+  SLogFoundFPMakeAddin       = 'Found FPMake-AddIn "%s"';
   SLogSavingStatusFile       = 'Saving local status to "%s"';
   SLogFPMKUnitDepVersion     = 'Checking for %s %s, installed %s, available %s';
   SLogFPMKUnitDepTooOld      = 'Minimum version of %s is not installed, using internal fpmkunit with limited functionality';
@@ -79,22 +81,25 @@ Resourcestring
   SLogPackageChecksumChanged = 'Package %s needs to be rebuild, dependency %s is modified';
   SLogCheckBrokenDependenvies= 'Checking for broken dependencies';
 
-  SLogGlobalCfgHeader        = 'Using global configuration:';
-  SLogGlobalCfgRemoteMirrorsURL = ' RemoteMirrorsURL: "%s"';
-  SLogGlobalCfgRemoteRepository = ' RemoteRepository: "%s"';
-  SLogGlobalCfgLocalRepository = ' LocalRepository: "%s"';
-  SLogGlobalCfgBuildDir      = ' BuildDir: "%s"';
-  SLogGlobalCfgArchivesDir   = ' ArchivesDir: "%s"';
-  SLogGlobalCfgCompilerConfigDir = ' CompilerConfigDir: "%s"';
+  SLogGlobalCfgHeader                = 'Using global configuration from file "%s":';
+  SLogGlobalCfgRemoteMirrorsURL      = ' RemoteMirrorsURL:      %s';
+  SLogGlobalCfgRemoteRepository      = ' RemoteRepository:      %s';
+  SLogGlobalCfgLocalRepository       = ' LocalRepository:       "%s" -> "%s"';
+  SLogGlobalCfgBuildDir              = ' BuildDir:              "%s" -> "%s"';
+  SLogGlobalCfgArchivesDir           = ' ArchivesDir:           "%s" -> "%s"';
+  SLogGlobalCfgCompilerConfigDir     = ' CompilerConfigDir:     "%s" -> "%s"';
   SLogGlobalCfgDefaultCompilerConfig = ' DefaultCompilerConfig: "%s"';
-  SLogGlobalCfgFPMakeCompilerConfig = ' FPMakeCompilerConfig: "%s"';
-  SLogGlobalCfgDownloader    = ' Downloader: "%s"';
-  SLogCompilerCfgHeader      = 'Using %scompiler configuration:';
-  SLogCompilerCfgCompiler    = ' Compiler: "%s"';
-  SLogCompilerCfgTarget      = ' Target: "%s"';
-  SLogCompilerCfgVersion     = ' Version: "%s"';
-  SLogCompilerCfgGlobalInstallDir = ' GlobalInstallDir: "%s"';
-  SLogCompilerCfgLocalInstallDir = ' LocalInstallDir: "%s"';
+  SLogGlobalCfgFPMakeCompilerConfig  = ' FPMakeCompilerConfig:  "%s"';
+  SLogGlobalCfgDownloader            = ' Downloader:            %s';
+  SLogCompilerCfgHeader           = 'Using %scompiler configuration file "%s":';
+  SLogCompilerCfgCompiler         = ' Compiler:         "%s"';
+  SLogCompilerCfgTarget           = ' Target:           %s';
+  SLogCompilerCfgOptions          = ' Options:          "%s"';
+  SLogCompilerCfgVersion          = ' Version:          %s';
+  SLogCompilerCfgGlobalInstallDir = ' GlobalInstallDir: "%s" -> "%S"';
+  SLogCompilerCfgLocalInstallDir  = ' LocalInstallDir:  "%s" -> "%s"';
+  SLogCompilerCfgGlobalPrefix     = ' GlobalPrefix:     "%s" -> "%s"';
+  SLogCompilerCfgLocalPrefix      = ' LocalPrefix:      "%s" -> "%s"';
 
   SDbgFound                  = 'Found';
   SDbgNotFound               = 'Not Found';
@@ -105,6 +110,10 @@ Resourcestring
   SDbgPackageDependencyOtherTarget  = 'Dependency on package %s is not for %s';
   SDbgObsoleteDependency     = 'Obsolete dependency found on package %s';
 
+  SProgrReinstallDependent   = 'Re-install packages which are dependent on just installed packages';
+  SProgrInstallDependencies  = 'Install dependencies';
+  SProgrDependenciesInstalled= 'Dependencies installed';
+  SProgrDownloadPackage      = 'Downloading package %s version %s';
 
 implementation
 

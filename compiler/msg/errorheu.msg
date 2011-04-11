@@ -616,7 +616,7 @@ parser_e_void_function=03080_E_פרוצדורה לא יכולה להחזיר ע�
 % In \fpc, you can specify a return value for a function when using
 % the \var{exit} statement. This error occurs when you try to do this with a
 % procedure. Procedures cannot return a value.
-parser_e_constructors_always_objects=03081_E_היוצרים וההורסים חייבים להיות מתודיים
+parser_e_only_methods_allowed=03081_E_היוצרים וההורסים חייבים להיות מתודיים
 % You're declaring a procedure as destructor or constructor, when the
 % procedure isn't a class method.
 parser_e_operator_not_overloaded=03082_E_האופריטור לא מרובה שימוש
@@ -829,7 +829,7 @@ parser_e_threadvars_only_sg=03147_E_Threadvars חייבים להיות סטטי�
 % are stored on the stack
 parser_f_direct_assembler_not_allowed=03148_F_השימוש במאסף הנוכחי אינו תומך בוסג התוצאה הבינארית
 % You can't use direct assembler when using a binary writer, choose an
-% other outputformat or use an other assembler reader
+% other outputformat or use another assembler reader
 parser_w_no_objpas_use_mode=03149_W_אסור לקרוא ליחידת OBJPAS ישירות, יש להשתמש ב \{\$mode objfpc\} או ב \{\$mode delphi\} במקום
 % You are trying to load the ObjPas unit manually from a uses clause. This is
 % not a good idea. Use the \var{\{\$mode objfpc\}} or
@@ -1336,7 +1336,7 @@ type_w_signed_unsigned_always_true=04045_W_ההשוואה תמיד תחזיר ע
 type_w_instance_with_abstract=04046_W_מאתחל את המחלקה "$1" עם מתודות לא ממומשות
 % An instance of a class is created which contains non-implemented abstract
 % methods. This will probably lead to a runtime error 211 in the code if that
-% routine is ever called. All abstract methods should be overriden.
+% routine is ever called. All abstract methods should be overridden.
 type_h_in_range_check=04047_H_הערך השמאלי של האופרנד IN צריך להיות בגודל של בית
 % The left operand of the \var{in} operator is not an ordinal or enumeration which fits
 % within 8-bits, this may lead to range check errors. The \var{in} operator
@@ -2404,7 +2404,7 @@ option_confict_asm_debug=11041_W_סוג הפלט של המאסף שנבחר "$1"
 #
 option_logo=11023_[
 Free Pascal Compiler version $FPCFULLVERSION [$FPCDATE] for $FPCCPU
-Copyright (c) 1993-2009 by Florian Klaempfl
+Copyright (c) 1993-2011 by Florian Klaempfl
 ]
 
 #

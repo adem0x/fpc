@@ -1343,10 +1343,11 @@ end;
              CurName:=': '+GetDefinitionStr(dc.vardef);
            CurName:=dc.RealName+CurName;
            case dc.varspez of
-             vs_Value : ;
-             vs_Const : CurName:='const '+CurName;
-             vs_Var   : CurName:='var '+CurName;
-             vs_Out   : CurName:='out '+CurName;
+             vs_Value    : ;
+             vs_Const    : CurName:='const '+CurName;
+             vs_Var      : CurName:='var '+CurName;
+             vs_Out      : CurName:='out '+CurName;
+             vs_Constref : CurName:='constref '+CurName;
            end;
            if Count>0 then
              CurName:='; '+CurName;
@@ -1484,7 +1485,7 @@ end;
   procedure ProcessDefIfStruct(definition: tdef);
   begin
     { still led to infinite recursions
-      only usefull for unamed types PM }
+      only useful for unamed types PM }
     if assigned(definition) and not assigned(definition.typesym) then
     begin
       case definition.typ of

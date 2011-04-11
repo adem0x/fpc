@@ -1,14 +1,20 @@
 { Parsed from Foundation.framework NSURLCache.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSURLCACHE_PAS_T}
 {$define NSURLCACHE_PAS_T}
 
+{ Constants }
+
+const
+  NSURLCacheStorageAllowed = 0;
+  NSURLCacheStorageAllowedInMemoryOnly = 1;
+  NSURLCacheStorageNotAllowed = 2;
+
 { Types }
 type
   NSURLCacheStoragePolicy = NSUInteger;
+  NSURLCacheStoragePolicyPtr = ^NSURLCacheStoragePolicy;
 
 {$endif}
 {$endif}
@@ -37,8 +43,10 @@ type
 {$ifdef FORWARD}
   NSCachedURLResponse = objcclass;
   NSCachedURLResponsePointer = ^NSCachedURLResponse;
+  NSCachedURLResponsePtr = NSCachedURLResponsePointer;
   NSURLCache = objcclass;
   NSURLCachePointer = ^NSURLCache;
+  NSURLCachePtr = NSURLCachePointer;
 
 {$endif}
 
@@ -47,29 +55,30 @@ type
 {$define NSURLCACHE_PAS_C}
 
 { NSCachedURLResponse }
-  NSCachedURLResponse = objcclass(NSObject, NSCodingProtocol, NSCopyingProtocol)
+  NSCachedURLResponse = objcclass external (NSObject, NSCodingProtocol, NSCopyingProtocol)
   private
-    __internal: NSCachedURLResponseInternal;
+    _internal: NSCachedURLResponseInternal;
     
   public
-    class function alloc: NSCachedURLResponse; message 'alloc';
-
     function initWithResponse_data(response_: NSURLResponse; data_: NSData): id; message 'initWithResponse:data:';
     function initWithResponse_data_userInfo_storagePolicy(response_: NSURLResponse; data_: NSData; userInfo_: NSDictionary; storagePolicy_: NSURLCacheStoragePolicy): id; message 'initWithResponse:data:userInfo:storagePolicy:';
     function response: NSURLResponse; message 'response';
     function data: NSData; message 'data';
     function userInfo: NSDictionary; message 'userInfo';
     function storagePolicy: NSURLCacheStoragePolicy; message 'storagePolicy';
-  end; external;
+
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+    function copyWithZone(zone_: NSZonePtr): id;
+  end;
 
 { NSURLCache }
-  NSURLCache = objcclass(NSObject)
+  NSURLCache = objcclass external (NSObject)
   private
-    __internal: NSURLCacheInternal;
+    _internal: NSURLCacheInternal;
     
   public
-    class function alloc: NSURLCache; message 'alloc';
-
     class function sharedURLCache: NSURLCache; message 'sharedURLCache';
     class procedure setSharedURLCache(cache: NSURLCache); message 'setSharedURLCache:';
     function initWithMemoryCapacity_diskCapacity_diskPath(memoryCapacity_: NSUInteger; diskCapacity_: NSUInteger; path: NSString): id; message 'initWithMemoryCapacity:diskCapacity:diskPath:';
@@ -83,7 +92,7 @@ type
     procedure setDiskCapacity(diskCapacity_: NSUInteger); message 'setDiskCapacity:';
     function currentMemoryUsage: NSUInteger; message 'currentMemoryUsage';
     function currentDiskUsage: NSUInteger; message 'currentDiskUsage';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

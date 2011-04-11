@@ -12,21 +12,27 @@ Type
   { TCustomSQLDBWebDataProvider }
   TNewIDEvent = Procedure(Sender : TObject; Out AID : String) of object;
   TGetParamTypeEvent = Procedure (Sender : TObject; Const ParamName,AValue : String; Var AType : TFieldtype) of object;
+  TGetParamValueEvent = Procedure (Sender : TObject; P : TParam; Var Handled : Boolean) of object;
 
   TCustomSQLDBWebDataProvider = Class(TFPCustomWebDataProvider)
   private
     FIDFieldName: String;
+    FONGetDataset: TNotifyEvent;
     FOnGetNewID: TNewIDEvent;
+    FOnGetParamValue: TGetParamValueEvent;
+    FParams: TParams;
     FSQLS : Array[0..3] of TStringList;
     FConnection: TSQLConnection;
     FQuery : TSQLQuery;
     FLastNewID : String;
     FOnGetParamType : TGetParamTypeEvent;
-    procedure CheckDataset;
     function GetS(AIndex: integer): TStrings;
+    procedure RegenerateParams;
     procedure SetConnection(const AValue: TSQLConnection);
+    procedure SetParams(const AValue: TParams);
     procedure SetS(AIndex: integer; const AValue: TStrings);
   Protected
+    function CheckDataset : Boolean; virtual;
     function CreateQuery(AOwner: TComponent; ATransaction: TSQLTransaction; ASQL: Tstrings): TSQLQuery;
     function GetParamType(P: TParam; const AValue: String): TFieldType; virtual;
     procedure SetTypedParam(P: TParam; Const AValue: String); virtual;
@@ -37,7 +43,9 @@ Type
     Procedure DoDelete; override;
     Procedure DoInsert; override;
     Procedure DoApplyParams; override;
+    Function SQLQuery : TSQLQuery;
     Function GetDataset : TDataset; override;
+    Function DoGetNewID : String; virtual;
     Function GetNewID : String;
     Function IDFieldValue : String; override;
     procedure Notification(AComponent: TComponent;  Operation: TOperation); override;
@@ -48,6 +56,9 @@ Type
     Property Connection : TSQLConnection Read FConnection Write SetConnection;
     Property OnGetNewID : TNewIDEvent Read FOnGetNewID Write FOnGetNewID;
     property OnGetParameterType : TGetParamTypeEvent Read FOnGetParamType Write FOnGetParamType;
+    property OnGetParameterValue : TGetParamValueEvent Read FOnGetParamValue Write FOnGetParamValue;
+    Property OnGetDataset : TNotifyEvent Read FONGetDataset Write FOnGetDataset;
+    Property Params : TParams Read FParams Write SetParams;
   Public
     Constructor Create(AOwner : TComponent); override;
     Destructor Destroy; override;
@@ -63,6 +74,10 @@ Type
     Property IDFieldName;
     Property OnGetNewID;
     property OnGetParameterType;
+    property OnGetParameterValue;
+    Property OnGetDataset;
+    Property Options;
+    Property Params;
   end;
 
 implementation
@@ -101,6 +116,12 @@ begin
     FConnection.FreeNotification(Self);
 end;
 
+procedure TCustomSQLDBWebDataProvider.SetParams(const AValue: TParams);
+begin
+  if FParams=AValue then exit;
+  FParams.Assign(AValue);
+end;
+
 procedure TCustomSQLDBWebDataProvider.SetS(AIndex: integer;
   const AValue: TStrings);
 begin
@@ -109,11 +130,27 @@ end;
 
 procedure TCustomSQLDBWebDataProvider.SQLChanged(Sender: TObject);
 begin
-  If (Sender=SelectSQL) and Assigned(FQuery) then
+  If (Sender=SelectSQL)  then
     begin
-    FQuery.Close;
-    FQuery.SQL.Assign(SelectSQL);
+    if Assigned(FQuery) then
+      begin
+      FQuery.Close;
+      FQuery.SQL.Assign(SelectSQL);
+      end;
+    If Not (csLoading in ComponentState) then
+      RegenerateParams;
     end;
+end;
+
+procedure TCustomSQLDBWebDataProvider.RegenerateParams;
+
+Var
+  S : String;
+
+begin
+  S:=SelectSQL.Text;
+  Params.Clear;
+  Params.ParseSQL(S,True);
 end;
 
 procedure TCustomSQLDBWebDataProvider.ExecuteSQL(ASQL : TStrings; Msg : String = ''; DoNewID : Boolean = False);
@@ -179,6 +216,7 @@ procedure TCustomSQLDBWebDataProvider.Notification(AComponent: TComponent;
   Operation: TOperation);
 
 begin
+  inherited;
   If (Operation=opRemove) then
     begin
     If (AComponent=FQuery) then
@@ -204,13 +242,14 @@ begin
   Result.SQL.Assign(ASQL);
 end;
 
-procedure TCustomSQLDBWebDataProvider.CheckDataset;
+Function TCustomSQLDBWebDataProvider.CheckDataset : boolean;
 
 begin
 {$ifdef wmdebug}SendDebug('Entering CheckDataset');{$endif}
   If (Trim(SelectSQL.Text)='') then
     Raise EFPHTTPError.CreateFmt(SErrNoSelectSQL,[Self.Name]);
-  If (FQuery=Nil) then
+  Result:=FQuery=Nil;
+  If (Result) then
     FQuery:=CreateQuery(Nil,Nil,SelectSQL)
   else if not FQuery.Active then
     FQuery.SQL.Assign(SelectSQL);
@@ -238,7 +277,12 @@ Var
 
 begin
   ft:=GetParamtype(P,AValue);
-  If ft<>ftUnknown then
+  If (AValue='') and (not (ft in [ftString,ftFixedChar,ftWideString,ftFixedWideChar])) then
+    begin
+    P.Clear;
+    exit;
+    end;
+  If (ft<>ftUnknown) then
     begin
     try
       case ft of
@@ -309,20 +353,31 @@ var
   I: Integer;
   P : TParam;
   S : String;
+  B : Boolean;
+
 
 begin
 {$ifdef wmdebug}SendDebug('Entering ApplySQLPArams');{$endif}
   For I:=0 to AQuery.Params.Count-1 do
     begin
     P:=AQuery.Params[i];
-    If (P.Name=IDFieldName) and DoNewID then
-      SetTypedParam(P,GetNewID)
-    else If Adaptor.TryFieldValue(P.Name,S) then
-      SetTypedParam(P,S)
-    else If Adaptor.TryParamValue(P.Name,S) then
-      SetTypedParam(P,S)
-    else
-      P.Clear;
+    B:=Assigned(FOnGetParamValue);
+    if B then
+      FOnGetParamValue(Self,P,B);
+    if not B then
+      begin
+      If (P.Name=IDFieldName) and DoNewID then
+        begin
+        GetNewID;
+        SetTypedParam(P,FLastNewID)
+        end
+      else If Adaptor.TryFieldValue(P.Name,S) then
+        SetTypedParam(P,S)
+      else If Adaptor.TryParamValue(P.Name,S) then
+        SetTypedParam(P,S)
+      else
+        P.Clear;
+      end;
     end;
 {$ifdef wmdebug}SendDebug('Exiting ApplySQLPArams');{$endif}
 end;
@@ -334,9 +389,16 @@ begin
   ApplySQLParams(FQuery);
 end;
 
+function TCustomSQLDBWebDataProvider.SQLQuery: TSQLQuery;
+begin
+  Result:=FQuery;
+end;
+
 function TCustomSQLDBWebDataProvider.GetDataset: TDataset;
 begin
 {$ifdef wmdebug}SendDebug('Get dataset: checking dataset');{$endif}
+  If Assigned(FonGetDataset) then
+    FOnGetDataset(Self);
   CheckDataset;
   FLastNewID:='';
   Result:=FQuery;
@@ -346,12 +408,17 @@ begin
 {$ifdef wmdebug}SendDebug('Get dataset: done');{$endif}
 end;
 
-function TCustomSQLDBWebDataProvider.GetNewID: String;
-
+function TCustomSQLDBWebDataProvider.DoGetNewID: String;
 begin
   If Not Assigned(FOnGetNewID) then
     Raise EFPHTTPError.CreateFmt(SErrNoNewIDEvent,[Self.Name]);
   FOnGetNewID(Self,Result);
+end;
+
+function TCustomSQLDBWebDataProvider.GetNewID: String;
+
+begin
+  Result:=DoGetNewID;
   FLastNewID:=Result;
 end;
 
@@ -386,6 +453,7 @@ begin
     L.OnChange:=@SQLChanged;
     FSQLS[i]:=L;
     end;
+  FParams:=TParams.Create(TParam);
 end;
 
 destructor TCustomSQLDBWebDataProvider.Destroy;
@@ -398,6 +466,7 @@ begin
    FreeAndNil(FSQLS[i]);
   Connection:=Nil;
   FreeAndNil(FQuery);
+  FreeAndNil(FParams);
   inherited Destroy;
 end;
 

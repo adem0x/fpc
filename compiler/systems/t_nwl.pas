@@ -423,7 +423,7 @@ begin
    begin
      While not SharedLibFiles.Empty do
       begin
-        {becuase of upper/lower case mix, we may get duplicate
+        {because of upper/lower case mix, we may get duplicate
          names but nlmconv ignores that.
          Here we are setting the import-files for nlmconv. I.e. for
          the module libc or libc.nlm we add IMPORT @libc.imp and also
@@ -579,7 +579,7 @@ begin
   Replace(cmdstr,'$STRIP',StripStr);
   Replace(cmdstr,'$TMPOBJ',maybequoted(outputexedir+tmpLinkFileName));
   Comment (v_debug,'Executing '+BinStr+' '+cmdstr);
-  success:=DoExec(FindUtil(BinStr),CmdStr,true,false);
+  success:=DoExec(BinStr,CmdStr,true,false);
 
   { Remove ReponseFile }
   if (success) and not(cs_link_nolink in current_settings.globalswitches) then
@@ -593,7 +593,7 @@ begin
     SplitBinCmd(Info.ExeCmd[2],binstr,cmdstr);
     Replace(cmdstr,'$RES',maybequoted(outputexedir+'n'+Info.ResName));
     Comment (v_debug,'Executing '+BinStr+' '+cmdstr);
-    success:=DoExec(FindUtil(BinStr),CmdStr,true,false);
+    success:=DoExec(BinStr,CmdStr,true,false);
     if (success) and not(cs_link_nolink in current_settings.globalswitches) then
     begin
       DeleteFile(outputexedir+'n'+Info.ResName);

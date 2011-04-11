@@ -77,8 +77,8 @@ Type
     procedure StartChapter(ChapterName : String); override;
     procedure StartOverview(WithAccess : Boolean); override;
     procedure EndOverview; override;
-    procedure WriteOverviewMember(ALabel,AName,Access,ADescr : String); override;
-    procedure WriteOverviewMember(ALabel,AName,ADescr : String); override;
+    procedure WriteOverviewMember(const ALabel,AName,Access,ADescr : String); override;
+    procedure WriteOverviewMember(const ALabel,AName,ADescr : String); override;
     Class Function FileNameExtension : String; override;
     // Description node conversion
     procedure DescrBeginBold; override;
@@ -187,7 +187,9 @@ begin
   SetLength(Result, 0);
   for i := 1 to Length(S) do
     If not (S[i] in ['&','{','}','#','_','$','%','''','~','^', '\']) then
-      Result := Result + S[i];
+      Result := Result + S[i]
+    else
+      Result:=result+'!'  
 end;
 
 
@@ -658,13 +660,13 @@ begin
   WriteLn('\end{tabularx}');
 end;
 
-procedure TLatexWriter.WriteOverviewMember(ALabel,AName,Access,ADescr : String);
+procedure TLatexWriter.WriteOverviewMember(const ALabel,AName,Access,ADescr : String);
 
 begin
   WriteLnF('\pageref{%s} & %s & %s & %s \\',[ALabel,EscapeText(AName),Access,ADescr]);
 end;
 
-procedure TLatexWriter.WriteOverviewMember(ALabel,AName,ADescr : String);
+procedure TLatexWriter.WriteOverviewMember(const ALabel,AName,ADescr : String);
 
 begin
   WriteLnF('\pageref{%s} & %s  & %s \\',[ALabel,EscapeText(AName),ADescr]);

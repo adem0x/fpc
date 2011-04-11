@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSClassDescription.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCLASSDESCRIPTION_PAS_T}
@@ -29,7 +27,7 @@
 
 { External string constants }
 var
-  NSClassDescriptionNeededForClassNotification: NSString; external name '_NSClassDescriptionNeededForClassNotification';
+  NSClassDescriptionNeededForClassNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -37,6 +35,7 @@ var
 {$ifdef FORWARD}
   NSClassDescription = objcclass;
   NSClassDescriptionPointer = ^NSClassDescription;
+  NSClassDescriptionPtr = NSClassDescriptionPointer;
 
 {$endif}
 
@@ -45,11 +44,9 @@ var
 {$define NSCLASSDESCRIPTION_PAS_C}
 
 { NSClassDescription }
-  NSClassDescription = objcclass(NSObject)
+  NSClassDescription = objcclass external (NSObject)
     
   public
-    class function alloc: NSClassDescription; message 'alloc';
-
     class procedure registerClassDescription_forClass(description_: NSClassDescription; aClass: Pobjc_class); message 'registerClassDescription:forClass:';
     class procedure invalidateClassDescriptionCache; message 'invalidateClassDescriptionCache';
     class function classDescriptionForClass(aClass: Pobjc_class): NSClassDescription; message 'classDescriptionForClass:';
@@ -57,7 +54,16 @@ var
     function toOneRelationshipKeys: NSArray; message 'toOneRelationshipKeys';
     function toManyRelationshipKeys: NSArray; message 'toManyRelationshipKeys';
     function inverseForRelationshipKey(relationshipKey: NSString): NSString; message 'inverseForRelationshipKey:';
-  end; external;
+  end;
+
+{ NSClassDescriptionPrimitivesCategory }
+  NSClassDescriptionPrimitivesCategory = objccategory external (NSObject)
+    function classDescription: NSClassDescription; message 'classDescription';
+    function attributeKeys: NSArray; message 'attributeKeys';
+    function toOneRelationshipKeys: NSArray; message 'toOneRelationshipKeys';
+    function toManyRelationshipKeys: NSArray; message 'toManyRelationshipKeys';
+    function inverseForRelationshipKey(relationshipKey: NSString): NSString; message 'inverseForRelationshipKey:';
+  end;
 
 {$endif}
 {$endif}

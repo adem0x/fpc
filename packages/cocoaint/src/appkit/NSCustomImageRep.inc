@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSCustomImageRep.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCUSTOMIMAGEREP_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSCustomImageRep = objcclass;
   NSCustomImageRepPointer = ^NSCustomImageRep;
+  NSCustomImageRepPtr = NSCustomImageRepPointer;
 
 {$endif}
 
@@ -41,19 +40,17 @@
 {$define NSCUSTOMIMAGEREP_PAS_C}
 
 { NSCustomImageRep }
-  NSCustomImageRep = objcclass(NSImageRep)
+  NSCustomImageRep = objcclass external (NSImageRep)
   private
-    __drawMethod: SEL;
-    __drawObject: id;
-    __reserved: cuint;
+    _drawMethod: SEL;
+    _drawObject: id;
+    _reserved: cuint;
     
   public
-    class function alloc: NSCustomImageRep; message 'alloc';
-
     function initWithDrawSelector_delegate(aMethod: SEL; anObject: id): id; message 'initWithDrawSelector:delegate:';
     function drawSelector: SEL; message 'drawSelector';
     function delegate: id; message 'delegate';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

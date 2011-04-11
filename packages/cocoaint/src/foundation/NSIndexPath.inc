@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSIndexPath.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSINDEXPATH_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSIndexPath = objcclass;
   NSIndexPathPointer = ^NSIndexPath;
+  NSIndexPathPtr = NSIndexPathPointer;
 
 {$endif}
 
@@ -41,27 +40,30 @@
 {$define NSINDEXPATH_PAS_C}
 
 { NSIndexPath }
-  NSIndexPath = objcclass(NSObject, NSCopyingProtocol, NSCodingProtocol)
+  NSIndexPath = objcclass external (NSObject, NSCopyingProtocol, NSCodingProtocol)
   private
-    __indexes: NSUInteger;
-    __hash: NSUInteger;
-    __length: NSUInteger;
-    __reserved: Pointer;
+    _indexes: NSUIntegerPtr;
+    _hash: NSUInteger;
+    _length: NSUInteger;
+    _reserved: Pointer;
     
   public
-    class function alloc: NSIndexPath; message 'alloc';
-
     class function indexPathWithIndex(index: NSUInteger): id; message 'indexPathWithIndex:';
-    class function indexPathWithIndexes_length(indexes: NSUIntegerPointer; length_: NSUInteger): id; message 'indexPathWithIndexes:length:';
+    class function indexPathWithIndexes_length(indexes: NSUIntegerPtr; length_: NSUInteger): id; message 'indexPathWithIndexes:length:';
     function initWithIndex(index: NSUInteger): id; message 'initWithIndex:';
-    function initWithIndexes_length(indexes: NSUIntegerPointer; length_: NSUInteger): id; message 'initWithIndexes:length:';
+    function initWithIndexes_length(indexes: NSUIntegerPtr; length_: NSUInteger): id; message 'initWithIndexes:length:';
     function indexPathByAddingIndex(index: NSUInteger): NSIndexPath; message 'indexPathByAddingIndex:';
     function indexPathByRemovingLastIndex: NSIndexPath; message 'indexPathByRemovingLastIndex';
     function indexAtPosition(position: NSUInteger): NSUInteger; message 'indexAtPosition:';
     function length: NSUInteger; message 'length';
-    procedure getIndexes(indexes: NSUIntegerPointer); message 'getIndexes:';
+    procedure getIndexes(indexes: NSUIntegerPtr); message 'getIndexes:';
     function compare(otherObject: NSIndexPath): NSComparisonResult; message 'compare:';
-  end; external;
+
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSHTTPCookie.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSHTTPCOOKIE_PAS_T}
@@ -27,12 +25,29 @@
 {$ifndef NSHTTPCOOKIE_PAS_S}
 {$define NSHTTPCOOKIE_PAS_S}
 
+{ External string constants }
+var
+  NSHTTPCookieName: NSString; cvar; external;
+  NSHTTPCookieValue: NSString; cvar; external;
+  NSHTTPCookieOriginURL: NSString; cvar; external;
+  NSHTTPCookieVersion: NSString; cvar; external;
+  NSHTTPCookieDomain: NSString; cvar; external;
+  NSHTTPCookiePath: NSString; cvar; external;
+  NSHTTPCookieSecure: NSString; cvar; external;
+  NSHTTPCookieExpires: NSString; cvar; external;
+  NSHTTPCookieComment: NSString; cvar; external;
+  NSHTTPCookieCommentURL: NSString; cvar; external;
+  NSHTTPCookieDiscard: NSString; cvar; external;
+  NSHTTPCookieMaximumAge: NSString; cvar; external;
+  NSHTTPCookiePort: NSString; cvar; external;
+
 {$endif}
 {$endif}
 
 {$ifdef FORWARD}
   NSHTTPCookie = objcclass;
   NSHTTPCookiePointer = ^NSHTTPCookie;
+  NSHTTPCookiePtr = NSHTTPCookiePointer;
 
 {$endif}
 
@@ -41,13 +56,11 @@
 {$define NSHTTPCOOKIE_PAS_C}
 
 { NSHTTPCookie }
-  NSHTTPCookie = objcclass(NSObject)
+  NSHTTPCookie = objcclass external (NSObject)
   private
-    __cookiePrivate: NSHTTPCookieInternal;
+    _cookiePrivate: NSHTTPCookieInternal;
     
   public
-    class function alloc: NSHTTPCookie; message 'alloc';
-
     function initWithProperties(properties_: NSDictionary): id; message 'initWithProperties:';
     class function cookieWithProperties(properties_: NSDictionary): id; message 'cookieWithProperties:';
     class function requestHeaderFieldsWithCookies(cookies: NSArray): NSDictionary; message 'requestHeaderFieldsWithCookies:';
@@ -61,10 +74,11 @@
     function domain: NSString; message 'domain';
     function path: NSString; message 'path';
     function isSecure: Boolean; message 'isSecure';
+    function isHTTPOnly: Boolean; message 'isHTTPOnly';
     function comment: NSString; message 'comment';
     function commentURL: NSURL; message 'commentURL';
     function portList: NSArray; message 'portList';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSHelpManager.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSHELPMANAGER_PAS_T}
@@ -29,8 +27,8 @@
 
 { External string constants }
 var
-  NSContextHelpModeDidActivateNotification: NSString; external name '_NSContextHelpModeDidActivateNotification';
-  NSContextHelpModeDidDeactivateNotification: NSString; external name '_NSContextHelpModeDidDeactivateNotification';
+  NSContextHelpModeDidActivateNotification: NSString; cvar; external;
+  NSContextHelpModeDidDeactivateNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -38,6 +36,7 @@ var
 {$ifdef FORWARD}
   NSHelpManager = objcclass;
   NSHelpManagerPointer = ^NSHelpManager;
+  NSHelpManagerPtr = NSHelpManagerPointer;
 
 {$endif}
 
@@ -46,19 +45,17 @@ var
 {$define NSHELPMANAGER_PAS_C}
 
 { NSHelpManager }
-  NSHelpManager = objcclass(NSObject)
+  NSHelpManager = objcclass external (NSObject)
   private
-    __helpMapTable: NSMapTable;
-    __keyMapTable: NSMapTable;
-    __bundleMapTable: NSMapTable;
-    __helpWindow: NSWindow;
-    __shadowWindow: NSWindow;
-    __evtWindow: NSWindow;
-    __helpBundle: NSBundle;
+    _helpMapTable: NSMapTable;
+    _keyMapTable: NSMapTable;
+    _bundleMapTable: NSMapTable;
+    _helpWindow: NSWindow;
+    _shadowWindow: NSWindow;
+    _evtWindow: NSWindow;
+    _helpBundle: NSBundle;
     
   public
-    class function alloc: NSHelpManager; message 'alloc';
-
     class function sharedHelpManager: NSHelpManager; message 'sharedHelpManager';
     class procedure setContextHelpModeActive(active: Boolean); message 'setContextHelpModeActive:';
     class function isContextHelpModeActive: Boolean; message 'isContextHelpModeActive';
@@ -68,7 +65,19 @@ var
     function showContextHelpForObject_locationHint(object_: id; pt: NSPoint): Boolean; message 'showContextHelpForObject:locationHint:';
     procedure openHelpAnchor_inBook(anchor: NSString; book: NSString); message 'openHelpAnchor:inBook:';
     procedure findString_inBook(query: NSString; book: NSString); message 'findString:inBook:';
-  end; external;
+    function registerBooksInBundle(bundle: NSBundle): Boolean; message 'registerBooksInBundle:';
+  end;
+
+{ NSBundleHelpExtensionCategory }
+  NSBundleHelpExtensionCategory = objccategory external (NSBundle)
+    function contextHelpForKey(key: NSString): NSAttributedString; message 'contextHelpForKey:';
+  end;
+
+{ NSApplicationHelpExtensionCategory }
+  NSApplicationHelpExtensionCategory = objccategory external (NSApplication)
+    procedure activateContextHelpMode(sender: id); message 'activateContextHelpMode:';
+    procedure showHelp(sender: id); message 'showHelp:';
+  end;
 
 {$endif}
 {$endif}

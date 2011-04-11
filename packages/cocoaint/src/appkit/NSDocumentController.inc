@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSDocumentController.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSDOCUMENTCONTROLLER_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSDocumentController = objcclass;
   NSDocumentControllerPointer = ^NSDocumentController;
+  NSDocumentControllerPtr = NSDocumentControllerPointer;
 
 {$endif}
 
@@ -41,17 +40,15 @@
 {$define NSDOCUMENTCONTROLLER_PAS_C}
 
 { NSDocumentController }
-  NSDocumentController = objcclass(NSObject, NSCodingProtocol, NSUserInterfaceValidationsProtocol)
+  NSDocumentController = objcclass external (NSObject, NSCodingProtocol, NSUserInterfaceValidationsProtocol)
   private
-    __documents: id;
-    __moreVars: id;
-    __cachedTypeDescriptions: NSArray;
-    __recents: NSMutableDictionary;
-    __recentsLimit: cint;
+    _documents: id;
+    _moreVars: id;
+    _cachedTypeDescriptions: NSArray;
+    _recents: NSMutableDictionary;
+    _recentsLimit: cint;
     
   public
-    class function alloc: NSDocumentController; message 'alloc';
-
     class function sharedDocumentController: id; message 'sharedDocumentController';
     function init: id; message 'init';
     function documents: NSArray; message 'documents';
@@ -90,22 +87,28 @@
     function documentClassNames: NSArray; message 'documentClassNames';
     function documentClassForType(typeName: NSString): Pobjc_class; message 'documentClassForType:';
     function displayNameForType(typeName: NSString): NSString; message 'displayNameForType:';
-    function validateUserInterfaceItem(anItem: id): Boolean; message 'validateUserInterfaceItem:';
+    function validateUserInterfaceItem(anItem: NSValidatedUserInterfaceItemProtocol): Boolean; message 'validateUserInterfaceItem:';
 
-    { Category: NSDeprecated }
-    function fileExtensionsFromType(typeName: NSString): NSArray; message 'fileExtensionsFromType:';
-    function typeFromFileExtension(fileNameExtensionOrHFSFileType: NSString): NSString; message 'typeFromFileExtension:';
-    function documentForFileName(fileName: NSString): id; message 'documentForFileName:';
-    function fileNamesFromRunningOpenPanel: NSArray; message 'fileNamesFromRunningOpenPanel';
-    function makeDocumentWithContentsOfFile_ofType(fileName: NSString; type_: NSString): id; message 'makeDocumentWithContentsOfFile:ofType:';
-    function makeDocumentWithContentsOfURL_ofType(url: NSURL; type_: NSString): id; message 'makeDocumentWithContentsOfURL:ofType:';
-    function makeUntitledDocumentOfType(type_: NSString): id; message 'makeUntitledDocumentOfType:';
-    function openDocumentWithContentsOfFile_display(fileName: NSString; display: Boolean): id; message 'openDocumentWithContentsOfFile:display:';
-    function openDocumentWithContentsOfURL_display(url: NSURL; display: Boolean): id; message 'openDocumentWithContentsOfURL:display:';
-    function openUntitledDocumentOfType_display(type_: NSString; display: Boolean): id; message 'openUntitledDocumentOfType:display:';
-    procedure setShouldCreateUI(flag: Boolean); message 'setShouldCreateUI:';
-    function shouldCreateUI: Boolean; message 'shouldCreateUI';
-  end; external;
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
+
+{ NSDeprecated_NSDocumentControllerCategory }
+  NSDeprecated_NSDocumentControllerCategory = objccategory external name 'NSDeprecated' (NSDocumentController)
+    function fileExtensionsFromType(typeName: NSString): NSArray; message 'fileExtensionsFromType:'; deprecated 'in Mac OS X 10.5 and later';
+    function typeFromFileExtension(fileNameExtensionOrHFSFileType: NSString): NSString; message 'typeFromFileExtension:'; deprecated 'in Mac OS X 10.5 and later';
+    function documentForFileName(fileName: NSString): id; message 'documentForFileName:'; deprecated 'in Mac OS X 10.4 and later';
+    function fileNamesFromRunningOpenPanel: NSArray; message 'fileNamesFromRunningOpenPanel'; deprecated 'in Mac OS X 10.4 and later';
+    function makeDocumentWithContentsOfFile_ofType(fileName: NSString; type_: NSString): id; message 'makeDocumentWithContentsOfFile:ofType:'; deprecated 'in Mac OS X 10.4 and later';
+    function makeDocumentWithContentsOfURL_ofType(url: NSURL; type_: NSString): id; message 'makeDocumentWithContentsOfURL:ofType:'; deprecated 'in Mac OS X 10.4 and later';
+    function makeUntitledDocumentOfType(type_: NSString): id; message 'makeUntitledDocumentOfType:'; deprecated 'in Mac OS X 10.4 and later';
+    function openDocumentWithContentsOfFile_display(fileName: NSString; display: Boolean): id; message 'openDocumentWithContentsOfFile:display:'; deprecated 'in Mac OS X 10.4 and later';
+    function openDocumentWithContentsOfURL_display(url: NSURL; display: Boolean): id; message 'openDocumentWithContentsOfURL:display:'; deprecated 'in Mac OS X 10.4 and later';
+    function openUntitledDocumentOfType_display(type_: NSString; display: Boolean): id; message 'openUntitledDocumentOfType:display:'; deprecated 'in Mac OS X 10.4 and later';
+    procedure setShouldCreateUI(flag: Boolean); message 'setShouldCreateUI:'; deprecated 'in Mac OS X 10.4 and later';
+    function shouldCreateUI: Boolean; message 'shouldCreateUI'; deprecated 'in Mac OS X 10.4 and later';
+  end;
 
 {$endif}
 {$endif}

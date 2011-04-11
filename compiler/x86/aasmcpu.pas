@@ -274,6 +274,8 @@ implementation
      uses
        cutils,
        globals,
+       systems,
+       procinfo,
        itcpugas,
        symsym;
 
@@ -929,6 +931,15 @@ implementation
               top_ref :
                 begin
                   if (ref^.refaddr=addr_no)
+{$ifdef i386}
+                     or (
+                         (ref^.refaddr in [addr_pic]) and
+                         { allow any base for assembler blocks }
+                        ((assigned(current_procinfo) and
+                         (pi_has_assembler_block in current_procinfo.flags) and
+                         (ref^.base<>NR_NO)) or (ref^.base=NR_EBX))
+                        )
+{$endif i386}
 {$ifdef x86_64}
                      or (
                          (ref^.refaddr in [addr_pic,addr_pic_no_got]) and
@@ -1918,12 +1929,28 @@ implementation
                 begin
                   currval:=oper[opidx]^.ref^.offset;
                   currsym:=ObjData.symbolref(oper[opidx]^.ref^.symbol);
+{$ifdef i386}
+                  if (oper[opidx]^.ref^.refaddr=addr_pic) and
+                     (tf_pic_uses_got in target_info.flags) then
+                    begin
+                      currrelreloc:=RELOC_PLT32;
+                      currabsreloc:=RELOC_GOT32;
+                      currabsreloc32:=RELOC_GOT32;
+                    end
+                  else
+{$endif i386}
 {$ifdef x86_64}
                   if oper[opidx]^.ref^.refaddr=addr_pic then
                     begin
                       currrelreloc:=RELOC_PLT32;
                       currabsreloc:=RELOC_GOTPCREL;
                       currabsreloc32:=RELOC_GOTPCREL;
+                    end
+                  else if oper[opidx]^.ref^.refaddr=addr_pic_no_got then
+                    begin
+                      currrelreloc:=RELOC_RELATIVE;
+                      currabsreloc:=RELOC_RELATIVE;
+                      currabsreloc32:=RELOC_RELATIVE;
                     end
                   else
 {$endif x86_64}
@@ -1955,6 +1982,29 @@ implementation
             end;
         end;
 {$endif x86_64}
+       procedure objdata_writereloc(Data:aint;len:aword;p:TObjSymbol;Reloctype:TObjRelocationType);
+         begin
+{$ifdef i386}
+               { Special case of '_GLOBAL_OFFSET_TABLE_'
+                 which needs a special relocation type R_386_GOTPC }
+               if assigned (p) and
+                  (p.name='_GLOBAL_OFFSET_TABLE_') and
+                  (tf_pic_uses_got in target_info.flags) then
+                 begin
+                   { nothing else than a 4 byte relocation should occur
+                     for GOT }
+                   if len<>4 then
+                     Message1(asmw_e_invalid_opcode_and_operands,GetString);
+                   Reloctype:=RELOC_GOTPC;
+                   { We need to add the offset of the relocation
+                     of _GLOBAL_OFFSET_TABLE symbol within
+                     the current instruction }
+                   inc(data,objdata.currobjsec.size-insoffset);
+                 end;
+{$endif i386}
+           objdata.writereloc(data,len,p,Reloctype);
+         end;
+
 
       const
         CondVal:array[TAsmCond] of byte=($0,
@@ -2053,7 +2103,7 @@ implementation
                 if (currval<-128) or (currval>127) then
                  Message2(asmw_e_value_exceeds_bounds,'signed byte',tostr(currval));
                 if assigned(currsym) then
-                  objdata.writereloc(currval,1,currsym,currabsreloc)
+                  objdata_writereloc(currval,1,currsym,currabsreloc)
                 else
                   objdata.writebytes(currval,1);
               end;
@@ -2063,7 +2113,7 @@ implementation
                 if (currval<-256) or (currval>255) then
                  Message2(asmw_e_value_exceeds_bounds,'byte',tostr(currval));
                 if assigned(currsym) then
-                 objdata.writereloc(currval,1,currsym,currabsreloc)
+                 objdata_writereloc(currval,1,currsym,currabsreloc)
                 else
                  objdata.writebytes(currval,1);
               end;
@@ -2073,7 +2123,7 @@ implementation
                 if (currval<0) or (currval>255) then
                  Message2(asmw_e_value_exceeds_bounds,'unsigned byte',tostr(currval));
                 if assigned(currsym) then
-                 objdata.writereloc(currval,1,currsym,currabsreloc)
+                 objdata_writereloc(currval,1,currsym,currabsreloc)
                 else
                  objdata.writebytes(currval,1);
               end;
@@ -2083,7 +2133,7 @@ implementation
                 if (currval<-65536) or (currval>65535) then
                  Message2(asmw_e_value_exceeds_bounds,'word',tostr(currval));
                 if assigned(currsym) then
-                 objdata.writereloc(currval,2,currsym,currabsreloc)
+                 objdata_writereloc(currval,2,currsym,currabsreloc)
                 else
                  objdata.writebytes(currval,2);
               end;
@@ -2093,14 +2143,14 @@ implementation
                 if opsize=S_Q then
                   begin
                     if assigned(currsym) then
-                     objdata.writereloc(currval,8,currsym,currabsreloc)
+                     objdata_writereloc(currval,8,currsym,currabsreloc)
                     else
                      objdata.writebytes(currval,8);
                   end
                 else
                   begin
                     if assigned(currsym) then
-                      objdata.writereloc(currval,4,currsym,currabsreloc32)
+                      objdata_writereloc(currval,4,currsym,currabsreloc32)
                     else
                       objdata.writebytes(currval,4);
                   end
@@ -2109,7 +2159,7 @@ implementation
               begin
                 getvalsym(c-32);
                 if assigned(currsym) then
-                 objdata.writereloc(currval,4,currsym,currabsreloc32)
+                 objdata_writereloc(currval,4,currsym,currabsreloc32)
                 else
                  objdata.writebytes(currval,4);
               end;
@@ -2127,17 +2177,17 @@ implementation
               begin
                 getvalsym(c-52);
                 if assigned(currsym) then
-                 objdata.writereloc(currval,4,currsym,currrelreloc)
+                 objdata_writereloc(currval,4,currsym,currrelreloc)
                 else
-                 objdata.writereloc(currval-insend,4,nil,currabsreloc32)
+                 objdata_writereloc(currval-insend,4,nil,currabsreloc32)
               end;
             56,57,58 :
               begin
                 getvalsym(c-56);
                 if assigned(currsym) then
-                 objdata.writereloc(currval,4,currsym,currrelreloc)
+                 objdata_writereloc(currval,4,currsym,currrelreloc)
                 else
-                 objdata.writereloc(currval-insend,4,nil,currabsreloc32)
+                 objdata_writereloc(currval-insend,4,nil,currabsreloc32)
               end;
             192,193,194 :
               begin
@@ -2214,7 +2264,7 @@ implementation
               begin
                 { these are dissambler hints or 32 bit prefixes which
                   are not needed
-                  It's usefull to write rex :) (FK) }
+                  It's useful to write rex :) (FK) }
 {$ifdef x86_64}
                 maybewriterex;
 {$endif x86_64}
@@ -2265,13 +2315,19 @@ implementation
                          if (oper[opidx]^.ot and OT_MEMORY)=OT_MEMORY then
                            begin
                              currsym:=objdata.symbolref(oper[opidx]^.ref^.symbol);
+{$ifdef i386}
+                             if (oper[opidx]^.ref^.refaddr=addr_pic) and
+                                (tf_pic_uses_got in target_info.flags) then
+                               currabsreloc:=RELOC_GOT32
+                             else
+{$endif i386}
 {$ifdef x86_64}
                              if oper[opidx]^.ref^.refaddr=addr_pic then
                                currabsreloc:=RELOC_GOTPCREL
                              else
 {$endif x86_64}
                                currabsreloc:=RELOC_ABSOLUTE;
-                             objdata.writereloc(oper[opidx]^.ref^.offset,1,currsym,currabsreloc);
+                             objdata_writereloc(oper[opidx]^.ref^.offset,1,currsym,currabsreloc);
                            end
                          else
                           begin
@@ -2303,6 +2359,12 @@ implementation
                              end
                            else
 {$endif x86_64}
+{$ifdef i386}
+                         if (oper[opidx]^.ref^.refaddr=addr_pic) and
+                            (tf_pic_uses_got in target_info.flags) then
+                           currabsreloc:=RELOC_GOT32
+                         else
+{$endif i386}
                              currabsreloc:=RELOC_ABSOLUTE32;
 
                            if (currabsreloc=RELOC_ABSOLUTE32) and
@@ -2312,7 +2374,7 @@ implementation
                              currabsreloc:=RELOC_PIC_PAIR;
                              currval:=relsym.offset;
                            end;
-                         objdata.writereloc(currval,ea_data.bytes,currsym,currabsreloc);
+                         objdata_writereloc(currval,ea_data.bytes,currsym,currabsreloc);
                          inc(s,ea_data.bytes);
                        end;
                    end;

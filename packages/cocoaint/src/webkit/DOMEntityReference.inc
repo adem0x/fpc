@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMEntityReference.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMENTITYREFERENCE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMEntityReference = objcclass;
   DOMEntityReferencePointer = ^DOMEntityReference;
+  DOMEntityReferencePtr = DOMEntityReferencePointer;
 
 {$endif}
 
@@ -41,11 +40,10 @@
 {$define DOMENTITYREFERENCE_PAS_C}
 
 { DOMEntityReference }
-  DOMEntityReference = objcclass(DOMNode)
+  DOMEntityReference = objcclass external (DOMNode)
     
   public
-    class function alloc: DOMEntityReference; message 'alloc';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

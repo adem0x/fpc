@@ -101,7 +101,7 @@ interface
     procedure gen_load_return_value(list:TAsmList);
 
     procedure gen_external_stub(list:TAsmList;pd:tprocdef;const externalname:string);
-    procedure gen_intf_wrappers(list:TAsmList;st:TSymtable);
+    procedure gen_intf_wrappers(list:TAsmList;st:TSymtable;nested:boolean);
     procedure gen_load_vmt_register(list:TAsmList;objdef:tobjectdef;selfloc:tlocation;var vmtreg:tregister);
 
     procedure get_used_regvars(n: tnode; var rv: tusedregvars);
@@ -160,6 +160,10 @@ interface
     function getprocalign : shortint;
 
     procedure gen_pic_helpers(list : TAsmList);
+
+    procedure gen_fpc_dummy(list : TAsmList);
+
+    procedure InsertInterruptTable;
 
 implementation
 
@@ -235,7 +239,7 @@ implementation
           LOC_REFERENCE,
           LOC_CREFERENCE :
             begin
-              if use_fixed_stack then
+              if paramanager.use_fixed_stack then
                 location_freetemp(list,location);
             end;
           else
@@ -792,7 +796,7 @@ implementation
         locsize : tcgsize;
         tmploc : tlocation;
       begin
-           if not(l.size in [OS_32,OS_64,OS_128]) then
+           if not(l.size in [OS_32,OS_S32,OS_64,OS_S64,OS_128,OS_S128]) then
              locsize:=l.size
            else
              locsize:=int_float_cgsize(tcgsize2size[l.size]);
@@ -805,7 +809,7 @@ implementation
                    LOC_REFERENCE:
                      begin
                        size:=align(locintsize,cgpara.alignment);
-                       if (not use_fixed_stack) and
+                       if (not paramanager.use_fixed_stack) and
                           (cgpara.location^.reference.index=NR_STACK_POINTER_REG) then
                          begin
                            cg.g_stackpointer_alloc(list,size);
@@ -850,7 +854,7 @@ implementation
                        { can't use TCGSize2Size[l.size], because the size of an
                          80 bit extended parameter can be either 10 or 12 bytes }
                        size:=align(locintsize,cgpara.alignment);
-                       if (not use_fixed_stack) and
+                       if (not paramanager.use_fixed_stack) and
                           (cgpara.location^.reference.index=NR_STACK_POINTER_REG) then
                          begin
                            cg.g_stackpointer_alloc(list,size);
@@ -878,7 +882,7 @@ implementation
                    LOC_REFERENCE:
                      begin
                        size:=align(locintsize,cgpara.alignment);
-                       if (not use_fixed_stack) and
+                       if (not paramanager.use_fixed_stack) and
                           (cgpara.location^.reference.index=NR_STACK_POINTER_REG) then
                          cg.a_load_ref_cgpara(list,locsize,l.reference,cgpara)
                        else
@@ -1246,7 +1250,7 @@ implementation
               begin
                 { cdecl functions don't have a high pointer so it is not possible to generate
                   a local copy }
-                if not(current_procinfo.procdef.proccalloption in [pocall_cdecl,pocall_cppdecl]) then
+                if not(current_procinfo.procdef.proccalloption in cdecl_pocalls) then
                   begin
                     hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
                     if not assigned(hsym) then
@@ -1302,9 +1306,13 @@ implementation
     const
 {$ifdef cpu64bitalu}
       trashintvalues: array[0..nroftrashvalues-1] of aint = ($5555555555555555,aint($AAAAAAAAAAAAAAAA),aint($EFEFEFEFEFEFEFEF),0);
-{$else cpu64bitalu}
-      trashintvalues: array[0..nroftrashvalues-1] of aint = ($55555555,aint($AAAAAAAA),aint($EFEFEFEF),0);
 {$endif cpu64bitalu}
+{$ifdef cpu32bitalu}
+      trashintvalues: array[0..nroftrashvalues-1] of aint = ($55555555,aint($AAAAAAAA),aint($EFEFEFEF),0);
+{$endif cpu32bitalu}
+{$ifdef cpu8bitalu}
+      trashintvalues: array[0..nroftrashvalues-1] of aint = ($55,aint($AA),aint($EF),0);
+{$endif cpu8bitalu}
 
     procedure trash_reference(list: TAsmList; const ref: treference; size: aint);
       var
@@ -1470,16 +1478,18 @@ implementation
            ) and
            not(vo_is_typed_const in tabstractvarsym(p).varoptions) and
            not(vo_is_external in tabstractvarsym(p).varoptions) and
-           is_managed_type(tabstractvarsym(p).vardef) then
-         begin
-           OldAsmList:=current_asmdata.CurrAsmList;
-           current_asmdata.CurrAsmList:=TAsmList(arg);
-           hp:=initialize_data_node(cloadnode.create(tsym(p),tsym(p).owner));
-           firstpass(hp);
-           secondpass(hp);
-           hp.free;
-           current_asmdata.CurrAsmList:=OldAsmList;
-         end;
+           (is_managed_type(tabstractvarsym(p).vardef) or
+            ((m_iso in current_settings.modeswitches) and (tabstractvarsym(p).vardef.typ=filedef))
+           ) then
+          begin
+            OldAsmList:=current_asmdata.CurrAsmList;
+            current_asmdata.CurrAsmList:=TAsmList(arg);
+            hp:=initialize_data_node(cloadnode.create(tsym(p),tsym(p).owner));
+            firstpass(hp);
+            secondpass(hp);
+            hp.free;
+            current_asmdata.CurrAsmList:=OldAsmList;
+          end;
       end;
 
 
@@ -1555,6 +1565,8 @@ implementation
     procedure init_paras(p:TObject;arg:pointer);
       var
         href : treference;
+        hsym : tparavarsym;
+        eldef : tdef;
         tmpreg : tregister;
         list : TAsmList;
         needs_inittable,
@@ -1578,7 +1590,18 @@ implementation
                      paramanager.push_addr_param(tparavarsym(p).varspez,tparavarsym(p).vardef,current_procinfo.procdef.proccalloption)) then
                      begin
                        location_get_data_ref(list,tparavarsym(p).initialloc,href,is_open_array(tparavarsym(p).vardef),sizeof(pint));
-                       cg.g_incrrefcount(list,tparavarsym(p).vardef,href);
+                       if is_open_array(tparavarsym(p).vardef) then
+                         begin
+                           { open arrays do not contain correct element count in their rtti,
+                             the actual count must be passed separately. }
+                           hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
+                           eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
+                           if not assigned(hsym) then
+                             internalerror(201003031);
+                           cg.g_array_rtti_helper(list,eldef,href,hsym.initialloc,'FPC_ADDREF_ARRAY');
+                         end
+                       else
+                         cg.g_incrrefcount(list,tparavarsym(p).vardef,href);
                      end;
                  end;
              vs_out :
@@ -1603,7 +1626,18 @@ implementation
                        else
                          trash_reference(list,href,2);
                      if needs_inittable then
-                       cg.g_initialize(list,tparavarsym(p).vardef,href);
+                       begin
+                         if is_open_array(tparavarsym(p).vardef) then
+                           begin
+                             hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
+                             eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
+                             if not assigned(hsym) then
+                               internalerror(201103033);
+                             cg.g_array_rtti_helper(list,eldef,href,hsym.initialloc,'FPC_INITIALIZE_ARRAY');
+                           end
+                         else
+                           cg.g_initialize(list,tparavarsym(p).vardef,href);
+                       end;
                    end;
                end;
              else if do_trashing and
@@ -1636,6 +1670,8 @@ implementation
       var
         list : TAsmList;
         href : treference;
+        hsym : tparavarsym;
+        eldef : tdef;
       begin
         if not(tsym(p).typ=paravarsym) then
           exit;
@@ -1646,7 +1682,16 @@ implementation
             begin
               include(current_procinfo.flags,pi_needs_implicit_finally);
               location_get_data_ref(list,tparavarsym(p).localloc,href,is_open_array(tparavarsym(p).vardef),sizeof(pint));
-              cg.g_decrrefcount(list,tparavarsym(p).vardef,href);
+              if is_open_array(tparavarsym(p).vardef) then
+                begin
+                  hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
+                  eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
+                  if not assigned(hsym) then
+                    internalerror(201003032);
+                  cg.g_array_rtti_helper(list,eldef,href,hsym.initialloc,'FPC_DECREF_ARRAY');
+                end
+              else
+                cg.g_decrrefcount(list,tparavarsym(p).vardef,href);
             end;
          end;
         { open arrays can contain elements requiring init/final code, so the else has been removed here }
@@ -1656,7 +1701,7 @@ implementation
           begin
             { cdecl functions don't have a high pointer so it is not possible to generate
               a local copy }
-            if not(current_procinfo.procdef.proccalloption in [pocall_cdecl,pocall_cppdecl]) then
+            if not(current_procinfo.procdef.proccalloption in cdecl_pocalls) then
               cg.g_releasevaluepara_openarray(list,tparavarsym(p).localloc);
           end;
       end;
@@ -1773,7 +1818,7 @@ implementation
       begin
         if allocreg then
           gen_alloc_regloc(list,sym.initialloc);
-        if (pi_has_goto in current_procinfo.flags) then
+        if (pi_has_label in current_procinfo.flags) then
           begin
             { Allocate register already, to prevent first allocation to be
               inside a loop }
@@ -2067,6 +2112,23 @@ implementation
         if (tppcprocinfo(current_procinfo).needs_frame_pointer) then
           cg.a_reg_dealloc(list, NR_OLD_STACK_POINTER_REG);
 {$endif powerpc64}
+        if not(po_assembler in current_procinfo.procdef.procoptions) then
+          begin
+            { has to be done here rather than in gen_initialize_code, because
+              the initialisation code is generated a) later and b) with
+              rad_backwards, so the register allocator would generate
+              information as if this code comes before loading the parameters
+              from their original registers to their local location }
+            if (localvartrashing <> -1) then
+              current_procinfo.procdef.localst.SymList.ForEachCall(@trash_variable,list);
+            { initialize refcounted paras, and trash others. Needed here
+              instead of in gen_initialize_code, because when a reference is
+              intialised or trashed while the pointer to that reference is kept
+              in a regvar, we add a register move and that one again has to
+              come after the parameter loading code as far as the register
+              allocator is concerned }
+            current_procinfo.procdef.parast.SymList.ForEachCall(@init_paras,list);
+          end;
       end;
 
 
@@ -2091,20 +2153,11 @@ implementation
                TSymtable(current_module.localsymtable).SymList.ForEachCall(@initialize_regvars,list);
              end;
            else
-             begin
-               if (localvartrashing <> -1) and
-                  not(po_assembler in current_procinfo.procdef.procoptions) then
-                 current_procinfo.procdef.localst.SymList.ForEachCall(@trash_variable,list);
-               current_procinfo.procdef.localst.SymList.ForEachCall(@initialize_data,list);
-             end;
+             current_procinfo.procdef.localst.SymList.ForEachCall(@initialize_data,list);
         end;
 
         { initialisizes temp. ansi/wide string data }
         inittempvariables(list);
-
-        { initialize ansi/widesstring para's }
-        if not(po_assembler in current_procinfo.procdef.procoptions) then
-          current_procinfo.procdef.parast.SymList.ForEachCall(@init_paras,list);
 
 {$ifdef OLDREGVARS}
         load_regvars(list,nil);
@@ -2273,14 +2326,16 @@ implementation
 
         if (current_module.islibrary) then
           if (current_procinfo.procdef.proctypeoption = potype_proginit) then
-            exportlib.setinitname(list,current_procinfo.procdef.mangledname);
+            { setinitname may generate a new section -> don't add to the
+              current list, because we assume this remains a text section }
+            exportlib.setinitname(current_asmdata.AsmLists[al_exports],current_procinfo.procdef.mangledname);
 
         if (current_procinfo.procdef.proctypeoption=potype_proginit) then
           begin
            if (target_info.system in (systems_darwin+[system_powerpc_macos])) and
               not(current_module.islibrary) then
              begin
-              list.concat(tai_section.create(sec_code,'',4));
+              new_section(list,sec_code,'',4);
               list.concat(tai_symbol.createname_global(
                 target_info.cprefix+mainaliasname,AT_FUNCTION,0));
               { keep argc, argv and envp properly on the stack }
@@ -2333,7 +2388,14 @@ implementation
               inc(parasize,sizeof(pint));
           end
         else
-          parasize:=current_procinfo.para_stack_size;
+          begin
+            parasize:=current_procinfo.para_stack_size;
+            { the parent frame pointer para has to be removed by the caller in
+              case of Delphi-style parent frame pointer passing }
+            if not paramanager.use_fixed_stack and
+               (po_delphi_nested_cc in current_procinfo.procdef.procoptions) then
+              dec(parasize,sizeof(pint));
+          end;
 
         { generate target specific proc exit code }
         cg.g_proc_exit(list,parasize,(po_nostackframe in current_procinfo.procdef.procoptions));
@@ -2425,7 +2487,7 @@ implementation
 
     procedure insertbssdata(sym : tstaticvarsym);
       var
-        l : aint;
+        l : asizeint;
         varalign : shortint;
         storefilepos : tfileposinfo;
         list : TAsmList;
@@ -2466,7 +2528,10 @@ implementation
             sectype:=sec_bss;
           end;
         maybe_new_object_file(list);
-        new_section(list,sectype,lower(sym.mangledname),varalign);
+        if sym.section<>'' then
+          new_section(list,sec_user,sym.section,varalign)
+        else
+         new_section(list,sectype,lower(sym.mangledname),varalign);
         if (sym.owner.symtabletype=globalsymtable) or
            create_smartlink or
            DLLSource or
@@ -2515,7 +2580,7 @@ implementation
                     LOC_REFERENCE instead for all none register variables. This is
                     required because we can't store an asmsymbol in the localloc because
                     the asmsymbol is invalid after an unit is compiled. This gives
-                    problems when this procedure is inlined in an other unit (PFV) }
+                    problems when this procedure is inlined in another unit (PFV) }
                   if vs.is_regvar(false) then
                     begin
                       vs.initialloc.loc:=tvarregable2tcgloc[vs.varregable];
@@ -2641,7 +2706,7 @@ implementation
             if (cs_check_range in current_settings.localswitches) and
                (is_open_array(tvecnode(n).left.resultdef) or
                 is_array_of_const(tvecnode(n).left.resultdef)) and
-               not(current_procinfo.procdef.proccalloption in [pocall_cdecl,pocall_cppdecl]) then
+               not(current_procinfo.procdef.proccalloption in cdecl_pocalls) then
               add_regvars(rv^,tabstractnormalvarsym(get_high_value_sym(tparavarsym(tloadnode(tvecnode(n).left).symtableentry))).localloc)
 
         end;
@@ -2888,7 +2953,7 @@ implementation
                       in the parent procedures }
                     case localloc.loc of
                       LOC_CREGISTER :
-                        if (pi_has_goto in current_procinfo.flags) then
+                        if (pi_has_label in current_procinfo.flags) then
 {$ifndef cpu64bitalu}
                           if def_cgsize(vardef) in [OS_64,OS_S64] then
                             begin
@@ -2900,7 +2965,7 @@ implementation
                             cg.a_reg_sync(list,localloc.register);
                       LOC_CFPUREGISTER,
                       LOC_CMMREGISTER:
-                        if (pi_has_goto in current_procinfo.flags) then
+                        if (pi_has_label in current_procinfo.flags) then
                           cg.a_reg_sync(list,localloc.register);
                       LOC_REFERENCE :
                         begin
@@ -2944,19 +3009,24 @@ implementation
       end;
 
 
-    procedure gen_intf_wrappers(list:TAsmList;st:TSymtable);
+    procedure gen_intf_wrappers(list:TAsmList;st:TSymtable;nested:boolean);
       var
         i   : longint;
         def : tdef;
       begin
-        create_codegen;
+        if not nested then
+          create_codegen;
         for i:=0 to st.DefList.Count-1 do
           begin
             def:=tdef(st.DefList[i]);
+            { if def can contain nested types then handle it symtable }
+            if def.typ in [objectdef,recorddef] then
+              gen_intf_wrappers(list,tabstractrecorddef(def).symtable,true);
             if is_class(def) then
               gen_intf_wrapper(list,tobjectdef(def));
           end;
-        destroy_codegen;
+        if not nested then
+          destroy_codegen;
       end;
 
 
@@ -3056,5 +3126,99 @@ implementation
           end;
 {$endif i386}
       end;
+
+
+    procedure gen_fpc_dummy(list : TAsmList);
+      begin
+{$ifdef i386}
+        { fix me! }
+        list.concat(Taicpu.Op_const_reg(A_MOV,S_L,1,NR_EAX));
+        list.concat(Taicpu.Op_const(A_RET,S_W,12));
+{$endif i386}
+      end;
+
+
+    procedure InsertInterruptTable;
+
+      procedure WriteVector(const name: string);
+        var
+          ai: taicpu;
+        begin
+{$IFDEF arm}
+          if current_settings.cputype in [cpu_armv7m, cpu_cortexm3] then
+            current_asmdata.asmlists[al_globals].concat(tai_const.Createname(name,0))
+          else
+            begin
+              ai:=taicpu.op_sym(A_B,current_asmdata.RefAsmSymbol(name));
+              ai.is_jmp:=true;
+              current_asmdata.asmlists[al_globals].concat(ai);
+            end;
+{$ENDIF arm}
+        end;
+
+      function GetInterruptTableLength: longint;
+        begin
+{$if defined(ARM)}
+          result:=interruptvectors[current_settings.controllertype];
+{$else}
+          result:=0;
+{$endif}
+        end;
+
+      var
+        hp: tused_unit;
+        sym: tsym;
+        i, i2: longint;
+        interruptTable: array of tprocdef;
+        pd: tprocdef;
+      begin
+        SetLength(interruptTable, GetInterruptTableLength);
+        FillChar(interruptTable[0], length(interruptTable)*sizeof(pointer), 0);
+
+        hp:=tused_unit(usedunits.first);
+        while assigned(hp) do
+          begin
+            for i := 0 to hp.u.symlist.Count-1 do
+              begin
+                sym:=tsym(hp.u.symlist[i]);
+                if not assigned(sym) then
+                  continue;
+                if sym.typ = procsym then
+                  begin
+                    for i2 := 0 to tprocsym(sym).ProcdefList.Count-1 do
+                      begin
+                        pd:=tprocdef(tprocsym(sym).ProcdefList[i2]);
+                        if pd.interruptvector >= 0 then
+                          begin
+                            if pd.interruptvector > high(interruptTable) then
+                              Internalerror(2011030602);
+                            if interruptTable[pd.interruptvector] <> nil then
+                              internalerror(2011030601);
+
+                            interruptTable[pd.interruptvector]:=pd;
+                            break;
+                          end;
+                      end;
+                  end;
+              end;
+            hp:=tused_unit(hp.next);
+          end;
+
+        new_section(current_asmdata.asmlists[al_globals],sec_init,'VECTORS',sizeof(pint));
+        current_asmdata.asmlists[al_globals].concat(Tai_symbol.Createname_global('VECTORS',AT_DATA,0));
+{$IFDEF arm}
+        if current_settings.cputype in [cpu_armv7m, cpu_cortexm3] then
+          current_asmdata.asmlists[al_globals].concat(tai_const.Createname('_stack_top',0)); { ARMv7-M processors have the initial stack value at address 0 }
+{$ENDIF arm}
+
+        for i:=0 to high(interruptTable) do
+          begin
+            if interruptTable[i]<>nil then
+              writeVector(interruptTable[i].mangledname)
+            else
+              writeVector('DefaultHandler'); { Default handler name }
+          end;
+      end;
+
 
 end.

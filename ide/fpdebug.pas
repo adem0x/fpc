@@ -58,6 +58,7 @@ type
 {$endif SUPPORT_REMOTE}
     constructor Init;
     procedure SetExe(const exefn:string);
+    procedure SetTBreak(tbreakstring : string);
     procedure SetWidth(AWidth : longint);
     procedure SetSourceDirs;
     destructor  Done;
@@ -516,6 +517,11 @@ const
   FrameName = '$ebp';
 {$define FrameNameKnown}
 {$endif i386}
+{$ifdef x86_64}
+const
+  FrameName = '$rbp';
+{$define FrameNameKnown}
+{$endif x86_64}
 {$ifdef m68k}
 const
   FrameName = '$fp';
@@ -681,6 +687,13 @@ begin
       HasExe:=false;
       Command('file');
     end;
+end;
+
+
+procedure TDebugController.SetTBreak(tbreakstring : string);
+begin
+  Command('tbreak '+tbreakstring);
+  TBreakNumber:=Last_breakpoint_number;
 end;
 
 procedure TDebugController.SetWidth(AWidth : longint);
@@ -3193,6 +3206,12 @@ procedure   TWatchesListBox.HandleEvent(var Event: TEvent);
 var DontClear: boolean;
 begin
   case Event.What of
+    evMouseDown : begin
+                   if Event.Double then
+                      Message(@Self,evCommand,cmEdit,nil)
+                   else
+                     ClearEvent(Event);
+                  end;
     evKeyDown :
       begin
         DontClear:=false;

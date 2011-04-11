@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSUnknownRule.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSUNKNOWNRULE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCSSUnknownRule = objcclass;
   DOMCSSUnknownRulePointer = ^DOMCSSUnknownRule;
+  DOMCSSUnknownRulePtr = DOMCSSUnknownRulePointer;
 
 {$endif}
 
@@ -41,11 +40,10 @@
 {$define DOMCSSUNKNOWNRULE_PAS_C}
 
 { DOMCSSUnknownRule }
-  DOMCSSUnknownRule = objcclass(DOMCSSRule)
+  DOMCSSUnknownRule = objcclass external (DOMCSSRule)
     
   public
-    class function alloc: DOMCSSUnknownRule; message 'alloc';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

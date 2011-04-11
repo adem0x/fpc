@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLPreElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLPREELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLPreElement = objcclass;
   DOMHTMLPreElementPointer = ^DOMHTMLPreElement;
+  DOMHTMLPreElementPtr = DOMHTMLPreElementPointer;
 
 {$endif}
 
@@ -41,11 +40,14 @@
 {$define DOMHTMLPREELEMENT_PAS_C}
 
 { DOMHTMLPreElement }
-  DOMHTMLPreElement = objcclass(DOMHTMLElement)
+  DOMHTMLPreElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLPreElement; message 'alloc';
-  end; external;
+    procedure setWidth (newValue: cint); message 'setWidth:';
+    function width: cint; message 'width';
+    procedure setWrap (newValue: Boolean); message 'setWrap:';
+    function wrap: Boolean; message 'wrap';
+  end;
 
 {$endif}
 {$endif}

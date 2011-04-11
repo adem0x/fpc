@@ -205,11 +205,7 @@ end;
       begin
         result:='';
         totalsize:=0;
-        if not pd.has_paraloc_info then
-          begin
-            pd.requiredargarea:=paramanager.create_paraloc_info(pd,callerside);
-            pd.has_paraloc_info:=true;
-          end;
+        pd.init_paraloc_info(callerside);
 {$if defined(powerpc) and defined(dummy)}
         { Disabled, because neither Clang nor gcc does this, and the ObjC
           runtime contains an explicit fix to detect this error.  }
@@ -226,13 +222,13 @@ end;
             vs:=tparavarsym(pd.paras[i]);
             if (vo_is_funcret in vs.varoptions) then
               continue;
-            { addencodedtype always assumes a value parameter, so add
+            { objcaddencodedtype always assumes a value parameter, so add
               a pointer indirection for var/out parameters.  }
             if not paramanager.push_addr_param(vs_value,vs.vardef,pocall_cdecl) and
-               (vs.varspez in [vs_var,vs_out]) then
+               (vs.varspez in [vs_var,vs_out,vs_constref]) then
               result:=result+'^';
             { Add the parameter type.  }
-            if not addencodedtype(vs.vardef,ris_initial,false,result,founderror) then
+            if not objcaddencodedtype(vs.vardef,ris_initial,false,result,founderror) then
               { should be checked earlier on }
               internalerror(2009081701);
             { And the total size of the parameters coming before this one
@@ -246,7 +242,7 @@ end;
         result:=tostr(totalsize)+result;
         { And the type of the function result (void in case of a procedure).  }
         temp:='';
-        if not addencodedtype(pd.returndef,ris_initial,false,temp,founderror) then
+        if not objcaddencodedtype(pd.returndef,ris_initial,false,temp,founderror) then
           internalerror(2009081801);
         result:=temp+result;
       end;

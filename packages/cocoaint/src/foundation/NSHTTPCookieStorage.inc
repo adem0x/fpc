@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSHTTPCookieStorage.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSHTTPCOOKIESTORAGE_PAS_T}
@@ -16,6 +14,7 @@ const
 { Types }
 type
   NSHTTPCookieAcceptPolicy = NSUInteger;
+  NSHTTPCookieAcceptPolicyPtr = ^NSHTTPCookieAcceptPolicy;
 
 {$endif}
 {$endif}
@@ -38,12 +37,18 @@ type
 {$ifndef NSHTTPCOOKIESTORAGE_PAS_S}
 {$define NSHTTPCOOKIESTORAGE_PAS_S}
 
+{ External string constants }
+var
+  NSHTTPCookieManagerAcceptPolicyChangedNotification: NSString; cvar; external;
+  NSHTTPCookieManagerCookiesChangedNotification: NSString; cvar; external;
+
 {$endif}
 {$endif}
 
 {$ifdef FORWARD}
   NSHTTPCookieStorage = objcclass;
   NSHTTPCookieStoragePointer = ^NSHTTPCookieStorage;
+  NSHTTPCookieStoragePtr = NSHTTPCookieStoragePointer;
 
 {$endif}
 
@@ -52,14 +57,13 @@ type
 {$define NSHTTPCOOKIESTORAGE_PAS_C}
 
 { NSHTTPCookieStorage }
-  NSHTTPCookieStorage = objcclass(NSObject)
+  NSHTTPCookieStorage = objcclass external (NSObject)
   private
-    __internal: NSHTTPCookieStorageInternal;
+    _internal: NSHTTPCookieStorageInternal;
     
   public
-    class function alloc: NSHTTPCookieStorage; message 'alloc';
-
     class function sharedHTTPCookieStorage: NSHTTPCookieStorage; message 'sharedHTTPCookieStorage';
+    function initWithStorageLocation(storageFileURL: NSURL): id; message 'initWithStorageLocation:';
     function cookies: NSArray; message 'cookies';
     procedure setCookie(cookie: NSHTTPCookie); message 'setCookie:';
     procedure deleteCookie(cookie: NSHTTPCookie); message 'deleteCookie:';
@@ -67,7 +71,7 @@ type
     procedure setCookies_forURL_mainDocumentURL(cookies_: NSArray; URL: NSURL; mainDocumentURL: NSURL); message 'setCookies:forURL:mainDocumentURL:';
     function cookieAcceptPolicy: NSHTTPCookieAcceptPolicy; message 'cookieAcceptPolicy';
     procedure setCookieAcceptPolicy(cookieAcceptPolicy_: NSHTTPCookieAcceptPolicy); message 'setCookieAcceptPolicy:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

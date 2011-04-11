@@ -8,7 +8,7 @@ version=2.5.1
 
 [target]
 units=MacOSAll MacOS
-implicitunits=  ABActions ABAddressBook ABGlobals ABPeoplePicker ABTypedefs AEDataModel \
+implicitunits=ABActions ABAddressBook ABGlobals ABPeoplePicker ABTypedefs AEDataModel \
   AEHelpers AEInteraction AEMach AEObjects AEPackObject AERegistry \
   AEUserTermTypes AIFF ASDebugging ASRegistry ATSFont ATSLayoutTypes \
   ATSTypes ATSUnicodeDirectAccess ATSUnicodeDrawing ATSUnicodeFlattening \
@@ -27,7 +27,8 @@ implicitunits=  ABActions ABAddressBook ABGlobals ABPeoplePicker ABTypedefs AEDa
   CFNetServices CFNetworkErrorss CFNotificationCenter CFNumber \
   CFNumberFormatter CFPlugIn CFPlugInCOM CFPreferences CFPropertyList \
   CFProxySupport CFRunLoop CFSet CFSocket CFSocketStream CFStream CFString \
-  CFStringEncodingExt CFTimeZone CFTree CFURL CFURLAccess CFUUID \
+  CFStringEncodingExt CFStringTokenizer CFTimeZone CFTree CFURL CFURLAccess \
+  CFUUID \
   CFUserNotification CFXMLNode CFXMLParser CGAffineTransforms CGBase \
   CGBitmapContext CGColor CGColorSpace CGContext CGDataConsumer \
   CGDataProvider CGDirectDisplay CGDirectPalette CGDisplayConfiguration \
@@ -53,6 +54,7 @@ implicitunits=  ABActions ABAddressBook ABGlobals ABPeoplePicker ABTypedefs AEDa
   DigitalHubRegistry Displays Drag DrawSprocket DriverServices \
   DriverSynchronization Endian Events FSEvents FileTypesAndCreators Files \
   Finder FinderRegistry FixMath Folders FontPanel FontSync Fonts GestaltEqu \
+  GPCStrings \
   HFSVolumes HIAccessibility HIArchive HIButtonViews HIClockView HIComboBox \
   HIContainerViews HIDataBrowser HIDisclosureViews HIGeometry HIImageViews \
   HILittleArrows HIMenuView HIMovieView HIObject HIPopupButton \
@@ -61,7 +63,8 @@ implicitunits=  ABActions ABAddressBook ABGlobals ABPeoplePicker ABTypedefs AEDa
   HITextViews HITheme HIToolbar HIToolbox HIToolboxDebugging HIView \
   HIWindowViews HTMLRendering HostTime IBCarbonRuntime ICAApplication \
   ICACamera ICADevice IconStorage Icons IconsCore ImageCodec \
-  ImageCompression InternetConfig IntlResources KeyEvents Keyboards \
+  ImageCompression InternetConfig IntlResources \
+  IOKitReturn IOSurfaceAPI KeyEvents Keyboards \
   KeychainCore KeychainHI LSInfo LSOpen LSQuarantine LSSharedFileList \
   LanguageAnalysis Lists LowMem MDExternalDatastore MDImporter MDItem \
   MDLineage MDQuery MDSchema MIDIDriver MIDIServices MIDISetup \
@@ -84,15 +87,17 @@ implicitunits=  ABActions ABAddressBook ABGlobals ABPeoplePicker ABTypedefs AEDa
   SCDynamicStoreKey SCNetwork SCNetworkConfiguration SCNetworkConnection \
   SCNetworkReachability SCPreferences SCPreferencesPath \
   SCPreferencesSetSpecific SCSI SCSchemaDefinitions SFNTLayoutTypes \
-  SFNTTypes ScalerStreamTypes Scrap Script SecBase Sound SpeechRecognition \
+  SFNTTypes ScalerStreamTypes Scrap Script SecBase SecTrust Sound \
+  SpeechRecognition \
   SpeechSynthesis StringCompare SystemConfiguration SystemSound TSMTE \
   TextCommon TextEdit TextEncodingConverter TextEncodingPlugin \
   TextInputSources TextServices TextUtils Threads Timer ToolUtils \
   Translation TranslationExtensions TranslationServices TypeSelect \
   URLAccess UTCUtils UTCoreTypes UTType UnicodeConverter UnicodeUtilities \
   UniversalAccess Video WSMethodInvocation WSProtocolHandler WSTypes cblas \
-  fenv fp gliContexts gliDispatch gluContext macgl macglext macglu vBLAS \
-  vDSP xattr   
+  certextensions cssmapple cssmconfig cssmerr cssmkrapi cssmtype \
+  fenv fp gliContexts gliDispatch gluContext kern_return macgl macglext \
+  macglu mach_error vBLAS vDSP x509defs xattr 
 exampledirs=examples
 
 [libs]

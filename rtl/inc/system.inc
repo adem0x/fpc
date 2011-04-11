@@ -372,15 +372,10 @@ function aligntoptr(p : pointer) : pointer;inline;
 {$endif FPC_HAS_FEATURE_ANSISTRINGS}
 
 {$ifdef FPC_HAS_FEATURE_WIDESTRINGS}
-{ this is for bootstrappung with 2.2.x }
-{$ifdef VER2_2}
-{$i wustring22.inc}
-{$else VER2_2}
   {$ifndef FPC_WIDESTRING_EQUAL_UNICODESTRING}
     {$i wstrings.inc}
   {$endif FPC_WIDESTRING_EQUAL_UNICODESTRING}
   {$i ustrings.inc}
-{$endif VER2_2}
 {$endif FPC_HAS_FEATURE_WIDESTRINGS}
 
 {$i aliases.inc}
@@ -784,9 +779,11 @@ var
 begin
   { call cpu/fpu initialisation routine }
   fpc_cpuinit;
-  with {$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}PInitFinalTable(EntryInformation.{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION}
-    InitFinalTable
-    {$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION})^{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION} do
+{$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}
+  with PInitFinalTable(EntryInformation.InitFinalTable)^ do
+{$else FPC_HAS_INDIRECT_MAIN_INFORMATION}
+  with InitFinalTable do
+{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION}
    begin
      for i:=1 to TableCount do
       begin
@@ -813,9 +810,11 @@ end;
 
 procedure FinalizeUnits;[public,alias:'FPC_FINALIZEUNITS'];
 begin
-  with {$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}PInitFinalTable(EntryInformation.{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION}
-    InitFinalTable
-    {$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION})^{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION} do
+{$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}
+  with PInitFinalTable(EntryInformation.InitFinalTable)^ do
+{$else FPC_HAS_INDIRECT_MAIN_INFORMATION}
+  with InitFinalTable do
+{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION}
    begin
      while (InitCount>0) do
       begin
@@ -1143,7 +1142,7 @@ end;
 Function StringToPPChar(Var S:AnsiString;ReserveEntries:integer):ppchar;
 {
   Create a PPChar to structure of pchars which are the arguments specified
-  in the string S. Especially usefull for creating an ArgV for Exec-calls
+  in the string S. Especially useful for creating an ArgV for Exec-calls
 }
 
 begin

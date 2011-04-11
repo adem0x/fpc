@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSPrimitiveValue.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSPRIMITIVEVALUE_PAS_T}
@@ -63,6 +61,7 @@ const
 {$ifdef FORWARD}
   DOMCSSPrimitiveValue = objcclass;
   DOMCSSPrimitiveValuePointer = ^DOMCSSPrimitiveValue;
+  DOMCSSPrimitiveValuePtr = DOMCSSPrimitiveValuePointer;
 
 {$endif}
 
@@ -71,12 +70,10 @@ const
 {$define DOMCSSPRIMITIVEVALUE_PAS_C}
 
 { DOMCSSPrimitiveValue }
-  DOMCSSPrimitiveValue = objcclass(DOMCSSValue)
+  DOMCSSPrimitiveValue = objcclass external (DOMCSSValue)
     
   public
-    class function alloc: DOMCSSPrimitiveValue; message 'alloc';
-
-    function primitiveType: cushort; message 'primitiveType';
+    function primitiveType: cuint; message 'primitiveType';
     procedure setFloatValue_floatValue(unitType: cushort; floatValue: single); message 'setFloatValue:floatValue:';
     function getFloatValue(unitType: cushort): single; message 'getFloatValue:';
     procedure setStringValue_stringValue(stringType: cushort; stringValue: NSString); message 'setStringValue:stringValue:';
@@ -84,11 +81,13 @@ const
     function getCounterValue: DOMCounter; message 'getCounterValue';
     function getRectValue: DOMRect; message 'getRectValue';
     function getRGBColorValue: DOMRGBColor; message 'getRGBColorValue';
+  end;
 
-    { Category: DOMCSSPrimitiveValueDeprecated }
-    procedure setFloatValue(unitType: cushort; floatValue: single); message 'setFloatValue:unitType:';
-    procedure setStringValue(stringType: cushort; stringValue: NSString); message 'setStringValue:stringType:';
-  end; external;
+{ DOMCSSPrimitiveValueDeprecatedCategory }
+  DOMCSSPrimitiveValueDeprecatedCategory = objccategory external (DOMCSSPrimitiveValue)
+    procedure setFloatValue(unitType: cushort; floatValue: single); message 'setFloatValue:unitType:'; deprecated 'in_webkit_version_3 and later';
+    procedure setStringValue(stringType: cushort; stringValue: NSString); message 'setStringValue:stringType:'; deprecated 'in_webkit_version_3 and later';
+  end;
 
 {$endif}
 {$endif}

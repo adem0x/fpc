@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSXMLNode.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSXMLNODE_PAS_T}
@@ -10,22 +8,23 @@
 
 const
   NSXMLInvalidKind = 0;
-  NSXMLDocumentKind = 0;
-  NSXMLElementKind = 1;
-  NSXMLAttributeKind = 2;
-  NSXMLNamespaceKind = 3;
-  NSXMLProcessingInstructionKind = 4;
-  NSXMLCommentKind = 5;
-  NSXMLTextKind = 6;
-  NSXMLDTDKind = 7;
-  NSXMLEntityDeclarationKind = 8;
-  NSXMLAttributeDeclarationKind = 9;
-  NSXMLElementDeclarationKind = 10;
-  NSXMLNotationDeclarationKind = 11;
+  NSXMLDocumentKind = 1;
+  NSXMLElementKind = 2;
+  NSXMLAttributeKind = 3;
+  NSXMLNamespaceKind = 4;
+  NSXMLProcessingInstructionKind = 5;
+  NSXMLCommentKind = 6;
+  NSXMLTextKind = 7;
+  NSXMLDTDKind = 8;
+  NSXMLEntityDeclarationKind = 9;
+  NSXMLAttributeDeclarationKind = 10;
+  NSXMLElementDeclarationKind = 11;
+  NSXMLNotationDeclarationKind = 12;
 
 { Types }
 type
   NSXMLNodeKind = NSUInteger;
+  NSXMLNodeKindPtr = ^NSXMLNodeKind;
 
 {$endif}
 {$endif}
@@ -54,6 +53,7 @@ type
 {$ifdef FORWARD}
   NSXMLNode = objcclass;
   NSXMLNodePointer = ^NSXMLNode;
+  NSXMLNodePtr = NSXMLNodePointer;
 
 {$endif}
 
@@ -62,16 +62,14 @@ type
 {$define NSXMLNODE_PAS_C}
 
 { NSXMLNode }
-  NSXMLNode = objcclass(NSObject, NSCopyingProtocol)
+  NSXMLNode = objcclass external (NSObject, NSCopyingProtocol)
   private
-    __kind: NSXMLNodeKind;
-    __parent: NSXMLNode;
-    __index: NSUInteger;
-    __objectValue: id;
+    _kind: NSXMLNodeKind;
+    _parent: NSXMLNode;
+    _index: NSUInteger;
+    _objectValue: id;
     
   public
-    class function alloc: NSXMLNode; message 'alloc';
-
     function initWithKind(kind_: NSXMLNodeKind): id; message 'initWithKind:';
     function initWithKind_options(kind_: NSXMLNodeKind; options: NSUInteger): id; message 'initWithKind:options:';
     class function document: id; message 'document';
@@ -119,10 +117,13 @@ type
     function XMLString: NSString; message 'XMLString';
     function XMLStringWithOptions(options: NSUInteger): NSString; message 'XMLStringWithOptions:';
     function canonicalXMLStringPreservingComments(comments: Boolean): NSString; message 'canonicalXMLStringPreservingComments:';
-    function nodesForXPath_error(XPath_: NSString; error: NSErrorPointer): NSArray; message 'nodesForXPath:error:';
+    function nodesForXPath_error(xpath_: NSString; error: NSErrorPointer): NSArray; message 'nodesForXPath:error:';
     function objectsForXQuery_constants_error(xquery: NSString; constants: NSDictionary; error: NSErrorPointer): NSArray; message 'objectsForXQuery:constants:error:';
     function objectsForXQuery_error(xquery: NSString; error: NSErrorPointer): NSArray; message 'objectsForXQuery:error:';
-  end; external;
+
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+  end;
 
 {$endif}
 {$endif}

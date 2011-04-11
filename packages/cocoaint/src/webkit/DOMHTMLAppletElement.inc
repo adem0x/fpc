@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLAppletElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLAPPLETELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLAppletElement = objcclass;
   DOMHTMLAppletElementPointer = ^DOMHTMLAppletElement;
+  DOMHTMLAppletElementPtr = DOMHTMLAppletElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLAPPLETELEMENT_PAS_C}
 
 { DOMHTMLAppletElement }
-  DOMHTMLAppletElement = objcclass(DOMHTMLElement)
+  DOMHTMLAppletElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLAppletElement; message 'alloc';
-
     procedure setAlign (newValue: NSString); message 'setAlign:';
     function align: NSString; message 'align';
     procedure setAlt (newValue: NSString); message 'setAlt:';
@@ -58,13 +55,17 @@
     function codeBase: NSString; message 'codeBase';
     procedure setHeight (newValue: NSString); message 'setHeight:';
     function height: NSString; message 'height';
+    procedure setHspace (newValue: cint); message 'setHspace:';
+    function hspace: cint; message 'hspace';
     procedure setName (newValue: NSString); message 'setName:';
     function name: NSString; message 'name';
     procedure setObject (newValue: NSString); message 'setObject:';
     function object_: NSString; message 'object_';
+    procedure setVspace (newValue: cint); message 'setVspace:';
+    function vspace: cint; message 'vspace';
     procedure setWidth (newValue: NSString); message 'setWidth:';
     function width: NSString; message 'width';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

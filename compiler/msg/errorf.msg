@@ -583,8 +583,8 @@ parser_e_void_function=03080_E_Les proc‚dures ne peuvent retourner une valeur
 % In \fpc, you can specify a return value for a function when using
 % the \var{exit} statement. This error occurs when you try to do this with a
 % procedure. Procedures cannot return a value.
-parser_e_constructors_always_objects=03081_E_Les constructeurs et destructeurs doivent ˆtre des m‚thodes
-% You're declaring a procedure as destructor or constructor, when the
+parser_e_only_methods_allowed=03081_E_Les constructeurs, destructeurs et class operators doivent ˆtre des m‚thodes
+% You're declaring a procedure as destructor, constructor or class operator, when the
 % procedure isn't a class method.
 parser_e_operator_not_overloaded=03082_E_Operator n'est pas surcharg‚
 % You're trying to use an overloaded operator when it isn't overloaded for
@@ -814,11 +814,11 @@ parser_e_threadvars_only_sg=03147_E_THREADVARS peuvent seulement ˆtre statiques 
 % are stored on the stack
 parser_f_direct_assembler_not_allowed=03148_F_Assembleur direct non support‚ pour la sortie binaire
 % You can't use direct assembler when using a binary writer, choose an
-% other outputformat or use an other assembler reader
+% other outputformat or use another assembler reader
 parser_w_no_objpas_use_mode=03149_W_Ne chargez pas l'unit‚ OBJPAS manuellement, utilisez {$mode objfpc} ou {$mode delphi}
 % You're trying to load the ObjPas unit manual from a uses clause. This is
 % not a good idea to do, you can better use the {$mode objfpc} or {$mode delphi}
-% directives which load the unit automaticly
+% directives which load the unit automatically
 parser_e_no_object_override=03150_E_OVERRIDE nepeut ˆtre utilis‚ pour des objets
 % Override isn't support for objects, use VIRTUAL instead to override
 % a method of an anchestor object
@@ -1548,10 +1548,10 @@ unit_u_ppu_invalid_header=10007_U_PPU Invalid Header (no PPU at the begin)
 unit_u_ppu_invalid_version=10008_U_PPU Invalid Version $1
 % This unit file was compiled with a different version of the compiler, and
 % cannot be read.
-unit_u_ppu_invalid_processor=10009_U_PPU is compiled for an other processor
+unit_u_ppu_invalid_processor=10009_U_PPU is compiled for another processor
 % This unit file was compiled for a different processor type, and
 % cannot be read
-unit_u_ppu_invalid_target=10010_U_PPU is compiled for an other target
+unit_u_ppu_invalid_target=10010_U_PPU is compiled for another target
 % This unit file was compiled for a different processor type, and
 % cannot be read
 unit_u_ppu_source=10011_U_PPU Source: $1
@@ -1712,7 +1712,7 @@ option_asm_forced=11022_W_"$1" assembler use forced
 #
 option_logo=11023_[
 Compilateur Free Pascal version $FPCFULLVERSION [$FPCDATE] pour $FPCTARGET
-Copyright (c) 1998-2009 by Florian Klaempfl
+Copyright (c) 1998-2011 by Florian Klaempfl
 ]
 
 #

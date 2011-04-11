@@ -31,16 +31,16 @@ function cpuid_support : boolean;assembler;
   }
   asm
     push   ebx
-    pushf
-    pushf
+    pushfd
+    pushfd
     pop     eax
     mov     ebx,eax
     xor     eax,200000h
     push    eax
-    popf
-    pushf
+    popfd
+    pushfd
     pop     eax
-    popf
+    popfd
     and     eax,200000h
     and     ebx,200000h
     cmp     eax,ebx
@@ -110,6 +110,9 @@ procedure fpc_cpuinit;
     setup_fastmove;
     }
     os_supports_sse:=false;
+    { don't let libraries influence the FPU cw set by the host program }
+    if IsLibrary then
+      Default8087CW:=Get8087CW;
   end;
 
 
@@ -634,6 +637,15 @@ end;
 function fpc_shortstr_to_shortstr(len:longint; const sstr: shortstring): shortstring; [public,alias: 'FPC_SHORTSTR_TO_SHORTSTR']; compilerproc;
 begin
   asm
+  {$ifdef FPC_PROFILE}
+        push  %eax
+        push  %edx
+        push  %ecx
+        call  mcount
+        pop   %ecx
+        pop   %edx
+        pop   %eax
+  {$endif FPC_PROFILE}
         cld
         movl    __RESULT,%edi
         movl    sstr,%esi
@@ -671,6 +683,15 @@ procedure fpc_shortstr_to_shortstr(out res:shortstring; const sstr: shortstring)
   var
    saveesi,saveedi : longint;
   asm
+  {$ifdef FPC_PROFILE}
+        push  %eax
+        push  %edx
+        push  %ecx
+        call  mcount
+        pop   %ecx
+        pop   %edx
+        pop   %eax
+  {$endif FPC_PROFILE}
         movl    %edi,saveedi
         movl    %esi,saveesi
         cld
@@ -714,6 +735,15 @@ procedure fpc_shortstr_to_shortstr(out res:shortstring; const sstr: shortstring)
 procedure fpc_shortstr_assign(len:longint;sstr,dstr:pointer);[public,alias:'FPC_SHORTSTR_ASSIGN'];
 begin
   asm
+  {$ifdef FPC_PROFILE}
+        push  %eax
+        push  %edx
+        push  %ecx
+        call  mcount
+        pop   %ecx
+        pop   %edx
+        pop   %eax
+  {$endif FPC_PROFILE}
         pushl   %eax
         pushl   %ecx
         cld
@@ -759,6 +789,15 @@ end;
 function fpc_shortstr_concat(const s1,s2:shortstring):shortstring;compilerproc;
 begin
   asm
+  {$ifdef FPC_PROFILE}
+        push  %eax
+        push  %edx
+        push  %ecx
+        call  mcount
+        pop   %ecx
+        pop   %edx
+        pop   %eax
+  {$endif FPC_PROFILE}
         movl    __RESULT,%edi
         movl    %edi,%ebx
         movl    s1,%esi         { first string }
@@ -821,6 +860,15 @@ procedure fpc_shortstr_append_shortstr(var s1:shortstring;const s2:shortstring);
     [public,alias:'FPC_SHORTSTR_APPEND_SHORTSTR'];
 begin
   asm
+  {$ifdef FPC_PROFILE}
+        push  %eax
+        push  %edx
+        push  %ecx
+        call  mcount
+        pop   %ecx
+        pop   %edx
+        pop   %eax
+  {$endif FPC_PROFILE}
         movl    s1,%edi
         movl    s2,%esi
         movl    %edi,%ebx
@@ -866,6 +914,15 @@ function fpc_shortstr_compare(const left,right:shortstring): longint;assembler; 
 var
   saveesi,saveedi,saveebx : longint;
 asm
+{$ifdef FPC_PROFILE}
+        push  %eax
+        push  %edx
+        push  %ecx
+        call  mcount
+        pop   %ecx
+        pop   %edx
+        pop   %eax
+{$endif FPC_PROFILE}
         movl    %edi,saveedi
         movl    %esi,saveesi
         movl    %ebx,saveebx
@@ -930,6 +987,15 @@ procedure fpc_pchar_to_shortstr(out res : shortstring;p:pchar);assembler;[public
 var
   saveres,saveebx,saveesi,saveedi : longint;
 asm
+{$ifdef FPC_PROFILE}
+        push  %eax
+        push  %edx
+        push  %ecx
+        call  mcount
+        pop   %ecx
+        pop   %edx
+        pop   %eax
+{$endif FPC_PROFILE}
         movl    %ebx,saveebx
         movl    %esi,saveesi
         movl    %edi,saveedi
@@ -1031,6 +1097,15 @@ function fpc_pchar_length(p:pchar):longint;assembler;[public,alias:'FPC_PCHAR_LE
 var
   saveedi : longint;
 asm
+{$ifdef FPC_PROFILE}
+        push  %eax
+        push  %edx
+        push  %ecx
+        call  mcount
+        pop   %ecx
+        pop   %edx
+        pop   %eax
+{$endif FPC_PROFILE}
         movl    %edi,saveedi
 {$ifdef REGCALL}
         movl    %eax,%edi
@@ -1123,6 +1198,15 @@ const digits:array[0..9] of cardinal=(0,10,100,1000,10000,
                                       100000000,1000000000);
 
 asm
+{$ifdef FPC_PROFILE}
+  push  %eax
+  push  %edx
+  push  %ecx
+  call  mcount
+  pop   %ecx
+  pop   %edx
+  pop   %eax
+{$endif FPC_PROFILE}
   push %esi
   push %edi
   push %ebx
@@ -1441,6 +1525,11 @@ procedure fpc_cpucodeinit;
         sse_check:=false;
       end;
     has_sse_support:=os_supports_sse;
+    { don't let libraries influence the FPU cw set by the host program }
+    if has_sse_support and
+       IsLibrary then
+      mxcsr:=GetSSECSR;
+
     has_mmx_support:=mmx_support;
     SysResetFPU;
     if not(IsLibrary) then
@@ -1572,3 +1661,26 @@ end;
 
 {$endif}
 
+{$ifndef FPC_SYSTEM_HAS_BSX_QWORD}
+{$define FPC_SYSTEM_HAS_BSX_QWORD}
+
+function BsfQWord(Const AValue : QWord): cardinal; assembler; nostackframe;
+asm
+     bsfl    4(%esp),%eax
+     jnz     .L2
+.L1: bsfl    8(%esp),%eax
+     add     $32,%eax
+.L2:
+end;
+
+function BsrQWord(Const AValue : QWord): cardinal; assembler; nostackframe;
+asm
+     bsrl    8(%esp),%eax
+     jz     .L1
+     add     $32,%eax
+     jmp     .L2
+.L1: bsrl    4(%esp),%eax
+.L2:
+end;
+
+{$endif}

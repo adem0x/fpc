@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSXMLElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSXMLELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSXMLElement = objcclass;
   NSXMLElementPointer = ^NSXMLElement;
+  NSXMLElementPtr = NSXMLElementPointer;
 
 {$endif}
 
@@ -41,20 +40,18 @@
 {$define NSXMLELEMENT_PAS_C}
 
 { NSXMLElement }
-  NSXMLElement = objcclass(NSXMLNode)
+  NSXMLElement = objcclass external (NSXMLNode)
   private
-    __name: NSString;
-    __attributes: NSMutableArray;
-    __namespaces: NSMutableArray;
-    __children: NSArray;
-    __childrenHaveMutated: Boolean;
-        _padding3: array[0..2] of byte;
-    __URI: NSString;
-    __prefixIndex: NSInteger;
+    _name: NSString;
+    _attributes: NSMutableArray;
+    _namespaces: NSMutableArray;
+    _children: NSArray;
+    _childrenHaveMutated: Boolean;
+        _padding3: array[0..2] of cuint8;
+    _URI: NSString;
+    _prefixIndex: NSInteger;
     
   public
-    class function alloc: NSXMLElement; message 'alloc';
-
     function initWithName(name_: NSString): id; message 'initWithName:';
     function initWithName_URI(name_: NSString; URI_: NSString): id; message 'initWithName:URI:';
     function initWithName_stringValue(name_: NSString; string_: NSString): id; message 'initWithName:stringValue:';
@@ -82,7 +79,7 @@
     procedure addChild(child: NSXMLNode); message 'addChild:';
     procedure replaceChildAtIndex_withNode(index_: NSUInteger; node: NSXMLNode); message 'replaceChildAtIndex:withNode:';
     procedure normalizeAdjacentTextNodesPreservingCDATA(preserve: Boolean); message 'normalizeAdjacentTextNodesPreservingCDATA:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

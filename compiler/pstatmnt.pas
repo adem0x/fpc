@@ -71,7 +71,7 @@ implementation
          ex,if_a,else_a : tnode;
       begin
          consume(_IF);
-         ex:=comp_expr(true);
+         ex:=comp_expr(true,false);
          consume(_THEN);
          if token<>_ELSE then
            if_a:=statement
@@ -125,7 +125,7 @@ implementation
          casenode : tcasenode;
       begin
          consume(_CASE);
-         caseexpr:=comp_expr(true);
+         caseexpr:=comp_expr(true,false);
          { determines result type }
          do_typecheckpass(caseexpr);
          { variants must be accepted, but first they must be converted to integer }
@@ -205,8 +205,8 @@ implementation
                        CGMessage(parser_e_case_lower_less_than_upper_bound);
                      if not casedeferror then
                        begin
-                         testrange(casedef,hl1,false);
-                         testrange(casedef,hl2,false);
+                         testrange(casedef,hl1,false,false);
+                         testrange(casedef,hl2,false,false);
                        end;
                    end
                  else
@@ -234,7 +234,7 @@ implementation
                    begin
                      hl1:=get_ordinal_value(p);
                      if not casedeferror then
-                       testrange(casedef,hl1,false);
+                       testrange(casedef,hl1,false,false);
                      casenode.addlabel(blockid,hl1,hl1);
                    end;
                end;
@@ -300,7 +300,7 @@ implementation
          consume(_UNTIL);
 
          first:=cblocknode.create(first);
-         p_e:=comp_expr(true);
+         p_e:=comp_expr(true,false);
          result:=cwhilerepeatnode.create(p_e,first,false,true);
       end;
 
@@ -312,7 +312,7 @@ implementation
 
       begin
          consume(_WHILE);
-         p_e:=comp_expr(true);
+         p_e:=comp_expr(true,false);
          consume(_DO);
          p_a:=statement;
          result:=cwhilerepeatnode.create(p_e,p_a,true,false);
@@ -321,175 +321,168 @@ implementation
 
     function for_statement : tnode;
 
-        procedure check_range(hp:tnode);
-        begin
-{$ifndef cpu64bitaddr}
-          if hp.nodetype=ordconstn then
-            begin
-              if (tordconstnode(hp).value<int64(low(longint))) or
-                 (tordconstnode(hp).value>high(longint)) then
-                begin
-                  CGMessage(parser_e_range_check_error);
-                  { recover, prevent more warnings/errors }
-                  tordconstnode(hp).value:=0;
-                end;
-            end;
-{$endif not cpu64bitaddr}
-        end;
+        procedure check_range(hp:tnode; fordef: tdef);
+          begin
+            if (hp.nodetype=ordconstn) and
+               (fordef.typ<>errordef) then
+              testrange(fordef,tordconstnode(hp).value,false,true);
+          end;
 
         function for_loop_create(hloopvar: tnode): tnode;
-        var
-           hp,
-           hblock,
-           hto,hfrom : tnode;
-           backward : boolean;
-           loopvarsym : tabstractvarsym;
-        begin
-           { Check loop variable }
-           loopvarsym:=nil;
+          var
+             hp,
+             hblock,
+             hto,hfrom : tnode;
+             backward : boolean;
+             loopvarsym : tabstractvarsym;
+          begin
+             { Check loop variable }
+             loopvarsym:=nil;
 
-           { variable must be an ordinal, int64 is not allowed for 32bit targets }
-           if not(is_ordinal(hloopvar.resultdef))
-  {$ifndef cpu64bitaddr}
-              or is_64bitint(hloopvar.resultdef)
-  {$endif not cpu64bitaddr}
-              then
-             MessagePos(hloopvar.fileinfo,type_e_ordinal_expr_expected);
+             { variable must be an ordinal, int64 is not allowed for 32bit targets }
+             if not(is_ordinal(hloopvar.resultdef))
+    {$ifndef cpu64bitaddr}
+                or is_64bitint(hloopvar.resultdef)
+    {$endif not cpu64bitaddr}
+                then
+               MessagePos(hloopvar.fileinfo,type_e_ordinal_expr_expected);
 
-           hp:=hloopvar;
-           while assigned(hp) and
-                 (
-                  { record/object fields and array elements are allowed }
-                  { in tp7 mode only                                    }
-                  (
-                   (m_tp7 in current_settings.modeswitches) and
+             hp:=hloopvar;
+             while assigned(hp) and
                    (
-                    ((hp.nodetype=subscriptn) and
-                     ((tsubscriptnode(hp).left.resultdef.typ=recorddef) or
-                      is_object(tsubscriptnode(hp).left.resultdef))
-                    ) or
-                    { constant array index }
+                    { record/object fields and array elements are allowed }
+                    { in tp7 mode only                                    }
                     (
-                     (hp.nodetype=vecn) and
-                     is_constintnode(tvecnode(hp).right)
+                     (m_tp7 in current_settings.modeswitches) and
+                     (
+                      ((hp.nodetype=subscriptn) and
+                       ((tsubscriptnode(hp).left.resultdef.typ=recorddef) or
+                        is_object(tsubscriptnode(hp).left.resultdef))
+                      ) or
+                      { constant array index }
+                      (
+                       (hp.nodetype=vecn) and
+                       is_constintnode(tvecnode(hp).right)
+                      )
+                     )
+                    ) or
+                    { equal typeconversions }
+                    (
+                     (hp.nodetype=typeconvn) and
+                     (ttypeconvnode(hp).convtype=tc_equal)
                     )
-                   )
-                  ) or
-                  { equal typeconversions }
-                  (
-                   (hp.nodetype=typeconvn) and
-                   (ttypeconvnode(hp).convtype=tc_equal)
-                  )
-                 ) do
-             begin
-               { Use the recordfield for loopvarsym }
-               if not assigned(loopvarsym) and
-                  (hp.nodetype=subscriptn) then
-                 loopvarsym:=tsubscriptnode(hp).vs;
-               hp:=tunarynode(hp).left;
-             end;
-
-           if assigned(hp) and
-              (hp.nodetype=loadn) then
-             begin
-               case tloadnode(hp).symtableentry.typ of
-                 staticvarsym,
-                 localvarsym,
-                 paravarsym :
-                   begin
-                     { we need a simple loadn:
-                         1. The load must be in a global symtable or
-                             in the same level as the para of the current proc.
-                         2. value variables (no const,out or var)
-                         3. No threadvar, readonly or typedconst
-                     }
-                     if (
-                         (tloadnode(hp).symtable.symtablelevel=main_program_level) or
-                         (tloadnode(hp).symtable.symtablelevel=current_procinfo.procdef.parast.symtablelevel)
-                        ) and
-                        (tabstractvarsym(tloadnode(hp).symtableentry).varspez=vs_value) and
-                        ([vo_is_thread_var,vo_is_typed_const] * tabstractvarsym(tloadnode(hp).symtableentry).varoptions=[]) then
-                       begin
-                         { Assigning for-loop variable is only allowed in tp7 and macpas }
-                         if ([m_tp7,m_mac] * current_settings.modeswitches = []) then
-                           begin
-                             if not assigned(loopvarsym) then
-                               loopvarsym:=tabstractvarsym(tloadnode(hp).symtableentry);
-                             include(loopvarsym.varoptions,vo_is_loop_counter);
-                           end;
-                       end
-                     else
-                       begin
-                         { Typed const is allowed in tp7 }
-                         if not(m_tp7 in current_settings.modeswitches) or
-                            not(vo_is_typed_const in tabstractvarsym(tloadnode(hp).symtableentry).varoptions) then
-                           MessagePos(hp.fileinfo,type_e_illegal_count_var);
-                       end;
-                   end;
-                 else
-                   MessagePos(hp.fileinfo,type_e_illegal_count_var);
+                   ) do
+               begin
+                 { Use the recordfield for loopvarsym }
+                 if not assigned(loopvarsym) and
+                    (hp.nodetype=subscriptn) then
+                   loopvarsym:=tsubscriptnode(hp).vs;
+                 hp:=tunarynode(hp).left;
                end;
-             end
-           else
-             MessagePos(hloopvar.fileinfo,type_e_illegal_count_var);
 
-           hfrom:=comp_expr(true);
+             if assigned(hp) and
+                (hp.nodetype=loadn) then
+               begin
+                 case tloadnode(hp).symtableentry.typ of
+                   staticvarsym,
+                   localvarsym,
+                   paravarsym :
+                     begin
+                       { we need a simple loadn:
+                           1. The load must be in a global symtable or
+                               in the same level as the para of the current proc.
+                           2. value variables (no const,out or var)
+                           3. No threadvar, readonly or typedconst
+                       }
+                       if (
+                           (tloadnode(hp).symtable.symtablelevel=main_program_level) or
+                           (tloadnode(hp).symtable.symtablelevel=current_procinfo.procdef.parast.symtablelevel)
+                          ) and
+                          (tabstractvarsym(tloadnode(hp).symtableentry).varspez=vs_value) and
+                          ([vo_is_thread_var,vo_is_typed_const] * tabstractvarsym(tloadnode(hp).symtableentry).varoptions=[]) then
+                         begin
+                           { Assigning for-loop variable is only allowed in tp7 and macpas }
+                           if ([m_tp7,m_mac] * current_settings.modeswitches = []) then
+                             begin
+                               if not assigned(loopvarsym) then
+                                 loopvarsym:=tabstractvarsym(tloadnode(hp).symtableentry);
+                               include(loopvarsym.varoptions,vo_is_loop_counter);
+                             end;
+                         end
+                       else
+                         begin
+                           { Typed const is allowed in tp7 }
+                           if not(m_tp7 in current_settings.modeswitches) or
+                              not(vo_is_typed_const in tabstractvarsym(tloadnode(hp).symtableentry).varoptions) then
+                             MessagePos(hp.fileinfo,type_e_illegal_count_var);
+                         end;
+                     end;
+                   else
+                     MessagePos(hp.fileinfo,type_e_illegal_count_var);
+                 end;
+               end
+             else
+               MessagePos(hloopvar.fileinfo,type_e_illegal_count_var);
 
-           if try_to_consume(_DOWNTO) then
-             backward:=true
-           else
-             begin
-               consume(_TO);
-               backward:=false;
-             end;
+             hfrom:=comp_expr(true,false);
 
-           hto:=comp_expr(true);
-           consume(_DO);
+             if try_to_consume(_DOWNTO) then
+               backward:=true
+             else
+               begin
+                 consume(_TO);
+                 backward:=false;
+               end;
 
-           { Check if the constants fit in the range }
-           check_range(hfrom);
-           check_range(hto);
+             hto:=comp_expr(true,false);
+             consume(_DO);
 
-           { first set the varstate for from and to, so
-             uses of loopvar in those expressions will also
-             trigger a warning when it is not used yet. This
-             needs to be done before the instruction block is
-             parsed to have a valid hloopvar }
-           typecheckpass(hfrom);
-           set_varstate(hfrom,vs_read,[vsf_must_be_valid]);
-           typecheckpass(hto);
-           set_varstate(hto,vs_read,[vsf_must_be_valid]);
-           typecheckpass(hloopvar);
-           { in two steps, because vs_readwritten may turn on vsf_must_be_valid }
-           { for some subnodes                                                  }
-           set_varstate(hloopvar,vs_written,[]);
-           set_varstate(hloopvar,vs_read,[vsf_must_be_valid]);
+             { Check if the constants fit in the range }
+             check_range(hfrom,hloopvar.resultdef);
+             check_range(hto,hloopvar.resultdef);
 
-           { ... now the instruction block }
-           hblock:=statement;
+             { first set the varstate for from and to, so
+               uses of loopvar in those expressions will also
+               trigger a warning when it is not used yet. This
+               needs to be done before the instruction block is
+               parsed to have a valid hloopvar }
+             typecheckpass(hfrom);
+             set_varstate(hfrom,vs_read,[vsf_must_be_valid]);
+             typecheckpass(hto);
+             set_varstate(hto,vs_read,[vsf_must_be_valid]);
+             typecheckpass(hloopvar);
+             { in two steps, because vs_readwritten may turn on vsf_must_be_valid }
+             { for some subnodes                                                  }
+             set_varstate(hloopvar,vs_written,[]);
+             set_varstate(hloopvar,vs_read,[vsf_must_be_valid]);
 
-           { variable is not used for loop counter anymore }
-           if assigned(loopvarsym) then
-             exclude(loopvarsym.varoptions,vo_is_loop_counter);
+             { ... now the instruction block }
+             hblock:=statement;
 
-           result:=cfornode.create(hloopvar,hfrom,hto,hblock,backward);
-        end;
+             { variable is not used for loop counter anymore }
+             if assigned(loopvarsym) then
+               exclude(loopvarsym.varoptions,vo_is_loop_counter);
 
-        function for_in_loop_create(hloopvar: tnode): tnode;
-        var
-          expr: tnode;
-        begin
-          expr := comp_expr(true);
+             result:=cfornode.create(hloopvar,hfrom,hto,hblock,backward);
+          end;
 
-          consume(_DO);
 
-          set_varstate(hloopvar,vs_written,[]);
-          set_varstate(hloopvar,vs_read,[vsf_must_be_valid]);
+          function for_in_loop_create(hloopvar: tnode): tnode;
+            var
+              expr: tnode;
+            begin
+              expr:=comp_expr(true,false);
 
-          result := create_for_in_loop(hloopvar, statement, expr);
+              consume(_DO);
 
-          expr.free;
-        end;
+              set_varstate(hloopvar,vs_written,[]);
+              set_varstate(hloopvar,vs_read,[vsf_must_be_valid]);
+
+              result:=create_for_in_loop(hloopvar,statement,expr);
+
+              expr.free;
+            end;
+
 
       var
          hloopvar: tnode;
@@ -497,14 +490,12 @@ implementation
          { parse loop header }
          consume(_FOR);
 
-         hloopvar:=factor(false);
+         hloopvar:=factor(false,false);
          valid_for_loopvar(hloopvar,true);
-
 
          if try_to_consume(_ASSIGNMENT) then
            result:=for_loop_create(hloopvar)
-         else
-         if try_to_consume(_IN) then
+         else if try_to_consume(_IN) then
            result:=for_in_loop_create(hloopvar)
          else
            consume(_ASSIGNMENT); // fail
@@ -542,7 +533,7 @@ implementation
 
 
       begin
-         p:=comp_expr(true);
+         p:=comp_expr(true,false);
          do_typecheckpass(p);
 
          if (p.nodetype=vecn) and
@@ -606,8 +597,8 @@ implementation
                     p:=ctemprefnode.create(calltempnode);
                     typecheckpass(p);
                   end;
-                { classes and interfaces have implicit dereferencing }
-                hasimplicitderef:=is_class_or_interface_or_dispinterface_or_objc(p.resultdef) or
+                { several object types have implicit dereferencing }
+                hasimplicitderef:=is_implicit_pointer_object_type(p.resultdef) or
                                   (p.resultdef.typ = classrefdef);
                 if hasimplicitderef then
                   hdef:=p.resultdef
@@ -734,12 +725,12 @@ implementation
          if not(token in endtokens) then
            begin
               { object }
-              pobj:=comp_expr(true);
+              pobj:=comp_expr(true,false);
               if try_to_consume(_AT) then
                 begin
-                   paddr:=comp_expr(true);
+                   paddr:=comp_expr(true,false);
                    if try_to_consume(_COMMA) then
-                     pframe:=comp_expr(true);
+                     pframe:=comp_expr(true,false);
                 end;
            end
          else
@@ -1016,38 +1007,46 @@ implementation
 
     function statement : tnode;
       var
-         p       : tnode;
-         code    : tnode;
-         filepos : tfileposinfo;
-         srsym   : tsym;
+         p,
+         code       : tnode;
+         filepos    : tfileposinfo;
+         srsym      : tsym;
          srsymtable : TSymtable;
-         s       : TIDString;
+         s          : TIDString;
       begin
          filepos:=current_tokenpos;
          case token of
            _GOTO :
              begin
-                if not(cs_support_goto in current_settings.moduleswitches)then
+                if not(cs_support_goto in current_settings.moduleswitches) then
                  Message(sym_e_goto_and_label_not_supported);
                 consume(_GOTO);
                 if (token<>_INTCONST) and (token<>_ID) then
                   begin
-                     Message(sym_e_label_not_found);
-                     code:=cerrornode.create;
+                    Message(sym_e_label_not_found);
+                    code:=cerrornode.create;
                   end
                 else
                   begin
                      if token=_ID then
-                      consume_sym(srsym,srsymtable)
+                       consume_sym(srsym,srsymtable)
                      else
                       begin
+                        if token<>_INTCONST then
+                          internalerror(201008021);
+
+                        { strip leading 0's in iso mode }
+                        if m_iso in current_settings.modeswitches then
+                          while pattern[1]='0' do
+                            delete(pattern,1,1);
+
                         searchsym(pattern,srsym,srsymtable);
                         if srsym=nil then
-                         begin
-                           identifier_not_found(pattern);
-                           srsym:=generrorsym;
-                           srsymtable:=nil;
-                         end;
+                          begin
+                            identifier_not_found(pattern);
+                            srsym:=generrorsym;
+                            srsymtable:=nil;
+                          end;
                         consume(token);
                       end;
 
@@ -1058,9 +1057,13 @@ implementation
                        end
                      else
                        begin
-                         { goto is only allowed to labels within the current scope }
+                         { goto outside the current scope? }
                          if srsym.owner<>current_procinfo.procdef.localst then
-                           CGMessage(parser_e_goto_outside_proc);
+                           begin
+                             { allowed? }
+                             if not(m_non_local_goto in current_settings.modeswitches) then
+                               Message(parser_e_goto_outside_proc);
+                           end;
                          code:=cgotonode.create(tlabelsym(srsym));
                          tgotonode(code).labelsym:=tlabelsym(srsym);
                          { set flag that this label is used }
@@ -1121,13 +1124,27 @@ implementation
              if (p.nodetype=ordconstn) and
                 try_to_consume(_COLON) then
               begin
+                { in iso mode, 0003: is equal to 3: }
+                if m_iso in current_settings.modeswitches then
+                  searchsym(tostr(tordconstnode(p).value),srsym,srsymtable)
+                else
+                  searchsym(s,srsym,srsymtable);
                 p.free;
-                searchsym(s,srsym,srsymtable);
+
                 if assigned(srsym) and
                    (srsym.typ=labelsym) then
                  begin
                    if tlabelsym(srsym).defined then
-                    Message(sym_e_label_already_defined);
+                     Message(sym_e_label_already_defined);
+                   if symtablestack.top.symtablelevel<>srsymtable.symtablelevel then
+                     begin
+                       tlabelsym(srsym).nonlocal:=true;
+                       exclude(current_procinfo.procdef.procoptions,po_inline);
+                     end;
+                   if tlabelsym(srsym).nonlocal and
+                     (current_procinfo.procdef.proctypeoption in [potype_unitinit,potype_unitfinalize]) then
+                     Message(sym_e_interprocgoto_into_init_final_code_not_allowed);
+
                    tlabelsym(srsym).defined:=true;
                    p:=clabelnode.create(nil,tlabelsym(srsym));
                    tlabelsym(srsym).code:=p;
@@ -1184,9 +1201,10 @@ implementation
                  { in $x- state, the function result must not be ignored }
                  if not(cs_extsyntax in current_settings.moduleswitches) and
                     not(is_void(p.resultdef)) and
+                    { can be nil in case there was an error in the expression }
+                    assigned(tcallnode(p).procdefinition) and
                     not((tcallnode(p).procdefinition.proctypeoption=potype_constructor) and
-                        assigned(tprocdef(tcallnode(p).procdefinition)._class) and
-                        is_object(tprocdef(tcallnode(p).procdefinition)._class)) then
+                        is_object(tprocdef(tcallnode(p).procdefinition).struct)) then
                    Message(parser_e_illegal_expression);
                end;
              code:=p;
@@ -1295,7 +1313,7 @@ implementation
              if (current_procinfo.procdef.localst.symtabletype=localsymtable) then
                inc(locals,tabstractlocalsymtable(current_procinfo.procdef.localst).count_locals);
              if (locals=0) and
-                (current_procinfo.procdef.owner.symtabletype<>ObjectSymtable) and
+                not (current_procinfo.procdef.owner.symtabletype in [ObjectSymtable,recordsymtable]) and
                 (not assigned(current_procinfo.procdef.funcretsym) or
                  (tabstractvarsym(current_procinfo.procdef.funcretsym).refs<=1)) and
                 not(paramanager.ret_in_param(current_procinfo.procdef.returndef,current_procinfo.procdef.proccalloption)) then

@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLMenuElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLMENUELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLMenuElement = objcclass;
   DOMHTMLMenuElementPointer = ^DOMHTMLMenuElement;
+  DOMHTMLMenuElementPtr = DOMHTMLMenuElementPointer;
 
 {$endif}
 
@@ -41,11 +40,12 @@
 {$define DOMHTMLMENUELEMENT_PAS_C}
 
 { DOMHTMLMenuElement }
-  DOMHTMLMenuElement = objcclass(DOMHTMLElement)
+  DOMHTMLMenuElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLMenuElement; message 'alloc';
-  end; external;
+    procedure setCompact (newValue: Boolean); message 'setCompact:';
+    function compact: Boolean; message 'compact';
+  end;
 
 {$endif}
 {$endif}

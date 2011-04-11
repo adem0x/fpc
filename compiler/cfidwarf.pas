@@ -88,6 +88,7 @@ interface
 implementation
 
     uses
+      systems,
       verbose;
 
     const
@@ -322,15 +323,16 @@ implementation
                   current_asmdata.getlabel(lenendlabel,alt_dbgframe);
                   { FDE
                      DWORD length
-                     DWORD CIE-pointer = cielabel
+                     DWORD CIE-pointer = cielabel relative to section start
                      PTRSIZE initial location = oper[0]
                      PTRSIZE function size = oper[1]
                   }
                   list.concat(tai_const.create_rel_sym(aitconst_32bit,lenstartlabel,lenendlabel));
                   list.concat(tai_label.create(lenstartlabel));
-                  { force label offset to 32bit }
                   tc:=tai_const.create_sym(cielabel);
-                  tc.consttype:=aitconst_32bit;
+                  { force label offset to secrel32 for windows systems }
+                  if (target_info.system in systems_windows+systems_wince) then
+                    tc.consttype:=aitconst_secrel32_symbol;
                   list.concat(tc);
                   list.concat(tai_const.create_sym(hp.oper[0].beginsym));
                   list.concat(tai_const.create_rel_sym(aitconst_ptr,hp.oper[0].beginsym,hp.oper[0].endsym));

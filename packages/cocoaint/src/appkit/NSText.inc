@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSText.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTEXT_PAS_T}
@@ -33,6 +31,10 @@ const
   NSWritingDirectionRightToLeft = 1;
 
 const
+  NSTextWritingDirectionEmbedding = 0 shl 1;
+  NSTextWritingDirectionOverride = 1 shl 1;
+
+const
   NSIllegalTextMovement = 0;
   NSReturnTextMovement = $10;
   NSTabTextMovement = $11;
@@ -47,7 +49,9 @@ const
 { Types }
 type
   NSTextAlignment = NSUInteger;
+  NSTextAlignmentPtr = ^NSTextAlignment;
   NSWritingDirection = NSInteger;
+  NSWritingDirectionPtr = ^NSWritingDirection;
 
 {$endif}
 {$endif}
@@ -72,16 +76,18 @@ type
 
 { External string constants }
 var
-  NSTextDidBeginEditingNotification: NSString; external name '_NSTextDidBeginEditingNotification';
-  NSTextDidEndEditingNotification: NSString; external name '_NSTextDidEndEditingNotification';
-  NSTextDidChangeNotification: NSString; external name '_NSTextDidChangeNotification';
+  NSTextDidBeginEditingNotification: NSString; cvar; external;
+  NSTextDidEndEditingNotification: NSString; cvar; external;
+  NSTextDidChangeNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
 
 {$ifdef FORWARD}
+  NSTextDelegateProtocol = objcprotocol;
   NSText = objcclass;
   NSTextPointer = ^NSText;
+  NSTextPtr = NSTextPointer;
 
 {$endif}
 
@@ -90,13 +96,11 @@ var
 {$define NSTEXT_PAS_C}
 
 { NSText }
-  NSText = objcclass(NSView, NSChangeSpellingProtocol, NSIgnoreMisspelledWordsProtocol)
+  NSText = objcclass external (NSView, NSChangeSpellingProtocol, NSIgnoreMisspelledWordsProtocol)
   private
-    __ivars: id;
+    _ivars: id;
     
   public
-    class function alloc: NSText; message 'alloc';
-
     function string_: NSString; message 'string';
     procedure setString(string__: NSString); message 'setString:';
     procedure replaceCharactersInRange_withString(range: NSRange; aString: NSString); message 'replaceCharactersInRange:withString:';
@@ -106,8 +110,8 @@ var
     function RTFDFromRange(range: NSRange): NSData; message 'RTFDFromRange:';
     function writeRTFDToFile_atomically(path: NSString; flag: Boolean): Boolean; message 'writeRTFDToFile:atomically:';
     function readRTFDFromFile(path: NSString): Boolean; message 'readRTFDFromFile:';
-    function delegate: id; message 'delegate';
-    procedure setDelegate(anObject: id); message 'setDelegate:';
+    function delegate: NSTextDelegateProtocol; message 'delegate';
+    procedure setDelegate(anObject: NSTextDelegateProtocol); message 'setDelegate:';
     function isEditable: Boolean; message 'isEditable';
     procedure setEditable(flag: Boolean); message 'setEditable:';
     function isSelectable: Boolean; message 'isSelectable';
@@ -167,7 +171,26 @@ var
     procedure showGuessPanel(sender: id); message 'showGuessPanel:';
     procedure checkSpelling(sender: id); message 'checkSpelling:';
     procedure toggleRuler(sender: id); message 'toggleRuler:';
-  end; external;
 
+    { Adopted Protocols }
+    procedure changeSpelling(sender: id);
+    procedure ignoreSpelling(sender: id);
+  end;
+
+{$endif}
+{$endif}
+{$ifdef PROTOCOLS}
+{$ifndef NSTEXT_PAS_P}
+{$define NSTEXT_PAS_P}
+  
+{ NSTextDelegate Protocol }
+  NSTextDelegateProtocol = objcprotocol external name 'NSTextDelegate'
+  optional
+    function textShouldBeginEditing(textObject: NSText): Boolean; message 'textShouldBeginEditing:';
+    function textShouldEndEditing(textObject: NSText): Boolean; message 'textShouldEndEditing:';
+    procedure textDidBeginEditing(notification: NSNotification); message 'textDidBeginEditing:';
+    procedure textDidEndEditing(notification: NSNotification); message 'textDidEndEditing:';
+    procedure textDidChange(notification: NSNotification); message 'textDidChange:';
+  end;
 {$endif}
 {$endif}

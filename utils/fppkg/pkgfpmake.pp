@@ -84,6 +84,10 @@ type
      constructor Create(p:pointer;mysize:integer);
    end;
 
+{
+  Generated from fpmkunit.pp, using data2inc:
+  data2inc -b -s fpmkunit.pp fpmkunitsrc.inc fpmkunitsrc
+}
 {$i fpmkunitsrc.inc}
 
 procedure CreateFPMKUnitSource(const AFileName:string);
@@ -185,14 +189,17 @@ begin
       if Not HaveFPMake then
         Error(SErrMissingFPMake);
       AddOption('-n');
-      for i:=1 to FPMKUnitDepCount do
+      AddOption('-dCOMPILED_BY_FPPKG');
+      for i:=0 to high(FPMKUnitDeps) do
         begin
-          if FPMKUnitDepAvailable[i] then
+          if FPMKUnitDeps[i].available then
             begin
               if CheckUnitDir(FPMKUnitDeps[i].package,DepDir) then
-                AddOption(maybequoted('-Fu'+DepDir))
+                AddOption('-Fu'+DepDir)
               else
                 Error(SErrMissingInstallPackage,[FPMKUnitDeps[i].package]);
+              if FPMKUnitDeps[i].def<>'' then
+                AddOption('-d'+FPMKUnitDeps[i].def);
             end
           else
             begin
@@ -256,6 +263,12 @@ Var
     OOptions:=OOptions+maybequoted(s);
   end;
 
+  procedure CondAddOption(const Name,Value:string);
+  begin
+    if Value<>'' then
+      AddOption(Name+'='+Value);
+  end;
+
 begin
   OOptions:='';
   // Does the current package support this CPU-OS?
@@ -282,21 +295,43 @@ begin
   { Maybe compile fpmake executable? }
   ExecuteAction(PackageName,'compilefpmake');
   { Create options }
-  AddOption('--nofpccfg');
   if vlDebug in LogLevels then
     AddOption('--debug')
   else if vlInfo in LogLevels then
     AddOption('--verbose');
-  AddOption('--compiler='+CompilerOptions.Compiler);
-  AddOption('--cpu='+CPUToString(CompilerOptions.CompilerCPU));
-  AddOption('--os='+OSToString(CompilerOptions.CompilerOS));
-  if IsSuperUser or GlobalOptions.InstallGlobal then
-    AddOption('--baseinstalldir='+CompilerOptions.GlobalInstallDir)
+  if P.RecompileBroken and
+     (P.FPMakeOptionsString<>'') then // Check for a empty FPMakeOptionString for packages being installed with an old fpmkunit
+    begin
+      // When the package is being reinstalled because of broken dependencies, use the same fpmake-options
+      // as were used to compile the package in the first place.
+      OOptions:=P.FPMakeOptionsString;
+    end
   else
-    AddOption('--baseinstalldir='+CompilerOptions.LocalInstallDir);
-  if CompilerOptions.LocalInstallDir<>'' then
-    AddOption('--localunitdir='+CompilerOptions.LocalUnitDir);
-  AddOption('--globalunitdir='+CompilerOptions.GlobalUnitDir);
+    begin
+      AddOption('--nofpccfg');
+      AddOption('--compiler='+CompilerOptions.Compiler);
+      AddOption('--cpu='+CPUToString(CompilerOptions.CompilerCPU));
+      AddOption('--os='+OSToString(CompilerOptions.CompilerOS));
+      if CompilerOptions.HasOptions then
+        AddOption('--options='+CompilerOptions.Options.DelimitedText);
+      if IsSuperUser or GlobalOptions.InstallGlobal then
+        begin
+          CondAddOption('--prefix',CompilerOptions.GlobalPrefix);
+          CondAddOption('--baseinstalldir',CompilerOptions.GlobalInstallDir);
+        end
+      else
+        begin
+          CondAddOption('--prefix',CompilerOptions.LocalPrefix);
+          CondAddOption('--baseinstalldir',CompilerOptions.LocalInstallDir);
+        end;
+      CondAddOption('--localunitdir',CompilerOptions.LocalUnitDir);
+      CondAddOption('--globalunitdir',CompilerOptions.GlobalUnitDir);
+      if GlobalOptions.CustomFPMakeOptions<>'' then
+        begin
+        AddOption('--ignoreinvalidoption');
+        AddOption(GlobalOptions.CustomFPMakeOptions);
+        end;
+    end;
   { Run FPMake }
   FPMakeBin:='fpmake'+ExeExt;
   SetCurrentDir(PackageBuildPath(P));

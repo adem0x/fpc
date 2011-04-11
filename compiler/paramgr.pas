@@ -36,8 +36,11 @@ unit paramgr;
 
     type
        {# This class defines some methods to take care of routine
-          parameters. It should be overriden for each new processor
+          parameters. It should be overridden for each new processor
        }
+
+       { tparamanager }
+
        tparamanager = class
           { true if the location in paraloc can be reused as localloc }
           function param_use_paraloc(const cgpara:tcgpara):boolean;virtual;
@@ -121,11 +124,16 @@ unit paramgr;
           }
           function  create_varargs_paraloc_info(p : tabstractprocdef; varargspara:tvarargsparalist):longint;virtual;abstract;
 
-          procedure createtempparaloc(list: TAsmList;calloption : tproccalloption;parasym : tparavarsym;var cgpara:TCGPara);virtual;
+          function is_stack_paraloc(paraloc: pcgparalocation): boolean;
+          procedure createtempparaloc(list: TAsmList;calloption : tproccalloption;parasym : tparavarsym;can_use_final_stack_loc : boolean;var cgpara:TCGPara);virtual;
+          procedure duplicatecgparaloc(const orgparaloc: pcgparalocation; intonewparaloc: pcgparalocation);
           procedure duplicateparaloc(list: TAsmList;calloption : tproccalloption;parasym : tparavarsym;var cgpara:TCGPara);
 
           function parseparaloc(parasym : tparavarsym;const s : string) : boolean;virtual;
           function parsefuncretloc(p : tabstractprocdef; const s : string) : boolean;virtual;
+
+          { allocate room for parameters on the stack in the entry code? }
+          function use_fixed_stack: boolean;
        end;
 
 
@@ -153,9 +161,9 @@ implementation
          ret_in_param:=((def.typ=arraydef) and not(is_dynamic_array(def))) or
            (def.typ=recorddef) or
            (def.typ=stringdef) or
-           ((def.typ=procvardef) and (po_methodpointer in tprocvardef(def).procoptions)) or
+           ((def.typ=procvardef) and not tprocvardef(def).is_addressonly) or
            { interfaces are also passed by reference to be compatible with delphi and COM }
-           ((def.typ=objectdef) and (is_object(def) or is_interface(def))) or
+           ((def.typ=objectdef) and (is_object(def) or is_interface(def) or is_dispinterface(def))) or
            (def.typ=variantdef) or
            ((def.typ=setdef) and not is_smallset(def));
       end;
@@ -163,7 +171,7 @@ implementation
 
     function tparamanager.push_high_param(varspez:tvarspez;def : tdef;calloption : tproccalloption) : boolean;
       begin
-         push_high_param:=not(calloption in [pocall_cdecl,pocall_cppdecl]) and
+         push_high_param:=not(calloption in cdecl_pocalls) and
                           (
                            is_open_array(def) or
                            is_open_string(def) or
@@ -177,6 +185,7 @@ implementation
       begin
         push_size:=-1;
         case varspez of
+          vs_constref,
           vs_out,
           vs_var :
             push_size:=sizeof(pint);
@@ -320,13 +329,23 @@ implementation
       end;
 
 
-    procedure tparamanager.createtempparaloc(list: TAsmList;calloption : tproccalloption;parasym : tparavarsym;var cgpara:TCGPara);
+    function tparamanager.is_stack_paraloc(paraloc: pcgparalocation): boolean;
+      begin
+        result:=
+          assigned(paraloc) and
+          (paraloc^.loc=LOC_REFERENCE) and
+          (paraloc^.reference.index=NR_STACK_POINTER_REG);
+      end;
+
+
+    procedure tparamanager.createtempparaloc(list: TAsmList;calloption : tproccalloption;parasym : tparavarsym;can_use_final_stack_loc : boolean;var cgpara:TCGPara);
       var
         href : treference;
         len  : aint;
         paraloc,
         newparaloc : pcgparalocation;
       begin
+        paraloc:=parasym.paraloc[callerside].location;
         cgpara.reset;
         cgpara.size:=parasym.paraloc[callerside].size;
         cgpara.intsize:=parasym.paraloc[callerside].intsize;
@@ -334,7 +353,6 @@ implementation
 {$ifdef powerpc}
         cgpara.composite:=parasym.paraloc[callerside].composite;
 {$endif powerpc}
-        paraloc:=parasym.paraloc[callerside].location;
         while assigned(paraloc) do
           begin
             if paraloc^.size=OS_NO then
@@ -348,7 +366,10 @@ implementation
               i386 isn't affected anyways because it uses the stack to push parameters
               on arm it reduces executable size of the compiler by 2.1 per cent (FK) }
             { Does it fit a register? }
-            if (len<=sizeof(pint)) and
+            if ((not can_use_final_stack_loc and
+                 use_fixed_stack) or
+                not is_stack_paraloc(paraloc)) and
+               (len<=sizeof(pint)) and
                (paraloc^.size in [OS_8,OS_16,OS_32,OS_64,OS_128,OS_S8,OS_S16,OS_S32,OS_S64,OS_S128]) then
               newparaloc^.loc:=LOC_REGISTER
             else
@@ -362,13 +383,27 @@ implementation
                 newparaloc^.register:=cg.getmmregister(list,paraloc^.size);
               LOC_REFERENCE :
                 begin
-                  tg.gettemp(list,len,cgpara.alignment,tt_persistent,href);
-                  newparaloc^.reference.index:=href.base;
-                  newparaloc^.reference.offset:=href.offset;
+                  if (can_use_final_stack_loc or
+                      not use_fixed_stack) and
+                     is_stack_paraloc(paraloc) then
+                    duplicatecgparaloc(paraloc,newparaloc)
+                  else
+                    begin
+                      tg.gettemp(list,len,cgpara.alignment,tt_persistent,href);
+                      newparaloc^.reference.index:=href.base;
+                      newparaloc^.reference.offset:=href.offset;
+                    end;
                 end;
             end;
             paraloc:=paraloc^.next;
           end;
+      end;
+
+
+    procedure tparamanager.duplicatecgparaloc(const orgparaloc: pcgparalocation; intonewparaloc: pcgparalocation);
+      begin
+        move(orgparaloc^,intonewparaloc^,sizeof(intonewparaloc^));
+        intonewparaloc^.next:=nil;
       end;
 
 
@@ -388,8 +423,7 @@ implementation
         while assigned(paraloc) do
           begin
             newparaloc:=cgpara.add_location;
-            move(paraloc^,newparaloc^,sizeof(newparaloc^));
-            newparaloc^.next:=nil;
+            duplicatecgparaloc(paraloc,newparaloc);
             paraloc:=paraloc^.next;
           end;
       end;
@@ -398,8 +432,8 @@ implementation
     function tparamanager.create_inline_paraloc_info(p : tabstractprocdef):longint;
       begin
         { We need to return the size allocated }
-        create_paraloc_info(p,callerside);
-        result:=create_paraloc_info(p,calleeside);
+        p.init_paraloc_info(callbothsides);
+        result:=p.calleeargareasize;
       end;
       
 
@@ -415,6 +449,21 @@ implementation
         Result:=False;
         internalerror(200807236);
       end;
+
+
+    function tparamanager.use_fixed_stack: boolean;
+      begin
+{$ifdef i386}
+        result := (target_info.system in [system_i386_darwin,system_i386_iphonesim]);
+{$else i386}
+{$ifdef cputargethasfixedstack}
+        result := true;
+{$else cputargethasfixedstack}
+        result := false;
+{$endif cputargethasfixedstack}
+{$endif i386}
+      end;
+
 
 initialization
   ;

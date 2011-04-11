@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSImageView.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSIMAGEVIEW_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSImageView = objcclass;
   NSImageViewPointer = ^NSImageView;
+  NSImageViewPtr = NSImageViewPointer;
 
 {$endif}
 
@@ -41,22 +40,25 @@
 {$define NSIMAGEVIEW_PAS_C}
 
 { NSImageView }
-  NSImageView = objcclass(NSControl)
+  NSImageView = objcclass external (NSControl)
   private
     __ivFlags: bitpacked record
-        _unused: 0..((1 shl 27)-1);
+      case byte of
+       0: (_anonbitfield_NSImageView0: cuint);
+       1: (
+        _unused: 0..((1 shl 26)-1);
+        _rejectsMultiFileDrops: 0..1;
         _compatibleScalingAndAlignment: 0..1;
-        _compatibleImage: 0..1;
+        _reserved: 0..1;
         _overridesDrawing: 0..1;
         _allowsCutCopyPaste: 0..1;
         _editable: 0..1;
+      );
       end;
-    __target: id;
-    __action: SEL;
+    _target: id;
+    _action: SEL;
     
   public
-    class function alloc: NSImageView; message 'alloc';
-
     function image: NSImage; message 'image';
     procedure setImage(newImage: NSImage); message 'setImage:';
     function imageAlignment: NSImageAlignment; message 'imageAlignment';
@@ -71,7 +73,7 @@
     function animates: Boolean; message 'animates';
     function allowsCutCopyPaste: Boolean; message 'allowsCutCopyPaste';
     procedure setAllowsCutCopyPaste(allow: Boolean); message 'setAllowsCutCopyPaste:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

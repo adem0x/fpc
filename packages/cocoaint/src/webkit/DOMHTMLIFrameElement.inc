@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLIFrameElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLIFRAMEELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLIFrameElement = objcclass;
   DOMHTMLIFrameElementPointer = ^DOMHTMLIFrameElement;
+  DOMHTMLIFrameElementPtr = DOMHTMLIFrameElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLIFRAMEELEMENT_PAS_C}
 
 { DOMHTMLIFrameElement }
-  DOMHTMLIFrameElement = objcclass(DOMHTMLElement)
+  DOMHTMLIFrameElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLIFrameElement; message 'alloc';
-
     procedure setAlign (newValue: NSString); message 'setAlign:';
     function align: NSString; message 'align';
     procedure setFrameBorder (newValue: NSString); message 'setFrameBorder:';
@@ -67,7 +64,8 @@
     procedure setWidth (newValue: NSString); message 'setWidth:';
     function width: NSString; message 'width';
     function contentDocument: DOMDocument; message 'contentDocument';
-  end; external;
+    function contentWindow: DOMAbstractView; message 'contentWindow';
+  end;
 
 {$endif}
 {$endif}

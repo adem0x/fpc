@@ -1,10 +1,13 @@
 { Parsed from Webkit.framework DOMEventException.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMEVENTEXCEPTION_PAS_T}
 {$define DOMEVENTEXCEPTION_PAS_T}
+
+{ Constants }
+
+const
+  DOM_UNSPECIFIED_EVENT_TYPE_ERR = 0;
 
 {$endif}
 {$endif}
@@ -29,7 +32,7 @@
 
 { External string constants }
 var
-  DOMEventException: NSString; external name '_DOMEventException';
+  DOMEventException: NSString; cvar; external;
 
 {$endif}
 {$endif}

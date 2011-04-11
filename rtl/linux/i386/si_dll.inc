@@ -11,6 +11,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
  **********************************************************************}
+{$asmmode att}
 {$goto on}
 {
  Linux ELF startup code for Free Pascal
@@ -44,7 +45,6 @@ end;
 {******************************************************************************
                         Shared library start/halt
  ******************************************************************************}
-{$asmmode ATT}
 
 procedure _FPC_shared_lib_start(argc : dword;argv,envp : pointer); cdecl; public name 'FPC_SHARED_LIB_START'; public name '_start';
 begin
@@ -70,10 +70,29 @@ begin
   PASCALMAIN;
 end;
 
-Procedure lib_exit; external name 'FPC_LIB_EXIT';
-
+{ this routine is only called when the halt() routine of the RTL embedded in
+  the shared library is called }
 procedure _FPC_shared_lib_haltproc; assembler; nostackframe; public name 'FPC_SHARED_LIB_EXIT'; public name '_haltproc';
 asm
 .Lhaltproc:
-  call	  lib_exit
+ {$ifdef FPC_PIC}
+  call    get1eipasebx
+  addl    $_GLOBAL_OFFSET_TABLE_,%ebx
+  movl    ExitCode@GOT(%ebx),%ebx
+ {$if sizeof(ExitCode)=2}
+  movzwl  (%ebx),%ebx
+ {$else}
+  mov     (%ebx),%ebx
+ {$endif}
+{$else FPC_PIC}
+ {$if sizeof(ExitCode)=2}
+  movzwl  ExitCode,%ebx
+ {$else}
+  mov     ExitCode,%ebx
+ {$endif}
+{$endif FPC_PIC}
+  xorl    %eax,%eax
+  incl    %eax                    { eax=1, exit call }
+  int     $0x80
+  jmp     .Lhaltproc
 end;

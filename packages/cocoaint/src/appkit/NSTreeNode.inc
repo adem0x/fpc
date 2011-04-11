@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSTreeNode.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTREENODE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSTreeNode = objcclass;
   NSTreeNodePointer = ^NSTreeNode;
+  NSTreeNodePtr = NSTreeNodePointer;
 
 {$endif}
 
@@ -41,22 +40,24 @@
 {$define NSTREENODE_PAS_C}
 
 { NSTreeNode }
-  NSTreeNode = objcclass(NSObject)
+  NSTreeNode = objcclass external (NSObject)
   private
-    __childNodesProxy: id;
-    __representedObject: id;
-    __observationInfo: Pointer;
-    __reserved2: id;
-    __childNodes: NSMutableArray;
-    __parentNode: NSTreeNode;
+    _childNodesProxy: id;
+    _representedObject: id;
+    _observationInfo: Pointer;
+    _reserved2: id;
+    _childNodes: NSMutableArray;
+    _parentNode: NSTreeNode;
     __NSTreeNodeFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSTreeNode0: cuint);
+       1: (
         ignoreObserving: 0..1;
         reserved: 0..((1 shl 31)-1);
+      );
       end;
     
   public
-    class function alloc: NSTreeNode; message 'alloc';
-
     class function treeNodeWithRepresentedObject(modelObject: id): id; message 'treeNodeWithRepresentedObject:';
     function initWithRepresentedObject(modelObject: id): id; message 'initWithRepresentedObject:';
     function representedObject: id; message 'representedObject';
@@ -67,7 +68,7 @@
     function descendantNodeAtIndexPath(indexPath_: NSIndexPath): NSTreeNode; message 'descendantNodeAtIndexPath:';
     function parentNode: NSTreeNode; message 'parentNode';
     procedure sortWithSortDescriptors_recursively(sortDescriptors: NSArray; recursively: Boolean); message 'sortWithSortDescriptors:recursively:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

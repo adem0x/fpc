@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSCharacterSet.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCHARACTERSET_PAS_T}
@@ -38,8 +36,10 @@ const
 {$ifdef FORWARD}
   NSCharacterSet = objcclass;
   NSCharacterSetPointer = ^NSCharacterSet;
+  NSCharacterSetPtr = NSCharacterSetPointer;
   NSMutableCharacterSet = objcclass;
   NSMutableCharacterSetPointer = ^NSMutableCharacterSet;
+  NSMutableCharacterSetPtr = NSMutableCharacterSetPointer;
 
 {$endif}
 
@@ -48,11 +48,9 @@ const
 {$define NSCHARACTERSET_PAS_C}
 
 { NSCharacterSet }
-  NSCharacterSet = objcclass(NSObject, NSCopyingProtocol, NSMutableCopyingProtocol, NSCodingProtocol)
+  NSCharacterSet = objcclass external (NSObject, NSCopyingProtocol, NSMutableCopyingProtocol, NSCodingProtocol)
     
   public
-    class function alloc: NSCharacterSet; message 'alloc';
-
     class function controlCharacterSet: id; message 'controlCharacterSet';
     class function whitespaceCharacterSet: id; message 'whitespaceCharacterSet';
     class function whitespaceAndNewlineCharacterSet: id; message 'whitespaceAndNewlineCharacterSet';
@@ -77,15 +75,19 @@ const
     function invertedSet: NSCharacterSet; message 'invertedSet';
     function longCharacterIsMember(theLongChar: UTF32Char): Boolean; message 'longCharacterIsMember:';
     function isSupersetOfSet(theOtherSet: NSCharacterSet): Boolean; message 'isSupersetOfSet:';
-    function hasMemberInPlane(thePlane: byte): Boolean; message 'hasMemberInPlane:';
-  end; external;
+    function hasMemberInPlane(thePlane: cuint8): Boolean; message 'hasMemberInPlane:';
+
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+    function mutableCopyWithZone(zone_: NSZonePtr): id;
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
 
 { NSMutableCharacterSet }
-  NSMutableCharacterSet = objcclass(NSCharacterSet, NSCopyingProtocol, NSMutableCopyingProtocol)
+  NSMutableCharacterSet = objcclass external (NSCharacterSet, NSCopyingProtocol, NSMutableCopyingProtocol)
     
   public
-    class function alloc: NSMutableCharacterSet; message 'alloc';
-
     procedure addCharactersInRange(aRange: NSRange); message 'addCharactersInRange:';
     procedure removeCharactersInRange(aRange: NSRange); message 'removeCharactersInRange:';
     procedure addCharactersInString(aString: NSString); message 'addCharactersInString:';
@@ -93,7 +95,11 @@ const
     procedure formUnionWithCharacterSet(otherSet: NSCharacterSet); message 'formUnionWithCharacterSet:';
     procedure formIntersectionWithCharacterSet(otherSet: NSCharacterSet); message 'formIntersectionWithCharacterSet:';
     procedure invert; message 'invert';
-  end; external;
+
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+    function mutableCopyWithZone(zone_: NSZonePtr): id;
+  end;
 
 {$endif}
 {$endif}

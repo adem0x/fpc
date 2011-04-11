@@ -1,27 +1,17 @@
 { Thread management routines }
 
-type
-  PRaiseFrame = ^TRaiseFrame;
-  TRaiseFrame = record
-    NextRaise: PRaiseFrame;
-    ExceptAddr: Pointer;
-    ExceptObject: TObject;
-    ExceptionRecord: pointer; {PExceptionRecord}
-  end;
-
 constructor TThread.Create(CreateSuspended: Boolean;
                            const StackSize: SizeUInt = DefaultStackSize);
-var
-  Flags: Integer;
 begin
   inherited Create;
   FSuspended := CreateSuspended;
-  Flags := 0;
-  if CreateSuspended then Flags := CREATE_SUSPENDED;
-  FHandle := BeginThread(nil, StackSize, @ThreadProc, pointer(self), Flags,
+  FInitialSuspended := CreateSuspended;
+  { Always start in suspended state, will be resumed in AfterConstruction if necessary
+    See Mantis #16884 }
+  FHandle := BeginThread(nil, StackSize, @ThreadProc, pointer(self), CREATE_SUSPENDED,
                          FThreadID);
   if FHandle = TThreadID(0) then
-    raise EThread.create('Failed to create new thread, code:'+inttostr(getlasterror));
+    raise EThread.CreateFmt(SThreadCreateError, [SysErrorMessage(getlasterror)]);
 
   FFatalException := nil;
 end;
@@ -31,9 +21,16 @@ destructor TThread.Destroy;
 begin
   if FHandle<>0 then
     begin
-      if not FFinished and not Suspended then
+      { Don't check Suspended. If the thread has been externally suspended (which is
+        deprecated and strongly discouraged), it's better to deadlock here than
+        to silently free the object and leave OS resources leaked. }
+      if not FFinished {and not Suspended} then
         begin
           Terminate;
+          { Allow the thread function to perform the necessary cleanup. Since
+            we've just set Terminated flag, it won't call Execute. }
+          if FInitialSuspended then
+            Start;
           WaitFor;
         end;
       CloseHandle(FHandle);

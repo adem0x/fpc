@@ -95,6 +95,72 @@ const
   UseTimeout : boolean = false;
   emulatorname : string = '';
 
+{ Constants used in IsAbsolute function }
+  TargetHasDosStyleDirectories : boolean = false;
+  TargetAmigaLike : boolean = false;
+  TargetIsMacOS : boolean = false;
+
+{ Set the three constants above according to
+  the current target }
+
+procedure SetTargetDirectoriesStyle;
+var
+  LTarget : string;
+begin
+  LTarget := lowercase(CompilerTarget);
+  TargetHasDosStyleDirectories :=
+    (LTarget='go32v2') or
+    (LTarget='win32') or
+    (LTarget='win64') or
+    (LTarget='watcom') or
+    (LTarget='os2');
+  TargetAmigaLike:=
+    (LTarget='amiga') or
+    (LTarget='morphos');
+  TargetIsMacOS:=
+    (LTarget='macos');
+end;
+
+{ extracted from rtl/macos/macutils.inc }
+
+function IsMacFullPath (const path: string): Boolean;
+  begin
+    if Pos(':', path) = 0 then    {its partial}
+      IsMacFullPath := false
+    else if path[1] = ':' then
+      IsMacFullPath := false
+    else
+      IsMacFullPath := true
+  end;
+
+
+Function IsAbsolute (Const F : String) : boolean;
+{
+  Returns True if the name F is a absolute file name
+}
+begin
+  IsAbsolute:=false;
+  if TargetHasDosStyleDirectories then
+    begin
+      if (F[1]='/') or (F[1]='\') then
+        IsAbsolute:=true;
+      if (Length(F)>2) and (F[2]=':') and ((F[3]='\') or (F[3]='/')) then
+        IsAbsolute:=true;
+    end
+  else if TargetAmigaLike then
+    begin
+      if (length(F)>0) and (Pos(':',F) <> 0) then
+        IsAbsolute:=true;
+    end
+  else if TargetIsMacOS then
+    begin
+      IsAbsolute:=IsMacFullPath(F);
+    end
+  { generic case }
+  else if (F[1]='/') then
+    IsAbsolute:=true;
+end;
+
 Function FileExists (Const F : String) : Boolean;
 {
   Returns True if the file exists, False if not.
@@ -230,7 +296,7 @@ begin
   while (j>0) and (Hstr[j]<>'.') do
    dec(j);
   if j=0 then
-   j:=255;
+   j:=length(Hstr)+1;
   if Ext<>'' then
    ForceExtension:=Copy(Hstr,1,j-1)+'.'+Ext
   else
@@ -274,11 +340,12 @@ end;
       end;
 
 
-procedure Copyfile(const fn1,fn2:string;append:boolean);
+function Copyfile(const fn1,fn2:string;append:boolean) : longint;
 const
   bufsize = 16384;
 var
   f,g : file;
+  addsize,
   i   : longint;
   buf : pointer;
 begin
@@ -291,6 +358,7 @@ begin
   {$I-}
    reset(f,1);
   {$I+}
+  addsize:=0;
   if ioresult<>0 then
    Verbose(V_Error,'Can''t open '+fn1);
   if append then
@@ -315,10 +383,12 @@ begin
   repeat
     blockread(f,buf^,bufsize,i);
     blockwrite(g,buf^,i);
+    addsize:=addsize+i;
   until i<bufsize;
   freemem(buf,bufsize);
   close(f);
   close(g);
+  CopyFile:=addsize;
 end;
 
 
@@ -532,6 +602,8 @@ var
   passnr,
   passes  : longint;
   execres : boolean;
+  EndTicks,
+  StartTicks : int64;
 begin
   RunCompiler:=false;
   args:='-n -T'+CompilerTarget+' -Fu'+RTLUnitsDir;
@@ -570,6 +642,7 @@ begin
         end;
       Verbose(V_Debug,'Executing '+compilerbin+' '+args+wpoargs);
       { also get the output from as and ld that writes to stderr sometimes }
+      StartTicks:=GetMicroSTicks;
     {$ifndef macos}
       execres:=ExecuteRedir(CompilerBin,args+wpoargs,'',CompilerLogFile,'stdout');
     {$else macos}
@@ -578,7 +651,12 @@ begin
       if execres then
         execres:=ExecuteRedir(TestOutputDir + ':ppas','','',CompilerLogFile,'stdout');
     {$endif macos}
+      EndTicks:=GetMicroSTicks;
       Verbose(V_Debug,'Exitcode '+ToStr(ExecuteResult));
+      if BenchmarkInfo then
+        begin
+          Verbose(V_Normal,'Compilation took '+ToStr(EndTicks-StartTicks)+' us');
+        end;
 
       { Error during execution? }
       if (not execres) and (ExecuteResult=0) then
@@ -587,7 +665,8 @@ begin
           AddLog(ResLogFile,failed_to_compile+PPFileInfo[current]);
           AddLog(LongLogFile,line_separation);
           AddLog(LongLogFile,failed_to_compile+PPFileInfo[current]);
-          CopyFile(CompilerLogFile,LongLogFile,true);
+          if CopyFile(CompilerLogFile,LongLogFile,true)=0 then
+            AddLog(LongLogFile,'IOStatus'+ToStr(IOStatus));
           { avoid to try again }
           AddLog(ExeLogFile,failed_to_compile+PPFileInfo[current]);
           Verbose(V_Warning,'IOStatus: '+ToStr(IOStatus));
@@ -605,7 +684,8 @@ begin
          AddLog(LongLogFile,failed_to_compile+PPFileInfo[current]);
          if Config.Note<>'' then
           AddLog(LongLogFile,Config.Note);
-         CopyFile(CompilerLogFile,LongLogFile,true);
+         if CopyFile(CompilerLogFile,LongLogFile,true)=0 then
+           AddLog(LongLogFile,'Internal error in compiler');
          { avoid to try again }
          AddLog(ExeLogFile,'Failed to compile '+PPFileInfo[current]);
          Verbose(V_Warning,'Internal error in compiler');
@@ -649,7 +729,8 @@ begin
         AddLog(LongLogFile,line_separation);
         AddLog(LongLogFile,known_problem+Config.KnownCompileNote);
         AddLog(LongLogFile,failed_to_compile+PPFileInfo[current]+' ('+ToStr(ExecuteResult)+')');
-        Copyfile(CompilerLogFile,LongLogFile,true);
+        if Copyfile(CompilerLogFile,LongLogFile,true)=0 then
+          AddLog(LongLogFile,known_problem+'exitcode: '+ToStr(ExecuteResult));
         Verbose(V_Warning,known_problem+'exitcode: '+ToStr(ExecuteResult));
       end
      else if ExecuteResult<>0 then
@@ -662,7 +743,8 @@ begin
         AddLog(LongLogFile,failed_to_compile+PPFileInfo[current]);
         if Config.Note<>'' then
           AddLog(LongLogFile,Config.Note);
-        CopyFile(CompilerLogFile,LongLogFile,true);
+        if CopyFile(CompilerLogFile,LongLogFile,true)=0 then
+          AddLog(LongLogFile,'Exitcode: '+ToStr(ExecuteResult)+' (expected 0)');
         { avoid to try again }
         AddLog(ExeLogFile,failed_to_compile+PPFileInfo[current]);
         Verbose(V_Warning,'Exitcode: '+ToStr(ExecuteResult)+' (expected 0)');
@@ -709,6 +791,7 @@ end;
 
 function RunExecutable:boolean;
 const
+  MaxTrials = 5;
 {$ifdef unix}
   CurrDir = './';
 {$else}
@@ -721,17 +804,29 @@ var
   TestRemoteExe,
   TestExe  : string;
   LocalFile, RemoteFile: string;
-  LocalPath: string;
-  execcmd  : string;
+  LocalPath, LTarget : string;
+  execcmd,
+  pref     : string;
   execres  : boolean;
   index    : integer;
   EndTicks,
   StartTicks : int64;
   function ExecuteRemote(const prog,args:string):boolean;
+    var
+      Trials : longint;
     begin
       Verbose(V_Debug,'RemoteExecuting '+Prog+' '+args);
       StartTicks:=GetMicroSTicks;
-      ExecuteRemote:=ExecuteRedir(prog,args,'',EXELogFile,'stdout');
+      ExecuteRemote:=false;
+      Trials:=0;
+      While (Trials<MaxTrials) and not ExecuteRemote do
+        begin
+          inc(Trials);
+          ExecuteRemote:=ExecuteRedir(prog,args,'',EXELogFile,'stdout');
+        end;
+
+      if Trials>1 then
+        Verbose(V_Debug,'Done in '+tostr(trials)+' trials');
       EndTicks:=GetMicroSTicks;
     end;
 
@@ -748,8 +843,16 @@ label
 begin
   RunExecutable:=false;
   execres:=true;
-  { when remote testing, leave extension away }
-  if RemoteAddr='' then
+  { when remote testing, leave extension away,
+    but not for go32v2, win32 or win64 as cygwin ssh
+    will remove the .exe in that case }
+  LTarget := lowercase(CompilerTarget);
+
+  if (RemoteAddr='') or
+     (rcpprog='pscp') or
+     (LTarget='go32v2') or
+     (LTarget='win32') or
+     (LTarget='win64') then
     TestExe:=OutputFileName(PPFile[current],ExeExt)
   else
     TestExe:=OutputFileName(PPFile[current],'');
@@ -778,7 +881,7 @@ begin
       execres:=ExecuteRemote(rcpprog,RemotePara+' '+TestExe+' '+RemoteAddr+':'+TestRemoteExe);
       if not execres then
       begin
-        Verbose(V_Abort, 'Could not copy executable '+TestExe);
+        Verbose(V_normal, 'Could not copy executable '+TestExe);
         goto done;
       end;
       s:=Config.Files;
@@ -795,10 +898,14 @@ begin
             LocalFile:=copy(s,1,index-1);
           RemoteFile:=RemotePath+'/'+SplitFileName(LocalFile);
           LocalFile:=LocalPath+LocalFile;
-          execres:=ExecuteRemote(rcpprog,RemotePara+' '+LocalFile+' '+RemoteAddr+':'+RemoteFile);
+          if DoVerbose and (rcpprog='pscp') then
+            pref:='-v '
+          else
+            pref:='';
+          execres:=ExecuteRemote(rcpprog,pref+RemotePara+' '+LocalFile+' '+RemoteAddr+':'+RemoteFile);
           if not execres then
           begin
-            Verbose(V_Abort, 'Could not copy required file '+LocalFile);
+            Verbose(V_normal, 'Could not copy required file '+LocalFile);
             goto done;
           end;
           if index=0 then
@@ -808,8 +915,13 @@ begin
       end;
       { rsh doesn't pass the exitcode, use a second command to print the exitcode
         on the remoteshell to stdout }
-      execcmd:=RemotePara+' '+RemoteAddr+' '+rquote+'chmod 755 '+TestRemoteExe+
-        ' ; cd '+RemotePath+' ;';
+      if DoVerbose and (rshprog='plink') then
+        execcmd:='-v '
+      else
+        execcmd:='';
+      execcmd:=execcmd+RemotePara+' '+RemoteAddr+' '+rquote+
+         'chmod 755 '+TestRemoteExe+
+          ' ; cd '+RemotePath+' ; ';
       if UseTimeout then
       begin
         execcmd:=execcmd+'timeout -9 ';
@@ -818,7 +930,13 @@ begin
         str(Config.Timeout,s);
         execcmd:=execcmd+s;
       end;
-      execcmd:=execcmd+' '+TestRemoteExe+' ; echo "TestExitCode: $?"';
+      { as we moved to RemotePath, if path is not absolute
+        we need to use ./execfilename only }
+      if not isabsolute(TestRemoteExe) then
+        execcmd:=execcmd+' ./'+SplitFileName(TestRemoteExe)
+      else
+        execcmd:=execcmd+' '+TestRemoteExe;
+      execcmd:=execcmd+' ; echo "TestExitCode: $?"';
       if (deAfter in DelExecutable) and
          not Config.NeededAfter then
         execcmd:=execcmd+' ; rm -f '+TestRemoteExe;
@@ -864,7 +982,8 @@ done:
       AddLog(ResLogFile,failed_to_run+PPFileInfo[current]);
       AddLog(LongLogFile,line_separation);
       AddLog(LongLogFile,failed_to_run+PPFileInfo[current]);
-      CopyFile(EXELogFile,LongLogFile,true);
+      if CopyFile(EXELogFile,LongLogFile,true)=0 then
+        AddLog(LongLogFile,'IOStatus: '+ToStr(IOStatus));
       { avoid to try again }
       AddLog(ExeLogFile,failed_to_run+PPFileInfo[current]);
       Verbose(V_Warning,'IOStatus: '+ToStr(IOStatus));
@@ -881,7 +1000,11 @@ done:
          AddLog(LongLogFile,line_separation);
          AddLog(LongLogFile,known_problem+Config.KnownRunNote);
          AddLog(LongLogFile,failed_to_run+PPFileInfo[current]+' ('+ToStr(ExecuteResult)+')');
-         Copyfile(EXELogFile,LongLogFile,true);
+         if Copyfile(EXELogFile,LongLogFile,true)=0 then
+           begin
+             AddLog(LongLogFile,known_problem+'exitcode: '+ToStr(ExecuteResult)+' (expected '+ToStr(Config.ResultCode)+')');
+             AddLog(ExeLogFile,known_problem+'exitcode: '+ToStr(ExecuteResult)+' (expected '+ToStr(Config.ResultCode)+')');
+           end;
          Verbose(V_Warning,known_problem+'exitcode: '+ToStr(ExecuteResult)+' (expected '+ToStr(Config.ResultCode)+')');
        end
      else
@@ -890,7 +1013,11 @@ done:
          AddLog(ResLogFile,failed_to_run+PPFileInfo[current]);
          AddLog(LongLogFile,line_separation);
          AddLog(LongLogFile,failed_to_run+PPFileInfo[current]+' ('+ToStr(ExecuteResult)+')');
-         Copyfile(EXELogFile,LongLogFile,true);
+         if Copyfile(EXELogFile,LongLogFile,true)=0 then
+           begin
+             AddLog(LongLogFile,'Exitcode: '+ToStr(ExecuteResult)+' (expected '+ToStr(Config.ResultCode)+')');
+             AddLog(ExeLogFile,'Exitcode: '+ToStr(ExecuteResult)+' (expected '+ToStr(Config.ResultCode)+')');
+           end;
          Verbose(V_Warning,'Exitcode: '+ToStr(ExecuteResult)+' (expected '+ToStr(Config.ResultCode)+')');
        end
    end
@@ -921,25 +1048,25 @@ var
     writeln('dotest [Options] <File>');
     writeln;
     writeln('Options can be:');
+    writeln('  -A            include ALL tests');
     writeln('  -B            delete executable before remote upload');
     writeln('  -C<compiler>  set compiler to use');
-    writeln('  -V            verbose');
+    writeln('  -D            display execution time');
     writeln('  -E            execute test also');
-    writeln('  -X            don''t use COMSPEC');
-    writeln('  -A            include ALL tests');
     writeln('  -G            include graph tests');
-    writeln('  -K            include known bug tests');
     writeln('  -I            include interactive tests');
-    writeln('  -O            use timeout wrapper for (remote) execution');
+    writeln('  -K            include known bug tests');
     writeln('  -M<emulator>  run the tests using the given emulator');
+    writeln('  -O            use timeout wrapper for (remote) execution');
+    writeln('  -P<path>      path to the tests tree on the remote machine');
     writeln('  -R<remote>    run the tests remotely with the given rsh/ssh address');
     writeln('  -S            use ssh instead of rsh');
     writeln('  -T[cpu-]<os>  run tests for target cpu and os');
-    writeln('  -P<path>      path to the tests tree on the remote machine');
     writeln('  -U<remotepara>');
     writeln('                pass additional parameter to remote program. Multiple -U can be used');
     writeln('  -V            be verbose');
     writeln('  -W            use putty compatible file names when testing (plink and pscp)');
+    writeln('  -X            don''t use COMSPEC');
     writeln('  -Y<opts>      extra options passed to the compiler. Several -Y<opt> can be given.');
     writeln('  -Z            remove temporary files (executable,ppu,o)');
     halt(1);
@@ -969,6 +1096,8 @@ begin
          'B' : Include(DelExecutable,deBefore);
 
          'C' : CompilerBin:=Para;
+
+         'D' : BenchMarkInfo:=true;
 
          'E' : DoExecute:=true;
 
@@ -1010,7 +1139,7 @@ begin
              if j>0 then
                begin
                  CompilerCPU:=Copy(Para,1,j-1);
-                 CompilerTarget:=Copy(Para,j+1,255);
+                 CompilerTarget:=Copy(Para,j+1,length(para));
                end
              else
                CompilerTarget:=Para
@@ -1025,7 +1154,7 @@ begin
            begin
              rshprog:='plink';
              rcpprog:='pscp';
-             rquote:=' ';
+             rquote:='"';
            end;
 
          'X' : UseComSpec:=false;
@@ -1308,6 +1437,7 @@ begin
   PPFileInfo:=TStringList.Create;
   PPFileInfo.Capacity:=10;
   GetArgs;
+  SetTargetDirectoriesStyle;
   Verbose(V_Debug,'Found '+ToStr(PPFile.Count)+' tests to run');
   if current>0 then
     for current:=0 to PPFile.Count-1 do

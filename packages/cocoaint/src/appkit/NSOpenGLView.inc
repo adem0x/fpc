@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSOpenGLView.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSOPENGLVIEW_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSOpenGLView = objcclass;
   NSOpenGLViewPointer = ^NSOpenGLView;
+  NSOpenGLViewPtr = NSOpenGLViewPointer;
 
 {$endif}
 
@@ -41,17 +40,15 @@
 {$define NSOPENGLVIEW_PAS_C}
 
 { NSOpenGLView }
-  NSOpenGLView = objcclass(NSView)
+  NSOpenGLView = objcclass external (NSView)
   private
-    __openGLContext: NSOpenGLContext;
-    __pixelFormat: NSOpenGLPixelFormat;
-    __reserved1: NSInteger;
-    __reserved2: NSInteger;
-    __reserved3: NSInteger;
+    _openGLContext: NSOpenGLContext;
+    _pixelFormat: NSOpenGLPixelFormat;
+    _reserved1: NSInteger;
+    _reserved2: NSInteger;
+    _reserved3: NSInteger;
     
   public
-    class function alloc: NSOpenGLView; message 'alloc';
-
     class function defaultPixelFormat: NSOpenGLPixelFormat; message 'defaultPixelFormat';
     function initWithFrame_pixelFormat(frameRect: NSRect; format: NSOpenGLPixelFormat): id; message 'initWithFrame:pixelFormat:';
     procedure setOpenGLContext(context: NSOpenGLContext); message 'setOpenGLContext:';
@@ -62,7 +59,7 @@
     procedure setPixelFormat(pixelFormat_: NSOpenGLPixelFormat); message 'setPixelFormat:';
     function pixelFormat: NSOpenGLPixelFormat; message 'pixelFormat';
     procedure prepareOpenGL; message 'prepareOpenGL';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -38,7 +38,7 @@ type
   public
     constructor Create(ASource: TStream);
     destructor Destroy; override;
-
+    Function Flush : Boolean;
     function Write(const Buffer; Count: Longint): Longint; override;
     function Seek(Offset: Longint; Origin: Word): Longint; override;
   end;
@@ -87,6 +87,9 @@ type
   EBase64DecodingException = class(Exception)
   end;
 
+function EncodeStringBase64(const s:string):String;
+function DecodeStringBase64(const s:string):String;
+
 implementation
 
 uses
@@ -129,7 +132,8 @@ begin
   inherited Create(ASource);
 end;
 
-destructor TBase64EncodingStream.Destroy;
+function TBase64EncodingStream.Flush : Boolean;
+
 var
   WriteBuf: array[0..3] of Char;
 begin
@@ -141,6 +145,8 @@ begin
         WriteBuf[2] := '=';
         WriteBuf[3] := '=';
         Source.Write(WriteBuf, 4);
+        Result:=True;
+        Inc(TotalBytesProcessed,2);
       end;
     2: begin
         WriteBuf[0] := EncodingTable[Buf[0] shr 2];
@@ -148,8 +154,17 @@ begin
         WriteBuf[2] := EncodingTable[(Buf[1] and 15) shl 2];
         WriteBuf[3] := '=';
         Source.Write(WriteBuf, 4);
+        Result:=True;
+        Inc(TotalBytesProcessed,1);
       end;
+  else
+    Result:=False;
   end;
+end;
+
+destructor TBase64EncodingStream.Destroy;
+begin
+  Flush;
   inherited Destroy;
 end;
 
@@ -408,5 +423,52 @@ begin
   raise EStreamError.Create('Invalid stream operation');
 end;
 
+function DecodeStringBase64(const s:string):String;
+
+var 
+  Instream, 
+  Outstream : TStringStream;
+  Decoder   : TBase64DecodingStream;
+begin
+  Instream:=TStringStream.Create(s);
+  try
+    Outstream:=TStringStream.Create('');
+    try 
+      Decoder:=TBase64DecodingStream.Create(Instream,bdmMIME);
+      try
+         Outstream.CopyFrom(Decoder,Decoder.Size);
+         Outstream.Position:=0;
+         Result:=Outstream.ReadString(Outstream.Size);
+      finally
+        Decoder.Free;
+        end;
+    finally 
+     Outstream.Free;
+     end;
+  finally 
+    Instream.Free;
+    end;
+end;
+
+function EncodeStringBase64(const s:string):String;
+
+var
+  Outstream : TStringStream;
+  Encoder   : TBase64EncodingStream;
+begin
+  Outstream:=TStringStream.Create('');
+  try
+    Encoder:=TBase64EncodingStream.create(outstream);
+    try 
+      Encoder.Write(s[1],Length(s));
+    finally 
+      Encoder.Free;
+      end;
+    Outstream.Position:=0;
+    Result:=Outstream.ReadString(Outstream.Size);
+  finally
+    Outstream.free;
+    end;
+end;
 
 end.

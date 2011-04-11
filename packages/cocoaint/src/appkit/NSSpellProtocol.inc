@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSSpellProtocol.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSPELLPROTOCOL_PAS_T}
@@ -40,13 +38,13 @@
 {$define NSSPELLPROTOCOL_PAS_P}
   
 { NSChangeSpelling Protocol }
-  NSChangeSpellingProtocol = objcprotocol
+  NSChangeSpellingProtocol = objcprotocol external name 'NSChangeSpelling'
     procedure changeSpelling(sender: id); message 'changeSpelling:';
-  end; external name 'NSChangeSpelling';
+  end;
   
 { NSIgnoreMisspelledWords Protocol }
-  NSIgnoreMisspelledWordsProtocol = objcprotocol
+  NSIgnoreMisspelledWordsProtocol = objcprotocol external name 'NSIgnoreMisspelledWords'
     procedure ignoreSpelling(sender: id); message 'ignoreSpelling:';
-  end; external name 'NSIgnoreMisspelledWords';
+  end;
 {$endif}
 {$endif}

@@ -1,43 +1,3 @@
-(*
-  $Id: background.inc 25 2007-12-10 21:06:46Z p4p3r0 $
-  ------------------------------------------------------------------------------
-  	Copyright (C) 2005
-  		Jason Rogers (dovoto)
-  		Dave Murphy (WinterMute)
-  	
-  	This software is provided 'as-is', without any express or implied
-  	warranty.  In no event will the authors be held liable for any
-  	damages arising from the use of this software.
-  	
-  	Permission is granted to anyone to use this software for any
-  	purpose, including commercial applications, and to alter it and
-  	redistribute it freely, subject to the following restrictions:
-  	
-  	1.	The origin of this software must not be misrepresented; you
-  		must not claim that you wrote the original software. If you use
-  		this software in a product, an acknowledgment in the product
-  		documentation would be appreciated but is not required.
-  	
-  	2.	Altered source versions must be plainly marked as such, and
-  		must not be misrepresented as being the original software.
-  	
-  	3.	This notice may not be removed or altered from any source
-  		distribution.
-  ------------------------------------------------------------------------------
-    
-    
-  Conversion by Legolas (http://itaprogaming.free.fr) for freepascal compiler
-  (http://www.freepascal.org)
-   
-  Copyright (C) 2006  Francesco Lombardi
-  Check http://sourceforge.net/projects/libndsfpc for updates
-   
-  ------------------------------------------------------------------------------
-
-  $Log$
-
-*)
-
 {$ifdef NDS_INTERFACE}
 type
   bg_scroll = record
@@ -48,10 +8,10 @@ type
   Pbg_scroll = ^bg_scroll;
 
   bg_transform = record
-    xdx: cint16;
-    xdy: cint16;
-    ydx: cint16;
-    ydy: cint16;
+    hdx: cint16;
+    vdx: cint16;
+    hdy: cint16;
+    vdy: cint16;
     dx: cint32;
     dy: cint32;
   end;
@@ -184,7 +144,7 @@ const
   REG_BG1CNT_SUB		: pcuint16 = pointer($400100A);
   REG_BG2CNT_SUB		: pcuint16 = pointer($400100C);
   REG_BG3CNT_SUB		: pcuint16 = pointer($400100E);
-  
+
   REG_BGOFFSETS_SUB	: pcuint16 = pointer($4001010);
   REG_BG0HOFS_SUB		: pcuint16 = pointer($4001010);
   REG_BG0VOFS_SUB		: pcuint16 = pointer($4001012);
@@ -304,6 +264,7 @@ procedure bgShow(id: cint); inline;
 procedure bgHide(id: cint); inline;
 procedure bgSetCenterf(id: cint; x, y: cint32); inline;
 procedure bgSetCenter(id, x, y: cint); inline;
+procedure bgSetAffineMatrixScroll(id, hdx, vdx, hdy, vdy, scrollx, scrolly: cint); inline;
 
 {$endif NDS_INTERFACE}
 
@@ -450,6 +411,7 @@ end;
 
 function bgSetControlBits(id: cint; bits: cuint16): pcuint16; inline;
 begin
+	sassert( (id >= 0) and (id <= 7), 'bgSetControlBits(), id must be the number returned from bgInit or bgInitSub');
   bgControl[id]^ := bgControl[id]^ or bits;
   result := bgControl[id];
 end;  
@@ -541,7 +503,7 @@ end;
 
 function bgGetTileBase(id: cint): cint; inline;
 begin
-  result := (bgControl[id]^ shr TILE_BASE_SHIFT) and 31;
+  result := (bgControl[id]^ shr TILE_BASE_SHIFT) and 15;
 end;
 
 function bgGetMapPtr(id: cint): pcuint16; inline;
@@ -607,5 +569,22 @@ procedure bgSetCenter(id, x, y: cint); inline;
 begin
   bgSetCenterf(id, x shl 8, y shl 8);
 end;
+
+procedure bgSetAffineMatrixScroll(id, hdx, vdx, hdy, vdy, scrollx, scrolly: cint); inline;
+begin
+  sassert(not bgIsText(id), 'Text Backgrounds have no affine matrix and scroll registers.');
+
+  bgTransform[id]^.hdx := hdx;
+  bgTransform[id]^.vdx := vdx;
+  bgTransform[id]^.hdy := hdy;
+  bgTransform[id]^.vdy := vdy;
+  
+  bgTransform[id]^.dx := scrollx;
+  bgTransform[id]^.dy := scrolly;
+  
+  bgState[id].dirty := false;
+end;
+
+
 
 {$endif NDS_IMPLEMENTATION}

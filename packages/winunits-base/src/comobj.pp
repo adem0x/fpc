@@ -28,6 +28,10 @@ unit comobj;
 
     type
       EOleError = class(Exception);
+     
+      // apparantly used by axctrls.
+      // http://lazarus.freepascal.org/index.php/topic,11612.0.html
+      TConnectEvent = procedure(const Sink: IUnknown; Connecting: Boolean) of object;
 
       EOleSysError = class(EOleError)
       private
@@ -113,7 +117,7 @@ unit comobj;
         function IUnknown._Release = ObjRelease;
 
         { IUnknown methods for other interfaces }
-        function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
+        function QueryInterface(constref IID: TGUID; out Obj): HResult; stdcall;
         function _AddRef: Integer; stdcall;
         function _Release: Integer; stdcall;
 
@@ -126,7 +130,7 @@ unit comobj;
         destructor Destroy; override;
         procedure Initialize; virtual;
         function ObjAddRef: Integer; virtual; stdcall;
-        function ObjQueryInterface(const IID: TGUID; out Obj): HResult; virtual; stdcall;
+        function ObjQueryInterface(constref IID: TGUID; out Obj): HResult; virtual; stdcall;
         function ObjRelease: Integer; virtual; stdcall;
         function SafeCallException(ExceptObject: TObject; ExceptAddr: Pointer): HResult; override;
         property Controller: IUnknown read GetController;
@@ -161,7 +165,7 @@ unit comobj;
         function GetProgID: string;
       protected
         { IUnknown }
-        function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
+        function QueryInterface(constref IID: TGUID; out Obj): HResult; stdcall;
         function _AddRef: Integer; stdcall;
         function _Release: Integer; stdcall;
         { IClassFactory }
@@ -692,7 +696,7 @@ implementation
       end;
 
 
-    function TComObject.QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
+    function TComObject.QueryInterface(constref IID: TGUID; out Obj): HResult; stdcall;
       begin
         if assigned(FController) then
           Result:=IUnknown(FController).QueryInterface(IID,Obj)
@@ -778,7 +782,7 @@ implementation
       end;
 
 
-    function TComObject.ObjQueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
+    function TComObject.ObjQueryInterface(constref IID: TGUID; out Obj): HResult; stdcall;
       begin
         if GetInterface(IID,Obj) then
           Result:=S_OK
@@ -823,7 +827,7 @@ implementation
       end;
 
 
-    function TComObjectFactory.QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
+    function TComObjectFactory.QueryInterface(constref IID: TGUID; out Obj): HResult; stdcall;
       begin
         if GetInterface(IID,Obj) then
           Result:=S_OK
@@ -1085,10 +1089,17 @@ HKCR
           for i:=0 to CallDesc^.ArgCount-1 do
             begin
 {$ifdef DEBUG_COMDISPATCH}
-              writeln('DispatchInvoke: Params = ',hexstr(PtrInt(Params),SizeOf(Pointer)*2));
+              writeln('DispatchInvoke: Params = ',hexstr(Params));
 {$endif DEBUG_COMDISPATCH}
               { get plain type }
               CurrType:=CallDesc^.ArgTypes[i] and $3f;
+              { a skipped parameter? Don't increment Params pointer if so. }
+              if CurrType=varError then
+                begin
+                  Arguments[i].vType:=varError;
+                  Arguments[i].vError:=DISP_E_PARAMNOTFOUND;
+                  continue;
+                end;
               { by reference? }
               if (CallDesc^.ArgTypes[i] and $80)<>0 then
                 begin
@@ -1138,7 +1149,7 @@ HKCR
                       end;
                   end
                 end
-              else
+              else   { by-value argument }
                 case CurrType of
                   varStrArg:
                     begin
@@ -1156,18 +1167,24 @@ HKCR
                   varVariant:
                     begin
 {$ifdef DEBUG_COMDISPATCH}
-                      writeln('Unimplemented variant dispatch');
+                      writeln('By-value Variant, making a copy');
 {$endif DEBUG_COMDISPATCH}
+                      { Codegen always passes a pointer to variant,
+                       *unlike* Delphi which pushes the entire TVarData }
+                      Arguments[i]:=PVarData(PPointer(Params)^)^;
+                      Inc(PPointer(Params));
                     end;
                   varCurrency,
                   varDouble,
-                  VarDate:
+                  varInt64,
+                  varQWord,
+                  varDate:
                     begin
 {$ifdef DEBUG_COMDISPATCH}
-                      writeln('Got 8 byte float argument');
+                      writeln('Got 8 byte argument');
 {$endif DEBUG_COMDISPATCH}
                       Arguments[i].VType:=CurrType;
-                      move(PPointer(Params)^,Arguments[i].VDouble,sizeof(Double));
+                      Arguments[i].VDouble:=PDouble(Params)^;
                       inc(PDouble(Params));
                     end;
                   else
@@ -1334,7 +1351,7 @@ HKCR
         flags : WORD;
         invokeresult : HRESULT;
         preallocateddata : array[0..15] of TVarData;
-        Arguments : ^TVarData;
+        Arguments : PVarData;
         CurrType, i : byte;
         dispidNamed: dispid;
       begin
@@ -1349,7 +1366,7 @@ HKCR
           for i:=0 to desc^.CallDesc.ArgCount-1 do
             begin
   {$ifdef DEBUG_DISPATCH}
-              writeln('DoDispCallByID: Params = ',hexstr(PtrInt(Params),SizeOf(Pointer)*2));
+              writeln('DoDispCallByID: Params = ',hexstr(Params));
   {$endif DEBUG_DISPATCH}
               { get plain type }
               CurrType:=desc^.CallDesc.ArgTypes[i] and $3f;
@@ -1367,24 +1384,27 @@ HKCR
               else
                 begin
   {$ifdef DEBUG_DISPATCH}
-                  writeln('DispatchInvoke: Got ref argument with type = ',CurrType);
+                  writeln('DispatchInvoke: Got value argument with type = ',CurrType);
   {$endif DEBUG_DISPATCH}
                   case CurrType of
                     varVariant:
                       begin
-                        Arguments[i].VType:=CurrType;
-                        move(PVarData(Params)^,Arguments[i],sizeof(TVarData));
-                        inc(PVarData(Params));
+                       { Codegen always passes a pointer to variant,
+                         *unlike* Delphi which pushes the entire TVarData }
+                        Arguments[i]:=PVarData(PPointer(Params)^)^;
+                        inc(PPointer(Params));
                       end;
                     varCurrency,
                     varDouble,
-                    VarDate:
+                    varInt64,
+                    varQWord,
+                    varDate:
                       begin
   {$ifdef DEBUG_DISPATCH}
-                        writeln('DispatchInvoke: Got 8 byte float argument');
+                        writeln('DispatchInvoke: Got 8 byte argument');
   {$endif DEBUG_DISPATCH}
                         Arguments[i].VType:=CurrType;
-                        move(PPointer(Params)^,Arguments[i].VDouble,sizeof(Double));
+                        Arguments[i].VDouble:=PDouble(Params)^;
                         inc(PDouble(Params));
                       end;
                   else

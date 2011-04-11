@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSDatePickerCell.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:08 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSDATEPICKERCELL_PAS_T}
@@ -28,8 +26,11 @@ const
 { Types }
 type
   NSDatePickerStyle = NSUInteger;
+  NSDatePickerStylePtr = ^NSDatePickerStyle;
   NSDatePickerMode = NSUInteger;
+  NSDatePickerModePtr = ^NSDatePickerMode;
   NSDatePickerElementFlags = NSUInteger;
+  NSDatePickerElementFlagsPtr = ^NSDatePickerElementFlags;
 
 {$endif}
 {$endif}
@@ -56,8 +57,10 @@ type
 {$endif}
 
 {$ifdef FORWARD}
+  NSDatePickerCellDelegateProtocol = objcprotocol;
   NSDatePickerCell = objcclass;
   NSDatePickerCellPointer = ^NSDatePickerCell;
+  NSDatePickerCellPtr = NSDatePickerCellPointer;
 
 {$endif}
 
@@ -66,38 +69,40 @@ type
 {$define NSDATEPICKERCELL_PAS_C}
 
 { NSDatePickerCell }
-  NSDatePickerCell = objcclass(NSActionCell)
+  NSDatePickerCell = objcclass external (NSActionCell)
   private
-    __timeInterval: NSTimeInterval;
-    __minDate: NSDate;
-    __maxDate: NSDate;
+    _timeInterval: NSTimeInterval;
+    _minDate: NSDate;
+    _maxDate: NSDate;
     __dcFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSDatePickerCell0: cuint);
+       1: (
         elements: 0..((1 shl 16)-1);
         controlStyle: 0..((1 shl 3)-1);
         controlMode: 0..((1 shl 2)-1);
         trackingHand: 0..((1 shl 2)-1);
         reserved2: 0..((1 shl 4)-1);
-        drawsBackground: 0..1;
+        _drawsBackground: 0..1;
         digitsEntered: 0..((1 shl 2)-1);
         forcesLeadingZeroes: 0..1;
         wrapsDateComponentArithmetic: 0..1;
+      );
       end;
-    __delegate: id;
-    __calendar: NSCalendar;
-    __locale: NSLocale;
-    __timeZone: NSTimeZone;
-    __backgroundColor: NSColor;
-    __textColor: NSColor;
-    __indexOfSelectedSubfield: cint;
-    __reserved0: cint;
-    __reserved1: id;
-    __reserved2: id;
-    __reserved3: id;
-    __reserved4: id;
+    _delegate: id;
+    _calendar: NSCalendar;
+    _locale: NSLocale;
+    _timeZone: NSTimeZone;
+    _backgroundColor: NSColor;
+    _textColor: NSColor;
+    _indexOfSelectedSubfield: cint;
+    _reserved0: cint;
+    _reserved1: id;
+    _reserved2: id;
+    _reserved3: id;
+    _reserved4: id;
     
   public
-    class function alloc: NSDatePickerCell; message 'alloc';
-
     function datePickerStyle: NSDatePickerStyle; message 'datePickerStyle';
     procedure setDatePickerStyle(newStyle: NSDatePickerStyle); message 'setDatePickerStyle:';
     function drawsBackground: Boolean; message 'drawsBackground';
@@ -124,9 +129,20 @@ type
     procedure setMinDate(date: NSDate); message 'setMinDate:';
     function maxDate: NSDate; message 'maxDate';
     procedure setMaxDate(date: NSDate); message 'setMaxDate:';
-    function delegate: id; message 'delegate';
-    procedure setDelegate(anObject: id); message 'setDelegate:';
-  end; external;
+    function delegate: NSDatePickerCellDelegateProtocol; message 'delegate';
+    procedure setDelegate(anObject: NSDatePickerCellDelegateProtocol); message 'setDelegate:';
+  end;
 
+{$endif}
+{$endif}
+{$ifdef PROTOCOLS}
+{$ifndef NSDATEPICKERCELL_PAS_P}
+{$define NSDATEPICKERCELL_PAS_P}
+  
+{ NSDatePickerCellDelegate Protocol }
+  NSDatePickerCellDelegateProtocol = objcprotocol external name 'NSDatePickerCellDelegate'
+  optional
+    procedure datePickerCell_validateProposedDateValue_timeInterval(aDatePickerCell: NSDatePickerCell; proposedDateValue: NSDatePointer; proposedTimeInterval: NSTimeIntervalPtr); message 'datePickerCell:validateProposedDateValue:timeInterval:';
+  end;
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLUListElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLULISTELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLUListElement = objcclass;
   DOMHTMLUListElementPointer = ^DOMHTMLUListElement;
+  DOMHTMLUListElementPtr = DOMHTMLUListElementPointer;
 
 {$endif}
 
@@ -41,14 +40,14 @@
 {$define DOMHTMLULISTELEMENT_PAS_C}
 
 { DOMHTMLUListElement }
-  DOMHTMLUListElement = objcclass(DOMHTMLElement)
+  DOMHTMLUListElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLUListElement; message 'alloc';
-
+    procedure setCompact (newValue: Boolean); message 'setCompact:';
+    function compact: Boolean; message 'compact';
     procedure setType (newValue: NSString); message 'setType:';
     function type_: NSString; message 'type_';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

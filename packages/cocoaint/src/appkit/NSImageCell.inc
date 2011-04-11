@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSImageCell.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSIMAGECELL_PAS_T}
@@ -10,26 +8,28 @@
 
 const
   NSImageAlignCenter = 0;
-  NSImageAlignTop = 0;
-  NSImageAlignTopLeft = 1;
-  NSImageAlignTopRight = 2;
-  NSImageAlignLeft = 3;
-  NSImageAlignBottom = 4;
-  NSImageAlignBottomLeft = 5;
-  NSImageAlignBottomRight = 6;
-  NSImageAlignRight = 7;
+  NSImageAlignTop = 1;
+  NSImageAlignTopLeft = 2;
+  NSImageAlignTopRight = 3;
+  NSImageAlignLeft = 4;
+  NSImageAlignBottom = 5;
+  NSImageAlignBottomLeft = 6;
+  NSImageAlignBottomRight = 7;
+  NSImageAlignRight = 8;
 
 const
   NSImageFrameNone = 0;
-  NSImageFramePhoto = 0;
-  NSImageFrameGrayBezel = 1;
-  NSImageFrameGroove = 2;
-  NSImageFrameButton = 3;
+  NSImageFramePhoto = 1;
+  NSImageFrameGrayBezel = 2;
+  NSImageFrameGroove = 3;
+  NSImageFrameButton = 4;
 
 { Types }
 type
   NSImageAlignment = NSUInteger;
+  NSImageAlignmentPtr = ^NSImageAlignment;
   NSImageFrameStyle = NSUInteger;
+  NSImageFrameStylePtr = ^NSImageFrameStyle;
 
 {$endif}
 {$endif}
@@ -58,6 +58,7 @@ type
 {$ifdef FORWARD}
   NSImageCell = objcclass;
   NSImageCellPointer = ^NSImageCell;
+  NSImageCellPtr = NSImageCellPointer;
 
 {$endif}
 
@@ -66,29 +67,36 @@ type
 {$define NSIMAGECELL_PAS_C}
 
 { NSImageCell }
-  NSImageCell = objcclass(NSCell, NSCopyingProtocol, NSCodingProtocol)
+  NSImageCell = objcclass external (NSCell, NSCopyingProtocol, NSCodingProtocol)
   private
-    __controlView: id;
+    _controlView: id;
     __icFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSImageCell0: cuint);
+       1: (
         _unused: 0..((1 shl 22)-1);
         _animates: 0..1;
         _align: 0..((1 shl 4)-1);
         _scale: 0..((1 shl 2)-1);
         _style: 0..((1 shl 3)-1);
+      );
       end;
-    __animationState: _NSImageCellAnimationState;
-    __scaledImage: NSImage;
+    __animationState: Pointer;
+    _scaledImage: NSImage;
     
   public
-    class function alloc: NSImageCell; message 'alloc';
-
     function imageAlignment: NSImageAlignment; message 'imageAlignment';
     procedure setImageAlignment(newAlign: NSImageAlignment); message 'setImageAlignment:';
     function imageScaling: NSImageScaling; message 'imageScaling';
     procedure setImageScaling(newScaling: NSImageScaling); message 'setImageScaling:';
     function imageFrameStyle: NSImageFrameStyle; message 'imageFrameStyle';
     procedure setImageFrameStyle(newStyle: NSImageFrameStyle); message 'setImageFrameStyle:';
-  end; external;
+
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
 
 {$endif}
 {$endif}

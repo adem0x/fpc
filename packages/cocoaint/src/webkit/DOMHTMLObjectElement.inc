@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLObjectElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLOBJECTELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLObjectElement = objcclass;
   DOMHTMLObjectElementPointer = ^DOMHTMLObjectElement;
+  DOMHTMLObjectElementPtr = DOMHTMLObjectElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLOBJECTELEMENT_PAS_C}
 
 { DOMHTMLObjectElement }
-  DOMHTMLObjectElement = objcclass(DOMHTMLElement)
+  DOMHTMLObjectElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLObjectElement; message 'alloc';
-
     function form: DOMHTMLFormElement; message 'form';
     procedure setCode (newValue: NSString); message 'setCode:';
     function code: NSString; message 'code';
@@ -61,8 +58,12 @@
     function codeType: NSString; message 'codeType';
     procedure setData (newValue: NSString); message 'setData:';
     function data: NSString; message 'data';
+    procedure setDeclare (newValue: Boolean); message 'setDeclare:';
+    function declare: Boolean; message 'declare';
     procedure setHeight (newValue: NSString); message 'setHeight:';
     function height: NSString; message 'height';
+    procedure setHspace (newValue: cint); message 'setHspace:';
+    function hspace: cint; message 'hspace';
     procedure setName (newValue: NSString); message 'setName:';
     function name: NSString; message 'name';
     procedure setStandby (newValue: NSString); message 'setStandby:';
@@ -71,11 +72,13 @@
     function type_: NSString; message 'type_';
     procedure setUseMap (newValue: NSString); message 'setUseMap:';
     function useMap: NSString; message 'useMap';
+    procedure setVspace (newValue: cint); message 'setVspace:';
+    function vspace: cint; message 'vspace';
     procedure setWidth (newValue: NSString); message 'setWidth:';
     function width: NSString; message 'width';
     function contentDocument: DOMDocument; message 'contentDocument';
     function absoluteImageURL: NSURL; message 'absoluteImageURL';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

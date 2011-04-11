@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSRuleEditor.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:08 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSRULEEDITOR_PAS_T}
@@ -21,7 +19,9 @@ const
 { Types }
 type
   NSRuleEditorNestingMode = NSUInteger;
+  NSRuleEditorNestingModePtr = ^NSRuleEditorNestingMode;
   NSRuleEditorRowType = NSUInteger;
+  NSRuleEditorRowTypePtr = ^NSRuleEditorRowType;
 
 {$endif}
 {$endif}
@@ -46,21 +46,23 @@ type
 
 { External string constants }
 var
-  NSRuleEditorPredicateLeftExpression: NSString; external name '_NSRuleEditorPredicateLeftExpression';
-  NSRuleEditorPredicateRightExpression: NSString; external name '_NSRuleEditorPredicateRightExpression';
-  NSRuleEditorPredicateComparisonModifier: NSString; external name '_NSRuleEditorPredicateComparisonModifier';
-  NSRuleEditorPredicateOptions: NSString; external name '_NSRuleEditorPredicateOptions';
-  NSRuleEditorPredicateOperatorType: NSString; external name '_NSRuleEditorPredicateOperatorType';
-  NSRuleEditorPredicateCustomSelector: NSString; external name '_NSRuleEditorPredicateCustomSelector';
-  NSRuleEditorPredicateCompoundType: NSString; external name '_NSRuleEditorPredicateCompoundType';
-  NSRuleEditorRowsDidChangeNotification: NSString; external name '_NSRuleEditorRowsDidChangeNotification';
+  NSRuleEditorPredicateLeftExpression: NSString; cvar; external;
+  NSRuleEditorPredicateRightExpression: NSString; cvar; external;
+  NSRuleEditorPredicateComparisonModifier: NSString; cvar; external;
+  NSRuleEditorPredicateOptions: NSString; cvar; external;
+  NSRuleEditorPredicateOperatorType: NSString; cvar; external;
+  NSRuleEditorPredicateCustomSelector: NSString; cvar; external;
+  NSRuleEditorPredicateCompoundType: NSString; cvar; external;
+  NSRuleEditorRowsDidChangeNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
 
 {$ifdef FORWARD}
+  NSRuleEditorDelegateProtocol = objcprotocol;
   NSRuleEditor = objcclass;
   NSRuleEditorPointer = ^NSRuleEditor;
+  NSRuleEditorPtr = NSRuleEditorPointer;
 
 {$endif}
 
@@ -69,26 +71,29 @@ var
 {$define NSRULEEDITOR_PAS_C}
 
 { NSRuleEditor }
-  NSRuleEditor = objcclass(NSControl)
+  NSRuleEditor = objcclass external (NSControl)
   private
-    __ruleDataSource: id;
-    __ruleDelegate: id;
-    __draggingRows: NSIndexSet;
-    __rowCache: NSMutableArray;
-    __slicesHolder: NSView;
-    __slices: NSMutableArray;
-    __sliceHeight: CGFloat;
-    __alignmentGridWidth: CGFloat;
-    __subviewIndexOfDropLine: NSInteger;
-    __dropLineView: id;
-    __currentAnimation: NSViewAnimation;
-    __frameTimer: NSTimer;
-    __stringsFileName: NSString;
-    __standardLocalizer: id;
-    __headerLocalizer: id;
-    __predicate: NSPredicate;
-    __nestingMode: NSInteger;
+    _ruleDataSource: id;
+    _ruleDelegate: id;
+    _draggingRows: NSIndexSet;
+    _rowCache: NSMutableArray;
+    _slicesHolder: NSView;
+    _slices: NSMutableArray;
+    _sliceHeight: CGFloat;
+    _alignmentGridWidth: CGFloat;
+    _subviewIndexOfDropLine: NSInteger;
+    _dropLineView: id;
+    _currentAnimation: NSViewAnimation;
+    _frameTimer: NSTimer;
+    _stringsFileName: NSString;
+    _standardLocalizer: id;
+    _headerLocalizer: id;
+    _predicate: NSPredicate;
+    _nestingMode: NSInteger;
     __ruleEditorFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSRuleEditor0: cuint);
+       1: (
         elideUpdating: 0..1;
         lastAlternateKeyValue: 0..1;
         extendedDelegateCalls: 0..1;
@@ -102,23 +107,22 @@ var
         allowsEmptyCompoundRows: 0..1;
         dropChangedRowCount: 0..1;
         reserved: 0..((1 shl 20)-1);
+      );
       end;
-    __typeKeyPath: NSString;
-    __itemsKeyPath: NSString;
-    __valuesKeyPath: NSString;
-    __subrowsArrayKeyPath: NSString;
-    __rowClass: Pobjc_class;
-    __boundArrayOwner: id;
-    __boundArrayKeyPath: NSString;
-    __ruleReserved1: id;
-    __lastRow: NSInteger;
-    __ruleReserved2: id;
+    _typeKeyPath: NSString;
+    _itemsKeyPath: NSString;
+    _valuesKeyPath: NSString;
+    _subrowsArrayKeyPath: NSString;
+    _rowClass: Pobjc_class;
+    _boundArrayOwner: id;
+    _boundArrayKeyPath: NSString;
+    _ruleReserved1: id;
+    _lastRow: NSInteger;
+    _ruleReserved2: id;
     
   public
-    class function alloc: NSRuleEditor; message 'alloc';
-
-    procedure setDelegate(_delegate: id); message 'setDelegate:';
-    function delegate: id; message 'delegate';
+    procedure setDelegate(delegate_: NSRuleEditorDelegateProtocol); message 'setDelegate:';
+    function delegate: NSRuleEditorDelegateProtocol; message 'delegate';
     procedure setFormattingStringsFilename(stringsFilename: NSString); message 'setFormattingStringsFilename:';
     function formattingStringsFilename: NSString; message 'formattingStringsFilename';
     procedure setFormattingDictionary(dictionary: NSDictionary); message 'setFormattingDictionary:';
@@ -159,7 +163,23 @@ var
     function criteriaKeyPath: NSString; message 'criteriaKeyPath';
     procedure setDisplayValuesKeyPath(keyPath: NSString); message 'setDisplayValuesKeyPath:';
     function displayValuesKeyPath: NSString; message 'displayValuesKeyPath';
-  end; external;
+  end;
 
+{$endif}
+{$endif}
+{$ifdef PROTOCOLS}
+{$ifndef NSRULEEDITOR_PAS_P}
+{$define NSRULEEDITOR_PAS_P}
+  
+{ NSRuleEditorDelegate Protocol }
+  NSRuleEditorDelegateProtocol = objcprotocol external name 'NSRuleEditorDelegate'
+  required
+    function ruleEditor_numberOfChildrenForCriterion_withRowType(editor: NSRuleEditor; criterion: id; rowType: NSRuleEditorRowType): NSInteger; message 'ruleEditor:numberOfChildrenForCriterion:withRowType:';
+    function ruleEditor_child_forCriterion_withRowType(editor: NSRuleEditor; index: NSInteger; criterion: id; rowType: NSRuleEditorRowType): id; message 'ruleEditor:child:forCriterion:withRowType:';
+    function ruleEditor_displayValueForCriterion_inRow(editor: NSRuleEditor; criterion: id; row: NSInteger): id; message 'ruleEditor:displayValueForCriterion:inRow:';
+  optional
+    function ruleEditor_predicatePartsForCriterion_withDisplayValue_inRow(editor: NSRuleEditor; criterion: id; value: id; row: NSInteger): NSDictionary; message 'ruleEditor:predicatePartsForCriterion:withDisplayValue:inRow:';
+    procedure ruleEditorRowsDidChange(notification: NSNotification); message 'ruleEditorRowsDidChange:';
+  end;
 {$endif}
 {$endif}

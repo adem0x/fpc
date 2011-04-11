@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSColorList.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCOLORLIST_PAS_T}
@@ -29,7 +27,7 @@
 
 { External string constants }
 var
-  NSColorListDidChangeNotification: NSString; external name '_NSColorListDidChangeNotification';
+  NSColorListDidChangeNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -37,6 +35,7 @@ var
 {$ifdef FORWARD}
   NSColorList = objcclass;
   NSColorListPointer = ^NSColorList;
+  NSColorListPtr = NSColorListPointer;
 
 {$endif}
 
@@ -45,15 +44,18 @@ var
 {$define NSCOLORLIST_PAS_C}
 
 { NSColorList }
-  NSColorList = objcclass(NSObject, NSCodingProtocol)
+  NSColorList = objcclass external (NSObject, NSCodingProtocol)
   private
-    __keyArray: NSMutableArray;
-    __colorArray: NSMutableArray;
-    __keyToIndexTable: CFMutableDictionaryRef;
-    __name: NSString;
-    __printerType: NSString;
-    __fileName: NSString;
+    _keyArray: NSMutableArray;
+    _colorArray: NSMutableArray;
+    _keyToIndexTable: CFMutableDictionaryRef;
+    _name: NSString;
+    _printerType: NSString;
+    _fileName: NSString;
     __flags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSColorList2: cuint);
+       1: (
         colorsLoaded: 0..1;
         editable: 0..1;
         hasDeviceSpecificLists: 0..1;
@@ -62,16 +64,15 @@ var
         notificationsDisabled: 0..1;
         hasAttemptedLoadingBundleForDirectory: 0..1;
         isProfileBased: 0..1;
-        int: 0..((1 shl 24)-1);
+        _anonbitfield_NSColorList0: 0..((1 shl 24)-1);
         {$ifdef cpu64}
-        int2: 0..((1 shl 32)-1);
+        _anonbitfield_NSColorList1: 0..((1 shl 32)-1);
         {$endif}
+      );
       end;
-    __clAuxiliaryStorage: id;
+    _clAuxiliaryStorage: id;
     
   public
-    class function alloc: NSColorList; message 'alloc';
-
     class function availableColorLists: NSArray; message 'availableColorLists';
     class function colorListNamed(name_: NSString): NSColorList; message 'colorListNamed:';
     function initWithName(name_: NSString): id; message 'initWithName:';
@@ -85,7 +86,11 @@ var
     function isEditable: Boolean; message 'isEditable';
     function writeToFile(path: NSString): Boolean; message 'writeToFile:';
     procedure removeFile; message 'removeFile';
-  end; external;
+
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
 
 {$endif}
 {$endif}

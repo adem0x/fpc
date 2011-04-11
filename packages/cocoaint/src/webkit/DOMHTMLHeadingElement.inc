@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLHeadingElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLHEADINGELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLHeadingElement = objcclass;
   DOMHTMLHeadingElementPointer = ^DOMHTMLHeadingElement;
+  DOMHTMLHeadingElementPtr = DOMHTMLHeadingElementPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMHTMLHEADINGELEMENT_PAS_C}
 
 { DOMHTMLHeadingElement }
-  DOMHTMLHeadingElement = objcclass(DOMHTMLElement)
+  DOMHTMLHeadingElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLHeadingElement; message 'alloc';
-
     procedure setAlign (newValue: NSString); message 'setAlign:';
     function align: NSString; message 'align';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

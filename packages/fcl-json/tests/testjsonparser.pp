@@ -135,7 +135,7 @@ Var
   J : TJSONData;
 
 begin
-  P:=TJSONParser.Create('True');
+  P:=TJSONParser.Create('true');
   Try
     J:=P.Parse;
     If (J=Nil) then
@@ -155,7 +155,7 @@ Var
   J : TJSONData;
 
 begin
-  P:=TJSONParser.Create('False');
+  P:=TJSONParser.Create('false');
   Try
     J:=P.Parse;
     If (J=Nil) then
@@ -209,9 +209,9 @@ begin
   DoTestArray('[1234567890123456]',1);
   DoTestArray('[1234567890123456, 2234567890123456]',2);
   DoTestArray('[1234567890123456, 2234567890123456, 3234567890123456]',3);
-  Str(1.2,S1);
-  Str(2.3,S2);
-  Str(3.4,S3);
+  Str(Double(1.2),S1);
+  Str(Double(2.3),S2);
+  Str(Double(3.4),S3);
   DoTestArray('['+S1+']',1);
   DoTestArray('['+S1+', '+S2+']',2);
   DoTestArray('['+S1+', '+S2+', '+S3+']',3);
@@ -339,6 +339,7 @@ Var
 begin
   ParseOK:=False;
   P:=TJSONParser.Create(S);
+  P.Strict:=True;
   J:=Nil;
   Try
     Try

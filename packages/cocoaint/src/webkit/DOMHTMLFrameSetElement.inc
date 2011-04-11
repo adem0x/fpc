@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLFrameSetElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLFRAMESETELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLFrameSetElement = objcclass;
   DOMHTMLFrameSetElementPointer = ^DOMHTMLFrameSetElement;
+  DOMHTMLFrameSetElementPtr = DOMHTMLFrameSetElementPointer;
 
 {$endif}
 
@@ -41,16 +40,14 @@
 {$define DOMHTMLFRAMESETELEMENT_PAS_C}
 
 { DOMHTMLFrameSetElement }
-  DOMHTMLFrameSetElement = objcclass(DOMHTMLElement)
+  DOMHTMLFrameSetElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLFrameSetElement; message 'alloc';
-
     procedure setCols (newValue: NSString); message 'setCols:';
     function cols: NSString; message 'cols';
     procedure setRows (newValue: NSString); message 'setRows:';
     function rows: NSString; message 'rows';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

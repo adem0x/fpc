@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSClipView.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCLIPVIEW_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSClipView = objcclass;
   NSClipViewPointer = ^NSClipView;
+  NSClipViewPtr = NSClipViewPointer;
 
 {$endif}
 
@@ -41,22 +40,25 @@
 {$define NSCLIPVIEW_PAS_C}
 
 { NSClipView }
-  NSClipView = objcclass(NSView)
+  NSClipView = objcclass external (NSView)
   private
-    __backgroundColor: NSColor;
-    __docView: NSView;
-    __docRect: NSRect;
-    __oldDocFrame: NSRect;
-    __cursor: NSCursor;
-    __scrollAnimationHelper: id;
+    _backgroundColor: NSColor;
+    _docView: NSView;
+    _docRect: NSRect;
+    _oldDocFrame: NSRect;
+    _cursor: NSCursor;
+    _scrollAnimationHelper: id;
     __cvFlags: bitpacked record
-        isFlipped: 0..1;
+      case byte of
+       0: (_anonbitfield_NSClipView0: cuint);
+       1: (
+        _isFlipped: 0..1;
         onlyUncovered: 0..1;
         reflectScroll: 0..1;
         usedByCell: 0..1;
         scrollClipTo: 0..1;
         noCopyOnScroll: 0..1;
-        drawsBackground: 0..1;
+        _drawsBackground: 0..1;
         scrollInProgress: 0..1;
         skipRemoveSuperviewCheck: 0..1;
         animateCurrentScroll: 0..1;
@@ -65,12 +67,12 @@
         viewBoundsChangedOverridden: 0..1;
         viewFrameChangedOverridden: 0..1;
         documentViewAlignment: 0..((1 shl 4)-1);
-        RESERVED: 0..((1 shl 14)-1);
+        redrawnWhileScrolling: 0..1;
+        RESERVED: 0..((1 shl 13)-1);
+      );
       end;
     
   public
-    class function alloc: NSClipView; message 'alloc';
-
     procedure setBackgroundColor(color: NSColor); message 'setBackgroundColor:';
     function backgroundColor: NSColor; message 'backgroundColor';
     procedure setDrawsBackground(flag: Boolean); message 'setDrawsBackground:';
@@ -88,7 +90,13 @@
     function autoscroll(theEvent: NSEvent): Boolean; message 'autoscroll:';
     function constrainScrollPoint(newOrigin: NSPoint): NSPoint; message 'constrainScrollPoint:';
     procedure scrollToPoint(newOrigin: NSPoint); message 'scrollToPoint:';
-  end; external;
+  end;
+
+{ NSClipViewSuperviewCategory }
+  NSClipViewSuperviewCategory = objccategory external (NSView)
+    procedure reflectScrolledClipView(aClipView: NSClipView); message 'reflectScrolledClipView:';
+    procedure scrollClipView_toPoint(aClipView: NSClipView; aPoint: NSPoint); message 'scrollClipView:toPoint:';
+  end;
 
 {$endif}
 {$endif}

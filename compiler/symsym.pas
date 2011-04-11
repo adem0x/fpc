@@ -58,6 +58,9 @@ interface
             be a tnode }
           code : pointer;
 
+          { points to the jump buffer }
+          jumpbuf : tstoredsym;
+
           { when the label is defined in an asm block, this points to the
             generated asmlabel }
           asmblocklabel : tasmlabel;
@@ -102,7 +105,7 @@ interface
           function find_procdef_byoptions(ops:tprocoptions): Tprocdef;
           function find_procdef_byprocvardef(d:Tprocvardef):Tprocdef;
           function find_procdef_assignment_operator(fromdef,todef:tdef;var besteq:tequaltype):Tprocdef;
-          function find_procdef_enumerator_operator(typedef:tdef;var besteq:tequaltype):Tprocdef;
+          function find_procdef_enumerator_operator(fromdef,todef:tdef;var besteq:tequaltype):Tprocdef;
           property ProcdefList:TFPObjectList read FProcdefList;
        end;
 
@@ -133,7 +136,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderef;override;
           procedure deref;override;
-          function  getsize : aint;
+          function  getsize : asizeint;
           function  getpackedbitsize : longint;
           function  is_regvar(refpara: boolean):boolean;
           procedure trigger_notifications(what:Tnotification_flag);
@@ -150,7 +153,7 @@ interface
       end;
 
       tfieldvarsym = class(tabstractvarsym)
-          fieldoffset   : aint;   { offset in record/object }
+          fieldoffset   : asizeint;   { offset in record/object }
           objcoffsetmangledname: pshortstring; { mangled name of offset, calculated as needed }
           constructor create(const n : string;vsp:tvarspez;def:tdef;vopts:tvaroptions);
           constructor ppuload(ppufile:tcompilerppufile);
@@ -197,6 +200,7 @@ interface
       private
           _mangledname : pshortstring;
       public
+          section : ansistring;
           constructor create(const n : string;vsp:tvarspez;def:tdef;vopts:tvaroptions);
           constructor create_dll(const n : string;vsp:tvarspez;def:tdef);
           constructor create_C(const n,mangled : string;vsp:tvarspez;def:tdef);
@@ -230,8 +234,8 @@ interface
 
        tpropertysym = class(Tstoredsym)
           propoptions   : tpropertyoptions;
-          overridenpropsym : tpropertysym;
-          overridenpropsymderef : tderef;
+          overriddenpropsym : tpropertysym;
+          overriddenpropsymderef : tderef;
           propdef       : tdef;
           propdefderef  : tderef;
           indexdef      : tdef;
@@ -243,7 +247,7 @@ interface
           constructor create(const n : string);
           destructor  destroy;override;
           constructor ppuload(ppufile:tcompilerppufile);
-          function  getsize : aint;
+          function  getsize : asizeint;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderef;override;
           procedure deref;override;
@@ -698,7 +702,7 @@ implementation
           begin
             pd:=tprocdef(ProcdefList[i]);
             eq:=proc_to_procvar_equal(pd,d,false);
-            if eq>=te_equal then
+            if eq>=te_convert_l1 then
               begin
                 { multiple procvars with the same equal level }
                 if assigned(bestpd) and
@@ -726,8 +730,7 @@ implementation
         eq      : tequaltype;
       begin
         { This function will return the pprocdef of pprocsym that
-          is the best match for procvardef. When there are multiple
-          matches it returns nil.}
+          is the best match for fromdef and todef. }
         result:=nil;
         bestpd:=nil;
         besteq:=te_incompatible;
@@ -789,19 +792,19 @@ implementation
         result:=bestpd;
       end;
 
-      function Tprocsym.find_procdef_enumerator_operator(typedef:tdef;var besteq:tequaltype):Tprocdef;
+      function Tprocsym.find_procdef_enumerator_operator(fromdef,todef:tdef;var besteq:tequaltype):Tprocdef;
       var
         paraidx, realparamcount,
         i, j : longint;
         bestpd,
         hpd,
         pd : tprocdef;
+        current : tpropertysym;
         convtyp : tconverttype;
         eq      : tequaltype;
       begin
         { This function will return the pprocdef of pprocsym that
-          is the best match for procvardef. When there are multiple
-          matches it returns nil.}
+          is the best match for fromdef and todef. }
         result:=nil;
         bestpd:=nil;
         besteq:=te_incompatible;
@@ -810,41 +813,59 @@ implementation
             pd:=tprocdef(ProcdefList[i]);
             if (pd.owner.symtabletype=staticsymtable) and not pd.owner.iscurrentunit then
               continue;
-            paraidx:=0;
-            { ignore vs_hidden parameters }
-            while (paraidx<pd.paras.count) and
-                  assigned(pd.paras[paraidx]) and
-                  (vo_is_hidden_para in tparavarsym(pd.paras[paraidx]).varoptions) do
-              inc(paraidx);
-            realparamcount:=0;
-            for j := 0 to pd.paras.Count-1 do
-              if assigned(pd.paras[j]) and not (vo_is_hidden_para in tparavarsym(pd.paras[j]).varoptions) then
-                inc(realparamcount);
-            if (paraidx<pd.paras.count) and
-               assigned(pd.paras[paraidx]) and
-               (realparamcount = 1) and
-               is_class_or_interface_or_object(pd.returndef)  then
+            if not (is_class_or_interface_or_object(pd.returndef) or is_record(pd.returndef)) then
+              continue;
+            current := tpropertysym(tabstractrecorddef(pd.returndef).search_enumerator_current);
+            if (current = nil) then
+              continue;
+            // compare current result def with the todef
+            if (equal_defs(todef, current.propdef) or
+                { shortstrings of different lengths are ok as result }
+                (is_shortstring(todef) and is_shortstring(current.propdef))) and
+               { the result type must be always really equal and not an alias,
+                 if you mess with this code, check tw4093 }
+               ((todef=current.propdef) or
+                (
+                  not(df_unique in todef.defoptions) and
+                  not(df_unique in current.propdef.defoptions)
+                )
+               ) then
               begin
-                eq:=compare_defs_ext(typedef,tparavarsym(pd.paras[paraidx]).vardef,nothingn,convtyp,hpd,[]);
-
-                { alias? if yes, only l1 choice,
-                  if you mess with this code, check tw4093 }
-                if (eq=te_exact) and
-                   (typedef<>tparavarsym(pd.paras[paraidx]).vardef) and
-                   ((df_unique in typedef.defoptions) or
-                   (df_unique in tparavarsym(pd.paras[paraidx]).vardef.defoptions)) then
-                  eq:=te_convert_l1;
-
-                if eq=te_exact then
+                paraidx:=0;
+                { ignore vs_hidden parameters }
+                while (paraidx<pd.paras.count) and
+                      assigned(pd.paras[paraidx]) and
+                      (vo_is_hidden_para in tparavarsym(pd.paras[paraidx]).varoptions) do
+                  inc(paraidx);
+                realparamcount:=0;
+                for j := 0 to pd.paras.Count-1 do
+                  if assigned(pd.paras[j]) and not (vo_is_hidden_para in tparavarsym(pd.paras[j]).varoptions) then
+                    inc(realparamcount);
+                if (paraidx<pd.paras.count) and
+                   assigned(pd.paras[paraidx]) and
+                   (realparamcount = 1) then
                   begin
-                    besteq:=eq;
-                    result:=pd;
-                    exit;
-                  end;
-                if eq>besteq then
-                  begin
-                    bestpd:=pd;
-                    besteq:=eq;
+                    eq:=compare_defs_ext(fromdef,tparavarsym(pd.paras[paraidx]).vardef,nothingn,convtyp,hpd,[]);
+
+                    { alias? if yes, only l1 choice,
+                      if you mess with this code, check tw4093 }
+                    if (eq=te_exact) and
+                       (fromdef<>tparavarsym(pd.paras[paraidx]).vardef) and
+                       ((df_unique in fromdef.defoptions) or
+                       (df_unique in tparavarsym(pd.paras[paraidx]).vardef.defoptions)) then
+                      eq:=te_convert_l1;
+
+                    if eq=te_exact then
+                      begin
+                        besteq:=eq;
+                        result:=pd;
+                        exit;
+                      end;
+                    if eq>besteq then
+                      begin
+                        bestpd:=pd;
+                        besteq:=eq;
+                      end;
                   end;
               end;
           end;
@@ -886,7 +907,7 @@ implementation
       begin
          inherited ppuload(propertysym,ppufile);
          ppufile.getsmallset(propoptions);
-         ppufile.getderef(overridenpropsymderef);
+         ppufile.getderef(overriddenpropsymderef);
          ppufile.getderef(propdefderef);
          index:=ppufile.getlongint;
          default:=ppufile.getlongint;
@@ -910,7 +931,7 @@ implementation
       var
         pap : tpropaccesslisttypes;
       begin
-        overridenpropsymderef.build(overridenpropsym);
+        overriddenpropsymderef.build(overriddenpropsym);
         propdefderef.build(propdef);
         indexdefderef.build(indexdef);
         for pap:=low(tpropaccesslisttypes) to high(tpropaccesslisttypes) do
@@ -922,7 +943,7 @@ implementation
       var
         pap : tpropaccesslisttypes;
       begin
-        overridenpropsym:=tpropertysym(overridenpropsymderef.resolve);
+        overriddenpropsym:=tpropertysym(overriddenpropsymderef.resolve);
         indexdef:=tdef(indexdefderef.resolve);
         propdef:=tdef(propdefderef.resolve);
         for pap:=low(tpropaccesslisttypes) to high(tpropaccesslisttypes) do
@@ -930,7 +951,7 @@ implementation
       end;
 
 
-    function tpropertysym.getsize : aint;
+    function tpropertysym.getsize : asizeint;
       begin
          getsize:=0;
       end;
@@ -942,7 +963,7 @@ implementation
       begin
         inherited ppuwrite(ppufile);
         ppufile.putsmallset(propoptions);
-        ppufile.putderef(overridenpropsymderef);
+        ppufile.putderef(overriddenpropsymderef);
         ppufile.putderef(propdefderef);
         ppufile.putlongint(index);
         ppufile.putlongint(default);
@@ -1023,7 +1044,7 @@ implementation
       end;
 
 
-    function tabstractvarsym.getsize : aint;
+    function tabstractvarsym.getsize : asizeint;
       begin
         if assigned(vardef) and
            ((vardef.typ<>arraydef) or
@@ -1055,6 +1076,7 @@ implementation
         result:=(cs_opt_regvar in current_settings.optimizerswitches) and
                 not(pi_has_assembler_block in current_procinfo.flags) and
                 not(pi_uses_exceptions in current_procinfo.flags) and
+                not(pi_has_interproclabel in current_procinfo.flags) and
                 not(vo_has_local_copy in varoptions) and
                 ((refpara and
                   (varregable <> vr_none)) or
@@ -1291,6 +1313,8 @@ implementation
            _mangledname:=stringdup(ppufile.getstring)
          else
            _mangledname:=nil;
+         if vo_has_section in varoptions then
+           section:=ppufile.getansistring;
       end;
 
 
@@ -1315,6 +1339,8 @@ implementation
          inherited ppuwrite(ppufile);
          if vo_has_mangledname in varoptions then
            ppufile.putstring(_mangledname^);
+         if vo_has_section in varoptions then
+           ppufile.putansistring(section);
          ppufile.writeentry(ibstaticvarsym);
       end;
 
@@ -1381,7 +1407,7 @@ implementation
     constructor tparavarsym.create(const n : string;nr:word;vsp:tvarspez;def:tdef;vopts:tvaroptions);
       begin
          inherited create(paravarsym,n,vsp,def,vopts);
-         if (vsp in [vs_var,vs_value,vs_const]) then
+         if (vsp in [vs_var,vs_value,vs_const,vs_constref]) then
            varstate := vs_initialised;
          paranr:=nr;
          paraloc[calleeside].init;

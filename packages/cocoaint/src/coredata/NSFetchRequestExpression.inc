@@ -1,6 +1,4 @@
 { Parsed from Coredata.framework NSFetchRequestExpression.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Fri Oct 2 11:46:33 EDT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSFETCHREQUESTEXPRESSION_PAS_T}
@@ -38,6 +36,7 @@ const
 {$ifdef FORWARD}
   NSFetchRequestExpression = objcclass;
   NSFetchRequestExpressionPointer = ^NSFetchRequestExpression;
+  NSFetchRequestExpressionPtr = NSFetchRequestExpressionPointer;
 
 {$endif}
 
@@ -46,27 +45,29 @@ const
 {$define NSFETCHREQUESTEXPRESSION_PAS_C}
 
 { NSFetchRequestExpression }
-  NSFetchRequestExpression = objcclass(NSExpression)
+  NSFetchRequestExpression = objcclass external (NSExpression)
   private
-    __reserved1: Pointer;
-    __reserved2: Pointer;
-    __reserved3: Pointer;
-    __reserved4: Pointer;
-    __fetchRequest: NSExpression;
-    __managedObjectContext: NSExpression;
+    _reserved1: Pointer;
+    _reserved2: Pointer;
+    _reserved3: Pointer;
+    _reserved4: Pointer;
+    _fetchRequest: NSExpression;
+    _managedObjectContext: NSExpression;
     __flags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSFetchRequestExpression0: cuint);
+       1: (
         isCountOnly: 0..1;
         _RESERVED: 0..((1 shl 31)-1);
+      );
       end;
     
   public
-    class function alloc: NSFetchRequestExpression; message 'alloc';
-
     class function expressionForFetch_context_countOnly(fetch: NSExpression; context: NSExpression; countFlag: Boolean): NSExpression; message 'expressionForFetch:context:countOnly:';
     function requestExpression: NSExpression; message 'requestExpression';
     function contextExpression: NSExpression; message 'contextExpression';
     function isCountOnlyRequest: Boolean; message 'isCountOnlyRequest';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

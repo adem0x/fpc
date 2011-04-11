@@ -34,6 +34,7 @@ interface
       Ttok2nodeRec=record
         tok : ttoken;
         nod : tnodetype;
+        inr : integer; // inline number
         op_overloading_supported : boolean;
       end;
 
@@ -66,12 +67,12 @@ interface
         FParaNode   : tnode;
         FParaLength : smallint;
         FAllowVariant : boolean;
-        procedure collect_overloads_in_class(ProcdefOverloadList:TFPObjectList);
-        procedure collect_overloads_in_units(ProcdefOverloadList:TFPObjectList; objcidcall: boolean);
-        procedure create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall:boolean);
-        function  proc_add(ps:tprocsym;pd:tprocdef;objcidcall: boolean):pcandidate;
+        procedure collect_overloads_in_struct(structdef:tabstractrecorddef;ProcdefOverloadList:TFPObjectList);
+        procedure collect_overloads_in_units(ProcdefOverloadList:TFPObjectList; objcidcall,explicitunit: boolean);
+        procedure create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall,explicitunit:boolean);
+        function  proc_add(st:tsymtable;pd:tprocdef;objcidcall: boolean):pcandidate;
       public
-        constructor create(sym:tprocsym;st:TSymtable;ppn:tnode;ignorevisibility,allowdefaultparas,objcidcall:boolean);
+        constructor create(sym:tprocsym;st:TSymtable;ppn:tnode;ignorevisibility,allowdefaultparas,objcidcall,explicitunit:boolean);
         constructor create_operator(op:ttoken;ppn:tnode);
         destructor destroy;override;
         procedure list(all:boolean);
@@ -94,33 +95,37 @@ interface
          ra_addr_taken);
       tregableinfoflags = set of tregableinfoflag;
 
+  {$i compinnr.inc}
     const
-      tok2nodes=24;
+      tok2nodes=27;
       tok2node:array[1..tok2nodes] of ttok2noderec=(
-        (tok:_PLUS    ;nod:addn;op_overloading_supported:true),      { binary overloading supported }
-        (tok:_MINUS   ;nod:subn;op_overloading_supported:true),      { binary and unary overloading supported }
-        (tok:_STAR    ;nod:muln;op_overloading_supported:true),      { binary overloading supported }
-        (tok:_SLASH   ;nod:slashn;op_overloading_supported:true),    { binary overloading supported }
-        (tok:_EQUAL   ;nod:equaln;op_overloading_supported:true),    { binary overloading supported }
-        (tok:_GT      ;nod:gtn;op_overloading_supported:true),       { binary overloading supported }
-        (tok:_LT      ;nod:ltn;op_overloading_supported:true),       { binary overloading supported }
-        (tok:_GTE     ;nod:gten;op_overloading_supported:true),      { binary overloading supported }
-        (tok:_LTE     ;nod:lten;op_overloading_supported:true),      { binary overloading supported }
-        (tok:_SYMDIF  ;nod:symdifn;op_overloading_supported:true),   { binary overloading supported }
-        (tok:_STARSTAR;nod:starstarn;op_overloading_supported:true), { binary overloading supported }
-        (tok:_OP_AS     ;nod:asn;op_overloading_supported:false),    { binary overloading NOT supported }
-        (tok:_OP_IN     ;nod:inn;op_overloading_supported:false),    { binary overloading NOT supported }
-        (tok:_OP_IS     ;nod:isn;op_overloading_supported:false),    { binary overloading NOT supported }
-        (tok:_OP_OR     ;nod:orn;op_overloading_supported:true),     { binary overloading supported }
-        (tok:_OP_AND    ;nod:andn;op_overloading_supported:true),    { binary overloading supported }
-        (tok:_OP_DIV    ;nod:divn;op_overloading_supported:true),    { binary overloading supported }
-        (tok:_OP_NOT    ;nod:notn;op_overloading_supported:true),    { unary overloading supported }
-        (tok:_OP_MOD    ;nod:modn;op_overloading_supported:true),    { binary overloading supported }
-        (tok:_OP_SHL    ;nod:shln;op_overloading_supported:true),    { binary overloading supported }
-        (tok:_OP_SHR    ;nod:shrn;op_overloading_supported:true),    { binary overloading supported }
-        (tok:_OP_XOR    ;nod:xorn;op_overloading_supported:true),    { binary overloading supported }
-        (tok:_ASSIGNMENT;nod:assignn;op_overloading_supported:true), { unary overloading supported }
-        (tok:_UNEQUAL ;nod:unequaln;op_overloading_supported:false)  { binary overloading NOT supported  overload = instead }
+        (tok:_PLUS       ;nod:addn;inr:-1;op_overloading_supported:true),      { binary overloading supported }
+        (tok:_MINUS      ;nod:subn;inr:-1;op_overloading_supported:true),      { binary and unary overloading supported }
+        (tok:_STAR       ;nod:muln;inr:-1;op_overloading_supported:true),      { binary overloading supported }
+        (tok:_SLASH      ;nod:slashn;inr:-1;op_overloading_supported:true),    { binary overloading supported }
+        (tok:_EQ         ;nod:equaln;inr:-1;op_overloading_supported:true),    { binary overloading supported }
+        (tok:_GT         ;nod:gtn;inr:-1;op_overloading_supported:true),       { binary overloading supported }
+        (tok:_LT         ;nod:ltn;inr:-1;op_overloading_supported:true),       { binary overloading supported }
+        (tok:_GTE        ;nod:gten;inr:-1;op_overloading_supported:true),      { binary overloading supported }
+        (tok:_LTE        ;nod:lten;inr:-1;op_overloading_supported:true),      { binary overloading supported }
+        (tok:_SYMDIF     ;nod:symdifn;inr:-1;op_overloading_supported:true),   { binary overloading supported }
+        (tok:_STARSTAR   ;nod:starstarn;inr:-1;op_overloading_supported:true), { binary overloading supported }
+        (tok:_OP_AS      ;nod:asn;inr:-1;op_overloading_supported:false),      { binary overloading NOT supported }
+        (tok:_OP_IN      ;nod:inn;inr:-1;op_overloading_supported:true),       { binary overloading supported }
+        (tok:_OP_IS      ;nod:isn;inr:-1;op_overloading_supported:false),      { binary overloading NOT supported }
+        (tok:_OP_OR      ;nod:orn;inr:-1;op_overloading_supported:true),       { binary overloading supported }
+        (tok:_OP_AND     ;nod:andn;inr:-1;op_overloading_supported:true),      { binary overloading supported }
+        (tok:_OP_DIV     ;nod:divn;inr:-1;op_overloading_supported:true),      { binary overloading supported }
+        (tok:_OP_NOT     ;nod:notn;inr:-1;op_overloading_supported:true),      { unary overloading supported }
+        (tok:_OP_MOD     ;nod:modn;inr:-1;op_overloading_supported:true),      { binary overloading supported }
+        (tok:_OP_SHL     ;nod:shln;inr:-1;op_overloading_supported:true),      { binary overloading supported }
+        (tok:_OP_SHR     ;nod:shrn;inr:-1;op_overloading_supported:true),      { binary overloading supported }
+        (tok:_OP_XOR     ;nod:xorn;inr:-1;op_overloading_supported:true),      { binary overloading supported }
+        (tok:_ASSIGNMENT ;nod:assignn;inr:-1;op_overloading_supported:true),   { unary overloading supported }
+        (tok:_OP_EXPLICIT;nod:assignn;inr:-1;op_overloading_supported:true),   { unary overloading supported }
+        (tok:_NE         ;nod:unequaln;inr:-1;op_overloading_supported:true),  { binary overloading supported }
+        (tok:_OP_INC     ;nod:inlinen;inr:in_inc_x;op_overloading_supported:true),{ unary overloading supported }
+        (tok:_OP_DEC     ;nod:inlinen;inr:in_dec_x;op_overloading_supported:true) { unary overloading supported }
       );
 
       { true, if we are parsing stuff which allows array constructors }
@@ -138,7 +143,12 @@ interface
     procedure make_not_regable(p : tnode; how: tregableinfoflags);
 
     { procvar handling }
-    function  is_procvar_load(p:tnode):boolean;
+    function  is_proc2procvar_load(p:tnode;out realprocdef:tprocdef):boolean;
+    { returns whether a node represents a load of the function result node via
+      the function name (so it could also be a recursive call to the function
+      in case there or no parameters, or the function could be passed as
+      procvar }
+    function  is_ambiguous_funcret_load(p: tnode; out owningprocdef: tprocdef): boolean;
     procedure test_local_to_procvar(from_def:tprocvardef;to_def:tdef);
 
     { sets varsym varstate field correctly }
@@ -219,7 +229,7 @@ implementation
             pointerdef :
               begin
                 if ((rd.typ in [orddef,enumdef,pointerdef,classrefdef,procvardef]) or
-                    is_class_or_interface_or_dispinterface_or_objc(rd)) then
+                    is_implicit_pointer_object_type(rd)) then
                  begin
                    allowed:=false;
                    exit;
@@ -279,9 +289,9 @@ implementation
               end;
             objectdef :
               begin
-                { <> and = are defined for classes }
+                { <> and = are defined for implicit pointer object types }
                 if (treetyp in [equaln,unequaln]) and
-                   is_class_or_interface_or_dispinterface_or_objc(ld) then
+                   is_implicit_pointer_object_type(ld) then
                  begin
                    allowed:=false;
                    exit;
@@ -326,13 +336,18 @@ implementation
       end;
 
 
-    function isunaryoperatoroverloadable(treetyp : tnodetype;ld : tdef) : boolean;
+    function isunaryoperatoroverloadable(treetyp:tnodetype;inlinenumber:integer;ld:tdef) : boolean;
       begin
         result:=false;
         case treetyp of
           subn,
-          unaryminusn :
+          addn,
+          unaryminusn,
+          unaryplusn,
+          inlinen:
             begin
+              { only Inc, Dec inline functions are supported for now, so skip check inlinenumber }
+
               if (ld.typ in [orddef,enumdef,floatdef]) then
                 exit;
 
@@ -407,26 +422,43 @@ implementation
           1 : begin
                 ld:=tparavarsym(pf.parast.SymList[0]).vardef;
                 { assignment is a special case }
-                if optoken=_ASSIGNMENT then
+                if optoken in [_ASSIGNMENT,_OP_EXPLICIT] then
                   begin
                     eq:=compare_defs_ext(ld,pf.returndef,nothingn,conv,pd,[cdo_explicit]);
                     result:=
-                      (eq=te_incompatible) and
-                      { don't allow overloading assigning to custom shortstring
-                        types, because we also don't want to differentiate based
-                        on different shortstring types (e.g.,
-                        "operator :=(const v: variant) res: shorstring" also
-                        has to work for assigning a variant to a string[80])
-                      }
-                      (not is_shortstring(pf.returndef) or
-                       (tstringdef(pf.returndef).len=255));
+                      (eq=te_exact) or
+                      (
+                        (eq=te_incompatible) and
+                        { don't allow overloading assigning to custom shortstring
+                          types, because we also don't want to differentiate based
+                          on different shortstring types (e.g.,
+                          "operator :=(const v: variant) res: shorstring" also
+                          has to work for assigning a variant to a string[80])
+                        }
+                        (not is_shortstring(pf.returndef) or
+                         (tstringdef(pf.returndef).len=255))
+                      );
                   end
                 else
                 { enumerator is a special case too }
                 if optoken=_OP_ENUMERATOR then
                   begin
                     result:=
-                      is_class_or_interface_or_object(pf.returndef);
+                      is_class_or_interface_or_object(pf.returndef) or
+                      is_record(pf.returndef);
+                    if result then
+                      begin
+                        if not assigned(tabstractrecorddef(pf.returndef).search_enumerator_move) then
+                          begin
+                            Message1(sym_e_no_enumerator_move, pf.returndef.typename);
+                            result:=false;
+                          end;
+                        if not assigned(tabstractrecorddef(pf.returndef).search_enumerator_current) then
+                          begin
+                            Message1(sym_e_no_enumerator_current,pf.returndef.typename);
+                            result:=false;
+                          end;
+                      end;
                   end
                 else
                   begin
@@ -435,9 +467,12 @@ implementation
                         begin
                           result:=
                             tok2node[i].op_overloading_supported and
-                            isunaryoperatoroverloadable(tok2node[i].nod,ld);
+                            isunaryoperatoroverloadable(tok2node[i].nod,tok2node[i].inr,ld);
                           break;
                         end;
+                    { Inc, Dec operators are valid if only result type is the same as argument type }
+                    if result and (optoken in [_OP_INC,_OP_DEC]) then
+                      result:=pf.returndef=ld;
                   end;
               end;
           2 : begin
@@ -463,41 +498,65 @@ implementation
         operpd  : tprocdef;
         ppn     : tcallparanode;
         candidates : tcallcandidates;
-        cand_cnt : integer;
+        cand_cnt,
+        inlinenumber: integer;
       begin
         result:=false;
         operpd:=nil;
 
         { load easier access variables }
         ld:=tunarynode(t).left.resultdef;
-        if not isunaryoperatoroverloadable(t.nodetype,ld) then
+
+        { if we are dealing with inline function then get the function }
+        if t.nodetype=inlinen then
+          inlinenumber:=tinlinenode(t).inlinenumber
+        else
+          inlinenumber:=-1;
+
+        if not isunaryoperatoroverloadable(t.nodetype,inlinenumber,ld) then
           exit;
 
         { operator overload is possible }
         result:=true;
 
+        optoken:=NOTOKEN;
         case t.nodetype of
            notn:
              optoken:=_OP_NOT;
            unaryminusn:
              optoken:=_MINUS;
-           else
-             begin
-               CGMessage(parser_e_operator_not_overloaded);
-               t:=cnothingnode.create;
-               exit;
+           unaryplusn:
+             optoken:=_PLUS;
+           inlinen:
+             case inlinenumber of
+                in_inc_x:
+                  optoken:=_OP_INC;
+                in_dec_x:
+                  optoken:=_OP_DEC;
              end;
         end;
+        if (optoken=NOTOKEN) then
+          begin
+            CGMessage(parser_e_operator_not_overloaded);
+            t:=cnothingnode.create;
+            exit;
+          end;
 
         { generate parameter nodes }
-        ppn:=ccallparanode.create(tunarynode(t).left.getcopy,nil);
-        ppn.get_paratype;
+        { for inline nodes just copy existent callparanode }
+        if (t.nodetype=inlinen) and (tinlinenode(t).left.nodetype=callparan) then
+          ppn:=tcallparanode(tinlinenode(t).left.getcopy)
+        else
+          begin
+            ppn:=ccallparanode.create(tunarynode(t).left.getcopy,nil);
+            ppn.get_paratype;
+          end;
         candidates:=tcallcandidates.create_operator(optoken,ppn);
 
         { stop when there are no operators found }
         if candidates.count=0 then
           begin
-            CGMessage2(parser_e_operator_not_overloaded_2,ld.gettypename,arraytokeninfo[optoken].str);
+            CGMessage2(parser_e_operator_not_overloaded_2,ld.typename,arraytokeninfo[optoken].str);
             candidates.free;
             ppn.free;
             t:=cnothingnode.create;
@@ -515,7 +574,7 @@ implementation
         { exit when no overloads are found }
         if cand_cnt=0 then
           begin
-            CGMessage2(parser_e_operator_not_overloaded_2,ld.gettypename,arraytokeninfo[optoken].str);
+            CGMessage2(parser_e_operator_not_overloaded_2,ld.typename,arraytokeninfo[optoken].str);
             candidates.free;
             ppn.free;
             t:=cnothingnode.create;
@@ -555,8 +614,80 @@ implementation
         operpd  : tprocdef;
         ht      : tnode;
         ppn     : tcallparanode;
-        candidates : tcallcandidates;
         cand_cnt : integer;
+
+        function search_operator(optoken:ttoken;generror:boolean): integer;
+          var
+            candidates : tcallcandidates;
+          begin
+            { generate parameter nodes }
+            ppn:=ccallparanode.create(tbinarynode(t).right.getcopy,ccallparanode.create(tbinarynode(t).left.getcopy,nil));
+            ppn.get_paratype;
+            candidates:=tcallcandidates.create_operator(optoken,ppn);
+
+            { for commutative operators we can swap arguments and try again }
+            if (candidates.count=0) and
+               not(optoken in [_OP_SHL,_OP_SHR,_OP_DIV,_OP_MOD,_STARSTAR,_SLASH,_MINUS]) then
+              begin
+                candidates.free;
+                reverseparameters(ppn);
+                { reverse compare operators }
+                case optoken of
+                  _LT:
+                    optoken:=_GTE;
+                  _GT:
+                    optoken:=_LTE;
+                  _LTE:
+                    optoken:=_GT;
+                  _GTE:
+                    optoken:=_LT;
+                end;
+                candidates:=tcallcandidates.create_operator(optoken,ppn);
+              end;
+
+            { stop when there are no operators found }
+            result:=candidates.count;
+            if (result=0) and generror then
+              begin
+                CGMessage(parser_e_operator_not_overloaded);
+                candidates.free;
+                exit;
+              end;
+
+            if (result>0) then
+              begin
+                { Retrieve information about the candidates }
+                candidates.get_information;
+        {$ifdef EXTDEBUG}
+                { Display info when multiple candidates are found }
+                candidates.dump_info(V_Debug);
+        {$endif EXTDEBUG}
+                result:=candidates.choose_best(tabstractprocdef(operpd),false);
+              end;
+
+            { exit when no overloads are found }
+            if (result=0) and generror then
+              begin
+                CGMessage3(parser_e_operator_not_overloaded_3,ld.typename,arraytokeninfo[optoken].str,rd.typename);
+                candidates.free;
+                exit;
+              end;
+
+            { Multiple candidates left? }
+            if result>1 then
+              begin
+                CGMessage(type_e_cant_choose_overload_function);
+    {$ifdef EXTDEBUG}
+                candidates.dump_info(V_Hint);
+    {$else EXTDEBUG}
+                candidates.list(false);
+    {$endif EXTDEBUG}
+                { we'll just use the first candidate to make the
+                  call }
+              end;
+            candidates.free;
+          end;
+
       begin
         isbinaryoverloaded:=false;
         operpd:=nil;
@@ -570,9 +701,10 @@ implementation
         result:=true;
 
         case t.nodetype of
-           equaln,
-           unequaln :
-             optoken:=_EQUAL;
+           equaln:
+             optoken:=_EQ;
+           unequaln:
+             optoken:=_NE;
            addn:
              optoken:=_PLUS;
            subn:
@@ -607,6 +739,8 @@ implementation
              optoken:=_OP_SHL;
            shrn :
              optoken:=_OP_SHR;
+           inn :
+             optoken:=_OP_IN;
            else
              begin
                CGMessage(parser_e_operator_not_overloaded);
@@ -615,72 +749,23 @@ implementation
              end;
         end;
 
-        { generate parameter nodes }
-        ppn:=ccallparanode.create(tbinarynode(t).right.getcopy,ccallparanode.create(tbinarynode(t).left.getcopy,nil));
-        ppn.get_paratype;
-        candidates:=tcallcandidates.create_operator(optoken,ppn);
+        cand_cnt:=search_operator(optoken,optoken<>_NE);
 
-        { for commutative operators we can swap arguments and try again }
-        if (candidates.count=0) and
-           not(optoken in [_OP_SHL,_OP_SHR,_OP_DIV,_OP_MOD,_STARSTAR,_SLASH,_MINUS]) then
+        { no operator found for "<>" then search for "=" operator }
+        if (cand_cnt=0) and (optoken=_NE) then
           begin
-            candidates.free;
-            reverseparameters(ppn);
-            { reverse compare operators }
-            case optoken of
-              _LT:
-                optoken:=_GTE;
-              _GT:
-                optoken:=_LTE;
-              _LTE:
-                optoken:=_GT;
-              _GTE:
-                optoken:=_LT;
-            end;
-            candidates:=tcallcandidates.create_operator(optoken,ppn);
+            ppn.free;
+            operpd:=nil;
+            optoken:=_EQ;
+            cand_cnt:=search_operator(optoken,true);
           end;
 
-        { stop when there are no operators found }
-        if candidates.count=0 then
+        if (cand_cnt=0) then
           begin
-            CGMessage(parser_e_operator_not_overloaded);
-            candidates.free;
             ppn.free;
             t:=cnothingnode.create;
             exit;
           end;
-
-        { Retrieve information about the candidates }
-        candidates.get_information;
-{$ifdef EXTDEBUG}
-        { Display info when multiple candidates are found }
-        candidates.dump_info(V_Debug);
-{$endif EXTDEBUG}
-        cand_cnt:=candidates.choose_best(tabstractprocdef(operpd),false);
-
-        { exit when no overloads are found }
-        if cand_cnt=0 then
-          begin
-            CGMessage3(parser_e_operator_not_overloaded_3,ld.gettypename,arraytokeninfo[optoken].str,rd.gettypename);
-            candidates.free;
-            ppn.free;
-            t:=cnothingnode.create;
-            exit;
-          end;
-
-        { Multiple candidates left? }
-        if cand_cnt>1 then
-          begin
-            CGMessage(type_e_cant_choose_overload_function);
-{$ifdef EXTDEBUG}
-            candidates.dump_info(V_Hint);
-{$else EXTDEBUG}
-            candidates.list(false);
-{$endif EXTDEBUG}
-            { we'll just use the first candidate to make the
-              call }
-          end;
-        candidates.free;
 
         addsymref(operpd.procsym);
 
@@ -692,7 +777,9 @@ implementation
           skip the overload choosing in callnode.pass_typecheck }
         tcallnode(ht).procdefinition:=operpd;
 
-        if t.nodetype=unequaln then
+        { if we found "=" operator for "<>" expression then use it
+          together with "not" }
+        if (t.nodetype=unequaln) and (optoken=_EQ) then
           ht:=cnotnode.create(ht);
         t:=ht;
       end;
@@ -704,10 +791,7 @@ implementation
 
     { marks an lvalue as "unregable" }
     procedure make_not_regable_intern(p : tnode; how: tregableinfoflags; records_only: boolean);
-      var
-        update_regable: boolean;
       begin
-        update_regable:=true;
         repeat
           case p.nodetype of
             subscriptn:
@@ -717,15 +801,22 @@ implementation
               end;
             vecn:
               begin
-                { arrays are currently never regable and pointers indexed like }
-                { arrays do not have be made unregable, but we do need to      }
-                { propagate the ra_addr_taken info                             }
-                update_regable:=false;
-                p:=tvecnode(p).left;
+                { if there's an implicit dereference, we can stop (just like
+                  when there is an actual derefn) }
+                if ((tvecnode(p).left.resultdef.typ=arraydef) and
+                    not is_special_array(tvecnode(p).left.resultdef)) or
+                   ((tvecnode(p).left.resultdef.typ=stringdef) and
+                    (tstringdef(tvecnode(p).left.resultdef).stringtype in [st_shortstring,st_longstring])) then
+                  p:=tvecnode(p).left
+                else
+                  break;
               end;
             typeconvn :
                begin
-                 if (ttypeconvnode(p).resultdef.typ = recorddef) then
+                 { implicit dereference -> stop }
+                 if (ttypeconvnode(p).convtype=tc_pointer_2_array) then
+                   break;
+                 if (ttypeconvnode(p).resultdef.typ=recorddef) then
                    records_only:=false;
                  p:=ttypeconvnode(p).left;
                end;
@@ -735,8 +826,7 @@ implementation
                   begin
                     if (ra_addr_taken in how) then
                       tabstractvarsym(tloadnode(p).symtableentry).addr_taken:=true;
-                    if update_regable and
-                       (tabstractvarsym(tloadnode(p).symtableentry).varregable <> vr_none) and
+                    if (tabstractvarsym(tloadnode(p).symtableentry).varregable <> vr_none) and
                        ((not records_only) or
                         (tabstractvarsym(tloadnode(p).symtableentry).vardef.typ = recorddef)) then
                       if (tloadnode(p).symtableentry.typ = paravarsym) and
@@ -751,8 +841,7 @@ implementation
               begin
                 if (ra_addr_taken in how) then
                   include(ttemprefnode(p).tempinfo^.flags,ti_addr_taken);
-                if update_regable and
-                   (ti_may_be_in_reg in ttemprefnode(p).tempinfo^.flags) and
+                if (ti_may_be_in_reg in ttemprefnode(p).tempinfo^.flags) and
                    ((not records_only) or
                     (ttemprefnode(p).tempinfo^.typedef.typ = recorddef)) then
                   exclude(ttemprefnode(p).tempinfo^.flags,ti_may_be_in_reg);
@@ -774,7 +863,7 @@ implementation
                           Subroutine Handling
 ****************************************************************************}
 
-    function is_procvar_load(p:tnode):boolean;
+    function is_proc2procvar_load(p:tnode;out realprocdef:tprocdef):boolean;
       begin
         result:=false;
         { remove voidpointer typecast for tp procvars }
@@ -785,13 +874,35 @@ implementation
           p:=tunarynode(p).left;
         result:=(p.nodetype=typeconvn) and
                 (ttypeconvnode(p).convtype=tc_proc_2_procvar);
+        if result then
+          realprocdef:=tprocdef(ttypeconvnode(p).left.resultdef);
+      end;
+
+
+    function is_ambiguous_funcret_load(p: tnode; out owningprocdef: tprocdef): boolean;
+      begin
+        result:=false;
+        { the funcret is an absolutevarsym, which gets converted into a type
+          conversion node of the loadnode of the actual function result. Its
+          resulttype is obviously the same as that of the real function result }
+        if (p.nodetype=typeconvn) and
+              (p.resultdef=ttypeconvnode(p).left.resultdef) then
+          p:=ttypeconvnode(p).left;
+        if (p.nodetype=loadn) and
+           (tloadnode(p).symtableentry.typ in [absolutevarsym,localvarsym,paravarsym]) and
+           ([vo_is_funcret,vo_is_result] * tabstractvarsym(tloadnode(p).symtableentry).varoptions = [vo_is_funcret]) then
+         begin
+           owningprocdef:=tprocdef(tloadnode(p).symtableentry.owner.defowner);
+           result:=true;
+         end;
       end;
 
 
     { local routines can't be assigned to procvars }
     procedure test_local_to_procvar(from_def:tprocvardef;to_def:tdef);
       begin
-         if (from_def.parast.symtablelevel>normal_function_level) and
+         if not(m_nested_procvars in current_settings.modeswitches) and
+            (from_def.parast.symtablelevel>normal_function_level) and
             (to_def.typ=procvardef) then
            CGMessage(type_e_cannot_local_proc_to_procvar);
       end;
@@ -850,7 +961,7 @@ implementation
                end;
              subscriptn :
                begin
-                 if is_class_or_interface_or_dispinterface_or_objc(tunarynode(p).left.resultdef) then
+                 if is_implicit_pointer_object_type(tunarynode(p).left.resultdef) then
                    newstate := vs_read;
                  p:=tunarynode(p).left;
                end;
@@ -1004,7 +1115,7 @@ implementation
                  pointerdef :
                    gotpointer:=true;
                  objectdef :
-                   gotclass:=is_class_or_interface_or_dispinterface_or_objc(hp.resultdef);
+                   gotclass:=is_implicit_pointer_object_type(hp.resultdef);
                  recorddef :
                    gotrecord:=true;
                  classrefdef :
@@ -1121,7 +1232,7 @@ implementation
                    pointerdef :
                      gotpointer:=true;
                    objectdef :
-                     gotclass:=is_class_or_interface_or_dispinterface_or_objc(hp.resultdef);
+                     gotclass:=is_implicit_pointer_object_type(hp.resultdef);
                    classrefdef :
                      gotclass:=true;
                    arraydef :
@@ -1215,10 +1326,9 @@ implementation
                      else
                        exit;
                    end;
-                 { a class/interface access is an implicit }
-                 { dereferencing                           }
+                 { implicit pointer object types result in dereferencing }
                  hp:=tsubscriptnode(hp).left;
-                 if is_class_or_interface_or_dispinterface_or_objc(hp.resultdef) then
+                 if is_implicit_pointer_object_type(hp.resultdef) then
                    gotderef:=true;
                end;
              muln,
@@ -1307,7 +1417,7 @@ implementation
                    pointerdef :
                      gotpointer:=true;
                    objectdef :
-                     gotclass:=is_class_or_interface_or_dispinterface_or_objc(hp.resultdef);
+                     gotclass:=is_implicit_pointer_object_type(hp.resultdef);
                    recorddef, { handle record like class it needs a subscription }
                    classrefdef :
                      gotclass:=true;
@@ -1370,7 +1480,7 @@ implementation
                          else
                           exit;
                        { read-only variable? }
-                       if (tabstractvarsym(tloadnode(hp).symtableentry).varspez=vs_const) then
+                       if (tabstractvarsym(tloadnode(hp).symtableentry).varspez in [vs_const,vs_constref]) then
                         begin
                           { allow p^:= constructions with p is const parameter }
                           if gotderef or gotdynarray or (Valid_Const in opts) or
@@ -1545,6 +1655,7 @@ implementation
     procedure para_allowed(var eq:tequaltype;p:tcallparanode;def_to:tdef);
       var
         acn: tarrayconstructornode;
+        realprocdef: tprocdef;
         tmpeq: tequaltype;
       begin
         { Note: eq must be already valid, it will only be updated! }
@@ -1586,16 +1697,22 @@ implementation
             end;
           procvardef :
             begin
-              { in tp7 mode proc -> procvar is allowed }
+              tmpeq:=te_incompatible;
+              { in tp/macpas mode proc -> procvar is allowed }
               if ((m_tp_procvar in current_settings.modeswitches) or
                   (m_mac_procvar in current_settings.modeswitches)) and
-                 (p.left.nodetype=calln) and
-                 (proc_to_procvar_equal(tprocdef(tcallnode(p.left).procdefinition),tprocvardef(def_to),false)>=te_equal) then
-                eq:=te_equal
-              else
-                if (m_mac_procvar in current_settings.modeswitches) and
-                   is_procvar_load(p.left) then
-                  eq:=te_convert_l2;
+                 (p.left.nodetype=calln) then
+                tmpeq:=proc_to_procvar_equal(tprocdef(tcallnode(p.left).procdefinition),tprocvardef(def_to),false);
+              if (tmpeq=te_incompatible) and
+                 (m_nested_procvars in current_settings.modeswitches) and
+                 is_proc2procvar_load(p.left,realprocdef) then
+                tmpeq:=proc_to_procvar_equal(realprocdef,tprocvardef(def_to),false);
+              if (tmpeq=te_incompatible) and
+                 (m_mac in current_settings.modeswitches) and
+                 is_ambiguous_funcret_load(p.left,realprocdef) then
+                tmpeq:=proc_to_procvar_equal(realprocdef,tprocvardef(def_to),false);
+              if tmpeq<>te_incompatible then
+                eq:=tmpeq;
             end;
           arraydef :
             begin
@@ -1641,7 +1758,7 @@ implementation
                            TCallCandidates
 ****************************************************************************}
 
-    constructor tcallcandidates.create(sym:tprocsym;st:TSymtable;ppn:tnode;ignorevisibility,allowdefaultparas,objcidcall:boolean);
+    constructor tcallcandidates.create(sym:tprocsym;st:TSymtable;ppn:tnode;ignorevisibility,allowdefaultparas,objcidcall,explicitunit:boolean);
       begin
         if not assigned(sym) then
           internalerror(200411015);
@@ -1649,7 +1766,7 @@ implementation
         FProcsym:=sym;
         FProcsymtable:=st;
         FParanode:=ppn;
-        create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall);
+        create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall,explicitunit);
       end;
 
 
@@ -1659,7 +1776,7 @@ implementation
         FProcsym:=nil;
         FProcsymtable:=nil;
         FParanode:=ppn;
-        create_candidate_list(false,false,false);
+        create_candidate_list(false,false,false,false);
       end;
 
 
@@ -1678,25 +1795,29 @@ implementation
       end;
 
 
-    procedure tcallcandidates.collect_overloads_in_class(ProcdefOverloadList:TFPObjectList);
+    procedure tcallcandidates.collect_overloads_in_struct(structdef:tabstractrecorddef;ProcdefOverloadList:TFPObjectList);
       var
         j          : integer;
         pd         : tprocdef;
         srsym      : tsym;
-        objdef     : tobjectdef;
         hashedid   : THashedIDString;
         hasoverload : boolean;
       begin
-        objdef:=tobjectdef(fprocsym.owner.defowner);
-        hashedid.id:=fprocsym.name;
+        if FOperator=NOTOKEN then
+          hashedid.id:=FProcsym.name
+        else
+          hashedid.id:=overloaded_names[FOperator];
         hasoverload:=false;
-        while assigned(objdef) do
+        while assigned(structdef) do
          begin
-           srsym:=tprocsym(objdef.symtable.FindWithHash(hashedid));
-           if assigned(srsym) then
+           srsym:=tprocsym(structdef.symtable.FindWithHash(hashedid));
+           if assigned(srsym) and
+              { Delphi allows hiding a property by a procedure with the same name }
+              (srsym.typ=procsym) then
              begin
-               if (srsym.typ<>procsym) then
-                 internalerror(200111022);
+               { Store first procsym found }
+               if not assigned(FProcsym) then
+                 FProcsym:=tprocsym(srsym);
                { add all definitions }
                hasoverload:=false;
                for j:=0 to tprocsym(srsym).ProcdefList.Count-1 do
@@ -1711,12 +1832,15 @@ implementation
                  break;
              end;
            { next parent }
-           objdef:=objdef.childof;
+           if (structdef.typ=objectdef) then
+             structdef:=tobjectdef(structdef).childof
+           else
+             structdef:=nil;
          end;
       end;
 
 
-    procedure tcallcandidates.collect_overloads_in_units(ProcdefOverloadList:TFPObjectList; objcidcall: boolean);
+    procedure tcallcandidates.collect_overloads_in_units(ProcdefOverloadList:TFPObjectList; objcidcall,explicitunit: boolean);
       var
         j          : integer;
         pd         : tprocdef;
@@ -1749,6 +1873,14 @@ implementation
         while assigned(checkstack) do
           begin
             srsymtable:=checkstack^.symtable;
+            { if the unit in which the routine has to be searched has been
+              specified explicitly, stop searching after its symtable(s) have
+              been checked (can be both the static and the global symtable
+              in case it's the current unit itself) }
+            if explicitunit and
+               (FProcsymtable.symtabletype in [globalsymtable,staticsymtable]) and
+               (srsymtable.moduleid<>FProcsymtable.moduleid) then
+              break;
             if srsymtable.symtabletype in [localsymtable,staticsymtable,globalsymtable] then
               begin
                 srsym:=tprocsym(srsymtable.FindWithHash(hashedid));
@@ -1774,19 +1906,20 @@ implementation
                       break;
                   end;
               end;
-            checkstack:=checkstack^.next;
+            checkstack:=checkstack^.next
           end;
       end;
 
 
-    procedure tcallcandidates.create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall:boolean);
+    procedure tcallcandidates.create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall,explicitunit:boolean);
       var
         j     : integer;
         pd    : tprocdef;
         hp    : pcandidate;
         pt    : tcallparanode;
         found : boolean;
-        contextobjdef : tobjectdef;
+        st    : TSymtable;
+        contextstructdef : tabstractrecorddef;
         ProcdefOverloadList : TFPObjectList;
       begin
         FCandidateProcs:=nil;
@@ -1795,10 +1928,24 @@ implementation
         ProcdefOverloadList:=TFPObjectList.Create(false);
         if not objcidcall and
            (FOperator=NOTOKEN) and
-           (FProcsym.owner.symtabletype=objectsymtable) then
-          collect_overloads_in_class(ProcdefOverloadList)
+           (FProcsym.owner.symtabletype in [objectsymtable,recordsymtable]) then
+          collect_overloads_in_struct(tabstractrecorddef(FProcsym.owner.defowner),ProcdefOverloadList)
         else
-          collect_overloads_in_units(ProcdefOverloadList,objcidcall);
+        if (FOperator<>NOTOKEN) then
+          begin
+            { check operands and if they contain records then search in records,
+              then search in unit }
+            pt:=tcallparanode(FParaNode);
+            while assigned(pt) do
+              begin
+                if (pt.resultdef.typ=recorddef) then
+                  collect_overloads_in_struct(tabstractrecorddef(pt.resultdef),ProcdefOverloadList);
+                pt:=tcallparanode(pt.right);
+              end;
+            collect_overloads_in_units(ProcdefOverloadList,objcidcall,explicitunit);
+          end
+        else
+          collect_overloads_in_units(ProcdefOverloadList,objcidcall,explicitunit);
 
         { determine length of parameter list.
           for operators also enable the variant-operators if
@@ -1820,16 +1967,21 @@ implementation
           units. At least kylix supports it this way (PFV) }
         if assigned(FProcSymtable) and
            (
-            (FProcSymtable.symtabletype=ObjectSymtable) or
+            (FProcSymtable.symtabletype in [ObjectSymtable,recordsymtable]) or
             ((FProcSymtable.symtabletype=withsymtable) and
-             (FProcSymtable.defowner.typ=objectdef))
+             (FProcSymtable.defowner.typ in [objectdef,recorddef]))
            ) and
            (FProcSymtable.defowner.owner.symtabletype in [globalsymtable,staticsymtable]) and
            FProcSymtable.defowner.owner.iscurrentunit then
-          contextobjdef:=tobjectdef(FProcSymtable.defowner)
+          contextstructdef:=tabstractrecorddef(FProcSymtable.defowner)
         else
-          contextobjdef:=current_objectdef;
+          contextstructdef:=current_structdef;
 
+        { symtable is needed later to calculate the distance }
+        if assigned(FProcsym) then
+          st:=FProcsym.Owner
+        else
+          st:=nil;
         { Process all found overloads }
         for j:=0 to ProcdefOverloadList.Count-1 do
           begin
@@ -1853,8 +2005,8 @@ implementation
                ) and
                (
                 ignorevisibility or
-                (pd.owner.symtabletype<>objectsymtable) or
-                is_visible_for_object(pd,contextobjdef)
+                not (pd.owner.symtabletype in [objectsymtable,recordsymtable]) or
+                is_visible_for_object(pd,contextstructdef)
                ) then
               begin
                 { don't add duplicates, only compare visible parameters for the user }
@@ -1872,7 +2024,7 @@ implementation
                     hp:=hp^.next;
                   end;
                 if not found then
-                  proc_add(fprocsym,pd,objcidcall);
+                  proc_add(st,pd,objcidcall);
               end;
           end;
 
@@ -1880,10 +2032,9 @@ implementation
       end;
 
 
-    function tcallcandidates.proc_add(ps:tprocsym;pd:tprocdef;objcidcall: boolean):pcandidate;
+    function tcallcandidates.proc_add(st:tsymtable;pd:tprocdef;objcidcall: boolean):pcandidate;
       var
         defaultparacnt : integer;
-        parentst        : tsymtable;
       begin
         { generate new candidate entry }
         new(result);
@@ -1910,15 +2061,14 @@ implementation
          end;
         { Give a small penalty for overloaded methods not in
           defined the current class/unit }
-        parentst:=ps.owner;
         {  when calling Objective-C methods via id.method, then the found
            procsym will be inside an arbitrary ObjectSymtable, and we don't
            want togive the methods of that particular objcclass precedence over
            other methods, so instead check against the symtable in which this
            objcclass is defined }
         if objcidcall then
-          parentst:=parentst.defowner.owner;
-        if (parentst<>pd.owner) then
+          st:=st.defowner.owner;
+        if (st<>pd.owner) then
           result^.ordinal_distance:=result^.ordinal_distance+1.0;
       end;
 

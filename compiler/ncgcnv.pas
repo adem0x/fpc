@@ -362,6 +362,8 @@ interface
 
 
     procedure tcgtypeconvnode.second_proc_to_procvar;
+      var
+        tmpreg: tregister;
       begin
         if tabstractprocdef(resultdef).is_addressonly then
           begin
@@ -370,7 +372,26 @@ interface
             cg.a_loadaddr_ref_reg(current_asmdata.CurrAsmList,left.location.reference,location.register);
           end
         else
-          location_copy(location,left.location);
+          begin
+            if not tabstractprocdef(left.resultdef).is_addressonly then
+              location_copy(location,left.location)
+            else
+              begin
+                { assigning a global function to a nested procvar -> create
+                  tmethodpointer record and set the "frame pointer" to nil }
+                location_reset_ref(location,LOC_REFERENCE,int_cgsize(sizeof(pint)*2),sizeof(pint));
+                tg.gettemp(current_asmdata.CurrAsmList,resultdef.size,sizeof(pint),tt_normal,location.reference);
+                tmpreg:=cg.getaddressregister(current_asmdata.CurrAsmList);
+                cg.a_loadaddr_ref_reg(current_asmdata.CurrAsmList,left.location.reference,tmpreg);
+                cg.a_load_reg_ref(current_asmdata.CurrAsmList,OS_ADDR,OS_ADDR,tmpreg,location.reference);
+                { setting the frame pointer to nil is not strictly necessary
+                  since the global procedure won't use it, but it can help with
+                  debugging }
+                inc(location.reference.offset,sizeof(pint));
+                cg.a_load_const_ref(current_asmdata.CurrAsmList,OS_ADDR,0,location.reference);
+                dec(location.reference.offset,sizeof(pint));
+              end;
+          end;
       end;
 
     procedure Tcgtypeconvnode.second_nil_to_methodprocvar;
@@ -431,24 +452,25 @@ interface
           the bits that define the true status can be outside the limits
           of the new size and truncating the register can result in a 0
           value }
-        if (left.expectloc in [LOC_FLAGS,LOC_JUMP]) then
+        if (left.expectloc in [LOC_FLAGS,LOC_JUMP]) and
+           { a cbool must be converted to -1/0 }
+           not is_cbool(resultdef) then
           begin
             secondpass(left);
             if (left.location.loc <> left.expectloc) then
-              internalerror(20060409);
+              internalerror(2010081601);
             location_copy(location,left.location);
           end
-         else if (resultdef.size=left.resultdef.size) and
-                 not(is_cbool(resultdef) xor
-                     is_cbool(left.resultdef)) then
-           second_bool_to_int
-         else
-           begin
-             if (resultdef.size<>left.resultdef.size) then
-               { remove nf_explicit to perform full conversion if boolean sizes are different }
-               exclude(flags, nf_explicit);
-             second_int_to_bool;
-           end;
+        else if (resultdef.size=left.resultdef.size) and
+           (is_cbool(resultdef)=is_cbool(left.resultdef)) then
+          second_bool_to_int
+        else
+          begin
+            if (resultdef.size<>left.resultdef.size) then
+              { remove nf_explicit to perform full conversion if boolean sizes are different }
+              exclude(flags, nf_explicit);
+            second_int_to_bool;
+          end;
       end;
 
 

@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSStyleRule.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSSTYLERULE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCSSStyleRule = objcclass;
   DOMCSSStyleRulePointer = ^DOMCSSStyleRule;
+  DOMCSSStyleRulePtr = DOMCSSStyleRulePointer;
 
 {$endif}
 
@@ -41,15 +40,13 @@
 {$define DOMCSSSTYLERULE_PAS_C}
 
 { DOMCSSStyleRule }
-  DOMCSSStyleRule = objcclass(DOMCSSRule)
+  DOMCSSStyleRule = objcclass external (DOMCSSRule)
     
   public
-    class function alloc: DOMCSSStyleRule; message 'alloc';
-
     procedure setSelectorText (newValue: NSString); message 'setSelectorText:';
     function selectorText: NSString; message 'selectorText';
     function style: DOMCSSStyleDeclaration; message 'style';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

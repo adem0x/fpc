@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLLabelElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLLABELELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLLabelElement = objcclass;
   DOMHTMLLabelElementPointer = ^DOMHTMLLabelElement;
+  DOMHTMLLabelElementPtr = DOMHTMLLabelElementPointer;
 
 {$endif}
 
@@ -41,17 +40,15 @@
 {$define DOMHTMLLABELELEMENT_PAS_C}
 
 { DOMHTMLLabelElement }
-  DOMHTMLLabelElement = objcclass(DOMHTMLElement)
+  DOMHTMLLabelElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLLabelElement; message 'alloc';
-
     function form: DOMHTMLFormElement; message 'form';
     procedure setAccessKey (newValue: NSString); message 'setAccessKey:';
     function accessKey: NSString; message 'accessKey';
     procedure setHtmlFor (newValue: NSString); message 'setHtmlFor:';
     function htmlFor: NSString; message 'htmlFor';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

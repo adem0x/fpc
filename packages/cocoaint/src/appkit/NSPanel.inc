@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSPanel.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPANEL_PAS_T}
@@ -19,14 +17,14 @@ const
   NSCancelButton = 0;
 
 const
-  NSUtilityWindowMask = 1  shl  4;
-  NSDocModalWindowMask = 1  shl  6;
+  NSUtilityWindowMask = 1 shl 4;
+  NSDocModalWindowMask = 1 shl 6;
 
 const
-  NSNonactivatingPanelMask = 1  shl  7;
+  NSNonactivatingPanelMask = 1 shl 7;
 
 const
-  NSHUDWindowMask = 1  shl  13;
+  NSHUDWindowMask = 1 shl 13;
 
 {$endif}
 {$endif}
@@ -43,19 +41,19 @@ const
 {$define NSPANEL_PAS_F}
 
 { Functions }
-function NSRunAlertPanel(titlePointer: NSString; msgFormatPointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; varargs: array of const): NSInteger; cdecl; external name 'NSRunAlertPanel';
-function NSRunInformationalAlertPanel(titlePointer: NSString; msgFormatPointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; varargs: array of const): NSInteger; cdecl; external name 'NSRunInformationalAlertPanel';
-function NSRunCriticalAlertPanel(titlePointer: NSString; msgFormatPointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; varargs: array of const): NSInteger; cdecl; external name 'NSRunCriticalAlertPanel';
-function NSRunAlertPanelRelativeToWindow(titlePointer: NSString; msgFormatPointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; docWindowPointer: NSWindow; varargs: array of const): NSInteger; cdecl; external name 'NSRunAlertPanelRelativeToWindow';
-function NSRunInformationalAlertPanelRelativeToWindow(titlePointer: NSString; msgFormatPointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; docWindowPointer: NSWindow; varargs: array of const): NSInteger; cdecl; external name 'NSRunInformationalAlertPanelRelativeToWindow';
-function NSRunCriticalAlertPanelRelativeToWindow(titlePointer: NSString; msgFormatPointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; docWindowPointer: NSWindow; varargs: array of const): NSInteger; cdecl; external name 'NSRunCriticalAlertPanelRelativeToWindow';
-procedure NSBeginAlertSheet(titlePointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; docWindowPointer: NSWindow; modalDelegate: id; didEndSelector: SEL; didDismissSelector: SEL; contextInfoPointer: Pointer; msgFormatPointer: NSString; varargs: array of const); cdecl; external name 'NSBeginAlertSheet';
-procedure NSBeginInformationalAlertSheet(titlePointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; docWindowPointer: NSWindow; modalDelegate: id; didEndSelector: SEL; didDismissSelector: SEL; contextInfoPointer: Pointer; msgFormatPointer: NSString; varargs: array of const); cdecl; external name 'NSBeginInformationalAlertSheet';
-procedure NSBeginCriticalAlertSheet(titlePointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; docWindowPointer: NSWindow; modalDelegate: id; didEndSelector: SEL; didDismissSelector: SEL; contextInfoPointer: Pointer; msgFormatPointer: NSString; varargs: array of const); cdecl; external name 'NSBeginCriticalAlertSheet';
-function NSGetAlertPanel(titlePointer: NSString; msgFormatPointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; varargs: array of const): id; cdecl; external name 'NSGetAlertPanel';
-function NSGetInformationalAlertPanel(titlePointer: NSString; msgFormatPointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; varargs: array of const): id; cdecl; external name 'NSGetInformationalAlertPanel';
-function NSGetCriticalAlertPanel(titlePointer: NSString; msgFormatPointer: NSString; defaultButtonPointer: NSString; alternateButtonPointer: NSString; otherButtonPointer: NSString; varargs: array of const): id; cdecl; external name 'NSGetCriticalAlertPanel';
-procedure NSReleaseAlertPanel(panel: id); cdecl; external name 'NSReleaseAlertPanel';
+function NSRunAlertPanel(title: NSString; msgFormat: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; varargs: array of const): NSInteger; cdecl; external;
+function NSRunInformationalAlertPanel(title: NSString; msgFormat: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; varargs: array of const): NSInteger; cdecl; external;
+function NSRunCriticalAlertPanel(title: NSString; msgFormat: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; varargs: array of const): NSInteger; cdecl; external;
+function NSRunAlertPanelRelativeToWindow(title: NSString; msgFormat: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; docWindow: NSWindow; varargs: array of const): NSInteger; cdecl; external; deprecated 'in Mac OS X 10 and later';
+function NSRunInformationalAlertPanelRelativeToWindow(title: NSString; msgFormat: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; docWindow: NSWindow; varargs: array of const): NSInteger; cdecl; external; deprecated 'in Mac OS X 10 and later';
+function NSRunCriticalAlertPanelRelativeToWindow(title: NSString; msgFormat: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; docWindow: NSWindow; varargs: array of const): NSInteger; cdecl; external; deprecated 'in Mac OS X 10 and later';
+procedure NSBeginAlertSheet(title: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; docWindow: NSWindow; modalDelegate: id; didEndSelector: SEL; didDismissSelector: SEL; contextInfo: Pointer; msgFormat: NSString; varargs: array of const); cdecl; external;
+procedure NSBeginInformationalAlertSheet(title: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; docWindow: NSWindow; modalDelegate: id; didEndSelector: SEL; didDismissSelector: SEL; contextInfo: Pointer; msgFormat: NSString; varargs: array of const); cdecl; external;
+procedure NSBeginCriticalAlertSheet(title: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; docWindow: NSWindow; modalDelegate: id; didEndSelector: SEL; didDismissSelector: SEL; contextInfo: Pointer; msgFormat: NSString; varargs: array of const); cdecl; external;
+function NSGetAlertPanel(title: NSString; msgFormat: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; varargs: array of const): id; cdecl; external;
+function NSGetInformationalAlertPanel(title: NSString; msgFormat: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; varargs: array of const): id; cdecl; external;
+function NSGetCriticalAlertPanel(title: NSString; msgFormat: NSString; defaultButton: NSString; alternateButton: NSString; otherButton: NSString; varargs: array of const): id; cdecl; external;
+procedure NSReleaseAlertPanel(panel: id); cdecl; external;
 
 {$endif}
 {$endif}
@@ -70,6 +68,7 @@ procedure NSReleaseAlertPanel(panel: id); cdecl; external name 'NSReleaseAlertPa
 {$ifdef FORWARD}
   NSPanel = objcclass;
   NSPanelPointer = ^NSPanel;
+  NSPanelPtr = NSPanelPointer;
 
 {$endif}
 
@@ -78,18 +77,16 @@ procedure NSReleaseAlertPanel(panel: id); cdecl; external name 'NSReleaseAlertPa
 {$define NSPANEL_PAS_C}
 
 { NSPanel }
-  NSPanel = objcclass(NSWindow)
+  NSPanel = objcclass external (NSWindow)
     
   public
-    class function alloc: NSPanel; message 'alloc';
-
     function isFloatingPanel: Boolean; message 'isFloatingPanel';
     procedure setFloatingPanel(flag: Boolean); message 'setFloatingPanel:';
     function becomesKeyOnlyIfNeeded: Boolean; message 'becomesKeyOnlyIfNeeded';
     procedure setBecomesKeyOnlyIfNeeded(flag: Boolean); message 'setBecomesKeyOnlyIfNeeded:';
     function worksWhenModal: Boolean; message 'worksWhenModal';
     procedure setWorksWhenModal(flag: Boolean); message 'setWorksWhenModal:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

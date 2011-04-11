@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework WebDOMOperations.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef WEBDOMOPERATIONS_PAS_T}
@@ -26,6 +24,49 @@
 {$ifdef EXTERNAL_SYMBOLS}
 {$ifndef WEBDOMOPERATIONS_PAS_S}
 {$define WEBDOMOPERATIONS_PAS_S}
+
+{$endif}
+{$endif}
+
+{$ifdef FORWARD}
+
+{$endif}
+
+{$ifdef CLASSES}
+{$ifndef WEBDOMOPERATIONS_PAS_C}
+{$define WEBDOMOPERATIONS_PAS_C}
+
+{ WebDOMNodeOperationsCategory }
+  WebDOMNodeOperationsCategory = objccategory external (DOMNode)
+    function webArchive: WebArchive; message 'webArchive';
+  end;
+
+{ WebDOMDocumentOperationsCategory }
+  WebDOMDocumentOperationsCategory = objccategory external (DOMDocument)
+    function webFrame: WebFrame; message 'webFrame';
+    function URLWithAttributeString(string_: NSString): NSURL; message 'URLWithAttributeString:';
+  end;
+
+{ WebDOMRangeOperationsCategory }
+  WebDOMRangeOperationsCategory = objccategory external (DOMRange)
+    function webArchive: WebArchive; message 'webArchive';
+    function markupString: NSString; message 'markupString';
+  end;
+
+{ WebDOMHTMLFrameElementOperationsCategory }
+  WebDOMHTMLFrameElementOperationsCategory = objccategory external (DOMHTMLFrameElement)
+    function contentFrame: WebFrame; message 'contentFrame';
+  end;
+
+{ WebDOMHTMLIFrameElementOperationsCategory }
+  WebDOMHTMLIFrameElementOperationsCategory = objccategory external (DOMHTMLIFrameElement)
+    function contentFrame: WebFrame; message 'contentFrame';
+  end;
+
+{ WebDOMHTMLObjectElementOperationsCategory }
+  WebDOMHTMLObjectElementOperationsCategory = objccategory external (DOMHTMLObjectElement)
+    function contentFrame: WebFrame; message 'contentFrame';
+  end;
 
 {$endif}
 {$endif}

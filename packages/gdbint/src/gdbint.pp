@@ -120,16 +120,28 @@ interface
   {$define GDB_HAS_BP_NONE}
 {$endif def GDB_V608}
 
+{ 7.3.x }
+{$ifdef GDB_V703}
+  {$info using gdb 7.3.x}
+  {$define GDB_V7}
+  {$define GDB_BP_LOCATION_HAS_GDBARCH}
+  {$define GDB_HAS_PROGRAM_SPACE}
+{$endif def GDB_V702}
+
 { 7.2.x }
 {$ifdef GDB_V702}
   {$info using gdb 7.2.x}
   {$define GDB_V7}
+  {$define GDB_BP_LOCATION_HAS_GDBARCH}
+  {$define GDB_HAS_PROGRAM_SPACE}
 {$endif def GDB_V702}
 
 { 7.1.x }
 {$ifdef GDB_V701}
   {$info using gdb 7.1.x}
   {$define GDB_V7}
+  {$define GDB_BP_LOCATION_HAS_GDBARCH}
+  {$define GDB_HAS_PROGRAM_SPACE}
 {$endif def GDB_V701}
 
 
@@ -138,6 +150,10 @@ interface
 {$ifdef GDB_V700}
   {$info using gdb 7.0.x}
   {$define GDB_V7}
+  {$ifdef GDB_CVS}
+    {$define GDB_BP_LOCATION_HAS_GDBARCH}
+    {$define GDB_HAS_PROGRAM_SPACE}
+  {$endif GDB_CVS}
 {$endif def GDB_V700}
 
 {$ifdef GDB_V7}
@@ -157,11 +173,6 @@ interface
   {$define GDB_HAS_OBSERVER_NOTIFY_BREAKPOINT_CREATED}
   {$define GDB_TARGET_CLOSE_HAS_PTARGET_ARG}
   {$define GDB_HAS_BP_NONE}
-
-  {$ifdef GDB_CVS}
-    {$define GDB_BP_LOCATION_HAS_GDBARCH}
-    {$define GDB_HAS_PROGRAM_SPACE}
-  {$endif GDB_CVS}
 {$endif def GDB_V7}
 
 
@@ -194,8 +205,8 @@ interface
   {$endif i386}
 {$endif Solaris}
 
-{$ifdef NotImplemented}
 {$ifdef go32v2}
+{$ifdef NotImplemented}
   {$undef NotImplemented}
   {$LINKLIB gdb}
   {$ifdef GDB_HAS_SIM}
@@ -218,11 +229,13 @@ interface
   {$ifndef GDB_DISABLE_INTL}
     {$LINKLIB intl}
   {$endif ndef GDB_DISABLE_INTL}
+{$endif NotImplemented}
   {$LINKLIB dbg}
   {$LINKLIB c}
 {$endif go32v2}
 
 {$ifdef linux}
+{$ifdef NotImplemented}
   {$undef NotImplemented}
   {$LINKLIB libgdb.a}
   {$ifdef GDB_HAS_SIM}
@@ -243,6 +256,7 @@ interface
     {$LINKLIB python}
   {$endif GDB_USES_LIBPYTHON}
   {$LINKLIB ncurses}
+{$endif NotImplemented}
   {$LINKLIB m}
   {$LINKLIB dl}
   {$LINKLIB c}
@@ -250,6 +264,7 @@ interface
 {$endif linux}
 
 {$ifdef freebsd}
+{$ifdef NotImplemented}
   {$ifdef FreeBSD5}  //5.4+ ?
     {$linklib kvm}
   {$endif}
@@ -280,11 +295,13 @@ interface
   {$ifdef GDB_USES_LIBPYTHON}
     {$LINKLIB python}
   {$endif GDB_USES_LIBPYTHON}
+{$endif NotImplemented}
   {$LINKLIB c}
   {$LINKLIB gcc}
 {$endif freebsd}
 
 {$ifdef netbsd}
+{$ifdef NotImplemented}
   {$undef NotImplemented}
   {$LINKLIB gdb}
   {$ifdef GDB_HAS_SIM}
@@ -309,11 +326,13 @@ interface
     {$LINKLIB python}
   {$endif GDB_USES_LIBPYTHON}
   { does not seem to exist on netbsd LINKLIB dl}
+{$endif NotImplemented}
   {$LINKLIB c}
   {$LINKLIB gcc}
 {$endif netbsd}
 
 {$ifdef solaris}
+{$ifdef NotImplemented}
   {$undef NotImplemented}
   {$LINKLIB gdb}
   {$ifdef GDB_HAS_SIM}
@@ -337,6 +356,7 @@ interface
   {$ifdef GDB_USES_LIBPYTHON}
     {$LINKLIB python}
   {$endif GDB_USES_LIBPYTHON}
+{$endif NotImplemented}
   {$LINKLIB dl}
   {$LINKLIB socket}
   {$LINKLIB nsl}
@@ -344,6 +364,7 @@ interface
 {$endif solaris}
 
 {$ifdef openbsd}
+{$ifdef NotImplemented}
   {$undef NotImplemented}
   {$LINKLIB gdb}
   {$ifdef GDB_HAS_SIM}
@@ -370,11 +391,13 @@ interface
     {$LINKLIB python}
   {$endif GDB_USES_LIBPYTHON}
   { does not seem to exist on netbsd LINKLIB dl}
+{$endif NotImplemented}
   {$LINKLIB c}
   {$LINKLIB gcc}
 {$endif netbsd}
 
 {$ifdef win32}
+{$ifdef NotImplemented}
   {$undef NotImplemented}
   {$LINKLIB libgdb.a}
  {$ifdef GDB_HAS_SIM}
@@ -387,13 +410,6 @@ interface
   {$LINKLIB libiberty.a}
 
   {$ifdef USE_MINGW_GDB}
-    {$LINKLIB libm.a}
-    {$LINKLIB libmoldname.a}
-    {$LINKLIB libgcc.a}
-    {$LINKLIB libws2_32.a}
-    {$LINKLIB libmingwex.a}
-    {$LINKLIB libmingw32.a}
-    {$LINKLIB libmsvcrt.a}
     {$LINKLIB libdecnumber.a}
     {$ifdef GDB_USES_LIBDECNUMBER}
       {$LINKLIB decnumber}
@@ -416,6 +432,17 @@ interface
     {$ifdef GDB_USES_LIBPYTHON}
       {$LINKLIB python}
     {$endif GDB_USES_LIBPYTHON}
+  {$endif not USE_MINGW_GDB}
+{$endif NotImplemented}
+  {$ifdef USE_MINGW_GDB}
+    {$LINKLIB libm.a}
+    {$LINKLIB libmoldname.a}
+    {$LINKLIB libgcc.a}
+    {$LINKLIB libws2_32.a}
+    {$LINKLIB libmingwex.a}
+    {$LINKLIB libmingw32.a}
+    {$LINKLIB libmsvcrt.a}
+  {$else not USE_MINGW_GDB}
     {$LINKLIB gcc}
     {$LINKLIB cygwin} { alias of libm.a and libc.a }
   {$LINKLIB libintl.a}
@@ -425,7 +452,45 @@ interface
   {$LINKLIB user32}
 {$endif win32}
 
+{$ifdef win64}
+{$ifdef NotImplemented}
+  {$undef NotImplemented}
+  {$LINKLIB libgdb.a}
+ {$ifdef GDB_HAS_SIM}
+  {$LINKLIB libsim.a}
+ {$endif GDB_HAS_SIM}
+  {$LINKLIB libbfd.a}
+  {$LINKLIB libreadline.a}
+  {$LINKLIB libopcodes.a}
+  {$LINKLIB libhistory.a}
+  {$LINKLIB libiberty.a}
+  {$LINKLIB libintl.a}
+
+  {$LINKLIB libdecnumber.a}
+  {$ifdef GDB_USES_LIBDECNUMBER}
+    {$LINKLIB decnumber}
+  {$endif GDB_USES_LIBDECNUMBER}
+  {$ifdef GDB_USES_EXPAT_LIB}
+    {$LINKLIB expat}
+  {$endif GDB_USES_EXPAT_LIB}
+  {$ifdef GDB_USES_LIBPYTHON}
+    {$LINKLIB python}
+  {$endif GDB_USES_LIBPYTHON}
+{$endif NotImplemented}
+  {$LINKLIB libm.a}
+  {$LINKLIB libmoldname.a}
+  {$LINKLIB libws2_32.a}
+  {$LINKLIB libmingwex.a}
+  {$LINKLIB libmingw32.a}
+  {$LINKLIB libmsvcrt.a}
+  {$LINKLIB libgcc.a}
+  {$LINKLIB libws2_32.a}
+  {$LINKLIB kernel32}
+  {$LINKLIB user32}
+{$endif win64}
+
 {$ifdef beos}
+{$ifdef NotImplemented}
   { still need some work... stollen from netbsd}
   {$undef NotImplemented}
   {$LINKLIB gdb}
@@ -451,13 +516,13 @@ interface
   {$ifdef GDB_USES_LIBPYTHON}
     {$LINKLIB python}
   {$endif GDB_USES_LIBPYTHON}
+{$endif NotImplemented}
   { does not seem to exist on netbsd LINKLIB dl}
   { $ LINKLIB c} // This is libroot under BeOS, and always linked
   {$LINKLIB debug}
   {$LINKLIB gcc}
 {$endif beos}
 
-{$endif NotImplemented}
 
 {$ifdef go32v2}
   {$define supportexceptions}
@@ -630,7 +695,6 @@ type
     frame_level,
     command_level,
     stop_breakpoint_number,
-    current_address,
     current_line_number,
     signal_start,
     signal_end,
@@ -648,6 +712,7 @@ type
     line_end : longint;
     signal_name,
     signal_string : pchar;
+    current_address,
     current_pc      : CORE_ADDR;
     { breakpoint }
     last_breakpoint_number,
@@ -767,7 +832,8 @@ type
   case byte of
     0 :
     { greatest value found in cygwin machine/setjmp.h for i386 }
-    (unknown_field : array [1..13] of longint;);
+    { mingw uses int[16] C type for i386 }
+    (unknown_field : array [1..15] of longint;);
     1 :
     (eax,ebx,ecx,edx : longint;
     esi,edi,ebp,esp,eip : longint;);
@@ -2360,10 +2426,14 @@ var
     begin
 
 {$ifdef GDB_USES_BP_LOCATION}
-      sym:=find_pc_line(b.loc^.address,0);
+      if assigned (b.loc) then
+        sym:=find_pc_line(b.loc^.address,0)
 {$else not GDB_USES_BP_LOCATION}
-      sym:=find_pc_line(b.address,0);
+      if (b.address <> 0) then
+        sym:=find_pc_line(b.address,0)
 {$endif not GDB_USES_BP_LOCATION}
+      else
+        fillchar (sym, sizeof(sym), #0);
     end;
 begin
   get_pc_line;
@@ -2374,7 +2444,10 @@ begin
        but they are valid !! }
      invalid_breakpoint_line:=(b.line_number<>sym.line) and (b.line_number<>0);
 {$ifdef GDB_USES_BP_LOCATION}
-     last_breakpoint_address:=b.loc^.address;
+     if assigned (b.loc) then
+       last_breakpoint_address:=b.loc^.address
+     else
+       last_breakpoint_address:=0;
 {$else not GDB_USES_BP_LOCATION}
      last_breakpoint_address:=b.address;
 {$endif not GDB_USES_BP_LOCATION}
@@ -2700,7 +2773,11 @@ var
 begin
   for i:=0 to frame_size-1 do
    dispose(frames[i],done);
-  freemem(frames,sizeof(pointer)*Frame_size);
+  if assigned(frames) then
+    begin
+      freemem(frames,sizeof(pointer)*Frame_size);
+      frames:=nil;
+    end;
   frame_count:=0;
   frame_size:=0;
 end;
@@ -2778,7 +2855,9 @@ end;
 procedure tgdbinterface.EndSession(code:longint);
 begin
   Debuggee_started:=false;
-  inferior_ptid.pid:=0;
+  { inferior_ptid.pid:=0;
+    This leads to an assertion failure
+    from generic_mount_inferior }
   DoEndSession(code);
   if assigned(signal_name) then
     strdispose(signal_name);
@@ -2983,6 +3062,7 @@ end;
 {$ifdef GDB_HAS_SYSROOT}
 var gdb_sysroot  : pchar; cvar;public;
     gdb_datadir  : pchar; cvar;public;
+    python_libdir : pchar;cvar;public;
     gdb_sysrootc : char;
     return_child_result : longbool;cvar;public;
     return_child_result_value : longint;cvar;public;
@@ -2999,6 +3079,7 @@ begin
   gdb_sysrootc := #0;
   gdb_sysroot := @gdb_sysrootc;
   gdb_datadir := @gdb_sysrootc;
+  python_libdir := @gdb_sysrootc;
 {$endif}
 {$ifdef GDB_HAS_DEBUG_FILE_DIRECTORY}
   debug_file_directory := '/usr/local/lib';

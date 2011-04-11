@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMXPathResult.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMXPATHRESULT_PAS_T}
@@ -47,6 +45,7 @@ const
 {$ifdef FORWARD}
   DOMXPathResult = objcclass;
   DOMXPathResultPointer = ^DOMXPathResult;
+  DOMXPathResultPtr = DOMXPathResultPointer;
 
 {$endif}
 
@@ -55,12 +54,10 @@ const
 {$define DOMXPATHRESULT_PAS_C}
 
 { DOMXPathResult }
-  DOMXPathResult = objcclass(DOMObject)
+  DOMXPathResult = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMXPathResult; message 'alloc';
-
-    function resultType: cushort; message 'resultType';
+    function resultType: cuint; message 'resultType';
     function numberValue: double; message 'numberValue';
     function stringValue: NSString; message 'stringValue';
     function booleanValue: Boolean; message 'booleanValue';
@@ -69,7 +66,7 @@ const
     function snapshotLength: cuint; message 'snapshotLength';
     function iterateNext: DOMNode; message 'iterateNext';
     function snapshotItem(index: cuint): DOMNode; message 'snapshotItem:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -72,7 +72,10 @@ Type
       ct_at91sam7xc256,
 		
       { STMicroelectronics }
-      ct_stm32f103re
+      ct_stm32f103re,
+
+      { TI }
+      stellaris
      );
 
 Const
@@ -96,7 +99,9 @@ Const
      pocall_softfloat,
      { same as stdcall (requires that all const records are passed by
        reference, but that's already done for stdcall) }
-     pocall_mwpascal
+     pocall_mwpascal,
+     { used for interrupt handling }
+     pocall_interrupt
    ];
 
    cputypestr : array[tcputype] of string[8] = ('',
@@ -127,7 +132,8 @@ Const
       'AT91SAM7SE256',
       'AT91SAM7X256',
       'AT91SAM7XC256',
-      'STM32F103RE'
+      'STM32F103RE',
+      'STELLARIS'
      );
 
    controllerunitstr : array[tcontrollertype] of string[20] =
@@ -139,7 +145,21 @@ Const
       'AT91SAM7x256',
       'AT91SAM7x256',
       'AT91SAM7x256',
-      'STM32F103'
+      'STM32F103',
+      'STELLARIS'
+     );
+
+   interruptvectors : array[tcontrollertype] of longint =
+     (0,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      12+59, { XL-density }
+      12 { No model specified }
      );
 
    vfp_scalar = [fpu_vfpv2,fpu_vfpv3];
@@ -154,7 +174,7 @@ Const
 								  cs_opt_stackframe,cs_opt_nodecse];
 
    level1optimizerswitches = genericlevel1optimizerswitches;
-   level2optimizerswitches = genericlevel2optimizerswitches + level1optimizerswitches + 
+   level2optimizerswitches = genericlevel2optimizerswitches + level1optimizerswitches +
      [cs_opt_regvar,cs_opt_stackframe,cs_opt_tailrecursion,cs_opt_nodecse];
    level3optimizerswitches = genericlevel3optimizerswitches + level2optimizerswitches + [{,cs_opt_loopunroll}];
 

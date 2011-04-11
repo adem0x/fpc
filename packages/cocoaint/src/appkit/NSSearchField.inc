@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSSearchField.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSEARCHFIELD_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSSearchField = objcclass;
   NSSearchFieldPointer = ^NSSearchField;
+  NSSearchFieldPtr = NSSearchFieldPointer;
 
 {$endif}
 
@@ -41,21 +40,19 @@
 {$define NSSEARCHFIELD_PAS_C}
 
 { NSSearchField }
-  NSSearchField = objcclass(NSTextField)
+  NSSearchField = objcclass external (NSTextField)
   private
-    __reserved1: cuint;
-    __reserved2: cuint;
-    __reserved3: cuint;
-    __reserved4: cuint;
+    _reserved1: cuint;
+    _reserved2: cuint;
+    _reserved3: cuint;
+    _reserved4: cuint;
     
   public
-    class function alloc: NSSearchField; message 'alloc';
-
     procedure setRecentSearches(searches: NSArray); message 'setRecentSearches:';
     function recentSearches: NSArray; message 'recentSearches';
     procedure setRecentsAutosaveName(string_: NSString); message 'setRecentsAutosaveName:';
     function recentsAutosaveName: NSString; message 'recentsAutosaveName';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

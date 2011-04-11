@@ -33,6 +33,7 @@ interface
     type
       tcgprocinfo = class(tprocinfo)
       private
+        procedure maybe_add_constructor_wrapper(var tocode: tnode; withexceptblock: boolean);
         procedure add_entry_exit_code;
       public
         { code for the subroutine as tree }
@@ -44,10 +45,7 @@ interface
         stackcheck_asmnode,
         init_asmnode,
         final_asmnode : tasmnode;
-        { list to store the procinfo's of the nested procedures }
-        nestedprocs : tlinkedlist;
         dfabuilder : TDFABuilder;
-        constructor create(aparent:tprocinfo);override;
         destructor  destroy;override;
         procedure printproc(pass:string);
         procedure generate_code;
@@ -56,7 +54,6 @@ interface
         procedure remove_from_symtablestack;
         procedure parse_body;
 
-        function stack_tainting_parameter : boolean;
         function has_assembler_child : boolean;
       end;
 
@@ -185,9 +182,8 @@ implementation
          if (
              assigned(current_procinfo.procdef.localst) and
              (current_procinfo.procdef.localst.symtablelevel=main_program_level) and
-             (current_module.is_unit)
-            ) or
-            islibrary then
+             (current_module.is_unit or islibrary)
+            ) then
            begin
              if (token=_END) then
                 begin
@@ -268,6 +264,21 @@ implementation
       end;
 
 
+    procedure add_label_init(p:TObject;arg:pointer);
+      begin
+        if tstoredsym(p).typ=labelsym then
+          begin
+            addstatement(tstatementnode(arg^),
+              cifnode.create(caddnode.create(equaln,
+                ccallnode.createintern('fpc_setjmp',
+                  ccallparanode.create(cloadnode.create(tlabelsym(p).jumpbuf,tlabelsym(p).jumpbuf.owner),nil)),
+                cordconstnode.create(1,sinttype,true))
+              ,cgotonode.create(tlabelsym(p)),nil)
+            );
+          end;
+      end;
+
+
     function generate_bodyentry_block:tnode;
       var
         srsym        : tsym;
@@ -276,15 +287,15 @@ implementation
       begin
         result:=internalstatements(newstatement);
 
-        if assigned(current_objectdef) then
+        if assigned(current_structdef) then
           begin
             { a constructor needs a help procedure }
             if (current_procinfo.procdef.proctypeoption=potype_constructor) then
               begin
-                if is_class(current_objectdef) then
+                if is_class(current_structdef) then
                   begin
                     include(current_procinfo.flags,pi_needs_implicit_finally);
-                    srsym:=search_class_member(current_objectdef,'NEWINSTANCE');
+                    srsym:=search_struct_member(current_structdef,'NEWINSTANCE');
                     if assigned(srsym) and
                        (srsym.typ=procsym) then
                       begin
@@ -306,7 +317,7 @@ implementation
                       internalerror(200305108);
                   end
                 else
-                  if is_object(current_objectdef) then
+                  if is_object(current_structdef) then
                     begin
                       { parameter 3 : vmt_offset }
                       { parameter 2 : address of pointer to vmt,
@@ -314,7 +325,7 @@ implementation
                         that memory was allocated }
                       { parameter 1 : self pointer }
                       para:=ccallparanode.create(
-                                cordconstnode.create(current_objectdef.vmt_offset,s32inttype,false),
+                                cordconstnode.create(tobjectdef(current_structdef).vmt_offset,s32inttype,false),
                             ccallparanode.create(
                                 ctypeconvnode.create_internal(
                                     load_vmt_pointer_node,
@@ -331,10 +342,12 @@ implementation
                           ccallnode.createintern('fpc_help_constructor',para)));
                     end
                 else
+                  if not is_record(current_structdef) then
                   internalerror(200305103);
                 { if self=nil then exit
                   calling fail instead of exit is useless because
                   there is nothing to dispose (PFV) }
+                if is_class_or_object(current_structdef) then
                 addstatement(newstatement,cifnode.create(
                     caddnode.create(equaln,
                         load_self_pointer_node,
@@ -345,9 +358,9 @@ implementation
 
             { maybe call BeforeDestruction for classes }
             if (current_procinfo.procdef.proctypeoption=potype_destructor) and
-               is_class(current_objectdef) then
+               is_class(current_structdef) then
               begin
-                srsym:=search_class_member(current_objectdef,'BEFOREDESTRUCTION');
+                srsym:=search_struct_member(current_structdef,'BEFOREDESTRUCTION');
                 if assigned(srsym) and
                    (srsym.typ=procsym) then
                   begin
@@ -365,6 +378,8 @@ implementation
                   internalerror(200305104);
               end;
           end;
+        if m_non_local_goto in current_settings.modeswitches then
+          tsymtable(current_procinfo.procdef.localst).SymList.ForEachCall(@add_label_init,@newstatement);
       end;
 
 
@@ -377,7 +392,7 @@ implementation
       begin
         result:=internalstatements(newstatement);
 
-        if assigned(current_objectdef) then
+        if assigned(current_structdef) then
           begin
             { Don't test self and the vmt here. The reason is that  }
             { a constructor already checks whether these are valid  }
@@ -390,9 +405,9 @@ implementation
             { a destructor needs a help procedure }
             if (current_procinfo.procdef.proctypeoption=potype_destructor) then
               begin
-                if is_class(current_objectdef) then
+                if is_class(current_structdef) then
                   begin
-                    srsym:=search_class_member(current_objectdef,'FREEINSTANCE');
+                    srsym:=search_struct_member(current_structdef,'FREEINSTANCE');
                     if assigned(srsym) and
                        (srsym.typ=procsym) then
                       begin
@@ -414,16 +429,23 @@ implementation
                       internalerror(200305108);
                   end
                 else
-                  if is_object(current_objectdef) then
+                  if is_object(current_structdef) then
                     begin
-                      { finalize object data }
-                      if is_managed_type(current_objectdef) then
-                        addstatement(newstatement,finalize_data_node(load_self_node));
+                      { finalize object data, but only if not in inherited call }
+                      if is_managed_type(current_structdef) then
+                        begin
+                          addstatement(newstatement,cifnode.create(
+                            caddnode.create(unequaln,
+                              ctypeconvnode.create_internal(load_vmt_pointer_node,voidpointertype),
+                              cnilnode.create),
+                            finalize_data_node(load_self_node),
+                            nil));
+                        end;
                       { parameter 3 : vmt_offset }
                       { parameter 2 : pointer to vmt }
                       { parameter 1 : self pointer }
                       para:=ccallparanode.create(
-                                cordconstnode.create(current_objectdef.vmt_offset,s32inttype,false),
+                                cordconstnode.create(tobjectdef(current_structdef).vmt_offset,s32inttype,false),
                             ccallparanode.create(
                                 ctypeconvnode.create_internal(
                                     load_vmt_pointer_node,
@@ -446,9 +468,7 @@ implementation
 
     function generate_except_block:tnode;
       var
-        pd : tprocdef;
         newstatement : tstatementnode;
-        oldlocalswitches: tlocalswitches;
         { safecall handling }
         exceptobjnode,exceptaddrnode: ttempcreatenode;
         sym,exceptsym: tsym;
@@ -457,28 +477,8 @@ implementation
 
         { a constructor needs call destructor (if available) when it
           is not inherited }
-        if assigned(current_objectdef) and
-           (current_procinfo.procdef.proctypeoption=potype_constructor) then
-          begin
-            { Don't test self and the vmt here. See generate_bodyexit_block }
-            { why (JM)                                                      }
-            oldlocalswitches:=current_settings.localswitches;
-            current_settings.localswitches:=oldlocalswitches-[cs_check_object,cs_check_range];
-            pd:=current_objectdef.find_destructor;
-            if assigned(pd) then
-              begin
-                { if vmt<>0 then call destructor }
-                addstatement(newstatement,cifnode.create(
-                    caddnode.create(unequaln,
-                        load_vmt_pointer_node,
-                        cnilnode.create),
-                    { cnf_create_failed -> don't call BeforeDestruction }
-                    ccallnode.create(nil,tprocsym(pd.procsym),pd.procsym.owner,load_self_node,[cnf_create_failed]),
-                    nil));
-              end;
-            current_settings.localswitches:=oldlocalswitches;
-          end
-        else
+        if not assigned(current_structdef) or
+           (current_procinfo.procdef.proctypeoption<>potype_constructor) then
           begin
             { no constructor }
             { must be the return value finalized before reraising the exception? }
@@ -489,7 +489,7 @@ implementation
               addstatement(newstatement,finalize_data_node(load_result_node));
 {$if defined(x86) or defined(arm)}
             { safecall handling }
-            if (target_info.system in systems_all_windows) and
+            if (tf_safecall_exceptions in target_info.flags) and
                (current_procinfo.procdef.proccalloption=pocall_safecall) then
               begin
                 { create a local hidden variable "safe_result"    }
@@ -501,7 +501,7 @@ implementation
                 { if safecall is used for a class method we need to call }
                 { SafecallException virtual method                       }
                 { In other case we return E_UNEXPECTED error value       }
-                if is_class(current_procinfo.procdef._class) then
+                if is_class(current_procinfo.procdef.struct) then
                   begin
                     { temp variable to store exception address }
                     exceptaddrnode:=ctempcreatenode.create(voidpointertype,voidpointertype.size,
@@ -519,7 +519,7 @@ implementation
                       cassignmentnode.create(
                         ctemprefnode.create(exceptobjnode),
                         ccallnode.createintern('fpc_popobjectstack', nil)));
-                    exceptsym:=search_class_member(current_procinfo.procdef._class,'SAFECALLEXCEPTION');
+                    exceptsym:=search_struct_member(tobjectdef(current_procinfo.procdef.struct),'SAFECALLEXCEPTION');
                     addstatement(newstatement,
                       cassignmentnode.create(
                         cloadnode.create(sym,sym.Owner),
@@ -548,61 +548,12 @@ implementation
       end;
 
 
-    procedure maybe_add_afterconstruction(var tocode: tnode);
-      var
-        oldlocalswitches: tlocalswitches;
-        srsym: tsym;
-        newblock: tblocknode;
-        newstatement: tstatementnode;
-      begin
-        { maybe call AfterConstruction for classes }
-        if (current_procinfo.procdef.proctypeoption=potype_constructor) and
-           is_class(current_objectdef) then
-          begin
-            srsym:=search_class_member(current_objectdef,'AFTERCONSTRUCTION');
-            if assigned(srsym) and
-               (srsym.typ=procsym) then
-              begin
-                { Don't test self and the vmt here. See }
-                { generate_bodyexit_block why (JM)      }
-                oldlocalswitches:=current_settings.localswitches;
-                current_settings.localswitches:=oldlocalswitches-[cs_check_object,cs_check_range];
-                newblock:=internalstatements(newstatement);
-                addstatement(newstatement,tocode);
-                { Self can be nil when fail is called }
-                { if self<>nil and vmt<>nil then afterconstruction }
-                addstatement(newstatement,cifnode.create(
-                    caddnode.create(andn,
-                        caddnode.create(unequaln,
-                            load_self_pointer_node,
-                            cnilnode.create),
-                        caddnode.create(unequaln,
-                            load_vmt_pointer_node,
-                            cnilnode.create)),
-                    ccallnode.create(nil,tprocsym(srsym),srsym.owner,load_self_node,[]),
-                    nil));
-                tocode:=newblock;
-                current_settings.localswitches:=oldlocalswitches;
-              end
-            else
-              internalerror(200305106);
-          end;
-      end;
-
 {****************************************************************************
                                   TCGProcInfo
 ****************************************************************************}
 
-    constructor tcgprocinfo.create(aparent:tprocinfo);
-      begin
-        inherited Create(aparent);
-        nestedprocs:=tlinkedlist.create;
-      end;
-
-
      destructor tcgprocinfo.destroy;
        begin
-         nestedprocs.free;
          if assigned(code) then
            code.free;
          inherited destroy;
@@ -632,12 +583,104 @@ implementation
       end;
 
 
+    procedure tcgprocinfo.maybe_add_constructor_wrapper(var tocode: tnode; withexceptblock: boolean);
+      var
+        oldlocalswitches: tlocalswitches;
+        srsym: tsym;
+        afterconstructionblock,
+        exceptblock,
+        newblock: tblocknode;
+        newstatement: tstatementnode;
+        pd: tprocdef;
+      begin
+        if assigned(current_structdef) and
+           (current_procinfo.procdef.proctypeoption=potype_constructor) then
+          begin
+            { Don't test self and the vmt here. See generate_bodyexit_block }
+            { why (JM)                                                      }
+            oldlocalswitches:=current_settings.localswitches;
+            current_settings.localswitches:=oldlocalswitches-[cs_check_object,cs_check_range];
+
+            { call AfterConstruction for classes }
+            if is_class(current_structdef) then
+              begin
+                srsym:=search_struct_member(current_structdef,'AFTERCONSTRUCTION');
+                if assigned(srsym) and
+                   (srsym.typ=procsym) then
+                  begin
+                    current_filepos:=exitpos;
+                    afterconstructionblock:=internalstatements(newstatement);
+                    { first execute all constructor code. If no exception
+                      occurred then we will execute afterconstruction,
+                      otherwise we won't (the exception will jump over us) }
+                    addstatement(newstatement,tocode);
+                    { Self can be nil when fail is called }
+                    { if self<>nil and vmt<>nil then afterconstruction }
+                    addstatement(newstatement,cifnode.create(
+                      caddnode.create(andn,
+                        caddnode.create(unequaln,
+                          load_self_node,
+                          cnilnode.create),
+                        caddnode.create(unequaln,
+                          load_vmt_pointer_node,
+                          cnilnode.create)),
+                        ccallnode.create(nil,tprocsym(srsym),srsym.owner,load_self_node,[]),
+                        nil));
+                    tocode:=afterconstructionblock;
+                  end
+                else
+                  internalerror(200305106);
+              end;
+
+            if withexceptblock and (current_structdef.typ=objectdef) then
+              begin
+                { Generate the implicit "fail" code for a constructor (destroy
+                  in case an exception happened) }
+                pd:=tobjectdef(current_structdef).find_destructor;
+                { this will always be the case for classes, since tobject has
+                  a destructor }
+                if assigned(pd) then
+                  begin
+                    current_filepos:=exitpos;
+                    exceptblock:=internalstatements(newstatement);
+                    { first free the instance if non-nil }
+                    { if vmt<>0 then call destructor }
+                    addstatement(newstatement,cifnode.create(
+                      caddnode.create(unequaln,
+                        load_vmt_pointer_node,
+                        cnilnode.create),
+                      { cnf_create_failed -> don't call BeforeDestruction }
+                      ccallnode.create(nil,tprocsym(pd.procsym),pd.procsym.owner,load_self_node,[cnf_create_failed]),
+                      nil));
+                    { then re-raise the exception }
+                    addstatement(newstatement,craisenode.create(nil,nil,nil));
+                    current_filepos:=entrypos;
+                    newblock:=internalstatements(newstatement);
+                    { try
+                        tocode
+                      except
+                        exceptblock
+                      end
+                    }
+                    addstatement(newstatement,ctryexceptnode.create(
+                      tocode,
+                      nil,
+                      exceptblock));
+                    tocode:=newblock;
+                  end;
+              end;
+            current_settings.localswitches:=oldlocalswitches;
+          end;
+      end;
+
+
     procedure tcgprocinfo.add_entry_exit_code;
       var
         finalcode,
         bodyentrycode,
         bodyexitcode,
-        exceptcode   : tnode;
+        exceptcode,
+        wrappedbody: tnode;
         newblock     : tblocknode;
         codestatement,
         newstatement : tstatementnode;
@@ -656,7 +699,6 @@ implementation
         exitlabel_asmnode:=casmnode.create_get_position;
         final_asmnode:=casmnode.create_get_position;
         bodyexitcode:=generate_bodyexit_block;
-        maybe_add_afterconstruction(code);
 
         { Generate procedure by combining init+body+final,
           depending on the implicit finally we need to add
@@ -681,10 +723,17 @@ implementation
             addstatement(newstatement,init_asmnode);
             addstatement(newstatement,bodyentrycode);
             current_filepos:=entrypos;
-            addstatement(newstatement,ctryfinallynode.create_implicit(
+            wrappedbody:=ctryfinallynode.create_implicit(
                code,
                finalcode,
-               exceptcode));
+               exceptcode);
+            { afterconstruction must be called after final_asmnode, because it
+               has to execute after the temps have been finalised in case of a
+               refcounted class (afterconstruction decreases the refcount
+               without freeing the instance if the count becomes nil, while
+               the finalising of the temps can free the instance) }
+            maybe_add_constructor_wrapper(wrappedbody,true);
+            addstatement(newstatement,wrappedbody);
             addstatement(newstatement,exitlabel_asmnode);
             addstatement(newstatement,bodyexitcode);
             { set flag the implicit finally has been generated }
@@ -692,6 +741,7 @@ implementation
           end
         else
           begin
+            maybe_add_constructor_wrapper(code,false);
             addstatement(newstatement,loadpara_asmnode);
             addstatement(newstatement,stackcheck_asmnode);
             addstatement(newstatement,entry_asmnode);
@@ -731,35 +781,12 @@ implementation
       end;
 
 
-    procedure check_for_stack(p:TObject;arg:pointer);
-      begin
-         if tsym(p).typ=paravarsym then
-           begin
-             { check if there no parameter of the current procedure is stack dependend }
-             if is_open_array(tparavarsym(p).vardef) or
-               is_array_of_const(tparavarsym(p).vardef) then
-               pboolean(arg)^:=true;
-             if assigned(p) and
-                assigned(tparavarsym(p).paraloc[calleeside].location) and
-               (tparavarsym(p).paraloc[calleeside].location^.loc=LOC_REFERENCE) then
-               pboolean(arg)^:=true;
-           end;
-      end;
-
-
-    function tcgprocinfo.stack_tainting_parameter : boolean;
-      begin
-        result:=false;
-        procdef.parast.SymList.ForEachCall(@check_for_stack,@result);
-      end;
-
-
     function tcgprocinfo.has_assembler_child : boolean;
       var
-        hp : tcgprocinfo;
+        hp : tprocinfo;
       begin
         result:=false;
-        hp:=tcgprocinfo(nestedprocs.first);
+        hp:=get_first_nestedproc;
         while assigned(hp) do
           begin
             if (hp.flags*[pi_has_assembler_block,pi_is_assembler])<>[] then
@@ -767,7 +794,7 @@ implementation
                 result:=true;
                 exit;
               end;
-            hp:=tcgprocinfo(hp.next);
+            hp:=tprocinfo(hp.next);
           end;
       end;
 
@@ -777,7 +804,7 @@ implementation
         old_current_procinfo : tprocinfo;
         oldmaxfpuregisters : longint;
         oldfilepos : tfileposinfo;
-        old_current_objectdef : tobjectdef;
+        old_current_structdef : tabstractrecorddef;
         templist : TAsmList;
         headertai : tai;
         i : integer;
@@ -804,12 +831,12 @@ implementation
 
         old_current_procinfo:=current_procinfo;
         oldfilepos:=current_filepos;
-        old_current_objectdef:=current_objectdef;
+        old_current_structdef:=current_structdef;
         oldmaxfpuregisters:=current_settings.maxfpuregisters;
 
         current_procinfo:=self;
         current_filepos:=entrypos;
-        current_objectdef:=procdef._class;
+        current_structdef:=procdef.struct;
 
         templist:=TAsmList.create;
 
@@ -831,7 +858,7 @@ implementation
 
 {$if defined(x86) or defined(arm)}
         { set implicit_finally flag for if procedure is safecall }
-        if (target_info.system in systems_all_windows) and
+        if (tf_safecall_exceptions in target_info.flags) and
            (procdef.proccalloption=pocall_safecall) then
           include(flags, pi_needs_implicit_finally);
 {$endif}
@@ -895,7 +922,7 @@ implementation
         if (cs_opt_loopstrength in current_settings.optimizerswitches)
           { our induction variable strength reduction doesn't like
             for loops with more than one entry }
-          and not(pi_has_goto in current_procinfo.flags) then
+          and not(pi_has_label in current_procinfo.flags) then
           begin
             {RedoDFA:=}OptimizeInductionVariables(code);
           end;
@@ -953,9 +980,10 @@ implementation
                    parameters on the stack
 
                    calling generate_parameter_info doesn't hurt but it costs time
+                   (necessary to init para_stack_size)
                  }
                  generate_parameter_info;
-                 if not(stack_tainting_parameter) and
+                 if not(procdef.stack_tainting_parameter(calleeside)) and
                    not(has_assembler_child) and (para_stack_size=0) then
                    begin
                      { Only need to set the framepointer }
@@ -991,20 +1019,12 @@ implementation
             assign_regvars(code);
 {$endif oldreg}
             current_filepos:=entrypos;
-            { record which registers are allocated here, since all code }
-            { allocating registers comes after it                       }
-            cg.set_regalloc_live_range_direction(rad_backwards);
 
             gen_load_para_value(templist);
-            cg.set_regalloc_live_range_direction(rad_forward);
 
             { caller paraloc info is also necessary in the stackframe_entry
               code of the ppc (and possibly other processors)               }
-            if not procdef.has_paraloc_info then
-              begin
-                procdef.requiredargarea:=paramanager.create_paraloc_info(procdef,callerside);
-                procdef.has_paraloc_info:=true;
-              end;
+            procdef.init_paraloc_info(callerside);
 
             { generate code for the node tree }
             do_secondpass(code);
@@ -1122,7 +1142,9 @@ implementation
 
             aktproccode.insertlistafter(headertai,templist);
 
+            { re-enable if more code at the end is ever generated here
             cg.set_regalloc_live_range_direction(rad_forward);
+            }
 
             { The procedure body is finished, we can now
               allocate the registers }
@@ -1164,7 +1186,7 @@ implementation
 {$if defined(x86) or defined(arm)}
             { Set return value of safecall procedure if implicit try/finally blocks are disabled }
             if not (cs_implicit_exceptions in current_settings.moduleswitches) and
-               (target_info.system in systems_all_windows) and
+               (tf_safecall_exceptions in target_info.flags) and
                (procdef.proccalloption=pocall_safecall) then
               cg.a_load_const_reg(aktproccode,OS_ADDR,0,NR_FUNCTION_RETURN_REG);
 {$endif}
@@ -1194,7 +1216,7 @@ implementation
 
 {$ifdef ARM}
             { because of the limited constant size of the arm, all data access is done pc relative }
-            insertpcrelativedata(aktproccode,aktlocaldata);
+            finalizearmcode(aktproccode,aktlocaldata);
 {$endif ARM}
 
             { Add end symbol and debug info }
@@ -1241,31 +1263,19 @@ implementation
         templist.free;
         current_settings.maxfpuregisters:=oldmaxfpuregisters;
         current_filepos:=oldfilepos;
-        current_objectdef:=old_current_objectdef;
+        current_structdef:=old_current_structdef;
         current_procinfo:=old_current_procinfo;
       end;
 
 
     procedure tcgprocinfo.add_to_symtablestack;
-      var
-        _class,hp : tobjectdef;
       begin
         { insert symtables for the class, but only if it is no nested function }
-        if assigned(procdef._class) and
+        if assigned(procdef.struct) and
            not(assigned(parent) and
                assigned(parent.procdef) and
-               assigned(parent.procdef._class)) then
-          begin
-            { insert them in the reverse order }
-            hp:=nil;
-            repeat
-              _class:=procdef._class;
-              while _class.childof<>hp do
-                _class:=_class.childof;
-              hp:=_class;
-              symtablestack.push(_class.symtable);
-            until hp=procdef._class;
-          end;
+               assigned(parent.procdef.struct)) then
+          push_nested_hierarchy(procdef.struct);
 
         { insert parasymtable in symtablestack when parsing
           a function }
@@ -1281,8 +1291,6 @@ implementation
 
 
     procedure tcgprocinfo.remove_from_symtablestack;
-      var
-        _class : tobjectdef;
       begin
         { remove localsymtable }
         if procdef.localst.symtablelevel>=normal_function_level then
@@ -1293,18 +1301,11 @@ implementation
           symtablestack.pop(procdef.parast);
 
         { remove symtables for the class, but only if it is no nested function }
-        if assigned(procdef._class) and
+        if assigned(procdef.struct) and
            not(assigned(parent) and
                assigned(parent.procdef) and
-               assigned(parent.procdef._class)) then
-          begin
-            _class:=procdef._class;
-            while assigned(_class) do
-              begin
-                symtablestack.pop(_class.symtable);
-                _class:=_class.childof;
-              end;
-          end;
+               assigned(parent.procdef.struct)) then
+          pop_nested_hierarchy(procdef.struct);
       end;
 
 
@@ -1339,7 +1340,7 @@ implementation
             case currpara.vardef.typ of
               formaldef :
                 begin
-                  if (currpara.varspez in [vs_out,vs_var,vs_const]) then
+                  if (currpara.varspez in [vs_out,vs_var,vs_const,vs_constref]) then
                     begin
                       Message1(parser_w_not_supported_for_inline,'formal parameter');
                       Message(parser_w_inlining_disabled);
@@ -1376,14 +1377,22 @@ implementation
          old_current_procinfo : tprocinfo;
          old_block_type : tblock_type;
          st : TSymtable;
-         old_current_objectdef : tobjectdef;
+         old_current_structdef: tabstractrecorddef;
+         old_current_genericdef,
+         old_current_specializedef: tstoreddef;
       begin
          old_current_procinfo:=current_procinfo;
          old_block_type:=block_type;
-         old_current_objectdef:=current_objectdef;
+         old_current_structdef:=current_structdef;
+         old_current_genericdef:=current_genericdef;
+         old_current_specializedef:=current_specializedef;
 
          current_procinfo:=self;
-         current_objectdef:=procdef._class;
+         current_structdef:=procdef.struct;
+         if assigned(current_structdef) and (df_generic in current_structdef.defoptions) then
+           current_genericdef:=current_structdef;
+         if assigned(current_structdef) and (df_specialization in current_structdef.defoptions) then
+           current_specializedef:=current_structdef;
 
          { calculate the lexical level }
          if procdef.parast.symtablelevel>maxnesting then
@@ -1489,7 +1498,9 @@ implementation
 {    aktstate.destroy;}
     {$endif state_tracking}
 
-         current_objectdef:=old_current_objectdef;
+         current_structdef:=old_current_structdef;
+         current_genericdef:=old_current_genericdef;
+         current_specializedef:=old_current_specializedef;
          current_procinfo:=old_current_procinfo;
 
          { Restore old state }
@@ -1527,7 +1538,7 @@ implementation
           { generate code for this procedure }
           pi.generate_code;
           { process nested procs }
-          hpi:=tcgprocinfo(pi.nestedprocs.first);
+          hpi:=tcgprocinfo(pi.get_first_nestedproc);
           while assigned(hpi) do
            begin
              do_generate_code(hpi);
@@ -1580,7 +1591,7 @@ implementation
         { We can't support inlining for procedures that have nested
           procedures because the nested procedures use a fixed offset
           for accessing locals in the parent procedure (PFV) }
-        if (tcgprocinfo(current_procinfo).nestedprocs.count>0) then
+        if current_procinfo.has_nestedprocs then
           begin
             if (df_generic in current_procinfo.procdef.defoptions) then
               Comment(V_Error,'Generic methods cannot have nested procedures')
@@ -1596,9 +1607,7 @@ implementation
         { When it's a nested procedure then defer the code generation,
           when back at normal function level then generate the code
           for all defered nested procedures and the current procedure }
-        if isnestedproc then
-          tcgprocinfo(current_procinfo.parent).nestedprocs.insert(current_procinfo)
-        else
+        if not isnestedproc then
           begin
             if not(df_generic in current_procinfo.procdef.defoptions) then
               do_generate_code(tcgprocinfo(current_procinfo));
@@ -1633,22 +1642,28 @@ implementation
 
       var
         old_current_procinfo : tprocinfo;
-        old_current_objectdef : tobjectdef;
+        old_current_structdef: tabstractrecorddef;
+        old_current_genericdef,
+        old_current_specializedef: tstoreddef;
         pdflags    : tpdflags;
         pd,firstpd : tprocdef;
         s          : string;
       begin
          { save old state }
          old_current_procinfo:=current_procinfo;
-         old_current_objectdef:=current_objectdef;
+         old_current_structdef:=current_structdef;
+         old_current_genericdef:=current_genericdef;
+         old_current_specializedef:=current_specializedef;
 
          { reset current_procinfo.procdef to nil to be sure that nothing is writing
-           to an other procdef }
+           to another procdef }
          current_procinfo:=nil;
-         current_objectdef:=nil;
+         current_structdef:=nil;
+         current_genericdef:=nil;
+         current_specializedef:=nil;
 
          { parse procedure declaration }
-         pd:=parse_proc_dec(isclassmethod, old_current_objectdef);
+         pd:=parse_proc_dec(isclassmethod,old_current_structdef);
 
          { set the default function options }
          if parse_only then
@@ -1691,8 +1706,8 @@ implementation
          if not proc_add_definition(pd) then
            begin
              { A method must be forward defined (in the object declaration) }
-             if assigned(pd._class) and
-                (not assigned(old_current_objectdef)) then
+             if assigned(pd.struct) and
+                (not assigned(old_current_structdef)) then
               begin
                 MessagePos1(pd.fileinfo,parser_e_header_dont_match_any_member,pd.fullprocname(false));
                 tprocsym(pd.procsym).write_parameter_lists(pd);
@@ -1736,12 +1751,15 @@ implementation
                    forward (or interface) declaration then we need to generate
                    a stub that calls the external routine }
                  if (not pd.forwarddef) and
-                    (pd.hasforward) and
+                    (pd.hasforward)
+                    { it is unclear to me what's the use of the following condition,
+                      so commented out, see also issue #18371 (FK)
+                    and
                     not(
                         assigned(pd.import_dll) and
                         (target_info.system in [system_i386_wdosx,
                                                 system_arm_wince,system_i386_wince])
-                       ) then
+                       ) } then
                    begin
                      s:=proc_get_importname(pd);
                      if s<>'' then
@@ -1773,7 +1791,9 @@ implementation
                current_asmdata.DefineAsmSymbol(pd.mangledname,AB_LOCAL,AT_FUNCTION);
            end;
 
-         current_objectdef:=old_current_objectdef;
+         current_structdef:=old_current_structdef;
+         current_genericdef:=old_current_genericdef;
+         current_specializedef:=old_current_specializedef;
          current_procinfo:=old_current_procinfo;
       end;
 
@@ -1818,10 +1838,11 @@ implementation
                    begin
                      { class modifier is only allowed for procedures, functions, }
                      { constructors, destructors, fields and properties          }
-                     if not(token in [_FUNCTION,_PROCEDURE,_PROPERTY,_VAR,_CONSTRUCTOR,_DESTRUCTOR]) then
+                     if not(token in [_FUNCTION,_PROCEDURE,_PROPERTY,_VAR,_CONSTRUCTOR,_DESTRUCTOR,_OPERATOR]) and
+                        not((token=_ID) and (idtoken=_OPERATOR)) then
                        Message(parser_e_procedure_or_function_expected);
 
-                     if is_interface(current_objectdef) then
+                     if is_interface(current_structdef) then
                        Message(parser_e_no_static_method_in_interfaces)
                      else
                        { class methods are also allowed for Objective-C protocols }
@@ -1856,7 +1877,7 @@ implementation
               else
                 begin
                   case idtoken of
-                    _RESOURCESTRING :
+                    _RESOURCESTRING:
                       begin
                         { m_class is needed, because the resourcestring
                           loading is in the ObjPas unit }
@@ -1864,6 +1885,16 @@ implementation
                           resourcestring_dec
 {                        else
                           break;}
+                      end;
+                    _OPERATOR:
+                      begin
+                        if is_classdef then
+                          begin
+                            read_proc(is_classdef);
+                            is_classdef:=false;
+                          end
+                        else
+                          break;
                       end;
                     _PROPERTY:
                       begin
@@ -1943,20 +1974,20 @@ implementation
         oldsymtablestack   : tsymtablestack;
         pu : tused_unit;
         hmodule : tmodule;
-        specobj : tobjectdef;
+        specobj : tabstractrecorddef;
       begin
         if not((tsym(p).typ=typesym) and
                (ttypesym(p).typedef.typesym=tsym(p)) and
-               (ttypesym(p).typedef.typ=objectdef) and
+               (ttypesym(p).typedef.typ in [objectdef,recorddef]) and
                (df_specialization in ttypesym(p).typedef.defoptions)
               ) then
           exit;
 
         { Setup symtablestack a definition time }
-        specobj:=tobjectdef(ttypesym(p).typedef);
+        specobj:=tabstractrecorddef(ttypesym(p).typedef);
         oldsymtablestack:=symtablestack;
         symtablestack:=tsymtablestack.create;
-        if not assigned(tobjectdef(ttypesym(p).typedef).genericdef) then
+        if not assigned(specobj.genericdef) then
           internalerror(200705151);
         hmodule:=find_module_from_symtable(specobj.genericdef.owner);
         if hmodule=nil then
@@ -1975,7 +2006,7 @@ implementation
           symtablestack.push(hmodule.localsymtable);
 
         { procedure definitions for classes or objects }
-        if is_class(specobj) or is_object(specobj) then
+        if is_class_or_object(specobj) or is_record(specobj) then
           begin
             for i:=0 to specobj.symtable.DefList.Count-1 do
               begin

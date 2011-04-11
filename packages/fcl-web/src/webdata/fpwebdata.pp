@@ -15,6 +15,9 @@ type
   // Descendents must adapt the methods so they fit the particular JS/HTML engine used.
 
   TWebDataAction = (wdaUnknown,wdaRead,wdaUpdate,wdaInsert,wdaDelete);
+
+  { TCustomWebdataInputAdaptor }
+
   TCustomWebdataInputAdaptor = class(TComponent)
   private
     FAction: TWebDataAction;
@@ -24,6 +27,7 @@ type
     function GetAction: TWebDataAction;
     procedure SetRequest(const AValue: TRequest);
   Protected
+    procedure reset; virtual;
     Function GetActionFromRequest : TWebDataAction; virtual;
   Public
     Function GetNextBatch : Boolean; virtual;
@@ -122,12 +126,18 @@ type
   // Handle request for read/create/update/delete and return a result.
 
   { TCustomHTTPDataContentProducer }
+  // Support for transcoding from/to UTF-8. If outbound is true, the value is going from server to browser.
+  TOnTranscodeEvent = Procedure (Sender : TObject; F : TField; Var S : String; Outbound : Boolean) of object;
 
   TCustomHTTPDataContentProducer = Class(THTTPContentProducer)
   Private
     FAllowPageSize: Boolean;
+    FBeforeDelete: TNotifyEvent;
+    FBeforeInsert: TNotifyEvent;
+    FBeforeUpdate: TNotifyEvent;
     FDataProvider: TFPCustomWebDataProvider;
     FMetadata: Boolean;
+    FOnTranscode: TOnTranscodeEvent;
     FPageSize: Integer;
     FPageStart: Integer;
     FSD: Boolean;
@@ -137,6 +147,9 @@ type
     procedure SetAdaptor(const AValue: TCustomWebDataInputAdaptor);
     procedure SetDataProvider(const AValue: TFPCustomWebDataProvider);
   Protected
+    Procedure StartBatch(ResponseContent : TStream); virtual;
+    Procedure NextBatchItem(ResponseContent : TStream); virtual;
+    Procedure EndBatch(ResponseContent : TStream); virtual;
     Function GetDataContentType : String; virtual;
     procedure DatasetToStream(Stream: TStream); virtual;abstract;
     Function CreateAdaptor(ARequest : TRequest) : TCustomWebdataInputAdaptor; virtual;
@@ -149,6 +162,12 @@ type
     Procedure DoExceptionToStream(E : Exception; ResponseContent : TStream); virtual; abstract;
     procedure Notification(AComponent: TComponent; Operation: TOperation);override;
     Property Dataset: TDataset Read GetDataSet;
+    // Before a record is about to be updated
+    Property BeforeUpdate : TNotifyEvent Read FBeforeUpdate Write FBeforeUpdate;
+    // Before a record is about to be inserted
+    Property BeforeInsert : TNotifyEvent Read FBeforeInsert Write FBeforeInsert;
+    // Before a record is about to be deleted
+    Property BeforeDelete : TNotifyEvent Read FBeforeDelete Write FBeforeDelete;
   Public
     Constructor Create(AOwner : TComponent); override;
     Property Adaptor : TCustomWebDataInputAdaptor Read FAdaptor Write SetAdaptor;
@@ -161,6 +180,7 @@ type
     Property SortField : String Read FSortField Write FSortField;
     Property SortDescending : Boolean Read FSD Write FSD default False;
     Property AllowPageSize : Boolean Read FAllowPageSize Write FAllowPageSize default True;
+    Property OnTransCode : TOnTranscodeEvent Read FOnTranscode Write FOnTranscode;
   end;
   TCustomHTTPDataContentProducerClass = Class of TCustomHTTPDataContentProducer;
 
@@ -453,6 +473,7 @@ type
 
   TFPWebProviderDataModule = Class(TFPCustomWebProviderDataModule)
   Published
+    Property CreateSession;
     Property InputAdaptor;
     Property ContentProducer;
     Property UseProviderManager;
@@ -468,6 +489,8 @@ type
     Property OnGetInputAdaptor;
     Property OnGetProvider;
     Property OnContent;
+    Property OnNewSession;
+    Property OnSessionExpired;
   end;
 
 Var
@@ -499,6 +522,11 @@ Resourcestring
   SErrDuplicateHTTPDataProducer = 'Duplicate web data output content producer name: "%s"';
   SErrUnknownInputAdaptor = 'Unknown web data input adaptor name: "%s"';
   SErrUnknownHTTPDataProducer = 'Unknown web data output content producer name: "%s"';
+  SErrActionNotAllowed = 'Options of provider %s do not allow %s.';
+  SEditing   = 'editing';
+  SDeleting  = 'deleting';
+  SInserting = 'inserting';
+
 
 { TCustomWebdataInputAdaptor }
 
@@ -507,9 +535,17 @@ Resourcestring
 
 procedure TCustomWebdataInputAdaptor.SetRequest(const AValue: TRequest);
 begin
+  If FRequest=AValue then Exit;
   FRequest:=AValue;
+  Reset;
+end;
+
+procedure TCustomWebdataInputAdaptor.reset;
+begin
+{$ifdef wmdebug}SendDebugFmt('TCustomWebdataInputAdaptor.Reset (%s)',[FRequestPathInfo]);{$endif}
   FBatchCount:=0;
   Faction:=wdaUnknown;
+  FRequestPathInfo:='';
 end;
 
 function TCustomWebdataInputAdaptor.GetActionFromRequest: TWebDataAction;
@@ -524,6 +560,7 @@ begin
     if (FRequestPathInfo='') then
       FRequestPathInfo:=Request.GetNextPathInfo;
     N:=lowercase(FRequestPathInfo);
+{$ifdef wmdebug}SendDebugFmt('TCustomWebdataInputAdaptor.GetActionFromRequest : %s (%s)',[n,Request.Pathinfo]);{$endif}
     If (N='read') then
       Result:=wdaRead
     else If (N='insert') then
@@ -736,6 +773,8 @@ end;
 procedure TFPCustomWebDataProvider.Update;
 begin
   {$ifdef wmdebug}SendDebug('TFPCustomWebDataProvider.Update enter');{$endif}
+  If ((Options * [wdpReadOnly,wdpDisableEdit])<>[]) then
+    Raise EFPHTTPError.CreateFmt(SErrActionNotAllowed,[Name,SEditing]);
   CheckAdaptor;
   DoUpdate;
   {$ifdef wmdebug}SendDebug('TFPCustomWebDataProvider.Update leave');{$endif}
@@ -743,14 +782,22 @@ end;
 
 procedure TFPCustomWebDataProvider.Delete;
 begin
+  {$ifdef wmdebug}SendDebug('TFPCustomWebDataProvider.Delete enter');{$endif}
+  If ((Options * [wdpReadOnly,wdpDisableDelete])<>[]) then
+    Raise EFPHTTPError.CreateFmt(SErrActionNotAllowed,[Name,SDeleting]);
   CheckAdaptor;
   DoDelete;
+  {$ifdef wmdebug}SendDebug('TFPCustomWebDataProvider.Delete leave');{$endif}
 end;
 
 procedure TFPCustomWebDataProvider.Insert;
 begin
+  {$ifdef wmdebug}SendDebug('TFPCustomWebDataProvider.Insert enter');{$endif}
+  If ((Options * [wdpReadOnly,wdpDisableInsert])<>[]) then
+    Raise EFPHTTPError.CreateFmt(SErrActionNotAllowed,[Name,SInserting]);
   CheckAdaptor;
   DoInsert;
+  {$ifdef wmdebug}SendDebug('TFPCustomWebDataProvider.Insert leave');{$endif}
 end;
 
 procedure TFPCustomWebDataProvider.ApplyParams;
@@ -835,6 +882,22 @@ begin
     FDataProvider.FreeNotification(Self);
 end;
 
+procedure TCustomHTTPDataContentProducer.StartBatch(ResponseContent: TStream);
+begin
+  // Do nothing
+end;
+
+procedure TCustomHTTPDataContentProducer.NextBatchItem(ResponseContent: TStream
+  );
+begin
+  // do nothing
+end;
+
+procedure TCustomHTTPDataContentProducer.EndBatch(ResponseContent: TStream);
+begin
+  // do nothing
+end;
+
 function TCustomHTTPDataContentProducer.GetDataContentType: String;
 begin
   Result:='';
@@ -854,6 +917,7 @@ Var
   A : TCustomWebdataInputAdaptor;
 
 begin
+  {$ifdef wmdebug}SendDebugFmt('Request content %s',[ARequest.Content]);{$endif}
   B:=(Adaptor=Nil);
   if B then
     begin
@@ -862,35 +926,43 @@ begin
     end;
   try
     try
-      While Adaptor.GetNextBatch do
-        begin
-        {$ifdef wmdebug}SendDebug('Starting batch Loop');{$endif}
-        Case Adaptor.Action of
-          wdaInsert : DoInsertRecord(Content);
-          wdaUpdate : begin
-                      {$ifdef wmdebug}SendDebug('Aha1');{$endif}
-                      DoUpdateRecord(Content);
-                      {$ifdef wmdebug}SendDebug('Aha2');{$endif}
-                      end;
-          wdaDelete : DoDeleteRecord(Content);
-          wdaRead   : DoReadRecords(Content);
-        else
-          inherited DoGetContent(ARequest, Content,Handled);
-        end;
-        if (Adaptor.Action in [wdaInsert,wdaUpdate,wdaDelete,wdaRead]) then
-          Handled:=true;
+      Case Adaptor.Action of
+        wdaRead : DoReadRecords(Content);
+        wdaInsert,
+        wdaUpdate,
+        wdaDelete :
+          begin
+          {$ifdef wmdebug}SendDebug('Starting batch Loop');{$endif}
+          StartBatch(Content);
+          While Adaptor.GetNextBatch do
+            begin
+            {$ifdef wmdebug}SendDebug('Next batch item');{$endif}
+            NextBatchItem(Content);
+            Case Adaptor.Action of
+              wdaInsert  : DoInsertRecord(Content);
+              wdaUpdate  : DoUpdateRecord(Content);
+              wdaDelete  : DoDeleteRecord(Content);
+            else
+              inherited DoGetContent(ARequest, Content,Handled);
+            end;
+          end;
+         EndBatch(Content);
         {$ifdef wmdebug}SendDebug('Ended batch Loop');{$endif}
-        end;
-    except
-    On E : Exception do
-      begin
-      DoExceptionToStream(E,Content);
-      Handled:=True;
+         end;
+      else
+        Raise EFPHTTPError.Create(SErrNoAction);
       end;
+      Handled:=true;
+    except
+      On E : Exception do
+        begin
+        DoExceptionToStream(E,Content);
+        Handled:=True;
+        end;
     end;
   finally
     If B then
-     FreeAndNil(A);
+      FreeAndNil(A);
   end;
 end;
 
@@ -913,17 +985,23 @@ end;
 procedure TCustomHTTPDataContentProducer.DoUpdateRecord(ResponseContent: TStream);
 begin
   {$ifdef wmdebug}SendDebug('DoUpdateRecord: Updating record');{$endif}
+  If Assigned(FBeforeUpdate) then
+    FBeforeUpdate(Self);
   Provider.Update;
   {$ifdef wmdebug}SendDebug('DoUpdateRecord: Updated record');{$endif}
 end;
 
 procedure TCustomHTTPDataContentProducer.DoInsertRecord(ResponseContent: TStream);
 begin
+  If Assigned(FBeforeInsert) then
+    FBeforeInsert(Self);
   Provider.Insert;
 end;
 
 procedure TCustomHTTPDataContentProducer.DoDeleteRecord(ResponseContent: TStream);
 begin
+  If Assigned(FBeforeDelete) then
+    FBeforeDelete(Self);
   Provider.Delete;
 end;
 
@@ -1601,6 +1679,7 @@ begin
       Exit;
       end;
     end;
+  P:=Nil;
   C:=FindComponent(AProviderName);
   {$ifdef wmdebug}SendDebug(Format('Searching provider "%s" 1 : %d ',[AProvidername,Ord(Assigned(C))]));{$endif}
   If (C<>Nil) and (C is TFPCustomWebDataProvider) then
@@ -1613,7 +1692,9 @@ begin
       begin
       {$ifdef wmdebug}SendDebug(Format('Found providerdef "%s" 1 : %d ',[AProvidername,Ord(Assigned(C))]));{$endif}
       P:=WebDataProviderManager.GetProvider(ADef,Self,AContainer);
-      end;
+      end
+    else
+      P:=Nil;
     end;
   {$ifdef wmdebug}SendDebug(Format('Searching provider "%s" 2 : %d ',[AProvidername,Ord(Assigned(C))]));{$endif}
   Result:=P;
@@ -1635,12 +1716,18 @@ begin
   FRequest:=ARequest;
   FResponse:=AResponse;
   try
+    {$ifdef wmdebug}SendDebug('Checking session');{$endif}
+    CheckSession(ARequest);
+    {$ifdef wmdebug}SendDebug('Init session');{$endif}
+    InitSession(AResponse);
+    {$ifdef wmdebug}SendDebug('Getting providername');{$endif}
     ProviderName:=Request.GetNextPathInfo;
     {$ifdef wmdebug}SendDebug('Handlerequest, providername : '+Providername);{$endif}
     AProvider:=GetProvider(ProviderName,AContainer);
     try
       A:=GetAdaptor;
       A.Request:=ARequest;
+      A.Reset; // Force. for wmKind=pooled, fastcgi, request can be the same.
       Wa:=A.GetAction;
       Case WA of
         wdaUnknown : Raise EFPHTTPError.CreateFmt(SErrUnknownProviderAction,[ProviderName]);
@@ -1649,6 +1736,7 @@ begin
         wdaInsert  : InsertWebdata(AProvider);
         wdaDelete  : DeleteWebData(AProvider);
       end;
+      UpdateSession(AResponse);
     finally
       If (AContainer=Nil) then
         begin

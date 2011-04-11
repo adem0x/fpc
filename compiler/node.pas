@@ -67,6 +67,7 @@ interface
           callparan,        {Represents a parameter}
           realconstn,       {Represents a real value}
           unaryminusn,      {Represents a sign change (i.e. -2)}
+          unaryplusn,       {Represents a check for +Value}
           asmn,             {Represents an assembler node }
           vecn,             {Represents array indexing}
           pointerconstn,    {Represents a pointer constant}
@@ -151,6 +152,7 @@ interface
           'callparan',
           'realconstn',
           'unaryminusn',
+          'unaryplusn',
           'asmn',
           'vecn',
           'pointerconstn',
@@ -337,7 +339,7 @@ interface
 
          { tries to simplify the node, returns a value <>nil if a simplified
            node has been created }
-         function simplify : tnode;virtual;
+         function simplify(forinline : boolean) : tnode;virtual;
 {$ifdef state_tracking}
          { Does optimizations by keeping track of the variable states
            in a procedure }
@@ -807,7 +809,7 @@ implementation
       end;
 
 
-    function tnode.simplify : tnode;
+    function tnode.simplify(forinline : boolean) : tnode;
       begin
         result:=nil;
       end;

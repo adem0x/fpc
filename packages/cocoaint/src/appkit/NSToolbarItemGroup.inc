@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSToolbarItemGroup.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTOOLBARITEMGROUP_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSToolbarItemGroup = objcclass;
   NSToolbarItemGroupPointer = ^NSToolbarItemGroup;
+  NSToolbarItemGroupPtr = NSToolbarItemGroupPointer;
 
 {$endif}
 
@@ -41,21 +40,23 @@
 {$define NSTOOLBARITEMGROUP_PAS_C}
 
 { NSToolbarItemGroup }
-  NSToolbarItemGroup = objcclass(NSToolbarItem)
+  NSToolbarItemGroup = objcclass external (NSToolbarItem)
   private
-    __groupItems: id;
+    _groupItems: id;
     __giFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSToolbarItemGroup0: cuint);
+       1: (
         dirtiedLayout: 0..1;
         reserved: 0..((1 shl 31)-1);
+      );
       end;
-    __giReserved: id;
+    _giReserved: id;
     
   public
-    class function alloc: NSToolbarItemGroup; message 'alloc';
-
     procedure setSubitems(subitems_: NSArray); message 'setSubitems:';
     function subitems: NSArray; message 'subitems';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

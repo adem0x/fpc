@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSFileHandle.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSFILEHANDLE_PAS_T}
@@ -29,14 +27,14 @@
 
 { External string constants }
 var
-  NSFileHandleOperationException: NSString; external name '_NSFileHandleOperationException';
-  NSFileHandleReadCompletionNotification: NSString; external name '_NSFileHandleReadCompletionNotification';
-  NSFileHandleReadToEndOfFileCompletionNotification: NSString; external name '_NSFileHandleReadToEndOfFileCompletionNotification';
-  NSFileHandleConnectionAcceptedNotification: NSString; external name '_NSFileHandleConnectionAcceptedNotification';
-  NSFileHandleDataAvailableNotification: NSString; external name '_NSFileHandleDataAvailableNotification';
-  NSFileHandleNotificationDataItem: NSString; external name '_NSFileHandleNotificationDataItem';
-  NSFileHandleNotificationFileHandleItem: NSString; external name '_NSFileHandleNotificationFileHandleItem';
-  NSFileHandleNotificationMonitorModes: NSString; external name '_NSFileHandleNotificationMonitorModes';
+  NSFileHandleOperationException: NSString; cvar; external;
+  NSFileHandleReadCompletionNotification: NSString; cvar; external;
+  NSFileHandleReadToEndOfFileCompletionNotification: NSString; cvar; external;
+  NSFileHandleConnectionAcceptedNotification: NSString; cvar; external;
+  NSFileHandleDataAvailableNotification: NSString; cvar; external;
+  NSFileHandleNotificationDataItem: NSString; cvar; external;
+  NSFileHandleNotificationFileHandleItem: NSString; cvar; external;
+  NSFileHandleNotificationMonitorModes: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -44,8 +42,10 @@ var
 {$ifdef FORWARD}
   NSFileHandle = objcclass;
   NSFileHandlePointer = ^NSFileHandle;
+  NSFileHandlePtr = NSFileHandlePointer;
   NSPipe = objcclass;
   NSPipePointer = ^NSPipe;
+  NSPipePtr = NSPipePointer;
 
 {$endif}
 
@@ -54,11 +54,9 @@ var
 {$define NSFILEHANDLE_PAS_C}
 
 { NSFileHandle }
-  NSFileHandle = objcclass(NSObject)
+  NSFileHandle = objcclass external (NSObject)
     
   public
-    class function alloc: NSFileHandle; message 'alloc';
-
     function availableData: NSData; message 'availableData';
     function readDataToEndOfFile: NSData; message 'readDataToEndOfFile';
     function readDataOfLength(length: NSUInteger): NSData; message 'readDataOfLength:';
@@ -69,8 +67,20 @@ var
     procedure truncateFileAtOffset(offset: culonglong); message 'truncateFileAtOffset:';
     procedure synchronizeFile; message 'synchronizeFile';
     procedure closeFile; message 'closeFile';
+  end;
 
-    { Category: NSFileHandleCreation }
+{ NSPipe }
+  NSPipe = objcclass external (NSObject)
+    
+  public
+    function fileHandleForReading: NSFileHandle; message 'fileHandleForReading';
+    function fileHandleForWriting: NSFileHandle; message 'fileHandleForWriting';
+    function init: id; message 'init';
+    class function pipe: id; message 'pipe';
+  end;
+
+{ NSFileHandleCreationCategory }
+  NSFileHandleCreationCategory = objccategory external (NSFileHandle)
     class function fileHandleWithStandardInput: id; message 'fileHandleWithStandardInput';
     class function fileHandleWithStandardOutput: id; message 'fileHandleWithStandardOutput';
     class function fileHandleWithStandardError: id; message 'fileHandleWithStandardError';
@@ -78,8 +88,13 @@ var
     class function fileHandleForReadingAtPath(path: NSString): id; message 'fileHandleForReadingAtPath:';
     class function fileHandleForWritingAtPath(path: NSString): id; message 'fileHandleForWritingAtPath:';
     class function fileHandleForUpdatingAtPath(path: NSString): id; message 'fileHandleForUpdatingAtPath:';
+    class function fileHandleForReadingFromURL_error(url: NSURL; error: NSErrorPointer): id; message 'fileHandleForReadingFromURL:error:';
+    class function fileHandleForWritingToURL_error(url: NSURL; error: NSErrorPointer): id; message 'fileHandleForWritingToURL:error:';
+    class function fileHandleForUpdatingURL_error(url: NSURL; error: NSErrorPointer): id; message 'fileHandleForUpdatingURL:error:';
+  end;
 
-    { Category: NSFileHandleAsynchronousAccess }
+{ NSFileHandleAsynchronousAccessCategory }
+  NSFileHandleAsynchronousAccessCategory = objccategory external (NSFileHandle)
     procedure readInBackgroundAndNotifyForModes(modes: NSArray); message 'readInBackgroundAndNotifyForModes:';
     procedure readInBackgroundAndNotify; message 'readInBackgroundAndNotify';
     procedure readToEndOfFileInBackgroundAndNotifyForModes(modes: NSArray); message 'readToEndOfFileInBackgroundAndNotifyForModes:';
@@ -88,24 +103,14 @@ var
     procedure acceptConnectionInBackgroundAndNotify; message 'acceptConnectionInBackgroundAndNotify';
     procedure waitForDataInBackgroundAndNotifyForModes(modes: NSArray); message 'waitForDataInBackgroundAndNotifyForModes:';
     procedure waitForDataInBackgroundAndNotify; message 'waitForDataInBackgroundAndNotify';
+  end;
 
-    { Category: NSFileHandlePlatformSpecific }
+{ NSFileHandlePlatformSpecificCategory }
+  NSFileHandlePlatformSpecificCategory = objccategory external (NSFileHandle)
     function initWithFileDescriptor_closeOnDealloc(fd: cint; closeopt: Boolean): id; message 'initWithFileDescriptor:closeOnDealloc:';
     function initWithFileDescriptor(fd: cint): id; message 'initWithFileDescriptor:';
     function fileDescriptor: cint; message 'fileDescriptor';
-  end; external;
-
-{ NSPipe }
-  NSPipe = objcclass(NSObject)
-    
-  public
-    class function alloc: NSPipe; message 'alloc';
-
-    function fileHandleForReading: NSFileHandle; message 'fileHandleForReading';
-    function fileHandleForWriting: NSFileHandle; message 'fileHandleForWriting';
-    function init: id; message 'init';
-    class function pipe: id; message 'pipe';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

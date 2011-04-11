@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLHeadElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLHEADELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLHeadElement = objcclass;
   DOMHTMLHeadElementPointer = ^DOMHTMLHeadElement;
+  DOMHTMLHeadElementPtr = DOMHTMLHeadElementPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMHTMLHEADELEMENT_PAS_C}
 
 { DOMHTMLHeadElement }
-  DOMHTMLHeadElement = objcclass(DOMHTMLElement)
+  DOMHTMLHeadElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLHeadElement; message 'alloc';
-
     procedure setProfile (newValue: NSString); message 'setProfile:';
     function profile: NSString; message 'profile';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

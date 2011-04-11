@@ -753,7 +753,7 @@ begin
   if Not IsXterm and (IsATTY(stdinputhandle)<>-1) then
     begin
       Console:=TTyNetwork;  {Default: Network or other vtxxx tty}
-      if (Copy(ThisTTY, 1, 8) = '/dev/tty') and (ThisTTY[9]<>'p') Then
+      if ((Copy(ThisTTY, 1, 8) = '/dev/tty') and (ThisTTY[9]<>'p')) or (Copy(ThisTTY,1,8)='/dev/vc/') Then
         begin
           Case ThisTTY[9] of
             '0'..'9' :
@@ -1572,7 +1572,7 @@ begin
           UserScreen:=New(PNWLScreen, Init);
         {$else}
           {$ifdef AMIGASCREEN}
-            UserScreen:=New(PAmigaScreen, Init);
+            UserScreen:=nil; //New(PAmigaScreen, Init);
           {$else}
             UserScreen:=New(PScreen, Init);
           {$endif AMIGASCREEN}

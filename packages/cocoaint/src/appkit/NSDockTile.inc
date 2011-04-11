@@ -1,10 +1,12 @@
 { Parsed from Appkit.framework NSDockTile.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSDOCKTILE_PAS_T}
 {$define NSDOCKTILE_PAS_T}
+
+{ Defines }
+const
+  NSAppKitVersionNumberWithDockTilePlugInSupport = 1001.0;
 
 {$endif}
 {$endif}
@@ -31,8 +33,10 @@
 {$endif}
 
 {$ifdef FORWARD}
+  NSDockTilePlugInProtocol = objcprotocol;
   NSDockTile = objcclass;
   NSDockTilePointer = ^NSDockTile;
+  NSDockTilePtr = NSDockTilePointer;
 
 {$endif}
 
@@ -41,24 +45,26 @@
 {$define NSDOCKTILE_PAS_C}
 
 { NSDockTile }
-  NSDockTile = objcclass(NSObject)
+  NSDockTile = objcclass external (NSObject)
   private
-    __owner: id;
-    __dockContextRef: Pointer;
-    __contentView: NSView;
-    __frameView: NSView;
-    __backstopView: NSView;
-    __badgeLabel: NSString;
+    _owner: id;
+    _dockContextRef: Pointer;
+    _contentView: NSView;
+    _frameView: NSView;
+    _backstopView: NSView;
+    _badgeLabel: NSString;
     __dFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSDockTile0: cuint);
+       1: (
         showsAppBadge: 0..1;
         reserved: 0..((1 shl 31)-1);
+      );
       end;
-    __dockTileSize: NSSize;
+    _dockTileSize: NSSize;
         reserved: array[0..4] of id;
     
   public
-    class function alloc: NSDockTile; message 'alloc';
-
     function size: NSSize; message 'size';
     procedure setContentView(view: NSView); message 'setContentView:';
     function contentView: NSView; message 'contentView';
@@ -68,7 +74,20 @@
     procedure setBadgeLabel(string_: NSString); message 'setBadgeLabel:';
     function badgeLabel: NSString; message 'badgeLabel';
     function owner: id; message 'owner';
-  end; external;
+  end;
 
+{$endif}
+{$endif}
+{$ifdef PROTOCOLS}
+{$ifndef NSDOCKTILE_PAS_P}
+{$define NSDOCKTILE_PAS_P}
+  
+{ NSDockTilePlugIn Protocol }
+  NSDockTilePlugInProtocol = objcprotocol external name 'NSDockTilePlugIn'
+  required
+    procedure setDockTile(dockTile: NSDockTile); message 'setDockTile:';
+  optional
+    function dockMenu: NSMenu; message 'dockMenu';
+  end;
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSCIImageRep.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCIIMAGEREP_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSCIImageRep = objcclass;
   NSCIImageRepPointer = ^NSCIImageRep;
+  NSCIImageRepPtr = NSCIImageRepPointer;
 
 {$endif}
 
@@ -41,17 +40,22 @@
 {$define NSCIIMAGEREP_PAS_C}
 
 { NSCIImageRep }
-  NSCIImageRep = objcclass(NSImageRep)
+  NSCIImageRep = objcclass external (NSImageRep)
   private
-    __ciImage: CIImage;
+    _ciImage: CIImage;
     
   public
-    class function alloc: NSCIImageRep; message 'alloc';
-
-    class function imageRepWithCIImage(image: CIImage_Pointer): id; message 'imageRepWithCIImage:';
-    function initWithCIImage(image: CIImage_Pointer): id; message 'initWithCIImage:';
+    class function imageRepWithCIImage(image: CIImage): id; message 'imageRepWithCIImage:';
+    function initWithCIImage(image: CIImage): id; message 'initWithCIImage:';
     function CIImage: CIImage; message 'CIImage';
-  end; external;
+  end;
+
+{ NSAppKitAdditions_CIImageCategory }
+  NSAppKitAdditions_CIImageCategory = objccategory external name 'NSAppKitAdditions' (CIImage)
+    function initWithBitmapImageRep(bitmapImageRep: NSBitmapImageRep): id; message 'initWithBitmapImageRep:';
+    procedure drawInRect_fromRect_operation_fraction(rect: NSRect; fromRect: NSRect; op: NSCompositingOperation; delta: CGFloat); message 'drawInRect:fromRect:operation:fraction:';
+    procedure drawAtPoint_fromRect_operation_fraction(point: NSPoint; fromRect: NSRect; op: NSCompositingOperation; delta: CGFloat); message 'drawAtPoint:fromRect:operation:fraction:';
+  end;
 
 {$endif}
 {$endif}

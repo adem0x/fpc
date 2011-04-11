@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSValueList.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSVALUELIST_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCSSValueList = objcclass;
   DOMCSSValueListPointer = ^DOMCSSValueList;
+  DOMCSSValueListPtr = DOMCSSValueListPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMCSSVALUELIST_PAS_C}
 
 { DOMCSSValueList }
-  DOMCSSValueList = objcclass(DOMCSSValue)
+  DOMCSSValueList = objcclass external (DOMCSSValue)
     
   public
-    class function alloc: DOMCSSValueList; message 'alloc';
-
     function length: cuint; message 'length';
     function item(index: cuint): DOMCSSValue; message 'item:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

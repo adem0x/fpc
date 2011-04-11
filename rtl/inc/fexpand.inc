@@ -177,7 +177,7 @@ begin
     if PathStart > 1 then
 {$ELSE FPC_FEXPAND_VOLUMES}
     if (Length (Pa) > 1) and (Pa [1] in ['A'..'Z', 'a'..'z']) and
-                                                 (Pa [2] = DriveSeparator) then
+      (Pa [2] = DriveSeparator) and (DriveSeparator <> DirectorySeparator) then
 {$ENDIF FPC_FEXPAND_VOLUMES}
         begin
 
@@ -556,7 +556,7 @@ end;
    parent directory and so on (Amiga). Please, note that you can decide
    to support both '..' and DirectorySeparator as references to the parent
    directory at the same time for compatibility reasons - however this
-   support makes it impossible to use an otherwise possibly valid name
+   support makes it impossible to use anotherwise possibly valid name
    of '..'.
 
    FPC_FEXPAND_DIRSEP_IS_CURDIR - DirectorySeparator at the beginning of

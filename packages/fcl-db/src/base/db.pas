@@ -22,7 +22,7 @@ unit db;
 
 interface
 
-uses Classes,Sysutils,Variants,FmtBCD;
+uses Classes,Sysutils,Variants,FmtBCD,MaskUtils;
 
 const
 
@@ -271,6 +271,7 @@ type
     FDefaultExpression : String;
     FDisplayLabel : String;
     FDisplayWidth : Longint;
+    FEditMask: TEditMask;
     FFieldKind : TFieldKind;
     FFieldName : String;
     FFieldNo : Longint;
@@ -401,6 +402,8 @@ type
     property DataType: TFieldType read FDataType;
     property DisplayName: String Read GetDisplayName;
     property DisplayText: String read GetDisplayText;
+    property EditMask: TEditMask read FEditMask write FEditMask;
+    property EditMaskPtr: TEditMask read FEditMask;
     property FieldNo: Longint read FFieldNo;
     property IsIndexField: Boolean read FIsIndexField;
     property IsNull: Boolean read GetIsNull;
@@ -472,6 +475,7 @@ type
     property Transliterate: Boolean read FTransliterate write FTransliterate;
     property Value: String read GetAsString write SetAsString;
   published
+    property EditMask;
     property Size default 20;
   end;
 
@@ -495,6 +499,7 @@ type
     function GetDataSize: Integer; override;
   public
     constructor Create(aOwner: TComponent); override;
+    procedure SetFieldType(AValue: TFieldType); override;
     property Value: WideString read GetAsWideString write SetAsWideString;
   end;
 
@@ -700,6 +705,7 @@ type
     property Value: TDateTime read GetAsDateTime write SetAsDateTime;
   published
     property DisplayFormat: string read FDisplayFormat write SetDisplayFormat;
+    property EditMask;
   end;
 
 { TDateField }
@@ -787,6 +793,48 @@ type
     property MinValue: Currency read FMinValue write FMinValue;
     property Size default 4;
   end;
+
+{ TFMTBCDField }
+
+  TFMTBCDField = class(TNumericField)
+  private
+    FMinValue,
+    FMaxValue   : TBCD;
+    FPrecision  : Longint;
+    FCurrency   : boolean;
+    function GetMaxValue: string;
+    function GetMinValue: string;
+    procedure SetMaxValue(const AValue: string);
+    procedure SetMinValue(const AValue: string);
+  protected
+    class procedure CheckTypeSize(AValue: Longint); override;
+    function GetAsBCD: TBCD; override;
+    function GetAsCurrency: Currency; override;
+    function GetAsFloat: Double; override;
+    function GetAsLongint: Longint; override;
+    function GetAsString: string; override;
+    function GetAsVariant: variant; override;
+    function GetDataSize: Integer; override;
+    function GetDefaultWidth: Longint; override;
+    procedure GetText(var TheText: string; ADisplayText: Boolean); override;
+    procedure SetAsBCD(const AValue: TBCD); override;
+    procedure SetAsFloat(AValue: Double); override;
+    procedure SetAsLongint(AValue: Longint); override;
+    procedure SetAsString(const AValue: string); override;
+    procedure SetAsCurrency(AValue: Currency); override;
+    procedure SetVarValue(const AValue: Variant); override;
+  public
+    constructor Create(AOwner: TComponent); override;
+    function CheckRange(AValue : TBCD) : Boolean;
+    property Value: TBCD read GetAsBCD write SetAsBCD;
+  published
+    property Precision: Longint read FPrecision write FPrecision default 15;
+    property Currency: Boolean read FCurrency write FCurrency;
+    property MaxValue: string read GetMaxValue write SetMaxValue;
+    property MinValue: string read GetMinValue write SetMinValue;
+    property Size default 4;
+  end;
+
 
 { TBlobField }
   TBlobStreamMode = (bmRead, bmWrite, bmReadWrite);
@@ -1827,7 +1875,7 @@ const
     varOleStr, varOleStr, varOleStr, varOleStr, varOleStr, varOleStr, varError,
     varOleStr, varOleStr, varError, varError, varError, varError, varError,
     varOleStr, varOleStr, varVariant, varUnknown, varDispatch, varOleStr,
-    varOleStr,varOleStr, varOleStr,varOleStr);
+    varOleStr, varDouble, varOleStr,varOleStr);
 
 
 Const
@@ -1936,7 +1984,7 @@ const
       { ftIDispatch} Nil,
       { ftGuid} TGuidField,
       { ftTimeStamp} Nil,
-      { ftFMTBcd} Nil,
+      { ftFMTBcd} TFMTBCDField,
       { ftFixedWideString} TWideStringField,
       { ftWideMemo} TWideMemoField
     );

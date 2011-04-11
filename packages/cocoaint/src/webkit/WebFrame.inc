@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework WebFrame.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef WEBFRAME_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   WebFrame = objcclass;
   WebFramePointer = ^WebFrame;
+  WebFramePtr = WebFramePointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define WEBFRAME_PAS_C}
 
 { WebFrame }
-  WebFrame = objcclass(NSObject)
+  WebFrame = objcclass external (NSObject)
   private
-    __private: WebFramePrivate;
+    _private: WebFramePrivate;
     
   public
-    class function alloc: WebFrame; message 'alloc';
-
-    function initWithName_webFrameView_webView(name_: NSString; view: WebFrameView; webView_: webView_Pointer): id; message 'initWithName:webFrameView:webView:';
+    function initWithName_webFrameView_webView(name_: NSString; view: WebFrameView; webView_: WebView): id; message 'initWithName:webFrameView:webView:';
     function name: NSString; message 'name';
     function webView: WebView; message 'webView';
     function frameView: WebFrameView; message 'frameView';
@@ -63,12 +60,13 @@
     function provisionalDataSource: WebDataSource; message 'provisionalDataSource';
     procedure stopLoading; message 'stopLoading';
     procedure reload; message 'reload';
+    procedure reloadFromOrigin; message 'reloadFromOrigin';
     function findFrameNamed(name_: NSString): WebFrame; message 'findFrameNamed:';
     function parentFrame: WebFrame; message 'parentFrame';
     function childFrames: NSArray; message 'childFrames';
     function windowObject: WebScriptObject; message 'windowObject';
     function globalContext: JSGlobalContextRef; message 'globalContext';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

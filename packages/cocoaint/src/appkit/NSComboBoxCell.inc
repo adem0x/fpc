@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSComboBoxCell.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCOMBOBOXCELL_PAS_T}
@@ -31,8 +29,10 @@
 {$endif}
 
 {$ifdef FORWARD}
+  NSComboBoxCellDataSourceProtocol = objcprotocol;
   NSComboBoxCell = objcclass;
   NSComboBoxCellPointer = ^NSComboBoxCell;
+  NSComboBoxCellPtr = NSComboBoxCellPointer;
 
 {$endif}
 
@@ -41,33 +41,49 @@
 {$define NSCOMBOBOXCELL_PAS_C}
 
 { NSComboBoxCell }
-  NSComboBoxCell = objcclass(NSTextFieldCell)
+  NSComboBoxCell = objcclass external (NSTextFieldCell)
   private
-    __delegate: id;
-    __dataSource: id;
+    _delegate: id;
+    _dataSource: id;
     __cbcFlags: bitpacked record
-        usesDataSource: 0..1;
-        completes: 0..1;
+      case byte of
+       0: (_anonbitfield_NSComboBoxCell0: cuint);
+       1: (
+        _usesDataSource: 0..1;
+        _completes: 0..1;
         buttonBordered: 0..1;
         popUpIsUp: 0..1;
         filteringEvents: 0..1;
         drawing: 0..1;
         synchronizingSelection: 0..1;
-        subclassOverridesBoundsForButtonCell: 0..1;
-        reserved: 0..((1 shl 8)-1);
+        reserved: 0..((1 shl 9)-1);
         visibleItems: 0..((1 shl 16)-1);
+      );
       end;
-    __buttonCell: NSButtonCell;
-    __tableView: NSTableView;
-    __scrollView: NSScrollView;
-    __popUp: NSWindow;
-    __popUpList: NSMutableArray;
-    __cellFrame: NSRect; {garbage collector: __strong }
-    __reserved: Pointer;
+    _buttonCell: NSButtonCell;
+    _tableView: NSTableView;
+    _scrollView: NSScrollView;
+    _popUp: NSWindow;
+    _popUpList: NSMutableArray;
+    _cellFrame: NSRectPtr; {garbage collector: __strong }
+    _reserved: Pointer;
     
   public
-    class function alloc: NSComboBoxCell; message 'alloc';
-  end; external;
+  end;
 
+{$endif}
+{$endif}
+{$ifdef PROTOCOLS}
+{$ifndef NSCOMBOBOXCELL_PAS_P}
+{$define NSCOMBOBOXCELL_PAS_P}
+  
+{ NSComboBoxCellDataSource Protocol }
+  NSComboBoxCellDataSourceProtocol = objcprotocol external name 'NSComboBoxCellDataSource'
+  optional
+    function numberOfItemsInComboBoxCell(comboBoxCell: NSComboBoxCell): NSInteger; message 'numberOfItemsInComboBoxCell:';
+    function comboBoxCell_objectValueForItemAtIndex(aComboBoxCell: NSComboBoxCell; index: NSInteger): id; message 'comboBoxCell:objectValueForItemAtIndex:';
+    function comboBoxCell_indexOfItemWithStringValue(aComboBoxCell: NSComboBoxCell; string_: NSString): NSUInteger; message 'comboBoxCell:indexOfItemWithStringValue:';
+    function comboBoxCell_completedString(aComboBoxCell: NSComboBoxCell; uncompletedString: NSString): NSString; message 'comboBoxCell:completedString:';
+  end;
 {$endif}
 {$endif}

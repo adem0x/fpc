@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSPrintPanel.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPRINTPANEL_PAS_T}
@@ -9,17 +7,19 @@
 { Constants }
 
 const
-  NSPrintPanelShowsCopies = $01;
-  NSPrintPanelShowsPageRange = $02;
-  NSPrintPanelShowsPaperSize = $04;
-  NSPrintPanelShowsOrientation = $08;
-  NSPrintPanelShowsScaling = $10;
-  NSPrintPanelShowsPageSetupAccessory = $100;
-  NSPrintPanelShowsPreview = $20000;
+  NSPrintPanelShowsCopies = 1 shl 0;
+  NSPrintPanelShowsPageRange = 1 shl 1;
+  NSPrintPanelShowsPaperSize = 1 shl 2;
+  NSPrintPanelShowsOrientation = 1 shl 3;
+  NSPrintPanelShowsScaling = 1 shl 4;
+  NSPrintPanelShowsPrintSelection = 1 shl 5;
+  NSPrintPanelShowsPageSetupAccessory = 1 shl 8;
+  NSPrintPanelShowsPreview = 1 shl 17;
 
 { Types }
 type
   NSPrintPanelOptions = NSInteger;
+  NSPrintPanelOptionsPtr = ^NSPrintPanelOptions;
 
 {$endif}
 {$endif}
@@ -44,9 +44,11 @@ type
 
 { External string constants }
 var
-  NSPrintPhotoJobStyleHint: NSString; external name '_NSPrintPhotoJobStyleHint';
-  NSPrintPanelAccessorySummaryItemNameKey: NSString; external name '_NSPrintPanelAccessorySummaryItemNameKey';
-  NSPrintPanelAccessorySummaryItemDescriptionKey: NSString; external name '_NSPrintPanelAccessorySummaryItemDescriptionKey';
+  NSPrintPhotoJobStyleHint: NSString; cvar; external;
+  NSPrintAllPresetsJobStyleHint: NSString; cvar; external;
+  NSPrintNoPresetsJobStyleHint: NSString; cvar; external;
+  NSPrintPanelAccessorySummaryItemNameKey: NSString; cvar; external;
+  NSPrintPanelAccessorySummaryItemDescriptionKey: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -55,6 +57,7 @@ var
   NSPrintPanelAccessorizingProtocol = objcprotocol;
   NSPrintPanel = objcclass;
   NSPrintPanelPointer = ^NSPrintPanel;
+  NSPrintPanelPtr = NSPrintPanelPointer;
 
 {$endif}
 
@@ -63,21 +66,21 @@ var
 {$define NSPRINTPANEL_PAS_C}
 
 { NSPrintPanel }
-  NSPrintPanel = objcclass(NSObject)
+  NSPrintPanel = objcclass external (NSObject)
   private
-    __accessoryControllers: NSMutableArray;
-    __previewController: id;
-    __thumbnailView: NSView;
-    __options: NSInteger;
-    __defaultButtonTitle: NSString;
-    __helpAnchor: NSString;
-    __jobStyleHint: NSString;
-    __originalPrintInfo: NSPrintInfo;
-    __delegate: id;
-    __didEndSelector: SEL;
-    __contextInfo: Pointer;
-    __presentedPrintInfo: NSPrintInfo;
-    __windowController: NSWindowController;
+    _accessoryControllers: NSMutableArray;
+    _previewController: id;
+    _thumbnailView: NSView;
+    _options: NSInteger;
+    _defaultButtonTitle: NSString;
+    _helpAnchor: NSString;
+    _jobStyleHint: NSString;
+    _originalPrintInfo: NSPrintInfo;
+    _delegate: id;
+    _didEndSelector: SEL;
+    _contextInfo: Pointer;
+    _presentedPrintInfo: NSPrintInfo;
+    _windowController: NSWindowController;
     {$ifdef cpu64}
         _reserved: array[0..1] of id;
     {$else}
@@ -85,8 +88,6 @@ var
     {$endif}
     
   public
-    class function alloc: NSPrintPanel; message 'alloc';
-
     class function printPanel: NSPrintPanel; message 'printPanel';
     procedure addAccessoryController(accessoryController: NSViewController); message 'addAccessoryController:';
     procedure removeAccessoryController(accessoryController: NSViewController); message 'removeAccessoryController:';
@@ -103,13 +104,15 @@ var
     function runModalWithPrintInfo(printInfo_: NSPrintInfo): NSInteger; message 'runModalWithPrintInfo:';
     function runModal: NSInteger; message 'runModal';
     function printInfo: NSPrintInfo; message 'printInfo';
+  end;
 
-    { Category: NSDeprecated }
-    procedure setAccessoryView(accessoryView_: NSView); message 'setAccessoryView:';
-    function accessoryView: NSView; message 'accessoryView';
-    procedure updateFromPrintInfo; message 'updateFromPrintInfo';
-    procedure finalWritePrintInfo; message 'finalWritePrintInfo';
-  end; external;
+{ NSDeprecated_NSPrintPanelCategory }
+  NSDeprecated_NSPrintPanelCategory = objccategory external name 'NSDeprecated' (NSPrintPanel)
+    procedure setAccessoryView(accessoryView_: NSView); message 'setAccessoryView:'; deprecated 'in Mac OS X 10.5 and later';
+    function accessoryView: NSView; message 'accessoryView'; deprecated 'in Mac OS X 10.5 and later';
+    procedure updateFromPrintInfo; message 'updateFromPrintInfo'; deprecated 'in Mac OS X 10.5 and later';
+    procedure finalWritePrintInfo; message 'finalWritePrintInfo'; deprecated 'in Mac OS X 10.5 and later';
+  end;
 
 {$endif}
 {$endif}
@@ -118,9 +121,10 @@ var
 {$define NSPRINTPANEL_PAS_P}
   
 { NSPrintPanelAccessorizing Protocol }
-  NSPrintPanelAccessorizingProtocol = objcprotocol
+  NSPrintPanelAccessorizingProtocol = objcprotocol external name 'NSPrintPanelAccessorizing'
     function localizedSummaryItems: NSArray; message 'localizedSummaryItems';
+  optional
     function keyPathsForValuesAffectingPreview: NSSet; message 'keyPathsForValuesAffectingPreview';
-  end; external name 'NSPrintPanelAccessorizing';
+  end;
 {$endif}
 {$endif}

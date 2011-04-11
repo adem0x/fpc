@@ -587,7 +587,7 @@ end;
 
 procedure TReader.BeginReferences;
 begin
-  FLoaded := TList.Create;
+  FLoaded := TFpList.Create;
 end;
 
 procedure TReader.CheckValue(Value: TValueType);
@@ -1101,10 +1101,12 @@ begin
     vaNil:
       begin
         Result:=system.unassigned;
+        readvalue;
       end;
     vaNull:
       begin
         Result:=system.null;
+        readvalue;
       end;
     { all integer sizes must be split for big endian systems }
     vaInt8,vaInt16,vaInt32:
@@ -1423,7 +1425,7 @@ begin
       if Assigned(GlobalLoaded) then
         FLoaded := GlobalLoaded
       else
-        FLoaded := TList.Create;
+        FLoaded := TFpList.Create;
 
       try
         if FLoaded.IndexOf(FRoot) < 0 then

@@ -27,6 +27,14 @@ unit fpmkunit;
 
 Interface
 
+{$IFDEF OS2}
+ {$DEFINE NO_UNIT_PROCESS}
+{$ENDIF OS2}
+
+{$IFDEF GO32V2}
+ {$DEFINE NO_UNIT_PROCESS}
+{$ENDIF GO32V2}
+
 {$ifndef NO_UNIT_PROCESS}
   {$define HAS_UNIT_PROCESS}
 {$endif NO_UNIT_PROCESS}
@@ -61,15 +69,18 @@ Type
     linux,go32v2,win32,os2,freebsd,beos,netbsd,
     amiga,atari, solaris, qnx, netware, openbsd,wdosx,
     palmos,macos,darwin,emx,watcom,morphos,netwlibc,
-    win64,wince,gba,nds,embedded,symbian
+    win64,wince,gba,nds,embedded,symbian,haiku
   );
   TOSes = Set of TOS;
 
   TCompilerMode = (cmFPC,cmTP,cmObjFPC,cmDelphi,cmMacPas);
   TCompilerModes = Set of TCompilerMode;
 
-  TTargetType = (ttProgram,ttUnit,ttImplicitUnit,ttCleanOnlyUnit,ttExampleUnit,ttExampleProgram);
+  TTargetType = (ttProgram,ttUnit,ttImplicitUnit,ttCleanOnlyUnit,ttExampleUnit,ttExampleProgram,ttFPDoc);
   TTargetTypes = set of TTargetType;
+
+  TFPDocFormat = (ffHtml, ffHtm, ffXHtml, ffLaTex, ffXMLStruct, ffChm);
+  TFPDocFormats = set of TFPDocFormat;
 
   TTargetState = (tsNeutral,tsConsidering,tsNoCompile,tsCompiled,tsInstalled,tsNotFound);
   TTargetStates = Set of TTargetState;
@@ -103,7 +114,7 @@ Const
 
   AllOSes = [Low(TOS)..High(TOS)];
   AllCPUs = [Low(TCPU)..High(TCPU)];
-  AllUnixOSes  = [Linux,FreeBSD,NetBSD,OpenBSD,Darwin,QNX,BeOS,Solaris];
+  AllUnixOSes  = [Linux,FreeBSD,NetBSD,OpenBSD,Darwin,QNX,BeOS,Solaris,Haiku];
   AllBSDOSes      = [FreeBSD,NetBSD,OpenBSD,Darwin];
   AllWindowsOSes  = [Win32,Win64,WinCE];
 
@@ -137,7 +148,8 @@ Const
     { gba    }  ( false, false, false, false, false, false, true,  false, false, false),
     { nds    }  ( false, false, false, false, false, false, true,  false, false, false),
     { embedded }( false, true,  true,  true,  true,  true,  true,  true,  true,  true ),
-    { symbian } ( false, true,  false, false, false, false, true,  false, false, false)
+    { symbian } ( false, true,  false, false, false, false, true,  false, false, false),
+    { haiku }   ( false, true,  false, false, false, false, false, false, false, false) 
   );
 
   // Useful
@@ -256,7 +268,7 @@ Type
     FMajor,
     FMinor,
     FMicro,
-    FBuild    : Word;
+    FBuild    : Integer;
     function GetAsString: String;
     function GetEmpty: Boolean;
     procedure SetAsString(const AValue: String);
@@ -268,10 +280,10 @@ Type
    Property AsString : String Read GetAsString Write SetAsString;
    Property Empty : Boolean Read GetEmpty;
   Published
-   Property Major : Word Read FMajor Write FMajor;
-   Property Minor : Word Read FMinor Write FMinor;
-   Property Micro : Word Read FMicro Write FMicro;
-   Property Build : Word Read FBuild Write FBuild;
+   Property Major : Integer Read FMajor Write FMajor;
+   Property Minor : Integer Read FMinor Write FMinor;
+   Property Micro : Integer Read FMicro Write FMicro;
+   Property Build : Integer Read FBuild Write FBuild;
   end;
 
   { TConditionalString }
@@ -380,6 +392,7 @@ Type
     FFPCTarget: String;
     FTargetState: TTargetState;
     FTargetType: TTargetType;
+    FXML: string;
     function GetOptions: TStrings;
     procedure SetOptions(const AValue: TStrings);
   Protected
@@ -394,6 +407,7 @@ Type
     Function  GetOutputFileName (AOs : TOS) : String; Virtual;
     Function HaveOptions : Boolean;
     procedure SetName(const AValue: String);override;
+    procedure SetXML(const AValue: string);
     Procedure GetCleanFiles(List : TStrings; const APrefixU, APrefixB : String; ACPU:TCPU; AOS : TOS); virtual;
     Procedure GetInstallFiles(List : TStrings; const APrefixU, APrefixB: String; ACPU:TCPU; AOS : TOS); virtual;
     Procedure GetArchiveFiles(List : TStrings; ACPU:TCPU; AOS : TOS); virtual;
@@ -419,6 +433,7 @@ Type
     Property ObjectPath : TConditionalStrings Read FObjectPath;
     Property UnitPath : TConditionalStrings Read FUnitPath;
     Property IncludePath : TConditionalStrings Read FIncludePath;
+    Property XML: string Read FXML Write SetXML;
     // Events.
     Property BeforeCompile : TNotifyEvent Read FBeforeCompile Write FBeforeCompile;
     Property AfterCompile : TNotifyEvent Read FAfterCompile Write FAfterCompile;
@@ -434,6 +449,7 @@ Type
     function GetTarget(const AName : String): TTarget;
     procedure SetTargetItem(Index : Integer; const AValue: TTarget);
   Public
+    Function AddFPDoc(Const AUnitName, AXMLName : String) : TTarget;inline;
     Function AddUnit(Const AUnitName : String) : TTarget;inline;
     Function AddUnit(Const AUnitName : String;const OSes:TOSes) : TTarget;inline;
 {$ifdef cpu_only_overloads}
@@ -471,10 +487,14 @@ Type
   TSource = Class(TNamedItem)
   private
     FSourceType : TSourceType;
+    FInstallSourcePath : string;
+    function GetInstallSourcePath: string;
   Public
     Constructor Create(ACollection : TCollection); override;
     Destructor Destroy; override;
+    Procedure GetInstallFiles(List : TStrings); virtual;
     property SourceType : TSourceType read FSourceType;
+    property InstallSourcePath : string read GetInstallSourcePath;
   end;
 
   { TSources }
@@ -485,12 +505,14 @@ Type
     procedure SetSourceItem(Index : Integer; const AValue: TSource);
   public
     Function AddDoc(const AFiles : String) : TSource;
+    Function AddDoc(const AFiles : String; AInstallSourcePath : String) : TSource;
     Function AddSrc(const AFiles : String) : TSource;
     Function AddExample(const AFiles : String) : TSource;
+    Function AddExample(const AFiles : String; AInstallSourcePath : String) : TSource;
     Function AddTest(const AFiles : String) : TSource;
-    procedure AddDocFiles(const AFileMask: string; Recursive: boolean = False);
+    procedure AddDocFiles(const AFileMask: string; Recursive: boolean = False; AInstallSourcePath : String = '');
     procedure AddSrcFiles(const AFileMask: string; Recursive: boolean = False);
-    procedure AddExampleFiles(const AFileMask: string; Recursive: boolean = False);
+    procedure AddExampleFiles(const AFileMask: string; Recursive: boolean = False; AInstallSourcePath : String = '');
     procedure AddTestFiles(const AFileMask: string; Recursive: boolean = False);
     Property SourceItems[Index : Integer] : TSource Read GetSourceItem Write SetSourceItem;default;
   end;
@@ -509,6 +531,8 @@ Type
     FBeforeCompile: TNotifyEvent;
     FBeforeInstall: TNotifyEvent;
     FBeforeManifest: TNotifyEvent;
+    FFPDocFormat: TFPDocFormats;
+    FIsFPMakeAddIn: boolean;
     FUnitPath,
     FObjectPath,
     FIncludePath,
@@ -556,8 +580,10 @@ Type
     Function  GetUnitsOutputDir(ACPU:TCPU; AOS : TOS):String;
     Function  GetBinOutputDir(ACPU:TCPU; AOS : TOS) : String;
     Procedure GetCleanFiles(List : TStrings; ACPU:TCPU; AOS : TOS); virtual;
-    procedure GetInstallFiles(List: TStrings;Types : TTargetTypes;ACPU:TCPU; AOS : TOS);
+    procedure GetInstallFiles(List: TStrings;Types : TTargetTypes;ACPU:TCPU; AOS : TOS); virtual;
+    procedure GetInstallSourceFiles(List: TStrings;Types : TSourceTypes); virtual;
     Procedure GetArchiveFiles(List : TStrings; ACPU:TCPU; AOS : TOS); virtual;
+    Procedure GetArchiveSourceFiles(List : TStrings); virtual;
     Procedure GetManifest(Manifest : TStrings);
     Property Version : String Read GetVersion Write SetVersion;
     Property FileName : String Read GetFileName Write FFileName;
@@ -570,6 +596,7 @@ Type
     Property Description : String Read GetDescription Write FDescription;
     Property DescriptionFile : String Read FDescriptionFile Write FDescriptionFile;
     Property InstalledChecksum : Cardinal Read FInstalledChecksum Write FInstalledChecksum;
+    Property IsFPMakeAddIn: boolean read FIsFPMakeAddIn write FIsFPMakeAddIn;
     // Compiler options.
     Property OSes : TOSes Read FOSes Write FOSes;
     Property CPUs : TCPUs Read FCPUs Write FCPUs;
@@ -581,6 +608,7 @@ Type
     Property SourcePath : TConditionalStrings Read FSourcePath;
     Property ExamplePath : TConditionalStrings Read FExamplePath;
     Property TestPath : TConditionalStrings Read FTestPath;
+    Property FPDocFormat: TFPDocFormats read FFPDocFormat write FFPDocFormat;
     // Targets and dependencies
     Property InstallFiles : TConditionalStrings Read FInstallFiles;
     Property CleanFiles : TConditionalStrings Read FCleanFiles;
@@ -623,6 +651,8 @@ Type
     FArchive: String;
     FCompiler: String;
     FCopy: String;
+    FFPDocOutputDir: String;
+    FIgnoreInvalidOptions: Boolean;
     FMkDir: String;
     FMove: String;
     FOptions: TStrings;
@@ -642,6 +672,7 @@ Type
     FTarget: String;
     FUnixPaths: Boolean;
     FNoFPCCfg: Boolean;
+    function GetFPDocOutputDir: String;
     function GetLocalUnitDir: String;
     function GetGlobalUnitDir: String;
     function GetBaseInstallDir: String;
@@ -689,6 +720,7 @@ Type
     Property BinInstallDir : String Read GetBinInstallDir Write FBinInstallDir;
     Property DocInstallDir : String Read GetDocInstallDir Write FDocInstallDir;
     Property ExamplesInstallDir : String Read GetExamplesInstallDir Write FExamplesInstallDir;
+    Property FPDocOutputDir : String Read GetFPDocOutputDir Write FFPDocOutputDir;
     // Command tools. If not set, internal commands  will be used.
     Property Compiler : String Read GetCompiler Write FCompiler; // Compiler. Defaults to fpc
     Property Copy : String Read FCopy Write FCopy;             // copy $(FILES) to $(DEST)
@@ -696,6 +728,8 @@ Type
     Property Remove : String Read FRemove Write FRemove;       // Delete $(FILES)
     Property MkDir : String Read FMkDir write FMkDir;          // Make $(DIRECTORY)
     Property Archive : String Read FArchive Write FArchive;    // zip $(ARCHIVE) $(FILESORDIRS)
+    // Misc
+    Property IgnoreInvalidOptions: Boolean read FIgnoreInvalidOptions write FIgnoreInvalidOptions;
   end;
 
   { TBasicDefaults }
@@ -719,6 +753,7 @@ Type
     FStartDir : String;
     FForceCompile : Boolean;
     FListMode : Boolean;
+    FVerbose : boolean;
 {$ifdef HAS_UNIT_ZIPPER}
     FZipFile: TZipper;
 {$endif HAS_UNIT_ZIPPER}
@@ -754,6 +789,7 @@ Type
     Procedure EnterDir(ADir : String);
     Function GetCompiler : String;
     Function InstallPackageFiles(APAckage : TPackage; tt : TTargetType; Const Dest : String):Boolean;
+    Function InstallPackageSourceFiles(APAckage : TPackage; tt : TSourceType; Const Dest : String):Boolean;
     Function FileNewer(const Src,Dest : String) : Boolean;
     Procedure LogSearchPath(const ASearchPathName:string;Path:TConditionalStrings; ACPU:TCPU;AOS:TOS);
     Function FindFileInPath(Path:TConditionalStrings; AFileName:String; var FoundPath:String;ACPU:TCPU;AOS:TOS):Boolean;
@@ -766,6 +802,9 @@ Type
   Public
     Constructor Create(AOwner : TComponent); override;
     destructor Destroy;override;
+
+    property Verbose : boolean read FVerbose write FVerbose;
+
     // Public Copy/delete/Move/Archive/Mkdir Commands.
     Procedure ExecuteCommand(const Cmd,Args : String; IgnoreError : Boolean = False); virtual;
     Procedure CmdCopyFiles(List : TStrings; Const DestDir : String);
@@ -773,6 +812,7 @@ Type
     Procedure CmdMoveFiles(List : TStrings; Const DestDir : String);
     Procedure CmdDeleteFiles(List : TStrings);
     Procedure CmdArchiveFiles(List : TStrings; Const ArchiveFile : String);
+    Procedure CmdRenameFile(SourceName, DestName : String);
     Procedure ExecuteCommands(Commands : TCommands; At : TCommandAt);
     // Dependency commands
     Function  DependencyOK(ADependency : TDependency) : Boolean;
@@ -838,9 +878,12 @@ Type
     FRunMode: TRunMode;
     FListMode : Boolean;
     FLogLevels : TVerboseLevels;
+    FFPMakeOptionsString: string;
   Protected
     Procedure Log(Level : TVerboseLevel; Const Msg : String);
     Procedure CreatePackages; virtual;
+    Procedure FreePackages; virtual;
+    function GetPackages: TPackages; virtual;
     Procedure CheckPackages; virtual;
     Procedure CreateBuildEngine; virtual;
     Procedure Error(const Msg : String);
@@ -858,8 +901,9 @@ Type
     Destructor destroy; override;
     Function AddPackage(Const AName : String) : TPackage;
     Function Run : Boolean;
+    Property FPMakeOptionsString: string read FFPMakeOptionsString;
     //files in package
-    Property Packages : TPackages Read FPackages;
+    Property Packages : TPackages Read GetPackages;
     Property RunMode : TRunMode Read FRunMode;
     Property ListMode : Boolean Read FListMode;
   end;
@@ -945,9 +989,14 @@ Function StringToMode(const S : String) : TCompilerMode;
 Function MakeTargetString(CPU : TCPU;OS: TOS) : String;
 Procedure StringToCPUOS(const S : String; Var CPU : TCPU; Var OS: TOS);
 Function FixPath (const APath : String) : String;
+Function IsRelativePath(const APath : String) : boolean;
 Procedure ChangeDir(const APath : String);
 Function Substitute(Const Source : String; Macros : Array of string) : String;
 Procedure SplitCommand(Const Cmd : String; Var Exe,Options : String);
+Procedure AddCustomFpmakeCommandlineOption(const ACommandLineOption, HelpMessage : string);
+Function GetCustomFpmakeCommandlineOptionValue(const ACommandLineOption : string) : string;
+
+procedure SearchFiles(const AFileName: string; Recursive: boolean; var List: TStrings);
 
 Implementation
 
@@ -958,6 +1007,10 @@ type
   public
     function Add(const S: string): Integer; override;
   end;
+
+var
+  CustomFpmakeCommandlineOptions: TStrings;
+  CustomFpMakeCommandlineValues: TStrings;
 
 ResourceString
   SErrInvalidCPU        = 'Invalid CPU name "%s"';
@@ -971,7 +1024,7 @@ ResourceString
   SErrNoPackagesDefined = 'No action possible: No packages were defined.';
   SErrInstaller         = 'The installer encountered the following error:';
   SErrDepUnknownTarget  = 'Unknown target for unit "%s" in dependencies for %s in package %s';
-  SErrExternalCommandFailed = 'External command "%s" failed with exit code %d';
+  SErrExternalCommandFailed = 'External command "%s" failed with exit code %d. Console output:'+LineEnding+'%s';
   SErrCreatingDirectory = 'Failed to create directory "%s"';
   SErrDeletingFile      = 'Failed to delete file "%s"';
   SErrMovingFile        = 'Failed to move file "%s" to "%s"';
@@ -998,7 +1051,10 @@ ResourceString
   SWarnDepUnitNotFound     = 'Warning: Dependency on unit %s is not supported for %s';
   SWarnTargetDependsOnPackage = 'Warning: Target %s of package %s depends on another package (%s). These kind of dependencies are not processed';
   SWarnDependOnOtherPlatformPackage = 'Warning: Package %s depends on package %s which is not available for the %s platform';
-  SWarnDone               = 'Done';
+  SWarnStartBuildingPackage = 'Start building package %s for target %s.';
+  SWarnBuildingPackagecomplete = '[%3.0f%%] Built target %s';
+  SWarnInstallationPackagecomplete = 'Installation package %s for target %s succeeded';
+  SWarnCleanPackagecomplete = 'Clean of package %s completed';
 
   SInfoCompilingPackage   = 'Compiling package %s';
   SInfoPackageAlreadyProcessed = 'Package %s is already processed';
@@ -1067,6 +1123,8 @@ ResourceString
   SHelpConfig         = 'Use indicated config file when compiling.';
   SHelpOptions        = 'Pass extra options to the compiler.';
   SHelpVerbose        = 'Be verbose when working.';
+  SHelpIgnoreInvOpt   = 'Ignore further invalid options.';
+  sHelpFpdocOutputDir = 'Use indicated directory as fpdoc output folder.';
 
 
 Const
@@ -1097,11 +1155,189 @@ Const
   KeyChecksum = 'Checksum';
   KeyNeedLibC = 'NeedLibC';
   KeyDepends  = 'Depends';
+  KeyAddIn    = 'FPMakeAddIn';
+  KeySourcePath = 'SourcePath';
+  KeyFPMakeOptions = 'FPMakeOptions';
 
 {****************************************************************************
                                 Helpers
 ****************************************************************************}
 
+{$ifdef HAS_UNIT_PROCESS}
+function ExecuteFPC(Verbose: boolean; const Path: string; const ComLine: string; ConsoleOutput: TMemoryStream): integer;
+var
+  P: TProcess;
+  BytesRead: longint;
+
+  function ReadFromStream: longint;
+
+  const
+    READ_BYTES = 2048;
+
+  type
+    TMessages = (mCompiling, mLinking);
+
+  var
+    //ifdef the MsgNum so it contains the correct message numbers for each compiler version.
+    MsgNum : array [TMessages] of integer = (3104, 9015);
+
+    n: longint;
+    BuffPos: longint;
+    sLine: string;
+    ch: char;
+    msg: TMessages;
+    ipos: integer;
+    snum: string;
+  begin
+    // make sure we have room
+    ConsoleOutput.SetSize(BytesRead + READ_BYTES);
+
+    // try reading it
+    n := P.Output.Read((ConsoleOutput.Memory + BytesRead)^, READ_BYTES);
+    if n > 0 then
+    begin
+      Inc(BytesRead, n);
+
+      sLine := '';
+      BuffPos := ConsoleOutput.Position;
+
+      //read lines from the stream
+      repeat
+        ConsoleOutput.Read(ch,1);
+
+        if ch in [#10, #13] then
+        begin
+          if Verbose then
+            writeln(sLine)
+          else
+            begin
+              for msg := Low(TMessages) to High(TMessages) do
+              begin
+                snum := Format('(%d)', [MsgNum[msg]]);
+                ipos := Pos(snum, sLine);
+                if ipos = 1 then
+                  writeln('      ', Copy(sLine, ipos + Length(snum), Length(sLine) - ipos - Length(snum) + 1));
+              end;
+            end;
+
+          sLine := '';
+          BuffPos := ConsoleOutput.Position;
+        end
+        else
+          sLine := sLine + ch;
+
+      until ConsoleOutput.Position >= BytesRead;
+
+      ConsoleOutput.Position := BuffPos;
+    end
+    else
+    begin
+      // no data, wait 100 ms
+      Sleep(100);
+    end;
+
+    Result := n;
+  end;
+
+begin
+  result := -1;
+  BytesRead := 0;
+  P := TProcess.Create(nil);
+  try
+    if Verbose then
+      P.CommandLine := Path + ' ' + ComLine
+    else
+      P.CommandLine := Path + ' -viq ' + ComLine;
+
+    P.Options := [poUsePipes];
+
+    P.Execute;
+    while P.Running do
+      ReadFromStream;
+
+    // read last part
+    repeat
+    until ReadFromStream = 0;
+    ConsoleOutput.SetSize(BytesRead);
+
+    result := P.ExitStatus;
+  finally
+    P.Free;
+  end;
+end;
+{$endif HAS_UNIT_PROCESS}
+
+function ParsecompilerOutput(M: TMemoryStream; Verbose: boolean): string;
+type
+  TParseCompilerOutputState = (cosBeginOfLine, cosSearchColon, cosParseNumber, cosOther);
+
+var
+  presult: pchar;
+  state: TParseCompilerOutputState;
+  ch: char;
+  eolchar: char;
+begin
+  m.Seek(0, soBeginning);
+  setlength(Result,M.Size);
+
+  if verbose then
+    begin
+      m.Read(Result[1],M.Size);
+      Exit;
+    end;
+
+  presult := @Result[1];
+  eolchar := RightStr(LineEnding,1)[1];
+  m.Seek(0,soBeginning);
+  state := cosBeginOfLine;
+  while m.Position<m.Size do
+    begin
+      ch := char(m.ReadByte);
+      case state of
+        cosBeginOfLine:
+          begin
+            if ch='(' then
+              state := cosParseNumber
+            else if ch=' ' then
+              begin
+                presult^ := ch;
+                inc(presult);
+              end
+            else
+              begin
+                presult^ := ch;
+                inc(presult);
+                state := cosSearchColon;
+              end;
+          end;
+        cosParseNumber:
+          begin
+            if ch=')' then
+              begin
+              state := cosOther;
+              // Omit the space behind the number
+              ch := char(m.ReadByte);
+              assert(ch=' ');
+              end;
+          end;
+        cosOther:
+          begin
+            presult^ := ch;
+            inc(presult);
+            if ch=eolchar then
+              state := cosBeginOfLine;
+          end;
+        cosSearchColon:
+          begin
+            presult^ := ch;
+            inc(presult);
+            if (ch=':') or (ch=eolchar) then
+              state := cosBeginOfLine;
+          end;
+      end;
+    end;
+  setlength(Result,presult-@result[1]);
+end;
 
 Function QuoteXML(S : String) : string;
 
@@ -1422,6 +1658,20 @@ begin
     end;
 end;
 
+function IsRelativePath(const APath: String): boolean;
+begin
+  if APath='' then
+    result := true
+{$ifdef unix}
+  else if APath[1] in AllowDirectorySeparators then
+    result := false
+{$else}
+  else if ExtractFileDrive(APath)<>'' then
+    result := false
+{$endif}
+  else
+    result := true;
+end;
 
 procedure ChangeDir(const APath : String);
 begin
@@ -1495,6 +1745,21 @@ begin
   Exe:=Copy(S,1,I-1);
   Delete(S,1,I);
   Options:=Trim(S);
+end;
+
+procedure AddCustomFpmakeCommandlineOption(const ACommandLineOption, HelpMessage : string);
+begin
+  if not assigned(CustomFpmakeCommandlineOptions) then
+    CustomFpmakeCommandlineOptions := TStringList.Create;
+  CustomFpmakeCommandlineOptions.Values[ACommandLineOption]:=HelpMessage;
+end;
+
+function GetCustomFpmakeCommandlineOptionValue(const ACommandLineOption: string): string;
+begin
+  if not assigned(CustomFpMakeCommandlineValues) then
+    result := ''
+  else
+    result := CustomFpMakeCommandlineValues.Values[ACommandLineOption];
 end;
 
 Function OptionListToString(L : TStrings) : String;
@@ -1672,6 +1937,13 @@ begin
   Items[Index]:=AValue;
 end;
 
+function TTargets.AddFPDoc(const AUnitName, AXMLName: String): TTarget;
+begin
+  Result:=Add as TTarget;
+  Result.Name:=AUnitName;
+  Result.XML:=AXMLName;
+  Result.TargetType:=ttFPDoc;
+end;
 
 Function TTargets.AddUnit(Const AUnitName : String) : TTarget;
 begin
@@ -1848,6 +2120,15 @@ begin
 end;
 
 
+function TSources.AddDoc(const AFiles: String; AInstallSourcePath: String): TSource;
+begin
+  Result:=Add as TSource;
+  Result.Name:=AFiles;
+  Result.FInstallSourcePath:=AInstallSourcePath;
+  Result.FSourceType:=stDoc;
+end;
+
+
 function TSources.AddSrc(const AFiles : String) : TSource;
 begin
   Result:=Add as TSource;
@@ -1863,6 +2144,14 @@ begin
   Result.FSourceType:=stExample;
 end;
 
+function TSources.AddExample(const AFiles: String; AInstallSourcePath: String): TSource;
+begin
+  Result:=Add as TSource;
+  Result.Name:=AFiles;
+  Result.FInstallSourcePath:=AInstallSourcePath;
+  Result.FSourceType:=stExample;
+end;
+
 
 function TSources.AddTest(const AFiles : String) : TSource;
 begin
@@ -1872,7 +2161,7 @@ begin
 end;
 
 
-procedure TSources.AddDocFiles(const AFileMask: string; Recursive: boolean);
+procedure TSources.AddDocFiles(const AFileMask: string; Recursive: boolean; AInstallSourcePath : String = '');
 var
   List : TStrings;
   i: integer;
@@ -1880,7 +2169,7 @@ begin
   List := TStringList.Create;
   SearchFiles(AFileMask, Recursive, List);
   for i:= 0 to Pred(List.Count) do
-    AddDoc(List[i]);
+    AddDoc(List[i], AInstallSourcePath);
   List.Free;
 end;
 
@@ -1898,7 +2187,7 @@ begin
 end;
 
 
-procedure TSources.AddExampleFiles(const AFileMask: string; Recursive: boolean);
+procedure TSources.AddExampleFiles(const AFileMask: string; Recursive: boolean; AInstallSourcePath : String = '');
 var
   List : TStrings;
   i: integer;
@@ -1906,7 +2195,7 @@ begin
   List := TStringList.Create;
   SearchFiles(AFileMask, Recursive, List);
   for i:= 0 to Pred(List.Count) do
-    AddExample(List[i]);
+    AddExample(List[i], AInstallSourcePath);
   List.Free;
 end;
 
@@ -2028,6 +2317,20 @@ begin
 end;
 
 
+procedure TPackage.GetInstallSourceFiles(List: TStrings; Types: TSourceTypes);
+Var
+  I : Integer;
+  S : TSource;
+begin
+  For I:=0 to FSources.Count-1 do
+    begin
+      S:=FSources.SourceItems[I];
+      if (S.SourceType in Types) then
+        S.GetInstallFiles(List);
+    end;
+end;
+
+
 procedure TPackage.GetArchiveFiles(List: TStrings; ACPU:TCPU; AOS : TOS);
 Var
   I : Integer;
@@ -2037,6 +2340,13 @@ begin
     FTargets.TargetItems[I].GetArchiveFiles(List,ACPU,AOS);
 end;
 
+procedure TPackage.GetArchiveSourceFiles(List: TStrings);
+var
+  i : integer;
+begin
+  for i := 0 to Sources.Count-1 do
+    List.Add(Sources[i].Name);
+end;
 
 Function TPackage.GetDescription : string;
 Var
@@ -2132,6 +2442,21 @@ Procedure TPackage.GetManifest(Manifest : TStrings);
     Manifest.Add(AIndent+'</cpus>');
   end;
 
+  function GetXMLVersionString(sMajor, sMinor, sMicro, sBuild: integer): string;
+  begin
+    Result := '<version';
+    if sMajor <> -1 then
+      Result := Result + ' major="' + IntToStr(sMajor) + '"';
+    if sMinor <> -1 then
+      Result := Result + ' minor="' + IntToStr(sMinor) + '"';
+    if sMicro <> -1 then
+      Result := Result + ' micro="' + IntToStr(sMicro) + '"';
+    if sBuild <> -1 then
+      Result := Result + ' build="' + IntToStr(sBuild) + '"';
+
+    Result := Result + '/>';
+  end;
+
 Var
   S : String;
   i : Integer;
@@ -2140,7 +2465,8 @@ begin
   With Manifest do
     begin
     Add(Format('<package name="%s">',[QuoteXml(Name)]));
-    Add(Format(' <version major="%d" minor="%d" micro="%d" build="%d"/>',[FVersion.Major,FVersion.Minor,FVersion.Micro,FVersion.Build]));
+
+    Add(' ' + GetXMLVersionString(FVersion.Major,FVersion.Minor,FVersion.Micro,FVersion.Build));
     AddOSes(' ',OSes);
     AddCPUs(' ',CPUs);
     Add(Format(' <filename>%s</filename>',[QuoteXml(FileName + ZipExt)]));
@@ -2163,7 +2489,7 @@ begin
             Add('  <dependency>');
             Add(Format('   <package packagename="%s"/>',[QuoteXML(D.Value)]));
             if not D.FVersion.Empty then
-              Add(Format('   <version major="%d" minor="%d" micro="%d" build="%d"/>',[D.FVersion.Major,D.FVersion.Minor,D.FVersion.Micro,D.FVersion.Build]));
+              Add('   ' + GetXMLVersionString(D.FVersion.Major,D.FVersion.Minor,D.FVersion.Micro,D.FVersion.Build));
             AddOSes('   ',D.OSes);
             AddCPUs('   ',D.CPUs);
             Add('  </dependency>');
@@ -2214,6 +2540,7 @@ begin
           end;
         FreeAndNil(L2);
         NeedLibC:=Upcase(Values[KeyNeedLibC])='Y';
+        IsFPMakeAddIn:=Upcase(Values[KeyAddIn])='Y';
       end;
   Finally
     L.Free;
@@ -2241,6 +2568,9 @@ begin
         Values[KeyChecksum]:=IntToStr(DateTimeToFileDate(Now));
         Values[KeyCPU]:=CPUToString(ACPU);
         Values[KeyOS]:=OSToString(AOS);
+        //Installer;
+        Values[KeySourcePath]:=IncludeTrailingPathDelimiter(IncludeTrailingPathDelimiter(Installer.BuildEngine.FStartDir)+Directory);
+        Values[KeyFPMakeOptions]:=trim(Installer.FPMakeOptionsString);
         Deps:='';
         for i:=0 to Dependencies.Count-1 do
           begin
@@ -2260,6 +2590,10 @@ begin
           Values[KeyNeedLibC]:='Y'
         else
           Values[KeyNeedLibC]:='N';
+        if IsFPMakeAddIn then
+          Values[KeyAddIn]:='Y'
+        else
+          Values[KeyAddIn]:='N';
       end;
     L.SaveToStream(F);
   Finally
@@ -2323,7 +2657,7 @@ begin
     Result:=FBaseInstallDir
   else
     if UnixPaths then
-      Result:=Prefix +'lib' + PathDelim + 'fpc' + PathDelim
+      Result:=Prefix +'lib' + PathDelim + 'fpc' + PathDelim + FCompilerVersion + PathDelim
     else
       Result:=Prefix;
 end;
@@ -2335,7 +2669,7 @@ begin
     Result:=FBinInstallDir
   else
     If UnixPaths then
-      Result:=BaseInstallDir+'bin'
+      Result:=Prefix+'bin'
     else
       Result:=BaseInstallDir+'bin';
 end;
@@ -2352,8 +2686,8 @@ end;
 
 function TCustomDefaults.GetDocInstallDir: String;
 begin
-  If (FBinInstallDir<>'') then
-    Result:=FBinInstallDir
+  If (FDocInstallDir<>'') then
+    Result:=FDocInstallDir
   else
     If UnixPaths then
       Result:=Prefix+'share'+PathDelim+'doc'
@@ -2368,7 +2702,7 @@ begin
     Result:=FExamplesInstallDir
   else
     If UnixPaths then
-      Result:=Prefix+'share'+PathDelim+'docs'+PathDelim+'examples'
+      Result:=Prefix+'share'+PathDelim+'doc'
     else
       Result:=BaseInstallDir+'examples';
 end;
@@ -2386,16 +2720,21 @@ begin
   If (FUnitInstallDir<>'') then
     Result:=FUnitInstallDir
   else
-    If UnixPaths then
-      Result:=BaseInstallDir+'units'+PathDelim+Target
-    else
-      Result:=BaseInstallDir+'units'+PathDelim+Target;
+    Result:=BaseInstallDir+'units'+PathDelim+Target;
 end;
 
 
 function TCustomDefaults.GetLocalUnitDir: String;
 begin
   Result:=FLocalUnitDir;
+end;
+
+function TCustomDefaults.GetFPDocOutputDir: String;
+begin
+  If (FFPDocOutputDir<>'') then
+    Result:=IncludeTrailingPathDelimiter(FixPath(FFPDocOutputDir))
+  else
+    Result:=IncludeTrailingPathDelimiter(FixPath('.'+PathDelim+'docs'));
 end;
 
 
@@ -2750,11 +3089,16 @@ end;
 
 destructor TCustomInstaller.Destroy;
 begin
+  FreePackages;
   FreeAndNil(Defaults);
   FreeAndNil(Dictionary);
   inherited destroy;
 end;
 
+function TCustomInstaller.GetPackages: TPackages;
+begin
+  result := FPackages;
+end;
 
 procedure TCustomInstaller.Log(Level: TVerboseLevel; const Msg: String);
 begin
@@ -2765,7 +3109,12 @@ end;
 
 procedure TCustomInstaller.CreatePackages;
 begin
-  FPAckages:=TPackages.Create(TPackage);
+  FPackages:=TPackages.Create(TPackage);
+end;
+
+procedure TCustomInstaller.FreePackages;
+begin
+  FreeAndNil(FPackages);
 end;
 
 
@@ -2774,6 +3123,7 @@ begin
   FBuildEngine:=TBuildEngine.Create(Self);
 //  FBuildEngine.Defaults:=Defaults;
   FBuildEngine.ListMode:=FListMode;
+  FBuildEngine.Verbose := (FLogLevels = AllMessages);
   FBuildEngine.OnLog:=@Self.Log;
 end;
 
@@ -2792,19 +3142,40 @@ end;
 
 Function TCustomInstaller.AddPackage(const AName: String) : TPackage;
 begin
-  result:=FPackages.AddPackage(AName);
+  result:=Packages.AddPackage(AName);
 end;
 
 
 procedure TCustomInstaller.AnalyzeOptions;
 
-  Function CheckOption(Index : Integer;const Short,Long : String): Boolean;
+  Function CheckOption(Index : Integer;const Short,Long : String; AddToOptionString: boolean = true): Boolean;
   var
     O : String;
   begin
     O:=Paramstr(Index);
     Result:=(O='-'+short) or (O='--'+long) or (copy(O,1,Length(Long)+3)=('--'+long+'='));
+    if AddToOptionString and Result then FFPMakeOptionsString := FFPMakeOptionsString+' '+O;
   end;
+
+  Function CheckCustomOption(Index : Integer; out CustOptName: string): Boolean;
+  var
+    O : String;
+    i : integer;
+  begin
+    result := false;
+    CustOptName:='';
+    O:=Paramstr(Index);
+    if copy(O,1,2)<>'--' then
+      Exit;
+    i := pos('=',O);
+    if i=0 then
+      Exit;
+    O:=copy(O,3,i-3);
+    CustOptName:=O;
+    Result:=CustomFpmakeCommandlineOptions.IndexOfName(O)>-1;
+    if Result then FFPMakeOptionsString := FFPMakeOptionsString+' '+Paramstr(Index);
+  end;
+
 
   Function CheckCommand(Index : Integer;const Short,Long : String): Boolean;
   var
@@ -2861,6 +3232,7 @@ Var
   I : Integer;
   DefaultsFileName : string;
   OptString : string;
+  CustOptName : string;
 begin
   I:=0;
   FListMode:=False;
@@ -2868,9 +3240,9 @@ begin
   While (I<ParamCount) do
     begin
     Inc(I);
-    if CheckOption(I,'v','verbose') then
+    if CheckOption(I,'v','verbose',false) then
       FLogLevels:=AllMessages
-    else if CheckOption(I,'d','debug') then
+    else if CheckOption(I,'d','debug',false) then
       FLogLevels:=AllMessages+[vlDebug]
     else if CheckCommand(I,'m','compile') then
       FRunMode:=rmCompile
@@ -2914,7 +3286,17 @@ begin
       Defaults.Compiler:=OptionArg(I)
     else if CheckOption(I,'f','config') then
       DefaultsFileName:=OptionArg(I)
-    else
+    else if CheckOption(I,'io','ignoreinvalidoption') then
+      Defaults.IgnoreInvalidOptions:=true
+    else if CheckOption(I,'d','doc-folder') then
+      Defaults.FPDocOutputDir:=OptionArg(I)
+    else if assigned(CustomFpmakeCommandlineOptions) and CheckCustomOption(I,CustOptName) then
+      begin
+      if not assigned(CustomFpMakeCommandlineValues) then
+        CustomFpMakeCommandlineValues := TStringList.Create;
+      CustomFpMakeCommandlineValues.Values[CustOptName]:=OptionArg(I)
+      end
+    else if not Defaults.IgnoreInvalidOptions then
       begin
       Usage(SErrInValidArgument,[I,ParamStr(I)]);
       end;
@@ -2942,6 +3324,8 @@ procedure TCustomInstaller.Usage(const FMT: String; Args: array of const);
     Log(vlInfo,Format(' -%s --%-20s %s',[C,LC+'='+SValue,MSG]));
   end;
 
+var
+  i: Integer;
 begin
   // Force the Usage to be displayed
   Include(FLogLevels,vlInfo);
@@ -2970,6 +3354,10 @@ begin
   LogArgOption('r','compiler',SHelpCompiler);
   LogArgOption('f','config',SHelpConfig);
   LogArgOption('o','options',SHelpOptions);
+  LogArgOption('io','ignoreinvalidoption',SHelpIgnoreInvOpt);
+  LogArgOption('d', 'doc-folder', sHelpFpdocOutputDir);
+  if assigned(CustomFpmakeCommandlineOptions) then for i  := 0 to CustomFpmakeCommandlineOptions.Count-1 do
+    LogArgOption(' ',CustomFpmakeCommandlineOptions.Names[i],CustomFpmakeCommandlineOptions.ValueFromIndex[i]);
   Log(vlInfo,'');
   If (FMT<>'') then
     halt(1)
@@ -2981,40 +3369,39 @@ end;
 procedure TCustomInstaller.Compile(Force: Boolean);
 begin
   FBuildEngine.ForceCompile:=Force;
-  FBuildEngine.Compile(FPackages);
-  Log(vlWarning,SWarnDone);
+  FBuildEngine.Compile(Packages);
 end;
 
 
 procedure TCustomInstaller.Clean;
 begin
-  BuildEngine.Clean(FPackages);
+  BuildEngine.Clean(Packages);
 end;
 
 
 procedure TCustomInstaller.Install;
 begin
-  BuildEngine.Install(FPackages);
+  BuildEngine.Install(Packages);
 end;
 
 
 procedure TCustomInstaller.Archive;
 begin
   // Force generation of manifest.xml, this is required for the repository
-  BuildEngine.Manifest(FPackages);
-  BuildEngine.Archive(FPackages);
+  BuildEngine.Manifest(Packages);
+  BuildEngine.Archive(Packages);
 end;
 
 
 procedure TCustomInstaller.Manifest;
 begin
-  BuildEngine.Manifest(FPackages);
+  BuildEngine.Manifest(Packages);
 end;
 
 
 procedure TCustomInstaller.CheckPackages;
 begin
-  If (FPackages.Count=0) then
+  If (Packages.Count=0) then
     Error(SErrNoPackagesDefined);
   // Check for other obvious errors ?
 end;
@@ -3112,6 +3499,9 @@ end;
 procedure TBuildEngine.ExecuteCommand(const Cmd,Args : String; IgnoreError : Boolean = False);
 Var
   E : Integer;
+  cmdLine: string;
+  ConsoleOutput: TMemoryStream;
+  s: string;
 begin
   Log(vlInfo,SInfoExecutingCommand,[Cmd,Args]);
   if ListMode then
@@ -3119,9 +3509,25 @@ begin
   else
     begin
       // We should check cmd for spaces, and move all after first space to args.
-      E:=ExecuteProcess(cmd,args);
-      If (E<>0) and (not IgnoreError) then
-        Error(SErrExternalCommandFailed,[Cmd,E]);
+      ConsoleOutput := TMemoryStream.Create;
+      try
+        {$ifdef HAS_UNIT_PROCESS}
+        E:=ExecuteFPC(Verbose, cmd, args, ConsoleOutput);
+        {$else}
+        E:=ExecuteProcess(cmd,args);
+        {$endif}
+        If (E<>0) and (not IgnoreError) then
+          begin
+            if trim(Args)<>'' then
+              cmdLine := cmd + ' ' + trim(args)
+            else
+              cmdline := cmd;
+            s := ParsecompilerOutput(ConsoleOutput,Verbose);
+            Error(SErrExternalCommandFailed,[cmdLine,E,s]);
+          end;
+      finally
+        ConsoleOutput.Free;
+      end;
     end;
 end;
 
@@ -3269,6 +3675,7 @@ procedure TBuildEngine.CmdCopyFiles(List: TStrings; Const DestDir: String);
 Var
   Args : String;
   I : Integer;
+  DestFileName : String;
 
 begin
   CmdCreateDir(DestDir);
@@ -3280,7 +3687,17 @@ begin
     end
   else
     For I:=0 to List.Count-1 do
-      SysCopyFile(List[i],DestDir);
+      if List.Names[i]<>'' then
+        begin
+          if IsRelativePath(list.ValueFromIndex[i]) then
+            DestFileName:=DestDir+list.ValueFromIndex[i]
+          else
+            DestFileName:=list.ValueFromIndex[i];
+          CmdCreateDir(ExtractFilePath(DestFileName));
+          SysCopyFile(List.names[i],DestFileName)
+        end
+      else
+        SysCopyFile(List[i],DestDir);
 end;
 
 
@@ -3344,6 +3761,20 @@ begin
         O:=Substitute(O,['ARCHIVE',ArchiveFile,'FILESORDIRS']);
       ExecuteCommand(C,O);
     end;
+end;
+
+procedure TBuildEngine.CmdRenameFile(SourceName, DestName: String);
+var
+  Args: string;
+begin
+  If (Defaults.Move<>'') then
+    begin
+      Args:=SourceName;
+      Args:=Args+' '+DestName;
+      ExecuteCommand(Defaults.Move,Args);
+    end
+  else
+    SysMoveFile(SourceName,DestName);
 end;
 
 Function TBuildEngine.FileNewer(const Src,Dest : String) : Boolean;
@@ -4032,6 +4463,7 @@ end;
 function TBuildEngine.CheckExternalPackage(Const APackageName : String):TPackage;
 var
   S : String;
+  F : String;
   I : Integer;
 begin
   // Already checked?
@@ -4051,11 +4483,25 @@ begin
       Log(vldebug, SDbgExternalDependency, [APackageName,S]);
       Result.FTargetState:=tsInstalled;
       // Load unit config if it exists
-      S:=IncludeTrailingPathDelimiter(S)+UnitConfigFile;
-      if FileExists(S) then
+      F:=IncludeTrailingPathDelimiter(S)+UnitConfigFile;
+      if FileExists(F) then
         begin
-          Log(vlDebug, Format(SDbgLoading, [S]));
-          Result.LoadUnitConfigFromFile(S);
+          Log(vlDebug, Format(SDbgLoading, [F]));
+          Result.LoadUnitConfigFromFile(F);
+        end
+      else if FileExists(IncludeTrailingPathDelimiter(S)+FPMakePPFile) then
+        begin
+          // The package is not installed, but the source-path is given.
+          // It is an external package so it is impossible to compile it, so
+          // assume that it has been compiled earlier.
+          F := IncludeTrailingPathDelimiter(Result.UnitDir) + Result.GetUnitsOutputDir(Defaults.CPU,Defaults.OS);
+          // If the unit-directory does not exist, you know for sure that
+          // the package is not compiled
+          if DirectoryExists(F) then
+            begin
+              Result.UnitDir := F;
+              Result.FTargetState:=tsCompiled;
+            end;
         end;
       // Check recursive implicit dependencies
       CompileDependencies(Result);
@@ -4110,7 +4556,15 @@ procedure TBuildEngine.Compile(APackage: TPackage);
 Var
   T : TTarget;
   I : Integer;
+  Cmd: string;
+  cmdOpts: string;
+  sFPDocFormat: string;
+  IFPDocFormat: TFPDocFormat;
+  d: integer;
+  dep: TDependency;
 begin
+  cmdOpts := '';
+
   Try
     Log(vlInfo,SInfoCompilingPackage,[APackage.Name]);
     If (APackage.Directory<>'') then
@@ -4122,7 +4576,9 @@ begin
     For I:=0 to APackage.Targets.Count-1 do
       begin
         T:=APackage.Targets.TargetItems[i];
-        if (T.TargetType in [ttUnit,ttProgram]) then
+        case T.TargetType of
+
+        ttUnit,ttProgram:
           begin
             if TargetOK(T) then
               begin
@@ -4136,10 +4592,54 @@ begin
                 if not(Defaults.OS in T.OSes) then
                   Log(vldebug, Format(SDbgSkippingTargetWrongOS, [T.Name, OSesToString(T.OSes)]));
               end;
+          end;
+        ttFPDoc:
+          begin
+            for d := 0 to T.Dependencies.Count - 1 do
+            begin
+              dep := TDependency(T.Dependencies[d]);
+
+              //add unit dependencies
+              if dep.DependencyType = depUnit then
+                cmdOpts := cmdOpts + ' --input=' + dep.Value;
+            end;
+
+            //check if a documentation target is given
+            cmdOpts := cmdOpts + ' --input=' + T.Directory + T.Name + T.Extension + ' --descr='+ T.XML;
           end
         else
           log(vldebug, SDbgTargetIsNotAUnitOrProgram,[T.Name]);
+        end;
       end;
+
+    //compile documentation, because options were found
+    if cmdOpts <> '' then
+    begin
+      //append package name
+      cmdOpts := cmdOpts + ' --package=' + APackage.Name;
+
+      for IFPDocFormat:=Low(TFPDocFormat) to High(TFPDocFormat) do
+      begin
+        if IFPDocFormat in APackage.FPDocFormat then
+        begin
+          //prepend output format
+          case IFPDocFormat of
+            ffHtml:      sFPDocFormat := '--format=html --output=' + Defaults.FPDocOutputDir;
+            ffHtm:       sFPDocFormat := '--format=htm --output=' + Defaults.FPDocOutputDir;
+            ffXHtml:     sFPDocFormat := '--format=xhtml --output=' + Defaults.FPDocOutputDir;
+            ffLaTex:     sFPDocFormat := '--format=latex --output=' + Defaults.FPDocOutputDir + APackage.Name + '.tex';
+            ffXMLStruct: sFPDocFormat := '--format=xml-struct --output=' + Defaults.FPDocOutputDir;
+            ffChm:       sFPDocFormat := '--format=chm --output=' + Defaults.FPDocOutputDir + APackage.Name + '.chm';
+          end;
+
+          //execute fpdoc
+          Cmd:=ExeSearch('fpdoc',GetEnvironmentvariable('PATH'));
+          if Cmd = '' then Cmd := 'fpdoc';
+          ExecuteProcess(Cmd, sFPDocFormat + cmdOpts);
+        end;
+      end;
+    end;
+
     DoAfterCompile(APackage);
   Finally
     If (APackage.Directory<>'') then
@@ -4192,6 +4692,24 @@ begin
   end;
 end;
 
+function TBuildEngine.InstallPackageSourceFiles(APAckage: TPackage; tt: TSourceType; const Dest: String): Boolean;
+Var
+  List : TStringList;
+begin
+  Result:=False;
+  List:=TStringList.Create;
+  Try
+    APackage.GetInstallSourceFiles(List,[tt]);
+    if (List.Count>0) then
+      begin
+        Result:=True;
+        CmdCopyFiles(List,Dest);
+      end;
+  Finally
+    List.Free;
+  end;
+end;
+
 
 procedure TBuildEngine.DoBeforeInstall(APackage: TPackage);
 begin
@@ -4228,6 +4746,9 @@ begin
       B:=true;
     if InstallPackageFiles(APAckage,ttImplicitUnit,D) then
       B:=true;
+    // By default do not install the examples. Maybe add an option for this later
+    //if InstallPackageFiles(APAckage,ttExampleUnit,D) then
+    //  B:=true;
     // Unit (dependency) configuration if there were units installed
     if B then
       begin
@@ -4238,6 +4759,13 @@ begin
     // Programs
     D:=IncludeTrailingPathDelimiter(Defaults.BinInstallDir);
     InstallPackageFiles(APAckage,ttProgram,D);
+    //InstallPackageFiles(APAckage,ttExampleProgram,D);
+    // Documentation
+    D:=IncludeTrailingPathDelimiter(Defaults.DocInstallDir)+'fpc-'+APackage.FileName+PathDelim;
+    InstallPackageSourceFiles(APackage,stDoc,D);
+    // Examples
+    D:=IncludeTrailingPathDelimiter(Defaults.ExamplesInstallDir)+'fpc-'+APackage.FileName+PathDelim;
+    InstallPackageSourceFiles(APackage,stExample,D);
     // Done.
     APackage.FTargetState:=tsInstalled;
     DoAfterInstall(APackage);
@@ -4294,8 +4822,7 @@ begin
               APackage.GetArchiveFiles(L, ICPU, IOS);
             end;
       //from sources
-      for i := 0 to APackage.Sources.Count-1 do
-        L.Add(APackage.Sources[i].Name);
+      APackage.GetArchiveSourceFiles(L);
 
       //show all files
       for i := 0 to L.Count-1 do
@@ -4402,8 +4929,12 @@ begin
   For I:=0 to Packages.Count-1 do
     begin
       P:=Packages.PackageItems[i];
+      log(vlWarning,SWarnStartBuildingPackage,[P.Name, Defaults.Target]);
       If PackageOK(P) then
         MaybeCompile(P);
+
+      //show compile progress
+      log(vlWarning,SWarnBuildingPackagecomplete,[(I + 1)/Packages.Count * 100, P.Name]);
     end;
   If Assigned(AfterCompile) then
     AfterCompile(Self);
@@ -4422,6 +4953,7 @@ begin
       P:=Packages.PackageItems[i];
       If PackageOK(P) then
         Install(P);
+      log(vlWarning, SWarnInstallationPackagecomplete, [P.Name, Defaults.Target]);
     end;
   If Assigned(AfterInstall) then
     AfterInstall(Self);
@@ -4477,6 +5009,7 @@ begin
     P:=Packages.PackageItems[i];
     If PackageOK(P) then
       Clean(P);
+    log(vlWarning, SWarnCleanPackagecomplete, [P.Name]);
     end;
   If Assigned(AfterClean) then
     AfterClean(Self);
@@ -4492,7 +5025,17 @@ begin
   if Empty then
     Result:='<none>'
   else
-    Result:=Format('%d.%d.%d-%d',[Major,Minor,Micro,Build]);
+  begin
+    Result := '';
+    if Major <> -1 then
+      Result := Result + IntToStr(Major);
+    if Minor <> -1 then
+      Result := Result + '.' + IntToStr(Minor);
+    if Micro <> -1 then
+      Result := Result + '.' + IntToStr(Micro);
+    if Build <> -1 then
+      Result := Result + '-'  + IntToStr(Build);
+  end;
 end;
 
 function TFPVersion.GetEmpty: Boolean;
@@ -4503,19 +5046,15 @@ end;
 procedure TFPVersion.SetAsString(const AValue: String);
 
   Function NextDigit(sep : Char; var V : string) : integer;
-
   Var
     P : Integer;
-
   begin
     P:=Pos(Sep,V);
     If (P=0) then
       P:=Length(V)+1;
     Result:=StrToIntDef(Copy(V,1,P-1),-1);
     If Result<>-1 then
-      Delete(V,1,P)
-    else
-      Result:=0;
+      Delete(V,1,P);
   end;
 
 Var
@@ -4534,17 +5073,15 @@ end;
 
 procedure TFPVersion.Clear;
 begin
-  Micro:=0;
-  Major:=0;
-  Minor:=0;
-  Build:=0;
+  Micro:=-1;
+  Major:=-1;
+  Minor:=-1;
+  Build:=-1;
 end;
 
 procedure TFPVersion.Assign(Source: TPersistent);
-
 Var
   V : TFPVersion;
-
 begin
   if Source is TFPVersion then
     begin
@@ -4683,6 +5220,10 @@ begin
   FDirectory:=D;
 end;
 
+procedure TTarget.SetXML(const AValue: string);
+begin
+  FXML:=FixPath(AValue);
+end;
 
 procedure TTarget.GetCleanFiles(List: TStrings; const APrefixU, APrefixB : String; ACPU: TCPU; AOS : TOS);
 begin
@@ -4733,12 +5274,28 @@ begin
          (D.TargetFileName<>'') then
         List.Add(D.TargetFileName);
     end;
+  // FPDoc files
+  if XML <> '' then
+  begin
+    List.Add(Directory + Name + Extension);
+    List.Add(XML);
+  end;
 end;
 
 
 {****************************************************************************
                                  TSource
 ****************************************************************************}
+
+function TSource.GetInstallSourcePath: string;
+begin
+  if FInstallSourcePath<>'' then
+    result := FInstallSourcePath
+  else if SourceType=stExample then
+    result := 'examples'
+  else
+    result := '';
+end;
 
 constructor TSource.Create(ACollection: TCollection);
 begin
@@ -4749,6 +5306,14 @@ end;
 destructor TSource.Destroy;
 begin
   inherited Destroy;
+end;
+
+procedure TSource.GetInstallFiles(List: TStrings);
+begin
+  if InstallSourcePath<>'' then
+    list.Values[name] := (IncludeTrailingPathDelimiter(InstallSourcePath)+ExtractFileName(Name))
+  else
+    list.add(Name);
 end;
 
 
@@ -5230,8 +5795,12 @@ end;
 
 Initialization
   OnGetApplicationName:=@GetFPMakeName;
+  CustomFpmakeCommandlineOptions:=nil;
+  CustomFpMakeCommandlineValues:=nil;
 
 Finalization
+  FreeAndNil(CustomFpMakeCommandlineValues);
+  FreeAndNil(CustomFpmakeCommandlineOptions);
   FreeAndNil(DefInstaller);
   FreeAndNil(Dictionary);
   FreeAndNil(Defaults);

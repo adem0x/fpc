@@ -65,7 +65,7 @@ Function SearchLabel(const s: string; var hl: tasmlabel;emit:boolean): boolean;
 
 type
   TOprType=(OPR_NONE,OPR_CONSTANT,OPR_SYMBOL,OPR_LOCAL,
-            OPR_REFERENCE,OPR_REGISTER,OPR_REGLIST,OPR_COND,OPR_REGSET,OPR_SHIFTEROP);
+            OPR_REFERENCE,OPR_REGISTER,OPR_REGLIST,OPR_COND,OPR_REGSET,OPR_SHIFTEROP,OPR_MODEFLAGS);
 
   TOprRec = record
     case typ:TOprType of
@@ -88,6 +88,7 @@ type
       OPR_REGSET    : (regset : tcpuregisterset; regtype: tregistertype; subreg: tsubregister);
       OPR_SHIFTEROP : (shifterop : tshifterop);
       OPR_COND      : (cc : tasmcond);
+      OPR_MODEFLAGS : (flags : tcpumodeflags);
 {$endif arm}
   end;
 
@@ -696,7 +697,7 @@ end;
 Function TOperand.SetupSelf:boolean;
 Begin
   SetupSelf:=false;
-  if assigned(current_objectdef) then
+  if assigned(current_structdef) then
     SetupSelf:=setupvar('self',false)
   else
     Message(asmr_e_cannot_use_SELF_outside_a_method);
@@ -1067,6 +1068,8 @@ end;
                 ai.loadshifterop(i-1,shifterop);
               OPR_COND:
                 ai.loadconditioncode(i-1,cc);
+              OPR_MODEFLAGS:
+                ai.loadmodeflags(i-1,flags);
 {$endif ARM}
               { ignore wrong operand }
               OPR_NONE:
@@ -1307,7 +1310,7 @@ Begin
   base:=Copy(s,1,i-1);
   delete(s,1,i);
   if base='SELF' then
-   st:=current_objectdef.symtable
+   st:=current_structdef.symtable
   else
    begin
      asmsearchsym(base,sym,srsymtable);
@@ -1334,10 +1337,7 @@ Begin
       i:=255;
      base:=Copy(s,1,i-1);
      delete(s,1,i);
-     if st.symtabletype=ObjectSymtable then
-       sym:=search_class_member(tobjectdef(st.defowner),base)
-     else
-       sym:=tsym(st.Find(base));
+     sym:=search_struct_member(tabstractrecorddef(st.defowner),base);
      if not assigned(sym) then
       begin
         GetRecordOffsetSize:=false;
@@ -1398,7 +1398,7 @@ Begin
                  begin
                    { size = sizeof(target_system_pointer) }
                    size:=sizeof(pint);
-                   offset:=procdef._class.vmtmethodoffset(procdef.extnumber)
+                   offset:=tobjectdef(procdef.struct).vmtmethodoffset(procdef.extnumber)
                  end;
              end;
            { if something comes after the procsym, it's invalid assembler syntax }

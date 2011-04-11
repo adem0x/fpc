@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLParagraphElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLPARAGRAPHELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLParagraphElement = objcclass;
   DOMHTMLParagraphElementPointer = ^DOMHTMLParagraphElement;
+  DOMHTMLParagraphElementPtr = DOMHTMLParagraphElementPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMHTMLPARAGRAPHELEMENT_PAS_C}
 
 { DOMHTMLParagraphElement }
-  DOMHTMLParagraphElement = objcclass(DOMHTMLElement)
+  DOMHTMLParagraphElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLParagraphElement; message 'alloc';
-
     procedure setAlign (newValue: NSString); message 'setAlign:';
     function align: NSString; message 'align';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

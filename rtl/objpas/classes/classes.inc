@@ -90,7 +90,11 @@ function ThreadProc(ThreadObjPtr: Pointer): PtrInt;
     //  will call the AfterConstruction method in all cases)
 //    Thread.Suspend;
     try
-      Thread.Execute;
+      { The thread may be already terminated at this point, e.g. if it was intially
+        suspended, or if it wasn't ever scheduled for execution for whatever reason.
+        So bypass user code if terminated. }
+      if not Thread.Terminated then
+        Thread.Execute;
     except
       Thread.FFatalException := TObject(AcquireExceptionObject);
     end;
@@ -124,7 +128,13 @@ end;
 procedure TThread.AfterConstruction;
 begin
   inherited AfterConstruction;
-//  Resume;
+// enable for all platforms once http://bugs.freepascal.org/view.php?id=16884
+// is fixed for all platforms (in case the fix for non-unix platforms also
+// requires this field at least)
+{$if defined(unix) or defined(windows)}
+  if not FInitialSuspended then
+    Resume;
+{$endif}
 end;
 
 
@@ -715,15 +725,15 @@ begin
 end;
 
 threadvar
-  GlobalLoaded, GlobalLists: TList;
+  GlobalLoaded, GlobalLists: TFpList;
 
 procedure BeginGlobalLoading;
 
 begin
   if not Assigned(GlobalLists) then
-    GlobalLists := TList.Create;
+    GlobalLists := TFpList.Create;
   GlobalLists.Add(GlobalLoaded);
-  GlobalLoaded := TList.Create;
+  GlobalLoaded := TFpList.Create;
 end;
 
 
@@ -741,7 +751,7 @@ procedure EndGlobalLoading;
 begin
   { Free the memory occupied by BeginGlobalLoading }
   GlobalLoaded.Free;
-  GlobalLoaded := TList(GlobalLists.Last);
+  GlobalLoaded := TFpList(GlobalLists.Last);
   GlobalLists.Delete(GlobalLists.Count - 1);
   if GlobalLists.Count = 0 then
   begin

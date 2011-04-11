@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLDivElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLDIVELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLDivElement = objcclass;
   DOMHTMLDivElementPointer = ^DOMHTMLDivElement;
+  DOMHTMLDivElementPtr = DOMHTMLDivElementPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMHTMLDIVELEMENT_PAS_C}
 
 { DOMHTMLDivElement }
-  DOMHTMLDivElement = objcclass(DOMHTMLElement)
+  DOMHTMLDivElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLDivElement; message 'alloc';
-
     procedure setAlign (newValue: NSString); message 'setAlign:';
     function align: NSString; message 'align';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSTableColumn.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTABLECOLUMN_PAS_T}
@@ -38,6 +36,7 @@ const
 {$ifdef FORWARD}
   NSTableColumn = objcclass;
   NSTableColumnPointer = ^NSTableColumn;
+  NSTableColumnPtr = NSTableColumnPointer;
 
 {$endif}
 
@@ -46,30 +45,32 @@ const
 {$define NSTABLECOLUMN_PAS_C}
 
 { NSTableColumn }
-  NSTableColumn = objcclass(NSObject, NSCodingProtocol)
+  NSTableColumn = objcclass external (NSObject, NSCodingProtocol)
   private
-    __identifier: id;
-    __width: CGFloat;
-    __minWidth: CGFloat;
-    __maxWidth: CGFloat;
-    __tableView: NSTableView;
-    __headerCell: NSCell;
-    __dataCell: NSCell;
+    _identifier: id;
+    _width: CGFloat;
+    _minWidth: CGFloat;
+    _maxWidth: CGFloat;
+    _tableView: NSTableView;
+    _headerCell: NSCell;
+    _dataCell: NSCell;
     __cFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSTableColumn0: cuint);
+       1: (
         oldIsResizable: 0..1;
-        isEditable: 0..1;
+        _isEditable: 0..1;
         resizedPostingDisableCount: 0..((1 shl 8)-1);
         canUseReorderResizeImageCache: 0..1;
         userResizingAllowed: 0..1;
         autoResizingAllowed: 0..1;
         hidden: 0..1;
         RESERVED: 0..((1 shl 18)-1);
+      );
       end;
-    __tcAuxiliaryStorage: id;
+    _tcAuxiliaryStorage: id;
     
   public
-    class function alloc: NSTableColumn; message 'alloc';
-
     function initWithIdentifier(identifier_: id): id; message 'initWithIdentifier:';
     procedure setIdentifier(identifier_: id); message 'setIdentifier:';
     function identifier: id; message 'identifier';
@@ -97,9 +98,17 @@ const
     function headerToolTip: NSString; message 'headerToolTip';
     function isHidden: Boolean; message 'isHidden';
     procedure setHidden(hidden: Boolean); message 'setHidden:';
-    procedure setResizable(flag: Boolean); message 'setResizable:';
-    function isResizable: Boolean; message 'isResizable';
-  end; external;
+
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
+
+{ NSDeprecated_NSTableColumnCategory }
+  NSDeprecated_NSTableColumnCategory = objccategory external name 'NSDeprecated' (NSTableColumn)
+    procedure setResizable(flag: Boolean); message 'setResizable:'; deprecated 'in Mac OS X 10.4 and later';
+    function isResizable: Boolean; message 'isResizable'; deprecated 'in Mac OS X 10.4 and later';
+  end;
 
 {$endif}
 {$endif}

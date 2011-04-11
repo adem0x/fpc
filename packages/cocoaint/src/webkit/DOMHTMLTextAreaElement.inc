@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLTextAreaElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLTEXTAREAELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLTextAreaElement = objcclass;
   DOMHTMLTextAreaElementPointer = ^DOMHTMLTextAreaElement;
+  DOMHTMLTextAreaElementPtr = DOMHTMLTextAreaElementPointer;
 
 {$endif}
 
@@ -41,25 +40,37 @@
 {$define DOMHTMLTEXTAREAELEMENT_PAS_C}
 
 { DOMHTMLTextAreaElement }
-  DOMHTMLTextAreaElement = objcclass(DOMHTMLElement)
+  DOMHTMLTextAreaElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLTextAreaElement; message 'alloc';
-
     procedure setDefaultValue (newValue: NSString); message 'setDefaultValue:';
     function defaultValue: NSString; message 'defaultValue';
     function form: DOMHTMLFormElement; message 'form';
     procedure setAccessKey (newValue: NSString); message 'setAccessKey:';
     function accessKey: NSString; message 'accessKey';
+    procedure setCols (newValue: cint); message 'setCols:';
+    function cols: cint; message 'cols';
+    procedure setDisabled (newValue: Boolean); message 'setDisabled:';
+    function disabled: Boolean; message 'disabled';
+    procedure setAutofocus (newValue: Boolean); message 'setAutofocus:';
+    function autofocus: Boolean; message 'autofocus';
     procedure setName (newValue: NSString); message 'setName:';
     function name: NSString; message 'name';
+    procedure setReadOnly (newValue: Boolean); message 'setReadOnly:';
+    function readOnly: Boolean; message 'readOnly';
+    procedure setRows (newValue: cint); message 'setRows:';
+    function rows: cint; message 'rows';
     function type_: NSString; message 'type_';
     procedure setValue (newValue: NSString); message 'setValue:';
     function value: NSString; message 'value';
-    procedure blur; message 'blur';
-    procedure focus; message 'focus';
+    function willValidate: Boolean; message 'willValidate';
+    procedure setSelectionStart (newValue: cint); message 'setSelectionStart:';
+    function selectionStart: cint; message 'selectionStart';
+    procedure setSelectionEnd (newValue: cint); message 'setSelectionEnd:';
+    function selectionEnd: cint; message 'selectionEnd';
     procedure select; message 'select';
-  end; external;
+    procedure setSelectionRange_end(start: cint; end_: cint); message 'setSelectionRange:end:';
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLMapElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLMAPELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLMapElement = objcclass;
   DOMHTMLMapElementPointer = ^DOMHTMLMapElement;
+  DOMHTMLMapElementPtr = DOMHTMLMapElementPointer;
 
 {$endif}
 
@@ -41,15 +40,13 @@
 {$define DOMHTMLMAPELEMENT_PAS_C}
 
 { DOMHTMLMapElement }
-  DOMHTMLMapElement = objcclass(DOMHTMLElement)
+  DOMHTMLMapElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLMapElement; message 'alloc';
-
     function areas: DOMHTMLCollection; message 'areas';
     procedure setName (newValue: NSString); message 'setName:';
     function name: NSString; message 'name';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

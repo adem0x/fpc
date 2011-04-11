@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSTreeController.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTREECONTROLLER_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSTreeController = objcclass;
   NSTreeControllerPointer = ^NSTreeController;
+  NSTreeControllerPtr = NSTreeControllerPointer;
 
 {$endif}
 
@@ -41,15 +40,18 @@
 {$define NSTREECONTROLLER_PAS_C}
 
 { NSTreeController }
-  NSTreeController = objcclass(NSObjectController)
+  NSTreeController = objcclass external (NSObjectController)
   private
-    __treeControllerReserved1: id;
-    __modelObservingKeyPaths: NSArray;
-    __treeStructureObservers: id;
-    __arrangedObjects: id;
-    __rootNode: id;
-    __selectionIndexPaths: id;
+    _treeControllerReserved1: id;
+    _modelObservingKeyPaths: NSArray;
+    _treeStructureObservers: id;
+    _arrangedObjects: id;
+    _rootNode: id;
+    _selectionIndexPaths: id;
     __treeControllerFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSTreeController0: cuint);
+       1: (
         _avoidsEmptySelection: 0..1;
         _preservesSelection: 0..1;
         _selectsInsertedObjects: 0..1;
@@ -61,17 +63,17 @@
         _mutatingNodes: 0..1;
         _performingFetch: 0..1;
         _skipSortingAfterFetch: 0..1;
-        _reservedTreeController: 0..((1 shl 21)-1);
+        _usesIdenticalComparisonOfModelObjects: 0..1;
+        _reservedTreeController: 0..((1 shl 20)-1);
+      );
       end;
-    __selectedObjects: NSArray;
-    __childrenKeyPath: NSString;
-    __countKeyPath: NSString;
-    __leafKeyPath: NSString;
-    __sortDescriptors: NSArray;
+    _selectedObjects: NSArray;
+    _childrenKeyPath: NSString;
+    _countKeyPath: NSString;
+    _leafKeyPath: NSString;
+    _sortDescriptors: NSArray;
     
   public
-    class function alloc: NSTreeController; message 'alloc';
-
     procedure rearrangeObjects; message 'rearrangeObjects';
     function arrangedObjects: id; message 'arrangedObjects';
     procedure setChildrenKeyPath(keyPath: NSString); message 'setChildrenKeyPath:';
@@ -117,7 +119,7 @@
     function childrenKeyPathForNode(node: NSTreeNode): NSString; message 'childrenKeyPathForNode:';
     function countKeyPathForNode(node: NSTreeNode): NSString; message 'countKeyPathForNode:';
     function leafKeyPathForNode(node: NSTreeNode): NSString; message 'leafKeyPathForNode:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

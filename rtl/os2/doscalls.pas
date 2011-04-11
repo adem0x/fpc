@@ -1822,7 +1822,8 @@ const   smShared        = $0001;    {Semaphore is shared.}
                                      is cleared.}
         smMWWaitAll     = $0004;    {MuxWait only: Wait until all semaphores
                                      are cleared.}
-        Sem_Indefinite_Wait = -1;   {DosRequestMutExSem blocks the calling
+        Sem_Indefinite_Wait = cardinal (-1);
+                                    {DosRequestMutExSem blocks the calling
                                      thread indefinitely.}
         Sem_Immediate_Return = 0;   {DosRequestMutExSem returns immediately
                                      without blocking the calling thread.}
@@ -2860,7 +2861,7 @@ type    TStatusData=record
             PgmInputs:PChar;            {Command parameters (nil allowed).}
             TermQ:PChar;                {System queue. (nil allowed).}
             Environment:PChar;          {Environment to pass (nil allowed).}
-            InheritOpt:word;            {Inherit enviroment from shell/
+            InheritOpt:word;            {Inherit environment from shell/
                                          inherit environment from parent
                                          (0/1).}
             SessionType:word;           {Auto/full screen/window/presentation

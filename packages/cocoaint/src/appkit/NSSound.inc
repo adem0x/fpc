@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSSound.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSOUND_PAS_T}
@@ -29,14 +27,16 @@
 
 { External string constants }
 var
-  NSSoundPboardType: NSString; external name '_NSSoundPboardType';
+  NSSoundPboardType: NSString; cvar; external;
 
 {$endif}
 {$endif}
 
 {$ifdef FORWARD}
+  NSSoundDelegateProtocol = objcprotocol;
   NSSound = objcclass;
   NSSoundPointer = ^NSSound;
+  NSSoundPtr = NSSoundPointer;
 
 {$endif}
 
@@ -45,16 +45,14 @@ var
 {$define NSSOUND_PAS_C}
 
 { NSSound }
-  NSSound = objcclass(NSObject, NSCopyingProtocol, NSCodingProtocol)
+  NSSound = objcclass external (NSObject)
   private
-    __delegate: id;
-    __info: id;
+    _delegate: id;
+    _info: id;
         _reserved: array[0..5] of id;
-    __sFlags: NSUInteger;
+    _sFlags: NSUInteger;
     
   public
-    class function alloc: NSSound; message 'alloc';
-
     class function soundNamed(name_: NSString): id; message 'soundNamed:';
     function initWithContentsOfURL_byReference(url: NSURL; byRef: Boolean): id; message 'initWithContentsOfURL:byReference:';
     function initWithContentsOfFile_byReference(path: NSString; byRef: Boolean): id; message 'initWithContentsOfFile:byReference:';
@@ -70,8 +68,8 @@ var
     function resume: Boolean; message 'resume';
     function stop: Boolean; message 'stop';
     function isPlaying: Boolean; message 'isPlaying';
-    function delegate: id; message 'delegate';
-    procedure setDelegate(aDelegate: id); message 'setDelegate:';
+    function delegate: NSSoundDelegateProtocol; message 'delegate';
+    procedure setDelegate(aDelegate: NSSoundDelegateProtocol); message 'setDelegate:';
     function duration: NSTimeInterval; message 'duration';
     procedure setVolume(volume_: single); message 'setVolume:';
     function volume: single; message 'volume';
@@ -83,11 +81,29 @@ var
     function playbackDeviceIdentifier: NSString; message 'playbackDeviceIdentifier';
     procedure setChannelMapping(channelMapping_: NSArray); message 'setChannelMapping:';
     function channelMapping: NSArray; message 'channelMapping';
+  end;
 
-    { Category: NSDeprecated }
-    class function soundUnfilteredFileTypes: NSArray; message 'soundUnfilteredFileTypes';
-    class function soundUnfilteredPasteboardTypes: NSArray; message 'soundUnfilteredPasteboardTypes';
-  end; external;
+{ NSDeprecated_NSSoundCategory }
+  NSDeprecated_NSSoundCategory = objccategory external name 'NSDeprecated' (NSSound)
+    class function soundUnfilteredFileTypes: NSArray; message 'soundUnfilteredFileTypes'; deprecated 'in Mac OS X 10.5 and later';
+    class function soundUnfilteredPasteboardTypes: NSArray; message 'soundUnfilteredPasteboardTypes'; deprecated 'in Mac OS X 10.5 and later';
+  end;
 
+{ NSBundleSoundExtensionsCategory }
+  NSBundleSoundExtensionsCategory = objccategory external (NSBundle)
+    function pathForSoundResource(name: NSString): NSString; message 'pathForSoundResource:';
+  end;
+
+{$endif}
+{$endif}
+{$ifdef PROTOCOLS}
+{$ifndef NSSOUND_PAS_P}
+{$define NSSOUND_PAS_P}
+  
+{ NSSoundDelegate Protocol }
+  NSSoundDelegateProtocol = objcprotocol external name 'NSSoundDelegate'
+  optional
+    procedure sound_didFinishPlaying(sound: NSSound; aBool: Boolean); message 'sound:didFinishPlaying:';
+  end;
 {$endif}
 {$endif}

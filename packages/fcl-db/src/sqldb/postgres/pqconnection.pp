@@ -448,49 +448,59 @@ begin
 end;
 
 procedure TPQConnection.PrepareStatement(cursor: TSQLCursor;ATransaction : TSQLTransaction;buf : string; AParams : TParams);
-
+{
+  TFieldType = (ftUnknown, ftString, ftSmallint, ftInteger, ftWord,
+      ftBoolean, ftFloat, ftCurrency, ftBCD, ftDate,  ftTime, ftDateTime,
+          ftBytes, ftVarBytes, ftAutoInc, ftBlob, ftMemo, ftGraphic, ftFmtMemo,
+              ftParadoxOle, ftDBaseOle, ftTypedBinary, ftCursor, ftFixedChar,
+                  ftWideString, ftLargeint, ftADT, ftArray, ftReference,
+                      ftDataSet, ftOraBlob, ftOraClob, ftVariant, ftInterface,
+                          ftIDispatch, ftGuid, ftTimeStamp, ftFMTBcd, ftFixedWideChar, ftWideMemo);
+                          
+                          
+}
 const TypeStrings : array[TFieldType] of string =
     (
-      'Unknown',
-      'text',
-      'int',
-      'int',
-      'int',
-      'bool',
-      'float',
-      'numeric',
-      'numeric',
-      'date',
-      'time',
-      'timestamp',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'text',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'int',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown',
-      'Unknown'
+      'Unknown',   // ftUnknown
+      'text',     // ftString
+      'int',       // ftSmallint
+      'int',       // ftInteger
+      'int',       // ftWord
+      'bool',      // ftBoolean
+      'float',     // ftFloat
+      'numeric',   // ftCurrency
+      'numeric',   // ftBCD
+      'date',      // ftDate
+      'time',      // ftTime
+      'timestamp', // ftDateTime
+      'Unknown',   // ftBytes
+      'Unknown',   // ftVarBytes
+      'Unknown',   // ftAutoInc
+      'bytea',     // ftBlob 
+      'text',      // ftMemo
+      'bytea',     // ftGraphic
+      'text',      // ftFmtMemo
+      'Unknown',   // ftParadoxOle
+      'Unknown',   // ftDBaseOle
+      'Unknown',   // ftTypedBinary
+      'Unknown',   // ftCursor
+      'text',      // ftFixedChar
+      'text',      // ftWideString
+      'bigint',    // ftLargeint
+      'Unknown',   // ftADT
+      'Unknown',   // ftArray
+      'Unknown',   // ftReference
+      'Unknown',   // ftDataSet
+      'Unknown',   // ftOraBlob
+      'Unknown',   // ftOraClob
+      'Unknown',   // ftVariant
+      'Unknown',   // ftInterface
+      'Unknown',   // ftIDispatch
+      'Unknown',   // ftGuid
+      'Unknown',   // ftTimeStamp
+      'Unknown',   // ftFMTBcd
+      'Unknown',   // ftFixedWideChar
+      'Unknown'    // ftWideMemo
     );
 
 
@@ -518,8 +528,10 @@ begin
           s := s + TypeStrings[AParams[i].DataType] + ','
         else
           begin
-          if AParams[i].DataType = ftUnknown then DatabaseErrorFmt(SUnknownParamFieldType,[AParams[i].Name],self)
-            else DatabaseErrorFmt(SUnsupportedParameter,[Fieldtypenames[AParams[i].DataType]],self);
+          if AParams[i].DataType = ftUnknown then 
+            DatabaseErrorFmt(SUnknownParamFieldType,[AParams[i].Name],self)
+          else 
+            DatabaseErrorFmt(SUnsupportedParameter,[Fieldtypenames[AParams[i].DataType]],self);
           end;
         s[length(s)] := ')';
         buf := AParams.ParseSQL(buf,false,sqEscapeSlash in ConnOptions, sqEscapeRepeat in ConnOptions,psPostgreSQL);
@@ -534,7 +546,7 @@ begin
       FPrepared := True;
       end
     else
-      statement := buf;
+      statement := AParams.ParseSQL(buf,false,sqEscapeSlash in ConnOptions, sqEscapeRepeat in ConnOptions,psPostgreSQL);
     end;
 end;
 
@@ -549,10 +561,11 @@ begin
       res := pqexec(tr.PGConn,pchar('deallocate prepst'+nr));
       if (PQresultStatus(res) <> PGRES_COMMAND_OK) then
         begin
+          pqclear(res);
+          DatabaseError(SErrPrepareFailed + ' (PostgreSQL: ' + PQerrorMessage(tr.PGConn) + ')',self)
+        end
+      else
         pqclear(res);
-        DatabaseError(SErrPrepareFailed + ' (PostgreSQL: ' + PQerrorMessage(tr.PGConn) + ')',self)
-        end;
-      pqclear(res);
       end;
     FPrepared := False;
     end;
@@ -561,9 +574,11 @@ end;
 procedure TPQConnection.Execute(cursor: TSQLCursor;atransaction:tSQLtransaction;AParams : TParams);
 
 var ar  : array of pchar;
-    i   : integer;
+    l,i   : integer;
     s   : string;
-    ParamNames,ParamValues : array of string;
+    lengths,formats : array of integer;
+    ParamNames,
+    ParamValues : array of string;
 
 begin
   with cursor as TPQCursor do
@@ -573,7 +588,10 @@ begin
       pqclear(res);
       if Assigned(AParams) and (AParams.count > 0) then
         begin
-        setlength(ar,Aparams.count);
+        l:=Aparams.count;
+        setlength(ar,l);
+        setlength(lengths,l);
+        setlength(formats,l);
         for i := 0 to AParams.count -1 do if not AParams[i].IsNull then
           begin
           case AParams[i].DataType of
@@ -590,10 +608,15 @@ begin
           end; {case}
           GetMem(ar[i],length(s)+1);
           StrMove(PChar(ar[i]),Pchar(s),Length(S)+1);
+          lengths[i]:=Length(s);
+          if (AParams[i].DataType in [ftBlob,ftgraphic]) then
+            formats[i]:=1 
+          else
+            Formats[i]:=0;  
           end
         else
           FreeAndNil(ar[i]);
-        res := PQexecPrepared(tr.PGConn,pchar('prepst'+nr),Aparams.count,@Ar[0],nil,nil,1);
+        res := PQexecPrepared(tr.PGConn,pchar('prepst'+nr),Aparams.count,@Ar[0],@Lengths[0],@Formats[0],1);
         for i := 0 to AParams.count -1 do
           FreeMem(ar[i]);
         end
@@ -619,9 +642,12 @@ begin
         s := Statement;
       res := pqexec(tr.PGConn,pchar(s));
       if (PQresultStatus(res) in [PGRES_COMMAND_OK,PGRES_TUPLES_OK]) then
-        pqclear(res);
+        begin
+          pqclear(res); 
+          res:=nil;
+        end;
       end;
-    if not (PQresultStatus(res) in [PGRES_COMMAND_OK,PGRES_TUPLES_OK]) then
+    if assigned(res) and not (PQresultStatus(res) in [PGRES_COMMAND_OK,PGRES_TUPLES_OK]) then
       begin
       s := PQerrorMessage(tr.PGConn);
       pqclear(res);
@@ -697,7 +723,7 @@ begin
     begin
     x := FieldBinding[FieldDef.FieldNo-1];
 
-    // Joost, 5 jan 2006: I disabled the following, since it's usefull for
+    // Joost, 5 jan 2006: I disabled the following, since it's useful for
     // debugging, but it also slows things down. In principle things can only go
     // wrong when FieldDefs is changed while the dataset is opened. A user just
     // shoudn't do that. ;) (The same is done in IBConnection)

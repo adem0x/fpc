@@ -29,6 +29,7 @@ Type
 
   TEventLog = Class(TComponent)
   Private
+    fAppendContent : Boolean;
     FEventIDOffset : DWord;
     FLogHandle : Pointer;
     FStream : TFileStream;
@@ -52,8 +53,8 @@ Type
     procedure SetFileName(const Value: String);
     procedure ActivateSystemLog;
     function DefaultFileName: String;
-    procedure WriteFileLog(EventType : TEventType; Msg: String);
-    procedure WriteSystemLog(EventType: TEventType; Msg: String);
+    procedure WriteFileLog(EventType : TEventType; const Msg: String);
+    procedure WriteSystemLog(EventType: TEventType; const Msg: String);
     procedure DeActivateFileLog;
     procedure DeActivateSystemLog;
     procedure CheckIdentification;
@@ -70,19 +71,21 @@ Type
     Destructor Destroy; override;
     Function EventTypeToString(E : TEventType) : String;
     Function RegisterMessageFile(AFileName : String) : Boolean; virtual;
-    Procedure Log (EventType : TEventType; Msg : String); {$ifndef fpc }Overload;{$endif}
-    Procedure Log (EventType : TEventType; Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
-    Procedure Log (Msg : String); {$ifndef fpc }Overload;{$endif}
-    Procedure Log (Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
-    Procedure Warning (Msg : String); {$ifndef fpc }Overload;{$endif}
-    Procedure Warning (Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
-    Procedure Error (Msg : String); {$ifndef fpc }Overload;{$endif}
-    Procedure Error (Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
-    Procedure Debug (Msg : String); {$ifndef fpc }Overload;{$endif}
-    Procedure Debug (Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
-    Procedure Info (Msg : String); {$ifndef fpc }Overload;{$endif}
-    Procedure Info (Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
+    Function UnRegisterMessageFile : Boolean; virtual;
+    Procedure Log (EventType : TEventType; const Msg : String); {$ifndef fpc }Overload;{$endif}
+    Procedure Log (EventType : TEventType; const Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
+    Procedure Log (const Msg : String); {$ifndef fpc }Overload;{$endif}
+    Procedure Log (const Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
+    Procedure Warning (const Msg : String); {$ifndef fpc }Overload;{$endif}
+    Procedure Warning (const Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
+    Procedure Error (const Msg : String); {$ifndef fpc }Overload;{$endif}
+    Procedure Error (const Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
+    Procedure Debug (const Msg : String); {$ifndef fpc }Overload;{$endif}
+    Procedure Debug (const Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
+    Procedure Info (const Msg : String); {$ifndef fpc }Overload;{$endif}
+    Procedure Info (const Fmt : String; Args : Array of const); {$ifndef fpc }Overload;{$endif}
   Published
+    Property AppendContent : Boolean Read fAppendContent Write fAppendContent;
     Property Identification : String Read FIdentification Write SetIdentification;
     Property LogType : TLogType Read Flogtype Write SetlogType;
     Property Active : Boolean Read FActive write SetActive;
@@ -125,12 +128,12 @@ begin
     Raise ELogError.Create(SErrOperationNotAllowed);
 end;
 
-procedure TEventLog.Debug(Fmt: String; Args: array of const);
+procedure TEventLog.Debug(const Fmt: String; Args: array of const);
 begin
    Debug(Format(Fmt,Args));
 end;
 
-procedure TEventLog.Debug(Msg: String);
+procedure TEventLog.Debug(const Msg: String);
 begin
   Log(etDebug,Msg);
 end;
@@ -141,38 +144,38 @@ begin
     Active:=True;
 end;
 
-procedure TEventLog.Error(Fmt: String; Args: array of const);
+procedure TEventLog.Error(const Fmt: String; Args: array of const);
 begin
   Error(Format(Fmt,Args));
 end;
 
-procedure TEventLog.Error(Msg: String);
+procedure TEventLog.Error(const Msg: String);
 begin
   Log(etError,Msg);
 end;
 
-procedure TEventLog.Info(Fmt: String; Args: array of const);
+procedure TEventLog.Info(const Fmt: String; Args: array of const);
 begin
   Info(Format(Fmt,Args));
 end;
 
-procedure TEventLog.Info(Msg: String);
+procedure TEventLog.Info(const Msg: String);
 begin
   Log(etInfo,Msg);
 end;
 
-procedure TEventLog.Log(Msg: String);
+procedure TEventLog.Log(const Msg: String);
 begin
   Log(DefaultEventType,msg);
 end;
 
-procedure TEventLog.Log(EventType: TEventType; Fmt: String;
+procedure TEventLog.Log(EventType: TEventType; const Fmt: String;
   Args: array of const);
 begin
   Log(EventType,Format(Fmt,Args));
 end;
 
-procedure TEventLog.Log(EventType: TEventType; Msg: String);
+procedure TEventLog.Log(EventType: TEventType; const Msg: String);
 begin
   EnsureActive;
   Case FlogType of
@@ -181,7 +184,7 @@ begin
   end;
 end;
 
-procedure TEventLog.WriteFileLog(EventType : TEventType; Msg : String);
+procedure TEventLog.WriteFileLog(EventType : TEventType; const Msg : String);
 
 Var
   S,TS,T : String;
@@ -203,7 +206,7 @@ begin
     Raise ELogError.CreateFmt(SErrLogFailedMsg,[S]);
 end;
 
-procedure TEventLog.Log(Fmt: String; Args: array of const);
+procedure TEventLog.Log(const Fmt: String; Args: array of const);
 begin
   Log(Format(Fmt,Args));
 end;
@@ -239,12 +242,19 @@ begin
 end;
 
 Procedure TEventLog.ActivateFileLog;
-
+var
+  fFileFlags : Word;
 begin
   If (FFileName='') then
     FFileName:=DefaultFileName;
   // This will raise an exception if the file cannot be opened for writing !
-  FStream:=TFileStream.Create(FFileName,fmCreate or fmShareDenyWrite);
+  if fAppendContent and FileExists(FFileName) then
+    fFileFlags := fmOpenWrite
+  else
+    fFileFlags := fmCreate;
+
+  fFileFlags := fFileFlags or fmShareDenyWrite;
+  FStream:=TFileStream.Create(FFileName,fFileFlags);
 end;
 
 Procedure TEventLog.DeActivateFileLog;
@@ -266,12 +276,12 @@ begin
   Flogtype := Value;
 end;
 
-procedure TEventLog.Warning(Fmt: String; Args: array of const);
+procedure TEventLog.Warning(const Fmt: String; Args: array of const);
 begin
   Warning(Format(Fmt,Args));
 end;
 
-procedure TEventLog.Warning(Msg: String);
+procedure TEventLog.Warning(const Msg: String);
 begin
   Log(etWarning,Msg);
 end;

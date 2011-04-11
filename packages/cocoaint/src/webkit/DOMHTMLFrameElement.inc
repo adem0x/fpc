@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLFrameElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLFRAMEELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLFrameElement = objcclass;
   DOMHTMLFrameElementPointer = ^DOMHTMLFrameElement;
+  DOMHTMLFrameElementPtr = DOMHTMLFrameElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLFRAMEELEMENT_PAS_C}
 
 { DOMHTMLFrameElement }
-  DOMHTMLFrameElement = objcclass(DOMHTMLElement)
+  DOMHTMLFrameElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLFrameElement; message 'alloc';
-
     procedure setFrameBorder (newValue: NSString); message 'setFrameBorder:';
     function frameBorder: NSString; message 'frameBorder';
     procedure setLongDesc (newValue: NSString); message 'setLongDesc:';
@@ -56,12 +53,19 @@
     function marginWidth: NSString; message 'marginWidth';
     procedure setName (newValue: NSString); message 'setName:';
     function name: NSString; message 'name';
+    procedure setNoResize (newValue: Boolean); message 'setNoResize:';
+    function noResize: Boolean; message 'noResize';
     procedure setScrolling (newValue: NSString); message 'setScrolling:';
     function scrolling: NSString; message 'scrolling';
     procedure setSrc (newValue: NSString); message 'setSrc:';
     function src: NSString; message 'src';
     function contentDocument: DOMDocument; message 'contentDocument';
-  end; external;
+    function contentWindow: DOMAbstractView; message 'contentWindow';
+    procedure setLocation (newValue: NSString); message 'setLocation:';
+    function location: NSString; message 'location';
+    function width: cint; message 'width';
+    function height: cint; message 'height';
+  end;
 
 {$endif}
 {$endif}

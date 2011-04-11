@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMOverflowEvent.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMOVERFLOWEVENT_PAS_T}
@@ -40,6 +38,7 @@ const
 {$ifdef FORWARD}
   DOMOverflowEvent = objcclass;
   DOMOverflowEventPointer = ^DOMOverflowEvent;
+  DOMOverflowEventPtr = DOMOverflowEventPointer;
 
 {$endif}
 
@@ -48,16 +47,14 @@ const
 {$define DOMOVERFLOWEVENT_PAS_C}
 
 { DOMOverflowEvent }
-  DOMOverflowEvent = objcclass(DOMEvent)
+  DOMOverflowEvent = objcclass external (DOMEvent)
     
   public
-    class function alloc: DOMOverflowEvent; message 'alloc';
-
-    function orient: cushort; message 'orient';
+    function orient: cuint; message 'orient';
     function horizontalOverflow: Boolean; message 'horizontalOverflow';
     function verticalOverflow: Boolean; message 'verticalOverflow';
     procedure initOverflowEvent_horizontalOverflow_verticalOverflow(orient_: cushort; horizontalOverflow_: Boolean; verticalOverflow_: Boolean); message 'initOverflowEvent:horizontalOverflow:verticalOverflow:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

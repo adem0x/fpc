@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSCharsetRule.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSCHARSETRULE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCSSCharsetRule = objcclass;
   DOMCSSCharsetRulePointer = ^DOMCSSCharsetRule;
+  DOMCSSCharsetRulePtr = DOMCSSCharsetRulePointer;
 
 {$endif}
 
@@ -41,13 +40,11 @@
 {$define DOMCSSCHARSETRULE_PAS_C}
 
 { DOMCSSCharsetRule }
-  DOMCSSCharsetRule = objcclass(DOMCSSRule)
+  DOMCSSCharsetRule = objcclass external (DOMCSSRule)
     
   public
-    class function alloc: DOMCSSCharsetRule; message 'alloc';
-
     function encoding: NSString; message 'encoding';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -384,11 +384,11 @@ Unit Rax86int;
                        c:=current_scanner.asmgetchar;
                      end;
                   end;
-                 if is_register(actasmpattern) then
-                  exit;
                  if is_asmdirective(actasmpattern) then
                   exit;
                  if is_asmoperator(actasmpattern) then
+                  exit;
+                 if is_register(actasmpattern) then
                   exit;
                  { allow spaces }
                  while (c in [' ',#9]) do
@@ -397,7 +397,7 @@ Unit Rax86int;
                    parse the identifier }
                  if (c='.') then
                   begin
-                    searchsym(actasmpattern,srsym,srsymtable);
+                    asmsearchsym(actasmpattern,srsym,srsymtable);
                     if assigned(srsym) and
                        (srsym.typ=unitsym) and
                        (srsym.owner.symtabletype in [staticsymtable,globalsymtable]) and
@@ -895,7 +895,7 @@ Unit Rax86int;
                      end
                    else
                     begin
-                      searchsym(tempstr,sym,srsymtable);
+                      asmsearchsym(tempstr,sym,srsymtable);
                       if assigned(sym) then
                        begin
                          case sym.typ of
@@ -978,7 +978,7 @@ Unit Rax86int;
                       end
                    else
                     begin
-                      searchsym(tempstr,sym,srsymtable);
+                      asmsearchsym(tempstr,sym,srsymtable);
                       if assigned(sym) then
                        begin
                          case sym.typ of
@@ -1570,7 +1570,7 @@ Unit Rax86int;
                   case oper.opr.typ of
                     OPR_LOCAL :
                       begin
-                        { don't allow direct access to fields of parameters, becuase that
+                        { don't allow direct access to fields of parameters, because that
                           will generate buggy code. Allow it only for explicit typecasting
                           and when the parameter is in a register (delphi compatible) }
                         if (not oper.hastype) and
@@ -1626,7 +1626,15 @@ Unit Rax86int;
               begin
                 case oper.opr.typ of
                   OPR_REFERENCE :
-                    inc(oper.opr.ref.offset,BuildRefConstExpression);
+                    if (actasmtoken=AS_OFFSET) and
+                       (cs_create_pic in current_settings.moduleswitches) then
+                      begin
+                        Consume(AS_OFFSET);
+                        oper.opr.ref.refaddr:=addr_pic;
+                        BuildOperand(oper,false);
+                      end
+                    else
+                      inc(oper.opr.ref.offset,BuildRefConstExpression);
                   OPR_LOCAL :
                     inc(oper.opr.localsymofs,BuildConstExpression);
                   OPR_NONE,
@@ -1760,7 +1768,14 @@ Unit Rax86int;
                                 Message1(sym_e_unknown_id,expr);
                               expr:='';
                             end;
-                         end;
+                          { indexed access to variable? }
+                          if actasmtoken=AS_LBRACKET then
+                            begin
+                              { ... then the operand size is not known anymore }
+                              oper.size:=OS_NO;
+                              BuildReference(oper);
+                            end;
+                        end;
                      end;
                  end;
               end;
@@ -1929,6 +1944,18 @@ Unit Rax86int;
             if (overrideop<>A_NONE) and (NOT CheckOverride(OverrideOp,ActOpcode)) then
               Message1(asmr_e_invalid_override_and_opcode,actasmpattern);
           end;
+        { pushf/popf/pusha/popa have to default to 16 bit in Intel mode
+          (Intel manual and Delphi-compatbile) -- setting the opsize for
+          these instructions doesn't change anything in the internal assember,
+          so change the opcode }
+        if (instr.opcode=A_POPF) then
+          instr.opcode:=A_POPFW
+        else if (instr.opcode=A_PUSHF) then
+          instr.opcode:=A_PUSHFW
+        else if (instr.opcode=A_PUSHA) then
+          instr.opcode:=A_PUSHAW
+        else if (instr.opcode=A_POPA) then
+          instr.opcode:=A_POPAW;
         { We are reading operands, so opcode will be an AS_ID }
         operandnum:=1;
         is_far_const:=false;

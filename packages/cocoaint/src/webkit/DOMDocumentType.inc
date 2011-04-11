@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMDocumentType.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMDOCUMENTTYPE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMDocumentType = objcclass;
   DOMDocumentTypePointer = ^DOMDocumentType;
+  DOMDocumentTypePtr = DOMDocumentTypePointer;
 
 {$endif}
 
@@ -41,18 +40,16 @@
 {$define DOMDOCUMENTTYPE_PAS_C}
 
 { DOMDocumentType }
-  DOMDocumentType = objcclass(DOMNode)
+  DOMDocumentType = objcclass external (DOMNode)
     
   public
-    class function alloc: DOMDocumentType; message 'alloc';
-
     function name: NSString; message 'name';
     function entities: DOMNamedNodeMap; message 'entities';
     function notations: DOMNamedNodeMap; message 'notations';
     function publicId: NSString; message 'publicId';
     function systemId: NSString; message 'systemId';
     function internalSubset: NSString; message 'internalSubset';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

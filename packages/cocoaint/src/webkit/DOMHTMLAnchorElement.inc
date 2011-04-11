@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLAnchorElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLANCHORELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLAnchorElement = objcclass;
   DOMHTMLAnchorElementPointer = ^DOMHTMLAnchorElement;
+  DOMHTMLAnchorElementPtr = DOMHTMLAnchorElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLANCHORELEMENT_PAS_C}
 
 { DOMHTMLAnchorElement }
-  DOMHTMLAnchorElement = objcclass(DOMHTMLElement)
+  DOMHTMLAnchorElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLAnchorElement; message 'alloc';
-
     procedure setAccessKey (newValue: NSString); message 'setAccessKey:';
     function accessKey: NSString; message 'accessKey';
     procedure setCharset (newValue: NSString); message 'setCharset:';
@@ -68,10 +65,16 @@
     function target: NSString; message 'target';
     procedure setType (newValue: NSString); message 'setType:';
     function type_: NSString; message 'type_';
+    function hashName: NSString; message 'hashName';
+    function host: NSString; message 'host';
+    function hostname: NSString; message 'hostname';
+    function pathname: NSString; message 'pathname';
+    function port: NSString; message 'port';
+    function protocol: NSString; message 'protocol';
+    function search: NSString; message 'search';
+    function text: NSString; message 'text';
     function absoluteLinkURL: NSURL; message 'absoluteLinkURL';
-    procedure blur; message 'blur';
-    procedure focus; message 'focus';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

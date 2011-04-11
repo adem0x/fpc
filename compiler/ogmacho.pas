@@ -180,6 +180,7 @@ implementation
         = ('sec_debug_frame','__debug_info','__debug_line','__debug_abbrev');
     begin
       case atype of
+        sec_user: Result:=aname;
         sec_bss:  Result:=MakeSectionName(seg_DATA, '__common');
         sec_stab: Result:='.stabs';
         sec_stabstr: Result:='.stabsstr';
@@ -1209,7 +1210,7 @@ implementation
         idtxt  : 'MACHO';
         asmbin : '';
         asmcmd : '';
-        supported_targets : [system_i386_darwin];
+        supported_targets : [system_i386_darwin,system_i386_iphonesim];
         flags : [af_outputbinary,af_smartlink_sections,af_supports_dwarf{, af_stabs_use_function_absolute_addresses}];
         labelprefix : '.L';
         comment : '#';

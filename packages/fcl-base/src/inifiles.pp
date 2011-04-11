@@ -80,7 +80,7 @@ type
     FIdent: string;
     FValue: string;
   public
-    constructor Create(AIdent, AValue: string);
+    constructor Create(const AIdent, AValue: string);
     property Ident: string read FIdent write FIdent;
     property Value: string read FValue write FValue;
   end;
@@ -88,7 +88,7 @@ type
   TIniFileKeyList = class(TList)
   private
     function GetItem(Index: integer): TIniFileKey;
-    function KeyByName(AName: string; CaseSensitive : Boolean): TIniFileKey;
+    function KeyByName(const AName: string; CaseSensitive : Boolean): TIniFileKey;
   public
     destructor Destroy; override;
     procedure Clear; override;
@@ -101,7 +101,7 @@ type
     FKeyList: TIniFileKeyList;
   public
     Function Empty : Boolean;
-    constructor Create(AName: string);
+    constructor Create(const AName: string);
     destructor Destroy; override;
     property Name: string read FName;
     property KeyList: TIniFileKeyList read FKeyList;
@@ -110,7 +110,7 @@ type
   TIniFileSectionList = class(TList)
   private
     function GetItem(Index: integer): TIniFileSection;
-    function SectionByName(AName: string; CaseSensitive : Boolean): TIniFileSection;
+    function SectionByName(const AName: string; CaseSensitive : Boolean): TIniFileSection;
   public
     destructor Destroy; override;
     procedure Clear;override;
@@ -122,7 +122,7 @@ type
     FFileName: string;
     FSectionList: TIniFileSectionList;
     FEscapeLineFeeds: boolean;
-    FCaseSensitive : Boolean; 
+    FCaseSensitive : Boolean;
     FStripQuotes : Boolean;
   public
     constructor Create(const AFileName: string; AEscapeLineFeeds : Boolean = False); virtual;
@@ -218,7 +218,7 @@ begin
     Result := '0';
 end;
 
-function IsComment(AString: string): boolean;
+function IsComment(const AString: string): boolean;
 begin
   Result := False;
   if AString > '' then
@@ -308,7 +308,7 @@ end;
 
 { TIniFileKey }
 
-constructor TIniFileKey.Create(AIdent, AValue: string);
+constructor TIniFileKey.Create(const AIdent, AValue: string);
 begin
   FIdent := AIdent;
   FValue := AValue;
@@ -323,7 +323,7 @@ begin
     Result := TIniFileKey(inherited Items[Index]);
 end;
 
-function TIniFileKeyList.KeyByName(AName: string; CaseSensitive : Boolean): TIniFileKey;
+function TIniFileKeyList.KeyByName(const AName: string; CaseSensitive : Boolean): TIniFileKey;
 var
   i: integer;
 begin
@@ -332,13 +332,13 @@ begin
     If CaseSensitive then
       begin
       for i := 0 to Count-1 do
-        if Items[i].Ident=AName then 
+        if Items[i].Ident=AName then
           begin
           Result := Items[i];
           Break;
           end;
       end
-    else  
+    else
       for i := 0 to Count-1 do
         if CompareText(Items[i].Ident, AName) = 0 then begin
           Result := Items[i];
@@ -379,7 +379,7 @@ end;
 
 { TIniFileSection }
 
-constructor TIniFileSection.Create(AName: string);
+constructor TIniFileSection.Create(const AName: string);
 begin
   FName := AName;
   FKeyList := TIniFileKeyList.Create;
@@ -399,7 +399,7 @@ begin
     Result := TIniFileSection(inherited Items[Index]);
 end;
 
-function TIniFileSectionList.SectionByName(AName: string; CaseSensitive : Boolean): TIniFileSection;
+function TIniFileSectionList.SectionByName(const AName: string; CaseSensitive : Boolean): TIniFileSection;
 var
   i: integer;
 begin
@@ -408,7 +408,7 @@ begin
     If CaseSensitive then
       begin
       for i:=0 to Count-1 do
-        if (Items[i].Name=AName) then 
+        if (Items[i].Name=AName) then
           begin
           Result := Items[i];
           Break;
@@ -416,7 +416,7 @@ begin
       end
     else
       for i := 0 to Count-1 do
-        if CompareText(Items[i].Name, AName) = 0 then 
+        if CompareText(Items[i].Name, AName) = 0 then
           begin
           Result := Items[i];
           Break;
@@ -627,12 +627,12 @@ begin
   FStream := nil;
   slLines := TStringList.Create;
   try
-    if FileExists(FFileName) then 
+    if FileExists(FFileName) then
       begin
       // read the ini file values
       slLines.LoadFromFile(FFileName);
       FillSectionList(slLines);
-      end 
+      end
   finally
     slLines.Free;
   end;
@@ -657,7 +657,11 @@ end;
 destructor TIniFile.destroy;
 begin
   If FDirty and FCacheUpdates then
-    UpdateFile;
+    try
+      UpdateFile;
+    except
+      // Eat exception. Compatible to D7 behaviour, see comments to bug 19046
+    end;  
   inherited destroy;
 end;
 
@@ -726,7 +730,7 @@ begin
           else
            begin
              sIdent:=Trim(Copy(sLine, 1,  j - 1));
-             sValue:=Trim(Copy(sLine, j + 1, Length(sLine) - j));  
+             sValue:=Trim(Copy(sLine, j + 1, Length(sLine) - j));
            end;
         end;
         oSection.KeyList.Add(TIniFileKey.Create(sIdent, sValue));
@@ -756,7 +760,7 @@ begin
            Result:=Copy(oKey.Value,2,J-2)
         else
            Result:=oKey.Value;
-      end 
+      end
       else Result:=oKey.Value;
     end;
   end;
@@ -877,7 +881,8 @@ begin
           If (J>1) and ((s[1] in ['"','''']) and (s[J]=s[1])) then
              s:=Copy(s,2,J-2);
         end;
-        s:=Items[i].Ident+Separator+s;
+        if Items[i].Ident<>'' then
+          s:=Items[i].Ident+Separator+s;
         Strings.Add(s);
       end;
   finally
@@ -918,10 +923,10 @@ var
  oKey: TIniFileKey;
 begin
   oSection := FSectionList.SectionByName(Section,CaseSensitive);
-  if oSection <> nil then 
+  if oSection <> nil then
     begin
     oKey := oSection.KeyList.KeyByName(Ident,CaseSensitive);
-    if oKey <> nil then 
+    if oKey <> nil then
       begin
       oSection.KeyList.Delete(oSection.KeyList.IndexOf(oKey));
       oKey.Free;

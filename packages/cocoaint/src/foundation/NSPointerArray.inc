@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSPointerArray.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPOINTERARRAY_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSPointerArray = objcclass;
   NSPointerArrayPointer = ^NSPointerArray;
+  NSPointerArrayPtr = NSPointerArrayPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define NSPOINTERARRAY_PAS_C}
 
 { NSPointerArray }
-  NSPointerArray = objcclass(NSObject, NSFastEnumerationProtocol, NSCopyingProtocol, NSCodingProtocol)
+  NSPointerArray = objcclass external (NSObject, NSFastEnumerationProtocol, NSCopyingProtocol, NSCodingProtocol)
     
   public
-    class function alloc: NSPointerArray; message 'alloc';
-
     function pointerFunctions: NSPointerFunctions; message 'pointerFunctions';
     function pointerAtIndex(index: NSUInteger): Pointer; message 'pointerAtIndex:';
     procedure addPointer(pointer_: Pointer); message 'addPointer:';
@@ -56,9 +53,17 @@
     function count: NSUInteger; message 'count';
     procedure setCount(count_: NSUInteger); message 'setCount:';
 
-    { Category: NSArrayConveniences }
+    { Adopted Protocols }
+    function countByEnumeratingWithState_objects_count(state: NSFastEnumerationStatePtr; stackbuf: idPtr; len: NSUInteger): NSUInteger;
+    function copyWithZone(zone_: NSZonePtr): id;
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
+
+{ NSArrayConveniencesCategory }
+  NSArrayConveniencesCategory = objccategory external (NSPointerArray)
     function allObjects: NSArray; message 'allObjects';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

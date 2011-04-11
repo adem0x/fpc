@@ -71,6 +71,9 @@ unit cgx86;
         procedure a_load_reg_reg(list : TAsmList;fromsize,tosize: tcgsize;reg1,reg2 : tregister);override;
         procedure a_loadaddr_ref_reg(list : TAsmList;const ref : treference;r : tregister);override;
 
+        { bit scan instructions }
+        procedure a_bit_scan_reg_reg(list: TAsmList; reverse: boolean; size: TCGSize; src, dst: TRegister); override;
+
         { fpu move instructions }
         procedure a_loadfpu_reg_reg(list: TAsmList; fromsize, tosize: tcgsize; reg1, reg2: tregister); override;
         procedure a_loadfpu_ref_reg(list: TAsmList; fromsize, tosize: tcgsize; const ref: treference; reg: tregister); override;
@@ -405,9 +408,7 @@ unit cgx86;
                   safety reasons
                 }
                 if (ref.symbol.bind=AB_LOCAL) and
-                   (ref.symbol.typ=AT_DATA) and
-                   ((target_info.system=system_x86_64_darwin) or
-                    (target_info.system=system_x86_64_solaris)) then
+                   (ref.symbol.typ=AT_DATA) then
                   begin
                     { unfortunately, RIP-based addresses don't support an index }
                     if (ref.base<>NR_NO) or
@@ -494,7 +495,7 @@ unit cgx86;
           end;
 {$else x86_64}
         add_hreg:=false;
-        if (target_info.system=system_i386_darwin) then
+        if (target_info.system in [system_i386_darwin,system_i386_iphonesim]) then
           begin
             if assigned(ref.symbol) and
                not(assigned(ref.relsymbol)) and
@@ -662,7 +663,7 @@ unit cgx86;
       var
         r: treference;
       begin
-        if (target_info.system<>system_i386_darwin) then
+        if (target_info.system <> system_i386_darwin) then
           list.concat(taicpu.op_sym(A_JMP,S_NO,current_asmdata.RefAsmSymbol(s)))
         else
           begin
@@ -691,7 +692,7 @@ unit cgx86;
         if current_asmdata.asmlists[al_imports]=nil then
           current_asmdata.asmlists[al_imports]:=TAsmList.create;
 
-        current_asmdata.asmlists[al_imports].concat(Tai_section.create(sec_stub,'',0));
+        new_section(current_asmdata.asmlists[al_imports],sec_stub,'',0);
         result := current_asmdata.RefAsmSymbol(stubname);
         current_asmdata.asmlists[al_imports].concat(Tai_symbol.Create(result,0));
         { register as a weak symbol if necessary }
@@ -720,8 +721,8 @@ unit cgx86;
               sym:=current_asmdata.WeakRefAsmSymbol(s);
             reference_reset_symbol(r,sym,0,sizeof(pint));
             if (cs_create_pic in current_settings.moduleswitches) and
-               { darwin/x86_64's assembler doesn't want @PLT after call symbols }
-               (target_info.system<>system_x86_64_darwin) then
+               { darwin's assembler doesn't want @PLT after call symbols }
+               not(target_info.system in [system_x86_64_darwin,system_i386_iphonesim]) then
               begin
 {$ifdef i386}
                 include(current_procinfo.flags,pi_needs_got);
@@ -909,7 +910,7 @@ unit cgx86;
               begin
                 if assigned(ref.symbol) then
                   begin
-                    if (target_info.system=system_i386_darwin) and
+                    if (target_info.system in [system_i386_darwin,system_i386_iphonesim]) and
                        ((ref.symbol.bind in [AB_EXTERNAL,AB_WEAK_EXTERNAL]) or
                         (cs_create_pic in current_settings.moduleswitches)) then
                       begin
@@ -934,9 +935,7 @@ unit cgx86;
                     else if (cs_create_pic in current_settings.moduleswitches)
 {$ifdef x86_64}
                              and not((ref.symbol.bind=AB_LOCAL) and
-                                     (ref.symbol.typ=AT_DATA) and
-                                     ((target_info.system=system_x86_64_darwin) or 
-                                     (target_info.system=system_x86_64_solaris)))
+                                     (ref.symbol.typ=AT_DATA))
 {$endif x86_64}
                             then
                       begin
@@ -957,8 +956,7 @@ unit cgx86;
                       end
 {$ifdef x86_64}
                     else if (target_info.system in (systems_all_windows+[system_x86_64_darwin]))
-			 or ((target_info.system = system_x86_64_solaris) and
-                             (cs_create_pic in current_settings.moduleswitches))
+			 or (cs_create_pic in current_settings.moduleswitches)
 			 then
                       begin
                         { Win64 and Darwin/x86_64 always require RIP-relative addressing }
@@ -1631,6 +1629,16 @@ unit cgx86;
         end;
       end;
 
+     procedure tcgx86.a_bit_scan_reg_reg(list: TAsmList; reverse: boolean; size: TCGSize; src, dst: TRegister);
+     var
+       opsize: topsize;
+     begin
+       opsize:=tcgsize2opsize[size];
+       if not reverse then
+         list.concat(taicpu.op_reg_reg(A_BSF,opsize,src,dst))
+       else
+         list.concat(taicpu.op_reg_reg(A_BSR,opsize,src,dst));
+     end;
 
 {*************** compare instructructions ****************}
 
@@ -2133,7 +2141,7 @@ unit cgx86;
         { interrupt support for i386 }
         if (po_interrupt in current_procinfo.procdef.procoptions) and
            { this messes up stack alignment }
-           (target_info.system <> system_i386_darwin) then
+           not(target_info.system in [system_i386_darwin,system_i386_iphonesim]) then
           begin
             { .... also the segment registers }
             list.concat(Taicpu.Op_reg(A_PUSH,S_W,NR_GS));
@@ -2218,7 +2226,7 @@ unit cgx86;
         ref : treference;
         sym : tasmsymbol;
       begin
-       if (target_info.system=system_i386_darwin) then
+       if (target_info.system = system_i386_darwin) then
          begin
            { a_jmp_name jumps to a stub which is always pic-safe on darwin }
            inherited g_external_wrapper(list,procdef,externalname);
@@ -2231,7 +2239,7 @@ unit cgx86;
         { create pic'ed? }
         if (cs_create_pic in current_settings.moduleswitches) and
            { darwin/x86_64's assembler doesn't want @PLT after call symbols }
-           (target_info.system<>system_x86_64_darwin) then
+           not(target_info.system in [system_x86_64_darwin,system_i386_iphonesim]) then
           ref.refaddr:=addr_pic
         else
           ref.refaddr:=addr_full;

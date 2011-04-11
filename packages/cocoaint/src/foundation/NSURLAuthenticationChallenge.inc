@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSURLAuthenticationChallenge.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSURLAUTHENTICATIONCHALLENGE_PAS_T}
@@ -34,6 +32,7 @@
   NSURLAuthenticationChallengeSenderProtocol = objcprotocol;
   NSURLAuthenticationChallenge = objcclass;
   NSURLAuthenticationChallengePointer = ^NSURLAuthenticationChallenge;
+  NSURLAuthenticationChallengePtr = NSURLAuthenticationChallengePointer;
 
 {$endif}
 
@@ -42,22 +41,20 @@
 {$define NSURLAUTHENTICATIONCHALLENGE_PAS_C}
 
 { NSURLAuthenticationChallenge }
-  NSURLAuthenticationChallenge = objcclass(NSObject)
+  NSURLAuthenticationChallenge = objcclass external (NSObject)
   private
-    __internal: NSURLAuthenticationChallengeInternal;
+    _internal: NSURLAuthenticationChallengeInternal;
     
   public
-    class function alloc: NSURLAuthenticationChallenge; message 'alloc';
-
-    function initWithProtectionSpace_proposedCredential_previousFailureCount_failureResponse_error_sender(space: NSURLProtectionSpace; credential: NSURLCredential; previousFailureCount_: NSInteger; response: NSURLResponse; error_: NSError; sender_: id): id; message 'initWithProtectionSpace:proposedCredential:previousFailureCount:failureResponse:error:sender:';
-    function initWithAuthenticationChallenge_sender(challenge: NSURLAuthenticationChallenge; sender_: id): id; message 'initWithAuthenticationChallenge:sender:';
+    function initWithProtectionSpace_proposedCredential_previousFailureCount_failureResponse_error_sender(space: NSURLProtectionSpace; credential: NSURLCredential; previousFailureCount_: NSInteger; response: NSURLResponse; error_: NSError; sender_: NSURLAuthenticationChallengeSenderProtocol): id; message 'initWithProtectionSpace:proposedCredential:previousFailureCount:failureResponse:error:sender:';
+    function initWithAuthenticationChallenge_sender(challenge: NSURLAuthenticationChallenge; sender_: NSURLAuthenticationChallengeSenderProtocol): id; message 'initWithAuthenticationChallenge:sender:';
     function protectionSpace: NSURLProtectionSpace; message 'protectionSpace';
     function proposedCredential: NSURLCredential; message 'proposedCredential';
     function previousFailureCount: NSInteger; message 'previousFailureCount';
     function failureResponse: NSURLResponse; message 'failureResponse';
     function error: NSError; message 'error';
-    function sender: id; message 'sender';
-  end; external;
+    function sender: NSURLAuthenticationChallengeSenderProtocol; message 'sender';
+  end;
 
 {$endif}
 {$endif}
@@ -66,10 +63,10 @@
 {$define NSURLAUTHENTICATIONCHALLENGE_PAS_P}
   
 { NSURLAuthenticationChallengeSender Protocol }
-  NSURLAuthenticationChallengeSenderProtocol = objcprotocol
+  NSURLAuthenticationChallengeSenderProtocol = objcprotocol external name 'NSURLAuthenticationChallengeSender'
     procedure useCredential_forAuthenticationChallenge(credential: NSURLCredential; challenge: NSURLAuthenticationChallenge); message 'useCredential:forAuthenticationChallenge:';
     procedure continueWithoutCredentialForAuthenticationChallenge(challenge: NSURLAuthenticationChallenge); message 'continueWithoutCredentialForAuthenticationChallenge:';
     procedure cancelAuthenticationChallenge(challenge: NSURLAuthenticationChallenge); message 'cancelAuthenticationChallenge:';
-  end; external name 'NSURLAuthenticationChallengeSender';
+  end;
 {$endif}
 {$endif}

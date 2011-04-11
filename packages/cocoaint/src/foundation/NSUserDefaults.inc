@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSUserDefaults.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSUSERDEFAULTS_PAS_T}
@@ -29,10 +27,36 @@
 
 { External string constants }
 var
-  NSGlobalDomain: NSString; external name '_NSGlobalDomain';
-  NSArgumentDomain: NSString; external name '_NSArgumentDomain';
-  NSRegistrationDomain: NSString; external name '_NSRegistrationDomain';
-  NSUserDefaultsDidChangeNotification: NSString; external name '_NSUserDefaultsDidChangeNotification';
+  NSGlobalDomain: NSString; cvar; external;
+  NSArgumentDomain: NSString; cvar; external;
+  NSRegistrationDomain: NSString; cvar; external;
+  NSUserDefaultsDidChangeNotification: NSString; cvar; external;
+  NSWeekDayNameArray: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSShortWeekDayNameArray: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSMonthNameArray: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSShortMonthNameArray: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSTimeFormatString: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSDateFormatString: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSTimeDateFormatString: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSShortTimeDateFormatString: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSCurrencySymbol: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSDecimalSeparator: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSThousandsSeparator: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSDecimalDigits: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSAMPMDesignation: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSHourNameDesignations: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSYearMonthWeekDesignations: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSEarlierTimeDesignations: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSLaterTimeDesignations: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSThisDayDesignations: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSNextDayDesignations: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSNextNextDayDesignations: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSPriorDayDesignations: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSDateTimeOrdering: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSInternationalCurrencyString: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSShortDateFormatString: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSPositiveCurrencyFormatString: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
+  NSNegativeCurrencyFormatString: NSString deprecated 'in Mac OS X 10.5 and later'; cvar; external;
 
 {$endif}
 {$endif}
@@ -40,6 +64,7 @@ var
 {$ifdef FORWARD}
   NSUserDefaults = objcclass;
   NSUserDefaultsPointer = ^NSUserDefaults;
+  NSUserDefaultsPtr = NSUserDefaultsPointer;
 
 {$endif}
 
@@ -48,14 +73,12 @@ var
 {$define NSUSERDEFAULTS_PAS_C}
 
 { NSUserDefaults }
-  NSUserDefaults = objcclass(NSObject)
+  NSUserDefaults = objcclass external (NSObject)
   private
-    __private: id;
+    _private: id;
         _reserved: array[0..3] of Pointer;
     
   public
-    class function alloc: NSUserDefaults; message 'alloc';
-
     class function standardUserDefaults: NSUserDefaults; message 'standardUserDefaults';
     class procedure resetStandardUserDefaults; message 'resetStandardUserDefaults';
     function init: id; message 'init';
@@ -72,10 +95,12 @@ var
     function floatForKey(defaultName: NSString): single; message 'floatForKey:';
     function doubleForKey(defaultName: NSString): double; message 'doubleForKey:';
     function boolForKey(defaultName: NSString): Boolean; message 'boolForKey:';
+    function URLForKey(defaultName: NSString): NSURL; message 'URLForKey:';
     procedure setInteger_forKey(value: NSInteger; defaultName: NSString); message 'setInteger:forKey:';
     procedure setFloat_forKey(value: single; defaultName: NSString); message 'setFloat:forKey:';
     procedure setDouble_forKey(value: double; defaultName: NSString); message 'setDouble:forKey:';
     procedure setBool_forKey(value: Boolean; defaultName: NSString); message 'setBool:forKey:';
+    procedure setURL_forKey(url: NSURL; defaultName: NSString); message 'setURL:forKey:';
     procedure registerDefaults(registrationDictionary: NSDictionary); message 'registerDefaults:';
     procedure addSuiteNamed(suiteName: NSString); message 'addSuiteNamed:';
     procedure removeSuiteNamed(suiteName: NSString); message 'removeSuiteNamed:';
@@ -91,7 +116,7 @@ var
     function synchronize: Boolean; message 'synchronize';
     function objectIsForcedForKey(key: NSString): Boolean; message 'objectIsForcedForKey:';
     function objectIsForcedForKey_inDomain(key: NSString; domain: NSString): Boolean; message 'objectIsForcedForKey:inDomain:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

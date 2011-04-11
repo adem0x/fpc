@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSNull.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSNULL_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSNull = objcclass;
   NSNullPointer = ^NSNull;
+  NSNullPtr = NSNullPointer;
 
 {$endif}
 
@@ -41,13 +40,16 @@
 {$define NSNULL_PAS_C}
 
 { NSNull }
-  NSNull = objcclass(NSObject, NSCopyingProtocol, NSCodingProtocol)
+  NSNull = objcclass external (NSObject, NSCopyingProtocol, NSCodingProtocol)
     
   public
-    class function alloc: NSNull; message 'alloc';
-
     class function null: NSNull; message 'null';
-  end; external;
+
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
 
 {$endif}
 {$endif}

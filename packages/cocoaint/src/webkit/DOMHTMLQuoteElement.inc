@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLQuoteElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLQUOTEELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLQuoteElement = objcclass;
   DOMHTMLQuoteElementPointer = ^DOMHTMLQuoteElement;
+  DOMHTMLQuoteElementPtr = DOMHTMLQuoteElementPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMHTMLQUOTEELEMENT_PAS_C}
 
 { DOMHTMLQuoteElement }
-  DOMHTMLQuoteElement = objcclass(DOMHTMLElement)
+  DOMHTMLQuoteElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLQuoteElement; message 'alloc';
-
     procedure setCite (newValue: NSString); message 'setCite:';
     function cite: NSString; message 'cite';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

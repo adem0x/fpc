@@ -85,6 +85,15 @@ type
     procedure g_flags2reg(list: TAsmList; size: TCgSize; const f: TResFlags;
       reg: TRegister); override;
 
+    { need to override this for ppc64 to avoid calling CG methods which allocate 
+      registers during creation of the interface wrappers to subtract ioffset from 
+      the self pointer. But register allocation does not take place for them (which
+      would probably be the generic fix) so we need to have a specialized method
+      that uses the R11 scratch register in these cases.
+      At the same time this allows > 32 bit offsets as well.
+    }
+    procedure g_adjust_self_value(list:TAsmList;procdef: tprocdef;ioffset: aint);override;
+
     procedure g_profilecode(list: TAsmList); override;
     procedure g_proc_entry(list: TAsmList; localsize: longint; nostackframe:
       boolean); override;
@@ -1379,6 +1388,37 @@ begin
   end;
 end;
 
+procedure tcgppc.g_adjust_self_value(list:TAsmList;procdef: tprocdef;ioffset: aint);
+var
+  hsym : tsym;
+  href : treference;
+  paraloc : Pcgparalocation;
+begin
+  if ((ioffset >= low(smallint)) and (ioffset < high(smallint))) then begin
+    { the original method can handle this }
+    inherited g_adjust_self_value(list, procdef, ioffset);
+    exit;
+  end;
+  { calculate the parameter info for the procdef }
+  procdef.init_paraloc_info(callerside);
+  hsym:=tsym(procdef.parast.Find('self'));
+  if not(assigned(hsym) and
+    (hsym.typ=paravarsym)) then
+    internalerror(2010103101);
+  paraloc:=tparavarsym(hsym).paraloc[callerside].location;
+  while paraloc<>nil do
+    with paraloc^ do begin
+      case loc of
+        LOC_REGISTER:
+        begin
+          a_load_const_reg(list, size, ioffset, NR_R11);
+          a_op_reg_reg(list, OP_SUB, size, NR_R11, register);
+        end else
+          internalerror(2010103102);
+      end;
+      paraloc:=next;
+    end;
+end;
 
 procedure tcgppc.g_profilecode(list: TAsmList);
 begin
@@ -2147,7 +2187,7 @@ begin
   l:=current_asmdata.getasmsymbol(symname);
   if not(assigned(l)) then begin
     l:=current_asmdata.DefineAsmSymbol(symname,AB_GLOBAL, AT_DATA);
-    current_asmdata.asmlists[al_picdata].concat(tai_section.create(sec_toc, '.toc', 8));
+    new_section(current_asmdata.asmlists[al_picdata],sec_toc, '.toc', 8);
     current_asmdata.asmlists[al_picdata].concat(tai_symbol.create_global(l,0));
     current_asmdata.asmlists[al_picdata].concat(tai_directive.create(asd_toc_entry, symname + '[TC], ' + inttostr(a)));
   end;

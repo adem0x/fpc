@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSProxy.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPROXY_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSProxy = objcclass;
   NSProxyPointer = ^NSProxy;
+  NSProxyPtr = NSProxyPointer;
 
 {$endif}
 
@@ -41,23 +40,41 @@
 {$define NSPROXY_PAS_C}
 
 { NSProxy }
-  NSProxy = objcclass(NSObject, NSObjectProtocol)
+  NSProxy = objcclass external (NSObjectProtocol)
   private
-    _isa: Pobjc_class;
+    isa: Pobjc_class;
     
   public
-    class function alloc: NSProxy; message 'alloc';
-
     class function alloc: id; message 'alloc';
-    class function allocWithZone(zone_: NSZonePointer): id; message 'allocWithZone:';
-    class function class_: Pobjc_class; message 'class';
+    class function allocWithZone(zone_: NSZonePtr): id; message 'allocWithZone:';
+    class function classClass: Pobjc_class; message 'class';
     procedure forwardInvocation(invocation: NSInvocation); message 'forwardInvocation:';
-    function methodSignatureForSelector(sel: SEL): NSMethodSignature; message 'methodSignatureForSelector:';
+    function methodSignatureForSelector(sel_: SEL): NSMethodSignature; message 'methodSignatureForSelector:';
     procedure dealloc; message 'dealloc';
     procedure finalize; message 'finalize';
     function description: NSString; message 'description';
-    class function respondsToSelector(aSelector: SEL): Boolean; message 'respondsToSelector:';
-  end; external;
+    class function classRespondsToSelector(aSelector: SEL): Boolean; message 'respondsToSelector:';
+
+    { Adopted Protocols }
+    function isEqual(object_: id): Boolean;
+    function hash: NSUInteger;
+    function superclass: Pobjc_class;
+    function _class: Pobjc_class;
+    function self: id;
+    function zone: NSZonePtr;
+    function performSelector(aSelector: SEL): id;
+    function performSelector_withObject(aSelector: SEL; object_: id): id;
+    function performSelector_withObject_withObject(aSelector: SEL; object_: id; object_1: id): id;
+    function isProxy: Boolean;
+    function isKindOfClass(aClass: Pobjc_class): Boolean;
+    function isMemberOfClass(aClass: Pobjc_class): Boolean;
+    function conformsToProtocol(aProtocol: objc_protocol): Boolean;
+    function respondsToSelector(aSelector: SEL): Boolean;
+    function retain: id;
+    procedure release;
+    function autorelease: id;
+    function retainCount: NSUInteger;
+  end;
 
 {$endif}
 {$endif}

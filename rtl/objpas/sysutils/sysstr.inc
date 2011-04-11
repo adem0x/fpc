@@ -753,6 +753,8 @@ const
 function IntToHex(Value: integer; Digits: integer): string;
 var i: integer;
 begin
+ If Digits=0 then 
+   Digits:=1;
  SetLength(result, digits);
  for i := 0 to digits - 1 do
   begin
@@ -768,6 +770,8 @@ end ;
 function IntToHex(Value: int64; Digits: integer): string;
 var i: integer;
 begin
+ If Digits=0 then 
+   Digits:=1;
  SetLength(result, digits);
  for i := 0 to digits - 1 do
   begin
@@ -892,19 +896,18 @@ end;
 {$endif}
 
 
-Procedure DoFormatError (ErrCode : Longint);
+Procedure DoFormatError (ErrCode : Longint;const fmt:ansistring);
 Var
   S : String;
 begin
   //!! must be changed to contain format string...
-  S:='';
+  S:=fmt;
   Case ErrCode of
    feInvalidFormat : raise EConvertError.Createfmt(SInvalidFormat,[s]);
    feMissingArgument : raise EConvertError.Createfmt(SArgumentMissing,[s]);
    feInvalidArgIndex : raise EConvertError.Createfmt(SInvalidArgIndex,[s]);
  end;
 end;
-
 
 { we've no templates, but with includes we can simulate this :) }
 
@@ -1162,6 +1165,29 @@ Var
   Negative, TooSmall, TooLarge: Boolean;
   DS: Char;
 
+  function RemoveLeadingNegativeSign(var AValue: String): Boolean;
+  // removes negative sign in case when result is zero eg. -0.00
+  var
+    i: PtrInt;
+    TS: Char;
+    StartPos: PtrInt;
+  begin
+    Result := False;
+    if Format = ffCurrency then
+      StartPos := 1
+    else
+      StartPos := 2;
+    TS := FormatSettings.ThousandSeparator;
+    for i := StartPos to length(AValue) do
+    begin
+      Result := (AValue[i] in ['0', DS, 'E', '+', TS]);
+      if not Result then
+        break;
+    end;
+    if (Result) and (Format <> ffCurrency) then
+      Delete(AValue, 1, 1);
+  end;
+
 Begin
   DS:=FormatSettings.DecimalSeparator;
   Case format Of
@@ -1388,6 +1414,9 @@ Begin
           Dec(P, 3);
         End;
 
+        if (length(Result) > 1) and Negative then
+          Negative := not RemoveLeadingNegativeSign(Result);
+
         If Not Negative Then
         Begin
           Case FormatSettings.CurrencyFormat Of
@@ -1399,7 +1428,7 @@ Begin
         End
         Else
         Begin
-          Case NegCurrFormat Of
+          Case FormatSettings.NegCurrFormat Of
             0: Result := '(' + FormatSettings.CurrencyString + Result + ')';
             1: Result := '-' + FormatSettings.CurrencyString + Result;
             2: Result := FormatSettings.CurrencyString + '-' + Result;
@@ -1410,11 +1439,18 @@ Begin
             7: Result := Result + FormatSettings.CurrencyString + '-';
             8: Result := '-' + Result + ' ' + FormatSettings.CurrencyString;
             9: Result := '-' + FormatSettings.CurrencyString + ' ' + Result;
-            10: Result := FormatSettings.CurrencyString + ' ' + Result + '-';
+            10: Result := Result + ' ' + FormatSettings.CurrencyString + '-';
+            11: Result := FormatSettings.CurrencyString + ' ' + Result + '-';
+            12: Result := FormatSettings.CurrencyString + ' ' + '-' + Result;
+            13: Result := Result + '-' + ' ' + FormatSettings.CurrencyString;
+            14: Result := '(' + FormatSettings.CurrencyString + ' ' + Result + ')';
+            15: Result := '(' + Result + ' ' + FormatSettings.CurrencyString + ')';
           End;
         End;
       End;
   End;
+  if not (format in [ffCurrency]) and (length(Result) > 1) and (Result[1] = '-') then
+    RemoveLeadingNegativeSign(Result);
 End;
 
 
@@ -1732,9 +1768,7 @@ begin
     Raise EConvertError.CreateFmt(SInvalidBoolean,[S]);
 end;
 
-function BoolToStr(B: Boolean;UseBoolStrs:Boolean=False): string;
-
-procedure CheckStrs;
+procedure CheckBoolStrs;
 begin
     If Length(TrueBoolStrs)=0 then
       begin
@@ -1748,10 +1782,12 @@ begin
       end;
 end;
 
+
+function BoolToStr(B: Boolean;UseBoolStrs:Boolean=False): string;
 begin
  if UseBoolStrs Then
   begin
-    CheckStrs;
+    CheckBoolStrs;
     if B then
       Result:=TrueBoolStrs[0]
     else
@@ -1779,6 +1815,7 @@ end;
 function TryStrToBool(const S: string; out Value: Boolean): Boolean;
 Var
   Temp : String;
+  I    : Longint;
 {$ifdef FPUNONE}
   D : Longint;
 {$else}
@@ -1795,12 +1832,23 @@ begin
 {$else}
     Value:=(D<>0.0)
 {$endif}
-  else If Temp='TRUE' then
-    Value:=true
-  else if Temp='FALSE' then
-    Value:=false
   else
-    Result:=false;
+    begin
+      CheckBoolStrs;
+      for I:=low(TrueBoolStrs) to High(TrueBoolStrs) do
+        if Temp=upcase(TrueBoolStrs[I]) then
+          begin
+            Value:=true;
+            exit;
+          end;
+      for I:=low(FalseBoolStrs) to High(FalseBoolStrs) do
+        if Temp=upcase(FalseBoolStrs[I]) then
+          begin
+            Value:=false;
+            exit;
+          end;
+      Result:=false;
+    end;
 end;
 
 {$ifndef FPUNONE}
@@ -2849,7 +2897,7 @@ function sscanf(const s: string; const fmt : string;const Pointers : array of Po
       while (Length(s) > n) and (s[n] = ' ')  do
         inc(n);
       while (Length(s) >= n) and
-            (s[n] in ['0'..'9', '+', '-', DecimalSeparator, 'e', 'E']) do
+            (s[n] in ['0'..'9', '+', '-', FormatSettings.DecimalSeparator, 'e', 'E']) do
         begin
           s1 := s1+s[n];
           inc(n);

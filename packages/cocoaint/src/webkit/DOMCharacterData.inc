@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCharacterData.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCHARACTERDATA_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCharacterData = objcclass;
   DOMCharacterDataPointer = ^DOMCharacterData;
+  DOMCharacterDataPtr = DOMCharacterDataPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMCHARACTERDATA_PAS_C}
 
 { DOMCharacterData }
-  DOMCharacterData = objcclass(DOMNode)
+  DOMCharacterData = objcclass external (DOMNode)
     
   public
-    class function alloc: DOMCharacterData; message 'alloc';
-
     procedure setData (newValue: NSString); message 'setData:';
     function data: NSString; message 'data';
     function length: cuint; message 'length';
@@ -54,13 +51,15 @@
     procedure insertData_data(offset: cuint; data_: NSString); message 'insertData:data:';
     procedure deleteData_length(offset: cuint; length_: cuint); message 'deleteData:length:';
     procedure replaceData_length_data(offset: cuint; length_: cuint; data_: NSString); message 'replaceData:length:data:';
+  end;
 
-    { Category: DOMCharacterDataDeprecated }
-    function substringData(offset: cuint; length_: cuint): NSString; message 'substringData:offset:';
-    procedure insertData(offset: cuint; data_: NSString); message 'insertData:offset:';
-    procedure deleteData(offset: cuint; length_: cuint); message 'deleteData:offset:';
-    procedure replaceData(offset: cuint; length_: cuint; data_: NSString); message 'replaceData:offset:length:';
-  end; external;
+{ DOMCharacterDataDeprecatedCategory }
+  DOMCharacterDataDeprecatedCategory = objccategory external (DOMCharacterData)
+    function substringData(offset: cuint; length_: cuint): NSString; message 'substringData:offset:'; deprecated 'in_webkit_version_3 and later';
+    procedure insertData(offset: cuint; data_: NSString); message 'insertData:offset:'; deprecated 'in_webkit_version_3 and later';
+    procedure deleteData(offset: cuint; length_: cuint); message 'deleteData:offset:'; deprecated 'in_webkit_version_3 and later';
+    procedure replaceData(offset: cuint; length_: cuint; data_: NSString); message 'replaceData:offset:length:'; deprecated 'in_webkit_version_3 and later';
+  end;
 
 {$endif}
 {$endif}

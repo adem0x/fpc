@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSTextStorage.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTEXTSTORAGE_PAS_T}
@@ -35,15 +33,17 @@ const
 
 { External string constants }
 var
-  NSTextStorageWillProcessEditingNotification: NSString; external name '_NSTextStorageWillProcessEditingNotification';
-  NSTextStorageDidProcessEditingNotification: NSString; external name '_NSTextStorageDidProcessEditingNotification';
+  NSTextStorageWillProcessEditingNotification: NSString; cvar; external;
+  NSTextStorageDidProcessEditingNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
 
 {$ifdef FORWARD}
+  NSTextStorageDelegateProtocol = objcprotocol;
   NSTextStorage = objcclass;
   NSTextStoragePointer = ^NSTextStorage;
+  NSTextStoragePtr = NSTextStoragePointer;
 
 {$endif}
 
@@ -52,25 +52,26 @@ var
 {$define NSTEXTSTORAGE_PAS_C}
 
 { NSTextStorage }
-  NSTextStorage = objcclass(NSMutableAttributedString)
+  NSTextStorage = objcclass external (NSMutableAttributedString)
   private
-    __editedRange: NSRange;
-    __editedDelta: NSInteger;
+    _editedRange: NSRange;
+    _editedDelta: NSInteger;
     __flags: bitpacked record
-        editedMask: 0..((1 shl 8)-1);
-        inFSC: 0..1;
-        int: 0..((1 shl 7)-1);
+      case byte of
+       0: (_anonbitfield_NSTextStorage2: cuint);
+       1: (
+        _editedMask: 0..((1 shl 8)-1);
+        _anonbitfield_NSTextStorage0: 0..((1 shl 8)-1);
         disabled: 0..((1 shl 16)-1);
         {$ifdef cpu64}
-        int2: 0..((1 shl 32)-1);
+        _anonbitfield_NSTextStorage1: 0..((1 shl 32)-1);
         {$endif}
+      );
       end;
-    __layoutManagers: NSMutableArray;
-    __sideData: id;
+    _layoutManagers: NSMutableArray;
+    _sideData: id;
     
   public
-    class function alloc: NSTextStorage; message 'alloc';
-
     procedure addLayoutManager(obj: NSLayoutManager); message 'addLayoutManager:';
     procedure removeLayoutManager(obj: NSLayoutManager); message 'removeLayoutManager:';
     function layoutManagers: NSArray; message 'layoutManagers';
@@ -82,23 +83,21 @@ var
     function editedMask: NSUInteger; message 'editedMask';
     function editedRange: NSRange; message 'editedRange';
     function changeInLength: NSInteger; message 'changeInLength';
-    procedure setDelegate(delegate_: id); message 'setDelegate:';
-    function delegate: id; message 'delegate';
+    procedure setDelegate(delegate_: NSTextStorageDelegateProtocol); message 'setDelegate:';
+    function delegate: NSTextStorageDelegateProtocol; message 'delegate';
+  end;
 
-    { Category: Scripting }
-    function attributeRuns: NSArray; message 'attributeRuns';
-    procedure setAttributeRuns(attributeRuns_: NSArray); message 'setAttributeRuns:';
-    function paragraphs: NSArray; message 'paragraphs';
-    procedure setParagraphs(paragraphs_: NSArray); message 'setParagraphs:';
-    function words: NSArray; message 'words';
-    procedure setWords(words_: NSArray); message 'setWords:';
-    function characters: NSArray; message 'characters';
-    procedure setCharacters(characters_: NSArray); message 'setCharacters:';
-    function font: NSFont; message 'font';
-    procedure setFont(font_: NSFont); message 'setFont:';
-    function foregroundColor: NSColor; message 'foregroundColor';
-    procedure setForegroundColor(color: NSColor); message 'setForegroundColor:';
-  end; external;
-
+{$endif}
+{$endif}
+{$ifdef PROTOCOLS}
+{$ifndef NSTEXTSTORAGE_PAS_P}
+{$define NSTEXTSTORAGE_PAS_P}
+  
+{ NSTextStorageDelegate Protocol }
+  NSTextStorageDelegateProtocol = objcprotocol external name 'NSTextStorageDelegate'
+  optional
+    procedure textStorageWillProcessEditing(notification: NSNotification); message 'textStorageWillProcessEditing:';
+    procedure textStorageDidProcessEditing(notification: NSNotification); message 'textStorageDidProcessEditing:';
+  end;
 {$endif}
 {$endif}

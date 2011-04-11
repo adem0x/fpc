@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSStyleSheet.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSSTYLESHEET_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCSSStyleSheet = objcclass;
   DOMCSSStyleSheetPointer = ^DOMCSSStyleSheet;
+  DOMCSSStyleSheetPtr = DOMCSSStyleSheetPointer;
 
 {$endif}
 
@@ -41,19 +40,22 @@
 {$define DOMCSSSTYLESHEET_PAS_C}
 
 { DOMCSSStyleSheet }
-  DOMCSSStyleSheet = objcclass(DOMStyleSheet)
+  DOMCSSStyleSheet = objcclass external (DOMStyleSheet)
     
   public
-    class function alloc: DOMCSSStyleSheet; message 'alloc';
-
     function ownerRule: DOMCSSRule; message 'ownerRule';
     function cssRules: DOMCSSRuleList; message 'cssRules';
+    function rules: DOMCSSRuleList; message 'rules';
     function insertRule_index(rule: NSString; index: cuint): cuint; message 'insertRule:index:';
     procedure deleteRule(index: cuint); message 'deleteRule:';
+    function addRule_style_index(selector: NSString; style: NSString; index: cuint): cint; message 'addRule:style:index:';
+    procedure removeRule(index: cuint); message 'removeRule:';
+  end;
 
-    { Category: DOMCSSStyleSheetDeprecated }
-    function insertRule(rule: NSString; index: cuint): cuint; message 'insertRule:rule:';
-  end; external;
+{ DOMCSSStyleSheetDeprecatedCategory }
+  DOMCSSStyleSheetDeprecatedCategory = objccategory external (DOMCSSStyleSheet)
+    function insertRule(rule: NSString; index: cuint): cuint; message 'insertRule:rule:'; deprecated 'in_webkit_version_3 and later';
+  end;
 
 {$endif}
 {$endif}

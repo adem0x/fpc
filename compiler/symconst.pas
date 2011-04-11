@@ -64,6 +64,7 @@ const
   tkProcVar  = 23;
   tkUString  = 24;
   tkUChar    = 25;
+  tkFile     = 26;
 
   otSByte     = 0;
   otUByte     = 1;
@@ -89,8 +90,8 @@ const
   mkClassFunction    = 5;
   mkClassConstructor = 6;
   mkClassDestructor  = 7;
+  mkOperatorOverload = 8;
 // delphi has the next too:
-//mkOperatorOverload = 8;
 //mkSafeProcedure    = 9;
 //mkSafeFunction     = 10;
 
@@ -100,6 +101,7 @@ const
   pfAddress  = 8;
   pfReference= 16;
   pfOut      = 32;
+  pfConstRef = 64;
 
   unknown_level         = 0;
   main_program_level    = 1;
@@ -109,6 +111,7 @@ const
     and will increase with 10 for each parameter. The high parameters
     will be inserted with n+1 }
   paranr_parentfp = 1;
+  paranr_parentfp_delphi_cc_leftright = 1;
   paranr_self = 2;
   paranr_result = 3;
   paranr_vmt = 4;
@@ -118,11 +121,12 @@ const
   paranr_objc_self = 4;
   paranr_objc_cmd = 5;
   { Required to support variations of syscalls on MorphOS }
-  paranr_syscall_basesysv = 9;
-  paranr_syscall_sysvbase = high(word)-4;
-  paranr_syscall_r12base  = high(word)-3;
-  paranr_syscall_legacy   = high(word)-2;
-  paranr_result_leftright = high(word)-1;
+  paranr_syscall_basesysv    = 9;
+  paranr_syscall_sysvbase    = high(word)-5;
+  paranr_syscall_r12base     = high(word)-4;
+  paranr_syscall_legacy      = high(word)-3;
+  paranr_result_leftright    = high(word)-2;
+  paranr_parentfp_delphi_cc  = high(word)-1;
 
   { prefix for names of class helper procsyms added to regular symtables }
   class_helper_prefix = 'CH$';
@@ -152,13 +156,13 @@ type
 
   { symbol options }
   tsymoption=(sp_none,
-    sp_static,
+    sp_static,              { static symbol in class/object/record }
     sp_hint_deprecated,
     sp_hint_platform,
     sp_hint_library,
     sp_hint_unimplemented,
     sp_has_overloaded,
-    sp_internal,  { internal symbol, not reported as unused }
+    sp_internal,            { internal symbol, not reported as unused }
     sp_implicitrename,
     sp_hint_experimental,
     sp_generic_para,
@@ -222,7 +226,7 @@ type
     vt_normalvariant,vt_olevariant
   );
 
-  tcallercallee = (callerside,calleeside);
+  tcallercallee = (callnoside,callerside,calleeside,callbothsides);
 
   { basic type for tprocdef and tprocvardef }
   tproctypeoption=(potype_none,
@@ -235,7 +239,9 @@ type
     potype_procedure,
     potype_function,
     potype_class_constructor, { class constructor }
-    potype_class_destructor   { class destructor  }
+    potype_class_destructor,  { class destructor  }
+    potype_propgetter,        { Dispinterface property accessors }
+    potype_propsetter
   );
   tproctypeoptions=set of tproctypeoption;
 
@@ -282,7 +288,6 @@ type
     po_syscall_basesysv,
     po_syscall_sysvbase,
     po_syscall_r12base,
-    po_local,
     { Procedure can be inlined }
     po_inline,
     { Procedure is used for internal compiler calls }
@@ -299,7 +304,15 @@ type
     { enumerator support }
     po_enumerator_movenext,
     { optional Objective-C protocol method }
-    po_optional
+    po_optional,
+    { nested procedure that uses Delphi-style calling convention for passing
+      the frame pointer (pushed on the stack, always the last parameter,
+      removed by the caller). Required for nested procvar compatibility,
+      because such procvars can hold both regular and nested procedures
+      (when calling a regular procedure using the above convention, it will
+       simply not see the frame pointer parameter, and since the caller cleans
+       up the stack will also remain balanced) }
+    po_delphi_nested_cc
   );
   tprocoptions=set of tprocoption;
 
@@ -351,7 +364,7 @@ type
     oo_has_enumerator_movenext,
     oo_has_enumerator_current,
     oo_is_external,       { the class is externally implemented (objcclass, cppclass) }
-    oo_is_anonymous,      { the class is only formally defined in this module (objcclass x = class; external;) }
+    oo_is_formal,         { the class is only formally defined in this module (x = objcclass; external [name 'x'];) }
     oo_is_classhelper,    { objcclasses that represent categories, and Delpi-style class helpers, are marked like this }
     oo_has_class_constructor, { the object/class has a class constructor }
     oo_has_class_destructor   { the object/class has a class destructor  }
@@ -377,8 +390,8 @@ type
     ppo_hasparameters,
     ppo_implements,
     ppo_enumerator_current,
-    ppo_dispid_read,
-    ppo_dispid_write
+    ppo_dispid_read,              { no longer used }
+    ppo_dispid_write              { no longer used }
   );
   tpropertyoptions=set of tpropertyoption;
 
@@ -409,7 +422,9 @@ type
     { Objective-C message selector parameter }
     vo_is_msgsel,
     { first field of variant part of a record }
-    vo_is_first_field
+    vo_is_first_field,
+    vo_volatile,
+    vo_has_section
   );
   tvaroptions=set of tvaroption;
 
@@ -424,13 +439,21 @@ type
   );
 
   { types of the symtables }
-  TSymtabletype = (abstracTSymtable,
-    globalsymtable,staticsymtable,
-    ObjectSymtable,recordsymtable,
-    localsymtable,parasymtable,
-    withsymtable,stt_excepTSymtable,
-    exportedmacrosymtable, localmacrosymtable,
-    enumsymtable
+  TSymtabletype = (
+    abstractsymtable,      { not a real symtable             }
+    globalsymtable,        { unit interface symtable         }
+    staticsymtable,        { unit implementation symtable    }
+    ObjectSymtable,        { object symtable                 }
+    recordsymtable,        { record symtable                 }
+    localsymtable,         { subroutine symtable             }
+    parasymtable,          { arguments symtable              }
+    withsymtable,          { with operator symtable          }
+    stt_excepTSymtable,    { try/except symtable             }
+    exportedmacrosymtable, { }
+    localmacrosymtable,    { }
+    enumsymtable,          { symtable for enum members       }
+    arraysymtable          { used to store parameterised type
+                             in array                        }
   );
 
 
@@ -473,7 +496,7 @@ type
     vs_referred_not_inited,vs_written,vs_readwritten
   );
 
-  tvarspez = (vs_value,vs_const,vs_var,vs_out);
+  tvarspez = (vs_value,vs_const,vs_var,vs_out,vs_constref);
 
   absolutetyp = (tovar,toasm,toaddr);
 
@@ -533,14 +556,14 @@ type
     dbg_state_queued
   );
 
+var
+  clearstack_pocalls : tproccalloptions;
+  cdecl_pocalls      : tproccalloptions;
 
 const
    inherited_objectoptions : tobjectoptions = [oo_has_virtual,oo_has_private,oo_has_protected,
                 oo_has_strictprotected,oo_has_strictprivate,oo_has_constructor,oo_has_destructor,
                 oo_can_have_published];
-   clearstack_pocalls = [
-     pocall_cdecl,pocall_cppdecl,pocall_syscall,pocall_mwpascal
-   ];
 
 {$ifdef i386}
    { we only take this into account on i386, on other platforms we always
@@ -572,6 +595,42 @@ const
        'hidden','strict private','private','strict protected','protected',
        'public','published'
      );
+
+
+{ !! Be sure to keep these in sync with ones in rtl/inc/varianth.inc }
+      varempty = 0;
+      varnull = 1;
+      varsmallint = 2;
+      varinteger = 3;
+      varsingle = 4;
+      vardouble = 5;
+      varcurrency = 6;
+      vardate = 7;
+      varolestr = 8;
+      vardispatch = 9;
+      varerror = 10;
+      varboolean = 11;
+      varvariant = 12;
+      varunknown = 13;
+      vardecimal = 14;
+      varshortint = 16;
+      varbyte = 17;
+      varword = 18;
+      varlongword = 19;
+      varint64 = 20;
+      varqword = 21;
+
+      varUndefined = -1;
+
+      varstrarg = $48;
+      varustrarg = $49;
+
+      varstring = $100;
+      varany = $101;
+      varustring = $102;
+      vardefmask = $fff;
+      vararray = $2000;
+      varbyref = $4000;
 
 implementation
 

@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLTableCellElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLTABLECELLELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLTableCellElement = objcclass;
   DOMHTMLTableCellElementPointer = ^DOMHTMLTableCellElement;
+  DOMHTMLTableCellElementPtr = DOMHTMLTableCellElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLTABLECELLELEMENT_PAS_C}
 
 { DOMHTMLTableCellElement }
-  DOMHTMLTableCellElement = objcclass(DOMHTMLElement)
+  DOMHTMLTableCellElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLTableCellElement; message 'alloc';
-
     function cellIndex: cint; message 'cellIndex';
     procedure setAbbr (newValue: NSString); message 'setAbbr:';
     function abbr: NSString; message 'abbr';
@@ -59,17 +56,23 @@
     function ch: NSString; message 'ch';
     procedure setChOff (newValue: NSString); message 'setChOff:';
     function chOff: NSString; message 'chOff';
+    procedure setColSpan (newValue: cint); message 'setColSpan:';
+    function colSpan: cint; message 'colSpan';
     procedure setHeaders (newValue: NSString); message 'setHeaders:';
     function headers: NSString; message 'headers';
     procedure setHeight (newValue: NSString); message 'setHeight:';
     function height: NSString; message 'height';
+    procedure setNoWrap (newValue: Boolean); message 'setNoWrap:';
+    function noWrap: Boolean; message 'noWrap';
+    procedure setRowSpan (newValue: cint); message 'setRowSpan:';
+    function rowSpan: cint; message 'rowSpan';
     procedure setScope (newValue: NSString); message 'setScope:';
     function scope: NSString; message 'scope';
     procedure setVAlign (newValue: NSString); message 'setVAlign:';
     function vAlign: NSString; message 'vAlign';
     procedure setWidth (newValue: NSString); message 'setWidth:';
     function width: NSString; message 'width';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

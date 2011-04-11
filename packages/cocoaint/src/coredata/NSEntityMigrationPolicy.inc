@@ -1,6 +1,4 @@
 { Parsed from Coredata.framework NSEntityMigrationPolicy.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Fri Oct 2 11:46:33 EDT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSENTITYMIGRATIONPOLICY_PAS_T}
@@ -29,11 +27,12 @@
 
 { External string constants }
 var
-  NSMigrationManagerKey: NSString; external name '_NSMigrationManagerKey';
-  NSMigrationSourceObjectKey: NSString; external name '_NSMigrationSourceObjectKey';
-  NSMigrationDestinationObjectKey: NSString; external name '_NSMigrationDestinationObjectKey';
-  NSMigrationEntityMappingKey: NSString; external name '_NSMigrationEntityMappingKey';
-  NSMigrationPropertyMappingKey: NSString; external name '_NSMigrationPropertyMappingKey';
+  NSMigrationManagerKey: NSString; cvar; external;
+  NSMigrationSourceObjectKey: NSString; cvar; external;
+  NSMigrationDestinationObjectKey: NSString; cvar; external;
+  NSMigrationEntityMappingKey: NSString; cvar; external;
+  NSMigrationPropertyMappingKey: NSString; cvar; external;
+  NSMigrationEntityPolicyKey: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -41,6 +40,7 @@ var
 {$ifdef FORWARD}
   NSEntityMigrationPolicy = objcclass;
   NSEntityMigrationPolicyPointer = ^NSEntityMigrationPolicy;
+  NSEntityMigrationPolicyPtr = NSEntityMigrationPolicyPointer;
 
 {$endif}
 
@@ -49,11 +49,9 @@ var
 {$define NSENTITYMIGRATIONPOLICY_PAS_C}
 
 { NSEntityMigrationPolicy }
-  NSEntityMigrationPolicy = objcclass(NSObject)
+  NSEntityMigrationPolicy = objcclass external (NSObject)
     
   public
-    class function alloc: NSEntityMigrationPolicy; message 'alloc';
-
     function beginEntityMapping_manager_error(mapping: NSEntityMapping; manager: NSMigrationManager; error: NSErrorPointer): Boolean; message 'beginEntityMapping:manager:error:';
     function createDestinationInstancesForSourceInstance_entityMapping_manager_error(sInstance: NSManagedObject; mapping: NSEntityMapping; manager: NSMigrationManager; error: NSErrorPointer): Boolean; message 'createDestinationInstancesForSourceInstance:entityMapping:manager:error:';
     function endInstanceCreationForEntityMapping_manager_error(mapping: NSEntityMapping; manager: NSMigrationManager; error: NSErrorPointer): Boolean; message 'endInstanceCreationForEntityMapping:manager:error:';
@@ -61,7 +59,7 @@ var
     function endRelationshipCreationForEntityMapping_manager_error(mapping: NSEntityMapping; manager: NSMigrationManager; error: NSErrorPointer): Boolean; message 'endRelationshipCreationForEntityMapping:manager:error:';
     function performCustomValidationForEntityMapping_manager_error(mapping: NSEntityMapping; manager: NSMigrationManager; error: NSErrorPointer): Boolean; message 'performCustomValidationForEntityMapping:manager:error:';
     function endEntityMapping_manager_error(mapping: NSEntityMapping; manager: NSMigrationManager; error: NSErrorPointer): Boolean; message 'endEntityMapping:manager:error:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

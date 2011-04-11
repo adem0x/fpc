@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMStyleSheet.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMSTYLESHEET_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMStyleSheet = objcclass;
   DOMStyleSheetPointer = ^DOMStyleSheet;
+  DOMStyleSheetPtr = DOMStyleSheetPointer;
 
 {$endif}
 
@@ -41,18 +40,18 @@
 {$define DOMSTYLESHEET_PAS_C}
 
 { DOMStyleSheet }
-  DOMStyleSheet = objcclass(DOMObject)
+  DOMStyleSheet = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMStyleSheet; message 'alloc';
-
     function type_: NSString; message 'type_';
+    procedure setDisabled (newValue: Boolean); message 'setDisabled:';
+    function disabled: Boolean; message 'disabled';
     function ownerNode: DOMNode; message 'ownerNode';
     function parentStyleSheet: DOMStyleSheet; message 'parentStyleSheet';
     function href: NSString; message 'href';
     function title: NSString; message 'title';
     function media: DOMMediaList; message 'media';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

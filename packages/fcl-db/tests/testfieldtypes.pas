@@ -1,6 +1,7 @@
 unit TestFieldTypes;
 
 {$mode objfpc}{$H+}
+{$modeswitch nestedprocvars}
 
 interface
 
@@ -9,10 +10,10 @@ uses
   db;
 
 type
-
-
   TParamProc = procedure(AParam:TParam; i : integer);
   TFieldProc = procedure(AField:TField; i : integer);
+  TGetSQLTextProc = function(const i: integer) : string; { is nested;}
+  TCheckFieldValueProc = procedure(AField:TField; i : integer) is nested;
 
   { TTestFieldTypes }
 
@@ -20,6 +21,9 @@ type
   private
     procedure CreateTableWithFieldType(ADatatype : TFieldType; ASQLTypeDecl : string);
     procedure TestFieldDeclaration(ADatatype: TFieldType; ADataSize: integer);
+    procedure TestSQLFieldType(ADatatype: TFieldType; ASQLTypeDecl: string;
+      ADataSize: integer; AGetSQLTextProc: TGetSQLTextProc;
+      ACheckFieldValueProc: TCheckFieldValueProc);
     procedure TestXXParamQuery(ADatatype : TFieldType; ASQLTypeDecl : string; testValuescount : integer; Cross : boolean = false);
     procedure TestSetBlobAsParam(asWhat : integer);
   protected
@@ -96,6 +100,10 @@ type
     procedure TestClearUpdateableStatus;
     procedure TestReadOnlyParseSQL; // bug 9254
     procedure TestGetTables;
+
+    // Test SQL-field type recognition
+    procedure TestSQLClob;
+    procedure TestSQLLargeint;
   end;
 
 implementation
@@ -770,6 +778,10 @@ begin
 
     ShortDateFormat := 'yyyy-mm-dd';
 
+    // There is no Param.AsFixedChar, so the datatype has to be set manually
+    if ADatatype=ftFixedChar then
+      Params.ParamByName('field1').DataType := ftFixedChar;
+
     for i := 0 to testValuesCount -1 do
       begin
       Params.ParamByName('id').AsInteger := i;
@@ -801,13 +813,7 @@ begin
         ftInteger: AssertEquals(testIntValues[i],FieldByName('FIELD1').AsInteger);
         ftFloat  : AssertEquals(testFloatValues[i],FieldByName('FIELD1').AsFloat);
         ftBCD    : AssertEquals(testBCDValues[i],FieldByName('FIELD1').AsCurrency);
-        ftFixedChar :
-                   begin
-                   if FieldByName('FIELD1').isnull then
-                     AssertEquals(testStringValues[i],FieldByName('FIELD1').AsString)
-                   else
-                     AssertEquals(PadRight(testStringValues[i],10),FieldByName('FIELD1').AsString);
-                   end;
+        ftFixedChar : AssertEquals(PadRight(testStringValues[i],10),FieldByName('FIELD1').AsString);
         ftString : AssertEquals(testStringValues[i],FieldByName('FIELD1').AsString);
         ftdate   : AssertEquals(testDateValues[i],FormatDateTime('yyyy/mm/dd',FieldByName('FIELD1').AsDateTime));
       else
@@ -1320,18 +1326,11 @@ procedure TTestFieldTypes.TestNumericNames;
 begin
   with TSQLDBConnector(DBConnector) do
     begin
-    if not (SQLDbType in MySQLdbTypes) then
-      Connection.ExecuteDirect('create table FPDEV2 (         ' +
-                                '  "2ID" INT NOT NULL            , ' +
-                                '  "3TEST" VARCHAR(10),     ' +
-                                '  PRIMARY KEY ("2ID")           ' +
-                                ')                            ')
-    else
-      Connection.ExecuteDirect('create table FPDEV2 (         ' +
-                                '  2ID INT NOT NULL            , ' +
-                                '  3TEST VARCHAR(10),     ' +
-                                '  PRIMARY KEY (2ID)           ' +
-                                ')                            ');
+    Connection.ExecuteDirect('create table FPDEV2 (         ' +
+                              '  '+connection.FieldNameQuoteChars[0]+'2ID'+connection.FieldNameQuoteChars[1]+' INT NOT NULL, ' +
+                              '  '+connection.FieldNameQuoteChars[0]+'3TEST'+connection.FieldNameQuoteChars[1]+' VARCHAR(10), ' +
+                              '  PRIMARY KEY ('+connection.FieldNameQuoteChars[0]+'2ID'+connection.FieldNameQuoteChars[0]+') ' +
+                              ')                            ');
 // Firebird/Interbase need a commit after a DDL statement. Not necessary for the other connections
     TSQLDBConnector(DBConnector).Transaction.CommitRetaining;
     with query do
@@ -1392,7 +1391,10 @@ begin
     begin
     with query do
       begin
-      SQL.Text:='select NAME from FPDEV where NAME=''TestName21'' limit 1';
+      if (sqlDBtype=interbase) then
+        SQL.Text:='select first 1 NAME from FPDEV where NAME=''TestName21'''
+      else
+        SQL.Text:='select NAME from FPDEV where NAME=''TestName21'' limit 1';
       Open;
       close;
       ServerFilter:='ID=21';
@@ -1588,6 +1590,68 @@ begin
       end;
     end;
 end;
+
+procedure TTestFieldTypes.TestSQLFieldType(ADatatype : TFieldType; ASQLTypeDecl : string; ADataSize: integer; AGetSQLTextProc: TGetSQLTextProc; ACheckFieldValueProc: TCheckFieldValueProc);
+var
+  i          : byte;
+  s: string;
+begin
+  CreateTableWithFieldType(ADatatype,ASQLTypeDecl);
+  TestFieldDeclaration(ADatatype,ADataSize);
+
+  for i := 0 to testValuesCount-1 do
+    begin
+    s := AGetSQLTextProc(i);
+    TSQLDBConnector(DBConnector).Connection.ExecuteDirect('insert into FPDEV2 (FT) values (' + s + ')');
+    end;
+
+  with TSQLDBConnector(DBConnector).Query do
+    begin
+    Open;
+    for i := 0 to testValuesCount-1 do
+      begin
+      ACheckFieldValueProc(fields[0],i);
+      Next;
+      end;
+    close;
+    end;
+end;
+
+// Placed here, as long as bug 18702 is not solved
+function TestSQLClob_GetSQLText(const a: integer) : string;
+begin
+  result := QuotedStr(testStringValues[a]);
+end;
+
+procedure TTestFieldTypes.TestSQLClob;
+  procedure CheckFieldValue(AField:TField; a : integer);
+  begin
+    AssertEquals(testStringValues[a],AField.AsString);
+  end;
+begin
+  if SQLDbType=interbase then
+      Ignore('This test does not apply to Interbase/Firebird, since it does not support CLOB fields');
+  TestSQLFieldType(ftMemo, 'CLOB', 0, @TestSQLClob_GetSQLText, @CheckFieldValue);
+end;
+
+// Placed here, as long as bug 18702 is not solved
+function TestSQLLargeInt_GetSQLText(const a: integer) : string;
+begin
+  result := IntToStr(testLargeIntValues[a]);
+end;
+
+procedure TTestFieldTypes.TestSQLLargeint;
+  procedure CheckFieldValue(AField:TField; a : integer);
+  begin
+    AssertEquals(testLargeIntValues[a],AField.AsLargeInt);
+  end;
+begin
+  if sqlDBType=interbase then
+    TestSQLFieldType(ftLargeint, 'BIGINT', 8, @TestSQLLargeint_GetSQLText, @CheckFieldValue)
+  else
+    TestSQLFieldType(ftLargeint, 'LARGEINT', 8, @TestSQLLargeint_GetSQLText, @CheckFieldValue);
+end;
+
 
 procedure TTestFieldTypes.TestUpdateIndexDefs;
 var ds : TSQLQuery;

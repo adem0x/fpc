@@ -45,7 +45,7 @@ unit cpupi;
     uses
       cutils,
       systems,globals,globtype,
-      cgobj,tgobj,
+      cgobj,tgobj,paramgr,
       cpubase,
       cgutils,
       symconst;
@@ -59,7 +59,7 @@ unit cpupi;
 
     procedure ti386procinfo.set_first_temp_offset;
       begin
-        if use_fixed_stack then
+        if paramanager.use_fixed_stack then
           begin
             if not(po_assembler in procdef.procoptions) and
                (tg.direction > 0) then
@@ -72,7 +72,7 @@ unit cpupi;
       begin
         { align to 4 bytes at least
           otherwise all those subl $2,%esp are meaningless PM }
-        if (target_info.system <> system_i386_darwin) then
+        if not(target_info.system in [system_i386_darwin,system_i386_iphonesim]) then
           result:=Align(tg.direction*tg.lasttemp,min(current_settings.alignment.localalignmin,4))
         else
           result:=tg.direction*tg.lasttemp+maxpushedparasize;
@@ -85,13 +85,13 @@ unit cpupi;
         { Para_stack_size is only used to determine how many bytes to remove }
         { from the stack at the end of the procedure (in the "ret $xx").     }
         { If the stack is fixed, nothing has to be removed by the callee     }
-        if use_fixed_stack then
+        if paramanager.use_fixed_stack then
           para_stack_size := 0;
       end;
 
     procedure ti386procinfo.allocate_got_register(list: tasmlist);
       begin
-        if (target_info.system = system_i386_darwin) and
+        if (target_info.system in [system_i386_darwin,system_i386_iphonesim]) and
            (cs_create_pic in current_settings.moduleswitches) then
           begin
             got := cg.getaddressregister(list);

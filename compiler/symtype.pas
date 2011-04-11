@@ -73,8 +73,9 @@ interface
          function  mangledparaname:string;
          function  getmangledparaname:string;virtual;
          function  rtti_mangledname(rt:trttitype):string;virtual;abstract;
-         function  size:aint;virtual;abstract;
-         function  packedbitsize:aint;virtual;
+         function  OwnerHierarchyName: string; virtual; abstract;
+         function  size:asizeint;virtual;abstract;
+         function  packedbitsize:asizeint;virtual;
          function  alignment:shortint;virtual;abstract;
          function  getvardef:longint;virtual;abstract;
          function  getparentdef:tdef;virtual;
@@ -228,6 +229,7 @@ implementation
               end;
             recordsymtable,
             enumsymtable,
+            arraysymtable,
             localsymtable,
             parasymtable,
             ObjectSymtable :
@@ -257,12 +259,13 @@ implementation
 
     function tdef.typename:string;
       begin
+        result:=OwnerHierarchyName;
         if assigned(typesym) and
            not(typ in [procvardef,procdef]) and
            (typesym.realname[1]<>'$') then
-          result:=typesym.realname
+          result:=result+typesym.realname
         else
-          result:=GetTypeName;
+          result:=result+GetTypeName;
       end;
 
 
@@ -274,10 +277,11 @@ implementation
 
     function tdef.typesymbolprettyname:string;
       begin
+        result:=OwnerHierarchyName;
         if assigned(typesym) then
-          result:=typesym.prettyname
+          result:=result+typesym.prettyname
         else
-          result:='<no type symbol>'
+          result:=result+'<no type symbol>'
       end;
 
     function tdef.mangledparaname:string;
@@ -313,7 +317,7 @@ implementation
       end;
 
 
-    function tdef.packedbitsize:aint;
+    function tdef.packedbitsize:asizeint;
       begin
         result:=size * 8;
       end;

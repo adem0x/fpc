@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMNode.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMNODE_PAS_T}
@@ -21,6 +19,12 @@ const
   DOM_DOCUMENT_TYPE_NODE = 10;
   DOM_DOCUMENT_FRAGMENT_NODE = 11;
   DOM_NOTATION_NODE = 12;
+  DOM_DOCUMENT_POSITION_DISCONNECTED = $01;
+  DOM_DOCUMENT_POSITION_PRECEDING = $02;
+  DOM_DOCUMENT_POSITION_FOLLOWING = $04;
+  DOM_DOCUMENT_POSITION_CONTAINS = $08;
+  DOM_DOCUMENT_POSITION_CONTAINED_BY = $10;
+  DOM_DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = $20;
 
 {$endif}
 {$endif}
@@ -49,6 +53,7 @@ const
 {$ifdef FORWARD}
   DOMNode = objcclass;
   DOMNodePointer = ^DOMNode;
+  DOMNodePtr = DOMNodePointer;
 
 {$endif}
 
@@ -57,15 +62,13 @@ const
 {$define DOMNODE_PAS_C}
 
 { DOMNode }
-  DOMNode = objcclass(DOMObject)
+  DOMNode = objcclass external (DOMObject, DOMEventTargetProtocol)
     
   public
-    class function alloc: DOMNode; message 'alloc';
-
     function nodeName: NSString; message 'nodeName';
     procedure setNodeValue (newValue: NSString); message 'setNodeValue:';
     function nodeValue: NSString; message 'nodeValue';
-    function nodeType: cushort; message 'nodeType';
+    function nodeType: cuint; message 'nodeType';
     function parentNode: DOMNode; message 'parentNode';
     function childNodes: DOMNodeList; message 'childNodes';
     function firstChild: DOMNode; message 'firstChild';
@@ -78,8 +81,11 @@ const
     procedure setPrefix (newValue: NSString); message 'setPrefix:';
     function prefix: NSString; message 'prefix';
     function localName: NSString; message 'localName';
+    function baseURI: NSString; message 'baseURI';
     procedure setTextContent (newValue: NSString); message 'setTextContent:';
     function textContent: NSString; message 'textContent';
+    function parentElement: DOMElement; message 'parentElement';
+    function isContentEditable: Boolean; message 'isContentEditable';
     function insertBefore_refChild(newChild: DOMNode; refChild: DOMNode): DOMNode; message 'insertBefore:refChild:';
     function replaceChild_oldChild(newChild: DOMNode; oldChild: DOMNode): DOMNode; message 'replaceChild:oldChild:';
     function removeChild(oldChild: DOMNode): DOMNode; message 'removeChild:';
@@ -91,18 +97,25 @@ const
     function hasAttributes: Boolean; message 'hasAttributes';
     function isSameNode(other: DOMNode): Boolean; message 'isSameNode:';
     function isEqualNode(other: DOMNode): Boolean; message 'isEqualNode:';
+    function lookupPrefix(namespaceURI_: NSString): NSString; message 'lookupPrefix:';
+    function isDefaultNamespace(namespaceURI_: NSString): Boolean; message 'isDefaultNamespace:';
+    function lookupNamespaceURI(prefix_: NSString): NSString; message 'lookupNamespaceURI:';
+    function compareDocumentPosition(other: DOMNode): cushort; message 'compareDocumentPosition:';
 
-    { Category: DOMNodeDeprecated }
-    function insertBefore(newChild: DOMNode; refChild: DOMNode): DOMNode; message 'insertBefore:newChild:';
-    function replaceChild(newChild: DOMNode; oldChild: DOMNode): DOMNode; message 'replaceChild:newChild:';
-    function isSupported(feature: NSString; version_: NSString): Boolean; message 'isSupported:feature:';
+    { Adopted Protocols }
+    procedure addEventListener_listener_useCapture(type_: NSString; listener: DOMEventListenerProtocol; useCapture: Boolean);
+    procedure removeEventListener_listener_useCapture(type_: NSString; listener: DOMEventListenerProtocol; useCapture: Boolean);
+    function dispatchEvent(event: DOMEvent): Boolean;
+    procedure addEventListener(type_: NSString; listener: DOMEventListenerProtocol; useCapture: Boolean);
+    procedure removeEventListener(type_: NSString; listener: DOMEventListenerProtocol; useCapture: Boolean);
+  end;
 
-    { Category: DOMNodeExtensions }
-    function boundingBox: NSRect; message 'boundingBox';
-    function lineBoxRects: NSArray; message 'lineBoxRects';
-
-    { Category: DOMEventTarget }
-  end; external;
+{ DOMNodeDeprecatedCategory }
+  DOMNodeDeprecatedCategory = objccategory external (DOMNode)
+    function insertBefore(newChild: DOMNode; refChild: DOMNode): DOMNode; message 'insertBefore:newChild:'; deprecated 'in_webkit_version_3 and later';
+    function replaceChild(newChild: DOMNode; oldChild: DOMNode): DOMNode; message 'replaceChild:newChild:'; deprecated 'in_webkit_version_3 and later';
+    function isSupported(feature: NSString; version_: NSString): Boolean; message 'isSupported:feature:'; deprecated 'in_webkit_version_3 and later';
+  end;
 
 {$endif}
 {$endif}

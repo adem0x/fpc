@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLButtonElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLBUTTONELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLButtonElement = objcclass;
   DOMHTMLButtonElementPointer = ^DOMHTMLButtonElement;
+  DOMHTMLButtonElementPtr = DOMHTMLButtonElementPointer;
 
 {$endif}
 
@@ -41,20 +40,24 @@
 {$define DOMHTMLBUTTONELEMENT_PAS_C}
 
 { DOMHTMLButtonElement }
-  DOMHTMLButtonElement = objcclass(DOMHTMLElement)
+  DOMHTMLButtonElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLButtonElement; message 'alloc';
-
     function form: DOMHTMLFormElement; message 'form';
     procedure setAccessKey (newValue: NSString); message 'setAccessKey:';
     function accessKey: NSString; message 'accessKey';
+    procedure setDisabled (newValue: Boolean); message 'setDisabled:';
+    function disabled: Boolean; message 'disabled';
+    procedure setAutofocus (newValue: Boolean); message 'setAutofocus:';
+    function autofocus: Boolean; message 'autofocus';
     procedure setName (newValue: NSString); message 'setName:';
     function name: NSString; message 'name';
     function type_: NSString; message 'type_';
     procedure setValue (newValue: NSString); message 'setValue:';
     function value: NSString; message 'value';
-  end; external;
+    function willValidate: Boolean; message 'willValidate';
+    procedure click; message 'click';
+  end;
 
 {$endif}
 {$endif}

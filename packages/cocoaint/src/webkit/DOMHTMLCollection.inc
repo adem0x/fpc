@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLCollection.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLCOLLECTION_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLCollection = objcclass;
   DOMHTMLCollectionPointer = ^DOMHTMLCollection;
+  DOMHTMLCollectionPtr = DOMHTMLCollectionPointer;
 
 {$endif}
 
@@ -41,15 +40,14 @@
 {$define DOMHTMLCOLLECTION_PAS_C}
 
 { DOMHTMLCollection }
-  DOMHTMLCollection = objcclass(DOMObject)
+  DOMHTMLCollection = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMHTMLCollection; message 'alloc';
-
     function length: cuint; message 'length';
     function item(index: cuint): DOMNode; message 'item:';
     function namedItem(name: NSString): DOMNode; message 'namedItem:';
-  end; external;
+    function tags(name: NSString): DOMNodeList; message 'tags:';
+  end;
 
 {$endif}
 {$endif}

@@ -70,10 +70,24 @@ interface
      Const
        AIntBits = 16;
 {$endif cpu16bitalu}
+{$ifdef cpu8bitalu}
+       AWord = Byte;
+       AInt = Shortint;
+
+     Const
+       AIntBits = 8;
+{$endif cpu8bitalu}
 
      Type
        PAWord = ^AWord;
        PAInt = ^AInt;
+
+       { target cpu specific type used to store data sizes }
+       ASizeInt = PInt;
+       ASizeUInt = PUInt;
+
+       { type used for handling constants etc. in the code generator }
+       TCGInt = Int64;
 
        { This must be an ordinal type with the same size as a pointer
          Note: Must be unsigned! Otherwise, ugly code like
@@ -105,12 +119,12 @@ interface
          cs_checkpointer,cs_check_ordinal_size,
          cs_generate_stackframes,cs_do_assertion,cs_generate_rtti,
          cs_full_boolean_eval,cs_typed_const_writable,cs_allow_enum_calc,
-         cs_do_inline,cs_fpu_fwait,
+         cs_do_inline,cs_fpu_fwait,cs_ieee_errors,
          { mmx }
          cs_mmx,cs_mmx_saturation,
          { parser }
          cs_typed_addresses,cs_strict_var_strings,cs_ansistrings,cs_bitpacking,
-         cs_varpropsetter,cs_scopedenums,
+         cs_varpropsetter,cs_scopedenums,cs_pointermath,
          { macpas specific}
          cs_external_var, cs_externally_visible
        );
@@ -189,7 +203,7 @@ interface
          f_heap,f_init_final,f_rtti,f_classes,f_exceptions,f_exitcode,
          f_ansistrings,f_widestrings,f_textio,f_consoleio,f_fileio,
          f_random,f_variants,f_objects,f_dynarrays,f_threading,f_commandargs,
-         f_processes,f_stackcheck,f_dynlibs,f_softfpu,f_objectivec1
+         f_processes,f_stackcheck,f_dynlibs,f_softfpu,f_objectivec1,f_resources
        );
        tfeatures = set of tfeature;
 
@@ -238,14 +252,14 @@ interface
          'HEAP','INITFINAL','RTTI','CLASSES','EXCEPTIONS','EXITCODE',
          'ANSISTRINGS','WIDESTRINGS','TEXTIO','CONSOLEIO','FILEIO',
          'RANDOM','VARIANTS','OBJECTS','DYNARRAYS','THREADING','COMMANDARGS',
-         'PROCESSES','STACKCHECK','DYNLIBS','SOFTFPU','OBJECTIVEC1'
+         'PROCESSES','STACKCHECK','DYNLIBS','SOFTFPU','OBJECTIVEC1','RESOURCES'
        );
 
     type
        { Switches which can be changed by a mode (fpc,tp7,delphi) }
        tmodeswitch = (m_none,m_all, { needed for keyword }
          { generic }
-         m_fpc,m_objfpc,m_delphi,m_tp7,m_mac,
+         m_fpc,m_objfpc,m_delphi,m_tp7,m_mac,m_iso,
          {$ifdef fpc_mode}m_gpc,{$endif}
          { more specific }
          m_class,               { delphi class model }
@@ -261,7 +275,6 @@ interface
                                   procedure variables                     }
          m_autoderef,           { does auto dereferencing of struct. vars }
          m_initfinal,           { initialization/finalization for units }
-         m_add_pointer,         { allow pointer add/sub operations }
          m_default_ansistring,  { ansistring turned on by default }
          m_out,                 { support the calling convention OUT }
          m_default_para,        { support default parameters }
@@ -270,7 +283,11 @@ interface
          m_property,            { allow properties }
          m_default_inline,      { allow inline proc directive }
          m_except,              { allow exception-related keywords }
-         m_objectivec1          { support interfacing with Objective-C (1.0) }
+         m_objectivec1,         { support interfacing with Objective-C (1.0) }
+         m_objectivec2,         { support interfacing with Objective-C (2.0) }
+         m_nested_procvars,     { support nested procedural variables }
+         m_non_local_goto,      { support non local gotos (like iso pascal) }
+         m_advanced_records     { advanced record syntax with visibility sections, methods and properties }
        );
        tmodeswitches = set of tmodeswitch;
 
@@ -294,8 +311,16 @@ interface
        );
 
        { currently parsed block type }
-       tblock_type = (bt_none,
-         bt_general,bt_type,bt_const,bt_const_type,bt_var,bt_var_type,bt_except,bt_body
+       tblock_type = (
+         bt_none,        { not assigned                              }
+         bt_general,     { default                                   }
+         bt_type,        { type section                              }
+         bt_const,       { const section                             }
+         bt_const_type,  { const part of type. e.g.: ": Integer = 1" }
+         bt_var,         { variable declaration                      }
+         bt_var_type,    { type of variable                          }
+         bt_except,      { except section                            }
+         bt_body         { procedure body                            }
        );
 
        { Temp types }
@@ -335,7 +360,9 @@ interface
          pocall_softfloat,
          { Metrowerks Pascal. Special case on Mac OS (X): passes all }
          { constant records by reference.                            }
-         pocall_mwpascal
+         pocall_mwpascal,
+         { Special interrupt handler for embedded systems }
+         pocall_interrupt
        );
        tproccalloptions = set of tproccalloption;
 
@@ -352,7 +379,8 @@ interface
            'SafeCall',
            'StdCall',
            'SoftFloat',
-           'MWPascal'
+           'MWPascal',
+           'Interrupt'
          );
 
        { Default calling convention }
@@ -363,7 +391,7 @@ interface
 {$endif}
 
        modeswitchstr : array[tmodeswitch] of string[18] = ('','',
-         '','','','','',
+         '','','','','','',
          {$ifdef fpc_mode}'',{$endif}
          { more specific }
          'CLASS',
@@ -378,7 +406,6 @@ interface
          'POINTERTOPROCVAR',
          'AUTODEREF',
          'INITFINAL',
-         'POINTERARITHMETICS',
          'ANSISTRINGS',
          'OUT',
          'DEFAULTPARAMETERS',
@@ -387,7 +414,11 @@ interface
          'PROPERTIES',
          'ALLOWINLINE',
          'EXCEPTIONS',
-         'OBJECTIVEC1');
+         'OBJECTIVEC1',
+         'OBJECTIVEC2',
+         'NESTEDPROCVARS',
+         'NONLOCALGOTO',
+         'ADVANCEDRECORDS');
 
 
      type
@@ -413,8 +444,8 @@ interface
          pi_uses_static_symtable,
          { set if the procedure has to push parameters onto the stack }
          pi_has_stackparameter,
-         { set if the procedure has at least one got }
-         pi_has_goto,
+         { set if the procedure has at least one label }
+         pi_has_label,
          { calls itself recursive }
          pi_is_recursive,
          { stack frame optimization not possible (only on x86 probably) }
@@ -422,7 +453,9 @@ interface
          { set if the procedure has at least one register saved on the stack }
          pi_has_saved_regs,
          { dfa was generated for this proc }
-         pi_dfaavailable
+         pi_dfaavailable,
+         { subroutine contains interprocedural used labels }
+         pi_has_interproclabel
        );
        tprocinfoflags=set of tprocinfoflag;
 

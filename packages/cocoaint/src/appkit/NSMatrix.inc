@@ -1,14 +1,8 @@
 { Parsed from Appkit.framework NSMatrix.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSMATRIX_PAS_T}
 {$define NSMATRIX_PAS_T}
-
-{ Callbacks }
-type
-  NSMatrixCompare = function (param1: id; param2: id; param3: Pointer): NSInteger; cdecl;
 
 { Constants }
 
@@ -21,6 +15,12 @@ const
 { Types }
 type
   NSMatrixMode = NSUInteger;
+  NSMatrixModePtr = ^NSMatrixMode;
+
+{ Callbacks }
+type
+  NSMatrixCompare = function (param1: id; param2: id; param3: Pointer): NSInteger; cdecl;
+
 
 {$endif}
 {$endif}
@@ -31,7 +31,7 @@ type
 
 { Records }
 type
-  __MFlags = bitpacked record
+  __MFlags = record
 {$ifdef fpc_big_endian}
     highlightMode: 0..1;
     radioMode: 0..1;
@@ -59,9 +59,13 @@ type
     tmpAllowNonVisibleCellsToBecomeFirstResponder: 0..1;
     needsRedrawBeforeFirstLiveResizeCache: 0..1;
     browserOptimizationsEnabled: 0..1;
-    reservedMatrix: 0..((1 shl 6)-1);
+    drawingContextMenuHighlight: 0..1;
+    drawingContextMenuHighlightOnAllSelectedRows: 0..1;
+    reservedMatrix: 0..((1 shl 4)-1);
 {$else}
-    reservedMatrix: 0..((1 shl 6)-1);
+    reservedMatrix: 0..((1 shl 4)-1);
+    drawingContextMenuHighlightOnAllSelectedRows: 0..1;
+    drawingContextMenuHighlight: 0..1;
     browserOptimizationsEnabled: 0..1;
     needsRedrawBeforeFirstLiveResizeCache: 0..1;
     tmpAllowNonVisibleCellsToBecomeFirstResponder: 0..1;
@@ -91,6 +95,7 @@ type
 {$endif}
   end;
 _MFlags = __MFlags;
+__MFlagsPtr = ^__MFlags;
 
 
 {$endif}
@@ -111,8 +116,10 @@ _MFlags = __MFlags;
 {$endif}
 
 {$ifdef FORWARD}
+  NSMatrixDelegateProtocol = objcprotocol;
   NSMatrix = objcclass;
   NSMatrixPointer = ^NSMatrix;
+  NSMatrixPtr = NSMatrixPointer;
 
 {$endif}
 
@@ -121,31 +128,29 @@ _MFlags = __MFlags;
 {$define NSMATRIX_PAS_C}
 
 { NSMatrix }
-  NSMatrix = objcclass(NSControl, NSUserInterfaceValidationsProtocol)
+  NSMatrix = objcclass external (NSControl, NSUserInterfaceValidationsProtocol)
   private
-    __target: id;
-    __action: SEL;
-    __doubleAction: SEL;
-    __errorAction: SEL;
-    __delegate: id;
-    __selectedCell: id;
-    __selectedRow: NSInteger;
-    __selectedCol: NSInteger;
-    __numRows: NSInteger;
-    __numCols: NSInteger;
-    __cellSize: NSSize;
-    __intercell: NSSize;
-    __font: id;
-    __protoCell: id;
-    __cellClass: id;
-    __backgroundColor: NSColor;
-    __private: id;
-    __cells: NSMutableArray;
-    __mFlags: _MFlags;
+    _target: id;
+    _action: SEL;
+    _doubleAction: SEL;
+    _errorAction: SEL;
+    _delegate: id;
+    _selectedCell: id;
+    _selectedRow: NSInteger;
+    _selectedCol: NSInteger;
+    _numRows: NSInteger;
+    _numCols: NSInteger;
+    _cellSize: NSSize;
+    _intercell: NSSize;
+    _font: id;
+    _protoCell: id;
+    _cellClass: id;
+    _backgroundColor: NSColor;
+    _private: id;
+    _cells: NSMutableArray;
+    _mFlags: _MFlags;
     
   public
-    class function alloc: NSMatrix; message 'alloc';
-
     function initWithFrame(frameRect: NSRect): id; message 'initWithFrame:';
     function initWithFrame_mode_prototype_numberOfRows_numberOfColumns(frameRect: NSRect; aMode: NSMatrixMode; aCell: NSCell; rowsHigh: NSInteger; colsWide: NSInteger): id; message 'initWithFrame:mode:prototype:numberOfRows:numberOfColumns:';
     function initWithFrame_mode_cellClass_numberOfRows_numberOfColumns(frameRect: NSRect; aMode: NSMatrixMode; factoryId: Pobjc_class; rowsHigh: NSInteger; colsWide: NSInteger): id; message 'initWithFrame:mode:cellClass:numberOfRows:numberOfColumns:';
@@ -188,13 +193,13 @@ _MFlags = __MFlags;
     procedure setDrawsBackground(flag: Boolean); message 'setDrawsBackground:';
     function drawsBackground: Boolean; message 'drawsBackground';
     procedure setState_atRow_column(value: NSInteger; row: NSInteger; col: NSInteger); message 'setState:atRow:column:';
-    procedure getNumberOfRows_columns(rowCount: NSIntegerPointer; colCount: NSIntegerPointer); message 'getNumberOfRows:columns:';
+    procedure getNumberOfRows_columns(rowCount: NSIntegerPtr; colCount: NSIntegerPtr); message 'getNumberOfRows:columns:';
     function numberOfRows: NSInteger; message 'numberOfRows';
     function numberOfColumns: NSInteger; message 'numberOfColumns';
     function cellAtRow_column(row: NSInteger; col: NSInteger): id; message 'cellAtRow:column:';
     function cellFrameAtRow_column(row: NSInteger; col: NSInteger): NSRect; message 'cellFrameAtRow:column:';
-    function getRow_column_ofCell(row: NSIntegerPointer; col: NSIntegerPointer; aCell: NSCell): Boolean; message 'getRow:column:ofCell:';
-    function getRow_column_forPoint(row: NSIntegerPointer; col: NSIntegerPointer; aPoint: NSPoint): Boolean; message 'getRow:column:forPoint:';
+    function getRow_column_ofCell(row: NSIntegerPtr; col: NSIntegerPtr; aCell: NSCell): Boolean; message 'getRow:column:ofCell:';
+    function getRow_column_forPoint(row: NSIntegerPtr; col: NSIntegerPtr; aPoint: NSPoint): Boolean; message 'getRow:column:forPoint:';
     procedure renewRows_columns(newRows: NSInteger; newCols: NSInteger); message 'renewRows:columns:';
     procedure putCell_atRow_column(newCell: NSCell; row: NSInteger; col: NSInteger); message 'putCell:atRow:column:';
     procedure addRow; message 'addRow';
@@ -224,8 +229,8 @@ _MFlags = __MFlags;
     function performKeyEquivalent(theEvent: NSEvent): Boolean; message 'performKeyEquivalent:';
     function sendAction: Boolean; message 'sendAction';
     procedure sendDoubleAction; message 'sendDoubleAction';
-    function delegate: id; message 'delegate';
-    procedure setDelegate(anObject: id); message 'setDelegate:';
+    function delegate: NSMatrixDelegateProtocol; message 'delegate';
+    procedure setDelegate(anObject: NSMatrixDelegateProtocol); message 'setDelegate:';
     function textShouldBeginEditing(textObject: NSText): Boolean; message 'textShouldBeginEditing:';
     function textShouldEndEditing(textObject: NSText): Boolean; message 'textShouldEndEditing:';
     procedure textDidBeginEditing(notification: NSNotification); message 'textDidBeginEditing:';
@@ -238,12 +243,26 @@ _MFlags = __MFlags;
     procedure setToolTip_forCell(toolTipString: NSString; cell_: NSCell); message 'setToolTip:forCell:';
     function toolTipForCell(cell_: NSCell): NSString; message 'toolTipForCell:';
 
-    { Category: NSKeyboardUI }
+    { Adopted Protocols }
+    function validateUserInterfaceItem(anItem: NSValidatedUserInterfaceItemProtocol): Boolean;
+  end;
+
+{ NSKeyboardUI_NSMatrixCategory }
+  NSKeyboardUI_NSMatrixCategory = objccategory external name 'NSKeyboardUI' (NSMatrix)
     procedure setTabKeyTraversesCells(flag: Boolean); message 'setTabKeyTraversesCells:';
     function tabKeyTraversesCells: Boolean; message 'tabKeyTraversesCells';
     procedure setKeyCell(keyCell_: NSCell); message 'setKeyCell:';
     function keyCell: id; message 'keyCell';
-  end; external;
+  end;
 
+{$endif}
+{$endif}
+{$ifdef PROTOCOLS}
+{$ifndef NSMATRIX_PAS_P}
+{$define NSMATRIX_PAS_P}
+  
+{ NSMatrixDelegate Protocol }
+  NSMatrixDelegateProtocol = objcprotocol external name 'NSMatrixDelegate'
+  end;
 {$endif}
 {$endif}

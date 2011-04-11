@@ -297,10 +297,17 @@ unit scandir;
       end;
 
 
+    procedure dir_ieeeerrors;
+      begin
+        do_localswitch(cs_ieee_errors);
+      end;
+
+
     procedure dir_assertions;
       begin
         do_delphiswitch('C');
       end;
+
 
     procedure dir_booleval;
       begin
@@ -939,6 +946,11 @@ unit scandir;
       recordpendingverbosityfullswitch(switchesstatestack[switchesstatestackpos].verbosity);
     end;
 
+    procedure dir_pointermath;
+      begin
+        do_localswitch(cs_pointermath);
+      end;
+
     procedure dir_profile;
       begin
         do_moduleswitch(cs_profile);
@@ -1407,6 +1419,7 @@ unit scandir;
         AddDirective('HINT',directive_all, @dir_hint);
         AddDirective('HINTS',directive_all, @dir_hints);
         AddDirective('HPPEMIT',directive_all, @dir_hppemit);
+        AddDirective('IEEEERRORS',directive_all,@dir_ieeeerrors);
         AddDirective('IOCHECKS',directive_all, @dir_iochecks);
         AddDirective('IMAGEBASE',directive_all, @dir_imagebase);
         AddDirective('IMPLICITEXCEPTIONS',directive_all, @dir_implicitexceptions);
@@ -1448,6 +1461,7 @@ unit scandir;
         AddDirective('PACKSET',directive_all, @dir_packset);
         AddDirective('PASCALMAINNAME',directive_all, @dir_pascalmainname);
         AddDirective('PIC',directive_all, @dir_pic);
+        AddDirective('POINTERMATH',directive_all, @dir_pointermath);
         AddDirective('POP',directive_all, @dir_pop);
         AddDirective('PROFILE',directive_all, @dir_profile);
         AddDirective('PUSH',directive_all, @dir_push);

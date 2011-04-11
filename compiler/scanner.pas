@@ -347,6 +347,9 @@ implementation
          if s='MACPAS' then
           current_settings.modeswitches:=macmodeswitches
         else
+         if s='ISO' then
+          current_settings.modeswitches:=isomodeswitches
+        else
          b:=false;
 
         if b and changeInit then
@@ -359,8 +362,8 @@ implementation
 
            HandleModeSwitches(changeinit);
 
-           { turn on bitpacking for mode macpas }
-           if (m_mac in current_settings.modeswitches) then
+           { turn on bitpacking for mode macpas and iso pascal }
+           if ([m_mac,m_iso] * current_settings.modeswitches <> []) then
              begin
                include(current_settings.localswitches,cs_bitpacking);
                if changeinit then
@@ -368,11 +371,25 @@ implementation
              end;
 
            { support goto/label by default in delphi/tp7/mac modes }
-           if ([m_delphi,m_tp7,m_mac] * current_settings.modeswitches <> []) then
+           if ([m_delphi,m_tp7,m_mac,m_iso] * current_settings.modeswitches <> []) then
              begin
                include(current_settings.moduleswitches,cs_support_goto);
                if changeinit then
                  include(init_settings.moduleswitches,cs_support_goto);
+             end;
+
+           { support pointer math by default in fpc/objfpc modes }
+           if ([m_fpc,m_objfpc] * current_settings.modeswitches <> []) then
+             begin
+               include(current_settings.localswitches,cs_pointermath);
+               if changeinit then
+                 include(init_settings.localswitches,cs_pointermath);
+             end
+           else
+             begin
+               exclude(current_settings.localswitches,cs_pointermath);
+               if changeinit then
+                 exclude(init_settings.localswitches,cs_pointermath);
              end;
 
            { Default enum and set packing for delphi/tp7 }
@@ -467,12 +484,9 @@ implementation
         for i:=m_class to high(tmodeswitch) do
           if s=modeswitchstr[i] then
             begin
-              { Objective-C is currently only supported for 32 bit Darwin targets
-                (and Objective-C 2.0 will be required for 64 bit ones)
-                Not yet tested for ARM either.
-              }
+              { Objective-C is currently only supported for Darwin targets }
               if doinclude and
-                 (i=m_objectivec1) and
+                 (i in [m_objectivec1,m_objectivec2]) and
                  not(target_info.system in systems_objc_supported) then
                 begin
                   Message1(option_unsupported_target_for_feature,'Objective-C');
@@ -485,13 +499,19 @@ implementation
               if doinclude then
                 begin
                   include(current_settings.modeswitches,i);
-                  if (i=m_objectivec1) then
+                  { Objective-C 2.0 support implies 1.0 support }
+                  if (i=m_objectivec2) then
+                    include(current_settings.modeswitches,m_objectivec1);
+                  if (i in [m_objectivec1,m_objectivec2]) then
                     include(current_settings.modeswitches,m_class);
                 end
               else
                 begin
                   exclude(current_settings.modeswitches,i);
-                  if (i=m_objectivec1) and
+                  { Objective-C 2.0 support implies 1.0 support }
+                  if (i=m_objectivec2) then
+                    exclude(current_settings.modeswitches,m_objectivec1);
+                  if (i in [m_objectivec1,m_objectivec2]) and
                      ([m_delphi,m_objfpc]*current_settings.modeswitches=[]) then
                     exclude(current_settings.modeswitches,m_class);
                 end;
@@ -1297,7 +1317,7 @@ In case not, the value returned can be arbitrary.
            op:=current_scanner.preproc_token;
            if (op = _ID) and (current_scanner.preproc_pattern = 'IN') then
              op := _IN;
-           if not (op in [_IN,_EQUAL,_UNEQUAL,_LT,_GT,_LTE,_GTE]) then
+           if not (op in [_IN,_EQ,_NE,_LT,_GT,_LTE,_GTE]) then
              begin
                 read_expr:=hs1;
                 exit;
@@ -1335,9 +1355,9 @@ In case not, the value returned can be arbitrary.
                        val(hs1,l1,w);
                        val(hs2,l2,w);
                        case op of
-                         _EQUAL :
+                         _EQ :
                            b:=l1=l2;
-                         _UNEQUAL :
+                         _NE :
                            b:=l1<>l2;
                          _LT :
                            b:=l1<l2;
@@ -1352,9 +1372,9 @@ In case not, the value returned can be arbitrary.
                    else
                      begin
                        case op of
-                         _EQUAL :
+                         _EQ:
                            b:=hs1=hs2;
-                         _UNEQUAL :
+                         _NE :
                            b:=hs1<>hs2;
                          _LT :
                            b:=hs1<hs2;
@@ -1870,6 +1890,7 @@ In case not, the value returned can be arbitrary.
         if assigned(current_module) then
           current_module.sourcefiles.register_file(inputfile);
       { reset localinput }
+        c:=#0;
         inputbuffer:=nil;
         inputpointer:=nil;
         inputstart:=0;
@@ -2038,18 +2059,20 @@ In case not, the value returned can be arbitrary.
 
     procedure tscannerfile.recordtoken;
       var
-        a : array[0..1] of byte;
+        t : ttoken;
+        s : tspecialgenerictoken;
         len : sizeint;
       begin
         if not assigned(recordtokenbuf) then
           internalerror(200511176);
+        t:=_GENERICSPECIALTOKEN;
         { settings changed? }
         if CompareByte(current_settings,last_settings,sizeof(current_settings))<>0 then
           begin
             { use a special token to record it }
-            a[0]:=byte(_GENERICSPECIALTOKEN);
-            a[1]:=byte(ST_LOADSETTINGS);
-            recordtokenbuf.write(a,2);
+            s:=ST_LOADSETTINGS;
+            recordtokenbuf.write(t,SizeOf(t));
+            recordtokenbuf.write(s,1);
             recordtokenbuf.write(current_settings,sizeof(current_settings));
             last_settings:=current_settings;
           end;
@@ -2057,32 +2080,32 @@ In case not, the value returned can be arbitrary.
         { file pos changes? }
         if current_tokenpos.line<>last_filepos.line then
           begin
-            a[0]:=byte(_GENERICSPECIALTOKEN);
-            a[1]:=byte(ST_LINE);
-            recordtokenbuf.write(a,2);
+            s:=ST_LINE;
+            recordtokenbuf.write(t,SizeOf(t));
+            recordtokenbuf.write(s,1);
             recordtokenbuf.write(current_tokenpos.line,sizeof(current_tokenpos.line));
             last_filepos.line:=current_tokenpos.line;
           end;
         if current_tokenpos.column<>last_filepos.column then
           begin
-            a[0]:=byte(_GENERICSPECIALTOKEN);
-            a[1]:=byte(ST_COLUMN);
-            recordtokenbuf.write(a,2);
+            s:=ST_COLUMN;
+            recordtokenbuf.write(t,SizeOf(t));
+            recordtokenbuf.write(s,1);
             recordtokenbuf.write(current_tokenpos.column,sizeof(current_tokenpos.column));
             last_filepos.column:=current_tokenpos.column;
           end;
         if current_tokenpos.fileindex<>last_filepos.fileindex then
           begin
-            a[0]:=byte(_GENERICSPECIALTOKEN);
-            a[1]:=byte(ST_FILEINDEX);
-            recordtokenbuf.write(a,2);
+            s:=ST_FILEINDEX;
+            recordtokenbuf.write(t,SizeOf(t));
+            recordtokenbuf.write(s,1);
             recordtokenbuf.write(current_tokenpos.fileindex,sizeof(current_tokenpos.fileindex));
             last_filepos.fileindex:=current_tokenpos.fileindex;
           end;
 
-        recordtokenbuf.write(token,1);
+        recordtokenbuf.write(token,SizeOf(token));
         if token=_ID then
-          recordtokenbuf.write(idtoken,1);
+          recordtokenbuf.write(idtoken,SizeOf(idtoken));
         case token of
           _CWCHAR,
           _CWSTRING :
@@ -2161,9 +2184,9 @@ In case not, the value returned can be arbitrary.
           end;
         repeat
           { load token from the buffer }
-          replaytokenbuf.read(token,1);
+          replaytokenbuf.read(token,SizeOf(token));
           if token=_ID then
-            replaytokenbuf.read(idtoken,1)
+            replaytokenbuf.read(idtoken,SizeOf(idtoken))
           else
             idtoken:=_NOID;
           case token of
@@ -3721,7 +3744,7 @@ In case not, the value returned can be arbitrary.
              '=' :
                begin
                  readchar;
-                 token:=_EQUAL;
+                 token:=_EQ;
                  goto exit_label;
                end;
 
@@ -4043,7 +4066,7 @@ In case not, the value returned can be arbitrary.
                        '>' :
                          begin
                            readchar;
-                           token:=_UNEQUAL;
+                           token:=_NE;
                            goto exit_label;
                          end;
                        '=' :
@@ -4162,7 +4185,7 @@ exit_label:
            '=' :
              begin
                readchar;
-               readpreproc:=_EQUAL;
+               readpreproc:=_EQ;
              end;
            '>' :
              begin
@@ -4182,7 +4205,7 @@ exit_label:
                  '>' :
                    begin
                      readchar;
-                     readpreproc:=_UNEQUAL;
+                     readpreproc:=_NE;
                    end;
                  '=' :
                    begin

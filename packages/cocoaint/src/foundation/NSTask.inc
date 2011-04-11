@@ -1,10 +1,19 @@
 { Parsed from Foundation.framework NSTask.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTASK_PAS_T}
 {$define NSTASK_PAS_T}
+
+{ Constants }
+
+const
+  NSTaskTerminationReasonExit = 1;
+  NSTaskTerminationReasonUncaughtSignal = 2;
+
+{ Types }
+type
+  NSTaskTerminationReason = NSInteger;
+  NSTaskTerminationReasonPtr = ^NSTaskTerminationReason;
 
 {$endif}
 {$endif}
@@ -29,7 +38,7 @@
 
 { External string constants }
 var
-  NSTaskDidTerminateNotification: NSString; external name '_NSTaskDidTerminateNotification';
+  NSTaskDidTerminateNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -37,6 +46,7 @@ var
 {$ifdef FORWARD}
   NSTask = objcclass;
   NSTaskPointer = ^NSTask;
+  NSTaskPtr = NSTaskPointer;
 
 {$endif}
 
@@ -45,11 +55,9 @@ var
 {$define NSTASK_PAS_C}
 
 { NSTask }
-  NSTask = objcclass(NSObject)
+  NSTask = objcclass external (NSObject)
     
   public
-    class function alloc: NSTask; message 'alloc';
-
     function init: id; message 'init';
     procedure setLaunchPath(path: NSString); message 'setLaunchPath:';
     procedure setArguments(arguments_: NSArray); message 'setArguments:';
@@ -73,11 +81,14 @@ var
     function processIdentifier: cint; message 'processIdentifier';
     function isRunning: Boolean; message 'isRunning';
     function terminationStatus: cint; message 'terminationStatus';
+    function terminationReason: NSTaskTerminationReason; message 'terminationReason';
+  end;
 
-    { Category: NSTaskConveniences }
+{ NSTaskConveniencesCategory }
+  NSTaskConveniencesCategory = objccategory external (NSTask)
     class function launchedTaskWithLaunchPath_arguments(path: NSString; arguments_: NSArray): NSTask; message 'launchedTaskWithLaunchPath:arguments:';
     procedure waitUntilExit; message 'waitUntilExit';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

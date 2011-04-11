@@ -17,6 +17,7 @@ dirs_os2=os2
 dirs_emx=emx
 dirs_freebsd=freebsd
 dirs_darwin=darwin
+dirs_iphonesim=darwin
 dirs_beos=beos
 dirs_haiku=haiku
 dirs_amiga=amiga
@@ -32,6 +33,7 @@ dirs_nds=nds
 dirs_symbian=symbian
 dirs_embedded=embedded
 dirs_nativent=nativent
+dirs_wii=wii
 
 [install]
 fpcpackage=y

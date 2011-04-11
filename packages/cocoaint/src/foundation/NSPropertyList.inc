@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSPropertyList.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPROPERTYLIST_PAS_T}
@@ -19,7 +17,13 @@ const
 { Types }
 type
   NSPropertyListMutabilityOptions = NSUInteger;
+  NSPropertyListMutabilityOptionsPtr = ^NSPropertyListMutabilityOptions;
   NSPropertyListFormat = NSUInteger;
+  NSPropertyListFormatPtr = ^NSPropertyListFormat;
+  NSPropertyListReadOptions = NSUInteger;
+  NSPropertyListReadOptionsPtr = ^NSPropertyListReadOptions;
+  NSPropertyListWriteOptions = NSUInteger;
+  NSPropertyListWriteOptionsPtr = ^NSPropertyListWriteOptions;
 
 {$endif}
 {$endif}
@@ -48,6 +52,7 @@ type
 {$ifdef FORWARD}
   NSPropertyListSerialization = objcclass;
   NSPropertyListSerializationPointer = ^NSPropertyListSerialization;
+  NSPropertyListSerializationPtr = NSPropertyListSerializationPointer;
 
 {$endif}
 
@@ -56,17 +61,19 @@ type
 {$define NSPROPERTYLIST_PAS_C}
 
 { NSPropertyListSerialization }
-  NSPropertyListSerialization = objcclass(NSObject)
+  NSPropertyListSerialization = objcclass external (NSObject)
   private
         reserved: array[0..5] of Pointer;
     
   public
-    class function alloc: NSPropertyListSerialization; message 'alloc';
-
     class function propertyList_isValidForFormat(plist: id; format: NSPropertyListFormat): Boolean; message 'propertyList:isValidForFormat:';
+    class function dataWithPropertyList_format_options_error(plist: id; format: NSPropertyListFormat; opt: NSPropertyListWriteOptions; error: NSErrorPointer): NSData; message 'dataWithPropertyList:format:options:error:';
+    class function writePropertyList_toStream_format_options_error(plist: id; stream: NSOutputStream; format: NSPropertyListFormat; opt: NSPropertyListWriteOptions; error: NSErrorPointer): NSInteger; message 'writePropertyList:toStream:format:options:error:';
+    class function propertyListWithData_options_format_error(data: NSData; opt: NSPropertyListReadOptions; format: NSPropertyListFormatPtr; error: NSErrorPointer): id; message 'propertyListWithData:options:format:error:';
+    class function propertyListWithStream_options_format_error(stream: NSInputStream; opt: NSPropertyListReadOptions; format: NSPropertyListFormatPtr; error: NSErrorPointer): id; message 'propertyListWithStream:options:format:error:';
     class function dataFromPropertyList_format_errorDescription(plist: id; format: NSPropertyListFormat; errorString: NSStringPointer): NSData; message 'dataFromPropertyList:format:errorDescription:';
-    class function propertyListFromData_mutabilityOption_format_errorDescription(data: NSData; opt: NSPropertyListMutabilityOptions; format: NSPropertyListFormatPointer; errorString: NSStringPointer): id; message 'propertyListFromData:mutabilityOption:format:errorDescription:';
-  end; external;
+    class function propertyListFromData_mutabilityOption_format_errorDescription(data: NSData; opt: NSPropertyListMutabilityOptions; format: NSPropertyListFormatPtr; errorString: NSStringPointer): id; message 'propertyListFromData:mutabilityOption:format:errorDescription:';
+  end;
 
 {$endif}
 {$endif}

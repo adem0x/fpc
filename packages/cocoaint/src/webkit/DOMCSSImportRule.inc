@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSImportRule.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSIMPORTRULE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMCSSImportRule = objcclass;
   DOMCSSImportRulePointer = ^DOMCSSImportRule;
+  DOMCSSImportRulePtr = DOMCSSImportRulePointer;
 
 {$endif}
 
@@ -41,15 +40,13 @@
 {$define DOMCSSIMPORTRULE_PAS_C}
 
 { DOMCSSImportRule }
-  DOMCSSImportRule = objcclass(DOMCSSRule)
+  DOMCSSImportRule = objcclass external (DOMCSSRule)
     
   public
-    class function alloc: DOMCSSImportRule; message 'alloc';
-
     function href: NSString; message 'href';
     function media: DOMMediaList; message 'media';
     function styleSheet: DOMCSSStyleSheet; message 'styleSheet';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

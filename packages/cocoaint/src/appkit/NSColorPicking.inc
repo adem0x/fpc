@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSColorPicking.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCOLORPICKING_PAS_T}
@@ -40,7 +38,7 @@
 {$define NSCOLORPICKING_PAS_P}
   
 { NSColorPickingDefault Protocol }
-  NSColorPickingDefaultProtocol = objcprotocol
+  NSColorPickingDefaultProtocol = objcprotocol external name 'NSColorPickingDefault'
     function initWithPickerMask_colorPanel(mask: NSUInteger; owningColorPanel: NSColorPanel): id; message 'initWithPickerMask:colorPanel:';
     function provideNewButtonImage: NSImage; message 'provideNewButtonImage';
     procedure insertNewButtonImage_in(newButtonImage: NSImage; buttonCell: NSButtonCell); message 'insertNewButtonImage:in:';
@@ -51,14 +49,14 @@
     procedure setMode(mode: NSColorPanelMode); message 'setMode:';
     function buttonToolTip: NSString; message 'buttonToolTip';
     function minContentSize: NSSize; message 'minContentSize';
-  end; external name 'NSColorPickingDefault';
+  end;
   
 { NSColorPickingCustom Protocol }
-  NSColorPickingCustomProtocol = objcprotocol
+  NSColorPickingCustomProtocol = objcprotocol external name 'NSColorPickingCustom'
     function supportsMode(mode: NSColorPanelMode): Boolean; message 'supportsMode:';
     function currentMode: NSColorPanelMode; message 'currentMode';
     function provideNewView(initialRequest: Boolean): NSView; message 'provideNewView:';
     procedure setColor(newColor: NSColor); message 'setColor:';
-  end; external name 'NSColorPickingCustom';
+  end;
 {$endif}
 {$endif}

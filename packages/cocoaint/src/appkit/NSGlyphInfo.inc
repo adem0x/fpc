@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSGlyphInfo.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSGLYPHINFO_PAS_T}
@@ -19,6 +17,7 @@ const
 { Types }
 type
   NSCharacterCollection = NSUInteger;
+  NSCharacterCollectionPtr = ^NSCharacterCollection;
 
 {$endif}
 {$endif}
@@ -47,6 +46,7 @@ type
 {$ifdef FORWARD}
   NSGlyphInfo = objcclass;
   NSGlyphInfoPointer = ^NSGlyphInfo;
+  NSGlyphInfoPtr = NSGlyphInfoPointer;
 
 {$endif}
 
@@ -55,20 +55,23 @@ type
 {$define NSGLYPHINFO_PAS_C}
 
 { NSGlyphInfo }
-  NSGlyphInfo = objcclass(NSObject, NSCopyingProtocol, NSCodingProtocol)
+  NSGlyphInfo = objcclass external (NSObject, NSCopyingProtocol, NSCodingProtocol)
   private
-    __baseString: NSString;
+    _baseString: NSString;
     
   public
-    class function alloc: NSGlyphInfo; message 'alloc';
-
     class function glyphInfoWithGlyphName_forFont_baseString(glyphName_: NSString; font: NSFont; theString: NSString): NSGlyphInfo; message 'glyphInfoWithGlyphName:forFont:baseString:';
     class function glyphInfoWithGlyph_forFont_baseString(glyph: NSGlyph; font: NSFont; theString: NSString): NSGlyphInfo; message 'glyphInfoWithGlyph:forFont:baseString:';
     class function glyphInfoWithCharacterIdentifier_collection_baseString(cid: NSUInteger; characterCollection_: NSCharacterCollection; theString: NSString): NSGlyphInfo; message 'glyphInfoWithCharacterIdentifier:collection:baseString:';
     function glyphName: NSString; message 'glyphName';
     function characterIdentifier: NSUInteger; message 'characterIdentifier';
     function characterCollection: NSCharacterCollection; message 'characterCollection';
-  end; external;
+
+    { Adopted Protocols }
+    function copyWithZone(zone_: NSZonePtr): id;
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
 
 {$endif}
 {$endif}

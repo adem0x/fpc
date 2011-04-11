@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLEmbedElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLEMBEDELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLEmbedElement = objcclass;
   DOMHTMLEmbedElementPointer = ^DOMHTMLEmbedElement;
+  DOMHTMLEmbedElementPtr = DOMHTMLEmbedElementPointer;
 
 {$endif}
 
@@ -41,20 +40,22 @@
 {$define DOMHTMLEMBEDELEMENT_PAS_C}
 
 { DOMHTMLEmbedElement }
-  DOMHTMLEmbedElement = objcclass(DOMHTMLElement)
+  DOMHTMLEmbedElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLEmbedElement; message 'alloc';
-
     procedure setAlign (newValue: NSString); message 'setAlign:';
     function align: NSString; message 'align';
+    procedure setHeight (newValue: cint); message 'setHeight:';
+    function height: cint; message 'height';
     procedure setName (newValue: NSString); message 'setName:';
     function name: NSString; message 'name';
     procedure setSrc (newValue: NSString); message 'setSrc:';
     function src: NSString; message 'src';
     procedure setType (newValue: NSString); message 'setType:';
     function type_: NSString; message 'type_';
-  end; external;
+    procedure setWidth (newValue: cint); message 'setWidth:';
+    function width: cint; message 'width';
+  end;
 
 {$endif}
 {$endif}

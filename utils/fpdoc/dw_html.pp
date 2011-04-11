@@ -89,6 +89,7 @@ type
     function GetPageCount: Integer;
     procedure SetOnTest(const AValue: TNotifyEvent);
   protected
+    FCSSFile: String;
     FAllocator: TFileAllocator;
     CurDirectory: String;       // relative to curdir of process
     BaseDirectory: String;      // relative path to package base directory
@@ -722,6 +723,8 @@ var
   i: Integer;
   PageDoc: TXMLDocument;
   Filename: String;
+  TempStream: TMemoryStream;
+
 begin
   if Engine.Output <> '' then
     Engine.Output := IncludeTrailingBackSlash(Engine.Output);
@@ -742,6 +745,20 @@ begin
         PageDoc.Free;
       end;
     end;
+  
+  if FCSSFile <> '' then
+  begin
+    if not FileExists(FCSSFile) Then
+      begin
+        Writeln(stderr,'Can''t find CSS file "',FCSSFILE,'"');
+        halt(1);
+      end;
+    TempStream := TMemoryStream.Create;
+    TempStream.LoadFromFile(FCSSFile);
+    TempStream.Position := 0;
+    TempStream.SaveToFile(Engine.output+ExtractFileName(FCSSFile));
+    TempStream.Free;
+  end;
 end;
 
 procedure THTMLWriter.WriteXHTMLPages;
@@ -1526,6 +1543,8 @@ begin
                 break;
               ThisPackage := ThisPackage.NextSibling;
             end;
+            if length(s)=0 then
+              s := ResolveLinkID('#rtl.System.' + Element.Name);
             if Length(s) > 0 then
               break;
           end;
@@ -2231,7 +2250,7 @@ begin
   end;
 end;
 
-procedure THTMLWriter.CreateIndexPage(L : TStringList);
+	procedure THTMLWriter.CreateIndexPage(L : TStringList);
 
 Var
   Lists  : Array['A'..'Z'] of TStringList;
@@ -2817,6 +2836,7 @@ var
     CurVisibility: TPasMemberVisibility;
     i: Integer;
     s: String;
+    ThisInterface,
     ThisClass: TPasClassType;
     HaveSeenTObject: Boolean;
   begin
@@ -2847,6 +2867,14 @@ var
     begin
       AppendSym(CodeEl, '(');
       AppendHyperlink(CodeEl, AClass.AncestorType);
+      if AClass.Interfaces.count>0 Then
+        begin
+          for i:=0 to AClass.interfaces.count-1 do
+           begin
+             AppendSym(CodeEl, ', ');
+             AppendHyperlink(CodeEl,TPasClassType(AClass.Interfaces[i]));
+           end; 
+        end;
       AppendSym(CodeEl, ')');
     end;
 
@@ -2952,6 +2980,15 @@ var
       TDEl['align'] := 'center';
       CodeEl := CreateCode(CreatePara(TDEl));
       AppendHyperlink(CodeEl, ThisClass);
+      if ThisClass.Interfaces.count>0 then
+        begin
+          for i:=0 to ThisClass.interfaces.count-1 do
+            begin
+              ThisInterface:=TPasClassType(ThisClass.Interfaces[i]);
+              AppendText(CodeEl,',');
+              AppendHyperlink(CodeEl, ThisInterface);
+            end;
+        end;
       AppendShortDescrCell(TREl, ThisClass);
       if HaveSeenTObject or (CompareText(ThisClass.Name, 'TObject') = 0) then
         HaveSeenTObject := True
@@ -3343,6 +3380,8 @@ begin
     IndexColCount := StrToIntDef(Arg,IndexColCount)
   else if Cmd = '--image-url' then
     FBaseImageURL  := Arg
+  else if Cmd = '--css-file' then
+    FCSSFile := arg
   else if Cmd = '--footer-date' then
     begin
     FIDF:=True;

@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSScrollView.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSCROLLVIEW_PAS_T}
@@ -15,7 +13,7 @@
 
 { Records }
 type
-  __SFlags = bitpacked record
+  __SFlags = record
 {$ifdef fpc_big_endian}
     vScrollerRequired: 0..1;
     hScrollerRequired: 0..1;
@@ -57,6 +55,7 @@ type
 {$endif}
   end;
 _SFlags = __SFlags;
+__SFlagsPtr = ^__SFlags;
 
 
 {$endif}
@@ -79,6 +78,7 @@ _SFlags = __SFlags;
 {$ifdef FORWARD}
   NSScrollView = objcclass;
   NSScrollViewPointer = ^NSScrollView;
+  NSScrollViewPtr = NSScrollViewPointer;
 
 {$endif}
 
@@ -87,22 +87,20 @@ _SFlags = __SFlags;
 {$define NSSCROLLVIEW_PAS_C}
 
 { NSScrollView }
-  NSScrollView = objcclass(NSView)
+  NSScrollView = objcclass external (NSView)
   private
-    __vScroller: NSScroller;
-    __hScroller: NSScroller;
-    __contentView: NSClipView;
-    __headerClipView: NSClipView;
-    __cornerView: NSView;
-    __ruler: id;
-    __sFlags: _SFlags;
-    __extraIvars: Pointer; {garbage collector: __strong }
-    __horizontalRuler: NSRulerView;
-    __verticalRuler: NSRulerView;
+    _vScroller: NSScroller;
+    _hScroller: NSScroller;
+    _contentView: NSClipView;
+    _headerClipView: NSClipView;
+    _cornerView: NSView;
+    _ruler: id;
+    _sFlags: _SFlags;
+    _extraIvars: Pointer; {garbage collector: __strong }
+    _horizontalRuler: NSRulerView;
+    _verticalRuler: NSRulerView;
     
   public
-    class function alloc: NSScrollView; message 'alloc';
-
     class function frameSizeForContentSize_hasHorizontalScroller_hasVerticalScroller_borderType(cSize: NSSize; hFlag: Boolean; vFlag: Boolean; aType: NSBorderType): NSSize; message 'frameSizeForContentSize:hasHorizontalScroller:hasVerticalScroller:borderType:';
     class function contentSizeForFrameSize_hasHorizontalScroller_hasVerticalScroller_borderType(fSize: NSSize; hFlag: Boolean; vFlag: Boolean; aType: NSBorderType): NSSize; message 'contentSizeForFrameSize:hasHorizontalScroller:hasVerticalScroller:borderType:';
     function documentVisibleRect: NSRect; message 'documentVisibleRect';
@@ -146,8 +144,10 @@ _SFlags = __SFlags;
     procedure tile; message 'tile';
     procedure reflectScrolledClipView(cView: NSClipView); message 'reflectScrolledClipView:';
     procedure scrollWheel(theEvent: NSEvent); message 'scrollWheel:';
+  end;
 
-    { Category: NSRulerSupport }
+{ NSRulerSupportCategory }
+  NSRulerSupportCategory = objccategory external (NSScrollView)
     class procedure setRulerViewClass(rulerViewClass_: Pobjc_class); message 'setRulerViewClass:';
     class function rulerViewClass: Pobjc_class; message 'rulerViewClass';
     procedure setRulersVisible(flag: Boolean); message 'setRulersVisible:';
@@ -160,7 +160,7 @@ _SFlags = __SFlags;
     function horizontalRulerView: NSRulerView; message 'horizontalRulerView';
     procedure setVerticalRulerView(ruler: NSRulerView); message 'setVerticalRulerView:';
     function verticalRulerView: NSRulerView; message 'verticalRulerView';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

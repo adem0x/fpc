@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSArrayController.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSARRAYCONTROLLER_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSArrayController = objcclass;
   NSArrayControllerPointer = ^NSArrayController;
+  NSArrayControllerPtr = NSArrayControllerPointer;
 
 {$endif}
 
@@ -41,12 +40,15 @@
 {$define NSARRAYCONTROLLER_PAS_C}
 
 { NSArrayController }
-  NSArrayController = objcclass(NSObjectController)
+  NSArrayController = objcclass external (NSObjectController)
   private
-    __reserved4: Pointer;
-    __rearrangementExtensions: id;
-    __temporaryWorkObjects: NSMutableArray;
+    _reserved4: Pointer;
+    _rearrangementExtensions: id;
+    _temporaryWorkObjects: NSMutableArray;
     __arrayControllerFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSArrayController0: cuint);
+       1: (
         _avoidsEmptySelection: 0..1;
         _preservesSelection: 0..1;
         _selectsInsertedObjects: 0..1;
@@ -63,17 +65,16 @@
         _skipSortingAfterFetch: 0..1;
         _automaticallyRearrangesObjects: 0..1;
         _reservedArrayController: 0..((1 shl 17)-1);
+      );
       end;
-    __observedIndexHint: NSUInteger;
-    __selectionIndexes: NSMutableIndexSet;
-    __objects: NSMutableArray;
-    __cachedSelectedIndexes: NSIndexSet;
-    __cachedSelectedObjects: NSArray;
-    __arrangedObjects: NSArray;
+    _observedIndexHint: NSUInteger;
+    _selectionIndexes: NSMutableIndexSet;
+    _objects: NSMutableArray;
+    _cachedSelectedIndexes: NSIndexSet;
+    _cachedSelectedObjects: NSArray;
+    _arrangedObjects: NSArray;
     
   public
-    class function alloc: NSArrayController; message 'alloc';
-
     procedure rearrangeObjects; message 'rearrangeObjects';
     procedure setAutomaticallyRearrangesObjects(flag: Boolean); message 'setAutomaticallyRearrangesObjects:';
     function automaticallyRearrangesObjects: Boolean; message 'automaticallyRearrangesObjects';
@@ -121,7 +122,7 @@
     procedure removeObjectsAtArrangedObjectIndexes(indexes: NSIndexSet); message 'removeObjectsAtArrangedObjectIndexes:';
     procedure removeObject(object_: id); message 'removeObject:';
     procedure removeObjects(objects: NSArray); message 'removeObjects:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

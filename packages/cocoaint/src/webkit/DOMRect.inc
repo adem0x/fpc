@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMRect.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMRECT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMRect = objcclass;
   DOMRectPointer = ^DOMRect;
+  DOMRectPtr = DOMRectPointer;
 
 {$endif}
 
@@ -41,16 +40,14 @@
 {$define DOMRECT_PAS_C}
 
 { DOMRect }
-  DOMRect = objcclass(DOMObject)
+  DOMRect = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMRect; message 'alloc';
-
     function top: DOMCSSPrimitiveValue; message 'top';
     function right: DOMCSSPrimitiveValue; message 'right';
     function bottom: DOMCSSPrimitiveValue; message 'bottom';
     function left: DOMCSSPrimitiveValue; message 'left';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

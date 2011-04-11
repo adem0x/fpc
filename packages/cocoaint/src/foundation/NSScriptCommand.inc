@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSScriptCommand.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSCRIPTCOMMAND_PAS_T}
@@ -10,16 +8,16 @@
 
 const
   NSNoScriptError = 0;
-  NSReceiverEvaluationScriptError = 0;
-  NSKeySpecifierEvaluationScriptError = 1;
-  NSArgumentEvaluationScriptError = 2;
-  NSReceiversCantHandleCommandScriptError = 3;
-  NSRequiredArgumentsMissingScriptError = 4;
-  NSArgumentsWrongScriptError = 5;
-  NSUnknownKeyScriptError = 6;
-  NSInternalScriptError = 7;
-  NSOperationNotSupportedForKeyScriptError = 8;
-  NSCannotCreateScriptCommandError = 9;
+  NSReceiverEvaluationScriptError = 1;
+  NSKeySpecifierEvaluationScriptError = 2;
+  NSArgumentEvaluationScriptError = 3;
+  NSReceiversCantHandleCommandScriptError = 4;
+  NSRequiredArgumentsMissingScriptError = 5;
+  NSArgumentsWrongScriptError = 6;
+  NSUnknownKeyScriptError = 7;
+  NSInternalScriptError = 8;
+  NSOperationNotSupportedForKeyScriptError = 9;
+  NSCannotCreateScriptCommandError = 10;
 
 {$endif}
 {$endif}
@@ -48,6 +46,7 @@ const
 {$ifdef FORWARD}
   NSScriptCommand = objcclass;
   NSScriptCommandPointer = ^NSScriptCommand;
+  NSScriptCommandPtr = NSScriptCommandPointer;
 
 {$endif}
 
@@ -56,25 +55,27 @@ const
 {$define NSSCRIPTCOMMAND_PAS_C}
 
 { NSScriptCommand }
-  NSScriptCommand = objcclass(NSObject, NSCodingProtocol)
+  NSScriptCommand = objcclass external (NSObject, NSCodingProtocol)
   private
-    __commandDescription: NSScriptCommandDescription;
-    __directParameter: id;
-    __receiversSpecifier: NSScriptObjectSpecifier;
-    __evaluatedReceivers: id;
-    __arguments: NSDictionary;
-    __evaluatedArguments: NSMutableDictionary;
+    _commandDescription: NSScriptCommandDescription;
+    _directParameter: id;
+    _receiversSpecifier: NSScriptObjectSpecifier;
+    _evaluatedReceivers: id;
+    _arguments: NSDictionary;
+    _evaluatedArguments: NSMutableDictionary;
     __flags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSScriptCommand0: cuint);
+       1: (
         hasEvaluatedReceivers: 0..1;
         hasEvaluatedArguments: 0..1;
         RESERVED: 0..((1 shl 30)-1);
+      );
       end;
-    __moreVars: id;
-    __reserved: Pointer;
+    _moreVars: id;
+    _reserved: Pointer;
     
   public
-    class function alloc: NSScriptCommand; message 'alloc';
-
     function initWithCommandDescription(commandDef: NSScriptCommandDescription): id; message 'initWithCommandDescription:';
     function commandDescription: NSScriptCommandDescription; message 'commandDescription';
     procedure setDirectParameter(directParameter_: id); message 'setDirectParameter:';
@@ -100,7 +101,11 @@ const
     function appleEvent: NSAppleEventDescriptor; message 'appleEvent';
     procedure suspendExecution; message 'suspendExecution';
     procedure resumeExecutionWithResult(result_: id); message 'resumeExecutionWithResult:';
-  end; external;
+
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
 
 {$endif}
 {$endif}

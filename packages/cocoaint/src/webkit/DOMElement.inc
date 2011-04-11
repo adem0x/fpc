@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMElement = objcclass;
   DOMElementPointer = ^DOMElement;
+  DOMElementPtr = DOMElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMELEMENT_PAS_C}
 
 { DOMElement }
-  DOMElement = objcclass(DOMNode)
+  DOMElement = objcclass external (DOMNode)
     
   public
-    class function alloc: DOMElement; message 'alloc';
-
     function tagName: NSString; message 'tagName';
     function style: DOMCSSStyleDeclaration; message 'style';
     function offsetLeft: cint; message 'offsetLeft';
@@ -53,10 +50,22 @@
     function offsetWidth: cint; message 'offsetWidth';
     function offsetHeight: cint; message 'offsetHeight';
     function offsetParent: DOMElement; message 'offsetParent';
+    function clientLeft: cint; message 'clientLeft';
+    function clientTop: cint; message 'clientTop';
     function clientWidth: cint; message 'clientWidth';
     function clientHeight: cint; message 'clientHeight';
+    procedure setScrollLeft (newValue: cint); message 'setScrollLeft:';
+    function scrollLeft: cint; message 'scrollLeft';
+    procedure setScrollTop (newValue: cint); message 'setScrollTop:';
+    function scrollTop: cint; message 'scrollTop';
     function scrollWidth: cint; message 'scrollWidth';
     function scrollHeight: cint; message 'scrollHeight';
+    function firstElementChild: DOMElement; message 'firstElementChild';
+    function lastElementChild: DOMElement; message 'lastElementChild';
+    function previousElementSibling: DOMElement; message 'previousElementSibling';
+    function nextElementSibling: DOMElement; message 'nextElementSibling';
+    function childElementCount: cuint; message 'childElementCount';
+    function innerText: NSString; message 'innerText';
     function getAttribute(name: NSString): NSString; message 'getAttribute:';
     procedure setAttribute_value(name: NSString; value: NSString); message 'setAttribute:value:';
     procedure removeAttribute(name: NSString); message 'removeAttribute:';
@@ -75,20 +84,25 @@
     procedure focus; message 'focus';
     procedure blur; message 'blur';
     procedure scrollIntoView(alignWithTop: Boolean); message 'scrollIntoView:';
+    function contains(element: DOMElement): Boolean; message 'contains:';
     procedure scrollIntoViewIfNeeded(centerIfNeeded: Boolean); message 'scrollIntoViewIfNeeded:';
+    procedure scrollByLines(lines: cint); message 'scrollByLines:';
+    procedure scrollByPages(pages: cint); message 'scrollByPages:';
+    function getElementsByClassName(name: NSString): DOMNodeList; message 'getElementsByClassName:';
+    function querySelector(selectors: NSString): DOMElement; message 'querySelector:';
+    function querySelectorAll(selectors: NSString): DOMNodeList; message 'querySelectorAll:';
+  end;
 
-    { Category: DOMElementDeprecated }
-    procedure setAttribute(name: NSString; value: NSString); message 'setAttribute:name:';
-    function getAttributeNS(namespaceURI_: NSString; localName_: NSString): NSString; message 'getAttributeNS:namespaceURI:';
-    procedure setAttributeNS(namespaceURI_: NSString; qualifiedName: NSString; value: NSString); message 'setAttributeNS:namespaceURI:qualifiedName:';
-    procedure removeAttributeNS(namespaceURI_: NSString; localName_: NSString); message 'removeAttributeNS:namespaceURI:';
-    function getElementsByTagNameNS(namespaceURI_: NSString; localName_: NSString): DOMNodeList; message 'getElementsByTagNameNS:namespaceURI:';
-    function getAttributeNodeNS(namespaceURI_: NSString; localName_: NSString): DOMAttr; message 'getAttributeNodeNS:namespaceURI:';
-    function hasAttributeNS(namespaceURI_: NSString; localName_: NSString): Boolean; message 'hasAttributeNS:namespaceURI:';
-
-    { Category: DOMElementAppKitExtensions }
-    function image: NSImage; message 'image';
-  end; external;
+{ DOMElementDeprecatedCategory }
+  DOMElementDeprecatedCategory = objccategory external (DOMElement)
+    procedure setAttribute(name: NSString; value: NSString); message 'setAttribute:name:'; deprecated 'in_webkit_version_3 and later';
+    function getAttributeNS(namespaceURI_: NSString; localName_: NSString): NSString; message 'getAttributeNS:namespaceURI:'; deprecated 'in_webkit_version_3 and later';
+    procedure setAttributeNS(namespaceURI_: NSString; qualifiedName: NSString; value: NSString); message 'setAttributeNS:namespaceURI:qualifiedName:'; deprecated 'in_webkit_version_3 and later';
+    procedure removeAttributeNS(namespaceURI_: NSString; localName_: NSString); message 'removeAttributeNS:namespaceURI:'; deprecated 'in_webkit_version_3 and later';
+    function getElementsByTagNameNS(namespaceURI_: NSString; localName_: NSString): DOMNodeList; message 'getElementsByTagNameNS:namespaceURI:'; deprecated 'in_webkit_version_3 and later';
+    function getAttributeNodeNS(namespaceURI_: NSString; localName_: NSString): DOMAttr; message 'getAttributeNodeNS:namespaceURI:'; deprecated 'in_webkit_version_3 and later';
+    function hasAttributeNS(namespaceURI_: NSString; localName_: NSString): Boolean; message 'hasAttributeNS:namespaceURI:'; deprecated 'in_webkit_version_3 and later';
+  end;
 
 {$endif}
 {$endif}

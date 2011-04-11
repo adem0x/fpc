@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSStepper.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSTEPPER_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSStepper = objcclass;
   NSStepperPointer = ^NSStepper;
+  NSStepperPtr = NSStepperPointer;
 
 {$endif}
 
@@ -41,16 +40,14 @@
 {$define NSSTEPPER_PAS_C}
 
 { NSStepper }
-  NSStepper = objcclass(NSControl)
+  NSStepper = objcclass external (NSControl)
   private
-    __reserved1: cuint;
-    __reserved2: cuint;
-    __reserved3: cuint;
-    __reserved4: cuint;
+    _reserved1: cuint;
+    _reserved2: cuint;
+    _reserved3: cuint;
+    _reserved4: cuint;
     
   public
-    class function alloc: NSStepper; message 'alloc';
-
     function minValue: double; message 'minValue';
     procedure setMinValue(minValue_: double); message 'setMinValue:';
     function maxValue: double; message 'maxValue';
@@ -61,7 +58,7 @@
     procedure setValueWraps(valueWraps_: Boolean); message 'setValueWraps:';
     function autorepeat: Boolean; message 'autorepeat';
     procedure setAutorepeat(autorepeat_: Boolean); message 'setAutorepeat:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -87,16 +87,14 @@ implementation
 
     procedure texportlibdarwin.setinitname(list: TAsmList; const s: string);
       begin
-        list.concat(tai_section.Create(sec_init_func,'',0));
-        list.concat(tai_align.create(sizeof(pint)));
+        new_section(list,sec_init_func,'',sizeof(pint));
         list.concat(Tai_const.Createname(s,0));
       end;
 
 
     procedure texportlibdarwin.setfininame(list: TAsmList; const s: string);
       begin
-        list.concat(tai_section.Create(sec_term_func,'',0));
-        list.concat(tai_align.create(sizeof(pint)));
+        new_section(list,sec_term_func,'',sizeof(pint));
         list.concat(Tai_const.Createname(s,0));
       end;
 
@@ -161,7 +159,15 @@ begin
                On 64bit systems, page zero is 4GB by default, so no problems
                there.
              }
-             ExeCmd[1]:='ld $PRTOBJ $OPT $DYNLINK $STATIC $GCSECTIONS $STRIP -pagezero_size 0x10000 -multiply_defined suppress -L. -o $EXE `cat $RES`';
+             { In case of valgrind, don't do that, because it cannot deal with
+               a custom pagezero size -- in general, this should not cause any
+               problems because the resources are added at the end and most
+               programs with problems that require Valgrind will have more
+               than 60KB of data (first 4KB of address space is always invalid)
+             }
+               ExeCmd[1]:='ld $PRTOBJ $OPT $DYNLINK $STATIC $GCSECTIONS $STRIP -multiply_defined suppress -L. -o $EXE `cat $RES`';
+             if not(cs_gdb_valgrind in current_settings.globalswitches) then
+               ExeCmd[1]:=ExeCmd[1]+' -pagezero_size 0x10000';
 {$else ndef cpu64bitaddr}
              ExeCmd[1]:='ld $PRTOBJ $OPT $DYNLINK $STATIC $GCSECTIONS $STRIP -multiply_defined suppress -L. -o $EXE `cat $RES`';
 {$endif ndef cpu64bitaddr}
@@ -326,7 +332,8 @@ begin
           case target_info.system of
             system_powerpc_darwin:
               LinkRes.Add('ppc');
-            system_i386_darwin:
+            system_i386_darwin,
+            system_i386_iphonesim:
               LinkRes.Add('i386');
             system_powerpc64_darwin:
               LinkRes.Add('ppc64');
@@ -766,6 +773,10 @@ initialization
   RegisterImport(system_i386_darwin,timportlibdarwin);
   RegisterExport(system_i386_darwin,texportlibdarwin);
   RegisterTarget(system_i386_darwin_info);
+  RegisterExternalLinker(system_i386_iphonesim_info,TLinkerBSD);
+  RegisterImport(system_i386_iphonesim,timportlibdarwin);
+  RegisterExport(system_i386_iphonesim,texportlibdarwin);
+  RegisterTarget(system_i386_iphonesim_info);
 {$endif i386}
 {$ifdef m68k}
 //  RegisterExternalLinker(system_m68k_FreeBSD_info,TLinkerBSD);

@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSMovie.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSMOVIE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSMovie = objcclass;
   NSMoviePointer = ^NSMovie;
+  NSMoviePtr = NSMoviePointer;
 
 {$endif}
 
@@ -41,29 +40,35 @@
 {$define NSMOVIE_PAS_C}
 
 { NSMovie }
-  NSMovie = objcclass(NSObject, NSCodingProtocol)
+  NSMovie = objcclass external (NSObject, NSCodingProtocol)
   private
-    __movie: Pointer;
-    __url: NSURL;
+    _movie: Pointer;
+    _url: NSURL;
     __movieFlags: bitpacked record
-        dispose_: 0..1;
+      case byte of
+       0: (_anonbitfield_NSMovie0: cint);
+       1: (
+        _dispose: 0..1;
         reserved: 0..((1 shl 31)-1);
+      );
       end;
-    __reserved1: clong;
-    __reserved2: clong;
+    _reserved1: clong;
+    _reserved2: clong;
     
   public
-    class function alloc: NSMovie; message 'alloc';
+    function initWithMovie(movie: Pointer): id; message 'initWithMovie:'; deprecated 'in Mac OS X 10.5 and later';
+    function initWithURL_byReference(url_: NSURL; byRef: Boolean): id; message 'initWithURL:byReference:'; deprecated 'in Mac OS X 10.5 and later';
+    function initWithPasteboard(pasteboard: NSPasteboard): id; message 'initWithPasteboard:'; deprecated 'in Mac OS X 10.5 and later';
+    function QTMovie_: Pointer; message 'QTMovie'; deprecated 'in Mac OS X 10.5 and later';
+    function URL: NSURL; message 'URL'; deprecated 'in Mac OS X 10.5 and later';
+    class function movieUnfilteredFileTypes: NSArray; message 'movieUnfilteredFileTypes'; deprecated 'in Mac OS X 10.5 and later';
+    class function movieUnfilteredPasteboardTypes: NSArray; message 'movieUnfilteredPasteboardTypes'; deprecated 'in Mac OS X 10.5 and later';
+    class function canInitWithPasteboard(pasteboard: NSPasteboard): Boolean; message 'canInitWithPasteboard:'; deprecated 'in Mac OS X 10.5 and later';
 
-    function initWithMovie(movie: Pointer): id; message 'initWithMovie:';
-    function initWithURL_byReference(URL_: NSURL; byRef: Boolean): id; message 'initWithURL:byReference:';
-    function initWithPasteboard(pasteboard: NSPasteboard): id; message 'initWithPasteboard:';
-    function QTMovie: Pointer; message 'QTMovie';
-    function URL: NSURL; message 'URL';
-    class function movieUnfilteredFileTypes: NSArray; message 'movieUnfilteredFileTypes';
-    class function movieUnfilteredPasteboardTypes: NSArray; message 'movieUnfilteredPasteboardTypes';
-    class function canInitWithPasteboard(pasteboard: NSPasteboard): Boolean; message 'canInitWithPasteboard:';
-  end; external;
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
 
 {$endif}
 {$endif}

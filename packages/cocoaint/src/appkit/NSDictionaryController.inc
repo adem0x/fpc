@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSDictionaryController.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSDICTIONARYCONTROLLER_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSDictionaryController = objcclass;
   NSDictionaryControllerPointer = ^NSDictionaryController;
+  NSDictionaryControllerPtr = NSDictionaryControllerPointer;
 
 {$endif}
 
@@ -41,29 +40,31 @@
 {$define NSDICTIONARYCONTROLLER_PAS_C}
 
 { NSDictionaryController }
-  NSDictionaryController = objcclass(NSArrayController)
+  NSDictionaryController = objcclass external (NSArrayController)
   private
-    __reserved5: Pointer;
-    __reserved6: Pointer;
-    __reserved7: Pointer;
-    __contentDictionary: id;
-    __initialKey: NSString;
-    __initialValue: id;
-    __minimumInsertionKeyIndex: NSUInteger;
-    __localizedKeyStringsFileName: NSString;
-    __localizedKeyForKeyDictionary: NSDictionary;
-    __keyForLocalizedKeyDictionary: NSDictionary;
-    __includedKeys: NSArray;
-    __excludedKeys: NSArray;
+    _reserved5: Pointer;
+    _reserved6: Pointer;
+    _reserved7: Pointer;
+    _contentDictionary: id;
+    _initialKey: NSString;
+    _initialValue: id;
+    _minimumInsertionKeyIndex: NSUInteger;
+    _localizedKeyStringsFileName: NSString;
+    _localizedKeyForKeyDictionary: NSDictionary;
+    _keyForLocalizedKeyDictionary: NSDictionary;
+    _includedKeys: NSArray;
+    _excludedKeys: NSArray;
     __dictionaryControllerFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSDictionaryController0: cuint);
+       1: (
         _deepCopiesValues: 0..1;
         _suppressBuildingDictionary: 0..1;
         _reservedDictionaryController: 0..((1 shl 30)-1);
+      );
       end;
     
   public
-    class function alloc: NSDictionaryController; message 'alloc';
-
     function newObject: id; message 'newObject';
     procedure setInitialKey(key: NSString); message 'setInitialKey:';
     function initialKey: NSString; message 'initialKey';
@@ -77,7 +78,18 @@
     function localizedKeyDictionary: NSDictionary; message 'localizedKeyDictionary';
     procedure setLocalizedKeyTable(stringsFileName: NSString); message 'setLocalizedKeyTable:';
     function localizedKeyTable: NSString; message 'localizedKeyTable';
-  end; external;
+  end;
+
+{ NSDictionaryControllerKeyValuePairCategory }
+  NSDictionaryControllerKeyValuePairCategory = objccategory external (NSObject)
+    procedure setLocalizedKey(localizedKey: NSString); message 'setLocalizedKey:';
+    function localizedKey: NSString; message 'localizedKey';
+    procedure setKey(key: NSString); message 'setKey:';
+    function key: NSString; message 'key';
+    procedure setValue(value: id); message 'setValue:';
+    function value: id; message 'value';
+    function isExplicitlyIncluded: Boolean; message 'isExplicitlyIncluded';
+  end;
 
 {$endif}
 {$endif}

@@ -546,18 +546,25 @@
       procedure TObject.Dispatch(var message);
 
         type
-           tmsgtable = packed record
+{$PUSH}
+{$PACKRECORDS NORMAL}
+           PMsgIntTable = ^TMsgIntTable;
+           TMsgIntTable = record
               index : dword;
               method : pointer;
            end;
 
-           pmsgtable = ^tmsgtable;
-
+           PMsgInt = ^TMsgInt;
+           TMsgInt = record
+              count : longint;
+              msgs : array[0..0] of TMsgIntTable;
+           end;
+{$POP}
         var
            index : dword;
            count,i : longint;
-           msgtable : pmsgtable;
-           p : pointer;
+           msgtable : PMsgIntTable;
+           p : PMsgInt;
            ovmt : PVmt;
            msghandler : tmessagehandler;
 
@@ -567,11 +574,11 @@
            while assigned(ovmt) do
              begin
                 // See if we have messages at all in this class.
-                p:=ovmt^.vDynamicTable;
+                p:=PMsgInt(ovmt^.vDynamicTable);
                 If Assigned(p) then
                   begin
-                     msgtable:=pmsgtable(p+4);
-                     count:=pdword(p)^;
+                     msgtable:=@p^.msgs;
+                     count:=p^.count;
                   end
                 else
                   Count:=0;
@@ -967,7 +974,7 @@
 ****************************************************************************}
 
     function TInterfacedObject.QueryInterface(
-      const iid : tguid;out obj) : longint;stdcall;
+      {$IFDEF FPC_HAS_CONSTREF}constref{$ELSE}const{$ENDIF} iid : tguid;out obj) : longint;{$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
 
       begin
          if getinterface(iid,obj) then
@@ -976,13 +983,13 @@
            result:=longint(E_NOINTERFACE);
       end;
 
-    function TInterfacedObject._AddRef : longint;stdcall;
+    function TInterfacedObject._AddRef : longint;{$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
 
       begin
          _addref:=interlockedincrement(frefcount);
       end;
 
-    function TInterfacedObject._Release : longint;stdcall;
+    function TInterfacedObject._Release : longint;{$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
 
       begin
          _Release:=interlockeddecrement(frefcount);
@@ -1026,19 +1033,19 @@
       end;
 
     function TAggregatedObject.QueryInterface(
-      const iid : tguid;out obj) : longint;stdcall;
+      {$IFDEF FPC_HAS_CONSTREF}constref{$ELSE}const{$ENDIF} iid : tguid;out obj) : longint;{$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
 
       begin
          Result := IUnknown(fcontroller).QueryInterface(iid, obj);
       end;
 
-    function TAggregatedObject._AddRef : longint;stdcall;
+    function TAggregatedObject._AddRef : longint;{$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
 
       begin
          Result := IUnknown(fcontroller)._AddRef;
       end;
 
-    function TAggregatedObject._Release : longint;stdcall;
+    function TAggregatedObject._Release : longint;{$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
 
       begin
          Result := IUnknown(fcontroller)._Release;
@@ -1055,7 +1062,7 @@
 ****************************************************************************}
 
     function TContainedObject.QueryInterface(
-            const iid : tguid;out obj) : longint; stdcall;
+            {$IFDEF FPC_HAS_CONSTREF}constref{$ELSE}const{$ENDIF} iid : tguid;out obj) : longint; {$IFNDEF WINDOWS}cdecl{$ELSE}stdcall{$ENDIF};
 
     begin
       if getinterface(iid,obj) then

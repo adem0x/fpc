@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCore.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 3 13:03:49 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCORE_PAS_T}

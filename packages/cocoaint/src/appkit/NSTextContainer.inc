@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSTextContainer.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTEXTCONTAINER_PAS_T}
@@ -24,7 +22,9 @@ const
 { Types }
 type
   NSLineSweepDirection = NSUInteger;
+  NSLineSweepDirectionPtr = ^NSLineSweepDirection;
   NSLineMovementDirection = NSUInteger;
+  NSLineMovementDirectionPtr = ^NSLineMovementDirection;
 
 {$endif}
 {$endif}
@@ -53,6 +53,7 @@ type
 {$ifdef FORWARD}
   NSTextContainer = objcclass;
   NSTextContainerPointer = ^NSTextContainer;
+  NSTextContainerPtr = NSTextContainerPointer;
 
 {$endif}
 
@@ -61,22 +62,24 @@ type
 {$define NSTEXTCONTAINER_PAS_C}
 
 { NSTextContainer }
-  NSTextContainer = objcclass(NSObject, NSCodingProtocol)
+  NSTextContainer = objcclass external (NSObject, NSCodingProtocol)
   private
-    __layoutManager: NSLayoutManager;
-    __textView: NSTextView;
-    __size: NSSize;
-    __lineFragmentPadding: CGFloat;
+    _layoutManager: NSLayoutManager;
+    _textView: NSTextView;
+    _size: NSSize;
+    _lineFragmentPadding: CGFloat;
     __tcFlags: bitpacked record
-        widthTracksTextView: 0..1;
-        heightTracksTextView: 0..1;
+      case byte of
+       0: (_anonbitfield_NSTextContainer0: cushort);
+       1: (
+        _widthTracksTextView: 0..1;
+        _heightTracksTextView: 0..1;
         observingFrameChanges: 0..1;
         _reserved: 0..((1 shl 13)-1);
+      );
       end;
     
   public
-    class function alloc: NSTextContainer; message 'alloc';
-
     function initWithContainerSize(size: NSSize): id; message 'initWithContainerSize:';
     function layoutManager: NSLayoutManager; message 'layoutManager';
     procedure setLayoutManager(layoutManager_: NSLayoutManager); message 'setLayoutManager:';
@@ -94,7 +97,11 @@ type
     function lineFragmentRectForProposedRect_sweepDirection_movementDirection_remainingRect(proposedRect: NSRect; sweepDirection: NSLineSweepDirection; movementDirection: NSLineMovementDirection; remainingRect: NSRectPointer): NSRect; message 'lineFragmentRectForProposedRect:sweepDirection:movementDirection:remainingRect:';
     function isSimpleRectangularTextContainer: Boolean; message 'isSimpleRectangularTextContainer';
     function containsPoint(point: NSPoint): Boolean; message 'containsPoint:';
-  end; external;
+
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSTextInputClient.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:08 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTEXTINPUTCLIENT_PAS_T}
@@ -39,7 +37,8 @@
 {$define NSTEXTINPUTCLIENT_PAS_P}
   
 { NSTextInputClient Protocol }
-  NSTextInputClientProtocol = objcprotocol
+  NSTextInputClientProtocol = objcprotocol external name 'NSTextInputClient'
+  required
     procedure insertText_replacementRange(aString: id; replacementRange: NSRange); message 'insertText:replacementRange:';
     procedure setMarkedText_selectedRange_replacementRange(aString: id; selectedRange: NSRange; replacementRange: NSRange); message 'setMarkedText:selectedRange:replacementRange:';
     procedure unmarkText; message 'unmarkText';
@@ -50,10 +49,12 @@
     function validAttributesForMarkedText: NSArray; message 'validAttributesForMarkedText';
     function firstRectForCharacterRange_actualRange(aRange: NSRange; actualRange: NSRangePointer): NSRect; message 'firstRectForCharacterRange:actualRange:';
     function characterIndexForPoint(aPoint: NSPoint): NSUInteger; message 'characterIndexForPoint:';
+  optional
     function attributedString: NSAttributedString; message 'attributedString';
     function fractionOfDistanceThroughGlyphForPoint(aPoint: NSPoint): CGFloat; message 'fractionOfDistanceThroughGlyphForPoint:';
     function baselineDeltaForCharacterAtIndex(anIndex: NSUInteger): CGFloat; message 'baselineDeltaForCharacterAtIndex:';
     function windowLevel: NSInteger; message 'windowLevel';
-  end; external name 'NSTextInputClient';
+    function drawsVerticallyForCharacterAtIndex(charIndex: NSUInteger): Boolean; message 'drawsVerticallyForCharacterAtIndex:';
+  end;
 {$endif}
 {$endif}

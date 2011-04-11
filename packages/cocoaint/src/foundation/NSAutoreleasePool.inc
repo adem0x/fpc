@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSAutoreleasePool.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSAUTORELEASEPOOL_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSAutoreleasePool = objcclass;
   NSAutoreleasePoolPointer = ^NSAutoreleasePool;
+  NSAutoreleasePoolPtr = NSAutoreleasePoolPointer;
 
 {$endif}
 
@@ -41,19 +40,17 @@
 {$define NSAUTORELEASEPOOL_PAS_C}
 
 { NSAutoreleasePool }
-  NSAutoreleasePool = objcclass(NSObject)
+  NSAutoreleasePool = objcclass external (NSObject)
   private
-    __token: Pointer;
-    __reserved3: Pointer;
-    __reserved2: Pointer;
-    __reserved: Pointer;
+    _token: Pointer;
+    _reserved3: Pointer;
+    _reserved2: Pointer;
+    _reserved: Pointer;
     
   public
-    class function alloc: NSAutoreleasePool; message 'alloc';
-
     class procedure addObject(anObject: id); message 'addObject:';
     procedure drain; message 'drain';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

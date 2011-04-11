@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLMarqueeElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLMARQUEEELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLMarqueeElement = objcclass;
   DOMHTMLMarqueeElementPointer = ^DOMHTMLMarqueeElement;
+  DOMHTMLMarqueeElementPtr = DOMHTMLMarqueeElementPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMHTMLMARQUEEELEMENT_PAS_C}
 
 { DOMHTMLMarqueeElement }
-  DOMHTMLMarqueeElement = objcclass(DOMHTMLElement)
+  DOMHTMLMarqueeElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLMarqueeElement; message 'alloc';
-
     procedure start; message 'start';
     procedure stop; message 'stop';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

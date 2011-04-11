@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMCSSValue.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMCSSVALUE_PAS_T}
@@ -41,6 +39,7 @@ const
 {$ifdef FORWARD}
   DOMCSSValue = objcclass;
   DOMCSSValuePointer = ^DOMCSSValue;
+  DOMCSSValuePtr = DOMCSSValuePointer;
 
 {$endif}
 
@@ -49,15 +48,13 @@ const
 {$define DOMCSSVALUE_PAS_C}
 
 { DOMCSSValue }
-  DOMCSSValue = objcclass(DOMObject)
+  DOMCSSValue = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMCSSValue; message 'alloc';
-
     procedure setCssText (newValue: NSString); message 'setCssText:';
     function cssText: NSString; message 'cssText';
-    function cssValueType: cushort; message 'cssValueType';
-  end; external;
+    function cssValueType: cuint; message 'cssValueType';
+  end;
 
 {$endif}
 {$endif}

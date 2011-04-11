@@ -54,7 +54,7 @@ Const
 
 {
   Default UnicodeChar <-> Char conversion is to only convert the
-  lower 127 chars, all others are translated to spaces.
+  lower 127 chars, all others are translated to '?'.
 
   These routines can be overwritten for the Current Locale
 }
@@ -62,15 +62,18 @@ Const
 procedure DefaultUnicode2AnsiMove(source:punicodechar;var dest:RawByteString;cp : TSystemCodePage;len:SizeInt);
 var
   i : SizeInt;
+  p : PAnsiChar;
 begin
   setlength(dest,len);
+  p:=pointer(dest);         {SetLength guarantees that dest is unique}
   for i:=1 to len do
     begin
       if word(source^)<256 then
-        dest[i]:=char(word(source^))
+        p^:=char(word(source^))
       else
-        dest[i]:='?';
+        p^:='?';
       inc(source);
+      inc(p);
     end;
 end;
 
@@ -78,14 +81,32 @@ end;
 procedure DefaultAnsi2UnicodeMove(source:pchar;cp : TSystemCodePage;var dest:unicodestring;len:SizeInt);
 var
   i : SizeInt;
+  p : PUnicodeChar;
 begin
   setlength(dest,len);
+  p:=pointer(dest);         {SetLength guarantees that dest is unique}
   for i:=1 to len do
     begin
-      dest[i]:=unicodechar(byte(source^));
+      p^:=unicodechar(byte(source^));
       inc(source);
+      inc(p);
     end;
 end;
+
+
+function DefaultCharLengthPChar(const Str: PChar): PtrInt;
+  begin
+    DefaultCharLengthPChar:=length(Str);
+  end;
+
+
+function DefaultCodePointLength(const Str: PChar; MaxLookAead: PtrInt): Ptrint;
+  begin
+    if str[0]<>#0 then
+      DefaultCodePointLength:=1
+    else
+      DefaultCodePointLength:=0;
+  end;
 
 
 Procedure GetUnicodeStringManager (Var Manager : TUnicodeStringManager);
@@ -1331,16 +1352,10 @@ begin
     exit(CompareWord(S1[1],S2[1],MaxI));
 end;
 
-Procedure fpc_UnicodeStr_CheckZero(p : pointer);[Public,Alias : 'FPC_UNICODESTR_CHECKZERO']; compilerproc;
-begin
-  if p=nil then
-    HandleErrorFrame(201,get_frame);
-end;
 
-
-Procedure fpc_UnicodeStr_CheckRange(len,index : SizeInt);[Public,Alias : 'FPC_UNICODESTR_RANGECHECK']; compilerproc;
+Procedure fpc_UnicodeStr_CheckRange(p: Pointer; index: SizeInt);[Public,Alias : 'FPC_UNICODESTR_RANGECHECK']; compilerproc;
 begin
-  if (index>len div 2) or (Index<1) then
+  if (p=nil) or (index>PUnicodeRec(p-UnicodeFirstOff)^.len div 2) or (Index<1) then
     HandleErrorFrame(201,get_frame);
 end;
 
@@ -1649,23 +1664,20 @@ Procedure Delete (Var S : UnicodeString; Index,Size: SizeInt);
 Var
   LS : SizeInt;
 begin
-  If Length(S)=0 then
-   exit;
-  if index<=0 then
-   exit;
-  LS:=PUnicodeRec(Pointer(S)-UnicodeFirstOff)^.Len div sizeof(UnicodeChar);
-  if (Index<=LS) and (Size>0) then
-   begin
-     UniqueString (S);
-     if Size+Index>LS then
-      Size:=LS-Index+1;
-     if Index+Size<=LS then
-      begin
-        Dec(Index);
-        Move(PUnicodeChar(S)[Index+Size],PUnicodeChar(S)[Index],(LS-Index-Size+1)*sizeof(UnicodeChar));
-      end;
-     Setlength(s,LS-Size);
-   end;
+  LS:=Length(S);
+  if (Index>LS) or (Index<=0) or (Size<=0) then
+    exit;
+
+  UniqueString (S);
+  { (Size+Index) will overflow if Size=MaxInt. }
+  if Size>LS-Index then
+    Size:=LS-Index+1;
+  if Size<=LS-Index then
+  begin
+    Dec(Index);
+    Move(PUnicodeChar(S)[Index+Size],PUnicodeChar(S)[Index],(LS-Index-Size+1)*sizeof(UnicodeChar));
+  end;
+  Setlength(s,LS-Size);
 end;
 
 
@@ -1853,6 +1865,15 @@ var ss:shortstring;
 
 begin
   fpc_shortstr_enum(ordinal,len,typinfo,ord2strindex,ss);
+  s:=ss;
+end;
+
+procedure fpc_unicodestr_bool(b : boolean;len:sizeint;out s:unicodestring);compilerproc;
+
+var ss:shortstring;
+
+begin
+  fpc_shortstr_bool(b,len,ss);
   s:=ss;
 end;
 
@@ -2595,13 +2616,6 @@ function CompareTextUnicodeString(const s1, s2 : UnicodeString): PtrInt;
   begin
     unimplementedunicodestring;
   end;
-
-
-function CharLengthPChar(const Str: PChar): PtrInt;
-  begin
-    unimplementedunicodestring;
-  end;
-
 {$warnings on}
 
 procedure initunicodestringmanager;
@@ -2624,7 +2638,8 @@ procedure initunicodestringmanager;
 {$endif HAS_WIDESTRINGMANAGER}
     widestringmanager.CompareWideStringProc:=@CompareUnicodeString;
     widestringmanager.CompareTextWideStringProc:=@CompareTextUnicodeString;
-    widestringmanager.CharLengthPCharProc:=@CharLengthPChar;
+    widestringmanager.CharLengthPCharProc:=@DefaultCharLengthPChar;
+    widestringmanager.CodePointLengthProc:=@DefaultCodePointLength;
 {$endif FPC_WIDESTRING_EQUAL_UNICODESTRING}
   end;
 

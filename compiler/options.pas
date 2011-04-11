@@ -85,6 +85,7 @@ uses
   comphook,
   symtable,scanner,rabase,
   wpobase,
+  symconst,
   i_bsd;
 
 const
@@ -123,7 +124,7 @@ const
                         + [system_i386_freebsd]
                         + [system_i386_netbsd]
                         + [system_i386_wdosx];
-                        
+
   suppported_targets_x_smallr = systems_linux + systems_solaris
                              + [system_i386_haiku]
                              + [system_i386_beos];
@@ -596,6 +597,11 @@ begin
                while j<=length(more) do
                 begin
                   case more[j] of
+                    '3' :
+                      If UnsetBool(More, j) then
+                        exclude(init_settings.localswitches,cs_ieee_errors)
+                      Else
+                        include(init_settings.localswitches,cs_ieee_errors);
                     'a' :
                       begin
                         s:=upper(copy(more,j+1,length(more)-j));
@@ -1037,11 +1043,12 @@ begin
                        end;
                      'w' :
                        begin
-                         if (j<length(more)) and (more[j+1] in ['2','3']) then
+                         if (j<length(more)) and (more[j+1] in ['2','3','4']) then
                            begin
                              case more[j+1] of
                                '2': paratargetdbg:=dbg_dwarf2;
                                '3': paratargetdbg:=dbg_dwarf3;
+                               '4': paratargetdbg:=dbg_dwarf4;
                              end;
                              inc(j);
                            end
@@ -2223,7 +2230,7 @@ begin
       target_unsup_features:=[f_threading,f_commandargs,f_fileio,f_textio,f_consoleio,f_dynlibs];
     system_i386_nativent:
       // until these features are implemented, they are disabled in the compiler
-      target_unsup_features:=[f_threading,f_processes,f_fileio,f_textio,f_consoleio,f_commandargs,f_stackcheck];
+      target_unsup_features:=[f_stackcheck];
     else
       target_unsup_features:=[];
   end;
@@ -2405,6 +2412,8 @@ begin
   def_system_macro('FPC_STRTOSHORTSTRINGPROC');
   def_system_macro('FPC_OBJFPC_EXTENDED_IF');
   def_system_macro('FPC_HAS_OPERATOR_ENUMERATOR');
+  def_system_macro('FPC_HAS_CONSTREF');
+  def_system_macro('FPC_STATICRIPFIXED');
 {$if defined(x86) or defined(powerpc) or defined(powerpc64)}
   def_system_macro('FPC_HAS_INTERNAL_ABS_LONG');
 {$endif}
@@ -2426,6 +2435,11 @@ begin
 { $if defined(x86) or defined(arm) or defined(powerpc) or defined(powerpc64) or defined(sparc)}
   def_system_macro('FPC_HAS_INTERNAL_SAR');
 { $endif}
+
+{ inline bsf/bsr implementation }
+{$if defined(x86) or defined(x86_64)}
+  def_system_macro('FPC_HAS_INTERNAL_BSX');
+{$endif}
 
 {$ifdef powerpc64}
   def_system_macro('FPC_HAS_LWSYNC');
@@ -2821,6 +2835,14 @@ if (target_info.system=system_arm_darwin) then
       def_system_macro('FPC_HAS_FEATURE_'+featurestr[i]);
   option.free;
   Option:=nil;
+
+  clearstack_pocalls := [pocall_cdecl,pocall_cppdecl,pocall_syscall,pocall_mwpascal];
+  cdecl_pocalls := [pocall_cdecl, pocall_cppdecl];
+  if (tf_safecall_clearstack in target_info.flags) then
+    begin
+      include (cdecl_pocalls, pocall_safecall);
+      include (clearstack_pocalls, pocall_safecall)
+    end;
 end;
 
 

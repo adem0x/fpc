@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSOpenPanel.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSOPENPANEL_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSOpenPanel = objcclass;
   NSOpenPanelPointer = ^NSOpenPanel;
+  NSOpenPanelPtr = NSOpenPanelPointer;
 
 {$endif}
 
@@ -41,17 +40,14 @@
 {$define NSOPENPANEL_PAS_C}
 
 { NSOpenPanel }
-  NSOpenPanel = objcclass(NSSavePanel)
+  NSOpenPanel = objcclass external (NSSavePanel)
   private
         _reservedOpenPanel: array[0..3] of char;
-    __privateOpenPanel: Pointer;
+    _privateOpenPanel: Pointer;
     
   public
-    class function alloc: NSOpenPanel; message 'alloc';
-
     class function openPanel: NSOpenPanel; message 'openPanel';
     function URLs: NSArray; message 'URLs';
-    function filenames: NSArray; message 'filenames';
     function resolvesAliases: Boolean; message 'resolvesAliases';
     procedure setResolvesAliases(flag: Boolean); message 'setResolvesAliases:';
     function canChooseDirectories: Boolean; message 'canChooseDirectories';
@@ -60,13 +56,16 @@
     procedure setAllowsMultipleSelection(flag: Boolean); message 'setAllowsMultipleSelection:';
     function canChooseFiles: Boolean; message 'canChooseFiles';
     procedure setCanChooseFiles(flag: Boolean); message 'setCanChooseFiles:';
+  end;
 
-    { Category: NSOpenPanelRuntime }
+{ NSDeprecated_NSOpenPanelCategory }
+  NSDeprecated_NSOpenPanelCategory = objccategory external name 'NSDeprecated' (NSOpenPanel)
+    function filenames: NSArray; message 'filenames';
     procedure beginSheetForDirectory_file_types_modalForWindow_modalDelegate_didEndSelector_contextInfo(path: NSString; name: NSString; fileTypes: NSArray; docWindow: NSWindow; delegate_: id; didEndSelector: SEL; contextInfo: Pointer); message 'beginSheetForDirectory:file:types:modalForWindow:modalDelegate:didEndSelector:contextInfo:';
     procedure beginForDirectory_file_types_modelessDelegate_didEndSelector_contextInfo(path: NSString; name: NSString; fileTypes: NSArray; delegate_: id; didEndSelector: SEL; contextInfo: Pointer); message 'beginForDirectory:file:types:modelessDelegate:didEndSelector:contextInfo:';
     function runModalForDirectory_file_types(path: NSString; name: NSString; fileTypes: NSArray): NSInteger; message 'runModalForDirectory:file:types:';
     function runModalForTypes(fileTypes: NSArray): NSInteger; message 'runModalForTypes:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

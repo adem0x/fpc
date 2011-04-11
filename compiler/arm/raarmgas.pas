@@ -32,6 +32,7 @@ Unit raarmgas;
     type
       tarmattreader = class(tattreader)
         actoppostfix : TOpPostfix;
+        actwideformat : boolean;
         function is_asmopcode(const s: string):boolean;override;
         function is_register(const s:string):boolean;override;
         procedure handleopcode;override;
@@ -671,6 +672,38 @@ Unit raarmgas;
               end;
           end;
 
+
+        function is_modeflag(hs : string): boolean;
+          var
+            i: longint;
+            flags: tcpumodeflags;
+          begin
+            is_modeflag := false;
+
+            flags:=[];
+            hs:=lower(hs);
+
+            if (actopcode in [A_CPSID,A_CPSIE]) and (length(hs) >= 1) then
+              begin
+                for i:=1 to length(hs) do
+                  begin
+                    case hs[i] of
+                      'a':
+                        Include(flags,mfA);
+                      'f':
+                        Include(flags,mfF);
+                      'i':
+                        Include(flags,mfI);
+                    else
+                      exit;
+                    end;
+                  end;
+                oper.opr.typ := OPR_MODEFLAGS;
+                oper.opr.flags := flags;
+                exit(true);
+              end;
+          end;
+
       var
         tempreg : tregister;
         ireg : tsuperregister;
@@ -715,11 +748,16 @@ Unit raarmgas;
           *)
           AS_ID: { A constant expression, or a Variable ref.  }
             Begin
+              if is_modeflag(actasmpattern) then
+                begin
+                  consume(AS_ID);
+                end
+              else
               { Condition code? }
               if is_conditioncode(actasmpattern) then
-              begin
-                consume(AS_ID);
-              end
+                begin
+                  consume(AS_ID);
+                end
               else
               { Local Label ? }
               if is_locallabel(actasmpattern) then
@@ -916,6 +954,7 @@ Unit raarmgas;
             Opcode:=ActOpcode;
             condition:=ActCondition;
             oppostfix:=actoppostfix;
+            wideformat:=actwideformat;
           end;
 
         { We are reading operands, so opcode will be an AS_ID }
@@ -1056,6 +1095,15 @@ Unit raarmgas;
                   end;
               end;
           end;
+        { check for format postfix }
+        if length(hs)>0 then
+          begin
+            if upcase(copy(hs,1,2)) = '.W' then
+              begin
+                actwideformat:=true;
+                delete(hs,1,2);
+              end;
+          end;
         { if we stripped all postfixes, it's a valid opcode }
         is_asmopcode:=length(hs)=0;
       end;
@@ -1094,6 +1142,7 @@ Unit raarmgas;
         instr.ConcatInstruction(curlist);
         instr.Free;
         actoppostfix:=PF_None;
+        actwideformat:=false;
       end;
 
 

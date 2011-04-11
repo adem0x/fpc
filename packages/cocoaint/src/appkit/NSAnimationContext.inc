@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSAnimationContext.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSANIMATIONCONTEXT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSAnimationContext = objcclass;
   NSAnimationContextPointer = ^NSAnimationContext;
+  NSAnimationContextPtr = NSAnimationContextPointer;
 
 {$endif}
 
@@ -41,20 +40,18 @@
 {$define NSANIMATIONCONTEXT_PAS_C}
 
 { NSAnimationContext }
-  NSAnimationContext = objcclass(NSObject)
+  NSAnimationContext = objcclass external (NSObject)
   private
-    __duration: NSTimeInterval;
+    _duration: NSTimeInterval;
         _reserved: array[0..4] of id;
     
   public
-    class function alloc: NSAnimationContext; message 'alloc';
-
     class procedure beginGrouping; message 'beginGrouping';
     class procedure endGrouping; message 'endGrouping';
     class function currentContext: NSAnimationContext; message 'currentContext';
     procedure setDuration(duration_: NSTimeInterval); message 'setDuration:';
     function duration: NSTimeInterval; message 'duration';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

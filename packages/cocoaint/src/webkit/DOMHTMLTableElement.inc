@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLTableElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLTABLEELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLTableElement = objcclass;
   DOMHTMLTableElementPointer = ^DOMHTMLTableElement;
+  DOMHTMLTableElementPtr = DOMHTMLTableElementPointer;
 
 {$endif}
 
@@ -41,11 +40,9 @@
 {$define DOMHTMLTABLEELEMENT_PAS_C}
 
 { DOMHTMLTableElement }
-  DOMHTMLTableElement = objcclass(DOMHTMLElement)
+  DOMHTMLTableElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLTableElement; message 'alloc';
-
     procedure setCaption (newValue: DOMHTMLTableCaptionElement); message 'setCaption:';
     function caption: DOMHTMLTableCaptionElement; message 'caption';
     procedure setTHead (newValue: DOMHTMLTableSectionElement); message 'setTHead:';
@@ -80,7 +77,7 @@
     procedure deleteCaption; message 'deleteCaption';
     function insertRow(index: cint): DOMHTMLElement; message 'insertRow:';
     procedure deleteRow(index: cint); message 'deleteRow:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework WebPluginContainer.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef WEBPLUGINCONTAINER_PAS_T}
@@ -26,6 +24,25 @@
 {$ifdef EXTERNAL_SYMBOLS}
 {$ifndef WEBPLUGINCONTAINER_PAS_S}
 {$define WEBPLUGINCONTAINER_PAS_S}
+
+{$endif}
+{$endif}
+
+{$ifdef FORWARD}
+
+{$endif}
+
+{$ifdef CLASSES}
+{$ifndef WEBPLUGINCONTAINER_PAS_C}
+{$define WEBPLUGINCONTAINER_PAS_C}
+
+{ WebPlugInContainerCategory }
+  WebPlugInContainerCategory = objccategory external (NSObject)
+    procedure webPlugInContainerLoadRequest_inFrame(request: NSURLRequest; target: NSString); message 'webPlugInContainerLoadRequest:inFrame:';
+    procedure webPlugInContainerShowStatus(message: NSString); message 'webPlugInContainerShowStatus:';
+    function webPlugInContainerSelectionColor: NSColor; message 'webPlugInContainerSelectionColor';
+    function webFrame: WebFrame; message 'webFrame';
+  end;
 
 {$endif}
 {$endif}

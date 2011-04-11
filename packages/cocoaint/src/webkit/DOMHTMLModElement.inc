@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLModElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLMODELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLModElement = objcclass;
   DOMHTMLModElementPointer = ^DOMHTMLModElement;
+  DOMHTMLModElementPtr = DOMHTMLModElementPointer;
 
 {$endif}
 
@@ -41,16 +40,14 @@
 {$define DOMHTMLMODELEMENT_PAS_C}
 
 { DOMHTMLModElement }
-  DOMHTMLModElement = objcclass(DOMHTMLElement)
+  DOMHTMLModElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLModElement; message 'alloc';
-
     procedure setCite (newValue: NSString); message 'setCite:';
     function cite: NSString; message 'cite';
     procedure setDateTime (newValue: NSString); message 'setDateTime:';
     function dateTime: NSString; message 'dateTime';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

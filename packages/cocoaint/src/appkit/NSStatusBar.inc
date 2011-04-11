@@ -1,10 +1,13 @@
 { Parsed from Appkit.framework NSStatusBar.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSTATUSBAR_PAS_T}
 {$define NSSTATUSBAR_PAS_T}
+
+{ Defines }
+const
+  NSVariableStatusItemLength = -1;
+  NSSquareStatusItemLength = -2;
 
 {$endif}
 {$endif}
@@ -33,6 +36,7 @@
 {$ifdef FORWARD}
   NSStatusBar = objcclass;
   NSStatusBarPointer = ^NSStatusBar;
+  NSStatusBarPtr = NSStatusBarPointer;
 
 {$endif}
 
@@ -41,22 +45,20 @@
 {$define NSSTATUSBAR_PAS_C}
 
 { NSStatusBar }
-  NSStatusBar = objcclass(NSObject)
+  NSStatusBar = objcclass external (NSObject)
   private
-    __actions: NSMutableArray;
-    __fReserved1: Pointer;
-    __fReserved2: Pointer;
-    __fReserved3: Pointer;
+    _items: id;
+    _fReserved1: Pointer;
+    _fReserved2: Pointer;
+    _registeredForNote: NSInteger;
     
   public
-    class function alloc: NSStatusBar; message 'alloc';
-
     class function systemStatusBar: NSStatusBar; message 'systemStatusBar';
     function statusItemWithLength(length: CGFloat): NSStatusItem; message 'statusItemWithLength:';
     procedure removeStatusItem(item: NSStatusItem); message 'removeStatusItem:';
     function isVertical: Boolean; message 'isVertical';
     function thickness: CGFloat; message 'thickness';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

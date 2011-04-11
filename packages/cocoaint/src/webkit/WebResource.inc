@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework WebResource.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef WEBRESOURCE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   WebResource = objcclass;
   WebResourcePointer = ^WebResource;
+  WebResourcePtr = WebResourcePointer;
 
 {$endif}
 
@@ -41,20 +40,23 @@
 {$define WEBRESOURCE_PAS_C}
 
 { WebResource }
-  WebResource = objcclass(NSObject, NSCodingProtocol, NSCopyingProtocol)
+  WebResource = objcclass external (NSObject, NSCodingProtocol, NSCopyingProtocol)
   private
-    __private: WebResourcePrivate;
+    _private: WebResourcePrivate;
     
   public
-    class function alloc: WebResource; message 'alloc';
-
     function initWithData_URL_MIMEType_textEncodingName_frameName(data_: NSData; URL_: NSURL; MIMEType_: NSString; textEncodingName_: NSString; frameName_: NSString): id; message 'initWithData:URL:MIMEType:textEncodingName:frameName:';
     function data: NSData; message 'data';
     function URL: NSURL; message 'URL';
     function MIMEType: NSString; message 'MIMEType';
     function textEncodingName: NSString; message 'textEncodingName';
     function frameName: NSString; message 'frameName';
-  end; external;
+
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+    function copyWithZone(zone_: NSZonePtr): id;
+  end;
 
 {$endif}
 {$endif}

@@ -108,7 +108,7 @@ implementation
     procedure tcgwhilerepeatnode.sync_regvars(checkusedregvars: boolean);
       begin
          if (cs_opt_regvar in current_settings.optimizerswitches) and
-            not(pi_has_goto in current_procinfo.flags) then
+            not(pi_has_label in current_procinfo.flags) then
            begin
              if checkusedregvars then
                begin
@@ -390,7 +390,7 @@ implementation
     procedure tcgfornode.sync_regvars(checkusedregvars: boolean);
       begin
          if (cs_opt_regvar in current_settings.optimizerswitches) and
-            not(pi_has_goto in current_procinfo.flags) then
+            not(pi_has_label in current_procinfo.flags) then
            begin
              if checkusedregvars then
                begin
@@ -1592,7 +1592,7 @@ implementation
              if codegenerror then
                exit;
 {$if defined(x86) or defined(arm)}
-             if (target_info.system in systems_all_windows) and
+             if (tf_safecall_exceptions in target_info.flags) and
                 (current_procinfo.procdef.proccalloption=pocall_safecall) then
                begin
                  { find safe_result variable we created in the generate_except_block }

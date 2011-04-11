@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSTextField.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTEXTFIELD_PAS_T}
@@ -31,8 +29,10 @@
 {$endif}
 
 {$ifdef FORWARD}
+  NSTextFieldDelegateProtocol = objcprotocol;
   NSTextField = objcclass;
   NSTextFieldPointer = ^NSTextField;
+  NSTextFieldPtr = NSTextFieldPointer;
 
 {$endif}
 
@@ -41,14 +41,12 @@
 {$define NSTEXTFIELD_PAS_C}
 
 { NSTextField }
-  NSTextField = objcclass(NSControl, NSUserInterfaceValidationsProtocol)
+  NSTextField = objcclass external (NSControl, NSUserInterfaceValidationsProtocol)
   private
-    __delegate: id;
-    __errorAction: SEL;
+    _delegate: id;
+    _errorAction: SEL;
     
   public
-    class function alloc: NSTextField; message 'alloc';
-
     procedure setBackgroundColor(color: NSColor); message 'setBackgroundColor:';
     function backgroundColor: NSColor; message 'backgroundColor';
     procedure setDrawsBackground(flag: Boolean); message 'setDrawsBackground:';
@@ -64,8 +62,8 @@
     function isSelectable: Boolean; message 'isSelectable';
     procedure setSelectable(flag: Boolean); message 'setSelectable:';
     procedure selectText(sender: id); message 'selectText:';
-    function delegate: id; message 'delegate';
-    procedure setDelegate(anObject: id); message 'setDelegate:';
+    function delegate: NSTextFieldDelegateProtocol; message 'delegate';
+    procedure setDelegate(anObject: NSTextFieldDelegateProtocol); message 'setDelegate:';
     function textShouldBeginEditing(textObject: NSText): Boolean; message 'textShouldBeginEditing:';
     function textShouldEndEditing(textObject: NSText): Boolean; message 'textShouldEndEditing:';
     procedure textDidBeginEditing(notification: NSNotification); message 'textDidBeginEditing:';
@@ -75,15 +73,31 @@
     procedure setBezelStyle(style: NSTextFieldBezelStyle); message 'setBezelStyle:';
     function bezelStyle: NSTextFieldBezelStyle; message 'bezelStyle';
 
-    { Category: NSKeyboardUI }
-    procedure setTitleWithMnemonic(stringWithAmpersand: NSString); message 'setTitleWithMnemonic:';
+    { Adopted Protocols }
+    function validateUserInterfaceItem(anItem: NSValidatedUserInterfaceItemProtocol): Boolean;
+  end;
 
-    { Category: NSTextFieldAttributedStringMethods }
+{ NSKeyboardUI_NSTextFieldCategory }
+  NSKeyboardUI_NSTextFieldCategory = objccategory external name 'NSKeyboardUI' (NSTextField)
+    procedure setTitleWithMnemonic(stringWithAmpersand: NSString); message 'setTitleWithMnemonic:';
+  end;
+
+{ NSTextFieldAttributedStringMethodsCategory }
+  NSTextFieldAttributedStringMethodsCategory = objccategory external (NSTextField)
     function allowsEditingTextAttributes: Boolean; message 'allowsEditingTextAttributes';
     procedure setAllowsEditingTextAttributes(flag: Boolean); message 'setAllowsEditingTextAttributes:';
     function importsGraphics: Boolean; message 'importsGraphics';
     procedure setImportsGraphics(flag: Boolean); message 'setImportsGraphics:';
-  end; external;
+  end;
 
+{$endif}
+{$endif}
+{$ifdef PROTOCOLS}
+{$ifndef NSTEXTFIELD_PAS_P}
+{$define NSTEXTFIELD_PAS_P}
+  
+{ NSTextFieldDelegate Protocol }
+  NSTextFieldDelegateProtocol = objcprotocol external name 'NSTextFieldDelegate'
+  end;
 {$endif}
 {$endif}

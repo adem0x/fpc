@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLHRElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLHRELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLHRElement = objcclass;
   DOMHTMLHRElementPointer = ^DOMHTMLHRElement;
+  DOMHTMLHRElementPtr = DOMHTMLHRElementPointer;
 
 {$endif}
 
@@ -41,18 +40,18 @@
 {$define DOMHTMLHRELEMENT_PAS_C}
 
 { DOMHTMLHRElement }
-  DOMHTMLHRElement = objcclass(DOMHTMLElement)
+  DOMHTMLHRElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLHRElement; message 'alloc';
-
     procedure setAlign (newValue: NSString); message 'setAlign:';
     function align: NSString; message 'align';
+    procedure setNoShade (newValue: Boolean); message 'setNoShade:';
+    function noShade: Boolean; message 'noShade';
     procedure setSize (newValue: NSString); message 'setSize:';
     function size: NSString; message 'size';
     procedure setWidth (newValue: NSString); message 'setWidth:';
     function width: NSString; message 'width';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -21,7 +21,7 @@
 }
 { @abstract(This unit implements an abstract asm output class for all processor types)
   This unit implements an abstract assembler output class for all processors, these
-  are then overriden for each assembler writer to actually write the data in these
+  are then overridden for each assembler writer to actually write the data in these
   classes to an assembler file.
 }
 
@@ -332,9 +332,6 @@ implementation
         for hal:=low(TAsmListType) to high(TAsmListType) do
           AsmLists[hal]:=TAsmList.create;
         WideInits :=TLinkedList.create;
-        { PIC data }
-        if (target_info.system in [system_powerpc_darwin,system_powerpc64_darwin,system_i386_darwin,system_arm_darwin]) then
-          AsmLists[al_picdata].concat(tai_section.create(sec_data_nonlazy,'',sizeof(pint)));
         { CFI }
         FAsmCFI:=CAsmCFI.Create;
       end;
@@ -452,7 +449,12 @@ implementation
 
     procedure TAsmData.getlabel(out l : TAsmLabel;alt:TAsmLabeltype);
       begin
-        l:=TAsmLabel.createlocal(AsmSymbolDict,FNextLabelNr[alt],alt);
+        if (target_info.system in systems_linux) and
+           (cs_link_smart in current_settings.globalswitches) and
+           (alt = alt_dbgline) then
+          l:=TAsmLabel.createglobal(AsmSymbolDict,name,FNextLabelNr[alt],alt)
+        else
+          l:=TAsmLabel.createlocal(AsmSymbolDict,FNextLabelNr[alt],alt);
         inc(FNextLabelNr[alt]);
       end;
 

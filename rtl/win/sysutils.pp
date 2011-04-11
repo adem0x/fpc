@@ -50,6 +50,13 @@ Var
   Win32BuildNumber   : dword;
   Win32CSDVersion    : ShortString;   // CSD record is 128 bytes only?
 
+const
+  MaxEraCount = 7;
+
+var
+  EraNames: array [1..MaxEraCount] of String;
+  EraYearOffsets: array [1..MaxEraCount] of Integer;
+
 { Compatibility with Delphi }
 function Win32Check(res:boolean):boolean;inline;
 function WinCheck(res:boolean):boolean;
@@ -60,11 +67,13 @@ Procedure RaiseLastWin32Error;
 function GetFileVersion(const AFileName: string): Cardinal;
 
 procedure GetFormatSettings;
+procedure GetLocaleFormatSettings(LCID: Integer; var FormatSettings: TFormatSettings); platform;
 
 implementation
 
   uses
-    sysconst;
+    sysconst,
+    windirs;
 
 function WinCheck(res:boolean):boolean;
   begin
@@ -101,7 +110,7 @@ function CheckWin32Version(Major,Minor: Integer): Boolean;
 
 function GetFileVersion(const AFileName:string):Cardinal;
   var
-    { usefull only as long as we don't need to touch different stack pages }
+    { useful only as long as we don't need to touch different stack pages }
     buf : array[0..3071] of byte;
     bufp : pointer;
     fn : string;
@@ -142,18 +151,16 @@ function GetFileVersion(const AFileName:string):Cardinal;
 {$DEFINE FPC_FEXPAND_UNC} (* UNC paths are supported *)
 {$DEFINE FPC_FEXPAND_DRIVES} (* Full paths begin with drive specification *)
 
+
+function ConvertEraYearString(Count ,Year,Month,Day : integer) : string; forward;
+function ConvertEraString(Count ,Year,Month,Day : integer) : string; forward;
 { Include platform independent implementation part }
 {$i sysutils.inc}
-
-function SysGetTempFileName(lpPathName:LPCSTR;
-                            lpPrefixString:LPCSTR;
-                            uUnique:UINT;
-                            lpTempFileName:LPSTR):UINT;stdcall;external 'kernel32' name 'GetTempFileNameA';
 
 function GetTempFileName(Dir,Prefix: PChar; uUnique: DWORD; TempFileName: PChar):DWORD;
 
 begin
-  Result:=SysGetTempFileName(Dir,Prefix,uUnique,TempFileName);
+  Result:= Windows.GetTempFileNameA(Dir,Prefix,uUnique,TempFileName);
 end;
 
 
@@ -206,11 +213,6 @@ end;
                               File Functions
 ****************************************************************************}
 
-var
-  SetFilePointerEx : function(hFile : THandle;
-    liDistanceToMove : int64;lpNewFilePointer : pint64;
-    dwMoveMethod : DWord) : ByteBool;stdcall;
-
 Function FileOpen (Const FileName : string; Mode : Integer) : THandle;
 const
   AccessMode: array[0..2] of Cardinal  = (
@@ -223,11 +225,8 @@ const
                FILE_SHARE_READ,
                FILE_SHARE_WRITE,
                FILE_SHARE_READ or FILE_SHARE_WRITE);
-Var
-  FN : string;
 begin
-  FN:=FileName+#0;
-  result := CreateFile(@FN[1], dword(AccessMode[Mode and 3]),
+  result := CreateFile(PChar(FileName), dword(AccessMode[Mode and 3]),
                        dword(ShareMode[(Mode and $F0) shr 4]), nil, OPEN_EXISTING,
                        FILE_ATTRIBUTE_NORMAL, 0);
   //if fail api return feInvalidHandle (INVALIDE_HANDLE=feInvalidHandle=-1)
@@ -235,11 +234,8 @@ end;
 
 
 Function FileCreate (Const FileName : String) : THandle;
-Var
-  FN : string;
 begin
-  FN:=FileName+#0;
-  Result := CreateFile(@FN[1], GENERIC_READ or GENERIC_WRITE,
+  Result := CreateFile(PChar(FileName), GENERIC_READ or GENERIC_WRITE,
                        0, nil, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
 end;
 
@@ -476,9 +472,6 @@ end;
                               Disk Functions
 ****************************************************************************}
 
-function GetDiskFreeSpace(drive:pchar;var sector_cluster,bytes_sector,
-                          freeclusters,totalclusters:longint):longbool;
-         stdcall;external 'kernel32' name 'GetDiskFreeSpaceA';
 type
    TGetDiskFreeSpaceEx = function(drive:pchar;var availableforcaller,total,free):longbool;stdcall;
 
@@ -489,7 +482,7 @@ function diskfree(drive : byte) : int64;
 var
   disk : array[1..4] of char;
   secs,bytes,
-  free,total : longint;
+  free,total : dword;
   qwtotal,qwfree,qwcaller : int64;
 begin
   if drive=0 then
@@ -525,7 +518,7 @@ function disksize(drive : byte) : int64;
 var
   disk : array[1..4] of char;
   secs,bytes,
-  free,total : longint;
+  free,total : dword;
   qwtotal,qwfree,qwcaller : int64;
 begin
   if drive=0 then
@@ -587,17 +580,8 @@ end;
 
 
 Procedure GetLocalTime(var SystemTime: TSystemTime);
-Var
-  Syst : Windows.TSystemtime;
 begin
-  windows.Getlocaltime(@syst);
-  SystemTime.year:=syst.wYear;
-  SystemTime.month:=syst.wMonth;
-  SystemTime.day:=syst.wDay;
-  SystemTime.hour:=syst.wHour;
-  SystemTime.minute:=syst.wMinute;
-  SystemTime.second:=syst.wSecond;
-  SystemTime.millisecond:=syst.wMilliSeconds;
+  windows.Getlocaltime(SystemTime);
 end;
 
 
@@ -638,6 +622,72 @@ begin
     Result := Def;
 end;
 
+function ConvertEraString(Count ,Year,Month,Day : integer) : string;
+  var
+    ASystemTime: TSystemTime;
+    buf: array[0..100] of char;
+    ALCID : LCID;
+    PriLangID : Word;
+    SubLangID : Word;
+begin
+  Result := ''; if (Count<=0) then exit;
+  DateTimeToSystemTime(EncodeDate(Year,Month,Day),ASystemTime);
+
+  ALCID := GetThreadLocale;
+//  ALCID := SysLocale.DefaultLCID;
+  if GetDateFormat(ALCID , DATE_USE_ALT_CALENDAR
+      , @ASystemTime, PChar('gg')
+      , @buf, SizeOf(buf)) > 0 then
+  begin
+    Result := buf;
+    if Count = 1 then
+    begin
+      PriLangID := ALCID and $3FF;
+      SubLangID := (ALCID and $FFFF) shr 10;
+      case PriLangID of
+        LANG_JAPANESE:
+          begin
+            Result := Copy(WideString(Result),1,1);
+          end;
+        LANG_CHINESE:
+          if (SubLangID = SUBLANG_CHINESE_TRADITIONAL) then
+          begin
+            Result := Copy(WideString(Result),1,1);
+          end;
+      end;
+    end;
+  end;
+// if Result = '' then Result := StringOfChar('G',Count);
+end;
+
+function ConvertEraYearString(Count ,Year,Month,Day : integer) : string;
+  var
+    ALCID : LCID;
+    ASystemTime : TSystemTime;
+    AFormatText : string;
+    buf : array[0..100] of Char;
+begin
+  Result := '';
+  DateTimeToSystemTime(EncodeDate(Year,Month,Day),ASystemTime);
+
+  if Count <= 2 then
+    AFormatText := 'yy'
+  else
+    AFormatText := 'yyyy';
+
+  ALCID := GetThreadLocale;
+//  ALCID := SysLocale.DefaultLCID;
+
+  if GetDateFormat(ALCID, DATE_USE_ALT_CALENDAR
+      , @ASystemTime, PChar(AFormatText)
+      , @buf, SizeOf(buf)) > 0 then
+  begin
+    Result := buf;
+    if (Count = 1) and (Result[1] = '0') then
+      Result := Copy(Result, 2, Length(Result)-1);
+  end;
+end;
+
 
 Function GetLocaleInt(LID,TP,Def: LongInt): LongInt;
 Var
@@ -650,50 +700,121 @@ Begin
     Result:=Def;
 End;
 
-
-procedure GetFormatSettings;
+function EnumEraNames(Names: PChar): WINBOOL; stdcall;
 var
-  HF  : Shortstring;
-  LID : LCID;
-  I,Day : longint;
+  i : integer;
 begin
-  LID := GetThreadLocale;
-  { Date stuff }
-  for I := 1 to 12 do
-    begin
-    ShortMonthNames[I]:=GetLocaleStr(LID,LOCALE_SABBREVMONTHNAME1+I-1,ShortMonthNames[i]);
-    LongMonthNames[I]:=GetLocaleStr(LID,LOCALE_SMONTHNAME1+I-1,LongMonthNames[i]);
-    end;
-  for I := 1 to 7 do
-    begin
-    Day := (I + 5) mod 7;
-    ShortDayNames[I]:=GetLocaleStr(LID,LOCALE_SABBREVDAYNAME1+Day,ShortDayNames[i]);
-    LongDayNames[I]:=GetLocaleStr(LID,LOCALE_SDAYNAME1+Day,LongDayNames[i]);
-    end;
-  DateSeparator := GetLocaleChar(LID, LOCALE_SDATE, '/');
-  ShortDateFormat := GetLocaleStr(LID, LOCALE_SSHORTDATE, 'm/d/yy');
-  LongDateFormat := GetLocaleStr(LID, LOCALE_SLONGDATE, 'mmmm d, yyyy');
-  { Time stuff }
-  TimeSeparator := GetLocaleChar(LID, LOCALE_STIME, ':');
-  TimeAMString := GetLocaleStr(LID, LOCALE_S1159, 'AM');
-  TimePMString := GetLocaleStr(LID, LOCALE_S2359, 'PM');
-  if StrToIntDef(GetLocaleStr(LID, LOCALE_ITLZERO, '0'), 0) = 0 then
-    HF:='h'
-  else
-    HF:='hh';
-  // No support for 12 hour stuff at the moment...
-  ShortTimeFormat := HF+':nn';
-  LongTimeFormat := HF + ':nn:ss';
-  { Currency stuff }
-  CurrencyString:=GetLocaleStr(LID, LOCALE_SCURRENCY, '');
-  CurrencyFormat:=StrToIntDef(GetLocaleStr(LID, LOCALE_ICURRENCY, '0'), 0);
-  NegCurrFormat:=StrToIntDef(GetLocaleStr(LID, LOCALE_INEGCURR, '0'), 0);
-  { Number stuff }
-  ThousandSeparator:=GetLocaleChar(LID, LOCALE_STHOUSAND, ',');
-  DecimalSeparator:=GetLocaleChar(LID, LOCALE_SDECIMAL, '.');
-  CurrencyDecimals:=StrToIntDef(GetLocaleStr(LID, LOCALE_ICURRDIGITS, '0'), 0);
+  Result := False;
+  for i := Low(EraNames) to High(EraNames) do
+   if (EraNames[i] = '') then
+   begin
+     EraNames[i] := Names;
+     Result := True;
+     break;
+   end;
 end;
 
+function EnumEraYearOffsets(YearOffsets: PChar): WINBOOL; stdcall;
+var
+  i : integer;
+begin
+  Result := False;
+  for i := Low(EraYearOffsets) to High(EraYearOffsets) do
+   if (EraYearOffsets[i] = -1) then
+   begin
+     EraYearOffsets[i] := StrToIntDef(YearOffsets, 0);
+     Result := True;
+     break;
+   end;
+end;
+
+procedure GetEraNamesAndYearOffsets;
+  var
+    ACALID : CALID;
+    ALCID : LCID;
+    buf : array[0..10] of char;
+    i : integer;
+begin
+  for i:= 1 to MaxEraCount do
+   begin
+     EraNames[i] := '';  EraYearOffsets[i] := -1;
+   end;
+  ALCID := GetThreadLocale;
+  if GetLocaleInfo(ALCID , LOCALE_IOPTIONALCALENDAR, buf, sizeof(buf)) <= 0 then exit;
+  ACALID := StrToIntDef(buf,1);
+
+  if ACALID in [3..5] then
+  begin
+    EnumCalendarInfoA(@EnumEraNames, ALCID, ACALID , CAL_SERASTRING);
+    EnumCalendarInfoA(@EnumEraYearOffsets, ALCID, ACALID, CAL_IYEAROFFSETRANGE);
+  end;
+(*
+1 CAL_GREGORIAN Gregorian (localized)
+2 CAL_GREGORIAN_US Gregorian (English strings always)
+3 CAL_JAPAN Japanese Emperor Era
+4 CAL_TAIWAN Taiwan Calendar
+5 CAL_KOREA Korean Tangun Era
+6 CAL_HIJRI Hijri (Arabic Lunar)
+7 CAL_THAI Thai
+8 CAL_HEBREW Hebrew (Lunar)
+9 CAL_GREGORIAN_ME_FRENCH Gregorian Middle East French
+10 CAL_GREGORIAN_ARABIC Gregorian Arabic
+11 CAL_GREGORIAN_XLIT_ENGLISH Gregorian transliterated English
+12 CAL_GREGORIAN_XLIT_FRENCH Gregorian transliterated French
+23 CAL_UMALQURA Windows Vista or later: Um Al Qura (Arabic lunar) calendar
+*)
+end;
+
+procedure GetLocaleFormatSettings(LCID: Integer; var FormatSettings: TFormatSettings); 
+var
+  HF  : Shortstring;
+  LID : Windows.LCID;
+  I,Day : longint;
+begin
+  LID := LCID;
+  with FormatSettings do
+    begin
+  { Date stuff }
+      for I := 1 to 12 do
+        begin
+        ShortMonthNames[I]:=GetLocaleStr(LID,LOCALE_SABBREVMONTHNAME1+I-1,ShortMonthNames[i]);
+        LongMonthNames[I]:=GetLocaleStr(LID,LOCALE_SMONTHNAME1+I-1,LongMonthNames[i]);
+        end;
+      for I := 1 to 7 do
+        begin
+        Day := (I + 5) mod 7;
+        ShortDayNames[I]:=GetLocaleStr(LID,LOCALE_SABBREVDAYNAME1+Day,ShortDayNames[i]);
+        LongDayNames[I]:=GetLocaleStr(LID,LOCALE_SDAYNAME1+Day,LongDayNames[i]);
+        end;
+      DateSeparator := GetLocaleChar(LID, LOCALE_SDATE, '/');
+      ShortDateFormat := GetLocaleStr(LID, LOCALE_SSHORTDATE, 'm/d/yy');
+      LongDateFormat := GetLocaleStr(LID, LOCALE_SLONGDATE, 'mmmm d, yyyy');
+      { Time stuff }
+      TimeSeparator := GetLocaleChar(LID, LOCALE_STIME, ':');
+      TimeAMString := GetLocaleStr(LID, LOCALE_S1159, 'AM');
+      TimePMString := GetLocaleStr(LID, LOCALE_S2359, 'PM');
+      if StrToIntDef(GetLocaleStr(LID, LOCALE_ITLZERO, '0'), 0) = 0 then
+        HF:='h'
+      else
+        HF:='hh';
+      // No support for 12 hour stuff at the moment...
+      ShortTimeFormat := HF+':nn';
+      LongTimeFormat := HF + ':nn:ss';
+      { Currency stuff }
+      CurrencyString:=GetLocaleStr(LID, LOCALE_SCURRENCY, '');
+      CurrencyFormat:=StrToIntDef(GetLocaleStr(LID, LOCALE_ICURRENCY, '0'), 0);
+      NegCurrFormat:=StrToIntDef(GetLocaleStr(LID, LOCALE_INEGCURR, '0'), 0);
+      { Number stuff }
+      ThousandSeparator:=GetLocaleChar(LID, LOCALE_STHOUSAND, ',');
+      DecimalSeparator:=GetLocaleChar(LID, LOCALE_SDECIMAL, '.');
+      CurrencyDecimals:=StrToIntDef(GetLocaleStr(LID, LOCALE_ICURRDIGITS, '0'), 0);
+    end;
+end;
+
+procedure GetFormatSettings;
+begin
+  GetlocaleFormatSettings(GetThreadLocale, DefaultFormatSettings);
+end;
 
 Procedure InitInternational;
 var
@@ -736,20 +857,13 @@ begin
 
   Set8087CW(old8087CW);
   GetFormatSettings;
+  if SysLocale.FarEast then GetEraNamesAndYearOffsets;
 end;
 
 
 {****************************************************************************
                            Target Dependent
 ****************************************************************************}
-
-function FormatMessageA(dwFlags     : DWORD;
-                        lpSource    : Pointer;
-                        dwMessageId : DWORD;
-                        dwLanguageId: DWORD;
-                        lpBuffer    : PCHAR;
-                        nSize       : DWORD;
-                        Arguments   : Pointer): DWORD; stdcall;external 'kernel32' name 'FormatMessageA';
 
 function SysErrorMessage(ErrorCode: Integer): String;
 const
@@ -933,7 +1047,6 @@ Procedure LoadVersionInfo;
 Var
    versioninfo : TOSVERSIONINFO;
 begin
-  kernel32dll:=0;
   GetDiskFreeSpaceEx:=nil;
   versioninfo.dwOSVersionInfoSize:=sizeof(versioninfo);
   GetVersionEx(versioninfo);
@@ -943,137 +1056,17 @@ begin
   Win32BuildNumber:=versionInfo.dwBuildNumber;
   Move (versioninfo.szCSDVersion ,Win32CSDVersion[1],128);
   win32CSDVersion[0]:=chr(strlen(pchar(@versioninfo.szCSDVersion)));
-  if ((versioninfo.dwPlatformId=VER_PLATFORM_WIN32_WINDOWS) and
-    (versioninfo.dwBuildNUmber>=1000)) or
-    (versioninfo.dwPlatformId=VER_PLATFORM_WIN32_NT) then
-    begin
-       kernel32dll:=LoadLibrary('kernel32');
-       if kernel32dll<>0 then
-         GetDiskFreeSpaceEx:=TGetDiskFreeSpaceEx(GetProcAddress(kernel32dll,'GetDiskFreeSpaceExA'));
-    end;
-end;
-
-
-function FreeLibrary(hLibModule : THANDLE) : longbool;
-  stdcall;external 'kernel32' name 'FreeLibrary';
-function GetVersionEx(var VersionInformation:TOSVERSIONINFO) : longbool;
-  stdcall;external 'kernel32' name 'GetVersionExA';
-function LoadLibrary(lpLibFileName : pchar):THandle;
-  stdcall;external 'kernel32' name 'LoadLibraryA';
-function GetProcAddress(hModule : THandle;lpProcName : pchar) : pointer;
-  stdcall;external 'kernel32' name 'GetProcAddress';
-
-Const
-  CSIDL_PROGRAMS                = $0002; { %SYSTEMDRIVE%\Program Files                                      }
-  CSIDL_PERSONAL                = $0005; { %USERPROFILE%\My Documents                                       }
-  CSIDL_FAVORITES               = $0006; { %USERPROFILE%\Favorites                                          }
-  CSIDL_STARTUP                 = $0007; { %USERPROFILE%\Start menu\Programs\Startup                        }
-  CSIDL_RECENT                  = $0008; { %USERPROFILE%\Recent                                             }
-  CSIDL_SENDTO                  = $0009; { %USERPROFILE%\Sendto                                             }
-  CSIDL_STARTMENU               = $000B; { %USERPROFILE%\Start menu                                         }
-  CSIDL_MYMUSIC                 = $000D; { %USERPROFILE%\Documents\My Music                                 }
-  CSIDL_MYVIDEO                 = $000E; { %USERPROFILE%\Documents\My Videos                                }
-  CSIDL_DESKTOPDIRECTORY        = $0010; { %USERPROFILE%\Desktop                                            }
-  CSIDL_NETHOOD                 = $0013; { %USERPROFILE%\NetHood                                            }
-  CSIDL_TEMPLATES               = $0015; { %USERPROFILE%\Templates                                          }
-  CSIDL_COMMON_STARTMENU        = $0016; { %PROFILEPATH%\All users\Start menu                               }
-  CSIDL_COMMON_PROGRAMS         = $0017; { %PROFILEPATH%\All users\Start menu\Programs                      }
-  CSIDL_COMMON_STARTUP          = $0018; { %PROFILEPATH%\All users\Start menu\Programs\Startup              }
-  CSIDL_COMMON_DESKTOPDIRECTORY = $0019; { %PROFILEPATH%\All users\Desktop                                  }
-  CSIDL_APPDATA                 = $001A; { %USERPROFILE%\Application Data (roaming)                         }
-  CSIDL_PRINTHOOD               = $001B; { %USERPROFILE%\Printhood                                          }
-  CSIDL_LOCAL_APPDATA           = $001C; { %USERPROFILE%\Local Settings\Application Data (non roaming)      }
-  CSIDL_COMMON_FAVORITES        = $001F; { %PROFILEPATH%\All users\Favorites                                }
-  CSIDL_INTERNET_CACHE          = $0020; { %USERPROFILE%\Local Settings\Temporary Internet Files            }
-  CSIDL_COOKIES                 = $0021; { %USERPROFILE%\Cookies                                            }
-  CSIDL_HISTORY                 = $0022; { %USERPROFILE%\Local settings\History                             }
-  CSIDL_COMMON_APPDATA          = $0023; { %PROFILESPATH%\All Users\Application Data                        }
-  CSIDL_WINDOWS                 = $0024; { %SYSTEMROOT%                                                     }
-  CSIDL_SYSTEM                  = $0025; { %SYSTEMROOT%\SYSTEM32 (may be system on 95/98/ME)                }
-  CSIDL_PROGRAM_FILES           = $0026; { %SYSTEMDRIVE%\Program Files                                      }
-  CSIDL_MYPICTURES              = $0027; { %USERPROFILE%\My Documents\My Pictures                           }
-  CSIDL_PROFILE                 = $0028; { %USERPROFILE%                                                    }
-  CSIDL_PROGRAM_FILES_COMMON    = $002B; { %SYSTEMDRIVE%\Program Files\Common                               }
-  CSIDL_COMMON_TEMPLATES        = $002D; { %PROFILEPATH%\All Users\Templates                                }
-  CSIDL_COMMON_DOCUMENTS        = $002E; { %PROFILEPATH%\All Users\Documents                                }
-  CSIDL_COMMON_ADMINTOOLS       = $002F; { %PROFILEPATH%\All Users\Start Menu\Programs\Administrative Tools }
-  CSIDL_ADMINTOOLS              = $0030; { %USERPROFILE%\Start Menu\Programs\Administrative Tools           }
-  CSIDL_COMMON_MUSIC            = $0035; { %PROFILEPATH%\All Users\Documents\my music                       }
-  CSIDL_COMMON_PICTURES         = $0036; { %PROFILEPATH%\All Users\Documents\my pictures                    }
-  CSIDL_COMMON_VIDEO            = $0037; { %PROFILEPATH%\All Users\Documents\my videos                      }
-  CSIDL_CDBURN_AREA             = $003B; { %USERPROFILE%\Local Settings\Application Data\Microsoft\CD Burning }
-  CSIDL_PROFILES                = $003E; { %PROFILEPATH%                                                    }
-
-  CSIDL_FLAG_CREATE             = $8000; { (force creation of requested folder if it doesn't exist yet)     }
-
-
-Type
-  PFNSHGetFolderPath = Function(Ahwnd: HWND; Csidl: Integer; Token: THandle; Flags: DWord; Path: PChar): HRESULT; stdcall;
-
-
-var
-  SHGetFolderPath : PFNSHGetFolderPath = Nil;
-  CFGDLLHandle : THandle = 0;
-
-Procedure InitDLL;
-
-Var
-  P : Pointer;
-
-begin
-  CFGDLLHandle:=LoadLibrary('shell32.dll');
-  if (CFGDLLHandle<>0) then
-    begin
-    P:=GetProcAddress(CFGDLLHandle,'SHGetFolderPathA');
-    If (P=Nil) then
-      begin
-      FreeLibrary(CFGDLLHandle);
-      CFGDllHandle:=0;
-      end
-    else
-      SHGetFolderPath:=PFNSHGetFolderPath(P);
-    end;
-  If (P=Nil) then
-    begin
-    CFGDLLHandle:=LoadLibrary('shfolder.dll');
-    if (CFGDLLHandle<>0) then
-      begin
-      P:=GetProcAddress(CFGDLLHandle,'SHGetFolderPathA');
-      If (P=Nil) then
-        begin
-        FreeLibrary(CFGDLLHandle);
-        CFGDllHandle:=0;
-        end
-      else
-        ShGetFolderPath:=PFNSHGetFolderPath(P);
-      end;
-    end;
-  If (@ShGetFolderPath=Nil) then
-    Raise Exception.Create('Could not determine SHGetFolderPath Function');
-end;
-
-Function GetSpecialDir(ID :  Integer) : String;
-
-Var
-  APath : Array[0..MAX_PATH] of char;
-
-begin
-  Result:='';
-  if (CFGDLLHandle=0) then
-    InitDLL;
-  If (SHGetFolderPath<>Nil) then
-    begin
-    if SHGetFolderPath(0,ID or CSIDL_FLAG_CREATE,0,0,@APATH[0])=S_OK then
-      Result:=IncludeTrailingPathDelimiter(StrPas(@APath[0]));
-    end;
+  kernel32dll:=GetModuleHandle('kernel32');
+  if kernel32dll<>0 then
+    GetDiskFreeSpaceEx:=TGetDiskFreeSpaceEx(GetProcAddress(kernel32dll,'GetDiskFreeSpaceExA'));
 end;
 
 Function GetAppConfigDir(Global : Boolean) : String;
 begin
   If Global then
-    Result:=GetSpecialDir(CSIDL_COMMON_APPDATA)
+    Result:=GetWindowsSpecialDir(CSIDL_COMMON_APPDATA)
   else
-    Result:=GetSpecialDir(CSIDL_LOCAL_APPDATA);
+    Result:=GetWindowsSpecialDir(CSIDL_LOCAL_APPDATA);
   If (Result<>'') then
     begin
       if VendorName<>'' then
@@ -1093,7 +1086,7 @@ end;
 Function GetUserDir : String;
 
 begin
-  Result:=GetSpecialDir(CSIDL_PROFILE);
+  Result:=GetWindowsSpecialDir(CSIDL_PROFILE);
 end;
 
 Procedure InitSysConfigDir;
@@ -1109,39 +1102,40 @@ end;
 
 { This is the case of Win9x. Limited to current locale of course, but it's better
   than not working at all. }
-function DoCompareStringA(const s1, s2: WideString; Flags: DWORD): PtrInt;
+function DoCompareStringA(P1, P2: PWideChar; L1, L2: PtrUInt; Flags: DWORD): PtrInt;
   var
     a1, a2: AnsiString;
   begin
-    a1:=s1;
-    a2:=s2;
+    if L1>0 then
+      widestringmanager.Wide2AnsiMoveProc(P1,a1,L1);
+    if L2>0 then
+      widestringmanager.Wide2AnsiMoveProc(P2,a2,L2);
     SetLastError(0);
     Result:=CompareStringA(LOCALE_USER_DEFAULT,Flags,pchar(a1),
       length(a1),pchar(a2),length(a2))-2;
   end;
 
-function DoCompareStringW(const s1, s2: WideString; Flags: DWORD): PtrInt;
+function DoCompareStringW(P1, P2: PWideChar; L1, L2: PtrUInt; Flags: DWORD): PtrInt;
   begin
     SetLastError(0);
-    Result:=CompareStringW(LOCALE_USER_DEFAULT,Flags,pwidechar(s1),
-      length(s1),pwidechar(s2),length(s2))-2;
+    Result:=CompareStringW(LOCALE_USER_DEFAULT,Flags,P1,L1,P2,L2)-2;
     if GetLastError=0 then
       Exit;
     if GetLastError=ERROR_CALL_NOT_IMPLEMENTED then  // Win9x case
-      Result:=DoCompareStringA(s1, s2, Flags);
+      Result:=DoCompareStringA(P1, P2, L1, L2, Flags);
     if GetLastError<>0 then
       RaiseLastOSError;
   end;
 
 function Win32CompareWideString(const s1, s2 : WideString) : PtrInt;
   begin
-    Result:=DoCompareStringW(s1, s2, 0);
+    Result:=DoCompareStringW(PWideChar(s1), PWideChar(s2), Length(s1), Length(s2), 0);
   end;
 
 
 function Win32CompareTextWideString(const s1, s2 : WideString) : PtrInt;
   begin
-    Result:=DoCompareStringW(s1, s2, NORM_IGNORECASE);
+    Result:=DoCompareStringW(PWideChar(s1), PWideChar(s2), Length(s1), Length(s2), NORM_IGNORECASE);
   end;
 
 
@@ -1222,12 +1216,32 @@ function Win32AnsiStrUpper(Str: PChar): PChar;
     result:=str;
   end;
 
+function Win32CompareUnicodeString(const s1, s2 : UnicodeString) : PtrInt;
+  begin
+    Result:=DoCompareStringW(PWideChar(s1), PWideChar(s2), Length(s1), Length(s2), 0);
+  end;
+
+
+function Win32CompareTextUnicodeString(const s1, s2 : UnicodeString) : PtrInt;
+  begin
+    Result:=DoCompareStringW(PWideChar(s1), PWideChar(s2), Length(s1), Length(s2), NORM_IGNORECASE);
+  end;
+
 
 { there is a similiar procedure in the system unit which inits the fields which
   are relevant already for the system unit }
 procedure InitWin32Widestrings;
   begin
+    { return value: number of code points in the string. Whenever an invalid
+      code point is encountered, all characters part of this invalid code point
+      are considered to form one "character" and the next character is
+      considered to be the start of a new (possibly also invalid) code point }
 //!!!    CharLengthPCharProc : function(const Str: PChar): PtrInt;
+    { return value:
+      -1 if incomplete or invalid code point
+      0 if NULL character,
+      > 0 if that's the length in bytes of the code point }
+//!!!!    CodePointLengthProc : function(const Str: PChar; MaxLookAead: PtrInt): Ptrint;
     widestringmanager.CompareWideStringProc:=@Win32CompareWideString;
     widestringmanager.CompareTextWideStringProc:=@Win32CompareTextWideString;
     widestringmanager.UpperAnsiStringProc:=@Win32AnsiUpperCase;
@@ -1240,6 +1254,8 @@ procedure InitWin32Widestrings;
     widestringmanager.StrLICompAnsiStringProc:=@Win32AnsiStrLIComp;
     widestringmanager.StrLowerAnsiStringProc:=@Win32AnsiStrLower;
     widestringmanager.StrUpperAnsiStringProc:=@Win32AnsiStrUpper;
+    widestringmanager.CompareUnicodeStringProc:=@Win32CompareUnicodeString;
+    widestringmanager.CompareTextUnicodeStringProc:=@Win32CompareTextUnicodeString;
   end;
 
 
@@ -1252,8 +1268,4 @@ Initialization
   OnBeep:=@SysBeep;
 Finalization
   DoneExceptions;
-  if kernel32dll<>0 then
-   FreeLibrary(kernel32dll);
- if CFGDLLHandle<>0 then
-   FreeLibrary(CFGDllHandle);
 end.

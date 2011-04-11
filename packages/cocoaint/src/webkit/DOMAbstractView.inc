@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMAbstractView.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:19:00 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMABSTRACTVIEW_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMAbstractView = objcclass;
   DOMAbstractViewPointer = ^DOMAbstractView;
+  DOMAbstractViewPtr = DOMAbstractViewPointer;
 
 {$endif}
 
@@ -41,13 +40,11 @@
 {$define DOMABSTRACTVIEW_PAS_C}
 
 { DOMAbstractView }
-  DOMAbstractView = objcclass(DOMObject)
+  DOMAbstractView = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMAbstractView; message 'alloc';
-
     function document: DOMDocument; message 'document';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

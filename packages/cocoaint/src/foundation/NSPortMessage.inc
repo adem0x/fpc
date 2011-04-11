@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSPortMessage.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPORTMESSAGE_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSPortMessage = objcclass;
   NSPortMessagePointer = ^NSPortMessage;
+  NSPortMessagePtr = NSPortMessagePointer;
 
 {$endif}
 
@@ -41,26 +40,24 @@
 {$define NSPORTMESSAGE_PAS_C}
 
 { NSPortMessage }
-  NSPortMessage = objcclass(NSObject)
+  NSPortMessage = objcclass external (NSObject)
   private
-    _localPort: NSPort;
-    _remotePort: NSPort;
+    localPort: NSPort;
+    remotePort: NSPort;
     _components: NSMutableArray;
-    _msgid: cardinal;
-    _reserved2: Pointer;
-    _reserved: Pointer;
+    _msgid: cuint32;
+    reserved2: Pointer;
+    reserved: Pointer;
     
   public
-    class function alloc: NSPortMessage; message 'alloc';
-
     function initWithSendPort_receivePort_components(sendPort_: NSPort; replyPort: NSPort; components_: NSArray): id; message 'initWithSendPort:receivePort:components:';
     function components: NSArray; message 'components';
     function receivePort: NSPort; message 'receivePort';
     function sendPort: NSPort; message 'sendPort';
     function sendBeforeDate(date: NSDate): Boolean; message 'sendBeforeDate:';
-    function msgid: cardinal; message 'msgid';
-    procedure setMsgid(msgid_: cardinal); message 'setMsgid:';
-  end; external;
+    function msgid: cuint32; message 'msgid';
+    procedure setMsgid(msgid_: cuint32); message 'setMsgid:';
+  end;
 
 {$endif}
 {$endif}

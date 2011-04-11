@@ -55,8 +55,16 @@ const
   ocrecycleflag  = 1;
   { above flags stored in size field }
   sizemask = not(blocksize-1);
-  fixedoffsetshift = 16;
+  fixedoffsetshift = 12;
   fixedsizemask = sizemask and ((1 shl fixedoffsetshift) - 1);
+  { After how many successive allocations of oschunks for fixed freelist
+    purposes should we double the size of locgrowheapsizesmall for the
+    current thread. Since the allocations of oschunks are added together for
+    all blocksizes, this is only a fuzzy indication of when the size will be
+    doubled rather than a hard and fast boundary. }
+  fixedallocthreshold = (maxblocksize shr blockshift) * 8;
+  { maximum size to which locgrowheapsizesmall can grow }
+  maxgrowheapsizesmall = 256*1024;
 
 {****************************************************************************}
 
@@ -167,9 +175,15 @@ type
 
   tfreelists = record
     oslist : poschunk;      { os chunks free, available for use }
-    oscount : dword;        { number of os chunks on oslist }
-    oslist_all : poschunk;  { all os chunks allocated }
     fixedlists : tfixedfreelists;
+    oscount : dword;        { number of os chunks on oslist }
+    { how many oschunks have been allocated in this thread since
+      the last time we doubled the locgrowheapsizesmall size }
+    fixedallocated: dword;
+    { the size of oschunks allocated for fixed allocations in this thread;
+      initialised on thread creation with the global growheapsizesmall setting }
+    locgrowheapsizesmall: ptruint;
+    oslist_all : poschunk;  { all os chunks allocated }
     varlist : pmemchunk_var;
     { chunks waiting to be freed from other thread }
     waitfixed : pmemchunk_fixed;
@@ -277,7 +291,7 @@ begin
   FreeMem := MemoryManager.FreeMem(p);
 end;
 
-function FreeMemory(p:pointer):ptruint;
+function FreeMemory(p:pointer):ptruint; cdecl;
 begin
   FreeMemory := FreeMem(p);
 end;
@@ -287,7 +301,7 @@ begin
   GetMem := MemoryManager.GetMem(Size);
 end;
 
-function GetMemory(size:ptruint):pointer;
+function GetMemory(size:ptruint):pointer; cdecl;
 begin
   GetMemory := GetMem(size);
 end;
@@ -303,7 +317,7 @@ begin
   ReAllocMem := MemoryManager.ReAllocMem(p,size);
 end;
 
-function ReAllocMemory(var p:pointer;Size:ptruint):pointer;
+function ReAllocMemory(p:pointer;Size:ptruint):pointer; cdecl;
 begin
   ReAllocMemory := ReAllocMem(p,size);
 end;
@@ -483,6 +497,8 @@ begin
     loc_freelists^.oslist_all := poc^.next_any;
   if assigned(poc^.next_any) then
     poc^.next_any^.prev_any := poc^.prev_any;
+  if poc^.used >= 0 then
+    dec(loc_freelists^.fixedallocated);
   pocsize := poc^.size and sizemask;
   dec(loc_freelists^.internal_status.currheapsize, pocsize);
   SysOSFree(poc, pocsize);
@@ -781,9 +797,9 @@ begin
       { allocate smaller blocks for fixed-size chunks }
       if chunkindex<>0 then
         begin
-          poc := SysOSAlloc(GrowHeapSizeSmall);
+          poc := SysOSAlloc(loc_freelists^.LocGrowHeapSizeSmall);
           if poc<>nil then
-            size := GrowHeapSizeSmall;
+            size := loc_freelists^.LocGrowHeapSizeSmall;
         end
     { first try 256K (default) }
       else if size<=GrowHeapSize1 then
@@ -860,6 +876,17 @@ begin
       if pmc_next<>nil then
         pmc_next^.prev_fixed := pmc;
       loc_freelists^.fixedlists[chunkindex] := pmemchunk_fixed(result);
+      { check whether we should increase the size of the fixed freelist blocks }
+      inc(loc_freelists^.fixedallocated);
+      if loc_freelists^.fixedallocated > fixedallocthreshold then
+        begin
+          if loc_freelists^.locgrowheapsizesmall < maxgrowheapsizesmall then
+            inc(loc_freelists^.locgrowheapsizesmall, loc_freelists^.locgrowheapsizesmall);
+          { also set to zero in case we did not grow the blocksize to
+            prevent oveflows of this counter in case the rtl is compiled
+            range/overflow checking }
+          loc_freelists^.fixedallocated := 0;
+        end;
     end
   else
     begin
@@ -943,6 +970,13 @@ var
   iter : cardinal;
 begin
   result:=nil;
+  { check for maximum possible allocation (everything is rounded up to the
+    next multiple of 64k) }
+  if (size>high(ptruint)-$ffff) then
+    if ReturnNilIfGrowHeapFails then
+      exit
+    else
+      HandleError(204);
   { free pending items }
   loc_freelists := @freelists;
   try_finish_waitvarlist(loc_freelists);
@@ -1011,7 +1045,8 @@ begin
     end
   else
     begin
-      size := (size+(sizeof(tmemchunk_var_hdr)+(blocksize-1))) and sizemask;
+      if size < high(ptruint)-((sizeof(tmemchunk_var_hdr)+(blocksize-1))) then
+        size := (size+(sizeof(tmemchunk_var_hdr)+(blocksize-1))) and sizemask;
       result := sysgetmem_var(size);
     end;
 
@@ -1059,34 +1094,42 @@ var
   chunksize: ptruint;
   poc: poschunk;
   pmc_next: pmemchunk_fixed;
+  pocfreelists: pfreelists;
 begin
   poc := poschunk(pointer(pmc)-(pmc^.size shr fixedoffsetshift));
+  { start memory access to poc^.freelists already }
+  pocfreelists := poc^.freelists;
   chunksize := pmc^.size and fixedsizemask;
-  if loc_freelists <> poc^.freelists then
-  begin
-    { deallocated in wrong thread! add to to-be-freed list of correct thread }
-    waitfree_fixed(pmc, poc);
-    exit(chunksize);
-  end;
-
-  dec(loc_freelists^.internal_status.currheapused, chunksize);
-  { insert the block in its freelist }
-  chunkindex := chunksize shr blockshift;
-  pmc_next := loc_freelists^.fixedlists[chunkindex];
-  pmc^.prev_fixed := nil;
-  pmc^.next_fixed := pmc_next;
-  if assigned(pmc_next) then
-    pmc_next^.prev_fixed := pmc;
-  loc_freelists^.fixedlists[chunkindex] := pmc;
-  { decrease used blocks count }
-  dec(poc^.used);
-  if poc^.used <= 0 then
+  if loc_freelists = pocfreelists then
     begin
-      { decrease used blocks count }
-      if poc^.used<0 then
-        HandleError(204);
-      { osblock can be freed? }
-      append_to_oslist(poc);
+      { decrease used blocks count (well in advance of poc^.used check below,
+        to avoid stalling due to a dependency) }
+      dec(poc^.used);
+
+      { insert the block in its freelist }
+      chunkindex := chunksize shr blockshift;
+      pmc_next := loc_freelists^.fixedlists[chunkindex];
+      pmc^.prev_fixed := nil;
+      pmc^.next_fixed := pmc_next;
+      if assigned(pmc_next) then
+        pmc_next^.prev_fixed := pmc;
+      loc_freelists^.fixedlists[chunkindex] := pmc;
+
+      dec(loc_freelists^.internal_status.currheapused, chunksize);
+
+      if poc^.used <= 0 then
+        begin
+          { decrease used blocks count }
+          if poc^.used<0 then
+            HandleError(204);
+          { osblock can be freed? }
+          append_to_oslist(poc);
+        end;
+    end
+  else
+    begin
+      { deallocated in wrong thread! add to to-be-freed list of correct thread }
+      waitfree_fixed(pmc, poc);
     end;
   result := chunksize;
 end;
@@ -1103,13 +1146,13 @@ begin
     exit(chunksize);
   end;
 
-  dec(loc_freelists^.internal_status.currheapused, chunksize);
   { insert the block in it's freelist }
   pmcv^.size := pmcv^.size and (not usedflag);
   append_to_list_var(pmcv);
   pmcv := try_concat_free_chunk(pmcv);
   if (pmcv^.size and (firstblockflag or lastblockflag)) = (firstblockflag or lastblockflag) then
     append_to_oslist_var(pmcv);
+  dec(loc_freelists^.internal_status.currheapused, chunksize);
   result := chunksize;
 end;
 
@@ -1138,6 +1181,7 @@ begin
 {$endif}
   { loc_freelists is a threadvar, so it can be worth it to prefetch }
   loc_freelists := @freelists;
+  prefetch(loc_freelists^.internal_status.currheapused);
   { check if this is a fixed- or var-sized chunk }
   if (pmc^.size and fixedsizeflag) = 0 then
     result := sysfreemem_var(loc_freelists, pmemchunk_var(p-sizeof(tmemchunk_var_hdr)))
@@ -1431,6 +1475,9 @@ begin
   end;
   loc_freelists := @freelists;
   fillchar(loc_freelists^,sizeof(tfreelists),0);
+  { initialise the local blocksize for allocating oschunks for fixed
+    freelists with the default starting value }
+  loc_freelists^.locgrowheapsizesmall:=growheapsizesmall;
 {$ifdef DUMP_MEM_USAGE}
   fillchar(sizeusage,sizeof(sizeusage),0);
   fillchar(maxsizeusage,sizeof(sizeusage),0);
@@ -1449,6 +1496,9 @@ begin
 {$endif}
   loc_freelists := @freelists;
   fillchar(loc_freelists^,sizeof(tfreelists),0);
+  { initialise the local blocksize for allocating oschunks for fixed
+    freelists with the default starting value }
+  loc_freelists^.locgrowheapsizesmall:=growheapsizesmall;
   fillchar(orphaned_freelists,sizeof(orphaned_freelists),0);
 end;
 

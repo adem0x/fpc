@@ -1,10 +1,12 @@
 { Parsed from Foundation.framework NSURLResponse.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSURLRESPONSE_PAS_T}
 {$define NSURLRESPONSE_PAS_T}
+
+{ Defines }
+const
+  NSURLResponseUnknownLength = -1;
 
 {$endif}
 {$endif}
@@ -33,8 +35,10 @@
 {$ifdef FORWARD}
   NSURLResponse = objcclass;
   NSURLResponsePointer = ^NSURLResponse;
+  NSURLResponsePtr = NSURLResponsePointer;
   NSHTTPURLResponse = objcclass;
   NSHTTPURLResponsePointer = ^NSHTTPURLResponse;
+  NSHTTPURLResponsePtr = NSHTTPURLResponsePointer;
 
 {$endif}
 
@@ -43,33 +47,34 @@
 {$define NSURLRESPONSE_PAS_C}
 
 { NSURLResponse }
-  NSURLResponse = objcclass(NSObject, NSCodingProtocol, NSCopyingProtocol)
+  NSURLResponse = objcclass external (NSObject, NSCodingProtocol, NSCopyingProtocol)
   private
-    __internal: NSURLResponseInternal;
+    _internal: NSURLResponseInternal;
     
   public
-    class function alloc: NSURLResponse; message 'alloc';
-
     function initWithURL_MIMEType_expectedContentLength_textEncodingName(URL_: NSURL; MIMEType_: NSString; length: NSInteger; name: NSString): id; message 'initWithURL:MIMEType:expectedContentLength:textEncodingName:';
     function URL: NSURL; message 'URL';
     function MIMEType: NSString; message 'MIMEType';
     function expectedContentLength: clonglong; message 'expectedContentLength';
     function textEncodingName: NSString; message 'textEncodingName';
     function suggestedFilename: NSString; message 'suggestedFilename';
-  end; external;
+
+    { Adopted Protocols }
+    procedure encodeWithCoder(aCoder: NSCoder);
+    function initWithCoder(aDecoder: NSCoder): id;
+    function copyWithZone(zone_: NSZonePtr): id;
+  end;
 
 { NSHTTPURLResponse }
-  NSHTTPURLResponse = objcclass(NSURLResponse)
+  NSHTTPURLResponse = objcclass external (NSURLResponse)
   private
-    __httpInternal: NSHTTPURLResponseInternal;
+    _httpInternal: NSHTTPURLResponseInternal;
     
   public
-    class function alloc: NSHTTPURLResponse; message 'alloc';
-
     function statusCode: NSInteger; message 'statusCode';
     function allHeaderFields: NSDictionary; message 'allHeaderFields';
     class function localizedStringForStatusCode(statusCode_: NSInteger): NSString; message 'localizedStringForStatusCode:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSXMLDocument.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSXMLDOCUMENT_PAS_T}
@@ -10,13 +8,14 @@
 
 const
   NSXMLDocumentXMLKind = 0;
-  NSXMLDocumentXHTMLKind = 0;
-  NSXMLDocumentHTMLKind = 1;
-  NSXMLDocumentTextKind = 2;
+  NSXMLDocumentXHTMLKind = 1;
+  NSXMLDocumentHTMLKind = 2;
+  NSXMLDocumentTextKind = 3;
 
 { Types }
 type
   NSXMLDocumentContentKind = NSUInteger;
+  NSXMLDocumentContentKindPtr = ^NSXMLDocumentContentKind;
 
 {$endif}
 {$endif}
@@ -45,6 +44,7 @@ type
 {$ifdef FORWARD}
   NSXMLDocument = objcclass;
   NSXMLDocumentPointer = ^NSXMLDocument;
+  NSXMLDocumentPtr = NSXMLDocumentPointer;
 
 {$endif}
 
@@ -53,24 +53,22 @@ type
 {$define NSXMLDOCUMENT_PAS_C}
 
 { NSXMLDocument }
-  NSXMLDocument = objcclass(NSXMLNode)
+  NSXMLDocument = objcclass external (NSXMLNode)
   private
-    __encoding: NSString;
-    __version: NSString;
-    __docType: NSXMLDTD;
-    __children: NSArray;
-    __childrenHaveMutated: Boolean;
-    __standalone: Boolean;
-        _padding3: array[0..1] of byte;
-    __rootElement: NSXMLElement;
-    __URI: NSString;
-    __MIMEType: NSString;
-    __fidelityMask: NSUInteger;
-    __contentKind: NSXMLDocumentContentKind;
+    _encoding: NSString;
+    _version: NSString;
+    _docType: NSXMLDTD;
+    _children: NSArray;
+    _childrenHaveMutated: Boolean;
+    _standalone: Boolean;
+        _padding3: array[0..1] of cuint8;
+    _rootElement: NSXMLElement;
+    _URI: NSString;
+    _MIMEType: NSString;
+    _fidelityMask: NSUInteger;
+    _contentKind: NSXMLDocumentContentKind;
     
   public
-    class function alloc: NSXMLDocument; message 'alloc';
-
     function initWithXMLString_options_error(string_: NSString; mask: NSUInteger; error: NSErrorPointer): id; message 'initWithXMLString:options:error:';
     function initWithContentsOfURL_options_error(url: NSURL; mask: NSUInteger; error: NSErrorPointer): id; message 'initWithContentsOfURL:options:error:';
     function initWithData_options_error(data: NSData; mask: NSUInteger; error: NSErrorPointer): id; message 'initWithData:options:error:';
@@ -102,7 +100,7 @@ type
     function objectByApplyingXSLTString_arguments_error(xslt: NSString; arguments: NSDictionary; error: NSErrorPointer): id; message 'objectByApplyingXSLTString:arguments:error:';
     function objectByApplyingXSLTAtURL_arguments_error(xsltURL: NSURL; argument: NSDictionary; error: NSErrorPointer): id; message 'objectByApplyingXSLTAtURL:arguments:error:';
     function validateAndReturnError(error: NSErrorPointer): Boolean; message 'validateAndReturnError:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

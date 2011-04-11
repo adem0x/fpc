@@ -178,7 +178,7 @@ const
   parser_e_invalid_record_const=03078;
   parser_e_false_with_expr=03079;
   parser_e_void_function=03080;
-  parser_e_constructors_always_objects=03081;
+  parser_e_only_methods_allowed=03081;
   parser_e_operator_not_overloaded=03082;
   parser_e_no_such_assignment=03083;
   parser_e_overload_impossible=03084;
@@ -313,7 +313,7 @@ const
   parser_e_packed_element_no_var_addr=03221;
   parser_e_packed_dynamic_open_array=03222;
   parser_e_packed_element_no_loop=03223;
-  parser_e_type_var_const_only_in_generics_and_classes=03224;
+  parser_e_type_var_const_only_in_records_and_classes=03224;
   parser_e_cant_create_generics_of_this_type=03225;
   parser_w_no_lineinfo_use_switch=03226;
   parser_e_no_funcret_specified=03227;
@@ -380,9 +380,22 @@ const
   parser_e_only_one_class_destructor_allowed=03289;
   parser_e_no_paras_for_class_constructor=03290;
   parser_e_no_paras_for_class_destructor=03291;
-  parser_e_invalid_codepage=03292;
   parser_f_modeswitch_objc_required=03293;
-  parser_e_widestring_to_ansi_compile_time=03294;
+  parser_e_objc_enumerator_2_0=03294;
+  parser_e_objc_missing_enumeration_defs=03295;
+  parser_e_no_procvarnested_const=03296;
+  parser_f_no_generic_inside_generic=03297;
+  parser_e_forward_protocol_declaration_must_be_resolved=03298;
+  parser_e_no_record_published=03299;
+  parser_e_no_destructor_in_records=03300;
+  parser_e_class_methods_only_static_in_records=03301;
+  parser_e_no_constructor_in_records=03302;
+  parser_e_at_least_one_argument_must_be_of_type=03303;
+  parser_e_cant_use_type_parameters_here=03304;
+  parser_e_externals_no_section=03305;
+  parser_e_section_no_locals=03306;
+  parser_e_invalid_codepage=03307;
+  parser_e_widestring_to_ansi_compile_time=03308;
   type_e_mismatch=04000;
   type_e_incompatible_types=04001;
   type_e_not_equal_types=04002;
@@ -469,6 +482,9 @@ const
   type_e_class_or_objcclass_type_expected=04093;
   type_e_objcclass_type_expected=04094;
   type_w_procvar_univ_conflicting_para=04095;
+  type_e_generics_cannot_reference_itself=04096;
+  type_e_type_parameters_are_not_allowed_here=04097;
+  type_e_generic_declaration_does_not_match=04098;
   sym_e_id_not_found=05000;
   sym_f_internal_error_in_symtablestack=05001;
   sym_e_duplicate_id=05002;
@@ -535,6 +551,10 @@ const
   sym_w_library_unit=05077;
   sym_w_non_implemented_unit=05078;
   sym_w_experimental_unit=05079;
+  sym_e_objc_formal_class_not_resolved=05080;
+  sym_e_interprocgoto_into_init_final_code_not_allowed=05081;
+  sym_e_external_class_name_mismatch1=05082;
+  sym_e_external_class_name_mismatch2=05083;
   cg_e_parasize_too_big=06009;
   cg_e_file_must_call_by_reference=06012;
   cg_e_cant_use_far_pointer_there=06013;
@@ -563,6 +583,9 @@ const
   cg_h_inherited_ignored=06048;
   cg_e_goto_label_not_found=06049;
   cg_f_unknown_type_in_unit=06050;
+  cg_e_interprocedural_goto_only_to_outer_scope_allowed=06051;
+  cg_e_labels_cannot_defined_outside_declaration_scope=06052;
+  cg_e_goto_across_procedures_with_exceptions_not_allowed=06053;
   asmr_d_start_reading=07000;
   asmr_d_finish_reading=07001;
   asmr_e_none_label_contain_at=07002;
@@ -668,6 +691,7 @@ const
   asmr_e_need_pic_ref=07107;
   asmr_e_mixing_regtypes=07108;
   asmr_e_empty_regset=07109;
+  asmr_w_useless_got_for_local=07110;
   asmw_f_too_many_asm_files=08000;
   asmw_f_assembler_output_not_supported=08001;
   asmw_f_comp_not_supported=08002;
@@ -861,9 +885,9 @@ const
   option_info=11024;
   option_help_pages=11025;
 
-  MsgTxtSize = 56517;
+  MsgTxtSize = 58873;
 
   MsgIdxMax : array[1..20] of longint=(
-    24,88,295,96,80,51,110,22,202,63,
+    24,88,309,99,84,54,111,22,202,63,
     49,20,1,1,1,1,1,1,1,1
   );

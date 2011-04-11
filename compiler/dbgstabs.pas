@@ -66,7 +66,7 @@ interface
         procedure write_sym_stabstr(list:TAsmList;sym:tsym;const ss:ansistring);
         { tdef writing }
         function  def_stab_number(def:tdef):string;
-        function  def_stab_classnumber(def:tobjectdef):string;
+        function  def_stab_classnumber(def:tabstractrecorddef):string;
         function  def_var_value(const s:string;arg:pointer):string;
         function  def_stabstr_evaluate(def:tdef;const s:string;const vars:array of string):ansistring;
         procedure write_def_stabstr(list:TAsmList;def:tdef;const ss:ansistring);
@@ -104,6 +104,8 @@ interface
         procedure insertmoduleinfo;override;
         procedure insertlineinfo(list:TAsmList);override;
         procedure referencesections(list:TAsmList);override;
+
+        constructor Create;override;
       end;
 
 
@@ -290,7 +292,7 @@ implementation
            not(def.dbg_state in [dbg_state_writing,dbg_state_written,dbg_state_queued]) then
           internalerror(200403091);
 
-        { Keep track of used stabs, this info is only usefull for stabs
+        { Keep track of used stabs, this info is only useful for stabs
           referenced by the symbols. Definitions will always include all
           required stabs }
         if def.dbg_state=dbg_state_unused then
@@ -314,11 +316,11 @@ implementation
       end;
 
 
-    function TDebugInfoStabs.def_stab_classnumber(def:tobjectdef):string;
+    function TDebugInfoStabs.def_stab_classnumber(def:tabstractrecorddef):string;
       begin
         if def.stab_number=0 then
           def_stab_number(def);
-        if (def.objecttype=odt_class) then
+        if (def.typ=objectdef) and (tobjectdef(def).objecttype=odt_class) then
           result:=tostr(def.stab_number-1)
         else
           result:=tostr(def.stab_number);
@@ -354,7 +356,7 @@ implementation
     procedure TDebugInfoStabs.field_add_stabstr(p:TObject;arg:pointer);
       var
         spec    : string[3];
-        varsize : aint;
+        varsize : asizeint;
         newss   : ansistring;
         ss      : pansistring absolute arg;
       begin
@@ -379,8 +381,13 @@ implementation
                 varsize:=tfieldvarsym(p).vardef.size;
                 { open arrays made overflows !! }
                 { how can a record/object/class contain an open array? (JM) }
+{$ifdef cpu16bitaddr}
+                if varsize>$fff then
+                  varsize:=$fff;
+{$else cpu16bitaddr}
                 if varsize>$fffffff then
                   varsize:=$fffffff;
+{$endif cpu16bitaddr}
                 newss:=def_stabstr_evaluate(nil,'$1:$2,$3,$4;',[GetSymName(tfieldvarsym(p)),
                                      spec+def_stab_number(tfieldvarsym(p).vardef),
                                      tostr(TConstExprInt(tfieldvarsym(p).fieldoffset)*8),tostr(varsize*8)])
@@ -414,7 +421,7 @@ implementation
                lindex := pd.extnumber;
                {doesnt seem to be necessary
                lindex := lindex or $80000000;}
-               virtualind := '*'+tostr(lindex)+';'+def_stab_classnumber(pd._class)+';'
+               virtualind := '*'+tostr(lindex)+';'+def_stab_classnumber(pd.struct)+';'
              end
             else
              virtualind := '.';
@@ -441,6 +448,8 @@ implementation
                         argnames:=argnames+'5const';
                       vs_out :
                         argnames:=argnames+'3out';
+                      vs_constref :
+                        argnames:=argnames+'8constref';
                     end;
                   end
                 else
@@ -514,7 +523,7 @@ implementation
             st:=def_stabstr_evaluate(def,'"'+symname+':$1$2=',[stabchar,def_stab_number(def)]);
           end;
         st:=st+ss;
-        { line info is set to 0 for all defs, because the def can be in an other
+        { line info is set to 0 for all defs, because the def can be in another
           unit and then the linenumber is invalid in the current sourcefile }
         st:=st+def_stabstr_evaluate(def,'",${N_LSYM},0,0,0',[]);
         { add to list }
@@ -781,7 +790,7 @@ implementation
         else
           do_write_object(list,def);
         { VMT symbol }
-        if (oo_has_vmt in tobjectdef(def).objectoptions) and
+        if (oo_has_vmt in def.objectoptions) and
            assigned(def.owner) and
            assigned(def.owner.name) then
           list.concat(Tai_stab.create(stab_stabs,strpnew('"vmt_'+GetSymTableName(def.owner)+tobjectdef(def).objname^+':S'+
@@ -793,6 +802,9 @@ implementation
       var
         ss : ansistring;
       begin
+        if not assigned(vardatadef) then
+          exit;
+
         ss:='s'+tostr(vardatadef.size);
         vardatadef.symtable.SymList.ForEachCall(@field_add_stabstr,@ss);
         ss[length(ss)]:=';';
@@ -1010,7 +1022,9 @@ implementation
         hs : string;
         ss : ansistring;
       begin
-        if not assigned(def.procstarttai) then
+        if not(def.in_currentunit) or
+           { happens for init procdef of units without init section }
+           not assigned(def.procstarttai) then
           exit;
 
         { mark as used so the local type defs also be written }
@@ -1105,7 +1119,7 @@ implementation
           RType := 'f';
         if assigned(def.owner) then
           begin
-            if (def.owner.symtabletype = objecTSymtable) then
+            if (def.owner.symtabletype in [ObjectSymtable,recordsymtable]) then
               obj := GetSymTableName(def.owner)+'__'+GetSymName(def.procsym);
             if not(cs_gdb_valgrind in current_settings.globalswitches) and
                (def.owner.symtabletype=localsymtable) and
@@ -1193,7 +1207,7 @@ implementation
         ss : ansistring;
       begin
         ss:='';
-        if (sym.owner.symtabletype=objecTSymtable) and
+        if (sym.owner.symtabletype in [ObjectSymtable,recordsymtable]) and
            (sp_static in sym.symoptions) then
           ss:=sym_stabstr_evaluate(sym,'"${ownername}__${name}:S$1",${N_LCSYM},0,${line},${mangledname}',
               [def_stab_number(sym.vardef)]);
@@ -1341,13 +1355,13 @@ implementation
                 end
             else
               begin
-                if not(is_class(tprocdef(sym.owner.defowner)._class)) then
+                if not(is_class(tprocdef(sym.owner.defowner).struct)) then
                   c:='v'
                 else
                   c:='p';
                 if (sym.localloc.loc=LOC_REFERENCE) then
                   ss:=sym_stabstr_evaluate(sym,'"$$t:$1",${N_TSYM},0,0,$2',
-                        [c+def_stab_number(tprocdef(sym.owner.defowner)._class),tostr(sym.localloc.reference.offset)])
+                        [c+def_stab_number(tprocdef(sym.owner.defowner).struct),tostr(sym.localloc.reference.offset)])
                 else
                   begin
                     if (c='p') then
@@ -1356,7 +1370,7 @@ implementation
                       c:='a';
                     regidx:=findreg_by_number(sym.localloc.register);
                     ss:=sym_stabstr_evaluate(sym,'"$$t:$1",${N_RSYM},0,0,$2',
-                        [c+def_stab_number(tprocdef(sym.owner.defowner)._class),tostr(regstabs_table[regidx])]);
+                        [c+def_stab_number(tprocdef(sym.owner.defowner).struct),tostr(regstabs_table[regidx])]);
                   end
               end;
           end
@@ -1493,6 +1507,7 @@ implementation
         stabstypelist : TAsmList;
         storefilepos  : tfileposinfo;
         i  : longint;
+        vardatatype : ttypesym;
       begin
         storefilepos:=current_filepos;
         current_filepos:=current_module.mainfilepos;
@@ -1503,7 +1518,9 @@ implementation
         stabsvarlist:=TAsmList.create;
         stabstypelist:=TAsmList.create;
 
-        vardatadef:=trecorddef(search_system_type('TVARDATA').typedef);
+        vardatatype:=try_search_system_type('TVARDATA');
+        if assigned(vardatatype) then
+          vardatadef:=trecorddef(vardatatype.typedef);
 
         { include symbol that will be referenced from the main to be sure to
           include this debuginfo .o file }
@@ -1678,7 +1695,7 @@ implementation
         { Reference all DEBUGINFO sections from the main .fpc section }
         if (target_info.system in ([system_powerpc_macos]+systems_darwin)) then
           exit;
-        list.concat(Tai_section.create(sec_fpc,'links',0));
+        new_section(list,sec_fpc,'links',0);
         { make sure the debuginfo doesn't get stripped out }
         if (target_info.system in systems_darwin) then
           begin
@@ -1700,6 +1717,11 @@ implementation
           end;
       end;
 
+    constructor TDebugInfoStabs.Create;
+      begin
+        inherited Create;
+        vardatadef:=nil;
+      end;
 
     const
       dbg_stabs_info : tdbginfo =

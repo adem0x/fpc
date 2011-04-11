@@ -417,6 +417,14 @@ implementation
        IMAGE_REL_AMD64_SREL32      = $000E;  { 32 bit signed span-dependent value emitted into object }
        IMAGE_REL_AMD64_PAIR        = $000F;
        IMAGE_REL_AMD64_SSPAN32     = $0010;  { 32 bit signed span-dependent value applied at link time }
+      { Direct 32 bit sign extended,
+        win64 mingw GNU compiler
+        also generates this type
+        inside coff objects
+        We assume they are equivalent to
+        IMAGE_REL_AMD64_ADDR32  PM 2010-11-27 }
+       R_X86_64_32S =           $11;
+
 {$endif x86_64}
 
 {$ifdef arm}
@@ -480,7 +488,7 @@ implementation
        SymbolMaxGrow = 200*sizeof(coffsymbol);
        StrsMaxGrow   = 8192;
 
-       coffsecnames : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('',
+       coffsecnames : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('','',
           '.text','.data','.data','.data','.bss','.tls',
           '.pdata',{pdata}
           '.text', {stub}
@@ -959,15 +967,19 @@ const pemagic : array[0..3] of byte = (
             data.Seek(objreloc.dataoffset);
             data.Write(address,address_size);
 {$ifdef cpu64bitaddr}
-            if objreloc.typ = RELOC_ABSOLUTE32 then begin
-              if assigned(objreloc.symbol) then
-                s:=objreloc.symbol.Name
-              else
-                s:=objreloc.objsection.Name;
-              Message2(link_w_32bit_absolute_reloc, ObjData.Name, s);
-            end;
+            if (objreloc.typ = RELOC_ABSOLUTE32) and (name <> '.stab') then
+              begin
+                if assigned(objreloc.symbol) then
+                  s:=objreloc.symbol.Name
+                else
+                  s:=objreloc.objsection.Name;
+                Message2(link_w_32bit_absolute_reloc, ObjData.Name, s);
+              end;
 {$endif cpu64bitaddr}
           end;
+        {for size = 0 data is not valid PM }
+        if assigned(data) and (data.size <> size) then
+          internalerror(2010092801);
       end;
 
 
@@ -1019,22 +1031,28 @@ const pemagic : array[0..3] of byte = (
         sep     : string[3];
         secname : string;
       begin
-        secname:=coffsecnames[atype];
-        if create_smartlink_sections and
-           (aname<>'') then
-          begin
-            case aorder of
-              secorder_begin :
-                sep:='.b_';
-              secorder_end :
-                sep:='.z_';
-              else
-                sep:='.n_';
-            end;
-            result:=secname+sep+aname
-          end
+        { section type user gives the user full controll on the section name }
+        if atype=sec_user then
+          result:=aname
         else
-          result:=secname;
+          begin
+            secname:=coffsecnames[atype];
+            if create_smartlink_sections and
+               (aname<>'') then
+              begin
+                case aorder of
+                  secorder_begin :
+                    sep:='.b_';
+                  secorder_end :
+                    sep:='.z_';
+                  else
+                    sep:='.n_';
+                end;
+                result:=secname+sep+aname
+              end
+            else
+              result:=secname;
+          end;
       end;
 
 
@@ -1089,11 +1107,13 @@ const pemagic : array[0..3] of byte = (
 {$endif cpu64bitaddr}
                   RELOC_RELATIVE :
                     begin
-                      inc(data,symaddr-len-CurrObjSec.Size);
+                      //inc(data,symaddr-len-CurrObjSec.Size);
+                      data:=data+symaddr-len-CurrObjSec.Size;
                     end;
-                  RELOC_RVA :
+                  RELOC_RVA,
+                  RELOC_SECREL32 :
                     begin
-                      CurrObjSec.addsectionreloc(curraddr,CurrObjSec,RELOC_RVA);
+                      CurrObjSec.addsectionreloc(curraddr,CurrObjSec,reloctype);
                       inc(data,symaddr);
                     end;
                   else
@@ -1608,7 +1628,8 @@ const pemagic : array[0..3] of byte = (
 {$ifdef x86_64}
              IMAGE_REL_AMD64_REL32:
                rel_type:=RELOC_RELATIVE;
-             IMAGE_REL_AMD64_ADDR32:
+             IMAGE_REL_AMD64_ADDR32,
+             R_X86_64_32S:
                rel_type:=RELOC_ABSOLUTE32;
              IMAGE_REL_AMD64_ADDR64:
                rel_type:=RELOC_ABSOLUTE;

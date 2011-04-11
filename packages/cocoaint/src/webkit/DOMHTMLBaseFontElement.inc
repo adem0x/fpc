@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMHTMLBaseFontElement.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMHTMLBASEFONTELEMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMHTMLBaseFontElement = objcclass;
   DOMHTMLBaseFontElementPointer = ^DOMHTMLBaseFontElement;
+  DOMHTMLBaseFontElementPtr = DOMHTMLBaseFontElementPointer;
 
 {$endif}
 
@@ -41,18 +40,16 @@
 {$define DOMHTMLBASEFONTELEMENT_PAS_C}
 
 { DOMHTMLBaseFontElement }
-  DOMHTMLBaseFontElement = objcclass(DOMHTMLElement)
+  DOMHTMLBaseFontElement = objcclass external (DOMHTMLElement)
     
   public
-    class function alloc: DOMHTMLBaseFontElement; message 'alloc';
-
     procedure setColor (newValue: NSString); message 'setColor:';
     function color: NSString; message 'color';
     procedure setFace (newValue: NSString); message 'setFace:';
     function face: NSString; message 'face';
     procedure setSize (newValue: NSString); message 'setSize:';
     function size: NSString; message 'size';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

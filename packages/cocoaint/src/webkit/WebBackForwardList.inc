@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework WebBackForwardList.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef WEBBACKFORWARDLIST_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   WebBackForwardList = objcclass;
   WebBackForwardListPointer = ^WebBackForwardList;
+  WebBackForwardListPtr = WebBackForwardListPointer;
 
 {$endif}
 
@@ -41,13 +40,11 @@
 {$define WEBBACKFORWARDLIST_PAS_C}
 
 { WebBackForwardList }
-  WebBackForwardList = objcclass(NSObject)
+  WebBackForwardList = objcclass external (NSObject)
   private
-    __private: WebBackForwardListPrivate;
+    _private: WebBackForwardListPrivate;
     
   public
-    class function alloc: WebBackForwardList; message 'alloc';
-
     procedure addItem(item: WebHistoryItem); message 'addItem:';
     procedure goBack; message 'goBack';
     procedure goForward; message 'goForward';
@@ -63,11 +60,13 @@
     function forwardListCount: cint; message 'forwardListCount';
     function containsItem(item: WebHistoryItem): Boolean; message 'containsItem:';
     function itemAtIndex(index: cint): WebHistoryItem; message 'itemAtIndex:';
+  end;
 
-    { Category: WebBackForwardListDeprecated }
+{ WebBackForwardListDeprecatedCategory }
+  WebBackForwardListDeprecatedCategory = objccategory external (WebBackForwardList)
     procedure setPageCacheSize(size: WebNSUInteger); message 'setPageCacheSize:';
     function pageCacheSize: WebNSUInteger; message 'pageCacheSize';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

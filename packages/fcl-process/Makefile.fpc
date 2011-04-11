@@ -12,6 +12,7 @@ units_beos=simpleipc dbugmsg dbugintf
 units_haiku=simpleipc dbugmsg dbugintf
 units_freebsd=simpleipc dbugmsg dbugintf
 units_darwin=simpleipc dbugmsg dbugintf
+units_iphonesim=simpleipc dbugmsg dbugintf
 units_solaris=simpleipc dbugmsg dbugintf
 units_netbsd=simpleipc dbugmsg dbugintf
 units_openbsd=simpleipc dbugmsg dbugintf
@@ -30,6 +31,7 @@ includedir=src/$(OS_TARGET) src
 includedir_linux=src/unix src/dummy
 includedir_freebsd=src/unix src/dummy
 includedir_darwin=src/unix src/dummy
+includedir_iphonesim=src/unix src/dummy
 includedir_netbsd=src/unix src/dummy
 includedir_openbsd=src/unix src/dummy
 includedir_solaris=src/unix src/dummy
@@ -44,6 +46,8 @@ includedir_go32v2=src/dummy
 includedir_os2=src/os2 src/dummy
 includedir_morphos=src/dummy
 includedir_amiga=src/dummy
+includedir_netware=src/dummy
+includedir_netwlibc=src/dummy
 sourcedir=src/$(OS_TARGET) src
 
 [install]

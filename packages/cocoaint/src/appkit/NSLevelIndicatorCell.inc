@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSLevelIndicatorCell.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:08 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSLEVELINDICATORCELL_PAS_T}
@@ -17,6 +15,7 @@ const
 { Types }
 type
   NSLevelIndicatorStyle = NSUInteger;
+  NSLevelIndicatorStylePtr = ^NSLevelIndicatorStyle;
 
 {$endif}
 {$endif}
@@ -45,6 +44,7 @@ type
 {$ifdef FORWARD}
   NSLevelIndicatorCell = objcclass;
   NSLevelIndicatorCellPointer = ^NSLevelIndicatorCell;
+  NSLevelIndicatorCellPtr = NSLevelIndicatorCellPointer;
 
 {$endif}
 
@@ -53,30 +53,32 @@ type
 {$define NSLEVELINDICATORCELL_PAS_C}
 
 { NSLevelIndicatorCell }
-  NSLevelIndicatorCell = objcclass(NSActionCell)
+  NSLevelIndicatorCell = objcclass external (NSActionCell)
   private
-    __value: double;
-    __minValue: double;
-    __maxValue: double;
-    __warningValue: double;
-    __criticalValue: double;
-    __numberOfTickMarks: cint;
-    __numberOfMajorTickMarks: cint;
+    _value: double;
+    _minValue: double;
+    _maxValue: double;
+    _warningValue: double;
+    _criticalValue: double;
+    _numberOfTickMarks: cint;
+    _numberOfMajorTickMarks: cint;
     __liFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSLevelIndicatorCell0: cuint);
+       1: (
         indicatorStyle: 0..((1 shl 4)-1);
-        tickMarkPosition: 0..1;
+        _tickMarkPosition: 0..1;
         selectable: 0..1;
         reserved: 0..((1 shl 26)-1);
+      );
       end;
-    __cellFrame: NSRect;
-    __reserved1: cint;
-    __reserved2: cint;
-    __reserved3: cint;
-    __reserved4: cint;
+    _cellFrame: NSRect;
+    _reserved1: cint;
+    _reserved2: cint;
+    _reserved3: cint;
+    _reserved4: cint;
     
   public
-    class function alloc: NSLevelIndicatorCell; message 'alloc';
-
     function initWithLevelIndicatorStyle(levelIndicatorStyle_: NSLevelIndicatorStyle): id; message 'initWithLevelIndicatorStyle:';
     function levelIndicatorStyle: NSLevelIndicatorStyle; message 'levelIndicatorStyle';
     procedure setLevelIndicatorStyle(levelIndicatorStyle_: NSLevelIndicatorStyle); message 'setLevelIndicatorStyle:';
@@ -97,7 +99,7 @@ type
     function rectOfTickMarkAtIndex(index: NSInteger): NSRect; message 'rectOfTickMarkAtIndex:';
     function tickMarkValueAtIndex(index: NSInteger): double; message 'tickMarkValueAtIndex:';
     procedure setImage(image_: NSImage); message 'setImage:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

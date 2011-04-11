@@ -92,11 +92,14 @@ type
   published
     property Options: TSqliteOptions read FOptions write SetOptions;
   end;
- 
+  
+Var
+  SQLiteLibraryName : String = sqlite3lib; 
+   
 implementation
 
 uses
-  dbconst, sysutils, typinfo, dateutils;
+  dbconst, sysutils, dateutils,FmtBCD;
  
 type
 
@@ -178,16 +181,17 @@ begin
                 do1:= P.asfloat;
                 checkerror(sqlite3_bind_double(fstatement,I,do1));
                 end;
-        ftstring: begin
-                  str1:= p.asstring;
-                  checkerror(sqlite3_bind_text(fstatement,I,pcharstr(str1), length(str1),@freebindstring));
-                  end;
+        ftstring,
+        ftmemo: begin // According to SQLite documentation, CLOB's (ftMemo) have the Text affinity
+                str1:= p.asstring;
+                checkerror(sqlite3_bind_text(fstatement,I,pcharstr(str1), length(str1),@freebindstring));
+                end;
         ftblob: begin
                 str1:= P.asstring;
                 checkerror(sqlite3_bind_blob(fstatement,I,pcharstr(str1), length(str1),@freebindstring));
                 end; 
       else 
-        databaseerror('Parameter type '+getenumname(typeinfo(tfieldtype),ord(P.datatype))+' not supported.');
+        DatabaseErrorFmt(SUnsupportedParameter, [Fieldtypenames[P.DataType], Self]);
       end; { Case }
     end;   
 end;
@@ -309,7 +313,7 @@ Type
   end;
   
 Const
-  FieldMapCount = 19;
+  FieldMapCount = 20;
   FieldMap : Array [1..FieldMapCount] of TFieldMap = (
    (n:'INT'; t: ftInteger),
    (n:'LARGEINT'; t:ftlargeInt),
@@ -329,6 +333,7 @@ Const
    (n:'NUMERIC'; t: ftBCD),
    (n:'DECIMAL'; t: ftBCD),
    (n:'TEXT'; t: ftmemo),
+   (n:'CLOB'; t: ftmemo),
    (n:'BLOB'; t: ftBlob)
 { Template:
   (n:''; t: ft)
@@ -359,9 +364,16 @@ begin
       ft1:=FieldMap[fi].t;
       break;
       end;
-    // Empty field types are allowed and used in calculated columns (aggregates)
-    // and by pragma-statements
-    if FD='' then ft1 := ftString;
+    // In case of an empty fieldtype (FD='', which is allowed and used in calculated
+    // columns (aggregates) and by pragma-statements) or an unknown fieldtype,
+    // use the field's affinity:
+    if ft1=ftUnknown then
+      case TStorageType(sqlite3_column_type(st,i)) of
+        stInteger: ft1:=ftLargeInt;
+        stFloat:   ft1:=ftFloat;
+        stBlob:    ft1:=ftBlob;
+        else       ft1:=ftString;
+      end;
     // handle some specials.
     size1:=0;
     case ft1 of
@@ -383,6 +395,8 @@ begin
                   System.Delete(FD,1,fi);
                   fi:=pos(')',FD);
                   size1:=StrToIntDef(trim(copy(FD,1,fi-1)),255);
+                  if size1>4 then
+                    ft1 := ftFMTBcd;
                   end
                 else size1 := 4;
                 end;
@@ -477,6 +491,9 @@ var
  i64: int64;
  int1,int2: integer;
  str1: string;
+ bcd: tBCD;
+ StoreDecimalPoint: tDecimalPoint;
+ bcdstr: FmtBCDStringtype;
  ar1,ar2: TStringArray;
  st    : psqlite3_stmt;
 
@@ -513,6 +530,27 @@ begin
                 int1:=FieldDef.Size;
               if int1 > 0 then 
                  move(sqlite3_column_text(st,fnum)^,buffer^,int1);
+              end;
+    ftFmtBCD: begin
+              int1:= sqlite3_column_bytes(st,fnum);
+              if int1>255 then
+                int1:=255;
+              if int1 > 0 then
+                begin
+                SetLength(bcdstr,int1);
+                move(sqlite3_column_text(st,fnum)^,bcdstr[1],int1);
+                StoreDecimalPoint:=FmtBCD.DecimalPoint;
+                // sqlite always uses the point as decimal-point
+                FmtBCD.DecimalPoint:=DecimalPoint_is_Point;
+                if not TryStrToBCD(bcdstr,bcd) then
+                  // sqlite does the same, if the value can't be interpreted as a
+                  // number in sqlite3_column_int, return 0
+                  bcd := 0;
+                FmtBCD.DecimalPoint:=StoreDecimalPoint;
+                end
+              else
+                bcd := 0;
+              pBCD(buffer)^:= bcd;
               end;
     ftMemo,
     ftBlob: CreateBlob:=True;
@@ -574,7 +612,7 @@ var
 begin
   if Length(databasename)=0 then
     DatabaseError(SErrNoDatabaseName,self);
-  initialisesqlite;
+  InitializeSqlite(SQLiteLibraryName);
   str1:= databasename;
   checkerror(sqlite3_open(pchar(str1),@fhandle));
 end;
@@ -719,6 +757,7 @@ var
 
 begin
   PKFields:=TStringList.Create;
+  PKFields.Delimiter:=';';
   IXFields:=TStringList.Create;
   IXFields.Delimiter:=';';
 
@@ -747,6 +786,9 @@ begin
 
     IndexDefs.Add(IndexName, IXFields.DelimitedText, IndexOptions);
     end;
+
+  if PKFields.Count > 0 then //in special case for INTEGER PRIMARY KEY column, unique index is not created
+    IndexDefs.Add('$PRIMARY_KEY$', PKFields.DelimitedText, [ixPrimary,ixUnique]);
 
   PKFields.Free;
   IXFields.Free;

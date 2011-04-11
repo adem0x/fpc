@@ -191,7 +191,7 @@ threadvar
    function GetStdHandle(nStdHandle:DWORD):THANDLE;
      stdcall;external KernelDLL name 'GetStdHandle';
 
-   { command line/enviroment functions }
+   { command line/environment functions }
    function GetCommandLine : pchar;
      stdcall;external KernelDLL name 'GetCommandLineA';
 
@@ -253,6 +253,12 @@ threadvar
      stdcall;external KernelDLL name 'SetCurrentDirectoryA';
    function GetCurrentDirectory(bufsize : longint;name : pchar) : longbool;
      stdcall;external KernelDLL name 'GetCurrentDirectoryA';
+   { Console functions needed for WriteFile fix for bug 17550 }
+   function GetConsoleMode(hConsoleHandle:thandle; lpMode:LPDWORD):BOOL;
+     stdcall;external KernelDLL name 'GetConsoleMode';
+   function GetConsoleOutputCP : UINT;
+     stdcall; external KernelDLL name 'GetConsoleOutputCP';
+
 {$endif WINCE}
 
    Procedure Errno2InOutRes;

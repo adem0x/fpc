@@ -26,38 +26,44 @@ unit pdecl;
 interface
 
     uses
+      { common }
+      cclasses,
       { global }
       globtype,
       { symtable }
-      symsym,
+      symsym,symdef,
       { pass_1 }
       node;
 
     function  readconstant(const orgname:string;const filepos:tfileposinfo):tconstsym;
 
     procedure const_dec;
-    procedure consts_dec(in_class: boolean);
+    procedure consts_dec(in_structure: boolean);
     procedure label_dec;
     procedure type_dec;
-    procedure types_dec(in_class: boolean);
+    procedure types_dec(in_structure: boolean);
     procedure var_dec;
     procedure threadvar_dec;
     procedure property_dec(is_classpropery: boolean);
     procedure resourcestring_dec;
+
+    { generics support }
+    function parse_generic_parameters:TFPObjectList;
+    procedure insert_generic_parameter_types(def:tstoreddef;genericdef:tstoreddef;genericlist:TFPObjectList);
 
 implementation
 
     uses
        SysUtils,
        { common }
-       cutils,cclasses,
+       cutils,
        { global }
        globals,tokens,verbose,widestr,constexp,
        systems,
        { aasm }
        aasmbase,aasmtai,aasmdata,fmodule,
        { symtable }
-       symconst,symbase,symtype,symdef,symtable,paramgr,defutil,
+       symconst,symbase,symtype,symtable,paramgr,defutil,
        { pass 1 }
        nmat,nadd,ncal,nset,ncnv,ninl,ncon,nld,nflw,nobj,
        { codegen }
@@ -85,7 +91,7 @@ implementation
         if orgname='' then
          internalerror(9584582);
         hp:=nil;
-        p:=comp_expr(true);
+        p:=comp_expr(true,false);
         storetokenpos:=current_tokenpos;
         current_tokenpos:=filepos;
         case p.nodetype of
@@ -161,11 +167,11 @@ implementation
         consts_dec(false);
       end;
 
-    procedure consts_dec(in_class: boolean);
+    procedure consts_dec(in_structure: boolean);
       var
          orgname : TIDString;
          hdef : tdef;
-         sym : tsym;
+         sym, tmp : tsym;
          dummysymoptions : tsymoptions;
          deprecatedmsg : pshortstring;
          storetokenpos,filepos : tfileposinfo;
@@ -173,6 +179,8 @@ implementation
          skipequal : boolean;
          tclist : tasmlist;
          varspez : tvarspez;
+         static_name : string;
+         sl : tpropaccesslist;
       begin
          old_block_type:=block_type;
          block_type:=bt_const;
@@ -182,9 +190,9 @@ implementation
            consume(_ID);
            case token of
 
-             _EQUAL:
+             _EQ:
                 begin
-                   consume(_EQUAL);
+                   consume(_EQ);
                    sym:=readconstant(orgname,filepos);
                    { Support hint directives }
                    dummysymoptions:=[];
@@ -218,10 +226,30 @@ implementation
                      varspez:=vs_const
                    else
                      varspez:=vs_value;
-                   sym:=tstaticvarsym.create(orgname,varspez,hdef,[]);
-                   sym.visibility:=symtablestack.top.currentvisibility;
+                   { if we are dealing with structure const then we need to handle it as a
+                     structure static variable: create a symbol in unit symtable and a reference
+                     to it from the structure or linking will fail }
+                   if symtablestack.top.symtabletype in [recordsymtable,ObjectSymtable] then
+                     begin
+                       { generate the symbol which reserves the space }
+                       static_name:=lower(generate_nested_name(symtablestack.top,'_'))+'_'+orgname;
+                       sym:=tstaticvarsym.create('$_static_'+static_name,varspez,hdef,[]);
+                       include(sym.symoptions,sp_internal);
+                       tabstractrecordsymtable(symtablestack.top).get_unit_symtable.insert(sym);
+                       { generate the symbol for the access }
+                       sl:=tpropaccesslist.create;
+                       sl.addsym(sl_load,sym);
+                       tmp:=tabsolutevarsym.create_ref(orgname,hdef,sl);
+                       tmp.visibility:=symtablestack.top.currentvisibility;
+                       symtablestack.top.insert(tmp);
+                     end
+                   else
+                     begin
+                       sym:=tstaticvarsym.create(orgname,varspez,hdef,[]);
+                       sym.visibility:=symtablestack.top.currentvisibility;
+                       symtablestack.top.insert(sym);
+                     end;
                    current_tokenpos:=storetokenpos;
-                   symtablestack.top.insert(sym);
                    { procvar can have proc directives, but not type references }
                    if (hdef.typ=procvardef) and
                       (hdef.typesym=nil) then
@@ -249,25 +277,27 @@ implementation
                    if not skipequal then
                     begin
                       { get init value }
-                      consume(_EQUAL);
+                      consume(_EQ);
                       if (cs_typed_const_writable in current_settings.localswitches) then
                         tclist:=current_asmdata.asmlists[al_rotypedconsts]
                       else
                         tclist:=current_asmdata.asmlists[al_typedconsts];
-                      read_typed_const(tclist,tstaticvarsym(sym),in_class);
+                      read_typed_const(tclist,tstaticvarsym(sym),in_structure);
                     end;
                 end;
 
               else
                 { generate an error }
-                consume(_EQUAL);
+                consume(_EQ);
            end;
-         until (token<>_ID)or(in_class and (idtoken in [_PRIVATE,_PROTECTED,_PUBLIC,_PUBLISHED,_STRICT]));
+         until (token<>_ID)or(in_structure and (idtoken in [_PRIVATE,_PROTECTED,_PUBLIC,_PUBLISHED,_STRICT]));
          block_type:=old_block_type;
       end;
 
 
     procedure label_dec;
+      var
+        labelsym : tlabelsym;
       begin
          consume(_LABEL);
          if not(cs_support_goto in current_settings.moduleswitches) then
@@ -278,9 +308,27 @@ implementation
            else
              begin
                 if token=_ID then
-                 symtablestack.top.insert(tlabelsym.create(orgpattern))
+                  labelsym:=tlabelsym.create(orgpattern)
                 else
-                 symtablestack.top.insert(tlabelsym.create(pattern));
+                  labelsym:=tlabelsym.create(pattern);
+                symtablestack.top.insert(labelsym);
+                if m_non_local_goto in current_settings.modeswitches then
+                  begin
+                    if symtablestack.top.symtabletype=localsymtable then
+                      begin
+                        labelsym.jumpbuf:=tlocalvarsym.create('LABEL$_'+labelsym.name,vs_value,rec_jmp_buf,[]);
+                        symtablestack.top.insert(labelsym.jumpbuf);
+                      end
+                    else
+                      begin
+                        labelsym.jumpbuf:=tstaticvarsym.create('LABEL$_'+labelsym.name,vs_value,rec_jmp_buf,[]);
+                        symtablestack.top.insert(labelsym.jumpbuf);
+                        insertbssdata(tstaticvarsym(labelsym.jumpbuf));
+                      end;
+                    include(labelsym.jumpbuf.symoptions,sp_internal);
+                    { the buffer will be setup later, but avoid a hint }
+                    tabstractvarsym(labelsym.jumpbuf).varstate:=vs_written;
+                  end;
                 consume(token);
              end;
            if token<>_SEMICOLON then consume(_COMMA);
@@ -288,104 +336,71 @@ implementation
          consume(_SEMICOLON);
       end;
 
+    function parse_generic_parameters:TFPObjectList;
+    var
+      generictype : ttypesym;
+    begin
+      result:=TFPObjectList.Create(false);
+      repeat
+        if token=_ID then
+          begin
+            generictype:=ttypesym.create(orgpattern,cundefinedtype);
+            include(generictype.symoptions,sp_generic_para);
+            result.add(generictype);
+          end;
+        consume(_ID);
+      until not try_to_consume(_COMMA) ;
+    end;
 
-    procedure types_dec(in_class: boolean);
+    procedure insert_generic_parameter_types(def:tstoreddef;genericdef:tstoreddef;genericlist:TFPObjectList);
+      var
+        i: longint;
+        generictype: ttypesym;
+        st: tsymtable;
+      begin
+        def.genericdef:=genericdef;
+        if not assigned(genericlist) then
+          exit;
 
-      procedure get_cpp_class_external_status(od: tobjectdef);
-        var
-          hs: string;
-
-        begin
-          { C++ classes can be external -> all methods inside are external
-           (defined at the class level instead of per method, so that you cannot
-           define some methods as external and some not)
-          }
-          if (token=_ID) and
-             (idtoken=_EXTERNAL) then
-            begin
-              consume(_EXTERNAL);
-              { copied from pdecsub.pd_external }
-              if not(token=_SEMICOLON) and not(idtoken=_NAME) then
-                begin
-                  { Always add library prefix and suffix to create an uniform name }
-                  hs:=get_stringconst;
-                  if ExtractFileExt(hs)='' then
-                    hs:=ChangeFileExt(hs,target_info.sharedlibext);
-                  if Copy(hs,1,length(target_info.sharedlibprefix))<>target_info.sharedlibprefix then
-                    hs:=target_info.sharedlibprefix+hs;
-                  od.import_lib:=stringdup(hs);
-                end;
-              include(od.objectoptions, oo_is_external);
-              { check if we shall use another name for the class }
-              if (token=_ID) and
-                 (idtoken=_NAME) then
-                begin
-                  consume(_NAME);
-                  od.objextname:=stringdup(get_stringconst);
-                end
-              else
-                od.objextname:=stringdup(od.objrealname^);
-              consume(_SEMICOLON);
-              { now all methods need to be external }
-              od.make_all_methods_external;
-              include(od.objectoptions,oo_is_external);
-            end
+        case def.typ of
+          recorddef,objectdef: st:=tabstractrecorddef(def).symtable;
+          arraydef: st:=tarraydef(def).symtable;
+          procvardef,procdef: st:=tabstractprocdef(def).parast;
           else
-            od.objextname:=stringdup(od.objrealname^);
-          { ToDo: read the namespace of the class (influences the mangled name)}
+            internalerror(201101020);
         end;
 
-      procedure get_objc_class_or_protocol_external_status(od: tobjectdef);
+        for i:=0 to genericlist.count-1 do
+          begin
+            generictype:=ttypesym(genericlist[i]);
+            if generictype.typedef.typ=undefineddef then
+              include(def.defoptions,df_generic)
+            else
+              include(def.defoptions,df_specialization);
+            st.insert(generictype);
+          end;
+       end;
+
+    procedure types_dec(in_structure: boolean);
+
+      procedure finalize_objc_class_or_protocol_external_status(od: tobjectdef);
         begin
-          { Objective-C classes can be external -> all messages inside are
-            external (defined at the class level instead of per method, so
-            that you cannot define some methods as external and some not)
-          }
-          if (token=_ID) and
-             (idtoken=_EXTERNAL) then
+          if  [oo_is_external,oo_is_forward] <= od.objectoptions then
             begin
-              consume(_EXTERNAL);
-              if (token=_ID) and
-                 (idtoken=_NAME) then
-                begin
-                  consume(_NAME);
-                  od.objextname:=stringdup(get_stringconst);
-                end
-              else
-                od.objextname:=stringdup(od.objrealname^);
-              consume(_SEMICOLON);
-              od.make_all_methods_external;
-              include(od.objectoptions,oo_is_external);
-            end
-          else { or also allow "public name 'x'"? }
-            od.objextname:=stringdup(od.objrealname^);
-        end;
-
-
-        function parse_generic_parameters:TFPObjectList;
-        var
-          generictype : ttypesym;
-        begin
-          result:=TFPObjectList.Create(false);
-          repeat
-            if token=_ID then
-              begin
-                generictype:=ttypesym.create(orgpattern,cundefinedtype);
-                include(generictype.symoptions,sp_generic_para);
-                result.add(generictype);
-              end;
-            consume(_ID);
-          until not try_to_consume(_COMMA) ;
+              { formal definition: x = objcclass external; }
+              exclude(od.objectoptions,oo_is_forward);
+              include(od.objectoptions,oo_is_formal);
+            end;
         end;
 
       var
          typename,orgtypename : TIDString;
          newtype  : ttypesym;
          sym      : tsym;
-         srsymtable : TSymtable;
          hdef     : tdef;
          defpos,storetokenpos : tfileposinfo;
          old_block_type : tblock_type;
+         old_checkforwarddefs: TFPObjectList;
          objecttype : tobjecttyp;
          isgeneric,
          isunique,
@@ -395,6 +410,10 @@ implementation
          vmtbuilder : TVMTBuilder;
       begin
          old_block_type:=block_type;
+         { save unit container of forward declarations -
+           we can be inside nested class type block }
+         old_checkforwarddefs:=current_module.checkforwarddefs;
+         current_module.checkforwarddefs:=TFPObjectList.Create(false);
          block_type:=bt_type;
          repeat
            defpos:=current_tokenpos;
@@ -402,22 +421,29 @@ implementation
            generictypelist:=nil;
            generictokenbuf:=nil;
 
-           { generic declaration? }
-           isgeneric:=try_to_consume(_GENERIC);
+           { fpc generic declaration? }
+           isgeneric:=not(m_delphi in current_settings.modeswitches) and try_to_consume(_GENERIC);
 
            typename:=pattern;
            orgtypename:=orgpattern;
            consume(_ID);
 
+           { delphi generic declaration? }
+           if (m_delphi in current_settings.modeswitches) then
+             isgeneric:=token=_LSHARPBRACKET;
+
            { Generic type declaration? }
            if isgeneric then
              begin
+               if assigned(current_genericdef) then
+                 Message(parser_f_no_generic_inside_generic);
+
                consume(_LSHARPBRACKET);
                generictypelist:=parse_generic_parameters;
                consume(_RSHARPBRACKET);
              end;
 
-           consume(_EQUAL);
+           consume(_EQ);
 
            { support 'ttype=type word' syntax }
            isunique:=try_to_consume(_TYPE);
@@ -435,8 +461,10 @@ implementation
                current_scanner.startrecordtokens(generictokenbuf);
              end;
 
-           { is the type already defined? }
-           searchsym(typename,sym,srsymtable);
+           { is the type already defined? -- must be in the current symtable,
+             not in a nested symtable or one higher up the stack -> don't
+             use searchsym & frinds! }
+           sym:=tsym(symtablestack.top.find(typename));
            newtype:=nil;
            { found a symbol with this name? }
            if assigned(sym) then
@@ -450,7 +478,7 @@ implementation
                      (token=_OBJCPROTOCOL) or
                      (token=_OBJCCATEGORY)) and
                     (assigned(ttypesym(sym).typedef)) and
-                    is_class_or_interface_or_dispinterface_or_objc(ttypesym(sym).typedef) and
+                    is_implicit_pointer_object_type(ttypesym(sym).typedef) and
                     (oo_is_forward in tobjectdef(ttypesym(sym).typedef).objectoptions) then
                   begin
                     case token of
@@ -519,6 +547,9 @@ implementation
                           end;
 
                       include(hdef.defoptions,df_unique);
+                      if (hdef.typ in [pointerdef,classrefdef]) and
+                         (tabstractpointerdef(hdef).pointeddef.typ=forwarddef) then
+                        current_module.checkforwarddefs.add(hdef);
                     end;
                   if not assigned(hdef.typesym) then
                     hdef.typesym:=newtype;
@@ -569,14 +600,11 @@ implementation
                     try_consume_hintdirective(newtype.symoptions,newtype.deprecatedmsg);
                     consume(_SEMICOLON);
 
-                    { we have to know whether the class or protocol is
-                      external before the vmt is built, because some errors/
-                      hints depend on this  }
+                    { change a forward and external objcclass declaration into
+                      formal external definition, so the compiler does not
+                      expect an real definition later }
                     if is_objc_class_or_protocol(hdef) then
-                      get_objc_class_or_protocol_external_status(tobjectdef(hdef));
-
-                    if is_cppclass(hdef) then
-                      get_cpp_class_external_status(tobjectdef(hdef));
+                      finalize_objc_class_or_protocol_external_status(tobjectdef(hdef));
 
                     { Build VMT indexes, skip for type renaming and forward classes }
                     if (hdef.typesym=newtype) and
@@ -595,7 +623,10 @@ implementation
                       and mark private fields of external classes as "used" (to avoid
                       bogus notes about them being unused)
                     }
-                    if is_objc_class_or_protocol(hdef) then
+                    { watch out for crashes in case of errors }
+                    if is_objc_class_or_protocol(hdef) and
+                       (not is_objccategory(hdef) or
+                        assigned(tobjectdef(hdef).childof)) then
                       tobjectdef(hdef).finish_objc_data;
 
                     if is_cppclass(hdef) then
@@ -614,7 +645,7 @@ implementation
               end;
             end;
 
-           if isgeneric and not(hdef.typ in [objectdef,recorddef]) then
+           if isgeneric and not(hdef.typ in [objectdef,recorddef,arraydef,procvardef]) then
              message(parser_e_cant_create_generics_of_this_type);
 
            { Stop recording a generic template }
@@ -624,11 +655,14 @@ implementation
                tstoreddef(hdef).generictokenbuf:=generictokenbuf;
                { Generic is never a type renaming }
                hdef.typesym:=newtype;
+               generictypelist.free;
              end;
-           if assigned(generictypelist) then
-             generictypelist.free;
-         until (token<>_ID)or(in_class and (idtoken in [_PRIVATE,_PROTECTED,_PUBLIC,_PUBLISHED,_STRICT]));
+         until (token<>_ID)or(in_structure and (idtoken in [_PRIVATE,_PROTECTED,_PUBLIC,_PUBLISHED,_STRICT]));
+         { resolve type block forward declarations and restore a unit
+           container for them }
          resolve_forward_types;
+         current_module.checkforwarddefs.free;
+         current_module.checkforwarddefs:=old_checkforwarddefs;
          block_type:=old_block_type;
       end;
 
@@ -699,10 +733,10 @@ implementation
            filepos:=current_tokenpos;
            consume(_ID);
            case token of
-             _EQUAL:
+             _EQ:
                 begin
-                   consume(_EQUAL);
-                   p:=comp_expr(true);
+                   consume(_EQ);
+                   p:=comp_expr(true,false);
                    storetokenpos:=current_tokenpos;
                    current_tokenpos:=filepos;
                    sym:=nil;
@@ -745,7 +779,7 @@ implementation
                    consume(_SEMICOLON);
                    p.free;
                 end;
-              else consume(_EQUAL);
+              else consume(_EQ);
            end;
          until token<>_ID;
          block_type:=old_block_type;

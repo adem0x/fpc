@@ -1,6 +1,4 @@
 { Parsed from Coredata.framework NSEntityMapping.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Fri Oct 2 11:46:33 EDT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSENTITYMAPPING_PAS_T}
@@ -19,6 +17,7 @@ const
 { Types }
 type
   NSEntityMappingType = NSUInteger;
+  NSEntityMappingTypePtr = ^NSEntityMappingType;
 
 {$endif}
 {$endif}
@@ -47,6 +46,7 @@ type
 {$ifdef FORWARD}
   NSEntityMapping = objcclass;
   NSEntityMappingPointer = ^NSEntityMapping;
+  NSEntityMappingPtr = NSEntityMappingPointer;
 
 {$endif}
 
@@ -55,30 +55,32 @@ type
 {$define NSENTITYMAPPING_PAS_C}
 
 { NSEntityMapping }
-  NSEntityMapping = objcclass(NSObject)
+  NSEntityMapping = objcclass external (NSObject)
   private
-    __reserved: Pointer;
-    __reserved1: Pointer;
-    __reserved2: Pointer;
-    __name: NSString;
-    __mappingType: NSEntityMappingType;
-    __sourceEntityName: NSString;
-    __sourceEntityVersionHash: NSData;
-    __destinationEntityName: NSString;
-    __destinationEntityVersionHash: NSData;
-    __sourceExpression: NSExpression;
-    __userInfo: NSDictionary;
-    __entityMigrationPolicyClassName: NSString;
-    __attributeMappings: NSMutableArray;
-    __relationshipMappings: NSMutableArray;
+    _reserved: Pointer;
+    _reserved1: Pointer;
+    _reserved2: Pointer;
+    _name: NSString;
+    _mappingType: NSEntityMappingType;
+    _sourceEntityName: NSString;
+    _sourceEntityVersionHash: NSData;
+    _destinationEntityName: NSString;
+    _destinationEntityVersionHash: NSData;
+    _sourceExpression: NSExpression;
+    _userInfo: NSDictionary;
+    _entityMigrationPolicyClassName: NSString;
+    _attributeMappings: NSMutableArray;
+    _relationshipMappings: NSMutableArray;
     __entityMappingFlags: bitpacked record
+      case byte of
+       0: (_anonbitfield_NSEntityMapping0: cuint);
+       1: (
         _isInUse: 0..1;
         _reservedEntityMapping: 0..((1 shl 31)-1);
+      );
       end;
     
   public
-    class function alloc: NSEntityMapping; message 'alloc';
-
     function name: NSString; message 'name';
     procedure setName(name_: NSString); message 'setName:';
     function mappingType: NSEntityMappingType; message 'mappingType';
@@ -101,7 +103,7 @@ type
     procedure setUserInfo(dict: NSDictionary); message 'setUserInfo:';
     function entityMigrationPolicyClassName: NSString; message 'entityMigrationPolicyClassName';
     procedure setEntityMigrationPolicyClassName(name_: NSString); message 'setEntityMigrationPolicyClassName:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

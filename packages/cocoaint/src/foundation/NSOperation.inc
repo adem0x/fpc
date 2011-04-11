@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSOperation.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSOPERATION_PAS_T}
@@ -21,6 +19,7 @@ const
 { Types }
 type
   NSOperationQueuePriority = NSInteger;
+  NSOperationQueuePriorityPtr = ^NSOperationQueuePriority;
 
 {$endif}
 {$endif}
@@ -45,8 +44,8 @@ type
 
 { External string constants }
 var
-  NSInvocationOperationVoidResultException: NSString; external name '_NSInvocationOperationVoidResultException';
-  NSInvocationOperationCancelledException: NSString; external name '_NSInvocationOperationCancelledException';
+  NSInvocationOperationVoidResultException: NSString; cvar; external;
+  NSInvocationOperationCancelledException: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -54,10 +53,13 @@ var
 {$ifdef FORWARD}
   NSOperation = objcclass;
   NSOperationPointer = ^NSOperation;
+  NSOperationPtr = NSOperationPointer;
   NSInvocationOperation = objcclass;
   NSInvocationOperationPointer = ^NSInvocationOperation;
+  NSInvocationOperationPtr = NSInvocationOperationPointer;
   NSOperationQueue = objcclass;
   NSOperationQueuePointer = ^NSOperationQueue;
+  NSOperationQueuePtr = NSOperationQueuePointer;
 
 {$endif}
 
@@ -66,14 +68,12 @@ var
 {$define NSOPERATION_PAS_C}
 
 { NSOperation }
-  NSOperation = objcclass(NSObject)
+  NSOperation = objcclass external (NSObject)
   private
-    __private: id;
-    __reserved: Pointer;
+    _private: id;
+    _reserved: Pointer;
     
   public
-    class function alloc: NSOperation; message 'alloc';
-
     function init: id; message 'init';
     procedure start; message 'start';
     procedure main; message 'main';
@@ -88,42 +88,47 @@ var
     function dependencies: NSArray; message 'dependencies';
     function queuePriority: NSOperationQueuePriority; message 'queuePriority';
     procedure setQueuePriority(p: NSOperationQueuePriority); message 'setQueuePriority:';
-  end; external;
+    procedure waitUntilFinished; message 'waitUntilFinished';
+    function threadPriority: double; message 'threadPriority';
+    procedure setThreadPriority(p: double); message 'setThreadPriority:';
+  end;
 
 { NSInvocationOperation }
-  NSInvocationOperation = objcclass(NSOperation)
+  NSInvocationOperation = objcclass external (NSOperation)
   private
-    __inv: id;
-    __exception: id;
-    __reserved2: Pointer;
+    _inv: id;
+    _exception: id;
+    _reserved2: Pointer;
     
   public
-    class function alloc: NSInvocationOperation; message 'alloc';
-
-    function initWithTarget_selector_object(target: id; sel: SEL; arg: id): id; message 'initWithTarget:selector:object:';
+    function initWithTarget_selector_object(target: id; sel_: SEL; arg: id): id; message 'initWithTarget:selector:object:';
     function initWithInvocation(inv: NSInvocation): id; message 'initWithInvocation:';
     function invocation: NSInvocation; message 'invocation';
     function result_: id; message 'result';
-  end; external;
+  end;
 
 { NSOperationQueue }
-  NSOperationQueue = objcclass(NSObject)
+  NSOperationQueue = objcclass external (NSObject)
   private
-    __private: id;
-    __reserved: Pointer;
+    _private: id;
+    _reserved: Pointer;
     
   public
-    class function alloc: NSOperationQueue; message 'alloc';
-
     procedure addOperation(op: NSOperation); message 'addOperation:';
+    procedure addOperations_waitUntilFinished(ops: NSArray; wait: Boolean); message 'addOperations:waitUntilFinished:';
     function operations: NSArray; message 'operations';
+    function operationCount: NSUInteger; message 'operationCount';
     function maxConcurrentOperationCount: NSInteger; message 'maxConcurrentOperationCount';
     procedure setMaxConcurrentOperationCount(cnt: NSInteger); message 'setMaxConcurrentOperationCount:';
     procedure setSuspended(b: Boolean); message 'setSuspended:';
     function isSuspended: Boolean; message 'isSuspended';
+    procedure setName(n: NSString); message 'setName:';
+    function name: NSString; message 'name';
     procedure cancelAllOperations; message 'cancelAllOperations';
     procedure waitUntilAllOperationsAreFinished; message 'waitUntilAllOperationsAreFinished';
-  end; external;
+    class function currentQueue: id; message 'currentQueue';
+    class function mainQueue: id; message 'mainQueue';
+  end;
 
 {$endif}
 {$endif}

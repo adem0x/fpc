@@ -223,7 +223,7 @@ interface
     {# If @var(l) isn't in the range of todef a range check error (if not explicit) is generated and
       the value is placed within the range
     }
-    procedure testrange(todef : tdef;var l : tconstexprint;explicit:boolean);
+    procedure testrange(todef : tdef;var l : tconstexprint;explicit,forcerangecheck:boolean);
 
     {# Returns the range of def, where @var(l) is the low-range and @var(h) is
       the high-range.
@@ -260,6 +260,10 @@ interface
     { # returns whether the type is potentially a valid type of/for an "univ" parameter
         (basically: it must have a compile-time size) }
     function is_valid_univ_para_type(def: tdef): boolean;
+
+    { # returns whether the procdef/procvardef represents a nested procedure
+        or not }
+    function is_nested_pd(def: tabstractprocdef): boolean;{$ifdef USEINLINE}inline;{$endif}
 
 implementation
 
@@ -522,6 +526,8 @@ implementation
            setdef:
              is_in_limit:=(tsetdef(def_from).setbase>=tsetdef(def_to).setbase) and
                           (tsetdef(def_from).setmax<=tsetdef(def_to).setmax);
+         else
+           is_in_limit:=false;
          end;
       end;
 
@@ -747,7 +753,7 @@ implementation
 
     { if l isn't in the range of todef a range check error (if not explicit) is generated and
       the value is placed within the range }
-    procedure testrange(todef : tdef;var l : tconstexprint;explicit:boolean);
+    procedure testrange(todef : tdef;var l : tconstexprint;explicit,forcerangecheck:boolean);
       var
          lv,hv: TConstExprInt;
       begin
@@ -762,7 +768,8 @@ implementation
                      { delphi allows range check errors in
                       enumeration type casts FK }
                      not(m_delphi in current_settings.modeswitches)) or
-                    (cs_check_range in current_settings.localswitches) then
+                    (cs_check_range in current_settings.localswitches) or
+                    forcerangecheck then
                    Message(parser_e_range_check_error)
                  else
                    Message(parser_w_range_check_error);
@@ -976,8 +983,7 @@ implementation
             result := OS_ADDR;
           procvardef:
             begin
-              if tprocvardef(def).is_methodpointer and
-                 (not tprocvardef(def).is_addressonly) then
+              if not tprocvardef(def).is_addressonly then
                 {$if sizeof(pint) = 4}
                   result:=OS_64
                 {$else} {$if sizeof(pint) = 8}
@@ -990,14 +996,14 @@ implementation
             end;
           stringdef :
             begin
-              if is_ansistring(def) or is_widestring(def) then
+              if is_ansistring(def) or is_wide_or_unicode_string(def) then
                 result := OS_ADDR
               else
                 result:=int_cgsize(def.size);
             end;
           objectdef :
             begin
-              if is_class_or_interface_or_dispinterface_or_objc(def) then
+              if is_implicit_pointer_object_type(def) then
                 result := OS_ADDR
               else
                 result:=int_cgsize(def.size);
@@ -1029,21 +1035,21 @@ implementation
         end;
       end;
 
-
+    { In Windows 95 era, ordinals were restricted to [u8bit,s32bit,s16bit,bool16bit]
+      As of today, both signed and unsigned types from 8 to 64 bits are supported. }
     function is_automatable(p : tdef) : boolean;
       begin
         result:=false;
         case p.typ of
           orddef:
-            result:=torddef(p).ordtype in [u8bit,s32bit,s16bit,bool16bit];
+            result:=torddef(p).ordtype in [u8bit,s8bit,u16bit,s16bit,u32bit,s32bit,
+              u64bit,s64bit,bool16bit];
           floatdef:
             result:=tfloatdef(p).floattype in [s64currency,s64real,s32real];
           stringdef:
-            result:=tstringdef(p).stringtype in [st_ansistring,st_widestring];
+            result:=tstringdef(p).stringtype in [st_ansistring,st_widestring,st_unicodestring];
           variantdef:
             result:=true;
-          arraydef:
-            result:=(ado_IsConstString in tarraydef(p).arrayoptions);
           objectdef:
             result:=tobjectdef(p).objecttype in [odt_interfacecom,odt_dispinterface,odt_interfacecorba];
         end;
@@ -1128,5 +1134,12 @@ implementation
           not is_void(def) and
           (def.typ<>formaldef);
       end;
+
+
+    function is_nested_pd(def: tabstractprocdef): boolean;{$ifdef USEINLINE}inline;{$endif}
+      begin
+        result:=def.parast.symtablelevel>normal_function_level;
+      end;
+
 
 end.

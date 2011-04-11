@@ -261,7 +261,7 @@ interface
                   ait_instruction :
                      begin
                        { remove cached insentry, because the new code can
-                         require an other less optimized instruction }
+                         require another less optimized instruction }
 {$ifdef i386}
 {$ifndef NOAG386BIN}
                        taicpu(hp2).ResetPass1;
@@ -306,7 +306,7 @@ interface
                   ait_instruction :
                      begin
                        { remove cached insentry, because the new code can
-                         require an other less optimized instruction }
+                         require another less optimized instruction }
 {$ifdef i386}
 {$ifndef NOAG386BIN}
                        taicpu(hp).ResetPass1;
@@ -492,7 +492,7 @@ interface
           LOC_REGISTER:
             begin
               if not(cs_opt_regvar in current_settings.optimizerswitches) or
-                 (pi_has_goto in current_procinfo.flags) then
+                 (pi_has_label in current_procinfo.flags) then
                 begin
                   { make sure the register allocator doesn't reuse the }
                   { register e.g. in the middle of a loop              }
@@ -515,7 +515,7 @@ interface
           LOC_FPUREGISTER:
             begin
               if not(cs_opt_regvar in current_settings.optimizerswitches) or
-                 (pi_has_goto in current_procinfo.flags) then
+                 (pi_has_label in current_procinfo.flags) then
                 begin
                   { make sure the register allocator doesn't reuse the }
                   { register e.g. in the middle of a loop              }
@@ -530,7 +530,7 @@ interface
           LOC_MMREGISTER:
             begin
               if not(cs_opt_regvar in current_settings.optimizerswitches) or
-                 (pi_has_goto in current_procinfo.flags) then
+                 (pi_has_label in current_procinfo.flags) then
                 begin
                   { make sure the register allocator doesn't reuse the }
                   { register e.g. in the middle of a loop              }

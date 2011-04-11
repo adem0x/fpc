@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMNodeList.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMNODELIST_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMNodeList = objcclass;
   DOMNodeListPointer = ^DOMNodeList;
+  DOMNodeListPtr = DOMNodeListPointer;
 
 {$endif}
 
@@ -41,14 +40,12 @@
 {$define DOMNODELIST_PAS_C}
 
 { DOMNodeList }
-  DOMNodeList = objcclass(DOMObject)
+  DOMNodeList = objcclass external (DOMObject)
     
   public
-    class function alloc: DOMNodeList; message 'alloc';
-
     function length: cuint; message 'length';
     function item(index: cuint): DOMNode; message 'item:';
-  end; external;
+  end;
 
 {$endif}
 {$endif}

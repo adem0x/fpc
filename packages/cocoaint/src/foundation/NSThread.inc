@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSThread.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSTHREAD_PAS_T}
@@ -29,9 +27,9 @@
 
 { External string constants }
 var
-  NSWillBecomeMultiThreadedNotification: NSString; external name '_NSWillBecomeMultiThreadedNotification';
-  NSDidBecomeSingleThreadedNotification: NSString; external name '_NSDidBecomeSingleThreadedNotification';
-  NSThreadWillExitNotification: NSString; external name '_NSThreadWillExitNotification';
+  NSWillBecomeMultiThreadedNotification: NSString; cvar; external;
+  NSDidBecomeSingleThreadedNotification: NSString; cvar; external;
+  NSThreadWillExitNotification: NSString; cvar; external;
 
 {$endif}
 {$endif}
@@ -39,6 +37,7 @@ var
 {$ifdef FORWARD}
   NSThread = objcclass;
   NSThreadPointer = ^NSThread;
+  NSThreadPtr = NSThreadPointer;
 
 {$endif}
 
@@ -47,14 +46,12 @@ var
 {$define NSTHREAD_PAS_C}
 
 { NSThread }
-  NSThread = objcclass(NSObject)
+  NSThread = objcclass external (NSObject)
   private
-    __private: id;
-        _bytes: array[0..43] of byte;
+    _private: id;
+        _bytes: array[0..43] of cuint8;
     
   public
-    class function alloc: NSThread; message 'alloc';
-
     class function currentThread: NSThread; message 'currentThread';
     class procedure detachNewThreadSelector_toTarget_withObject(selector: SEL; target: id; argument: id); message 'detachNewThreadSelector:toTarget:withObject:';
     class function isMultiThreaded: Boolean; message 'isMultiThreaded';
@@ -65,6 +62,7 @@ var
     class function threadPriority: double; message 'threadPriority';
     class function setThreadPriority(p: double): Boolean; message 'setThreadPriority:';
     class function callStackReturnAddresses: NSArray; message 'callStackReturnAddresses';
+    class function callStackSymbols: NSArray; message 'callStackSymbols';
     procedure setName(n: NSString); message 'setName:';
     function name: NSString; message 'name';
     function stackSize: NSUInteger; message 'stackSize';
@@ -79,7 +77,16 @@ var
     procedure cancel; message 'cancel';
     procedure start; message 'start';
     procedure main; message 'main';
-  end; external;
+  end;
+
+{ NSThreadPerformAdditionsCategory }
+  NSThreadPerformAdditionsCategory = objccategory external (NSObject)
+    procedure performSelectorOnMainThread_withObject_waitUntilDone_modes(aSelector: SEL; arg: id; wait: Boolean; array_: NSArray); message 'performSelectorOnMainThread:withObject:waitUntilDone:modes:';
+    procedure performSelectorOnMainThread_withObject_waitUntilDone(aSelector: SEL; arg: id; wait: Boolean); message 'performSelectorOnMainThread:withObject:waitUntilDone:';
+    procedure performSelector_onThread_withObject_waitUntilDone_modes(aSelector: SEL; thr: NSThread; arg: id; wait: Boolean; array_: NSArray); message 'performSelector:onThread:withObject:waitUntilDone:modes:';
+    procedure performSelector_onThread_withObject_waitUntilDone(aSelector: SEL; thr: NSThread; arg: id; wait: Boolean); message 'performSelector:onThread:withObject:waitUntilDone:';
+    procedure performSelectorInBackground_withObject(aSelector: SEL; arg: id); message 'performSelectorInBackground:withObject:';
+  end;
 
 {$endif}
 {$endif}

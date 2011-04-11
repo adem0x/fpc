@@ -70,7 +70,7 @@ interface
 
        tstatementnode = class(tbinarynode)
           constructor create(l,r : tnode);virtual;
-          function simplify : tnode; override;
+          function simplify(forinline : boolean) : tnode; override;
           function pass_1 : tnode;override;
           function pass_typecheck:tnode;override;
           procedure printnodetree(var t:text);override;
@@ -82,7 +82,7 @@ interface
        tblocknode = class(tunarynode)
           constructor create(l : tnode);virtual;
           destructor destroy; override;
-          function simplify : tnode; override;
+          function simplify(forinline : boolean) : tnode; override;
           function pass_1 : tnode;override;
           function pass_typecheck:tnode;override;
 {$ifdef state_tracking}
@@ -194,14 +194,14 @@ type
        ttempdeletenodeclass = class of ttempdeletenode;
 
     var
-       cnothingnode : tnothingnodeclass;
-       cerrornode : terrornodeclass;
-       casmnode : tasmnodeclass;
-       cstatementnode : tstatementnodeclass;
-       cblocknode : tblocknodeclass;
-       ctempcreatenode : ttempcreatenodeclass;
-       ctemprefnode : ttemprefnodeclass;
-       ctempdeletenode : ttempdeletenodeclass;
+       cnothingnode : tnothingnodeclass = tnothingnode;
+       cerrornode : terrornodeclass = terrornode;
+       casmnode : tasmnodeclass = tasmnode;
+       cstatementnode : tstatementnodeclass = tstatementnode;
+       cblocknode : tblocknodeclass = tblocknode;
+       ctempcreatenode : ttempcreatenodeclass = ttempcreatenode;
+       ctemprefnode : ttemprefnodeclass = ttemprefnode;
+       ctempdeletenode : ttempdeletenodeclass = ttempdeletenode;
 
        { Create a blocknode and statement node for multiple statements
          generated internally by the parser }
@@ -245,7 +245,7 @@ implementation
     procedure addstatement(var laststatement:tstatementnode;n:tnode);
       begin
         if assigned(laststatement.right) then
-         internalerror(200204201);
+          internalerror(200204201);
         laststatement.right:=cstatementnode.create(n,nil);
         laststatement:=tstatementnode(laststatement.right);
       end;
@@ -333,7 +333,7 @@ implementation
       end;
 
 
-    function tstatementnode.simplify : tnode;
+    function tstatementnode.simplify(forinline: boolean) : tnode;
       begin
         result:=nil;
         { these "optimizations" are only to make it more easy to recognise    }
@@ -456,7 +456,7 @@ implementation
       end;
 
 
-    function tblocknode.simplify: tnode;
+    function tblocknode.simplify(forinline : boolean): tnode;
       begin
         result := nil;
         { Warning: never replace a blocknode with another node type,      }
@@ -1127,13 +1127,4 @@ implementation
           tempinfo^.typedef.GetTypeName,'", tempinfo = $',hexstr(ptrint(tempinfo),sizeof(ptrint)*2));
       end;
 
-begin
-   cnothingnode:=tnothingnode;
-   cerrornode:=terrornode;
-   casmnode:=tasmnode;
-   cstatementnode:=tstatementnode;
-   cblocknode:=tblocknode;
-   ctempcreatenode:=ttempcreatenode;
-   ctemprefnode:=ttemprefnode;
-   ctempdeletenode:=ttempdeletenode;
 end.

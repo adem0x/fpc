@@ -7,7 +7,7 @@ main=rtl
 
 [target]
 loaders=$(LOADERS)
-units=system objpas macpas buildrtl lineinfo lnfodwrf
+units=system objpas macpas iso7185 buildrtl lineinfo lnfodwrf
 implicitunits=sysinitpas sysinitcyg sysinitgprof \
       ctypes strings \
       heaptrc matrix \
@@ -18,7 +18,7 @@ implicitunits=sysinitpas sysinitcyg sysinitgprof \
       convutils stdconvs cpu mmx charset ucomplex getopts \
       winevent sockets printer \
       video mouse keyboard fmtbcd \
-      winsysut sharemem exeinfo fpintres
+      winsysut sharemem exeinfo fpintres windirs
 
 # shared=$(DLLS)
 

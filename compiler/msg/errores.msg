@@ -575,8 +575,8 @@ parser_e_void_function=03080_E_Los procedimientos no pueden devolver ningún valo
 % In \fpc, you can specify a return value for a function when using
 % the \var{exit} statement. This error occurs when you try to do this with a
 % procedure. Procedures cannot return a value.
-parser_e_constructors_always_objects=03081_E_constructores y destructores deben ser métodos
-% You're declaring a procedure as destructor or constructor, when the
+parser_e_only_methods_allowed=03081_E_constructores, destructors y class operators deben ser métodos
+% You're declaring a procedure as destructor, constructor or class operator, when the
 % procedure isn't a class method.
 parser_e_operator_not_overloaded=03082_E_El operador no esta sobrecargado
 % You're trying to use an overloaded operator when it is not overloaded for
@@ -788,7 +788,7 @@ parser_e_threadvars_only_sg=03147_E_Threadvars sólo pueden ser globales o estáti
 % are stored on the stack
 parser_f_direct_assembler_not_allowed=03148_F_Ensamblador directo no soportado para formato binario de salida
 % You can't use direct assembler when using a binary writer, choose an
-% other outputformat or use an other assembler reader
+% other outputformat or use another assembler reader
 parser_w_no_objpas_use_mode=03149_W_No carges manuamente la unidad OBJPAS, usa \{\$mode objfpc\} o \{\$mode delphi\}
 % You are trying to load the ObjPas unit manually from a uses clause. This is
 % not a good idea. Use the \var{\{\$mode objfpc\}} or
@@ -1195,7 +1195,7 @@ type_w_signed_unsigned_always_true=04045_W_La comparación es siempre verdadera d
 type_w_instance_with_abstract=04046_W_Constuyendo un objeto de clase "$1" que contiene métodos abstractos
 % An instance of a class is created which contains non-implemented abstract
 % methods. This will probably lead to a runtime error 211 in the code if that
-% routine is ever called. All abstract methods should be overriden.
+% routine is ever called. All abstract methods should be overridden.
 type_h_in_range_check=04047_H_El operando a la izquierda de IN debe ser de tamaño un byte
 % The left operand of the \var{in} operator is not an ordinal or enumeration which fits
 % within 8-bits, this may lead to range check errors. The \var{in} operator
@@ -2111,7 +2111,7 @@ option_code_page_not_available=11039_E_Código de página desconocido
 #
 option_logo=11023_[
 Free Pascal Compiler version $FPCFULLVERSION [$FPCDATE] for $FPCCPU
-Copyright (c) 1993-2009 by Florian Klaempfl
+Copyright (c) 1993-2011 by Florian Klaempfl
 ]
 
 #

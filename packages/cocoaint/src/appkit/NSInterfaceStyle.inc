@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSInterfaceStyle.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSINTERFACESTYLE_PAS_T}
@@ -17,6 +15,7 @@ const
 { Types }
 type
   NSInterfaceStyle = NSUInteger;
+  NSInterfaceStylePtr = ^NSInterfaceStyle;
 
 {$endif}
 {$endif}
@@ -33,7 +32,7 @@ type
 {$define NSINTERFACESTYLE_PAS_F}
 
 { Functions }
-function NSInterfaceStyleForKey(keyPointer: NSString; responderPointer: NSResponder): NSInterfaceStyle; cdecl; external name 'NSInterfaceStyleForKey';
+function NSInterfaceStyleForKey(key: NSString; responder: NSResponder): NSInterfaceStyle; cdecl; external;
 
 {$endif}
 {$endif}
@@ -44,7 +43,24 @@ function NSInterfaceStyleForKey(keyPointer: NSString; responderPointer: NSRespon
 
 { External string constants }
 var
-  NSInterfaceStyleDefault: NSString; external name '_NSInterfaceStyleDefault';
+  NSInterfaceStyleDefault: NSString; cvar; external;
+
+{$endif}
+{$endif}
+
+{$ifdef FORWARD}
+
+{$endif}
+
+{$ifdef CLASSES}
+{$ifndef NSINTERFACESTYLE_PAS_C}
+{$define NSINTERFACESTYLE_PAS_C}
+
+{ NSInterfaceStyleCategory }
+  NSInterfaceStyleCategory = objccategory external (NSResponder)
+    function interfaceStyle: NSInterfaceStyle; message 'interfaceStyle';
+    procedure setInterfaceStyle(interfaceStyle: NSInterfaceStyle); message 'setInterfaceStyle:';
+  end;
 
 {$endif}
 {$endif}

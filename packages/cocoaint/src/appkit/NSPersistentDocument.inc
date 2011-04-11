@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSPersistentDocument.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:08 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPERSISTENTDOCUMENT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSPersistentDocument = objcclass;
   NSPersistentDocumentPointer = ^NSPersistentDocument;
+  NSPersistentDocumentPtr = NSPersistentDocumentPointer;
 
 {$endif}
 
@@ -41,31 +40,31 @@
 {$define NSPERSISTENTDOCUMENT_PAS_C}
 
 { NSPersistentDocument }
-  NSPersistentDocument = objcclass(NSDocument)
+  NSPersistentDocument = objcclass external (NSDocument)
   private
-    __managedObjectModel: NSManagedObjectModel;
-    __managedObjectContext: NSManagedObjectContext;
-    __store: id;
-    __reserved: Pointer;
-    __reserved2: Pointer;
-    __reserved3: Pointer;
-    __reserved4: Pointer;
+    _managedObjectModel: NSManagedObjectModel;
+    _managedObjectContext: NSManagedObjectContext;
+    _store: id;
+    _reserved: Pointer;
+    _reserved2: Pointer;
+    _reserved3: Pointer;
+    _reserved4: Pointer;
     
   public
-    class function alloc: NSPersistentDocument; message 'alloc';
-
     function managedObjectContext: NSManagedObjectContext; message 'managedObjectContext';
-    procedure setManagedObjectContext(managedObjectContext_: NSManagedObjectContextPointer); message 'setManagedObjectContext:';
+    procedure setManagedObjectContext(managedObjectContext_: NSManagedObjectContext); message 'setManagedObjectContext:';
     function managedObjectModel: id; message 'managedObjectModel';
     function configurePersistentStoreCoordinatorForURL_ofType_modelConfiguration_storeOptions_error(url: NSURL; fileType_: NSString; configuration: NSString; storeOptions: NSDictionary; error: NSErrorPointer): Boolean; message 'configurePersistentStoreCoordinatorForURL:ofType:modelConfiguration:storeOptions:error:';
     function persistentStoreTypeForFileType(fileType_: NSString): NSString; message 'persistentStoreTypeForFileType:';
     function writeToURL_ofType_forSaveOperation_originalContentsURL_error(absoluteURL: NSURL; typeName: NSString; saveOperation: NSSaveOperationType; absoluteOriginalContentsURL: NSURL; error: NSErrorPointer): Boolean; message 'writeToURL:ofType:forSaveOperation:originalContentsURL:error:';
     function readFromURL_ofType_error(absoluteURL: NSURL; typeName: NSString; error: NSErrorPointer): Boolean; message 'readFromURL:ofType:error:';
     function revertToContentsOfURL_ofType_error(inAbsoluteURL: NSURL; inTypeName: NSString; outError: NSErrorPointer): Boolean; message 'revertToContentsOfURL:ofType:error:';
+  end;
 
-    { Category: NSPersistentDocumentDeprecated }
-    function configurePersistentStoreCoordinatorForURL_ofType_error(url: NSURL; fileType_: NSString; error: NSErrorPointer): Boolean; message 'configurePersistentStoreCoordinatorForURL:ofType:error:';
-  end; external;
+{ NSDeprecated_NSPersistentDocumentCategory }
+  NSDeprecated_NSPersistentDocumentCategory = objccategory external name 'NSDeprecated' (NSPersistentDocument)
+    function configurePersistentStoreCoordinatorForURL_ofType_error(url: NSURL; fileType_: NSString; error: NSErrorPointer): Boolean; message 'configurePersistentStoreCoordinatorForURL:ofType:error:'; deprecated 'in Mac OS X 10.5 and later';
+  end;
 
 {$endif}
 {$endif}

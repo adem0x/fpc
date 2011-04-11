@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSColorPicker.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:07 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCOLORPICKER_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   NSColorPicker = objcclass;
   NSColorPickerPointer = ^NSColorPicker;
+  NSColorPickerPtr = NSColorPickerPointer;
 
 {$endif}
 
@@ -41,15 +40,13 @@
 {$define NSCOLORPICKER_PAS_C}
 
 { NSColorPicker }
-  NSColorPicker = objcclass(NSObject, NSColorPickingDefaultProtocol)
+  NSColorPicker = objcclass external (NSObject, NSColorPickingDefaultProtocol)
   private
-    __imageObject: id;
-    __colorPanel: NSColorPanel;
-    __buttonToolTip: NSString;
+    _imageObject: id;
+    _colorPanel: NSColorPanel;
+    _buttonToolTip: NSString;
     
   public
-    class function alloc: NSColorPicker; message 'alloc';
-
     function initWithPickerMask_colorPanel(mask: NSUInteger; owningColorPanel: NSColorPanel): id; message 'initWithPickerMask:colorPanel:';
     function colorPanel: NSColorPanel; message 'colorPanel';
     function provideNewButtonImage: NSImage; message 'provideNewButtonImage';
@@ -60,7 +57,10 @@
     procedure setMode(mode: NSColorPanelMode); message 'setMode:';
     function buttonToolTip: NSString; message 'buttonToolTip';
     function minContentSize: NSSize; message 'minContentSize';
-  end; external;
+
+    { Adopted Protocols }
+    procedure alphaControlAddedOrRemoved(sender: id);
+  end;
 
 {$endif}
 {$endif}

@@ -7,7 +7,7 @@ main=rtl
 
 [target]
 loaders=
-units=$(SYSTEMUNIT) $(CPU_UNITS) # objpas macpas strings \
+units=$(SYSTEMUNIT) $(CPU_UNITS) objpas # macpas iso7185 strings \
 #      dos \
 #       sysutils \
 #       classes math typinfo varutils fmtbcd \
@@ -48,7 +48,11 @@ CPU_UNITS=
 SYSINIT_UNITS=
 
 ifeq ($(ARCH),arm)
-CPU_UNITS=lpc21x4 at91sam7x256
+CPU_UNITS=lpc21x4 at91sam7x256 stellaris stm32f103
+endif
+
+ifeq ($(ARCH),i386)
+CPU_UNITS=multiboot
 endif
 
 # Paths

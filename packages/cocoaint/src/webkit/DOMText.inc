@@ -1,6 +1,4 @@
 { Parsed from Webkit.framework DOMText.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Sat Oct 10 8:18:59 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef DOMTEXT_PAS_T}
@@ -33,6 +31,7 @@
 {$ifdef FORWARD}
   DOMText = objcclass;
   DOMTextPointer = ^DOMText;
+  DOMTextPtr = DOMTextPointer;
 
 {$endif}
 
@@ -41,13 +40,13 @@
 {$define DOMTEXT_PAS_C}
 
 { DOMText }
-  DOMText = objcclass(DOMCharacterData)
+  DOMText = objcclass external (DOMCharacterData)
     
   public
-    class function alloc: DOMText; message 'alloc';
-
+    function wholeText: NSString; message 'wholeText';
     function splitText(offset: cuint): DOMText; message 'splitText:';
-  end; external;
+    function replaceWholeText(content: NSString): DOMText; message 'replaceWholeText:';
+  end;
 
 {$endif}
 {$endif}

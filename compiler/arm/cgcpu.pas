@@ -531,7 +531,7 @@ unit cgcpu;
     procedure tcgarm.a_call_reg(list : TAsmList;reg: tregister);
       begin
         { check not really correct: should only be used for non-Thumb cpus }
-        if (current_settings.cputype<cpu_armv6) then
+        if (current_settings.cputype<cpu_armv5) then
           begin
             list.concat(taicpu.op_reg_reg(A_MOV,NR_R14,NR_PC));
             list.concat(taicpu.op_reg_reg(A_MOV,NR_PC,reg));
@@ -2140,11 +2140,7 @@ unit cgcpu;
         shift : byte;
       begin
         { calculate the parameter info for the procdef }
-        if not procdef.has_paraloc_info then
-          begin
-            procdef.requiredargarea:=paramanager.create_paraloc_info(procdef,callerside);
-            procdef.has_paraloc_info:=true;
-          end;
+        procdef.init_paraloc_info(callerside);
         hsym:=tsym(procdef.parast.Find('self'));
         if not(assigned(hsym) and
           (hsym.typ=paravarsym)) then
@@ -2456,7 +2452,7 @@ unit cgcpu;
           if (procdef.extnumber=$ffff) then
             Internalerror(200006139);
           { call/jmp  vmtoffs(%eax) ; method offs }
-          reference_reset_base(href,NR_R12,procdef._class.vmtmethodoffset(procdef.extnumber),sizeof(pint));
+          reference_reset_base(href,NR_R12,tobjectdef(procdef.struct).vmtmethodoffset(procdef.extnumber),sizeof(pint));
           cg.a_load_ref_reg(list,OS_ADDR,OS_ADDR,href,NR_R12);
           list.concat(taicpu.op_reg_reg(A_MOV,NR_PC,NR_R12));
         end;
@@ -2466,7 +2462,7 @@ unit cgcpu;
       begin
         if not(procdef.proctypeoption in [potype_function,potype_procedure]) then
           Internalerror(200006137);
-        if not assigned(procdef._class) or
+        if not assigned(procdef.struct) or
            (procdef.procoptions*[po_classmethod, po_staticmethod,
              po_methodpointer, po_interrupt, po_iocheck]<>[]) then
           Internalerror(200006138);
@@ -2533,8 +2529,7 @@ unit cgcpu;
         if current_asmdata.asmlists[al_imports]=nil then
           current_asmdata.asmlists[al_imports]:=TAsmList.create;
 
-        current_asmdata.asmlists[al_imports].concat(Tai_section.create(sec_stub,'',0));
-        current_asmdata.asmlists[al_imports].concat(Tai_align.Create(4));
+        new_section(current_asmdata.asmlists[al_imports],sec_stub,'',4);
         result := current_asmdata.RefAsmSymbol(stubname);
         current_asmdata.asmlists[al_imports].concat(Tai_symbol.Create(result,0));
         { register as a weak symbol if necessary }
@@ -2557,7 +2552,7 @@ unit cgcpu;
         else
           internalerror(2008100401);
 
-        current_asmdata.asmlists[al_imports].concat(tai_section.create(sec_data_lazy,'',sizeof(pint)));
+        new_section(current_asmdata.asmlists[al_imports],sec_data_lazy,'',sizeof(pint));
         current_asmdata.asmlists[al_imports].concat(Tai_symbol.Create(l1,0));
         current_asmdata.asmlists[al_imports].concat(tai_directive.create(asd_indirect_symbol,s));
         current_asmdata.asmlists[al_imports].concat(tai_const.createname('dyld_stub_binding_helper',0));
@@ -2815,12 +2810,12 @@ unit cgcpu;
         inherited init_register_allocators;
         { currently, we save R14 always, so we can use it }
         if (target_info.system<>system_arm_darwin) then
-          rg[R_INTREGISTER]:=trgcputhumb2.create(R_INTREGISTER,R_SUBWHOLE,
+          rg[R_INTREGISTER]:=trgintcputhumb2.create(R_INTREGISTER,R_SUBWHOLE,
               [RS_R0,RS_R1,RS_R2,RS_R3,RS_R4,RS_R5,RS_R6,RS_R7,RS_R8,
                RS_R9,RS_R10,RS_R12,RS_R14],first_int_imreg,[])
         else
           { r9 is not available on Darwin according to the llvm code generator }
-          rg[R_INTREGISTER]:=trgcputhumb2.create(R_INTREGISTER,R_SUBWHOLE,
+          rg[R_INTREGISTER]:=trgintcputhumb2.create(R_INTREGISTER,R_SUBWHOLE,
               [RS_R0,RS_R1,RS_R2,RS_R3,RS_R4,RS_R5,RS_R6,RS_R7,RS_R8,
                RS_R10,RS_R12,RS_R14],first_int_imreg,[]);
         rg[R_FPUREGISTER]:=trgcputhumb2.create(R_FPUREGISTER,R_SUBNONE,
@@ -3338,7 +3333,12 @@ unit cgcpu;
               end;
 
             if current_procinfo.framepointer<>NR_STACK_POINTER_REG then
-              list.concat(taicpu.op_reg_reg(A_MOV,NR_FRAME_POINTER_REG,NR_R12));
+              begin
+                { the framepointer now points to the saved R15, so the saved
+                  framepointer is at R11-12 (for get_caller_frame) }
+                list.concat(taicpu.op_reg_reg_const(A_SUB,NR_FRAME_POINTER_REG,NR_R12,4));
+                a_reg_dealloc(list,NR_R12);
+              end;
 
             stackmisalignment:=stackmisalignment mod current_settings.alignment.localalignmax;
             if (LocalSize<>0) or
@@ -3479,6 +3479,8 @@ unit cgcpu;
               begin
                 { restore int registers and return }
                 list.concat(taicpu.op_reg_reg(A_MOV, NR_STACK_POINTER_REG, NR_FRAME_POINTER_REG));
+                { Add 4 to SP to make it point to an "imaginary PC" which the paramanager assumes is there(for normal ARM) }
+                list.concat(taicpu.op_reg_const(A_ADD, NR_STACK_POINTER_REG, 4));
 
                 reference_reset(ref,4);
                 ref.index:=NR_STACK_POINTER_REG;

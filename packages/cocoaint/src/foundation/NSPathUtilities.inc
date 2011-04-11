@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSPathUtilities.h }
-{ Version FrameworkParser: 1.3. PasCocoa 0.3, Objective-P 0.4 - Thu Oct 1 18:54:06 ICT 2009 }
-
 
 {$ifdef TYPES}
 {$ifndef NSPATHUTILITIES_PAS_T}
@@ -10,19 +8,28 @@
 
 const
   NSApplicationDirectory = 1;
-  NSDemoApplicationDirectory = 0;
-  NSDeveloperApplicationDirectory = 1;
-  NSAdminApplicationDirectory = 2;
-  NSLibraryDirectory = 3;
-  NSDeveloperDirectory = 4;
-  NSUserDirectory = 5;
-  NSDocumentationDirectory = 6;
-  NSDocumentDirectory = 7;
-  NSCoreServiceDirectory = 8;
+  NSDemoApplicationDirectory = 2;
+  NSDeveloperApplicationDirectory = 3;
+  NSAdminApplicationDirectory = 4;
+  NSLibraryDirectory = 5;
+  NSDeveloperDirectory = 6;
+  NSUserDirectory = 7;
+  NSDocumentationDirectory = 8;
+  NSDocumentDirectory = 9;
+  NSCoreServiceDirectory = 10;
+  NSAutosavedInformationDirectory = 11;
   NSDesktopDirectory = 12;
   NSCachesDirectory = 13;
   NSApplicationSupportDirectory = 14;
   NSDownloadsDirectory = 15;
+  NSInputMethodsDirectory = 16;
+  NSMoviesDirectory = 17;
+  NSMusicDirectory = 18;
+  NSPicturesDirectory = 19;
+  NSPrinterDescriptionDirectory = 20;
+  NSSharedPublicDirectory = 21;
+  NSPreferencePanesDirectory = 22;
+  NSItemReplacementDirectory = 99;
   NSAllApplicationsDirectory = 100;
   NSAllLibrariesDirectory = 101;
 
@@ -36,7 +43,9 @@ const
 { Types }
 type
   NSSearchPathDirectory = NSUInteger;
+  NSSearchPathDirectoryPtr = ^NSSearchPathDirectory;
   NSSearchPathDomainMask = NSUInteger;
+  NSSearchPathDomainMaskPtr = ^NSSearchPathDomainMask;
 
 {$endif}
 {$endif}
@@ -53,13 +62,13 @@ type
 {$define NSPATHUTILITIES_PAS_F}
 
 { Functions }
-function NSUserName: NSString; cdecl; external name 'NSUserName';
-function NSFullUserName: NSString; cdecl; external name 'NSFullUserName';
-function NSHomeDirectory: NSString; cdecl; external name 'NSHomeDirectory';
-function NSHomeDirectoryForUser(userNamePointer: NSString): NSString; cdecl; external name 'NSHomeDirectoryForUser';
-function NSTemporaryDirectory: NSString; cdecl; external name 'NSTemporaryDirectory';
-function NSOpenStepRootDirectory: NSString; cdecl; external name 'NSOpenStepRootDirectory';
-function NSSearchPathForDirectoriesInDomains(directory: NSSearchPathDirectory; domainMask: NSSearchPathDomainMask; expandTilde: Boolean): NSArray; cdecl; external name 'NSSearchPathForDirectoriesInDomains';
+function NSUserName: NSString; cdecl; external;
+function NSFullUserName: NSString; cdecl; external;
+function NSHomeDirectory: NSString; cdecl; external;
+function NSHomeDirectoryForUser(userName: NSString): NSString; cdecl; external;
+function NSTemporaryDirectory: NSString; cdecl; external;
+function NSOpenStepRootDirectory: NSString; cdecl; external;
+function NSSearchPathForDirectoriesInDomains(directory: NSSearchPathDirectory; domainMask: NSSearchPathDomainMask; expandTilde: Boolean): NSArray; cdecl; external;
 
 {$endif}
 {$endif}
@@ -67,6 +76,43 @@ function NSSearchPathForDirectoriesInDomains(directory: NSSearchPathDirectory; d
 {$ifdef EXTERNAL_SYMBOLS}
 {$ifndef NSPATHUTILITIES_PAS_S}
 {$define NSPATHUTILITIES_PAS_S}
+
+{$endif}
+{$endif}
+
+{$ifdef FORWARD}
+
+{$endif}
+
+{$ifdef CLASSES}
+{$ifndef NSPATHUTILITIES_PAS_C}
+{$define NSPATHUTILITIES_PAS_C}
+
+{ NSStringPathExtensionsCategory }
+  NSStringPathExtensionsCategory = objccategory external (NSString)
+    class function pathWithComponents(components: NSArray): NSString; message 'pathWithComponents:';
+    function pathComponents: NSArray; message 'pathComponents';
+    function isAbsolutePath: Boolean; message 'isAbsolutePath';
+    function lastPathComponent: NSString; message 'lastPathComponent';
+    function stringByDeletingLastPathComponent: NSString; message 'stringByDeletingLastPathComponent';
+    function stringByAppendingPathComponent(str: NSString): NSString; message 'stringByAppendingPathComponent:';
+    function pathExtension: NSString; message 'pathExtension';
+    function stringByDeletingPathExtension: NSString; message 'stringByDeletingPathExtension';
+    function stringByAppendingPathExtension(str: NSString): NSString; message 'stringByAppendingPathExtension:';
+    function stringByAbbreviatingWithTildeInPath: NSString; message 'stringByAbbreviatingWithTildeInPath';
+    function stringByExpandingTildeInPath: NSString; message 'stringByExpandingTildeInPath';
+    function stringByStandardizingPath: NSString; message 'stringByStandardizingPath';
+    function stringByResolvingSymlinksInPath: NSString; message 'stringByResolvingSymlinksInPath';
+    function stringsByAppendingPaths(paths: NSArray): NSArray; message 'stringsByAppendingPaths:';
+    function completePathIntoString_caseSensitive_matchesIntoArray_filterTypes(outputName: NSStringPointer; flag: Boolean; outputArray: NSArrayPointer; filterTypes: NSArray): NSUInteger; message 'completePathIntoString:caseSensitive:matchesIntoArray:filterTypes:';
+    function fileSystemRepresentation: PChar; message 'fileSystemRepresentation';
+    function getFileSystemRepresentation_maxLength(cname: PChar; max: NSUInteger): Boolean; message 'getFileSystemRepresentation:maxLength:';
+  end;
+
+{ NSArrayPathExtensionsCategory }
+  NSArrayPathExtensionsCategory = objccategory external (NSArray)
+    function pathsMatchingExtensions(filterTypes: NSArray): NSArray; message 'pathsMatchingExtensions:';
+  end;
 
 {$endif}
 {$endif}
