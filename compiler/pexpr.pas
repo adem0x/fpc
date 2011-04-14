@@ -108,7 +108,7 @@ implementation
                   { error recovery }
                   consume(_RECKKLAMMER);
                 end
-              else
+              {else
                 begin
                  if (tordconstnode(p).value<=0) then
                    begin
@@ -116,7 +116,7 @@ implementation
                       tordconstnode(p).value:=255;
                    end;
                  consume(_RECKKLAMMER);
-               end
+               end}
              else
                begin
                 if (tordconstnode(p).value<=0) then
@@ -144,7 +144,7 @@ implementation
              if not(allowtypedef) then
                Message(parser_e_no_local_para_def);
              consume(_LSHARPBRACKET);
-             p:=comp_expr(true);
+             p:=comp_expr(true,false);
              if not is_constintnode(p) then
                begin
                  Message(parser_e_illegal_expression);

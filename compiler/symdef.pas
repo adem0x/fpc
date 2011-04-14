@@ -582,7 +582,6 @@ interface
        end;
 
        tstringdef = class(tstoreddef)
-          len        : aint;
           encoding   : tstringencoding;
           stringtype : tstringtype;
           len        : asizeint;
