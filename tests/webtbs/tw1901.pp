@@ -8,6 +8,11 @@
 
 {$Q-}
 {$R-}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 const Inf=1/0;
       NaN=0/0;

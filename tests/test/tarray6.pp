@@ -1,11 +1,17 @@
 {$ifndef macos}{$APPTYPE CONSOLE}{$endif}
 {$ifdef fpc}{$mode delphi}{$endif}
 
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
+
 procedure wideansi;
 var
   S: AnsiString = 'abcd';
-  pc: PChar = 'abcd';
-  ca: array [0..4] of Char = ('a', 'b', 'c', 'd', #0);
+  pc: PAnsiChar = 'abcd';
+  ca: array [0..4] of AnsiChar = ('a', 'b', 'c', 'd', #0);
   W: WideString = 'abcd';
   pw: PWideChar = 'abcd';
   wa: array [0..4] of WideChar = ('a', 'b', 'c', 'd', #0);
@@ -50,8 +56,8 @@ end;
 procedure wideshort;
 var
   S: ShortString = 'abcd';
-  pc: PChar = 'abcd';
-  ca: array [0..4] of Char = ('a', 'b', 'c', 'd', #0);
+  pc: PAnsiChar = 'abcd';
+  ca: array [0..4] of AnsiChar = ('a', 'b', 'c', 'd', #0);
   W: WideString = 'abcd';
   pw: PWideChar = 'abcd';
   wa: array [0..4] of WideChar = ('a', 'b', 'c', 'd', #0);

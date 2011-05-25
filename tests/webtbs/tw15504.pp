@@ -2,10 +2,11 @@ program strtest;
 
 {$MODE OBJFPC}
 {$LONGSTRINGS ON}
-
+uses
 {$ifdef unix}
-uses CWstring;
-{$endif}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 type
     tEnum = (North, East, South, West);

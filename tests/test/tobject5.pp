@@ -1,4 +1,9 @@
 program tobject5;
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 {$apptype console}
 {$mode objfpc}{$H+}

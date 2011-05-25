@@ -8,6 +8,11 @@
     {$define haswidestring}
   {$endif}
 {$endif}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 procedure test_shortstr;
 type

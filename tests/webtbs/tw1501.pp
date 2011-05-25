@@ -1,4 +1,9 @@
 {$mode objfpc}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 function Uper1(const Pwd:AnsiString):AnsiString;
 begin

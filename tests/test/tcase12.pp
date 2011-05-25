@@ -1,4 +1,9 @@
 { test for simple comparsion }
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 {$H+}
 

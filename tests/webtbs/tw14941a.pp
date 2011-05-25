@@ -3,6 +3,12 @@ program StringTest5;
 {$mode delphi}
 {$endif}
 {$V+}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
+
 var
    s    :String;
 

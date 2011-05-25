@@ -1,7 +1,10 @@
 Program ansitest;
 
 uses
-  erroru;
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  erroru,sysutils;
 
 {$ifdef cpu68k}
   {$define COMP_IS_INT64}
@@ -148,7 +151,7 @@ Const S1 : AnsiString = 'Teststring 1';
       S2 : AnsiString = 'Teststring 1';
       S3 : AnsiString = 'Teststring 2';
       S4 : AnsiString = '';
-      PC : Pchar = 'Teststring 1';
+      PC : PAnsiChar = 'Teststring 1';
 
 Var S,T : AnsiString;
     ss : Shortstring;
@@ -174,16 +177,16 @@ begin
  else
     Writeln ('Shortstring and AnsiString NOT equal. PROBLEM !');
   If S=PC then
-    Writeln ('Pchar and AnsiString are the same. OK')
+    Writeln ('PAnsiChar and AnsiString are the same. OK')
  else
-    Writeln ('Pchar and AnsiString NOT equal. PROBLEM !');
+    Writeln ('PAnsiChar and AnsiString NOT equal. PROBLEM !');
 end;
 
 { -------------------------------------------------------------------
     Type conversion test
   ------------------------------------------------------------------- }
 
-Procedure DoPchar (P : Pchar);
+Procedure DoPchar (P : Pansichar);
 
 begin
   Writeln ('DoPchar : Got : "',P,'"');
@@ -192,29 +195,29 @@ end;
 
 Procedure TestConversion;
 
-Var Pstr : Pchar;
+Var Pstr : Pansichar;
     Sstr : String[40];
     Astr : AnsiString;
 
-Const PC : Pchar = 'A PCHAR constant string';
+Const PC : Pansichar = 'A PCHAR constant string';
 
 begin
   Writeln ('Astr empty : "',Astr,'"');
-  Pstr:=PChar(Astr);
-  Writeln ('AnsiString Assigned to Pchar : "',Pstr,'"');
-  DoPchar(Pchar(Astr));
+  Pstr:=PAnsiChar(Astr);
+  Writeln ('AnsiString Assigned to PAnsiChar : "',Pstr,'"');
+  DoPchar(PAnsiChar(Astr));
   Astr:='An Ansistring';
   Writeln ('Astr: "',Astr,'"');
-  Pstr:=PChar(Astr);
-  Writeln ('AnsiString Assigned to Pchar : "',Pstr,'"');
-  DoPchar(Pchar(Astr));
+  Pstr:=PAnsiChar(Astr);
+  Writeln ('AnsiString Assigned to PAnsiChar : "',Pstr,'"');
+  DoPchar(PAnsiChar(Astr));
   SStr:='A ShortString';
   Writeln ('Shortstring : "',Sstr,'"');
   Astr:=Sstr;
   Write ('ShortString assigned to AnsiString : "',Astr,'"');
   DoRef(Pointer(Astr));
   Astr:=PC;
-  Write ('PChar assigned to AnsiString : "',Astr,'"');
+  Write ('PAnsiChar assigned to AnsiString : "',Astr,'"');
   DoRef(Pointer(Astr));
 end;
 
@@ -351,7 +354,7 @@ Procedure TestStdFunc;
 
 Var S,T : AnsiString;
     SS : ShortString;
-    C : Char;
+    C : AnsiChar;
     Ca : Cardinal;
     L : sizeint;
     I : Integer;

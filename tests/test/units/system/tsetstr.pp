@@ -23,7 +23,11 @@ program tsetstr;
   {$endif}
 {$endif}
 {$ifdef fpc}
-  uses strings;
+  uses
+  {$ifdef unix}
+    cwstring,
+  {$endif unix}
+    strings, SysUtils;
 {$else}
   uses SysUtils;
 {$endif}

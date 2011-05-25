@@ -1,3 +1,9 @@
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
+
 var
   C : Char;
   S : AnsiString;

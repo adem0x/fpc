@@ -18,6 +18,11 @@
 {                                                                }
 {                                                                }
 {****************************************************************}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 procedure fail;
 begin

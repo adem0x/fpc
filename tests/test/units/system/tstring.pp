@@ -21,6 +21,11 @@ program tstring;
     {$define haswidestring}
   {$endif}
 {$endif}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 var
    str1 : shortstring;

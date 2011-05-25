@@ -16,6 +16,11 @@
     {$define haswidestring}
   {$endif}
 {$endif}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 procedure fail;
  begin
@@ -30,7 +35,7 @@ var
  str_wide : widestring;
  wc : widechar;
 {$endif haswidestring}
- c: char;
+ c: ansichar;
  _result : boolean;
 Begin
  {********************** char/widechar -> shortstring *******************}

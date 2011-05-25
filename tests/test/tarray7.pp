@@ -1,4 +1,9 @@
 program array7;
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 {This test checks for open array functionality.}
 

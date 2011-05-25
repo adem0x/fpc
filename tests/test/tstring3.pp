@@ -1,4 +1,9 @@
 program testcstr;
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 {$mode objfpc}
 

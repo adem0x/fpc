@@ -1,6 +1,11 @@
 { %OPT=-Ooregvar }
 
 {$goto on}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 var
   global: longint;

@@ -1,6 +1,11 @@
 { comparsion of empty string }
 
 {$H+}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 var
   my_str: string;
   my_str_wide: widestring;

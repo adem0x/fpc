@@ -1,6 +1,11 @@
 program testinline;
 
 {$mode objfpc}{$H+}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 type
   enumtest = (e1, e2);

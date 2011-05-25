@@ -5,6 +5,11 @@ PROGRAM Test;
 {$IFDEF FPC}
  {$MODE DELPHI}
 {$ENDIF}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 PROCEDURE WriteToFile(CONST Buf;Size:INTEGER);
 var

@@ -18,6 +18,10 @@ program mdtest;
 {$h+}
 
 uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils,
   md5;
 
 var

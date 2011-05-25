@@ -1,4 +1,9 @@
 { comparsion of one-symbol strings as ranges and single cases }
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 {$H+}
 var

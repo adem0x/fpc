@@ -1,6 +1,11 @@
 { from GPC test suite }
 
 Program fjf7;
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 Var
   S: String [ 80 ];

@@ -25,6 +25,12 @@ it introduces a subtle incompatibility with Delphi.
 *)
 
 program fpc19;
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
+
 var
   comp1 : comp;
   dbl1 : double;

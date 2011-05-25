@@ -1,6 +1,11 @@
 {$ifdef fpc}
 {$mode objfpc}{$h+}
 {$endif}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 var
   a: ansistring;

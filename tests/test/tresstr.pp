@@ -1,4 +1,10 @@
 {$mode objfpc}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
+
 resourcestring
   s = 'Hello world';
 

@@ -29,6 +29,11 @@
 {$endif}
 
 {$H+}
+uses
+{$ifdef unix}
+  cwstring,
+{$endif unix}
+  SysUtils;
 
 const
   { exactly 255 characters in length }
