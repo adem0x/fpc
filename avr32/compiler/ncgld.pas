@@ -496,7 +496,8 @@ implementation
 
                      { virtual method ? }
                      if (po_virtualmethod in procdef.procoptions) and
-                        not(nf_inherited in flags) then
+                        not(nf_inherited in flags) and
+                        not is_objectpascal_helper(procdef.struct) then
                        begin
                          if (not assigned(current_procinfo) or
                              wpoinfomanager.symbol_live(current_procinfo.procdef.mangledname)) then
@@ -566,6 +567,7 @@ implementation
          otlabel,hlabel,oflabel : tasmlabel;
          href : treference;
          releaseright : boolean;
+         alignmentrequirement,
          len : aint;
          r : tregister;
          oldflowcontrol : tflowcontrol;
@@ -776,13 +778,17 @@ implementation
 { TODO: HACK: unaligned test, maybe remove all unaligned locations (array of char) from the compiler}
                             { Use unaligned copy when the offset is not aligned }
                             len:=left.resultdef.size;
-                            if (right.location.reference.offset mod sizeof(aint)<>0) or
-                              (left.location.reference.offset mod sizeof(aint)<>0) or
-                              (right.resultdef.alignment<sizeof(aint)) or
+
+                            { data smaller than an aint has less alignment requirements }
+                            alignmentrequirement:=min(len,sizeof(aint));
+
+                            if (right.location.reference.offset mod alignmentrequirement<>0) or
+                              (left.location.reference.offset mod alignmentrequirement<>0) or
+                              (right.resultdef.alignment<alignmentrequirement) or
                               ((right.location.reference.alignment<>0) and
-                               (right.location.reference.alignment<sizeof(aint))) or
+                               (right.location.reference.alignment<alignmentrequirement)) or
                               ((left.location.reference.alignment<>0) and
-                               (left.location.reference.alignment<sizeof(aint))) then
+                               (left.location.reference.alignment<alignmentrequirement)) then
                               cg.g_concatcopy_unaligned(current_asmdata.CurrAsmList,right.location.reference,left.location.reference,len)
                             else
                               cg.g_concatcopy(current_asmdata.CurrAsmList,right.location.reference,left.location.reference,len);
@@ -974,26 +980,27 @@ implementation
 *****************************************************************************}
 
       const
-        vtInteger    = 0;
-        vtBoolean    = 1;
-        vtChar       = 2;
-        vtExtended   = 3;
-        vtString     = 4;
-        vtPointer    = 5;
-        vtPChar      = 6;
-        vtObject     = 7;
-        vtClass      = 8;
-        vtWideChar   = 9;
-        vtPWideChar  = 10;
-        vtAnsiString32 = 11;
-        vtCurrency   = 12;
-        vtVariant    = 13;
-        vtInterface  = 14;
-        vtWideString = 15;
-        vtInt64      = 16;
-        vtQWord      = 17;
-        vtAnsiString16 = 18;
-        vtAnsiString64 = 19;
+        vtInteger       = 0;
+        vtBoolean       = 1;
+        vtChar          = 2;
+        vtExtended      = 3;
+        vtString        = 4;
+        vtPointer       = 5;
+        vtPChar         = 6;
+        vtObject        = 7;
+        vtClass         = 8;
+        vtWideChar      = 9;
+        vtPWideChar     = 10;
+        vtAnsiString32  = 11;
+        vtCurrency      = 12;
+        vtVariant       = 13;
+        vtInterface     = 14;
+        vtWideString    = 15;
+        vtInt64         = 16;
+        vtQWord         = 17;
+        vtUnicodeString = 18;
+        vtAnsiString16  = 19;
+        vtAnsiString64  = 20;
 
     procedure tcgarrayconstructornode.pass_generate_code;
       var
@@ -1151,9 +1158,15 @@ implementation
                            freetemp:=false;
                          end
                        else
-                        if is_widestring(lt) or is_unicodestring(lt) then
+                        if is_widestring(lt) then
                          begin
                            vtype:=vtWideString;
+                           freetemp:=false;
+                         end
+                       else
+                        if is_unicodestring(lt) then
+                         begin
+                           vtype:=vtUnicodeString;
                            freetemp:=false;
                          end;
                      end;

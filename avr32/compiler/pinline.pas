@@ -434,7 +434,7 @@ implementation
             { search the constructor also in the symbol tables of
               the parents }
             afterassignment:=false;
-            searchsym_in_class(classh,classh,pattern,srsym,srsymtable);
+            searchsym_in_class(classh,classh,pattern,srsym,srsymtable,true);
             consume(_ID);
             do_member_read(classh,false,srsym,p1,again,[cnf_new_call]);
             { we need to know which procedure is called }
@@ -620,14 +620,12 @@ implementation
          begin
            destppn:=tcallparanode(ppn.right);
            { create call to fpc_initialize/finalize_array }
-           npara:=ccallparanode.create(cordconstnode.create
-                     (destppn.left.resultdef.size,s32inttype,true),
-                  ccallparanode.create(ctypeconvnode.create
+           npara:=ccallparanode.create(ctypeconvnode.create
                      (ppn.left,s32inttype),
                   ccallparanode.create(caddrnode.create_internal
                      (crttinode.create(tstoreddef(destppn.left.resultdef),initrtti,rdt_normal)),
                   ccallparanode.create(caddrnode.create_internal
-                     (destppn.left),nil))));
+                     (destppn.left),nil)));
            if isinit then
              newblock:=ccallnode.createintern('fpc_initialize_array',npara)
            else

@@ -14,13 +14,15 @@ uses
   ctypes,
   CFBase,CFArray,CFBag,CFCharacterSet,CFData,CFDate,CFDictionary,CFNumber,CFPropertyList,CFSet,CFString,CFStringEncodingExt,CFTimeZone,CFTree,CFURL,CFXMLNode,CFXMLParser,CFMachPort,CFMessagePort,CFRunLoop,CFSocket,CFBinaryHeap,CFBitVector,CFBundle,CFByteOrders,CFPlugIn,CFPreferences,CFURLAccess,CFUUID,CFLocale,CFStream,CFDateFormatter,CFNumberFormatter,CFCalendar,CFUserNotification,CFNotificationCenter,CFAttributedString,CFNetworkErrorss,
   CGBase,CGAffineTransforms,CGBitmapContext,CGColor,CGColorSpace,CGContext,CGDataConsumer,CGDataProvider,CGDirectDisplay,CGDirectPalette,CGDisplayConfiguration,CGDisplayFades,CGErrors,CGEvent,CGEventSource,CGEventTypes,CGFont,CGFunction,CGGLContext,CGGeometry,CGImage,CGLayer,CGPDFArray,CGPDFContentStream,CGPDFContext,CGPDFDictionary,CGPDFDocument,CGPDFObject,CGPDFOperatorTable,CGPDFPage,CGPDFScanner,CGPDFStream,CGPDFString,CGPSConverter,CGPath,CGPattern,CGRemoteOperation,CGSession,CGShading,CGWindowLevels,
-  MacTypes, AEDataModel, Icons, SecBase, SecTrust,
+  MacTypes, SecBase, SecTrust,
   AnonClassDefinitionsUikit;
+
+{ undefine to generate SDK 3.2 headers }
+{$define IOS_SDK_4_2_OR_HIGHER}
   
 {$define INTERFACE}
 
 {$include UndefinedTypes.inc}
-{$include uikit/AnonIncludeClassDefinitionsUikit.inc}
 
 {$define HEADER}
 {$include foundation/Foundation.inc}

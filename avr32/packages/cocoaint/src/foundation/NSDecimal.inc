@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSDecimal.h }
-{ Version: 2.1.4 - Sun Jan 2 15:08:57 CET 2011 }
-
 
 {$ifdef TYPES}
 {$ifndef NSDECIMAL_PAS_T}
@@ -16,10 +14,10 @@ const
 
 const
   NSCalculationNoError = 0;
-  NSCalculationLossOfPrecision = 0;
-  NSCalculationUnderflow = 1;
-  NSCalculationOverflow = 2;
-  NSCalculationDivideByZero = 3;
+  NSCalculationLossOfPrecision = 1;
+  NSCalculationUnderflow = 2;
+  NSCalculationOverflow = 3;
+  NSCalculationDivideByZero = 4;
 
 { Types }
 type

@@ -32,7 +32,7 @@ fpcdir=..
 unexport FPC_VERSION FPC_COMPILERINFO
 
 # Which platforms are ready for inclusion in the cycle
-CYCLETARGETS=i386 powerpc sparc arm x86_64 powerpc64 m68k armeb mipsel mips avr32
+CYCLETARGETS=i386 powerpc sparc arm x86_64 powerpc64 m68k armeb mipsel mips avr
 
 # All supported targets used for clean
 ALLTARGETS=$(CYCLETARGETS)
@@ -70,9 +70,6 @@ PPC_TARGET=mips
 endif
 ifdef MIPSEL
 PPC_TARGET=mipsel
-endif
-ifdef AVR32
-PPC_TARGET=avr32
 endif
 
 # Default is to generate a compiler for the same
@@ -157,9 +154,6 @@ endif
 ifeq ($(CPC_TARGET),mipsel)
 CPUSUF=mipsel
 endif
-ifeq ($(CPC_TARGET),avr32)
-CPUSUF=avr32
-endif
 
 # Do not define the default -d$(CPU_TARGET) because that
 # will conflict with our -d$(CPC_TARGET)
@@ -241,11 +235,6 @@ ifeq ($(PPC_TARGET),mipsel)
 override LOCALOPT+=-Fumips
 endif
 
-# AVR32 specific
-ifeq ($(PPC_TARGET),avr32)
-override LOCALOPT+=
-endif
-
 
 OPTWPOCOLLECT=-OWdevirtcalls,optvmts -FW$(BASEDIR)/pp1.wpo
 OPTWPOPERFORM=-Owdevirtcalls,optvmts -Fw$(BASEDIR)/pp1.wpo
@@ -325,7 +314,7 @@ endif
 # CPU targets
 #####################################################################
 
-PPC_TARGETS=i386 m68k powerpc sparc arm armeb x86_64 powerpc64 alpha vis ia64 mips mipsel avr32
+PPC_TARGETS=i386 m68k powerpc sparc arm armeb x86_64 powerpc64 alpha vis ia64 mips mipsel
 
 .PHONY: $(PPC_TARGETS)
 
@@ -376,12 +365,12 @@ tempclean:
         -$(DEL) $(PPCROSSNAME) $(TEMPNAME) $(TEMPNAME1) $(TEMPNAME2) $(TEMPNAME3) $(MSG2INC) pp1.wpo pp2.wpo
 
 execlean :
-        -$(DEL) ppc386$(EXEEXT) ppcaxp$(EXEEXT) ppc68k$(EXEEXT) ppcx64$(EXEEXT) ppcppc$(EXEEXT) ppcsparc$(EXEEXT) $(EXENAME) $(TEMPWPONAME1) $(TEMPWPONAME2)
+        -$(DEL) ppc386$(EXEEXT) ppc68k$(EXEEXT) ppcx64$(EXEEXT) ppcppc$(EXEEXT) ppcsparc$(EXEEXT) ppcppc64$(EXEEXT) ppcarm$(EXEEXT) ppcmips$(EXEEXT) ppcmipsel$(EXEEXT) $(EXENAME) $(TEMPWPONAME1) $(TEMPWPONAME2)
 
 $(addsuffix _clean,$(ALLTARGETS)):
         -$(DELTREE) $(addprefix $(subst _clean,,$@),/units)
         -$(DEL) $(addprefix $(subst _clean,,$@)/,*$(OEXT) *$(PPUEXT) *$(RSTEXT) *$(ASMEXT) *$(STATICLIBEXT) *$(SHAREDLIBEXT) *$(PPLEXT))
-        -$(DEL) $(addprefix $(subst _clean,,$@)/,ppc386$(EXEEXT) ppcaxp$(EXEEXT) ppc68k$(EXEEXT) ppcx64$(EXEEXT) ppcppc$(EXEEXT) ppcppc$(EXEEXT) $(EXENAME))
+        -$(DEL) $(addprefix $(subst _clean,,$@)/,ppc386$(EXEEXT) ppc68k$(EXEEXT) ppcx64$(EXEEXT) ppcppc$(EXEEXT) ppcsparc$(EXEEXT) ppcppc64$(EXEEXT) ppcarm$(EXEEXT) ppcmips$(EXEEXT) ppcmipsel$(EXEEXT) $(EXENAME))
 
 cycleclean: cleanall $(addsuffix _clean,$(CPC_TARGET))
         -$(DEL) $(EXENAME)
@@ -415,19 +404,11 @@ insdatarm : arm/armins.dat
 	    $(COMPILER) -FE$(COMPILERUTILSDIR) $(COMPILERUTILSDIR)/mkarmins.pp
         cd arm && ../utils/mkarmins$(SRCEXEEXT)
 
-insdatavr32 : avr32/avr32ins.dat
-	    $(COMPILER) -FE$(COMPILERUTILSDIR) $(COMPILER
-        cd avr32 && ../utils/mkavr32ins$(SRCEXEEXT)
-
-insdat: insdatx86 insdatarm insdatavr32
+insdat: insdatx86 insdatarm
 
 regdatarm : arm/armreg.dat
 	    $(COMPILER) -FE$(COMPILERUTILSDIR) $(COMPILERUTILSDIR)/mkarmreg.pp
         cd arm && ../utils/mkarmreg$(SRCEXEEXT)
-
-regdatavr32 : avr32/avr32reg.dat
-	    $(COMPILER) -FE$(COMPILERUTILSDIR) $(COMPILERUTILSDIR)/mkavr32reg.pp
-        cd avr32 && ../utils/mkavr32reg$(SRCEXEEXT)
 
 # revision.inc rule
 revision.inc :

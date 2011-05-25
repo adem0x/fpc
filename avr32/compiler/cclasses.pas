@@ -1416,8 +1416,6 @@ begin
 end;
 
 function TFPHashList.InternalFind(AHash:LongWord;const AName:shortstring;out PrevIndex:Integer):Integer;
-var
-  HashIndex : Integer;
 begin
   prefetch(AName);
   Result:=FHashTable^[AHash and FCapacityMask];
@@ -2208,6 +2206,9 @@ end;
     function TCmdStrListItem.GetCopy:TLinkedListItem;
       begin
         Result:=(inherited GetCopy);
+        { TLinkedListItem.GetCopy performs a "move" to copy all data -> reinit
+          the ansistring, so the refcount is properly increased }
+        Initialize(TCmdStrListItem(Result).FPStr);
         TCmdStrListItem(Result).FPStr:=FPstr;
       end;
 

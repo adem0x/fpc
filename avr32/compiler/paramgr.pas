@@ -163,7 +163,7 @@ implementation
            (def.typ=stringdef) or
            ((def.typ=procvardef) and not tprocvardef(def).is_addressonly) or
            { interfaces are also passed by reference to be compatible with delphi and COM }
-           ((def.typ=objectdef) and (is_object(def) or is_interface(def))) or
+           ((def.typ=objectdef) and (is_object(def) or is_interface(def) or is_dispinterface(def))) or
            (def.typ=variantdef) or
            ((def.typ=setdef) and not is_smallset(def));
       end;
@@ -366,7 +366,8 @@ implementation
               i386 isn't affected anyways because it uses the stack to push parameters
               on arm it reduces executable size of the compiler by 2.1 per cent (FK) }
             { Does it fit a register? }
-            if (not can_use_final_stack_loc or
+            if ((not can_use_final_stack_loc and
+                 use_fixed_stack) or
                 not is_stack_paraloc(paraloc)) and
                (len<=sizeof(pint)) and
                (paraloc^.size in [OS_8,OS_16,OS_32,OS_64,OS_128,OS_S8,OS_S16,OS_S32,OS_S64,OS_S128]) then
@@ -382,7 +383,8 @@ implementation
                 newparaloc^.register:=cg.getmmregister(list,paraloc^.size);
               LOC_REFERENCE :
                 begin
-                  if can_use_final_stack_loc and
+                  if (can_use_final_stack_loc or
+                      not use_fixed_stack) and
                      is_stack_paraloc(paraloc) then
                     duplicatecgparaloc(paraloc,newparaloc)
                   else

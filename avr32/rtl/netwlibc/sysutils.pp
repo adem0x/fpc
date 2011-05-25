@@ -109,7 +109,13 @@ begin
     FileSetAttr (Filename, 0);  // dont know why but open always sets ReadOnly flag
 end;
 
-Function FileCreate (Const FileName : String; mode:longint) : THandle;
+Function FileCreate (Const FileName : String; rights:longint) : THandle;
+begin
+  FileCreate:=FileCreate (FileName);
+end;
+
+
+Function FileCreate (Const FileName : String; ShareMode:longint; rights : longint) : THandle;
 begin
   FileCreate:=FileCreate (FileName);
 end;
@@ -508,7 +514,7 @@ end;
                               Misc Functions
 ****************************************************************************}
 
-procedure Beep;
+procedure SysBeep;
 begin
   RingBell;
 end;
@@ -519,7 +525,7 @@ end;
 ****************************************************************************}
 
 Procedure GetLocalTime(var SystemTime: TSystemTime);
-var t : TTime;
+var t : TTime_t;
     tm: Ttm;
 begin
   libc.time(t);

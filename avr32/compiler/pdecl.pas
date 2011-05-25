@@ -397,7 +397,6 @@ implementation
          typename,orgtypename : TIDString;
          newtype  : ttypesym;
          sym      : tsym;
-         srsymtable : TSymtable;
          hdef     : tdef;
          defpos,storetokenpos : tfileposinfo;
          old_block_type : tblock_type;
@@ -462,8 +461,10 @@ implementation
                current_scanner.startrecordtokens(generictokenbuf);
              end;
 
-           { is the type already defined? }
-           searchsym(typename,sym,srsymtable);
+           { is the type already defined? -- must be in the current symtable,
+             not in a nested symtable or one higher up the stack -> don't
+             use searchsym & frinds! }
+           sym:=tsym(symtablestack.top.find(typename));
            newtype:=nil;
            { found a symbol with this name? }
            if assigned(sym) then
@@ -500,7 +501,7 @@ implementation
                     end;
                     consume(token);
                     { we can ignore the result, the definition is modified }
-                    object_dec(objecttype,orgtypename,nil,nil,tobjectdef(ttypesym(sym).typedef));
+                    object_dec(objecttype,orgtypename,nil,nil,tobjectdef(ttypesym(sym).typedef),ht_none);
                     newtype:=ttypesym(sym);
                     hdef:=newtype.typedef;
                   end
@@ -644,7 +645,8 @@ implementation
               end;
             end;
 
-           if isgeneric and not(hdef.typ in [objectdef,recorddef,arraydef,procvardef]) then
+           if isgeneric and (not(hdef.typ in [objectdef,recorddef,arraydef,procvardef])
+               or is_objectpascal_helper(hdef)) then
              message(parser_e_cant_create_generics_of_this_type);
 
            { Stop recording a generic template }

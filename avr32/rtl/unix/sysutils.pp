@@ -442,12 +442,19 @@ begin
 end;
 
 
-Function FileCreate (Const FileName : String;Mode : Longint) : Longint;
+Function FileCreate (Const FileName : String;Rights : Longint) : Longint;
 
 begin
   repeat
-    FileCreate:=fpOpen(pointer(FileName),O_RdWr or O_Creat or O_Trunc,Mode);
+    FileCreate:=fpOpen(pointer(FileName),O_RdWr or O_Creat or O_Trunc,Rights);
   until (FileCreate<>-1) or (fpgeterrno<>ESysEINTR);
+end;
+
+Function FileCreate (Const FileName : String; ShareMode : Longint; Rights:LongInt ) : Longint;
+
+begin
+  Result:=FileCreate( FileName, Rights );
+  Result:=DoFileLocking(Result,ShareMode);
 end;
 
 
@@ -524,9 +531,9 @@ Function FileAge (Const FileName : String): Longint;
 Var Info : Stat;
 
 begin
-  If  fpstat (pointer(FileName),Info)<0 then
+  If  (fpstat (pointer(FileName),Info)<0) or fpS_ISDIR(info.st_mode) then
     exit(-1)
-  else
+  else 
     Result:=UnixToWinAge(info.st_mtime);
 end;
 {$endif}

@@ -26,7 +26,7 @@ unit globals;
 interface
 
     uses
-{$ifdef win32}
+{$ifdef windows}
       windows,
 {$endif}
 {$ifdef os2}
@@ -68,9 +68,9 @@ interface
          [m_gpc,m_all,m_tp_procvar];
 {$endif}
        macmodeswitches =
-         [m_mac,m_all,m_cvar_support,m_mac_procvar,m_nested_procvars,m_non_local_goto];
+         [m_mac,m_all,m_cvar_support,m_mac_procvar,m_nested_procvars,m_non_local_goto,m_isolike_unary_minus];
        isomodeswitches =
-         [m_iso,m_all,m_tp_procvar,m_duplicate_names,m_nested_procvars,m_non_local_goto];
+         [m_iso,m_all,m_tp_procvar,m_duplicate_names,m_nested_procvars,m_non_local_goto,m_isolike_unary_minus];
 
        { maximum nesting of routines }
        maxnesting = 32;
@@ -399,8 +399,8 @@ interface
         fputype : fpu_sse64;
 {$endif x86_64}
 {$ifdef avr}
-        cputype : cpuinfo.cpu_avr;
-        optimizecputype : cpuinfo.cpu_avr;
+        cputype : cpuinfo.cpu_avr5;
+        optimizecputype : cpuinfo.cpu_avr5;
         fputype : fpu_none;
 {$endif avr}
 {$ifdef avr32}
@@ -481,6 +481,13 @@ implementation
     uses
 {$ifdef macos}
       macutils,
+{$endif}
+{$ifdef mswindows}
+{$ifdef VER2_4}
+      cwindirs,
+{$else VER2_4}
+      windirs,
+{$endif VER2_4}
 {$endif}
       comphook;
 
@@ -723,7 +730,22 @@ implementation
                           Default Macro Handling
 ****************************************************************************}
 
+
      procedure DefaultReplacements(var s:ansistring);
+{$ifdef mswindows}
+       procedure ReplaceSpecialFolder(const MacroName: string; const ID: integer);
+         begin
+           // Only try to receive the special folders (and thus dynamically
+           // load shfolder.dll) when that's needed.
+           if pos(MacroName,s)>0 then
+             Replace(s,MacroName,GetWindowsSpecialDir(ID));
+         end;
+
+{$endif mswindows}
+       var
+         envstr: string;
+         envvalue: pchar;
+         i: integer;
        begin
          { Replace some macros }
          Replace(s,'$FPCVERSION',version_string);
@@ -735,6 +757,38 @@ implementation
            Replace(s,'$FPCTARGET',target_os_string)
          else
            Replace(s,'$FPCTARGET',target_full_string);
+{$ifdef mswindows}
+         ReplaceSpecialFolder('$LOCAL_APPDATA',CSIDL_LOCAL_APPDATA);
+         ReplaceSpecialFolder('$APPDATA',CSIDL_APPDATA);
+         ReplaceSpecialFolder('$COMMON_APPDATA',CSIDL_COMMON_APPDATA);
+         ReplaceSpecialFolder('$PERSONAL',CSIDL_PERSONAL);
+         ReplaceSpecialFolder('$PROGRAM_FILES',CSIDL_PROGRAM_FILES);
+         ReplaceSpecialFolder('$PROGRAM_FILES_COMMON',CSIDL_PROGRAM_FILES_COMMON);
+         ReplaceSpecialFolder('$PROFILE',CSIDL_PROFILE);
+{$endif mswindows}
+         { Replace environment variables between dollar signs }
+         i := pos('$',s);
+         while i>0 do
+          begin
+            envstr:=copy(s,i+1,length(s)-i);
+            i:=pos('$',envstr);
+            if i>0 then
+             begin
+               envstr := copy(envstr,1,i-1);
+               envvalue := GetEnvPChar(envstr);
+               if assigned(envvalue) then
+                 begin
+                 Replace(s,'$'+envstr+'$',envvalue);
+                 // Look if there is another env.var in the string
+                 i:=pos('$',s);
+                 end
+               else
+                 // if the env.var is not set, do not replace the env.variable
+                 // and stop looking for more env.var within the string
+                 i := 0;
+              FreeEnvPChar(envvalue);
+             end;
+          end;
        end;
 
 
@@ -958,7 +1012,8 @@ implementation
          'SAFECALL',
          'STDCALL',
          'SOFTFLOAT',
-         'MWPASCAL'
+         'MWPASCAL',
+         'INTERRUPT'
         );
       var
         t  : tproccalloption;
@@ -1352,7 +1407,7 @@ implementation
 
    procedure get_exepath;
      var
-	   localExepath : TCmdStr;
+       localExepath : TCmdStr;
        exeName:TCmdStr;
 {$ifdef need_path_search}
        hs1 : TPathStr;

@@ -31,24 +31,35 @@ type
     property Designer: IWebPageDesigner read GetDesigner write SetDesigner;
   end;
 
+  IHTMLIterationGroup = interface(IUnknown)
+  ['{95575CB6-7D96-4F72-AF72-D2EAF0BECE71}']
+    procedure SetIDSuffix(const AHTMLContentProducer: THTMLContentProducer);
+    procedure SetAjaxIterationID(AValue: String);
+  end;
+
+
   { TStandardWebController }
 
   TStandardWebController = class(TWebController)
   private
     FScriptFileReferences: TStringList;
     FScripts: TFPObjectList;
+    FStyleSheetReferences: TContainerStylesheets;
   protected
     function GetScriptFileReferences: TStringList; override;
     function GetScripts: TFPObjectList; override;
+    function GetStyleSheetReferences: TContainerStylesheets; override;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    function CreateNewJavascriptStack: TJavaScriptStack; override;
+    function CreateNewJavascriptStack(AJavaType: TJavaType): TJavaScriptStack; override;
     function GetUrl(ParamNames, ParamValues, KeepParams: array of string; Action: string = ''): string; override;
     procedure BindJavascriptCallstackToElement(AComponent: TComponent; AnElement: THtmlCustomElement; AnEvent: string); override;
     procedure AddScriptFileReference(AScriptFile: String); override;
+    procedure AddStylesheetReference(Ahref, Amedia: String); override;
     function DefaultMessageBoxHandler(Sender: TObject; AText: String; Buttons: TWebButtons; ALoaded: string = ''): string; override;
     function CreateNewScript: TStringList; override;
+    procedure ShowRegisteredScript(ScriptID: integer); override;
     procedure FreeScript(var AScript: TStringList); override;
   end;
 
@@ -84,6 +95,7 @@ type
     procedure GetChildren(Proc: TGetChildProc; Root: TComponent); override;
     property ContentProducerList: TFPList read GetContentProducerList;
   public
+    destructor Destroy; override;
     function ContentProducerCount: integer;
 
     function ProduceContent : string;
@@ -110,9 +122,22 @@ type
     property BaseURL: string read FBaseURL write FBaseURL;
   end;
 
+  function RegisterScript(AScript: string) : integer;
+
 implementation
 
-uses rtlconsts, typinfo, XMLWrite;
+uses rtlconsts, typinfo, XMLWrite, strutils;
+
+var RegisteredScriptList : TStrings;
+
+function RegisterScript(AScript: string) : integer;
+begin
+  if not Assigned(RegisteredScriptList) then
+    begin
+    RegisteredScriptList := TStringList.Create;
+    end;
+  result := RegisteredScriptList.Add(AScript);
+end;
 
 { TWebPage }
 
@@ -180,6 +205,40 @@ var Handled: boolean;
     CompName: string;
     AComponent: TComponent;
     AnAjaxResponse: TAjaxResponse;
+    i: integer;
+    ASuffixID: string;
+    AIterationGroup: IHTMLIterationGroup;
+    AIterComp: TComponent;
+    wc: TWebController;
+    Iterationlevel: integer;
+
+  procedure SetIdSuffixes(AComp: THTMLContentProducer);
+  var
+    i: integer;
+    s: string;
+  begin
+    if assigned(AComp.parent) and (acomp.parent is THTMLContentProducer) then
+      SetIdSuffixes(THTMLContentProducer(AComp.parent));
+    if supports(AComp,IHTMLIterationGroup,AIterationGroup) then
+      begin
+        if assigned(FWebController) then
+          begin
+          iterationlevel := FWebController.IncrementIterationLevel;
+          assert(length(ASuffixID)>0);
+          i := PosEx('_',ASuffixID,2);
+          if i > 0 then
+            s := copy(ASuffixID,2,i-2)
+          else
+            s := copy(ASuffixID,2,length(ASuffixID)-1);
+
+          acomp.IDSuffix := s;
+          AIterationGroup.SetAjaxIterationID(s);
+          FWebController.SetIterationIDSuffix(iterationlevel,s);
+          acomp.ForeachContentProducer(@AIterationGroup.SetIDSuffix,true);
+          ASuffixID := copy(ASuffixID,i,length(ASuffixID)-i+1);
+          end;
+      end;
+  end;
 begin
   SetRequest(ARequest);
   FWebModule := AWebModule;
@@ -199,9 +258,28 @@ begin
               begin
               CompName := Request.QueryFields.Values['AjaxID'];
               if CompName='' then CompName := Request.GetNextPathInfo;
-              AComponent := FindComponent(CompName);
+
+              i := pos('$',CompName);
+              AComponent:=self;
+              while (i > 0) and (assigned(AComponent)) do
+                begin
+                AComponent := FindComponent(copy(CompName,1,i-1));
+                CompName := copy(compname,i+1,length(compname)-i);
+                i := pos('$',CompName);
+                end;
+              if assigned(AComponent) then
+                AComponent := AComponent.FindComponent(CompName);
+
               if assigned(AComponent) and (AComponent is THTMLContentProducer) then
+                begin
+                // Handle the SuffixID, search for iteration-groups and set their iteration-id-values
+                ASuffixID := ARequest.QueryFields.Values['IterationID'];
+                if ASuffixID<>'' then
+                  begin
+                  SetIdSuffixes(THTMLContentProducer(AComponent));
+                  end;
                 THTMLContentProducer(AComponent).HandleAjaxRequest(ARequest, AnAjaxResponse);
+                end;
               end;
             DoAfterAjaxRequest(ARequest, AnAjaxResponse);
           except on E: Exception do
@@ -259,6 +337,13 @@ begin
   if (Root=Self) then
     for I:=0 to ContentProducerCount-1 do
       Proc(ContentProducers[i]);
+end;
+
+destructor TWebPage.Destroy;
+begin
+  inherited Destroy;
+  if assigned(FContentProducers) then
+    FreeAndNil(FContentProducers);
 end;
 
 function TWebPage.ContentProducerCount: integer;
@@ -335,8 +420,13 @@ end;
 function TWebPage.IsAjaxCall: boolean;
 var s : string;
 begin
-  s := Request.HTTPXRequestedWith;
-  result := sametext(s,'XmlHttpRequest');
+  if assigned(request) then
+    begin
+    s := Request.HTTPXRequestedWith;
+    result := sametext(s,'XmlHttpRequest');
+    end
+  else
+    result := false;
 end;
 
 { TStandardWebController }
@@ -356,10 +446,31 @@ begin
   Result:=FScripts;
 end;
 
+function TStandardWebController.GetStyleSheetReferences: TContainerStylesheets;
+begin
+  Result:=FStyleSheetReferences;
+end;
+
 function TStandardWebController.CreateNewScript: TStringList;
 begin
   Result:=TStringList.Create;
   GetScripts.Add(result);
+end;
+
+procedure TStandardWebController.ShowRegisteredScript(ScriptID: integer);
+var
+  i: Integer;
+  s: string;
+begin
+  s := '// ' + inttostr(ScriptID);
+  for i := 0 to GetScripts.Count -1 do
+    if tstrings(GetScripts.Items[i]).Strings[0]=s then
+      Exit;
+  with CreateNewScript do
+    begin
+    Append(s);
+    Append(RegisteredScriptList.Strings[ScriptID]);
+    end;
 end;
 
 procedure TStandardWebController.FreeScript(var AScript: TStringList);
@@ -399,6 +510,7 @@ end;
 constructor TStandardWebController.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+  FStyleSheetReferences := TContainerStylesheets.Create(TContainerStylesheet);
   FScriptFileReferences := TStringList.Create;
   // For some reason the Duplicates property does not work when sorted is true,
   // But we don't want a sorted list so do a manual check in AddScriptFileReference
@@ -410,12 +522,13 @@ destructor TStandardWebController.Destroy;
 begin
   FScriptFileReferences.Free;
   FScripts.Free;
+  FStyleSheetReferences.Free;
   inherited Destroy;
 end;
 
-function TStandardWebController.CreateNewJavascriptStack: TJavaScriptStack;
+function TStandardWebController.CreateNewJavascriptStack(AJavaType: TJavaType): TJavaScriptStack;
 begin
-  Result:=TJavaScriptStack.Create(self);
+  Result:=TJavaScriptStack.Create(self, AJavaType);
 end;
 
 function TStandardWebController.GetUrl(ParamNames, ParamValues,
@@ -515,5 +628,19 @@ begin
     FScriptFileReferences.Add(AScriptFile);
 end;
 
+procedure TStandardWebController.AddStylesheetReference(Ahref, Amedia: String);
+begin
+  with FStyleSheetReferences.Add do
+    begin
+    href:=Ahref;
+    media:=Amedia;
+    end;
+end;
+
+initialization
+  RegisteredScriptList := nil;
+finalization
+  if assigned(RegisteredScriptList) then
+    RegisteredScriptList.Free;
 end.
 

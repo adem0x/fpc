@@ -140,29 +140,45 @@ end;
   function TStream.CopyFrom(Source: TStream; Count: Int64): Int64;
 
     var
-       i : Int64;
-       buffer : array[0..1023] of byte;
+       Buffer: Pointer;
+       BufferSize, i: LongInt;
 
+    const
+       MaxSize = $20000;
     begin
-       CopyFrom:=0;
-       If (Count=0) then
-         begin
-         // This WILL fail for non-seekable streams...
-         Source.Position:=0;
-         Count:=Source.Size;
-         end;
-       while Count>0 do
-         begin
-         if (Count>sizeof(buffer)) then
-           i:=sizeof(Buffer)
+
+       Result:=0;
+       if Count=0 then
+         Source.Position:=0;   // This WILL fail for non-seekable streams...
+       BufferSize:=MaxSize;
+       if (Count>0) and (Count<BufferSize) then
+         BufferSize:=Count;    // do not allocate more than needed
+
+       GetMem(Buffer,BufferSize);
+       try
+         if Count=0 then
+         repeat
+           i:=Source.Read(buffer^,BufferSize);
+           if i>0 then
+             WriteBuffer(buffer^,i);
+           Inc(Result,i);
+         until i<BufferSize
          else
-           i:=Count;
-         i:=Source.Read(buffer,i);
-         i:=Write(buffer,i);
-         if i=0 then break;
-         dec(count,i);
-         CopyFrom:=CopyFrom+i;
+         while Count>0 do
+         begin
+           if Count>BufferSize then
+             i:=BufferSize
+           else
+             i:=Count;
+           Source.ReadBuffer(buffer^,i);
+           WriteBuffer(buffer^,i);
+           Dec(count,i);
+           Inc(Result,i);
          end;
+       finally
+         FreeMem(Buffer);
+       end;
+
     end;
 
   function TStream.ReadComponent(Instance: TComponent): TComponent;
@@ -460,8 +476,8 @@ constructor TFileStream.Create(const AFileName: string; Mode: Word);
 
 begin
   FFileName:=AFileName;
-  If Mode=fmcreate then
-    FHandle:=FileCreate(AFileName)
+  If (Mode and fmCreate) > 0 then
+    FHandle:=FileCreate(AFileName,Mode)
   else
     FHAndle:=FileOpen(AFileName,Mode);
 
@@ -477,8 +493,8 @@ constructor TFileStream.Create(const AFileName: string; Mode: Word; Rights: Card
 
 begin
   FFileName:=AFileName;
-  If Mode=fmcreate then
-    FHandle:=FileCreate(AFileName,Rights)
+  If (Mode and fmCreate) > 0 then
+    FHandle:=FileCreate(AFileName,Mode,Rights)
   else
     FHAndle:=FileOpen(AFileName,Mode);
 
@@ -756,49 +772,61 @@ end;
 {****************************************************************************}
 
 {$ifdef UNICODE}
-procedure TResourceStream.Initialize(Instance: THandle; Name, ResType: PWideChar);
+procedure TResourceStream.Initialize(Instance: THandle; Name, ResType: PWideChar; NameIsID: Boolean);
   begin
     Res:=FindResource(Instance, Name, ResType);
     if Res=0 then
-      raise EResNotFound.CreateFmt(SResNotFound,[Name]);
+      if NameIsID then
+        raise EResNotFound.CreateFmt(SResNotFound,[IntToStr(PtrInt(Name))])
+      else
+        raise EResNotFound.CreateFmt(SResNotFound,[Name]);
     Handle:=LoadResource(Instance,Res);
     if Handle=0 then
-      raise EResNotFound.CreateFmt(SResNotFound,[Name]);
+      if NameIsID then
+        raise EResNotFound.CreateFmt(SResNotFound,[IntToStr(PtrInt(Name))])
+      else
+        raise EResNotFound.CreateFmt(SResNotFound,[Name]);
     SetPointer(LockResource(Handle),SizeOfResource(Instance,Res));
   end;
 
 constructor TResourceStream.Create(Instance: THandle; const ResName: WideString; ResType: PWideChar);
   begin
     inherited create;
-    Initialize(Instance,PWideChar(ResName),ResType);
+    Initialize(Instance,PWideChar(ResName),ResType,False);
   end;
 constructor TResourceStream.CreateFromID(Instance: THandle; ResID: Integer; ResType: PWideChar);
   begin
     inherited create;
-    Initialize(Instance,PWideChar(ResID),ResType);
+    Initialize(Instance,PWideChar(ResID),ResType,True);
   end;
 {$else UNICODE}
 
-procedure TResourceStream.Initialize(Instance: THandle; Name, ResType: PChar);
+procedure TResourceStream.Initialize(Instance: THandle; Name, ResType: PChar; NameIsID: Boolean);
   begin
     Res:=FindResource(Instance, Name, ResType);
     if Res=0 then
-      raise EResNotFound.CreateFmt(SResNotFound,[Name]);
+      if NameIsID then
+        raise EResNotFound.CreateFmt(SResNotFound,[IntToStr(PtrInt(Name))])
+      else
+        raise EResNotFound.CreateFmt(SResNotFound,[Name]);
     Handle:=LoadResource(Instance,Res);
     if Handle=0 then
-      raise EResNotFound.CreateFmt(SResNotFound,[Name]);
+      if NameIsID then
+        raise EResNotFound.CreateFmt(SResNotFound,[IntToStr(PtrInt(Name))])
+      else
+        raise EResNotFound.CreateFmt(SResNotFound,[Name]);
     SetPointer(LockResource(Handle),SizeOfResource(Instance,Res));
   end;
 
 constructor TResourceStream.Create(Instance: THandle; const ResName: string; ResType: PChar);
   begin
     inherited create;
-    Initialize(Instance,pchar(ResName),ResType);
+    Initialize(Instance,pchar(ResName),ResType,False);
   end;
 constructor TResourceStream.CreateFromID(Instance: THandle; ResID: Integer; ResType: PChar);
   begin
     inherited create;
-    Initialize(Instance,pchar(PtrInt(ResID)),ResType);
+    Initialize(Instance,pchar(PtrInt(ResID)),ResType,True);
   end;
 {$endif UNICODE}
 
@@ -1044,12 +1072,9 @@ begin
   Check(FStream.Read(@Buffer, Count, @Result));
 end;
 
-function TProxyStream.Seek(Offset: Longint; Origin: Word): Longint;
-var
-  Pos: Int64;
+function TProxyStream. Seek(const Offset: int64; Origin: TSeekOrigin): int64;
 begin
-  Check(FStream.Seek(Offset, Origin, Pos));
-  Result := Pos;
+  Check(FStream.Seek(Offset, ord(Origin), result));
 end;
 
 function TProxyStream.Write(const Buffer; Count: Longint): Longint;

@@ -167,7 +167,16 @@ implementation
                 is_managed_type(left.resultdef) then
                begin
                  location_get_data_ref(current_asmdata.CurrAsmList,left.location,href,false,sizeof(pint));
-                 cg.g_decrrefcount(current_asmdata.CurrAsmList,left.resultdef,href);
+                 if is_open_array(resultdef) then
+                   begin
+                     if third=nil then
+                       InternalError(201103063);
+                     secondpass(third);
+                     cg.g_array_rtti_helper(current_asmdata.CurrAsmList,tarraydef(resultdef).elementdef,
+                       href,third.location,'FPC_DECREF_ARRAY');
+                   end
+                 else
+                   cg.g_decrrefcount(current_asmdata.CurrAsmList,left.resultdef,href);
                end;
 
              paramanager.createtempparaloc(current_asmdata.CurrAsmList,aktcallnode.procdefinition.proccalloption,parasym,not followed_by_stack_tainting_call_cached,tempcgpara);
@@ -379,12 +388,15 @@ implementation
 
             case location.loc of
               LOC_REGISTER :
+                begin
 {$ifndef cpu64bitalu}
-                if location.size in [OS_64,OS_S64] then
-                  cg64.a_load64_reg_loc(current_asmdata.CurrAsmList,location.register64,funcretnode.location)
-                else
+                  if location.size in [OS_64,OS_S64] then
+                    cg64.a_load64_reg_loc(current_asmdata.CurrAsmList,location.register64,funcretnode.location)
+                  else
 {$endif}
-                  cg.a_load_reg_loc(current_asmdata.CurrAsmList,location.size,location.register,funcretnode.location);
+                    cg.a_load_reg_loc(current_asmdata.CurrAsmList,location.size,location.register,funcretnode.location);
+                  location_free(current_asmdata.CurrAsmList,location);
+                end;
               LOC_REFERENCE:
                 begin
                   case funcretnode.location.loc of
@@ -395,6 +407,7 @@ implementation
                     else
                       internalerror(200802121);
                   end;
+                  location_freetemp(current_asmdata.CurrAsmList,location);
                 end;
               else
                 internalerror(200709085);
@@ -684,6 +697,7 @@ implementation
                otherwise optimised called methods are no longer registered)
              }
              if (po_virtualmethod in procdefinition.procoptions) and
+                not is_objectpascal_helper(tprocdef(procdefinition).struct) and
                 assigned(methodpointer) and
                 (methodpointer.nodetype<>typen) and
                 (not assigned(current_procinfo) or
@@ -704,6 +718,7 @@ implementation
                a pointer. We can directly call the correct procdef (PFV) }
              if (name_to_call='') and
                 (po_virtualmethod in procdefinition.procoptions) and
+                not is_objectpascal_helper(tprocdef(procdefinition).struct) and
                 assigned(methodpointer) and
                 (methodpointer.nodetype<>typen) and
                 not wpoinfomanager.can_be_devirtualized(methodpointer.resultdef,procdefinition,name_to_call) then

@@ -391,8 +391,7 @@ interface
                   if o.ref^.offset>0 then
                    asmwrite('+');
                   asmwrite(tostr(o.ref^.offset));
-
-                  end;
+                end;
             end;
           else
             internalerror(10001);
@@ -446,7 +445,7 @@ interface
 
     procedure T386NasmAssembler.WriteSection(atype:TAsmSectiontype;const aname:string);
       const
-        secnames : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('',
+        secnames : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('','',
           '.text',
           '.data',
           '.data',
@@ -1183,7 +1182,7 @@ interface
             labelprefix : '..@';
             comment : '; ';
           );
-          
+
        as_i386_nasmhaiku_info : tasminfo =
           (
             id           : as_i386_nasmhaiku;

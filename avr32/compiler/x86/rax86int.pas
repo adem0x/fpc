@@ -1768,7 +1768,14 @@ Unit Rax86int;
                                 Message1(sym_e_unknown_id,expr);
                               expr:='';
                             end;
-                         end;
+                          { indexed access to variable? }
+                          if actasmtoken=AS_LBRACKET then
+                            begin
+                              { ... then the operand size is not known anymore }
+                              oper.size:=OS_NO;
+                              BuildReference(oper);
+                            end;
+                        end;
                      end;
                  end;
               end;
@@ -1788,8 +1795,8 @@ Unit Rax86int;
                 else
                 { Simple register }
                  begin
-                   if not (oper.opr.typ in [OPR_NONE,OPR_REGISTER]) then
-                     Message(asmr_e_invalid_operand_type);
+                   if (oper.opr.typ <> OPR_NONE) then
+                     Message(asmr_e_syn_operand);
                    oper.opr.typ:=OPR_REGISTER;
                    oper.opr.reg:=tempreg;
                    oper.SetSize(tcgsize2size[reg_cgsize(oper.opr.reg)],true);

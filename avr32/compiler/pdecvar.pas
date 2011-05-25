@@ -844,7 +844,8 @@ implementation
                  case p.propaccesslist[palt_read].firstsym^.sym.typ of
                    procsym :
                      begin
-                       if (po_virtualmethod in tprocdef(p.propaccesslist[palt_read].procdef).procoptions) then
+                       if (po_virtualmethod in tprocdef(p.propaccesslist[palt_read].procdef).procoptions) and
+                           not is_objectpascal_helper(tprocdef(p.propaccesslist[palt_read].procdef).struct) then
                          ImplIntf.IType:=etVirtualMethodResult
                        else
                          ImplIntf.IType:=etStaticMethodResult;
@@ -1039,6 +1040,17 @@ implementation
       { Set the assembler name }
       tstaticvarsym(vs).set_mangledname(C_Name);
     end;
+
+
+    procedure try_consume_sectiondirective(var asection: ansistring);
+      begin
+        if idtoken=_SECTION then
+          begin
+            consume(_ID);
+            asection:=get_stringconst;
+            consume(_SEMICOLON);
+          end;
+      end;
 
 
     procedure read_var_decls(options:Tvar_dec_options);
@@ -1253,6 +1265,7 @@ implementation
          hintsymoptions  : tsymoptions;
          deprecatedmsg   : pshortstring;
          old_block_type  : tblock_type;
+         section : ansistring;
       begin
          old_block_type:=block_type;
          block_type:=bt_var;
@@ -1394,6 +1407,24 @@ implementation
                 ) then
                read_public_and_external_sc(sc);
 
+             { try to parse a section directive }
+             if (target_info.system in systems_embedded) and (idtoken=_SECTION) then
+               begin
+                 try_consume_sectiondirective(section);
+                 if section<>'' then
+                   begin
+                     for i:=0 to sc.count-1 do
+                       begin
+                         vs:=tabstractvarsym(sc[i]);
+                         if (vs.varoptions *[vo_is_external,vo_is_weak_external])<>[] then
+                           Message(parser_e_externals_no_section);
+                         if vs.typ<>staticvarsym then
+                           Message(parser_e_section_no_locals);
+                         tstaticvarsym(vs).section:=section;
+                       end;
+                   end;
+               end;
+
              { allocate normal variable (non-external and non-typed-const) staticvarsyms }
              for i:=0 to sc.count-1 do
                begin
@@ -1441,8 +1472,11 @@ implementation
          tempdef: tdef;
          is_first_type: boolean;
 {$endif powerpc or powerpc64}
-         sl       : tpropaccesslist;
+         sl: tpropaccesslist;
+         old_block_type: tblock_type;
       begin
+         old_block_type:=block_type;
+         block_type:=bt_var;
          recst:=tabstractrecordsymtable(symtablestack.top);
 {$if defined(powerpc) or defined(powerpc64)}
          is_first_type:=true;
@@ -1471,6 +1505,10 @@ implementation
                  end;
                consume(_ID);
              until not try_to_consume(_COMMA);
+             if m_delphi in current_settings.modeswitches then
+               block_type:=bt_var_type
+             else
+               block_type:=old_block_type;
              consume(_COLON);
 
              { Don't search for types where they can't be:
@@ -1484,6 +1522,7 @@ implementation
                  symtablestack.pop(recst);
                end;
              read_anon_type(hdef,false);
+             block_type:=bt_var;
              { allow only static fields reference to struct where they are declared }
              if not (vd_class in options) and
                (is_object(hdef) or is_record(hdef)) and
@@ -1630,6 +1669,10 @@ implementation
            end;
           recstlist.free;
 
+         if m_delphi in current_settings.modeswitches then
+           block_type:=bt_var_type
+         else
+           block_type:=old_block_type;
          { Check for Case }
          if (vd_record in options) and
             try_to_consume(_CASE) then
@@ -1650,6 +1693,7 @@ implementation
                   symtablestack.top.insert(fieldvs);
                 end;
               read_anon_type(casetype,true);
+              block_type:=bt_var;
               if assigned(fieldvs) then
                 begin
                   fieldvs.vardef:=casetype;
@@ -1685,6 +1729,10 @@ implementation
                   else
                     break;
                 until false;
+                if m_delphi in current_settings.modeswitches then
+                  block_type:=bt_var_type
+                else
+                  block_type:=old_block_type;
                 consume(_COLON);
                 { read the vars }
                 consume(_LKLAMMER);
@@ -1750,6 +1798,7 @@ implementation
 {$ifdef powerpc}
          is_first_type := false;
 {$endif powerpc}
+         block_type:=old_block_type;
       end;
 
 end.

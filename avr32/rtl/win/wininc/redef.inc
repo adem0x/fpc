@@ -483,6 +483,13 @@ function GetConsoleCursorInfo(hConsoleOutput: THandle; var lpConsoleCursorInfo: 
 function GetConsoleMode(hConsoleHandle: THandle; var lpMode: DWORD): BOOL; external 'kernel32' name 'GetConsoleMode';
 function GetConsoleScreenBufferInfo(hConsoleOutput: THandle; var lpConsoleScreenBufferInfo: TConsoleScreenBufferInfo): BOOL; external 'kernel32' name 'GetConsoleScreenBufferInfo';
 function GetCPInfo(CodePage: UINT; var lpCPInfo: TCPInfo): BOOL;external 'kernel32' name 'GetCPInfo';
+function GetCPInfoExA(Codepage:UINT; dwFlags:DWORD; var CPInfoEx:TCPINFOEXA):WINBOOL; external 'kernel32' name 'GetCPInfoExA';
+function GetCPInfoExW(Codepage:UINT; dwFlags:DWORD; var CPinfoEx:TCPINFOEXW):WINBOOL; external 'kernel32' name 'GetCPInfoExW';
+{$ifndef UNICODE}
+function GetCPInfoEx(Codepage:UINT; dwFlags:DWORD; var CPInfoEx:TCPINFOEX):WINBOOL; external 'kernel32' name 'GetCPInfoExA';
+{$ELSE}
+function GetCPInfoEx(Codepage:UINT; dwFlags:DWORD; var CPinfoEx:TCPINFOEX):WINBOOL; external 'kernel32' name 'GetCPInfoExW';
+{$ENDIF}
 //function GetCurrentHwProfile(var lpHwProfileInfo: THWProfileInfo): BOOL;external 'advapi32' name 'GetCurrentHwProfileA';
 //function GetCurrentHwProfileA(var lpHwProfileInfo: THWProfileInfoA): BOOL;external 'advapi32' name 'GetCurrentHwProfileA';
 //function GetCurrentHwProfileW(var lpHwProfileInfo: THWProfileInfoW): BOOL;external 'advapi32' name 'GetCurrentHwProfileW';
@@ -579,7 +586,7 @@ function GetProcessPriorityBoost(hThread: THandle; var DisablePriorityBoost: Boo
 function GetProcessShutdownParameters(var lpdwLevel, lpdwFlags: DWORD): BOOL; external 'kernel32' name 'GetProcessShutdownParameters';
 function GetProcessTimes(hProcess: THandle; var lpCreationTime, lpExitTime, lpKernelTime, lpUserTime: TFileTime): BOOL; external 'kernel32' name 'GetProcessTimes';
 function GetProcessWorkingSetSize(hProcess: THandle; var lpMinimumWorkingSetSize, lpMaximumWorkingSetSize: DWORD): BOOL; external 'kernel32' name 'GetProcessWorkingSetSize';
-function GetQueuedCompletionStatus(CompletionPort: THandle; var lpNumberOfBytesTransferred, lpCompletionKey: DWORD; var lpOverlapped: POverlapped; dwMilliseconds: DWORD): BOOL; external 'kernel32' name 'GetQueuedCompletionStatus';
+function GetQueuedCompletionStatus(CompletionPort: THandle; var lpNumberOfBytesTransferred: DWORD; var lpCompletionKey: ULONG_PTR; var lpOverlapped: POverlapped; dwMilliseconds: DWORD): BOOL; external 'kernel32' name 'GetQueuedCompletionStatus';
 function PostQueuedCompletionStatus(CompletionPort: THandle; NumberOfBytesTransferred:dword; dwCompletionKey: ULONG_PTR; lpOverlapped: POverlapped): BOOL; external 'kernel32' name 'PostQueuedCompletionStatus';
 function GetRasterizerCaps(var p1: TRasterizerStatus; p2: UINT): BOOL; external 'gdi32' name 'GetRasterizerCaps';
 function GetRgnBox(RGN: HRGN; var p2: TRect): Integer; external 'gdi32' name 'GetRgnBox';

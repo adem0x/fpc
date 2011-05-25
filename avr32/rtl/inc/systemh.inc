@@ -219,6 +219,7 @@ Type
   {$define DEFAULT_SINGLE}
 
   {$define FPC_INCLUDE_SOFTWARE_MOD_DIV}
+  {$define FPC_INCLUDE_SOFTWARE_MUL}
   {$define FPC_INCLUDE_SOFTWARE_SHIFT_INT64}
 
   {$ifndef FPUNONE}
@@ -284,6 +285,9 @@ Type
   ValSInt = Integer;
   ValUInt = Word;
 {$endif CPU16}
+
+  NativeInt  = PtrInt;
+  NativeUint = PtrUint;
 
 { Zero - terminated strings }
   PChar               = ^Char;
@@ -840,6 +844,7 @@ Function  Pos(C:Char;const s:shortstring):SizeInt;
 {$ifdef FPC_HAS_FEATURE_ANSISTRINGS}
 Function  Pos (const Substr : ShortString; const Source : AnsiString) : SizeInt;
 Procedure SetString (out S : AnsiString; Buf : PChar; Len : SizeInt);
+Procedure SetString (out S : AnsiString; Buf : PWideChar; Len : SizeInt);
 {$endif FPC_HAS_FEATURE_ANSISTRINGS}
 Procedure SetString (out S : Shortstring; Buf : PChar; Len : SizeInt);
 function  ShortCompareText(const S1, S2: shortstring): SizeInt;

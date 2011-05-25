@@ -102,6 +102,7 @@ procedure fpc_shortstr_uint(v : valuint;len : SizeInt;out s : shortstring); comp
 procedure fpc_ShortStr_Float(d : ValReal;len,fr,rt : SizeInt;out s : shortstring); compilerproc;
 {$endif}
 procedure fpc_shortstr_enum(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out s:shortstring);compilerproc;
+procedure fpc_shortstr_bool(b : boolean;len:sizeint;out s:shortstring);compilerproc;
 procedure fpc_ShortStr_Currency(c : currency; len,f : SizeInt; out s : shortstring); compilerproc;
 
 procedure fpc_chararray_sint(v : valsint;len : SizeInt;out a : array of char); compilerproc;
@@ -113,6 +114,7 @@ procedure fpc_AnsiStr_uint(v : valuint;Len : SizeInt; out S : AnsiString); compi
 procedure fpc_AnsiStr_Float(d : ValReal;len,fr,rt : SizeInt;out s : ansistring); compilerproc;
 {$endif}
 procedure fpc_ansistr_enum(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out s:ansistring); compilerproc;
+procedure fpc_ansistr_bool(b : boolean;len:sizeint;out s:ansistring); compilerproc;
 {$ifdef FPC_HAS_STR_CURRENCY}
 procedure fpc_AnsiStr_Currency(c : currency;len,fr : SizeInt;out s : ansistring); compilerproc;
 {$endif FPC_HAS_STR_CURRENCY}
@@ -156,6 +158,7 @@ procedure fpc_AnsiStr_Currency(c : currency;len,fr : SizeInt;out s : ansistring)
     procedure fpc_WideStr_Float(d : ValReal;len,fr,rt : SizeInt;out s : WideString); compilerproc;
     {$endif}
     procedure fpc_widestr_enum(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out s:widestring);compilerproc;
+    procedure fpc_widestr_bool(b : boolean;len:sizeint;out s:widestring);compilerproc;
     {$ifdef FPC_HAS_STR_CURRENCY}
     procedure fpc_WideStr_Currency(c : Currency;len,fr : SizeInt;out s : WideString);compilerproc;
     {$endif FPC_HAS_STR_CURRENCY}
@@ -165,6 +168,7 @@ procedure fpc_AnsiStr_Currency(c : currency;len,fr : SizeInt;out s : ansistring)
     procedure fpc_UnicodeStr_Float(d : ValReal;len,fr,rt : SizeInt;out s : UnicodeString); compilerproc;
     {$endif}
     procedure fpc_unicodestr_enum(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out s:unicodestring);compilerproc;
+    procedure fpc_unicodestr_bool(b : boolean;len:sizeint;out s:unicodestring);compilerproc;
     {$ifdef FPC_HAS_STR_CURRENCY}
     procedure fpc_UnicodeStr_Currency(c : Currency;len,fr : SizeInt;out s : UnicodeString);compilerproc;
     {$endif FPC_HAS_STR_CURRENCY}
@@ -175,6 +179,7 @@ procedure fpc_AnsiStr_Currency(c : currency;len,fr : SizeInt;out s : ansistring)
 procedure fpc_chararray_Float(d : ValReal;len,fr,rt : SizeInt;out a : array of char); compilerproc;
 {$endif}
 procedure fpc_chararray_enum(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out a : array of char);compilerproc;
+procedure fpc_chararray_bool(b : boolean;len:sizeint;out a : array of char);compilerproc;
 {$ifdef FPC_HAS_STR_CURRENCY}
 procedure fpc_chararray_Currency(c : Currency;len,fr : SizeInt;out a : array of char);compilerproc;
 {$endif FPC_HAS_STR_CURRENCY}
@@ -273,8 +278,7 @@ procedure fpc_ansistr_to_chararray(out res: array of char; const src: ansistring
 {$endif ndef FPC_STRTOCHARARRAYPROC}
 Function fpc_AnsiStr_Compare(const S1,S2 : AnsiString): SizeInt; compilerproc;
 Function fpc_AnsiStr_Compare_equal(const S1,S2 : AnsiString): SizeInt; compilerproc;
-Procedure fpc_AnsiStr_CheckZero(p : pointer); compilerproc;
-Procedure fpc_AnsiStr_CheckRange(len,index : SizeInt); compilerproc;
+Procedure fpc_AnsiStr_CheckRange(p : Pointer; index : SizeInt); compilerproc;
 Procedure fpc_AnsiStr_SetLength (Var S : AnsiString; l : SizeInt); compilerproc;
 Function  fpc_ansistr_Copy (Const S : AnsiString; Index,Size : SizeInt) : AnsiString;compilerproc;
 {$ifdef EXTRAANSISHORT}
@@ -322,8 +326,7 @@ procedure fpc_widestr_to_widechararray(out res: array of widechar; const src: Wi
 {$endif ndef FPC_STRTOCHARARRAYPROC}
 Function fpc_WideStr_Compare(const S1,S2 : WideString): SizeInt; compilerproc;
 Function fpc_WideStr_Compare_equal(const S1,S2 : WideString): SizeInt; compilerproc;
-Procedure fpc_WideStr_CheckZero(p : pointer); compilerproc;
-Procedure fpc_WideStr_CheckRange(len,index : SizeInt); compilerproc;
+Procedure fpc_WideStr_CheckRange(p: Pointer; index : SizeInt); compilerproc;
 Procedure fpc_WideStr_SetLength (Var S : WideString; l : SizeInt); compilerproc;
 Function  fpc_widestr_Copy (Const S : WideString; Index,Size : SizeInt) : WideString;compilerproc;
 {$ifndef FPC_WINLIKEWIDESTRING}
@@ -408,8 +411,7 @@ procedure fpc_unicodestr_to_widechararray(out res: array of widechar; const src:
 {$endif VER2_2}
 Function fpc_UnicodeStr_Compare(const S1,S2 : UnicodeString): SizeInt; compilerproc;
 Function fpc_UnicodeStr_Compare_equal(const S1,S2 : UnicodeString): SizeInt; compilerproc;
-Procedure fpc_UnicodeStr_CheckZero(p : pointer); compilerproc;
-Procedure fpc_UnicodeStr_CheckRange(len,index : SizeInt); compilerproc;
+Procedure fpc_UnicodeStr_CheckRange(p: Pointer; index : SizeInt); compilerproc;
 Procedure fpc_UnicodeStr_SetLength (Var S : UnicodeString; l : SizeInt); compilerproc;
 Function  fpc_unicodestr_Copy (Const S : UnicodeString; Index,Size : SizeInt) : UnicodeString;compilerproc;
 function fpc_unicodestr_Unique(Var S : Pointer): Pointer; compilerproc;
@@ -578,6 +580,13 @@ function fpc_div_longint(n,z : longint) : longint; compilerproc;
 function fpc_mod_longint(n,z : longint) : longint; compilerproc;
 {$endif FPC_INCLUDE_SOFTWARE_MOD_DIV}
 
+{$ifdef FPC_INCLUDE_SOFTWARE_MUL}
+function fpc_mul_integer(f1,f2 : integer;checkoverflow : boolean) : integer; compilerproc;
+function fpc_mul_word(f1,f2 : word;checkoverflow : boolean) : word; compilerproc;
+function fpc_mul_longint(f1,f2 : longint;checkoverflow : boolean) : longint; compilerproc;
+function fpc_mul_dword(f1,f2 : dword;checkoverflow : boolean) : dword; compilerproc;
+{$endif FPC_INCLUDE_SOFTWARE_MUL}
+
 { from int64.inc }
 function fpc_div_qword(n,z : qword) : qword; compilerproc;
 function fpc_mod_qword(n,z : qword) : qword; compilerproc;
@@ -666,8 +675,10 @@ Procedure fpc_Initialize (Data,TypeInfo : pointer); compilerproc;
 Procedure fpc_finalize (Data,TypeInfo: Pointer); compilerproc;
 Procedure fpc_Addref (Data,TypeInfo : Pointer); compilerproc;
 Procedure fpc_DecRef (Data,TypeInfo : Pointer);  compilerproc;
-procedure fpc_initialize_array(data,typeinfo : pointer;count,size : SizeInt); compilerproc;
-procedure fpc_finalize_array(data,typeinfo : pointer;count,size : SizeInt); compilerproc;
+procedure fpc_initialize_array(data,typeinfo : pointer;count : SizeInt); compilerproc;
+procedure fpc_finalize_array(data,typeinfo : pointer;count : SizeInt); compilerproc;
+procedure fpc_addref_array(data,typeinfo: pointer; count: SizeInt); compilerproc;
+procedure fpc_decref_array(data,typeinfo: pointer; count: sizeint); compilerproc;
 Function fpc_Copy (Src, Dest, TypeInfo : Pointer) : SizeInt; compilerproc;
 Procedure fpc_Copy_proc (Src, Dest, TypeInfo : Pointer); compilerproc; inline;
 {$endif FPC_HAS_FEATURE_RTTI}

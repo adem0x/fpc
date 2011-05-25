@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSCompoundPredicate.h }
-{ Version: 2.1.4 - Sun Jan 2 15:08:57 CET 2011 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCOMPOUNDPREDICATE_PAS_T}
@@ -10,8 +8,8 @@
 
 const
   NSNotPredicateType = 0;
-  NSAndPredicateType = 0;
-  NSOrPredicateType = 1;
+  NSAndPredicateType = 1;
+  NSOrPredicateType = 2;
 
 { Types }
 type

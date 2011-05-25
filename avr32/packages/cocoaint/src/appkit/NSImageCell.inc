@@ -1,6 +1,4 @@
 { Parsed from Appkit.framework NSImageCell.h }
-{ Version: 2.1.4 - Sun Jan 2 15:08:19 CET 2011 }
-
 
 {$ifdef TYPES}
 {$ifndef NSIMAGECELL_PAS_T}
@@ -10,21 +8,21 @@
 
 const
   NSImageAlignCenter = 0;
-  NSImageAlignTop = 0;
-  NSImageAlignTopLeft = 1;
-  NSImageAlignTopRight = 2;
-  NSImageAlignLeft = 3;
-  NSImageAlignBottom = 4;
-  NSImageAlignBottomLeft = 5;
-  NSImageAlignBottomRight = 6;
-  NSImageAlignRight = 7;
+  NSImageAlignTop = 1;
+  NSImageAlignTopLeft = 2;
+  NSImageAlignTopRight = 3;
+  NSImageAlignLeft = 4;
+  NSImageAlignBottom = 5;
+  NSImageAlignBottomLeft = 6;
+  NSImageAlignBottomRight = 7;
+  NSImageAlignRight = 8;
 
 const
   NSImageFrameNone = 0;
-  NSImageFramePhoto = 0;
-  NSImageFrameGrayBezel = 1;
-  NSImageFrameGroove = 2;
-  NSImageFrameButton = 3;
+  NSImageFramePhoto = 1;
+  NSImageFrameGrayBezel = 2;
+  NSImageFrameGroove = 3;
+  NSImageFrameButton = 4;
 
 { Types }
 type

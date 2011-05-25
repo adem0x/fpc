@@ -150,15 +150,6 @@ implementation
       begin
         result := cerrornode.create;
 
-        { make sure we got at least two parameters (if we got only one, }
-        { this parameter may not be encapsulated in a callparan)        }
-        if not assigned(left) or
-           (left.nodetype <> callparan) then
-          begin
-            CGMessage1(parser_e_wrong_parameter_size,'Str');
-            exit;
-          end;
-
         { get destination string }
         dest := tcallparanode(left);
 
@@ -173,6 +164,16 @@ implementation
            (cpf_is_colon_para in tcallparanode(dest).callparaflags) then
           begin
             CGMessage1(parser_e_wrong_parameter_size,'Str');
+            exit;
+          end;
+
+        { in case we are in a generic definition, we cannot
+          do all checks, the parameters might be type parameters }
+        if df_generic in current_procinfo.procdef.defoptions then
+          begin
+            result.Free;
+            result:=nil;
+            resultdef:=voidtype;
             exit;
           end;
 
@@ -313,6 +314,8 @@ implementation
             scurrency,
             s64bit:
               procname := procname + 'int64';
+            pasbool,bool8bit,bool16bit,bool32bit,bool64bit:
+              procname := procname + 'bool';
 {$endif}
             else
               procname := procname + 'sint';
@@ -1142,6 +1145,16 @@ implementation
            CGMessage1(parser_e_wrong_parameter_size,'Val');
            exit;
          end;
+
+         { in case we are in a generic definition, we cannot
+           do all checks, the parameters might be type parameters }
+         if df_generic in current_procinfo.procdef.defoptions then
+           begin
+             result.Free;
+             result:=nil;
+             resultdef:=voidtype;
+             exit;
+           end;
 
         { reverse parameters for easier processing }
         left := reverseparameters(tcallparanode(left));
@@ -2258,6 +2271,18 @@ implementation
                 begin
                   { the parser has already made sure the expression is valid }
 
+                  { in case of a complex procvar, only check the "code" pointer }
+                  if (tcallparanode(left).left.resultdef.typ=procvardef) and
+                     not tprocvardef(tcallparanode(left).left.resultdef).is_addressonly then
+                    begin
+                      inserttypeconv_explicit(tcallparanode(left).left,search_system_type('TMETHOD').typedef);
+                      tcallparanode(left).left:=csubscriptnode.create(tsym(tabstractrecorddef(tcallparanode(left).left.resultdef).symtable.find('CODE')),tcallparanode(left).left);
+                      tcallparanode(left).get_paratype;
+                    end;
+
+                  { converting to an add node is tricky because of differences
+                    in procvar handling between FPC and Delphi handling, so
+                    handle specially }
                   set_varstate(tcallparanode(left).left,vs_read,[vsf_must_be_valid]);
                   resultdef:=booltype;
                 end;
@@ -2719,17 +2744,7 @@ implementation
 
           in_assigned_x:
             begin
-              { in case of a complex procvar, only check the "code" pointer }
-              hp:=tcallparanode(left).left;
-              { reused }
-              tcallparanode(left).left:=nil;
-              if (hp.resultdef.typ=procvardef) and
-                 not tprocvardef(hp.resultdef).is_addressonly then
-                begin
-                  inserttypeconv_explicit(hp,search_system_type('TMETHOD').typedef);
-                  hp:=csubscriptnode.create(tsym(tabstractrecorddef(hp.resultdef).symtable.find('CODE')),hp);
-                end;
-              result:=caddnode.create(unequaln,hp,cnilnode.create);
+              expectloc := LOC_JUMP;
             end;
 
           in_pred_x,

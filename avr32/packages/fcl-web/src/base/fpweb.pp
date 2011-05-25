@@ -18,7 +18,7 @@ unit fpWeb;
 interface
 
 uses
-  Classes, SysUtils, httpdefs, fphttp, fptemplate, websession;
+  Classes, SysUtils, httpdefs, fphttp, fptemplate;
 
 Type
 
@@ -127,7 +127,7 @@ Type
     Property AfterResponse : TResponseEvent Read FAfterResponse Write FAfterResponse;
     Property OnGetAction : TGetActionEvent Read GetOnGetAction Write SetOnGetAction;
     Property DefActionWhenUnknown : Boolean read GetDefActionWhenUnknown write SetDefActionWhenUnknown default true;
-    Property Template : TFPTemplate Read FTemplate Write SetTemplate;
+    Property ModuleTemplate : TFPTemplate Read FTemplate Write SetTemplate;
     Property OnGetParam : TGetParamEvent Read FOnGetParam Write FOnGetParam;
     Property OnTemplateContent : TGetParamEvent Read FOnGetParam Write FOnGetParam;
     Property Request: TRequest Read FRequest;
@@ -204,6 +204,7 @@ end;
 
 destructor TFPWebAction.destroy;
 begin
+  FreeandNil(FContents);
   FreeAndNil(FTemplate);
   inherited destroy;
 end;
@@ -449,7 +450,12 @@ begin
   InitSession(AResponse);
   If Assigned(FOnRequest) then
     FOnRequest(Self,ARequest,AResponse,B);
-  If Not B then
+  If B then
+    begin
+    if not AResponse.ContentSent then
+      AResponse.SendContent;
+    end
+  else
     if FTemplate.HasContent then
       GetTemplateContent(ARequest,AResponse)
     else
@@ -460,6 +466,7 @@ begin
       If Not B then
         Raise EFPWebError.Create(SErrRequestNotHandled);
       end;
+      
   DoAfterResponse(AResponse);
   UpdateSession(AResponse);
   FRequest := Nil;

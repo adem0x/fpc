@@ -154,7 +154,8 @@ interface
              system_mipsel_linux,       { 67 }
              system_i386_nativent,      { 68 }
              system_i386_iphonesim,     { 69 }
-             system_avr32_embedded      { 70 }
+             system_powerpc_wii,        { 70 }
+             system_avr32_embedded      { 71 }
        );
 
      type
@@ -187,6 +188,7 @@ interface
              ,as_ggas                  { gnu assembler called "gas" instead of "as" }
              ,as_i386_nasmhaiku
              ,as_powerpc_vasm
+             ,as_i386_nlmcoff
        );
 
        tar = (ar_none
@@ -450,6 +452,8 @@ interface
        systems_weak_linking = systems_darwin + systems_solaris;
 
        systems_internal_sysinit = [system_i386_linux,system_i386_win32];
+
+       systems_interrupt_table = [{system_arm_embedded,}system_avr32_embedded];
 
        { all symbian systems }
        systems_symbian = [system_i386_symbian,system_arm_symbian];

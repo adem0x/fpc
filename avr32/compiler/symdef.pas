@@ -70,12 +70,13 @@ interface
           procedure buildderefimpl;override;
           procedure deref;override;
           procedure derefimpl;override;
-          function  size:aint;override;
+          function  size:asizeint;override;
           function  getvardef:longint;override;
           function  alignment:shortint;override;
           function  is_publishable : boolean;override;
           function  needs_inittable : boolean;override;
           function  rtti_mangledname(rt:trttitype):string;override;
+          function  OwnerHierarchyName: string; override;
           function  in_currentunit: boolean;
           { regvars }
           function is_intregable : boolean;
@@ -83,7 +84,7 @@ interface
           { generics }
           procedure initgeneric;
        private
-          savesize  : aint;
+          savesize  : asizeuint;
        end;
 
        tfiletyp = (ft_text,ft_typed,ft_untyped);
@@ -205,7 +206,7 @@ interface
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderef;override;
           procedure deref;override;
-          function  size:aint;override;
+          function  size:asizeint;override;
           function  alignment : shortint;override;
           function  padalignment: shortint;
           function  GetTypeName:string;override;
@@ -259,6 +260,9 @@ interface
           childof        : tobjectdef;
           childofderef   : tderef;
 
+          { for Object Pascal helpers }
+          extendeddef   : tabstractrecorddef;
+          extendeddefderef: tderef;
           { for C++ classes: name of the library this class is imported from }
           import_lib,
           { for Objective-C: protocols and classes can have the same name there }
@@ -299,7 +303,7 @@ interface
           procedure resetvmtentries;
           procedure copyvmtentries(objdef:tobjectdef);
           function  getparentdef:tdef;override;
-          function  size : aint;override;
+          function  size : asizeint;override;
           function  alignment:shortint;override;
           function  vmtmethodoffset(index:longint):longint;
           function  members_need_inittable : boolean;
@@ -347,7 +351,7 @@ interface
 
        tarraydef = class(tstoreddef)
           lowrange,
-          highrange     : aint;
+          highrange     : asizeint;
           rangedef      : tdef;
           rangedefderef : tderef;
           arrayoptions  : tarraydefoptions;
@@ -357,11 +361,11 @@ interface
           _elementdefderef : tderef;
           procedure setelementdef(def:tdef);
        public
-          function elesize : aint;
-          function elepackedbitsize : aint;
-          function elecount : aword;
+          function elesize : asizeint;
+          function elepackedbitsize : asizeint;
+          function elecount : asizeuint;
           constructor create_from_pointer(def:tdef);
-          constructor create(l,h:aint;def:tdef);
+          constructor create(l,h:asizeint;def:tdef);
           constructor ppuload(ppufile:tcompilerppufile);
           destructor destroy; override;
           function getcopy : tstoreddef;override;
@@ -370,7 +374,7 @@ interface
           function  getmangledparaname : string;override;
           procedure buildderef;override;
           procedure deref;override;
-          function size : aint;override;
+          function size : asizeint;override;
           function alignment : shortint;override;
           { returns the label of the range check string }
           function needs_inittable : boolean;override;
@@ -389,7 +393,7 @@ interface
           function  GetTypeName:string;override;
           function alignment:shortint;override;
           procedure setsize;
-          function  packedbitsize: aint; override;
+          function  packedbitsize: asizeint; override;
           function getvardef : longint;override;
        end;
 
@@ -452,7 +456,7 @@ interface
           function getcopy : tstoreddef;override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           function  GetSymtable(t:tGetSymtable):TSymtable;override;
-          function  size : aint;override;
+          function  size : asizeint;override;
           function  GetTypeName:string;override;
           function  is_publishable : boolean;override;
           function  is_methodpointer:boolean;override;
@@ -550,6 +554,8 @@ interface
           interfacedef : boolean;
           { true if the procedure has a forward declaration }
           hasforward  : boolean;
+          { interrupt vector }
+          interruptvector : longint;
           constructor create(level:byte);
           constructor ppuload(ppufile:tcompilerppufile);
           destructor  destroy;override;
@@ -580,10 +586,10 @@ interface
 
        tstringdef = class(tstoreddef)
           stringtype : tstringtype;
-          len        : aint;
+          len        : asizeint;
           constructor createshort(l : byte);
           constructor loadshort(ppufile:tcompilerppufile);
-          constructor createlong(l : aint);
+          constructor createlong(l : asizeint);
           constructor loadlong(ppufile:tcompilerppufile);
           constructor createansi;
           constructor loadansi(ppufile:tcompilerppufile);
@@ -606,13 +612,13 @@ interface
 
        tenumdef = class(tstoreddef)
           minval,
-          maxval    : aint;
+          maxval    : asizeint;
           has_jumps : boolean;
           basedef   : tenumdef;
           basedefderef : tderef;
           symtable  : TSymtable;
           constructor create;
-          constructor create_subrange(_basedef:tenumdef;_min,_max:aint);
+          constructor create_subrange(_basedef:tenumdef;_min,_max:asizeint);
           constructor ppuload(ppufile:tcompilerppufile);
           destructor destroy;override;
           function getcopy : tstoreddef;override;
@@ -622,11 +628,11 @@ interface
           function  GetTypeName:string;override;
           function  is_publishable : boolean;override;
           procedure calcsavesize;
-          function  packedbitsize: aint; override;
-          procedure setmax(_max:aint);
-          procedure setmin(_min:aint);
-          function  min:aint;
-          function  max:aint;
+          function  packedbitsize: asizeint; override;
+          procedure setmax(_max:asizeint);
+          procedure setmin(_min:asizeint);
+          function  min:asizeint;
+          function  max:asizeint;
           function  getfirstsym:tsym;
        end;
 
@@ -635,7 +641,7 @@ interface
           elementdefderef : tderef;
           setbase,
           setmax   : aword;
-          constructor create(def:tdef;low, high : aint);
+          constructor create(def:tdef;low, high : asizeint);
           constructor ppuload(ppufile:tcompilerppufile);
           function getcopy : tstoreddef;override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
@@ -643,6 +649,15 @@ interface
           procedure deref;override;
           function  GetTypeName:string;override;
           function  is_publishable : boolean;override;
+       end;
+
+       tdefawaresymtablestack = class(TSymtablestack)
+       private
+         procedure addhelpers(st: TSymtable);
+         procedure removehelpers(st: TSymtable);
+       public
+         procedure push(st: TSymtable); override;
+         procedure pop(st: TSymtable); override;
        end;
 
     var
@@ -784,12 +799,14 @@ interface
     function is_object(def: tdef): boolean;
     function is_class(def: tdef): boolean;
     function is_cppclass(def: tdef): boolean;
+    function is_objectpascal_helper(def: tdef): boolean;
     function is_objcclass(def: tdef): boolean;
     function is_objcclassref(def: tdef): boolean;
     function is_objcprotocol(def: tdef): boolean;
     function is_objccategory(def: tdef): boolean;
     function is_objc_class_or_protocol(def: tdef): boolean;
     function is_objc_protocol_or_category(def: tdef): boolean;
+    function is_classhelper(def: tdef): boolean;
     function is_class_or_interface(def: tdef): boolean;
     function is_class_or_interface_or_objc(def: tdef): boolean;
     function is_class_or_interface_or_object(def: tdef): boolean;
@@ -921,6 +938,96 @@ implementation
           result := '_' + result;
       end;
 
+{****************************************************************************
+           TDEFAWARESYMTABLESTACK
+           (symtablestack descendant that does some special actions on
+           the pushed/popped symtables)
+****************************************************************************}
+
+    procedure tdefawaresymtablestack.addhelpers(st: TSymtable);
+      var
+        i: integer;
+        s: string;
+        list: TFPObjectList;
+        def: tdef;
+      begin
+        { search the symtable from first to last; the helper to use will be the
+          last one in the list }
+        for i:=0 to st.symlist.count-1 do
+          begin
+            if not (st.symlist[i] is ttypesym) then
+              continue;
+            def:=ttypesym(st.SymList[i]).typedef;
+            if is_objectpascal_helper(def) then
+              begin
+                s:=make_mangledname('',tobjectdef(def).extendeddef.symtable,'');
+                list:=TFPObjectList(current_module.extendeddefs.Find(s));
+                if not assigned(list) then
+                  begin
+                    list:=TFPObjectList.Create(false);
+                    current_module.extendeddefs.Add(s,list);
+                  end;
+                list.Add(def);
+              end
+            else
+              { add nested helpers as well }
+              if def.typ in [recorddef,objectdef] then
+                addhelpers(tabstractrecorddef(def).symtable);
+          end;
+      end;
+
+    procedure tdefawaresymtablestack.removehelpers(st: TSymtable);
+      var
+        i, j: integer;
+        tmpst: TSymtable;
+        list: TFPObjectList;
+      begin
+        for i:=current_module.extendeddefs.count-1 downto 0 do
+          begin
+            list:=TFPObjectList(current_module.extendeddefs[i]);
+            for j:=list.count-1 downto 0 do
+              begin
+                if not (list[j] is tobjectdef) then
+                  Internalerror(2011031501);
+                tmpst:=tobjectdef(list[j]).owner;
+                repeat
+                  if tmpst=st then
+                    begin
+                      list.delete(j);
+                      break;
+                    end
+                  else
+                    begin
+                      if assigned(tmpst.defowner) then
+                        tmpst:=tmpst.defowner.owner
+                      else
+                        tmpst:=nil;
+                    end;
+                until not assigned(tmpst) or (tmpst.symtabletype in [globalsymtable,staticsymtable]);
+              end;
+            if list.count=0 then
+              current_module.extendeddefs.delete(i);
+          end;
+      end;
+
+    procedure tdefawaresymtablestack.push(st: TSymtable);
+      begin
+        { nested helpers will be added as well }
+        if (st.symtabletype in [globalsymtable,staticsymtable]) and
+            (sto_has_helper in st.tableoptions) then
+          addhelpers(st);
+        inherited push(st);
+      end;
+
+    procedure tdefawaresymtablestack.pop(st: TSymtable);
+      begin
+        inherited pop(st);
+        { nested helpers will be removed as well }
+        if (st.symtabletype in [globalsymtable,staticsymtable]) and
+            (sto_has_helper in st.tableoptions) then
+          removehelpers(st);
+      end;
+
 
 {****************************************************************************
                      TDEF (base class for definitions)
@@ -1032,6 +1139,22 @@ implementation
       end;
 
 
+    function tstoreddef.OwnerHierarchyName: string;
+      var
+        tmp: tdef;
+      begin
+        tmp:=self;
+        result:='';
+        repeat
+          if tmp.owner.symtabletype in [ObjectSymtable,recordsymtable] then
+            tmp:=tdef(tmp.owner.defowner)
+          else
+            break;
+          result:=tabstractrecorddef(tmp).objrealname^+'.'+result;
+        until tmp=nil;
+      end;
+
+
     function tstoreddef.in_currentunit: boolean;
       var
         st: tsymtable;
@@ -1114,7 +1237,7 @@ implementation
       end;
 
 
-    function tstoreddef.size : aint;
+    function tstoreddef.size : asizeint;
       begin
          size:=savesize;
       end;
@@ -1174,7 +1297,7 @@ implementation
               recsize:=size;
               is_intregable:=
                 ispowerof2(recsize,temp) and
-                (recsize <= sizeof(aint));
+                (recsize <= sizeof(asizeint));
             end;
         end;
      end;
@@ -1220,7 +1343,7 @@ implementation
       end;
 
 
-    constructor tstringdef.createlong(l : aint);
+    constructor tstringdef.createlong(l : asizeint);
       begin
          inherited create(stringdef);
          stringtype:=st_longstring;
@@ -1233,7 +1356,7 @@ implementation
       begin
          inherited ppuload(stringdef,ppufile);
          stringtype:=st_longstring;
-         len:=ppufile.getaint;
+         len:=ppufile.getasizeint;
          savesize:=sizeof(pint);
       end;
 
@@ -1408,7 +1531,7 @@ implementation
       end;
 
 
-    constructor tenumdef.create_subrange(_basedef:tenumdef;_min,_max:aint);
+    constructor tenumdef.create_subrange(_basedef:tenumdef;_min,_max:asizeint);
       begin
          inherited create(enumdef);
          minval:=_min;
@@ -1484,7 +1607,7 @@ implementation
       end;
 
 
-    function tenumdef.packedbitsize: aint;
+    function tenumdef.packedbitsize: asizeint;
       var
         sizeval: tconstexprint;
         power: longint;
@@ -1507,27 +1630,27 @@ implementation
       end;
 
 
-    procedure tenumdef.setmax(_max:aint);
+    procedure tenumdef.setmax(_max:asizeint);
       begin
         maxval:=_max;
         calcsavesize;
       end;
 
 
-    procedure tenumdef.setmin(_min:aint);
+    procedure tenumdef.setmin(_min:asizeint);
       begin
         minval:=_min;
         calcsavesize;
       end;
 
 
-    function tenumdef.min:aint;
+    function tenumdef.min:asizeint;
       begin
         min:=minval;
       end;
 
 
-    function tenumdef.max:aint;
+    function tenumdef.max:asizeint;
       begin
         max:=maxval;
       end;
@@ -1654,7 +1777,7 @@ implementation
       end;
 
 
-    function torddef.packedbitsize: aint;
+    function torddef.packedbitsize: asizeint;
       var
         sizeval: tconstexprint;
         power: longint;
@@ -1926,7 +2049,8 @@ implementation
             else
               savesize:=368;
         end;
-{$else cpu64bitaddr}
+{$endif cpu64bitaddr}
+{$ifdef cpu32bitaddr}
         case filetyp of
           ft_text :
             savesize:=592{+4};
@@ -1934,7 +2058,16 @@ implementation
           ft_untyped :
             savesize:=332;
         end;
-{$endif cpu64bitaddr}
+{$endif cpu32bitaddr}
+{$ifdef cpu8bitaddr}
+        case filetyp of
+          ft_text :
+            savesize:=127;
+          ft_typed,
+          ft_untyped :
+            savesize:=127;
+        end;
+{$endif cpu8bitaddr}
       end;
 
 
@@ -2212,7 +2345,7 @@ implementation
                                    TSETDEF
 ***************************************************************************}
 
-    constructor tsetdef.create(def:tdef;low, high : aint);
+    constructor tsetdef.create(def:tdef;low, high : asizeint);
       var
         setallocbits: aint;
         packedsavesize: aint;
@@ -2341,7 +2474,7 @@ implementation
                            TARRAYDEF
 ***************************************************************************}
 
-    constructor tarraydef.create(l,h:aint;def:tdef);
+    constructor tarraydef.create(l,h:asizeint;def:tdef);
       begin
          inherited create(arraydef);
          lowrange:=l;
@@ -2421,7 +2554,7 @@ implementation
       end;
 
 
-    function tarraydef.elesize : aint;
+    function tarraydef.elesize : asizeint;
       begin
         if (ado_IsBitPacked in arrayoptions) then
           internalerror(2006080101);
@@ -2432,7 +2565,7 @@ implementation
       end;
 
 
-    function tarraydef.elepackedbitsize : aint;
+    function tarraydef.elepackedbitsize : asizeint;
       begin
         if not(ado_IsBitPacked in arrayoptions) then
           internalerror(2006080102);
@@ -2443,7 +2576,7 @@ implementation
       end;
 
 
-    function tarraydef.elecount : aword;
+    function tarraydef.elecount : asizeuint;
       var
         qhigh,qlow : qword;
       begin
@@ -2457,7 +2590,7 @@ implementation
             qhigh:=highrange;
             qlow:=qword(-lowrange);
             { prevent overflow, return 0 to indicate overflow }
-            if qhigh+qlow>qword(high(aint)-1) then
+            if qhigh+qlow>qword(high(asizeint)-1) then
               result:=0
             else
               result:=qhigh+qlow+1;
@@ -2467,10 +2600,10 @@ implementation
       end;
 
 
-    function tarraydef.size : aint;
+    function tarraydef.size : asizeint;
       var
-        cachedelecount : aword;
-        cachedelesize : aint;
+        cachedelecount : asizeuint;
+        cachedelesize : asizeint;
       begin
         if ado_IsDynamicArray in arrayoptions then
           begin
@@ -2501,17 +2634,17 @@ implementation
 
         { prevent overflow, return -1 to indicate overflow }
         { also make sure we don't need 64/128 bit arithmetic to calculate offsets }
-        if (cachedelecount > aword(high(aint))) or
-           ((high(aint) div cachedelesize) < aint(cachedelecount)) or
-           { also lowrange*elesize must be < high(aint) to prevent overflow when
+        if (cachedelecount > asizeuint(high(asizeint))) or
+           ((high(asizeint) div cachedelesize) < asizeint(cachedelecount)) or
+           { also lowrange*elesize must be < high(asizeint) to prevent overflow when
              accessing the array, see ncgmem (PFV) }
-           ((high(aint) div cachedelesize) < abs(lowrange)) then
+           ((high(asizeint) div cachedelesize) < abs(lowrange)) then
           begin
             result:=-1;
             exit;
           end;
 
-        result:=cachedelesize*aint(cachedelecount);
+        result:=cachedelesize*asizeint(cachedelecount);
         if (ado_IsBitPacked in arrayoptions) then
           { can't just add 7 and divide by 8, because that may overflow }
           result:=result div 8 + ord((result mod 8)<>0);
@@ -2674,18 +2807,8 @@ implementation
       end;
 
     function tabstractrecorddef.RttiName: string;
-      var
-        tmp: tabstractrecorddef;
       begin
-        Result:=objrealname^;
-        tmp:=self;
-        repeat
-          if tmp.owner.symtabletype in [ObjectSymtable,recordsymtable] then
-            tmp:=tabstractrecorddef(tmp.owner.defowner)
-          else
-            break;
-          Result:=tmp.objrealname^+'.'+Result;
-        until tmp=nil;
+        Result:=OwnerHierarchyName+objrealname^;
       end;
 
     function tabstractrecorddef.search_enumerator_get: tprocdef;
@@ -2906,7 +3029,7 @@ implementation
       end;
 
 
-    function trecorddef.size:aint;
+    function trecorddef.size:asizeint;
       begin
         result:=trecordsymtable(symtable).datasize;
       end;
@@ -3315,6 +3438,7 @@ implementation
 {$ifdef i386}
           fpu_used:=maxfpuregs;
 {$endif i386}
+         interruptvector:=-1;
       end;
 
 
@@ -3353,6 +3477,8 @@ implementation
          else
            import_name:=nil;
          import_nr:=ppufile.getword;
+         if target_info.system in systems_interrupt_table then
+           interruptvector:=ppufile.getlongint;
          if (po_msgint in procoptions) then
            messageinf.i:=ppufile.getlongint;
          if (po_msgstr in procoptions) then
@@ -3489,6 +3615,8 @@ implementation
          if po_has_importname in procoptions then
            ppufile.putstring(import_name^);
          ppufile.putword(import_nr);
+         if target_info.system in systems_interrupt_table then
+           ppufile.putlongint(interruptvector);
          if (po_msgint in procoptions) then
            ppufile.putlongint(messageinf.i);
          if (po_msgstr in procoptions) then
@@ -4063,7 +4191,7 @@ implementation
       end;
 
 
-    function tprocvardef.size : aint;
+    function tprocvardef.size : asizeint;
       begin
          if ((po_methodpointer in procoptions) or
              is_nested_pd(self)) and
@@ -4147,6 +4275,8 @@ implementation
         fcurrent_dispid:=0;
         objecttype:=ot;
         childof:=nil;
+        if objecttype=odt_helper then
+          owner.includeoption(sto_has_helper);
         symtable:=tObjectSymtable.create(self,n,current_settings.packrecords);
         { create space for vmt !! }
         vmtentries:=TFPList.Create;
@@ -4196,6 +4326,9 @@ implementation
               ppufile.getguid(iidguid^);
               iidstr:=stringdup(ppufile.getstring);
            end;
+
+         if objecttype=odt_helper then
+           ppufile.getderef(extendeddefderef);
 
          vmtentries:=TFPList.Create;
          vmtentries.count:=ppufile.getlongint;
@@ -4301,6 +4434,7 @@ implementation
           tobjectdef(result).import_lib:=stringdup(import_lib^);
         tobjectdef(result).objectoptions:=objectoptions;
         include(tobjectdef(result).defoptions,df_copied_def);
+        tobjectdef(result).extendeddef:=extendeddef;
         tobjectdef(result).vmt_offset:=vmt_offset;
         if assigned(iidguid) then
           begin
@@ -4358,6 +4492,8 @@ implementation
               ppufile.putguid(iidguid^);
               ppufile.putstring(iidstr^);
            end;
+         if objecttype=odt_helper then
+           ppufile.putderef(extendeddefderef);
 
          ppufile.putlongint(vmtentries.count);
          for i:=0 to vmtentries.count-1 do
@@ -4416,6 +4552,9 @@ implementation
          else
            tstoredsymtable(symtable).buildderef;
 
+         if objecttype=odt_helper then
+           extendeddefderef.build(extendeddef);
+
          for i:=0 to vmtentries.count-1 do
            begin
              vmtentry:=pvmtentry(vmtentries[i]);
@@ -4444,6 +4583,8 @@ implementation
            end
          else
            tstoredsymtable(symtable).deref;
+         if objecttype=odt_helper then
+           extendeddef:=tobjectdef(extendeddefderef.resolve);
          for i:=0 to vmtentries.count-1 do
            begin
              vmtentry:=pvmtentry(vmtentries[i]);
@@ -4478,7 +4619,17 @@ implementation
             psym:=tprocsym.create(nname);
             { avoid warning about this symbol being unused }
             psym.IncRefCount;
-            st.insert(psym,true);
+            { don't check for duplicates:
+               a) we checked above
+               b) in case we are in the implementation section of a unit, this
+                  will also check for this symbol in the interface section
+                  (since you normally cannot have symbols with the same name
+                   both interface and implementation), and it's possible to
+                   have class helpers for the same class in the interface and
+                   in the implementation, and they cannot be merged since only
+                   the once in the interface must be saved to the ppu/visible
+                   from other units }
+            st.insert(psym,false);
           end
         else if (psym.typ<>procsym) then
           internalerror(2009111501);
@@ -4725,9 +4876,9 @@ implementation
           (assigned(childof) and childof.implements_any_interfaces);
       end;
 
-    function tobjectdef.size : aint;
+    function tobjectdef.size : asizeint;
       begin
-        if objecttype in [odt_class,odt_interfacecom,odt_interfacecorba,odt_dispinterface,odt_objcclass,odt_objcprotocol] then
+        if objecttype in [odt_class,odt_interfacecom,odt_interfacecorba,odt_dispinterface,odt_objcclass,odt_objcprotocol,odt_helper] then
           result:=sizeof(pint)
         else
           result:=tObjectSymtable(symtable).datasize;
@@ -4736,7 +4887,7 @@ implementation
 
     function tobjectdef.alignment:shortint;
       begin
-        if objecttype in [odt_class,odt_interfacecom,odt_interfacecorba,odt_dispinterface,odt_objcclass,odt_objcprotocol] then
+        if objecttype in [odt_class,odt_interfacecom,odt_interfacecorba,odt_dispinterface,odt_objcclass,odt_objcprotocol,odt_helper] then
           alignment:=sizeof(pint)
         else
           alignment:=tObjectSymtable(symtable).recordalignment;
@@ -4750,6 +4901,7 @@ implementation
         odt_class:
           { the +2*sizeof(pint) is size and -size }
           vmtmethodoffset:=(index+10)*sizeof(pint)+2*sizeof(pint);
+        odt_helper,
         odt_objcclass,
         odt_objcprotocol:
           vmtmethodoffset:=0;
@@ -4776,6 +4928,7 @@ implementation
     function tobjectdef.needs_inittable : boolean;
       begin
          case objecttype of
+            odt_helper,
             odt_class :
               needs_inittable:=false;
             odt_dispinterface,
@@ -4917,117 +5070,24 @@ implementation
       end;
 
     function tobjectdef.search_enumerator_get: tprocdef;
-     var
-        objdef : tobjectdef;
-        sym : tsym;
-        i : integer;
-        pd : tprocdef;
-        hashedid : THashedIDString;
-     begin
-        result:=nil;
-        objdef:=self;
-        hashedid.id:='GETENUMERATOR';
-        while assigned(objdef) do
-          begin
-            sym:=tsym(objdef.symtable.FindWithHash(hashedid));
-            if assigned(sym) and (sym.typ=procsym) then
-              begin
-                for i := 0 to Tprocsym(sym).ProcdefList.Count - 1 do
-                begin
-                  pd := tprocdef(Tprocsym(sym).ProcdefList[i]);
-                  if (pd.proctypeoption = potype_function) and
-                     (is_class_or_interface_or_object(pd.returndef) or is_record(pd.returndef)) and
-                     (pd.visibility >= vis_public) then
-                  begin
-                    result:=pd;
-                    exit;
-                  end;
-                end;
-              end;
-            objdef:=objdef.childof;
-          end;
+      begin
+        result:=inherited;
+        if not assigned(result) and assigned(childof) then
+          result:=childof.search_enumerator_get;
       end;
 
     function tobjectdef.search_enumerator_move: tprocdef;
-     var
-        objdef : tobjectdef;
-        sym : tsym;
-        i : integer;
-        pd : tprocdef;
-        hashedid : THashedIDString;
-     begin
-        result:=nil;
-        objdef:=self;
-        // first search for po_enumerator_movenext method modifier
-        // then search for public function MoveNext: Boolean
-        hashedid.id:='MOVENEXT';
-        while assigned(objdef) do
-          begin
-            for i:=0 to objdef.symtable.SymList.Count-1 do
-              begin
-                sym:=TSym(objdef.symtable.SymList[i]);
-                if (sym.typ=procsym) then
-                begin
-                  pd:=Tprocsym(sym).find_procdef_byoptions([po_enumerator_movenext]);
-                  if assigned(pd) then
-                    begin
-                      result:=pd;
-                      exit;
-                    end;
-                end;
-              end;
-            sym:=tsym(objdef.symtable.FindWithHash(hashedid));
-            if assigned(sym) and (sym.typ=procsym) then
-              begin
-                for i := 0 to Tprocsym(sym).ProcdefList.Count - 1 do
-                begin
-                  pd := tprocdef(Tprocsym(sym).ProcdefList[i]);
-                  if (pd.proctypeoption = potype_function) and
-                     is_boolean(pd.returndef) and
-                     (pd.minparacount = 0) and
-                     (pd.visibility >= vis_public) then
-                  begin
-                    result:=pd;
-                    exit;
-                  end;
-                end;
-              end;
-            objdef:=objdef.childof;
-          end;
+      begin
+        result:=inherited;
+        if not assigned(result) and assigned(childof) then
+          result:=childof.search_enumerator_move;
       end;
 
     function tobjectdef.search_enumerator_current: tsym;
-     var
-        objdef : tobjectdef;
-        sym: tsym;
-        i: integer;
-        hashedid : THashedIDString;
-     begin
-        result:=nil;
-        objdef:=self;
-        hashedid.id:='CURRENT';
-        // first search for ppo_enumerator_current property modifier
-        // then search for public property Current
-        while assigned(objdef) do
-          begin
-            for i:=0 to objdef.symtable.SymList.Count-1 do
-              begin
-                sym:=TSym(objdef.symtable.SymList[i]);
-                if (sym.typ=propertysym) and (ppo_enumerator_current in tpropertysym(sym).propoptions) then
-                begin
-                  result:=sym;
-                  exit;
-                end;
-              end;
-            sym:=tsym(objdef.symtable.FindWithHash(hashedid));
-            if assigned(sym) and (sym.typ=propertysym) and
-               (sym.visibility >= vis_public) and not tpropertysym(sym).propaccesslist[palt_read].empty then
-              begin
-                result:=sym;
-                exit;
-              end;
-            objdef:=objdef.childof;
-          end;
+      begin
+        result:=inherited;
+        if not assigned(result) and assigned(childof) then
+          result:=childof.search_enumerator_current;
       end;
 
     procedure tobjectdef.register_created_classref_type;
@@ -5542,6 +5602,15 @@ implementation
       end;
 
 
+    function is_objectpascal_helper(def: tdef): boolean;
+      begin
+        result:=
+          assigned(def) and
+          (def.typ=objectdef) and
+          (tobjectdef(def).objecttype=odt_helper);
+      end;
+
+
     function is_objcclassref(def: tdef): boolean;
       begin
         is_objcclassref:=
@@ -5591,6 +5660,12 @@ implementation
              (oo_is_classhelper in tobjectdef(def).objectoptions)));
       end;
 
+    function is_classhelper(def: tdef): boolean;
+      begin
+         result:=
+           is_objectpascal_helper(def) or
+           is_objccategory(def);
+      end;
 
     function is_class_or_interface(def: tdef): boolean;
       begin

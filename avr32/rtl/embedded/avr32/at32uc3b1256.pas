@@ -236,13 +236,23 @@ var
  _bss_end: record end; external name '_bss_end';
  _stack_top: record end; external name '_stack_top';
 
-procedure StartCode; nostackframe; assembler;
+procedure _FPC_haltproc; assembler; nostackframe; public name '_haltproc';
+asm
+.Lhalt:
+	rjmp .Lhalt
+end;
+
+procedure DefaultHandler; assembler; nostackframe; public name 'DefaultHandler';
+asm
+end;
+
+procedure StartCode; nostackframe; assembler; [public, alias: '_START']; interrupt 0;
 asm
    // Update stack
    lddpc sp, .L_stack_top
    
    // Set EVBA
-   mov r0, 0
+   lddpc r0, .L_evba_base
    mtsr 4, r0 // EVBA
    
    // copy initialized data from flash to ram
@@ -254,7 +264,7 @@ asm
    brhi .Lecopyloop
    ld.w r0, r1++
    st.w r2++, r0
-   brls .Lcopyloop
+   bral .Lcopyloop
 .Lecopyloop:
 
    // clear onboard ram
@@ -265,7 +275,7 @@ asm
    cp.w r1,r2
    brhi .Lezeroloop
    st.w r1++, r0
-   brls .Lzeroloop
+   bral .Lzeroloop
 .Lezeroloop:
 
    bral PASCALMAIN
@@ -280,6 +290,8 @@ asm
    .long _data
 .L_edata:
    .long _edata
+.L_evba_base:
+   .long 0x80000004
 .L_stack_top:
    .long _stack_top
 end;

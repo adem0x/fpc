@@ -101,7 +101,7 @@ interface
     procedure gen_load_return_value(list:TAsmList);
 
     procedure gen_external_stub(list:TAsmList;pd:tprocdef;const externalname:string);
-    procedure gen_intf_wrappers(list:TAsmList;st:TSymtable);
+    procedure gen_intf_wrappers(list:TAsmList;st:TSymtable;nested:boolean);
     procedure gen_load_vmt_register(list:TAsmList;objdef:tobjectdef;selfloc:tlocation;var vmtreg:tregister);
 
     procedure get_used_regvars(n: tnode; var rv: tusedregvars);
@@ -160,6 +160,10 @@ interface
     function getprocalign : shortint;
 
     procedure gen_pic_helpers(list : TAsmList);
+
+    procedure gen_fpc_dummy(list : TAsmList);
+
+    procedure InsertInterruptTable;
 
 implementation
 
@@ -489,11 +493,18 @@ implementation
               { load a smaller size to OS_64 }
               if l.loc=LOC_REGISTER then
                begin
+{$ifdef AVR}
+                 { on avr, we cannot change the size of a register
+                   due to the nature how register with size > OS8 are handled
+                 }
+                 hregister:=cg.getintregister(list,OS_32);
+{$else AVR}
                  hregister:=cg.makeregsize(list,l.register64.reglo,OS_32);
+{$endif AVR}
                  cg.a_load_reg_reg(list,l.size,OS_32,l.register64.reglo,hregister);
                end
               else
-               hregister:=cg.getintregister(list,OS_INT);
+               hregister:=cg.getintregister(list,OS_32);
               { load value in low register }
               case l.loc of
 {$ifdef cpuflags}
@@ -514,7 +525,7 @@ implementation
                   cg.a_load_loc_reg(list,OS_INT,l,hregister);
               end;
               { reset hi part, take care of the signed bit of the current value }
-              hregisterhi:=cg.getintregister(list,OS_INT);
+              hregisterhi:=cg.getintregister(list,OS_32);
               if (l.size in [OS_S8,OS_S16,OS_S32]) then
                begin
                  if l.loc=LOC_CONSTANT then
@@ -547,8 +558,8 @@ implementation
                end
               else
                begin
-                 hregister:=cg.getintregister(list,OS_INT);
-                 hregisterhi:=cg.getintregister(list,OS_INT);
+                 hregister:=cg.getintregister(list,OS_32);
+                 hregisterhi:=cg.getintregister(list,OS_32);
                  const_location := false;
                end;
               hreg64.reglo:=hregister;
@@ -618,8 +629,8 @@ implementation
                         l.reference.alignment:=newalignment(l.reference.alignment,TCGSize2Size[l.size]-TCGSize2Size[dst_size]);
                       end;
 {$ifdef x86}
-                  if not (l.loc in [LOC_SUBSETREG,LOC_CSUBSETREG]) then
-                     l.size:=dst_size;
+                    if not (l.loc in [LOC_SUBSETREG,LOC_CSUBSETREG]) then
+                      l.size:=dst_size;
 {$endif x86}
                   end;
                  cg.a_load_loc_reg(list,dst_size,l,hregister);
@@ -1302,9 +1313,13 @@ implementation
     const
 {$ifdef cpu64bitalu}
       trashintvalues: array[0..nroftrashvalues-1] of aint = ($5555555555555555,aint($AAAAAAAAAAAAAAAA),aint($EFEFEFEFEFEFEFEF),0);
-{$else cpu64bitalu}
-      trashintvalues: array[0..nroftrashvalues-1] of aint = ($55555555,aint($AAAAAAAA),aint($EFEFEFEF),0);
 {$endif cpu64bitalu}
+{$ifdef cpu32bitalu}
+      trashintvalues: array[0..nroftrashvalues-1] of aint = ($55555555,aint($AAAAAAAA),aint($EFEFEFEF),0);
+{$endif cpu32bitalu}
+{$ifdef cpu8bitalu}
+      trashintvalues: array[0..nroftrashvalues-1] of aint = ($55,aint($AA),aint($EF),0);
+{$endif cpu8bitalu}
 
     procedure trash_reference(list: TAsmList; const ref: treference; size: aint);
       var
@@ -1557,6 +1572,8 @@ implementation
     procedure init_paras(p:TObject;arg:pointer);
       var
         href : treference;
+        hsym : tparavarsym;
+        eldef : tdef;
         tmpreg : tregister;
         list : TAsmList;
         needs_inittable,
@@ -1580,7 +1597,18 @@ implementation
                      paramanager.push_addr_param(tparavarsym(p).varspez,tparavarsym(p).vardef,current_procinfo.procdef.proccalloption)) then
                      begin
                        location_get_data_ref(list,tparavarsym(p).initialloc,href,is_open_array(tparavarsym(p).vardef),sizeof(pint));
-                       cg.g_incrrefcount(list,tparavarsym(p).vardef,href);
+                       if is_open_array(tparavarsym(p).vardef) then
+                         begin
+                           { open arrays do not contain correct element count in their rtti,
+                             the actual count must be passed separately. }
+                           hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
+                           eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
+                           if not assigned(hsym) then
+                             internalerror(201003031);
+                           cg.g_array_rtti_helper(list,eldef,href,hsym.initialloc,'FPC_ADDREF_ARRAY');
+                         end
+                       else
+                         cg.g_incrrefcount(list,tparavarsym(p).vardef,href);
                      end;
                  end;
              vs_out :
@@ -1605,7 +1633,18 @@ implementation
                        else
                          trash_reference(list,href,2);
                      if needs_inittable then
-                       cg.g_initialize(list,tparavarsym(p).vardef,href);
+                       begin
+                         if is_open_array(tparavarsym(p).vardef) then
+                           begin
+                             hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
+                             eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
+                             if not assigned(hsym) then
+                               internalerror(201103033);
+                             cg.g_array_rtti_helper(list,eldef,href,hsym.initialloc,'FPC_INITIALIZE_ARRAY');
+                           end
+                         else
+                           cg.g_initialize(list,tparavarsym(p).vardef,href);
+                       end;
                    end;
                end;
              else if do_trashing and
@@ -1638,6 +1677,8 @@ implementation
       var
         list : TAsmList;
         href : treference;
+        hsym : tparavarsym;
+        eldef : tdef;
       begin
         if not(tsym(p).typ=paravarsym) then
           exit;
@@ -1648,7 +1689,16 @@ implementation
             begin
               include(current_procinfo.flags,pi_needs_implicit_finally);
               location_get_data_ref(list,tparavarsym(p).localloc,href,is_open_array(tparavarsym(p).vardef),sizeof(pint));
-              cg.g_decrrefcount(list,tparavarsym(p).vardef,href);
+              if is_open_array(tparavarsym(p).vardef) then
+                begin
+                  hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
+                  eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
+                  if not assigned(hsym) then
+                    internalerror(201003032);
+                  cg.g_array_rtti_helper(list,eldef,href,hsym.initialloc,'FPC_DECREF_ARRAY');
+                end
+              else
+                cg.g_decrrefcount(list,tparavarsym(p).vardef,href);
             end;
          end;
         { open arrays can contain elements requiring init/final code, so the else has been removed here }
@@ -2444,7 +2494,7 @@ implementation
 
     procedure insertbssdata(sym : tstaticvarsym);
       var
-        l : aint;
+        l : asizeint;
         varalign : shortint;
         storefilepos : tfileposinfo;
         list : TAsmList;
@@ -2485,7 +2535,10 @@ implementation
             sectype:=sec_bss;
           end;
         maybe_new_object_file(list);
-        new_section(list,sectype,lower(sym.mangledname),varalign);
+        if sym.section<>'' then
+          new_section(list,sec_user,sym.section,varalign)
+        else
+          new_section(list,sectype,lower(sym.mangledname),varalign);
         if (sym.owner.symtabletype=globalsymtable) or
            create_smartlink or
            DLLSource or
@@ -2963,19 +3016,24 @@ implementation
       end;
 
 
-    procedure gen_intf_wrappers(list:TAsmList;st:TSymtable);
+    procedure gen_intf_wrappers(list:TAsmList;st:TSymtable;nested:boolean);
       var
         i   : longint;
         def : tdef;
       begin
-        create_codegen;
+        if not nested then
+          create_codegen;
         for i:=0 to st.DefList.Count-1 do
           begin
             def:=tdef(st.DefList[i]);
+            { if def can contain nested types then handle it symtable }
+            if def.typ in [objectdef,recorddef] then
+              gen_intf_wrappers(list,tabstractrecorddef(def).symtable,true);
             if is_class(def) then
               gen_intf_wrapper(list,tobjectdef(def));
           end;
-        destroy_codegen;
+        if not nested then
+          destroy_codegen;
       end;
 
 
@@ -3075,5 +3133,106 @@ implementation
           end;
 {$endif i386}
       end;
+
+
+    procedure gen_fpc_dummy(list : TAsmList);
+      begin
+{$ifdef i386}
+        { fix me! }
+        list.concat(Taicpu.Op_const_reg(A_MOV,S_L,1,NR_EAX));
+        list.concat(Taicpu.Op_const(A_RET,S_W,12));
+{$endif i386}
+      end;
+
+
+    procedure InsertInterruptTable;
+
+      procedure WriteVector(const name: string);
+{$IFDEF arm}
+        var
+          ai: taicpu;
+{$ENDIF arm}
+        begin
+{$IFDEF arm}
+          if current_settings.cputype in [cpu_armv7m, cpu_cortexm3] then
+            current_asmdata.asmlists[al_globals].concat(tai_const.Createname(name,0))
+          else
+            begin
+              ai:=taicpu.op_sym(A_B,current_asmdata.RefAsmSymbol(name));
+              ai.is_jmp:=true;
+              current_asmdata.asmlists[al_globals].concat(ai);
+            end;
+{$ENDIF arm}
+{$IFDEF avr32}
+          ai:=taicpu.op_sym(A_RJMP,current_asmdata.RefAsmSymbol(name));
+          ai.is_jmp:=true;
+          current_asmdata.asmlists[al_globals].concat(ai);
+{$ENDIF avr32}
+        end;
+
+      function GetInterruptTableLength: longint;
+        begin
+{$if defined(ARM) or defined(AVR32)}
+          result:=interruptvectors[current_settings.controllertype];
+{$else}
+          result:=0;
+{$endif}
+        end;
+
+      var
+        hp: tused_unit;
+        sym: tsym;
+        i, i2: longint;
+        interruptTable: array of tprocdef;
+        pd: tprocdef;
+      begin
+        SetLength(interruptTable, GetInterruptTableLength);
+        FillChar(interruptTable[0], length(interruptTable)*sizeof(pointer), 0);
+
+        hp:=tused_unit(usedunits.first);
+        while assigned(hp) do
+          begin
+            for i := 0 to hp.u.symlist.Count-1 do
+              begin
+                sym:=tsym(hp.u.symlist[i]);
+                if not assigned(sym) then
+                  continue;
+                if sym.typ = procsym then
+                  begin
+                    for i2 := 0 to tprocsym(sym).ProcdefList.Count-1 do
+                      begin
+                        pd:=tprocdef(tprocsym(sym).ProcdefList[i2]);
+                        if pd.interruptvector >= 0 then
+                          begin
+                            if pd.interruptvector > high(interruptTable) then
+                              Internalerror(2011030602);
+                            if interruptTable[pd.interruptvector] <> nil then
+                              internalerror(2011030601);
+
+                            interruptTable[pd.interruptvector]:=pd;
+                            break;
+                          end;
+                      end;
+                  end;
+              end;
+            hp:=tused_unit(hp.next);
+          end;
+
+        new_section(current_asmdata.asmlists[al_globals],sec_init,'VECTORS',sizeof(pint));
+        current_asmdata.asmlists[al_globals].concat(Tai_symbol.Createname_global('VECTORS',AT_DATA,0));
+{$IFDEF arm}
+        if current_settings.cputype in [cpu_armv7m, cpu_cortexm3] then
+          current_asmdata.asmlists[al_globals].concat(tai_const.Createname('_stack_top',0)); { ARMv7-M processors have the initial stack value at address 0 }
+{$ENDIF arm}
+
+        for i:=0 to high(interruptTable) do
+          begin
+            if interruptTable[i]<>nil then
+              writeVector(interruptTable[i].mangledname)
+            else
+              writeVector('DefaultHandler'); { Default handler name }
+          end;
+      end;
+
 
 end.

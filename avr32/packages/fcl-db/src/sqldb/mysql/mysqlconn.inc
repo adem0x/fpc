@@ -175,7 +175,11 @@ Type
 
 implementation
 
-uses dbconst,ctypes,strutils;
+uses
+  dbconst,
+  ctypes,
+  strutils,
+  dateutils;
 
 const
   Mysql_Option_Names : array[mysql_option] of string = ('MYSQL_OPT_CONNECT_TIMEOUT','MYSQL_OPT_COMPRESS',
@@ -188,12 +192,8 @@ const
      'MYSQL_OPT_USE_REMOTE_CONNECTION','MYSQL_OPT_USE_EMBEDDED_CONNECTION',
      'MYSQL_OPT_GUESS_CONNECTION','MYSQL_SET_CLIENT_IP',
      'MYSQL_SECURE_AUTH'
-{$IFDEF MYSQL50}
+{$IFDEF MYSQL50_UP}
      ,'MYSQL_REPORT_DATA_TRUNCATION', 'MYSQL_OPT_RECONNECT'
-{$ELSE}     
-  {$IFDEF MYSQL51}
-     ,'MYSQL_REPORT_DATA_TRUNCATION', 'MYSQL_OPT_RECONNECT'
-  {$ENDIF}     
 {$ENDIF}
      );
 
@@ -559,7 +559,7 @@ begin
       NewType := ftInteger;
       NewSize := 0;
       end;
-{$ifdef mysql50}
+{$ifdef mysql50_up}
     FIELD_TYPE_NEWDECIMAL,
 {$endif}
     FIELD_TYPE_DECIMAL: if ADecimals < 5 then
@@ -781,7 +781,7 @@ begin
     Result := 0
   else
     Result := EncodeDate(EY, EM, ED);
-  Result := Result + EncodeTime(EH, EN, ES, 0);
+  Result := ComposeDateTime(Result,EncodeTime(EH, EN, ES, 0));
 end;
 
 function InternalStrToTime(S: string): TDateTime;
@@ -793,7 +793,7 @@ begin
   EH := StrToInt(Copy(S, 1, 2));
   EM := StrToInt(Copy(S, 4, 2));
   ES := StrToInt(Copy(S, 7, 2));
-  Result := EncodeTime(EH, EM, ES, 0);
+  Result := EncodeTimeInterval(EH, EM, ES, 0);
 end;
 
 function InternalStrToTimeStamp(S: string): TDateTime;
@@ -867,7 +867,7 @@ begin
         VL := 0;
       Move(VL, Dest^, SizeOf(LargeInt));
       end;
-{$ifdef mysql50}
+{$ifdef mysql50_up}
     FIELD_TYPE_NEWDECIMAL,
 {$endif}      
     FIELD_TYPE_DECIMAL, FIELD_TYPE_FLOAT, FIELD_TYPE_DOUBLE:

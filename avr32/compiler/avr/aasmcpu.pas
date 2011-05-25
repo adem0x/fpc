@@ -73,6 +73,8 @@ uses
     function spilling_create_load(const ref:treference;r:tregister):Taicpu;
     function spilling_create_store(r:tregister; const ref:treference):Taicpu;
 
+    function setcondition(i : taicpu;c : tasmcond) : taicpu;
+
 implementation
 
 {*****************************************************************************
@@ -136,7 +138,7 @@ implementation
          inherited create(op);
          ops:=2;
          loadreg(0,_op1);
-         loadconst(1,_op2);
+         loadconst(1,aint(_op2));
       end;
 
      constructor taicpu.op_const_reg(op:tasmop; _op1: LongInt; _op2: tregister);
@@ -207,14 +209,14 @@ implementation
 
     function taicpu.spilling_get_operation_type(opnr: longint): topertype;
       begin
-        result := operand_read;
+        result:=operand_read;
         case opcode of
-          A_CP,A_CPC,A_CPI :
+          A_CP,A_CPC,A_CPI,A_PUSH :
             ;
           else
             begin
-              if opnr=ops-1 then
-                result := operand_write;
+              if opnr=0 then
+                result:=operand_write;
             end;
         end;
       end;
@@ -224,7 +226,15 @@ implementation
       begin
         case getregtype(r) of
           R_INTREGISTER :
-            result:=taicpu.op_ref_reg(A_LD,ref,r);
+            if ref.offset<>0 then
+              result:=taicpu.op_reg_ref(A_LDD,r,ref)
+            else
+              result:=taicpu.op_reg_ref(A_LD,r,ref);
+          R_ADDRESSREGISTER :
+            if ref.offset<>0 then
+              result:=taicpu.op_reg_ref(A_LDD,r,ref)
+            else
+              result:=taicpu.op_reg_ref(A_LD,r,ref);
           else
             internalerror(200401041);
         end;
@@ -235,7 +245,15 @@ implementation
       begin
         case getregtype(r) of
           R_INTREGISTER :
-            result:=taicpu.op_reg_ref(A_ST,r,ref);
+            if ref.offset<>0 then
+              result:=taicpu.op_ref_reg(A_STD,ref,r)
+            else
+              result:=taicpu.op_ref_reg(A_ST,ref,r);
+          R_ADDRESSREGISTER :
+            if ref.offset<>0 then
+              result:=taicpu.op_ref_reg(A_STD,ref,r)
+            else
+              result:=taicpu.op_ref_reg(A_ST,ref,r);
           else
             internalerror(200401041);
         end;
@@ -250,6 +268,14 @@ implementation
     procedure DoneAsm;
       begin
       end;
+
+
+    function setcondition(i : taicpu;c : tasmcond) : taicpu;
+      begin
+        i.condition:=c;
+        result:=i;
+      end;
+
 
 begin
   cai_cpu:=taicpu;

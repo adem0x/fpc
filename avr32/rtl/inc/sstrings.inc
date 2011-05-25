@@ -374,7 +374,7 @@ end;
 
 {$ifndef CPU64}
 
-procedure fpc_shortstr_qword(v : qword;len : longint;out s : shortstring);[public,alias:'FPC_SHORTSTR_QWORD']; compilerproc;
+procedure fpc_shortstr_qword(v : qword;len : SizeInt;out s : shortstring);[public,alias:'FPC_SHORTSTR_QWORD']; compilerproc;
 begin
   int_str(v,s);
   if length(s)<len then
@@ -382,7 +382,7 @@ begin
 end;
 
 
-procedure fpc_shortstr_int64(v : int64;len : longint;out s : shortstring);[public,alias:'FPC_SHORTSTR_INT64'];  compilerproc;
+procedure fpc_shortstr_int64(v : int64;len : SizeInt;out s : shortstring);[public,alias:'FPC_SHORTSTR_INT64'];  compilerproc;
 begin
   int_str(v,s);
   if length(s)<len then
@@ -455,8 +455,6 @@ type
   end;
 
 var
-  p:Pstring;
-
   enum_o2s : Penum_ord_to_string;
   header:Penum_typeinfo;
   body:Penum_typedata;
@@ -471,7 +469,7 @@ begin
 
   enum_o2s:=Penum_ord_to_string(ord2strindex);
   { depending on the type of table in ord2strindex retrieve the data }
-  if (enum_o2s^.o=lookup) then 
+  if (enum_o2s^.o=lookup) then
     begin
       { direct lookup table }
       header:=Penum_typeinfo(typinfo);
@@ -483,7 +481,7 @@ begin
         {$ifndef FPC_REQUIRES_PROPER_ALIGNMENT} 1 {$else} sizeof(pointer) {$endif}));
       with (body^.inner) do
         begin
-          { Bounds check for the ordinal value for this enum }     
+          { Bounds check for the ordinal value for this enum }
           if (ordinal<minvalue) or (ordinal>maxvalue) then
             exit;
           { make the ordinal index for lookup zero-based }
@@ -546,6 +544,20 @@ end;
 
 { also define alias for internal use in the system unit }
 procedure fpc_shortstr_enum(ordinal,len:sizeint;typinfo,ord2strindex:pointer;out s:shortstring);external name 'FPC_SHORTSTR_ENUM';
+
+
+procedure fpc_shortstr_bool(b : boolean;len:sizeint;out s:shortstring);[public,alias:'FPC_SHORTSTR_BOOL'];compilerproc;
+begin
+  if b then
+    s:='TRUE'
+  else
+    s:='FALSE';
+  if length(s)<len then
+    s:=space(len-length(s))+s;
+end;
+
+{ also define alias for internal use in the system unit }
+procedure fpc_shortstr_bool(b : boolean;len:sizeint;out s:shortstring);external name 'FPC_SHORTSTR_BOOL';
 
 
 procedure fpc_shortstr_currency(c : currency; len,f : SizeInt; out s : shortstring);[public,alias:'FPC_SHORTSTR_CURRENCY']; compilerproc;
@@ -639,7 +651,7 @@ begin
               k:=1
             else
               k:=0;
-            end; 
+            end;
           Inc(i);
           if i>tlen  then
             break;
@@ -664,7 +676,7 @@ begin
 			  inc(reslen);
 			  inc(tlen);
 			end;
-		end;		  
+		end;		
     end;
   { preparing result string }
   if reslen<len then
@@ -833,6 +845,20 @@ begin
 end;
 
 
+procedure fpc_chararray_bool(b : boolean;len:sizeint;out a : array of char);compilerproc;
+var
+  ss : shortstring;
+  maxlen : SizeInt;
+begin
+  fpc_shortstr_bool(b,len,ss);
+  if length(ss)<high(a)+1 then
+    maxlen:=length(ss)
+  else
+    maxlen:=high(a)+1;
+  move(ss[1],pchar(@a)^,maxlen);
+end;
+
+
 {$ifdef FPC_HAS_STR_CURRENCY}
 procedure fpc_chararray_Currency(c : Currency;len,fr : SizeInt;out a : array of char);compilerproc;
 var
@@ -859,7 +885,7 @@ begin
   code:=1;
   negativ:=false;
   base:=10;
-  if length(s)=0 then 
+  if length(s)=0 then
     begin
       InitVal:=code;
       Exit;
@@ -1262,17 +1288,17 @@ end;
 {$endif}
 
 function fpc_val_enum_shortstr(str2ordindex:pointer;const s:shortstring;out code:valsint):longint; [public, alias:'FPC_VAL_ENUM_SHORTSTR']; compilerproc;
-    
+
     function string_compare(const s1,s2:shortstring):sizeint;
-    
+
     {We cannot use the > and < operators to compare a string here, because we if the string is
      not found in the enum, we need to return the position of error in "code". Code equals the
      highest matching character of all string compares, which is only known inside the string
      comparison.}
-    
+
     var i,l:byte;
         c1,c2:char;
-    
+
     begin
       l:=length(s1);
       if length(s1)>length(s2) then
@@ -1311,8 +1337,6 @@ var l,h,m:cardinal;
     sorted_array:^Tsorted_array;
     spaces:byte;
     t:shortstring;
-
-label error;
 
 begin
   {Val for numbers accepts spaces at the start, so lets do the same

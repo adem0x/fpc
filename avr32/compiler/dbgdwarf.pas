@@ -1000,6 +1000,8 @@ implementation
         loclist := tdynamicarray.Create(4096);
 
         AbbrevSearchTree:=AllocateNewAiSearchItem;
+
+        vardatadef := nil;
       end;
 
 
@@ -1701,10 +1703,10 @@ implementation
 
     procedure TDebugInfoDwarf.appenddef_string(list:TAsmList;def:tstringdef);
 
-      procedure addnormalstringdef(const name: shortstring; lendef: tdef; maxlen: aword);
+      procedure addnormalstringdef(const name: shortstring; lendef: tdef; maxlen: asizeuint);
         var
           { maxlen can be > high(int64) }
-          slen : aword;
+          slen : asizeuint;
           arr : tasmlabel;
         begin
           { fix length of openshortstring }
@@ -1782,9 +1784,13 @@ implementation
               }
 {$ifdef cpu64bitaddr}
               addnormalstringdef('LongString',u64inttype,qword(1024*1024));
-{$else cpu64bitaddr}
-              addnormalstringdef('LongString',u32inttype,cardinal(1024*1024));
 {$endif cpu64bitaddr}
+{$ifdef cpu32bitaddr}
+              addnormalstringdef('LongString',u32inttype,cardinal(1024*1024));
+{$endif cpu32bitaddr}
+{$ifdef cpu16bitaddr}
+              addnormalstringdef('LongString',u16inttype,cardinal(1024));
+{$endif cpu16bitaddr}
            end;
          st_ansistring:
            begin
@@ -2077,7 +2083,8 @@ implementation
           append_attribute(DW_AT_external,DW_FORM_flag,[true]);
         { Abstract or virtual/overriding method.  }
         if (([po_abstractmethod, po_virtualmethod, po_overridingmethod] * def.procoptions) <> []) and
-           not is_objc_class_or_protocol(def.struct) then
+           not is_objc_class_or_protocol(def.struct) and
+           not is_objectpascal_helper(def.struct) then
           begin
             if not(po_abstractmethod in def.procoptions) then
               append_attribute(DW_AT_virtuality,DW_FORM_data1,[ord(DW_VIRTUALITY_virtual)])
@@ -2453,7 +2460,7 @@ implementation
       var
         bitoffset,
         fieldoffset,
-        fieldnatsize: aint;
+        fieldnatsize: asizeint;
       begin
         if (sp_static in sym.symoptions) or
            (sym.visibility=vis_hidden) then
@@ -2988,6 +2995,7 @@ implementation
         i : longint;
         def: tdef;
         dbgname: string;
+        vardatatype: ttypesym;
       begin
         current_module.flags:=current_module.flags or uf_has_dwarf_debuginfo;
         storefilepos:=current_filepos;
@@ -3002,7 +3010,9 @@ implementation
             FILEREC
             TEXTREC
         }
-        vardatadef:=trecorddef(search_system_type('TVARDATA').typedef);
+        vardatatype:=try_search_system_type('TVARDATA');
+        if assigned(vardatatype) then
+          vardatadef:=trecorddef(vardatatype.typedef);
 
         { write start labels }
         new_section(current_asmdata.asmlists[al_dwarf_info],sec_debug_info,'',0);
@@ -3600,7 +3610,8 @@ implementation
     procedure TDebugInfoDwarf2.appenddef_variant(list:TAsmList;def: tvariantdef);
       begin
         { variants aren't known to dwarf2 but writting tvardata should be enough }
-        appenddef_record_named(list,trecorddef(vardatadef),'Variant');
+        if assigned(vardatadef) then
+          appenddef_record_named(list,trecorddef(vardatadef),'Variant');
       end;
 
     function TDebugInfoDwarf2.dwarf_version: Word;

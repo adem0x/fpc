@@ -45,10 +45,7 @@ interface
         stackcheck_asmnode,
         init_asmnode,
         final_asmnode : tasmnode;
-        { list to store the procinfo's of the nested procedures }
-        nestedprocs : tlinkedlist;
         dfabuilder : TDFABuilder;
-        constructor create(aparent:tprocinfo);override;
         destructor  destroy;override;
         procedure printproc(pass:string);
         procedure generate_code;
@@ -555,16 +552,8 @@ implementation
                                   TCGProcInfo
 ****************************************************************************}
 
-    constructor tcgprocinfo.create(aparent:tprocinfo);
-      begin
-        inherited Create(aparent);
-        nestedprocs:=tlinkedlist.create;
-      end;
-
-
      destructor tcgprocinfo.destroy;
        begin
-         nestedprocs.free;
          if assigned(code) then
            code.free;
          inherited destroy;
@@ -794,10 +783,10 @@ implementation
 
     function tcgprocinfo.has_assembler_child : boolean;
       var
-        hp : tcgprocinfo;
+        hp : tprocinfo;
       begin
         result:=false;
-        hp:=tcgprocinfo(nestedprocs.first);
+        hp:=get_first_nestedproc;
         while assigned(hp) do
           begin
             if (hp.flags*[pi_has_assembler_block,pi_is_assembler])<>[] then
@@ -805,7 +794,7 @@ implementation
                 result:=true;
                 exit;
               end;
-            hp:=tcgprocinfo(hp.next);
+            hp:=tprocinfo(hp.next);
           end;
       end;
 
@@ -1553,7 +1542,7 @@ implementation
           { generate code for this procedure }
           pi.generate_code;
           { process nested procs }
-          hpi:=tcgprocinfo(pi.nestedprocs.first);
+          hpi:=tcgprocinfo(pi.get_first_nestedproc);
           while assigned(hpi) do
            begin
              do_generate_code(hpi);
@@ -1606,7 +1595,7 @@ implementation
         { We can't support inlining for procedures that have nested
           procedures because the nested procedures use a fixed offset
           for accessing locals in the parent procedure (PFV) }
-        if (tcgprocinfo(current_procinfo).nestedprocs.count>0) then
+        if current_procinfo.has_nestedprocs then
           begin
             if (df_generic in current_procinfo.procdef.defoptions) then
               Comment(V_Error,'Generic methods cannot have nested procedures')
@@ -1622,9 +1611,7 @@ implementation
         { When it's a nested procedure then defer the code generation,
           when back at normal function level then generate the code
           for all defered nested procedures and the current procedure }
-        if isnestedproc then
-          tcgprocinfo(current_procinfo.parent).nestedprocs.insert(current_procinfo)
-        else
+        if not isnestedproc then
           begin
             if not(df_generic in current_procinfo.procdef.defoptions) then
               do_generate_code(tcgprocinfo(current_procinfo));
@@ -1768,12 +1755,15 @@ implementation
                    forward (or interface) declaration then we need to generate
                    a stub that calls the external routine }
                  if (not pd.forwarddef) and
-                    (pd.hasforward) and
+                    (pd.hasforward)
+                    { it is unclear to me what's the use of the following condition,
+                      so commented out, see also issue #18371 (FK)
+                    and
                     not(
                         assigned(pd.import_dll) and
                         (target_info.system in [system_i386_wdosx,
                                                 system_arm_wince,system_i386_wince])
-                       ) then
+                       ) } then
                    begin
                      s:=proc_get_importname(pd);
                      if s<>'' then
@@ -1986,6 +1976,7 @@ implementation
         hp : tdef;
         oldcurrent_filepos : tfileposinfo;
         oldsymtablestack   : tsymtablestack;
+        oldextendeddefs    : TFPHashObjectList;
         pu : tused_unit;
         hmodule : tmodule;
         specobj : tabstractrecorddef;
@@ -1999,8 +1990,14 @@ implementation
 
         { Setup symtablestack a definition time }
         specobj:=tabstractrecorddef(ttypesym(p).typedef);
+
+        if not (is_class_or_object(specobj) or is_record(specobj)) then
+          exit;
+
         oldsymtablestack:=symtablestack;
-        symtablestack:=tsymtablestack.create;
+        oldextendeddefs:=current_module.extendeddefs;
+        current_module.extendeddefs:=TFPHashObjectList.create(true);
+        symtablestack:=tdefawaresymtablestack.create;
         if not assigned(specobj.genericdef) then
           internalerror(200705151);
         hmodule:=find_module_from_symtable(specobj.genericdef.owner);
@@ -2020,33 +2017,32 @@ implementation
           symtablestack.push(hmodule.localsymtable);
 
         { procedure definitions for classes or objects }
-        if is_class_or_object(specobj) or is_record(specobj) then
+        for i:=0 to specobj.symtable.DefList.Count-1 do
           begin
-            for i:=0 to specobj.symtable.DefList.Count-1 do
-              begin
-                hp:=tdef(specobj.symtable.DefList[i]);
-                if hp.typ=procdef then
+            hp:=tdef(specobj.symtable.DefList[i]);
+            if hp.typ=procdef then
+             begin
+               if assigned(tprocdef(hp).genericdef) and
+                 (tprocdef(hp).genericdef.typ=procdef) and
+                 assigned(tprocdef(tprocdef(hp).genericdef).generictokenbuf) then
                  begin
-                   if assigned(tprocdef(hp).genericdef) and
-                     (tprocdef(hp).genericdef.typ=procdef) and
-                     assigned(tprocdef(tprocdef(hp).genericdef).generictokenbuf) then
-                     begin
-                       oldcurrent_filepos:=current_filepos;
-                       current_filepos:=tprocdef(tprocdef(hp).genericdef).fileinfo;
-                       { use the index the module got from the current compilation process }
-                       current_filepos.moduleindex:=hmodule.unit_index;
-                       current_tokenpos:=current_filepos;
-                       current_scanner.startreplaytokens(tprocdef(tprocdef(hp).genericdef).generictokenbuf);
-                       read_proc_body(nil,tprocdef(hp));
-                       current_filepos:=oldcurrent_filepos;
-                     end
-                   else
-                     MessagePos1(tprocdef(hp).fileinfo,sym_e_forward_not_resolved,tprocdef(hp).fullprocname(false));
-                 end;
+                   oldcurrent_filepos:=current_filepos;
+                   current_filepos:=tprocdef(tprocdef(hp).genericdef).fileinfo;
+                   { use the index the module got from the current compilation process }
+                   current_filepos.moduleindex:=hmodule.unit_index;
+                   current_tokenpos:=current_filepos;
+                   current_scanner.startreplaytokens(tprocdef(tprocdef(hp).genericdef).generictokenbuf);
+                   read_proc_body(nil,tprocdef(hp));
+                   current_filepos:=oldcurrent_filepos;
+                 end
+               else
+                 MessagePos1(tprocdef(hp).fileinfo,sym_e_forward_not_resolved,tprocdef(hp).fullprocname(false));
              end;
-          end;
+         end;
 
         { Restore symtablestack }
+        current_module.extendeddefs.free;
+        current_module.extendeddefs:=oldextendeddefs;
         symtablestack.free;
         symtablestack:=oldsymtablestack;
       end;

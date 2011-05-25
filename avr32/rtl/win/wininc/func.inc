@@ -134,7 +134,7 @@ function GetExitCodeThread(hThread:HANDLE; lpExitCode:LPDWORD):WINBOOL; external
 function GetThreadSelectorEntry(hThread:HANDLE; dwSelector:DWORD; lpSelectorEntry:LPLDT_ENTRY):WINBOOL; external 'kernel32' name 'GetThreadSelectorEntry';
 function GetLastError:DWORD; external 'kernel32' name 'GetLastError';
 procedure SetLastError(dwErrCode:DWORD); external 'kernel32' name 'SetLastError';
-function CreateIoCompletionPort(FileHandle:HANDLE; ExistingCompletionPort:HANDLE; CompletionKey:DWORD; NumberOfConcurrentThreads:DWORD):HANDLE; external 'kernel32' name 'CreateIoCompletionPort';
+function CreateIoCompletionPort(FileHandle:HANDLE; ExistingCompletionPort:HANDLE; CompletionKey:ULONG_PTR; NumberOfConcurrentThreads:DWORD):HANDLE; external 'kernel32' name 'CreateIoCompletionPort';
 function SetErrorMode(uMode:UINT):UINT; external 'kernel32' name 'SetErrorMode';
 function ReadProcessMemory(hProcess:HANDLE; lpBaseAddress:LPCVOID; lpBuffer:LPVOID; nSize:DWORD; lpNumberOfBytesRead:LPDWORD):WINBOOL; external 'kernel32' name 'ReadProcessMemory';
 function WriteProcessMemory(hProcess:HANDLE; lpBaseAddress:LPVOID; lpBuffer:LPVOID; nSize:DWORD; lpNumberOfBytesWritten:LPDWORD):WINBOOL; external 'kernel32' name 'WriteProcessMemory';
@@ -1041,7 +1041,7 @@ function SHBrowseForFolder(_para1:LPBROWSEINFO):LPITEMIDLIST; external 'shell32'
 procedure SHChangeNotify(_para1:LONG; _para2:UINT; _para3:LPCVOID; _para4:LPCVOID); external 'shell32' name 'SHChangeNotify';
 function SHFileOperation(_para1:LPSHFILEOPSTRUCT):longint; external 'shell32' name 'SHFileOperation';
 procedure SHFreeNameMappings(_para1:HANDLE); external 'shell32' name 'SHFreeNameMappings';
-function SHGetFileInfo(_para1:LPCTSTR; _para2:DWORD; var _para3:SHFILEINFO; _para4:UINT; _para5:UINT):DWORD; external 'shell32' name 'SHGetFileInfo';
+function SHGetFileInfo(_para1:LPCTSTR; _para2:DWORD; var _para3:SHFILEINFO; _para4:UINT; _para5:UINT):DWORD_PTR; external 'shell32' name 'SHGetFileInfo';
 function SHGetPathFromIDList(_para1:LPCITEMIDLIST; _para2:LPTSTR):WINBOOL; external 'shell32' name 'SHGetPathFromIDList';
 function SHGetSpecialFolderLocation(_para1:HWND; _para2:longint; var _para3:LPITEMIDLIST):HRESULT; external 'shell32' name 'SHGetSpecialFolderLocation';
 

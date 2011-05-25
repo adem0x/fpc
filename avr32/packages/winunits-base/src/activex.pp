@@ -31,6 +31,9 @@ type
    TBStr = POleStr;
    TBStrList = array[0..(high(integer) div sizeof(TBSTR))-1] of TBstr;
    PBStrList = ^TBStrList;
+   POleStrList = ^TOleStrList;
+   TOleStrList = array[0..(high(integer) div sizeof(POleStr))-1] of POleStr;
+
    PBStr = ^TBStr;
    TOleEnum = type LongWord;
    LargeInt = Types.LargeInt;
@@ -1683,7 +1686,7 @@ TYPE
      end;
    VERSIONEDSTREAM = tagVersionedStream;
    TVERSIONEDSTREAM = tagVersionedStream;
-   LPVERSIONEDSTREAM = tagVersionedStream;
+   LPVERSIONEDSTREAM = ^tagVersionedStream;
    PVERSIONEDSTREAM = ^TagVersionedStream;
 
 
@@ -1853,7 +1856,8 @@ TYPE
    IPropertyStorage    = Interface;
    IEnumSTATPROPSETSTG = interface;
 
-   TPROPVARIANT = record
+   { size of this record must be 16, i.e. match Variant }
+   TPROPVARIANT = packed record
           vt : VARTYPE;
           wReserved1 : PROPVAR_PAD1;
           wReserved2 : PROPVAR_PAD2;
@@ -3393,7 +3397,7 @@ Type
 
    ICatInformation = interface(IUnknown)
      ['{0002E013-0000-0000-C000-000000000046}']
-     function EnumCategories(lcid:lcid;out ppenumCategoryInfo : ICatInformation):HResult; StdCall;
+     function EnumCategories(lcid:lcid;out ppenumCategoryInfo : IEnumCategoryInfo):HResult; StdCall;
      function GetCategoryDesc(rcatid:PCATID;lcid:LCID;out pszdesc:lpwstr):HResult; StdCall;
      function EnumClassesOfCategories(cImplemented : ULong; rgcatidImpl:PCATID;cRequired:ULong; rgcatidreq:PCATID; out ppenumclsid : IEnumClsID):HResult; StdCall;
      function ISClassOfCategories(rclsid:pclsid;cImplemented:ULong;rgcatidimpl:PCATID;CRequired:ULONG;rgcatidreq : pcatid):HResult; StdCall;

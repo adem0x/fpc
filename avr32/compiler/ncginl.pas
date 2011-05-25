@@ -639,7 +639,10 @@ implementation
 
     procedure tcginlinenode.second_assigned;
       begin
-        internalerror(2011012501);
+        secondpass(tcallparanode(left).left);
+        cg.a_cmp_const_loc_label(current_asmdata.CurrAsmList,def_cgsize(left.resultdef),OC_NE,0,tcallparanode(left).left.location,current_procinfo.CurrTrueLabel);
+        cg.a_jmp_always(current_asmdata.CurrAsmList,current_procinfo.CurrFalseLabel);
+        location_reset(location,LOC_JUMP,OS_NO);
       end;
 
     procedure Tcginlinenode.second_get_frame;

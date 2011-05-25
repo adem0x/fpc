@@ -6,7 +6,7 @@ unit fpextdirect;
 interface
 
 uses
-  Classes, SysUtils, fpjson, fpjsonrpc, webjsonrpc, httpdefs,websession;
+  Classes, SysUtils, fpjson, fpjsonrpc, webjsonrpc, httpdefs;
 
 Const
   DefaultExtDirectOptions = DefaultDispatchOptions + [jdoRequireClass];
@@ -130,7 +130,10 @@ Type
     Property DispatchOptions;
     Property APIPath;
     Property RouterPath;
+    Property CreateSession;
     Property NameSpace;
+    Property OnNewSession;
+    Property OnSessionExpired;
   end;
 
 implementation
@@ -446,7 +449,6 @@ begin
     finally
       Res.Free;
     end;
-    AResponse.SendResponse;
     end
   else
     JSONRPCError(SErrInvalidPath);

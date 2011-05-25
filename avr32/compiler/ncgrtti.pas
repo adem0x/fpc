@@ -338,7 +338,8 @@ implementation
                 { When there was an error then procdef is not assigned }
                 if not assigned(propaccesslist.procdef) then
                   exit;
-                if not(po_virtualmethod in tprocdef(propaccesslist.procdef).procoptions) then
+                if not(po_virtualmethod in tprocdef(propaccesslist.procdef).procoptions) or
+                   is_objectpascal_helper(tprocdef(propaccesslist.procdef).struct) then
                   begin
                      current_asmdata.asmlists[al_rtti].concat(Tai_const.createname(tprocdef(propaccesslist.procdef).mangledname,0));
                      typvalue:=1;
@@ -477,6 +478,8 @@ implementation
             end;
           { write unit name }
           write_string(current_module.realmodulename^);
+          { write zero which is required by RTL }
+          current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_8bit(0));
         end;
 
         procedure orddef_rtti(def:torddef);
@@ -636,7 +639,8 @@ implementation
               { pocall_safecall   } 4,
               { pocall_stdcall    } 3,
               { pocall_softfloat  } 10,
-              { pocall_mwpascal   } 11
+              { pocall_mwpascal   } 11,
+              { pocall_interrupt  } 12
              );
 
            procedure write_para(parasym:tparavarsym);
@@ -766,16 +770,24 @@ implementation
             propnamelist:=TFPHashObjectList.Create;
             collect_propnamelist(propnamelist,def);
 
-            if (oo_has_vmt in def.objectoptions) then
-              current_asmdata.asmlists[al_rtti].concat(Tai_const.Createname(def.vmt_mangledname,0))
-            else
-              current_asmdata.asmlists[al_rtti].concat(Tai_const.create_sym(nil));
+            if not is_objectpascal_helper(def) then
+              if (oo_has_vmt in def.objectoptions) then
+                current_asmdata.asmlists[al_rtti].concat(Tai_const.Createname(def.vmt_mangledname,0))
+              else
+                current_asmdata.asmlists[al_rtti].concat(Tai_const.create_sym(nil));
 
             { write parent typeinfo }
             if assigned(def.childof) then
               current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_sym(ref_rtti(def.childof,fullrtti)))
             else
               current_asmdata.asmlists[al_rtti].concat(Tai_const.create_sym(nil));
+
+            { write typeinfo of extended type }
+            if is_objectpascal_helper(def) then
+              if assigned(def.extendeddef) then
+                current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_sym(ref_rtti(def.extendeddef,fullrtti)))
+              else
+                InternalError(2011033001);
 
             { total number of unique properties }
             current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_16bit(propnamelist.count));
@@ -859,6 +871,8 @@ implementation
                current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_8bit(tkinterface));
              odt_interfacecorba:
                current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_8bit(tkinterfaceCorba));
+             odt_helper:
+               current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_8bit(tkhelper));
              else
                internalerror(200611034);
            end;
@@ -870,7 +884,7 @@ implementation
            case rt of
              initrtti :
                begin
-                 if def.objecttype in [odt_class,odt_object] then
+                 if def.objecttype in [odt_class,odt_object,odt_helper] then
                    objectdef_rtti_fields(def)
                  else
                    objectdef_rtti_interface_init(def);
@@ -878,6 +892,7 @@ implementation
              fullrtti :
                begin
                  case def.objecttype of
+                   odt_helper,
                    odt_class:
                      objectdef_rtti_class_full(def);
                    odt_object:

@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSXMLNode.h }
-{ Version: 2.1.4 - Sun Jan 2 15:08:57 CET 2011 }
-
 
 {$ifdef TYPES}
 {$ifndef NSXMLNODE_PAS_T}
@@ -10,18 +8,18 @@
 
 const
   NSXMLInvalidKind = 0;
-  NSXMLDocumentKind = 0;
-  NSXMLElementKind = 1;
-  NSXMLAttributeKind = 2;
-  NSXMLNamespaceKind = 3;
-  NSXMLProcessingInstructionKind = 4;
-  NSXMLCommentKind = 5;
-  NSXMLTextKind = 6;
-  NSXMLDTDKind = 7;
-  NSXMLEntityDeclarationKind = 8;
-  NSXMLAttributeDeclarationKind = 9;
-  NSXMLElementDeclarationKind = 10;
-  NSXMLNotationDeclarationKind = 11;
+  NSXMLDocumentKind = 1;
+  NSXMLElementKind = 2;
+  NSXMLAttributeKind = 3;
+  NSXMLNamespaceKind = 4;
+  NSXMLProcessingInstructionKind = 5;
+  NSXMLCommentKind = 6;
+  NSXMLTextKind = 7;
+  NSXMLDTDKind = 8;
+  NSXMLEntityDeclarationKind = 9;
+  NSXMLAttributeDeclarationKind = 10;
+  NSXMLElementDeclarationKind = 11;
+  NSXMLNotationDeclarationKind = 12;
 
 { Types }
 type

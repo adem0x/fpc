@@ -32,7 +32,7 @@ interface
          executed from the FPC application. In some circomstances, this can be more
          than 255 characters. That's why using Ansi Strings}
        TCmdStr = AnsiString;
-       TPathStr = String;
+       TPathStr = AnsiString;
 
        { Integer type corresponding to pointer size }
 {$ifdef cpu64bitaddr}
@@ -70,10 +70,24 @@ interface
      Const
        AIntBits = 16;
 {$endif cpu16bitalu}
+{$ifdef cpu8bitalu}
+       AWord = Byte;
+       AInt = Shortint;
+
+     Const
+       AIntBits = 8;
+{$endif cpu8bitalu}
 
      Type
        PAWord = ^AWord;
        PAInt = ^AInt;
+
+       { target cpu specific type used to store data sizes }
+       ASizeInt = PInt;
+       ASizeUInt = PUInt;
+
+       { type used for handling constants etc. in the code generator }
+       TCGInt = Int64;
 
        { This must be an ordinal type with the same size as a pointer
          Note: Must be unsigned! Otherwise, ugly code like
@@ -273,7 +287,8 @@ interface
          m_objectivec2,         { support interfacing with Objective-C (2.0) }
          m_nested_procvars,     { support nested procedural variables }
          m_non_local_goto,      { support non local gotos (like iso pascal) }
-         m_advanced_records     { advanced record syntax with visibility sections, methods and properties }
+         m_advanced_records,    { advanced record syntax with visibility sections, methods and properties }
+         m_isolike_unary_minus  { unary minus like in iso pascal: same precedence level as binary minus/plus }
        );
        tmodeswitches = set of tmodeswitch;
 
@@ -297,8 +312,16 @@ interface
        );
 
        { currently parsed block type }
-       tblock_type = (bt_none,
-         bt_general,bt_type,bt_const,bt_const_type,bt_var,bt_var_type,bt_except,bt_body
+       tblock_type = (
+         bt_none,        { not assigned                              }
+         bt_general,     { default                                   }
+         bt_type,        { type section                              }
+         bt_const,       { const section                             }
+         bt_const_type,  { const part of type. e.g.: ": Integer = 1" }
+         bt_var,         { variable declaration                      }
+         bt_var_type,    { type of variable                          }
+         bt_except,      { except section                            }
+         bt_body         { procedure body                            }
        );
 
        { Temp types }
@@ -338,7 +361,9 @@ interface
          pocall_softfloat,
          { Metrowerks Pascal. Special case on Mac OS (X): passes all }
          { constant records by reference.                            }
-         pocall_mwpascal
+         pocall_mwpascal,
+         { Special interrupt handler for embedded systems }
+         pocall_interrupt
        );
        tproccalloptions = set of tproccalloption;
 
@@ -355,7 +380,8 @@ interface
            'SafeCall',
            'StdCall',
            'SoftFloat',
-           'MWPascal'
+           'MWPascal',
+           'Interrupt'
          );
 
        { Default calling convention }
@@ -393,7 +419,8 @@ interface
          'OBJECTIVEC2',
          'NESTEDPROCVARS',
          'NONLOCALGOTO',
-         'ADVANCEDRECORDS');
+         'ADVANCEDRECORDS',
+         'ISOUNARYMINUS');
 
 
      type

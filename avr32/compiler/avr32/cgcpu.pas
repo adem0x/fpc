@@ -967,13 +967,14 @@ unit cgcpu;
         tmpreg : tregister;
         b : byte;
       begin
-        if in_signed_bits(a,21) then
+        if in_signed_bits(a,21) and
+           (size in [OS_32, OS_S32]) then
           list.concat(taicpu.op_reg_const(A_CP,reg,a))
         else
           begin
             tmpreg:=getintregister(list,size);
             a_load_const_reg(list,size,a,tmpreg);
-            list.concat(taicpu.op_reg_reg(A_CP,reg,tmpreg));
+            list.concat(setoppostfix(taicpu.op_reg_reg(A_CP,reg,tmpreg), unsignedsize2postfix(size)));
           end;
         a_jmp_cond(list,cmp_op,l);
       end;
@@ -981,7 +982,7 @@ unit cgcpu;
 
     procedure tcgavr32.a_cmp_reg_reg_label(list : TAsmList;size : tcgsize;cmp_op : topcmp;reg1,reg2 : tregister;l : tasmlabel);
       begin
-        list.concat(taicpu.op_reg_reg(A_CP,reg2,reg1));
+        list.concat(setoppostfix(taicpu.op_reg_reg(A_CP,reg2,reg1), unsignedsize2postfix(size)));
         a_jmp_cond(list,cmp_op,l);
       end;
 
@@ -1018,8 +1019,7 @@ unit cgcpu;
 
     procedure tcgavr32.g_flags2reg(list: TAsmList; size: TCgSize; const f: TResFlags; reg: TRegister);
       begin
-        list.concat(setcondition(taicpu.op_reg_const(A_MOV,reg,1),flags_to_cond(f)));
-        list.concat(setcondition(taicpu.op_reg_const(A_MOV,reg,0),inverse_cond(flags_to_cond(f))));
+        list.Concat(setcondition(taicpu.op_reg(A_SR,reg), flags_to_cond(f)));
       end;
 
 

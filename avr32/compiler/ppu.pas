@@ -26,7 +26,7 @@ unit ppu;
 interface
 
   uses
-    globtype,constexp;
+    globtype,constexp,cstreams;
 
 { Also write the ppu if only crc if done, this can be used with ppudump to
   see the differences between the intf and implementation }
@@ -43,7 +43,7 @@ type
 {$endif Test_Double_checksum}
 
 const
-  CurrentPPUVersion = 127;
+  CurrentPPUVersion = 130;
 
 { buffer sizes }
   maxentrysize = 1024;
@@ -131,6 +131,7 @@ const
   ibmoduleoptions   = 85;
 
   ibmainname       = 90;
+  ibsymtableoptions = 91;
   { target-specific things }
   iblinkotherframeworks = 100;
 
@@ -186,9 +187,11 @@ type
     nr   : byte;
   end;
 
+  { tppufile }
+
   tppufile=class
   private
-    f        : file;
+    f        : TCCustomFileStream;
     mode     : byte; {0 - Closed, 1 - Reading, 2 - Writing}
     fname    : string;
     fsize    : integer;
@@ -256,9 +259,11 @@ type
     function getint64:int64;
     function  getqword:qword;
     function getaint:aint;
+    function getasizeint:asizeint;
     function getaword:aword;
     function  getreal:ppureal;
     function  getstring:string;
+    function  getansistring:ansistring;
     procedure getnormalset(var b);
     procedure getsmallset(var b);
     function  skipuntilentry(untilb:byte):boolean;
@@ -279,10 +284,11 @@ type
     procedure putaword(i:aword);
     procedure putreal(d:ppureal);
     procedure putstring(const s:string);
+    procedure putansistring(const s:ansistring);
     procedure putnormalset(const b);
     procedure putsmallset(const b);
-    procedure tempclose;
-    function  tempopen:boolean;
+    procedure tempclose;        // MG: not used, obsolete?
+    function  tempopen:boolean; // MG: not used, obsolete?
   end;
 
 implementation
@@ -355,10 +361,7 @@ begin
   if Mode<>0 then
    begin
      Flush;
-     {$I-}
-      system.close(f);
-     {$I+}
-     if ioresult<>0 then;
+     f.Free;
      Mode:=0;
      closed:=true;
    end;
@@ -410,25 +413,20 @@ end;
 
 function tppufile.openfile:boolean;
 var
-  ofmode : byte;
   i      : integer;
 begin
   openfile:=false;
-  assign(f,fname);
-  ofmode:=filemode;
-  filemode:=$0;
-  {$I-}
-   reset(f,1);
-  {$I+}
-  filemode:=ofmode;
-  if ioresult<>0 then
-   exit;
+  try
+    f:=CFileStreamClass.Create(fname,fmOpenRead)
+  except
+    exit;
+  end;
   closed:=false;
 {read ppuheader}
-  fsize:=filesize(f);
+  fsize:=f.Size;
   if fsize<sizeof(tppuheader) then
    exit;
-  blockread(f,header,sizeof(tppuheader),i);
+  i:=f.Read(header,sizeof(tppuheader));
   { The header is always stored in little endian order }
   { therefore swap if on a big endian machine          }
 {$IFDEF ENDIAN_BIG}
@@ -477,7 +475,7 @@ end;
 procedure tppufile.reloadbuf;
 begin
   inc(bufstart,bufsize);
-  blockread(f,buf^,ppubufsize,bufsize);
+  bufsize:=f.Read(buf^,ppubufsize);
   bufidx:=0;
 end;
 
@@ -717,6 +715,16 @@ begin
 end;
 
 
+function tppufile.getasizeint:asizeint;
+begin
+{$ifdef cpu64bitaddr}
+  result:=getint64;
+{$else cpu64bitaddr}
+  result:=getlongint;
+{$endif cpu32bitaddr}
+end;
+
+
 function tppufile.getaword:aword;
 begin
 {$ifdef cpu64bitalu}
@@ -778,6 +786,22 @@ begin
 end;
 
 
+function tppufile.getansistring: ansistring;
+var
+  l : longint;
+begin
+  l:=getlongint;
+  if entryidx+l>entry.size then
+   begin
+     error:=true;
+     exit;
+   end;
+  SetLength(Result,l);
+  ReadData(result[1],l);
+  inc(entryidx,l);
+end;
+
+
 procedure tppufile.getsmallset(var b);
 var
   i : longint;
@@ -816,6 +840,8 @@ end;
 *****************************************************************************}
 
 function tppufile.createfile:boolean;
+var
+  ok: boolean;
 begin
   createfile:=false;
 {$ifdef INTFPPU}
@@ -827,24 +853,26 @@ begin
 {$endif}
   if not crc_only then
     begin
-      assign(f,fname);
       {$ifdef MACOS}
       {FPas is FreePascal's creator code on MacOS. See systems/mac_crea.txt}
       SetDefaultMacOSCreator('FPas');
       SetDefaultMacOSFiletype('FPPU');
       {$endif}
-      {$I-}
-      rewrite(f,1);
-      {$I+}
+      ok:=false;
+      try
+        f:=CFileStreamClass.Create(fname,fmCreate);
+        ok:=true;
+      except
+      end;
       {$ifdef MACOS}
       SetDefaultMacOSCreator('MPS ');
       SetDefaultMacOSFiletype('TEXT');
       {$endif}
-      if ioresult<>0 then
+      if not ok then
        exit;
       Mode:=2;
     {write header for sure}
-      blockwrite(f,header,sizeof(tppuheader));
+      f.Write(header,sizeof(tppuheader));
     end;
   bufsize:=ppubufsize;
   bufstart:=sizeof(tppuheader);
@@ -893,10 +921,10 @@ begin
     header.symlistsize:=swapendian(header.symlistsize);
 {$endif not FPC_BIG_ENDIAN}
 { write header and restore filepos after it }
-  opos:=filepos(f);
-  seek(f,0);
-  blockwrite(f,header,sizeof(tppuheader));
-  seek(f,opos);
+  opos:=f.Position;
+  f.Position:=0;
+  f.Write(header,sizeof(tppuheader));
+  f.Position:=opos;
 end;
 
 
@@ -904,7 +932,7 @@ procedure tppufile.writebuf;
 begin
   if not crc_only and
      (bufidx <> 0) then
-    blockwrite(f,buf^,bufidx);
+    f.Write(buf^,bufidx);
   inc(bufstart,bufidx);
   bufidx:=0;
 end;
@@ -974,10 +1002,10 @@ begin
       {flush to be sure}
         WriteBuf;
       {write entry}
-        opos:=filepos(f);
-        seek(f,entrystart);
-        blockwrite(f,entry,sizeof(tppuentry));
-        seek(f,opos);
+        opos:=f.Position;
+        f.Position:=entrystart;
+        f.write(entry,sizeof(tppuentry));
+        f.Position:=opos;
       end;
      entrybufstart:=bufstart;
    end
@@ -1120,6 +1148,16 @@ procedure tppufile.putstring(const s:string);
   end;
 
 
+procedure tppufile.putansistring(const s: ansistring);
+  var
+    l : longint;
+  begin
+    l:=length(s);
+    putdata(l,4);
+    putdata(s[1],l);
+  end;
+
+
 procedure tppufile.putsmallset(const b);
   var
     l : longint;
@@ -1141,11 +1179,8 @@ procedure tppufile.tempclose;
   begin
     if not closed then
      begin
-       closepos:=filepos(f);
-       {$I-}
-        system.close(f);
-       {$I+}
-       if ioresult<>0 then;
+       closepos:=f.Position;
+       f.Free;
        closed:=true;
        tempclosed:=true;
      end;
@@ -1153,12 +1188,16 @@ procedure tppufile.tempclose;
 
 
 function tppufile.tempopen:boolean;
-  var
-    ofm : byte;
+  //var
+  //  ofm : byte;
   begin
     tempopen:=false;
     if not closed or not tempclosed then
      exit;
+    // MG: not sure, if this is correct
+
+    f.Position:=0;
+    (*
     ofm:=filemode;
     filemode:=0;
     {$I-}
@@ -1167,11 +1206,12 @@ function tppufile.tempopen:boolean;
     filemode:=ofm;
     if ioresult<>0 then
      exit;
+    *)
     closed:=false;
     tempclosed:=false;
 
   { restore state }
-    seek(f,closepos);
+    f.Position:=closepos;
     tempopen:=true;
   end;
 

@@ -106,7 +106,14 @@ begin
   FileCreate:=_open(Pchar(FileName),O_RdWr or O_Creat or O_Trunc,0);
 end;
 
-Function FileCreate (Const FileName : String; mode:longint) : THandle;
+Function FileCreate (Const FileName : String; Rights:longint) : THandle;
+
+begin
+  FileCreate:=FileCreate (FileName);
+end;
+
+
+Function FileCreate (Const FileName : String; ShareMode: Longint; Rights:longint) : THandle;
 
 begin
   FileCreate:=FileCreate (FileName);
@@ -456,7 +463,7 @@ end;
                               Misc Functions
 ****************************************************************************}
 
-procedure Beep;
+procedure SysBeep;
 begin
   _RingTheBell;
 end;
@@ -594,6 +601,7 @@ end;
 Initialization
   InitExceptions;       { Initialize exceptions. OS independent }
   InitInternational;    { Initialize internationalization settings }
+  OnBeep:=@SysBeep;
 Finalization
   DoneExceptions;
 end.

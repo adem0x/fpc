@@ -20,7 +20,11 @@
 {$endif fpc}
 
 {$ifndef DYNLOADINGODBC}
+{$IFDEF WINDOWS}
+  {$linklib odbc32}
+{$ELSE}
   {$linklib odbc}
+{$endif} 
 {$endif}
 
 interface
@@ -1520,6 +1524,7 @@ function DateTimeToDateStruct( b:TDateTime):SQL_DATE_STRUCT;
 procedure DateTime2TimeStampStruct( var Value:SQL_TIMESTAMP_STRUCT; b:TDateTime);
 Function TimeStampStructToDateTime( B :  PSQL_TIMESTAMP_STRUCT) : TDateTime;
 Function TimeStructToDateTime (B : PSQL_TIME_STRUCT) : TDateTime;
+function DateTimeToTimeStruct(b: TDateTime) : SQL_TIME_STRUCT;
 
 
 {$IFDEF DYNLOADINGODBC}
@@ -1705,14 +1710,25 @@ Function TimeStampStructToDateTime( B :  PSQL_TIMESTAMP_STRUCT) : TDateTime;
 begin
  With B^ do
    Result:=EncodeDate(Year,Month,Day)+
-           EncodeTime(Hour,Minute,Second,0);
+           EncodeTime(Hour,Minute,Second,Fraction div 1000000);
 end;
 
 Function TimeStructToDateTime (B : PSQL_TIME_STRUCT) : TDateTime;
 begin
   With B^ do
-    Result:=EncodeTime(Hour,Minute,Second,0);
+    begin
+      // TryEncodeTime can not be used, because it doesn't supports times with more then 24 hours.
+      Result:=TDateTime(cardinal(Hour)*3600000+cardinal(Minute)*60000+cardinal(Second)*1000)/MSecsPerDay;
+    end;
 end;
 
-
+function DateTimeToTimeStruct(b: TDateTime) : SQL_TIME_STRUCT;
+var
+  w1, w2, w3, w4: Word;
+begin
+  DecodeTime(b, w1, w2, w3, w4);
+  Result.Hour:=w1 + Trunc(b)*24;
+  Result.Minute:=w2;
+  Result.Second:=w3;
+end;
 

@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSExpression.h }
-{ Version: 2.1.4 - Sun Jan 2 15:08:57 CET 2011 }
-
 
 {$ifdef TYPES}
 {$ifndef NSEXPRESSION_PAS_T}
@@ -10,15 +8,15 @@
 
 const
   NSConstantValueExpressionType = 0;
-  NSEvaluatedObjectExpressionType = 0;
-  NSVariableExpressionType = 1;
-  NSKeyPathExpressionType = 2;
-  NSFunctionExpressionType = 3;
-  NSUnionSetExpressionType = 4;
-  NSIntersectSetExpressionType = 5;
-  NSMinusSetExpressionType = 6;
+  NSEvaluatedObjectExpressionType = 1;
+  NSVariableExpressionType = 2;
+  NSKeyPathExpressionType = 3;
+  NSFunctionExpressionType = 4;
+  NSUnionSetExpressionType = 5;
+  NSIntersectSetExpressionType = 6;
+  NSMinusSetExpressionType = 7;
   NSSubqueryExpressionType = 13;
-  NSAggregateExpressionType = 7;
+  NSAggregateExpressionType = 14;
   NSBlockExpressionType = 19;
 
 { Types }

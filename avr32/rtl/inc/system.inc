@@ -44,6 +44,7 @@ Const
    tkInterfaceCorba = 22;
    tkProcVar       = 23;
    tkUString       = 24;
+   tkHelper        = 26;
 
   // all potentially managed types
   tkManagedTypes   = [tkAstring,tkWstring,tkUstring,tkArray,
@@ -59,8 +60,13 @@ Const
   This way we keep TP compatibility, and the TextRec definition is available
   for everyone who needs it.
 }
+{$ifdef FPC_HAS_FEATURE_FILEIO}
 {$i filerec.inc}
+{$endif FPC_HAS_FEATURE_FILEIO}
+
+{$ifdef FPC_HAS_FEATURE_TEXTIO}
 {$i textrec.inc}
+{$endif FPC_HAS_FEATURE_TEXTIO}
 
 {$ifdef FPC_HAS_FEATURE_EXITCODE}
   {$ifdef FPC_OBJFPC_EXTENDED_IF}
@@ -75,8 +81,10 @@ Const
 Procedure HandleError (Errno : Longint); forward;
 Procedure HandleErrorFrame (Errno : longint;frame : Pointer); forward;
 
+{$ifdef FPC_HAS_FEATURE_TEXTIO}
 type
   FileFunc = Procedure(var t : TextRec);
+{$endif FPC_HAS_FEATURE_TEXTIO}
 
 
 const
@@ -786,9 +794,11 @@ var
 begin
   { call cpu/fpu initialisation routine }
   fpc_cpuinit;
-  with {$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}PInitFinalTable(EntryInformation.{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION}
-    InitFinalTable
-    {$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION})^{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION} do
+{$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}
+  with PInitFinalTable(EntryInformation.InitFinalTable)^ do
+{$else FPC_HAS_INDIRECT_MAIN_INFORMATION}
+  with InitFinalTable do
+{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION}
    begin
      for i:=1 to TableCount do
       begin
@@ -815,9 +825,11 @@ end;
 
 procedure FinalizeUnits;[public,alias:'FPC_FINALIZEUNITS'];
 begin
-  with {$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}PInitFinalTable(EntryInformation.{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION}
-    InitFinalTable
-    {$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION})^{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION} do
+{$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}
+  with PInitFinalTable(EntryInformation.InitFinalTable)^ do
+{$else FPC_HAS_INDIRECT_MAIN_INFORMATION}
+  with InitFinalTable do
+{$endif FPC_HAS_INDIRECT_MAIN_INFORMATION}
    begin
      while (InitCount>0) do
       begin

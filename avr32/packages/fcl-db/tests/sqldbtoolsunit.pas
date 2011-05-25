@@ -7,13 +7,13 @@ interface
 uses
   Classes, SysUtils, toolsunit,
   db,
-  sqldb, ibconnection, mysql40conn, mysql41conn, mysql50conn, pqconnection,odbcconn,oracleconnection,sqlite3conn;
+  sqldb, ibconnection, mysql40conn, mysql41conn, mysql50conn, mysql51conn, pqconnection,odbcconn,oracleconnection,sqlite3conn;
 
-type TSQLDBTypes = (mysql40,mysql41,mysql50,postgresql,interbase,odbc,oracle,sqlite3);
+type TSQLDBTypes = (mysql40,mysql41,mysql50,mysql51,postgresql,interbase,odbc,oracle,sqlite3);
 
-const MySQLdbTypes = [mysql40,mysql41,mysql50];
+const MySQLdbTypes = [mysql40,mysql41,mysql50,mysql51];
       DBTypesNames : Array [TSQLDBTypes] of String[19] =
-             ('MYSQL40','MYSQL41','MYSQL50','POSTGRESQL','INTERBASE','ODBC','ORACLE','SQLITE3');
+             ('MYSQL40','MYSQL41','MYSQL50','MYSQL51','POSTGRESQL','INTERBASE','ODBC','ORACLE','SQLITE3');
              
       FieldtypeDefinitionsConst : Array [TFieldType] of String[15] =
         (
@@ -27,7 +27,7 @@ const MySQLdbTypes = [mysql40,mysql41,mysql50];
           '',
           'DECIMAL(18,4)',
           'DATE',
-          'TIMESTAMP',
+          'TIME',
           'TIMESTAMP',
           '',
           '',
@@ -42,7 +42,7 @@ const MySQLdbTypes = [mysql40,mysql41,mysql50];
           '',
           'CHAR(10)',
           '',
-          '',
+          'BIGINT',
           '',
           '',
           '',
@@ -54,7 +54,7 @@ const MySQLdbTypes = [mysql40,mysql41,mysql50];
           '',
           '',
           'TIMESTAMP',
-          '',
+          'NUMERIC(18,6)',
           '',
           ''
         );
@@ -114,9 +114,21 @@ begin
     for t := 0 to testValuesCount-1 do
       testStringValues[t] := TrimRight(testStringValues[t]);
     end;
+  if SQLDbType in [mysql41,mysql50,mysql51] then
+    begin
+    // Use 'DATETIME' for datetime-fields in stead of timestamp, because
+    // mysql's timestamps are only valid in the range 1970-2038.
+    // Downside is that fields defined as 'TIMESTAMP' aren't tested
+    FieldtypeDefinitions[ftDateTime] := 'DATETIME';
+    end;
+  if SQLDbType in [odbc,mysql40,mysql41,mysql50,mysql51,interbase] then
+    begin
+    // Some DB's do not support milliseconds in time-fields.
+    for t := 0 to testValuesCount-1 do
+      testTimeValues[t] := copy(testTimeValues[t],1,8)+'.000';
+    end;
   if SQLDbType = MYSQL50 then Fconnection := tMySQL50Connection.Create(nil);
-  if SQLDbType in MySQLdbTypes then
-    FieldtypeDefinitions[ftLargeint] := 'BIGINT';
+  if SQLDbType = MYSQL51 then Fconnection := tMySQL51Connection.Create(nil);
   if SQLDbType = sqlite3 then
     begin
     Fconnection := TSQLite3Connection.Create(nil);
@@ -134,7 +146,13 @@ begin
   if SQLDbType = INTERBASE then
     begin
     Fconnection := tIBConnection.Create(nil);
-    FieldtypeDefinitions[ftLargeint] := 'BIGINT';
+    // Firebird does not support time = 24:00:00
+    testTimeValues[2]:='23:00:00.000';
+    end;
+  if SQLDbType in [postgresql,interbase] then
+    begin
+    // Some db's do not support times > 24:00:00
+    testTimeValues[3]:='13:25:15.000';
     end;
   if SQLDbType = ODBC then Fconnection := tODBCConnection.Create(nil);
   if SQLDbType = ORACLE then Fconnection := TOracleConnection.Create(nil);

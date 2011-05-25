@@ -142,7 +142,6 @@ INTERFACE
 
   USES
     SysUtils,
-{    dateutils,}
     Variants;
 
   const
@@ -1418,7 +1417,7 @@ IMPLEMENTATION
                end;
 
     begin
-      result := False;
+      result := True;
       FillChar ( lvars, SizeOf ( lvars ), #0 );
       BCD := NullBCD;
       lav := Length ( aValue );
@@ -1469,31 +1468,31 @@ IMPLEMENTATION
                         '.': if ch = dp
                                then begin
                                  if inife <> inint
-                                   then result := True
+                                   then result := False
                                    else inife := infrac;
                                 end;
                         'e',
                         'E': if inife = inexp
-                               then result := True
+                               then result := False
                                else inife := inexp;
                         '+',
                         '-': if ( inife = inexp ) AND ( fp[inexp] = 0 )
                                then pse := i
-                               else result := True;
+                               else result := False;
                         else begin
-                          result := True;
+                          result := False;
                           errp := i;
                          end;
                        end;
                      end;
-                  if result
+                  if not result
                     then begin
-                      result := False;
+                      result := True;
                       for i := errp TO lav do
                         if aValue[i] <> ' '
-                          then result := True;
+                          then result := False;
                      end;
-                  if result
+                  if not result
                     then EXIT;
 
                   if ps <> 0
@@ -1504,15 +1503,15 @@ IMPLEMENTATION
                     then begin
                       exp := 0;
                       for i := fp[inexp] TO lp[inexp] do
-                        if NOT result
+                        if result
                           then
                             if aValue[i] <> dc
                               then begin
                                 exp := exp * 10 + ( Ord ( aValue[i] ) - Ord ( '0' ) );
                                 if exp > 999
-                                  then result := True;
+                                  then result := False;
                                end;
-                      if result
+                      if not result
                         then EXIT;
 
                       if pse <> 0
@@ -1546,16 +1545,16 @@ IMPLEMENTATION
                                 Dec ( p );
                                 Singles[p] := Ord ( aValue[i] ) - Ord ( '0' );
                                end
-                              else result := True;
+                              else result := False;
                            end;
-                  if result
+                  if not result
                     then EXIT;
 
                   FDig := p;
                   if LDig < 0
                     then LDig := 0;
                   Plac := LDig;
-                  result := NOT pack_BCD ( bh, BCD );
+                  result := pack_BCD ( bh, BCD );
                  end;
              end;
      end;
@@ -1566,7 +1565,7 @@ IMPLEMENTATION
       BCD : tBCD;
 
     begin
-      if TryStrToBCD ( aValue, BCD )
+      if not TryStrToBCD ( aValue, BCD )
         then begin
           RAISE eBCDOverflowException.create ( 'in StrToBCD' );
          end
@@ -1719,7 +1718,7 @@ IMPLEMENTATION
             then begin
 {$ifndef use_ansistring}
               Inc ( l );
-              result[1] := '-';
+              result[l] := '-';
 {$else}
               result := result + '-';
 {$endif}
@@ -1728,7 +1727,7 @@ IMPLEMENTATION
             then begin
 {$ifndef use_ansistring}
               Inc ( l );
-              result[1] := '0';
+              result[l] := '0';
 {$else}
               result := result + '0';
 {$endif}
@@ -2426,26 +2425,23 @@ writeln ( '> ', i4, ' ', bh.Singles[i4], ' ', Add );
 { TBCD variant creation utils }
   procedure VarFmtBCDCreate (   var aDest : Variant;
                               const aBCD : tBCD );
-
     begin
       VarClear(aDest);
       TVarData(aDest).Vtype:=FMTBcdFactory.Vartype;
       TVarData(aDest).VPointer:=TFMTBcdVarData.create(aBCD);
-     end;
+    end;
 
   function VarFmtBCDCreate : Variant;
-
     begin
       VarFmtBCDCreate ( result, NullBCD );
-     end;
+    end;
 
   function VarFmtBCDCreate ( const aValue : FmtBCDStringtype;
                                    Precision,
                                    Scale : Word ) : Variant;
-
     begin
       VarFmtBCDCreate ( result, StrToBCD ( aValue ) );
-     end;
+    end;
 
 {$ifndef FPUNONE}
   function VarFmtBCDCreate ( const aValue : myRealtype;
@@ -2471,7 +2467,6 @@ writeln ( '> ', i4, ' ', bh.Singles[i4], ' ', Add );
 
 
   function VarFmtBCD : TVartype;
-
     begin
       Result:=FMTBcdFactory.VarType;
     end;
@@ -2482,9 +2477,149 @@ writeln ( '> ', i4, ' ', bh.Singles[i4], ' ', Add );
                              Format : TFloatFormat;
                        const Precision,
                              Digits : Integer ) : FmtBCDStringtype;
+    var P, E: integer;
+        Negative: boolean;
+        DS, TS: char;
+
+    procedure RoundDecimalDigits(const D: integer);
+    var i,j: integer;
     begin
-      not_implemented;
-      result:='';
+      j:=P+D;
+      if (Length(Result) > j) and (Result[j+1] >= '5') then
+        for i:=j downto 1+ord(Negative) do
+        begin
+          if Result[i] = '9' then
+          begin
+            Result[i] := '0';
+            if i = 1+ord(Negative) then
+            begin
+              Insert('1', Result, i);
+              inc(P);
+              inc(j);
+            end;
+          end
+          else if Result[i] <> DS then
+          begin
+            inc(Result[i]);
+            break;
+          end;
+        end;
+      Result := copy(Result, 1, j);
+    end;
+
+    procedure AddDecimalDigits;
+    var n,d: integer;
+    begin
+      if Digits < 0 then d := 2 else d := Digits;
+
+      n := d + P - Length(Result);
+
+       if n > 0 then
+         Result := Result + StringOfChar('0', n)
+       else if n < 0 then
+         RoundDecimalDigits(d);
+    end;
+
+    procedure AddThousandSeparators;
+    begin
+      Dec(P, 3);
+      While (P > 1) Do
+      Begin
+        If (Result[P - 1] <> '-') And (TS <> #0) Then
+          Insert(TS, Result, P);
+        Dec(P, 3);
+      End;
+    end;
+
+    begin
+      Result := BCDToStr(BCD);
+      if Format = ffGeneral then Exit;
+
+      SetDecimals(DS, TS);
+
+      Negative := Result[1] = '-';
+      P := Pos(DS, Result);
+      if P = 0 then
+      begin
+        P := Length(Result) + 1;
+        if Digits <> 0 then
+          Result := Result + DS;
+      end;
+
+      Case Format Of
+        ffExponent:
+        Begin
+          E := P - 2 - ord(Negative);
+
+          if (E = 0) and (Result[P-1] = '0') then
+            repeat
+              dec(E);
+            until (Length(Result) <= P-E) or (Result[P-E] <> '0');
+
+          if E <> 0 then
+          begin
+            System.Delete(Result, P, 1);
+            dec(P, E);
+            Insert(DS, Result, P);
+          end;
+
+          RoundDecimalDigits(Precision-1);
+
+          if E < 0 then
+          begin
+            System.Delete(Result, P+E-1, -E);
+            Result := Result + SysUtils.Format('E%.*d' , [Digits,E])
+          end
+          else
+            Result := Result + SysUtils.Format('E+%.*d', [Digits,E]);
+        End;
+
+        ffFixed:
+        Begin
+          AddDecimalDigits;
+        End;
+
+        ffNumber:
+        Begin
+          AddDecimalDigits;
+          AddThousandSeparators;
+        End;
+
+        ffCurrency:
+        Begin
+          //implementation based on FloatToStrFIntl()
+          if Negative then System.Delete(Result, 1, 1);
+
+          AddDecimalDigits;
+          AddThousandSeparators;
+
+          If Not Negative Then
+          Begin
+            Case CurrencyFormat Of
+              0: Result := CurrencyString + Result;
+              1: Result := Result + CurrencyString;
+              2: Result := CurrencyString + ' ' + Result;
+              3: Result := Result + ' ' + CurrencyString;
+            End
+          End
+          Else
+          Begin
+            Case NegCurrFormat Of
+              0: Result := '(' + CurrencyString + Result + ')';
+              1: Result := '-' + CurrencyString + Result;
+              2: Result := CurrencyString + '-' + Result;
+              3: Result := CurrencyString + Result + '-';
+              4: Result := '(' + Result + CurrencyString + ')';
+              5: Result := '-' + Result + CurrencyString;
+              6: Result := Result + '-' + CurrencyString;
+              7: Result := Result + CurrencyString + '-';
+              8: Result := '-' + Result + ' ' + CurrencyString;
+              9: Result := '-' + CurrencyString + ' ' + Result;
+              10: Result := CurrencyString + ' ' + Result + '-';
+            End;
+          End;
+        End;
+      End;
     end;
 
 
@@ -3868,16 +4003,16 @@ procedure TFMTBcdFactory.CastTo(var Dest: TVarData; const Source: TVarData; cons
 var v: TVarData;
 begin
   if Source.vType=VarType then
-  begin
-    VarDataInit(v);
-    try
+    if aVarType = varString then
+      VarDataFromStr(Dest, BCDToStr(TFMTBcdVarData(Source.vPointer).BCD))
+    else
+    begin
+      VarDataInit(v);
       v.vType:=varDouble;
-      v.vDouble:=TFMTBcdVarData(Source.vPointer).BCD;
+      v.vDouble:=BCDToDouble(TFMTBcdVarData(Source.vPointer).BCD);
       VarDataCastTo(Dest, v, aVarType); //now cast Double to any requested type
-    finally
-      VarDataClear(v);
-    end;
-  end
+      { finalizing v is not necessary here (Double is a simple type) }
+    end
   else
     inherited;
 end;

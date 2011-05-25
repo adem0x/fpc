@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSComparisonPredicate.h }
-{ Version: 2.1.4 - Sun Jan 2 15:08:57 CET 2011 }
-
 
 {$ifdef TYPES}
 {$ifndef NSCOMPARISONPREDICATE_PAS_T}
@@ -14,24 +12,24 @@ const
 
 const
   NSDirectPredicateModifier = 0;
-  NSAllPredicateModifier = 0;
-  NSAnyPredicateModifier = 1;
+  NSAllPredicateModifier = 1;
+  NSAnyPredicateModifier = 2;
 
 const
   NSLessThanPredicateOperatorType = 0;
-  NSLessThanOrEqualToPredicateOperatorType = 0;
-  NSGreaterThanPredicateOperatorType = 1;
-  NSGreaterThanOrEqualToPredicateOperatorType = 2;
-  NSEqualToPredicateOperatorType = 3;
-  NSNotEqualToPredicateOperatorType = 4;
-  NSMatchesPredicateOperatorType = 5;
-  NSLikePredicateOperatorType = 6;
-  NSBeginsWithPredicateOperatorType = 7;
-  NSEndsWithPredicateOperatorType = 8;
-  NSInPredicateOperatorType = 9;
-  NSCustomSelectorPredicateOperatorType = 10;
+  NSLessThanOrEqualToPredicateOperatorType = 1;
+  NSGreaterThanPredicateOperatorType = 2;
+  NSGreaterThanOrEqualToPredicateOperatorType = 3;
+  NSEqualToPredicateOperatorType = 4;
+  NSNotEqualToPredicateOperatorType = 5;
+  NSMatchesPredicateOperatorType = 6;
+  NSLikePredicateOperatorType = 7;
+  NSBeginsWithPredicateOperatorType = 8;
+  NSEndsWithPredicateOperatorType = 9;
+  NSInPredicateOperatorType = 10;
+  NSCustomSelectorPredicateOperatorType = 11;
   NSContainsPredicateOperatorType = 99;
-  NSBetweenPredicateOperatorType = 11;
+  NSBetweenPredicateOperatorType = 100;
 
 { Types }
 type

@@ -54,8 +54,10 @@ type
     procedure TestSupportFloatFields;
     procedure TestSupportLargeIntFields;
     procedure TestSupportDateFields;
+    procedure TestSupportTimeFields;
     procedure TestSupportCurrencyFields;
     procedure TestSupportBCDFields;
+    procedure TestSupportfmtBCDFields;
     procedure TestSupportFixedStringFields;
 
     procedure TestAppendOnEmptyDataset;
@@ -145,7 +147,7 @@ type
 
 implementation
 
-uses bufdataset, variants, strutils, sqldb;
+uses bufdataset, variants, strutils, sqldb, FmtBCD;
 
 type THackDataLink=class(TdataLink);
 
@@ -1910,7 +1912,22 @@ begin
 
   for i := 0 to testValuesCount-1 do
     begin
-    AssertEquals(testDateValues[i],FormatDateTime('yyyy/mm/dd',Fld.AsDateTime));
+    AssertEquals(testDateValues[i], FormatDateTime('yyyy/mm/dd', Fld.AsDateTime, DBConnector.FormatSettings));
+    ds.Next;
+    end;
+  ds.close;
+end;
+
+procedure TTestDBBasics.TestSupportTimeFields;
+var i          : byte;
+    ds         : TDataset;
+    Fld        : TField;
+begin
+  TestfieldDefinition(ftTime,8,ds,Fld);
+
+  for i := 0 to testValuesCount-1 do
+    begin
+    AssertEquals(testTimeValues[i],DateTimeToTimeString(fld.AsDateTime));
     ds.Next;
     end;
   ds.close;
@@ -1948,6 +1965,24 @@ begin
     AssertEquals(CurrToStr(testCurrencyValues[i]),Fld.AsString);
     AssertEquals(testCurrencyValues[i],Fld.AsCurrency);
     AssertEquals(testCurrencyValues[i],Fld.AsFloat);
+    ds.Next;
+    end;
+  ds.close;
+end;
+
+procedure TTestDBBasics.TestSupportfmtBCDFields;
+var i          : byte;
+    ds         : TDataset;
+    Fld        : TField;
+
+begin
+  TestfieldDefinition(ftFMTBcd,sizeof(TBCD),ds,Fld);
+
+  for i := 0 to testValuesCount-1 do
+    begin
+    AssertEquals(testFmtBCDValues[i],Fld.AsString);
+    AssertEquals(testFmtBCDValues[i],Fld.AsBCD);
+    AssertEquals(StrToFloat(testFmtBCDValues[i]),Fld.AsFloat);
     ds.Next;
     end;
   ds.close;

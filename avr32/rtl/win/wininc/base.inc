@@ -549,9 +549,9 @@
 
      BFFCALLBACK = function (_para1:HWND; _para2:UINT; _para3:LPARAM; _para4:LPARAM):longint;stdcall;
 
-     LPCCHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT;stdcall;
+     LPCCHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT_PTR;stdcall;
 
-     LPCFHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT;stdcall;
+     LPCFHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT_PTR;stdcall;
 
      PTHREAD_START_ROUTINE = Pointer;
 
@@ -559,13 +559,13 @@
 
      EDITSTREAMCALLBACK = function (_para1:DWORD; _para2:LPBYTE; _para3:LONG; _para4:LONG):DWORD;stdcall;
 
-     LPFRHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT;stdcall;
+     LPFRHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT_PTR;stdcall;
 
-     LPOFNHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT;stdcall;
+     LPOFNHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT_PTR;stdcall;
 
-     LPPRINTHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT;stdcall;
+     LPPRINTHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT_PTR;stdcall;
 
-     LPSETUPHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT;stdcall;
+     LPSETUPHOOKPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT_PTR;stdcall;
 
      DLGPROC = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):LRESULT;stdcall;
 
@@ -585,11 +585,11 @@
 
      PROC = FARPROC;
 
-     ENUMRESTYPEPROC = function (_para1:HANDLE; _para2:LPTSTR; _para3:LONG):WINBOOL;stdcall;
+     ENUMRESTYPEPROC = function (hModule:HANDLE; lpszType:LPTSTR; lParam:LONG_PTR):WINBOOL;stdcall;
 
-     ENUMRESNAMEPROC = function (_para1:HANDLE; _para2:LPCTSTR; _para3:LPTSTR; _para4:LONG):WINBOOL;stdcall;
+     ENUMRESNAMEPROC = function (hModule:HANDLE; lpszType:LPCTSTR; lpszName:LPTSTR; lParam:LONG_PTR):WINBOOL;stdcall;
 
-     ENUMRESLANGPROC = function (_para1:HANDLE; _para2:LPCTSTR; _para3:LPCTSTR; _para4:WORD; _para5:LONG):WINBOOL;stdcall;
+     ENUMRESLANGPROC = function (hModule:HANDLE; lpszType:LPCTSTR; lpszName:LPCTSTR; wIDLanguage:WORD; lParam:LONG_PTR):WINBOOL;stdcall;
 
      DESKTOPENUMPROC = FARPROC;
 
@@ -617,9 +617,9 @@
 
      TABORTPROC = function (_para1:HDC; _para2:longint):WINBOOL;stdcall;
 
-     LPPAGEPAINTHOOK = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT;stdcall;
+     LPPAGEPAINTHOOK = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT_PTR;stdcall;
 
-     LPPAGESETUPHOOK = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT;stdcall;
+     LPPAGESETUPHOOK = function (_para1:HWND; _para2:UINT; _para3:WPARAM; _para4:LPARAM):UINT_PTR;stdcall;
 
      ICMENUMPROC = function (_para1:LPTSTR; _para2:LPARAM):longint;stdcall;
 

@@ -70,22 +70,22 @@ interface
                 if nf_swapped in flags then
                   case NodeType of
                     ltn:
-                      GetResFlags:=F_GT;
+                      GetResFlags:=F_NotPossible;
                     lten:
                       GetResFlags:=F_GE;
                     gtn:
                       GetResFlags:=F_LT;
                     gten:
-                      GetResFlags:=F_LE;
+                      GetResFlags:=F_NotPossible;
                   end
                 else
                   case NodeType of
                     ltn:
                       GetResFlags:=F_LT;
                     lten:
-                      GetResFlags:=F_LE;
+                      GetResFlags:=F_NotPossible;
                     gtn:
-                      GetResFlags:=F_GT;
+                      GetResFlags:=F_NotPossible;
                     gten:
                       GetResFlags:=F_GE;
                   end;
@@ -95,22 +95,22 @@ interface
                 if nf_swapped in Flags then
                   case NodeType of
                     ltn:
-                      GetResFlags:=F_HI;
+                      GetResFlags:=F_NotPossible;
                     lten:
                       GetResFlags:=F_CS;
                     gtn:
                       GetResFlags:=F_CC;
                     gten:
-                      GetResFlags:=F_LS;
+                      GetResFlags:=F_NotPossible;
                   end
                 else
                   case NodeType of
                     ltn:
                       GetResFlags:=F_CC;
                     lten:
-                      GetResFlags:=F_LS;
+                      GetResFlags:=F_NotPossible;
                     gtn:
-                      GetResFlags:=F_HI;
+                      GetResFlags:=F_NotPossible;
                     gten:
                       GetResFlags:=F_CS;
                   end;
@@ -120,25 +120,36 @@ interface
 
 
     procedure tavraddnode.second_cmpsmallset;
+
+      procedure gencmp(tmpreg1,tmpreg2 : tregister);
+        var
+          i : byte;
+        begin
+          current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_CP,tmpreg1,tmpreg2));
+          for i:=2 to tcgsize2size[left.location.size] do
+            begin
+              tmpreg1:=GetNextReg(tmpreg1);
+              tmpreg2:=GetNextReg(tmpreg2);
+              current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_CPC,tmpreg1,tmpreg2));
+            end;
+        end;
+
       var
         tmpreg : tregister;
       begin
-        {
         pass_left_right;
-
         location_reset(location,LOC_FLAGS,OS_NO);
-
         force_reg_left_right(false,false);
 
         case nodetype of
           equaln:
             begin
-              current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_CMP,left.location.register,right.location.register));
+              gencmp(left.location.register,right.location.register);
               location.resflags:=F_EQ;
             end;
           unequaln:
             begin
-              current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_CMP,left.location.register,right.location.register));
+              gencmp(left.location.register,right.location.register);
               location.resflags:=F_NE;
             end;
           lten,
@@ -150,14 +161,14 @@ interface
                   (nodetype = gten)) then
                 swapleftright;
               tmpreg:=cg.getintregister(current_asmdata.CurrAsmList,location.size);
-              current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg_reg(A_AND,tmpreg,left.location.register,right.location.register));
-              current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_CMP,tmpreg,right.location.register));
+              cg.a_op_reg_reg_reg(current_asmdata.CurrAsmList,OP_AND,location.size,
+                left.location.register,right.location.register,tmpreg);
+              gencmp(tmpreg,right.location.register);
               location.resflags:=F_EQ;
             end;
           else
             internalerror(2004012401);
         end;
-        }
       end;
 
 
@@ -173,12 +184,22 @@ interface
         unsigned:=not(is_signed(left.resultdef)) or
                   not(is_signed(right.resultdef));
 
+        if getresflags(unsigned)=F_NotPossible then
+          swapleftright;
+
         current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_CP,left.location.register,right.location.register));
         tmpreg1:=left.location.register;
         tmpreg2:=right.location.register;
 
         for i:=2 to tcgsize2size[left.location.size] do
           begin
+            tmpreg1:=GetNextReg(tmpreg1);
+            tmpreg2:=GetNextReg(tmpreg2);
+            if i=5 then
+              begin
+                tmpreg1:=left.location.registerhi;
+                tmpreg2:=right.location.registerhi;
+              end;
             current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_CPC,tmpreg1,tmpreg2));
           end;
 

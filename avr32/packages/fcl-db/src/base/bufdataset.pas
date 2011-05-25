@@ -528,7 +528,7 @@ type
     function CompareBookmarks(Bookmark1, Bookmark2: TBookmark): Longint; override;
 
     property ChangeCount : Integer read GetChangeCount;
-    property MaxIndexesCount : Integer read FMaxIndexesCount write SetMaxIndexesCount;
+    property MaxIndexesCount : Integer read FMaxIndexesCount write SetMaxIndexesCount default 2;
   published
     property FileName : string read FFileName write FFileName;
     property PacketRecords : Integer read FPacketRecords write SetPacketRecords default 10;
@@ -541,7 +541,35 @@ type
 
   TBufDataset = class(TCustomBufDataset)
   published
+    property MaxIndexesCount;
+    // TDataset stuff
     property FieldDefs;
+    Property Active;
+    Property AutoCalcFields;
+    Property Filter;
+    Property Filtered;
+    Property AfterCancel;
+    Property AfterClose;
+    Property AfterDelete;
+    Property AfterEdit;
+    Property AfterInsert;
+    Property AfterOpen;
+    Property AfterPost;
+    Property AfterScroll;
+    Property BeforeCancel;
+    Property BeforeClose;
+    Property BeforeDelete;
+    Property BeforeEdit;
+    Property BeforeInsert;
+    Property BeforeOpen;
+    Property BeforePost;
+    Property BeforeScroll;
+    Property OnCalcFields;
+    Property OnDeleteError;
+    Property OnEditError;
+    Property OnFilterRecord;
+    Property OnNewRecord;
+    Property OnPostError;
   end;
 
 
@@ -549,7 +577,7 @@ procedure RegisterDatapacketReader(ADatapacketReaderClass : TDatapacketReaderCla
 
 implementation
 
-uses variants, dbconst;
+uses variants, dbconst, FmtBCD;
 
 Type TDatapacketReaderRegistration = record
                                        ReaderClass : TDatapacketReaderClass;
@@ -654,6 +682,18 @@ begin
   if PDouble(subValue)^ < PDouble(aValue)^ then
     result := -1
   else if PDouble(subValue)^  > PDouble(aValue)^ then
+    result := 1
+  else
+    result := 0;
+end;
+
+function DBCompareBCD(subValue, aValue: pointer; options: TLocateOptions): LargeInt;
+begin
+  // A simple subtraction doesn't work, since it could be that the result
+  // doesn't fit into a LargeInt
+  if PBCD(subValue)^ < PBCD(aValue)^ then
+    result := -1
+  else if PBCD(subValue)^  > PBCD(aValue)^ then
     result := 1
   else
     result := 0;
@@ -1503,6 +1543,7 @@ begin
     ftDateTime, ftDate, ftTime : ACompareRec.Comparefunc :=
       @DBCompareDouble;
     ftLargeint : ACompareRec.Comparefunc := @DBCompareLargeInt;
+    ftFmtBCD : ACompareRec.Comparefunc := @DBCompareBCD;
   else
     DatabaseErrorFmt(SErrIndexBasedOnInvField, [AField.FieldName,Fieldtypenames[AField.DataType]]);
   end;
@@ -1638,6 +1679,7 @@ begin
       ftword     : result := sizeof(longint);
     ftBoolean    : result := sizeof(wordbool);
     ftBCD        : result := sizeof(currency);
+    ftFmtBCD     : result := sizeof(TBCD);
     ftFloat,
       ftCurrency : result := sizeof(double);
     ftLargeInt   : result := sizeof(largeint);

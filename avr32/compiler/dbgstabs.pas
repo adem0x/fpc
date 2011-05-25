@@ -104,6 +104,8 @@ interface
         procedure insertmoduleinfo;override;
         procedure insertlineinfo(list:TAsmList);override;
         procedure referencesections(list:TAsmList);override;
+
+        constructor Create;override;
       end;
 
 
@@ -354,7 +356,7 @@ implementation
     procedure TDebugInfoStabs.field_add_stabstr(p:TObject;arg:pointer);
       var
         spec    : string[3];
-        varsize : aint;
+        varsize : asizeint;
         newss   : ansistring;
         ss      : pansistring absolute arg;
       begin
@@ -379,8 +381,13 @@ implementation
                 varsize:=tfieldvarsym(p).vardef.size;
                 { open arrays made overflows !! }
                 { how can a record/object/class contain an open array? (JM) }
+{$ifdef cpu16bitaddr}
+                if varsize>$fff then
+                  varsize:=$fff;
+{$else cpu16bitaddr}
                 if varsize>$fffffff then
                   varsize:=$fffffff;
+{$endif cpu16bitaddr}
                 newss:=def_stabstr_evaluate(nil,'$1:$2,$3,$4;',[GetSymName(tfieldvarsym(p)),
                                      spec+def_stab_number(tfieldvarsym(p).vardef),
                                      tostr(TConstExprInt(tfieldvarsym(p).fieldoffset)*8),tostr(varsize*8)])
@@ -409,7 +416,8 @@ implementation
         if tsym(p).typ = procsym then
          begin
            pd :=tprocdef(tprocsym(p).ProcdefList[0]);
-           if (po_virtualmethod in pd.procoptions) then
+           if (po_virtualmethod in pd.procoptions) and
+               not is_objectpascal_helper(pd.struct) then
              begin
                lindex := pd.extnumber;
                {doesnt seem to be necessary
@@ -795,6 +803,9 @@ implementation
       var
         ss : ansistring;
       begin
+        if not assigned(vardatadef) then
+          exit;
+
         ss:='s'+tostr(vardatadef.size);
         vardatadef.symtable.SymList.ForEachCall(@field_add_stabstr,@ss);
         ss[length(ss)]:=';';
@@ -1497,6 +1508,7 @@ implementation
         stabstypelist : TAsmList;
         storefilepos  : tfileposinfo;
         i  : longint;
+        vardatatype : ttypesym;
       begin
         storefilepos:=current_filepos;
         current_filepos:=current_module.mainfilepos;
@@ -1507,7 +1519,9 @@ implementation
         stabsvarlist:=TAsmList.create;
         stabstypelist:=TAsmList.create;
 
-        vardatadef:=trecorddef(search_system_type('TVARDATA').typedef);
+        vardatatype:=try_search_system_type('TVARDATA');
+        if assigned(vardatatype) then
+          vardatadef:=trecorddef(vardatatype.typedef);
 
         { include symbol that will be referenced from the main to be sure to
           include this debuginfo .o file }
@@ -1704,6 +1718,11 @@ implementation
           end;
       end;
 
+    constructor TDebugInfoStabs.Create;
+      begin
+        inherited Create;
+        vardatadef:=nil;
+      end;
 
     const
       dbg_stabs_info : tdbginfo =

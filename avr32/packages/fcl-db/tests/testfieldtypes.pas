@@ -1,6 +1,7 @@
 unit TestFieldTypes;
 
 {$mode objfpc}{$H+}
+{$modeswitch nestedprocvars}
 
 interface
 
@@ -9,10 +10,10 @@ uses
   db;
 
 type
-
-
   TParamProc = procedure(AParam:TParam; i : integer);
   TFieldProc = procedure(AField:TField; i : integer);
+  TGetSQLTextProc = function(const i: integer) : string; { is nested;}
+  TCheckFieldValueProc = procedure(AField:TField; i : integer) is nested;
 
   { TTestFieldTypes }
 
@@ -20,6 +21,9 @@ type
   private
     procedure CreateTableWithFieldType(ADatatype : TFieldType; ASQLTypeDecl : string);
     procedure TestFieldDeclaration(ADatatype: TFieldType; ADataSize: integer);
+    procedure TestSQLFieldType(ADatatype: TFieldType; ASQLTypeDecl: string;
+      ADataSize: integer; AGetSQLTextProc: TGetSQLTextProc;
+      ACheckFieldValueProc: TCheckFieldValueProc);
     procedure TestXXParamQuery(ADatatype : TFieldType; ASQLTypeDecl : string; testValuescount : integer; Cross : boolean = false);
     procedure TestSetBlobAsParam(asWhat : integer);
   protected
@@ -83,6 +87,8 @@ type
     procedure TestFixedStringParamQuery;
     procedure TestDateParamQuery;
     procedure TestIntParamQuery;
+    procedure TestTimeParamQuery;
+    procedure TestFmtBCDParamQuery;
     procedure TestFloatParamQuery;
     procedure TestBCDParamQuery;
     procedure TestAggregates;
@@ -96,11 +102,15 @@ type
     procedure TestClearUpdateableStatus;
     procedure TestReadOnlyParseSQL; // bug 9254
     procedure TestGetTables;
+
+    // Test SQL-field type recognition
+    procedure TestSQLClob;
+    procedure TestSQLLargeint;
   end;
 
 implementation
 
-uses sqldbtoolsunit,toolsunit, variants, sqldb, bufdataset, strutils, dbconst;
+uses sqldbtoolsunit,toolsunit, variants, sqldb, bufdataset, strutils, dbconst, FmtBCD;
 
 Type HackedDataset = class(TDataset);
 
@@ -227,9 +237,6 @@ begin
 end;
 
 procedure TTestFieldTypes.TestLargeRecordSize;
-
-var
-  i          : byte;
 
 begin
   TSQLDBConnector(DBConnector).Connection.ExecuteDirect('create table FPDEV2 (plant varchar(8192),sampling_type varchar(8192),area varchar(8192), area_description varchar(8192), batch varchar(8192), sampling_datetime timestamp, status varchar(8192), batch_commentary varchar(8192))');
@@ -408,7 +415,7 @@ begin
     Open;
     for i := 0 to testDateValuesCount-1 do
       begin
-      AssertEquals(testDateValues[i],FormatDateTime('yyyy/mm/dd',fields[0].AsDateTime));
+      AssertEquals(testDateValues[i],FormatDateTime('yyyy/mm/dd', fields[0].AsDateTime, DBConnector.FormatSettings));
       Next;
       end;
     close;
@@ -585,9 +592,9 @@ begin
     for i := 0 to corrTestValueCount-1 do
       begin
       if length(testValues[i]) < 12 then
-        AssertEquals(testValues[i],FormatDateTime('yyyy/mm/dd',fields[0].AsDateTime))
+        AssertEquals(testValues[i],FormatDateTime('yyyy/mm/dd', fields[0].AsDateTime, DBConnector.FormatSettings))
       else
-        AssertEquals(testValues[i],FormatDateTime('yyyy/mm/dd hh:mm:ss',fields[0].AsDateTime));
+        AssertEquals(testValues[i],FormatDateTime('yyyy/mm/dd hh:mm:ss', fields[0].AsDateTime, DBConnector.FormatSettings));
       Next;
       end;
     close;
@@ -723,6 +730,16 @@ begin
   TestXXParamQuery(ftInteger,'INT',testIntValuesCount);
 end;
 
+procedure TTestFieldTypes.TestFmtBCDParamQuery;
+begin
+  TestXXParamQuery(ftFMTBcd,FieldtypeDefinitionsConst[ftFMTBcd],testValuesCount);
+end;
+
+procedure TTestFieldTypes.TestTimeParamQuery;
+begin
+  TestXXParamQuery(ftTime,FieldtypeDefinitionsConst[ftTime],testValuesCount);
+end;
+
 procedure TTestFieldTypes.TestFloatParamQuery;
 
 begin
@@ -768,8 +785,6 @@ begin
     sql.clear;
     sql.append('insert into FPDEV2 (ID,FIELD1) values (:id,:field1)');
 
-    ShortDateFormat := 'yyyy-mm-dd';
-
     // There is no Param.AsFixedChar, so the datatype has to be set manually
     if ADatatype=ftFixedChar then
       Params.ParamByName('field1').DataType := ftFixedChar;
@@ -783,10 +798,12 @@ begin
         ftBCD    : Params.ParamByName('field1').AsCurrency:= testBCDValues[i];
         ftFixedChar,
         ftString : Params.ParamByName('field1').AsString  := testStringValues[i];
+        ftTime   : Params.ParamByName('field1').AsTime  := TimeStringToDateTime(testTimeValues[i]);
         ftDate   : if cross then
                      Params.ParamByName('field1').AsString:= testDateValues[i]
                    else
-                     Params.ParamByName('field1').AsDateTime:= StrToDate(testDateValues[i]);
+                     Params.ParamByName('field1').AsDateTime:= StrToDate(testDateValues[i],'yyyy/mm/dd','-');
+        ftFMTBcd : Params.ParamByName('field1').AsFMTBCD:= StrToBCD(testFmtBCDValues[i]{,DBConnector.FormatSettings})
       else
         AssertTrue('no test for paramtype available',False);
       end;
@@ -807,7 +824,9 @@ begin
         ftBCD    : AssertEquals(testBCDValues[i],FieldByName('FIELD1').AsCurrency);
         ftFixedChar : AssertEquals(PadRight(testStringValues[i],10),FieldByName('FIELD1').AsString);
         ftString : AssertEquals(testStringValues[i],FieldByName('FIELD1').AsString);
-        ftdate   : AssertEquals(testDateValues[i],FormatDateTime('yyyy/mm/dd',FieldByName('FIELD1').AsDateTime));
+        ftTime   : AssertEquals(testTimeValues[i],DateTimeToTimeString(FieldByName('FIELD1').AsDateTime));
+        ftdate   : AssertEquals(testDateValues[i],FormatDateTime('yyyy/mm/dd',FieldByName('FIELD1').AsDateTime, DBConnector.FormatSettings));
+        ftFMTBcd : AssertEquals(testFmtBCDValues[i],BCDToStr(FieldByName('FIELD1').AsBCD{,DBConnector.FormatSettings}))
       else
         AssertTrue('no test for paramtype available',False);
       end;
@@ -820,7 +839,6 @@ end;
 
 procedure TTestFieldTypes.TestSetBlobAsParam(asWhat: integer);
 var
-  i             : byte;
   ASQL          : TSQLQuery;
 
 begin
@@ -1383,7 +1401,10 @@ begin
     begin
     with query do
       begin
-      SQL.Text:='select NAME from FPDEV where NAME=''TestName21'' limit 1';
+      if (sqlDBtype=interbase) then
+        SQL.Text:='select first 1 NAME from FPDEV where NAME=''TestName21'''
+      else
+        SQL.Text:='select NAME from FPDEV where NAME=''TestName21'' limit 1';
       Open;
       close;
       ServerFilter:='ID=21';
@@ -1579,6 +1600,68 @@ begin
       end;
     end;
 end;
+
+procedure TTestFieldTypes.TestSQLFieldType(ADatatype : TFieldType; ASQLTypeDecl : string; ADataSize: integer; AGetSQLTextProc: TGetSQLTextProc; ACheckFieldValueProc: TCheckFieldValueProc);
+var
+  i          : byte;
+  s: string;
+begin
+  CreateTableWithFieldType(ADatatype,ASQLTypeDecl);
+  TestFieldDeclaration(ADatatype,ADataSize);
+
+  for i := 0 to testValuesCount-1 do
+    begin
+    s := AGetSQLTextProc(i);
+    TSQLDBConnector(DBConnector).Connection.ExecuteDirect('insert into FPDEV2 (FT) values (' + s + ')');
+    end;
+
+  with TSQLDBConnector(DBConnector).Query do
+    begin
+    Open;
+    for i := 0 to testValuesCount-1 do
+      begin
+      ACheckFieldValueProc(fields[0],i);
+      Next;
+      end;
+    close;
+    end;
+end;
+
+// Placed here, as long as bug 18702 is not solved
+function TestSQLClob_GetSQLText(const a: integer) : string;
+begin
+  result := QuotedStr(testStringValues[a]);
+end;
+
+procedure TTestFieldTypes.TestSQLClob;
+  procedure CheckFieldValue(AField:TField; a : integer);
+  begin
+    AssertEquals(testStringValues[a],AField.AsString);
+  end;
+begin
+  if SQLDbType=interbase then
+      Ignore('This test does not apply to Interbase/Firebird, since it does not support CLOB fields');
+  TestSQLFieldType(ftMemo, 'CLOB', 0, @TestSQLClob_GetSQLText, @CheckFieldValue);
+end;
+
+// Placed here, as long as bug 18702 is not solved
+function TestSQLLargeInt_GetSQLText(const a: integer) : string;
+begin
+  result := IntToStr(testLargeIntValues[a]);
+end;
+
+procedure TTestFieldTypes.TestSQLLargeint;
+  procedure CheckFieldValue(AField:TField; a : integer);
+  begin
+    AssertEquals(testLargeIntValues[a],AField.AsLargeInt);
+  end;
+begin
+  if sqlDBType=interbase then
+    TestSQLFieldType(ftLargeint, 'BIGINT', 8, @TestSQLLargeint_GetSQLText, @CheckFieldValue)
+  else
+    TestSQLFieldType(ftLargeint, 'LARGEINT', 8, @TestSQLLargeint_GetSQLText, @CheckFieldValue);
+end;
+
 
 procedure TTestFieldTypes.TestUpdateIndexDefs;
 var ds : TSQLQuery;

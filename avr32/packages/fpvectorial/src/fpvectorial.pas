@@ -18,7 +18,8 @@ unit fpvectorial;
 interface
 
 uses
-  Classes, SysUtils;
+  Classes, SysUtils, Math,
+  fpcanvas;
 
 type
   TvVectorialFormat = (
@@ -37,10 +38,40 @@ const
   STR_SVG_EXTENSION = '.svg';
   STR_CORELDRAW_EXTENSION = '.cdr';
   STR_WINMETAFILE_EXTENSION = '.wmf';
+  STR_AUTOCAD_EXCHANGE_EXTENSION = '.dxf';
 
 type
+  {@@ We need our own format because TFPColor is too big for our needs and TColor has no Alpha }
+  TvColor = packed record
+    Red, Green, Blue, Alpha: Byte;
+  end;
+
+  TvPen = record
+    Color: TvColor;
+    Style: TFPPenStyle;
+    Width: Integer;
+  end;
+
+  TvBrush = record
+    Color: TvColor;
+    Style: TFPBrushStyle;
+  end;
+
+const
+  FPValphaTransparent = $00;
+  FPValphaOpaque = $FF;
+
+  clvBlack: TvColor = (Red: $00; Green: $00; Blue: $00; Alpha: FPValphaOpaque);
+
+type
+  T3DPoint = record
+    X, Y, Z: Double;
+  end;
+
+  P3DPoint = ^T3DPoint;
+
   TSegmentType = (
-    st2DLine, st2DBezier,
+    st2DLine, st2DLineWithPen, st2DBezier,
     st3DLine, st3DBezier, stMoveTo);
 
   {@@
@@ -68,6 +99,11 @@ type
   T2DSegment = class(TPathSegment)
   public
     X, Y: Double;
+  end;
+
+  T2DSegmentWithPen = class(T2DSegment)
+  public
+    Pen: TvPen;
   end;
 
   {@@
@@ -101,8 +137,14 @@ type
     Points: TPathSegment; // Beginning of the double-linked list
     PointsEnd: TPathSegment; // End of the double-linked list
     CurPoint: TPathSegment; // Used in PrepareForSequentialReading and Next
+    {@@ The global Pen for the entire path. This Pen might be overriden by
+        individual elements of the polyline. }
+    Pen: TvPen;
+    {@@ Sets a Brush to paint the inner area inside the path.
+        There is no inner area if Brush.Style = bsClear, which is the default. }
+    Brush: TvBrush;
+    constructor Create();
     procedure Assign(APath: TPath);
-    function Count(): TPathSegment;
     procedure PrepareForSequentialReading;
     function Next(): TPathSegment;
   end;
@@ -116,9 +158,61 @@ type
   TvText = class
   public
     X, Y, Z: Double; // Z is ignored in 2D formats
+    Value: utf8string;
+    FontColor: TvColor;
     FontSize: integer;
     FontName: utf8string;
-    Value: utf8string;
+  end;
+
+  {@@
+  }
+  TvEntity = class
+  public
+    Pen: TvPen;
+    Brush: TvBrush;
+  end;
+
+  {@@
+  }
+  TvCircle = class(TvEntity)
+  public
+    CenterX, CenterY, CenterZ, Radius: Double;
+  end;
+
+  {@@
+  }
+  TvCircularArc = class(TvEntity)
+  public
+    CenterX, CenterY, CenterZ, Radius: Double;
+    {@@ The Angle is measured in degrees in relation to the positive X axis }
+    StartAngle, EndAngle: Double;
+  end;
+
+  {@@
+  }
+
+  { TvEllipse }
+
+  TvEllipse = class(TvEntity)
+  public
+    // Mandatory fields
+    CenterX, CenterY, CenterZ, MajorHalfAxis, MinorHalfAxis: Double;
+    {@@ The Angle is measured in degrees in relation to the positive X axis }
+    Angle: Double;
+    // Calculated fields
+    BoundingRect: TRect;
+    procedure CalculateBoundingRectangle;
+  end;
+
+  {@@
+  }
+
+  { TvAlignedDimension }
+
+  TvAlignedDimension = class(TvEntity)
+  public
+    // Mandatory fields
+    BaseLeft, BaseRight, DimensionLeft, DimensionRight: T3DPoint;
   end;
 
 type
@@ -132,6 +226,7 @@ type
   private
     FPaths: TFPList;
     FTexts: TFPList;
+    FEntities: TFPList;
     FTmpPath: TPath;
     FTmpText: TvText;
     procedure RemoveCallback(data, arg: pointer);
@@ -145,10 +240,12 @@ type
     { Base methods }
     constructor Create;
     destructor Destroy; override;
-    procedure WriteToFile(AFileName: string; AFormat: TvVectorialFormat);
+    procedure WriteToFile(AFileName: string; AFormat: TvVectorialFormat); overload;
+    procedure WriteToFile(AFileName: string); overload;
     procedure WriteToStream(AStream: TStream; AFormat: TvVectorialFormat);
     procedure WriteToStrings(AStrings: TStrings; AFormat: TvVectorialFormat);
-    procedure ReadFromFile(AFileName: string; AFormat: TvVectorialFormat);
+    procedure ReadFromFile(AFileName: string; AFormat: TvVectorialFormat); overload;
+    procedure ReadFromFile(AFileName: string); overload;
     procedure ReadFromStream(AStream: TStream; AFormat: TvVectorialFormat);
     procedure ReadFromStrings(AStrings: TStrings; AFormat: TvVectorialFormat);
     class function GetFormatFromExtension(AFileName: string): TvVectorialFormat;
@@ -158,20 +255,35 @@ type
     function  GetPathCount: Integer;
     function  GetText(ANum: Cardinal): TvText;
     function  GetTextCount: Integer;
+    function  GetEntity(ANum: Cardinal): TvEntity;
+    function  GetEntityCount: Integer;
     { Data removing methods }
     procedure Clear;
     procedure RemoveAllPaths;
     procedure RemoveAllTexts;
     { Data writing methods }
     procedure AddPath(APath: TPath);
-    procedure StartPath(AX, AY: Double);
+    procedure StartPath(AX, AY: Double); overload;
+    procedure StartPath(); overload;
+    procedure AddMoveToPath(AX, AY: Double);
     procedure AddLineToPath(AX, AY: Double); overload;
+    procedure AddLineToPath(AX, AY: Double; AColor: TvColor); overload;
     procedure AddLineToPath(AX, AY, AZ: Double); overload;
     procedure AddBezierToPath(AX1, AY1, AX2, AY2, AX3, AY3: Double); overload;
     procedure AddBezierToPath(AX1, AY1, AZ1, AX2, AY2, AZ2, AX3, AY3, AZ3: Double); overload;
+    procedure SetBrushColor(AColor: TvColor);
+    procedure SetBrushStyle(AStyle: TFPBrushStyle);
+    procedure SetPenColor(AColor: TvColor);
+    procedure SetPenStyle(AStyle: TFPPenStyle);
+    procedure SetPenWidth(AWidth: Integer);
     procedure EndPath();
     procedure AddText(AX, AY, AZ: Double; FontName: string; FontSize: integer; AText: utf8string); overload;
     procedure AddText(AX, AY, AZ: Double; AStr: utf8string); overload;
+    procedure AddCircle(ACenterX, ACenterY, ACenterZ, ARadius: Double);
+    procedure AddCircularArc(ACenterX, ACenterY, ACenterZ, ARadius, AStartAngle, AEndAngle: Double; AColor: TvColor);
+    procedure AddEllipse(CenterX, CenterY, CenterZ, MajorHalfAxis, MinorHalfAxis, Angle: Double);
+    // Dimensions
+    procedure AddAlignedDimension(BaseLeft, BaseRight, DimLeft, DimRight: T3DPoint);
     { properties }
     property PathCount: Integer read GetPathCount;
     property Paths[Index: Cardinal]: TPath read GetPath;
@@ -186,6 +298,7 @@ type
   TvCustomVectorialReader = class
   public
     { General reading methods }
+    constructor Create; virtual;
     procedure ReadFromFile(AFileName: string; AData: TvVectorialDocument); virtual;
     procedure ReadFromStream(AStream: TStream; AData: TvVectorialDocument); virtual;
     procedure ReadFromStrings(AStrings: TStrings; AData: TvVectorialDocument); virtual;
@@ -202,6 +315,7 @@ type
   TvCustomVectorialWriter = class
   public
     { General writing methods }
+    constructor Create; virtual;
     procedure WriteToFile(AFileName: string; AData: TvVectorialDocument); virtual;
     procedure WriteToStream(AStream: TStream; AData: TvVectorialDocument); virtual;
     procedure WriteToStrings(AStrings: TStrings; AData: TvVectorialDocument); virtual;
@@ -316,6 +430,38 @@ begin
   end;
 end;
 
+{ TvEllipse }
+
+procedure TvEllipse.CalculateBoundingRectangle;
+var
+  t, tmp: Double;
+begin
+  {
+    To calculate the bounding rectangle we can do this:
+
+    Ellipse equations:You could try using the parametrized equations for an ellipse rotated at an arbitrary angle:
+
+    x = CenterX + MajorHalfAxis*cos(t)*cos(Angle) - MinorHalfAxis*sin(t)*sin(Angle)
+    y = CenterY + MinorHalfAxis*sin(t)*cos(Angle) + MajorHalfAxis*cos(t)*sin(Angle)
+
+    You can then differentiate and solve for gradient = 0:
+    0 = dx/dt = -MajorHalfAxis*sin(t)*cos(Angle) - MinorHalfAxis*cos(t)*sin(Angle)
+    =>
+    tan(t) = -MinorHalfAxis*tan(Angle)/MajorHalfAxis
+    =>
+    t = cotang(-MinorHalfAxis*tan(Angle)/MajorHalfAxis)
+
+    On the other axis:
+
+    0 = dy/dt = b*cos(t)*cos(phi) - a*sin(t)*sin(phi)
+    =>
+    tan(t) = b*cot(phi)/a
+  }
+  t := cotan(-MinorHalfAxis*tan(Angle)/MajorHalfAxis);
+  tmp := CenterX + MajorHalfAxis*cos(t)*cos(Angle) - MinorHalfAxis*sin(t)*sin(Angle);
+  BoundingRect.Right := Round(tmp);
+end;
+
 { TsWorksheet }
 
 {@@
@@ -339,6 +485,7 @@ begin
 
   FPaths := TFPList.Create;
   FTexts := TFPList.Create;
+  FEntities := TFPList.Create;
   FTmpPath := TPath.Create;
 end;
 
@@ -351,6 +498,7 @@ begin
 
   FPaths.Free;
   FTexts.Free;
+  FEntities.Free;
 
   inherited Destroy;
 end;
@@ -407,6 +555,23 @@ begin
   FTmpPath.PointsEnd := segment;
 end;
 
+procedure TvVectorialDocument.StartPath();
+begin
+  ClearTmpPath();
+end;
+
+procedure TvVectorialDocument.AddMoveToPath(AX, AY: Double);
+var
+  segment: T2DSegment;
+begin
+  segment := T2DSegment.Create;
+  segment.SegmentType := stMoveTo;
+  segment.X := AX;
+  segment.Y := AY;
+
+  AppendSegmentToTmpPath(segment);
+end;
+
 {@@
   Adds one more point to the end of a Path being
   writing in multiple steps.
@@ -425,6 +590,19 @@ begin
   segment.SegmentType := st2DLine;
   segment.X := AX;
   segment.Y := AY;
+
+  AppendSegmentToTmpPath(segment);
+end;
+
+procedure TvVectorialDocument.AddLineToPath(AX, AY: Double; AColor: TvColor);
+var
+  segment: T2DSegmentWithPen;
+begin
+  segment := T2DSegmentWithPen.Create;
+  segment.SegmentType := st2DLineWithPen;
+  segment.X := AX;
+  segment.Y := AY;
+  segment.Pen.Color := AColor;
 
   AppendSegmentToTmpPath(segment);
 end;
@@ -484,6 +662,31 @@ begin
   AppendSegmentToTmpPath(segment);
 end;
 
+procedure TvVectorialDocument.SetBrushColor(AColor: TvColor);
+begin
+  FTmPPath.Brush.Color := AColor;
+end;
+
+procedure TvVectorialDocument.SetBrushStyle(AStyle: TFPBrushStyle);
+begin
+  FTmPPath.Brush.Style := AStyle;
+end;
+
+procedure TvVectorialDocument.SetPenColor(AColor: TvColor);
+begin
+  FTmPPath.Pen.Color := AColor;
+end;
+
+procedure TvVectorialDocument.SetPenStyle(AStyle: TFPPenStyle);
+begin
+  FTmPPath.Pen.Style := AStyle;
+end;
+
+procedure TvVectorialDocument.SetPenWidth(AWidth: Integer);
+begin
+  FTmPPath.Pen.Width := AWidth;
+end;
+
 {@@
   Finishes writing a Path, which was created in multiple
   steps using StartPath and AddPointToPath,
@@ -520,6 +723,62 @@ begin
   AddText(AX, AY, AZ, '', 10, AStr);
 end;
 
+procedure TvVectorialDocument.AddCircle(ACenterX, ACenterY, ACenterZ, ARadius: Double);
+var
+  lCircle: TvCircle;
+begin
+  lCircle := TvCircle.Create;
+  lCircle.CenterX := ACenterX;
+  lCircle.CenterY := ACenterY;
+  lCircle.CenterZ := ACenterZ;
+  lCircle.Radius := ARadius;
+  FEntities.Add(lCircle);
+end;
+
+procedure TvVectorialDocument.AddCircularArc(ACenterX, ACenterY, ACenterZ,
+  ARadius, AStartAngle, AEndAngle: Double; AColor: TvColor);
+var
+  lCircularArc: TvCircularArc;
+begin
+  lCircularArc := TvCircularArc.Create;
+  lCircularArc.CenterX := ACenterX;
+  lCircularArc.CenterY := ACenterY;
+  lCircularArc.CenterZ := ACenterZ;
+  lCircularArc.Radius := ARadius;
+  lCircularArc.StartAngle := AStartAngle;
+  lCircularArc.EndAngle := AEndAngle;
+  lCircularArc.Pen.Color := AColor;
+  FEntities.Add(lCircularArc);
+end;
+
+procedure TvVectorialDocument.AddEllipse(CenterX, CenterY, CenterZ,
+  MajorHalfAxis, MinorHalfAxis, Angle: Double);
+var
+  lEllipse: TvEllipse;
+begin
+  lEllipse := TvEllipse.Create;
+  lEllipse.CenterX := CenterX;
+  lEllipse.CenterY := CenterY;
+  lEllipse.CenterZ := CenterZ;
+  lEllipse.MajorHalfAxis := MajorHalfAxis;
+  lEllipse.MinorHalfAxis := MinorHalfAxis;
+  lEllipse.Angle := Angle;
+  FEntities.Add(lEllipse);
+end;
+
+procedure TvVectorialDocument.AddAlignedDimension(BaseLeft, BaseRight,
+  DimLeft, DimRight: T3DPoint);
+var
+  lDim: TvAlignedDimension;
+begin
+  lDim := TvAlignedDimension.Create;
+  lDim.BaseLeft := BaseLeft;
+  lDim.BaseRight := BaseRight;
+  lDim.DimensionLeft := DimLeft;
+  lDim.DimensionRight := DimRight;
+  FEntities.Add(lDim);
+end;
+
 {@@
   Convenience method which creates the correct
   writer object for a given vector graphics document format.
@@ -533,12 +792,13 @@ begin
   for i := 0 to Length(GvVectorialFormats) - 1 do
     if GvVectorialFormats[i].Format = AFormat then
     begin
-      Result := GvVectorialFormats[i].WriterClass.Create;
+      if GvVectorialFormats[i].WriterClass <> nil then
+        Result := GvVectorialFormats[i].WriterClass.Create;
 
       Break;
     end;
 
-  if Result = nil then raise Exception.Create('Unsuported vector graphics format.');
+  if Result = nil then raise Exception.Create('Unsupported vector graphics format.');
 end;
 
 {@@
@@ -554,12 +814,13 @@ begin
   for i := 0 to Length(GvVectorialFormats) - 1 do
     if GvVectorialFormats[i].Format = AFormat then
     begin
-      Result := GvVectorialFormats[i].ReaderClass.Create;
+      if GvVectorialFormats[i].ReaderClass <> nil then
+        Result := GvVectorialFormats[i].ReaderClass.Create;
 
       Break;
     end;
 
-  if Result = nil then raise Exception.Create('Unsuported vector graphics format.');
+  if Result = nil then raise Exception.Create('Unsupported vector graphics format.');
 end;
 
 procedure TvVectorialDocument.ClearTmpPath();
@@ -584,8 +845,17 @@ procedure TvVectorialDocument.AppendSegmentToTmpPath(ASegment: TPathSegment);
 var
   L: Integer;
 begin
+  // Check if we are the first segment in the tmp path
   if FTmpPath.PointsEnd = nil then
-    Exception.Create('[TvVectorialDocument.AppendSegmentToTmpPath]' + Str_Error_Nil_Path);
+  begin
+    if FTmpPath.Len <> 0 then
+      Exception.Create('[TvVectorialDocument.AppendSegmentToTmpPath]' + Str_Error_Nil_Path);
+
+    FTmpPath.Points := ASegment;
+    FTmpPath.PointsEnd := ASegment;
+    FTmpPath.Len := 1;
+    Exit;
+  end;
 
   L := FTmpPath.Len;
   Inc(FTmpPath.Len);
@@ -612,6 +882,14 @@ begin
   finally
     AWriter.Free;
   end;
+end;
+
+procedure TvVectorialDocument.WriteToFile(AFileName: string);
+var
+  lFormat: TvVectorialFormat;
+begin
+  lFormat := GetFormatFromExtension(ExtractFileExt(AFileName));
+  WriteToFile(AFileName, lFormat);
 end;
 
 {@@
@@ -665,6 +943,17 @@ begin
 end;
 
 {@@
+  Reads the document from a file.  A variant that auto-detects the format from the extension.
+}
+procedure TvVectorialDocument.ReadFromFile(AFileName: string);
+var
+  lFormat: TvVectorialFormat;
+begin
+  lFormat := GetFormatFromExtension(ExtractFileExt(AFileName));
+  ReadFromFile(AFileName, lFormat);
+end;
+
+{@@
   Reads the document from a stream.
 
   Any current contents will be removed.
@@ -710,6 +999,7 @@ begin
   else if AnsiCompareText(lExt, STR_SVG_EXTENSION) = 0 then Result := vfSVG
   else if AnsiCompareText(lExt, STR_CORELDRAW_EXTENSION) = 0 then Result := vfCorelDrawCDR
   else if AnsiCompareText(lExt, STR_WINMETAFILE_EXTENSION) = 0 then Result := vfWindowsMetafileWMF
+  else if AnsiCompareText(lExt, STR_AUTOCAD_EXCHANGE_EXTENSION) = 0 then Result := vfDXF
   else
     raise Exception.Create('TvVectorialDocument.GetFormatFromExtension: The extension (' + lExt + ') doesn''t match any supported formats.');
 end;
@@ -747,6 +1037,20 @@ begin
   Result := FTexts.Count;
 end;
 
+function TvVectorialDocument.GetEntity(ANum: Cardinal): TvEntity;
+begin
+  if ANum >= FEntities.Count then raise Exception.Create('TvVectorialDocument.GetEntity: Entity number out of bounds');
+
+  if FEntities.Items[ANum] = nil then raise Exception.Create('TvVectorialDocument.GetEntity: Invalid Entity number');
+
+  Result := TvEntity(FEntities.Items[ANum]);
+end;
+
+function TvVectorialDocument.GetEntityCount: Integer;
+begin
+  Result := FEntities.Count;
+end;
+
 {@@
   Clears all data in the document
 }
@@ -757,6 +1061,11 @@ begin
 end;
 
 { TvCustomVectorialReader }
+
+constructor TvCustomVectorialReader.Create;
+begin
+  inherited Create;
+end;
 
 procedure TvCustomVectorialReader.ReadFromFile(AFileName: string; AData: TvVectorialDocument);
 var
@@ -806,6 +1115,11 @@ end;
 
 { TsCustomSpreadWriter }
 
+constructor TvCustomVectorialWriter.Create;
+begin
+  inherited Create;
+end;
+
 {@@
   Default file writting method.
 
@@ -854,17 +1168,20 @@ end;
 
 { TPath }
 
+constructor TPath.Create();
+begin
+  Brush.Style := bsClear;
+  inherited Create();
+end;
+
 procedure TPath.Assign(APath: TPath);
 begin
   Len := APath.Len;
   Points := APath.Points;
   PointsEnd := APath.PointsEnd;
   CurPoint := APath.CurPoint;
-end;
-
-function TPath.Count(): TPathSegment;
-begin
-
+  Pen := APath.Pen;
+  Brush := APath.Brush;
 end;
 
 procedure TPath.PrepareForSequentialReading;

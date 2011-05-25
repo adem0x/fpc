@@ -1,6 +1,4 @@
 { Parsed from Foundation.framework NSScriptStandardSuiteCommands.h }
-{ Version: 2.1.4 - Sun Jan 2 15:08:57 CET 2011 }
-
 
 {$ifdef TYPES}
 {$ifndef NSSCRIPTSTANDARDSUITECOMMANDS_PAS_T}
@@ -10,8 +8,8 @@
 
 const
   NSSaveOptionsYes = 0;
-  NSSaveOptionsNo = 0;
-  NSSaveOptionsAsk = 1;
+  NSSaveOptionsNo = 1;
+  NSSaveOptionsAsk = 2;
 
 { Types }
 type

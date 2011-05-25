@@ -49,7 +49,8 @@ Type
 
       ct_at32uc3l016,
       ct_at32uc3l032,
-      ct_at32uc3l064
+      ct_at32uc3l064,
+      ct_at32uc3b1256
      );
 
 Const
@@ -91,14 +92,24 @@ Const
      ('',
       'AT32UC3L016',
       'AT32UC3L032',
-      'AT32UC3L064'
+      'AT32UC3L064',
+      'AT32UC3B1256'
      );
 
    controllerunitstr : array[tcontrollertype] of string[20] =
      ('',
       'AT32UC3L016',
       'AT32UC3L032',
-      'AT32UC3L064'
+      'AT32UC3L064',
+      'AT32UC3B1256'
+     );
+
+   interruptvectors : array[tcontrollertype] of longint =
+     (0,
+      18,
+      18,
+      18,
+      18
      );
 
    { Supported optimizations, only used for information }

@@ -150,7 +150,7 @@ Implementation
       begin
         result:=0;
         bufsize:=64*1024;
-	      fs:=TCFileStream.Create(fn,fmOpenRead or fmShareDenyNone);
+	      fs:=CFileStreamClass.Create(fn,fmOpenRead or fmShareDenyNone);
 	      if CStreamError<>0 then
 	        begin
 	          fs.Free;
@@ -703,7 +703,7 @@ Implementation
 
     Function TExternalLinker.MakeStaticLibrary:boolean;
 
-        function GetNextFiles(const maxCmdLength : AInt; var item : TCmdStrListItem) : TCmdStr;
+        function GetNextFiles(const maxCmdLength : Longint; var item : TCmdStrListItem) : TCmdStr;
           begin
             result := '';
             while (assigned(item) and ((length(result) + length(item.str) + 1) < maxCmdLength)) do begin
@@ -1050,6 +1050,9 @@ Implementation
         exeoutput.FixupSymbols;
         if ErrorCount>0 then
           goto myexit;
+
+        { parse linker options specific for output format }
+        exeoutput.ParseScript (linkscript);
 
         { Create .exe sections and add .o sections }
         ParseScript_Order;

@@ -170,6 +170,7 @@ type
     _DOWNTO,
     _EXCEPT,
     _EXPORT,
+    _HELPER,
     _INLINE,
     _LEGACY,
     _NESTED,
@@ -203,6 +204,7 @@ type
     _PRIVATE,
     _PROGRAM,
     _R12BASE,
+    _SECTION,
     _STDCALL,
     _SYSCALL,
     _VARARGS,
@@ -464,6 +466,7 @@ const
       (str:'DOWNTO'        ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'EXCEPT'        ;special:false;keyword:m_except;op:NOTOKEN),
       (str:'EXPORT'        ;special:false;keyword:m_none;op:NOTOKEN),
+      (str:'HELPER'        ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'INLINE'        ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'LEGACY'        ;special:false;keyword:m_none;op:NOTOKEN),   { Syscall variation on MorphOS }
       (str:'NESTED'        ;special:false;keyword:m_none;op:NOTOKEN),
@@ -497,6 +500,7 @@ const
       (str:'PRIVATE'       ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'PROGRAM'       ;special:false;keyword:m_all;op:NOTOKEN),
       (str:'R12BASE'       ;special:false;keyword:m_none;op:NOTOKEN),   { Syscall variation on MorphOS }
+      (str:'SECTION'       ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'STDCALL'       ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'SYSCALL'       ;special:false;keyword:m_none;op:NOTOKEN),
       (str:'VARARGS'       ;special:false;keyword:m_none;op:NOTOKEN),

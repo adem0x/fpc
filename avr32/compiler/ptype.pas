@@ -40,9 +40,6 @@ interface
 
     procedure resolve_forward_types;
 
-    { reads a type identifier }
-    procedure id_type(var def : tdef;isforwarddef:boolean);
-
     { reads a string, file type or a type identifier }
     procedure single_type(var def:tdef;options:TSingleTypeOptions);
 
@@ -159,6 +156,7 @@ implementation
         generictype : ttypesym;
         generictypelist : TFPObjectList;
         oldsymtablestack   : tsymtablestack;
+        oldextendeddefs    : TFPHashObjectList;
         hmodule : tmodule;
         pu : tused_unit;
         uspecializename,
@@ -295,7 +293,9 @@ implementation
               to get types right, however this is not perfect, we should probably record
               the resolved symbols }
             oldsymtablestack:=symtablestack;
-            symtablestack:=tsymtablestack.create;
+            oldextendeddefs:=current_module.extendeddefs;
+            current_module.extendeddefs:=TFPHashObjectList.create(true);
+            symtablestack:=tdefawaresymtablestack.create;
             if not assigned(genericdef) then
               internalerror(200705151);
             hmodule:=find_module_from_symtable(genericdef.owner);
@@ -362,23 +362,25 @@ implementation
               end;
 
             { Restore symtablestack }
+            current_module.extendeddefs.free;
+            current_module.extendeddefs:=oldextendeddefs;
             symtablestack.free;
             symtablestack:=oldsymtablestack;
           end
         else
           begin
-            { There is comment few lines before ie 200512115 
-              saying "We are parsing the same objectdef, the def index numbers 
-              are the same". This is wrong (index numbers are not same) 
-              in case there is specialization (S2 in this case) inside 
-              specialized generic (G2 in this case) which is equal to 
-              some previous specialization (S1 in this case). In that case, 
-              new symbol is not added to currently specialized type 
-              (S in this case) for that specializations (S2 in this case), 
-              and this results in that specialization and generic definition 
-              don't have same number of elements in their object symbol tables. 
-              This patch adds undefined def to ensure that those 
-              two symbol tables will have same number of elements. 
+            { There is comment few lines before ie 200512115
+              saying "We are parsing the same objectdef, the def index numbers
+              are the same". This is wrong (index numbers are not same)
+              in case there is specialization (S2 in this case) inside
+              specialized generic (G2 in this case) which is equal to
+              some previous specialization (S1 in this case). In that case,
+              new symbol is not added to currently specialized type
+              (S in this case) for that specializations (S2 in this case),
+              and this results in that specialization and generic definition
+              don't have same number of elements in their object symbol tables.
+              This patch adds undefined def to ensure that those
+              two symbol tables will have same number of elements.
             }
             tundefineddef.create;
           end;
@@ -389,7 +391,96 @@ implementation
       end;
 
 
-    procedure id_type(var def : tdef;isforwarddef:boolean);
+    procedure id_type(var def : tdef;isforwarddef,checkcurrentrecdef:boolean); forward;
+
+    { def is the outermost type in which other types have to be searched
+
+      isforward indicates whether the current definition can be a forward definition
+
+      if assigned, currentstructstack is a list of tabstractrecorddefs that, from
+      last to first, are child types of def that are not yet visible via the
+      normal symtable searching routines because they are types that are currently
+      being parsed (so using id_type on them after pushing def on the
+      symtablestack would result in errors because they'd come back as errordef)
+    }
+    procedure parse_nested_types(var def: tdef; isforwarddef: boolean; currentstructstack: tfpobjectlist);
+      var
+        t2: tdef;
+        structstackindex: longint;
+      begin
+        if assigned(currentstructstack) then
+          structstackindex:=currentstructstack.count-1
+        else
+          structstackindex:=-1;
+        { handle types inside classes, e.g. TNode.TLongint }
+        while (token=_POINT) do
+          begin
+            if parse_generic then
+              begin
+                 consume(_POINT);
+                 consume(_ID);
+              end
+             else if is_class_or_object(def) or is_record(def) then
+               begin
+                 consume(_POINT);
+                 if (structstackindex>=0) and
+                    (tabstractrecorddef(currentstructstack[structstackindex]).objname^=pattern) then
+                   begin
+                     def:=tdef(currentstructstack[structstackindex]);
+                     dec(structstackindex);
+                     consume(_ID);
+                   end
+                 else
+                   begin
+                     structstackindex:=-1;
+                     symtablestack.push(tabstractrecorddef(def).symtable);
+                     t2:=generrordef;
+                     id_type(t2,isforwarddef,false);
+                     symtablestack.pop(tabstractrecorddef(def).symtable);
+                     def:=t2;
+                   end;
+               end
+             else
+               break;
+          end;
+      end;
+
+
+    function try_parse_structdef_nested_type(out def: tdef; basedef: tabstractrecorddef; isfowarddef: boolean): boolean;
+      var
+        structdef : tdef;
+        structdefstack : tfpobjectlist;
+      begin
+         { use of current parsed object:
+           classes, objects, records can be used also in themself }
+         structdef:=basedef;
+         structdefstack:=nil;
+         while assigned(structdef) and (structdef.typ in [objectdef,recorddef]) do
+           begin
+             if (tabstractrecorddef(structdef).objname^=pattern) then
+               begin
+                 consume(_ID);
+                 def:=structdef;
+                 { we found the top-most match, now check how far down we can
+                   follow }
+                 structdefstack:=tfpobjectlist.create(false);
+                 structdef:=basedef;
+                 while (structdef<>def) do
+                   begin
+                     structdefstack.add(structdef);
+                     structdef:=tabstractrecorddef(structdef.owner.defowner);
+                   end;
+                 parse_nested_types(def,isfowarddef,structdefstack);
+                 structdefstack.free;
+                 result:=true;
+                 exit;
+               end;
+             structdef:=tdef(tabstractrecorddef(structdef).owner.defowner);
+           end;
+         result:=false;
+      end;
+
+    procedure id_type(var def : tdef;isforwarddef,checkcurrentrecdef:boolean);
     { reads a type definition }
     { to a appropriating tdef, s gets the name of   }
     { the type to allow name mangling          }
@@ -400,24 +491,15 @@ implementation
         srsymtable : TSymtable;
         s,sorg : TIDString;
         t : ttoken;
-        structdef : tabstractrecorddef;
       begin
          s:=pattern;
          sorg:=orgpattern;
          pos:=current_tokenpos;
          { use of current parsed object:
            classes, objects, records can be used also in themself }
-         structdef:=current_structdef;
-         while assigned(structdef) and (structdef.typ in [objectdef,recorddef]) do
-           begin
-             if (structdef.objname^=pattern) then
-               begin
-                 consume(_ID);
-                 def:=structdef;
-                 exit;
-               end;
-             structdef:=tabstractrecorddef(structdef.owner.defowner);
-           end;
+         if checkcurrentrecdef and
+            try_parse_structdef_nested_type(def,current_structdef,isforwarddef) then
+           exit;
          { Use the special searchsym_type that search only types }
          searchsym_type(s,srsym,srsymtable);
          { handle unit specification like System.Writeln }
@@ -518,26 +600,8 @@ implementation
                      end
                    else
                      begin
-                       id_type(def,stoIsForwardDef in options);
-                       { handle types inside classes, e.g. TNode.TLongint }
-                       while (token=_POINT) do
-                         begin
-                           if parse_generic then
-                             begin
-                                consume(_POINT);
-                                consume(_ID);
-                             end
-                            else if is_class_or_object(def) or is_record(def) then
-                              begin
-                                symtablestack.push(tabstractrecorddef(def).symtable);
-                                consume(_POINT);
-                                id_type(t2,stoIsForwardDef in options);
-                                symtablestack.pop(tabstractrecorddef(def).symtable);
-                                def:=t2;
-                              end
-                            else
-                              break;
-                         end;
+                       id_type(def,stoIsForwardDef in options,true);
+                       parse_nested_types(def,stoIsForwardDef in options,nil);
                      end;
                  end;
 
@@ -568,7 +632,8 @@ implementation
                 Message(parser_e_no_generics_as_types);
                 def:=generrordef;
               end
-            else if is_objccategory(def) then
+            else if is_classhelper(def) and
+                not (stoParseClassParent in options) then
               begin
                 Message(parser_e_no_category_as_types);
                 def:=generrordef
@@ -618,6 +683,11 @@ implementation
               begin
                 consume(_TYPE);
                 member_blocktype:=bt_type;
+
+                { local and anonymous records can not have inner types. skip top record symtable }
+                if (current_structdef.objname^='') or 
+                   not(symtablestack.stack^.next^.symtable.symtabletype in [globalsymtable,staticsymtable,objectsymtable,recordsymtable]) then
+                  Message(parser_e_no_types_in_local_anonymous_records);
               end;
             _VAR :
               begin
@@ -888,8 +958,6 @@ implementation
          result:=current_structdef;
          { insert in symtablestack }
          symtablestack.push(recst);
-         { parse record }
-         consume(_RECORD);
 
          { usage of specialized type inside its generic template }
          if assigned(genericdef) then
@@ -938,26 +1006,14 @@ implementation
            lv,hv   : TConstExprInt;
            old_block_type : tblock_type;
            dospecialize : boolean;
-           structdef: tabstractrecorddef;
         begin
            old_block_type:=block_type;
            dospecialize:=false;
            { use of current parsed object:
              classes, objects, records can be used also in themself }
            if (token=_ID) then
-             begin
-               structdef:=current_structdef;
-               while assigned(structdef) and (structdef.typ in [objectdef,recorddef]) do
-                 begin
-                   if (structdef.objname^=pattern) then
-                     begin
-                       consume(_ID);
-                       def:=structdef;
-                       exit;
-                     end;
-                   structdef:=tabstractrecorddef(structdef.owner.defowner);
-                 end;
-             end;
+             if try_parse_structdef_nested_type(def,current_structdef,false) then
+               exit;
            { Generate a specialization in FPC mode? }
            dospecialize:=not(m_delphi in current_settings.modeswitches) and try_to_consume(_SPECIALIZE);
            { we can't accept a equal in type }
@@ -1035,7 +1091,7 @@ implementation
                            Message(parser_e_no_generics_as_types);
                            def:=generrordef;
                          end
-                       else if is_objccategory(def) then
+                       else if is_classhelper(def) then
                          begin
                            Message(parser_e_no_category_as_types);
                            def:=generrordef
@@ -1186,8 +1242,8 @@ implementation
                                     Message(parser_e_array_lower_less_than_upper_bound);
                                     highval:=lowval;
                                   end
-                                 else if (lowval<int64(low(aint))) or
-                                         (highval > high(aint)) then
+                                 else if (lowval<int64(low(asizeint))) or
+                                         (highval>high(asizeint)) then
                                    begin
                                      Message(parser_e_array_range_out_of_bounds);
                                      lowval :=0;
@@ -1471,7 +1527,14 @@ implementation
               end;
             _RECORD:
               begin
-                def:=record_dec(name,genericdef,genericlist);
+                consume(token);
+                if (idtoken=_HELPER) and (m_advanced_records in current_settings.modeswitches) then
+                  begin
+                    consume(_HELPER);
+                    def:=object_dec(odt_helper,name,genericdef,genericlist,nil,ht_record);
+                  end
+                else
+                  def:=record_dec(name,genericdef,genericlist);
               end;
             _PACKED,
             _BITPACKED:
@@ -1498,15 +1561,17 @@ implementation
                       _CLASS :
                         begin
                           consume(_CLASS);
-                          def:=object_dec(odt_class,name,genericdef,genericlist,nil);
+                          def:=object_dec(odt_class,name,genericdef,genericlist,nil,ht_none);
                         end;
                       _OBJECT :
                         begin
                           consume(_OBJECT);
-                          def:=object_dec(odt_object,name,genericdef,genericlist,nil);
+                          def:=object_dec(odt_object,name,genericdef,genericlist,nil,ht_none);
                         end;
-                      else
+                      else begin
+                        consume(_RECORD);
                         def:=record_dec(name,genericdef,genericlist);
+                      end;
                     end;
                     current_settings.packrecords:=oldpackrecords;
                   end;
@@ -1518,7 +1583,7 @@ implementation
                 if not(m_class in current_settings.modeswitches) then
                   Message(parser_f_need_objfpc_or_delphi_mode);
                 consume(token);
-                def:=object_dec(odt_dispinterface,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_dispinterface,name,genericdef,genericlist,nil,ht_none);
               end;
             _CLASS :
               begin
@@ -1545,12 +1610,18 @@ implementation
                       Message1(type_e_class_or_objcclass_type_expected,hdef.typename);
                   end
                 else
-                  def:=object_dec(odt_class,name,genericdef,genericlist,nil);
+                if (idtoken=_HELPER) then
+                  begin
+                    consume(_HELPER);
+                    def:=object_dec(odt_helper,name,genericdef,genericlist,nil,ht_class);
+                  end
+                else
+                  def:=object_dec(odt_class,name,genericdef,genericlist,nil,ht_none);
               end;
             _CPPCLASS :
               begin
                 consume(token);
-                def:=object_dec(odt_cppclass,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_cppclass,name,genericdef,genericlist,nil,ht_none);
               end;
             _OBJCCLASS :
               begin
@@ -1558,7 +1629,7 @@ implementation
                   Message(parser_f_need_objc);
 
                 consume(token);
-                def:=object_dec(odt_objcclass,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_objcclass,name,genericdef,genericlist,nil,ht_none);
               end;
             _INTERFACE :
               begin
@@ -1568,9 +1639,9 @@ implementation
                   Message(parser_f_need_objfpc_or_delphi_mode);
                 consume(token);
                 if current_settings.interfacetype=it_interfacecom then
-                  def:=object_dec(odt_interfacecom,name,genericdef,genericlist,nil)
+                  def:=object_dec(odt_interfacecom,name,genericdef,genericlist,nil,ht_none)
                 else {it_interfacecorba}
-                  def:=object_dec(odt_interfacecorba,name,genericdef,genericlist,nil);
+                  def:=object_dec(odt_interfacecorba,name,genericdef,genericlist,nil,ht_none);
               end;
             _OBJCPROTOCOL :
                begin
@@ -1578,7 +1649,7 @@ implementation
                   Message(parser_f_need_objc);
 
                 consume(token);
-                def:=object_dec(odt_objcprotocol,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_objcprotocol,name,genericdef,genericlist,nil,ht_none);
                end;
             _OBJCCATEGORY :
                begin
@@ -1586,12 +1657,12 @@ implementation
                   Message(parser_f_need_objc);
 
                 consume(token);
-                def:=object_dec(odt_objccategory,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_objccategory,name,genericdef,genericlist,nil,ht_none);
                end;
             _OBJECT :
               begin
                 consume(token);
-                def:=object_dec(odt_object,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_object,name,genericdef,genericlist,nil,ht_none);
               end;
             _PROCEDURE,
             _FUNCTION:
