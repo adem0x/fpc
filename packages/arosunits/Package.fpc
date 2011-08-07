@@ -1,0 +1,6 @@
+[package]
+name=arosunits
+version=2.7.1
+[require]
+packages=rtl 
+packages_aros_i386=

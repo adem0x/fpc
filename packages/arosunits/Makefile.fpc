@@ -1,0 +1,24 @@
+#
+#   Makefile.fpc for Free Pascal Amiga units Bindings
+#
+
+[package]
+name=arosunits
+version=2.7.1
+
+[target]
+units= amigados exec intuition gadtools workbench asl agraphics inputevent layers longarray \
+       mui pastoc tagsarray timer utility amigalib timerutils
+
+[compiler]
+includedir=src
+sourcedir=src
+
+[install]
+fpcpackage=y
+
+[default]
+fpcdir=../..
+
+[rules]
+.NOTPARALLEL:
