@@ -713,6 +713,10 @@ begin
     default_target(system_i386_darwin);
     {$define default_target_set}
    {$endif}
+   {$ifdef aros}
+    default_target(system_i386_aros);
+    {$define default_target_set}
+   {$endif}
   {$endif cpu86}
   { default is linux }
   {$ifndef default_target_set}

@@ -29,19 +29,15 @@ program fpc;
 {$ifdef UNIX}
     exeext='';
 {$else UNIX}
-  {$ifdef AMIGA}
+  {$if defined(AMIGA) or defined(MORPHOS) or defined(AROS)}
     exeext='';
   {$else}
-    {$ifdef MORPHOS}
-      exeext='';
+    {$ifdef NETWARE}
+    exeext='.nlm';
     {$else}
-      {$ifdef NETWARE}
-      exeext='.nlm';
-      {$else}
-      exeext='.exe';
-      {$endif NETWARE}
-    {$endif MORPHOS}
-  {$endif AMIGA}
+    exeext='.exe';
+    {$endif NETWARE}
+  {$endif AMIGA MORPHOS AROS}
 {$endif UNIX}
 
 

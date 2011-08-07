@@ -489,7 +489,8 @@ implementation
          system_i386_iphonesim,
          system_powerpc64_darwin,
          system_x86_64_darwin,
-         system_arm_darwin:
+         system_arm_darwin,
+         system_i386_aros:
            begin
              if (atype in [sec_stub,sec_objc_data,sec_objc_const,sec_data_coalesced]) then
                AsmWrite('.section ');

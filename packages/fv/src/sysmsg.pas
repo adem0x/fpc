@@ -91,6 +91,10 @@ implementation
 {$i amismsg.inc}
 {$define HAS_SYSMSG}
 {$endif morphos}
+{$ifdef aros}
+{$i amismsg.inc}
+{$define HAS_SYSMSG}
+{$endif aros}
 
 {$ifdef HAS_SYSMSG}
 

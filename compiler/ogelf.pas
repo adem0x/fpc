@@ -1260,7 +1260,7 @@ implementation
             asmbin : '';
             asmcmd : '';
             supported_targets : [system_i386_linux,system_i386_beos,system_i386_freebsd,system_i386_haiku,system_i386_Netware,system_i386_netwlibc,
-	                              system_i386_solaris,system_i386_embedded];
+	                              system_i386_solaris,system_i386_embedded, system_i386_aros];
             flags : [af_outputbinary,af_smartlink_sections,af_supports_dwarf];
             labelprefix : '.L';
             comment : '';

@@ -861,7 +861,7 @@ implementation
       {$endif}
       end;
 
-{$if defined(MORPHOS) or defined(AMIGA)}
+{$if defined(MORPHOS) or defined(AMIGA) or defined(AROS)}
   {$define AMIGASHELL}
 {$endif}
 

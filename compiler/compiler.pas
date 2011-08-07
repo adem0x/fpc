@@ -116,6 +116,9 @@ uses
 {$ifdef nativent}
   ,i_nativent
 {$endif nativent}
+{$ifdef aros}
+  ,i_aros
+{$endif aros}
   ,globtype;
 
 function Compile(const cmd:TCmdStr):longint;

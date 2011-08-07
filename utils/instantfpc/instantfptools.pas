@@ -4,6 +4,10 @@ unit InstantFPTools;
 
 {$define UseFpExecV}
 
+{$ifdef AROS}
+  {$undef UseFpExecV}
+  {$undef HASEXEEXT}
+{$endif AROS}
 {$ifdef WINDOWS}
   {$undef UseFpExecV}
   {$define HASEXEEXT}
