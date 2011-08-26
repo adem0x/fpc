@@ -100,6 +100,8 @@ endif
 endif
 export ECHO
 endif
+override OS_TARGET_DEFAULT=aros
+override CPU_TARGET_DEFAULT=i386
 override DEFAULT_FPCDIR=../..
 ifndef FPC
 ifdef PP
@@ -288,789 +290,995 @@ FPMAKE_SKIP_CONFIG=-n
 FPCFPMAKE=$(FPC)
 endif
 endif
+override PACKAGE_NAME=rtl
+PACKAGEDIR_MAIN:=$(firstword $(subst /Makefile.fpc,,$(strip $(wildcard $(addsuffix /rtl/Makefile.fpc,$(PACKAGESDIR))))))
+RTL=..
+INC=$(RTL)/inc
+COMMON=$(RTL)/common
+PROCINC=$(RTL)/$(CPU_TARGET)
+UNITPREFIX=rtl
+SYSTEMUNIT=system
+ifdef RELEASE
+override FPCOPT+=-Ur
+endif
+OBJPASDIR=$(RTL)/objpas
+GRAPHDIR=$(INC)/graph
 ifeq ($(FULL_TARGET),i386-linux)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-go32v2)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-win32)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-os2)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-freebsd)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-beos)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-haiku)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-netbsd)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-solaris)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-qnx)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-netware)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-openbsd)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-wdosx)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-darwin)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-emx)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-watcom)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-netwlibc)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-wince)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-embedded)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-symbian)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-nativent)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-iphonesim)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-aros)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),m68k-linux)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),m68k-freebsd)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),m68k-netbsd)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),m68k-amiga)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),m68k-atari)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),m68k-openbsd)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),m68k-palmos)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),m68k-embedded)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),powerpc-linux)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),powerpc-netbsd)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),powerpc-amiga)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),powerpc-macos)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),powerpc-darwin)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),powerpc-morphos)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),powerpc-embedded)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),powerpc-wii)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),sparc-linux)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),sparc-netbsd)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),sparc-solaris)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),sparc-embedded)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),x86_64-linux)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),x86_64-freebsd)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),x86_64-solaris)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),x86_64-darwin)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),x86_64-win64)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),x86_64-embedded)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),x86_64-aros)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),arm-linux)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),arm-palmos)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),arm-darwin)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),arm-wince)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),arm-gba)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),arm-nds)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),arm-embedded)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),arm-symbian)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),powerpc64-linux)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),powerpc64-darwin)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),powerpc64-embedded)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),avr-embedded)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),armeb-linux)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),armeb-embedded)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),mipsel-linux)
-override TARGET_PROGRAMS+=fpc ppufiles ppudump ppumove fpcsubst mkarmins mkx86ins
+override TARGET_UNITS+=$(SYSTEMUNIT) objpas macpas iso7185 strings dos heaptrc ctypes sysutils fgl classes strutils math typinfo varutils fmtbcd charset ucomplex getopts matrix variants types rtlconsts sysconst dateutil objects fpintres exeinfo lineinfo
 endif
 ifeq ($(FULL_TARGET),i386-linux)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-go32v2)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-win32)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-os2)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-freebsd)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-beos)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-haiku)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-netbsd)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-solaris)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-qnx)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-netware)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-openbsd)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-wdosx)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-darwin)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-emx)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-watcom)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-netwlibc)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-wince)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-embedded)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-symbian)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-nativent)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-iphonesim)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),i386-aros)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),m68k-linux)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),m68k-freebsd)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),m68k-netbsd)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),m68k-amiga)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),m68k-atari)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),m68k-openbsd)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),m68k-palmos)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),m68k-embedded)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),powerpc-linux)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),powerpc-netbsd)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),powerpc-amiga)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),powerpc-macos)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),powerpc-darwin)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),powerpc-morphos)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),powerpc-embedded)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),powerpc-wii)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),sparc-linux)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),sparc-netbsd)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),sparc-solaris)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),sparc-embedded)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),x86_64-linux)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),x86_64-freebsd)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),x86_64-solaris)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),x86_64-darwin)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),x86_64-win64)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),x86_64-embedded)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),x86_64-aros)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),arm-linux)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),arm-palmos)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),arm-darwin)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),arm-wince)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),arm-gba)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),arm-nds)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),arm-embedded)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),arm-symbian)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),powerpc64-linux)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),powerpc64-darwin)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),powerpc64-embedded)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),avr-embedded)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),armeb-linux)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),armeb-embedded)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
 endif
 ifeq ($(FULL_TARGET),mipsel-linux)
-override CLEAN_UNITS+=ppu crc usubst
+override TARGET_LOADERS+=prt0
+endif
+ifeq ($(FULL_TARGET),i386-linux)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-go32v2)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-win32)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-os2)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-freebsd)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-beos)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-haiku)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-netbsd)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-solaris)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-qnx)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-netware)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-openbsd)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-wdosx)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-darwin)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-emx)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-watcom)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-netwlibc)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-wince)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-embedded)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-symbian)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-nativent)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-iphonesim)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),i386-aros)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),m68k-linux)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),m68k-freebsd)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),m68k-netbsd)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),m68k-amiga)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),m68k-atari)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),m68k-openbsd)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),m68k-palmos)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),m68k-embedded)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),powerpc-linux)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),powerpc-netbsd)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),powerpc-amiga)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),powerpc-macos)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),powerpc-darwin)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),powerpc-morphos)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),powerpc-embedded)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),powerpc-wii)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),sparc-linux)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),sparc-netbsd)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),sparc-solaris)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),sparc-embedded)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),x86_64-linux)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),x86_64-freebsd)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),x86_64-solaris)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),x86_64-darwin)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),x86_64-win64)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),x86_64-embedded)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),x86_64-aros)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),arm-linux)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),arm-palmos)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),arm-darwin)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),arm-wince)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),arm-gba)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),arm-nds)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),arm-embedded)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),arm-symbian)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),powerpc64-linux)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),powerpc64-darwin)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),powerpc64-embedded)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),avr-embedded)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),armeb-linux)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),armeb-embedded)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
+endif
+ifeq ($(FULL_TARGET),mipsel-linux)
+override TARGET_RSTS+=math rtlconsts varutils typinfo variants classes sysconst dateutil
 endif
 override INSTALL_FPCPACKAGE=y
 ifeq ($(FULL_TARGET),i386-linux)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-go32v2)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-win32)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-os2)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-freebsd)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-beos)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-haiku)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-netbsd)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-solaris)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-qnx)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-netware)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-openbsd)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-wdosx)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-darwin)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-emx)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-watcom)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-netwlibc)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-wince)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-embedded)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-symbian)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-nativent)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-iphonesim)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-aros)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),m68k-linux)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),m68k-freebsd)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),m68k-netbsd)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),m68k-amiga)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),m68k-atari)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),m68k-openbsd)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),m68k-palmos)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),m68k-embedded)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),powerpc-linux)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),powerpc-netbsd)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),powerpc-amiga)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),powerpc-macos)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),powerpc-darwin)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),powerpc-morphos)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),powerpc-embedded)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),powerpc-wii)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),sparc-linux)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),sparc-netbsd)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),sparc-solaris)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),sparc-embedded)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),x86_64-linux)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),x86_64-freebsd)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),x86_64-solaris)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),x86_64-darwin)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),x86_64-win64)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),x86_64-embedded)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),x86_64-aros)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),arm-linux)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),arm-palmos)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),arm-darwin)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),arm-wince)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),arm-gba)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),arm-nds)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),arm-embedded)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),arm-symbian)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),powerpc64-linux)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),powerpc64-darwin)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),powerpc64-embedded)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),avr-embedded)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),armeb-linux)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),armeb-embedded)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),mipsel-linux)
-override COMPILER_UNITDIR+=..
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) $(CPU_TARGET)
 endif
 ifeq ($(FULL_TARGET),i386-linux)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-go32v2)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-win32)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-os2)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-freebsd)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-beos)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-haiku)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-netbsd)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-solaris)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-qnx)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-netware)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-openbsd)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-wdosx)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-darwin)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-emx)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-watcom)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-netwlibc)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-wince)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-embedded)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-symbian)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-nativent)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-iphonesim)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),i386-aros)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),m68k-linux)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),m68k-freebsd)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),m68k-netbsd)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),m68k-amiga)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),m68k-atari)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),m68k-openbsd)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),m68k-palmos)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),m68k-embedded)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),powerpc-linux)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),powerpc-netbsd)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),powerpc-amiga)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),powerpc-macos)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),powerpc-darwin)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),powerpc-morphos)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),powerpc-embedded)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),powerpc-wii)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),sparc-linux)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),sparc-netbsd)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),sparc-solaris)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),sparc-embedded)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),x86_64-linux)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),x86_64-freebsd)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),x86_64-solaris)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),x86_64-darwin)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),x86_64-win64)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),x86_64-embedded)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),x86_64-aros)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),arm-linux)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),arm-palmos)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),arm-darwin)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),arm-wince)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),arm-gba)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),arm-nds)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),arm-embedded)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),arm-symbian)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),powerpc64-linux)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),powerpc64-darwin)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),powerpc64-embedded)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),avr-embedded)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),armeb-linux)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),armeb-embedded)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
 ifeq ($(FULL_TARGET),mipsel-linux)
-override COMPILER_SOURCEDIR+=..
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(CPU_TARGET) $(COMMON)
 endif
-override SHARED_BUILD=n
-override SHARED_BUILD=n
 ifdef REQUIRE_UNITSDIR
 override UNITSDIR+=$(REQUIRE_UNITSDIR)
 endif
@@ -1851,240 +2059,6 @@ else
 TAROPT=vz
 TAREXT=.tar.gz
 endif
-override REQUIRE_PACKAGES=rtl 
-ifeq ($(FULL_TARGET),i386-linux)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-go32v2)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-win32)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-os2)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-freebsd)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-beos)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-haiku)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-netbsd)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-solaris)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-qnx)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-netware)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-openbsd)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-wdosx)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-darwin)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-emx)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-watcom)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-netwlibc)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-wince)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-embedded)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-symbian)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-nativent)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-iphonesim)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),i386-aros)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),m68k-linux)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),m68k-freebsd)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),m68k-netbsd)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),m68k-amiga)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),m68k-atari)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),m68k-openbsd)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),m68k-palmos)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),m68k-embedded)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),powerpc-linux)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),powerpc-netbsd)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),powerpc-amiga)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),powerpc-macos)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),powerpc-darwin)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),powerpc-morphos)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),powerpc-embedded)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),powerpc-wii)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),sparc-linux)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),sparc-netbsd)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),sparc-solaris)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),sparc-embedded)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),x86_64-linux)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),x86_64-freebsd)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),x86_64-solaris)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),x86_64-darwin)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),x86_64-win64)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),x86_64-embedded)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),x86_64-aros)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),arm-linux)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),arm-palmos)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),arm-darwin)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),arm-wince)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),arm-gba)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),arm-nds)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),arm-embedded)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),arm-symbian)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),powerpc64-linux)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),powerpc64-darwin)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),powerpc64-embedded)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),avr-embedded)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),armeb-linux)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),armeb-embedded)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifeq ($(FULL_TARGET),mipsel-linux)
-REQUIRE_PACKAGES_RTL=1
-endif
-ifdef REQUIRE_PACKAGES_RTL
-PACKAGEDIR_RTL:=$(firstword $(subst /Makefile.fpc,,$(strip $(wildcard $(addsuffix /rtl/Makefile.fpc,$(PACKAGESDIR))))))
-ifneq ($(PACKAGEDIR_RTL),)
-ifneq ($(wildcard $(PACKAGEDIR_RTL)/units/$(TARGETSUFFIX)),)
-UNITDIR_RTL=$(PACKAGEDIR_RTL)/units/$(TARGETSUFFIX)
-else
-UNITDIR_RTL=$(PACKAGEDIR_RTL)
-endif
-ifneq ($(wildcard $(PACKAGEDIR_RTL)/units/$(SOURCESUFFIX)),)
-UNITDIR_FPMAKE_RTL=$(PACKAGEDIR_RTL)/units/$(SOURCESUFFIX)
-else
-ifneq ($(wildcard $(PACKAGEDIR_RTL)/units_bs/$(SOURCESUFFIX)),)
-UNITDIR_FPMAKE_RTL=$(PACKAGEDIR_RTL)/units_bs/$(SOURCESUFFIX)
-else
-UNITDIR_FPMAKE_RTL=$(PACKAGEDIR_RTL)
-endif
-endif
-ifdef CHECKDEPEND
-$(PACKAGEDIR_RTL)/$(OS_TARGET)/$(FPCMADE):
-	$(MAKE) -C $(PACKAGEDIR_RTL)/$(OS_TARGET) $(FPCMADE)
-override ALLDEPENDENCIES+=$(PACKAGEDIR_RTL)/$(OS_TARGET)/$(FPCMADE)
-endif
-else
-PACKAGEDIR_RTL=
-UNITDIR_RTL:=$(subst /Package.fpc,,$(strip $(wildcard $(addsuffix /rtl/Package.fpc,$(UNITSDIR)))))
-ifneq ($(UNITDIR_RTL),)
-UNITDIR_RTL:=$(firstword $(UNITDIR_RTL))
-else
-UNITDIR_RTL=
-endif
-endif
-ifdef UNITDIR_RTL
-override COMPILER_UNITDIR+=$(UNITDIR_RTL)
-endif
-ifdef UNITDIR_FPMAKE_RTL
-override COMPILER_FPMAKE_UNITDIR+=$(UNITDIR_FPMAKE_RTL)
-endif
-endif
 ifndef NOCPUDEF
 override FPCOPTDEF=$(ARCH)
 endif
@@ -2238,23 +2212,42 @@ EXECPPAS:=@$(PPAS)
 endif
 endif
 endif
-.PHONY: fpc_exes
-ifndef CROSSINSTALL
-ifneq ($(TARGET_PROGRAMS),)
-override EXEFILES=$(addsuffix $(EXEEXT),$(TARGET_PROGRAMS))
-override EXEOFILES:=$(addsuffix $(OEXT),$(TARGET_PROGRAMS)) $(addprefix $(STATICLIBPREFIX),$(addsuffix $(STATICLIBEXT),$(TARGET_PROGRAMS))) $(addprefix $(IMPORTLIBPREFIX),$(addsuffix $(STATICLIBEXT),$(TARGET_PROGRAMS)))
-override ALLTARGET+=fpc_exes
-override INSTALLEXEFILES+=$(EXEFILES)
-override CLEANEXEFILES+=$(EXEFILES) $(EXEOFILES)
-ifeq ($(OS_TARGET),os2)
-override CLEANEXEFILES+=$(addsuffix $(AOUTEXT),$(TARGET_PROGRAMS))
+.PHONY: fpc_loaders
+ifneq ($(TARGET_LOADERS),)
+override ALLTARGET+=fpc_loaders
+override CLEANTARGET+=fpc_loaders_clean
+override INSTALLTARGET+=fpc_loaders_install
+override LOADEROFILES:=$(addsuffix $(OEXT),$(TARGET_LOADERS))
 endif
-ifeq ($(OS_TARGET),emx)
-override CLEANEXEFILES+=$(addsuffix $(AOUTEXT),$(TARGET_PROGRAMS))
+%$(OEXT): %$(LOADEREXT)
+ifdef COMPILER_UNITTARGETDIR
+	$(AS) -o $(COMPILER_UNITTARGETDIR)/$*$(OEXT) $<
+else
+	$(AS) -o $*$(OEXT) $<
 endif
+fpc_loaders: $(COMPILER_UNITTARGETDIR) $(LOADEROFILES)
+fpc_loaders_clean:
+ifdef COMPILER_UNITTARGETDIR
+	-$(DEL) $(addprefix $(COMPILER_UNITTARGETDIR)/,$(LOADEROFILES))
+else
+	-$(DEL) $(LOADEROFILES)
 endif
+fpc_loaders_install:
+	$(MKDIR) $(INSTALL_UNITDIR)
+ifdef COMPILER_UNITTARGETDIR
+	$(INSTALL) $(addprefix $(COMPILER_UNITTARGETDIR)/,$(LOADEROFILES)) $(INSTALL_UNITDIR)
+else
+	$(INSTALL) $(LOADEROFILES) $(INSTALL_UNITDIR)
 endif
-fpc_exes: $(COMPILER_TARGETDIR) $(COMPILER_UNITTARGETDIR) $(EXEFILES)
+.PHONY: fpc_units
+ifneq ($(TARGET_UNITS)$(TARGET_IMPLICITUNITS),)
+override ALLTARGET+=fpc_units
+override UNITPPUFILES=$(addsuffix $(PPUEXT),$(TARGET_UNITS))
+override IMPLICITUNITPPUFILES=$(addsuffix $(PPUEXT),$(TARGET_IMPLICITUNITS))
+override INSTALLPPUFILES+=$(UNITPPUFILES) $(IMPLICITUNITPPUFILES)
+override CLEANPPUFILES+=$(UNITPPUFILES) $(IMPLICITUNITPPUFILES)
+endif
+fpc_units: $(COMPILER_UNITTARGETDIR) $(UNITPPUFILES)
 ifdef TARGET_RSTS
 override RSTFILES=$(addsuffix $(RSTEXT),$(TARGET_RSTS))
 override CLEANRSTFILES+=$(RSTFILES)
@@ -2583,15 +2576,6 @@ endif
 fpc_makefile_sub2: $(addsuffix _makefile_dirs,$(TARGET_DIRS) $(TARGET_EXAMPLEDIRS))
 fpc_makefile_dirs: fpc_makefile_sub1 fpc_makefile_sub2
 fpc_makefiles: fpc_makefile fpc_makefile_dirs
-ifndef DATA2INC
-DATA2INC:=$(strip $(wildcard $(addsuffix /data2inc$(SRCEXEEXT),$(SEARCHPATH))))
-ifeq ($(DATA2INC),)
-DATA2INC= __missing_command_DATA2INC
-else
-DATA2INC:=$(firstword $(DATA2INC))
-endif
-endif
-export DATA2INC
 all: fpc_all
 debug: fpc_debug
 smart: fpc_smart
@@ -2617,34 +2601,56 @@ ifneq ($(wildcard fpcmake.loc),)
 include fpcmake.loc
 endif
 .NOTPARALLEL:
-ifndef NOCPUDEF
-ppu$(PPUEXT): ../ppu.pas
-	$(MAKE) ppu$(PPUEXT) NOCPUDEF=1
-ppudump$(EXEEXT): ppudump.pp ppu$(PPUEXT)
-	$(MAKE) ppudump$(EXEEXT) NOCPUDEF=1
-ppufiles$(EXEEXT): ppufiles.pp ppu$(PPUEXT)
-	$(MAKE) ppufiles$(EXEEXT) NOCPUDEF=1
-ppumove$(EXEEXT): ppumove.pp ppu$(PPUEXT)
-	$(MAKE) ppumove$(EXEEXT) NOCPUDEF=1
-else
-ppu$(PPUEXT): ../ppu.pas
-	$(COMPILER) ../ppu.pas -Fu../generic -dGENERIC_CPU -Fi..
-ppudump$(EXEEXT): ppudump.pp ppu$(PPUEXT)
-	$(COMPILER) ppudump.pp -Fu../generic -dGENERIC_CPU -Fi..
-ppufiles$(EXEEXT): ppufiles.pp ppu$(PPUEXT)
-	$(COMPILER) ppufiles.pp -Fu../generic -dGENERIC_CPU -Fi..
-ppumove$(EXEEXT): ppumove.pp ppu$(PPUEXT)
-	$(COMPILER) ppumove.pp -Fu../generic -dGENERIC_CPU -Fi..
-endif
-msg2inc$(EXEEXT): $(COMPILER_UNITTARGETDIR) msg2inc.pp
-fpcsubst$(EXEEXT): fpcsubst.pp usubst.pp
-fpcmkcfg$(EXEEXT): fpcmkcfg.pp usubst.pp fpccfg.inc fpcfg.inc fpini.inc
-ifneq ($(DATA2INC),)
-fpccfg.inc: fpc.cft
-	$(DATA2INC) -b -s fpc.cft fpccfg.inc DefaultConfig
-fpcfg.inc : fpinc.cfg
-	$(DATA2INC) -b -s fpinc.cfg fpcfg.inc fpcfg
-fpini.inc : fpinc.ini
-	$(DATA2INC) -b -s fpinc.ini fpini.inc fpini
-endif
-unexport PPUFILES PPUMOVE
+include $(INC)/makefile.inc
+SYSINCDEPS=$(addprefix $(INC)/,$(SYSINCNAMES))
+include $(PROCINC)/makefile.cpu
+SYSCPUDEPS=$(addprefix $(PROCINC)/,$(CPUINCNAMES))
+SYSDEPS=$(SYSINCDEPS) $(SYSCPUDEPS)
+prt0$(OEXT) : $(CPU_TARGET)/prt0.as
+	$(AS) -o $(UNITTARGETDIRPREFIX)prt0$(OEXT) $(CPU_TARGET)/prt0.as
+$(SYSTEMUNIT)$(PPUEXT) : $(SYSTEMUNIT).pp $(SYSDEPS)
+	$(COMPILER) -Us -Sg $(SYSTEMUNIT).pp $(REDIR)
+objpas$(PPUEXT): $(OBJPASDIR)/objpas.pp $(INC)/except.inc $(SYSTEMUNIT)$(PPUEXT)
+	$(COMPILER) -I$(OBJPASDIR) $(OBJPASDIR)/objpas.pp $(REDIR)
+strings$(PPUEXT) : $(INC)/strings.pp $(INC)/stringsi.inc \
+		   $(PROCINC)/strings.inc $(PROCINC)/stringss.inc \
+		   $(SYSTEMUNIT)$(PPUEXT)
+dos$(PPUEXT) : dos.pp $(INC)/filerec.inc $(INC)/textrec.inc strings$(PPUEXT) \
+	       $(SYSTEMUNIT)$(PPUEXT)
+objects$(PPUEXT) : $(INC)/objects.pp dos$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
+sysutils$(PPUEXT) : sysutils.pp $(wildcard $(OBJPASDIR)/sysutils/*.inc) \
+		    objpas$(PPUEXT) dos$(PPUEXT) sysconst$(PPUEXT)
+	$(COMPILER) -Fi$(OBJPASDIR)/sysutils sysutils.pp
+classes$(PPUEXT) : classes.pp $(wildcard $(OBJPASDIR)/classes/*.inc) \
+		   sysutils$(PPUEXT) typinfo$(PPUEXT) rtlconsts$(PPUEXT) types$(PPUEXT) fgl$(PPUEXT)
+	$(COMPILER) -Fi$(OBJPASDIR)/classes classes.pp
+strutils$(PPUEXT) : $(OBJPASDIR)/strutils.pp objpas$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT) \
+		    sysutils$(PPUEXT)
+	$(COMPILER) $(OBJPASDIR)/strutils.pp
+typinfo$(PPUEXT): $(OBJPASDIR)/typinfo.pp objpas$(PPUEXT)
+	$(COMPILER) -Sg $(OBJPASDIR)/typinfo.pp $(REDIR)
+math$(PPUEXT): $(OBJPASDIR)/math.pp objpas$(PPUEXT) sysutils$(PPUEXT)
+	$(COMPILER) $(OBJPASDIR)/math.pp $(REDIR)
+varutils$(PPUEXT) : $(OBJPASDIR)/cvarutil.inc $(OBJPASDIR)/varutils.inc \
+		    $(OBJPASDIR)/varutilh.inc varutils.pp
+	$(COMPILER) -I$(OBJPASDIR) varutils.pp $(REDIR)
+fmtbcd$(PPUEXT) : $(OBJPASDIR)/fmtbcd.pp objpas$(PPUEXT) sysutils$(PPUEXT) variants$(PPUEXT) classes$(PPUEXT) system$(PPUEXT)
+	$(COMPILER) $(OBJPASDIR)/fmtbcd.pp
+fgl$(PPUEXT) : $(OBJPASDIR)/fgl.pp objpas$(PPUEXT) types$(PPUEXT) system$(PPUEXT) sysutils$(PPUEXT)
+	$(COMPILER) $(OBJPASDIR)/fgl.pp
+types$(PPUEXT) : $(OBJPASDIR/types.pp objpas$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
+	$(COMPILER) $(OBJPASDIR)/types.pp
+rtlconsts$(PPUEXT) : $(OBJPASDIR)/rtlconsts.pp
+	$(COMPILER) $(OBJPASDIR)/rtlconsts.pp
+sysconst$(PPUEXT) : $(OBJPASDIR)/sysconst.pp objpas$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
+	$(COMPILER) $(OBJPASDIR)/sysconst.pp
+dateutil$(PPUEXT) : $(OBJPASDIR)/dateutil.pp
+	$(COMPILER) -I$(OBJPASDIR) $(OBJPASDIR)/dateutil.pp
+macpas$(PPUEXT) : $(INC)/macpas.pp objpas$(PPUEXT) math$(PPUEXT)
+	$(COMPILER) $(INC)/macpas.pp $(REDIR)
+ucomplex$(PPUEXT): $(INC)/ucomplex.pp math$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
+getopts$(PPUEXT) : $(INC)/getopts.pp $(SYSTEMUNIT)$(PPUEXT)
+heaptrc$(PPUEXT) : $(INC)/heaptrc.pp $(SYSTEMUNIT)$(PPUEXT)
+	$(COMPILER) -Sg $(INC)/heaptrc.pp $(REDIR)
+charset$(PPUEXT) : $(INC)/charset.pp $(SYSTEMUNIT)$(PPUEXT)
+ctypes$(PPUEXT): $(INC)/ctypes.pp $(SYSTEMUNIT)$(PPUEXT)
