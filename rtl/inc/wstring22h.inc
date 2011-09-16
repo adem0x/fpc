@@ -83,10 +83,10 @@ function UnicodeToUtf8(Dest: PChar; Source: PWideChar; MaxBytes: SizeInt): SizeI
 function UnicodeToUtf8(Dest: PChar; MaxDestBytes: SizeUInt; Source: PWideChar; SourceChars: SizeUInt): SizeUInt;
 function Utf8ToUnicode(Dest: PWideChar; Source: PChar; MaxChars: SizeInt): SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
 function Utf8ToUnicode(Dest: PWideChar; MaxDestChars: SizeUInt; Source: PChar; SourceBytes: SizeUInt): SizeUInt;
-function UTF8Encode(const s : WideString) : UTF8String;
-function UTF8Decode(const s : UTF8String): WideString;
-function AnsiToUtf8(const s : RawByteString): UTF8String;{$ifdef SYSTEMINLINE}inline;{$endif}
-function Utf8ToAnsi(const s : UTF8String) : ansistring;{$ifdef SYSTEMINLINE}inline;{$endif}
+function UTF8Encode(const s : WideString) : RawByteString;
+function UTF8Decode(const s : RawByteString): WideString;
+function AnsiToUtf8(const s : RawByteString): RawByteString;{$ifdef SYSTEMINLINE}inline;{$endif}
+function Utf8ToAnsi(const s : RawByteString) : ansistring;{$ifdef SYSTEMINLINE}inline;{$endif}
 function WideStringToUCS4String(const s : WideString) : UCS4String;
 function UCS4StringToWideString(const s : UCS4String) : WideString;
 

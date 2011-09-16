@@ -1798,7 +1798,7 @@ begin
 end;
 
 
-function UTF8Encode(const s : WideString) : UTF8String;
+function UTF8Encode(const s : WideString) : RawByteString;
   var
     i : SizeInt;
     hs : UTF8String;
@@ -1816,7 +1816,7 @@ function UTF8Encode(const s : WideString) : UTF8String;
   end;
 
 
-function UTF8Decode(const s : UTF8String): WideString;
+function UTF8Decode(const s : RawByteString): WideString;
   var
     i : SizeInt;
     hs : WideString;
@@ -1834,13 +1834,13 @@ function UTF8Decode(const s : UTF8String): WideString;
   end;
 
 
-function AnsiToUtf8(const s : ansistring): UTF8String;{$ifdef SYSTEMINLINE}inline;{$endif}
+function AnsiToUtf8(const s : ansistring): RawByteString;{$ifdef SYSTEMINLINE}inline;{$endif}
   begin
     Result:=Utf8Encode(s);
   end;
 
 
-function Utf8ToAnsi(const s : UTF8String) : ansistring;{$ifdef SYSTEMINLINE}inline;{$endif}
+function Utf8ToAnsi(const s : RawByteString) : ansistring;{$ifdef SYSTEMINLINE}inline;{$endif}
   begin
     Result:=Utf8Decode(s);
   end;
