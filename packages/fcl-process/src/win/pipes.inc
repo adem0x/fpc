@@ -31,7 +31,7 @@ Const piInheritablePipe : TSecurityAttributes = (
 Function CreatePipeHandles (Var Inhandle,OutHandle : THandle) : Boolean;
 
 begin
-  Result := CreatePipe (@Inhandle,@OutHandle,@piInheritablePipe,PipeBufSize);
+  Result := CreatePipe (@Inhandle,@OutHandle,@piNonInheritablePipe,PipeBufSize);
 end;
 
 
@@ -41,3 +41,12 @@ begin
     Result := 0;
 end;
 
+function TInputPipeStream.GetPosition: Int64;
+begin
+  Result:=FPos;
+end;
+
+procedure TInputPipeStream.InvalidSeek;
+begin
+  Raise EPipeSeek.Create (ENoSeekMsg);
+end;

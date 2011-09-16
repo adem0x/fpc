@@ -33,6 +33,7 @@ const
 
 type
   ppchar=^pchar;
+  TMsgStr = AnsiString;
 
   TArrayOfPChar = array[0..1000] of pchar;
   PArrayOfPChar = ^TArrayOfPChar;
@@ -52,15 +53,19 @@ type
     msgidx      : array[1..maxmsgidxparts] of PArrayOfPChar;
     msgidxmax   : array[1..maxmsgidxparts] of longint;
     msgstates   : array[1..maxmsgidxparts] of PArrayOfState;
+    { set if changes with $WARN need to be cleared at next module change }
+    has_local_changes : boolean;
     constructor Init(n:longint;const idxmax:array of longint);
     destructor  Done;
     function  LoadIntern(p:pointer;n:longint):boolean;
     function  LoadExtern(const fn:string):boolean;
     procedure ClearIdx;
+    procedure ResetStates;
     procedure CreateIdx;
     function  GetPChar(nr:longint):pchar;
-    function  ClearVerbosity(nr:longint):boolean;
-    function  Get(nr:longint;const args:array of string):ansistring;
+    { function  ClearVerbosity(nr:longint):boolean; not used anymore }
+    function  SetVerbosity(nr:longint;newstate:tmsgstate):boolean;
+    function  Get(nr:longint;const args:array of TMsgStr):ansistring;
   end;
 
 { this will read a line until #10 or #0 and also increase p }
@@ -74,11 +79,11 @@ uses
   cutils;
 
 
-function MsgReplace(const s:string;const args:array of string):ansistring;
+function MsgReplace(const s:TMsgStr;const args:array of TMsgStr):ansistring;
 var
   last,
   i  : longint;
-  hs : ansistring;
+  hs : TMsgStr;
 
 begin
   if s='' then
@@ -106,9 +111,10 @@ end;
 
 constructor TMessage.Init(n:longint;const idxmax:array of longint);
 var
-  i : longint;
+  i,j : longint;
 begin
   msgtxt:=nil;
+  has_local_changes:=false;
   msgsize:=0;
   msgparts:=n;
   if n<>high(idxmax)+1 then
@@ -121,7 +127,9 @@ begin
      fillchar(msgidx[i]^,msgidxmax[i]*sizeof(pointer),0);
      { create array of states }
      getmem(msgstates[i],msgidxmax[i]*sizeof(tmsgstate));
-     fillchar(msgstates[i]^,msgidxmax[i]*sizeof(tmsgstate),0);
+     { default value for msgstate is ms_on_global }
+     for j:=0 to msgidxmax[i]-1 do
+       msgstates[i]^[j]:=ms_on_global;
    end;
 end;
 
@@ -169,7 +177,7 @@ var
   s,s1    : string;
   buf     : pointer;
 
-  procedure err(const msgstr:string);
+  procedure err(const msgstr:TMsgStr);
   begin
     writeln('*** PPC, file ',fn,', error in line ',line,': ',msgstr);
     error:=true;
@@ -367,7 +375,7 @@ var
   i  : longint;
 begin
   i:=0;
-  while not(p^ in [#0,#10]) and (i<255) do
+  while not(p^ in [#0,#10]) and (i<256) do
    begin
      inc(i);
      GetMsgLine[i]:=p^;
@@ -386,31 +394,76 @@ end;
 
 function TMessage.GetPChar(nr:longint):pchar;
 begin
-  GetPChar:=msgidx[nr div 1000]^[nr mod 1000];
+  if (nr div 1000 < msgparts) and
+     (nr mod 1000 <  msgidxmax[nr div 1000]) then
+    GetPChar:=msgidx[nr div 1000]^[nr mod 1000]
+  else
+    GetPChar:='';
 end;
 
-function TMessage.ClearVerbosity(nr:longint):boolean;
+function TMessage.SetVerbosity(nr:longint;newstate:tmsgstate):boolean;
 var
   i: longint;
+  oldstate : tmsgstate;
+  is_global : boolean;
 begin
   result:=false;
   i:=nr div 1000;
   if (i < low(msgstates)) or
      (i > msgparts) then
     exit;
-  msgstates[i]^[nr mod 1000]:=ms_off;
-  result:=true;
+  if (nr mod 1000 < msgidxmax[i]) then
+    begin
+      is_global:=(ord(newstate) and ms_global_mask) <> 0;
+      oldstate:=msgstates[i]^[nr mod 1000];
+      if not is_global then
+        newstate:= tmsgstate((ord(newstate) and ms_local_mask) or (ord(oldstate) and ms_global_mask));
+      if newstate<>oldstate then
+        has_local_changes:=true;
+      msgstates[i]^[nr mod 1000]:=newstate;
+      result:=true;
+    end;
 end;
 
-function TMessage.Get(nr:longint;const args:array of string):ansistring;
+{
+function TMessage.ClearVerbosity(nr:longint):boolean;
+begin
+  ClearVerbosity:=SetVerbosity(nr,ms_off);
+end;
+}
+
+function TMessage.Get(nr:longint;const args:array of TMsgStr):ansistring;
 var
   hp : pchar;
 begin
-  hp:=msgidx[nr div 1000]^[nr mod 1000];
+  if (nr div 1000 < msgparts) and
+     (nr mod 1000 <  msgidxmax[nr div 1000]) then
+    hp:=msgidx[nr div 1000]^[nr mod 1000]
+  else
+    hp:=nil;
   if hp=nil then
     Get:='msg nr '+tostr(nr)
   else
     Get:=MsgReplace(system.strpas(hp),args);
 end;
+
+procedure TMessage.ResetStates;
+var
+  i,j,glob : longint;
+  state : tmsgstate;
+begin
+  if not has_local_changes then
+    exit;
+  for i:=1 to msgparts do
+    for j:=0 to msgidxmax[i] - 1 do
+      begin
+        state:=msgstates[i]^[j];
+        glob:=(ord(state) and ms_global_mask) shr ms_shift;
+        state:=tmsgstate((glob shl ms_shift) or glob);
+        msgstates[i]^[j]:=state;
+      end;
+  has_local_changes:=false;
+end;
+
 
 end.

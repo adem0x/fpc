@@ -192,6 +192,9 @@ begin
 {$endif FPC_ARMEL}
 {$endif arm}
 
+{$ifdef mips}
+     defdynlinker:='/lib/ld.so.1';
+{$endif mips}
      {
        Search order:
          glibc 2.1+
@@ -327,6 +330,7 @@ Var
   s,s1,s2      : TCmdStr;
   found1,
   found2       : boolean;
+  linksToSharedLibFiles : boolean;
 begin
   result:=False;
 { set special options for some targets }
@@ -389,18 +393,12 @@ begin
          if librarysearchpath.FindFile('crti.o',false,s) then
            AddFileName(s);
          { then the crtbegin* }
-         { x86_64 requires this to use entry/exit code with pic,
-           see also issue #8210 regarding a discussion
-           no idea about the other non i386 CPUs (FK)
-         }
-{$ifdef x86_64}
-         if current_module.islibrary then
+         if cs_create_pic in current_settings.moduleswitches then
            begin
              if librarysearchpath.FindFile('crtbeginS.o',false,s) then
                AddFileName(s);
            end
          else
-{$endif x86_64}
            if (cs_link_staticflag in current_settings.globalswitches) and
               librarysearchpath.FindFile('crtbeginT.o',false,s) then
              AddFileName(s)
@@ -435,6 +433,13 @@ begin
 
       { Write sharedlibraries like -l<lib>, also add the needed dynamic linker
         here to be sure that it gets linked this is needed for glibc2 systems (PFV) }
+      if (isdll) then
+       begin
+         Add('INPUT(');
+         Add(info.DynamicLinker);
+         Add(')');
+       end;
+      linksToSharedLibFiles := not SharedLibFiles.Empty;
 
       if not SharedLibFiles.Empty then
        begin
@@ -484,15 +489,9 @@ begin
       { objects which must be at the end }
       if linklibc and (libctype<>uclibc) then
        begin
-         { x86_64 requires this to use entry/exit code with pic,
-           see also issue #8210 regarding a discussion
-           no idea about the other non i386 CPUs (FK)
-         }
-{$ifdef x86_64}
-         if current_module.islibrary then
+         if cs_create_pic in current_settings.moduleswitches then
            found1:=librarysearchpath.FindFile('crtendS.o',false,s1)
          else
-{$endif x86_64}
            found1:=librarysearchpath.FindFile('crtend.o',false,s1);
          found2:=librarysearchpath.FindFile('crtn.o',false,s2);
          if found1 or found2 then
@@ -506,8 +505,13 @@ begin
           end;
        end;
 
-      {Entry point.}
-      add('ENTRY(_start)');
+      {Entry point. Only needed for executables, set on the linker command line for
+       shared libraries. }
+      if (not isdll) then
+       if (linksToSharedLibFiles and not linklibc) then
+        add('ENTRY(_dynamic_start)')
+       else
+        add('ENTRY(_start)');
 
 {$ifdef x86_64}
 {$define LINKERSCRIPT_INCLUDED}
@@ -650,7 +654,6 @@ begin
           add('OUTPUT_FORMAT("elf32-littlearm", "elf32-bigarm",');
           add('	      "elf32-littlearm")');
           add('OUTPUT_ARCH(arm)');
-          add('ENTRY(_start)');
           add('SEARCH_DIR("=/usr/local/lib"); SEARCH_DIR("=/lib"); SEARCH_DIR("=/usr/lib");');
           add('SECTIONS');
           add('{');

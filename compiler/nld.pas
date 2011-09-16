@@ -101,6 +101,7 @@ interface
 
        ttypenode = class(tnode)
           allowed : boolean;
+          helperallowed : boolean;
           typedef : tdef;
           typedefderef : tderef;
           constructor create(def:tdef);virtual;
@@ -302,6 +303,8 @@ implementation
                if vo_is_self in tabstractvarsym(symtableentry).varoptions then
                  begin
                    resultdef:=tprocdef(symtableentry.owner.defowner).struct;
+                   if is_objectpascal_helper(resultdef) then
+                     resultdef:=tobjectdef(resultdef).extendeddef;
                    if (po_classmethod in tprocdef(symtableentry.owner.defowner).procoptions) or
                       (po_staticmethod in tprocdef(symtableentry.owner.defowner).procoptions) then
                      resultdef:=tclassrefdef.create(resultdef)
@@ -622,7 +625,16 @@ implementation
           begin
             { check if the assignment may cause a range check error }
             check_ranges(fileinfo,right,left.resultdef);
-            inserttypeconv(right,left.resultdef);
+
+            { beginners might be confused about an error message like
+              Incompatible types: got "untyped" expected "LongInt"
+              when trying to assign the result of a procedure, so give
+              a better error message, see also #19122 }
+            if (left.resultdef.typ<>procvardef) and
+              (right.nodetype=calln) and is_void(right.resultdef) then
+              CGMessage(type_e_procedures_return_no_value)
+            else
+              inserttypeconv(right,left.resultdef);
           end;
 
         { call helpers for interface }
@@ -1032,6 +1044,7 @@ implementation
          inherited create(typen);
          typedef:=def;
          allowed:=false;
+         helperallowed:=false;
       end;
 
 
@@ -1040,6 +1053,7 @@ implementation
         inherited ppuload(t,ppufile);
         ppufile.getderef(typedefderef);
         allowed:=boolean(ppufile.getbyte);
+        helperallowed:=boolean(ppufile.getbyte);
       end;
 
 
@@ -1048,6 +1062,7 @@ implementation
         inherited ppuwrite(ppufile);
         ppufile.putderef(typedefderef);
         ppufile.putbyte(byte(allowed));
+        ppufile.putbyte(byte(helperallowed));
       end;
 
 
@@ -1085,6 +1100,8 @@ implementation
            an error }
          if not allowed then
           Message(parser_e_no_type_not_allowed_here);
+         if not helperallowed and is_objectpascal_helper(typedef) then
+           Message(parser_e_no_category_as_types);
       end;
 
 
@@ -1095,6 +1112,7 @@ implementation
          n:=ttypenode(inherited dogetcopy);
          n.allowed:=allowed;
          n.typedef:=typedef;
+         n.helperallowed:=helperallowed;
          result:=n;
       end;
 

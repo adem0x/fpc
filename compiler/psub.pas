@@ -104,7 +104,7 @@ implementation
        opttail,
        optcse,optloop,
        optutils
-{$if defined(arm) or defined(powerpc) or defined(powerpc64)}
+{$if defined(arm) or defined(powerpc) or defined(powerpc64) or defined(avr)}
        ,aasmcpu
 {$endif arm}
        {$ifndef NOOPT}
@@ -162,6 +162,8 @@ implementation
 
 
     function block(islibrary : boolean) : tnode;
+      var
+        oldfilepos: tfileposinfo;
       begin
          { parse const,types and vars }
          read_declarations(islibrary);
@@ -240,7 +242,14 @@ implementation
             begin
                block:=statement_block(_BEGIN);
                if current_procinfo.procdef.localst.symtabletype=localsymtable then
-                 current_procinfo.procdef.localst.SymList.ForEachCall(@initializevars,block);
+                 begin
+                   { initialization of local variables with their initial
+                     values: part of function entry }
+                   oldfilepos:=current_filepos;
+                   current_filepos:=current_procinfo.entrypos;
+                   current_procinfo.procdef.localst.SymList.ForEachCall(@initializevars,block);
+                   current_filepos:=oldfilepos;
+                 end;
             end;
       end;
 
@@ -1219,6 +1228,12 @@ implementation
             finalizearmcode(aktproccode,aktlocaldata);
 {$endif ARM}
 
+{$ifdef AVR}
+            { because of the limited branch distance of cond. branches, they must be replaced
+              somtimes by normal jmps and an inverse branch }
+            finalizeavrcode(aktproccode);
+{$endif AVR}
+
             { Add end symbol and debug info }
             { this must be done after the pcrelativedata is appended else the distance calculation of
               insertpcrelativedata will be wrong, further the pc indirect data is part of the procedure
@@ -1768,7 +1783,16 @@ implementation
 
                  { Import DLL specified? }
                  if assigned(pd.import_dll) then
-                   current_module.AddExternalImport(pd.import_dll^,proc_get_importname(pd),pd.import_nr,false,pd.import_name=nil)
+                   begin
+                     if assigned (pd.import_name) then
+                       current_module.AddExternalImport(pd.import_dll^,
+                         pd.import_name^,proc_get_importname(pd),
+                         pd.import_nr,false,false)
+                     else
+                       current_module.AddExternalImport(pd.import_dll^,
+                         proc_get_importname(pd),proc_get_importname(pd),
+                         pd.import_nr,false,true);
+                   end
                  else
                    begin
                      { add import name to external list for DLL scanning }
@@ -1972,6 +1996,7 @@ implementation
         hp : tdef;
         oldcurrent_filepos : tfileposinfo;
         oldsymtablestack   : tsymtablestack;
+        oldextendeddefs    : TFPHashObjectList;
         pu : tused_unit;
         hmodule : tmodule;
         specobj : tabstractrecorddef;
@@ -1985,8 +2010,14 @@ implementation
 
         { Setup symtablestack a definition time }
         specobj:=tabstractrecorddef(ttypesym(p).typedef);
+
+        if not (is_class_or_object(specobj) or is_record(specobj)) then
+          exit;
+
         oldsymtablestack:=symtablestack;
-        symtablestack:=tsymtablestack.create;
+        oldextendeddefs:=current_module.extendeddefs;
+        current_module.extendeddefs:=TFPHashObjectList.create(true);
+        symtablestack:=tdefawaresymtablestack.create;
         if not assigned(specobj.genericdef) then
           internalerror(200705151);
         hmodule:=find_module_from_symtable(specobj.genericdef.owner);
@@ -2006,33 +2037,33 @@ implementation
           symtablestack.push(hmodule.localsymtable);
 
         { procedure definitions for classes or objects }
-        if is_class_or_object(specobj) or is_record(specobj) then
+        for i:=0 to specobj.symtable.DefList.Count-1 do
           begin
-            for i:=0 to specobj.symtable.DefList.Count-1 do
-              begin
-                hp:=tdef(specobj.symtable.DefList[i]);
-                if hp.typ=procdef then
+            hp:=tdef(specobj.symtable.DefList[i]);
+            if hp.typ=procdef then
+             begin
+               if assigned(tprocdef(hp).genericdef) and
+                 (tprocdef(hp).genericdef.typ=procdef) and
+                 assigned(tprocdef(tprocdef(hp).genericdef).generictokenbuf) then
                  begin
-                   if assigned(tprocdef(hp).genericdef) and
-                     (tprocdef(hp).genericdef.typ=procdef) and
-                     assigned(tprocdef(tprocdef(hp).genericdef).generictokenbuf) then
-                     begin
-                       oldcurrent_filepos:=current_filepos;
-                       current_filepos:=tprocdef(tprocdef(hp).genericdef).fileinfo;
-                       { use the index the module got from the current compilation process }
-                       current_filepos.moduleindex:=hmodule.unit_index;
-                       current_tokenpos:=current_filepos;
-                       current_scanner.startreplaytokens(tprocdef(tprocdef(hp).genericdef).generictokenbuf);
-                       read_proc_body(nil,tprocdef(hp));
-                       current_filepos:=oldcurrent_filepos;
-                     end
-                   else
-                     MessagePos1(tprocdef(hp).fileinfo,sym_e_forward_not_resolved,tprocdef(hp).fullprocname(false));
-                 end;
+                   oldcurrent_filepos:=current_filepos;
+                   current_filepos:=tprocdef(tprocdef(hp).genericdef).fileinfo;
+                   { use the index the module got from the current compilation process }
+                   current_filepos.moduleindex:=hmodule.unit_index;
+                   current_tokenpos:=current_filepos;
+                   current_scanner.startreplaytokens(tprocdef(tprocdef(hp).genericdef).generictokenbuf,
+                     tprocdef(tprocdef(hp).genericdef).change_endian);
+                   read_proc_body(nil,tprocdef(hp));
+                   current_filepos:=oldcurrent_filepos;
+                 end
+               else
+                 MessagePos1(tprocdef(hp).fileinfo,sym_e_forward_not_resolved,tprocdef(hp).fullprocname(false));
              end;
-          end;
+         end;
 
         { Restore symtablestack }
+        current_module.extendeddefs.free;
+        current_module.extendeddefs:=oldextendeddefs;
         symtablestack.free;
         symtablestack:=oldsymtablestack;
       end;

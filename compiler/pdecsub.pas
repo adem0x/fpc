@@ -43,7 +43,8 @@ interface
         pd_dispinterface,{ directive can be used with dispinterface methods }
         pd_cppobject,    { directive can be used with cppclass }
         pd_objcclass,    { directive can be used with objcclass }
-        pd_objcprot      { directive can be used with objcprotocol }
+        pd_objcprot,     { directive can be used with objcprotocol }
+        pd_nothelper     { directive can not be used with record/class helper declaration }
       );
       tpdflags=set of tpdflag;
 
@@ -81,7 +82,7 @@ implementation
        cutils,cclasses,
        { global }
        globtype,globals,verbose,constexp,
-       systems,
+       systems,fpccrc,
        cpuinfo,
        { symtable }
        symbase,symtable,defutil,defcmp,paramgr,cpupara,
@@ -183,7 +184,7 @@ implementation
              paranr:=paranr_result_leftright
            else
 {$elseif defined(x86) or defined(arm)}
-           if (target_info.system in systems_all_windows) and
+           if (tf_safecall_exceptions in target_info.flags) and
               (pd.proccalloption = pocall_safecall)  then
              paranr:=paranr_result_leftright
            else
@@ -244,6 +245,7 @@ implementation
         storepos : tfileposinfo;
         vs       : tparavarsym;
         hdef     : tdef;
+        selfdef  : tabstractrecorddef;
         vsp      : tvarspez;
         aliasvs  : tabsolutevarsym;
         sl       : tpropaccesslist;
@@ -301,18 +303,24 @@ implementation
                    pd.parast.insert(vs);
                  end;
 
+                { for helpers the type of Self is equivalent to the extended
+                  type or equal to an instance of it }
+                if is_objectpascal_helper(tprocdef(pd).struct) then
+                  selfdef:=tobjectdef(tprocdef(pd).struct).extendeddef
+                else
+                  selfdef:=tprocdef(pd).struct;
                 { Generate self variable, for classes we need
                   to use the generic voidpointer to be compatible with
                   methodpointers }
                 vsp:=vs_value;
                 if (po_staticmethod in pd.procoptions) or
                    (po_classmethod in pd.procoptions) then
-                  hdef:=tclassrefdef.create(tprocdef(pd).struct)
+                  hdef:=tclassrefdef.create(selfdef)
                 else
                   begin
-                    if is_object(tprocdef(pd).struct) or is_record(tprocdef(pd).struct) then
+                    if is_object(selfdef) or is_record(selfdef) then
                       vsp:=vs_var;
-                    hdef:=tprocdef(pd).struct;
+                    hdef:=selfdef;
                   end;
                 vs:=tparavarsym.create('$self',paranr_self,vsp,hdef,[vo_is_self,vo_is_hidden_para]);
                 pd.parast.insert(vs);
@@ -1000,6 +1008,9 @@ implementation
              ImplIntf:=tobjectdef(astruct).find_implemented_interface(tobjectdef(ttypesym(srsym).typedef));
            if ImplIntf=nil then
              Message(parser_e_interface_id_expected);
+           { must be a directly implemented interface }
+           if Assigned(ImplIntf.ImplementsGetter) then
+             Message2(parser_e_implements_no_mapping,ImplIntf.IntfDef.typename,astruct.objrealname^);
            consume(_ID);
            { Create unique name <interface>.<method> }
            hs:=sp+'.'+pattern;
@@ -1460,7 +1471,7 @@ implementation
                        end;
                      if (optoken in [_EQ,_NE,_GT,_LT,_GTE,_LTE,_OP_IN]) and
                         ((pd.returndef.typ<>orddef) or
-                         (torddef(pd.returndef).ordtype<>pasbool)) then
+                         (torddef(pd.returndef).ordtype<>pasbool8)) then
                         Message(parser_e_comparative_operator_return_boolean);
                      if (optoken in [_ASSIGNMENT,_OP_EXPLICIT]) and
                         equal_defs(pd.returndef,tparavarsym(pd.parast.SymList[0]).vardef) and
@@ -1612,12 +1623,15 @@ end;
 
 procedure pd_interrupt(pd:tabstractprocdef);
 
+{$ifdef FPC_HAS_SYSTEMS_INTERRUPT_TABLE}
 var v: Tconstexprint;
+{$endif FPC_HAS_SYSTEMS_INTERRUPT_TABLE}
 
 begin
   if pd.parast.symtablelevel>normal_function_level then
     Message(parser_e_dont_nest_interrupt);
 
+{$ifdef FPC_HAS_SYSTEMS_INTERRUPT_TABLE}
   if target_info.system in systems_interrupt_table then
     begin
       if token<>_SEMICOLON then
@@ -1627,12 +1641,15 @@ begin
           Tprocdef(pd).interruptvector:=v.uvalue;
         end;
     end;
+{$endif FPC_HAS_SYSTEMS_INTERRUPT_TABLE}
 end;
 
 procedure pd_abstract(pd:tabstractprocdef);
 begin
   if pd.typ<>procdef then
     internalerror(200304269);
+  if is_objectpascal_helper(tprocdef(pd).struct) then
+    Message1(parser_e_not_allowed_in_helper, arraytokeninfo[_ABSTRACT].str);
   if assigned(tprocdef(pd).struct) and
     (oo_is_sealed in tprocdef(pd).struct.objectoptions) then
     Message(parser_e_sealed_class_cannot_have_abstract_methods)
@@ -1649,6 +1666,9 @@ procedure pd_final(pd:tabstractprocdef);
 begin
   if pd.typ<>procdef then
     internalerror(200910170);
+  if is_objectpascal_helper(tprocdef(pd).struct) and
+      (m_objfpc in current_settings.modeswitches) then
+    Message1(parser_e_not_allowed_in_helper, arraytokeninfo[_FINAL].str);
   if (po_virtualmethod in pd.procoptions) then
     include(pd.procoptions,po_finalmethod)
   else
@@ -1694,6 +1714,9 @@ begin
   if (pd.proctypeoption=potype_constructor) and
      is_object(tprocdef(pd).struct) then
     Message(parser_e_constructor_cannot_be_not_virtual);
+  if is_objectpascal_helper(tprocdef(pd).struct) and
+      (m_objfpc in current_settings.modeswitches) then
+    Message1(parser_e_not_allowed_in_helper, arraytokeninfo[_VIRTUAL].str);
 {$ifdef WITHDMT}
   if is_object(tprocdef(pd).struct) and
      (token<>_SEMICOLON) then
@@ -1743,7 +1766,12 @@ procedure pd_override(pd:tabstractprocdef);
 begin
   if pd.typ<>procdef then
     internalerror(2003042611);
-  if not(is_class_or_interface_or_objc(tprocdef(pd).struct)) then
+  if is_objectpascal_helper(tprocdef(pd).struct) then
+    begin
+      if m_objfpc in current_settings.modeswitches then
+        Message1(parser_e_not_allowed_in_helper, arraytokeninfo[_OVERRIDE].str)
+    end
+  else if not(is_class_or_interface_or_objc(tprocdef(pd).struct)) then
     Message(parser_e_no_object_override)
   else if is_objccategory(tprocdef(pd).struct) then
     Message(parser_e_no_category_override)
@@ -1767,9 +1795,15 @@ var
 begin
   if pd.typ<>procdef then
     internalerror(2003042613);
-  if not is_class(tprocdef(pd).struct) and
-     not is_objc_class_or_protocol(tprocdef(pd).struct) then
-    Message(parser_e_msg_only_for_classes);
+  if is_objectpascal_helper(tprocdef(pd).struct) then
+    begin
+      if m_objfpc in current_settings.modeswitches then
+        Message1(parser_e_not_allowed_in_helper, arraytokeninfo[_MESSAGE].str);
+    end
+  else
+    if not is_class(tprocdef(pd).struct) and
+       not is_objc_class_or_protocol(tprocdef(pd).struct) then
+      Message(parser_e_msg_only_for_classes);
   if ([po_msgstr,po_msgint]*pd.procoptions)<>[] then
     Message(parser_e_multiple_messages);
   { check parameter type }
@@ -1798,7 +1832,8 @@ begin
     end
   else
    if is_constintnode(pt) and
-      is_class(tprocdef(pd).struct) then
+      (is_class(tprocdef(pd).struct) or
+      is_objectpascal_helper(tprocdef(pd).struct)) then
     begin
       include(pd.procoptions,po_msgint);
       if (Tordconstnode(pt).value<int64(low(Tprocdef(pd).messageinf.i))) or
@@ -1822,9 +1857,15 @@ procedure pd_reintroduce(pd:tabstractprocdef);
 begin
   if pd.typ<>procdef then
     internalerror(200401211);
-  if not(is_class_or_interface_or_object(tprocdef(pd).struct)) and
-     not(is_objccategory(tprocdef(pd).struct)) then
-    Message(parser_e_no_object_reintroduce);
+  if is_objectpascal_helper(tprocdef(pd).struct) then
+    begin
+      if m_objfpc in current_settings.modeswitches then
+        Message1(parser_e_not_allowed_in_helper, arraytokeninfo[_REINTRODUCE].str);
+    end
+  else
+    if not(is_class_or_interface_or_object(tprocdef(pd).struct)) and
+       not(is_objccategory(tprocdef(pd).struct)) then
+      Message(parser_e_no_object_reintroduce);
 end;
 
 
@@ -2176,7 +2217,7 @@ const
       mutexclpo     : [po_exports,po_interrupt,po_external,po_overridingmethod,po_inline]
     ),(
       idtok:_EXPORT;
-      pd_flags : [pd_body,pd_interface,pd_implemen,pd_notobjintf,pd_notrecord];
+      pd_flags : [pd_body,pd_interface,pd_implemen,pd_notobjintf,pd_notrecord,pd_nothelper];
       handler  : @pd_export;
       pocall   : pocall_none;
       pooption : [po_exports,po_global];
@@ -2185,7 +2226,7 @@ const
       mutexclpo     : [po_external,po_interrupt,po_inline]
     ),(
       idtok:_EXTERNAL;
-      pd_flags : [pd_implemen,pd_interface,pd_notobject,pd_notobjintf,pd_cppobject,pd_notrecord];
+      pd_flags : [pd_implemen,pd_interface,pd_notobject,pd_notobjintf,pd_cppobject,pd_notrecord,pd_nothelper];
       handler  : @pd_external;
       pocall   : pocall_none;
       pooption : [po_external];
@@ -2195,7 +2236,7 @@ const
       mutexclpo     : [po_public,po_exports,po_interrupt,po_assembler,po_inline]
     ),(
       idtok:_FAR;
-      pd_flags : [pd_implemen,pd_body,pd_interface,pd_procvar,pd_notobject,pd_notobjintf,pd_notrecord];
+      pd_flags : [pd_implemen,pd_body,pd_interface,pd_procvar,pd_notobject,pd_notobjintf,pd_notrecord,pd_nothelper];
       handler  : @pd_far;
       pocall   : pocall_none;
       pooption : [];
@@ -2204,7 +2245,7 @@ const
       mutexclpo     : [po_inline]
     ),(
       idtok:_FAR16;
-      pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar,pd_notobject,pd_notrecord];
+      pd_flags : [pd_interface,pd_implemen,pd_body,pd_procvar,pd_notobject,pd_notrecord,pd_nothelper];
       handler  : nil;
       pocall   : pocall_far16;
       pooption : [];
@@ -2222,7 +2263,7 @@ const
       mutexclpo     : [po_exports,po_interrupt,po_external,po_inline]
     ),(
       idtok:_FORWARD;
-      pd_flags : [pd_implemen,pd_notobject,pd_notobjintf,pd_notrecord];
+      pd_flags : [pd_implemen,pd_notobject,pd_notobjintf,pd_notrecord,pd_nothelper];
       handler  : @pd_forward;
       pocall   : pocall_none;
       pooption : [];
@@ -2249,7 +2290,7 @@ const
       mutexclpo     : [po_exports,po_external,po_interrupt,po_virtualmethod]
     ),(
       idtok:_INTERNCONST;
-      pd_flags : [pd_interface,pd_body,pd_notobject,pd_notobjintf,pd_notrecord];
+      pd_flags : [pd_interface,pd_body,pd_notobject,pd_notobjintf,pd_notrecord,pd_nothelper];
       handler  : @pd_internconst;
       pocall   : pocall_none;
       pooption : [po_internconst];
@@ -2258,7 +2299,7 @@ const
       mutexclpo     : []
     ),(
       idtok:_INTERNPROC;
-      pd_flags : [pd_interface,pd_notobject,pd_notobjintf,pd_notrecord];
+      pd_flags : [pd_interface,pd_notobject,pd_notobjintf,pd_notrecord,pd_nothelper];
       handler  : @pd_internproc;
       pocall   : pocall_internproc;
       pooption : [];
@@ -2267,7 +2308,7 @@ const
       mutexclpo     : [po_exports,po_external,po_interrupt,po_assembler,po_iocheck,po_virtualmethod]
     ),(
       idtok:_INTERRUPT;
-      pd_flags : [pd_implemen,pd_body,pd_notobject,pd_notobjintf,pd_notrecord];
+      pd_flags : [pd_implemen,pd_body,pd_notobject,pd_notobjintf,pd_notrecord,pd_nothelper];
       handler  : @pd_interrupt;
       pocall   : pocall_oldfpccall;
       pooption : [po_interrupt];
@@ -2313,7 +2354,7 @@ const
       mutexclpo     : []
     ),(
       idtok:_NEAR;
-      pd_flags : [pd_implemen,pd_body,pd_procvar,pd_notobjintf,pd_notrecord];
+      pd_flags : [pd_implemen,pd_body,pd_procvar,pd_notobjintf,pd_notrecord,pd_nothelper];
       handler  : @pd_near;
       pocall   : pocall_none;
       pooption : [];
@@ -2358,7 +2399,7 @@ const
       mutexclpo     : [po_external]
     ),(
       idtok:_PUBLIC;
-      pd_flags : [pd_interface,pd_implemen,pd_body,pd_notobject,pd_notobjintf,pd_notrecord];
+      pd_flags : [pd_interface,pd_implemen,pd_body,pd_notobject,pd_notobjintf,pd_notrecord,pd_nothelper];
       handler  : @pd_public;
       pocall   : pocall_none;
       pooption : [po_public,po_global];
@@ -2472,7 +2513,7 @@ const
       mutexclpo     : [po_interrupt]
     ),(
       idtok:_WEAKEXTERNAL;
-      pd_flags : [pd_implemen,pd_interface,pd_notobject,pd_notobjintf,pd_cppobject,pd_notrecord];
+      pd_flags : [pd_implemen,pd_interface,pd_notobject,pd_notobjintf,pd_cppobject,pd_notrecord,pd_nothelper];
       handler  : @pd_weakexternal;
       pocall   : pocall_none;
       { mark it both external and weak external, so we don't have to
@@ -2647,6 +2688,11 @@ const
              not(pd_objcprot in proc_direcdata[p].pd_flags) then
             exit;
 
+           { check if method and directive not for record/class helper }
+           if is_objectpascal_helper(tprocdef(pd).struct) and
+             (pd_nothelper in proc_direcdata[p].pd_flags) then
+            exit;
+
          end;
 
         { consume directive, and turn flag on }
@@ -2688,14 +2734,8 @@ const
 
 
     function proc_get_importname(pd:tprocdef):string;
-
-       function maybe_cprefix(const s:string):string;
-         begin
-           if not(pd.proccalloption in [pocall_cdecl,pocall_cppdecl]) then
-             result:=s
-           else
-             result:=target_info.Cprefix+s;
-         end;
+      var
+        dllname, importname : string;
 
       begin
         result:='';
@@ -2705,36 +2745,15 @@ const
         if assigned(pd.import_name) or (pd.import_nr<>0) then
           begin
             if assigned(pd.import_dll) then
-              begin
-                { If we are not using direct dll linking under win32 then imports
-                  need to use the normal name since two functions can refer to the
-                  same DLL function. This is also needed for compatability
-                  with Delphi and TP7 }
-(*
-                case target_info.system of
-                  system_i386_emx,
-                  system_i386_os2 :
-                    begin
-                      { keep normal mangledname }
-                      if not (Assigned (PD.Import_Name)) then
-                       Result := PD.MangledName;
-                    end;
-                  else
-*)
-                if assigned(pd.import_name) then
-                  begin
-                    if target_info.system in (systems_all_windows + systems_nativent +
-                                       [system_i386_emx, system_i386_os2]) then
-                   { cprefix is not used in DLL imports under Windows or OS/2 }
-                      result:=pd.import_name^
-                    else
-                      result:=maybe_cprefix(pd.import_name^);
-                  end
-                else
-                  result:=ExtractFileName(pd.import_dll^)+'_index_'+tostr(pd.import_nr);
-              end
+              dllname:=pd.import_dll^
             else
-              result:=maybe_cprefix(pd.import_name^);
+              dllname:='';
+            if assigned(pd.import_name) then
+              importname:=pd.import_name^
+            else
+              importname:='';
+            proc_get_importname:=make_dllmangledname(dllname,
+              importname,pd.import_nr,pd.proccalloption);
           end
         else
           begin
@@ -2781,17 +2800,6 @@ const
                     s:=proc_get_importname(pd);
                     if s<>'' then
                       begin
-                        { Replace ? and @ in import name, since GNU AS does not allow these characters in symbol names. }
-                        { This allows to import VC++ mangled names from DLLs. }
-                        { Do not perform replacement, if external symbol is not imported from DLL. }
-                        if (target_info.system in systems_all_windows) and (pd.import_dll<>nil) then
-                          begin
-                            Replace(s,'?','__q$$');
-{$ifdef arm}
-                            { @ symbol is not allowed in ARM assembler only }
-                            Replace(s,'@','__a$$');
-{$endif arm}
-                          end;
                         pd.setmangledname(s);
                       end;
                   end;

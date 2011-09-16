@@ -27,7 +27,7 @@ resourcestring
   SErrNoSourceGiven = 'No source file specified';
   SErrMultipleSourceFiles = 'Please specify only one source file';
   SParserError = 'Error';
-  SParserErrorAtToken = '%s at token "%s"';
+  SParserErrorAtToken = '%s at token "%s" in file %s at line %d column %d';
   SParserUngetTokenError = 'Internal error: Cannot unget more tokens, history buffer is full';
   SParserExpectTokenError = 'Expected "%s"';
   SParserExpectedCommaRBracket = 'Expected "," or ")"';
@@ -240,7 +240,8 @@ end;
 
 procedure TPasParser.ParseExc(const Msg: String);
 begin
-  raise EParserError.Create(Format(SParserErrorAtToken, [Msg, CurTokenName]) {$ifdef addlocation}+' ('+inttostr(scanner.currow)+' '+inttostr(scanner.curcolumn)+')'{$endif},
+  raise EParserError.Create(Format(SParserErrorAtToken, [Msg, CurTokenName, Scanner.CurFilename, Scanner.CurRow, Scanner.CurColumn])
+    {$ifdef addlocation}+' ('+inttostr(scanner.currow)+' '+inttostr(scanner.curcolumn)+')'{$endif},
     Scanner.CurFilename, Scanner.CurRow, Scanner.CurColumn);
 end;
 
@@ -951,7 +952,7 @@ begin
         // CEP assumes that it's array or record, because the expression
         // starts with "(". After the first part is parsed, the CEP meets "-"
         // that assures, it's not an array expression. The CEP should give the
-        // first partback to the expression parser, to get the correct
+        // first part back to the expression parser, to get the correct
         // token tree according to the operations priority.
         //
         // quite ugly. type information is required for CEP to work clean
@@ -1151,6 +1152,11 @@ begin
     else
       // Binary expression!  ((128 div sizeof(longint)) - 3);       ;
       Result:=DoParseExpression(AParent,x);
+      if CurToken<>tkBraceClose then ParseExc(SParserExpectedCommaRBracket);
+      NextToken;
+      if CurToken <> tkSemicolon then // the continue of expresion
+        Result:=DoParseExpression(AParent,Result);
+      Exit;
     end;
     if CurToken<>tkBraceClose then ParseExc(SParserExpectedCommaRBracket);
     NextToken;
@@ -3519,18 +3525,18 @@ var
       Move(Start^, s[1], l)
     else
       exit;
-    if s[1] = '-' then
+    if (s[1] = '-') and (length(s)>1) then
     begin
       case s[2] of
         'd': // -d define
           Scanner.Defines.Append(UpperCase(Copy(s, 3, Length(s))));
         'F': // -F
-          if s[3] = 'i' then // -Fi include path
+          if (length(s)>2) and (s[3] = 'i') then // -Fi include path
             FileResolver.AddIncludePath(Copy(s, 4, Length(s)));
         'I': // -I include path
           FileResolver.AddIncludePath(Copy(s, 3, Length(s)));
         'S': // -S mode
-          if s[3]='d' then
+          if  (length(s)>2) and (s[3]='d') then
             begin // -Sd mode delphi
               include(Scanner.Options,po_delphi);
               include(Parser.Options,po_delphi);

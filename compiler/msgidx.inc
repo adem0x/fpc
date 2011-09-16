@@ -23,6 +23,8 @@ const
   general_i_number_of_warnings=01021;
   general_i_number_of_hints=01022;
   general_i_number_of_notes=01023;
+  general_f_ioerror=01024;
+  general_f_oserror=01025;
   scan_f_end_of_file=02000;
   scan_f_string_exceeds_line=02001;
   scan_f_illegal_char=02002;
@@ -107,6 +109,7 @@ const
   scan_e_illegal_minfpconstprec=02085;
   scan_w_multiple_main_name_overrides=02086;
   scanner_w_illegal_warn_identifier=02087;
+  scanner_e_illegal_alignment_directive=02088;
   parser_e_syntax_error=03000;
   parser_e_dont_nest_interrupt=03004;
   parser_w_proc_directive_ignored=03005;
@@ -394,8 +397,15 @@ const
   parser_e_cant_use_type_parameters_here=03304;
   parser_e_externals_no_section=03305;
   parser_e_section_no_locals=03306;
-  parser_e_invalid_codepage=03307;
-  parser_e_widestring_to_ansi_compile_time=03308;
+  parser_e_not_allowed_in_helper=03307;
+  parser_e_no_class_constructor_in_helpers=03308;
+  parser_e_inherited_not_in_record=03309;
+  parser_e_no_types_in_local_anonymous_records=03310;
+  parser_e_duplicate_implements_clause=03311;
+  parser_e_mapping_no_implements=03312;
+  parser_e_implements_no_mapping=03313;
+  parser_e_invalid_codepage=03314;
+  parser_e_widestring_to_ansi_compile_time=03315;
   type_e_mismatch=04000;
   type_e_incompatible_types=04001;
   type_e_not_equal_types=04002;
@@ -439,8 +449,8 @@ const
   type_e_class_or_interface_type_expected=04041;
   type_e_type_is_not_completly_defined=04042;
   type_w_string_too_long=04043;
-  type_w_signed_unsigned_always_false=04044;
-  type_w_signed_unsigned_always_true=04045;
+  type_w_comparison_always_false=04044;
+  type_w_comparison_always_true=04045;
   type_w_instance_with_abstract=04046;
   type_h_in_range_check=04047;
   type_w_smaller_possible_range_check=04048;
@@ -469,7 +479,7 @@ const
   type_h_convert_sub_operands_to_prevent_overflow=04080;
   type_h_convert_mul_operands_to_prevent_overflow=04081;
   type_w_pointer_to_signed=04082;
-  type_interface_has_no_guid=04083;
+  type_e_interface_has_no_guid=04083;
   type_e_invalid_objc_selector_name=04084;
   type_e_expected_objc_method_but_got=04085;
   type_e_expected_objc_method=04086;
@@ -485,6 +495,11 @@ const
   type_e_generics_cannot_reference_itself=04096;
   type_e_type_parameters_are_not_allowed_here=04097;
   type_e_generic_declaration_does_not_match=04098;
+  type_e_helper_type_expected=04099;
+  type_e_record_type_expected=04100;
+  type_e_class_helper_must_extend_subclass=04101;
+  type_e_record_helper_must_extend_same_record=04102;
+  type_e_procedures_return_no_value=04103;
   sym_e_id_not_found=05000;
   sym_f_internal_error_in_symtablestack=05001;
   sym_e_duplicate_id=05002;
@@ -555,6 +570,7 @@ const
   sym_e_interprocgoto_into_init_final_code_not_allowed=05081;
   sym_e_external_class_name_mismatch1=05082;
   sym_e_external_class_name_mismatch2=05083;
+  sym_w_library_overload=05084;
   cg_e_parasize_too_big=06009;
   cg_e_file_must_call_by_reference=06012;
   cg_e_cant_use_far_pointer_there=06013;
@@ -692,6 +708,7 @@ const
   asmr_e_mixing_regtypes=07108;
   asmr_e_empty_regset=07109;
   asmr_w_useless_got_for_local=07110;
+  asmr_w_general_segment_with_constant=07111;
   asmw_f_too_many_asm_files=08000;
   asmw_f_assembler_output_not_supported=08001;
   asmw_f_comp_not_supported=08002;
@@ -714,6 +731,7 @@ const
   asmw_e_invalid_register=08019;
   asmw_e_16bit_32bit_not_supported=08020;
   asmw_e_64bit_not_supported=08021;
+  asmw_e_bad_reg_with_rex=08022;
   exec_w_source_os_redefined=09000;
   exec_i_assembling_pipe=09001;
   exec_d_cant_create_asmfile=09002;
@@ -861,6 +879,7 @@ const
   option_dwarf_smart_linking=11046;
   option_ignored_target=11047;
   option_debug_external_unsupported=11048;
+  option_dwarf_smartlink_creation=11049;
   wpo_cant_find_file=12000;
   wpo_begin_processing=12001;
   wpo_end_processing=12002;
@@ -885,9 +904,9 @@ const
   option_info=11024;
   option_help_pages=11025;
 
-  MsgTxtSize = 58873;
+  MsgTxtSize = 61299;
 
   MsgIdxMax : array[1..20] of longint=(
-    24,88,309,99,84,54,111,22,202,63,
-    49,20,1,1,1,1,1,1,1,1
+    26,89,316,104,85,54,112,23,202,63,
+    50,20,1,1,1,1,1,1,1,1
   );

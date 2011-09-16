@@ -4,18 +4,18 @@
 
 [package]
 name=fpvectorial
-version=2.5.1
+version=2.7.1
 
 [require]
 libc=n
-packages=fcl-image
+packages=fcl-image fcl-base
 
 [target]
 units=fpvectbuildunit
 exampledirs=
 implicitunits= avisocncgcodereader avisocncgcodewriter avisozlib fpvectorial \
-	       fpvtocanvas  pdfvectorialreader pdfvrlexico pdfvrsemantico \
-	       pdfvrsintatico cdrvectorialreader svgvectorialwriter
+	       fpvtocanvas  \
+	       cdrvectorialreader svgvectorialwriter epsvectorialreader fpvutils
 
 [compiler]
 includedir=src

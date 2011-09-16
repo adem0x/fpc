@@ -20,12 +20,16 @@ unit custfcgi;
 
 Interface
 
+{$if defined(win32) or defined(win64)}
+{$define windowspipe}
+{$ifend}
+
 uses
   Classes,SysUtils, httpdefs, 
 {$ifdef unix}
-  BaseUnix, TermIO,
+  BaseUnix,
 {$else}
-  winsock2,
+  winsock2, windows,
 {$endif}
   Sockets, custweb, custcgi, fastcgi;
 
@@ -40,6 +44,8 @@ Type
   TProtocolOptions = Set of TProtocolOption;
 
   TUnknownRecordEvent = Procedure (ARequest : TFCGIRequest; AFCGIRecord: PFCGI_Header) Of Object;
+  TFastCGIReadEvent = Function (AHandle : THandle; Var ABuf; ACount : Integer) : Integer of Object;
+  TFastCGIWriteEvent = Function (AHandle : THandle; Const ABuf; ACount : Integer) : Integer of Object;
 
   TFCGIRequest = Class(TCGIRequest)
   Private
@@ -49,8 +55,10 @@ Type
     FRequestID : Word;
     FCGIParams : TSTrings;
     FUR: TUnknownRecordEvent;
+    FLog : TLogEvent;
     procedure GetNameValuePairsFromContentRecord(const ARecord : PFCGI_ContentRecord; NameValueList : TStrings);
   Protected
+    Procedure Log(EventType : TEventType; Const Msg : String);
     Function GetFieldValue(Index : Integer) : String; override;
     procedure ReadContent; override;
   Public
@@ -68,8 +76,9 @@ Type
   TFCGIResponse = Class(TCGIResponse)
   private
     FPO: TProtoColOptions;
-    procedure Write_FCGIRecord(ARecord : PFCGI_Header);
+    FOnWrite : TFastCGIWriteEvent;
   Protected
+    procedure Write_FCGIRecord(ARecord : PFCGI_Header); virtual;
     Procedure DoSendHeaders(Headers : TStrings); override;
     Procedure DoSendContent; override;
     Property ProtocolOptions : TProtoColOptions Read FPO Write FPO;
@@ -84,18 +93,34 @@ Type
 
   TFCgiHandler = class(TWebHandler)
   Private
+    FLingerTimeOut: integer;
     FOnUnknownRecord: TUnknownRecordEvent;
     FPO: TProtoColOptions;
     FRequestsArray : Array of TReqResp;
     FRequestsAvail : integer;
     FHandle : THandle;
     Socket: longint;
+    FIAddress      : TInetSockAddr;
+    FAddressLength : tsocklen;
     FAddress: string;
     FTimeOut,
     FPort: integer;
+
+{$ifdef windowspipe}
+    FIsWinPipe: Boolean;
+{$endif}
+{$IFDEF WINDOWS}
+    FShutdownThread : TThread;
+    Procedure CheckShutDownEvent;
+    Procedure HandleShutDownEvent(Sender : TObject);
+{$ENDIF}
+    function AcceptConnection: Integer;
+    procedure CloseConnection;
     function Read_FCGIRecord : PFCGI_Header;
     function DataAvailable : Boolean;
   protected
+    Function DoFastCGIRead(AHandle : THandle; Var ABuf; ACount : Integer) : Integer; virtual;
+    Function DoFastCGIWrite(AHandle : THandle; Const ABuf; ACount : Integer) : Integer; virtual;
     function  ProcessRecord(AFCGI_Record: PFCGI_Header; out ARequest: TRequest;  out AResponse: TResponse): boolean; virtual;
     procedure SetupSocket(var IAddress: TInetSockAddr;  var AddressLength: tsocklen); virtual;
     function  WaitForRequest(out ARequest : TRequest; out AResponse : TResponse) : boolean; override;
@@ -104,6 +129,7 @@ Type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     property Port: integer read FPort write FPort;
+    property LingerTimeOut : integer read FLingerTimeOut write FLingerTimeOut;
     property Address: string read FAddress write FAddress;
     Property ProtocolOptions : TProtoColOptions Read FPO Write FPO;
     Property OnUnknownRecord : TUnknownRecordEvent Read FOnUnknownRecord Write FOnUnknownRecord;
@@ -116,9 +142,11 @@ Type
   private
     function GetAddress: string;
     function GetFPO: TProtoColOptions;
+    function GetLingerTimeOut: integer;
     function GetOnUnknownRecord: TUnknownRecordEvent;
     function GetPort: integer;
     procedure SetAddress(const AValue: string);
+    procedure SetLingerTimeOut(const AValue: integer);
     procedure SetOnUnknownRecord(const AValue: TUnknownRecordEvent);
     procedure SetPort(const AValue: integer);
     procedure SetPO(const AValue: TProtoColOptions);
@@ -126,6 +154,7 @@ Type
     function InitializeWebHandler: TWebHandler; override;
   Public
     property Port: integer read GetPort write SetPort;
+    property LingerTimeOut : integer read GetLingerTimeOut write SetLingerTimeOut;
     property Address: string read GetAddress write SetAddress;
     Property ProtocolOptions : TProtoColOptions Read GetFPO Write SetPO;
     Property OnUnknownRecord : TUnknownRecordEvent Read GetOnUnknownRecord Write SetOnUnknownRecord;
@@ -146,17 +175,52 @@ Implementation
 uses
   dbugintf;
 {$endif}
- 
-
-
 {$undef nosignal}
 
 {$if defined(FreeBSD) or defined(Linux)}
   {$define nosignal}
 {$ifend}
 
+{$IFDEF WINDOWS}
+Type
+
+  { TShutdownThread }
+  TShutdownEvent = Procedure (Sender : TObject) Of Object;
+  TShutdownThread = Class(TThread)
+  Private
+    FEvent : THandle;
+    FOnShutDown : TShutdownEvent;
+  Public
+    Constructor CreateWithEvent(AEvent : THandle; AOnShutDown : TShutdownEvent);
+    Procedure Execute; override;
+  end;
+{$ENDIF}
+
 Const 
    NoSignalAttr =  {$ifdef nosignal} MSG_NOSIGNAL{$else}0{$endif};
+
+{$IFDEF WINDOWS}
+{ TShutdownThread }
+
+constructor TShutdownThread.CreateWithEvent(AEvent: THandle; AOnShutDown : TShutdownEvent);
+begin
+  Inherited Create(False);
+  FEvent:=AEvent;
+  FOnShutDown:=AOnShutDown;
+  OnTerminate:=AOnShutDown;
+end;
+
+procedure TShutdownThread.Execute;
+begin
+  WaitForSingleObject(FEvent,INFINITE);
+  If Assigned(FOnShutDown) then
+    FOnShutDown(Self);
+  // This is very ugly, but there is no other way to stop the named pipe
+  // from accepting new connections.
+  // Using Halt(0) is not enough.
+  ExitProcess(0);
+end;
+{$ENDIF WINDOWS}
 
 { TFCGIHTTPRequest }
 
@@ -176,7 +240,12 @@ var cl,rcl : Integer;
 begin
   Result := False;
   case AFCGIRecord^.reqtype of
-    FCGI_BEGIN_REQUEST : FKeepConnectionAfterRequest := (PFCGI_BeginRequestRecord(AFCGIRecord)^.body.flags and FCGI_KEEP_CONN) = FCGI_KEEP_CONN;
+    FCGI_BEGIN_REQUEST :
+         begin
+         FKeepConnectionAfterRequest := (PFCGI_BeginRequestRecord(AFCGIRecord)^.body.flags and FCGI_KEEP_CONN) = FCGI_KEEP_CONN;
+//         With PFCGI_BeginRequestRecord(AFCGIRecord)^.body do
+//           log(etDebug,Format('Begin request body role & flags: %d %d',[Beton(Role),Flags]));
+         end;
     FCGI_PARAMS :       begin
                         if AFCGIRecord^.contentLength=0 then
                           Result := False
@@ -257,6 +326,12 @@ begin
     end;
 end;
 
+procedure TFCGIRequest.Log(EventType: TEventType; const Msg: String);
+begin
+  If Assigned(FLog) then
+    FLog(EventType,Msg);
+end;
+
 
 Function TFCGIRequest.GetFieldValue(Index : Integer) : String;
 
@@ -328,7 +403,7 @@ begin
   BytesToWrite := BEtoN(ARecord^.contentLength) + ARecord^.paddingLength+sizeof(FCGI_Header);
   P:=PByte(Arecord);
   Repeat
-    BytesWritten := sockets.fpsend(TFCGIRequest(Request).Handle, P, BytesToWrite, NoSignalAttr);
+    BytesWritten:=FOnWrite(TFCGIRequest(Request).Handle, P^, BytesToWrite);
     If (BytesWritten<0) then
       begin
       // TODO : Better checking for closed connection, EINTR
@@ -439,16 +514,27 @@ end;
 { TFCgiHandler }
 
 constructor TFCgiHandler.Create(AOwner: TComponent);
+
 begin
   Inherited Create(AOwner);
   FRequestsAvail:=5;
   SetLength(FRequestsArray,FRequestsAvail);
   FHandle := THandle(-1);
   FTimeOut:=50;
+{$IFDEF WINDOWS}
+  CheckShutdownEvent;
+{$ENDIF}
 end;
 
 destructor TFCgiHandler.Destroy;
 begin
+{$IFDEF WINDOWS}
+  IF (FShutDownThread<>Nil) then
+    begin
+    TShutDownThread(FShutDownThread).FOnShutDown:=Nil;
+    TShutDownThread(FShutDownThread).OnTerminate:=Nil;
+    end;
+{$ENDIF}
   SetLength(FRequestsArray,0);
   if (Socket<>0) then
     begin
@@ -458,18 +544,69 @@ begin
   inherited Destroy;
 end;
 
+{$IFDEF WINDOWS}
+Procedure TFCgiHandler.CheckShutdownEvent;
+
+Var
+  H : THandle;
+
+begin
+  // This is normally only used in mod_fastcgi.
+  // mod_fcgid just kills off the process...
+  H:=THandle(StrToIntDef(sysutils.GetEnvironmentVariable('_FCGI_SHUTDOWN_EVENT_'),0));
+  If (H<>0) then
+    FShutDownThread:=TShutdownThread.CreateWithEvent(H,@HandleShutDownEvent);
+end;
+
+procedure TFCgiHandler.HandleShutDownEvent(Sender : TOBject);
+begin
+  TShutDownThread(Sender).FOnShutDown:=Nil;
+  TShutDownThread(Sender).OnTerminate:=Nil;
+  FShutDownThread:=Nil;
+  Terminate;
+end;
+
+{$ENDIF}
+
+procedure TFCgiHandler.CloseConnection;
+Var
+  i : Integer;
+begin
+{$ifdef windowspipe}
+  if FIsWinPipe then
+    begin
+    if not FlushFileBuffers(FHandle) then
+      begin
+      I:=GetLastError;
+      Log(etError,Format('Failed to flush file buffers: %d ',[i]));
+      end;
+    if not DisconnectNamedPipe(FHandle) then
+      begin
+      I:=GetLastError;
+      Log(etError,Format('Failed to disconnect named pipe: %d ',[i]));
+      end
+    end
+  else
+{$endif}
+    begin
+    i:=fpshutdown(FHandle,SHUT_RDWR);
+//      Log(etError,Format('Shutting down socket: %d ',[i]));
+    i:=CloseSocket(FHandle);
+//      Log(etError,Format('Closing socket %d',[i]));
+    end;
+  FHandle := THandle(-1);
+end;
+
 procedure TFCgiHandler.EndRequest(ARequest: TRequest; AResponse: TResponse);
+
+
 begin
   with FRequestsArray[TFCGIRequest(ARequest).RequestID] do
     begin
     Assert(ARequest=Request);
     Assert(AResponse=Response);
     if (not TFCGIRequest(ARequest).KeepConnectionAfterRequest) then
-      begin
-      fpshutdown(FHandle,SHUT_RDWR);
-      CloseSocket(FHandle);
-      FHandle := THandle(-1);
-      end;
+      CloseConnection;
     Request := Nil;
     Response := Nil;
     end;
@@ -513,7 +650,7 @@ function TFCgiHandler.Read_FCGIRecord : PFCGI_Header;
     P:=ReadBuf;
     if (ByteAmount=0) then exit;
     Repeat
-      Count:=sockets.fpRecv(FHandle, P, ByteAmount, NoSignalAttr);
+      Count:=DoFastCGIRead(FHandle,P^,ByteAmount);
       If (Count>0) then
         begin
         Dec(ByteAmount,Count);
@@ -574,6 +711,10 @@ end;
 
 procedure TFCgiHandler.SetupSocket(var IAddress : TInetSockAddr; Var AddressLength : tsocklen);
 
+Var
+  L : Linger;
+  ll,lr : integer;
+
 begin
   AddressLength:=Sizeof(IAddress);
   Socket := fpsocket(AF_INET,SOCK_STREAM,0);
@@ -597,7 +738,23 @@ begin
     Terminate;
     raise Exception.CreateFmt(SBindFailed,[port,socketerror]);
     end;
-  if fplisten(Socket,1)=-1 then
+  if (FLingerTimeout>0) then
+    begin
+    ll:=SizeOf(l);
+    if fpgetsockopt(Socket,SOL_SOCKET,SO_LINGER,@l,@ll)=0 then
+      begin
+//      Log(etDebug,Format('Socket linger : %d, %d',[L.l_linger,L.l_onoff]));
+      if (L.l_onoff=0) then
+        begin
+        l.l_onoff:=1;
+        l.l_linger:=1;
+        lr:=fpsetsockopt(Socket,SOL_SOCKET,SO_LINGER,@l,ll);
+        if (lr<>0) then
+          Log(etError,Format('Set socket linger failed : %d',[lr]));
+        end;
+      end;
+    end;
+  if fplisten(Socket,10)=-1 then
     begin
     CloseSocket(socket);
     Socket:=0;
@@ -636,6 +793,27 @@ begin
 end;
 {$endif}
 
+function TFCgiHandler.DoFastCGIRead(AHandle: THandle; var ABuf; ACount: Integer): Integer;
+begin
+{$ifdef windowspipe}
+  if FIsWinPipe then
+    Result:=FileRead(AHandle,ABuf,ACount)
+  else
+{$endif}
+    Result:=sockets.fpRecv(AHandle, @Abuf, ACount, NoSignalAttr);
+end;
+
+function TFCgiHandler.DoFastCGIWrite(AHandle: THandle; const ABuf;
+  ACount: Integer): Integer;
+begin
+  {$ifdef windowspipe}
+  if FIsWinPipe then
+    Result := FileWrite(AHandle, ABuf, ACount)
+  else
+  {$endif windows}
+    Result := sockets.fpsend(AHandle, @ABuf, ACount, NoSignalAttr);
+end;
+
 function TFCgiHandler.ProcessRecord(AFCGI_Record  : PFCGI_Header; out ARequest: TRequest; out AResponse: TResponse): boolean;
 
 var
@@ -658,6 +836,7 @@ begin
     ATempRequest.Handle:=FHandle;
     ATempRequest.ProtocolOptions:=Self.Protocoloptions;
     ATempRequest.OnUnknownRecord:=Self.OnUnknownRecord;
+    ATempRequest.FLog:=@Log;
     FRequestsArray[ARequestID].Request := ATempRequest;
     end;
   if (ARequestID>FRequestsAvail) then
@@ -670,33 +849,76 @@ begin
     ARequest:=FRequestsArray[ARequestID].Request;
     FRequestsArray[ARequestID].Response := TFCGIResponse.Create(ARequest);
     FRequestsArray[ARequestID].Response.ProtocolOptions:=Self.ProtocolOptions;
+    FRequestsArray[ARequestID].Response.FOnWrite:=@DoFastCGIWrite;
     AResponse:=FRequestsArray[ARequestID].Response;
     Result := True;
     end;
 end;
 
+function TFCgiHandler.AcceptConnection : Integer;
+
+{$ifdef windows}
+Var
+  B : BOOL;
+  pipeMode : DWORD = PIPE_READMODE_BYTE or PIPE_WAIT;
+  i : integer;
+{$endif}
+
+begin
+{$ifndef windows}
+  repeat
+    Result:=fpaccept(Socket,nil,nil);
+  until ((result<>-1) or (SocketError<>ESysEINTR)) and not Terminated;
+{$else}
+{$ifndef windowspipe}
+  Result:=fpaccept(Socket,Nil,nil);
+{$else windowspipe}
+  if Not fIsWinPipe then
+    Result:=fpaccept(Socket,Nil,Nil);
+  If FIsWinPipe or ((Result<0) and (socketerror=10038)) then
+    begin
+    Result:=-1;
+    B:=ConnectNamedPipe(Socket,Nil);
+    if B or (GetLastError=ERROR_PIPE_CONNECTED) then
+       begin
+       Result:=Socket;
+       if Not FIsWinPipe then // First time, set handle state
+         if not SetNamedPipeHandleState(Result,@PipeMode,Nil,Nil) then
+           begin
+           I:=GetLastError;
+           Log(etError,'Setting named pipe handle state failed : '+intToStr(i));
+           end;
+       FIsWinPipe:=True;
+       end;
+    end;
+{$endif}
+{$endif}
+end;
+
 function TFCgiHandler.WaitForRequest(out ARequest: TRequest; out AResponse: TResponse): boolean;
 
 var
-  IAddress      : TInetSockAddr;
-  AddressLength : tsocklen;
   AFCGI_Record  : PFCGI_Header;
+
 
 begin
   Result := False;
+  AResponse:=Nil;
+  ARequest:=Nil;
   if Socket=0 then
     if Port<>0 then
-      SetupSocket(IAddress,AddressLength)
+      SetupSocket(FIAddress,FAddressLength)
     else
       Socket:=StdInputHandle;
   if FHandle=THandle(-1) then
+    FHandle:=AcceptConnection;
+  if FHandle=THandle(-1) then
     begin
-    FHandle:=fpaccept(Socket,psockaddr(@IAddress),@AddressLength);
-    if FHandle=THandle(-1) then
+    if not terminated then
       begin
       Terminate;
       raise Exception.CreateFmt(SNoInputHandle,[socketerror]);
-      end;
+      end
     end;
   repeat
     If (poUseSelect in ProtocolOptions) then
@@ -706,7 +928,6 @@ begin
           OnIdle(Self);
       end;
     AFCGI_Record:=Read_FCGIRecord;
-
     if assigned(AFCGI_Record) then
     try
       Result:=ProcessRecord(AFCGI_Record,ARequest,AResponse);
@@ -729,6 +950,11 @@ begin
   result := TFCgiHandler(WebHandler).ProtocolOptions;
 end;
 
+function TCustomFCgiApplication.GetLingerTimeOut: integer;
+begin
+  Result:=TFCgiHandler(WebHandler).LingerTimeOut;
+end;
+
 function TCustomFCgiApplication.GetOnUnknownRecord: TUnknownRecordEvent;
 begin
   result := TFCgiHandler(WebHandler).OnUnknownRecord;
@@ -742,6 +968,11 @@ end;
 procedure TCustomFCgiApplication.SetAddress(const AValue: string);
 begin
   TFCgiHandler(WebHandler).Address := AValue;
+end;
+
+procedure TCustomFCgiApplication.SetLingerTimeOut(const AValue: integer);
+begin
+  TFCgiHandler(WebHandler).LingerTimeOut:=AValue;
 end;
 
 procedure TCustomFCgiApplication.SetOnUnknownRecord(const AValue: TUnknownRecordEvent);

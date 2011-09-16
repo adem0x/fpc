@@ -307,8 +307,10 @@ var
   IntVal: clong;
   LargeVal: clonglong;
   StrVal: string;
+  WideStrVal: widestring;
   FloatVal: cdouble;
   DateVal: SQL_DATE_STRUCT;
+  TimeVal: SQL_TIME_STRUCT;
   TimeStampVal: SQL_TIMESTAMP_STRUCT;
   BoolVal: byte;
   ColumnSize, BufferLength, StrLenOrInd: SQLINTEGER;
@@ -351,7 +353,7 @@ begin
           SqlType:=SQL_BIGINT;
           ColumnSize:=19;
         end;
-      ftString, ftFixedChar, ftBlob, ftMemo:
+      ftString, ftFixedChar, ftBlob, ftMemo, ftGuid:
         begin
           StrVal:=AParams[ParamIndex].AsString;
           StrLenOrInd:=Length(StrVal);
@@ -382,6 +384,25 @@ begin
               end;
           end;
         end;
+      ftWideString, ftFixedWideChar, ftWideMemo:
+        begin
+          WideStrVal:=AParams[ParamIndex].AsWideString;
+          StrLenOrInd:=Length(WideStrVal)*sizeof(widechar);
+          if WideStrVal='' then //HY104
+             begin
+             WideStrVal:=#0;
+             StrLenOrInd:=SQL_NTS;
+             end;
+          PVal:=@WideStrVal[1];
+          Size:=Length(WideStrVal)*sizeof(widechar);
+          ColumnSize:=Size; //The defined or maximum column size in characters of the column or parameter
+          BufferLength:=Size;
+          CType:=SQL_C_WCHAR;
+          case AParams[ParamIndex].DataType of
+            ftWideMemo: SqlType:=SQL_WLONGVARCHAR;
+            else        SqlType:=SQL_WVARCHAR;
+          end;
+        end;
       ftFloat:
         begin
           FloatVal:=AParams[ParamIndex].AsFloat;
@@ -398,7 +419,16 @@ begin
           Size:=SizeOf(DateVal);
           CType:=SQL_C_TYPE_DATE;
           SqlType:=SQL_TYPE_DATE;
-          ColumnSize:=Size;
+          ColumnSize:=10;
+        end;
+      ftTime:
+        begin
+          TimeVal:=DateTimeToTimeStruct(AParams[ParamIndex].AsTime);
+          PVal:=@TimeVal;
+          Size:=SizeOf(TimeVal);
+          CType:=SQL_C_TYPE_TIME;
+          SqlType:=SQL_TYPE_TIME;
+          ColumnSize:=12;
         end;
       ftDateTime:
         begin
@@ -407,7 +437,7 @@ begin
           Size:=SizeOf(TimeStampVal);
           CType:=SQL_C_TYPE_TIMESTAMP;
           SqlType:=SQL_TYPE_TIMESTAMP;
-          ColumnSize:=Size;
+          ColumnSize:=23;
         end;
       ftBoolean:
         begin
@@ -766,6 +796,9 @@ begin
     end;
     ftDateTime:           // mapped to TDateTimeField
     begin
+      // Seems like not all ODBC-drivers (mysql on Linux) set the fractional part. Initialize
+      // it's value to avoid 'random' data.
+      ODBCTimeStampStruct.Fraction:=0;
       Res:=SQLGetData(ODBCCursor.FSTMTHandle, FieldDef.Index+1, SQL_C_TYPE_TIMESTAMP, @ODBCTimeStampStruct, SizeOf(SQL_TIMESTAMP_STRUCT), @StrLenOrInd);
       if StrLenOrInd<>SQL_NULL_DATA then
       begin
@@ -949,10 +982,11 @@ begin
   ODBCCursor.FBlobStreams.Clear;
 {$ENDIF}
 
-  ODBCCheckResult(
-    SQLFreeStmt(ODBCCursor.FSTMTHandle, SQL_CLOSE),
-    SQL_HANDLE_STMT, ODBCCursor.FSTMTHandle, 'Could not close ODBC statement cursor.'
-  );
+  if ODBCCursor.FSTMTHandle <> SQL_NULL_HSTMT then
+    ODBCCheckResult(
+      SQLFreeStmt(ODBCCursor.FSTMTHandle, SQL_CLOSE),
+      SQL_HANDLE_STMT, ODBCCursor.FSTMTHandle, 'Could not close ODBC statement cursor.'
+    );
 end;
 
 procedure TODBCConnection.AddFieldDefs(cursor: TSQLCursor; FieldDefs: TFieldDefs);
@@ -1063,7 +1097,7 @@ begin
 {      SQL_INTERVAL_HOUR_TO_SECOND:  FieldType:=ftUnknown;}
 {      SQL_INTERVAL_MINUTE_TO_SECOND:FieldType:=ftUnknown;}
 {$IF (FPC_VERSION>=2) AND (FPC_RELEASE>=1)}
-      SQL_GUID:          begin FieldType:=ftGuid;       FieldSize:=ColumnSize; end;
+      SQL_GUID:          begin FieldType:=ftGuid;       FieldSize:=38; end; //SQL_GUID defines 36, but TGuidField requires 38
 {$ENDIF}
     else
       begin FieldType:=ftUnknown; FieldSize:=ColumnSize; end

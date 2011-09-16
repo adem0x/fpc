@@ -35,6 +35,7 @@ unit scandir;
       tsavedswitchesstate = record
         localsw: tlocalswitches;
         verbosity: longint;
+        pmessage : pmessagestaterecord;
       end;
 
     type
@@ -944,6 +945,11 @@ unit scandir;
       Dec(switchesstatestackpos);
       recordpendinglocalfullswitch(switchesstatestack[switchesstatestackpos].localsw);
       recordpendingverbosityfullswitch(switchesstatestack[switchesstatestackpos].verbosity);
+      pendingstate.nextmessagerecord:=switchesstatestack[switchesstatestackpos].pmessage;
+      { Reset verbosity and forget previous pmeesage }
+      RestoreLocalVerbosity(nil);
+      current_settings.pmessage:=nil;
+      flushpendingswitchesstate;
     end;
 
     procedure dir_pointermath;
@@ -970,6 +976,7 @@ unit scandir;
       flushpendingswitchesstate;
 
       switchesstatestack[switchesstatestackpos].localsw:= current_settings.localswitches;
+      switchesstatestack[switchesstatestackpos].pmessage:= current_settings.pmessage;
       switchesstatestack[switchesstatestackpos].verbosity:=status.verbosity;
       Inc(switchesstatestackpos);
     end;
@@ -1048,6 +1055,15 @@ unit scandir;
     procedure dir_smartlink;
       begin
         do_moduleswitch(cs_create_smart);
+        if (paratargetdbg in [dbg_dwarf2,dbg_dwarf3]) and
+            not(target_info.system in systems_darwin) and
+            { smart linking does not yet work with DWARF debug info on most targets }
+            (cs_create_smart in current_settings.moduleswitches) and
+            not (af_outputbinary in target_asm.flags) then
+        begin
+          Message(option_dwarf_smart_linking);
+          Exclude(current_settings.moduleswitches,cs_create_smart);
+        end;
       end;
 
     procedure dir_stackframes;
@@ -1212,6 +1228,7 @@ unit scandir;
         ident : string;
         state : string;
         msgstate : tmsgstate;
+        i : integer;
       begin
         current_scanner.skipspace;
         ident:=current_scanner.readid;
@@ -1219,6 +1236,7 @@ unit scandir;
         state:=current_scanner.readid;
 
         { support both delphi and fpc switches }
+        { use local ms_on/off/error tmsgstate values }
         if (state='ON') or (state='+') then
           msgstate:=ms_on
         else
@@ -1281,7 +1299,11 @@ unit scandir;
         if ident='ZERO_NIL_COMPAT' then
           recordpendingmessagestate(type_w_zero_to_nil, msgstate)
         else
-          Message1(scanner_w_illegal_warn_identifier,ident);
+          begin
+            i:=0;
+            if not ChangeMessageVerbosity(ident,i,msgstate) then
+              Message1(scanner_w_illegal_warn_identifier,ident);
+          end;
       end;
 
     procedure dir_warning;
@@ -1336,7 +1358,8 @@ unit scandir;
       begin
         current_scanner.skipspace;
         s:=current_scanner.readcomment;
-        UpdateAlignmentStr(s,current_settings.alignment);
+        if not(UpdateAlignmentStr(s,current_settings.alignment)) then
+          message(scanner_e_illegal_alignment_directive);
       end;
 
     procedure dir_codepage;

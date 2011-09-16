@@ -161,7 +161,7 @@ unit cgcpu;
           Internalerror(200109191);
 
         make_global:=false;
-        if (not current_module.is_unit) or
+        if (not current_module.is_unit) or create_smartlink or
            (procdef.owner.defowner.owner.symtabletype=globalsymtable) then
           make_global:=true;
 
@@ -173,7 +173,8 @@ unit cgcpu;
         { set param1 interface to self  }
         g_adjust_self_value(list,procdef,ioffset);
 
-        if po_virtualmethod in procdef.procoptions then
+        if (po_virtualmethod in procdef.procoptions) and
+            not is_objectpascal_helper(procdef.struct) then
           begin
             if (procdef.extnumber=$ffff) then
               Internalerror(200006139);

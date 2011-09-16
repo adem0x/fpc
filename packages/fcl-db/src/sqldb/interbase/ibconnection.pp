@@ -121,7 +121,7 @@ type
 implementation
 
 uses
-  strutils;
+  strutils, FmtBCD;
 
 type
   TTm = packed record
@@ -437,14 +437,12 @@ end;
 procedure TIBConnection.TranslateFldType(SQLType, SQLSubType, SQLLen, SQLScale : integer;
            var TrType : TFieldType; var TrLen : word);
 begin
-  trlen := 0;
+  TrLen := 0;
   if SQLScale < 0 then
     begin
-    if (SQLScale >= -4) and (SQLScale <= -1) then //in [-4..-1] then
-      begin
-      TrLen := abs(SQLScale);
+    TrLen := abs(SQLScale);
+    if (TrLen <= MaxBCDScale) then //Note: NUMERIC(18,3) or (17,2) must be mapped to ftFmtBCD, but we do not know Precision
       TrType := ftBCD
-      end
     else
       TrType := ftFMTBcd;
     end
@@ -615,12 +613,13 @@ procedure TIBConnection.UnPrepareStatement(cursor : TSQLCursor);
 
 begin
   with cursor as TIBcursor do
-    begin
-    if isc_dsql_free_statement(@Status[0], @Statement, DSQL_Drop) <> 0 then
-      CheckError('FreeStatement', Status);
-    Statement := nil;
-    FPrepared := False;
-    end;
+    if assigned(Statement) Then
+      begin
+        if isc_dsql_free_statement(@Status[0], @Statement, DSQL_Drop) <> 0 then
+          CheckError('FreeStatement', Status);
+        Statement := nil;
+        FPrepared := False;
+      end;
 end;
 
 procedure TIBConnection.FreeSQLDABuffer(var aSQLDA : PXSQLDA);
@@ -780,7 +779,8 @@ var
   // This should be a pointer, because the ORIGINAL variables must
   // be modified.
   VSQLVar: ^XSQLVAR;
-
+  d : double;
+  
 begin
 {$R-}
   with cursor as TIBCursor do for SQLVarNr := 0 to High(ParamBinding){AParams.count-1} do
@@ -842,6 +842,11 @@ begin
           begin
             if VSQLVar^.sqlscale = 0 then
               li := AParams[ParNr].AsLargeInt
+            else if AParams[ParNr].DataType = ftFMTBcd then
+              begin
+              d:=AParams[ParNr].AsFMTBCD * IntPower(10, -VSQLVar^.sqlscale);
+              li := Round(d)
+              end
             else
               li := Round(AParams[ParNr].AsCurrency * IntPower(10, -VSQLVar^.sqlscale));
             Move(li, VSQLVar^.SQLData^, VSQLVar^.SQLLen);
@@ -863,6 +868,7 @@ var
   VarcharLen : word;
   CurrBuff     : pchar;
   c            : currency;
+  AFmtBcd      : tBCD;
   smalli       : smallint;
   longi        : longint;
   largei       : largeint;
@@ -920,6 +926,26 @@ begin
             end; {case}
             Move(c, buffer^ , sizeof(c));
           end;
+        ftFMTBcd :
+          begin
+            case SQLDA^.SQLVar[x].SQLLen of
+              2 : begin
+                  Move(CurrBuff^, smalli, 2);
+                  AFmtBCD:= smalli*intpower(10,SQLDA^.SQLVar[x].SQLScale);
+                  end;
+              4 : begin
+                  Move(CurrBuff^, longi, 4);
+                  AFmtBcd := longi*intpower(10,SQLDA^.SQLVar[x].SQLScale);
+                  end;
+              8 : begin
+                  Move(CurrBuff^, largei, 8);
+                  AFmtBcd := largei*intpower(10,SQLDA^.SQLVar[x].SQLScale);
+                  end;
+              else
+                Result := False; // Just to be sure, in principle this will never happen
+            end; {case}
+            Move(AFmtBcd, buffer^ , sizeof(AFmtBcd));
+          end;
         ftInteger :
           begin
             FillByte(buffer^,sizeof(Longint),0);
@@ -975,6 +1001,8 @@ begin
       isc_decode_sql_time(PISC_TIME(CurrBuff), @CTime);
     SQL_TIMESTAMP :
       isc_decode_timestamp(PISC_TIMESTAMP(CurrBuff), @CTime);
+  else
+    Raise EIBDatabaseError.CreateFmt('Invalid parameter type for date Decode : %d',[(AType and not 1)]);
   end;
 
   STime.Year        := CTime.tm_year + 1900;
@@ -1010,6 +1038,8 @@ begin
       isc_encode_sql_time(@CTime, PISC_TIME(CurrBuff));
     SQL_TIMESTAMP :
       isc_encode_timestamp(@CTime, PISC_TIMESTAMP(CurrBuff));
+  else
+    Raise EIBDatabaseError.CreateFmt('Invalid parameter type for date encode : %d',[(AType and not 1)]);
   end;
 end;
 
@@ -1157,6 +1187,8 @@ begin
         Ext := Dbl;
         Move(Ext, CurrBuff^, 10);
       end;
+  else
+    Raise EIBDatabaseError.CreateFmt('Invalid float size for float encode : %d',[Size]);
   end;
 end;
 
@@ -1181,6 +1213,8 @@ begin
         Move(CurrBuff^, Ext, 10);
         Dbl := double(Ext);
       end;
+  else
+    Raise EIBDatabaseError.CreateFmt('Invalid float size for float Decode : %d',[Size]);
   end;
   Move(Dbl, Buffer^, 8);
 end;

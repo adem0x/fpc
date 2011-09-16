@@ -294,7 +294,7 @@ begin
   begin
     for I := 0 to FPathCount-1 do
       FElement := DoFindNode(FPathStack[I], FDummy, Flags - [pfHasValue]);
-    FPathDirty := False;      
+    if Assigned(FElement) then FPathDirty := False;
   end;
   Result := DoFindNode(APath, Ident, Flags);
 end;
@@ -431,7 +431,7 @@ procedure TXMLConfig.ResetKey;
 var
   I: Integer;
 begin
-  for I := Length(FPathStack) downto 0 do
+  for I := Length(FPathStack)-1 downto 0 do
     FPathStack[I] := '';
   FElement := nil;    
   FPathDirty := False;

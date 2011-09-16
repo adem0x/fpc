@@ -79,7 +79,7 @@ general_t_objectpath=01007_T_Using object path: $1
 % When the \var{-vt} switch is used, this line tells you where the compiler
 % looks for object files you link in (files used in \var{\{\$L xxx\}} statements).
 % You can set this path with the \var{-Fo} option.
-general_i_abslines_compiled=01008_I_$1 lines compiled, $2 sec $3
+general_i_abslines_compiled=01008_I_$1 lines compiled, $2 sec$3
 % When the \var{-vi} switch is used, the compiler reports the number
 % of lines compiled, and the time it took to compile them (real time,
 % not program time).
@@ -124,6 +124,10 @@ general_i_number_of_hints=01022_I_$1 hint(s) issued
 % Total number of hints issued during compilation.
 general_i_number_of_notes=01023_I_$1 note(s) issued
 % Total number of notes issued during compilation.
+general_f_ioerror=01024_F_I/O error: $1
+% During compilation an I/O error happened which allows no further compilation.
+general_f_oserror=01025_F_Operating system error: $1
+% During compilation an operanting system error happened which allows no further compilation.
 % \end{description}
 #
 # Scanner
@@ -364,11 +368,14 @@ scan_w_multiple_main_name_overrides=02086_W_Overriding name of "main" procedure 
 % name will be used.
 scanner_w_illegal_warn_identifier=02087_W_Illegal identifier "$1" for $WARN directive
 % Identifier is not known by a \var{\{\$WARN\}} compiler directive.
+scanner_e_illegal_alignment_directive=02088_E_Illegal alignment directive
+% The alignment directive is not valid. Either the alignment type is not known or the alignment
+% value is not a power of two.
 % \end{description}
 #
 # Parser
 #
-# 03304 is the last used one
+# 03315 is the last used one
 #
 % \section{Parser messages}
 % This section lists all parser messages. The parser takes care of the
@@ -917,9 +924,9 @@ parser_e_no_access_specifier_in_interfaces=03172_E_Access specifiers can't be us
 % The access specifiers \var{public}, \var{private}, \var{protected} and
 % \var{published} can't be used in interfaces, Objective-C protocols and categories because all methods
 % of an interface/protocol/category must be public.
-parser_e_no_vars_in_interfaces=03173_E_An interface or Objective-C protocol or category cannot contain fields
-% Declarations of fields are not allowed in interfaces and Objective-C protocols and categories.
-% An interface/protocol/category can contain only methods and properties with method read/write specifiers.
+parser_e_no_vars_in_interfaces=03173_E_An interface, helper or Objective-C protocol or category cannot contain fields
+% Declarations of fields are not allowed in interfaces, helpers and Objective-C protocols and categories.
+% An interface/helper/protocol/category can contain only methods and properties with method read/write specifiers.
 parser_e_no_local_proc_external=03174_E_Can't declare local procedure as EXTERNAL
 % Declaring local procedures as external is not possible. Local procedures
 % get hidden parameters that will make the chance of errors very high.
@@ -1264,9 +1271,12 @@ parser_e_objc_message_name_changed=03275_E_Message name "$1" in inherited class 
 parser_e_no_objc_unique=03276_E_It is not yet possible to make unique copies of Objective-C types
 % Duplicating an Objective-C type using \var{type x = type y;} is not yet supported. You may be able to
 % obtain the desired effect using \var{type x = objcclass(y) end;} instead.
-parser_e_no_category_as_types=03277_E_Objective-C categories cannot be used as types
-% It is not possible to declare a variable as an instance of an Objective-C category. A
-% category adds methods to the scope of an existing class, but does not define a type by itself.
+parser_e_no_category_as_types=03277_E_Objective-C categories and Object Pascal class helpers cannot be used as types
+% It is not possible to declare a variable as an instance of an Objective-C
+% category or an Object Pascal class helper. A category/class helper adds
+% methods to the scope of an existing class, but does not define a type by
+% itself. An exception of this rule is when inheriting an Object Pascal class
+% helper from another class helper.
 parser_e_no_category_override=03278_E_Categories do not override, but replace methods. Use "reintroduce" instead.
 parser_e_must_use_reintroduce_objc=03279_E_Replaced methods can only be reintroduced in Objective-C, add "reintroduce" (replaced method defined in $1).
 parser_h_should_use_reintroduce_objc=03280_H_Replaced methods can only be reintroduced in Objective-C, add "reintroduce" (replaced method defined in $1).
@@ -1347,26 +1357,47 @@ parser_e_forward_protocol_declaration_must_be_resolved=03298_E_Forward declarati
 % where \var{MyProtocol} is declared but not defined.
 parser_e_no_record_published=03299_E_Record types cannot have published sections
 % Published sections can be used only inside classes.
-parser_e_no_destructor_in_records=03300_E_Destructors aren't allowed in records
-% Destructor declarations aren't allowed in records.
+parser_e_no_destructor_in_records=03300_E_Destructors aren't allowed in records or helpers
+% Destructor declarations aren't allowed in records or helpers.
 parser_e_class_methods_only_static_in_records=03301_E_Class methods must be static in records
 % Class methods declarations aren't allowed in records without static modifier.
 % Records have no inheritance and therefore non static class methods have no sence for them.
-parser_e_no_constructor_in_records=03302_E_Constructors aren't allowed in records
-% Constructor declarations aren't allowed in records.
+parser_e_no_constructor_in_records=03302_E_Constructors aren't allowed in records or record helpers
+% Constructor declarations aren't allowed in records or record helpers.
 parser_e_at_least_one_argument_must_be_of_type=03303_E_Either the result or at least one parameter must be of type "$1"
 % It is required that either the result of the routine or at least one of its parameters be of the specified type.
 % For example class operators either take an instance of the structured type in which they are defined, or they return one.
 parser_e_cant_use_type_parameters_here=03304_E_Type parameters may require initialization/finalization - can't be used in variant records
 % Type parameters may be specialized with types which (e.g. \var{ansistring}) need initialization/finalization
-% code which is implicitly generated by the compiler. 
+% code which is implicitly generated by the compiler.
 parser_e_externals_no_section=03305_E_Variables being declared as external cannot be in a custom section
 % A section directive is not valid for variables being declared as external.
 parser_e_section_no_locals=03306_E_Non-static and non-global variables cannot have a section directive
 % A variable placed in a custom section is always statically allocated so it must be either a static or global variable.
-parser_e_invalid_codepage=03307_E_Invalid codepage
+parser_e_not_allowed_in_helper=03307_E_"$1" is not allowed in helper types
+% Some directives and specifiers like "virtual", "dynamic", "override" aren't
+% allowed inside helper types in mode ObjFPC (they are ignored in mode Delphi),
+% because they have no meaning within helpers. Also "abstract" isn't allowed in
+% either mode.
+parser_e_no_class_constructor_in_helpers=03308_E_Class constructors aren't allowed in helpers
+% Class constructor declarations aren't allowed in helpers.
+parser_e_inherited_not_in_record=03309_E_The use of "inherited" is not allowed in a record
+% As records don't suppport inheritance the use of "inherited" is prohibited for
+% these as well as for record helpers (in mode "Delphi" only).
+parser_e_no_types_in_local_anonymous_records=03310_E_Type declarations are not allowed in local or anonymous records
+% Records with types must be defined globally. Types cannot be defined inside records which are defined in a
+% procedure or function or in anonymous records.
+parser_e_duplicate_implements_clause=03311_E_Duplicate implements clause for interface "$1"
+% A class may delegate an interface using the "implements" clause only to a single property. Delegating it multiple times
+% is a error.
+parser_e_mapping_no_implements=03312_E_Interface "$1" can't be delegated by "$2", it already has method resolutions
+% Method resolution clause maps a method of an interface to a method of the current class. Therefore the current class
+% has to implement the interface directly. Delegation is not possible.
+parser_e_implements_no_mapping=03313_E_Interface "$1" can't have method resolutions, "$2" already delegates it
+% Method resoulution is only possible for interfaces that are implemented directly, not by delegation.
+parser_e_invalid_codepage=03314_E_Invalid codepage
 % When declaring a string with a given codepage, the range of valid codepages values is limited
-parser_e_widestring_to_ansi_compile_time=03308_E_Unicodechar/string constants cannot be converted to ansi/shortstring at compile-time
+parser_e_widestring_to_ansi_compile_time=03315_E_Unicodechar/string constants cannot be converted to ansi/shortstring at compile-time
 % It is not possible to use unicodechar and unicodestring constants in
 % constant expressions that have to be converted into an ansistring or shortstring
 % at compile time, for example inside typed constants. The reason is that the
@@ -1374,7 +1405,7 @@ parser_e_widestring_to_ansi_compile_time=03308_E_Unicodechar/string constants ca
 % \end{description}
 # Type Checking
 #
-# 04095 is the last used one
+# 04100 is the last used one
 #
 % \section{Type checking errors}
 % This section lists all errors that can occur when type checking is
@@ -1561,14 +1592,16 @@ type_e_type_is_not_completly_defined=04042_E_Type "$1" is not completely defined
 type_w_string_too_long=04043_W_String literal has more characters than short string length
 % The size of the constant string, which is assigned to a shortstring,
 % is longer than the maximum size of the shortstring (255 characters).
-type_w_signed_unsigned_always_false=04044_W_Comparison is always false due to range of values
-% There is a comparison between an unsigned value and a signed constant which is
-% less than zero. Because of type promotion, the statement will always evaluate to
-% false. Explicitly typecast the constant to the correct range to avoid this problem.
-type_w_signed_unsigned_always_true=04045_W_Comparison is always true due to range of values
-% There is a comparison between an unsigned value and a signed constant which is
-% less than zero. Because of type promotion, the statement will always evaluate to
-% true. Explicitly typecast the constant to the correct range to avoid this problem.
+type_w_comparison_always_false=04044_W_Comparison might be always false due to range of constant and expression
+% There is a comparison between a constant and an expression where the constant is out of the
+% valid range of values of the expression. Because of type promotion, the statement will always evaluate to
+% false. Explicitly typecast the constant or the expression to the correct range to avoid this warning
+% if you think the code is correct.
+type_w_comparison_always_true=04045_W_Comparison might be always true due to range of constant and expression
+% There is a comparison between a constant and an expression where the constant is out of the
+% valid range of values of the expression. Because of type promotion, the statement will always evaluate to
+% true. Explicitly typecast the constant or the expression to the correct range to avoid this warning
+% if you think the code is correct.
 type_w_instance_with_abstract=04046_W_Constructing a class "$1" with abstract method "$2"
 % An instance of a class is created which contains non-implemented abstract
 % methods. This will probably lead to a runtime error 211 in the code if that
@@ -1655,7 +1688,7 @@ type_w_pointer_to_signed=04082_W_Converting pointers to signed integers may resu
 % For example both \windows and \linux allow pointers in the range \$0000000 to \$bfffffff.
 % If you convert pointers to signed types, this can cause overflow and range check errors,
 % but also \$80000000 < \$7fffffff. This can cause random errors in code like "if p>q".
-type_interface_has_no_guid=04083_E_Interface type $1 has no valid GUID
+type_e_interface_has_no_guid=04083_E_Interface type $1 has no valid GUID
 % When applying the as-operator to an interface or class, the desired interface (i.e. the right operand of the
 % as-operator) must have a valid GUID.
 type_e_invalid_objc_selector_name=04084_E_Invalid selector name "$1"
@@ -1722,12 +1755,25 @@ type_e_type_parameters_are_not_allowed_here=04097_E_Type parameters are not allo
 % Type parameters are only allowed for methods of generic classes, records or objects
 type_e_generic_declaration_does_not_match=04098_E_Generic declaration of "$1" differs from previous declaration
 % Generic declaration does not match the previous declaration
-%
+type_e_helper_type_expected=04099_E_Helper type expected
+% The compiler expected a \var{class helper} type.
+type_e_record_type_expected=04100_E_Record type expected
+% The compiler expected a \var{record} type.
+type_e_class_helper_must_extend_subclass=04101_E_Derived class helper must extend a subclass of "$1" or the class itself
+% If a class helper inherits from another class helper the extended class must
+% extend either the same class as the parent class helper or a subclass of it
+type_e_record_helper_must_extend_same_record=04102_E_Derived record helper must extend "$1"
+% If a record helper inherits from another record helper it must extend the same
+% record that the parent record helper extended.
+type_e_procedures_return_no_value=04103_E_Invalid assignment, procedures return no value
+% This error occurs when one tries to assign the result of a procedure or destructor call.
+% A procedure or destructor returns no value so this is not
+% possible.
 % \end{description}
 #
 # Symtable
 #
-# 05080 is the last used one
+# 05084 is the last used one
 #
 % \section{Symbol handling}
 % This section lists all the messages that concern the handling of symbols.
@@ -1966,11 +2012,17 @@ sym_e_objc_formal_class_not_resolved=05080_E_No complete definition of the forma
 % of the class to be in scope.
 sym_e_interprocgoto_into_init_final_code_not_allowed=05081_E_Gotos into initialization or finalization blocks of units are not allowed
 % Gotos into initialization or finalization blockse of units are not allowed.
-sym_e_external_class_name_mismatch1=05082=E_Invalid external name "$1" for formal class "$2"
-sym_e_external_class_name_mismatch2=05083=E_Complete class definition with external name "$1" here
+sym_e_external_class_name_mismatch1=05082_E_Invalid external name "$1" for formal class "$2"
+sym_e_external_class_name_mismatch2=05083_E_Complete class definition with external name "$1" here
 % When a class is declared using a formal external definition, the actual external
 % definition (if any) must specify the same external name as the formal definition
 % (since both definitions refer to the same actual class type).
+sym_w_library_overload=05084_W_Possible library conflict: symbol "$1" from library "$2" also found in library "$3"
+% Some OS do not have library specific namespaces, for those
+% OS, the function declared as "external 'libname' name 'funcname'",
+% the 'libname' part is only a hint, funcname might also be loaded
+% by another library. This warning appears if 'funcname' is used twice
+% with two different library names.
 %
 % \end{description}
 #
@@ -2272,7 +2324,7 @@ asmr_w_id_supposed_external=07072_W_Identifier $1 supposed external
 % problems at link time if the symbol is not defined anywhere.
 asmr_e_string_not_allowed_as_const=07073_E_Strings not allowed as constants
 % Character strings are not allowed as constants.
-asmr_e_no_var_type_specified=07074_No type of variable specified
+asmr_e_no_var_type_specified=07074_E_No type of variable specified
 % The syntax expects a type idenfitifer after the dot, but
 % none was found.
 asmr_w_assembler_code_not_returned_to_text=07075_E_assembler code not returned to text section
@@ -2378,10 +2430,13 @@ asmr_e_empty_regset=07109_E_A register set cannot be empty
 asmr_w_useless_got_for_local=07110_W_@GOTPCREL is useless and potentially dangereous for local symbols
 % The use of @GOTPCREL supposes an extra indirection that is
 % not present if the symbol is local, which might lead to wrong asembler code
+asmr_w_general_segment_with_constant=07111_W_Constant with general purpose segment register
+% General purpose register should not have constant offsets
+% as OS memory allocation might not be compatible with that.
 #
 # Assembler/binary writers
 #
-# 08020 is the last used one
+# 08022 is the last used one
 #
 asmw_f_too_many_asm_files=08000_F_Too many assembler files
 % With smartlinking enabled, there are too many assembler
@@ -2408,6 +2463,11 @@ asmw_e_first_defined_label=08018_E_Asm: First defined here
 asmw_e_invalid_register=08019_E_Asm: Invalid register $1
 asmw_e_16bit_32bit_not_supported=08020_E_Asm: 16 or 32 Bit references not supported
 asmw_e_64bit_not_supported=08021_E_Asm: 64 Bit operands not supported
+asmw_e_bad_reg_with_rex=08022_E_Asm: AH,BH,CH or DH cannot be used in an instruction requiring REX prefix
+% x86_64 only: instruction encoding of this platform does not allow using
+% 8086 high byte registers (AH,BH,CH or DH) together with REX prefix in a single instruction.
+% The REX prefix is required whenever the instruction operand size is 64 bits, or
+% when it uses one of extended x86_64 registers (R8-R15 or XMM8-XMM15).
 
 #
 # Executing linker/assembler
@@ -2761,7 +2821,7 @@ unit_u_indirect_crc_changed=10062_U_Indirect interface (objects/classes) CRC cha
 #
 #  Options
 #
-# 11048 is the last used one
+# 11049 is the last used one
 #
 option_usage=11000_O_$1 [options] <inputfile> [options]
 # BeginOfTeX
@@ -2887,6 +2947,9 @@ option_ignored_target=11047_W_Option "$1" is ignored for the current target plat
 option_debug_external_unsupported=11048_W_Disabling external debug information because it is unsupported for the selected target/debug format combination.
 % Not all debug formats can be stored in an external file on all platforms. In particular, on
 % Mac OS X only DWARF debug information can be stored externally.
+option_dwarf_smartlink_creation=11049_N_DWARF debug information cannot be used with smart linking with external assembler, disabling static library creation.  
+% Smart linking is currently incompatble with DWARF debug information on most
+% platforms, so smart linking is disabled in such cases.
 %\end{description}
 # EndOfTeX
 
@@ -3061,6 +3124,11 @@ option_help_pages=11025_[
 3*2Acoff_COFF (Go32v2) using internal writer
 3*2Apecoff_PE-COFF (Win32) using internal writer
 4*2Aas_Assemble using GNU AS
+4*2Agas_Assemble using GNU GAS
+4*2Agas-darwin_Assemble darwin Mach-O64 using GNU GAS
+4*2Amasm_Win64 object file using ml64 (Microsoft)
+4*2Apecoff_PE-COFF (Win64) using internal writer
+4*2Aelf_ELF (Linux-64bit) using internal writer
 6*2Aas_Unix o-file using GNU AS
 6*2Agas_GNU Motorola assembler
 6*2Amit_MIT Syntax (old GAS)
@@ -3197,6 +3265,7 @@ S*2Aas_Assemble using GNU AS
 **2So_Same as -Mtp
 **2Ss_Constructor name must be init (destructor must be done)
 **2Sx_Enable exception keywords (default in Delphi/ObjFPC modes)
+**2Sy_@<pointer> returns a typed pointer, same as $T+
 **1s_Do not call assembler and linker
 **2sh_Generate script to link on host
 **2st_Generate script to link on target
@@ -3255,19 +3324,27 @@ S*2Tlinux_Linux
 **2*_    with full path              v : Write fpcdebug.txt with
 **2*_                                    lots of debugging info
 **2*_m<x>,<y> : Don't show messages numbered <x> and <y>
-3*1W<x>_Target-specific options (targets)
-A*1W<x>_Target-specific options (targets)
-P*1W<x>_Target-specific options (targets)
-p*1W<x>_Target-specific options (targets)
+**1W<x>_Target-specific options (targets)
+3*2WA_Specify native type application (Windows)
+4*2WA_Specify native type application (Windows)
+A*2WA_Specify native type application (Windows)
 3*2Wb_Create a bundle instead of a library (Darwin)
 P*2Wb_Create a bundle instead of a library (Darwin)
 p*2Wb_Create a bundle instead of a library (Darwin)
-3*2WB_Create a relocatable image (Windows)
+A*2Wb_Create a bundle instead of a library (Darwin)
+4*2Wb_Create a bundle instead of a library (Darwin)
+3*2WB_Create a relocatable image (Windows, Symbian)
+3*2WBxxxx_Set image base to xxxx (Windows, Symbian)
+4*2WB_Create a relocatable image (Windows)
+4*2WBxxxx_Set image base to xxxx (Windows)
 A*2WB_Create a relocatable image (Windows, Symbian)
+A*2WBxxxx_Set image base to xxxx (Windows, Symbian)
 3*2WC_Specify console type application (EMX, OS/2, Windows)
+4*2WC_Specify console type application (EMX, OS/2, Windows)
 A*2WC_Specify console type application (Windows)
 P*2WC_Specify console type application (Classic Mac OS)
 3*2WD_Use DEFFILE to export functions of DLL or EXE (Windows)
+4*2WD_Use DEFFILE to export functions of DLL or EXE (Windows)
 A*2WD_Use DEFFILE to export functions of DLL or EXE (Windows)
 3*2We_Use external resources (Darwin)
 4*2We_Use external resources (Darwin)
@@ -3276,20 +3353,27 @@ P*2We_Use external resources (Darwin)
 p*2We_Use external resources (Darwin)
 3*2WF_Specify full-screen type application (EMX, OS/2)
 3*2WG_Specify graphic type application (EMX, OS/2, Windows)
+4*2WG_Specify graphic type application (EMX, OS/2, Windows)
 A*2WG_Specify graphic type application (Windows)
 P*2WG_Specify graphic type application (Classic Mac OS)
 3*2Wi_Use internal resources (Darwin)
+4*2Wi_Use internal resources (Darwin)
+A*2Wi_Use internal resources (Darwin)
 P*2Wi_Use internal resources (Darwin)
 p*2Wi_Use internal resources (Darwin)
+3*2WI_Turn on/off the usage of import sections (Windows)
+4*2WI_Turn on/off the usage of import sections (Windows)
+A*2WI_Turn on/off the usage of import sections (Windows)
 3*2WN_Do not generate relocation code, needed for debugging (Windows)
+4*2WN_Do not generate relocation code, needed for debugging (Windows)
 A*2WN_Do not generate relocation code, needed for debugging (Windows)
+A*2Wpxxxx_Specify the controller type, see fpc -i for possible values
+V*2Wpxxxx_Specify the controller type, see fpc -i for possible values
 3*2WR_Generate relocation code (Windows)
+4*2WR_Generate relocation code (Windows)
 A*2WR_Generate relocation code (Windows)
 P*2WT_Specify MPW tool type application (Classic Mac OS)
-3*2WX_Enable executable stack (Linux)
-A*2WX_Enable executable stack (Linux)
-p*2WX_Enable executable stack (Linux)
-P*2WX_Enable executable stack (Linux)
+**2WX_Enable executable stack (Linux)
 **1X_Executable options:
 **2Xc_Pass --shared/-dynamic to the linker (BeOS, Darwin, FreeBSD, Linux)
 **2Xd_Do not use standard library search path (needed for cross compile)

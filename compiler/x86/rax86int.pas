@@ -729,7 +729,7 @@ Unit Rax86int;
         while (actasmtoken=AS_DOT) do
          begin
            Consume(AS_DOT);
-           if actasmtoken in [AS_BYTE,AS_ID,AS_WORD,AS_DWORD,AS_QWORD] then
+           if actasmtoken in [AS_BYTE,AS_ID,AS_WORD,AS_DWORD,AS_QWORD,AS_REGISTER] then
              begin
                s:=s+'.'+actasmpattern;
                consume(actasmtoken);
@@ -1795,8 +1795,8 @@ Unit Rax86int;
                 else
                 { Simple register }
                  begin
-                   if not (oper.opr.typ in [OPR_NONE,OPR_REGISTER]) then
-                     Message(asmr_e_invalid_operand_type);
+                   if (oper.opr.typ <> OPR_NONE) then
+                     Message(asmr_e_syn_operand);
                    oper.opr.typ:=OPR_REGISTER;
                    oper.opr.reg:=tempreg;
                    oper.SetSize(tcgsize2size[reg_cgsize(oper.opr.reg)],true);

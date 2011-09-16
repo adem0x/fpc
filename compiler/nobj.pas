@@ -266,11 +266,12 @@ implementation
             end;
 
           { compare parameter types only, no specifiers yet }
-          hasequalpara:=(compare_paras(vmtpd.paras,pd.paras,cp_none,[cpo_ignoreuniv])>=te_equal);
+          hasequalpara:=(compare_paras(vmtpd.paras,pd.paras,cp_none,[cpo_ignoreuniv,cpo_ignorehidden])>=te_equal);
 
           { check that we are not trying to override a final method }
           if (po_finalmethod in vmtpd.procoptions) and
-             hasequalpara and (po_overridingmethod in pd.procoptions) and is_class(_class) then
+             hasequalpara and (po_overridingmethod in pd.procoptions) and
+             (is_class(_class) or is_objectpascal_helper(_class)) then
             MessagePos1(pd.fileinfo,parser_e_final_can_no_be_overridden,pd.fullprocname(false))
           else
           { old definition has virtual
@@ -281,8 +282,11 @@ implementation
               (
                { new one does not have reintroduce in case of an objccategory }
                (is_objccategory(_class) and not(po_reintroduce in pd.procoptions)) or
-               { new one does not have override in case of objpas/objc class/intf/proto }
-               (is_class_or_interface_or_objc(_class) and not is_objccategory(_class) and not(po_overridingmethod in pd.procoptions))
+               { new one does not have override in case of objpas/objc class/helper/intf/proto }
+               (
+                (is_class_or_interface_or_objc(_class) or is_objectpascal_helper(_class)) and
+                not is_objccategory(_class) and not(po_overridingmethod in pd.procoptions)
+               )
               )
              ) then
             begin
@@ -348,7 +352,7 @@ implementation
 
                   { All parameter specifiers and some procedure the flags have to match
                     except abstract and override }
-                  if (compare_paras(vmtpd.paras,pd.paras,cp_all,[cpo_ignoreuniv])<te_equal) or
+                  if (compare_paras(vmtpd.paras,pd.paras,cp_all,[cpo_ignoreuniv,cpo_ignorehidden])<te_equal) or
                      (vmtpd.proccalloption<>pd.proccalloption) or
                      (vmtpd.proctypeoption<>pd.proctypeoption) or
                      ((vmtpd.procoptions*po_comp)<>(pd.procoptions*po_comp)) then
@@ -456,7 +460,7 @@ implementation
           "overriding" method }
         if is_objcclass(_class) and
            assigned(_class.childof) and
-           search_class_helper(_class.childof,pd.procsym.name,srsym,st) then
+           search_objc_helper(_class.childof,pd.procsym.name,srsym,st) then
           begin
             overridesclasshelper:=found_category_method(st);
           end;
@@ -525,14 +529,19 @@ implementation
               begin
                 { Find implementing procdef
                    1. Check for mapped name
-                   2. Use symbol name }
+                   2. Use symbol name, but only if there's no mapping,
+                      or we're processing ancestor of interface.
+                  When modifying this code, ensure that webtbs/tw11862, webtbs/tw4950
+                  and webtbf/tw19591 stay correct. }
                 implprocdef:=nil;
                 hs:=prefix+tprocdef(def).procsym.name;
                 mappedname:=ImplIntf.GetMapping(hs);
                 if mappedname<>'' then
                   implprocdef:=intf_search_procdef_by_name(tprocdef(def),mappedname);
                 if not assigned(implprocdef) then
-                  implprocdef:=intf_search_procdef_by_name(tprocdef(def),tprocdef(def).procsym.name);
+                  if (mappedname='') or (ImplIntf.IntfDef<>IntfDef) then
+                    implprocdef:=intf_search_procdef_by_name(tprocdef(def),tprocdef(def).procsym.name);
+
                 { Add procdef to the implemented interface }
                 if assigned(implprocdef) then
                   begin
@@ -1157,8 +1166,7 @@ implementation
                (pd.visibility=vis_published) then
               begin
                 current_asmdata.getdatalabel(l);
-
-                current_asmdata.asmlists[al_typedconsts].concat(cai_align.create(const_align(sizeof(pint))));
+                new_section(current_asmdata.asmlists[al_typedconsts],sec_rodata_norel,l.name,const_align(sizeof(pint)));
                 current_asmdata.asmlists[al_typedconsts].concat(Tai_label.Create(l));
                 current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_8bit(length(tsym(p).realname)));
                 current_asmdata.asmlists[al_typedconsts].concat(Tai_string.Create(tsym(p).realname));

@@ -73,6 +73,25 @@ type
         end;
         PFileStatus4=^TFileStatus4;
 
+        TFileStatus3L = object (TFileStatus)
+            DateCreation,               {Date of file creation.}
+            TimeCreation,               {Time of file creation.}
+            DateLastAccess,             {Date of last access to file.}
+            TimeLastAccess,             {Time of last access to file.}
+            DateLastWrite,              {Date of last modification of file.}
+            TimeLastWrite:word;         {Time of last modification of file.}
+            FileSize,                   {Size of file.}
+            FileAlloc:int64;         {Amount of space the file really
+                                         occupies on disk.}
+            AttrFile:cardinal;          {Attributes of file.}
+        end;
+        PFileStatus3L=^TFileStatus3L;
+
+        TFileStatus4L=object(TFileStatus3L)
+            cbList:cardinal;            {Length of entire EA set.}
+        end;
+        PFileStatus4L=^TFileStatus4L;
+
         TFileFindBuf3=object(TFileStatus)
             NextEntryOffset: cardinal;  {Offset of next entry}
             DateCreation,               {Date of file creation.}
@@ -291,10 +310,13 @@ type
  end;
 
 const
- ilStandard      = 1;
- ilQueryEAsize   = 2;
- ilQueryEAs      = 3;
- ilQueryFullName = 5;
+ ilStandard      =  1; (* Use TFileStatus3/TFindFileBuf3 *)
+ ilQueryEASize   =  2; (* Use TFileStatus4/TFindFileBuf4 *)
+ ilQueryEAs      =  3;
+ ilQueryFullName =  5;
+ ilStandardL     = 11; (* Use TFileStatus3L/TFindFileBuf3L *)
+ ilQueryEASizeL  = 12; (* Use TFileStatus4L/TFindFileBuf4L *)
+ ilQueryEAsL     = 13;
 
  quFIFO     = 0;
  quLIFO     = 1;
@@ -487,7 +509,8 @@ Var
   Rc, Action: cardinal;
 begin
 (* DenyNone if sharing not specified. *)
-  if Mode and 112 = 0 then Mode:=Mode or 64;
+  if (Mode and 112 = 0) or (Mode and 112 > 64) then
+   Mode := Mode or 64;
   Rc:=Sys_DosOpenL(PChar (FileName), Handle, Action, 0, 0, 1, Mode, nil);
   If Rc=0 then
     FileOpen:=Handle
@@ -497,23 +520,33 @@ begin
 end;
 
 function FileCreate (const FileName: string): THandle;
-Const
-  Mode = ofReadWrite or faCreate or doDenyRW;   (* Sharing to DenyAll *)
-Var
+begin
+  FileCreate := FileCreate (FileName, doDenyRW, 777); (* Sharing to DenyAll *)
+end;
+
+function FileCreate (const FileName: string; Rights: integer): THandle;
+begin
+  FileCreate := FileCreate (FileName, doDenyRW, Rights);
+                                      (* Sharing to DenyAll *)
+end;
+
+function FileCreate (const FileName: string; ShareMode: integer;
+                                                     Rights: integer): THandle;
+var
   Handle: THandle;
   RC, Action: cardinal;
-Begin
-  RC:=Sys_DosOpenL(PChar (FileName), Handle, Action, 0, 0, $12, Mode, Nil);
-  If RC=0 then
-    FileCreate:=Handle
-  else
-    FileCreate:=feInvalidHandle;
-End;
-
-function FileCreate (const FileName: string; Mode: integer): THandle;
 begin
- FileCreate := FileCreate(FileName);
-end;
+  ShareMode := ShareMode and 112;
+  (* Sharing to DenyAll as default in case of values not allowed by OS/2. *)
+  if (ShareMode = 0) or (ShareMode > 64) then
+   ShareMode := doDenyRW;
+  RC := Sys_DosOpenL (PChar (FileName), Handle, Action, 0, 0, $12,
+                                    faCreate or ofReadWrite or ShareMode, nil);
+  if RC = 0 then
+   FileCreate := Handle
+  else
+   FileCreate := feInvalidHandle;
+End;
 
 
 function FileRead (Handle: THandle; Out Buffer; Count: longint): longint;
@@ -579,15 +612,15 @@ end;
 
 
 function FileExists (const FileName: string): boolean;
-var
-  SR: TSearchRec;
-  RC: longint;
 begin
-  FileExists:=False;
-  if FindFirst (FileName, faAnyFile and not (faDirectory), SR) = 0
-    then FileExists := True;
-  FindClose(SR);
+  if FileName = '' then
+   Result := false
+  else
+   Result := FileGetAttr (ExpandFileName (FileName)) and
+                                               (faDirectory or faVolumeID) = 0;
+(* Neither VolumeIDs nor directories are files. *)
 end;
+
 
 type    TRec = record
             T, D: word;
@@ -597,7 +630,7 @@ type    TRec = record
 function FindFirst (const Path: string; Attr: longint; out Rslt: TSearchRec): longint;
 
 var SR: PSearchRec;
-    FStat: PFileFindBuf3;
+    FStat: PFileFindBuf3L;
     Count: cardinal;
     Err: cardinal;
     I: cardinal;
@@ -606,23 +639,36 @@ begin
   New (FStat);
   Rslt.FindHandle := THandle ($FFFFFFFF);
   Count := 1;
-  Err := DosFindFirst (PChar (Path), Rslt.FindHandle,
+  if FSApi64 then
+   Err := DosFindFirst (PChar (Path), Rslt.FindHandle,
+            Attr and FindResvdMask, FStat, SizeOf (FStat^), Count, ilStandardL)
+  else
+   Err := DosFindFirst (PChar (Path), Rslt.FindHandle,
             Attr and FindResvdMask, FStat, SizeOf (FStat^), Count, ilStandard);
-  if (Err = 0) and (Count = 0) then Err := 18;
+  if (Err = 0) and (Count = 0) then
+   Err := 18;
   FindFirst := -Err;
   if Err = 0 then
-  begin
-    Rslt.Name := FStat^.Name;
-    Rslt.Size := FStat^.FileSize;
-    Rslt.Attr := FStat^.AttrFile;
+   begin
     Rslt.ExcludeAttr := 0;
     TRec (Rslt.Time).T := FStat^.TimeLastWrite;
     TRec (Rslt.Time).D := FStat^.DateLastWrite;
-  end else if (Rslt.Findhandle<>0) then
-  begin
-    FindClose(Rslt); 
-  end;
-  
+    if FSApi64 then
+     begin
+      Rslt.Size := FStat^.FileSize;
+      Rslt.Name := FStat^.Name;
+      Rslt.Attr := FStat^.AttrFile;
+     end
+    else
+     begin
+      Rslt.Size := PFileFindBuf3 (FStat)^.FileSize;
+      Rslt.Name := PFileFindBuf3 (FStat)^.Name;
+      Rslt.Attr := PFileFindBuf3 (FStat)^.AttrFile;
+     end;
+   end
+  else
+   FindClose(Rslt);
+
   Dispose (FStat);
 end;
 
@@ -630,24 +676,33 @@ end;
 function FindNext (var Rslt: TSearchRec): longint;
 var
   SR: PSearchRec;
-  FStat: PFileFindBuf3;
+  FStat: PFileFindBuf3L;
   Count: cardinal;
   Err: cardinal;
 begin
   New (FStat);
   Count := 1;
-  Err := DosFindNext (Rslt.FindHandle, FStat, SizeOf (FStat^),
-                                                              Count);
-  if (Err = 0) and (Count = 0) then Err := 18;
+  Err := DosFindNext (Rslt.FindHandle, FStat, SizeOf (FStat^), Count);
+  if (Err = 0) and (Count = 0) then
+   Err := 18;
   FindNext := -Err;
   if Err = 0 then
   begin
-    Rslt.Name := FStat^.Name;
-    Rslt.Size := FStat^.FileSize;
-    Rslt.Attr := FStat^.AttrFile;
     Rslt.ExcludeAttr := 0;
     TRec (Rslt.Time).T := FStat^.TimeLastWrite;
     TRec (Rslt.Time).D := FStat^.DateLastWrite;
+    if FSApi64 then
+     begin
+      Rslt.Size := FStat^.FileSize;
+      Rslt.Name := FStat^.Name;
+      Rslt.Attr := FStat^.AttrFile;
+     end
+    else
+     begin
+      Rslt.Size := PFileFindBuf3 (FStat)^.FileSize;
+      Rslt.Name := PFileFindBuf3 (FStat)^.Name;
+      Rslt.Attr := PFileFindBuf3 (FStat)^.AttrFile;
+     end;
   end;
   Dispose (FStat);
 end;
@@ -806,11 +861,22 @@ end;
 
 function DirectoryExists (const Directory: string): boolean;
 var
-  SR: TSearchRec;
+  L: longint;
 begin
-  DirectoryExists := (FindFirst (Directory, faAnyFile, SR) = 0) and
-                                                (SR.Attr and faDirectory <> 0);
-  FindClose(SR);
+  if Directory = '' then
+   Result := false
+  else
+   begin
+    if (Directory [Length (Directory)] in AllowDirectorySeparators) and
+                                              (Length (Directory) > 1) and
+(* Do not remove '\' after ':' (root directory of a drive) 
+   or in '\\' (invalid path, possibly broken UNC path). *)
+      not (Directory [Length (Directory) - 1] in AllowDriveSeparators + AllowDirectorySeparators) then
+     L := FileGetAttr (ExpandFileName (Copy (Directory, 1, Length (Directory) - 1)))
+    else
+     L := FileGetAttr (ExpandFileName (Directory));
+    Result := (L > 0) and (L and faDirectory = faDirectory);
+   end;
 end;
 
 {****************************************************************************

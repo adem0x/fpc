@@ -15,8 +15,8 @@
 program mkx86ins;
 
 const
-  Version = '1.5.1';
-
+  Version = '1.6.0';
+  max_operands = 4;
 var
    s : string;
    i : longint;
@@ -59,12 +59,12 @@ function formatop(s:string;allowsizeonly:boolean):string;
      replacetab : array[1..replaces,1..2] of string[32]=(
        (':',' or ot_colon'),
        ('reg','regnorm'),
-       ('regmem','regmem'),
-       ('rm8','regmem or ot_bits8'),
-       ('rm16','regmem or ot_bits16'),
-       ('rm32','regmem or ot_bits32'),
-       ('rm64','regmem or ot_bits64'),
-       ('rm80','regmem or ot_bits80'),
+       ('regmem','rm_gpr'),
+       ('rm8','rm_gpr or ot_bits8'),
+       ('rm16','rm_gpr or ot_bits16'),
+       ('rm32','rm_gpr or ot_bits32'),
+       ('rm64','rm_gpr or ot_bits64'),
+       ('rm80','rm_gpr or ot_bits80'),
        ('mem8','memory or ot_bits8'),
        ('mem16','memory or ot_bits16'),
        ('mem32','memory or ot_bits32'),
@@ -198,14 +198,14 @@ var
    infile,insfile : text;
    { instruction fields }
    skip : boolean;
-   last,
+   literalcount,
    ops    : longint;
    intopcode,
    attopcode,
    opcode,
    codes,
    flags   : string;
-   optypes : array[1..3] of string;
+   optypes : array[1..max_operands] of string;
 begin
    writeln('Nasm Instruction Table Converter Version ',Version);
    x86_64:=paramstr(1)='x86_64';
@@ -280,6 +280,11 @@ begin
                     dec(attopcode[0]);
                     attsuffix:='attsufINT';
                   end;
+                'Y' :
+                  begin
+                    dec(attopcode[0]);
+                    attsuffix:='attsufINTdual';
+                  end;
                 'F' :
                   begin
                     dec(attopcode[0]);
@@ -326,9 +331,8 @@ begin
          runerror(234);
         { clear }
         ops:=0;
-        optypes[1]:='';
-        optypes[2]:='';
-        optypes[3]:='';
+        for i:=low(optypes) to high(optypes) do
+          optypes[i]:='';
         codes:='';
         flags:='';
         skip:=false;
@@ -350,29 +354,34 @@ begin
           else
             break;
         until false;
-        for j:=1 to 3-ops do
-          optypes[3-j+1]:='ot_none';
+        for j:=1 to max_operands-ops do
+          optypes[max_operands-j+1]:='ot_none';
         { codes }
         skipspace;
         j:=0;
-        last:=0;
+        literalcount:=0;
         if s[i] in ['\','0'..'9'] then
           begin
              while not(s[i] in [' ',#9]) do
                begin
                  code:=readnumber;
                  { for some codes we want also to change the optypes, but not
-                   if the last byte was a 1 then this byte belongs to a direct
-                   copy }
-                 if last<>1 then
-                  begin
-                    case code of
-                      12,13,14 :
-                        optypes[code-11]:=optypes[code-11]+' or ot_signed';
-                    end;
-                  end;
+                   if the code belongs to a literal sequence }
+                 if (literalcount=0) and (code>=1) and (code<=3) then
+                   literalcount:=code
+                 else
+                   begin
+                     if literalcount>0 then
+                       dec(literalcount)
+                     else
+                       begin
+                         case code of
+                           12,13,14 :
+                             optypes[code-11]:=optypes[code-11]+' or ot_signed';
+                         end;
+                       end;
+                   end;
                  codes:=codes+'#'+tostr(code);
-                 last:=code;
                  inc(j);
                end;
           end
@@ -419,7 +428,7 @@ begin
             writeln(insfile,'  (');
             writeln(insfile,'    opcode  : ',opcode,';');
             writeln(insfile,'    ops     : ',ops,';');
-            writeln(insfile,'    optypes : (',optypes[1],',',optypes[2],',',optypes[3],');');
+            writeln(insfile,'    optypes : (',optypes[1],',',optypes[2],',',optypes[3],',',optypes[4],');');
             writeln(insfile,'    code    : ',codes,';');
             writeln(insfile,'    flags   : ',flags);
             write(insfile,'  )');
@@ -435,5 +444,5 @@ begin
    writeln(nopfile,insns,';');
    close(nopfile);
    closeinc(propfile);
-   writeln(insns,' nodes procesed (maxinfolen=',maxinfolen,')');
+   writeln(insns,' nodes processed (maxinfolen=',maxinfolen,')');
 end.

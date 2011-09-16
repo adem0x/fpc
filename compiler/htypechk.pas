@@ -67,12 +67,12 @@ interface
         FParaNode   : tnode;
         FParaLength : smallint;
         FAllowVariant : boolean;
-        procedure collect_overloads_in_struct(structdef:tabstractrecorddef;ProcdefOverloadList:TFPObjectList);
+        procedure collect_overloads_in_struct(structdef:tabstractrecorddef;ProcdefOverloadList:TFPObjectList;searchhelpers,anoninherited:boolean);
         procedure collect_overloads_in_units(ProcdefOverloadList:TFPObjectList; objcidcall,explicitunit: boolean);
-        procedure create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall,explicitunit:boolean);
+        procedure create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall,explicitunit,searchhelpers,anoninherited:boolean);
         function  proc_add(st:tsymtable;pd:tprocdef;objcidcall: boolean):pcandidate;
       public
-        constructor create(sym:tprocsym;st:TSymtable;ppn:tnode;ignorevisibility,allowdefaultparas,objcidcall,explicitunit:boolean);
+        constructor create(sym:tprocsym;st:TSymtable;ppn:tnode;ignorevisibility,allowdefaultparas,objcidcall,explicitunit,searchhelpers,anoninherited:boolean);
         constructor create_operator(op:ttoken;ppn:tnode);
         destructor destroy;override;
         procedure list(all:boolean);
@@ -1322,9 +1322,8 @@ implementation
                     (vo_is_loop_counter in tsubscriptnode(hp).vs.varoptions) then
                    begin
                      if report_errors then
-                       CGMessage1(parser_e_illegal_assignment_to_count_var,tsubscriptnode(hp).vs.realname)
-                     else
-                       exit;
+                       CGMessage1(parser_e_illegal_assignment_to_count_var,tsubscriptnode(hp).vs.realname);
+                     exit;
                    end;
                  { implicit pointer object types result in dereferencing }
                  hp:=tsubscriptnode(hp).left;
@@ -1475,10 +1474,11 @@ implementation
                        if not(Valid_Const in opts) and
                           not gotderef and
                           (vo_is_loop_counter in tabstractvarsym(tloadnode(hp).symtableentry).varoptions) then
-                         if report_errors then
-                          CGMessage1(parser_e_illegal_assignment_to_count_var,tloadnode(hp).symtableentry.realname)
-                         else
-                          exit;
+                         begin
+                           if report_errors then
+                             CGMessage1(parser_e_illegal_assignment_to_count_var,tloadnode(hp).symtableentry.realname);
+                           exit;
+                         end;
                        { read-only variable? }
                        if (tabstractvarsym(tloadnode(hp).symtableentry).varspez in [vs_const,vs_constref]) then
                         begin
@@ -1609,7 +1609,7 @@ implementation
                     eq:=te_convert_l2
                   else
                     if equal_defs(def_from,tarraydef(def_to).elementdef) then
-                      eq:=te_convert_l2;
+                      eq:=te_convert_l3;
                 end;
             end;
           pointerdef :
@@ -1758,7 +1758,7 @@ implementation
                            TCallCandidates
 ****************************************************************************}
 
-    constructor tcallcandidates.create(sym:tprocsym;st:TSymtable;ppn:tnode;ignorevisibility,allowdefaultparas,objcidcall,explicitunit:boolean);
+    constructor tcallcandidates.create(sym:tprocsym;st:TSymtable;ppn:tnode;ignorevisibility,allowdefaultparas,objcidcall,explicitunit,searchhelpers,anoninherited:boolean);
       begin
         if not assigned(sym) then
           internalerror(200411015);
@@ -1766,7 +1766,7 @@ implementation
         FProcsym:=sym;
         FProcsymtable:=st;
         FParanode:=ppn;
-        create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall,explicitunit);
+        create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall,explicitunit,searchhelpers,anoninherited);
       end;
 
 
@@ -1776,7 +1776,7 @@ implementation
         FProcsym:=nil;
         FProcsymtable:=nil;
         FParanode:=ppn;
-        create_candidate_list(false,false,false,false);
+        create_candidate_list(false,false,false,false,false,false);
       end;
 
 
@@ -1795,13 +1795,55 @@ implementation
       end;
 
 
-    procedure tcallcandidates.collect_overloads_in_struct(structdef:tabstractrecorddef;ProcdefOverloadList:TFPObjectList);
+    procedure tcallcandidates.collect_overloads_in_struct(structdef:tabstractrecorddef;ProcdefOverloadList:TFPObjectList;searchhelpers,anoninherited:boolean);
+
+      function processprocsym(srsym:tprocsym; out foundanything: boolean):boolean;
+        var
+          j  : integer;
+          pd : tprocdef;
+        begin
+          { add all definitions }
+          result:=false;
+          foundanything:=false;
+          for j:=0 to srsym.ProcdefList.Count-1 do
+            begin
+              pd:=tprocdef(srsym.ProcdefList[j]);
+              { in case of anonymous inherited, only match procdefs identical
+                to the current one (apart from hidden parameters), rather than
+                anything compatible to the parameters -- except in case of
+                the presence of a messagestr/int, in which case those have to
+                match exactly }
+              if anoninherited then
+                if po_msgint in current_procinfo.procdef.procoptions then
+                  begin
+                    if not(po_msgint in pd.procoptions) or
+                       (pd.messageinf.i<>current_procinfo.procdef.messageinf.i) then
+                      continue
+                  end
+                else if po_msgstr in current_procinfo.procdef.procoptions then
+                  begin
+                    if not(po_msgstr in pd.procoptions) or
+                       (pd.messageinf.str^<>current_procinfo.procdef.messageinf.str^) then
+                      continue
+                  end
+                else if (compare_paras(current_procinfo.procdef.paras,pd.paras,cp_all,[cpo_ignorehidden])<te_equal) then
+                  continue;
+              foundanything:=true;
+              { Store first procsym found }
+              if not assigned(FProcsym) then
+                FProcsym:=tprocsym(srsym);
+              if po_overload in pd.procoptions then
+                result:=true;
+              ProcdefOverloadList.Add(srsym.ProcdefList[j]);
+            end;
+        end;
+
       var
-        j          : integer;
-        pd         : tprocdef;
         srsym      : tsym;
         hashedid   : THashedIDString;
-        hasoverload : boolean;
+        hasoverload,
+        foundanything : boolean;
+        helperdef  : tobjectdef;
       begin
         if FOperator=NOTOKEN then
           hashedid.id:=FProcsym.name
@@ -1810,26 +1852,60 @@ implementation
         hasoverload:=false;
         while assigned(structdef) do
          begin
+           { first search in helpers for this type }
+           if (is_class(structdef) or is_record(structdef))
+               and searchhelpers then
+             begin
+               if search_last_objectpascal_helper(structdef,nil,helperdef) then
+                 begin
+                   srsym:=nil;
+                   while assigned(helperdef) do
+                     begin
+                       srsym:=tsym(helperdef.symtable.FindWithHash(hashedid));
+                       if assigned(srsym) and
+                           { Delphi allows hiding a property by a procedure with the same name }
+                           (srsym.typ=procsym) then
+                         begin
+                           hasoverload:=processprocsym(tprocsym(srsym),foundanything);
+                           { when there is no explicit overload we stop searching }
+                           if foundanything and
+                              not hasoverload then
+                             break;
+                         end;
+                       helperdef:=helperdef.childof;
+                     end;
+                   if not hasoverload and assigned(srsym) then
+                     exit;
+                 end;
+             end;
+           { now search in the type itself }
            srsym:=tprocsym(structdef.symtable.FindWithHash(hashedid));
            if assigned(srsym) and
               { Delphi allows hiding a property by a procedure with the same name }
               (srsym.typ=procsym) then
              begin
-               { Store first procsym found }
-               if not assigned(FProcsym) then
-                 FProcsym:=tprocsym(srsym);
-               { add all definitions }
-               hasoverload:=false;
-               for j:=0 to tprocsym(srsym).ProcdefList.Count-1 do
-                 begin
-                   pd:=tprocdef(tprocsym(srsym).ProcdefList[j]);
-                   if po_overload in pd.procoptions then
-                     hasoverload:=true;
-                   ProcdefOverloadList.Add(tprocsym(srsym).ProcdefList[j]);
-                 end;
+               hasoverload:=processprocsym(tprocsym(srsym),foundanything);
                { when there is no explicit overload we stop searching }
-               if not hasoverload then
+               if foundanything and
+                  not hasoverload then
                  break;
+             end;
+           if is_objectpascal_helper(structdef) then
+             begin
+               if not assigned(tobjectdef(structdef).extendeddef) then
+                 Internalerror(2011062601);
+               { search methods in the extended type as well }
+               srsym:=tprocsym(tobjectdef(structdef).extendeddef.symtable.FindWithHash(hashedid));
+               if assigned(srsym) and
+                  { Delphi allows hiding a property by a procedure with the same name }
+                  (srsym.typ=procsym) then
+                 begin
+                   hasoverload:=processprocsym(tprocsym(srsym),foundanything);
+                   { when there is no explicit overload we stop searching }
+                   if foundanything and
+                      not hasoverload then
+                     break;
+                 end;
              end;
            { next parent }
            if (structdef.typ=objectdef) then
@@ -1883,7 +1959,7 @@ implementation
               break;
             if srsymtable.symtabletype in [localsymtable,staticsymtable,globalsymtable] then
               begin
-                srsym:=tprocsym(srsymtable.FindWithHash(hashedid));
+                srsym:=tsym(srsymtable.FindWithHash(hashedid));
                 if assigned(srsym) and
                    (srsym.typ=procsym) then
                   begin
@@ -1911,7 +1987,7 @@ implementation
       end;
 
 
-    procedure tcallcandidates.create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall,explicitunit:boolean);
+    procedure tcallcandidates.create_candidate_list(ignorevisibility,allowdefaultparas,objcidcall,explicitunit,searchhelpers,anoninherited:boolean);
       var
         j     : integer;
         pd    : tprocdef;
@@ -1930,7 +2006,7 @@ implementation
         if not objcidcall and
            (FOperator=NOTOKEN) and
            (FProcsym.owner.symtabletype in [objectsymtable,recordsymtable]) then
-          collect_overloads_in_struct(tabstractrecorddef(FProcsym.owner.defowner),ProcdefOverloadList)
+          collect_overloads_in_struct(tabstractrecorddef(FProcsym.owner.defowner),ProcdefOverloadList,searchhelpers,anoninherited)
         else
         if (FOperator<>NOTOKEN) then
           begin
@@ -1940,7 +2016,7 @@ implementation
             while assigned(pt) do
               begin
                 if (pt.resultdef.typ=recorddef) then
-                  collect_overloads_in_struct(tabstractrecorddef(pt.resultdef),ProcdefOverloadList);
+                  collect_overloads_in_struct(tabstractrecorddef(pt.resultdef),ProcdefOverloadList,searchhelpers,anoninherited);
                 pt:=tcallparanode(pt.right);
               end;
             collect_overloads_in_units(ProcdefOverloadList,objcidcall,explicitunit);
@@ -1972,7 +2048,7 @@ implementation
             ((FProcSymtable.symtabletype=withsymtable) and
              (FProcSymtable.defowner.typ in [objectdef,recorddef]))
            ) and
-           (FProcSymtable.defowner.owner.symtabletype in [globalsymtable,staticsymtable]) and
+           (FProcSymtable.defowner.owner.symtabletype in [globalsymtable,staticsymtable,objectsymtable,recordsymtable]) and
            FProcSymtable.defowner.owner.iscurrentunit then
           contextstructdef:=tabstractrecorddef(FProcSymtable.defowner)
         else
@@ -2459,7 +2535,8 @@ implementation
         variantorddef_cl: array[tordtype] of tvariantequaltype =
           (tve_incompatible,tve_byte,tve_word,tve_cardinal,tve_chari64,
            tve_shortint,tve_smallint,tve_longint,tve_chari64,
-           tve_boolformal,tve_boolformal,tve_boolformal,tve_boolformal,tve_boolformal,
+           tve_boolformal,tve_boolformal,tve_boolformal,tve_boolformal,
+           tve_boolformal,tve_boolformal,tve_boolformal,tve_boolformal,
            tve_chari64,tve_chari64,tve_dblcurrency);
 { TODO: fixme for 128 bit floats }
         variantfloatdef_cl: array[tfloattype] of tvariantequaltype =

@@ -111,6 +111,7 @@ Function Yesterday: TDateTime;
 Function Tomorrow: TDateTime;
 Function IsToday(const AValue: TDateTime): Boolean;
 Function IsSameDay(const AValue, ABasis: TDateTime): Boolean;
+function IsSameMonth(const Avalue, ABasis: TDateTime): Boolean;
 Function PreviousDayOfWeek (DayOfWeek : Word) : Word;
 
 { ---------------------------------------------------------------------
@@ -328,6 +329,13 @@ Function TryEncodeDateDay(const AYear, ADayOfYear: Word; out AValue: TDateTime):
 Function EncodeDateMonthWeek(const AYear, AMonth, AWeekOfMonth, ADayOfWeek: Word): TDateTime;
 Procedure DecodeDateMonthWeek(const AValue: TDateTime; out AYear, AMonth, AWeekOfMonth, ADayOfWeek: Word);
 Function TryEncodeDateMonthWeek(const AYear, AMonth, AWeekOfMonth, ADayOfWeek: Word; out AValue: TDateTime): Boolean;
+
+{ ---------------------------------------------------------------------
+    Encode time interval, allowing hours>24
+  ---------------------------------------------------------------------}
+
+function TryEncodeTimeInterval(Hour, Min, Sec, MSec:word; Out Time : TDateTime) : boolean;
+function EncodeTimeInterval(Hour, Minute, Second, MilliSecond:word): TDateTime;
 
 { ---------------------------------------------------------------------
     Replace given element with supplied value.
@@ -609,6 +617,12 @@ Var
 begin
   D:=AValue-Trunc(ABasis);
   Result:=(D>=0) and (D<1);
+end;
+
+function IsSameMonth(const Avalue, ABasis: TDateTime): Boolean;
+begin
+     result:=( YearOf(Avalue) = YearOf(Abasis) );
+     result:=result and ( MonthOf(AValue) = MonthOf(ABasis) );
 end;
 
 const
@@ -1692,6 +1706,23 @@ begin
     end;
 end;
 
+{ ---------------------------------------------------------------------
+    Encode time interval, allowing hours>24
+  ---------------------------------------------------------------------}
+
+function TryEncodeTimeInterval(Hour, Min, Sec, MSec: word; out Time: TDateTime): boolean;
+begin
+ Result:= (Min<60) and (Sec<60) and (MSec<1000);
+ If Result then
+   Time:=TDateTime(cardinal(Hour)*3600000+cardinal(Min)*60000+cardinal(Sec)*1000+MSec)/MSecsPerDay;
+end;
+
+function EncodeTimeInterval(Hour, Minute, Second, MilliSecond: word): TDateTime;
+begin
+   If not TryEncodeTimeInterval(Hour,Minute,Second,MilliSecond,Result) then
+     Raise EConvertError.CreateFmt('%d:%d:%d.%d is not a valid time specification',
+                               [Hour,Minute,Second,MilliSecond]);
+end;
 
 { ---------------------------------------------------------------------
     Replace given element with supplied value.

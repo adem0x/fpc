@@ -44,7 +44,7 @@ unit cpubase;
 
     type
       TAsmOp=(A_None,
-        A_ADD,A_ADC,A_ADIW,A_SUB,A_SUBI,A_SBC,A_SBCI,A_SBIW,A_AND,A_ANDI,
+        A_ADD,A_ADC,A_ADIW,A_SUB,A_SUBI,A_SBC,A_SBCI,A_SBRC,A_SBRS,A_CLC,A_SEC,A_SBIW,A_AND,A_ANDI,
         A_OR,A_ORI,A_EOR,A_COM,A_NEG,A_SBR,A_CBR,A_INC,A_DEC,A_TST,A_CLR,
         A_SER,A_MUL,A_MULS,A_FMUL,A_FMULS,A_FMULSU,A_RJMP,A_IJMP,
         A_EIJMP,A_JMP,A_RCALL,A_ICALL,R_EICALL,A_CALL,A_RET,A_RETI,A_CPSE,
@@ -121,7 +121,7 @@ unit cpubase;
         {$i ravrdwa.inc}
       );
       { registers which may be destroyed by calls }
-      VOLATILE_INTREGISTERS = [RS_R18..RS_R27,RS_R30..RS_R31];
+      VOLATILE_INTREGISTERS = [RS_R0,RS_R1,RS_R8..RS_R27,RS_R30,RS_R31];
       VOLATILE_FPUREGISTERS = [];
 
     type
@@ -169,42 +169,9 @@ unit cpubase;
     const
       max_operands = 4;
 
-      {# Constant defining possibly all registers which might require saving }
-      ALL_OTHERREGISTERS = [];
-
-      general_superregisters = [RS_R0..RS_R31];
-
-      {# Table of registers which can be allocated by the code generator
-         internally, when generating the code.
-      }
-      { legend:                                                                }
-      { xxxregs = set of all possibly used registers of that type in the code  }
-      {           generator                                                    }
-      { usableregsxxx = set of all 32bit components of registers that can be   }
-      {           possible allocated to a regvar or using getregisterxxx (this }
-      {           excludes registers which can be only used for parameter      }
-      {           passing on ABI's that define this)                           }
-      { c_countusableregsxxx = amount of registers in the usableregsxxx set    }
-
       maxintregs = 15;
-      { to determine how many registers to use for regvars }
-      maxintscratchregs = 3;
-      usableregsint = [RS_R4..RS_R10];
-      c_countusableregsint = 7;
-
       maxfpuregs = 0;
-      fpuregs = [];
-      usableregsfpu = [];
-      c_countusableregsfpu = 0;
-
-      mmregs = [];
-      usableregsmm = [];
-      c_countusableregsmm  = 0;
-
       maxaddrregs = 0;
-      addrregs    = [];
-      usableregsaddr = [];
-      c_countusableregsaddr = 0;
 
 {*****************************************************************************
                                 Operand Sizes
@@ -259,8 +226,8 @@ unit cpubase;
       NR_STACK_POINTER_REG = NR_R13;
       RS_STACK_POINTER_REG = RS_R13;
       { Frame pointer register }
-      RS_FRAME_POINTER_REG = RS_R11;
-      NR_FRAME_POINTER_REG = NR_R11;
+      RS_FRAME_POINTER_REG = RS_R28;
+      NR_FRAME_POINTER_REG = NR_R28;
       { Register for addressing absolute data in a position independant way,
         such as in PIC code. The exact meaning is ABI specific. For
         further information look at GCC source : PIC_OFFSET_TABLE_REGNUM
@@ -306,8 +273,10 @@ unit cpubase;
         This value can be deduced from the CALLED_USED_REGISTERS array in the
         GCC source.
       }
-      saved_standard_registers : array[0..6] of tsuperregister =
-        (RS_R4,RS_R5,RS_R6,RS_R7,RS_R8,RS_R9,RS_R10);
+      { on avr, gen_entry/gen_exit code saves/restores registers, so
+        we don't need this array }
+      saved_standard_registers : array[0..0] of tsuperregister =
+        (RS_INVALID);
       { Required parameter alignment when calling a routine declared as
         stdcall and cdecl. The alignment value should be the one defined
         by GCC or the target ABI.
@@ -340,6 +309,13 @@ unit cpubase;
 
     { returns the next virtual register }
     function GetNextReg(const r : TRegister) : TRegister;
+
+    { returns the last virtual register }
+    function GetLastReg(const r : TRegister) : TRegister;
+
+    function GetOffsetReg(const r : TRegister;ofs : shortint) : TRegister;
+
+    function ReplaceForbiddenChars(const s: string): string;
 
   implementation
 
@@ -451,10 +427,13 @@ unit cpubase;
 
 
     function dwarf_reg(r:tregister):byte;
+      var
+        reg : shortint;
       begin
-        result:=regdwarf_table[findreg_by_number(r)];
-        if result=-1 then
+        reg:=regdwarf_table[findreg_by_number(r)];
+        if reg=-1 then
           internalerror(200603251);
+        result:=reg;
       end;
 
 
@@ -467,6 +446,29 @@ unit cpubase;
     function GetNextReg(const r: TRegister): TRegister;
       begin
         result:=TRegister(longint(r)+1);
+      end;
+
+
+    function GetLastReg(const r: TRegister): TRegister;
+      begin
+        result:=TRegister(longint(r)-1);
+      end;
+
+
+    function GetOffsetReg(const r: TRegister;ofs : shortint): TRegister;
+      begin
+        result:=TRegister(longint(r)+ofs);
+      end;
+
+
+    function ReplaceForbiddenChars(const s: string): string;
+      var
+      i : longint;
+      begin
+        Result:=s;
+        for i:=1 to Length(Result) do
+          if Result[i]='$' then
+            Result[i]:='s';
       end;
 
 end.

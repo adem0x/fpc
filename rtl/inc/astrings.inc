@@ -730,13 +730,27 @@ begin
     end;
 end;
 
+{$ifdef VER2_4}
+// obsolete but needed for boostrapping with 2.4
+Procedure fpc_AnsiStr_CheckZero(p : pointer);[Public,Alias : 'FPC_ANSISTR_CHECKZERO'];  compilerproc;
+begin
+  if p=nil then
+    HandleErrorFrame(201,get_frame);
+end;
 
+Procedure fpc_AnsiStr_CheckRange(len,index : SizeInt);[Public,Alias : 'FPC_ANSISTR_RANGECHECK'];  compilerproc;
+begin
+  if (index>len) or (Index<1) then
+    HandleErrorFrame(201,get_frame);
+end;
 
+{$else VER2_4}
 Procedure fpc_AnsiStr_CheckRange(p: Pointer; index: SizeInt);[Public,Alias : 'FPC_ANSISTR_RANGECHECK'];  compilerproc;
 begin
   if (p=nil) or (index>PAnsiRec(p-AnsiFirstOff)^.Len) or (Index<1) then
     HandleErrorFrame(201,get_frame);
 end;
+{$endif VER2_4}
 
 Procedure fpc_AnsiStr_SetLength (Var S : RawByteString; l : SizeInt{$ifdef FPC_HAS_CPSTRING};cp : TSystemCodePage{$endif FPC_HAS_CPSTRING});[Public,Alias : 'FPC_ANSISTR_SETLENGTH'];  compilerproc;
 {

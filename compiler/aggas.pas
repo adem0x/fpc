@@ -45,6 +45,7 @@ interface
       TGNUAssembler=class(texternalassembler)
       protected
         function sectionname(atype:TAsmSectiontype;const aname:string;aorder:TAsmSectionOrder):string;virtual;
+        function sectionattrs_coff(atype:TAsmSectiontype):string;virtual;
         procedure WriteSection(atype:TAsmSectiontype;const aname:string;aorder:TAsmSectionOrder);
         procedure WriteExtraHeader;virtual;
         procedure WriteInstruction(hp: tai);
@@ -99,8 +100,7 @@ implementation
       SysUtils,
       cutils,cfileutl,systems,
       fmodule,finput,verbose,
-      itcpugas,cpubase
-      ;
+      itcpugas,cpubase;
 
     const
       line_length = 70;
@@ -118,25 +118,6 @@ implementation
 {****************************************************************************}
 {                          Support routines                                  }
 {****************************************************************************}
-
-   function fixline(s:string):string;
-   {
-     return s with all leading and ending spaces and tabs removed
-   }
-     var
-       i,j,k : integer;
-     begin
-       i:=length(s);
-       while (i>0) and (s[i] in [#9,' ']) do
-        dec(i);
-       j:=1;
-       while (j<i) and (s[j] in [#9,' ']) do
-        inc(j);
-       for k:=j to i do
-        if s[k] in [#0..#31,#127..#255] then
-         s[k]:='.';
-       fixline:=Copy(s,j,i-j+1);
-     end;
 
     function single2str(d : single) : string;
       var
@@ -211,10 +192,10 @@ implementation
 
 
     const
-      ait_const2str : array[aitconst_128bit..aitconst_darwin_dwarf_delta32] of string[20]=(
+      ait_const2str : array[aitconst_128bit..aitconst_half16bit] of string[20]=(
         #9'.fixme128'#9,#9'.quad'#9,#9'.long'#9,#9'.short'#9,#9'.byte'#9,
         #9'.sleb128'#9,#9'.uleb128'#9,
-        #9'.rva'#9,#9'.secrel32'#9,#9'.quad'#9,#9'.long'#9
+        #9'.rva'#9,#9'.secrel32'#9,#9'.quad'#9,#9'.long'#9,#9'.short'#9
       );
 
 {****************************************************************************}
@@ -242,6 +223,19 @@ implementation
       begin
         inc(setcount);
         result := target_asm.labelprefix+'$set$'+tostr(setcount);
+      end;
+
+    function is_smart_section(atype:TAsmSectiontype):boolean;
+      begin
+        { For bss we need to set some flags that are target dependent,
+          it is easier to disable it for smartlinking. It doesn't take up
+          filespace }
+        result:=not(target_info.system in systems_darwin) and
+           create_smartlink_sections and
+           (atype<>sec_toc) and
+           (atype<>sec_user) and
+           { on embedded systems every byte counts, so smartlink bss too }
+           ((atype<>sec_bss) or (target_info.system in systems_embedded));
       end;
 
     function TGNUAssembler.sectionname(atype:TAsmSectiontype;const aname:string;aorder:TAsmSectionOrder):string;
@@ -410,16 +404,7 @@ implementation
         if atype=sec_user then
           secname:=aname;
 
-        { For bss we need to set some flags that are target dependent,
-          it is easier to disable it for smartlinking. It doesn't take up
-          filespace }
-        if not(target_info.system in systems_darwin) and
-           create_smartlink_sections and
-           (aname<>'') and
-           (atype<>sec_toc) and
-           (atype<>sec_user) and
-           { on embedded systems every byte counts, so smartlink bss too }
-           ((atype<>sec_bss) or (target_info.system in systems_embedded)) then
+        if is_smart_section(atype) and (aname<>'') then
           begin
             case aorder of
               secorder_begin :
@@ -433,6 +418,45 @@ implementation
           end
         else
           result:=secname;
+      end;
+
+
+    function TGNUAssembler.sectionattrs_coff(atype:TAsmSectiontype):string;
+      begin
+        case atype of
+          sec_code, sec_init, sec_fini, sec_stub:
+            result:='x';
+
+          { TODO: must be individual for each section }
+          sec_user:
+            result:='d';
+
+          sec_data, sec_data_lazy, sec_data_nonlazy, sec_fpc,
+          sec_idata2, sec_idata4, sec_idata5, sec_idata6, sec_idata7:
+            result:='d';
+
+          { TODO: these need a fix to become read-only }
+          sec_rodata, sec_rodata_norel:
+            result:='d';
+
+          sec_bss:
+            result:='b';
+
+          { TODO: Somewhat questionable. FPC does not allow initialized threadvars,
+            so no sense to mark it as containing data. But Windows allows it to
+            contain data, and Linux even has .tdata and .tbss }
+          sec_threadvar:
+            result:='b';
+
+          sec_pdata, sec_edata, sec_eh_frame, sec_toc:
+            result:='r';
+
+          sec_stab,sec_stabstr,
+          sec_debug_frame,sec_debug_info,sec_debug_line,sec_debug_abbrev:
+            result:='n';
+        else
+          result:='';  { defaults to data+load }
+        end;
       end;
 
 
@@ -489,6 +513,20 @@ implementation
                 else
                   internalerror(2006031101);
               end;
+            end;
+        else
+          { GNU AS won't recognize '.text.n_something' section name as belonging
+            to '.text' and assigns default attributes to it, which is not
+            always correct. We have to fix it.
+
+            TODO: This likely applies to all systems which smartlink without
+            creating libraries }
+          if (target_info.system in [system_i386_win32,system_x86_64_win64]) and
+            is_smart_section(atype) and (aname<>'') then
+            begin
+              s:=sectionattrs_coff(atype);
+              if (s<>'') then
+                AsmWrite(',"'+s+'"');
             end;
         end;
         AsmLn;
@@ -574,7 +612,6 @@ implementation
     var
       ch       : char;
       hp       : tai;
-      hp1      : tailineinfo;
       constdef : taiconst_type;
       s,t      : string;
       i,pos,l  : longint;
@@ -605,52 +642,10 @@ implementation
          prefetch(pointer(hp.next)^);
          if not(hp.typ in SkipLineInfo) then
           begin
-            hp1 := hp as tailineinfo;
-            current_filepos:=hp1.fileinfo;
-             { no line info for inlined code }
-             if do_line and (inlinelevel=0) then
-              begin
-                { load infile }
-                if lastfileinfo.fileindex<>hp1.fileinfo.fileindex then
-                 begin
-                   infile:=current_module.sourcefiles.get_file(hp1.fileinfo.fileindex);
-                   if assigned(infile) then
-                    begin
-                      { open only if needed !! }
-                      if (cs_asm_source in current_settings.globalswitches) then
-                       infile.open;
-                    end;
-                   { avoid unnecessary reopens of the same file !! }
-                   lastfileinfo.fileindex:=hp1.fileinfo.fileindex;
-                   { be sure to change line !! }
-                   lastfileinfo.line:=-1;
-                 end;
-              { write source }
-                if (cs_asm_source in current_settings.globalswitches) and
-                   assigned(infile) then
-                 begin
-                   if (infile<>lastinfile) then
-                     begin
-                       AsmWriteLn(target_asm.comment+'['+infile.name^+']');
-                       if assigned(lastinfile) then
-                         lastinfile.close;
-                     end;
-                   if (hp1.fileinfo.line<>lastfileinfo.line) and
-                      ((hp1.fileinfo.line<infile.maxlinebuf) or (InlineLevel>0)) then
-                     begin
-                       if (hp1.fileinfo.line<>0) and
-                          ((infile.linebuf^[hp1.fileinfo.line]>=0) or (InlineLevel>0)) then
-                         AsmWriteLn(target_asm.comment+'['+tostr(hp1.fileinfo.line)+'] '+
-                           fixline(infile.GetLineStr(hp1.fileinfo.line)));
-                       { set it to a negative value !
-                       to make that is has been read already !! PM }
-                       if (infile.linebuf^[hp1.fileinfo.line]>=0) then
-                         infile.linebuf^[hp1.fileinfo.line]:=-infile.linebuf^[hp1.fileinfo.line]-1;
-                     end;
-                 end;
-                lastfileinfo:=hp1.fileinfo;
-                lastinfile:=infile;
-              end;
+            current_filepos:=tailineinfo(hp).fileinfo;
+            { no line info for inlined code }
+            if do_line and (inlinelevel=0) then
+              WriteSourceLine(hp as tailineinfo);
           end;
 
          case hp.typ of
@@ -684,16 +679,7 @@ implementation
            ait_tempalloc :
              begin
                if (cs_asm_tempalloc in current_settings.globalswitches) then
-                 begin
-{$ifdef EXTDEBUG}
-                   if assigned(tai_tempalloc(hp).problem) then
-                     AsmWriteLn(target_asm.comment+'Temp '+tostr(tai_tempalloc(hp).temppos)+','+
-                       tostr(tai_tempalloc(hp).tempsize)+' '+tai_tempalloc(hp).problem^)
-                   else
-{$endif EXTDEBUG}
-                     AsmWriteLn(target_asm.comment+'Temp '+tostr(tai_tempalloc(hp).temppos)+','+
-                       tostr(tai_tempalloc(hp).tempsize)+' '+tempallocstr[tai_tempalloc(hp).allocation]);
-                 end;
+                 WriteTempalloc(tai_tempalloc(hp));
              end;
 
            ait_align :
@@ -704,7 +690,11 @@ implementation
            ait_section :
              begin
                if tai_section(hp).sectype<>sec_none then
+{$ifdef avr}
+                 WriteSection(tai_section(hp).sectype,ReplaceForbiddenChars(tai_section(hp).name^),tai_section(hp).secorder)
+{$else avr}
                  WriteSection(tai_section(hp).sectype,tai_section(hp).name^,tai_section(hp).secorder)
+{$endif avr}
                else
                  begin
 {$ifdef EXTDEBUG}
@@ -756,7 +746,11 @@ implementation
                        if tai_datablock(hp).is_global then
                          begin
                            asmwrite(#9'.comm'#9);
+{$ifdef avr}
+                           asmwrite(ReplaceForbiddenChars(tai_datablock(hp).sym.name));
+{$else avr}
                            asmwrite(tai_datablock(hp).sym.name);
+{$endif avr}
                            asmwrite(','+tostr(tai_datablock(hp).size));
                            asmwrite(','+tostr(last_align));
                            asmln;
@@ -764,7 +758,11 @@ implementation
                        else
                          begin
                            asmwrite(#9'.lcomm'#9);
+{$ifdef avr}
+                           asmwrite(ReplaceForbiddenChars(tai_datablock(hp).sym.name));
+{$else avr}
                            asmwrite(tai_datablock(hp).sym.name);
+{$endif avr}
                            asmwrite(','+tostr(tai_datablock(hp).size));
                            asmwrite(','+tostr(last_align));
                            asmln;
@@ -776,17 +774,30 @@ implementation
                        if Tai_datablock(hp).is_global then
                          begin
                            asmwrite(#9'.globl ');
+{$ifdef avr}
+                           asmwriteln(ReplaceForbiddenChars(Tai_datablock(hp).sym.name));
+{$else avr}
                            asmwriteln(Tai_datablock(hp).sym.name);
+{$endif avr}
                          end;
                        if (target_info.system <> system_arm_linux) then
                          sepChar := '@'
                        else
                          sepChar := '%';
                        if (tf_needs_symbol_type in target_info.flags) then
+{$ifdef avr}
+                       if (tf_needs_symbol_type in target_info.flags) then
+                         asmwriteln(#9'.type '+ReplaceForbiddenChars(Tai_datablock(hp).sym.name)+','+sepChar+'object');
+                       if (tf_needs_symbol_size in target_info.flags) and (tai_datablock(hp).size > 0) then
+                          asmwriteln(#9'.size '+ReplaceForbiddenChars(Tai_datablock(hp).sym.name)+','+tostr(Tai_datablock(hp).size));
+                       asmwrite(ReplaceForbiddenChars(Tai_datablock(hp).sym.name));
+{$else avr}
+                       if (tf_needs_symbol_type in target_info.flags) then
                          asmwriteln(#9'.type '+Tai_datablock(hp).sym.name+','+sepChar+'object');
                        if (tf_needs_symbol_size in target_info.flags) and (tai_datablock(hp).size > 0) then
                          asmwriteln(#9'.size '+Tai_datablock(hp).sym.name+','+tostr(Tai_datablock(hp).size));
                        asmwrite(Tai_datablock(hp).sym.name);
+{$endif avr}
                        asmwriteln(':');
                        asmwriteln(#9'.zero '+tostr(Tai_datablock(hp).size));
                      end;
@@ -835,7 +846,8 @@ implementation
                  aitconst_rva_symbol,
                  aitconst_secrel32_symbol,
                  aitconst_darwin_dwarf_delta32,
-                 aitconst_darwin_dwarf_delta64:
+                 aitconst_darwin_dwarf_delta64,
+                 aitconst_half16bit:
                    begin
                      if (target_info.system in systems_darwin) and
                         (constdef in [aitconst_uleb128bit,aitconst_sleb128bit]) then
@@ -868,6 +880,9 @@ implementation
                                   end
                                else
                                  s:=tai_const(hp).sym.name;
+{$ifdef avr}
+                               s:=ReplaceForbiddenChars(s);
+{$endif avr}
                                if tai_const(hp).value<>0 then
                                  s:=s+tostr_with_plus(tai_const(hp).value);
                              end
@@ -878,6 +893,9 @@ implementation
                              { 64 bit constants are already handled above in this case }
                              s:=tostr(longint(tai_const(hp).value));
 {$endif cpu64bitaddr}
+                           if constdef = aitconst_half16bit then
+                             s:='('+s+')/2';
+
                            AsmWrite(s);
                            inc(l,length(s));
                            { Values with symbols are written on a single line to improve
@@ -1045,9 +1063,17 @@ implementation
                   if tai_label(hp).labsym.bind in [AB_GLOBAL,AB_PRIVATE_EXTERN] then
                    begin
                      AsmWrite('.globl'#9);
+{$ifdef avr}
+                     AsmWriteLn(ReplaceForbiddenChars(tai_label(hp).labsym.name));
+{$else avr}
                      AsmWriteLn(tai_label(hp).labsym.name);
+{$endif avr}
                    end;
+{$ifdef avr}
+                  AsmWrite(ReplaceForbiddenChars(tai_label(hp).labsym.name));
+{$else avr}
                   AsmWrite(tai_label(hp).labsym.name);
+{$endif avr}
                   AsmWriteLn(':');
                 end;
              end;
@@ -1057,17 +1083,24 @@ implementation
                if (tai_symbol(hp).sym.bind=AB_PRIVATE_EXTERN) then
                  begin
                    AsmWrite(#9'.private_extern ');
+{$ifdef avr}
+                   AsmWriteln(ReplaceForbiddenChars(tai_symbol(hp).sym.name));
+{$else avr}
                    AsmWriteln(tai_symbol(hp).sym.name);
+{$endif avr}
                  end;
                if (target_info.system = system_powerpc64_linux) and
                  (tai_symbol(hp).sym.typ = AT_FUNCTION) and (cs_profile in current_settings.moduleswitches) then
-                 begin
                  AsmWriteLn('.globl _mcount');
-               end;
+
                if tai_symbol(hp).is_global then
                 begin
                   AsmWrite('.globl'#9);
-                  AsmWriteLn(tai_symbol(hp).sym.name);
+{$ifdef avr}
+                  AsmWriteln(ReplaceForbiddenChars(tai_symbol(hp).sym.name));
+{$else avr}
+                  AsmWriteln(tai_symbol(hp).sym.name);
+{$endif avr}
                 end;
                if (target_info.system = system_powerpc64_linux) and
                  (tai_symbol(hp).sym.typ = AT_FUNCTION) then
@@ -1099,10 +1132,17 @@ implementation
                          AsmWriteLn(',' + sepChar + 'function');
                      end;
                  end;
+{$ifdef avr}
+               if not(tai_symbol(hp).has_value) then
+                 AsmWriteLn(ReplaceForbiddenChars(tai_symbol(hp).sym.name + ':'))
+               else
+                 AsmWriteLn(ReplaceForbiddenChars(tai_symbol(hp).sym.name + '=' + tostr(tai_symbol(hp).value)));
+{$else avr}
                if not(tai_symbol(hp).has_value) then
                  AsmWriteLn(tai_symbol(hp).sym.name + ':')
                else
                  AsmWriteLn(tai_symbol(hp).sym.name + '=' + tostr(tai_symbol(hp).value));
+{$endif avr}
              end;
 {$ifdef arm}
            ait_thumb_func:
@@ -1121,11 +1161,19 @@ implementation
                   AsmWrite(#9'.size'#9);
                   if (target_info.system = system_powerpc64_linux) and (tai_symbol_end(hp).sym.typ = AT_FUNCTION) then
                     AsmWrite('.');
+{$ifdef avr}
+                  AsmWrite(ReplaceForbiddenChars(tai_symbol_end(hp).sym.name));
+{$else avr}
                   AsmWrite(tai_symbol_end(hp).sym.name);
+{$endif avr}
                   AsmWrite(', '+s+' - ');
                   if (target_info.system = system_powerpc64_linux) and (tai_symbol_end(hp).sym.typ = AT_FUNCTION) then
                      AsmWrite('.');
+{$ifdef avr}
+                  AsmWriteLn(ReplaceForbiddenChars(tai_symbol_end(hp).sym.name));
+{$else avr}
                   AsmWriteLn(tai_symbol_end(hp).sym.name);
+{$endif avr}
                 end;
              end;
 
@@ -1145,7 +1193,8 @@ implementation
              end;
 
            ait_force_line,
-           ait_function_name : ;
+           ait_function_name :
+             ;
 
            ait_cutobject :
              begin
@@ -1184,6 +1233,24 @@ implementation
                AsmWrite('.'+directivestr[tai_directive(hp).directive]+' ');
                if assigned(tai_directive(hp).name) then
                  AsmWrite(tai_directive(hp).name^);
+               AsmLn;
+             end;
+
+           ait_seh_directive :
+             begin
+               AsmWrite('.'+sehdirectivestr[tai_seh_directive(hp).kind]);
+               case tai_seh_directive(hp).datatype of
+                 sd_none:;
+                 sd_string:
+                   AsmWrite(' '+tai_seh_directive(hp).data.name^);
+                 sd_reg:
+                   AsmWrite(' '+gas_regname(tai_seh_directive(hp).data.reg));
+                 sd_offset:
+                   AsmWrite(' '+tostr(tai_seh_directive(hp).data.offset));
+                 sd_regoffset:
+                   AsmWrite(' '+gas_regname(tai_seh_directive(hp).data.reg)+', '+
+                     tostr(tai_seh_directive(hp).data.offset));
+               end;
                AsmLn;
              end;
 

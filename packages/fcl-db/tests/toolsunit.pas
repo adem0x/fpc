@@ -18,6 +18,7 @@ type
   TDBConnector = class(TPersistent)
      private
        FChangedDatasets : array[0..MaxDataSet] of boolean;
+       FFormatSettings: TFormatSettings;
        FUsedDatasets : TFPList;
        FChangedFieldDataset : boolean;
      protected
@@ -60,6 +61,7 @@ type
        procedure StartTest;
        procedure StopTest;
        property TestUniDirectional: boolean read GetTestUniDirectional write SetTestUniDirectional;
+       property FormatSettings: TFormatSettings read FFormatSettings;
      end;
 
   { TDBBasicsTestSetup }
@@ -158,31 +160,31 @@ const
   );
 
   testTimeValues : Array[0..testValuesCount-1] of string = (
-    '10:45:12:000',
-    '00:00:00:000',
-    '24:00:00:000',
-    '33:25:15:000',
-    '04:59:16:000',
-    '05:45:59:000',
-    '16:35:42:000',
-    '14:45:52:000',
-    '12:45:12:000',
-    '18:45:22:000',
-    '19:45:12:000',
-    '14:45:14:000',
-    '16:45:12:000',
-    '11:45:12:000',
-    '15:35:12:000',
-    '16:45:12:000',
-    '13:55:12:000',
-    '13:46:12:000',
-    '15:35:12:000',
-    '17:25:12:000',
-    '19:45:12:000',
-    '10:54:12:000',
-    '12:25:12:000',
-    '20:15:12:000',
-    '12:25:12:000'
+    '10:45:12.000',
+    '00:00:00.000',
+    '24:00:00.000',
+    '33:25:15.000',
+    '04:59:16.000',
+    '05:45:59.000',
+    '16:35:42.000',
+    '14:45:52.000',
+    '12:45:12.000',
+    '18:45:22.000',
+    '19:45:12.000',
+    '14:45:14.000',
+    '16:45:12.000',
+    '11:45:12.000',
+    '15:35:12.000',
+    '16:45:12.010',
+    '13:55:12.200',
+    '13:46:12.542',
+    '15:35:12.000',
+    '17:25:12.530',
+    '19:45:12.003',
+    '10:54:12.999',
+    '12:25:12.000',
+    '20:15:12.758',
+    '12:25:12.000'
   );
 
 
@@ -202,6 +204,9 @@ var dbtype,
 procedure InitialiseDBConnector;
 procedure FreeDBConnector;
 
+function DateTimeToTimeString(d: tdatetime) : string;
+function TimeStringToDateTime(d: String): TDateTime;
+
 implementation
 
 uses
@@ -211,9 +216,15 @@ var DBConnectorRefCount: integer;
 
 constructor TDBConnector.create;
 begin
+  FFormatSettings.DecimalSeparator:='.';
+  FFormatSettings.ThousandSeparator:=#0;
+  FFormatSettings.DateSeparator:='-';
+  FFormatSettings.TimeSeparator:=':';
+  FFormatSettings.ShortDateFormat:='yyyy/mm/dd';
+  FFormatSettings.LongTimeFormat:='hh:nn:ss.zzz';
+  FUsedDatasets := TFPList.Create;
   CreateFieldDataset;
   CreateNDatasets;
-  FUsedDatasets := TFPList.Create;
 end;
 
 destructor TDBConnector.destroy;
@@ -279,28 +290,40 @@ begin
 end;
 
 procedure InitialiseDBConnector;
+
+const B: array[boolean] of char=('0','1');  // should be exported from some main db unit, as SQL true/false?
+
 var DBConnectorClass : TPersistentClass;
     i                : integer;
+    FormatSettings   : TFormatSettings;
 begin
   if DBConnectorRefCount>0 then exit;
+  
+  FormatSettings.DecimalSeparator:='.';
+  FormatSettings.ThousandSeparator:=#0;
+  
   testValues[ftString] := testStringValues;
   testValues[ftFixedChar] := testStringValues;
   testValues[ftTime] := testTimeValues;
+  testValues[ftDate] := testDateValues;
   testValues[ftFMTBcd] := testFmtBCDValues;
   for i := 0 to testValuesCount-1 do
     begin
-    testValues[ftFloat,i] := FloatToStr(testFloatValues[i]);
+    testValues[ftBoolean,i] := B[testBooleanValues[i]];
+    testValues[ftFloat,i] := FloatToStr(testFloatValues[i],FormatSettings);
     testValues[ftSmallint,i] := IntToStr(testSmallIntValues[i]);
     testValues[ftInteger,i] := IntToStr(testIntValues[i]);
     testValues[ftLargeint,i] := IntToStr(testLargeIntValues[i]);
     // The decimalseparator was set to a comma for currencies and to a dot for ftBCD values.
-    // But why is not clear to me. For Postgres it works now, with a dot for both types.
-    // DecimalSeparator:=',';
-    DecimalSeparator:='.';
+    // DecimalSeparator for PostgreSQL must correspond to monetary locale set on PostgreSQL server
+    // Here we assume, that locale on client side is same as locale on server
     testValues[ftCurrency,i] := CurrToStr(testCurrencyValues[i]);
-    // DecimalSeparator:='.';
-    testValues[ftBCD,i] := CurrToStr(testCurrencyValues[i]);
-    testValues[ftDate,i] := DateToStr(StrToDate(testDateValues[i], 'yyyy/mm/dd', '-'));
+    testValues[ftBCD,i] := CurrToStr(testCurrencyValues[i],FormatSettings);
+    // For date '0001-01-01' other time-part like '00:00:00' causes "Invalid variant type cast", because of < MinDateTime constant
+    if (testDateValues[i]>'0001-01-01') and (testTimeValues[i]>='00:00:01') and (testTimeValues[i]<'24:00:00') then
+      testValues[ftDateTime,i] := testDateValues[i] + ' ' + testTimeValues[i]
+    else
+      testValues[ftDateTime,i] := testDateValues[i];
     end;
 
   if dbconnectorname = '' then raise Exception.Create('There is no db-connector specified');
@@ -317,6 +340,40 @@ begin
   if DBConnectorRefCount=0 then
     FreeAndNil(DBConnector);
 end;
+
+function DateTimeToTimeString(d: tdatetime): string;
+var
+  millisecond: word;
+  second     : word;
+  minute     : word;
+  hour       : word;
+begin
+  // Format the datetime in the format hh:nn:ss.zzz, where the hours can be bigger then 23.
+  DecodeTime(d,hour,minute,second,millisecond);
+  hour := hour + (trunc(d) * 24);
+  result := Format('%.2d:%.2d:%.2d.%.3d',[hour,minute,second,millisecond]);
+end;
+
+function TimeStringToDateTime(d: String): TDateTime;
+var
+  millisecond: word;
+  second     : word;
+  minute     : word;
+  hour       : word;
+  days       : word;
+begin
+  // Convert the string in the format hh:nn:ss.zzz to a datetime.
+  hour := strtoint(copy(d,1,2));
+  minute := strtoint(copy(d,4,2));
+  second := strtoint(copy(d,7,2));
+  millisecond := strtoint(copy(d,10,3));
+
+  days := hour div 24;
+  hour := hour mod 24;
+
+  result := ComposeDateTime(days,EncodeTime(hour,minute,second,millisecond));
+end;
+
 
 { TTestDataLink }
 

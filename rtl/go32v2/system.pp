@@ -72,10 +72,10 @@ var
   memw : array[0..($7fffffff div sizeof(word))-1] of word absolute $0:$0;
   meml : array[0..($7fffffff div sizeof(longint))-1] of longint absolute $0:$0;
 { C-compatible arguments and environment }
-  argc  : longint;
-  argv  : ppchar;
-  envp  : ppchar;
-  dos_argv0 : pchar;
+  argc:longint;public name 'operatingsystem_parameter_argc';
+  argv:PPchar;public name 'operatingsystem_parameter_argv';
+  envp:PPchar;public name 'operatingsystem_parameter_envp';
+  dos_argv0 : pchar; public name 'dos_argv0';
 
   AllFilesMask: string [3];
 
@@ -125,8 +125,8 @@ type
   end;
 
 var
-  stub_info       : p_stub_info;
-  go32_info_block : t_go32_info_block;
+  stub_info       : p_stub_info; public name 'operatingsystem_stub_info';
+  go32_info_block : t_go32_info_block; public name 'operatingsystem_go32_info_block';
 {$ifdef SYSTEMDEBUG}
 const
    accept_sbrk : boolean = true;
@@ -391,9 +391,24 @@ begin
            proxy_s[13]:=#0;
            proxy_s[18]:=#0;
            proxy_s[23]:=#0;
+           { Do not set argv[2..4] to PROXY_S
+             values, because PROXY_S is on stack,
+             while ARGV[2..4] need to be on heap.
+             PM 2011-06-08
            argv[2]:=@proxy_s[9];
            argv[3]:=@proxy_s[14];
-           argv[4]:=@proxy_s[19];
+           argv[4]:=@proxy_s[19];}
+           allocarg(2,4);
+           strcopy(argv[2], @proxy_s[9]);
+           allocarg(3,4);
+           strcopy(argv[3], @proxy_s[14]);
+           allocarg(4,4);
+           strcopy(argv[4], @proxy_s[19]);
+           { We need to change this variable env name
+             otherwise it will be used by other DJGPP variables
+             if we call them. PM 2011-07-04
+             Hide it as '_!proxy' instead of ' !proxy' }
+           hp^[0]:='_';
            useproxy:=true;
            break;
          end;

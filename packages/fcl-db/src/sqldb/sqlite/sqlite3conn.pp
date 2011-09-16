@@ -99,8 +99,11 @@ Var
 implementation
 
 uses
-  dbconst, sysutils, dateutils,FmtBCD;
- 
+  dbconst, sysutils, dateutils, FmtBCD;
+
+const
+  JulianDateShift = 2415018.5; //distance from "julian day 0" (January 1, 4713 BC 12:00AM) to "1899-12-30 00:00AM"
+
 type
 
  TStorageType = (stNone,stInteger,stFloat,stText,stBlob,stNull);
@@ -108,6 +111,7 @@ type
  TSQLite3Cursor = class(tsqlcursor)
   private
    fhandle : psqlite3;
+   fconnection: TSQLite3Connection;
    fstatement: psqlite3_stmt;
    ftail: pchar;
    fstate: integer;
@@ -158,6 +162,7 @@ Var
   cu1: currency;
   do1: double;
   parms : array of Integer;
+  wstr1: widestring;
   
 begin
   for I:=1  to high(fparambinding)+1 do 
@@ -174,14 +179,24 @@ begin
         ftlargeint: checkerror(sqlite3_bind_int64(fstatement,I,P.aslargeint));
         ftbcd,
         ftfloat,
-        ftcurrency,
+        ftcurrency:
+                begin
+                do1:= P.AsFloat;
+                checkerror(sqlite3_bind_double(fstatement,I,do1));
+                end;
         ftdatetime,
         ftdate,
         fttime: begin
-                do1:= P.asfloat;
+                do1:= P.AsFloat + JulianDateShift;
                 checkerror(sqlite3_bind_double(fstatement,I,do1));
                 end;
+        ftFMTBcd:
+                begin
+                str1:=BCDToStr(P.AsFMTBCD, Fconnection.FSQLFormatSettings);
+                checkerror(sqlite3_bind_text(fstatement, I, PChar(str1), length(str1), sqlite3_destructor_type(SQLITE_TRANSIENT)));
+                end;
         ftstring,
+        ftFixedChar,
         ftmemo: begin // According to SQLite documentation, CLOB's (ftMemo) have the Text affinity
                 str1:= p.asstring;
                 checkerror(sqlite3_bind_text(fstatement,I,pcharstr(str1), length(str1),@freebindstring));
@@ -190,6 +205,11 @@ begin
                 str1:= P.asstring;
                 checkerror(sqlite3_bind_blob(fstatement,I,pcharstr(str1), length(str1),@freebindstring));
                 end; 
+        ftWideString, ftFixedWideChar, ftWideMemo:
+        begin
+          wstr1:=P.AsWideString;
+          checkerror(sqlite3_bind_text16(fstatement,I, PWideChar(wstr1), length(wstr1)*sizeof(WideChar), sqlite3_destructor_type(SQLITE_TRANSIENT)));
+        end
       else 
         DatabaseErrorFmt(SUnsupportedParameter, [Fieldtypenames[P.DataType], Self]);
       end; { Case }
@@ -258,16 +278,33 @@ var
  int1: integer;
  st: psqlite3_stmt;
  fnum: integer;
+ p1: Pointer;
 
 begin
   st:=TSQLite3Cursor(cursor).fstatement;
   fnum:= FieldDef.fieldno - 1;
 
-  int1:= sqlite3_column_bytes(st,fnum);
+  case FieldDef.DataType of
+    ftWideMemo:
+      begin
+      p1 := sqlite3_column_text16(st,fnum);
+      int1 := sqlite3_column_bytes16(st,fnum);
+      end;
+    ftMemo:
+      begin
+      p1 := sqlite3_column_text(st,fnum);
+      int1 := sqlite3_column_bytes(st,fnum);
+      end;
+    else //ftBlob
+      begin
+      p1 := sqlite3_column_blob(st,fnum);
+      int1 := sqlite3_column_bytes(st,fnum);
+      end;
+  end;
 
-  ReAllocMem(ABlobBuf^.BlobBuffer^.Buffer,int1);
+  ReAllocMem(ABlobBuf^.BlobBuffer^.Buffer, int1);
   if int1 > 0 then
-    move(sqlite3_column_text(st,fnum)^,ABlobBuf^.BlobBuffer^.Buffer^,int1);
+    move(p1^, ABlobBuf^.BlobBuffer^.Buffer^, int1);
   ABlobBuf^.BlobBuffer^.Size := int1;
 end;
 
@@ -283,6 +320,7 @@ Var
 
 begin
   Res:= TSQLite3Cursor.create;
+  Res.fconnection:=Self;
   Result:=Res;
 end;
 
@@ -313,10 +351,11 @@ Type
   end;
   
 Const
-  FieldMapCount = 20;
+  FieldMapCount = 24;
   FieldMap : Array [1..FieldMapCount] of TFieldMap = (
    (n:'INT'; t: ftInteger),
    (n:'LARGEINT'; t:ftlargeInt),
+   (n:'BIGINT'; t:ftlargeInt),
    (n:'WORD'; t: ftWord),
    (n:'SMALLINT'; t: ftSmallint),
    (n:'BOOLEAN'; t: ftBoolean),
@@ -334,7 +373,10 @@ Const
    (n:'DECIMAL'; t: ftBCD),
    (n:'TEXT'; t: ftmemo),
    (n:'CLOB'; t: ftmemo),
-   (n:'BLOB'; t: ftBlob)
+   (n:'BLOB'; t: ftBlob),
+   (n:'NCHAR'; t: ftFixedWideChar),
+   (n:'NVARCHAR'; t: ftWideString),
+   (n:'NCLOB'; t: ftWideMemo)
 { Template:
   (n:''; t: ft)
 }
@@ -346,11 +388,35 @@ var
  i     : integer;
  FN,FD : string;
  ft1   : tfieldtype;
- size1 : word;
+ size1, size2 : integer;
  ar1   : TStringArray;
  fi    : integer;
  st    : psqlite3_stmt;
- 
+
+ function ExtractPrecisionAndScale(decltype: string; var precision, scale: integer): boolean;
+ var p: integer;
+ begin
+   p:=pos('(', decltype);
+   Result:=p>0;
+   if not Result then Exit;
+   System.Delete(decltype,1,p);
+   p:=pos(')', decltype);
+   Result:=p>0;
+   if not Result then Exit;
+   decltype:=copy(decltype,1,p-1);
+   p:=pos(',', decltype);
+   if p=0 then
+   begin
+     precision:=StrToIntDef(decltype, precision);
+     scale:=0;
+   end
+   else
+   begin
+     precision:=StrToIntDef(copy(decltype,1,p-1), precision);
+     scale:=StrToIntDef(copy(decltype,p+1,length(decltype)-p), scale);
+   end;
+ end;
+
 begin
   st:=TSQLite3Cursor(cursor).fstatement;
   for i:= 0 to sqlite3_column_count(st) - 1 do 
@@ -377,29 +443,25 @@ begin
     // handle some specials.
     size1:=0;
     case ft1 of
-      ftString: begin
-                fi:=pos('(',FD);
-                if (fi>0) then
-                  begin
-                  System.Delete(FD,1,fi);
-                  fi:=pos(')',FD);
-                  size1:=StrToIntDef(trim(copy(FD,1,fi-1)),255);
-                  if size1 > dsMaxStringSize then size1 := dsMaxStringSize;
-                  end
-                else size1 := 255;
-                end;
-      ftBCD:    begin
-                fi:=pos(',',FD);
-                if (fi>0) then
-                  begin
-                  System.Delete(FD,1,fi);
-                  fi:=pos(')',FD);
-                  size1:=StrToIntDef(trim(copy(FD,1,fi-1)),255);
-                  if size1>4 then
-                    ft1 := ftFMTBcd;
-                  end
-                else size1 := 4;
-                end;
+      ftString,
+      ftFixedChar,
+      ftFixedWideChar,
+      ftWideString:
+               begin
+                 size1 := 255; //sql: if length is omitted then length is 1
+                 size2 := 0;
+                 ExtractPrecisionAndScale(FD, size1, size2);
+                 if size1 > dsMaxStringSize then size1 := dsMaxStringSize;
+               end;
+      ftBCD:   begin
+                 size2 := MaxBCDPrecision; //sql: if a precision is omitted, then use implementation-defined
+                 size1 := 0;               //sql: if a scale is omitted then scale is 0
+                 ExtractPrecisionAndScale(FD, size2, size1);
+                 if (size2<=18) and (size1=0) then
+                   ft1:=ftLargeInt
+                 else if (size2-size1>MaxBCDPrecision-MaxBCDScale) or (size1>MaxBCDScale) then
+                   ft1:=ftFmtBCD;
+               end;
       ftUnknown : DatabaseError('Unknown record type: '+FN);
     end; // Case
     tfielddef.create(fielddefs,FieldDefs.MakeNameUnique(FN),ft1,size1,false,i+1);
@@ -444,17 +506,23 @@ begin
         Result:=EncodeDate(Year,Month,Day);
 end;
 
-Function ParseSQLiteTime(S : ShortString) : TDateTime;
+Function ParseSQLiteTime(S : ShortString; Interval: boolean) : TDateTime;
 
 Var
-  Hour, Min, Sec : Integer;
+  Hour, Min, Sec, MSec : Integer;
 
 begin
   Result:=0;
   If TryStrToInt(NextWord(S,':'),Hour) then
     if TryStrToInt(NextWord(S,':'),Min) then
-      if TryStrToInt(NextWord(S,':'),Sec) then
-        Result:=EncodeTime(Hour,Min,Sec,0);
+      if TryStrToInt(NextWord(S,'.'),Sec) then
+        begin
+        MSec:=StrToIntDef(S,0);
+        if Interval then
+          Result:=EncodeTimeInterval(Hour,Min,Sec,MSec)
+        else
+          Result:=EncodeTime(Hour,Min,Sec,MSec);
+        end;
 end;
 
 Function ParseSQLiteDateTime(S : String) : TDateTime;
@@ -480,21 +548,18 @@ begin
     else if (Pos(':',S)<>0) then
       TS:=S;
     end;
-  Result:=ComposeDateTime(ParseSQLiteDate(DS),ParseSQLiteTime(TS));
+  Result:=ComposeDateTime(ParseSQLiteDate(DS),ParseSQLiteTime(TS,False));
 end;
+
 function TSQLite3Connection.LoadField(cursor : TSQLCursor;FieldDef : TfieldDef;buffer : pointer; out CreateBlob : boolean) : boolean;
 
 var
  st1: TStorageType;
  fnum: integer;
- i: integer;
- i64: int64;
- int1,int2: integer;
  str1: string;
+ int1 : integer;
  bcd: tBCD;
- StoreDecimalPoint: tDecimalPoint;
  bcdstr: FmtBCDStringtype;
- ar1,ar2: TStringArray;
  st    : psqlite3_stmt;
 
 begin
@@ -520,10 +585,19 @@ begin
                begin
                setlength(str1,sqlite3_column_bytes(st,fnum));
                move(sqlite3_column_text(st,fnum)^,str1[1],length(str1));
-               PDateTime(Buffer)^:=ParseSqliteDateTime(str1)
+               case FieldDef.datatype of
+                 ftDateTime: PDateTime(Buffer)^:=ParseSqliteDateTime(str1);
+                 ftDate    : PDateTime(Buffer)^:=ParseSqliteDate(str1);
+                 ftTime    : PDateTime(Buffer)^:=ParseSQLiteTime(str1,true);
+               end; {case}
                end
              else
-               Pdatetime(buffer)^:= sqlite3_column_double(st,fnum);
+               begin
+               PDateTime(buffer)^ := sqlite3_column_double(st,fnum);
+               if PDateTime(buffer)^ > 1721059.5 {Julian 01/01/0000} then
+                  PDateTime(buffer)^ := PDateTime(buffer)^ - JulianDateShift; //backward compatibility hack
+               end;
+    ftFixedChar,
     ftString: begin
               int1:= sqlite3_column_bytes(st,fnum);
               if int1>FieldDef.Size then 
@@ -533,25 +607,30 @@ begin
               end;
     ftFmtBCD: begin
               int1:= sqlite3_column_bytes(st,fnum);
-              if int1>255 then
-                int1:=255;
-              if int1 > 0 then
+              if (int1 > 0) and (int1 <= MAXFMTBcdFractionSize) then
                 begin
                 SetLength(bcdstr,int1);
                 move(sqlite3_column_text(st,fnum)^,bcdstr[1],int1);
-                StoreDecimalPoint:=FmtBCD.DecimalPoint;
                 // sqlite always uses the point as decimal-point
-                FmtBCD.DecimalPoint:=DecimalPoint_is_Point;
-                if not TryStrToBCD(bcdstr,bcd) then
+                if not TryStrToBCD(bcdstr,bcd,FSQLFormatSettings) then
                   // sqlite does the same, if the value can't be interpreted as a
                   // number in sqlite3_column_int, return 0
                   bcd := 0;
-                FmtBCD.DecimalPoint:=StoreDecimalPoint;
                 end
               else
                 bcd := 0;
               pBCD(buffer)^:= bcd;
               end;
+    ftFixedWideChar,
+    ftWideString:
+      begin
+      int1 := sqlite3_column_bytes16(st,fnum)+2; //The value returned does not include the zero terminator at the end of the string
+      if int1>(FieldDef.Size+1)*2 then
+        int1:=(FieldDef.Size+1)*2;
+      if int1 > 0 then
+        move(sqlite3_column_text16(st,fnum)^, buffer^, int1); //Strings returned by sqlite3_column_text() and sqlite3_column_text16(), even empty strings, are always zero terminated.
+      end;
+    ftWideMemo,
     ftMemo,
     ftBlob: CreateBlob:=True;
   else { Case }
@@ -714,7 +793,7 @@ function TSQLite3Connection.GetSchemaInfoSQL(SchemaType: TSchemaType;
   
 begin
   case SchemaType of
-    stTables     : result := 'select name as table_name from sqlite_master where type = ''table''';
+    stTables     : result := 'select name as table_name from sqlite_master where type = ''table'' order by 1';
     stColumns    : result := 'pragma table_info(''' + (SchemaObjectName) + ''')';
   else
     DatabaseError(SMetadataUnavailable)
@@ -742,7 +821,6 @@ var
   IndexName: string;
   IndexOptions: TIndexOptions;
   PKFields, IXFields: TStrings;
-  l: boolean;
 
   function CheckPKFields:boolean;
   var i: integer;

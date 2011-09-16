@@ -26,7 +26,7 @@ unit ppu;
 interface
 
   uses
-    globtype,constexp,cstreams;
+    systems,globtype,constexp,cstreams;
 
 { Also write the ppu if only crc if done, this can be used with ppudump to
   see the differences between the intf and implementation }
@@ -43,7 +43,7 @@ type
 {$endif Test_Double_checksum}
 
 const
-  CurrentPPUVersion = 127;
+  CurrentPPUVersion = 137;
 
 { buffer sizes }
   maxentrysize = 1024;
@@ -97,7 +97,7 @@ const
   ibunitsym        = 29;
   iblabelsym       = 30;
   ibsyssym         = 31;
-//  ibrttisym        = 32;
+  ibnamespacesym   = 32;
   iblocalvarsym    = 33;
   ibparavarsym     = 34;
   ibmacrosym       = 35;
@@ -131,6 +131,8 @@ const
   ibmoduleoptions   = 85;
 
   ibmainname       = 90;
+  ibsymtableoptions = 91;
+  ibrecsymtableoptions = 91;
   { target-specific things }
   iblinkotherframeworks = 100;
 
@@ -158,6 +160,47 @@ const
   uf_has_dwarf_debuginfo = $200000; { this unit has dwarf debuginfo generated }
   uf_wideinits           = $400000; { this unit has winlike widestring typed constants }
   uf_classinits          = $800000; { this unit has class constructors/destructors }
+  uf_resstrinits        = $1000000; { this unit has string consts referencing resourcestrings }
+
+{$ifdef generic_cpu}
+{ We need to use the correct size of aint and pint for
+  the target CPU }
+const
+  CpuAddrBitSize : array[tsystemcpu] of longint =
+    (
+    {  0 } 32 {'none'},
+    {  1 } 32 {'i386'},
+    {  2 } 32 {'m68k'},
+    {  3 } 32 {'alpha'},
+    {  4 } 32 {'powerpc'},
+    {  5 } 32 {'sparc'},
+    {  6 } 32 {'vis'},
+    {  7 } 64 {'ia64'},
+    {  8 } 64 {'x86_64'},
+    {  9 } 32 {'mips'},
+    { 10 } 32 {'arm'},
+    { 11 } 64 {'powerpc64'},
+    { 12 } 16 {'avr'},
+    { 13 } 32 {'mipsel'}
+    );
+  CpuAluBitSize : array[tsystemcpu] of longint =
+    (
+    {  0 } 32 {'none'},
+    {  1 } 32 {'i386'},
+    {  2 } 32 {'m68k'},
+    {  3 } 32 {'alpha'},
+    {  4 } 32 {'powerpc'},
+    {  5 } 32 {'sparc'},
+    {  6 } 32 {'vis'},
+    {  7 } 64 {'ia64'},
+    {  8 } 64 {'x86_64'},
+    {  9 } 32 {'mips'},
+    { 10 } 32 {'arm'},
+    { 11 } 64 {'powerpc64'},
+    { 12 }  8 {'avr'},
+    { 13 } 32 {'mipsel'}
+    );
+{$endif generic_cpu}
 
 type
   { bestreal is defined based on the target architecture }
@@ -204,7 +247,6 @@ type
     crc_test2  : pcrc_array;
   private
 {$endif def Test_Double_checksum}
-    change_endian : boolean;
     buf      : pchar;
     bufstart,
     bufsize,
@@ -220,6 +262,7 @@ type
     entrytyp : byte;
     header           : tppuheader;
     size             : integer;
+    change_endian    : boolean; { Used in ppudump util }
     { crc for the entire unit }
     crc,
     { crc for the interface definitions in this unit }
@@ -229,6 +272,9 @@ type
       used by this unit. Reason: see mantis #13840 }
     indirect_crc     : cardinal;
     error,
+{$ifdef generic_cpu}
+    has_more,
+{$endif not generic_cpu}
     do_crc,
     do_interface_crc,
     do_indirect_crc  : boolean;
@@ -249,6 +295,7 @@ type
     function  readentry:byte;
     function  EndOfEntry:boolean;
     function  entrysize:longint;
+    function  entryleft:longint;
     procedure getdatabuf(var b;len:integer;var res:integer);
     procedure getdata(var b;len:integer);
     function  getbyte:byte;
@@ -261,6 +308,7 @@ type
     function getasizeint:asizeint;
     function getaword:aword;
     function  getreal:ppureal;
+    function  getrealsize(sizeofreal : longint):ppureal;
     function  getstring:string;
     function  getansistring:ansistring;
     procedure getnormalset(var b);
@@ -280,6 +328,7 @@ type
     procedure putint64(i:int64);
     procedure putqword(q:qword);
     procedure putaint(i:aint);
+    procedure putasizeint(i:asizeint);
     procedure putaword(i:aword);
     procedure putreal(d:ppureal);
     procedure putstring(const s:string);
@@ -293,12 +342,12 @@ type
 implementation
 
   uses
-    systems,
 {$ifdef Test_Double_checksum}
     comphook,
 {$endif def Test_Double_checksum}
     fpccrc,
     cutils;
+
 
 
 function swapendian_ppureal(d:ppureal):ppureal;
@@ -412,7 +461,6 @@ end;
 
 function tppufile.openfile:boolean;
 var
-  ofmode : byte;
   i      : integer;
 begin
   openfile:=false;
@@ -530,12 +578,20 @@ end;
 function tppufile.readentry:byte;
 begin
   if entryidx<entry.size then
-   skipdata(entry.size-entryidx);
+    begin
+{$ifdef generic_cpu}
+     has_more:=true;
+{$endif not generic_cpu}
+     skipdata(entry.size-entryidx);
+    end;
   readdata(entry,sizeof(tppuentry));
   if change_endian then
     entry.size:=swapendian(entry.size);
   entrystart:=bufstart+bufidx;
   entryidx:=0;
+{$ifdef generic_cpu}
+  has_more:=false;
+{$endif not generic_cpu}
   if not(entry.id in [mainentryid,subentryid]) then
    begin
      readentry:=iberror;
@@ -548,13 +604,22 @@ end;
 
 function tppufile.endofentry:boolean;
 begin
+{$ifdef generic_cpu}
+  endofentry:=(entryidx=entry.size);
+{$else not generic_cpu}
   endofentry:=(entryidx>=entry.size);
+{$endif not generic_cpu}
 end;
 
 
 function tppufile.entrysize:longint;
 begin
   entrysize:=entry.size;
+end;
+
+function tppufile.entryleft:longint;
+begin
+  entryleft:=entry.size-entryidx;
 end;
 
 
@@ -707,33 +772,138 @@ end;
 
 function tppufile.getaint:aint;
 begin
+{$ifdef generic_cpu}
+  if CpuAluBitSize[tsystemcpu(header.cpu)]=64 then
+    result:=getint64
+  else if CpuAluBitSize[tsystemcpu(header.cpu)]=32 then
+    result:=getlongint
+  else if CpuAluBitSize[tsystemcpu(header.cpu)]=16 then
+    result:=smallint(getword)
+  else if CpuAluBitSize[tsystemcpu(header.cpu)]=8 then
+    result:=shortint(getbyte)
+  else
+    begin
+      error:=true;
+      result:=0;
+    end;
+{$else not generic_cpu}
 {$ifdef cpu64bitalu}
   result:=getint64;
 {$else cpu64bitalu}
   result:=getlongint;
 {$endif cpu64bitalu}
+{$endif not generic_cpu}
 end;
 
 
 function tppufile.getasizeint:asizeint;
 begin
+{$ifdef generic_cpu}
+  if CpuAddrBitSize[tsystemcpu(header.cpu)]=64 then
+    result:=getint64
+  else if CpuAddrBitSize[tsystemcpu(header.cpu)]=32 then
+    result:=getlongint
+  else if CpuAddrBitSize[tsystemcpu(header.cpu)]=16 then
+    result:=smallint(getword)
+  else
+    begin
+      error:=true;
+      result:=0;
+    end;
+{$else not generic_cpu}
 {$ifdef cpu64bitaddr}
   result:=getint64;
 {$else cpu64bitaddr}
   result:=getlongint;
 {$endif cpu32bitaddr}
+{$endif not generic_cpu}
 end;
 
 
 function tppufile.getaword:aword;
 begin
+{$ifdef generic_cpu}
+  if CpuAluBitSize[tsystemcpu(header.cpu)]=64 then
+    result:=getqword
+  else if CpuAluBitSize[tsystemcpu(header.cpu)]=32 then
+    result:=getdword
+  else if CpuAluBitSize[tsystemcpu(header.cpu)]=16 then
+    result:=getword
+  else if CpuAluBitSize[tsystemcpu(header.cpu)]=8 then
+    result:=getbyte
+  else
+    begin
+      error:=true;
+      result:=0;
+    end;
+{$else not generic_cpu}
 {$ifdef cpu64bitalu}
   result:=getqword;
 {$else cpu64bitalu}
   result:=getdword;
 {$endif cpu64bitalu}
+{$endif not generic_cpu}
 end;
 
+function  tppufile.getrealsize(sizeofreal : longint):ppureal;
+var
+  e : ppureal;
+  d : double;
+  s : single;
+begin
+  if sizeofreal=sizeof(e) then
+    begin
+      if entryidx+sizeof(e)>entry.size then
+       begin
+         error:=true;
+         result:=0;
+         exit;
+       end;
+      readdata(e,sizeof(e));
+      if change_endian then
+        result:=swapendian_ppureal(e)
+      else
+        result:=e;
+      inc(entryidx,sizeof(e));
+      exit;
+    end;
+  if sizeofreal=sizeof(d) then
+    begin
+      if entryidx+sizeof(d)>entry.size then
+       begin
+         error:=true;
+         result:=0;
+         exit;
+       end;
+      readdata(d,sizeof(d));
+      if change_endian then
+        result:=swapendian(pqword(@d)^)
+      else
+        result:=d;
+      inc(entryidx,sizeof(d));
+      result:=d;
+      exit;
+    end;
+  if sizeofreal=sizeof(s) then
+    begin
+      if entryidx+sizeof(s)>entry.size then
+       begin
+         error:=true;
+         result:=0;
+         exit;
+       end;
+      readdata(s,sizeof(s));
+      if change_endian then
+        result:=swapendian(pdword(@s)^)
+      else
+        result:=s;
+      inc(entryidx,sizeof(s));
+      result:=s;
+      exit;
+    end;
+  error:=true;
+  result:=0.0;
+end;
 
 function tppufile.getreal:ppureal;
 var
@@ -742,33 +912,13 @@ var
 begin
   if target_info.system=system_x86_64_win64 then
     begin
-      if entryidx+sizeof(hd)>entry.size then
-       begin
-         error:=true;
-         getreal:=0;
-         exit;
-       end;
-      readdata(hd,sizeof(hd));
-      if change_endian then
-        getreal:=swapendian(qword(hd))
-      else
-        getreal:=hd;
-      inc(entryidx,sizeof(hd));
+      hd:=getrealsize(sizeof(hd));
+      getreal:=hd;
     end
   else
     begin
-      if entryidx+sizeof(ppureal)>entry.size then
-       begin
-         error:=true;
-         getreal:=0;
-         exit;
-       end;
-      readdata(d,sizeof(ppureal));
-      if change_endian then
-        getreal:=swapendian_ppureal(d)
-      else
-        getreal:=d;
-      inc(entryidx,sizeof(ppureal));
+      d:=getrealsize(sizeof(d));
+      getreal:=d;
     end;
 end;
 
@@ -796,8 +946,13 @@ begin
      error:=true;
      exit;
    end;
-  SetLength(Result,l);
-  ReadData(result[1],l);
+  if l>0 then
+    begin
+      SetLength(Result,l);
+      ReadData(result[1],l);
+    end
+  else
+    Result:='';
   inc(entryidx,l);
 end;
 
@@ -1122,6 +1277,12 @@ begin
 end;
 
 
+procedure tppufile.putasizeint(i: asizeint);
+begin
+  putdata(i,sizeof(asizeint));
+end;
+
+
 procedure tppufile.putaword(i:aword);
 begin
   putdata(i,sizeof(aword));
@@ -1154,7 +1315,8 @@ procedure tppufile.putansistring(const s: ansistring);
   begin
     l:=length(s);
     putdata(l,4);
-    putdata(s[1],l);
+    if l>0 then
+      putdata(s[1],l);
   end;
 
 
@@ -1181,6 +1343,7 @@ procedure tppufile.tempclose;
      begin
        closepos:=f.Position;
        f.Free;
+       f:=nil;
        closed:=true;
        tempclosed:=true;
      end;
@@ -1188,25 +1351,19 @@ procedure tppufile.tempclose;
 
 
 function tppufile.tempopen:boolean;
-  var
-    ofm : byte;
   begin
     tempopen:=false;
     if not closed or not tempclosed then
      exit;
-    // MG: not sure, if this is correct
-
-    f.Position:=0;
-    (*
-    ofm:=filemode;
-    filemode:=0;
-    {$I-}
-     reset(f,1);
-    {$I+}
-    filemode:=ofm;
-    if ioresult<>0 then
-     exit;
-    *)
+   { MG: not sure, if this is correct
+     f.position:=0;
+       No, f was freed in tempclose above, we need to
+       recreate it.  PM 2011/06/06 }
+    try
+      f:=CFileStreamClass.Create(fname,fmOpenRead);
+    except
+      exit;
+    end;
     closed:=false;
     tempclosed:=false;
 

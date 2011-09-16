@@ -6,7 +6,7 @@ unit fpextdirect;
 interface
 
 uses
-  Classes, SysUtils, fpjson, fpjsonrpc, webjsonrpc, httpdefs,websession;
+  Classes, SysUtils, fpjson, fpjsonrpc, webjsonrpc, httpdefs;
 
 Const
   DefaultExtDirectOptions = DefaultDispatchOptions + [jdoRequireClass];
@@ -36,6 +36,9 @@ Type
     Function FindHandler(Const AClassName,AMethodName : TJSONStringType;AContext : TJSONRPCCallContext; Out FreeObject : TComponent) : TCustomJSONRPCHandler; override;
     // Add type field
     function CreateJSON2Error(Const AMessage : String; Const ACode : Integer; ID : TJSONData = Nil; idname : TJSONStringType = 'id' ) : TJSONObject; override;
+    // Create API method description
+    Function HandlerToAPIMethod (H: TCustomJSONRPCHandler): TJSONObject; virtual;
+    Function HandlerDefToAPIMethod (H: TJSONRPCHandlerDef): TJSONObject; virtual;
     // Create API
     Function DoAPI : TJSONData; virtual;
     // Namespace for API description. Must be set. Default 'FPWeb'
@@ -132,6 +135,8 @@ Type
     Property RouterPath;
     Property CreateSession;
     Property NameSpace;
+    Property OnNewSession;
+    Property OnSessionExpired;
   end;
 
 implementation
@@ -207,6 +212,17 @@ begin
   TJSONObject(Result).Add('type','rpc');
 end;
 
+function TCustomExtDirectDispatcher.HandlerToAPIMethod(H: TCustomJSONRPCHandler): TJSONObject;
+begin
+  Result:=TJSONObject.Create(['name',H.Name,'len',H.ParamDefs.Count])
+end;
+
+function TCustomExtDirectDispatcher.HandlerDefToAPIMethod(H: TJSONRPCHandlerDef
+  ): TJSONObject;
+begin
+  Result:=TJSONObject.Create(['name',H.HandlerMethodName,'len',H.ArgumentCount])
+end;
+
 function TCustomExtDirectDispatcher.DoAPI: TJSONData;
 
 Var
@@ -240,7 +256,7 @@ begin
             A.Add(N,R);
             end;
           H:=Owner.Components[i] as TCustomJSONRPCHandler;
-          R.Add(TJSONObject.Create(['name',H.Name,'len',H.ParamDefs.Count]));
+          R.Add(HandlerToAPIMethod(H));
           end;
       end;
     If (jdoSearchRegistry in Options) then
@@ -264,7 +280,7 @@ begin
           else
             R:=A.Items[J] as TJSONArray;
           end;
-        R.Add(TJSONObject.Create(['name',HD.HandlerMethodName,'len',HD.ArgumentCount]));
+        R.Add(HandlerDefToAPIMethod(HD));
         end;
       end;
     Result:=D;
@@ -447,7 +463,6 @@ begin
     finally
       Res.Free;
     end;
-    AResponse.SendResponse;
     end
   else
     JSONRPCError(SErrInvalidPath);

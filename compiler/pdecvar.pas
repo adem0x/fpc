@@ -41,6 +41,8 @@ interface
 
     procedure read_public_and_external(vs: tabstractvarsym);
 
+    procedure try_consume_sectiondirective(var asection: ansistring);
+
 implementation
 
     uses
@@ -674,7 +676,7 @@ implementation
                                    storedprocdef:=tprocvardef.create(normal_function_level);
                                    include(storedprocdef.procoptions,po_methodpointer);
                                    { Return type must be boolean }
-                                   storedprocdef.returndef:=booltype;
+                                   storedprocdef.returndef:=pasbool8type;
                                    { Add index parameter if needed }
                                    if ppo_indexed in p.propoptions then
                                      begin
@@ -770,7 +772,7 @@ implementation
 *)
          { Parse possible "implements" keyword }
          if not is_record(astruct) and try_to_consume(_IMPLEMENTS) then
-           begin
+           repeat
              single_type(def,[]);
 
              if not(is_interface(def)) then
@@ -778,7 +780,8 @@ implementation
 
              if is_interface(p.propdef) then
                begin
-                 if compare_defs(def,p.propdef,nothingn)<te_equal then
+                 { an interface type may delegate itself or one of its ancestors }
+                 if not p.propdef.is_related(def) then
                    begin
                      message2(parser_e_implements_must_have_correct_type,def.typename,p.propdef.typename);
                      exit;
@@ -839,12 +842,20 @@ implementation
                end;
              if found then
                begin
+                 { An interface may not be delegated by more than one property,
+                   it also may not have method mappings. }
+                 if Assigned(ImplIntf.ImplementsGetter) then
+                   message1(parser_e_duplicate_implements_clause,ImplIntf.IntfDef.typename);
+                 if Assigned(ImplIntf.NameMappings) then
+                   message2(parser_e_mapping_no_implements,ImplIntf.IntfDef.typename,astruct.objrealname^);
+
                  ImplIntf.ImplementsGetter:=p;
                  ImplIntf.VtblImplIntf:=ImplIntf;
                  case p.propaccesslist[palt_read].firstsym^.sym.typ of
                    procsym :
                      begin
-                       if (po_virtualmethod in tprocdef(p.propaccesslist[palt_read].procdef).procoptions) then
+                       if (po_virtualmethod in tprocdef(p.propaccesslist[palt_read].procdef).procoptions) and
+                           not is_objectpascal_helper(tprocdef(p.propaccesslist[palt_read].procdef).struct) then
                          ImplIntf.IType:=etVirtualMethodResult
                        else
                          ImplIntf.IType:=etStaticMethodResult;
@@ -869,7 +880,7 @@ implementation
                end
              else
                message1(parser_e_implements_uses_non_implemented_interface,def.typename);
-         end;
+           until not try_to_consume(_COMMA);
 
          { remove unneeded procdefs }
          if readprocdef.proctypeoption<>potype_propgetter then
@@ -924,8 +935,8 @@ implementation
       is_external_var,
       is_weak_external,
       is_public_var  : boolean;
-      dll_name,
-      C_name      : string;
+      dll_name,section_name,
+      C_name,mangledname      : string;
     begin
       { only allowed for one var }
       { only allow external and public on global symbols }
@@ -939,6 +950,7 @@ implementation
       is_cdecl:=false;
       is_external_var:=false;
       is_public_var:=false;
+      section_name := '';
       C_name:=vs.realname;
 
       { macpas specific handling due to some switches}
@@ -991,6 +1003,10 @@ implementation
             is_public_var:=true;
           if try_to_consume(_NAME) then
             C_name:=get_stringconst;
+          if (target_info.system in systems_allow_section_no_semicolon) and
+             (vs.typ=staticvarsym) and
+             try_to_consume (_SECTION) then
+            section_name:=get_stringconst;
           consume(_SEMICOLON);
         end;
 
@@ -998,6 +1014,14 @@ implementation
       if is_dll and
          (target_info.system in systems_all_windows) then
         include(vs.varoptions,vo_is_dll_var);
+
+      { This can only happen if vs.typ=staticvarsym }
+      if section_name<>'' then
+        begin
+          tstaticvarsym(vs).section:=section_name;
+          include(vs.varoptions,vo_has_section);
+        end;
+
 
       { Add C _ prefix }
       if is_cdecl or
@@ -1015,6 +1039,7 @@ implementation
           inc(vs.refs);
         end;
 
+      mangledname:=C_name;
       { now we can insert it in the import lib if its a dll, or
         add it to the externals }
       if is_external_var then
@@ -1030,14 +1055,20 @@ implementation
             end;
           vs.varregable := vr_none;
           if is_dll then
-            current_module.AddExternalImport(dll_name,C_Name,0,true,false)
+            begin
+              if target_info.system in (systems_all_windows + systems_nativent +
+                                       [system_i386_emx, system_i386_os2]) then
+                mangledname:=make_dllmangledname(dll_name,C_name,0,pocall_none);
+
+              current_module.AddExternalImport(dll_name,C_Name,mangledname,0,true,false);
+            end
           else
             if tf_has_dllscanner in target_info.flags then
               current_module.dllscannerinputlist.Add(vs.mangledname,vs);
         end;
 
       { Set the assembler name }
-      tstaticvarsym(vs).set_mangledname(C_Name);
+      tstaticvarsym(vs).set_mangledname(mangledname);
     end;
 
 
@@ -1264,7 +1295,7 @@ implementation
          hintsymoptions  : tsymoptions;
          deprecatedmsg   : pshortstring;
          old_block_type  : tblock_type;
-         section : ansistring;
+         sectionname : ansistring;
       begin
          old_block_type:=block_type;
          block_type:=bt_var;
@@ -1407,10 +1438,12 @@ implementation
                read_public_and_external_sc(sc);
 
              { try to parse a section directive }
-             if (target_info.system in systems_embedded) and (idtoken=_SECTION) then
+             if (target_info.system in systems_allow_section) and
+                (symtablestack.top.symtabletype in [staticsymtable,globalsymtable]) and
+                (idtoken=_SECTION) then
                begin
-                 try_consume_sectiondirective(section);
-                 if section<>'' then
+                 try_consume_sectiondirective(sectionname);
+                 if sectionname<>'' then
                    begin
                      for i:=0 to sc.count-1 do
                        begin
@@ -1419,7 +1452,8 @@ implementation
                            Message(parser_e_externals_no_section);
                          if vs.typ<>staticvarsym then
                            Message(parser_e_section_no_locals);
-                         tstaticvarsym(vs).section:=section;
+                         tstaticvarsym(vs).section:=sectionname;
+                         include(vs.varoptions, vo_has_section);
                        end;
                    end;
                end;
@@ -1466,7 +1500,8 @@ implementation
          uniondef : trecorddef;
          hintsymoptions : tsymoptions;
          deprecatedmsg : pshortstring;
-         semicoloneaten: boolean;
+         semicoloneaten,
+         removeclassoption: boolean;
 {$if defined(powerpc) or defined(powerpc64)}
          tempdef: tdef;
          is_first_type: boolean;
@@ -1485,7 +1520,8 @@ implementation
            consume(_ID);
          { read vars }
          sc:=TFPObjectList.create(false);
-         recstlist:=TFPObjectList.create(false);;
+         recstlist:=TFPObjectList.create(false);
+         removeclassoption:=false;
          while (token=_ID) and
             not(((vd_object in options) or
                  ((vd_record in options) and (m_advanced_records in current_settings.modeswitches))) and
@@ -1620,7 +1656,8 @@ implementation
                  if not (vd_class in options) and try_to_consume(_STATIC) then
                    begin
                      consume(_SEMICOLON);
-                     include(options, vd_class);
+                     include(options,vd_class);
+                     removeclassoption:=true;
                    end;
                end;
              if vd_class in options then
@@ -1640,6 +1677,11 @@ implementation
                      sl:=tpropaccesslist.create;
                      sl.addsym(sl_load,hstaticvs);
                      recst.insert(tabsolutevarsym.create_ref('$'+static_name,hdef,sl));
+                   end;
+                 if removeclassoption then
+                   begin
+                     exclude(options,vd_class);
+                     removeclassoption:=false;
                    end;
                end;
              if (visibility=vis_published) and

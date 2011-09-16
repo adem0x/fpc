@@ -52,15 +52,15 @@ Type
     procedure WriteInfo;
     procedure WriteHelpPages;
     procedure WriteQuickInfo;
-    procedure IllegalPara(const opt:string);
-    procedure UnsupportedPara(const opt:string);
-    procedure IgnoredPara(const opt:string);
+    procedure IllegalPara(const opt:TCmdStr);
+    procedure UnsupportedPara(const opt:TCmdStr);
+    procedure IgnoredPara(const opt:TCmdStr);
     function  Unsetbool(var Opts:TCmdStr; Pos: Longint):boolean;
-    procedure interpret_option(const opt :string;ispara:boolean);
-    procedure Interpret_envvar(const envname : string);
-    procedure Interpret_file(const filename : string);
+    procedure interpret_option(const opt :TCmdStr;ispara:boolean);
+    procedure Interpret_envvar(const envname : TCmdStr);
+    procedure Interpret_file(const filename : TPathStr);
     procedure Read_Parameters;
-    procedure parsecmd(cmd:string);
+    procedure parsecmd(cmd:TCmdStr);
     procedure TargetOptions(def:boolean);
     procedure CheckOptionsCompatibility;
     procedure ForceStaticLinking;
@@ -71,7 +71,7 @@ Type
 var
   coption : TOptionClass;
 
-procedure read_arguments(cmd:string);
+procedure read_arguments(cmd:TCmdStr);
 
 
 implementation
@@ -286,7 +286,7 @@ begin
 }
               begin
                 hs:=s;
-                hs1:=ControllerTypeStr[controllertype];
+                hs1:=embedded_controllers[controllertype].ControllerTypeStr;
                 if hs1<>'' then
                   begin
                     Replace(hs,'$CONTROLLERTYPES',hs1);
@@ -365,6 +365,9 @@ begin
       'S',
 {$endif}
 {$ifdef vis}
+      'I',
+{$endif}
+{$ifdef avr}
       'V',
 {$endif}
       '*' : show:=true;
@@ -440,7 +443,7 @@ begin
 end;
 
 
-procedure Toption.IllegalPara(const opt:string);
+procedure Toption.IllegalPara(const opt:TCmdStr);
 begin
   Message1(option_illegal_para,opt);
   Message(option_help_pages_para);
@@ -448,14 +451,14 @@ begin
 end;
 
 
-procedure toption.UnsupportedPara(const opt: string);
+procedure toption.UnsupportedPara(const opt: TCmdStr);
 begin
   Message1(option_unsupported_target,opt);
   StopOptions(1);
 end;
 
 
-procedure toption.IgnoredPara(const opt: string);
+procedure toption.IgnoredPara(const opt: TCmdStr);
 begin
   Message1(option_ignored_target,opt);
 end;
@@ -488,7 +491,7 @@ begin
 end;
 
 
-procedure TOption.interpret_option(const opt:string;ispara:boolean);
+procedure TOption.interpret_option(const opt:TCmdStr;ispara:boolean);
 var
   code : integer;
   c    : char;
@@ -517,7 +520,7 @@ begin
   case opt[1] of
     '-' :
       begin
-         more:=Copy(opt,3,255);
+         more:=Copy(opt,3,2147483647);
          if firstpass then
            Message1(option_interpreting_firstpass_option,opt)
          else
@@ -1369,12 +1372,21 @@ begin
                            exclude(init_settings.globalswitches,cs_support_exceptions)
                          else
                            include(init_settings.globalswitches,cs_support_exceptions);
+                       'y' :
+                         If UnsetBool(More, j) then
+                           exclude(init_settings.localswitches,cs_typed_addresses)
+                         else
+                           include(init_settings.localswitches,cs_typed_addresses);
                        '-' :
                          begin
-                           init_settings.globalswitches:=init_settings.globalswitches - [cs_constructor_name,cs_support_exceptions];
-                           init_settings.localswitches:=init_settings.localswitches - [cs_do_assertion, cs_do_inline, cs_ansistrings];
+                           init_settings.globalswitches:=init_settings.globalswitches - [cs_constructor_name,cs_support_exceptions,
+                                                                                         cs_support_vectors,cs_load_fpcylix_unit];
+
+                           init_settings.localswitches:=init_settings.localswitches - [cs_do_assertion,cs_do_inline, cs_ansistrings,
+                                                                                       cs_typed_addresses];
+
                            init_settings.moduleswitches:=init_settings.moduleswitches - [cs_support_c_operators, cs_support_goto,
-                                                                     cs_support_macro];
+                                                                                         cs_support_macro];
                          end;
                        else
                          IllegalPara(opt);
@@ -1460,54 +1472,74 @@ begin
                   case More[j] of
                     'A':
                       begin
-                        if UnsetBool(More, j) then
-                          apptype:=app_native
+                        if target_info.system in systems_all_windows then
+                          begin
+                            if UnsetBool(More, j) then
+                              apptype:=app_cui
+                            else
+                              apptype:=app_native;
+                          end
                         else
-                          apptype:=app_cui;
+                          IllegalPara(opt);
                       end;
                     'b':
                       begin
-                        if (target_info.system in systems_darwin) then
+                        if target_info.system in systems_darwin then
                           begin
-                            if not UnsetBool(More, j) then
-                              apptype:=app_bundle
-                            else
+                            if UnsetBool(More, j) then
                               apptype:=app_cui
+                            else
+                              apptype:=app_bundle
                           end
                         else
                           IllegalPara(opt);
                       end;
                     'B':
                       begin
-                        {  -WB200000 means set trefered base address
-                          to $200000, but does not change relocsection boolean
-                          this way we can create both relocatble and
-                          non relocatable DLL at a specific base address PM }
-                        if (length(More)>j) then
+                        if target_info.system in systems_all_windows+systems_symbian then
                           begin
-                            val('$'+Copy(More,j+1,255),imagebase,code);
-                            if code<>0 then
-                              IllegalPara(opt);
-                            ImageBaseSetExplicity:=true;
+                            {  -WB200000 means set trefered base address
+                              to $200000, but does not change relocsection boolean
+                              this way we can create both relocatble and
+                              non relocatable DLL at a specific base address PM }
+                            if (length(More)>j) then
+                              begin
+                                val('$'+Copy(More,j+1,255),imagebase,code);
+                                if code<>0 then
+                                  IllegalPara(opt);
+                                ImageBaseSetExplicity:=true;
+                              end
+                            else
+                              begin
+                                RelocSection:=true;
+                                RelocSectionSetExplicitly:=true;
+                              end;
+                            break;
                           end
                         else
-                          begin
-                            RelocSection:=true;
-                            RelocSectionSetExplicitly:=true;
-                          end;
-                        break;
+                          IllegalPara(opt);
                       end;
                     'C':
                       begin
-                        if UnsetBool(More, j) then
-                          apptype:=app_gui
+                        if target_info.system in systems_all_windows+systems_os2+systems_macos then
+                          begin
+                            if UnsetBool(More, j) then
+                              apptype:=app_gui
+                            else
+                              apptype:=app_cui;
+                          end
                         else
-                          apptype:=app_cui;
+                          IllegalPara(opt);
                       end;
                     'D':
                       begin
-                        UseDeffileForExports:=not UnsetBool(More, j);
-                        UseDeffileForExportsSetExplicitly:=true;
+                        if target_info.system in systems_all_windows then
+                          begin
+                            UseDeffileForExports:=not UnsetBool(More, j);
+                            UseDeffileForExportsSetExplicitly:=true;
+                          end
+                        else
+                          IllegalPara(opt);
                       end;
                     'e':
                       begin
@@ -1522,22 +1554,37 @@ begin
                       end;
                     'F':
                       begin
-                        if UnsetBool(More, j) then
-                          apptype:=app_cui
+                        if target_info.system in systems_os2 then
+                          begin
+                            if UnsetBool(More, j) then
+                              apptype:=app_cui
+                            else
+                              apptype:=app_fs;
+                          end
                         else
-                          apptype:=app_fs;
+                          IllegalPara(opt);
                       end;
                     'G':
                       begin
-                        if UnsetBool(More, j) then
-                          apptype:=app_cui
+                        if target_info.system in systems_all_windows+systems_os2+systems_macos then
+                          begin
+                            if UnsetBool(More, j) then
+                              apptype:=app_cui
+                            else
+                              apptype:=app_gui;
+                          end
                         else
-                          apptype:=app_gui;
+                          IllegalPara(opt);
                       end;
                     'I':
                       begin
-                        GenerateImportSection:=not UnsetBool(More,j);
-                        GenerateImportSectionSetExplicitly:=true;
+                        if target_info.system in systems_all_windows then
+                          begin
+                            GenerateImportSection:=not UnsetBool(More,j);
+                            GenerateImportSectionSetExplicitly:=true;
+                          end
+                        else
+                          IllegalPara(opt);
                       end;
                     'i':
                       begin
@@ -1552,8 +1599,13 @@ begin
                       end;
                     'N':
                       begin
-                        RelocSection:=UnsetBool(More,j);
-                        RelocSectionSetExplicitly:=true;
+                        if target_info.system in systems_all_windows then
+                          begin
+                            RelocSection:=UnsetBool(More,j);
+                            RelocSectionSetExplicitly:=true;
+                          end
+                        else
+                          IllegalPara(opt);
                       end;
                     'p':
                       begin
@@ -1571,16 +1623,26 @@ begin
                       end;
                     'R':
                       begin
-                        { support -WR+ / -WR- as synonyms to -WR / -WN }
-                        RelocSection:=not UnsetBool(More,j);
-                        RelocSectionSetExplicitly:=true;
+                        if target_info.system in systems_all_windows then
+                          begin
+                            { support -WR+ / -WR- as synonyms to -WR / -WN }
+                            RelocSection:=not UnsetBool(More,j);
+                            RelocSectionSetExplicitly:=true;
+                          end
+                        else
+                          IllegalPara(opt);
                       end;
                     'T':
                       begin
-                        if UnsetBool(More, j) then
-                          apptype:=app_cui
+                        if target_info.system in systems_macos then
+                          begin
+                            if UnsetBool(More, j) then
+                              apptype:=app_cui
+                            else
+                              apptype:=app_tool;
+                          end
                         else
-                          apptype:=app_tool;
+                          IllegalPara(opt);
                       end;
                     'X':
                       begin
@@ -1775,9 +1837,9 @@ begin
 end;
 
 
-procedure Toption.Interpret_file(const filename : string);
+procedure Toption.Interpret_file(const filename : TPathStr);
 
-  procedure RemoveSep(var fn:string);
+  procedure RemoveSep(var fn:TPathStr);
   var
     i : longint;
   begin
@@ -1791,7 +1853,7 @@ procedure Toption.Interpret_file(const filename : string);
     fn:=copy(fn,1,i);
   end;
 
-  function GetName(var fn:string):string;
+  function GetName(var fn:TPathStr):TPathStr;
   var
     i : longint;
   begin
@@ -1807,7 +1869,7 @@ const
 var
   f     : text;
   s, tmp,
-  opts  : string;
+  opts  : TCmdStr;
   skip  : array[0..maxlevel] of boolean;
   line,
   level : longint;
@@ -1960,14 +2022,14 @@ begin
 end;
 
 
-procedure Toption.Interpret_envvar(const envname : string);
+procedure Toption.Interpret_envvar(const envname : TCmdStr);
 var
   argstart,
   env,
   pc     : pchar;
   arglen : longint;
   quote  : set of char;
-  hs     : string;
+  hs     : TCmdStr;
 begin
   Message1(option_using_env,envname);
   env:=GetEnvPChar(envname);
@@ -2019,14 +2081,14 @@ end;
 
 procedure toption.read_parameters;
 var
-  opts       : string;
+  opts       : TCmdStr;
   paramindex : longint;
 begin
   paramindex:=0;
   while paramindex<paramcount do
    begin
      inc(paramindex);
-     opts:=system.paramstr(paramindex);
+     opts:=objpas.paramstr(paramindex);
      case opts[1] of
        '@' :
          if not firstpass then
@@ -2049,10 +2111,10 @@ begin
 end;
 
 
-procedure toption.parsecmd(cmd:string);
+procedure toption.parsecmd(cmd:TCmdStr);
 var
   i,ps  : longint;
-  opts  : string;
+  opts  : TCmdStr;
 begin
   while (cmd<>'') do
    begin
@@ -2060,7 +2122,7 @@ begin
       delete(cmd,1,1);
      i:=pos(' ',cmd);
      if i=0 then
-      i:=256;
+       i:=2147483647;
      opts:=Copy(cmd,1,i-1);
      Delete(cmd,1,i);
      case opts[1] of
@@ -2251,6 +2313,15 @@ begin
   if (paratargetdbg in [dbg_dwarf2,dbg_dwarf3]) and
      not(target_info.system in systems_darwin) then
     begin
+      { smartlink creation does not yet work with DWARF 
+        debug info on most targets, but it works in internal assembler }
+      if (cs_create_smart in init_settings.moduleswitches) and
+         not (af_outputbinary in target_asm.flags) then
+        begin
+          Message(option_dwarf_smartlink_creation);
+          exclude(init_settings.moduleswitches,cs_create_smart);
+        end;
+
       { smart linking does not yet work with DWARF debug info on most targets }
       if (cs_link_smart in init_settings.globalswitches) then
         begin
@@ -2357,7 +2428,7 @@ begin
 end;
 
 
-procedure read_arguments(cmd:string);
+procedure read_arguments(cmd:TCmdStr);
 var
   env: ansistring;
   i : tfeature;
@@ -2395,6 +2466,9 @@ begin
     end;
   option.firstpass:=false;
 
+  { redefine target options so all defines are written even if no -Txxx is passed on the command line }
+  Option.TargetOptions(true);
+
 { target is set here, for wince the default app type is gui }
   if target_info.system in systems_wince then
     apptype:=app_gui;
@@ -2430,6 +2504,7 @@ begin
   def_system_macro('FPC_HAS_RIP_RELATIVE');
 {$endif x86_64}
   def_system_macro('FPC_HAS_CEXTENDED');
+  def_system_macro('FPC_HAS_RESSTRINITS');
 
 { these cpus have an inline rol/ror implementaion }
 {$if defined(x86) or defined(arm) or defined(powerpc) or defined(powerpc64)}
@@ -2715,6 +2790,8 @@ begin
           exclude(init_settings.moduleswitches,cs_debuginfo);
         end;
     end;
+  {TOptionheck a second time as we might have changed assembler just above }
+  option.checkoptionscompatibility;
 
   { maybe override debug info format }
   if (paratargetdbg<>dbg_none) then
@@ -2798,6 +2875,12 @@ if (target_info.system=system_arm_darwin) then
         def_system_macro('FPC_HAS_TYPE_EXTENDED');
 {$endif}
     end;
+    { Not ready yet }
+{$ifdef TEST_TLS_DIRECTORY}
+    if target_info.system in systems_windows then
+      def_system_macro('FPC_USE_TLS_DIRECTORY');
+{$endif TEST_TLS_DIRECTORY}
+
 
 {$ifdef ARM}
   { define FPC_DOUBLE_HILO_SWAPPED if needed to properly handle doubles in RTL }

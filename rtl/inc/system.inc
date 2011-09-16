@@ -44,6 +44,7 @@ Const
    tkInterfaceCorba = 22;
    tkProcVar       = 23;
    tkUString       = 24;
+   tkHelper        = 26;
 
   // all potentially managed types
   tkManagedTypes   = [tkAstring,tkWstring,tkUstring,tkArray,
@@ -59,8 +60,13 @@ Const
   This way we keep TP compatibility, and the TextRec definition is available
   for everyone who needs it.
 }
+{$ifdef FPC_HAS_FEATURE_FILEIO}
 {$i filerec.inc}
+{$endif FPC_HAS_FEATURE_FILEIO}
+
+{$ifdef FPC_HAS_FEATURE_TEXTIO}
 {$i textrec.inc}
+{$endif FPC_HAS_FEATURE_TEXTIO}
 
 {$ifdef FPC_HAS_FEATURE_EXITCODE}
   {$ifdef FPC_OBJFPC_EXTENDED_IF}
@@ -75,8 +81,10 @@ Const
 Procedure HandleError (Errno : Longint); forward;
 Procedure HandleErrorFrame (Errno : longint;frame : Pointer); forward;
 
+{$ifdef FPC_HAS_FEATURE_TEXTIO}
 type
   FileFunc = Procedure(var t : TextRec);
+{$endif FPC_HAS_FEATURE_TEXTIO}
 
 
 const
@@ -801,10 +809,12 @@ procedure internal_initializeunits; external name 'FPC_INITIALIZEUNITS';
 
 procedure fpc_LibInitializeUnits;[public,alias:'FPC_LIBINITIALIZEUNITS'];
 begin
+{$ifdef FPC_HAS_FEATURE_DYNLIBS}
   IsLibrary:=true;
   { must also be set to true for packages when implemented }
   ModuleIsLib:=true;
   internal_initializeunits;
+{$endif FPC_HAS_FEATURE_DYNLIBS}
 end;
 
 
@@ -839,6 +849,20 @@ Procedure FinalizeHeap;forward;
 {$endif HAS_MEMORYMANAGER}
 {$endif FPC_HAS_FEATURE_HEAP}
 
+{$ifdef FPC_HAS_FEATURE_CONSOLEIO}
+procedure SysFlushStdIO;
+begin
+  { Make sure that all output is written to the redirected file }
+  if Textrec(Output).Mode=fmOutput then
+    Flush(Output);
+  if Textrec(ErrOutput).Mode=fmOutput then
+    Flush(ErrOutput);
+  if Textrec(stdout).Mode=fmOutput then
+    Flush(stdout);
+  if Textrec(StdErr).Mode=fmOutput then
+    Flush(StdErr);
+end;
+{$endif FPC_HAS_FEATURE_CONSOLEIO}
 
 Procedure InternalExit;
 var
@@ -874,24 +898,25 @@ Begin
      dump_stack(pstdout^,ErrorBase);
      Writeln(pstdout^,'');
    End;
-
-  { Make sure that all output is written to the redirected file }
-  if Textrec(Output).Mode=fmOutput then
-    Flush(Output);
-  if Textrec(ErrOutput).Mode=fmOutput then
-    Flush(ErrOutput);
-  if Textrec(pstdout^).Mode=fmOutput then
-    Flush(pstdout^);
-  if Textrec(StdErr).Mode=fmOutput then
-    Flush(StdErr);
+  SysFlushStdIO;
 {$endif FPC_HAS_FEATURE_CONSOLEIO}
 
 {$if defined(MSWINDOWS) or defined(OS2)}
   { finally release the heap if possible, especially
-    important for DLLs }
-  for i:=0 to argc do
-    sysfreemem(argv[i]);
-  sysfreemem(argv);
+    important for DLLs.
+    Reset the array to nil, and finally also argv itself to
+    avoid double freeing problem in case this function gets called twice. }
+  if assigned(argv) then
+    begin
+      for i:=0 to argc-1 do
+        if assigned(argv[i]) then
+          begin
+            sysfreemem(argv[i]);
+            argv[i]:=nil;
+          end;
+      sysfreemem(argv);
+      argv:=nil;
+    end;
 {$endif}
 {$ifdef LINUX}
   {sysfreemem already checks for nil}

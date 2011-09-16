@@ -78,7 +78,7 @@ Type
     function StrToStatementType(s : string) : TStatementType; override;
     Procedure ConnectToServer; virtual;
     Procedure SelectDatabase; virtual;
-    function MySQLDataType(AType: enum_field_types; ASize, ADecimals: Integer; var NewType: TFieldType; var NewSize: Integer): Boolean;
+    function MySQLDataType(AField: PMYSQL_FIELD; var NewType: TFieldType; var NewSize: Integer): Boolean;
     function MySQLWriteData(AType: enum_field_types;ASize: Integer; AFieldType: TFieldType; Source, Dest: PChar; out CreateBlob : boolean): Boolean;
     // SQLConnection methods
     procedure DoInternalConnect; override;
@@ -175,7 +175,12 @@ Type
 
 implementation
 
-uses dbconst,ctypes,strutils;
+uses
+  dbconst,
+  ctypes,
+  strutils,
+  dateutils,
+  FmtBCD;
 
 const
   Mysql_Option_Names : array[mysql_option] of string = ('MYSQL_OPT_CONNECT_TIMEOUT','MYSQL_OPT_COMPRESS',
@@ -324,7 +329,7 @@ var esc_str : pchar;
 
 begin
   if (not assigned(param)) or param.IsNull then Result := 'Null'
-  else if param.DataType in [ftString,ftBlob,ftMemo] then
+  else if param.DataType in [ftString,ftFixedChar,ftBlob,ftMemo] then
     Result := '''' + EscapeString(Param.AsString) + ''''
   else Result := inherited GetAsSqlText(Param);
 end;
@@ -535,11 +540,12 @@ begin
     end;
 end;
 
-function TConnectionName.MySQLDataType(AType: enum_field_types; ASize, ADecimals: Integer;
-   var NewType: TFieldType; var NewSize: Integer): Boolean;
+function TConnectionName.MySQLDataType(AField: PMYSQL_FIELD; var NewType: TFieldType; var NewSize: Integer): Boolean;
+var ASize, ADecimals: integer;
 begin
   Result := True;
-  case AType of
+  ASize := AField^.length;
+  case AField^.ftype of
     FIELD_TYPE_LONGLONG:
       begin
       NewType := ftLargeint;
@@ -558,16 +564,20 @@ begin
 {$ifdef mysql50_up}
     FIELD_TYPE_NEWDECIMAL,
 {$endif}
-    FIELD_TYPE_DECIMAL: if ADecimals < 5 then
-                          begin
-                          NewType := ftBCD;
-                          NewSize := ADecimals;
-                          end
-                        else
-                          begin
-                          NewType := ftFloat;
-                          NewSize := 0;
-                          end;
+    FIELD_TYPE_DECIMAL: 
+      begin
+        ADecimals:=AField^.decimals;
+        if (ADecimals < 5) and (ASize-2-ADecimals < 15) then //ASize is display size i.e. with sign and decimal point
+          NewType := ftBCD
+        else 
+          begin
+            if (ADecimals = 0) and (ASize < 20) then
+              NewType := ftLargeInt
+            else
+              NewType := ftFmtBCD;
+          end;
+        NewSize := ADecimals;
+      end;
     FIELD_TYPE_FLOAT, FIELD_TYPE_DOUBLE:
       begin
       NewType := ftFloat;
@@ -605,7 +615,14 @@ begin
       end;
     FIELD_TYPE_BLOB:
       begin
+{$IFDEF MYSQL50_UP}
+      if AField^.charsetnr = 63 then //character set is binary
+        NewType := ftBlob
+      else
+        NewType := ftMemo;
+{$ELSE}
       NewType := ftBlob;
+{$ENDIF}
       NewSize := 0;
       end
   else
@@ -641,7 +658,7 @@ begin
     field := mysql_fetch_field_direct(C.FRES, I);
 //    Writeln('MySQL: creating fielddef ',I+1);
 
-    if MySQLDataType(field^.ftype, field^.length, field^.decimals, DFT, DFS) then
+    if MySQLDataType(field, DFT, DFS) then
       begin
       TFieldDef.Create(FieldDefs, FieldDefs.MakeNameUnique(field^.name), DFT, DFS, False, TF);
       c.MapDSRowToMSQLRow[TF-1] := I;
@@ -777,7 +794,7 @@ begin
     Result := 0
   else
     Result := EncodeDate(EY, EM, ED);
-  Result := Result + EncodeTime(EH, EN, ES, 0);
+  Result := ComposeDateTime(Result,EncodeTime(EH, EN, ES, 0));
 end;
 
 function InternalStrToTime(S: string): TDateTime;
@@ -789,7 +806,7 @@ begin
   EH := StrToInt(Copy(S, 1, 2));
   EM := StrToInt(Copy(S, 4, 2));
   ES := StrToInt(Copy(S, 7, 2));
-  Result := EncodeTime(EH, EM, ES, 0);
+  Result := EncodeTimeInterval(EH, EM, ES, 0);
 end;
 
 function InternalStrToTimeStamp(S: string): TDateTime;
@@ -830,6 +847,7 @@ var
   VF: Double;
   VC: Currency;
   VD: TDateTime;
+  VB: TBCD;
   Src : String;
 
 begin
@@ -871,6 +889,11 @@ begin
         begin
         VC := InternalStrToCurrency(Src);
         Move(VC, Dest^, SizeOf(Currency));
+        end
+      else if AFieldType = ftFmtBCD then
+        begin
+        VB:=StrToBCD(Src, FSQLFormatSettings);
+        Move(VB, Dest^, SizeOf(TBCD));
         end
       else
         begin

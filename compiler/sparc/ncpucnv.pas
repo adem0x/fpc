@@ -77,18 +77,7 @@ implementation
         if is_64bitint(left.resultdef) or
           is_currency(left.resultdef) then
           begin
-            { hack to avoid double division by 10000, as it's
-              already done by typecheckpass.resultdef_int_to_real }
-            if is_currency(left.resultdef) then
-              left.resultdef := s64inttype;
-            if is_signed(left.resultdef) then
-              fname := 'fpc_int64_to_double'
-            else
-              fname := 'fpc_qword_to_double';
-            result := ccallnode.createintern(fname,ccallparanode.create(
-              left,nil));
-            left:=nil;
-            firstpass(result);
+            result:=inherited first_int_to_real;
             exit;
           end
         else
@@ -167,7 +156,7 @@ implementation
                s64real:
                  begin
                    hregister:=cg.getfpuregister(current_asmdata.CurrAsmList,OS_F64);
-                   current_asmdata.asmlists[al_typedconsts].concat(tai_align.create(const_align(8)));
+                   new_section(current_asmdata.asmlists[al_typedconsts],sec_rodata_norel,l1.name,const_align(8));
                    current_asmdata.asmlists[al_typedconsts].concat(Tai_label.Create(l1));
                    { I got this constant from a test program (FK) }
                    current_asmdata.asmlists[al_typedconsts].concat(Tai_const.Create_32bit($41f00000));

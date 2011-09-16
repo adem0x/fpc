@@ -178,11 +178,16 @@ interface
         moduleoptions: tmoduleoptions;
         deprecatedmsg: pshortstring;
 
+        { contains a list of types that are extended by helper types; the key is
+          the full name of the type and the data is a TFPObjectList of
+          tobjectdef instances (the helper defs) }
+        extendeddefs: TFPHashObjectList;
+
         {create creates a new module which name is stored in 's'. LoadedFrom
         points to the module calling it. It is nil for the first compiled
         module. This allow inheritence of all path lists. MUST pay attention
         to that when creating link.res!!!!(mazen)}
-        constructor create(LoadedFrom:TModule;const s:string;_is_unit:boolean);
+        constructor create(LoadedFrom:TModule;const amodulename,afilename:string;_is_unit:boolean);
         destructor destroy;override;
         procedure reset;virtual;
         procedure adddependency(callermodule:tmodule);
@@ -194,7 +199,7 @@ interface
         function  resolve_unit(id:longint):tmodule;
         procedure allunitsused;
         procedure setmodulename(const s:string);
-        procedure AddExternalImport(const libname,symname:string;OrdNr: longint;isvar:boolean;ImportByOrdinalOnly:boolean);
+        procedure AddExternalImport(const libname,symname,symmangledname:string;OrdNr: longint;isvar:boolean;ImportByOrdinalOnly:boolean);
         property ImportLibraryList : TFPHashObjectList read FImportLibraryList;
       end;
 
@@ -462,24 +467,31 @@ implementation
                                   TMODULE
  ****************************************************************************}
 
-    constructor tmodule.create(LoadedFrom:TModule;const s:string;_is_unit:boolean);
+    constructor tmodule.create(LoadedFrom:TModule;const amodulename,afilename:string;_is_unit:boolean);
       var
-        n : string;
+        n,fn:string;
       begin
-        n:=ChangeFileExt(ExtractFileName(s),'');
+        if amodulename='' then
+          n:=ChangeFileExt(ExtractFileName(afilename),'')
+        else
+          n:=amodulename;
+        if afilename='' then
+          fn:=amodulename
+        else
+          fn:=afilename;
         { Programs have the name 'Program' to don't conflict with dup id's }
         if _is_unit then
-         inherited create(n)
+         inherited create(amodulename)
         else
          inherited create('Program');
-        mainsource:=stringdup(s);
+        mainsource:=stringdup(fn);
         { Dos has the famous 8.3 limit :( }
 {$ifdef shortasmprefix}
         asmprefix:=stringdup(FixFileName('as'));
 {$else}
         asmprefix:=stringdup(FixFileName(n));
 {$endif}
-        setfilename(s,true);
+        setfilename(fn,true);
         localunitsearchpath:=TSearchPathList.Create;
         localobjectsearchpath:=TSearchPathList.Create;
         localincludesearchpath:=TSearchPathList.Create;
@@ -513,6 +525,7 @@ implementation
         symlist:=TFPObjectList.Create(false);
         wpoinfo:=nil;
         checkforwarddefs:=TFPObjectList.Create(false);
+        extendeddefs := TFPHashObjectList.Create(true);
         globalsymtable:=nil;
         localsymtable:=nil;
         globalmacrosymtable:=nil;
@@ -596,6 +609,7 @@ implementation
         linkotherframeworks.Free;
         stringdispose(mainname);
         FImportLibraryList.Free;
+        extendeddefs.Free;
         stringdispose(objfilename);
         stringdispose(asmfilename);
         stringdispose(ppufilename);
@@ -948,21 +962,40 @@ implementation
       end;
 
 
-    procedure TModule.AddExternalImport(const libname,symname:string;OrdNr: longint;isvar:boolean;ImportByOrdinalOnly:boolean);
+    procedure TModule.AddExternalImport(const libname,symname,symmangledname:string;
+              OrdNr: longint;isvar:boolean;ImportByOrdinalOnly:boolean);
       var
-        ImportLibrary : TImportLibrary;
-        ImportSymbol  : TFPHashObject;
+        ImportLibrary,OtherIL : TImportLibrary;
+        ImportSymbol  : TImportSymbol;
+        i : longint;
       begin
         ImportLibrary:=TImportLibrary(ImportLibraryList.Find(libname));
         if not assigned(ImportLibrary) then
           ImportLibrary:=TImportLibrary.Create(ImportLibraryList,libname);
-        ImportSymbol:=TFPHashObject(ImportLibrary.ImportSymbolList.Find(symname));
+        ImportSymbol:=TImportSymbol(ImportLibrary.ImportSymbolList.Find(symname));
         if not assigned(ImportSymbol) then
           begin
+            { Check that the same name does not exist in another library }
+            { If it does and the same mangled name is used, issue a warning }
+            if ImportLibraryList.Count>1 then
+              for i:=0 To ImportLibraryList.Count-1 do
+                begin
+                  OtherIL:=TImportLibrary(ImportLibraryList.Items[i]);
+                  ImportSymbol:=TImportSymbol(OtherIL.ImportSymbolList.Find(symname));
+                  if assigned(ImportSymbol) then
+                    begin
+                      if ImportSymbol.MangledName=symmangledname then
+                        begin
+                          CGMessage3(sym_w_library_overload,symname,libname,OtherIL.Name);
+                          break;
+                        end;
+                    end;
+                end;
             if not ImportByOrdinalOnly then
               { negative ordinal number indicates import by name with ordinal number as hint }
               OrdNr:=-OrdNr;
-            ImportSymbol:=TImportSymbol.Create(ImportLibrary.ImportSymbolList,symname,OrdNr,isvar);
+            ImportSymbol:=TImportSymbol.Create(ImportLibrary.ImportSymbolList,
+              symname,symmangledname,OrdNr,isvar);
           end;
       end;
 

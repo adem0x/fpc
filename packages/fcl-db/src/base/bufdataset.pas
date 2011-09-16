@@ -528,7 +528,7 @@ type
     function CompareBookmarks(Bookmark1, Bookmark2: TBookmark): Longint; override;
 
     property ChangeCount : Integer read GetChangeCount;
-    property MaxIndexesCount : Integer read FMaxIndexesCount write SetMaxIndexesCount;
+    property MaxIndexesCount : Integer read FMaxIndexesCount write SetMaxIndexesCount default 2;
   published
     property FileName : string read FFileName write FFileName;
     property PacketRecords : Integer read FPacketRecords write SetPacketRecords default 10;
@@ -541,7 +541,35 @@ type
 
   TBufDataset = class(TCustomBufDataset)
   published
+    property MaxIndexesCount;
+    // TDataset stuff
     property FieldDefs;
+    Property Active;
+    Property AutoCalcFields;
+    Property Filter;
+    Property Filtered;
+    Property AfterCancel;
+    Property AfterClose;
+    Property AfterDelete;
+    Property AfterEdit;
+    Property AfterInsert;
+    Property AfterOpen;
+    Property AfterPost;
+    Property AfterScroll;
+    Property BeforeCancel;
+    Property BeforeClose;
+    Property BeforeDelete;
+    Property BeforeEdit;
+    Property BeforeInsert;
+    Property BeforeOpen;
+    Property BeforePost;
+    Property BeforeScroll;
+    Property OnCalcFields;
+    Property OnDeleteError;
+    Property OnEditError;
+    Property OnFilterRecord;
+    Property OnNewRecord;
+    Property OnPostError;
   end;
 
 
@@ -595,6 +623,18 @@ begin
     Result := AnsiCompareText(pchar(subValue),pchar(aValue))
   else
     Result := AnsiCompareStr(pchar(subValue),pchar(aValue));
+end;
+
+function DBCompareWideText(subValue, aValue: pointer; options: TLocateOptions): LargeInt;
+begin
+  if [loCaseInsensitive,loPartialKey]=options then
+    Result := WideCompareText(pwidechar(subValue),LeftStr(pwidechar(aValue), Length(pwidechar(subValue))))
+  else if [loPartialKey] = options then
+      Result := WideCompareStr(pwidechar(subValue),LeftStr(pwidechar(aValue), Length(pwidechar(subValue))))
+    else if [loCaseInsensitive] = options then
+         Result := WideCompareText(pwidechar(subValue),pwidechar(aValue))
+       else
+         Result := WideCompareStr(pwidechar(subValue),pwidechar(aValue));
 end;
 
 function DBCompareByte(subValue, aValue: pointer; options: TLocateOptions): LargeInt;
@@ -1506,6 +1546,7 @@ procedure TCustomBufDataset.ProcessFieldCompareStruct(AField: TField; var ACompa
 begin
   case AField.DataType of
     ftString, ftFixedChar : ACompareRec.Comparefunc := @DBCompareText;
+    ftWideString, ftFixedWideChar: ACompareRec.Comparefunc := @DBCompareWideText;
     ftSmallint : ACompareRec.Comparefunc := @DBCompareSmallInt;
     ftInteger, ftBCD, ftAutoInc : ACompareRec.Comparefunc :=
       @DBCompareInt;
@@ -1775,30 +1816,18 @@ begin
   if state = dsOldValue then
     begin
     if not GetActiveRecordUpdateBuffer then
-      begin
-      // There is no old value available
-      result := false;
-      exit;
-      end;
-    currbuff := FUpdateBuffer[FCurrentUpdateBuffer].OldValuesBuffer;
+      Exit; // There is no old value available
+    CurrBuff := FUpdateBuffer[FCurrentUpdateBuffer].OldValuesBuffer;
     end
   else
-    begin
     CurrBuff := GetCurrentBuffer;
-    if not assigned(CurrBuff) then
-      begin
-      result := false;
-      exit;
-      end;
-    end;
+
+  if not assigned(CurrBuff) then Exit;
 
   If Field.Fieldno > 0 then // If = 0, then calculated field or something similar
     begin
-    if GetFieldIsnull(pbyte(CurrBuff),Field.Fieldno-1) then
-      begin
-      result := false;
-      exit;
-      end;
+    if GetFieldIsNull(pbyte(CurrBuff),Field.FieldNo-1) then
+      Exit;
     if assigned(buffer) then
       begin
       inc(CurrBuff,FFieldBufPositions[Field.FieldNo-1]);
@@ -1830,14 +1859,15 @@ var CurrBuff : pointer;
     NullMask : pbyte;
 
 begin
-  if not (state in [dsEdit, dsInsert, dsFilter, dsCalcFields]) then
-    begin
-    DatabaseErrorFmt(SNotEditing,[Name],self);
-    exit;
-    end;
+  if not (State in dsWriteModes) then
+    DatabaseError(SNotEditing, Self);
   CurrBuff := GetCurrentBuffer;
   If Field.Fieldno > 0 then // If = 0, then calculated field or something
     begin
+    if Field.ReadOnly and not (State in [dsSetKey, dsFilter]) then
+      DatabaseErrorFmt(SReadOnlyField, [Field.DisplayName]);	
+    if State in [dsEdit, dsInsert, dsNewValue] then
+      Field.Validate(Buffer);	
     NullMask := CurrBuff;
 
     inc(CurrBuff,FFieldBufPositions[Field.FieldNo-1]);

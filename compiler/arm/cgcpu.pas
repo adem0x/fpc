@@ -40,7 +40,7 @@ unit cgcpu;
         { true, if the next arithmetic operation should modify the flags }
         cgsetflags : boolean;
 
-        procedure a_load_const_cgpara(list : TAsmList;size : tcgsize;a : aint;const paraloc : TCGPara);override;
+        procedure a_load_const_cgpara(list : TAsmList;size : tcgsize;a : tcgint;const paraloc : TCGPara);override;
         procedure a_load_ref_cgpara(list : TAsmList;size : tcgsize;const r : treference;const paraloc : TCGPara);override;
         procedure a_loadaddr_ref_cgpara(list : TAsmList;const r : treference;const paraloc : TCGPara);override;
 
@@ -48,14 +48,14 @@ unit cgcpu;
         procedure a_call_reg(list : TAsmList;reg: tregister);override;
         procedure a_call_ref(list : TAsmList;ref: treference);override;
 
-        procedure a_op_const_reg(list : TAsmList; Op: TOpCG; size: TCGSize; a: aint; reg: TRegister); override;
+        procedure a_op_const_reg(list : TAsmList; Op: TOpCG; size: TCGSize; a: tcgint; reg: TRegister); override;
         procedure a_op_reg_reg(list : TAsmList; Op: TOpCG; size: TCGSize; src, dst: TRegister); override;
 
         procedure a_op_const_reg_reg(list: TAsmList; op: TOpCg;
-          size: tcgsize; a: aint; src, dst: tregister); override;
+          size: tcgsize; a: tcgint; src, dst: tregister); override;
         procedure a_op_reg_reg_reg(list: TAsmList; op: TOpCg;
           size: tcgsize; src1, src2, dst: tregister); override;
-        procedure a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: aint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);override;
+        procedure a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: tcgint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);override;
         procedure a_op_reg_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; src1, src2, dst: tregister;setflags : boolean;var ovloc : tlocation);override;
 
         { move instructions }
@@ -71,7 +71,7 @@ unit cgcpu;
 
         procedure a_loadfpu_ref_cgpara(list : TAsmList;size : tcgsize;const ref : treference;const paraloc : TCGPara);override;
         {  comparison operations }
-        procedure a_cmp_const_reg_label(list : TAsmList;size : tcgsize;cmp_op : topcmp;a : aint;reg : tregister;
+        procedure a_cmp_const_reg_label(list : TAsmList;size : tcgsize;cmp_op : topcmp;a : tcgint;reg : tregister;
           l : tasmlabel);override;
         procedure a_cmp_reg_reg_label(list : TAsmList;size : tcgsize;cmp_op : topcmp;reg1,reg2 : tregister;l : tasmlabel); override;
 
@@ -86,10 +86,10 @@ unit cgcpu;
 
         procedure a_loadaddr_ref_reg(list : TAsmList;const ref : treference;r : tregister);override;
 
-        procedure g_concatcopy(list : TAsmList;const source,dest : treference;len : aint);override;
-        procedure g_concatcopy_unaligned(list : TAsmList;const source,dest : treference;len : aint);override;
-        procedure g_concatcopy_move(list : TAsmList;const source,dest : treference;len : aint);
-        procedure g_concatcopy_internal(list : TAsmList;const source,dest : treference;len : aint;aligned : boolean);
+        procedure g_concatcopy(list : TAsmList;const source,dest : treference;len : tcgint);override;
+        procedure g_concatcopy_unaligned(list : TAsmList;const source,dest : treference;len : tcgint);override;
+        procedure g_concatcopy_move(list : TAsmList;const source,dest : treference;len : tcgint);
+        procedure g_concatcopy_internal(list : TAsmList;const source,dest : treference;len : tcgint;aligned : boolean);
 
         procedure g_overflowcheck(list: TAsmList; const l: tlocation; def: tdef); override;
         procedure g_overflowCheck_loc(List:TAsmList;const Loc:TLocation;def:TDef;ovloc : tlocation);override;
@@ -102,7 +102,7 @@ unit cgcpu;
         function handle_load_store(list:TAsmList;op: tasmop;oppostfix : toppostfix;reg:tregister;ref: treference):treference; virtual;
 
         procedure g_intf_wrapper(list: TAsmList; procdef: tprocdef; const labelname: string; ioffset: longint);override;
-        procedure g_adjust_self_value(list:TAsmList;procdef: tprocdef;ioffset: aint); override;
+        procedure g_adjust_self_value(list:TAsmList;procdef: tprocdef;ioffset: tcgint); override;
         procedure g_stackpointer_alloc(list : TAsmList;size : longint);override;
 
         procedure a_loadmm_reg_reg(list: TAsmList; fromsize, tosize : tcgsize;reg1, reg2: tregister;shuffle : pmmshuffle); override;
@@ -123,7 +123,7 @@ unit cgcpu;
         procedure init_register_allocators;override;
         procedure done_register_allocators;override;
 
-        procedure a_load_const_reg(list : TAsmList; size: tcgsize; a : aint;reg : tregister);override;
+        procedure a_load_const_reg(list : TAsmList; size: tcgsize; a : tcgint;reg : tregister);override;
         procedure a_load_ref_reg(list : TAsmList; fromsize, tosize : tcgsize;const Ref : treference;reg : tregister);override;
       end;
 
@@ -144,10 +144,10 @@ unit cgcpu;
 
         procedure a_call_reg(list : TAsmList;reg: tregister);override;
 
-        procedure a_load_const_reg(list : TAsmList; size: tcgsize; a : aint;reg : tregister);override;
+        procedure a_load_const_reg(list : TAsmList; size: tcgsize; a : tcgint;reg : tregister);override;
         procedure a_load_ref_reg(list : TAsmList; fromsize, tosize : tcgsize;const Ref : treference;reg : tregister);override;
 
-        procedure a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: aint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);override;
+        procedure a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: tcgint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);override;
         procedure a_op_reg_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; src1, src2, dst: tregister;setflags : boolean;var ovloc : tlocation);override;
 
         procedure g_flags2reg(list: TAsmList; size: TCgSize; const f: TResFlags; reg: TRegister); override;
@@ -245,7 +245,7 @@ unit cgcpu;
       end;
 
 
-     procedure tarmcgarm.a_load_const_reg(list : TAsmList; size: tcgsize; a : aint;reg : tregister);
+     procedure tarmcgarm.a_load_const_reg(list : TAsmList; size: tcgsize; a : tcgint;reg : tregister);
        var
           imm_shift : byte;
           l : tasmlabel;
@@ -413,7 +413,7 @@ unit cgcpu;
        end;
 
 
-    procedure tcgarm.a_load_const_cgpara(list : TAsmList;size : tcgsize;a : aint;const paraloc : TCGPara);
+    procedure tcgarm.a_load_const_cgpara(list : TAsmList;size : tcgsize;a : tcgint;const paraloc : TCGPara);
       var
         ref: treference;
       begin
@@ -510,14 +510,21 @@ unit cgcpu;
 
 
     procedure tcgarm.a_call_name(list : TAsmList;const s : string; weak: boolean);
+      var
+        branchopcode: tasmop;
       begin
+        { check not really correct: should only be used for non-Thumb cpus }
+        if (current_settings.cputype<cpu_armv5) then
+          branchopcode:=A_BL
+        else
+          branchopcode:=A_BLX;
         if target_info.system<>system_arm_darwin then
           if not weak then
-            list.concat(taicpu.op_sym(A_BL,current_asmdata.RefAsmSymbol(s)))
+            list.concat(taicpu.op_sym(branchopcode,current_asmdata.RefAsmSymbol(s)))
           else
-            list.concat(taicpu.op_sym(A_BL,current_asmdata.WeakRefAsmSymbol(s)))
+            list.concat(taicpu.op_sym(branchopcode,current_asmdata.WeakRefAsmSymbol(s)))
         else
-          list.concat(taicpu.op_sym(A_BL,get_darwin_call_stub(s,weak)));
+          list.concat(taicpu.op_sym(branchopcode,get_darwin_call_stub(s,weak)));
 {
         the compiler does not properly set this flag anymore in pass 1, and
         for now we only need it after pass 2 (I hope) (JM)
@@ -558,7 +565,7 @@ unit cgcpu;
       end;
 
 
-     procedure tcgarm.a_op_const_reg(list : TAsmList; Op: TOpCG; size: TCGSize; a: aint; reg: TRegister);
+     procedure tcgarm.a_op_const_reg(list : TAsmList; Op: TOpCG; size: TCGSize; a: tcgint; reg: TRegister);
        begin
           a_op_const_reg_reg(list,op,size,a,reg,reg);
        end;
@@ -592,7 +599,7 @@ unit cgcpu;
 
 
     procedure tcgarm.a_op_const_reg_reg(list: TAsmList; op: TOpCg;
-      size: tcgsize; a: aint; src, dst: tregister);
+      size: tcgsize; a: tcgint; src, dst: tregister);
       var
         ovloc : tlocation;
       begin
@@ -609,7 +616,7 @@ unit cgcpu;
       end;
 
 
-    procedure tcgarm.a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: aint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);
+    procedure tcgarm.a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: tcgint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);
       var
         shift : byte;
         tmpreg : tregister;
@@ -1321,7 +1328,7 @@ unit cgcpu;
 
 
     {  comparison operations }
-    procedure tcgarm.a_cmp_const_reg_label(list : TAsmList;size : tcgsize;cmp_op : topcmp;a : aint;reg : tregister;
+    procedure tcgarm.a_cmp_const_reg_label(list : TAsmList;size : tcgsize;cmp_op : topcmp;a : tcgint;reg : tregister;
       l : tasmlabel);
       var
         tmpreg : tregister;
@@ -1812,7 +1819,7 @@ unit cgcpu;
       end;
 
 
-    procedure tcgarm.g_concatcopy_move(list : TAsmList;const source,dest : treference;len : aint);
+    procedure tcgarm.g_concatcopy_move(list : TAsmList;const source,dest : treference;len : tcgint);
       var
         paraloc1,paraloc2,paraloc3 : TCGPara;
       begin
@@ -1839,7 +1846,7 @@ unit cgcpu;
       end;
 
 
-    procedure tcgarm.g_concatcopy_internal(list : TAsmList;const source,dest : treference;len : aint;aligned : boolean);
+    procedure tcgarm.g_concatcopy_internal(list : TAsmList;const source,dest : treference;len : tcgint;aligned : boolean);
       const
         maxtmpreg=10;{roozbeh: can be reduced to 8 or lower if might conflick with reserved ones,also +2 is used becouse of regs required for referencing}
 
@@ -2042,13 +2049,13 @@ unit cgcpu;
           end;
     end;
 
-    procedure tcgarm.g_concatcopy_unaligned(list : TAsmList;const source,dest : treference;len : aint);
+    procedure tcgarm.g_concatcopy_unaligned(list : TAsmList;const source,dest : treference;len : tcgint);
       begin
         g_concatcopy_internal(list,source,dest,len,false);
       end;
 
 
-    procedure tcgarm.g_concatcopy(list : TAsmList;const source,dest : treference;len : aint);
+    procedure tcgarm.g_concatcopy(list : TAsmList;const source,dest : treference;len : tcgint);
       begin
         if (source.alignment in [1..3]) or
           (dest.alignment in [1..3]) then
@@ -2084,7 +2091,8 @@ unit cgcpu;
 
               if not((def.typ=pointerdef) or
                     ((def.typ=orddef) and
-                     (torddef(def).ordtype in [u64bit,u16bit,u32bit,u8bit,uchar,pasbool]))) then
+                     (torddef(def).ordtype in [u64bit,u16bit,u32bit,u8bit,uchar,
+                                               pasbool8,pasbool16,pasbool32,pasbool64]))) then
                  ai.SetCondition(C_VC)
               else
                 if TAiCpu(List.Last).opcode in [A_RSB,A_RSC,A_SBC,A_SUB] then
@@ -2132,7 +2140,7 @@ unit cgcpu;
       end;
 
 
-    procedure tcgarm.g_adjust_self_value(list:TAsmList;procdef: tprocdef;ioffset: aint);
+    procedure tcgarm.g_adjust_self_value(list:TAsmList;procdef: tprocdef;ioffset: tcgint);
       var
         hsym : tsym;
         href : treference;
@@ -2488,7 +2496,8 @@ unit cgcpu;
         g_adjust_self_value(list,procdef,ioffset);
 
         { case 4 }
-        if po_virtualmethod in procdef.procoptions then
+        if (po_virtualmethod in procdef.procoptions) and
+            not is_objectpascal_helper(procdef.struct) then
           begin
             loadvmttor12;
             op_onr12methodaddr;
@@ -2847,7 +2856,7 @@ unit cgcpu;
       end;
 
 
-     procedure Tthumb2cgarm.a_load_const_reg(list : TAsmList; size: tcgsize; a : aint;reg : tregister);
+     procedure Tthumb2cgarm.a_load_const_reg(list : TAsmList; size: tcgsize; a : tcgint;reg : tregister);
        var
           imm_shift : byte;
           l : tasmlabel;
@@ -3013,7 +3022,7 @@ unit cgcpu;
        end;
 
 
-    procedure Tthumb2cgarm.a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: aint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);
+    procedure Tthumb2cgarm.a_op_const_reg_reg_checkoverflow(list: TAsmList; op: TOpCg; size: tcgsize; a: tcgint; src, dst: tregister;setflags : boolean;var ovloc : tlocation);
       var
         shift : byte;
         tmpreg : tregister;

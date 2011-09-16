@@ -52,7 +52,7 @@ interface
     { generate persistent type information like VMT, RTTI and inittables }
     procedure write_persistent_type_info(st:tsymtable);
 
-    procedure generate_specialization(var tt:tdef;parse_class_parent:boolean);
+    procedure generate_specialization(var tt:tdef;parse_class_parent:boolean;_prettyname : string);
 
 implementation
 
@@ -143,7 +143,7 @@ implementation
       end;
 
 
-    procedure generate_specialization(var tt:tdef;parse_class_parent:boolean);
+    procedure generate_specialization(var tt:tdef;parse_class_parent:boolean;_prettyname : string);
       var
         st  : TSymtable;
         srsym : tsym;
@@ -156,8 +156,10 @@ implementation
         generictype : ttypesym;
         generictypelist : TFPObjectList;
         oldsymtablestack   : tsymtablestack;
+        oldextendeddefs    : TFPHashObjectList;
         hmodule : tmodule;
         pu : tused_unit;
+        prettyname : ansistring;
         uspecializename,
         specializename : string;
         vmtbuilder : TVMTBuilder;
@@ -227,6 +229,7 @@ implementation
         if not assigned(genericdef.typesym) then
           internalerror(200710173);
         specializename:=genericdef.typesym.realname;
+        prettyname:=genericdef.typesym.prettyname+'<';
         for i:=0 to st.SymList.Count-1 do
           begin
             sym:=tsym(st.SymList[i]);
@@ -246,7 +249,13 @@ implementation
                     if not assigned(pt2.resultdef.typesym) then
                       message(type_e_generics_cannot_reference_itself)
                     else
-                      specializename:=specializename+'$'+pt2.resultdef.typesym.realname;
+                      begin
+                        specializename:=specializename+'$'+pt2.resultdef.typesym.realname;
+                        if i=0 then
+                          prettyname:=prettyname+pt2.resultdef.typesym.prettyname
+                        else
+                          prettyname:=prettyname+','+pt2.resultdef.typesym.prettyname;
+                      end;
                   end
                 else
                   begin
@@ -256,6 +265,8 @@ implementation
                 pt2.free;
               end;
           end;
+        prettyname:=prettyname+'>';
+
         uspecializename:=upper(specializename);
         { force correct error location if too much type parameters are passed }
         if not (token in [_RSHARPBRACKET,_GT]) then
@@ -292,7 +303,9 @@ implementation
               to get types right, however this is not perfect, we should probably record
               the resolved symbols }
             oldsymtablestack:=symtablestack;
-            symtablestack:=tsymtablestack.create;
+            oldextendeddefs:=current_module.extendeddefs;
+            current_module.extendeddefs:=TFPHashObjectList.create(true);
+            symtablestack:=tdefawaresymtablestack.create;
             if not assigned(genericdef) then
               internalerror(200705151);
             hmodule:=find_module_from_symtable(genericdef.owner);
@@ -327,10 +340,16 @@ implementation
 
                 if not assigned(genericdef.generictokenbuf) then
                   internalerror(200511171);
-                current_scanner.startreplaytokens(genericdef.generictokenbuf);
+                current_scanner.startreplaytokens(genericdef.generictokenbuf,
+                  genericdef.change_endian);
                 read_named_type(tt,specializename,genericdef,generictypelist,false);
                 ttypesym(srsym).typedef:=tt;
                 tt.typesym:=srsym;
+
+                if _prettyname<>'' then
+                  ttypesym(tt.typesym).fprettyname:=_prettyname
+                else
+                  ttypesym(tt.typesym).fprettyname:=prettyname;
 
                 case tt.typ of
                   { Build VMT indexes for classes }
@@ -359,6 +378,8 @@ implementation
               end;
 
             { Restore symtablestack }
+            current_module.extendeddefs.free;
+            current_module.extendeddefs:=oldextendeddefs;
             symtablestack.free;
             symtablestack:=oldsymtablestack;
           end
@@ -486,7 +507,6 @@ implementation
         srsymtable : TSymtable;
         s,sorg : TIDString;
         t : ttoken;
-        structdef : tabstractrecorddef;
       begin
          s:=pattern;
          sorg:=orgpattern;
@@ -499,7 +519,7 @@ implementation
          { Use the special searchsym_type that search only types }
          searchsym_type(s,srsym,srsymtable);
          { handle unit specification like System.Writeln }
-         is_unit_specific:=try_consume_unitsym(srsym,srsymtable,t);
+         is_unit_specific:=try_consume_unitsym(srsym,srsymtable,t,true);
          consume(t);
          { Types are first defined with an error def before assigning
            the real type so check if it's an errordef. if so then
@@ -612,7 +632,7 @@ implementation
            (m_delphi in current_settings.modeswitches) then
           dospecialize:=token=_LSHARPBRACKET;
         if dospecialize then
-          generate_specialization(def,stoParseClassParent in options)
+          generate_specialization(def,stoParseClassParent in options,'')
         else
           begin
             if assigned(current_specializedef) and (def=current_specializedef.genericdef) then
@@ -628,7 +648,8 @@ implementation
                 Message(parser_e_no_generics_as_types);
                 def:=generrordef;
               end
-            else if is_objccategory(def) then
+            else if is_classhelper(def) and
+                not (stoParseClassParent in options) then
               begin
                 Message(parser_e_no_category_as_types);
                 def:=generrordef
@@ -678,6 +699,11 @@ implementation
               begin
                 consume(_TYPE);
                 member_blocktype:=bt_type;
+
+                { local and anonymous records can not have inner types. skip top record symtable }
+                if (current_structdef.objname^='') or
+                   not(symtablestack.stack^.next^.symtable.symtabletype in [globalsymtable,staticsymtable,objectsymtable,recordsymtable]) then
+                  Message(parser_e_no_types_in_local_anonymous_records);
               end;
             _VAR :
               begin
@@ -948,8 +974,6 @@ implementation
          result:=current_structdef;
          { insert in symtablestack }
          symtablestack.push(recst);
-         { parse record }
-         consume(_RECORD);
 
          { usage of specialized type inside its generic template }
          if assigned(genericdef) then
@@ -998,7 +1022,6 @@ implementation
            lv,hv   : TConstExprInt;
            old_block_type : tblock_type;
            dospecialize : boolean;
-           structdef: tdef;
         begin
            old_block_type:=block_type;
            dospecialize:=false;
@@ -1045,7 +1068,7 @@ implementation
                                def:=torddef.create(uchar,lv,hv)
                              else
                                if is_boolean(pt1.resultdef) then
-                                 def:=torddef.create(pasbool,lv,hv)
+                                 def:=torddef.create(pasbool8,lv,hv)
                                else if is_signed(pt1.resultdef) then
                                  def:=torddef.create(range_to_basetype(lv,hv),lv,hv)
                                else
@@ -1068,7 +1091,7 @@ implementation
                    if (m_delphi in current_settings.modeswitches) then
                      dospecialize:=token=_LSHARPBRACKET;
                    if dospecialize then
-                     generate_specialization(def,false)
+                     generate_specialization(def,false,name)
                    else
                      begin
                        if assigned(current_specializedef) and (def=current_specializedef.genericdef) then
@@ -1084,7 +1107,7 @@ implementation
                            Message(parser_e_no_generics_as_types);
                            def:=generrordef;
                          end
-                       else if is_objccategory(def) then
+                       else if is_classhelper(def) then
                          begin
                            Message(parser_e_no_category_as_types);
                            def:=generrordef
@@ -1165,7 +1188,8 @@ implementation
 {$ifdef cpu64bitaddr}
                     u32bit,s64bit,
 {$endif cpu64bitaddr}
-                    pasbool,bool8bit,bool16bit,bool32bit,bool64bit,
+                    pasbool8,pasbool16,pasbool32,pasbool64,
+                    bool8bit,bool16bit,bool32bit,bool64bit,
                     uwidechar] then
                     begin
                        lowval:=torddef(def).low;
@@ -1520,7 +1544,14 @@ implementation
               end;
             _RECORD:
               begin
-                def:=record_dec(name,genericdef,genericlist);
+                consume(token);
+                if (idtoken=_HELPER) and (m_advanced_records in current_settings.modeswitches) then
+                  begin
+                    consume(_HELPER);
+                    def:=object_dec(odt_helper,name,genericdef,genericlist,nil,ht_record);
+                  end
+                else
+                  def:=record_dec(name,genericdef,genericlist);
               end;
             _PACKED,
             _BITPACKED:
@@ -1547,15 +1578,17 @@ implementation
                       _CLASS :
                         begin
                           consume(_CLASS);
-                          def:=object_dec(odt_class,name,genericdef,genericlist,nil);
+                          def:=object_dec(odt_class,name,genericdef,genericlist,nil,ht_none);
                         end;
                       _OBJECT :
                         begin
                           consume(_OBJECT);
-                          def:=object_dec(odt_object,name,genericdef,genericlist,nil);
+                          def:=object_dec(odt_object,name,genericdef,genericlist,nil,ht_none);
                         end;
-                      else
+                      else begin
+                        consume(_RECORD);
                         def:=record_dec(name,genericdef,genericlist);
+                      end;
                     end;
                     current_settings.packrecords:=oldpackrecords;
                   end;
@@ -1567,7 +1600,7 @@ implementation
                 if not(m_class in current_settings.modeswitches) then
                   Message(parser_f_need_objfpc_or_delphi_mode);
                 consume(token);
-                def:=object_dec(odt_dispinterface,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_dispinterface,name,genericdef,genericlist,nil,ht_none);
               end;
             _CLASS :
               begin
@@ -1594,12 +1627,18 @@ implementation
                       Message1(type_e_class_or_objcclass_type_expected,hdef.typename);
                   end
                 else
-                  def:=object_dec(odt_class,name,genericdef,genericlist,nil);
+                if (idtoken=_HELPER) then
+                  begin
+                    consume(_HELPER);
+                    def:=object_dec(odt_helper,name,genericdef,genericlist,nil,ht_class);
+                  end
+                else
+                  def:=object_dec(odt_class,name,genericdef,genericlist,nil,ht_none);
               end;
             _CPPCLASS :
               begin
                 consume(token);
-                def:=object_dec(odt_cppclass,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_cppclass,name,genericdef,genericlist,nil,ht_none);
               end;
             _OBJCCLASS :
               begin
@@ -1607,7 +1646,7 @@ implementation
                   Message(parser_f_need_objc);
 
                 consume(token);
-                def:=object_dec(odt_objcclass,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_objcclass,name,genericdef,genericlist,nil,ht_none);
               end;
             _INTERFACE :
               begin
@@ -1617,9 +1656,9 @@ implementation
                   Message(parser_f_need_objfpc_or_delphi_mode);
                 consume(token);
                 if current_settings.interfacetype=it_interfacecom then
-                  def:=object_dec(odt_interfacecom,name,genericdef,genericlist,nil)
+                  def:=object_dec(odt_interfacecom,name,genericdef,genericlist,nil,ht_none)
                 else {it_interfacecorba}
-                  def:=object_dec(odt_interfacecorba,name,genericdef,genericlist,nil);
+                  def:=object_dec(odt_interfacecorba,name,genericdef,genericlist,nil,ht_none);
               end;
             _OBJCPROTOCOL :
                begin
@@ -1627,7 +1666,7 @@ implementation
                   Message(parser_f_need_objc);
 
                 consume(token);
-                def:=object_dec(odt_objcprotocol,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_objcprotocol,name,genericdef,genericlist,nil,ht_none);
                end;
             _OBJCCATEGORY :
                begin
@@ -1635,12 +1674,12 @@ implementation
                   Message(parser_f_need_objc);
 
                 consume(token);
-                def:=object_dec(odt_objccategory,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_objccategory,name,genericdef,genericlist,nil,ht_none);
                end;
             _OBJECT :
               begin
                 consume(token);
-                def:=object_dec(odt_object,name,genericdef,genericlist,nil);
+                def:=object_dec(odt_object,name,genericdef,genericlist,nil,ht_none);
               end;
             _PROCEDURE,
             _FUNCTION:

@@ -71,8 +71,8 @@ interface
         al_end
       );
 
-      { Type of constant 'pools'. Currently contains only string types,
-        but may be extended with reals, sets, etc. }
+      { Type of constant 'pools'. Mostly for string types, but usable for
+        floating point and large set constants, too. }
       
       TConstPoolType = (
          sp_invalid,
@@ -87,7 +87,9 @@ interface
          sp_objcclassnames,
          sp_objcvarnames,
          sp_objcvartypes,
-         sp_objcprotocolrefs
+         sp_objcprotocolrefs,
+         sp_varsets,
+         sp_floats
       );
       
     const
@@ -153,6 +155,7 @@ interface
         AsmLists      : array[TAsmListType] of TAsmList;
         CurrAsmList   : TAsmList;
         WideInits     : TLinkedList;
+        ResStrInits   : TLinkedList;
         { hash tables for reusing constant storage }
         ConstPools    : array[TConstPoolType] of THashSet;
         constructor create(const n:string);
@@ -178,8 +181,8 @@ interface
       TTCInitItem = class(TLinkedListItem)
         sym: tsym;
         offset: aint;
-        datalabel: TAsmLabel;
-        constructor Create(asym: tsym; aoffset: aint; alabel: TAsmLabel);
+        datalabel: TAsmSymbol;
+        constructor Create(asym: tsym; aoffset: aint; alabel: TAsmSymbol);
       end;
 
     var
@@ -254,7 +257,7 @@ implementation
 *****************************************************************************}
 
 
-    constructor TTCInitItem.Create(asym: tsym; aoffset: aint; alabel: TAsmLabel);
+    constructor TTCInitItem.Create(asym: tsym; aoffset: aint; alabel: TAsmSymbol);
       begin
         inherited Create;
         sym:=asym;
@@ -332,6 +335,7 @@ implementation
         for hal:=low(TAsmListType) to high(TAsmListType) do
           AsmLists[hal]:=TAsmList.create;
         WideInits :=TLinkedList.create;
+        ResStrInits:=TLinkedList.create;
         { CFI }
         FAsmCFI:=CAsmCFI.Create;
       end;
@@ -363,6 +367,7 @@ implementation
 {$ifdef MEMDEBUG}
          memasmlists.start;
 {$endif}
+        ResStrInits.free;
         WideInits.free;
          for hal:=low(TAsmListType) to high(TAsmListType) do
            AsmLists[hal].free;
@@ -450,7 +455,7 @@ implementation
     procedure TAsmData.getlabel(out l : TAsmLabel;alt:TAsmLabeltype);
       begin
         if (target_info.system in systems_linux) and
-           (cs_link_smart in current_settings.globalswitches) and
+           (cs_create_smart in current_settings.moduleswitches) and
            (alt = alt_dbgline) then
           l:=TAsmLabel.createglobal(AsmSymbolDict,name,FNextLabelNr[alt],alt)
         else

@@ -324,6 +324,8 @@ Unit raavrgas;
         hl : tasmlabel;
         ofs : longint;
         registerset : tcpuregisterset;
+        tempstr : string;
+        tempsymtyp : tasmsymtype;
       Begin
         expr:='';
         case actasmtoken of
@@ -333,13 +335,6 @@ Unit raavrgas;
               BuildReference(oper);
             end;
 
-          AS_HASH: { Constant expression  }
-            Begin
-              Consume(AS_HASH);
-              BuildConstantOperand(oper);
-            end;
-
-          (*
           AS_INTNUM,
           AS_MINUS,
           AS_PLUS:
@@ -348,28 +343,57 @@ Unit raavrgas;
               { This must absolutely be followed by (  }
               oper.InitRef;
               oper.opr.ref.offset:=BuildConstExpression(True,False);
-              if actasmtoken<>AS_LPAREN then
+
+              { absolute memory addresss? }
+              if actopcode in [A_LDS,A_STS] then
+                BuildReference(oper)
+              else
                 begin
                   ofs:=oper.opr.ref.offset;
                   BuildConstantOperand(oper);
                   inc(oper.opr.val,ofs);
-                end
-              else
-                BuildReference(oper);
+                end;
             end;
-          *)
+
           AS_ID: { A constant expression, or a Variable ref.  }
             Begin
+              if (actasmpattern='LO8') or (actasmpattern='HI8') then
+                begin
+                  { Low or High part of a constant (or constant
+                    memory location) }
+                  oper.InitRef;
+                  if actasmpattern='LO8' then
+                    oper.opr.ref.refaddr:=addr_lo8
+                  else
+                    oper.opr.ref.refaddr:=addr_hi8;
+                  Consume(actasmtoken);
+                  Consume(AS_LPAREN);
+                  BuildConstSymbolExpression(false, true,false,l,tempstr,tempsymtyp);
+                  if not assigned(oper.opr.ref.symbol) then
+                    oper.opr.ref.symbol:=current_asmdata.RefAsmSymbol(tempstr)
+                  else
+                    Message(asmr_e_cant_have_multiple_relocatable_symbols);
+                  case oper.opr.typ of
+                    OPR_CONSTANT :
+                      inc(oper.opr.val,l);
+                    OPR_LOCAL :
+                      inc(oper.opr.localsymofs,l);
+                    OPR_REFERENCE :
+                      inc(oper.opr.ref.offset,l);
+                    else
+                      internalerror(200309202);
+                  end;
+                  Consume(AS_RPAREN);
+                end
               { Local Label ? }
-              if is_locallabel(actasmpattern) then
+              else if is_locallabel(actasmpattern) then
                begin
                  CreateLocalLabel(actasmpattern,hl,false);
                  Consume(AS_ID);
                  AddLabelOperand(hl);
                end
-              else
-               { Check for label }
-               if SearchLabel(actasmpattern,hl,false) then
+              { Check for label }
+              else if SearchLabel(actasmpattern,hl,false) then
                 begin
                   Consume(AS_ID);
                   AddLabelOperand(hl);

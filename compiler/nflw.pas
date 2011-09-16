@@ -457,7 +457,7 @@ implementation
           one }
         hp:=cwhilerepeatnode.create(
           { repeat .. until false }
-          cordconstnode.create(0,booltype,false),innerloop,false,true);
+          cordconstnode.create(0,pasbool8type,false),innerloop,false,true);
         addstatement(outerloopbodystatement,hp);
 
         { create the outer repeat/until and add it to the the main body }
@@ -824,6 +824,7 @@ implementation
     function create_for_in_loop(hloopvar, hloopbody, expr: tnode): tnode;
       var
         pd, movenext: tprocdef;
+        helperdef: tobjectdef;
         current: tpropertysym;
         storefilepos: tfileposinfo;
       begin
@@ -859,9 +860,20 @@ implementation
               begin
                 // search for operator first
                 pd:=search_enumerator_operator(expr.resultdef, hloopvar.resultdef);
-                // if there is no operator then search for class/object/record enumerator method
+                // if there is no operator then search for class/object enumerator method
                 if (pd=nil) and (expr.resultdef.typ in [objectdef,recorddef]) then
-                  pd:=tabstractrecorddef(expr.resultdef).search_enumerator_get;
+                  begin
+                    { first search using the helper hierarchy }
+                    if search_last_objectpascal_helper(tabstractrecorddef(expr.resultdef),nil,helperdef) then
+                      repeat
+                        pd:=helperdef.search_enumerator_get;
+                        helperdef:=helperdef.childof;
+                      until (pd<>nil) or (helperdef=nil);
+                    { we didn't find an enumerator in a helper, so search in the
+                      class/record/object itself }
+                    if pd=nil then
+                      pd:=tabstractrecorddef(expr.resultdef).search_enumerator_get;
+                  end;
                 if pd<>nil then
                   begin
                     // seach movenext and current symbols
@@ -1058,10 +1070,11 @@ implementation
          if codegenerror then
            exit;
 
-         if not is_boolean(left.resultdef) then
+         if not(is_boolean(left.resultdef)) and
+           not(is_typeparam(left.resultdef)) then
            begin
              if left.resultdef.typ=variantdef then
-               inserttypeconv(left,booltype)
+               inserttypeconv(left,pasbool8type)
              else
                CGMessage1(type_e_boolean_expr_expected,left.resultdef.typename);
            end;
@@ -1298,7 +1311,7 @@ implementation
             end;
         if not is_constboolnode(condition) then
             aktstate.store_fact(condition,
-             cordconstnode.create(byte(checknegate),booltype,true))
+             cordconstnode.create(byte(checknegate),pasbool8type,true))
         else
             condition.destroy;
     end;
@@ -1370,10 +1383,11 @@ implementation
          if codegenerror then
            exit;
 
-         if not is_boolean(left.resultdef) then
+         if not(is_boolean(left.resultdef)) and
+           not(is_typeparam(left.resultdef)) then
            begin
              if left.resultdef.typ=variantdef then
-               inserttypeconv(left,booltype)
+               inserttypeconv(left,pasbool8type)
              else
                Message1(type_e_boolean_expr_expected,left.resultdef.typename);
            end;
@@ -1557,10 +1571,17 @@ implementation
 
 
     function texitnode.pass_typecheck:tnode;
+      var
+        newstatement : tstatementnode;
       begin
         result:=nil;
         if assigned(left) then
-          typecheckpass(left);
+          begin
+             result:=internalstatements(newstatement);
+             addstatement(newstatement,left);
+             left:=nil;
+             addstatement(newstatement,self.getcopy);
+          end;
         resultdef:=voidtype;
       end;
 
@@ -1570,11 +1591,7 @@ implementation
          result:=nil;
          expectloc:=LOC_VOID;
          if assigned(left) then
-           begin
-              firstpass(left);
-              if codegenerror then
-               exit;
-           end;
+           internalerror(2011052801);
       end;
 
 

@@ -34,11 +34,10 @@ unit cgppc;
 
     type
       tcgppcgen = class(tcg)
-        procedure a_load_const_cgpara(list: TAsmList; size: tcgsize; a: aint; const paraloc : tcgpara); override;
+        procedure a_load_const_cgpara(list: TAsmList; size: tcgsize; a: tcgint; const paraloc : tcgpara); override;
         procedure a_loadaddr_ref_cgpara(list : TAsmList;const r : treference;const paraloc : tcgpara); override;
 
         procedure a_call_reg(list : TAsmList;reg: tregister); override;
-        procedure a_call_ref(list : TAsmList;ref: treference); override;
 
         { stores the contents of register reg to the memory location described by
         ref }
@@ -117,7 +116,7 @@ unit cgppc;
          if (assigned(ref.symbol)) then
            result := result + ref.symbol.name;
        end;
-     
+
      function cgsize2string(const size : TCgSize) : string;
        const
          cgsize_strings : array[TCgSize] of string[8] = (
@@ -128,7 +127,7 @@ unit cgppc;
        begin
          result := cgsize_strings[size];
        end;
-     
+
      function cgop2string(const op : TOpCg) : String;
        const
          opcg_strings : array[TOpCg] of string[6] = (
@@ -139,7 +138,7 @@ unit cgppc;
          result := opcg_strings[op];
        end;
 {$endif extdebug}
-    
+
 
     function tcgppcgen.hasLargeOffset(const ref : TReference) : Boolean;
       begin
@@ -151,13 +150,13 @@ unit cgppc;
       begin
         result:=
         (not (po_assembler in current_procinfo.procdef.procoptions) and
-         ((pi_do_call in current_procinfo.flags) or 
+         ((pi_do_call in current_procinfo.flags) or
           (cs_profile in init_settings.moduleswitches)))  or
         ([cs_lineinfo,cs_debuginfo] * current_settings.moduleswitches <> []);
       end;
 
 
-    procedure tcgppcgen.a_load_const_cgpara(list: TAsmList; size: tcgsize; a: aint; const
+    procedure tcgppcgen.a_load_const_cgpara(list: TAsmList; size: tcgsize; a: tcgint; const
       paraloc: tcgpara);
     var
       ref: treference;
@@ -410,16 +409,6 @@ unit cgppc;
       end;
 
 
-    procedure tcgppcgen.a_call_ref(list : TAsmList;ref: treference);
-      var
-        tempreg : TRegister;
-      begin
-        tempreg := getintregister(list, OS_ADDR);
-        a_load_ref_reg(list,OS_ADDR,OS_ADDR,ref,tempreg);
-        a_call_reg(list,tempreg);
-      end;
-
-
     procedure tcgppcgen.a_load_reg_ref(list: TAsmList; fromsize, tosize: TCGSize;
       reg: tregister; const ref: treference);
 
@@ -440,7 +429,7 @@ unit cgppc;
       op: TAsmOp;
     begin
       if not (fromsize in [OS_8..OS_INT,OS_S8..OS_SINT]) then
-        internalerror(2002090903);
+        internalerror(2002090904);
       if not (tosize in [OS_8..OS_INT,OS_S8..OS_SINT]) then
         internalerror(2002090905);
 
@@ -580,7 +569,8 @@ unit cgppc;
       current_asmdata.getjumplabel(hl);
       if not ((def.typ=pointerdef) or
              ((def.typ=orddef) and
-              (torddef(def).ordtype in [u64bit,u16bit,u32bit,u8bit,uchar,pasbool]))) then
+              (torddef(def).ordtype in [u64bit,u16bit,u32bit,u8bit,uchar,
+                                        pasbool8,pasbool16,pasbool32,pasbool64]))) then
         begin
           if (current_settings.optimizecputype >= cpu_ppc970) or
              (current_settings.cputype >= cpu_ppc970) then
@@ -718,7 +708,8 @@ unit cgppc;
         g_adjust_self_value(list,procdef,ioffset);
 
         { case 4 }
-        if po_virtualmethod in procdef.procoptions then
+        if (po_virtualmethod in procdef.procoptions) and
+            not is_objectpascal_helper(procdef.struct) then
           begin
             loadvmttor11;
             op_onr11methodaddr;
@@ -750,21 +741,21 @@ unit cgppc;
       reference_reset_symbol(ref,l,0,sizeof(pint));
       ref.base := NR_R2;
       ref.refaddr := addr_pic;
-    
+
       result := rg[R_INTREGISTER].getregister(list, R_SUBWHOLE);
       {$IFDEF EXTDEBUG}
       list.concat(tai_comment.create(strpnew('loading got reference for ' + symbol)));
       {$ENDIF EXTDEBUG}
     //  cg.a_load_ref_reg(list,OS_ADDR,OS_ADDR,ref,result);
-      
+
 {$ifdef cpu64bitaddr}
       list.concat(taicpu.op_reg_ref(A_LD, result, ref));
 {$else cpu64bitaddr}
       list.concat(taicpu.op_reg_ref(A_LWZ, result, ref));
 {$endif cpu64bitaddr}
     end;
-    
-    
+
+
     function tcgppcgen.fixref(list: TAsmList; var ref: treference): boolean;
       var
         tmpreg: tregister;
@@ -812,7 +803,7 @@ unit cgppc;
 
         { if we have to create PIC, add the symbol to the TOC/GOT }
         if (target_info.system = system_powerpc64_linux) and
-           (cs_create_pic in current_settings.moduleswitches) and 
+           (cs_create_pic in current_settings.moduleswitches) and
            (assigned(ref.symbol)) then
           begin
             tmpreg := load_got_symbol(list, ref.symbol.name);

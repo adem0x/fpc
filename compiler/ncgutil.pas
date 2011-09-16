@@ -159,8 +159,6 @@ interface
 
     function getprocalign : shortint;
 
-    procedure gen_pic_helpers(list : TAsmList);
-
     procedure gen_fpc_dummy(list : TAsmList);
 
     procedure InsertInterruptTable;
@@ -493,11 +491,18 @@ implementation
               { load a smaller size to OS_64 }
               if l.loc=LOC_REGISTER then
                begin
+{$ifdef AVR}
+                 { on avr, we cannot change the size of a register
+                   due to the nature how register with size > OS8 are handled
+                 }
+                 hregister:=cg.getintregister(list,OS_32);
+{$else AVR}
                  hregister:=cg.makeregsize(list,l.register64.reglo,OS_32);
+{$endif AVR}
                  cg.a_load_reg_reg(list,l.size,OS_32,l.register64.reglo,hregister);
                end
               else
-               hregister:=cg.getintregister(list,OS_INT);
+               hregister:=cg.getintregister(list,OS_32);
               { load value in low register }
               case l.loc of
 {$ifdef cpuflags}
@@ -518,7 +523,7 @@ implementation
                   cg.a_load_loc_reg(list,OS_INT,l,hregister);
               end;
               { reset hi part, take care of the signed bit of the current value }
-              hregisterhi:=cg.getintregister(list,OS_INT);
+              hregisterhi:=cg.getintregister(list,OS_32);
               if (l.size in [OS_S8,OS_S16,OS_S32]) then
                begin
                  if l.loc=LOC_CONSTANT then
@@ -551,8 +556,8 @@ implementation
                end
               else
                begin
-                 hregister:=cg.getintregister(list,OS_INT);
-                 hregisterhi:=cg.getintregister(list,OS_INT);
+                 hregister:=cg.getintregister(list,OS_32);
+                 hregisterhi:=cg.getintregister(list,OS_32);
                  const_location := false;
                end;
               hreg64.reglo:=hregister;
@@ -622,8 +627,8 @@ implementation
                         l.reference.alignment:=newalignment(l.reference.alignment,TCGSize2Size[l.size]-TCGSize2Size[dst_size]);
                       end;
 {$ifdef x86}
-                  if not (l.loc in [LOC_SUBSETREG,LOC_CSUBSETREG]) then
-                     l.size:=dst_size;
+                    if not (l.loc in [LOC_SUBSETREG,LOC_CSUBSETREG]) then
+                      l.size:=dst_size;
 {$endif x86}
                   end;
                  cg.a_load_loc_reg(list,dst_size,l,hregister);
@@ -1032,7 +1037,11 @@ implementation
                       tmploc:=l;
                       location_force_mem(list,tmploc);
                       cg.a_load_loc_cgpara(list,tmploc,cgpara);
-                      location_freetemp(list,tmploc);
+                      { do not free the tmploc in case the original value was
+                        already in memory, because the caller (ncgcal) will then
+                        free it again later }
+                      if not(l.loc in [LOC_REFERENCE,LOC_CREFERENCE]) then
+                        location_freetemp(list,tmploc);
                     end
                   else
 {$endif not cpu64bitalu}
@@ -1252,7 +1261,7 @@ implementation
                   a local copy }
                 if not(current_procinfo.procdef.proccalloption in cdecl_pocalls) then
                   begin
-                    hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
+                    hsym:=tparavarsym(get_high_value_sym(tparavarsym(p)));
                     if not assigned(hsym) then
                       internalerror(200306061);
                     hreg:=cg.getaddressregister(list);
@@ -1501,7 +1510,10 @@ implementation
         include(current_procinfo.flags,pi_needs_implicit_finally);
         OldAsmList:=current_asmdata.CurrAsmList;
         current_asmdata.CurrAsmList:=asmlist;
-        hp:=finalize_data_node(cloadnode.create(sym,sym.owner));
+        hp:=cloadnode.create(sym,sym.owner);
+        if (sym.typ=staticvarsym) and (vo_force_finalize in tstaticvarsym(sym).varoptions) then
+          include(hp.flags,nf_isinternal_ignoreconst);
+        hp:=finalize_data_node(hp);
         firstpass(hp);
         secondpass(hp);
         hp.free;
@@ -1539,7 +1551,10 @@ implementation
                     they may also be used in another unit
                   }
                   (tstaticvarsym(p).owner.symtabletype=globalsymtable)) and
-                 (tstaticvarsym(p).varspez<>vs_const) and
+                  (
+                    (tstaticvarsym(p).varspez<>vs_const) or
+                    (vo_force_finalize in tstaticvarsym(p).varoptions)
+                  ) and
                  not(vo_is_funcret in tstaticvarsym(p).varoptions) and
                  not(vo_is_external in tstaticvarsym(p).varoptions) and
                  is_managed_type(tstaticvarsym(p).vardef) then
@@ -1594,7 +1609,7 @@ implementation
                          begin
                            { open arrays do not contain correct element count in their rtti,
                              the actual count must be passed separately. }
-                           hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
+                           hsym:=tparavarsym(get_high_value_sym(tparavarsym(p)));
                            eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
                            if not assigned(hsym) then
                              internalerror(201003031);
@@ -1629,7 +1644,7 @@ implementation
                        begin
                          if is_open_array(tparavarsym(p).vardef) then
                            begin
-                             hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
+                             hsym:=tparavarsym(get_high_value_sym(tparavarsym(p)));
                              eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
                              if not assigned(hsym) then
                                internalerror(201103033);
@@ -1684,7 +1699,7 @@ implementation
               location_get_data_ref(list,tparavarsym(p).localloc,href,is_open_array(tparavarsym(p).vardef),sizeof(pint));
               if is_open_array(tparavarsym(p).vardef) then
                 begin
-                  hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
+                  hsym:=tparavarsym(get_high_value_sym(tparavarsym(p)));
                   eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
                   if not assigned(hsym) then
                     internalerror(201003032);
@@ -2528,10 +2543,10 @@ implementation
             sectype:=sec_bss;
           end;
         maybe_new_object_file(list);
-        if sym.section<>'' then
+        if vo_has_section in sym.varoptions then
           new_section(list,sec_user,sym.section,varalign)
         else
-         new_section(list,sectype,lower(sym.mangledname),varalign);
+          new_section(list,sectype,lower(sym.mangledname),varalign);
         if (sym.owner.symtabletype=globalsymtable) or
            create_smartlink or
            DLLSource or
@@ -2784,6 +2799,8 @@ implementation
         oldhi, newhi: tregister;
 {$endif not cpu64bitalu}
         ressym: tsym;
+        { moved sym }
+        sym : tsym;
       end;
 
 
@@ -2815,6 +2832,7 @@ implementation
                       exit;
 {$endif not cpu64bitalu}
                   tabstractnormalvarsym(tloadnode(n).symtableentry).localloc.register := rr^.new;
+                  rr^.sym := tabstractnormalvarsym(tloadnode(n).symtableentry);
                   result := fen_norecurse_true;
                 end;
             end;
@@ -2860,6 +2878,7 @@ implementation
           exit;
         rr.old := n.location.register;
         rr.ressym := nil;
+        rr.sym := nil;
       {$ifndef cpu64bitalu}
         rr.oldhi := NR_NO;
       {$endif not cpu64bitalu}
@@ -2929,10 +2948,16 @@ implementation
           begin
             n.location.register64.reglo := rr.new;
             n.location.register64.reghi := rr.newhi;
+            if assigned(rr.sym) then
+              list.concat(tai_varloc.create64(rr.sym,rr.new,rr.newhi));
           end
         else
       {$endif not cpu64bitalu}
-          n.location.register := rr.new;
+          begin
+            n.location.register := rr.new;
+            if assigned(rr.sym) then
+              list.concat(tai_varloc.create(rr.sym,rr.new));
+          end;
       end;
 
 
@@ -3098,36 +3123,6 @@ implementation
       end;
 
 
-    procedure gen_pic_helpers(list : TAsmList);
-{$ifdef i386}
-      var
-        href : treference;
-{$endif i386}
-      begin
-        { if other cpus require such helpers as well, it can be solved more cleanly }
-{$ifdef i386}
-        if current_module.requires_ebx_pic_helper then
-          begin
-            new_section(list,sec_code,'fpc_geteipasebx',0);
-            list.concat(tai_symbol.Createname('fpc_geteipasebx',AT_FUNCTION,getprocalign));
-            reference_reset(href,sizeof(pint));
-            href.base:=NR_ESP;
-            list.concat(taicpu.op_ref_reg(A_MOV,S_L,href,NR_EBX));
-            list.concat(taicpu.op_none(A_RET,S_NO));
-          end;
-        if current_module.requires_ecx_pic_helper then
-          begin
-            new_section(list,sec_code,'fpc_geteipasecx',0);
-            list.concat(tai_symbol.Createname('fpc_geteipasecx',AT_FUNCTION,getprocalign));
-            reference_reset(href,sizeof(pint));
-            href.base:=NR_ESP;
-            list.concat(taicpu.op_ref_reg(A_MOV,S_L,href,NR_ECX));
-            list.concat(taicpu.op_none(A_RET,S_NO));
-          end;
-{$endif i386}
-      end;
-
-
     procedure gen_fpc_dummy(list : TAsmList);
       begin
 {$ifdef i386}
@@ -3141,11 +3136,13 @@ implementation
     procedure InsertInterruptTable;
 
       procedure WriteVector(const name: string);
+{$IFDEF arm}
         var
           ai: taicpu;
+{$ENDIF arm}
         begin
 {$IFDEF arm}
-          if current_settings.cputype in [cpu_armv7m, cpu_cortexm3] then
+          if current_settings.cputype in [cpu_armv7m] then
             current_asmdata.asmlists[al_globals].concat(tai_const.Createname(name,0))
           else
             begin
@@ -3159,7 +3156,7 @@ implementation
       function GetInterruptTableLength: longint;
         begin
 {$if defined(ARM)}
-          result:=interruptvectors[current_settings.controllertype];
+          result:=embedded_controllers[current_settings.controllertype].interruptvectors;
 {$else}
           result:=0;
 {$endif}
@@ -3207,7 +3204,7 @@ implementation
         new_section(current_asmdata.asmlists[al_globals],sec_init,'VECTORS',sizeof(pint));
         current_asmdata.asmlists[al_globals].concat(Tai_symbol.Createname_global('VECTORS',AT_DATA,0));
 {$IFDEF arm}
-        if current_settings.cputype in [cpu_armv7m, cpu_cortexm3] then
+        if current_settings.cputype in [cpu_armv7m] then
           current_asmdata.asmlists[al_globals].concat(tai_const.Createname('_stack_top',0)); { ARMv7-M processors have the initial stack value at address 0 }
 {$ENDIF arm}
 

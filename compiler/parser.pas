@@ -344,20 +344,21 @@ implementation
          Message1(parser_i_compiling,filename);
 
        { reset symtable }
-         symtablestack:=TSymtablestack.create;
+         symtablestack:=tdefawaresymtablestack.create;
          macrosymtablestack:=TSymtablestack.create;
          systemunit:=nil;
          current_settings.defproccall:=init_settings.defproccall;
          current_exceptblock:=0;
          exceptblockcounter:=0;
          current_settings.maxfpuregisters:=-1;
+         current_settings.pmessage:=nil;
        { reset the unit or create a new program }
          { a unit compiled at command line must be inside the loaded_unit list }
          if (compile_level=1) then
            begin
              if assigned(current_module) then
                internalerror(200501158);
-             set_current_module(tppumodule.create(nil,filename,'',false));
+             set_current_module(tppumodule.create(nil,'',filename,false));
              addloadedunit(current_module);
              main_module:=current_module;
              current_module.state:=ms_compile;
@@ -481,6 +482,8 @@ implementation
                 current_procinfo:=oldcurrent_procinfo;
                 current_filepos:=oldcurrent_filepos;
                 current_settings:=old_settings;
+                { Restore all locally modified warning messages }
+                RestoreLocalVerbosity(current_settings.pmessage);
                 current_exceptblock:=0;
                 exceptblockcounter:=0;
               end;
@@ -517,6 +520,8 @@ implementation
              end;
            dec(compile_level);
            set_current_module(olddata^.old_current_module);
+
+           FreeLocalVerbosity(current_settings.pmessage);
 
            dispose(olddata);
          end;

@@ -64,7 +64,8 @@ const
   tkProcVar  = 23;
   tkUString  = 24;
   tkUChar    = 25;
-  tkFile     = 26;
+  tkHelper   = 26;
+  tkFile     = 27;
 
   otSByte     = 0;
   otUByte     = 1;
@@ -209,7 +210,8 @@ type
     uvoid,
     u8bit,u16bit,u32bit,u64bit,
     s8bit,s16bit,s32bit,s64bit,
-    pasbool,bool8bit,bool16bit,bool32bit,bool64bit,
+    pasbool8,pasbool16,pasbool32,pasbool64,
+    bool8bit,bool16bit,bool32bit,bool64bit,
     uchar,uwidechar,scurrency
   );
 
@@ -329,7 +331,14 @@ type
     odt_dispinterface,
     odt_objcclass,
     odt_objcprotocol,
-    odt_objccategory { note that these are changed into odt_class afterwards }
+    odt_objccategory, { note that these are changed into odt_class afterwards }
+    odt_helper
+  );
+
+  { defines the type of the extended "structure"; only used for parsing }
+  thelpertype=(ht_none,
+    ht_class,
+    ht_record
   );
 
   { Variations in interfaces implementation }
@@ -425,7 +434,10 @@ type
     { first field of variant part of a record }
     vo_is_first_field,
     vo_volatile,
-    vo_has_section
+    vo_has_section,
+    { variable contains a winlike WideString which should be finalized
+      even in $J- state }
+    vo_force_finalize
   );
   tvaroptions=set of tvaroption;
 
@@ -457,6 +469,11 @@ type
                              in array                        }
   );
 
+  { options for symtables }
+  tsymtableoption = (
+    sto_has_helper         { contains at least one helper symbol }
+  );
+  tsymtableoptions = set of tsymtableoption;
 
   { definition contains the informations about a type }
   tdeftyp = (abstractdef,
@@ -471,7 +488,7 @@ type
     staticvarsym,localvarsym,paravarsym,fieldvarsym,
     typesym,procsym,unitsym,constsym,enumsym,
     errorsym,syssym,labelsym,absolutevarsym,propertysym,
-    macrosym
+    macrosym,namespacesym
   );
 
   { State of the variable:
@@ -577,7 +594,7 @@ const
        'abstractsym','globalvar','localvar','paravar','fieldvar',
        'type','proc','unit','const','enum',
        'errorsym','system sym','label','absolutevar','property',
-       'macrosym'
+       'macrosym','namespace'
      );
 
      typName : array[tdeftyp] of string[12] = (

@@ -42,6 +42,9 @@ Interface
       procedure MaybeGetPICModifier(var oper: tx86operand);
     end;
 
+    Tx86attInstruction = class(Tx86Instruction)
+      procedure FixupOpcode;override;
+    end;
 
 Implementation
 
@@ -62,6 +65,37 @@ Implementation
       rabase,rautils,
       cgbase
       ;
+
+    { Tx86attInstruction }
+
+    procedure Tx86attInstruction.FixupOpcode;
+      begin
+        if (OpOrder=op_intel) then
+          SwapOperands;
+
+        case opcode of
+          A_MOVQ:
+            begin
+              { May be either real 'movq' or a generic 'mov' with 'q' suffix. Convert to mov
+                if source is a constant, or if neither operand is an mmx/xmm register }
+{$ifdef x86_64}
+              if (ops=2) and
+                (
+                  (operands[1].opr.typ=OPR_CONSTANT) or not
+                    (
+                      ((operands[1].opr.typ=OPR_REGISTER) and
+                        (getregtype(operands[1].opr.reg) in [R_MMXREGISTER,R_MMREGISTER])) or
+                      ((operands[2].opr.typ=OPR_REGISTER) and
+                        (getregtype(operands[2].opr.reg) in [R_MMXREGISTER,R_MMREGISTER]))
+                    )
+                ) then
+                opcode:=A_MOV;
+{$endif x86_64}
+            end;
+        end;
+      end;
+
+    { Tx86attReader }
 
     procedure tx86attreader.handlepercent;
       var
@@ -293,7 +327,7 @@ Implementation
                     begin
                       oper.opr.ref.refaddr:=addr_pic;
 {$ifdef x86_64}
-                      { local symbols don't have to 
+                      { local symbols don't have to
                         be accessed via the GOT
                       }
                       if (actasmpattern='GOTPCREL') and
@@ -415,7 +449,30 @@ Implementation
           begin
             MaybeBuildReference:=true;
             case actasmtoken of
-              AS_INTNUM,
+              AS_INTNUM:
+                Begin
+                  { allow %segmentregister:number }
+                  if oper.opr.ref.segment<>NR_NO then
+                    begin
+                      // already done before calling oper.InitRef;
+                      if oper.opr.Ref.Offset <> 0 Then
+                        Message(asmr_e_invalid_reference_syntax)
+                      else
+                        begin
+                          oper.opr.Ref.Offset:=BuildConstExpression(true,false);
+                          if actasmtoken=AS_LPAREN then
+                            BuildReference(oper)
+                          else if (oper.opr.ref.segment <> NR_FS) and
+                            (oper.opr.ref.segment <> NR_GS) then
+                           Message(asmr_w_general_segment_with_constant);
+                        end;
+                    end
+                  else
+                    begin
+                      oper.opr.ref.offset:=BuildConstExpression(True,False);
+                      BuildReference(oper);
+                    end;
+                end;
               AS_MINUS,
               AS_PLUS:
                 Begin
@@ -759,27 +816,13 @@ Implementation
 
 
     function tx86attreader.is_asmopcode(const s: string):boolean;
-      const
-        { We need first to check the long prefixes, else we get probs
-          with things like movsbl }
-        att_sizesuffixstr : array[0..9] of string[2] = (
-          '','BW','BL','WL','B','W','L','S','Q','T'
-        );
-        att_sizesuffix : array[0..9] of topsize = (
-          S_NO,S_BW,S_BL,S_WL,S_B,S_W,S_L,S_FS,S_IQ,S_FX
-        );
-        att_sizefpusuffix : array[0..9] of topsize = (
-          S_NO,S_NO,S_NO,S_NO,S_NO,S_NO,S_FL,S_FS,S_IQ,S_FX
-        );
-        att_sizefpuintsuffix : array[0..9] of topsize = (
-          S_NO,S_NO,S_NO,S_NO,S_NO,S_NO,S_IL,S_IS,S_IQ,S_NO
-        );
       var
         cond : string[4];
         cnd  : tasmcond;
         len,
         j,
-        sufidx : longint;
+        sufidx,
+        suflen : longint;
       Begin
         is_asmopcode:=FALSE;
 
@@ -790,13 +833,20 @@ Implementation
         { search for all possible suffixes }
         for sufidx:=low(att_sizesuffixstr) to high(att_sizesuffixstr) do
          begin
-           len:=length(s)-length(att_sizesuffixstr[sufidx]);
-           if copy(s,len+1,length(att_sizesuffixstr[sufidx]))=att_sizesuffixstr[sufidx] then
+           suflen:=length(att_sizesuffixstr[sufidx]);
+           len:=length(s)-suflen;
+           if copy(s,len+1,suflen)=att_sizesuffixstr[sufidx] then
             begin
               { Search opcodes }
               if len>0 then
                 begin
                   actopcode:=tasmop(PtrUInt(iasmops.Find(copy(s,1,len))));
+
+                  { two-letter suffix is allowed by just a few instructions (movsx,movzx),
+                    and it is always required whenever allowed }
+                  if (gas_needsuffix[actopcode]=attsufINTdual) xor (suflen=2) then
+                    continue;
+
                   if actopcode<>A_NONE then
                     begin
                       if gas_needsuffix[actopcode]=attsufFPU then
@@ -805,9 +855,13 @@ Implementation
                        actopsize:=att_sizefpuintsuffix[sufidx]
                       else
                        actopsize:=att_sizesuffix[sufidx];
-                      actasmtoken:=AS_OPCODE;
-                      is_asmopcode:=TRUE;
-                      exit;
+                      { only accept suffix from the same category that the opcode belongs to }
+                      if (actopsize<>S_NO) or (suflen=0) then
+                        begin
+                          actasmtoken:=AS_OPCODE;
+                          is_asmopcode:=TRUE;
+                          exit;
+                        end;
                     end;
                 end;
               { not found, check condition opcodes }
@@ -829,10 +883,14 @@ Implementation
                             actopsize:=att_sizefpuintsuffix[sufidx]
                            else
                             actopsize:=att_sizesuffix[sufidx];
-                           actcondition:=cnd;
-                           actasmtoken:=AS_OPCODE;
-                           is_asmopcode:=TRUE;
-                           exit;
+                           { only accept suffix from the same category that the opcode belongs to }
+                           if (actopsize<>S_NO) or (suflen=0) then
+                             begin
+                               actcondition:=cnd;
+                               actasmtoken:=AS_OPCODE;
+                               is_asmopcode:=TRUE;
+                               exit;
+                             end;
                          end;
                      end;
                   end;
@@ -847,12 +905,13 @@ Implementation
       var
         instr : Tx86Instruction;
       begin
-        instr:=Tx86Instruction.Create(Tx86Operand);
+        instr:=Tx86attInstruction.Create(Tx86Operand);
         instr.OpOrder:=op_att;
         BuildOpcode(instr);
         instr.AddReferenceSizes;
         instr.SetInstructionOpsize;
         instr.CheckOperandSizes;
+        instr.FixupOpcode;
         instr.ConcatInstruction(curlist);
         instr.Free;
       end;

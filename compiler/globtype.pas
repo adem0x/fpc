@@ -32,7 +32,7 @@ interface
          executed from the FPC application. In some circomstances, this can be more
          than 255 characters. That's why using Ansi Strings}
        TCmdStr = AnsiString;
-       TPathStr = String;
+       TPathStr = AnsiString;
 
        { Integer type corresponding to pointer size }
 {$ifdef cpu64bitaddr}
@@ -224,6 +224,13 @@ interface
        );
        twpoptimizerswitches = set of twpoptimizerswitch;
 
+    type
+       { Used by ARM / AVR to differentiate between specific microcontrollers }
+       tcontrollerdatatype = record
+          controllertypestr, controllerunitstr: string[20];
+          interruptvectors:integer;
+          flashbase, flashsize, srambase, sramsize, eeprombase, eepromsize: dword;
+       end;
 
     const
        OptimizerSwitchStr : array[toptimizerswitch] of string[10] = ('',
@@ -287,7 +294,8 @@ interface
          m_objectivec2,         { support interfacing with Objective-C (2.0) }
          m_nested_procvars,     { support nested procedural variables }
          m_non_local_goto,      { support non local gotos (like iso pascal) }
-         m_advanced_records     { advanced record syntax with visibility sections, methods and properties }
+         m_advanced_records,    { advanced record syntax with visibility sections, methods and properties }
+         m_isolike_unary_minus  { unary minus like in iso pascal: same precedence level as binary minus/plus }
        );
        tmodeswitches = set of tmodeswitch;
 
@@ -418,7 +426,8 @@ interface
          'OBJECTIVEC2',
          'NESTEDPROCVARS',
          'NONLOCALGOTO',
-         'ADVANCEDRECORDS');
+         'ADVANCEDRECORDS',
+         'ISOUNARYMINUS');
 
 
      type
@@ -517,10 +526,32 @@ interface
     type
       { a message state }
       tmsgstate = (
-        ms_on,    // turn on output
-        ms_off,   // turn off output
-        ms_error  // cast to error
+        ms_on := 1,
+        ms_off := 2,
+        ms_error := 3,
+
+        ms_on_global := $11,    // turn on output
+        ms_off_global := $22,   // turn off output
+        ms_error_global := $33  // cast to error
       );
+    const
+      { Mask for current value of message state }
+      ms_local_mask = $0f;
+      { Mask for global value of message state
+        that needs to be restored when changing units }
+      ms_global_mask = $f0;
+      { Shift used to convert global to local message state }
+      ms_shift = 4;
+
+    type
+      pmessagestaterecord = ^tmessagestaterecord;
+      tmessagestaterecord = record
+        next : pmessagestaterecord;
+        value : longint;
+        state : tmsgstate;
+      end;
+
+
 
 implementation
 

@@ -442,12 +442,19 @@ begin
 end;
 
 
-Function FileCreate (Const FileName : String;Mode : Longint) : Longint;
+Function FileCreate (Const FileName : String;Rights : Longint) : Longint;
 
 begin
   repeat
-    FileCreate:=fpOpen(pointer(FileName),O_RdWr or O_Creat or O_Trunc,Mode);
+    FileCreate:=fpOpen(pointer(FileName),O_RdWr or O_Creat or O_Trunc,Rights);
   until (FileCreate<>-1) or (fpgeterrno<>ESysEINTR);
+end;
+
+Function FileCreate (Const FileName : String; ShareMode : Longint; Rights:LongInt ) : Longint;
+
+begin
+  Result:=FileCreate( FileName, Rights );
+  Result:=DoFileLocking(Result,ShareMode);
 end;
 
 
@@ -554,14 +561,15 @@ Function LinuxToWinAttr (const FN : Ansistring; Const Info : Stat) : Longint;
 
 Var
   LinkInfo : Stat;
-
+  nm : AnsiString;
 begin
   Result:=faArchive;
   If fpS_ISDIR(Info.st_mode) then
     Result:=Result or faDirectory;
-  If (Length(FN)>=2) and
-     (FN[1]='.') and
-     (FN[2]<>'.')  then
+  nm:=ExtractFileName(FN);
+  If (Length(nm)>=2) and
+     (nm[1]='.') and
+     (nm[2]<>'.')  then
     Result:=Result or faHidden;
   If (Info.st_Mode and S_IWUSR)=0 Then
      Result:=Result or faReadOnly;
@@ -699,7 +707,7 @@ begin
     FindGetFileInfo:=(fpstat(pointer(s),st)=0);
   If not FindGetFileInfo then
     exit;
-  WinAttr:=LinuxToWinAttr(ExtractFileName(s),st);
+  WinAttr:=LinuxToWinAttr(s,st);
   If ((WinAttr and Not(PUnixFindData(f.FindHandle)^.searchattr))=0) Then
    Begin
      f.Name:=ExtractFileName(s);
@@ -835,12 +843,15 @@ end;
 Function FileGetAttr (Const FileName : String) : Longint;
 
 Var Info : Stat;
-
+  res : Integer;
 begin
-  If  FpStat (pointer(FileName),Info)<0 then
+  res:=FpLStat (pointer(FileName),Info);
+  if res<0 then
+    res:=FpStat (pointer(FileName),Info);
+  if res<0 then
     Result:=-1
   Else
-    Result:=LinuxToWinAttr(Pchar(ExtractFileName(FileName)),Info);
+    Result:=LinuxToWinAttr(Pchar(FileName),Info);
 end;
 
 

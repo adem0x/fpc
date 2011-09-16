@@ -338,7 +338,8 @@ implementation
                 { When there was an error then procdef is not assigned }
                 if not assigned(propaccesslist.procdef) then
                   exit;
-                if not(po_virtualmethod in tprocdef(propaccesslist.procdef).procoptions) then
+                if not(po_virtualmethod in tprocdef(propaccesslist.procdef).procoptions) or
+                   is_objectpascal_helper(tprocdef(propaccesslist.procdef).struct) then
                   begin
                      current_asmdata.asmlists[al_rtti].concat(Tai_const.createname(tprocdef(propaccesslist.procdef).mangledname,0));
                      typvalue:=1;
@@ -451,7 +452,7 @@ implementation
           end;
           { we need to align by Tconstptruint here to satisfy the alignment rules set by
             records: in the typinfo unit we overlay a TTypeData record on this data, which at
-            the innermost variant record needs an alignment of TConstPtrUint due to e.g. 
+            the innermost variant record needs an alignment of TConstPtrUint due to e.g.
             the "CompType" member for tkSet (also the "BaseType" member for tkEnumeration).
             We need to adhere to this, otherwise things will break.
             Note that other code (e.g. enumdef_rtti_calcstringtablestart()) relies on the
@@ -477,6 +478,8 @@ implementation
             end;
           { write unit name }
           write_string(current_module.realmodulename^);
+          { write zero which is required by RTL }
+          current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_8bit(0));
         end;
 
         procedure orddef_rtti(def:torddef);
@@ -487,7 +490,8 @@ implementation
               (otUByte{otNone},
                otUByte,otUWord,otULong,otUByte{otNone},
                otSByte,otSWord,otSLong,otUByte{otNone},
-               otUByte,otSByte,otSWord,otSLong,otSByte,
+               otUByte,otUWord,otULong,otUByte,
+               otSByte,otSWord,otSLong,otSByte,
                otUByte,otUWord,otUByte);
           begin
             write_header(def,typekind);
@@ -520,7 +524,7 @@ implementation
                 { high }
                 current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_64bit(def.high.svalue));
               end;
-            pasbool:
+            pasbool8:
                 dointeger(tkBool);
             uchar:
                 dointeger(tkChar);
@@ -695,18 +699,18 @@ implementation
                  potype_class_constructor: methodkind:=mkClassConstructor;
                  potype_class_destructor: methodkind:=mkClassDestructor;
                  potype_operator: methodkind:=mkOperatorOverload;
-                 potype_procedure: 
-                   if po_classmethod in def.procoptions then 
+                 potype_procedure:
+                   if po_classmethod in def.procoptions then
                      methodkind:=mkClassProcedure
                    else
                      methodkind:=mkProcedure;
                  potype_function:
-                   if po_classmethod in def.procoptions then 
+                   if po_classmethod in def.procoptions then
                      methodkind:=mkClassFunction
                    else
                      methodkind:=mkFunction;
                else
-                 begin                   
+                 begin
                    if def.returndef = voidtype then
                      methodkind:=mkProcedure
                    else
@@ -767,16 +771,24 @@ implementation
             propnamelist:=TFPHashObjectList.Create;
             collect_propnamelist(propnamelist,def);
 
-            if (oo_has_vmt in def.objectoptions) then
-              current_asmdata.asmlists[al_rtti].concat(Tai_const.Createname(def.vmt_mangledname,0))
-            else
-              current_asmdata.asmlists[al_rtti].concat(Tai_const.create_sym(nil));
+            if not is_objectpascal_helper(def) then
+              if (oo_has_vmt in def.objectoptions) then
+                current_asmdata.asmlists[al_rtti].concat(Tai_const.Createname(def.vmt_mangledname,0))
+              else
+                current_asmdata.asmlists[al_rtti].concat(Tai_const.create_sym(nil));
 
             { write parent typeinfo }
             if assigned(def.childof) then
               current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_sym(ref_rtti(def.childof,fullrtti)))
             else
               current_asmdata.asmlists[al_rtti].concat(Tai_const.create_sym(nil));
+
+            { write typeinfo of extended type }
+            if is_objectpascal_helper(def) then
+              if assigned(def.extendeddef) then
+                current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_sym(ref_rtti(def.extendeddef,fullrtti)))
+              else
+                InternalError(2011033001);
 
             { total number of unique properties }
             current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_16bit(propnamelist.count));
@@ -860,6 +872,8 @@ implementation
                current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_8bit(tkinterface));
              odt_interfacecorba:
                current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_8bit(tkinterfaceCorba));
+             odt_helper:
+               current_asmdata.asmlists[al_rtti].concat(Tai_const.Create_8bit(tkhelper));
              else
                internalerror(200611034);
            end;
@@ -871,7 +885,7 @@ implementation
            case rt of
              initrtti :
                begin
-                 if def.objecttype in [odt_class,odt_object] then
+                 if def.objecttype in [odt_class,odt_object,odt_helper] then
                    objectdef_rtti_fields(def)
                  else
                    objectdef_rtti_interface_init(def);
@@ -879,6 +893,7 @@ implementation
              fullrtti :
                begin
                  case def.objecttype of
+                   odt_helper,
                    odt_class:
                      objectdef_rtti_class_full(def);
                    odt_object:

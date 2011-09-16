@@ -16,11 +16,17 @@ begin
 {$ifdef ALLPACKAGES}
     P.Directory:='regexpr';
 {$endif ALLPACKAGES}
-    P.Version:='2.2.2-0';
+    P.Version:='2.7.1';
     P.SourcePath.Add('src');
 
-    T:=P.Targets.AddUnit('regexpr.pp');
+    // Sorokin's RegExpr
+    T:=P.Targets.AddUnit('regexpr.pas');
+
+    // RegEx from Joost
+    T:=P.Targets.AddUnit('oldregexpr.pp');
     T:=P.Targets.AddUnit('regex.pp');
+
+    T.ResourceStrings := True;
 
     P.ExamplePath.Add('tests');
     P.Targets.AddExampleProgram('testreg1.pp');
