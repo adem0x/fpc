@@ -104,7 +104,7 @@ implementation
        opttail,
        optcse,optloop,
        optutils
-{$if defined(arm) or defined(powerpc) or defined(powerpc64) or defined(avr)}
+{$if defined(arm) or defined(powerpc) or defined(powerpc64)}
        ,aasmcpu
 {$endif arm}
        {$ifndef NOOPT}
@@ -261,9 +261,9 @@ implementation
     procedure printnode_reset;
       begin
         assign(printnodefile,treelogfilename);
-        {$push}{$I-}
+        {$I-}
          rewrite(printnodefile);
-        {$pop}
+        {$I+}
         if ioresult<>0 then
          begin
            Comment(V_Error,'Error creating '+treelogfilename);
@@ -572,11 +572,11 @@ implementation
     procedure tcgprocinfo.printproc(pass:string);
       begin
         assign(printnodefile,treelogfilename);
-        {$push}{$I-}
+        {$I-}
          append(printnodefile);
          if ioresult<>0 then
           rewrite(printnodefile);
-        {$pop}
+        {$I+}
         if ioresult<>0 then
          begin
            Comment(V_Error,'Error creating '+treelogfilename);
@@ -1174,9 +1174,6 @@ implementation
             { Add save and restore of used registers }
             current_filepos:=entrypos;
             gen_save_used_regs(templist);
-            { Remember the last instruction of register saving block
-              (may be =nil for e.g. assembler procedures) }
-            current_procinfo.endprologue_ai:=templist.last;
             aktproccode.insertlistafter(headertai,templist);
             current_filepos:=exitpos;
             gen_restore_used_regs(aktproccode);
@@ -1230,12 +1227,6 @@ implementation
             { because of the limited constant size of the arm, all data access is done pc relative }
             finalizearmcode(aktproccode,aktlocaldata);
 {$endif ARM}
-
-{$ifdef AVR}
-            { because of the limited branch distance of cond. branches, they must be replaced
-              somtimes by normal jmps and an inverse branch }
-            finalizeavrcode(aktproccode);
-{$endif AVR}
 
             { Add end symbol and debug info }
             { this must be done after the pcrelativedata is appended else the distance calculation of
@@ -2054,8 +2045,7 @@ implementation
                    { use the index the module got from the current compilation process }
                    current_filepos.moduleindex:=hmodule.unit_index;
                    current_tokenpos:=current_filepos;
-                   current_scanner.startreplaytokens(tprocdef(tprocdef(hp).genericdef).generictokenbuf,
-                     tprocdef(tprocdef(hp).genericdef).change_endian);
+                   current_scanner.startreplaytokens(tprocdef(tprocdef(hp).genericdef).generictokenbuf);
                    read_proc_body(nil,tprocdef(hp));
                    current_filepos:=oldcurrent_filepos;
                  end

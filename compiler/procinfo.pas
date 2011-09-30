@@ -95,12 +95,6 @@ unit procinfo;
           { Holds the reference used to store all saved registers. }
           save_regs_ref : treference;
 
-          { Last assembler instruction of procedure prologue }
-          endprologue_ai : tlinkedlistitem;
-
-          { Amount of stack adjustment after all alignments }
-          final_localsize : longint;
-
           { Labels for TRUE/FALSE condition, BREAK and CONTINUE }
           CurrBreakLabel,
           CurrContinueLabel,
@@ -189,6 +183,7 @@ implementation
         CurrContinueLabel:=nil;
         CurrTrueLabel:=nil;
         CurrFalseLabel:=nil;
+        maxpushedparasize:=0;
         if Assigned(parent) and (parent.procdef.parast.symtablelevel>=normal_function_level) then
           parent.addnestedproc(Self);
       end;

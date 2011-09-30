@@ -215,15 +215,9 @@ end;
 
 
 procedure TCollection.RemoveItem(Item: TCollectionItem);
-
-Var
-  I : Integer;
-
 begin
-  Notify(Item,cnExtracting);
-  I:=FItems.IndexOfItem(Item,fromEnd);
-  If (I<>-1) then
-    FItems.Delete(I);
+        Notify(Item,cnExtracting);
+  FItems.Remove(Pointer(Item));
   Item.FCollection:=Nil;
   Changed;
 end;

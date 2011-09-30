@@ -1,5 +1,4 @@
 { %norun }
-{ %needlibrary }
 { %target=darwin,linux,freebsd,solaris,beos,haiku }
 
 {$mode delphi}
@@ -69,7 +68,7 @@ begin
     p:=nil;
     longint(p^):=1;
   except
-  end;
+  end;     
 *)
 end;
 
@@ -93,7 +92,7 @@ begin
       RTL_SIGFPE,
       RTL_SIGSEGV:
         if (InquireSignal(i) <> ssOverridden) then
-          halt(8);
+          halt(8);      
       RTL_SIGBUS:
         if (InquireSignal(i) <> ssHooked) then
           halt(9);

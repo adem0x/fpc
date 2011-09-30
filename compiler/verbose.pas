@@ -151,14 +151,14 @@ implementation
           close(status.redirfile);
 
         assign(status.redirfile,fn);
-      {$push}{$I-}
+      {$I-}
         append(status.redirfile);
         if ioresult <> 0 then
           begin
             assign(status.redirfile,fn);
             rewrite(status.redirfile);
           end;
-      {$pop}
+      {$I+}
         status.use_redir:=(ioresult=0);
       end;
 
@@ -171,11 +171,11 @@ implementation
          exit;
         fn:='fpcdebug.txt';
         assign(status.reportbugfile,fn);
-        {$push}{$I-}
+        {$I-}
          append(status.reportbugfile);
          if ioresult <> 0 then
           rewrite(status.reportbugfile);
-        {$pop}
+        {$I+}
         status.use_bugreport:=(ioresult=0);
         if status.use_bugreport then
          writeln(status.reportbugfile,'FPC bug report file');
@@ -194,12 +194,12 @@ implementation
     procedure FreeLocalVerbosity(var fstate : pmessagestaterecord);
     var pstate : pmessagestaterecord;
       begin
-        pstate:=unaligned(fstate);
+        pstate:=fstate;
         while assigned(pstate) do
           begin
-            unaligned(fstate):=pstate^.next;
+            fstate:=pstate^.next;
             freemem(pstate);
-            pstate:=unaligned(fstate);
+            pstate:=fstate;
           end;
       end;
 

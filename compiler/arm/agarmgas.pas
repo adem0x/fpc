@@ -81,6 +81,8 @@ unit agarmgas;
         if (current_settings.fputype = fpu_soft) then
           result:='-mfpu=softvfp '+result;
 
+        if current_settings.cputype = cpu_cortexm3 then
+          result:='-mcpu=cortex-m3 -mthumb -mthumb-interwork '+result;
         if current_settings.cputype = cpu_armv7m then
           result:='-march=armv7m -mthumb -mthumb-interwork '+result;
       end;

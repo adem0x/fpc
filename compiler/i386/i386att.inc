@@ -161,7 +161,6 @@
 'iret',
 'iret',
 'iretw',
-'iretq',
 'jcxz',
 'jecxz',
 'jrcxz',

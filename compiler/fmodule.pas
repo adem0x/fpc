@@ -187,7 +187,7 @@ interface
         points to the module calling it. It is nil for the first compiled
         module. This allow inheritence of all path lists. MUST pay attention
         to that when creating link.res!!!!(mazen)}
-        constructor create(LoadedFrom:TModule;const amodulename,afilename:string;_is_unit:boolean);
+        constructor create(LoadedFrom:TModule;const s:string;_is_unit:boolean);
         destructor destroy;override;
         procedure reset;virtual;
         procedure adddependency(callermodule:tmodule);
@@ -467,31 +467,24 @@ implementation
                                   TMODULE
  ****************************************************************************}
 
-    constructor tmodule.create(LoadedFrom:TModule;const amodulename,afilename:string;_is_unit:boolean);
+    constructor tmodule.create(LoadedFrom:TModule;const s:string;_is_unit:boolean);
       var
-        n,fn:string;
+        n : string;
       begin
-        if amodulename='' then
-          n:=ChangeFileExt(ExtractFileName(afilename),'')
-        else
-          n:=amodulename;
-        if afilename='' then
-          fn:=amodulename
-        else
-          fn:=afilename;
+        n:=ChangeFileExt(ExtractFileName(s),'');
         { Programs have the name 'Program' to don't conflict with dup id's }
         if _is_unit then
-         inherited create(amodulename)
+         inherited create(n)
         else
          inherited create('Program');
-        mainsource:=stringdup(fn);
+        mainsource:=stringdup(s);
         { Dos has the famous 8.3 limit :( }
 {$ifdef shortasmprefix}
         asmprefix:=stringdup(FixFileName('as'));
 {$else}
         asmprefix:=stringdup(FixFileName(n));
 {$endif}
-        setfilename(fn,true);
+        setfilename(s,true);
         localunitsearchpath:=TSearchPathList.Create;
         localobjectsearchpath:=TSearchPathList.Create;
         localincludesearchpath:=TSearchPathList.Create;

@@ -44,7 +44,6 @@ implementation
     {$endif}
     {$ifndef NOTARGETWIN}
       ,t_win
-      ,win64unw
     {$endif}
     {$ifndef NOTARGETSUNOS}
       ,t_sunos

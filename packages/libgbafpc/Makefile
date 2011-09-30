@@ -291,7 +291,7 @@ FPCFPMAKE=$(FPC)
 endif
 endif
 override PACKAGE_NAME=libgbafpc
-override PACKAGE_VERSION=2.7.1
+override PACKAGE_VERSION=2.4.0
 BINUTILSPREFIX=arm-eabi-
 ifeq ($(FULL_TARGET),i386-linux)
 override TARGET_UNITS+=gba maxmod

@@ -371,9 +371,9 @@ begin
   If Mode=fmcreate then
     begin
       system.assign(FHandle,AFileName);
-      {$push} {$I-}
+      {$I-}
        system.rewrite(FHandle,1);
-      {$pop}
+      {$I+}
       CStreamError:=IOResult;
     end
   else
@@ -381,9 +381,9 @@ begin
       oldfilemode:=filemode;
       filemode:=$40 or Mode;
       system.assign(FHandle,AFileName);
-      {$push} {$I-}
+      {$I-}
        system.reset(FHandle,1);
-      {$pop}
+      {$I+}
       CStreamError:=IOResult;
       filemode:=oldfilemode;
     end;
@@ -392,9 +392,9 @@ end;
 
 destructor TCFileStream.Destroy;
 begin
-  {$push} {$I-}
+  {$I-}
    System.Close(FHandle);
-  {$pop}
+  {$I+}
   CStreamError:=IOResult;
 end;
 
@@ -417,10 +417,10 @@ end;
 
 Procedure TCFileStream.SetSize(NewSize: Longint);
 begin
-  {$push} {$I-}
+  {$I-}
    System.Seek(FHandle,NewSize);
    System.Truncate(FHandle);
-  {$pop}
+  {$I+}
   CStreamError:=IOResult;
 end;
 
@@ -429,7 +429,7 @@ function TCFileStream.Seek(Offset: Longint; Origin: Word): Longint;
 var
   l : longint;
 begin
-  {$push} {$I-}
+  {$I-}
    case Origin of
      soFromBeginning :
        begin
@@ -451,7 +451,7 @@ begin
          System.Seek(FHandle,l);
        end;
    end;
-  {$pop}
+  {$I+}
   CStreamError:=IOResult;
   Result:=l;
 end;

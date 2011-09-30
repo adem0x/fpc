@@ -281,6 +281,7 @@ implementation
           old_current_module : tmodule;
           oldcurrent_procinfo : tprocinfo;
           old_settings : tsettings;
+          oldsourcecodepage : tcodepagestring;
           old_switchesstatestack : tswitchesstatestack;
           old_switchesstatestackpos : Integer;
         end;
@@ -357,7 +358,7 @@ implementation
            begin
              if assigned(current_module) then
                internalerror(200501158);
-             set_current_module(tppumodule.create(nil,'',filename,false));
+             set_current_module(tppumodule.create(nil,filename,'',false));
              addloadedunit(current_module);
              main_module:=current_module;
              current_module.state:=ms_compile;

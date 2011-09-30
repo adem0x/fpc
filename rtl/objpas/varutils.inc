@@ -18,7 +18,6 @@
   ---------------------------------------------------------------------}
 
 { we do ugly things with tvararray here }
-{$PUSH}
 {$RANGECHECKS OFF}
 
 Procedure SetUnlockResult (P : PVarArray; Res : HResult);
@@ -793,6 +792,6 @@ begin
   else
     Result:=psa^.ElementSize;
 end;
-{$POP}
+
 
 

@@ -1467,10 +1467,7 @@ implementation
                                break;
                              end;
                          if not found then
-                           if assigned(pd.struct) then
-                             Message1(parser_e_at_least_one_argument_must_be_of_type,pd.struct.RttiName)
-                           else
-                             MessagePos(pd.fileinfo,type_e_type_id_expected);
+                           Message1(parser_e_at_least_one_argument_must_be_of_type,pd.struct.RttiName);
                        end;
                      if (optoken in [_EQ,_NE,_GT,_LT,_GTE,_LTE,_OP_IN]) and
                         ((pd.returndef.typ<>orddef) or
@@ -1626,9 +1623,7 @@ end;
 
 procedure pd_interrupt(pd:tabstractprocdef);
 
-{$ifdef FPC_HAS_SYSTEMS_INTERRUPT_TABLE}
 var v: Tconstexprint;
-{$endif FPC_HAS_SYSTEMS_INTERRUPT_TABLE}
 
 begin
   if pd.parast.symtablelevel>normal_function_level then
@@ -2143,7 +2138,7 @@ type
    end;
 const
   {Should contain the number of procedure directives we support.}
-  num_proc_directives=43;
+  num_proc_directives=42;
   proc_direcdata:array[1..num_proc_directives] of proc_dir_rec=
    (
     (
@@ -2536,15 +2531,6 @@ const
       mutexclpocall : [pocall_internproc];
       mutexclpotype : [];
       mutexclpo     : [po_exports,po_interrupt,po_external,po_inline]
-    ),(
-      idtok:_RTLPROC;
-      pd_flags : [pd_interface,pd_implemen,pd_body,pd_notobjintf];
-      handler  : nil;
-      pocall   : pocall_none;
-      pooption : [po_rtlproc];
-      mutexclpocall : [];
-      mutexclpotype : [potype_constructor,potype_destructor,potype_class_constructor,potype_class_destructor];
-      mutexclpo     : [po_interrupt]
     )
    );
 

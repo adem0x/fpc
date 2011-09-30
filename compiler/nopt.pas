@@ -25,7 +25,7 @@ unit nopt;
 
 interface
 
-uses node,nbas,nadd,constexp;
+uses node,nbas,nadd;
 
 type
   tsubnodetype = (
@@ -309,7 +309,6 @@ var
   newstatement : tstatementnode;
   tempnode    : ttempcreatenode;
   is_shortstr : boolean;
-  para : tcallparanode;
 begin
   arrp:=nil;
   hp:=p;
@@ -339,23 +338,10 @@ begin
      (aktassignmentnode.left.resultdef=p.resultdef) and
      valid_for_var(aktassignmentnode.left,false) then
     begin
-      para:=ccallparanode.create(
-              arrp,
-              ccallparanode.create(aktassignmentnode.left.getcopy,nil)
-            );
-      if is_ansistring(p.resultdef) then
-        para:=ccallparanode.create(
-                cordconstnode.create(
-                  tstringdef(p.resultdef).encoding,
-                  u16inttype,
-                  true
-                ),
-                para
-              );
-      result:=ccallnode.createintern(
-                'fpc_'+tstringdef(p.resultdef).stringtypname+'_concat_multi',
-                para
-              );
+      result:=ccallnode.createintern('fpc_'+
+        tstringdef(p.resultdef).stringtypname+'_concat_multi',
+        ccallparanode.create(arrp,
+        ccallparanode.create(aktassignmentnode.left.getcopy,nil)));
       include(aktassignmentnode.flags,nf_assign_done_in_right);
     end
   else
@@ -363,26 +349,10 @@ begin
       result:=internalstatements(newstatement);
       tempnode:=ctempcreatenode.create(p.resultdef,p.resultdef.size,tt_persistent ,true);
       addstatement(newstatement,tempnode);
-      para:=ccallparanode.create(
-              arrp,
-              ccallparanode.create(ctemprefnode.create(tempnode),nil)
-            );
-      if is_ansistring(p.resultdef) then
-        para:=ccallparanode.create(
-                cordconstnode.create(
-                  tstringdef(p.resultdef).encoding,
-                  u16inttype,
-                  true
-                ),
-                para
-              );
-      addstatement(
-        newstatement,
-        ccallnode.createintern(
-          'fpc_'+tstringdef(p.resultdef).stringtypname+'_concat_multi',
-          para
-        )
-      );
+      addstatement(newstatement,ccallnode.createintern('fpc_'+
+        tstringdef(p.resultdef).stringtypname+'_concat_multi',
+        ccallparanode.create(arrp,
+        ccallparanode.create(ctemprefnode.create(tempnode),nil))));
       addstatement(newstatement,ctempdeletenode.create_normal_temp(tempnode));
       addstatement(newstatement,ctemprefnode.create(tempnode));
     end;

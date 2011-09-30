@@ -420,9 +420,6 @@ implementation
             appendsym_absolute(list,tabsolutevarsym(sym));
           propertysym :
             appendsym_property(list,tpropertysym(sym));
-          namespacesym :
-            { ignore namespace syms, they are only of internal use }
-            ;
           else
             internalerror(200601242);
         end;

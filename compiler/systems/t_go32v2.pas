@@ -338,7 +338,7 @@ begin
    exit;
   { open file }
   assign(f,n);
-  {$push}{$I-}
+  {$I-}
    reset(f,1);
   if ioresult<>0 then
     Message1(execinfo_f_cant_open_executable,n);
@@ -389,7 +389,7 @@ begin
    end;
   freemem(zerobuf,maxfillsize);
   close(f);
-  {$pop}
+  {$I+}
   i:=ioresult;
   postprocessexecutable:=true;
 end;

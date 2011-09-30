@@ -175,9 +175,15 @@ begin
   end;
 end;
 
-{$push}
+{$ifopt r+}
 {$r-}
+{$define rangeon}
+{$endif}
+
+{$ifopt q+}
 {$q-}
+{$define overflowon}
+{$endif}
 { helper function which calculate "magic" values for replacement of unsigned
  division by constant operation by multiplication. See the PowerPC compiler
  developer manual for more information }
@@ -269,7 +275,15 @@ begin
   end;
   magic_s := p - N; { resulting shift }
 end;
-{$pop}
+{$ifdef rangeon}
+{$r+}
+{$undef rangeon}
+{$endif}
+
+{$ifdef overflowon}
+{$q+}
+{$undef overflowon}
+{$endif}
 
 { finds positive and negative powers of two of the given value, returning the
  power and whether it's a negative power or not in addition to the actual result

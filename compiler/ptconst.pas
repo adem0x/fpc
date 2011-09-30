@@ -72,9 +72,15 @@ implementation
       end;
 
 
-{$push}
+{$ifopt r+}
+{$define rangeon}
 {$r-}
+{$endif}
+
+{$ifopt q+}
+{$define overflowon}
 {$q-}
+{$endif}
     { (values between quotes below refer to fields of bp; fields not         }
     {  mentioned are unused by this routine)                                 }
     { bitpacks "value" as bitpacked value of bitsize "packedbitsize" into    }
@@ -107,7 +113,16 @@ implementation
         inc(bp.curbitoffset,bp.packedbitsize);
       end;
 
-{$pop}
+{$ifdef rangeon}
+{$r+}
+{$undef rangeon}
+{$endif}
+
+{$ifdef overflowon}
+{$q+}
+{$undef overflowon}
+{$endif}
+
 
     procedure flush_packed_value(list: tasmlist; var bp: tbitpackedval);
       var
@@ -216,8 +231,6 @@ implementation
                 end;
               uchar :
                 begin
-                   if is_constwidecharnode(n) then 
-                     inserttypeconv(n,cchartype); 
                    if is_constcharnode(n) or
                      ((m_delphi in current_settings.modeswitches) and
                       is_constwidecharnode(n) and
@@ -643,7 +656,6 @@ implementation
           ll        : tasmlabel;
           ca        : pchar;
           winlike   : boolean;
-          hsym      : tconstsym;
         begin
           n:=comp_expr(true,false);
           { load strval and strlength of the constant tree }
@@ -679,26 +691,8 @@ implementation
             end
           else if is_constresourcestringnode(n) then
             begin
-              hsym:=tconstsym(tloadnode(n).symtableentry);
-              strval:=pchar(hsym.value.valueptr);
-              strlength:=hsym.value.len;
-              { Delphi-compatible (mis)feature:
-                Link AnsiString constants to their initializing resourcestring,
-                enabling them to be (re)translated at runtime.
-                Wide/UnicodeString are currently rejected above (with incorrect error message).
-                ShortStrings cannot be handled unless another table is built for them;
-                considering this acceptable, because Delphi rejects them altogether.
-              }
-              if (not is_shortstring(def)) and
-                 ((hr.origsym.owner.symtablelevel<=main_program_level) or
-                  (hr.origblock=bt_const)) then
-                begin
-                  current_asmdata.ResStrInits.Concat(
-                    TTCInitItem.Create(hr.origsym,hr.offset,
-                    current_asmdata.RefAsmSymbol(make_mangledname('RESSTR',hsym.owner,hsym.name)))
-                  );
-                  Include(hr.origsym.varoptions,vo_force_finalize);
-                end;
+              strval:=pchar(tconstsym(tloadnode(n).symtableentry).value.valueptr);
+              strlength:=tconstsym(tloadnode(n).symtableentry).value.len;
             end
           else
             begin
@@ -739,7 +733,7 @@ implementation
                      if (strlength=0) then
                        ll := nil
                      else
-                       ll := emit_ansistring_const(current_asmdata.asmlists[al_const],strval,strlength,def.encoding);
+                       ll := emit_ansistring_const(current_asmdata.asmlists[al_const],strval,strlength);
                      hr.list.concat(Tai_const.Create_sym(ll));
                   end;
                 st_unicodestring,
@@ -753,7 +747,6 @@ implementation
                        winlike := (def.stringtype=st_widestring) and (tf_winlikewidestring in target_info.flags);
                        ll := emit_unicodestring_const(current_asmdata.asmlists[al_const],
                               strval,
-                              def.encoding,
                               winlike);
 
                        { Collect Windows widestrings that need initialization at startup.
@@ -894,13 +887,7 @@ implementation
                    len:=tstringconstnode(n).len;
                     case char_size of
                       1:
-                        begin
-                          if (tstringconstnode(n).cst_type in [cst_unicodestring,cst_widestring]) then
-                            inserttypeconv(n,cansistringtype);
-                          if n.nodetype<>stringconstn then
-                            internalerror(2010033003);
-                          ca:=pointer(tstringconstnode(n).value_str);
-                        end;
+                        ca:=pointer(tstringconstnode(n).value_str);
                       2:
                         begin
                           inserttypeconv(n,cwidestringtype);
@@ -928,24 +915,6 @@ implementation
                             internalerror(2010033001);
                           widechar(ch):=widechar(tordconstnode(n).value.uvalue and $ffff);
                         end;
-                      else
-                        internalerror(2010033002);
-                    end;
-                    ca:=@ch;
-                    len:=1;
-                  end
-               else if is_constwidecharnode(n) and (current_settings.sourcecodepage<>CP_UTF8) then
-                  begin
-                    case char_size of
-                      1:
-                        begin
-                          inserttypeconv(n,cchartype);
-                          if not is_constcharnode(n) then
-                            internalerror(2010033001);
-                          ch[0]:=chr(tordconstnode(n).value.uvalue and $ff);
-                        end;
-                      2:
-                        widechar(ch):=widechar(tordconstnode(n).value.uvalue and $ffff);
                       else
                         internalerror(2010033002);
                     end;

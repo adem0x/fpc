@@ -4,7 +4,7 @@
 
 [package]
 name=zorba
-version=2.7.1
+version=0.9.9
 
 [target]
 units=xqc zorba zorbadyn

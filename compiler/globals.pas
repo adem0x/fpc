@@ -53,7 +53,6 @@ interface
           m_pointer_2_procedure,m_autoderef,m_tp_procvar,m_initfinal,m_default_ansistring,
           m_out,m_default_para,m_duplicate_names,m_hintdirective,
           m_property,m_default_inline,m_except,m_advanced_records];
-       delphiunicodemodeswitches = delphimodeswitches + [m_systemcodepage];
        fpcmodeswitches =
          [m_fpc,m_all,m_string_pchar,m_nested_comment,m_repeat_forward,
           m_cvar_support,m_initfinal,m_hintdirective,
@@ -69,7 +68,7 @@ interface
          [m_gpc,m_all,m_tp_procvar];
 {$endif}
        macmodeswitches =
-         [m_mac,m_all,m_cvar_support,m_mac_procvar,m_nested_procvars,m_non_local_goto,m_isolike_unary_minus,m_default_inline];
+         [m_mac,m_all,m_cvar_support,m_mac_procvar,m_nested_procvars,m_non_local_goto,m_isolike_unary_minus];
        isomodeswitches =
          [m_iso,m_all,m_tp_procvar,m_duplicate_names,m_nested_procvars,m_non_local_goto,m_isolike_unary_minus];
 
@@ -103,12 +102,10 @@ interface
        MathPiExtended : textendedrec = (bytes : (64,0,201,15,218,162,33,104,194,53));
 {$endif FPC_LITTLE_ENDIAN}
 {$endif}
-       CP_UTF8 = 65001;
-       CP_UTF16 = 1200;
-       CP_NONE  = 65535;
-
 
     type
+       tcodepagestring = string[20];
+
        { this is written to ppus during token recording for generics so it must be packed }
        tsettings = packed record
          alignment       : talignmentinfo;
@@ -124,6 +121,7 @@ interface
          debugswitches   : tdebugswitches;
          { 0: old behaviour for sets <=256 elements
            >0: round to this size }
+         pmessage : pmessagestaterecord;
          setalloc,
          packenum        : shortint;
 
@@ -136,7 +134,7 @@ interface
          asmmode         : tasmmode;
          interfacetype   : tinterfacetypes;
          defproccall     : tproccalloption;
-         sourcecodepage  : tstringencoding;
+         sourcecodepage  : tcodepagestring;
 
          minfpconstprec  : tfloattype;
 
@@ -146,8 +144,6 @@ interface
 {$if defined(ARM) or defined(AVR)}
         controllertype   : tcontrollertype;
 {$endif defined(ARM) or defined(AVR)}
-         { WARNING: this pointer cannot be written as such in record token }
-         pmessage : pmessagestaterecord;
        end;
 
     const
@@ -365,6 +361,7 @@ interface
         genwpoptimizerswitches : [];
         dowpoptimizerswitches : [];
         debugswitches : [];
+        pmessage : nil;
 
         setalloc : 0;
         packenum : 4;
@@ -429,14 +426,13 @@ interface
         asmmode : asmmode_standard;
         interfacetype : it_interfacecom;
         defproccall : pocall_default;
-        sourcecodepage : 28591;
+        sourcecodepage : '8859-1';
         minfpconstprec : s32real;
 
         disabledircache : false;
 {$if defined(ARM) or defined(AVR)}
         controllertype : ct_none;
 {$endif defined(ARM) or defined(AVR)}
-        pmessage : nil;
       );
 
     var
@@ -767,8 +763,7 @@ implementation
          Replace(s,'$FPCDATE',date_string);
          Replace(s,'$FPCCPU',target_cpu_string);
          Replace(s,'$FPCOS',target_os_string);
-         if (tf_use_8_3 in Source_Info.Flags) or
-            (tf_use_8_3 in Target_Info.Flags) then
+         if tf_use_8_3 in Source_Info.Flags then
            Replace(s,'$FPCTARGET',target_os_string)
          else
            Replace(s,'$FPCTARGET',target_full_string);
@@ -1112,7 +1107,7 @@ implementation
         result:=false;
         hs:=Upper(s);
         for t:=low(tcontrollertype) to high(tcontrollertype) do
-          if embedded_controllers[t].controllertypestr=hs then
+          if controllertypestr[t]=hs then
             begin
               a:=t;
               result:=true;

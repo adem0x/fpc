@@ -534,11 +534,11 @@ begin
   MDInit(Context, Version);
 
   Assign(F, Filename);
-  {$push}{$i-}
+  {$i-}
   ofm := FileMode;
   FileMode := 0;
   Reset(F, 1);
-  {$pop}
+  {$i+}
 
   if IOResult = 0 then
   begin

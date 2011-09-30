@@ -176,24 +176,6 @@ implementation
                        p:=ctypeconvnode.create(p,cwidechartype);
                        do_typecheckpass(p);
                     end;
-               end
-             else
-               begin
-                 if is_char(casedef) and is_widechar(p.resultdef) then
-                   begin
-                      if (p.nodetype=ordconstn) then
-                        begin
-                           p:=ctypeconvnode.create(p,cchartype);
-                           do_typecheckpass(p);
-                        end
-                      else if (p.nodetype=rangen) then
-                        begin
-                           trangenode(p).left:=ctypeconvnode.create(trangenode(p).left,cchartype);
-                           trangenode(p).right:=ctypeconvnode.create(trangenode(p).right,cchartype);
-                           do_typecheckpass(trangenode(p).left);
-                           do_typecheckpass(trangenode(p).right);
-                        end;
-                   end;
                end;
              hl1:=0;
              hl2:=0;
@@ -817,8 +799,6 @@ implementation
          objname,objrealname : TIDString;
          srsym : tsym;
          srsymtable : TSymtable;
-         t:ttoken;
-         unit_found:boolean;
          oldcurrent_exceptblock: integer;
       begin
          include(current_procinfo.flags,pi_uses_exceptions);
@@ -906,16 +886,23 @@ implementation
                             begin
                                { check if type is valid, must be done here because
                                  with "e: Exception" the e is not necessary }
-
-                               { support unit.identifier }
-                               unit_found:=try_consume_unitsym(srsym,srsymtable,t,false);
                                if srsym=nil then
+                                begin
+                                  identifier_not_found(objrealname);
+                                  srsym:=generrorsym;
+                                end;
+                               { support unit.identifier }
+                               if srsym.typ=unitsym then
                                  begin
-                                   identifier_not_found(orgpattern);
-                                   srsym:=generrorsym;
+                                    consume(_POINT);
+                                    searchsym_in_module(tunitsym(srsym).module,pattern,srsym,srsymtable);
+                                    if srsym=nil then
+                                     begin
+                                       identifier_not_found(orgpattern);
+                                       srsym:=generrorsym;
+                                     end;
+                                    consume(_ID);
                                  end;
-                               if unit_found then
-                                 consume(t);
                                { check if type is valid, must be done here because
                                  with "e: Exception" the e is not necessary }
                                if (srsym.typ=typesym) and

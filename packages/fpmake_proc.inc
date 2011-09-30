@@ -46,12 +46,6 @@ begin
 {$include chm/fpmake.pp}
 end;
 
-procedure add_cocoaint;
-begin
-  with Installer do
-{$include cocoaint/fpmake.pp}
-end;
-
 procedure add_dbus;
 begin
   with Installer do
@@ -148,12 +142,6 @@ begin
 {$include fcl-res/fpmake.pp}
 end;
 
-procedure add_fcl_stl;
-begin
-  with Installer do
-{$include fcl-stl/fpmake.pp}
-end;
-
 procedure add_fcl_web;
 begin
   with Installer do
@@ -196,7 +184,11 @@ begin
 {$include fv/fpmake.pp}
 end;
 
+procedure add_gdbint;
+begin
+  with Installer do
 {$include gdbint/fpmake.pp}
+end;
 
 procedure add_gdbm;
 begin
@@ -370,6 +362,12 @@ procedure add_mad;
 begin
   with Installer do
 {$include mad/fpmake.pp}
+end;
+
+procedure add_matroska;
+begin
+  with Installer do
+{$include matroska/fpmake.pp}
 end;
 
 procedure add_modplug;

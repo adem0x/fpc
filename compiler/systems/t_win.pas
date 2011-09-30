@@ -263,8 +263,8 @@ implementation
         procedure AddImport(const afuncname,mangledname:string;ordnr:longint;isvar:boolean);
         const
 {$ifdef x86_64}
-          jmpopcode : array[0..1] of byte = (
-            $ff,$25             // jmp qword [rip + offset32]
+          jmpopcode : array[0..2] of byte = (
+            $ff,$24,$25
           );
 {$else x86_64}
   {$ifdef arm}
@@ -367,11 +367,7 @@ implementation
               else
                 implabel:=objdata.SymbolDefine(basedllname+'_index_'+tostr(ordnr),AB_GLOBAL,AT_FUNCTION);
               objdata.writebytes(jmpopcode,sizeof(jmpopcode));
-{$ifdef x86_64}
-              objdata.writereloc(0,sizeof(longint),idata5label,RELOC_RELATIVE);
-{$else}
               objdata.writereloc(0,sizeof(longint),idata5label,RELOC_ABSOLUTE32);
-{$endif x86_64}
               objdata.writebytes(nopopcodes,align(objdata.CurrObjSec.size,sizeof(nopopcodes))-objdata.CurrObjSec.size);
             end;
           ObjOutput.exportsymbol(implabel);
@@ -523,10 +519,6 @@ implementation
                     current_asmdata.asmlists[al_imports].concat(tai_const.create_sym_offset(href.symbol,href.offset));
                   {$else ARM}
                     reference_reset_symbol(href,l4,0,sizeof(pint));
-{$ifdef X86_64}
-                    href.base:=NR_RIP;
-{$endif X86_64}
-
                     current_asmdata.asmlists[al_imports].concat(Taicpu.Op_ref(A_JMP,S_NO,href));
                     current_asmdata.asmlists[al_imports].concat(Tai_align.Create_op(4,$90));
                   {$endif ARM}
@@ -1032,10 +1024,9 @@ implementation
             Concat('  SYMBOL __RUNTIME_PSEUDO_RELOC_LIST_END__');
             Concat('  OBJSECTION .rdata*');
             Concat('  OBJSECTION .rodata*');
-            Concat('  OBJSECTION .xdata*');
             Concat('ENDEXESECTION');
             Concat('EXESECTION .pdata');
-            Concat('  OBJSECTION .pdata*');
+            Concat('  OBJSECTION .pdata');
             Concat('ENDEXESECTION');
             Concat('EXESECTION .bss');
             Concat('  SYMBOL __bss_start__');
@@ -1075,9 +1066,7 @@ implementation
             Concat('  OBJSECTION .idata$3*');
             Concat('  ZEROS 20');
             Concat('  OBJSECTION .idata$4*');
-            Concat('  SYMBOL __IAT_start__');
             Concat('  OBJSECTION .idata$5*');
-            Concat('  SYMBOL __IAT_end__');
             Concat('  OBJSECTION .idata$6*');
             Concat('  OBJSECTION .idata$7*');
             Concat('ENDEXESECTION');
@@ -1674,7 +1663,7 @@ implementation
          end;
         { open file }
         assign(f,fn);
-        {$push}{$I-}
+        {$I-}
          reset(f,1);
         if ioresult<>0 then
           Message1(execinfo_f_cant_open_executable,fn);
@@ -1782,9 +1771,9 @@ implementation
          end;
         freemem(zerobuf,maxfillsize);
         close(f);
-        {$pop}
+        {$I+}
         if ioresult<>0 then;
-          postprocessexecutable:=true;
+        postprocessexecutable:=true;
       end;
 
 

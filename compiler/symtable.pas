@@ -145,9 +145,7 @@ interface
        tabstractuniTSymtable = class(tstoredsymtable)
        public
           constructor create(const n : string;id:word);
-          function checkduplicate(var hashedid:THashedIDString;sym:TSymEntry):boolean;override;
           function iscurrentunit:boolean;override;
-          procedure insertunit(sym:TSymEntry);
        end;
 
        tglobalsymtable = class(tabstractuniTSymtable)
@@ -156,6 +154,7 @@ interface
           constructor create(const n : string;id:word);
           procedure ppuload(ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
+          function  checkduplicate(var hashedid:THashedIDString;sym:TSymEntry):boolean;override;
        end;
 
        tstaticsymtable = class(tabstractuniTSymtable)
@@ -456,7 +455,6 @@ implementation
                iblabelsym : sym:=tlabelsym.ppuload(ppufile);
                  ibsyssym : sym:=tsyssym.ppuload(ppufile);
                ibmacrosym : sym:=tmacro.ppuload(ppufile);
-           ibnamespacesym : sym:=tnamespacesym.ppuload(ppufile);
                 ibendsyms : break;
                     ibend : Message(unit_f_ppu_read_error);
            else
@@ -639,19 +637,14 @@ implementation
             ((tsym(sym).owner.symtabletype in
              [parasymtable,localsymtable,ObjectSymtable,recordsymtable,staticsymtable])) then
            begin
-            { unused symbol should be reported only if no                    }
-            { error is reported                                              }
-            { if the symbol is in a register it is used                      }
-            { also don't count the value parameters which have local copies  }
-            { also don't claim for high param of open parameters    (PM)     }
-            { also don't complain about unused symbols in generic procedures }
-            { and methods                                                    }
+            { unused symbol should be reported only if no }
+            { error is reported                     }
+            { if the symbol is in a register it is used   }
+            { also don't count the value parameters which have local copies }
+            { also don't claim for high param of open parameters (PM) }
             if (Errorcount<>0) or
                ([vo_is_hidden_para,vo_is_funcret] * tabstractvarsym(sym).varoptions = [vo_is_hidden_para]) or
-               (sp_internal in tsym(sym).symoptions) or
-               ((assigned(tsym(sym).owner.defowner) and
-                (tsym(sym).owner.defowner.typ=procdef) and
-                (df_generic in tprocdef(tsym(sym).owner.defowner).defoptions))) then
+               (sp_internal in tsym(sym).symoptions) then
               exit;
             if (tstoredsym(sym).refs=0) then
               begin
@@ -666,7 +659,7 @@ implementation
                  else if (tsym(sym).owner.symtabletype=parasymtable) then
                    MessagePos1(tsym(sym).fileinfo,sym_h_para_identifier_not_used,tsym(sym).prettyname)
                  else if (tsym(sym).owner.symtabletype in [ObjectSymtable,recordsymtable]) then
-                   MessagePos2(tsym(sym).fileinfo,sym_n_private_identifier_not_used,tabstractrecorddef(tsym(sym).owner.defowner).GetTypeName,tsym(sym).prettyname)
+                   MessagePos2(tsym(sym).fileinfo,sym_n_private_identifier_not_used,tabstractrecorddef(tsym(sym).owner.defowner).RttiName,tsym(sym).prettyname)
                  else
                    MessagePos1(tsym(sym).fileinfo,sym_n_local_identifier_not_used,tsym(sym).prettyname);
               end
@@ -679,7 +672,7 @@ implementation
                        MessagePos1(tsym(sym).fileinfo,sym_h_para_identifier_only_set,tsym(sym).prettyname)
                    end
                  else if (tsym(sym).owner.symtabletype in [ObjectSymtable,recordsymtable]) then
-                   MessagePos2(tsym(sym).fileinfo,sym_n_private_identifier_only_set,tabstractrecorddef(tsym(sym).owner.defowner).GetTypeName,tsym(sym).prettyname)
+                   MessagePos2(tsym(sym).fileinfo,sym_n_private_identifier_only_set,tabstractrecorddef(tsym(sym).owner.defowner).RttiName,tsym(sym).prettyname)
                  else if tabstractvarsym(sym).varoptions*[vo_is_funcret,vo_is_public,vo_is_external]=[] then
                    MessagePos1(tsym(sym).fileinfo,sym_n_local_identifier_only_set,tsym(sym).prettyname);
               end
@@ -697,19 +690,19 @@ implementation
            if (tsym(sym).refs=0) and (tsym(sym).owner.symtabletype in [ObjectSymtable,recordsymtable]) then
              case tsym(sym).typ of
                typesym:
-                 MessagePos2(tsym(sym).fileinfo,sym_n_private_type_not_used,tabstractrecorddef(tsym(sym).owner.defowner).GetTypeName,tsym(sym).prettyname);
+                 MessagePos2(tsym(sym).fileinfo,sym_n_private_type_not_used,tabstractrecorddef(tsym(sym).owner.defowner).RttiName,tsym(sym).prettyname);
                constsym:
-                 MessagePos2(tsym(sym).fileinfo,sym_n_private_const_not_used,tabstractrecorddef(tsym(sym).owner.defowner).GetTypeName,tsym(sym).prettyname);
+                 MessagePos2(tsym(sym).fileinfo,sym_n_private_const_not_used,tabstractrecorddef(tsym(sym).owner.defowner).RttiName,tsym(sym).prettyname);
                propertysym:
-                 MessagePos2(tsym(sym).fileinfo,sym_n_private_property_not_used,tabstractrecorddef(tsym(sym).owner.defowner).GetTypeName,tsym(sym).prettyname);
+                 MessagePos2(tsym(sym).fileinfo,sym_n_private_property_not_used,tabstractrecorddef(tsym(sym).owner.defowner).RttiName,tsym(sym).prettyname);
              else
-               MessagePos2(tsym(sym).fileinfo,sym_n_private_method_not_used,tabstractrecorddef(tsym(sym).owner.defowner).GetTypeName,tsym(sym).prettyname);
+               MessagePos2(tsym(sym).fileinfo,sym_n_private_method_not_used,tabstractrecorddef(tsym(sym).owner.defowner).RttiName,tsym(sym).prettyname);
              end
            { units references are problematic }
            else
             begin
               if (tsym(sym).refs=0) and
-                 not(tsym(sym).typ in [enumsym,unitsym,namespacesym]) and
+                 not(tsym(sym).typ in [enumsym,unitsym]) and
                  not(is_funcret_sym(tsym(sym))) and
                  { don't complain about compiler generated syms for specializations, see also #13405 }
                  not((tsym(sym).typ=typesym) and (df_specialization in ttypesym(sym).typedef.defoptions) and
@@ -1149,7 +1142,7 @@ implementation
         i : integer;
         varalignrecord,varalign,
         storesize,storealign : aint;
-        bitsize: tcgint;
+        bitsize: aint;
       begin
         storesize:=_datasize;
         storealign:=fieldalignment;
@@ -1462,46 +1455,6 @@ implementation
       end;
 
 
-    function tabstractuniTSymtable.checkduplicate(var hashedid:THashedIDString;sym:TSymEntry):boolean;
-      var
-        hsym : tsym;
-      begin
-        result:=false;
-        hsym:=tsym(FindWithHash(hashedid));
-        if assigned(hsym) then
-          begin
-            if hsym.typ=symconst.namespacesym then
-              begin
-                case sym.typ of
-                  symconst.namespacesym:;
-                  symconst.unitsym:
-                    begin
-                      HideSym(sym); { if we add a unit and there is a namespace with the same name then hide the unit name and not the namespace }
-                      tnamespacesym(hsym).unitsym:=tsym(sym);
-                    end
-                else
-                  HideSym(hsym);
-                end;
-              end
-            else
-            { In delphi (contrary to TP) you can have a symbol with the same name as the
-              unit, the unit can then not be accessed anymore using
-              <unit>.<id>, so we can hide the symbol.
-              Do the same if we add a namespace and there is a unit with the same name }
-            if (hsym.typ=symconst.unitsym) and
-               ((m_delphi in current_settings.modeswitches) or (sym.typ=symconst.namespacesym)) then
-              begin
-                HideSym(hsym);
-                if sym.typ=symconst.namespacesym then
-                  tnamespacesym(sym).unitsym:=tsym(hsym);
-              end
-            else
-              DuplicateSym(hashedid,sym,hsym);
-            result:=true;
-            exit;
-          end;
-      end;
-
     function tabstractuniTSymtable.iscurrentunit:boolean;
       begin
         result:=assigned(current_module) and
@@ -1511,29 +1464,6 @@ implementation
                 );
       end;
 
-    procedure tabstractuniTSymtable.insertunit(sym:TSymEntry);
-      var
-        p:integer;
-        n,ns:string;
-        oldsym:TSymEntry;
-      begin
-        insert(sym);
-        n:=sym.realname;
-        p:=pos('.',n);
-        ns:='';
-        while p>0 do
-          begin
-            if ns='' then
-              ns:=copy(n,1,p-1)
-            else
-              ns:=ns+'.'+copy(n,1,p-1);
-            system.delete(n,1,p);
-            oldsym:=Find(upper(ns));
-            if not Assigned(oldsym) or (oldsym.typ<>namespacesym) then
-              insert(tnamespacesym.create(ns));
-            p:=pos('.',n);
-          end;
-      end;
 
 {****************************************************************************
                               TStaticSymtable
@@ -1563,11 +1493,26 @@ implementation
 
 
     function tstaticsymtable.checkduplicate(var hashedid:THashedIDString;sym:TSymEntry):boolean;
+      var
+        hsym : tsym;
       begin
-        result:=inherited checkduplicate(hashedid,sym);
+        result:=false;
+        hsym:=tsym(FindWithHash(hashedid));
+        if assigned(hsym) then
+          begin
+            { Delphi (contrary to TP) you can have a symbol with the same name as the
+              unit, the unit can then not be accessed anymore using
+              <unit>.<id>, so we can hide the symbol }
+            if (m_delphi in current_settings.modeswitches) and
+               (hsym.typ=symconst.unitsym) then
+              HideSym(hsym)
+            else
+              DuplicateSym(hashedid,sym,hsym);
+            result:=true;
+            exit;
+          end;
 
-        if not result and
-           (current_module.localsymtable=self) and
+        if (current_module.localsymtable=self) and
            assigned(current_module.globalsymtable) then
           result:=tglobalsymtable(current_module.globalsymtable).checkduplicate(hashedid,sym);
       end;
@@ -1598,6 +1543,28 @@ implementation
       begin
         { write the symtable entries }
         inherited ppuwrite(ppufile);
+      end;
+
+
+    function tglobalsymtable.checkduplicate(var hashedid:THashedIDString;sym:TSymEntry):boolean;
+      var
+        hsym : tsym;
+      begin
+        result:=false;
+        hsym:=tsym(FindWithHash(hashedid));
+        if assigned(hsym) then
+          begin
+            { Delphi (contrary to TP) you can have a symbol with the same name as the
+              unit, the unit can then not be accessed anymore using
+              <unit>.<id>, so we can hide the symbol }
+            if (m_delphi in current_settings.modeswitches) and
+               (hsym.typ=symconst.unitsym) then
+              HideSym(hsym)
+            else
+              DuplicateSym(hashedid,sym,hsym);
+            result:=true;
+            exit;
+          end;
       end;
 
 
@@ -1994,7 +1961,7 @@ implementation
                     if (srsymtable.symtabletype=withsymtable) and
                        assigned(srsymtable.defowner) and
                        (srsymtable.defowner.typ in [recorddef,objectdef]) and
-                       (srsymtable.defowner.owner.symtabletype in [globalsymtable,staticsymtable,objectsymtable,recordsymtable]) and
+                       (srsymtable.defowner.owner.symtabletype in [globalsymtable,staticsymtable]) and
                        (srsymtable.defowner.owner.iscurrentunit) then
                       contextstructdef:=tabstractrecorddef(srsymtable.defowner)
                     else

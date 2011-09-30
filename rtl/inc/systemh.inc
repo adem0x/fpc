@@ -290,18 +290,8 @@ Type
   PUCS4CharArray      = ^TUCS4CharArray;
   UCS4String          = array of UCS4Char;
 
-{$ifdef FPC_HAS_CPSTRING}
-  UTF8String          = type AnsiString(65001);
-{$else FPC_HAS_CPSTRING}
   UTF8String          = type ansistring;
-{$endif FPC_HAS_CPSTRING}
   PUTF8String         = ^UTF8String;
-
-{$ifdef FPC_HAS_CPSTRING}
-  RawByteString       = type AnsiString($ffff);
-{$else FPC_HAS_CPSTRING}
-  RawByteString       = ansistring;
-{$endif FPC_HAS_CPSTRING}
 
   HRESULT             = type Longint;
 {$ifndef FPUNONE}
@@ -353,7 +343,7 @@ Type
 
 {$ifndef FPUNONE}
   PDate               = ^TDateTime;
-  PDateTime           = ^TDateTime;
+  PDateTime	      = ^TDateTime;
 {$endif}
   PError              = ^TError;
   PVariant            = ^Variant;
@@ -370,8 +360,6 @@ Type
   UnicodeChar         = WideChar;
   PUnicodeChar        = ^UnicodeChar;
   PUnicodeString      = ^UnicodeString;
-
-  TSystemCodePage     = Word;
 
   { Needed for fpc_get_output }
   PText               = ^Text;
@@ -483,33 +471,18 @@ var
   ExitCode    : Longint; public name 'operatingsystem_result';
   RandSeed    : Cardinal;
   { Delphi compatibility }
-
-{$ifdef FPC_HAS_FEATURE_DYNLIBS}
-  IsLibrary : boolean = false; public name 'operatingsystem_islibrary';
-{$else FPC_HAS_FEATURE_DYNLIBS}
-const
-  IsLibrary = false;
-var
-{$endif FPC_HAS_FEATURE_DYNLIBS}
-  IsConsole : boolean = false; public name 'operatingsystem_isconsole';
+  IsLibrary : boolean = false;
+  IsConsole : boolean;
   { Threading support }
   fpc_threadvar_relocate_proc : pointer; public name 'FPC_THREADVAR_RELOCATE';
-
-  DefaultSystemCodePage,
-  DefaultUnicodeCodePage,
-  UTF8CompareLocale : TSystemCodePage;
-
 
 {$ifndef HAS_CMDLINE}
 {Value should be changed during system initialization as appropriate.}
 var cmdline:Pchar=nil;
 {$endif}
 
-{$ifdef FPC_HAS_FEATURE_THREADING}
+
 ThreadVar
-{$else FPC_HAS_FEATURE_THREADING}
-Var
-{$endif FPC_HAS_FEATURE_THREADING}
   ThreadID    : TThreadID;
   { Standard In- and Output }
   ErrOutput,
@@ -848,9 +821,9 @@ Procedure Insert(source:Char;var s:shortstring;index:SizeInt);
 Function  Pos(const substr:shortstring;const s:shortstring):SizeInt;
 Function  Pos(C:Char;const s:shortstring):SizeInt;
 {$ifdef FPC_HAS_FEATURE_ANSISTRINGS}
-Function  Pos(const Substr : ShortString; const Source : RawByteString) : SizeInt;
-Procedure SetString(out S : AnsiString; Buf : PAnsiChar; Len : SizeInt);
-Procedure SetString(out S : AnsiString; Buf : PWideChar; Len : SizeInt);
+Function  Pos (const Substr : ShortString; const Source : AnsiString) : SizeInt;
+Procedure SetString (out S : AnsiString; Buf : PChar; Len : SizeInt);
+Procedure SetString (out S : AnsiString; Buf : PWideChar; Len : SizeInt);
 {$endif FPC_HAS_FEATURE_ANSISTRINGS}
 Procedure SetString (out S : Shortstring; Buf : PChar; Len : SizeInt);
 function  ShortCompareText(const S1, S2: shortstring): SizeInt;
@@ -880,20 +853,14 @@ function  pos(const substr : shortstring;c:char): SizeInt;
 ****************************************************************************}
 
 {$ifdef FPC_HAS_FEATURE_ANSISTRINGS}
-Procedure UniqueString(var S : RawByteString);{$ifdef FPC_HAS_CPSTRING}rtlproc;{$endif FPC_HAS_CPSTRING}external name 'FPC_ANSISTR_UNIQUE';
-Function  Pos (const Substr : RawByteString; const Source : RawByteString) : SizeInt;
-Function  Pos (c : AnsiChar; const s : RawByteString) : SizeInt;
-Procedure Insert (const Source : RawByteString; var S : RawByteString; Index : SizeInt);{$ifdef FPC_HAS_CPSTRING}rtlproc;{$endif FPC_HAS_CPSTRING}
-Procedure Delete (var S : RawByteString; Index,Size: SizeInt);{$ifdef FPC_HAS_CPSTRING}rtlproc;{$endif FPC_HAS_CPSTRING}
-Function  StringOfChar(c : Ansichar;l : SizeInt) : AnsiString;
+Procedure UniqueString(var S : AnsiString);external name 'FPC_ANSISTR_UNIQUE';
+Function  Pos (const Substr : AnsiString; const Source : AnsiString) : SizeInt;
+Function  Pos (c : Char; const s : AnsiString) : SizeInt;
+Procedure Insert (const Source : AnsiString; var S : AnsiString; Index : SizeInt);
+Procedure Delete (var S : AnsiString; Index,Size: SizeInt);
+Function  StringOfChar(c : char;l : SizeInt) : AnsiString;
 function  upcase(const s : ansistring) : ansistring;
 function  lowercase(const s : ansistring) : ansistring;
-
-function StringCodePage(const S : RawByteString): TSystemCodePage; overload;
-function StringElementSize(const S : RawByteString): Word; overload;
-function StringRefCount(const S : RawByteString): SizeInt; overload;
-procedure SetCodePage(var s : RawByteString; CodePage : TSystemCodePage; Convert : Boolean = True);
-procedure SetMultiByteConversionCodePage(CodePage: TSystemCodePage);
 {$endif FPC_HAS_FEATURE_ANSISTRINGS}
 
 
@@ -1125,10 +1092,8 @@ Procedure halt;{$ifdef SYSTEMINLINE}inline;{$endif}
 Procedure SysInitExceptions;
 {$endif FPC_HAS_FEATURE_EXCEPTIONS}
 {$ifdef FPC_HAS_FEATURE_CONSOLEIO}
-{$ifndef EMBEDDED}
 procedure SysInitStdIO;
 procedure SysFlushStdIO;
-{$endif EMBEDDED}
 {$endif FPC_HAS_FEATURE_CONSOLEIO}
 {$ifndef FPUNONE}
 Procedure SysResetFPU;

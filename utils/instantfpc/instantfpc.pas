@@ -25,7 +25,7 @@ uses
   Classes, SysUtils, InstantFPTools;
 
 const
-  Version = '1.2';
+  Version = '1.1';
 
 
 Procedure Usage;
@@ -33,13 +33,8 @@ Procedure Usage;
 begin
   writeln('instantfpc '+Version);
   writeln;
-  writeln('Run pascal source files as scripts.');
-  writeln('Normal usage is to add to a program source file a first line');
-  writeln('("shebang") "#!/usr/bin/instantfpc".');
-  writeln('Then you can execute the source directly in the terminal/console.');
-  writeln;
   writeln('instantfpc -h');
-  writeln('      Print this help message and exit.');
+  writeln('      This help message.');
   writeln;
   writeln('instantfpc -v');
   writeln('      Print version and exit.');
@@ -58,27 +53,22 @@ begin
   writeln('      passed to the compiler as first parameters.');
   writeln;
   writeln('instantfpc --get-cache');
-  writeln('      Prints current cache directory and exit.');
+  writeln('      Prints cache directory to stdout.');
   writeln;
-  writeln('Options:');
-  writeln;
-  writeln('  --set-cache=<path to cache>');
+  writeln('instantfpc --set-cache=<path to cache>');
   writeln('      Set the cache to be used. Otherwise using environment variable');
   writeln('      INSTANTFPCCACHE.');
   writeln;
-  writeln('  --compiler=<path to compiler>');
+  writeln('instantfpc --compiler=<path to compiler>');
   writeln('      Normally fpc is searched in PATH and used as compiler.');
   writeln;
-  writeln('  --skip-run');
-  writeln('      Do not execute the program. Useful to test if script compiles.');
-  writeln('      You probably want to combine it with -B.');
-  writeln;
-  writeln('  -B');
-  writeln('      Always recompile.');
+  writeln('Normal usage is to add as first line ("shebang") "#!/usr/bin/instantfpc"');
+  writeln('to a program source file. Then you can execute the source like a script.');
   Halt(0);
 end;
 
 Procedure DisplayCache;
+
 begin
   write(GetCacheDir);
   Halt(0);
@@ -94,11 +84,11 @@ var
   OutputFilename: String;
   ExeExt: String;
   E : String;
-  RunIt: boolean = true;
   
 // Return true if filename found.
   
 Function InterpretParam(p : String) : boolean;
+  
 begin
   Result:=False;
   if (P='') then exit;
@@ -121,11 +111,7 @@ begin
     delete(P,1,12);
     SetCacheDir(p);
     end 
-  else if p='--skip-run' then
-    begin
-    RunIt:=false;
-    end
-  else if (P<>'') and (p[1]<>'-') then
+  else if (P<>'') and (p[1]<>'-') then 
     begin
     Filename:=p;
     Result:=True;
@@ -189,11 +175,10 @@ begin
     if not IsCacheValid(Src,CacheFilename,OutputFilename) then begin
       // save source in cache to find out next time if something changed
       Src.SaveToFile(CacheFilename);
-      Compile(Filename,CacheFilename,OutputFilename);
+      Compile(CacheFilename,OutputFilename);
     end;
     // run
-    if RunIt then
-      Run(OutputFilename);
+    Run(OutputFilename);
   finally
     // memory is freed by OS, but for debugging puposes you can do it manually
     {$IFDEF IFFreeMem}

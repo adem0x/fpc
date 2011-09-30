@@ -1,18 +1,3 @@
-/*
- * This file is part of the Free Pascal run time library.
- * Copyright (c) 2011 by Thomas Schatzl,
- * member of the Free Pascal development team.
- *
- * Startup code for shared libraries, ARM version.
- *
- * See the file COPYING.FPC, included in this distribution,
- * for details about the copyright.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
- */
-
 .file   "dllprt0.as"
 .text
         .globl  _startlib
@@ -39,6 +24,10 @@ FPC_SHARED_LIB_START:
         ldr ip, =__stklen
         str sp, [ip]
 
+        ldr ip, =TC_SYSTEM_ISLIBRARY
+        mov a1, #1
+        str a1, [ip]
+
         /* call main and exit normally */
         bl PASCALMAIN
         ldmdb fp, {fp, sp, pc}
@@ -46,18 +35,14 @@ FPC_SHARED_LIB_START:
         .globl  _haltproc
         .type   _haltproc,#function
 _haltproc:
-        /* reload exitcode */
-        ldr r0,=operatingsystem_result
-        ldr r0,[r0]
+        /* r0 contains exitcode */
         swi 0x900001
         b _haltproc
 
         .globl  _haltproc_eabi
         .type   _haltproc_eabi,#function
 _haltproc_eabi:
-        /* reload exitcode */
-        ldr r0,=operatingsystem_result
-        ldr r0,[r0]
+        /* r0 contains exitcode */
         mov r7,#248
         swi 0x0
         b _haltproc_eabi

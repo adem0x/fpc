@@ -322,11 +322,6 @@ implementation
               procname := procname + 'sint';
           end;
 
-        { for ansistrings insert the encoding argument }
-        if is_ansistring(dest.resultdef) then
-          newparas:=ccallparanode.create(cordconstnode.create(
-            tstringdef(dest.resultdef).encoding,u16inttype,true),newparas);
-
         { free the errornode we generated in the beginning }
         result.free;
         { create the call node, }
@@ -751,15 +746,11 @@ implementation
                         end;
 {                      indexpara.right:=lenpara;}
                     end;
-                  { in case of writing a chararray, add whether it's zero-based }
+                  { in case of writing a chararray, add whether it's }
+                  { zero-based                                       }
                   if para.left.resultdef.typ=arraydef then
                     para := ccallparanode.create(cordconstnode.create(
-                      ord(tarraydef(para.left.resultdef).lowrange=0),pasbool8type,false),para)
-                  else
-                  { in case of reading an ansistring pass a codepage argument }
-                  if do_read and is_ansistring(para.left.resultdef) then
-                    para:=ccallparanode.create(cordconstnode.create(
-                      tstringdef(para.left.resultdef).encoding,u16inttype,true),para);
+                      ord(tarraydef(para.left.resultdef).lowrange=0),pasbool8type,false),para);
                   { create the call statement }
                   addstatement(Tstatementnode(newstatement),
                     ccallnode.createintern(name,para));
@@ -3187,11 +3178,6 @@ implementation
 
      function tinlinenode.first_sqr_real : tnode;
       begin
-{$ifndef cpufpemu}
-        { this procedure might be only used for cpus definining cpufpemu else
-          the optimizer might go into an endless loop when doing x*x -> changes }
-        internalerror(2011092401);
-{$endif cpufpemu}
         { create the call to the helper }
         { on entry left node contains the parameter }
         first_sqr_real := ctypeconvnode.create(ccallnode.createintern('fpc_sqr_real',

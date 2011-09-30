@@ -1261,7 +1261,7 @@ implementation
                   a local copy }
                 if not(current_procinfo.procdef.proccalloption in cdecl_pocalls) then
                   begin
-                    hsym:=tparavarsym(get_high_value_sym(tparavarsym(p)));
+                    hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
                     if not assigned(hsym) then
                       internalerror(200306061);
                     hreg:=cg.getaddressregister(list);
@@ -1377,8 +1377,10 @@ implementation
            trashintval := trashintvalues[localvartrashing];
            case tabstractnormalvarsym(p).initialloc.loc of
              LOC_CREGISTER :
-{$push}
+{$ifopt q+}
+{$define overflowon}
 {$q-}
+{$endif}
                begin
                  { avoid problems with broken x86 shifts }
                  case tcgsize2size[tabstractnormalvarsym(p).initialloc.size] of
@@ -1397,7 +1399,10 @@ implementation
                      internalerror(2010060801);
                  end;
                end;
-{$pop}
+{$ifdef overflowon}
+{$undef overflowon}
+{$q+}
+{$endif}
              LOC_REFERENCE :
                begin
                    if ((tsym(p).typ=localvarsym) and
@@ -1604,7 +1609,7 @@ implementation
                          begin
                            { open arrays do not contain correct element count in their rtti,
                              the actual count must be passed separately. }
-                           hsym:=tparavarsym(get_high_value_sym(tparavarsym(p)));
+                           hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
                            eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
                            if not assigned(hsym) then
                              internalerror(201003031);
@@ -1639,7 +1644,7 @@ implementation
                        begin
                          if is_open_array(tparavarsym(p).vardef) then
                            begin
-                             hsym:=tparavarsym(get_high_value_sym(tparavarsym(p)));
+                             hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
                              eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
                              if not assigned(hsym) then
                                internalerror(201103033);
@@ -1694,7 +1699,7 @@ implementation
               location_get_data_ref(list,tparavarsym(p).localloc,href,is_open_array(tparavarsym(p).vardef),sizeof(pint));
               if is_open_array(tparavarsym(p).vardef) then
                 begin
-                  hsym:=tparavarsym(get_high_value_sym(tparavarsym(p)));
+                  hsym:=tparavarsym(tsym(p).owner.Find('high'+tsym(p).name));
                   eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
                   if not assigned(hsym) then
                     internalerror(201003032);
@@ -2794,8 +2799,6 @@ implementation
         oldhi, newhi: tregister;
 {$endif not cpu64bitalu}
         ressym: tsym;
-        { moved sym }
-        sym : tsym;
       end;
 
 
@@ -2827,7 +2830,6 @@ implementation
                       exit;
 {$endif not cpu64bitalu}
                   tabstractnormalvarsym(tloadnode(n).symtableentry).localloc.register := rr^.new;
-                  rr^.sym := tabstractnormalvarsym(tloadnode(n).symtableentry);
                   result := fen_norecurse_true;
                 end;
             end;
@@ -2873,7 +2875,6 @@ implementation
           exit;
         rr.old := n.location.register;
         rr.ressym := nil;
-        rr.sym := nil;
       {$ifndef cpu64bitalu}
         rr.oldhi := NR_NO;
       {$endif not cpu64bitalu}
@@ -2943,16 +2944,10 @@ implementation
           begin
             n.location.register64.reglo := rr.new;
             n.location.register64.reghi := rr.newhi;
-            if assigned(rr.sym) then
-              list.concat(tai_varloc.create64(rr.sym,rr.new,rr.newhi));
           end
         else
       {$endif not cpu64bitalu}
-          begin
-            n.location.register := rr.new;
-            if assigned(rr.sym) then
-              list.concat(tai_varloc.create(rr.sym,rr.new));
-          end;
+          n.location.register := rr.new;
       end;
 
 
@@ -3137,7 +3132,7 @@ implementation
 {$ENDIF arm}
         begin
 {$IFDEF arm}
-          if current_settings.cputype in [cpu_armv7m] then
+          if current_settings.cputype in [cpu_armv7m, cpu_cortexm3] then
             current_asmdata.asmlists[al_globals].concat(tai_const.Createname(name,0))
           else
             begin
@@ -3151,7 +3146,7 @@ implementation
       function GetInterruptTableLength: longint;
         begin
 {$if defined(ARM)}
-          result:=embedded_controllers[current_settings.controllertype].interruptvectors;
+          result:=interruptvectors[current_settings.controllertype];
 {$else}
           result:=0;
 {$endif}
@@ -3199,7 +3194,7 @@ implementation
         new_section(current_asmdata.asmlists[al_globals],sec_init,'VECTORS',sizeof(pint));
         current_asmdata.asmlists[al_globals].concat(Tai_symbol.Createname_global('VECTORS',AT_DATA,0));
 {$IFDEF arm}
-        if current_settings.cputype in [cpu_armv7m] then
+        if current_settings.cputype in [cpu_armv7m, cpu_cortexm3] then
           current_asmdata.asmlists[al_globals].concat(tai_const.Createname('_stack_top',0)); { ARMv7-M processors have the initial stack value at address 0 }
 {$ENDIF arm}
 

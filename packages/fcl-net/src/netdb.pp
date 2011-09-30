@@ -300,9 +300,9 @@ Var
 begin
   Result:=Nil;
   Assign(F,FileName);
-  {$push}{$I-}
+  {$I-}
   Reset(F);
-  {$pop};
+  {$I+};
   If (IOResult<>0) then
     Exit;
   Try  
@@ -462,10 +462,10 @@ begin
   Result:=0;
   ResolveFileName:=Fn;
   ResolveFileAge:=FileAge(FN);
-  {$push}{$i-}
+  {$i-}
   Assign(R,FN);
   Reset(R);
-  {$pop}
+  {$i+}
   If (IOResult<>0) then 
     exit;
   Try  
@@ -1167,9 +1167,9 @@ begin
   If FileExists(SProtocolFile) then
     begin
     Assign(F,SProtocolFile);
-    {$push}{$i-}
+    {$i-}
     Reset(F);
-    {$pop}
+    {$i+}
     If (IOResult=0) then
       begin
       While Not Result and GetNextProtoEntry(F,HE) do
@@ -1269,9 +1269,9 @@ begin
   If FileExists(SNetworksFile) then
     begin
     Assign(F,SNetworksFile);
-    {$push}{$i-}
+    {$i-}
     Reset(F);
-    {$pop}
+    {$i+}
     If (IOResult=0) then
       begin
       While Not Result and GetNextNetworkEntry(F,NE) do
@@ -1362,9 +1362,9 @@ begin
   If FileExists(SServicesFile) then
     begin
     Assign(F,SServicesFile);
-    {$push}{$i-}
+    {$i-}
     Reset(F);
-    {$pop}
+    {$i+}
     If (IOResult=0) then
       begin
       While Not Result and GetNextServiceEntry(F,TE) do

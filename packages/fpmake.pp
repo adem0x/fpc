@@ -2,7 +2,7 @@
 {$define allpackages}
 program fpmake;
 
-uses fpmkunit, sysutils, Classes;
+uses fpmkunit;
 
 Var
   TBuild,T : TTarget;
@@ -28,7 +28,7 @@ begin
     begin
       // Create fpc-all package
       PBuild:=AddPackage('fpc-all');
-      PBuild.Version:='2.7.1';
+      PBuild.Version:='2.2.2-0';
       Run;
     end;
 end.

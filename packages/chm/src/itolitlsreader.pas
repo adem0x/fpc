@@ -372,7 +372,6 @@ begin
   StreamPos:=HeaderSectionTable[1].OffSet;
   fStream.Read(IFCM, SizeOf(IFCM));
   StartOfChunks := fstream.Position;
-  {$push}
   {$R-}
   ChunkIndex:=PostHeader.ListChunkInfo.TopAOLIChunkIndex;
   if ChunkIndex = -1 then
@@ -424,7 +423,7 @@ begin
 
 
   end;
-  {$pop}
+  {$R+}
   Chunk.Free;
   Result := fCachedEntry.DecompressedLength;
 

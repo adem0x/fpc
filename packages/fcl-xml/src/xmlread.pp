@@ -314,7 +314,6 @@ type
     FCanonical: Boolean;
     FMaxChars: Cardinal;
 
-    procedure SetEOFState;
     procedure SkipQuote(out Delim: WideChar; required: Boolean = True);
     procedure Initialize(ASource: TXMLCharSource);
     procedure NSPrepare;
@@ -384,7 +383,6 @@ type
     procedure ExpectEq;
     procedure ParseDoctypeDecl;                                         // [28]
     procedure ParseMarkupDecl;                                          // [29]
-    procedure ParseIgnoreSection;
     procedure ParseStartTag;                                            // [39]
     procedure ParseEndTag;                                              // [42]
     function DoStartElement: TDOMElement;
@@ -1287,8 +1285,6 @@ begin
   FIDMap.Free;
   FForwardRefs.Free;
   FAttrChunks.Free;
-  if doc = nil then
-    FNameTable.Free;
   inherited Destroy;
 end;
 
@@ -1310,8 +1306,8 @@ begin
     FStdPrefix_xml := FNSHelper.GetPrefix(@PrefixDefault, 3);
     FStdPrefix_xmlns := FNSHelper.GetPrefix(@PrefixDefault, 5);
 
-    FStdUri_xmlns := FNameTable.FindOrAdd(stduri_xmlns);
-    FStdUri_xml := FNameTable.FindOrAdd(stduri_xml);
+    FStdUri_xmlns := FNameTable.FindOrAdd(PWideChar(stduri_xmlns), Length(stduri_xmlns));
+    FStdUri_xml := FNameTable.FindOrAdd(PWideChar(stduri_xml), Length(stduri_xml));
   end;
 end;
 
@@ -1572,7 +1568,6 @@ var
   start: TObject;
   curr: PNodeData;
   StartPos: Integer;
-  entName: PHashItem;
 begin
   SkipQuote(Delim);
   curr := AttrData;
@@ -1588,7 +1583,6 @@ begin
       if ParseRef(FValue) or ResolvePredefined then
         Continue;
 
-      entName := FNameTable.FindOrAdd(FName.Buffer, FName.Length);
       ent := EntityCheck(True);
       if ((ent = nil) or (not FExpandEntities)) and (FSource.FEntity = start) then
       begin
@@ -1601,7 +1595,11 @@ begin
         end;
         curr := AllocAttributeValueChunk(curr);
         curr^.FNodeType := ntEntityReference;
-        curr^.FQName := entName;
+        // TODO: this probably should be placed to 'name'
+        if ent = nil then
+          SetString(curr^.FValueStr, FName.Buffer, FName.Length)
+        else
+          curr^.FValueStr := ent.FName;
       end;
       StartPos := FValue.Length;
       if Assigned(ent) then
@@ -1885,7 +1883,7 @@ begin
 
   if not discard then
   begin
-    FCurrNode := @FNodeStack[FNesting];
+    FCurrNode := @FNodeStack[FNesting+1];
     FCurrNode^.FNodeType := ntComment;
     FCurrNode^.FQName := nil;
     FCurrNode^.FValueStart := @FValue.Buffer[SaveLength];
@@ -2501,36 +2499,19 @@ begin
     Entity.Free;
 end;
 
-procedure TXMLTextReader.ParseIgnoreSection;
-var
-  IgnoreLoc: TLocation;
-  IgnoreLevel: Integer;
-  wc: WideChar;
-begin
-  StoreLocation(IgnoreLoc);
-  IgnoreLevel := 1;
-  repeat
-    FValue.Length := 0;
-    wc := FSource.SkipUntil(FValue, [#0, '<', ']']);
-    if FSource.Matches('<![') then
-      Inc(IgnoreLevel)
-    else if FSource.Matches(']]>') then
-      Dec(IgnoreLevel)
-    else if wc <> #0 then
-      FSource.NextChar
-    else // PE's aren't recognized in ignore section, cannot ContextPop()
-      DoErrorPos(esFatal, 'IGNORE section is not closed', IgnoreLoc);
-  until IgnoreLevel=0;
-end;
 
 procedure TXMLTextReader.ParseMarkupDecl;        // [29]
 var
   IncludeLevel: Integer;
+  IgnoreLevel: Integer;
   CurrentEntity: TObject;
   IncludeLoc: TLocation;
+  IgnoreLoc: TLocation;
+  wc: WideChar;
   CondType: (ctUnknown, ctInclude, ctIgnore);
 begin
   IncludeLevel := 0;
+  IgnoreLevel := 0;
   repeat
     SkipWhitespace;
 
@@ -2549,8 +2530,7 @@ begin
     if FSource.FBuf^ = '?' then
     begin
       ParsePI;
-      if Assigned(doc) then
-        doc.AppendChild(CreatePINode);
+      doc.AppendChild(CreatePINode);
     end
     else
     begin
@@ -2583,7 +2563,22 @@ begin
           Inc(IncludeLevel);
         end
         else if CondType = ctIgnore then
-          ParseIgnoreSection;
+        begin
+          StoreLocation(IgnoreLoc);
+          IgnoreLevel := 1;
+          repeat
+            FValue.Length := 0;
+            wc := FSource.SkipUntil(FValue, [#0, '<', ']']);
+            if FSource.Matches('<![') then
+              Inc(IgnoreLevel)
+            else if FSource.Matches(']]>') then
+              Dec(IgnoreLevel)
+            else if wc <> #0 then
+              FSource.NextChar
+            else // PE's aren't recognized in ignore section, cannot ContextPop()
+              DoErrorPos(esFatal, 'IGNORE section is not closed', IgnoreLoc);
+          until IgnoreLevel=0;
+        end;
       end
       else
       begin
@@ -2636,10 +2631,7 @@ var
   Ent: TDOMEntityEx;
   DoctypeNode: TDOMDocumentType;
 begin
-  if Assigned(doc) then
-    DoctypeNode := doc.DocType
-  else
-    Exit;
+  DoctypeNode := doc.DocType;
   if DoctypeNode = nil then
     Exit;
   Ent := TDOMEntityEx(DocTypeNode.Entities.GetNamedItem(AEntity.FName));
@@ -2662,14 +2654,6 @@ begin
   end;
 end;
 
-
-procedure TXMLTextReader.SetEOFState;
-begin
-  FCurrNode := @FNodeStack[0];
-  Finalize(FCurrNode^);
-  FillChar(FCurrNode^, sizeof(TNodeData), 0);
-end;
-
 procedure TXMLTextReader.ValidateCurrentNode;
 var
   ElDef: TElementDecl;
@@ -2680,7 +2664,7 @@ begin
   case FCurrNode^.FNodeType of
     ntElement:
       begin
-        if (FNesting = 0) and (not FFragmentMode) then
+        if (FNesting = 1) and (not FFragmentMode) then
         begin
           if Assigned(FDocType) then
           begin
@@ -2768,7 +2752,8 @@ end;
 
 procedure TXMLTextReader.HandleEntityStart;
 begin
-  FCurrNode := @FNodeStack[FNesting];
+  { FNesting+1 is available due to overallocation in AllocNodeData() }
+  FCurrNode := @FNodeStack[FNesting+1];
   FCurrNode^.FNodeType := ntEntityReference;
   FCurrNode^.FQName := FNameTable.FindOrAdd(FName.Buffer, FName.Length);
   FCurrNode^.FValueStart := nil;
@@ -2779,7 +2764,7 @@ procedure TXMLTextReader.HandleEntityEnd;
 begin
   ContextPop(True);
   if FNesting > 0 then Dec(FNesting);
-  FCurrNode := @FNodeStack[FNesting];
+  FCurrNode := @FNodeStack[FNesting+1];
   FCurrNode^.FNodeType := ntEndEntity;
   // TODO: other properties of FCurrNode
   FNext := xtText;
@@ -3031,7 +3016,6 @@ begin
           Exit;
         end;
       end;
-    xtEOF:  SetEofState;
   end;
   Result := tok <> xtEOF;
 end;
@@ -3058,7 +3042,6 @@ begin
     if FAttrCleanupFlag then
       CleanupAttributes;
     FAttrCount := 0;
-    Inc(FNesting);
     FNext := xtText;
   end
   else if FNext = xtPopElement then
@@ -3128,7 +3111,7 @@ begin
       if InCDATA then
         FatalError('Unterminated CDATA section', -1);
       if FNesting > FSource.FStartNesting then
-        FatalError('End-tag is missing for ''%s''', [FNodeStack[FNesting-1].FQName^.Key]);
+        FatalError('End-tag is missing for ''%s''', [FNodeStack[FNesting].FQName^.Key]);
 
       if Assigned(FSource.FParent) then
       begin
@@ -3205,7 +3188,6 @@ begin
     xtPI:         ParsePI;
     xtDoctype:    ParseDoctypeDecl;
     xtComment:    ParseComment(False);
-    xtEOF:        SetEofState;
   end;
   Result := tok <> xtEOF;
 end;
@@ -3246,6 +3228,7 @@ begin
   FPrefixedAttrs := 0;
   FSpecifiedAttrs := 0;
 
+  Inc(FNesting);
   FCurrNode := AllocNodeData(FNesting);
   FCurrNode^.FQName := ElName;
   FCurrNode^.FNodeType := ntElement;
@@ -3292,13 +3275,13 @@ begin
       b := TBinding(FCurrNode^.FPrefix^.Data);
       if not (Assigned(b) and (b.uri <> '')) then
         DoErrorPos(esFatal, 'Unbound element name prefix "%s"', [FCurrNode^.FPrefix^.Key],FCurrNode^.FLoc);
-      FCurrNode^.FNsUri := FNameTable.FindOrAdd(b.uri);
+      FCurrNode^.FNsUri := FNameTable.FindOrAdd(PWideChar(b.uri), Length(b.uri));
     end
     else
     begin
       b := FNSHelper.DefaultNSBinding;
       if Assigned(b) then
-        FCurrNode^.FNsUri := FNameTable.FindOrAdd(b.uri);
+        FCurrNode^.FNsUri := FNameTable.FindOrAdd(PWideChar(b.uri), Length(b.uri));
     end;
   end;
 
@@ -3318,7 +3301,6 @@ var
 begin
   if FNesting <= FSource.FStartNesting then
     FatalError('End-tag is not allowed here');
-  if FNesting > 0 then Dec(FNesting);
   Inc(FSource.FBuf);
 
   FCurrNode := @FNodeStack[FNesting];  // move off the possible child
@@ -3482,7 +3464,7 @@ function TXMLTextReader.AddBinding(attrData: PNodeData): Boolean;
 var
   nsUri, Pfx: PHashItem;
 begin
-  nsUri := FNameTable.FindOrAdd(attrData^.FValueStr);
+  nsUri := FNameTable.FindOrAdd(PWideChar(attrData^.FValueStr), Length(attrData^.FValueStr));
   if attrData^.FColonPos > 0 then
     Pfx := FNSHelper.GetPrefix(@attrData^.FQName^.key[7], Length(attrData^.FQName^.key)-6)
   else
@@ -3532,7 +3514,7 @@ begin
     if FNsAttHash.Locate(@b.uri, @AttrName^.Key[J], Length(AttrName^.Key) - J+1) then
       DoErrorPos(esFatal, 'Duplicate prefixed attribute', attrData^.FLoc);
 
-    attrData^.FNsUri := FNameTable.FindOrAdd(b.uri);
+    attrData^.FNsUri := FNameTable.FindOrAdd(PWideChar(b.uri), Length(b.uri));
   end;
 end;
 
@@ -3652,7 +3634,7 @@ var
   Notation: TNotationDecl;
   Entry: PHashItem;
 begin
-  Entry := FDocType.Notations.FindOrAdd(aName);
+  Entry := FDocType.Notations.FindOrAdd(PWideChar(aName), Length(aName));
   if Entry^.Data = nil then
   begin
     Notation := TNotationDecl.Create;
@@ -3692,12 +3674,9 @@ begin
     SetLength(FNodeStack, AIndex * 2 + 2);
 
   Result := @FNodeStack[AIndex];
-  Result^.FNext := nil;
   Result^.FPrefix := nil;
   Result^.FNsUri := nil;
   Result^.FIDEntry := nil;
-  Result^.FValueStart := nil;
-  Result^.FValueLength := 0;
 end;
 
 function TXMLTextReader.AllocAttributeValueChunk(APrev: PNodeData): PNodeData;
@@ -3753,7 +3732,8 @@ end;
 
 procedure TXMLTextReader.SetNodeInfoWithValue(typ: TXMLNodeType; AName: PHashItem = nil);
 begin
-  FCurrNode := @FNodeStack[FNesting];
+  {FNesting+1 is available due to overallocation in AllocNodeData() }
+  FCurrNode := @FNodeStack[FNesting+1];
   FCurrNode^.FNodeType := typ;
   FCurrNode^.FQName := AName;
   FCurrNode^.FValueStart := FValue.Buffer;
@@ -3795,8 +3775,9 @@ begin
   if FNamespaces then
     FNSHelper.EndElement;
 
-  if (FNesting = 0) and (not FFragmentMode) then
+  if (FNesting = 1) and (not FFragmentMode) then
     FState := rsEpilog;
+  if FNesting > 0 then Dec(FNesting);
   FCurrNode := @FNodeStack[FNesting];
   FNext := xtText;
 end;

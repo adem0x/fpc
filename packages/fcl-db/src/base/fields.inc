@@ -1069,7 +1069,10 @@ end;
 function TStringField.GetDataSize: Integer;
 
 begin
-  Result:=Size+1;
+  if DataType=ftFixedChar then
+    Result:=Size+1
+  else
+    Result:=Size+1;
 end;
 
 function TStringField.GetDefaultWidth: Longint;

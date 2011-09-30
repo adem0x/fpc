@@ -1,6 +1,5 @@
 { %target=win32,wince,win64 }
 { %opt=-gh }
-{ %needlibrary }
 { %norun }
 library dll2;
 

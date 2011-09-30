@@ -32,6 +32,9 @@ interface
   {$R-}
 {$endif}
 
+{$ifopt q+}
+  {$define ena_q}
+{$endif}
 
 type  Tconstexprint=record
         overflow:boolean;
@@ -162,9 +165,9 @@ begin
 
   {Try if the result fits in an int64.}
   if (a.signed) and (a.svalue<0) then
-    {$push}{$Q-}
+    {$Q-}
     sspace:=qword(high(int64))+qword(-a.svalue)
-    {$pop}
+    {$ifdef ena_q}{$Q+}{$endif}
   else if not a.signed and (a.uvalue>qword(high(int64))) then
     goto try_qword
   else
@@ -173,9 +176,9 @@ begin
   if sspace>=b then
     begin
       result.signed:=true;
-      {$push} {$Q-}
+      {$Q-}
       result.svalue:=a.svalue+int64(b);
-      {$pop}
+      {$ifdef ena_q}{$Q+}{$endif}
       exit;
     end;
 
@@ -190,9 +193,9 @@ try_qword:
   if uspace>=b then
     begin
       result.signed:=false;
-      {$push} {$Q-}
+      {$Q-}
       result.uvalue:=a.uvalue+b;
-      {$pop}
+      {$ifdef ena_q}{$Q+}{$endif}
       exit;
     end;
   result.overflow:=true;
@@ -211,9 +214,9 @@ begin
 
   {Try if the result fits in an int64.}
   if (a.signed) and (a.svalue<0) then
-    {$push} {$Q-}
+    {$Q-}
     sspace:=qword(a.svalue)+abs_low_int64
-    {$pop}
+    {$ifdef ena_q}{$Q+}{$endif}
   else if not a.signed and (a.uvalue>qword(high(int64))) then
     goto try_qword
   else
@@ -221,9 +224,9 @@ begin
   if sspace>=b then
     begin
       result.signed:=true;
-      {$push} {$Q-}
+      {$Q-}
       result.svalue:=a.svalue-int64(b);
-      {$pop}
+      {$ifdef ena_q}{$Q+}{$endif}
       exit;
     end;
 
@@ -232,9 +235,9 @@ try_qword:
   if not(a.signed and (a.svalue<0)) and (a.uvalue>=b) then
     begin
       result.signed:=false;
-      {$push} {$Q-}
+      {$Q-}
       result.uvalue:=a.uvalue-b;
-      {$pop}
+      {$ifdef ena_q}{$Q+}{$endif}
       exit;
     end;
 ov:
@@ -250,9 +253,9 @@ begin
       exit;
     end;
   if b.signed and (b.svalue<0) then
-    {$push} {$Q-}
+    {$Q-}
     result:=sub_from(a,qword(-b.svalue))
-    {$pop}
+    {$ifdef ena_q}{$Q+}{$endif}
   else
     result:=add_to(a,b.uvalue);
 end;
@@ -266,9 +269,9 @@ begin
       exit;
     end;
   if b.signed and (b.svalue<0) then
-    {$push} {$Q-}
+    {$Q-}
     result:=add_to(a,qword(-b.svalue))
-    {$pop}
+    {$ifdef ena_q}{$Q+}{$endif}
   else
     result:=sub_from(a,b.uvalue);
 end;
@@ -345,16 +348,16 @@ begin
   result.overflow:=false;
   sa:=a.signed and (a.svalue<0);
   if sa then
-    {$push} {$Q-}
+    {$Q-}
     aa:=qword(-a.svalue)
-    {$pop}
+    {$ifdef ena_q}{$Q+}{$endif}
   else
     aa:=a.uvalue;
   sb:=b.signed and (b.svalue<0);
   if sb then
-    {$push} {$Q-}
+    {$Q-}
     bb:=qword(-b.svalue)
-    {$pop}
+    {$ifdef ena_q}{$Q+}{$endif}
   else
     bb:=b.uvalue;
 
@@ -393,16 +396,16 @@ begin
   result.overflow:=false;
   sa:=a.signed and (a.svalue<0);
   if sa then
-    {$push} {$Q-}
+    {$Q-}
     aa:=qword(-a.svalue)
-    {$pop}
+    {$ifdef ena_q}{$Q+}{$endif}
   else
     aa:=a.uvalue;
   sb:=b.signed and (b.svalue<0);
   if sb then
-    {$push} {$Q-}
+    {$Q-}
     bb:=qword(-b.svalue)
-    {$pop}
+    {$ifdef ena_q}{$Q+}{$endif}
   else
     bb:=b.uvalue;
   if bb=0 then

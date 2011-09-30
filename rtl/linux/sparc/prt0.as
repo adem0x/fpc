@@ -19,14 +19,6 @@
    02111-1307 USA.  */
 
 	.section ".text"
-
-	.align 4
-	.global _dynamic_start
-	.type _dynamic_start,#function
-_dynamic_start:
-        /* TODO: need to set __dl_fini here */
-        b _start
-
 	.align 4
 	.global _start
 	.type _start,#function
@@ -57,7 +49,7 @@ _start:
 	or	%o1,%lo(operatingsystem_parameter_envp),%o1
 	st	%o2, [%o1]
 
-        /* Save initial stackpointer */
+    /* Save initial stackpointer */
 	sethi	%hi(__stkptr),%o1
 	or	%o1,%lo(__stkptr),%o1
 	st	%sp, [%o1]
@@ -65,15 +57,11 @@ _start:
   	/* Call the user program entry point.  */
   	call	PASCALMAIN
   	nop
-	/* Die very horribly if main returns.  */
-	unimp
 
 .globl  _haltproc
 .type   _haltproc,@function
 _haltproc:
-        /* TODO: need to check whether __dl_fini is non-zero and call the function pointer in case */
-
-	mov	188, %g1		/* "exit_group" system call */
+	mov	188, %g1			/* "exit_group" system call */
 	ta	0x10			/* dot the system call */
 	nop				/* delay slot */
 	/* Die very horribly if exit returns.  */
@@ -82,7 +70,6 @@ _haltproc:
 	.size _start, .-_start
 
         .comm __stkptr,4
-        .comm __dl_fini,4
 
         .comm operatingsystem_parameter_envp,4
         .comm operatingsystem_parameter_argc,4

@@ -78,7 +78,6 @@ var
 
 const
   DoGraph : boolean = false;
-  UseOSOnly : boolean = false;
   DoInteractive : boolean = false;
   DoExecute : boolean = false;
   DoKnown : boolean = false;
@@ -532,10 +531,7 @@ end;
 
 function CompilerFullTarget:string;
 begin
-  if UseOSOnly then
-    CompilerFullTarget:=CompilerTarget
-  else
-    CompilerFullTarget:=CompilerCPU+'-'+CompilerTarget;
+  CompilerFullTarget:=CompilerCPU+'-'+CompilerTarget;
 end;
 
 { Set the three constants above according to
@@ -583,24 +579,6 @@ begin
   else if LTarget='wince' then
     ExeExt:='.exe';
 end;
-
-{$ifndef LIMIT83FS}
-{ Set the UseOSOnly constant above according to
-  the current target }
-
-procedure SetUseOSOnly;
-var
-  LTarget : string;
-  res : boolean;
-begin
-  { Call this first to ensure that CompilerTarget is not empty }
-  res:=GetCompilerTarget;
-  LTarget := lowercase(CompilerTarget);
-  UseOSOnly:= (LTarget='emx') or
-              (LTarget='go32v2') or
-              (LTarget='os2');
-end;
-{$endif not LIMIT83FS}
 
 procedure SetTargetCanCompileLibraries;
 var
@@ -1295,14 +1273,14 @@ begin
       Res:=GetCompilerCPU;
       Res:=GetCompilerTarget;
 {$ifndef MACOS}
-      RTLUnitsDir:='units/'+CompilerFullTarget;
+      RTLUnitsDir:='units/'+{$ifdef LIMIT83FS}CompilerTarget{$else}CompilerFullTarget{$endif};
 {$else MACOS}
       RTLUnitsDir:=':units:'+CompilerFullTarget;
 {$endif MACOS}
       if not PathExists(RTLUnitsDir) then
         Verbose(V_Abort,'Unit path "'+RTLUnitsDir+'" does not exists');
 {$ifndef MACOS}
-      OutputDir:='output/'+CompilerFullTarget;
+      OutputDir:='output/'+{$ifdef LIMIT83FS}CompilerTarget{$else}CompilerFullTarget{$endif};
 {$else MACOS}
       OutputDir:=':output:'+CompilerFullTarget;
 {$endif MACOS}
@@ -1553,11 +1531,6 @@ begin
   GetArgs;
   SetTargetDirectoriesStyle;
   SetTargetCanCompileLibraries;
-{$ifdef LIMIT83fs}
-  UseOSOnly:=true;
-{$else not LIMIT83fs}
-  SetUseOSOnly;
-{$endif not LIMIT83fs}
   Verbose(V_Debug,'Found '+ToStr(PPFile.Count)+' tests to run');
   if current>0 then
     for current:=0 to PPFile.Count-1 do

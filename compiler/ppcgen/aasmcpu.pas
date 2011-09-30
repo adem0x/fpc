@@ -554,10 +554,15 @@ uses cutils, cclasses;
                            assigned(taicpu(p).oper[0]^.ref^.symbol) and
                            (taicpu(p).oper[0]^.ref^.symbol is tasmlabel) and
                            (labelpositions[tasmlabel(taicpu(p).oper[0]^.ref^.symbol).labelnr] <> NIL) and
-{$push}
+{$ifopt q+}
 {$q-}
+{$define overflowon}
+{$endif}
                            (ptruint(abs(ptrint(labelpositions[tasmlabel(taicpu(p).oper[0]^.ref^.symbol).labelnr]-instrpos)) - (low(smallint) div 4)) > ptruint((high(smallint) - low(smallint)) div 4)) then
-{$pop}
+{$ifdef overflowon}
+{$q+}
+{$undef overflowon}
+{$endif}
                           begin
                             // add a new label after this jump
                             current_asmdata.getjumplabel(l);

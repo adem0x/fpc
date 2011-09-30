@@ -2187,11 +2187,23 @@ End;
     ScrOfs:=y*ScrWidth+x div 8 + VideoOfs;
     HLength:=x2 div 8-x div 8;
     LMask:=$ff shr (x and 7);
-{$push}
+{$ifopt r+}
+{$define rangeOn}
 {$r-}
+{$endif}
+{$ifopt q+}
+{$define overflowOn}
 {$q-}
+{$endif}
     RMask:=$ff shl (7-(x2 and 7));
-{$pop}
+{$ifdef rangeOn}
+{$undef rangeOn}
+{$r+}
+{$endif}
+{$ifdef overflowOn}
+{$undef overflowOn}
+{$q+}
+{$endif}
     if HLength=0 then
       LMask:=LMask and RMask;
     If CurrentWriteMode <> NotPut Then
@@ -2212,11 +2224,23 @@ End;
     end;
 
     PortW[$3ce]:=(LMask shl 8) or 8;
-{$push}
+{$ifopt r+}
+{$define rangeOn}
 {$r-}
+{$endif}
+{$ifopt q+}
+{$define overflowOn}
 {$q-}
+{$endif}
     Mem[SegA000:ScrOfs]:=Mem[SegA000:ScrOfs]+1;
-{$pop}
+{$ifdef rangeOn}
+{$undef rangeOn}
+{$r+}
+{$endif}
+{$ifdef overflowOn}
+{$undef overflowOn}
+{$q+}
+{$endif}
     {Port[$3ce]:=8;}{not needed, the register is already selected}
     if HLength>0 then
       begin
@@ -2233,11 +2257,23 @@ End;
               ScrOfs:=ScrOfs+HLength;
            end;
          Port[$3cf]:=RMask;
-{$push}
+{$ifopt r+}
+{$define rangeOn}
 {$r-}
+{$endif}
+{$ifopt q+}
+{$define overflowOn}
 {$q-}
+{$endif}
          Mem[Sega000:ScrOfs]:=Mem[SegA000:ScrOfs]+1;
-{$pop}
+{$ifdef rangeOn}
+{$undef rangeOn}
+{$r+}
+{$endif}
+{$ifdef overflowOn}
+{$undef overflowOn}
+{$q+}
+{$endif}
       end;
     { clean up }
     {Port[$3cf]:=0;}{not needed, the register is reset by the next operation:}
@@ -2292,11 +2328,23 @@ End;
     end;
     for i:=y to y2 do
       begin
-{$push}
+{$ifopt r+}
+{$define rangeOn}
 {$r-}
+{$endif}
+{$ifopt q+}
+{$define overflowOn}
 {$q-}
+{$endif}
          Mem[SegA000:ScrOfs]:=Mem[Sega000:ScrOfs]+1;
-{$pop}
+{$ifdef rangeOn}
+{$undef rangeOn}
+{$r+}
+{$endif}
+{$ifdef overflowOn}
+{$undef overflowOn}
+{$q+}
+{$endif}
          ScrOfs:=ScrOfs+ScrWidth;
       end;
     { clean up }

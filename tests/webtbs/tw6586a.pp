@@ -1,5 +1,4 @@
 { %target=win32,win64,wince,darwin,linux,freebsd,solaris,beos }
-{ %needlibrary }
 { %norun }
 
 library tw6586a;

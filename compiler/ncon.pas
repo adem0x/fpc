@@ -342,7 +342,7 @@ implementation
 
     constructor tdataconstnode.ppuload(t:tnodetype;ppufile:tcompilerppufile);
       var
-        len : tcgint;
+        len : aint;
         buf : array[0..255] of byte;
       begin
         inherited ppuload(t,ppufile);
@@ -378,7 +378,7 @@ implementation
 
     procedure tdataconstnode.ppuwrite(ppufile:tcompilerppufile);
       var
-        len : tcgint;
+        len : aint;
         buf : array[0..255] of byte;
       begin
         inherited ppuwrite(ppufile);
@@ -406,7 +406,7 @@ implementation
     function tdataconstnode.dogetcopy : tnode;
       var
         n : tdataconstnode;
-        len : tcgint;
+        len : aint;
         buf : array[0..255] of byte;
       begin
         n:=tdataconstnode(inherited dogetcopy);
@@ -982,9 +982,6 @@ implementation
       var
         pw : pcompilerwidestring;
         pc : pchar;
-        cp1 : tstringencoding;
-        cp2 : tstringencoding;
-        l,l2 : longint;
       begin
         if def.typ<>stringdef then
           internalerror(200510011);
@@ -1002,41 +999,11 @@ implementation
           if (cst_type in [cst_widestring,cst_unicodestring]) and
             not(tstringdef(def).stringtype in [st_widestring,st_unicodestring]) then
             begin
-              if (tstringdef(def).encoding=CP_UTF8) or
-                 (current_settings.sourcecodepage=CP_UTF8) then
-                begin
-                  pw:=pcompilerwidestring(value_str);
-                  l:=(getlengthwidestring(pw)*4)+1;
-                  getmem(pc,l);   
-                  l2:=UnicodeToUtf8(pc,l,PUnicodeChar(pw^.data),getlengthwidestring(pw));
-                  if (l<>l2) then
-                    ReAllocMem(pc,l2);
-                  len:=l2-1;
-                  donewidestring(pw);
-                  value_str:=pc;
-                  if (tstringdef(def).encoding<>CP_UTF8) then
-                    tstringdef(def).encoding:=CP_UTF8;
-                end
-              else
-                begin
-                  pw:=pcompilerwidestring(value_str);
-                  getmem(pc,getlengthwidestring(pw)+1);
-                  unicode2ascii(pw,pc,tstringdef(def).encoding);
-                  donewidestring(pw);
-                  value_str:=pc;
-                end;
-            end
-        else 
-          if (tstringdef(def).stringtype = st_ansistring) and
-             not(cst_type in [cst_widestring,cst_unicodestring]) then
-            begin
-              cp1:=tstringdef(def).encoding;
-              if (cst_type = cst_ansistring) then
-                cp2:=tstringdef(resultdef).encoding
-              else if (cst_type in [cst_shortstring,cst_conststring,cst_longstring]) then
-                cp2:=current_settings.sourcecodepage;
-              if cpavailable(cp1) and cpavailable(cp2) then
-                changecodepage(value_str,len,cp2,value_str,cp1);
+              pw:=pcompilerwidestring(value_str);
+              getmem(pc,getlengthwidestring(pw)+1);
+              unicode2ascii(pw,pc);
+              donewidestring(pw);
+              value_str:=pc;
             end;
         cst_type:=st2cst[tstringdef(def).stringtype];
         resultdef:=def;

@@ -25,8 +25,9 @@
     <RunParams>
       <local>
         <FormatVersion Value="1"/>
-        <CommandLineParams Value="-MObjFPC -Scgi -O1 -gl -vewnhi -l -FiD:\programming\laz_svn\fpc_features\cpstr\lib\i386-win32\ -FuD:\programming\laz_svn\cpstr\cpstrnew\ -Fu. -FUD:\programming\laz_svn\fpc_features\cpstr\lib\i386-win32\ -oproject1.exe D:\programming\laz_svn\fpc_features\cpstr\project1.lpr"/>
+        <CommandLineParams Value="-n -Fuc:\svn\fpcbranches\classhelpers\rtl\units\i386-win32 -Futests\test -FEtestoutput c:\svn\fpcbranches\classhelpers\tests\test\tchlp84.pp"/>
         <LaunchingApplication PathPlusParams="\usr\bin\xterm -T 'Lazarus Run Output' -e $(LazarusDir)\tools\runwait.sh $(TargetCmdLine)"/>
+        <WorkingDirectory Value="c:\svn\fpcbranches\classhelpers\"/>
       </local>
     </RunParams>
     <Units Count="2">
@@ -43,7 +44,7 @@
     </Units>
   </ProjectOptions>
   <CompilerOptions>
-    <Version Value="10"/>
+    <Version Value="9"/>
     <PathDelim Value="\"/>
     <Target>
       <Filename Value="i386\pp"/>
@@ -64,7 +65,6 @@
     <Linking>
       <Debugging>
         <GenerateDebugInfo Value="True"/>
-        <DebugInfoType Value="dsStabs"/>
       </Debugging>
     </Linking>
     <Other>

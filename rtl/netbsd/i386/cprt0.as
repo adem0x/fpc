@@ -63,8 +63,8 @@ __start:
 	pushl	%ecx
 	pushl	%edx
 	pushl	%eax
-	movl	%eax,operatingsystem_parameter_argc
-	movl	%edx,operatingsystem_parameter_argv
+	movl	%eax,U_SYSTEM_ARGC
+	movl	%edx,U_SYSTEM_ARGV
 	call	___start
 
 #NO_APP
@@ -87,7 +87,7 @@ ___start:
 	movl 28(%ebp),%edi
 	movl environ@GOT(%ebx),%eax
 	movl %edx,(%eax)
-	movl %edx,operatingsystem_parameter_envp
+	movl %edx,U_SYSTEM_ENVP
 	movl __progname@GOT(%ebx),%edx
 	movl (%esi),%eax
 	movl %eax,(%edx)
@@ -154,7 +154,7 @@ ___start:
 
 _haltproc:
            mov $1,%eax
-           movzwl operatingsystem_result,%ebx
+           movzwl U_SYSTEM_EXITCODE,%ebx
            pushl %ebx
            call _actualsyscall
            addl  $4,%esp

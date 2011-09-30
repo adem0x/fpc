@@ -42,14 +42,6 @@
 */
 
 	.text
-	.globl _dynamic_start
-	.type _dynamic_start,#function
-_dynamic_start:
-         ldr ip,=__dl_fini
-         str a1,[ip]
-         b _start
-
-	.text
 	.globl _start
 	.type _start,#function
 _start:
@@ -89,20 +81,11 @@ _haltproc:
 	.globl  _haltproc_eabi
         .type   _haltproc_eabi,#function
 _haltproc_eabi:
-        ldr r0,=__dl_fini
-        ldr r0,[r0]
-        cmp r0,#0
-
-        /* only branch if not equal zero */
-        movne lr,pc
-        bxne  r0     /* we require armv5 anyway, so use bx here */
-
-.Lloop:
         ldr r0,=operatingsystem_result
-        ldr r0,[r0]
-        mov r7,#248  /* exit group call */
+        ldrb r0,[r0]
+        mov r7,#248
 	swi 0x0
-	b .Lloop
+	b _haltproc_eabi
 
 	/* Define a symbol for the first piece of initialized data.  */
 	.data
@@ -113,7 +96,6 @@ __data_start:
 	data_start = __data_start
 
 .bss
-        .comm __dl_fini,4
         .comm __stkptr,4
 
         .comm operatingsystem_parameter_envp,4

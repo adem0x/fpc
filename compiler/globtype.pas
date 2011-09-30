@@ -224,13 +224,6 @@ interface
        );
        twpoptimizerswitches = set of twpoptimizerswitch;
 
-    type
-       { Used by ARM / AVR to differentiate between specific microcontrollers }
-       tcontrollerdatatype = record
-          controllertypestr, controllerunitstr: string[20];
-          interruptvectors:integer;
-          flashbase, flashsize, srambase, sramsize, eeprombase, eepromsize: dword;
-       end;
 
     const
        OptimizerSwitchStr : array[toptimizerswitch] of string[10] = ('',
@@ -295,8 +288,7 @@ interface
          m_nested_procvars,     { support nested procedural variables }
          m_non_local_goto,      { support non local gotos (like iso pascal) }
          m_advanced_records,    { advanced record syntax with visibility sections, methods and properties }
-         m_isolike_unary_minus, { unary minus like in iso pascal: same precedence level as binary minus/plus }
-         m_systemcodepage       { use system codepage as compiler codepage by default, emit ansistrings with system codepage }
+         m_isolike_unary_minus  { unary minus like in iso pascal: same precedence level as binary minus/plus }
        );
        tmodeswitches = set of tmodeswitch;
 
@@ -428,8 +420,7 @@ interface
          'NESTEDPROCVARS',
          'NONLOCALGOTO',
          'ADVANCEDRECORDS',
-         'ISOUNARYMINUS',
-         'SYSTEMCODEPAGE');
+         'ISOUNARYMINUS');
 
 
      type
@@ -466,9 +457,7 @@ interface
          { dfa was generated for this proc }
          pi_dfaavailable,
          { subroutine contains interprocedural used labels }
-         pi_has_interproclabel,
-         { subroutine has unwind info (win64) }
-         pi_has_unwind_info
+         pi_has_interproclabel
        );
        tprocinfoflags=set of tprocinfoflag;
 
@@ -485,26 +474,26 @@ interface
       TRADirection = (rad_forward, rad_backwards, rad_backwards_reinit);
 
     type
-      TIDString = string[maxidlen];
+       TIDString = string[maxidlen];
 
-      tnormalset = set of byte; { 256 elements set }
-      pnormalset = ^tnormalset;
+       tnormalset = set of byte; { 256 elements set }
+       pnormalset = ^tnormalset;
 
-      pboolean   = ^boolean;
-      pdouble    = ^double;
-      pbyte      = ^byte;
-      pword      = ^word;
-      plongint   = ^longint;
-      plongintarray = plongint;
+       pboolean   = ^boolean;
+       pdouble    = ^double;
+       pbyte      = ^byte;
+       pword      = ^word;
+       plongint   = ^longint;
+       plongintarray = plongint;
 
-      pfileposinfo = ^tfileposinfo;
-      tfileposinfo = record
-        { if types of column or fileindex are changed, modify tcompilerppufile.putposinfo }
-        line      : longint;
-        column    : word;
-        fileindex : word;
-        moduleindex : word;
-      end;
+       pfileposinfo = ^tfileposinfo;
+       tfileposinfo = record
+         { if types of column or fileindex are changed, modify tcompilerppufile.putposinfo }
+         line      : longint;
+         column    : word;
+         fileindex : word;
+         moduleindex : word;
+       end;
 
   {$ifndef xFPC}
     type
@@ -516,9 +505,6 @@ interface
         D4: array[0..7] of Byte;
       end;
   {$endif}
-
-       tstringencoding = Word;
-       tcodepagestring = string[20];
 
     const
        { link options }

@@ -208,8 +208,10 @@ end;
        { bit 0..7 only which are considered }
        { signed values.                     }
 { disable range check mode }
-{$push}
+{$ifopt R+}
+{$define OPT_R_WAS_ON}
 {$R-}
+{$endif}
        b1:=b1 and $7f;
        b2:=b2 and $7f;
        { Now if the MSB of these values are set }
@@ -220,7 +222,9 @@ end;
        x:=smallint(b1);
        y:=smallint(b2);
 { restore previous range check mode }
-{$pop}
+{$ifdef OPT_R_WAS_ON}
+{$R+}
+{$endif}
      end;
 
 
@@ -785,10 +789,14 @@ end;
          if (font>DefaultFont) and not assigned(fonts[font].instr) then
            begin
               assign(f,bgipath+fonts[font].name+'.CHR');
-{$push}
+{$ifopt I+}
+{$define IOCHECK_WAS_ON}
 {$i-}
+{$endif}
               reset(f,1);
-{$pop}
+{$ifdef IOCHECK_WAS_ON}
+{$i+}
+{$endif}
               if ioresult<>0 then
                 begin
                    _graphresult:=grFontNotFound;

@@ -736,8 +736,9 @@ procedure TFPXMLRepositoryHandler.LoadFromXml(D: TFPDependency; Stream: TStream)
 Var
   XML : TXMLDocument;
 begin
-  Xmlread.ReadXMLFile(XML,Stream);
+  XML:=TXMLDocument.Create;
   try
+    Xmlread.ReadXMLFile(XML,Stream);
     XmlToDependency(XML.DocumentElement,D);
   finally
     XML.Free;
@@ -749,8 +750,9 @@ procedure TFPXMLRepositoryHandler.LoadFromXml(DS: TFPDependencies; Stream: TStre
 Var
   XML : TXMLDocument;
 begin
-  xmlread.ReadXMLFile(XML,Stream);
+  XML:=TXMLDocument.Create;
   try
+    xmlread.ReadXMLFile(XML,Stream);
     XmlToDependencies(XML.DocumentElement,DS);
   finally
     XML.Free;
@@ -762,8 +764,9 @@ procedure TFPXMLRepositoryHandler.LoadFromXml(P: TFPPackage; Stream: TStream);
 Var
   XML : TXMLDocument;
 begin
-  xmlread.ReadXMLFile(XML,Stream);
+  XML:=TXMLDocument.Create;
   try
+    xmlread.ReadXMLFile(XML,Stream);
     XmlToPackage(XML.DocumentElement,P);
   finally
     XML.Free;
@@ -775,8 +778,9 @@ procedure TFPXMLRepositoryHandler.LoadFromXml(PS: TFPPackages; Stream: TStream);
 Var
   XML : TXMLDocument;
 begin
-  xmlread.ReadXMLFile(XML,Stream);
+  XML:=TXMLDocument.Create;
   try
+    xmlread.ReadXMLFile(XML,Stream);
     XmlToPackages(XML.DocumentElement,PS);
   finally
     XML.Free;
@@ -788,8 +792,9 @@ procedure TFPXMLRepositoryHandler.LoadFromXml(R: TFPRepository; Stream: TStream)
 Var
   XML : TXMLDocument;
 begin
-  xmlread.ReadXMLFile(XML,Stream);
+  XML:=TXMLDocument.Create;
   try
+    xmlread.ReadXMLFile(XML,Stream);
     XmlToRepository(XML.DocumentElement,R);
   finally
     XML.Free;
@@ -918,8 +923,9 @@ procedure TFPXMLMirrorHandler.LoadFromXml(PS: TFPMirrors; Stream: TStream);
 Var
   XML : TXMLDocument;
 begin
-  xmlread.ReadXMLFile(XML,Stream);
+  XML:=TXMLDocument.Create;
   try
+    xmlread.ReadXMLFile(XML,Stream);
     XmlToMirrors(XML.DocumentElement,PS);
   finally
     XML.Free;

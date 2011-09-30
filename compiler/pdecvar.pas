@@ -772,7 +772,7 @@ implementation
 *)
          { Parse possible "implements" keyword }
          if not is_record(astruct) and try_to_consume(_IMPLEMENTS) then
-           repeat
+           begin
              single_type(def,[]);
 
              if not(is_interface(def)) then
@@ -780,8 +780,7 @@ implementation
 
              if is_interface(p.propdef) then
                begin
-                 { an interface type may delegate itself or one of its ancestors }
-                 if not p.propdef.is_related(def) then
+                 if compare_defs(def,p.propdef,nothingn)<te_equal then
                    begin
                      message2(parser_e_implements_must_have_correct_type,def.typename,p.propdef.typename);
                      exit;
@@ -880,7 +879,7 @@ implementation
                end
              else
                message1(parser_e_implements_uses_non_implemented_interface,def.typename);
-           until not try_to_consume(_COMMA);
+         end;
 
          { remove unneeded procdefs }
          if readprocdef.proctypeoption<>potype_propgetter then

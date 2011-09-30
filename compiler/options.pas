@@ -78,7 +78,7 @@ implementation
 
 uses
   widestr,
-  {$ifdef VER2_4}ccharset{$else VER2_4}charset{$endif VER2_4},
+  {$ifdef VER2_2}ccharset{$else VER2_2}charset{$endif VER2_2},
   SysUtils,
   version,
   cutils,cmsgs,
@@ -286,7 +286,7 @@ begin
 }
               begin
                 hs:=s;
-                hs1:=embedded_controllers[controllertype].ControllerTypeStr;
+                hs1:=ControllerTypeStr[controllertype];
                 if hs1<>'' then
                   begin
                     Replace(hs,'$CONTROLLERTYPES',hs1);
@@ -867,11 +867,11 @@ begin
                  'c' :
                    begin
                      if (upper(more)='UTF8') or (upper(more)='UTF-8') then
-                        init_settings.sourcecodepage:=CP_UTF8
+                        init_settings.sourcecodepage:='utf8'
                      else if not(cpavailable(more)) then
                        Message1(option_code_page_not_available,more)
                      else
-                       init_settings.sourcecodepage:=codepagebyname(more);
+                       init_settings.sourcecodepage:=more;
                    end;
                  'C' :
                    RCCompiler := More;
@@ -903,15 +903,9 @@ begin
                    end;
                  'm' :
                    begin
-                     s:=ExtractFileDir(more);
-                     if TryStrToInt(ExtractFileName(more),j) then
-                       begin
-                         unicodemapping:=loadunicodemapping(More,More+'.txt',j);
-                         if assigned(unicodemapping) then
-                           registermapping(unicodemapping)
-                         else
-                           IllegalPara(opt);
-                       end
+                     unicodemapping:=loadunicodemapping(More,More+'.txt');
+                     if assigned(unicodemapping) then
+                       registermapping(unicodemapping)
                      else
                        IllegalPara(opt);
                    end;
@@ -1889,9 +1883,9 @@ begin
 { open file }
   Message1(option_using_file,filename);
   assign(f,ExpandFileName(filename));
-  {$push}{$I-}
+  {$I-}
    reset(f);
-  {$pop}
+  {$I+}
   if ioresult<>0 then
    begin
      Message1(option_unable_open_file,filename);
@@ -2313,15 +2307,6 @@ begin
   if (paratargetdbg in [dbg_dwarf2,dbg_dwarf3]) and
      not(target_info.system in systems_darwin) then
     begin
-      { smartlink creation does not yet work with DWARF
-        debug info on most targets, but it works in internal assembler }
-      if (cs_create_smart in init_settings.moduleswitches) and
-         not (af_outputbinary in target_asm.flags) then
-        begin
-          Message(option_dwarf_smartlink_creation);
-          exclude(init_settings.moduleswitches,cs_create_smart);
-        end;
-
       { smart linking does not yet work with DWARF debug info on most targets }
       if (cs_link_smart in init_settings.globalswitches) then
         begin
@@ -2499,12 +2484,10 @@ begin
 {$endif}
   def_system_macro('FPC_HAS_UNICODESTRING');
   def_system_macro('FPC_RTTI_PACKSET1');
-  def_system_macro('FPC_HAS_CPSTRING');
 {$ifdef x86_64}
   def_system_macro('FPC_HAS_RIP_RELATIVE');
 {$endif x86_64}
   def_system_macro('FPC_HAS_CEXTENDED');
-  def_system_macro('FPC_HAS_RESSTRINITS');
 
 { these cpus have an inline rol/ror implementaion }
 {$if defined(x86) or defined(arm) or defined(powerpc) or defined(powerpc64)}
@@ -2790,8 +2773,6 @@ begin
           exclude(init_settings.moduleswitches,cs_debuginfo);
         end;
     end;
-  {TOptionheck a second time as we might have changed assembler just above }
-  option.checkoptionscompatibility;
 
   { maybe override debug info format }
   if (paratargetdbg<>dbg_none) then
@@ -2875,11 +2856,11 @@ if (target_info.system=system_arm_darwin) then
         def_system_macro('FPC_HAS_TYPE_EXTENDED');
 {$endif}
     end;
-    { Enable now for testing }
-{$ifndef DISABLE_TLS_DIRECTORY}
+    { Not ready yet }
+{$ifdef TEST_TLS_DIRECTORY}
     if target_info.system in systems_windows then
       def_system_macro('FPC_USE_TLS_DIRECTORY');
-{$endif not DISABLE_TLS_DIRECTORY}
+{$endif TEST_TLS_DIRECTORY}
 
 
 {$ifdef ARM}

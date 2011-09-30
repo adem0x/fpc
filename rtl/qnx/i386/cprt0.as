@@ -12,9 +12,6 @@
 .extern         _init
 .extern		atexit
 .extern		errno
-.extern		operatingsystem_parameter_argc
-.extern		operatingsystem_parameter_argv
-.extern		operatingsystem_parameter_envp
 
 	.text
 	.byte	'N', 'I', 'A', 'M'      /* Used by debugger for setting a break point */
@@ -43,17 +40,17 @@ _start:
 	// argc
 	movl 0(%esp),%esi
 	movl 0(%esp), %eax
-	movl %eax, operatingsystem_parameter_argc
+	movl %eax, U_SYSTEM_ARGC
 	// argv
 	leal 4(%esp),%ecx
-    	movl  %ecx, operatingsystem_parameter_argv
+    movl  %ecx, U_SYSTEM_ARGV
 	// envp
 	leal (%ecx,%esi,4),%eax
     // auxv vector pointer
 	leal 4(%eax),%edi
 	// pointer to environment
 	leal 8(%eax),%edx
-	movl %edx, operatingsystem_parameter_envp
+	movl %edx, U_SYSTEM_ENVP
 	cmpl $0,4(%eax)
 	je .Ldoneargv
 	.align 4

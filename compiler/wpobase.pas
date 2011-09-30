@@ -600,9 +600,9 @@ implementation
     var
       i: longint;
     begin
-      {$push}{$i-}
+{$i-}
       rewrite(foutputfile);
-      {$pop}
+{$i+}
       if (ioresult <> 0) then
         begin
           cgmessage1(wpo_cant_create_feedback_file,ffilename);

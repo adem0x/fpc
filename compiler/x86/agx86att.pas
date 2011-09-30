@@ -233,6 +233,7 @@ interface
        calljmp  : boolean;
        need_second_mov : boolean;
        i        : integer;
+       comment  : tai_comment;
       begin
         if hp.typ <> ait_instruction then
           exit;

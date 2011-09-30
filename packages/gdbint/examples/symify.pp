@@ -32,9 +32,9 @@ var
   sym  : tsyminfo;
 begin
   assign(t,fn);
-  {$push}{$I-}
+  {$I-}
    reset(t);
-  {$pop}
+  {$I+}
   if ioresult<>0 then
    exit;
   while not eof(t) do

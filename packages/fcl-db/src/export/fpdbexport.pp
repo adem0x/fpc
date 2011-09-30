@@ -293,11 +293,11 @@ Procedure UnRegisterExportFormat(Const AName : String);
 
 Const
   StringFieldTypes = [ftString,ftFixedChar,ftWidestring,ftFixedWideChar];
-  IntFieldTypes    = [ftInteger,ftWord,ftSmallint,ftAutoinc];
+  IntFieldTypes    = [ftInteger,ftWord,ftsmallint,ftautoinc];
   OrdFieldTypes    = IntFieldTypes +[ftBoolean,ftLargeInt];
   DateFieldTypes   = [ftDate,ftTime,ftDateTime,ftTimeStamp];
   MemoFieldTypes   = [ftMemo,ftFmtMemo,ftWideMemo];
-  BlobFieldTypes   =  [ftBlob,ftDBaseOLE,ftGraphic,ftOraBlob,ftOraClob,ftParadoxOLE];
+  BlobFieldTypes   =  [ftBlob,ftGraphic,ftOraBlob,ftOraClob];
   
 
 implementation

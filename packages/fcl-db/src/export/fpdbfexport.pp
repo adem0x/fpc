@@ -42,7 +42,7 @@ Type
     function GetSettings: TDBFExportFormatSettings;
     procedure SetSettings(const AValue: TDBFExportFormatSettings);
   Protected
-    Procedure CheckExportFieldNames(const MaxFieldNameLength: integer); virtual;
+    Procedure CheckExportFieldNames; virtual;
     Function BindFields : Boolean; override;
     Function CreateFormatSettings : TCustomExportFormatSettings; override;
 
@@ -97,30 +97,28 @@ begin
   Inherited FormatSettings.Assign(AValue);
 end;
 
-procedure TFPCustomDBFExport.CheckExportFieldNames(const MaxFieldNameLength: integer);
+procedure TFPCustomDBFExport.CheckExportFieldNames;
 
 Var
-  i,NameCounter : Integer;
+  I,J : Integer;
   EF : TExportFieldItem;
-  NewFieldName : String;
+  FN : String;
   
 begin
-  For i:=0 to ExportFields.Count-1 do
+  For I:=0 to ExportFields.Count-1 do
     begin
     EF:=ExportFields[i];
-    { Cut off field name at max length, and
-      rename if it already exists:}
-    If (Length(EF.ExportedName)>MaxFieldNameLength) then
+    If (Length(EF.ExportedName)>10) then
       begin
-      NewFieldName:=Copy(EF.ExportedName,1,MaxFieldNameLength);
-      If ExportFields.IndexOfExportedName(NewFieldName)<>-1 then
+      FN:=Copy(EF.ExportedName,1,10);
+      If ExportFIelds.IndexOfExportedName(FN)<>-1 then
         begin
-        NameCounter:=1;
+        J:=1;
         Repeat
-          NewFieldName:=Copy(EF.ExportedName,1,8)+Format('%.2d',[NameCounter]);
-        Until (ExportFIelds.IndexOfExportedName(NewFieldName)=-1);
+          FN:=Copy(EF.ExportedName,1,8)+Format('%.2d',[J]);
+        Until (ExportFIelds.IndexOfExportedName(FN)=-1);
         end;
-      EF.ExportedName:=NewFieldName;
+      EF.ExportedName:=FN;
       end;
     end;
 end;
@@ -132,32 +130,28 @@ Const
   
 Var
   EF : TDBFExportFieldItem;
-  i : Integer;
+  I : Integer;
   
 begin
-  // DBase III,IV, and FoxPro have a 10 character field length limit.
-  If FormatSettings.AutoRenameFields and (FormatSettings.TableFormat in [tfDbaseIII,tfDbaseIV,tfFoxPro]) then
-    CheckExportFieldNames(10);
-  // DBase VII has a 32 character field length limit.
-  If FormatSettings.AutoRenameFields and (FormatSettings.TableFormat=tfDbaseVII) then
-    CheckExportFieldNames(32);
+  If FormatSettings.AutoRenameFields and (FormatSettings.TableFormat=tfDbaseIII) then
+    CheckExportFieldNames;
   Result:=Inherited;
   try
     with FDBF.FieldDefs do
       begin
       Clear;
-      For i:=0 to ExportFields.Count-1 do
+      For I:=0 to ExportFields.Count-1 do
         begin
-        EF:=ExportFields[i] as TDBFExportFieldItem;
-        If EF.Enabled and Assigned(EF.Field) then
-          Add(EF.ExportedName,EF.Field.DataType,EF.Field.Size);
+        EF:=ExportFIelds[i] as TDBFExportFieldItem;
+        If EF.ENabled and Assigned(EF.Field) then
+          Add(EF.ExportedName,EF.FIeld.DataType,EF.Field.Size);
         end;
       FDBF.TableLevel:=Levels[FormatSettings.TableFormat];
       FDBF.CreateTable;
       FDBF.Exclusive := true;
       FDBF.Open;
       end;
-    For i:=0 to ExportFields.Count-1 do
+    For I:=0 to ExportFields.Count-1 do
       begin
       EF:=ExportFIelds[i] as TDBFExportFieldItem;
       If EF.Enabled then
@@ -228,29 +222,20 @@ Var
 begin
   F:=EF as TDBFExportFieldItem;
   With F do
-    // Export depending on field datatype;
-    // convert to dbf data types where necessary.
-    // Fall back to string if unknown datatype
     If FIeld.IsNull then
       DestField.Clear
-    else if Field.Datatype in (IntFieldTypes+[ftAutoInc,ftLargeInt]) then
+    else If Field.Datatype in IntFieldTypes then
       DestField.AsInteger:=Field.AsInteger
-    else if Field.Datatype in [ftBCD,ftCurrency,ftFloat,ftFMTBcd] then
-      DestField.AsFloat:=Field.AsFloat
-    else if Field.DataType in [ftString,ftFixedChar] then
-      DestField.AsString:=Field.AsString
-    else if (Field.DataType in ([ftWideMemo,ftWideString,ftFixedWideChar]+BlobFieldTypes)) then
-      DestField.AsWideString:=Field.AsWideString
-      { Note: we test for the wide text fields before the MemoFieldTypes, in order to
-      let ftWideMemo end up at the right place }
-    else if Field.DataType in MemoFieldTypes then
+    else if Field.dataType in [ftString,ftFixedChar] then
       DestField.AsString:=Field.AsString
     else if Field.DataType=ftBoolean then
       DestField.AsBoolean:=Field.AsBoolean
+    else if (Field.DataType in ([ftWidestring,ftFixedWideChar]+BlobFieldTypes)) then
+      DestField.AsWideString:=Field.AsWideString
     else if field.DataType in DateFieldTypes then
       DestField.AsDatetime:=Field.AsDateTime
     else
-      DestField.AsString:=Field.AsString
+      DestField.AsDatetime:=Field.AsDateTime
 end;
 
 Procedure RegisterDBFExportFormat;

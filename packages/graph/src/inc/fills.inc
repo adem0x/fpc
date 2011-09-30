@@ -31,8 +31,10 @@ end;
 procedure fillpoly(numpoints : Word; var polypoints);
 
 { disable range check mode }
-{$push}
+{$ifopt R+}
+{$define OPT_R_WAS_ON}
 {$R-}
+{$endif}
 type
   pedge = ^tedge;
   tedge = packed record
@@ -537,4 +539,6 @@ var
   End;
 
 { restore previous range check mode }
-{$pop}
+{$ifdef OPT_R_WAS_ON}
+{$R+}
+{$endif}

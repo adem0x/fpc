@@ -316,9 +316,9 @@ Implementation
            hs:=s;
            if hs[length(hs)] in ['/','\'] then
             delete(hs,length(hs),1);
-           {$push} {$I-}
+           {$I-}
             mkdir(hs);
-           {$pop}
+           {$I+}
            if ioresult<>0 then;
          end;
       end;
@@ -401,9 +401,9 @@ Implementation
         else
          begin
            assign(g,AsmFileName);
-           {$push} {$I-}
+           {$I-}
             erase(g);
-           {$pop}
+           {$I+}
            if ioresult<>0 then;
          end;
       end;
@@ -440,9 +440,9 @@ Implementation
         if outcnt>0 then
          begin
            { suppress i/o error }
-           {$push} {$I-}
+           {$i-}
            BlockWrite(outfile,outbuf,outcnt);
-           {$pop}
+           {$i+}
            ioerror:=ioerror or (ioresult<>0);
            outcnt:=0;
          end;
@@ -574,9 +574,9 @@ Implementation
 {$endif}
          begin
            Assign(outfile,AsmFileName);
-           {$push} {$I-}
+           {$I-}
            Rewrite(outfile,1);
-           {$pop}
+           {$I+}
            if ioresult<>0 then
              begin
                ioerror:=true;
@@ -608,9 +608,9 @@ Implementation
            if ppufilename<>'' then
             begin
               Assign(f,ppufilename);
-              {$push} {$I-}
+              {$I-}
               reset(f,1);
-              {$pop}
+              {$I+}
               if ioresult=0 then
                begin
                  FileAge := FileGetDate(GetFileHandle(f));
@@ -1393,10 +1393,6 @@ Implementation
              ait_cutobject :
                if SmartAsm then
                 break;
-{$ifdef TEST_WIN64_UNWIND}
-             ait_seh_directive :
-               tai_seh_directive(hp).generate_code(objdata);
-{$endif TEST_WIN64_UNWIND}
            end;
            hp:=Tai(hp.next);
          end;

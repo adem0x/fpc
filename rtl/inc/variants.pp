@@ -361,6 +361,9 @@ uses
   Math,
   VarUtils;
 
+{$IFOPT R-} {$DEFINE RANGECHECKINGOFF} {$ENDIF}
+{$IFOPT Q-} {$DEFINE OVERFLOWCHECKINGOFF} {$ENDIF}
+
 var
   customvarianttypes    : array of TCustomVariantType;
   customvarianttypelock : trtlcriticalsection;
@@ -434,7 +437,7 @@ type
     function AtEnd: Boolean;
   end;
 
-{$push}
+
 {$r-}
 
 constructor TVariantArrayIterator.Init(aDims: SizeInt; aBounds : PVarArrayBoundArray);
@@ -491,7 +494,9 @@ begin
       end;
 end;
 
-{$pop}// {$r-} for TVariantArrayIterator
+{$ifndef RANGECHECKINGOFF}
+{$r+}
+{$endif}
 
 destructor TVariantArrayIterator.done;
   begin
@@ -1428,8 +1433,7 @@ begin
   r := VariantToInt64(vr);
   Overflow := False;
   case OpCode of
-{$push}
-{$R+}{$Q+}
+    {$R+}{$Q+}
     opAdd..opMultiply,opPower: try
       case OpCode of
         opAdd      :  l := l  + r;
@@ -1445,7 +1449,7 @@ begin
       on E: SysUtils.EIntOverflow do
         Overflow := True;
     end;
-{$pop}
+    {$IFDEF RANGECHECKINGOFF} {$R-} {$ENDIF} {$IFDEF OVERFLOWCHECKINGOFF} {$Q+} {$ENDIF}
     opIntDivide  : l := l div r;
     opModulus    : l := l mod r;
     opShiftLeft  : l := l shl r;
@@ -2111,12 +2115,17 @@ begin
     try
       { Calculation total number of elements in the array }
       cnt:=1;
-{$push}
+{$ifopt r+}
 { arr^.bounds[] is an array[0..0] }
+{$define rangeon}
 {$r-}
+{$endif}
       for i:=0 to arr^.dimcount - 1 do
         cnt:=cnt*cardinal(arr^.Bounds[i].ElementCount);
-{$pop}
+{$ifdef rangeon}
+{$undef rangeon}
+{$r+}
+{$endif}
 
       { Clearing each element }
       for i:=1 to cnt do begin
@@ -2570,13 +2579,18 @@ begin
       else
         p:=src.vArray;
 
-{$push}
+{$ifopt r+}
+{$define rangeon}
 {$r-}
+{$endif}
       if highbound<p^.Bounds[p^.dimcount-1].LowBound-1 then
         VarInvalidArgError;
 
       newbounds.LowBound:=p^.Bounds[p^.dimcount-1].LowBound;
-{$pop}
+{$ifdef rangon}
+{$undef rangeon}
+{$r+}
+{$endif}
       newbounds.ElementCount:=highbound-newbounds.LowBound+1;
 
       VarResultCheck(SafeArrayRedim(p,newbounds));
@@ -2701,7 +2715,7 @@ end;
 
 
 { import from system unit }
-Procedure fpc_Write_Text_AnsiStr (Len : LongInt; Var f : Text; S : RawByteString); external name 'FPC_WRITE_TEXT_ANSISTR';
+Procedure fpc_Write_Text_AnsiStr (Len : LongInt; Var f : Text; S : AnsiString); external name 'FPC_WRITE_TEXT_ANSISTR';
 
 
 function syswritevariant(var t : text; const v : Variant;width : LongInt) : Pointer;
@@ -3147,20 +3161,18 @@ end;
 
 
 { Variant copy support }
-{$push}
 {$warnings off}
 procedure VarCopyNoInd(var Dest: Variant; const Source: Variant);
 
 begin
   NotSupported('VarCopyNoInd');
 end;
-{$pop}
+{$warnings on}
 
 {****************************************************************************
               Variant array support procedures and functions
  ****************************************************************************}
 
-{$push}
 {$r-}
 
 function VarArrayCreate(const Bounds: array of SizeInt; aVarType: TVarType): Variant;
@@ -3193,7 +3205,9 @@ function VarArrayCreate(const Bounds: array of SizeInt; aVarType: TVarType): Var
     end;
   end;
 
-{$pop}
+{$ifndef RANGECHECKINGOFF}
+{$r+}
+{$endif}
 
 function VarArrayCreate(const Bounds: PVarArrayBoundArray; Dims : SizeInt; aVarType: TVarType): Variant;
   var
@@ -3366,7 +3380,7 @@ function DynArrayGetVariantInfo(p : Pointer; var Dims : sizeint) : sizeint;
     inc(Dims);
   end;
 
-{$push}
+
 {$r-}
 
 procedure DynArrayToVariant(var V: Variant; const DynArray: Pointer; TypeInfo: Pointer);
@@ -3566,7 +3580,9 @@ procedure DynArrayFromVariant(var DynArray: Pointer; const V: Variant; TypeInfo:
       FreeMem(vararraybounds);
     end;
   end;
-{$pop}//{$r-} for DynArray[From|To]Variant
+{$ifndef RANGECHECKINGOFF}
+{$r+}
+{$endif}
 
 
 function FindCustomVariantType(const aVarType: TVarType; out CustomVariantType: TCustomVariantType): Boolean; overload;

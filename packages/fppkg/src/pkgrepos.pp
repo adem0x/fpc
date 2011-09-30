@@ -261,7 +261,6 @@ procedure FindInstalledPackages(ACompilerOptions:TCompilerOptions;showdups:boole
             end;
         until FindNext(SR)<>0;
       end;
-    FindClose(SR);
   end;
 
 begin
@@ -387,16 +386,12 @@ begin
           else
             AvailVerStr:='<not available>';
           ReqVer:=TFPVersion.Create;
-          try
-            ReqVer.AsString:=FPMKUnitDeps[i].ReqVer;
-            log(vlDebug,SLogFPMKUnitDepVersion,[P.Name,ReqVer.AsString,P.Version.AsString,AvailVerStr]);
-            if ReqVer.CompareVersion(P.Version)<=0 then
-              FPMKUnitDeps[i].available:=true
-            else
-              log(vlDebug,SLogFPMKUnitDepTooOld,[FPMKUnitDeps[i].package]);
-          finally
-            ReqVer.Free;
-          end;
+          ReqVer.AsString:=FPMKUnitDeps[i].ReqVer;
+          log(vlDebug,SLogFPMKUnitDepVersion,[P.Name,ReqVer.AsString,P.Version.AsString,AvailVerStr]);
+          if ReqVer.CompareVersion(P.Version)<=0 then
+            FPMKUnitDeps[i].available:=true
+          else
+            log(vlDebug,SLogFPMKUnitDepTooOld,[FPMKUnitDeps[i].package]);
         end
       else
         log(vlDebug,SLogFPMKUnitDepTooOld,[FPMKUnitDeps[i].package]);
@@ -667,12 +662,4 @@ begin
     end;
 end;
 
-initialization
-  AvailableRepository := nil;
-  InstalledRepository := nil;
-  AvailableMirrors := nil;
-finalization
-  AvailableRepository.Free;
-  InstalledRepository.Free;
-  AvailableMirrors.Free;
 end.

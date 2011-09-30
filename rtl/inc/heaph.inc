@@ -65,7 +65,6 @@ const
 var
   ReturnNilIfGrowHeapFails : boolean;
 
-{$ifndef HAS_MEMORYMANAGER}
 { Default MemoryManager functions }
 Function  SysGetmem(Size:ptruint):Pointer;
 Function  SysFreemem(p:pointer):ptruint;
@@ -76,7 +75,6 @@ function  SysTryResizeMem(var p:pointer;size:ptruint):boolean;
 Function  SysReAllocMem(var p:pointer;size:ptruint):Pointer;
 function  SysGetHeapStatus:THeapStatus;
 function  SysGetFPCHeapStatus:TFPCHeapStatus;
-{$endif HAS_MEMORYMANAGER}
 
 { Tp7 functions }
 Procedure Getmem(Out p:pointer;Size:ptruint);

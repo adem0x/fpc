@@ -619,7 +619,6 @@ implementation
         aiclass[ait_regalloc]:=tai_regalloc;
         aiclass[ait_tempalloc]:=tai_tempalloc;
         aiclass[ait_marker]:=tai_marker;
-        aiclass[ait_seh_directive]:=tai_seh_directive;
       end;
 
 end.

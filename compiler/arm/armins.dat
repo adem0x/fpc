@@ -623,6 +623,3 @@ reg32,reg32,reg32,reg32  \x16\x00\x80\x90		 ARM7
 [ITETT]
 
 [ITTTT]
-
-[TBB]
-[TBH]

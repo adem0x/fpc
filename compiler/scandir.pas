@@ -946,9 +946,7 @@ unit scandir;
       recordpendinglocalfullswitch(switchesstatestack[switchesstatestackpos].localsw);
       recordpendingverbosityfullswitch(switchesstatestack[switchesstatestackpos].verbosity);
       pendingstate.nextmessagerecord:=switchesstatestack[switchesstatestackpos].pmessage;
-      { Reset verbosity and forget previous pmeesage }
       RestoreLocalVerbosity(nil);
-      current_settings.pmessage:=nil;
       flushpendingswitchesstate;
     end;
 
@@ -1055,15 +1053,6 @@ unit scandir;
     procedure dir_smartlink;
       begin
         do_moduleswitch(cs_create_smart);
-        if (paratargetdbg in [dbg_dwarf2,dbg_dwarf3]) and
-            not(target_info.system in systems_darwin) and
-            { smart linking does not yet work with DWARF debug info on most targets }
-            (cs_create_smart in current_settings.moduleswitches) and
-            not (af_outputbinary in target_asm.flags) then
-        begin
-          Message(option_dwarf_smart_linking);
-          Exclude(current_settings.moduleswitches,cs_create_smart);
-        end;
       end;
 
     procedure dir_stackframes;
@@ -1074,12 +1063,6 @@ unit scandir;
     procedure dir_stop;
       begin
         do_message(scan_f_user_defined);
-      end;
-
-    procedure dir_stringchecks;
-      begin
-        // Delphi adds checks that ansistring and unicodestring are correct in
-        // different places. Skip it for now.
       end;
 
 {$ifdef powerpc}
@@ -1373,11 +1356,11 @@ unit scandir;
              current_scanner.skipspace;
              s:=current_scanner.readcomment;
              if (upper(s)='UTF8') or (upper(s)='UTF-8') then
-               current_settings.sourcecodepage:=CP_UTF8
+               current_settings.sourcecodepage:='utf8'
              else if not(cpavailable(s)) then
                Message1(option_code_page_not_available,s)
              else
-               current_settings.sourcecodepage:=codepagebyname(s);
+               current_settings.sourcecodepage:=s;
           end;
       end;
 
@@ -1501,7 +1484,6 @@ unit scandir;
         AddDirective('SMARTLINK',directive_all, @dir_smartlink);
         AddDirective('STACKFRAMES',directive_all, @dir_stackframes);
         AddDirective('STOP',directive_all, @dir_stop);
-        AddDirective('STRINGCHECKS', directive_all, @dir_stringchecks);
 {$ifdef powerpc}
         AddDirective('SYSCALL',directive_all, @dir_syscall);
 {$endif powerpc}

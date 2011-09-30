@@ -20,9 +20,8 @@ program creumap;
   procedure doerror;
 
     begin
-       writeln('Usage: creumap <cpname> <cpnumber>');
-       writeln('cpname : A mapping file called <cpname>.txt must be present');
-       writeln('cpnumber : the code page number');
+       writeln('Usage: creumap <cpname>');
+       writeln('A mapping file called <cpname>.txt must be present');
        halt(1);
     end;
 
@@ -30,16 +29,11 @@ program creumap;
      p : punicodemap;
      i : longint;
      t : text;
-     e : word;
 
 begin
-   if paramcount<>2 then
+   if paramcount<>1 then
      doerror;
-   Val(paramstr(2),i,e);
-   if e<>0 then
-     doerror;
-     
-   p:=loadunicodemapping(paramstr(1),paramstr(1)+'.txt',i);
+   p:=loadunicodemapping(paramstr(1),paramstr(1)+'.txt');
    if p=nil then
      doerror;
    assign(t,paramstr(1)+'.pp');
@@ -75,7 +69,6 @@ begin
    writeln(t);
    writeln(t,'     unicodemap : tunicodemap = (');
    writeln(t,'       cpname : ''',p^.cpname,''';');
-   writeln(t,'       cp : ',p^.cp,';');
    writeln(t,'       map : @map;');
    writeln(t,'       lastchar : ',p^.lastchar,';');
    writeln(t,'       next : nil;');

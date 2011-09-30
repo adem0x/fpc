@@ -223,10 +223,14 @@ unit cgobj;
 
           {# Emits instruction to call the method specified by symbol name.
              This routine must be overridden for each new target cpu.
+
+             There is no a_call_ref because loading the reference will use
+             a temp register on most cpu's resulting in conflicts with the
+             registers used for the parameters (PFV)
           }
           procedure a_call_name(list : TAsmList;const s : string; weak: boolean);virtual; abstract;
           procedure a_call_reg(list : TAsmList;reg : tregister);virtual; abstract;
-          procedure a_call_ref(list : TAsmList;ref : treference);virtual;
+          procedure a_call_ref(list : TAsmList;ref : treference);virtual; abstract;
           { same as a_call_name, might be overridden on certain architectures to emit
             static calls without usage of a got trampoline }
           procedure a_call_name_static(list : TAsmList;const s : string);virtual;
@@ -1228,9 +1232,15 @@ implementation
                        some generic implementations
 ****************************************************************************}
 
-{$push}
+{$ifopt r+}
+{$define rangeon}
 {$r-}
+{$endif}
+
+{$ifopt q+}
+{$define overflowon}
 {$q-}
+{$endif}
 
    procedure tcg.a_load_subsetreg_reg(list : TAsmList; subsetsize, tosize: tcgsize; const sreg: tsubsetregister; destreg: tregister);
      var
@@ -2107,7 +2117,15 @@ implementation
       end;
 
 
-{$pop}
+{$ifdef rangeon}
+{$r+}
+{$undef rangeon}
+{$endif}
+
+{$ifdef overflowon}
+{$q+}
+{$undef overflowon}
+{$endif}
 
     { generic bit address calculation routines }
 
@@ -3776,9 +3794,14 @@ implementation
               { only optimize away if all bit patterns which fit in fromsize }
               { are valid for the todef                                      }
               begin
-{$push}
+{$ifopt Q+}
+{$define overflowon}
 {$Q-}
+{$endif}
+{$ifopt R+}
+{$define rangeon}
 {$R-}
+{$endif}
                 if to_signed then
                   begin
                     { calculation of the low/high ranges must not overflow 64 bit
@@ -3797,7 +3820,14 @@ implementation
                        (qword(hto) = (qword(-1) >> (64-(tosize * 8))) ) then
                       exit
                   end;
-{$pop}
+{$ifdef overflowon}
+{$Q+}
+{$undef overflowon}
+{$endif}
+{$ifdef rangeon}
+{$R+}
+{$undef rangeon}
+{$endif}
               end
           end;
 
@@ -4190,20 +4220,9 @@ implementation
         a_jmp_name(list,externalname);
       end;
 
-
     procedure tcg.a_call_name_static(list : TAsmList;const s : string);
       begin
         a_call_name(list,s,false);
-      end;
-
-
-    procedure tcg.a_call_ref(list : TAsmList;ref: treference);
-      var
-        tempreg : TRegister;
-      begin
-        tempreg := getintregister(list, OS_ADDR);
-        a_load_ref_reg(list,OS_ADDR,OS_ADDR,ref,tempreg);
-        a_call_reg(list,tempreg);
       end;
 
 

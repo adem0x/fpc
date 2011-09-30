@@ -15,8 +15,8 @@
 program mkx86ins;
 
 const
-  Version = '1.6.0';
-  max_operands = 4;
+  Version = '1.5.1';
+
 var
    s : string;
    i : longint;
@@ -205,7 +205,7 @@ var
    opcode,
    codes,
    flags   : string;
-   optypes : array[1..max_operands] of string;
+   optypes : array[1..3] of string;
 begin
    writeln('Nasm Instruction Table Converter Version ',Version);
    x86_64:=paramstr(1)='x86_64';
@@ -331,8 +331,9 @@ begin
          runerror(234);
         { clear }
         ops:=0;
-        for i:=low(optypes) to high(optypes) do
-          optypes[i]:='';
+        optypes[1]:='';
+        optypes[2]:='';
+        optypes[3]:='';
         codes:='';
         flags:='';
         skip:=false;
@@ -354,8 +355,8 @@ begin
           else
             break;
         until false;
-        for j:=1 to max_operands-ops do
-          optypes[max_operands-j+1]:='ot_none';
+        for j:=1 to 3-ops do
+          optypes[3-j+1]:='ot_none';
         { codes }
         skipspace;
         j:=0;
@@ -428,7 +429,7 @@ begin
             writeln(insfile,'  (');
             writeln(insfile,'    opcode  : ',opcode,';');
             writeln(insfile,'    ops     : ',ops,';');
-            writeln(insfile,'    optypes : (',optypes[1],',',optypes[2],',',optypes[3],',',optypes[4],');');
+            writeln(insfile,'    optypes : (',optypes[1],',',optypes[2],',',optypes[3],');');
             writeln(insfile,'    code    : ',codes,';');
             writeln(insfile,'    flags   : ',flags);
             write(insfile,'  )');

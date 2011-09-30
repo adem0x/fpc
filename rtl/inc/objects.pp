@@ -1249,8 +1249,10 @@ END;
 {                         TDosStream OBJECT METHODS                         }
 {+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++}
 
-{$PUSH}
+{$IFOPT I+}
+{$DEFINE IO_CHECK_ON}
 {$I-}
+{$ENDIF}
 
 {--TDosStream---------------------------------------------------------------}
 {  Init -> Platforms DOS/DPMI/WIN/OS2 - Checked 16May96 LdB                 }
@@ -1655,7 +1657,10 @@ BEGIN
    End;
 END;
 
-{$POP} //{$i-} for TDosStream, TBufStream
+{$IFDEF IO_CHECK_ON}
+{$UNDEF IO_CHECK_ON}
+{$I+}
+{$ENDIF}
 
 {+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++}
 {                        TMemoryStream OBJECT METHODS                       }
@@ -1897,8 +1902,10 @@ END;
 {  LastThat -> Platforms DOS/DPMI/WIN/OS2 - Checked 22May96 LdB             }
 {---------------------------------------------------------------------------}
 
-{$PUSH}
+{$IFOPT W-}
+{$DEFINE STACKFRAME_OFF}
 {$W+}
+{$ENDIF}
 
 FUNCTION TCollection.LastThat (Test: Pointer): Pointer;
 VAR I: LongInt;
@@ -1932,7 +1939,10 @@ BEGIN
    FirstThat := Nil;                                  { None passed test }
 END;
 
-{$POP}
+{$IFDEF STACKFRAME_OFF}
+{$UNDEF STACKFRAME_OFF}
+{$W-}
+{$ENDIF}
 
 {--TCollection--------------------------------------------------------------}
 {  Pack -> Platforms DOS/DPMI/WIN/OS2 - Checked 22May96 LdB                 }
@@ -2036,15 +2046,20 @@ END;
 {  ForEach -> Platforms DOS/DPMI/WIN/OS2 - Checked 22May96 LdB              }
 {---------------------------------------------------------------------------}
 
-{$PUSH}
+{$IFOPT W-}
+{$DEFINE STACKFRAME_OFF}
 {$W+}
+{$ENDIF}
 PROCEDURE TCollection.ForEach (Action: Pointer);
 VAR I: LongInt;
 BEGIN
    For I := 1 To Count Do                             { Up from first item }
     CallPointerLocal(Action,get_caller_frame(get_frame),Items^[I-1]);   { Call with each item }
 END;
-{$POP}
+{$IFDEF STACKFRAME_OFF}
+{$UNDEF STACKFRAME_OFF}
+{$W-}
+{$ENDIF}
 
 
 {--TCollection--------------------------------------------------------------}

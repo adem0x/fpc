@@ -58,11 +58,9 @@ const
   ApiSuffix = 'A';
 {$endif WINCE}
 
-function OleStrToString(source: PWideChar) : UnicodeString;inline;
-procedure OleStrToStrVar(source : PWideChar;var dest : UnicodeString);inline;
-procedure OleStrToStrVar(source : PWideChar;var dest : AnsiString);inline;
+function OleStrToString(source: PWideChar) : ansistring;inline;
+procedure OleStrToStrVar(source : PWideChar;var dest : ansistring);inline;
 function StringToOleStr(const source : ansistring) : PWideChar;inline;
-function StringToOleStr(const source : UnicodeString) : PWideChar;inline;
 
 { package stuff }
 type

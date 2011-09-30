@@ -50,7 +50,7 @@ Const
   These routines can be overwritten for the Current Locale
 }
 
-procedure DefaultWide2AnsiMove(source:pwidechar;var dest:ansistring;cp : TSystemCodePage;len:SizeInt);
+procedure DefaultWide2AnsiMove(source:pwidechar;var dest:ansistring;len:SizeInt);
 var
   i : SizeInt;
   destp: PChar;
@@ -69,7 +69,7 @@ begin
 end;
 
 
-procedure DefaultAnsi2WideMove(source:pchar;cp : TSystemCodePage;var dest:widestring;len:SizeInt);
+procedure DefaultAnsi2WideMove(source:pchar;var dest:widestring;len:SizeInt);
 var
   i : SizeInt;
 begin
@@ -154,24 +154,35 @@ begin
 end;
 
 
+Procedure DisposeWideString(Var S : Pointer);
+{
+  Deallocates a WideString From the heap.
+}
+begin
+  If S=Nil then
+    exit;
+{$ifndef MSWINDOWS}
+  Dec (S,WideFirstOff);
+  Freemem(S);
+{$else MSWINDOWS}
+  if winwidestringalloc then
+    SysFreeString(S)
+  else
+    begin
+      Dec (S,WideFirstOff);
+      Freemem(S);
+    end;
+{$endif MSWINDOWS}
+  S:=Nil;
+end;
+
 Procedure fpc_WideStr_Decr_Ref (Var S : Pointer);[Public,Alias:'FPC_WIDESTR_DECR_REF']; compilerproc;
 {
   Decreases the ReferenceCount of a non constant widestring;
   If the reference count is zero, deallocate the string;
 }
 Begin
-  If S=Nil then
-    exit;
-{$ifdef MSWINDOWS}
-  if winwidestringalloc then
-    SysFreeString(S)
-  else
-{$endif MSWINDOWS}
-    begin
-      Dec (S,WideFirstOff);
-      Freemem(S);
-    end;
-  S:=Nil;
+  DisposeWideString(S);  { does test for nil }
 end;
 
 { alias for internal use }
@@ -225,7 +236,7 @@ begin
     begin
       If Size>high(res) then
         Size:=high(res);
-      widestringmanager.Wide2AnsiMoveProc(PWideChar(S2),temp,DefaultSystemCodePage,Size);
+      widestringmanager.Wide2AnsiMoveProc(PWideChar(S2),temp,Size);
       res:=temp;
     end;
 end;
@@ -243,54 +254,38 @@ begin
   Size:=Length(S2);
   if Size>0 then
     begin
-      widestringmanager.Ansi2WideMoveProc(PChar(@S2[1]),DefaultSystemCodePage,result,Size);
+      widestringmanager.Ansi2WideMoveProc(PChar(@S2[1]),result,Size);
       { Terminating Zero }
       PWideChar(Pointer(fpc_ShortStr_To_WideStr)+Size*sizeof(WideChar))^:=#0;
     end;
 end;
 
 
-Function fpc_WideStr_To_AnsiStr (const S2 : WideString{$ifdef FPC_HAS_CPSTRING};cp : TSystemCodePage{$endif FPC_HAS_CPSTRING}): AnsiString; compilerproc;
+Function fpc_WideStr_To_AnsiStr (const S2 : WideString): AnsiString; compilerproc;
 {
   Converts a WideString to an AnsiString
 }
 Var
   Size : SizeInt;
-{$ifndef FPC_HAS_CPSTRING}
-  cp : TSystemCodePage;
-{$endif FPC_HAS_CPSTRING}
 begin
-{$ifndef FPC_HAS_CPSTRING}
-  cp:=DefaultSystemCodePage;
-{$endif FPC_HAS_CPSTRING}
   result:='';
   Size:=Length(S2);
   if Size>0 then
-  begin
-    if (cp=$ffff) or (cp=0) then
-      cp:=DefaultSystemCodePage;
-    widestringmanager.Wide2AnsiMoveProc(PWideChar(Pointer(S2)),result,cp,Size);
-  end;
+    widestringmanager.Wide2AnsiMoveProc(PWideChar(Pointer(S2)),result,Size);
 end;
 
 
-Function fpc_AnsiStr_To_WideStr (Const S2 : RawByteString): WideString; compilerproc;
+Function fpc_AnsiStr_To_WideStr (Const S2 : AnsiString): WideString; compilerproc;
 {
   Converts an AnsiString to a WideString;
 }
 Var
   Size : SizeInt;
-  cp: TSystemCodePage;
 begin
   result:='';
   Size:=Length(S2);
   if Size>0 then
-  begin
-    cp:=StringCodePage(S2);
-    if (cp=$ffff) or (cp=0) then
-      cp:=DefaultSystemCodePage;
-    widestringmanager.Ansi2WideMoveProc(PChar(S2),cp,result,Size);
-  end;
+    widestringmanager.Ansi2WideMoveProc(PChar(S2),result,Size);
 end;
 
 
@@ -503,12 +498,12 @@ begin
 end;
 
 
-Function fpc_WChar_To_AnsiStr(const c : WideChar{$ifdef FPC_HAS_CPSTRING};cp : TSystemCodePage{$endif FPC_HAS_CPSTRING}): AnsiString; compilerproc;
+Function fpc_WChar_To_AnsiStr(const c : WideChar): AnsiString; compilerproc;
 {
   Converts a WideChar to a AnsiString;
 }
 begin
-  widestringmanager.Wide2AnsiMoveProc(@c, fpc_WChar_To_AnsiStr,{$ifdef FPC_HAS_CPSTRING}cp{$else}TSystemCodePage(0){$endif FPC_HAS_CPSTRING}, 1);
+  widestringmanager.Wide2AnsiMoveProc(@c, fpc_WChar_To_AnsiStr, 1);
 end;
 
 
@@ -532,7 +527,7 @@ begin
     exit;
   end;
   l:=IndexChar(p^,-1,#0);
-  widestringmanager.Ansi2WideMoveProc(P,DefaultSystemCodePage,fpc_PChar_To_WideStr,l);
+  widestringmanager.Ansi2WideMoveProc(P,fpc_PChar_To_WideStr,l);
 end;
 
 
@@ -554,7 +549,7 @@ begin
   else
     i := high(arr)+1;
   SetLength(fpc_CharArray_To_WideStr,i);
-  widestringmanager.Ansi2WideMoveProc(pchar(@arr),DefaultSystemCodePage,fpc_CharArray_To_WideStr,i);
+  widestringmanager.Ansi2WideMoveProc (pchar(@arr),fpc_CharArray_To_WideStr,i);
 end;
 
 
@@ -574,11 +569,12 @@ begin
   len := length(temp);
   if len > arraysize then
     len := arraysize;
-{$push}
 {$r-}
   move(temp[1],fpc_widestr_to_chararray[0],len);
   fillchar(fpc_widestr_to_chararray[len],arraysize-len,0);
-{$pop}
+{$ifdef RangeCheckWasOn}
+{$r+}
+{$endif}
 end;
 
 
@@ -591,13 +587,14 @@ begin
   len := length(src);
   if len > arraysize then
     len := arraysize;
-{$push}
 {$r-}
   { make sure we don't try to access element 1 of the ansistring if it's nil }
   if len > 0 then
     move(src[1],fpc_widestr_to_widechararray[0],len*SizeOf(WideChar));
   fillchar(fpc_widestr_to_widechararray[len],(arraysize-len)*SizeOf(WideChar),0);
-{$pop}
+{$ifdef RangeCheckWasOn}
+{$r+}
+{$endif}
 end;
 
 
@@ -616,11 +613,12 @@ begin
   if len > arraysize then
     len := arraysize;
 
-{$push}
 {$r-}
   move(temp[1],fpc_ansistr_to_widechararray[0],len*sizeof(widechar));
   fillchar(fpc_ansistr_to_widechararray[len],(arraysize-len)*SizeOf(WideChar),0);
-{$pop}
+{$ifdef RangeCheckWasOn}
+{$r+}
+{$endif}
 end;
 
 function fpc_shortstr_to_widechararray(arraysize: SizeInt; const src: ShortString): fpc_big_widechararray;[public,alias: 'FPC_SHORTSTR_TO_WIDECHARARRAY']; compilerproc;
@@ -635,11 +633,12 @@ begin
   len := length(temp);
   if len > arraysize then
     len := arraysize;
-{$push}
 {$r-}
   move(temp[1],fpc_shortstr_to_widechararray[0],len*sizeof(widechar));
   fillchar(fpc_shortstr_to_widechararray[len],(arraysize-len)*SizeOf(WideChar),0);
-{$pop}
+{$ifdef RangeCheckWasOn}
+{$r+}
+{$endif}
 end;
 
 {$else ndef FPC_STRTOCHARARRAYPROC}
@@ -652,15 +651,16 @@ begin
   len := length(src);
   { make sure we don't dereference src if it can be nil (JM) }
   if len > 0 then
-    widestringmanager.wide2ansimoveproc(pwidechar(@src[1]),temp,DefaultSystemCodePage,len);
+    widestringmanager.wide2ansimoveproc(pwidechar(@src[1]),temp,len);
   len := length(temp);
   if len > length(res) then
     len := length(res);
-{$push}
 {$r-}
   move(temp[1],res[0],len);
   fillchar(res[len],length(res)-len,0);
-{$pop}
+{$ifdef RangeCheckWasOn}
+{$r+}
+{$endif}
 end;
 
 
@@ -671,13 +671,14 @@ begin
   len := length(src);
   if len > length(res) then
     len := length(res);
-{$push}
 {$r-}
   { make sure we don't try to access element 1 of the ansistring if it's nil }
   if len > 0 then
     move(src[1],res[0],len*SizeOf(WideChar));
   fillchar(res[len],(length(res)-len)*SizeOf(WideChar),0);
-{$pop}
+{$ifdef RangeCheckWasOn}
+{$r+}
+{$endif}
 end;
 
 
@@ -900,13 +901,13 @@ begin
 end;
 
 
-Function Pos (c : WideChar; Const s : RawByteString) : SizeInt;
+Function Pos (c : WideChar; Const s : AnsiString) : SizeInt;
   begin
     result:=Pos(c,WideString(s));
   end;
 
 
-Function Pos (c : RawByteString; Const s : WideString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
+Function Pos (c : AnsiString; Const s : WideString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
   begin
     result:=Pos(WideString(c),s);
   end;
@@ -918,7 +919,7 @@ Function Pos (c : ShortString; Const s : WideString) : SizeInt;{$ifdef SYSTEMINL
   end;
 
 
-Function Pos (c : WideString; Const s : RawByteString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
+Function Pos (c : WideString; Const s : AnsiString) : SizeInt;{$ifdef SYSTEMINLINE}inline;{$endif}
   begin
     result:=Pos(c,WideString(s));
   end;
@@ -1012,7 +1013,7 @@ Procedure SetString (Out S : WideString; Buf : PChar; Len : SizeInt);
 begin
   SetLength(S,Len);
   If (Buf<>Nil) and (Len>0) then
-    widestringmanager.Ansi2WideMoveProc(Buf,DefaultSystemCodePage,S,Len);
+    widestringmanager.Ansi2WideMoveProc(Buf,S,Len);
 end;
 
 
@@ -1352,6 +1353,7 @@ function Utf8ToUnicode(Dest: PWideChar; Source: PChar; MaxChars: SizeInt): SizeI
   end;
 
 
+
 function UTF8ToUnicode(Dest: PWideChar; MaxDestChars: SizeUInt; Source: PChar; SourceBytes: SizeUInt): SizeUInt;
   const
     UNICODE_INVALID=63;
@@ -1633,7 +1635,7 @@ function UTF8ToUnicode(Dest: PWideChar; MaxDestChars: SizeUInt; Source: PChar; S
   end;
 
 
-function UTF8Encode(const s : WideString) : RawByteString;
+function UTF8Encode(const s : WideString) : UTF8String;
   var
     i : SizeInt;
     hs : UTF8String;
@@ -1695,8 +1697,8 @@ procedure initwidestringmanager;
   begin
     fillchar(widestringmanager,sizeof(widestringmanager),0);
 {$ifndef HAS_WIDESTRINGMANAGER}
-    widestringmanager.Wide2AnsiMoveProc:=@DefaultWide2AnsiMove;
-    widestringmanager.Ansi2WideMoveProc:=@DefaultAnsi2WideMove;
+    widestringmanager.Wide2AnsiMoveProc:=@defaultWide2AnsiMove;
+    widestringmanager.Ansi2WideMoveProc:=@defaultAnsi2WideMove;
     widestringmanager.UpperWideStringProc:=@GenericWideCase;
     widestringmanager.LowerWideStringProc:=@GenericWideCase;
 {$endif HAS_WIDESTRINGMANAGER}

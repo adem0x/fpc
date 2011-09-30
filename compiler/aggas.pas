@@ -94,6 +94,9 @@ interface
        end;
 
 
+     function ReplaceForbiddenChars(const s: string): string;
+
+
 implementation
 
     uses
@@ -192,11 +195,22 @@ implementation
 
 
     const
-      ait_const2str : array[aitconst_128bit..aitconst_half16bit] of string[20]=(
+      ait_const2str : array[aitconst_128bit..aitconst_darwin_dwarf_delta32] of string[20]=(
         #9'.fixme128'#9,#9'.quad'#9,#9'.long'#9,#9'.short'#9,#9'.byte'#9,
         #9'.sleb128'#9,#9'.uleb128'#9,
-        #9'.rva'#9,#9'.secrel32'#9,#9'.quad'#9,#9'.long'#9,#9'.short'#9
+        #9'.rva'#9,#9'.secrel32'#9,#9'.quad'#9,#9'.long'#9
       );
+
+    function ReplaceForbiddenChars(const s: string): string;
+      var
+      i : longint;
+      begin
+        Result:=s;
+        for i:=1 to Length(Result) do
+          if Result[i]='$' then
+            Result[i]:='s';
+      end;
+
 
 {****************************************************************************}
 {                          GNU Assembler writer                              }
@@ -390,7 +404,7 @@ implementation
           end;
 
         if (atype=sec_threadvar) and
-          (target_info.system in (systems_windows+systems_wince)) then
+          (target_info.system=system_i386_win32) then
           secname:='.tls';
 
         { go32v2 stub only loads .text and .data sections, and allocates space for .bss.
@@ -690,11 +704,7 @@ implementation
            ait_section :
              begin
                if tai_section(hp).sectype<>sec_none then
-{$ifdef avr}
-                 WriteSection(tai_section(hp).sectype,ReplaceForbiddenChars(tai_section(hp).name^),tai_section(hp).secorder)
-{$else avr}
                  WriteSection(tai_section(hp).sectype,tai_section(hp).name^,tai_section(hp).secorder)
-{$endif avr}
                else
                  begin
 {$ifdef EXTDEBUG}
@@ -746,11 +756,7 @@ implementation
                        if tai_datablock(hp).is_global then
                          begin
                            asmwrite(#9'.comm'#9);
-{$ifdef avr}
-                           asmwrite(ReplaceForbiddenChars(tai_datablock(hp).sym.name));
-{$else avr}
                            asmwrite(tai_datablock(hp).sym.name);
-{$endif avr}
                            asmwrite(','+tostr(tai_datablock(hp).size));
                            asmwrite(','+tostr(last_align));
                            asmln;
@@ -758,11 +764,7 @@ implementation
                        else
                          begin
                            asmwrite(#9'.lcomm'#9);
-{$ifdef avr}
-                           asmwrite(ReplaceForbiddenChars(tai_datablock(hp).sym.name));
-{$else avr}
                            asmwrite(tai_datablock(hp).sym.name);
-{$endif avr}
                            asmwrite(','+tostr(tai_datablock(hp).size));
                            asmwrite(','+tostr(last_align));
                            asmln;
@@ -774,30 +776,17 @@ implementation
                        if Tai_datablock(hp).is_global then
                          begin
                            asmwrite(#9'.globl ');
-{$ifdef avr}
-                           asmwriteln(ReplaceForbiddenChars(Tai_datablock(hp).sym.name));
-{$else avr}
                            asmwriteln(Tai_datablock(hp).sym.name);
-{$endif avr}
                          end;
                        if (target_info.system <> system_arm_linux) then
                          sepChar := '@'
                        else
                          sepChar := '%';
                        if (tf_needs_symbol_type in target_info.flags) then
-{$ifdef avr}
-                       if (tf_needs_symbol_type in target_info.flags) then
-                         asmwriteln(#9'.type '+ReplaceForbiddenChars(Tai_datablock(hp).sym.name)+','+sepChar+'object');
-                       if (tf_needs_symbol_size in target_info.flags) and (tai_datablock(hp).size > 0) then
-                          asmwriteln(#9'.size '+ReplaceForbiddenChars(Tai_datablock(hp).sym.name)+','+tostr(Tai_datablock(hp).size));
-                       asmwrite(ReplaceForbiddenChars(Tai_datablock(hp).sym.name));
-{$else avr}
-                       if (tf_needs_symbol_type in target_info.flags) then
                          asmwriteln(#9'.type '+Tai_datablock(hp).sym.name+','+sepChar+'object');
                        if (tf_needs_symbol_size in target_info.flags) and (tai_datablock(hp).size > 0) then
                          asmwriteln(#9'.size '+Tai_datablock(hp).sym.name+','+tostr(Tai_datablock(hp).size));
                        asmwrite(Tai_datablock(hp).sym.name);
-{$endif avr}
                        asmwriteln(':');
                        asmwriteln(#9'.zero '+tostr(Tai_datablock(hp).size));
                      end;
@@ -846,8 +835,7 @@ implementation
                  aitconst_rva_symbol,
                  aitconst_secrel32_symbol,
                  aitconst_darwin_dwarf_delta32,
-                 aitconst_darwin_dwarf_delta64,
-                 aitconst_half16bit:
+                 aitconst_darwin_dwarf_delta64:
                    begin
                      if (target_info.system in systems_darwin) and
                         (constdef in [aitconst_uleb128bit,aitconst_sleb128bit]) then
@@ -893,9 +881,6 @@ implementation
                              { 64 bit constants are already handled above in this case }
                              s:=tostr(longint(tai_const(hp).value));
 {$endif cpu64bitaddr}
-                           if constdef = aitconst_half16bit then
-                             s:='('+s+')/2';
-
                            AsmWrite(s);
                            inc(l,length(s));
                            { Values with symbols are written on a single line to improve
@@ -1234,26 +1219,6 @@ implementation
                if assigned(tai_directive(hp).name) then
                  AsmWrite(tai_directive(hp).name^);
                AsmLn;
-             end;
-
-           ait_seh_directive :
-             begin
-{$ifdef TEST_WIN64_UNWIND}
-               AsmWrite('.'+sehdirectivestr[tai_seh_directive(hp).kind]);
-               case tai_seh_directive(hp).datatype of
-                 sd_none:;
-                 sd_string:
-                   AsmWrite(' '+tai_seh_directive(hp).data.name^);
-                 sd_reg:
-                   AsmWrite(' '+gas_regname(tai_seh_directive(hp).data.reg));
-                 sd_offset:
-                   AsmWrite(' '+tostr(tai_seh_directive(hp).data.offset));
-                 sd_regoffset:
-                   AsmWrite(' '+gas_regname(tai_seh_directive(hp).data.reg)+', '+
-                     tostr(tai_seh_directive(hp).data.offset));
-               end;
-               AsmLn;
-{$endif TEST_WIN64_UNWIND}
              end;
 
            else

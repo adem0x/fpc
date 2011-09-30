@@ -34,7 +34,7 @@ asm_exit:
   bl exitthread
   
 _PISCONSOLE:
-  .long operatingsystem_isconsole
+  .long U_SYSTEM_ISCONSOLE
 
 .globl exitthread
 exitthread:

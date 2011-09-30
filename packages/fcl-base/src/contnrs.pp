@@ -1143,8 +1143,10 @@ end;
       Var
         p,pmax : pchar;
       begin
-{$push}
+{$ifopt Q+}
+{$define overflowon}
 {$Q-}
+{$endif}
         result:=0;
         p:=@s[1];
         pmax:=@s[length(s)+1];
@@ -1153,15 +1155,20 @@ end;
             result:=LongWord(LongInt(result shl 5) - LongInt(result)) xor LongWord(P^);
             inc(p);
           end;
-{$pop}
+{$ifdef overflowon}
+{$Q+}
+{$undef overflowon}
+{$endif}
       end;
 
     function FPHash(P: PChar; Len: Integer): LongWord;
       Var
         pmax : pchar;
       begin
-{$push}
+{$ifopt Q+}
+{$define overflowon}
 {$Q-}
+{$endif}
         result:=0;
         pmax:=p+len;
         while (p<pmax) do
@@ -1169,7 +1176,10 @@ end;
             result:=LongWord(LongInt(result shl 5) - LongInt(result)) xor LongWord(P^);
             inc(p);
           end;
-{$pop}
+{$ifdef overflowon}
+{$Q+}
+{$undef overflowon}
+{$endif}
       end;
 
 

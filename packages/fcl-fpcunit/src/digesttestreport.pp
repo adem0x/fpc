@@ -136,14 +136,14 @@ var
   t : text;
 begin
   assign(t,logfile);
-  {$push}{$I-}
+  {$I-}
   append(t);
-  {$pop}
+  {$I+}
   if ioresult<>0 then
     begin
-    {$push}{$I-}
+    {$I-}
     rewrite(t);
-    {$pop}
+    {$I+}
     if ioresult<>0 then
       begin
       writeln('Can''t append to '+logfile);
@@ -179,9 +179,9 @@ begin
       { Try parent first }
       mkdirtree(SplitPath(hs));
       { make this dir }
-      {$push}{$I-}
+      {$I-}
        mkdir(s);
-      {$pop}
+      {$I+}
       ioresult;
     end;
 end;
@@ -298,9 +298,9 @@ begin
   else
     begin
     getdir(0,OldDir);
-    {$push}{$I-}
+    {$I-}
     chdir(FOutputDir+'/'+ATestSuite.TestName);
-    {$pop}
+    {$I+}
     if IOResult<>0 then
       begin
       mkdirtree(FOutputDir+'/'+ATestSuite.TestName);

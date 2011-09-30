@@ -110,13 +110,25 @@ interface
        EqualsValue = 0;
        LessThanValue = Low(TValueRelationship);
        GreaterThanValue = High(TValueRelationship);
-{$push}
+{$ifopt R+}
+{$define RangeCheckWasOn}
 {$R-}
+{$endif opt R+}
+{$ifopt Q+}
+{$define OverflowCheckWasOn}
 {$Q-}
+{$endif opt Q+}
        NaN = 0.0/0.0;
        Infinity = 1.0/0.0;
        NegInfinity = -1.0/0.0;
-{$pop}
+{$ifdef RangeCheckWasOn}
+{$R+}
+{$undef RangeCheckWasOn}
+{$endif}
+{$ifdef OverflowCheckWasOn}
+{$Q+}
+{$undef OverflowCheckWasOn}
+{$endif}
 
 { Min/max determination }
 function MinIntValue(const Data: array of Integer): Integer;

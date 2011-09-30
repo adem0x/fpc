@@ -314,8 +314,7 @@ type
       (when calling a regular procedure using the above convention, it will
        simply not see the frame pointer parameter, and since the caller cleans
        up the stack will also remain balanced) }
-    po_delphi_nested_cc,
-    po_rtlproc
+    po_delphi_nested_cc
   );
   tprocoptions=set of tprocoption;
 
@@ -488,7 +487,7 @@ type
     staticvarsym,localvarsym,paravarsym,fieldvarsym,
     typesym,procsym,unitsym,constsym,enumsym,
     errorsym,syssym,labelsym,absolutevarsym,propertysym,
-    macrosym,namespacesym
+    macrosym
   );
 
   { State of the variable:
@@ -594,7 +593,7 @@ const
        'abstractsym','globalvar','localvar','paravar','fieldvar',
        'type','proc','unit','const','enum',
        'errorsym','system sym','label','absolutevar','property',
-       'macrosym','namespace'
+       'macrosym'
      );
 
      typName : array[tdeftyp] of string[12] = (

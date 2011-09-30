@@ -246,7 +246,6 @@ function TConnectionName.StrToStatementType(s : string) : TStatementType;
 begin
   S:=Lowercase(s);
   if s = 'show' then exit(stSelect);
-  if s = 'call' then exit(stExecProcedure);
   result := inherited StrToStatementType(s);
 end;
 
@@ -298,7 +297,7 @@ begin
       end;
     end;
 
-  HMySQL:=mysql_real_connect(HMySQL,PChar(H),PChar(U),Pchar(P),Nil,APort,Nil,CLIENT_MULTI_RESULTS); //CLIENT_MULTI_RESULTS is required by CALL SQL statement(executes stored procedure), that produces result sets
+  HMySQL:=mysql_real_connect(HMySQL,PChar(H),PChar(U),Pchar(P),Nil,APort,Nil,0);
   If (HMySQL=Nil) then
     MySQlError(Nil,SErrServerConnectFailed,Self);
 
@@ -477,7 +476,7 @@ begin
     FStatement:=Buf;
     if assigned(AParams) and (AParams.count > 0) then
       FStatement := AParams.ParseSQL(FStatement,false,sqEscapeSlash in ConnOptions, sqEscapeRepeat in ConnOptions,psSimulated,paramBinding,ParamReplaceString);
-    if FStatementType in [stSelect,stExecProcedure] then
+    if FStatementType=stSelect then
       FNeedData:=True;
     end
 end;
@@ -494,7 +493,7 @@ Var
 
 begin
   C:=Cursor as TCursorName;
-  if c.FStatementType in [stSelect,stExecProcedure] then
+  if c.FStatementType=stSelect then
     c.FNeedData:=False;
   If (C.FRes<>Nil) then
     begin
@@ -512,7 +511,6 @@ Var
   C : TCursorName;
   i : integer;
   ParamNames,ParamValues : array of string;
-  Res: PMYSQL_RES;
 
 begin
   C:=Cursor as TCursorName;
@@ -537,14 +535,7 @@ begin
       C.RowsAffected := mysql_affected_rows(FMYSQL);
       C.LastInsertID := mysql_insert_id(FMYSQL);
       if C.FNeedData then
-        repeat
-        Res:=mysql_store_result(FMySQL); //returns a null pointer if the statement didn't return a result set
-        if Res<>nil then
-          begin
-          mysql_free_result(C.FRes);
-          C.FRes:=Res;
-          end;
-        until mysql_next_result(FMySQL)<>0;
+        C.FRes:=mysql_store_result(FMySQL);
       end;
     end;
 end;
@@ -578,10 +569,13 @@ begin
         ADecimals:=AField^.decimals;
         if (ADecimals < 5) and (ASize-2-ADecimals < 15) then //ASize is display size i.e. with sign and decimal point
           NewType := ftBCD
-        else if (ADecimals = 0) and (ASize < 20) then
-          NewType := ftLargeInt
-        else
-          NewType := ftFmtBCD;
+        else 
+          begin
+            if (ADecimals = 0) and (ASize < 20) then
+              NewType := ftLargeInt
+            else
+              NewType := ftFmtBCD;
+          end;
         NewSize := ADecimals;
       end;
     FIELD_TYPE_FLOAT, FIELD_TYPE_DOUBLE:

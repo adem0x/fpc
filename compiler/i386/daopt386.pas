@@ -689,8 +689,10 @@ begin
 end;
 
 
-{$push}
+{$ifdef q+}
 {$q-}
+{$define overflowon}
+{$endif q+}
 
 // checks whether a write to r2 of size "size" contains address r1
 function refsoverlapping(const r1, r2: treference; size1, size2: tcgsize): boolean;
@@ -708,7 +710,10 @@ begin
     (r1.relsymbol = r2.relsymbol);
 end;
 
-{$pop}
+{$ifdef overflowon}
+{$q+}
+{$undef overflowon}
+{$endif overflowon}
 
 
 function isgp32reg(supreg: tsuperregister): boolean;
@@ -1718,8 +1723,10 @@ begin
   RefInSequence := TmpResult
 end;
 
-{$push}
+{$ifdef q+}
 {$q-}
+{$define overflowon}
+{$endif q+}
 // checks whether a write to r2 of size "size" contains address r1
 function arrayrefsoverlapping(const r1, r2: treference; size1, size2: tcgsize): Boolean;
 var
@@ -1734,7 +1741,10 @@ begin
     (r1.symbol=r2.symbol) and
     (r1.base = r2.base)
 end;
-{$pop}
+{$ifdef overflowon}
+{$q+}
+{$undef overflowon}
+{$endif overflowon}
 
 function isSimpleRef(const ref: treference): boolean;
 { returns true if ref is reference to a local or global variable, to a  }
@@ -2781,8 +2791,10 @@ begin
     pass_generate_code := false;
 end;
 
-{$push}
+{$ifopt r+}
+{$define rangewason}
 {$r-}
+{$endif}
 function tdfaobj.getlabelwithsym(sym: tasmlabel): tai;
 begin
   if (sym.labelnr >= lolab) and
@@ -2791,7 +2803,10 @@ begin
   else
     getlabelwithsym := nil;
 end;
-{$pop}
+{$ifdef rangewason}
+{$r+}
+{$undef rangewason}
+{$endif}
 
 
 procedure tdfaobj.clear;

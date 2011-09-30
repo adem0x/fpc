@@ -4,12 +4,12 @@
      .text
      .globl _mainCRTStartup
 _mainCRTStartup:
-     movb   $1,operatingsystem_isconsole
+     movb   $1,U_SYSTEM_ISCONSOLE
      jmp    _start
 
      .globl _WinMainCRTStartup
 _WinMainCRTStartup:
-     movb   $0,operatingsystem_isconsole
+     movb   $0,U_SYSTEM_ISCONSOLE
 _start:
      subl   $0x8,%esp
      andl   $0xfffffff0,%esp

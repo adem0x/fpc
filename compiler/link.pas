@@ -953,6 +953,7 @@ Implementation
 
     procedure TInternalLinker.ParseScript_PostCheck;
       var
+        s : String;
         hp : TCmdStrListItem;
         i : longint;
       begin
@@ -963,6 +964,7 @@ Implementation
             inc(i);
             if not IsHandled^[i] then
               begin
+                s:=hp.str;
                 Comment(V_Warning,'"'+hp.str+
                   '" internal linker script not handled');
               end;

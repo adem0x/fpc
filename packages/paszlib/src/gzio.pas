@@ -219,7 +219,7 @@ begin
 
   s^.stream.avail_out := Z_BUFSIZE;
 
-  {$PUSH} {$I-}
+  {$IFOPT I+} {$I-} {$define IOcheck} {$ENDIF}
   Assign (s^.gzfile, path);
   {$ifdef unix}
     exists:=not (fpstat(path,info)<0);
@@ -241,7 +241,7 @@ begin
         doseek:=true;      // seek AFTER I/O check.
     end;
     
-  {$POP}
+  {$IFDEF IOCheck} {$I+} {$ENDIF}
   if (IOResult <> 0) then begin
     destroy(s);
     gzopen := gzFile(nil);
@@ -329,9 +329,9 @@ begin
   end;
 
   if s^.stream.avail_in=0 then begin
-    {$push}{$I-}
+    {$I-}
     blockread (s^.gzfile, s^.inbuf^, Z_BUFSIZE, s^.stream.avail_in);
-    {$pop}
+    {$I+}
     if s^.stream.avail_in=0 then begin
       s^.z_eof := true;
       if (IOResult <> 0) then s^.z_err := Z_ERRNO;
@@ -513,9 +513,9 @@ begin
   end;
 
   if s^.path <> '' then begin
-    {$push}{$I-}
+    {$I-}
     close(s^.gzfile);
-    {$pop}
+    {$I+}
     if (IOResult <> 0) then destroy := Z_ERRNO;
   end;
 
@@ -606,9 +606,9 @@ begin
     end; { IF transparent }
 
     if (s^.stream.avail_in = 0) and (s^.z_eof = false) then begin
-      {$push}{$I-}
+      {$I-}
       blockread (s^.gzfile, s^.inbuf^, Z_BUFSIZE, s^.stream.avail_in);
-      {$pop}
+      {$I+}
       if (s^.stream.avail_in = 0) then begin
         s^.z_eof := true;
 	if (IOResult <> 0) then begin
@@ -878,9 +878,9 @@ begin
     len := Z_BUFSIZE - s^.stream.avail_out;
 
     if (len <> 0) then begin
-      {$push}{$I-}
+      {$I-}
       blockwrite(s^.gzfile, s^.outbuf^, len, written);
-      {$pop}
+      {$I+}
       if (written <> len) then begin
         s^.z_err := Z_ERRNO;
         do_flush := Z_ERRNO;
@@ -963,17 +963,17 @@ begin
   s^.stream.next_in := s^.inbuf;
 
   if (s^.startpos = 0) then begin { not a compressed file }
-    {$push}{$I-}
+    {$I-}
     seek (s^.gzfile, 0);
-    {$pop}
+    {$I+}
     gzrewind := 0;
     exit;
   end;
 
   inflateReset(s^.stream);
-  {$push}{$I-}
+  {$I-}
   seek (s^.gzfile, s^.startpos);
-  {$pop}
+  {$I+}
   gzrewind := integer(IOResult);
   exit;
 end;
@@ -1050,9 +1050,9 @@ begin
   if (s^.transparent = true) then begin
     s^.stream.avail_in := 0;
     s^.stream.next_in := s^.inbuf;
-    {$push}{$I-}
+    {$I-}
     seek (s^.gzfile, offset);
-    {$pop}
+    {$I+}
     if (IOResult <> 0) then begin
       gzseek := z_off_t(-1);
       exit;

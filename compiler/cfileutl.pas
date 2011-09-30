@@ -684,9 +684,9 @@ end;
       begin
         if d[length(d)]=source_info.DirSep then
          Delete(d,length(d),1);
-        {$push}{$I-}
+        {$I-}
          rmdir(d);
-        {$pop}
+        {$I+}
         RemoveDir:=(ioresult=0);
       end;
 

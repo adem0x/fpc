@@ -4,7 +4,7 @@
 
 [package]
 name=fcl-web
-version=2.7.1
+version=2.5.1
 
 [require]
 packages=rtl fpmkunit
@@ -29,7 +29,7 @@ LOCALFPMAKE=.$(PATHSEP)fpmake$(SRCEXEEXT)
 .NOTPARALLEL:
 
 fpmake: fpmake.pp
-	$(FPCFPMAKE) fpmake.pp $(FPMAKE_SKIP_CONFIG) $(addprefix -Fu,$(COMPILER_FPMAKE_UNITDIR)) $(FPCMAKEOPT)
+	$(FPCFPMAKE) fpmake.pp $(FPMAKE_SKIP_CONFIG) $(addprefix -Fu,$(COMPILER_FPMAKE_UNITDIR))
 all:	fpmake
 	$(LOCALFPMAKE) compile --localunitdir=../.. --globalunitdir=.. $(FPC_TARGETOPT) $(addprefix -o ,$(FPCOPT)) --compiler=$(FPC)
 smart:	fpmake
@@ -50,7 +50,7 @@ endif
 # In case of a distclean, perform an 'old'-style distclean. This to avoid problems
 # when the package is compiled using fpcmake prior to running this clean using fpmake
 ifeq ($(FPMAKE_BIN_CLEAN),)
-distclean:	$(addsuffix _distclean,$(TARGET_DIRS)) fpc_cleanall
+distclean:	$(addsuffix _distclean,$(TARGET_DIRS)) fpc_distclean
 else
 distclean:	
 ifdef inUnix
@@ -62,15 +62,11 @@ endif
 endif
 install:	fpmake
 ifdef UNIXHier
-	$(LOCALFPMAKE) install --localunitdir=../.. --globalunitdir=.. $(FPC_TARGETOPT) $(addprefix -o ,$(FPCOPT)) --compiler=$(FPC) --prefix=$(INSTALL_PREFIX) --unitinstalldir=$(INSTALL_UNITDIR)
+	$(LOCALFPMAKE) install --localunitdir=../.. --globalunitdir=.. $(FPC_TARGETOPT) $(addprefix -o ,$(FPCOPT)) --compiler=$(FPC) --prefix=$(INSTALL_PREFIX)
 else
-	$(LOCALFPMAKE) install --localunitdir=../.. --globalunitdir=.. $(FPC_TARGETOPT) $(addprefix -o ,$(FPCOPT)) --compiler=$(FPC) --prefix=$(INSTALL_BASEDIR) --unitinstalldir=$(INSTALL_UNITDIR)
-endif
-# distinstall also installs the example-sources
-distinstall:	fpmake
-ifdef UNIXHier
-	$(LOCALFPMAKE) install --localunitdir=../.. --globalunitdir=.. $(FPC_TARGETOPT) $(addprefix -o ,$(FPCOPT)) --compiler=$(FPC) --prefix=$(INSTALL_PREFIX)  --unitinstalldir=$(INSTALL_UNITDIR) -ie
-else
-	$(LOCALFPMAKE) install --localunitdir=../.. --globalunitdir=.. $(FPC_TARGETOPT) $(addprefix -o ,$(FPCOPT)) --compiler=$(FPC) --prefix=$(INSTALL_BASEDIR)  --unitinstalldir=$(INSTALL_UNITDIR) -ie
+	$(LOCALFPMAKE) install --localunitdir=../.. --globalunitdir=.. $(FPC_TARGETOPT) $(addprefix -o ,$(FPCOPT)) --compiler=$(FPC) --prefix=$(INSTALL_BASEDIR)
 endif
 
+# Normally distinstall also installs the examples, but in this case there are
+# none.
+distinstall:	install

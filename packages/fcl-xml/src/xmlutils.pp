@@ -16,6 +16,7 @@ unit xmlutils;
 
 {$ifdef fpc}{$mode objfpc}{$endif}
 {$H+}
+{$ifopt Q+}{$define overflow_check}{$endif}
 
 interface
 
@@ -102,7 +103,6 @@ type
     function Find(Key: PWideChar; KeyLen: Integer): PHashItem;
     function FindOrAdd(Key: PWideChar; KeyLen: Integer; var Found: Boolean): PHashItem; overload;
     function FindOrAdd(Key: PWideChar; KeyLen: Integer): PHashItem; overload;
-    function FindOrAdd(const Key: WideString): PHashItem; overload;
     function Get(Key: PWideChar; KeyLen: Integer): TObject;
     function Remove(Entry: PHashItem): Boolean;
     function RemoveData(aData: TObject): Boolean;
@@ -476,9 +476,9 @@ begin
   Result := InitValue;
   while KeyLen <> 0 do
   begin
-{$push}{$q-}
+{$ifdef overflow_check}{$q-}{$endif}
     Result := Result * $F4243 xor ord(Key^);
-{$pop}
+{$ifdef overflow_check}{$q+}{$endif}
     Inc(Key);
     Dec(KeyLen);
   end;
@@ -552,13 +552,6 @@ var
   Dummy: Boolean;
 begin
   Result := Lookup(Key, KeyLen, Dummy, True);
-end;
-
-function THashTable.FindOrAdd(const Key: WideString): PHashItem;
-var
-  Dummy: Boolean;
-begin
-  Result := Lookup(PWideChar(Key), Length(Key), Dummy, True);
 end;
 
 function THashTable.Get(Key: PWideChar; KeyLen: Integer): TObject;

@@ -1,4 +1,3 @@
-{ %skiptarget=go32v2 }
 { %version=1.1 }
 
 {$mode objfpc}

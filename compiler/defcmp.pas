@@ -43,9 +43,7 @@ interface
           cpo_ignoreuniv,
           cpo_warn_incompatible_univ,
           cpo_ignorevarspez,          // ignore parameter access type
-          cpo_ignoreframepointer,     // ignore frame pointer parameter (for assignment-compatibility of global procedures to nested procvars)
-          cpo_compilerproc,
-          cpo_rtlproc
+          cpo_ignoreframepointer      // ignore frame pointer parameter (for assignment-compatibility of global procedures to nested procvars)
        );
 
        tcompare_paras_options = set of tcompare_paras_option;
@@ -348,36 +346,14 @@ implementation
                            else if tstringdef(def_to).stringtype in [st_widestring,st_unicodestring] then
                              eq:=te_convert_l2
                            else
-                             eq:=te_convert_l1;
+                             eq:=te_equal;
                          end;
                       end
-                     else if (tstringdef(def_from).stringtype=tstringdef(def_to).stringtype) and
-                             (tstringdef(def_from).stringtype=st_ansistring) then 
-                      begin
-                        if (tstringdef(def_from).encoding=tstringdef(def_to).encoding) or
-                           (tstringdef(def_to).encoding=globals.CP_NONE) then
-                         begin
-                           //doconv := tc_string_2_string;
-                           eq:=te_equal;
-                         end
-                        else
-                         begin        
-                           doconv := tc_string_2_string;
-                           if (tstringdef(def_to).encoding=globals.CP_UTF8) then 
-                             eq:=te_convert_l1
-                           else
-                             eq:=te_convert_l2;
-                         end 
-                      end          
                      else
-                     { same string type ? }
+                     { Same string type, for shortstrings also the length must match }
                       if (tstringdef(def_from).stringtype=tstringdef(def_to).stringtype) and
-                        { for shortstrings also the length must match }
                          ((tstringdef(def_from).stringtype<>st_shortstring) or
-                          (tstringdef(def_from).len=tstringdef(def_to).len)) and
-                         { for ansi- and unicodestrings also the encoding must match }
-                         (not(tstringdef(def_from).stringtype in [st_ansistring,st_unicodestring]) or
-                          (tstringdef(def_from).encoding=tstringdef(def_to).encoding)) then
+                          (tstringdef(def_from).len=tstringdef(def_to).len)) then
                         eq:=te_equal
                      else
                        begin
@@ -1805,17 +1781,6 @@ implementation
                  if not equal_constsym(tconstsym(currpara1.defaultconstsym),tconstsym(currpara2.defaultconstsym)) then
                    exit;
                end;
-              if not(cpo_compilerproc in cpoptions) and
-                 not(cpo_rtlproc in cpoptions) and
-                 is_ansistring(currpara1.vardef) and
-                 is_ansistring(currpara2.vardef) and
-                 (tstringdef(currpara1.vardef).encoding<>tstringdef(currpara2.vardef).encoding) and
-                 ((tstringdef(currpara1.vardef).encoding=globals.CP_NONE) or
-                  (tstringdef(currpara2.vardef).encoding=globals.CP_NONE)
-                 ) then
-                eq:=te_convert_l1;
-              if eq<lowesteq then
-                lowesteq:=eq;
               inc(i1);
               inc(i2);
               if cpo_ignorehidden in cpoptions then

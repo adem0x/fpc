@@ -39,7 +39,6 @@ unit charset;
        punicodemap = ^tunicodemap;
        tunicodemap = record
           cpname : string[20];
-          cp : word;
           map : punicodecharmapping;
           lastchar : longint;
           next : punicodemap;
@@ -49,12 +48,10 @@ unit charset;
        tcp2unicode = class(tcsconvert)
        end;
 
-    function loadunicodemapping(const cpname,f : string; cp :word) : punicodemap;
+    function loadunicodemapping(const cpname,f : string) : punicodemap;
     procedure registermapping(p : punicodemap);
-    function getmap(const s : string) : punicodemap; 
-    function getmap(cp : word) : punicodemap;   
+    function getmap(const s : string) : punicodemap;
     function mappingavailable(const s : string) : boolean;
-    function mappingavailable(cp :word) : boolean;
     function getunicode(c : char;p : punicodemap) : tunicodechar;
     function getascii(c : tunicodechar;p : punicodemap) : string;
 
@@ -63,7 +60,7 @@ unit charset;
     var
        mappings : punicodemap;
 
-    function loadunicodemapping(const cpname,f : string; cp :word) : punicodemap;
+    function loadunicodemapping(const cpname,f : string) : punicodemap;
 
       var
          data : punicodecharmapping;
@@ -158,7 +155,6 @@ unit charset;
          new(p);
          p^.lastchar:=lastchar;
          p^.cpname:=cpname;
-         p^.cp:=cp;
          p^.internalmap:=false;
          p^.next:=nil;
          p^.map:=data;
@@ -200,48 +196,12 @@ unit charset;
               hp:=hp^.next;
            end;
          getmap:=nil;
-      end;////////
-
-    function getmap(cp : word) : punicodemap;
-
-      var
-         hp : punicodemap;
-
-      const
-         mapcache : word = 0;
-         mapcachep : punicodemap = nil;
-
-      begin
-         if (mapcache=cp) and assigned(mapcachep) and (mapcachep^.cp=cp) then
-           begin
-              getmap:=mapcachep;
-              exit;
-           end;
-         hp:=mappings;
-         while assigned(hp) do
-           begin
-              if hp^.cp=cp then
-                begin
-                   getmap:=hp;
-                   mapcache:=cp;
-                   mapcachep:=hp;
-                   exit;
-                end;
-              hp:=hp^.next;
-           end;
-         getmap:=nil;
       end;
 
     function mappingavailable(const s : string) : boolean;
 
       begin
          mappingavailable:=getmap(s)<>nil;
-      end;
-
-    function mappingavailable(cp : word) : boolean;
-
-      begin
-         mappingavailable:=getmap(cp)<>nil;
       end;
 
     function getunicode(c : char;p : punicodemap) : tunicodechar;
@@ -259,8 +219,8 @@ unit charset;
          i : longint;
 
       begin
-         { at least map to '?' }
-         getascii:=#63;
+         { at least map to space }
+         getascii:=#32;
          for i:=0 to p^.lastchar do
            if p^.map[i].unicode=c then
              begin

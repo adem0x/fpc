@@ -98,8 +98,6 @@ type
    PWordarray = ^TWordArray;
    TWordArray = array[0..16383] of Word;
 
-   TBytes = array of Byte;   
-
    { exceptions }
    Exception = class(TObject)
     private
@@ -200,11 +198,6 @@ type
    ENoThreadSupport = Class(Exception);
    ENoWideStringSupport = Class(Exception);
    ENotImplemented = class(Exception);
-
-   EArgumentException = class(Exception);
-   EArgumentOutOfRangeException = class(EArgumentException);
-
-   ENoConstructException = class(Exception);
 
    { Exception handling routines }
    function ExceptObject: TObject;

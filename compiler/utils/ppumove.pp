@@ -215,9 +215,9 @@ var
 begin
 { create the temp dir first }
   fsplit(libfn,d,n,e);
-  {$push}{$I-}
+  {$I-}
    mkdir(n+'.sl');
-  {$pop}
+  {$I+}
   if ioresult<>0 then;
 { Extract }
   if Shell(arbin+' x '+libfn)<>0 then
@@ -429,12 +429,12 @@ begin
 { rename }
   if PPUFn=PPLFn then
    begin
-     {$push}{$I-}
+     {$I-}
       assign(f,PPUFn);
       erase(f);
       assign(f,'ppumove.$$$');
       rename(f,PPUFn);
-     {$pop}
+     {$I+}
      if ioresult<>0 then;
    end;
 { the end }

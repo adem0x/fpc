@@ -93,7 +93,7 @@ const
   OldRandSeed : Cardinal = 0;
 
 { For Error Handling.}
-  ErrorBase : Pointer = nil;public name 'FPC_ERRORBASE';
+  ErrorBase : Pointer = nil;
 
 { Used by the ansi/widestrings and maybe also other things in the future }
 var
@@ -629,10 +629,20 @@ End;
 
 
 
-{$push}
+{$ifopt R+}
+{$define RangeCheckWasOn}
 {$R-}
+{$endif opt R+}
+
+{$ifopt I+}
+{$define IOCheckWasOn}
 {$I-}
+{$endif opt I+}
+
+{$ifopt Q+}
+{$define OverflowCheckWasOn}
 {$Q-}
+{$endif opt Q+}
 
 {*****************************************************************************
                              Miscellaneous
@@ -718,7 +728,9 @@ end;
 
 {$IFNDEF NO_GENERIC_STACK_CHECK}
 
-{$PUSH}
+{$IFOPT S+}
+{$DEFINE STACKCHECK}
+{$ENDIF}
 {$S-}
 procedure fpc_stackcheck(stack_size:SizeUInt);[public,alias:'FPC_STACKCHECK'];
 var
@@ -737,7 +749,10 @@ begin
      HandleError(202);
    end;
 end;
-{$POP}
+{$IFDEF STACKCHECK}
+{$S+}
+{$ENDIF}
+{$UNDEF STACKCHECK}
 
 {$ENDIF NO_GENERIC_STACK_CHECK}
 
@@ -794,12 +809,10 @@ procedure internal_initializeunits; external name 'FPC_INITIALIZEUNITS';
 
 procedure fpc_LibInitializeUnits;[public,alias:'FPC_LIBINITIALIZEUNITS'];
 begin
-{$ifdef FPC_HAS_FEATURE_DYNLIBS}
   IsLibrary:=true;
   { must also be set to true for packages when implemented }
   ModuleIsLib:=true;
   internal_initializeunits;
-{$endif FPC_HAS_FEATURE_DYNLIBS}
 end;
 
 
@@ -873,10 +886,6 @@ Begin
   FinalizeUnits;
 
 {$ifdef FPC_HAS_FEATURE_CONSOLEIO}
-  { the embedded system unit itself contains no routines for console i/o
-    console i/o is done by the Consoleio unit which can do things like
-    redirection to seriell i/o }
-{$ifndef EMBEDDED}
   { Show runtime error and exit }
   pstdout:=@stdout;
   If erroraddr<>nil Then
@@ -888,7 +897,6 @@ Begin
      Writeln(pstdout^,'');
    End;
   SysFlushStdIO;
-{$endif EMBEDDED}
 {$endif FPC_HAS_FEATURE_CONSOLEIO}
 
 {$if defined(MSWINDOWS) or defined(OS2)}
@@ -1285,7 +1293,17 @@ end;
 {$i setjump.inc}
 
 
-{$pop} //{$I-,R-,Q-} before 'procedure fpc_rangeerror'
+{$ifdef IOCheckWasOn}
+{$I+}
+{$endif}
+
+{$ifdef RangeCheckWasOn}
+{$R+}
+{$endif}
+
+{$ifdef OverflowCheckWasOn}
+{$Q+}
+{$endif}
 
 
 {*****************************************************************************

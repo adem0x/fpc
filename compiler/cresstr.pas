@@ -37,11 +37,7 @@ uses
    symconst,symtype,symdef,symsym,
    verbose,fmodule,ppu,
    aasmbase,aasmtai,aasmdata,
-   aasmcpu,
-{$if FPC_FULLVERSION<20700}
-   ccharset,
-{$endif }
-   asmutils;
+   aasmcpu,asmutils;
 
     Type
       { These are used to form a singly-linked list, ordered by hash value }
@@ -150,7 +146,7 @@ uses
           make_mangledname('RESSTR',current_module.localsymtable,'START'),AT_DATA,0));
 
         { Write unitname entry }
-        namelab:=emit_ansistring_const(current_asmdata.asmlists[al_const],@current_module.localsymtable.name^[1],length(current_module.localsymtable.name^),tstringdef(cansistringtype).encoding,False);
+        namelab:=emit_ansistring_const(current_asmdata.asmlists[al_const],@current_module.localsymtable.name^[1],length(current_module.localsymtable.name^),False);
         current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_sym(namelab));
         current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_sym(nil));
         current_asmdata.asmlists[al_resourcestrings].concat(tai_const.create_sym(nil));
@@ -166,12 +162,12 @@ uses
             new_section(current_asmdata.asmlists[al_const],sec_rodata,make_mangledname('RESSTR',current_module.localsymtable,'d_'+r.name),sizeof(pint));
             { Write default value }
             if assigned(R.value) and (R.len<>0) then
-              valuelab:=emit_ansistring_const(current_asmdata.asmlists[al_const],R.Value,R.Len,tstringdef(cansistringtype).encoding,False)
+              valuelab:=emit_ansistring_const(current_asmdata.asmlists[al_const],R.Value,R.Len,False)
             else
               valuelab:=nil;
             { Append the name as a ansistring. }
             current_asmdata.asmlists[al_const].concat(cai_align.Create(const_align(sizeof(pint))));
-            namelab:=emit_ansistring_const(current_asmdata.asmlists[al_const],@R.Name[1],length(R.name),tstringdef(cansistringtype).encoding,False);
+            namelab:=emit_ansistring_const(current_asmdata.asmlists[al_const],@R.Name[1],length(R.name),False);
 
             {
               Resourcestring index:
@@ -207,7 +203,7 @@ uses
         { Update: the Mac OS X 10.6 linker orders data that needs to be    }
         { relocated before all other data, so make this data relocatable,  }
         { otherwise the end label won't be moved with the rest             }
-        if (target_info.system in systems_darwin) then
+        if (target_info.system in systems_darwin) then   
           current_asmdata.asmlists[al_resourcestrings].concat(Tai_const.create_sym(endsymlab));
       end;
 
@@ -233,9 +229,9 @@ uses
         ResFileName:=ChangeFileExt(current_module.ppufilename^,'.rst');
         message1 (general_i_writingresourcefile,ExtractFileName(ResFileName));
         Assign(F,ResFileName);
-        {$push}{$i-}
+        {$i-}
         Rewrite(f);
-        {$pop}
+        {$i+}
         If IOresult<>0 then
           begin
             message1(general_e_errorwritingresourcefile,ResFileName);

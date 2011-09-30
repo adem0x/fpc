@@ -752,9 +752,8 @@ begin
   { If not enough room in bi_buf, use (valid) bits from bi_buf and
     (16 - bi_valid) bits from value, leaving (width - (16-bi_valid))
     unused bits in value. }
-  {$PUSH}
-  {$Q-}
-  {$R-}
+  {$IFOPT Q+} {$Q-} {$DEFINE NoOverflowCheck} {$ENDIF}
+  {$IFOPT R+} {$R-} {$DEFINE NoRangeCheck} {$ENDIF}
   if (s.bi_valid > integer(Buf_size) - length) then
   begin
     s.bi_buf := s.bi_buf or integer(value shl s.bi_valid);
@@ -772,7 +771,8 @@ begin
     s.bi_buf := s.bi_buf or integer(value shl s.bi_valid);
     inc(s.bi_valid, length);
   end;
-  {$POP}
+  {$IFDEF NoOverflowCheck} {$Q+} {$UNDEF NoOverflowCheck} {$ENDIF}
+  {$IFDEF NoRangeCheck} {$Q+} {$UNDEF NoRangeCheck} {$ENDIF}
 end;
 
 {$else} { !ZLIB_DEBUG }
@@ -906,9 +906,9 @@ var
   i : integer;
 begin
   system.assign(header, 'trees.inc');
-  {$push}{$I-}
+  {$I-}
   ReWrite(header);
-  {$pop}
+  {$I+}
   Assert (IOresult <> 0, 'Can''t open trees.h');
   WriteLn(header,
     '{ header created automatically with -DGEN_TREES_H }'^M);
