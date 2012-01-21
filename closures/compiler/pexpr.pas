@@ -70,7 +70,7 @@ implementation
        nmat,nadd,nmem,nset,ncnv,ninl,ncon,nld,nflw,nbas,nutils,
        { parser }
        scanner,
-       pbase,pinline,ptype,pgenutil,
+       pbase,pinline,ptype,pgenutil,pnameless,
        { codegen }
        cgbase,procinfo,cpuinfo
        ;
@@ -2248,8 +2248,15 @@ implementation
                           p1:=csubscriptnode.create(srsym,p1);
                       end
                     else
-                      { regular non-field load }
-                      p1:=cloadnode.create(srsym,srsymtable);
+                      begin
+                        if srsym.typ in [localvarsym,paravarsym] then
+                          p1:=handle_possible_capture(current_procinfo.procdef, tabstractnormalvarsym(srsym))
+                        else
+                          p1:=nil;
+                        if not assigned(p1) then
+                          { regular non-field load }
+                          p1:=cloadnode.create(srsym,srsymtable);
+                      end
                   end;
 
                 syssym :
@@ -2945,6 +2952,13 @@ implementation
                consume(_RKLAMMER);
                p1:=cinlinenode.create(in_objc_protocol_x,false,p1);
              end;
+
+             // nameless routine
+             _PROCEDURE, _FUNCTION:
+               if assigned(current_procinfo) then
+                 p1:=parse_nameless_routine(current_procinfo.procdef)
+               else // TODO: support this later? Delphi doesn't
+                 internalerror(20120121);
 
              else
                begin

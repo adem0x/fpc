@@ -312,7 +312,10 @@ interface
           function  members_need_inittable : boolean;
           function  find_implemented_interface(aintfdef:tobjectdef):TImplementedInterface;
           { this should be called when this class implements an interface }
+          procedure register_implemented_interface(const intfdef: tobjectdef);
+       strict private
           procedure prepareguid;
+       public
           function  is_publishable : boolean;override;
           function  is_related(d : tdef) : boolean;override;
           function  needs_inittable : boolean;override;
@@ -907,10 +910,12 @@ implementation
         i   : longint;
         crc : dword;
         hp  : tparavarsym;
+      label again; // TODO: refactor this abomination
       begin
         prefix:='';
         if not assigned(st) then
          internalerror(200204212);
+      again:
         { sub procedures }
         while (st.symtabletype=localsymtable) do
          begin
@@ -968,6 +973,9 @@ implementation
            prefix:=tabstractrecorddef(st.defowner).objname^+'_$_'+prefix;
            st:=st.defowner.owner;
          end;
+        if st.symtabletype = localsymtable then
+          // local classes and interfaces
+          goto again;
         { symtable must now be static or global }
         if not(st.symtabletype in [staticsymtable,globalsymtable]) then
           internalerror(200204175);
@@ -4856,6 +4864,15 @@ implementation
         if childof=nil then
           childof:=tobjectdef(childofderef.resolve);
         result:=childof;
+      end;
+
+
+    procedure tobjectdef.register_implemented_interface(const intfdef: tobjectdef);
+      begin
+        // allocate the GUID only if the class implements at least one interface
+        if ImplementedInterfaces.count = 0 then
+          prepareguid;
+        ImplementedInterfaces.Add(TImplementedInterface.Create(intfdef));
       end;
 
 

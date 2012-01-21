@@ -3075,9 +3075,16 @@ implementation
         for i:=0 to st.DefList.Count-1 do
           begin
             def:=tdef(st.DefList[i]);
-            { if def can contain nested types then handle it symtable }
-            if def.typ in [objectdef,recorddef] then
-              gen_intf_wrappers(list,tabstractrecorddef(def).symtable,true);
+            { if def can contain nested types then handle its symtable }
+            case def.typ of
+              objectdef,recorddef:
+                gen_intf_wrappers(list,tabstractrecorddef(def).symtable,true);
+              procdef:
+                // check for local classes; currently, we only use them for closures
+                // TODO: this can slow codegen down dramatically?!
+                if assigned(tprocdef(def).localst) then
+                  gen_intf_wrappers(list,tprocdef(def).localst,true);
+            end;
             if is_class(def) then
               gen_intf_wrapper(list,tobjectdef(def));
           end;

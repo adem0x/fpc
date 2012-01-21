@@ -320,7 +320,11 @@ type
        simply not see the frame pointer parameter, and since the caller cleans
        up the stack will also remain balanced) }
     po_delphi_nested_cc,
-    po_rtlproc
+    po_rtlproc,
+    // nameless routine (including closure)
+    po_nameless,
+    // has at least one closure declared in the body
+    po_has_closure
   );
   tprocoptions=set of tprocoption;
 
@@ -382,7 +386,11 @@ type
     oo_is_formal,         { the class is only formally defined in this module (x = objcclass; external [name 'x'];) }
     oo_is_classhelper,    { objcclasses that represent categories, and Delpi-style class helpers, are marked like this }
     oo_has_class_constructor, { the object/class has a class constructor }
-    oo_has_class_destructor   { the object/class has a class destructor  }
+    oo_has_class_destructor,   { the object/class has a class destructor  }
+    // the interface that has no identifier; structural type equivalence is used
+    //   currently, this flag is only used for closures
+    //     TODO: we can get rid of it if we implement type coersion for COM-interfaces
+    oo_is_nameless
   );
   tobjectoptions=set of tobjectoption;
 

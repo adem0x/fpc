@@ -180,11 +180,14 @@ interface
           defaultconstsymderef : tderef;
           localloc      : TLocation; { register/reference for local var }
           initialloc    : TLocation; { initial location so it can still be initialized later after the location was changed by SSA }
+          // if var is captured by a closure, this refers to a field of the class TCapturer
+          captured_into: tfieldvarsym;
           constructor create(st:tsymtyp;const n : string;vsp:tvarspez;def:tdef;vopts:tvaroptions);
           constructor ppuload(st:tsymtyp;ppufile:tcompilerppufile);
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderef;override;
           procedure deref;override;
+          function is_captured: boolean; inline;
       end;
 
       tlocalvarsym = class(tabstractnormalvarsym)
@@ -1394,6 +1397,12 @@ implementation
       begin
          inherited ppuwrite(ppufile);
          ppufile.putderef(defaultconstsymderef);
+      end;
+
+
+    function tabstractnormalvarsym.is_captured: boolean; inline;
+      begin
+        result:=assigned(captured_into)
       end;
 
 
