@@ -580,6 +580,8 @@ interface
           function  is_methodpointer:boolean;override;
           function  is_addressonly:boolean;override;
           procedure make_external;
+          procedure add_to_procsym; overload; inline;
+          procedure add_to_procsym(sym: {tprocsym}tsym); overload; inline;
        end;
 
        { single linked list of overloaded procs }
@@ -3931,6 +3933,19 @@ implementation
           else
             GetSymtable:=nil;
         end;
+      end;
+
+
+    procedure tprocdef.add_to_procsym; inline;
+      begin
+        tprocsym(procsym).ProcdefList.Add(self);
+      end;
+
+
+    procedure tprocdef.add_to_procsym(sym: {tprocsym}tsym); inline;
+      begin
+        procsym:=sym;
+        add_to_procsym;
       end;
 
 

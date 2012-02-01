@@ -72,7 +72,7 @@ implementation
        nmat,nadd,ncal,nset,ncnv,ninl,ncon,nld,nflw,
        { parser }
        scanner,
-       pbase,pexpr,pdecsub,pdecvar,pdecobj,pdecl,pgenutil;
+       pbase,pexpr,pdecsub,pdecvar,pdecobj,pdecl,pgenutil,pnameless;
 
 
     procedure resolve_forward_types;
@@ -539,7 +539,7 @@ implementation
                       begin
                         oldparse_only:=parse_only;
                         parse_only:=true;
-                        pd:=parse_proc_dec(is_classdef,current_structdef);
+                        pd:=parse_proc_dec(current_structdef,ppm_class_method);
 
                         { this is for error recovery as well as forward }
                         { interface mappings, i.e. mapping to a method  }
@@ -604,7 +604,7 @@ implementation
               begin
                 oldparse_only:=parse_only;
                 parse_only:=true;
-                pd:=parse_proc_dec(is_classdef,current_structdef);
+                pd:=parse_proc_dec(current_structdef,as_procparsemode(is_classdef));
 
                 { this is for error recovery as well as forward }
                 { interface mappings, i.e. mapping to a method  }
@@ -1501,6 +1501,11 @@ implementation
               begin
                 def:=procvar_dec(genericdef,genericlist);
               end;
+            _ID:
+              if idtoken=_REFERENCE then // TODO: $mode Delphi only?
+                def:=parse_method_reference(name)
+              else
+                expr_type;
             else
               if (token=_KLAMMERAFFE) and (m_iso in current_settings.modeswitches) then
                 begin

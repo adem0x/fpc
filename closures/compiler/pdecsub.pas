@@ -63,8 +63,12 @@ interface
     procedure parse_var_proc_directives(sym:tsym);
     procedure parse_object_proc_directives(pd:tabstractprocdef);
     procedure parse_record_proc_directives(pd:tabstractprocdef);
-    function  parse_proc_head(astruct:tabstractrecorddef;potype:tproctypeoption;out pd:tprocdef):boolean;
-    function  parse_proc_dec(isclassmethod:boolean;astruct:tabstractrecorddef):tprocdef;
+
+    type tprocparsemode = (ppm_normal, ppm_class_method, ppm_nameless_routine, ppm_method_reference);
+    // TODO: operator :=/Explicit (const is_class_method: boolean) result: tprocparsemode;
+    function as_procparsemode(const is_class_method: boolean): tprocparsemode; inline;
+    function parse_proc_head(astruct: tabstractrecorddef; potype: tproctypeoption; const procparsemode: tprocparsemode; out pd: tprocdef): boolean;
+    function parse_proc_dec(astruct: tabstractrecorddef; const procparsemode: tprocparsemode = ppm_normal): tprocdef;
 
     { helper functions - they insert nested objects hierarcy to the symtablestack
       with object hierarchy
@@ -799,7 +803,48 @@ implementation
       end;
 
 
-    function parse_proc_head(astruct:tabstractrecorddef;potype:tproctypeoption;out pd:tprocdef):boolean;
+    procedure parse_proc_parameter_dec(const pd: tprocdef); inline;
+      var
+        popclass : integer;
+        old_current_structdef: tabstractrecorddef;
+        old_current_genericdef,
+        old_current_specializedef: tstoreddef;
+      begin
+        { Add ObjectSymtable to be able to find nested type definitions }
+        popclass:=0;
+        if assigned(pd.struct) and // TODO: skip for nameless? or no need
+           (pd.parast.symtablelevel>=normal_function_level) and
+           not(symtablestack.top.symtabletype in [ObjectSymtable,recordsymtable]) then
+          begin
+            popclass:=push_nested_hierarchy(pd.struct);
+            old_current_structdef:=current_structdef;
+            old_current_genericdef:=current_genericdef;
+            old_current_specializedef:=current_specializedef;
+            current_structdef:=pd.struct;
+            if df_generic in current_structdef.defoptions then
+              current_genericdef:=current_structdef;
+            if df_specialization in current_structdef.defoptions then
+              current_specializedef:=current_structdef;
+          end;
+        { Add parameter symtable }
+        if pd.parast.symtabletype<>staticsymtable then
+          symtablestack.push(pd.parast);
+        parse_parameter_dec(pd);
+        if pd.parast.symtabletype<>staticsymtable then
+          symtablestack.pop(pd.parast);
+        if popclass>0 then
+          begin
+            current_structdef:=old_current_structdef;
+            current_genericdef:=old_current_genericdef;
+            current_specializedef:=old_current_specializedef;
+            dec(popclass,pop_nested_hierarchy(pd.struct));
+            if popclass<>0 then
+              internalerror(201011260); // 11 nov 2010 index 0
+          end;
+      end;
+
+
+    function parse_proc_head(astruct: tabstractrecorddef; potype: tproctypeoption; const procparsemode: tprocparsemode; out pd: tprocdef): boolean;
       var
         hs       : string;
         orgsp,sp : TIDString;
@@ -810,12 +855,8 @@ implementation
         st,
         genericst: TSymtable;
         aprocsym : tprocsym;
-        popclass : integer;
         ImplIntf : TImplementedInterface;
         old_parse_generic : boolean;
-        old_current_structdef: tabstractrecorddef;
-        old_current_genericdef,
-        old_current_specializedef: tstoreddef;
         lasttoken,lastidtoken: ttoken;
 
         procedure parse_operator_name;
@@ -982,7 +1023,20 @@ implementation
         pd:=nil;
         aprocsym:=nil;
 
-        consume_proc_name;
+        case procparsemode of
+          ppm_nameless_routine:
+            begin
+              sp:='Nameless_'+inttostr(procstartfilepos.line)+'_'+inttostr(procstartfilepos.column);
+              orgsp:=upcase(sp);
+            end;
+          ppm_method_reference:
+            begin
+              sp:='Invoke';
+              orgsp:=upcase(sp);
+            end;
+          else
+            consume_proc_name;
+        end;
 
         { examine interface map: function/procedure iname.functionname=locfuncname }
         if assigned(astruct) and
@@ -1016,7 +1070,11 @@ implementation
 
         { method  ? }
         srsym:=nil;
-        if (consume_generic_type_parameter or not assigned(astruct)) and
+        if procparsemode=ppm_nameless_routine then
+          // Do nothing. This check here:
+          //   a) skips below checks and searches, speeding things up;
+          //   b) makes sure we do not try to parse generic type parameters.
+        else if (consume_generic_type_parameter or not assigned(astruct)) and
            (symtablestack.top.symtablelevel=main_program_level) and
            try_to_consume(_POINT) then
          begin
@@ -1135,33 +1193,39 @@ implementation
           begin
             { create a new procsym and set the real filepos }
             current_tokenpos:=procstartfilepos;
-            { for operator we have only one procsym for each overloaded
-              operation }
-            if (potype=potype_operator) then
-              begin
+            case potype of
+              potype_operator:
+              begin // we have only one procsym for each overloaded operator
                 aprocsym:=Tprocsym(symtablestack.top.Find(sp));
                 if aprocsym=nil then
                   aprocsym:=tprocsym.create('$'+sp);
-              end
-            else
-            if (potype in [potype_class_constructor,potype_class_destructor]) then
-              aprocsym:=tprocsym.create('$'+lower(sp))
-            else
-              aprocsym:=tprocsym.create(orgsp);
+              end;
+              potype_class_constructor,potype_class_destructor:
+                aprocsym:=tprocsym.create('$'+lower(sp))
+              else
+                aprocsym:=tprocsym.create(orgsp);
+            end;
             symtablestack.top.insert(aprocsym);
           end;
 
-        { to get the correct symtablelevel we must ignore ObjectSymtables }
-        st:=nil;
-        checkstack:=symtablestack.stack;
-        while assigned(checkstack) do
+        if procparsemode=ppm_nameless_routine then
           begin
-            st:=checkstack^.symtable;
-            if st.symtabletype in [staticsymtable,globalsymtable,localsymtable] then
-              break;
-            checkstack:=checkstack^.next;
-          end;
-        pd:=tprocdef.create(st.symtablelevel+1);
+            pd:=tprocdef.create(normal_function_level);
+            include(pd.procoptions,po_nameless);
+          end
+        else begin // TODO: surely, there should be a simpler way:
+          { to get the correct symtablelevel we must ignore ObjectSymtables }
+          st:=nil;
+          checkstack:=symtablestack.stack;
+          while assigned(checkstack) do
+            begin
+              st:=checkstack^.symtable;
+              if st.symtabletype in [staticsymtable,globalsymtable,localsymtable] then
+                break;
+              checkstack:=checkstack^.next;
+            end;
+          pd:=tprocdef.create(st.symtablelevel+1);
+        end;
         pd.struct:=astruct;
         pd.procsym:=aprocsym;
         pd.proctypeoption:=potype;
@@ -1210,46 +1274,23 @@ implementation
 
         { parse parameters }
         if token=_LKLAMMER then
-          begin
-            { Add ObjectSymtable to be able to find nested type definitions }
-            popclass:=0;
-            if assigned(pd.struct) and
-               (pd.parast.symtablelevel>=normal_function_level) and
-               not(symtablestack.top.symtabletype in [ObjectSymtable,recordsymtable]) then
-              begin
-                popclass:=push_nested_hierarchy(pd.struct);
-                old_current_structdef:=current_structdef;
-                old_current_genericdef:=current_genericdef;
-                old_current_specializedef:=current_specializedef;
-                current_structdef:=pd.struct;
-                if assigned(current_structdef) and (df_generic in current_structdef.defoptions) then
-                  current_genericdef:=current_structdef;
-                if assigned(current_structdef) and (df_specialization in current_structdef.defoptions) then
-                  current_specializedef:=current_structdef;
-              end;
-            { Add parameter symtable }
-            if pd.parast.symtabletype<>staticsymtable then
-              symtablestack.push(pd.parast);
-            parse_parameter_dec(pd);
-            if pd.parast.symtabletype<>staticsymtable then
-              symtablestack.pop(pd.parast);
-            if popclass>0 then
-              begin
-                current_structdef:=old_current_structdef;
-                current_genericdef:=old_current_genericdef;
-                current_specializedef:=old_current_specializedef;
-                dec(popclass,pop_nested_hierarchy(pd.struct));
-                if popclass<>0 then
-                  internalerror(201011260); // 11 nov 2010 index 0
-              end;
-          end;
+          parse_proc_parameter_dec(pd);
 
         parse_generic:=old_parse_generic;
         result:=true;
       end;
 
 
-    function parse_proc_dec(isclassmethod:boolean;astruct:tabstractrecorddef):tprocdef;
+    function as_procparsemode(const is_class_method: boolean): tprocparsemode; inline;
+      begin
+        if is_class_method then
+          result := ppm_class_method
+        else
+          result := ppm_normal
+      end;
+
+
+    function parse_proc_dec(astruct: tabstractrecorddef; const procparsemode: tprocparsemode = ppm_normal): tprocdef;
       var
         pd: tprocdef;
         locationstr: string;
@@ -1277,9 +1318,9 @@ implementation
                 old_current_genericdef:=current_genericdef;
                 old_current_specializedef:=current_specializedef;
                 current_structdef:=pd.struct;
-                if assigned(current_structdef) and (df_generic in current_structdef.defoptions) then
+                if df_generic in current_structdef.defoptions then
                   current_genericdef:=current_structdef;
-                if assigned(current_structdef) and (df_specialization in current_structdef.defoptions) then
+                if df_specialization in current_structdef.defoptions then
                   current_specializedef:=current_structdef;
               end;
             single_type(pd.returndef,[stoAllowSpecialization]);
@@ -1306,7 +1347,7 @@ implementation
           _FUNCTION :
             begin
               consume(_FUNCTION);
-              if parse_proc_head(astruct,potype_function,pd) then
+              if parse_proc_head(astruct,potype_function,procparsemode,pd) then
                 begin
                   { pd=nil when it is a interface mapping }
                   if assigned(pd) then
@@ -1350,7 +1391,7 @@ implementation
                             consume_all_until(_SEMICOLON);
                           end;
                        end;
-                      if isclassmethod then
+                      if procparsemode=ppm_class_method then
                        include(pd.procoptions,po_classmethod);
                     end;
                 end
@@ -1365,13 +1406,13 @@ implementation
           _PROCEDURE :
             begin
               consume(_PROCEDURE);
-              if parse_proc_head(astruct,potype_procedure,pd) then
+              if parse_proc_head(astruct,potype_procedure,procparsemode,pd) then
                 begin
                   { pd=nil when it is an interface mapping }
                   if assigned(pd) then
                     begin
                       pd.returndef:=voidtype;
-                      if isclassmethod then
+                      if procparsemode=ppm_class_method then
                         include(pd.procoptions,po_classmethod);
                     end;
                 end;
@@ -1380,11 +1421,11 @@ implementation
           _CONSTRUCTOR :
             begin
               consume(_CONSTRUCTOR);
-              if isclassmethod then
-                parse_proc_head(astruct,potype_class_constructor,pd)
+              if procparsemode=ppm_class_method then
+                parse_proc_head(astruct,potype_class_constructor,procparsemode,pd)
               else
-                parse_proc_head(astruct,potype_constructor,pd);
-              if not isclassmethod and
+                parse_proc_head(astruct,potype_constructor,procparsemode,pd);
+              if (procparsemode<>ppm_class_method) and
                  assigned(pd) and
                  assigned(pd.struct) then
                 begin
@@ -1406,26 +1447,25 @@ implementation
           _DESTRUCTOR :
             begin
               consume(_DESTRUCTOR);
-              if isclassmethod then
-                parse_proc_head(astruct,potype_class_destructor,pd)
+              if procparsemode=ppm_class_method then
+                parse_proc_head(astruct,potype_class_destructor,procparsemode,pd)
               else
-                parse_proc_head(astruct,potype_destructor,pd);
+                parse_proc_head(astruct,potype_destructor,procparsemode,pd);
               if assigned(pd) then
                 pd.returndef:=voidtype;
             end;
-        else
-          if (token=_OPERATOR) or
-             (isclassmethod and (idtoken=_OPERATOR)) then
+
+          _OPERATOR:
             begin
               consume(_OPERATOR);
-              parse_proc_head(astruct,potype_operator,pd);
+              parse_proc_head(astruct,potype_operator,procparsemode,pd);
               if assigned(pd) then
                 begin
                   { operators always need to be searched in all units }
                   include(pd.procoptions,po_overload);
                   if pd.parast.symtablelevel>normal_function_level then
                     Message(parser_e_no_local_operator);
-                  if isclassmethod then
+                  if procparsemode=ppm_class_method then
                     include(pd.procoptions,po_classmethod);
                   if token<>_ID then
                     begin
@@ -1497,7 +1537,8 @@ implementation
                 message(parser_e_field_not_allowed_here);
                 consume_all_until(_SEMICOLON);
               end;
-            consume(_SEMICOLON);
+            if not (procparsemode in [ppm_nameless_routine,ppm_method_reference]) then
+              consume(_SEMICOLON);
           end;
         result:=pd;
 
@@ -3379,7 +3420,7 @@ const
             if (currpd.proctypeoption = potype_function) and
                is_void(currpd.returndef) then
               MessagePos1(currpd.fileinfo,parser_e_no_funcret_specified,currpd.procsym.realname);
-            tprocsym(currpd.procsym).ProcdefList.Add(currpd);
+            currpd.add_to_procsym;
           end;
 
         proc_add_definition:=forwardfound;

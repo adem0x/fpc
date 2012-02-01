@@ -65,7 +65,7 @@ implementation
         result:=nil;
         consume(_CONSTRUCTOR);
         { must be at same level as in implementation }
-        parse_proc_head(current_structdef,potype_class_constructor,pd);
+        parse_proc_head(current_structdef,potype_class_constructor,ppm_class_method,pd);
         if not assigned(pd) then
           begin
             consume(_SEMICOLON);
@@ -89,7 +89,7 @@ implementation
         result:=nil;
         consume(_CONSTRUCTOR);
         { must be at same level as in implementation }
-        parse_proc_head(current_structdef,potype_constructor,pd);
+        parse_proc_head(current_structdef,potype_constructor,ppm_normal,pd);
         if not assigned(pd) then
           begin
             consume(_SEMICOLON);
@@ -178,7 +178,7 @@ implementation
       begin
         result:=nil;
         consume(_DESTRUCTOR);
-        parse_proc_head(current_structdef,potype_class_destructor,pd);
+        parse_proc_head(current_structdef,potype_class_destructor,ppm_class_method,pd);
         if not assigned(pd) then
           begin
             consume(_SEMICOLON);
@@ -201,7 +201,7 @@ implementation
       begin
         result:=nil;
         consume(_DESTRUCTOR);
-        parse_proc_head(current_structdef,potype_destructor,pd);
+        parse_proc_head(current_structdef,potype_destructor,ppm_normal,pd);
         if not assigned(pd) then
           begin
             consume(_SEMICOLON);
@@ -893,7 +893,7 @@ implementation
 
                 oldparse_only:=parse_only;
                 parse_only:=true;
-                pd:=parse_proc_dec(is_classdef,current_structdef);
+                pd:=parse_proc_dec(current_structdef,as_procparsemode(is_classdef));
 
                 { this is for error recovery as well as forward }
                 { interface mappings, i.e. mapping to a method  }

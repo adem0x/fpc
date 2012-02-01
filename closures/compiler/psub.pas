@@ -28,7 +28,8 @@ interface
     uses
       cclasses,globals,
       node,nbas,
-      symdef,procinfo,optdfa;
+      symdef,procinfo,optdfa,
+      pdecsub;
 
     type
       tcgprocinfo = class(tprocinfo)
