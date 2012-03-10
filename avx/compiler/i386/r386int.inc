@@ -70,4 +70,12 @@
 'xmm4',
 'xmm5',
 'xmm6',
-'xmm7'
+'xmm7',
+'ymm0',
+'ymm1',
+'ymm2',
+'ymm3',
+'ymm4',
+'ymm5',
+'ymm6',
+'ymm7'
