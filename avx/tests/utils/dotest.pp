@@ -13,8 +13,9 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
  **********************************************************************}
-{$H+}
+{$mode objfpc}
 {$goto on}
+{$H+}
 
 program dotest;
 uses
@@ -93,6 +94,7 @@ const
   RemoteAddr : string = '';
   RemotePath : string = '/tmp';
   RemotePara : string = '';
+  RemoteRshParas : string = '';
   RemoteShell : string = '';
   RemoteShellBase : string = '';
   RemoteShellNeedsExport : boolean = false;
@@ -607,7 +609,8 @@ begin
     (LTarget='haiku') or
     (LTarget='solaris') or
     (LTarget='iphonesim') or
-    (LTarget='darwin');
+    (LTarget='darwin') or
+    (LTarget='aix');
 
   { Set ExeExt for CompilerTarget.
     This list has been set up 2011-06 using the information in
@@ -707,9 +710,129 @@ begin
 end;
 
 
+{ Takes each option from AddOptions list
+  considered as a space separated list
+  and adds the option to args
+  unless option contains a percent sign,
+  in that case, the option after % will be added
+  to args only if CompilerTarget is listed in
+  the string part before %.
+  NOTE: this function does not check for
+  quoted options...
+  The list before % must of course contain no spaces. }
+
+procedure AppendOptions(AddOptions : string;var args : string);
+var
+  endopt,percentpos : longint;
+  opttarget, currentopt : string;
+begin
+  Verbose(V_Debug,'AppendOptions called with AddOptions="'+AddOptions+'"');
+  AddOptions:=trimspace(AddOptions);
+  repeat
+    endopt:=pos(' ',AddOptions);
+    if endopt=0 then
+      endopt:=length(AddOptions);
+    currentopt:=trimspace(copy(AddOptions,1,endopt));
+    AddOptions:=trimspace(copy(Addoptions,endopt+1,length(AddOptions)));
+    if currentopt<>'' then
+      begin
+        percentpos:=pos('%',currentopt);
+        if (percentpos=0) then
+          begin
+            Verbose(V_Debug,'Adding option="'+currentopt+'"');
+            args:=args+' '+currentopt;
+          end
+        else
+          begin
+            opttarget:=lowercase(copy(currentopt,1,percentpos-1));
+            if IsInList(CompilerTarget, opttarget) then
+              begin
+                Verbose(V_Debug,'Adding target specific option="'+currentopt+'" for '+opttarget);
+                args:=args+' '+copy(currentopt,percentpos+1,length(currentopt))
+              end
+            else
+              Verbose(V_Debug,'No matching target "'+currentopt+'"');
+          end;
+      end;
+  until AddOptions='';
+end;
+
+{ This function removes some incompatible
+  options from TEST_OPT before adding them to
+  the list of options passed to the compiler.
+  %DELOPT=XYZ  will remove XYZ exactly
+  %DELOPT=XYZ* will remove all options starting with XYZ.
+  NOTE: This fuinction does not handle quoted options. }
+function DelOptions(Pattern, opts : string) : string;
+var
+  currentopt : string;
+  optpos, endopt, startpos, endpos : longint;
+  iswild : boolean;
+begin
+  opts:=trimspace(opts);
+  pattern:=trimspace(pattern);
+  repeat
+    endpos:=pos(' ',pattern);
+    if endpos=0 then
+      endpos:=length(pattern);
+    currentopt:=trimspace(copy(pattern,1,endpos));
+    pattern:=trimspace(copy(pattern,endpos+1,length(pattern)));
+    if currentopt<>'' then
+      begin
+        if currentopt[length(currentopt)]='*' then
+          begin
+            iswild:=true;
+            system.delete(currentopt,length(currentopt),1);
+          end
+        else
+          iswild:=false;
+        startpos:=1;
+        repeat
+          optpos:=pos(currentopt,copy(opts,startpos,length(opts)));
+          if optpos>0 then
+            begin
+              { move to index in full opts string }
+              optpos:=optpos+startpos-1;
+              { compute position of end of opt }
+              endopt:=optpos+length(currentopt);
+              { use that end as start position for next round }
+              startpos:=endopt;
+              if iswild then
+                begin
+                  while (opts[endopt]<>' ') and
+                    (endopt<length(opts)) do
+                    begin
+                      inc(endopt);
+                      inc(startpos);
+                    end;
+                  Verbose(V_Debug,'Pattern match found "'+currentopt+'*" in "'+opts+'"');
+                  system.delete(opts,optpos,endopt-optpos+1);
+                  Verbose(V_Debug,'After opts="'+opts+'"');
+                end
+              else
+                begin
+                  if (endopt>length(opts)) or (opts[endopt]=' ') then
+                    begin
+                      Verbose(V_Debug,'Exact match found "'+currentopt+'" in "'+opts+'"');
+                      system.delete(opts,optpos,endopt-optpos+1);
+                      Verbose(V_Debug,'After opts="'+opts+'"');
+                    end
+                  else
+                    begin
+                      Verbose(V_Debug,'No exact match "'+currentopt+'" in "'+opts+'"');
+                    end;
+                end;
+
+            end;
+        until optpos=0;
+      end;
+  until pattern='';
+  DelOptions:=opts;
+end;
+
 function RunCompiler:boolean;
 var
-  args,
+  args,LocalExtraArgs,
   wpoargs : string;
   passnr,
   passes  : longint;
@@ -722,23 +845,29 @@ begin
   args:=args+' -FE'+TestOutputDir;
   if TargetIsMacOS then
     args:=args+' -WT ';  {tests should be compiled as MPWTool}
-  if ExtraCompilerOpts<>'' then
-   args:=args+ExtraCompilerOpts;
+  if Config.DelOptions<>'' then
+   LocalExtraArgs:=DelOptions(Config.DelOptions,ExtraCompilerOpts)
+  else
+    LocalExtraArgs:=ExtraCompilerOpts;
+
+  if LocalExtraArgs<>'' then
+   args:=args+' '+LocalExtraArgs;
   if TargetIsUnix then
     begin
       { Add runtime library path to current dir to find .so files }
       if Config.NeedLibrary then
         begin
-          if CompilerTarget<>'darwin' then
+          if (CompilerTarget='darwin') or
+	     (CompilerTarget='aix') then
+            args:=args+' -Fl'+TestOutputDir
+	  else
           { do not use single quote for -k as they are mishandled on
             Windows Shells }
             args:=args+' -Fl'+TestOutputDir+' -k-rpath -k.'
-          else
-            args:=args+' -Fl'+TestOutputDir;
         end;
     end;
   if Config.NeedOptions<>'' then
-   args:=args+' '+Config.NeedOptions;
+   AppendOptions(Config.NeedOptions,args);
   wpoargs:='';
   if (Config.WpoPasses=0) or
      (Config.WpoParas='') then
@@ -903,7 +1032,7 @@ begin
   close(t);
 end;
 
-function LibraryExists(const PPFile : string; var FileName : string) : boolean;
+function LibraryExists(const PPFile : string; out FileName : string) : boolean;
 begin
    { Check if a dynamic library XXX was created }
    { Windows XXX.dll style }
@@ -950,7 +1079,7 @@ begin
     end;
   LibraryExists:=false;
 end;
-function ExecuteRemote(const prog,args:string;var StartTicks,EndTicks : int64):boolean;
+function ExecuteRemote(const prog,args:string;out StartTicks,EndTicks : int64):boolean;
 const
   MaxTrials = 5;
 var
@@ -980,7 +1109,7 @@ begin
   ExecuteRemote:=res;
 end;
 
-function ExecuteEmulated(const prog,args,FullExeLogFile:string;var StartTicks,EndTicks : int64):boolean;
+function ExecuteEmulated(const prog,args,FullExeLogFile:string;out StartTicks,EndTicks : int64):boolean;
 begin
   Verbose(V_Debug,'EmulatorExecuting '+Prog+' '+args);
   StartTicks:=GetMicroSTicks;
@@ -1009,7 +1138,7 @@ begin
   { We don't want to create subdirs, remove paths from the test }
   TestRemoteExe:=RemotePath+'/'+SplitFileName(FileToCopy);
   if deBefore in DelExecutable then
-    ExecuteRemote(rshprog,RemotePara+' '+RemoteAddr+' rm -f '+TestRemoteExe,
+    ExecuteRemote(rshprog,RemoteRshParas+' rm -f '+TestRemoteExe,
                   StartTicks,EndTicks);
   execres:=ExecuteRemote(rcpprog,RemotePara+' '+FileToCopy+' '+
                          RemoteAddr+':'+TestRemoteExe,StartTicks,EndTicks);
@@ -1096,10 +1225,10 @@ begin
       { rsh doesn't pass the exitcode, use a second command to print the exitcode
         on the remoteshell to stdout }
       if DoVerbose and (rshprog='plink') then
-        execcmd:='-v '
+        execcmd:='-v '+RemoteRshParas
       else
-        execcmd:='';
-      execcmd:=execcmd+RemotePara+' '+RemoteAddr+' '+rquote+
+        execcmd:=RemoteRshParas;
+      execcmd:=execcmd+' '+rquote+
          'chmod 755 '+TestRemoteExe+
           ' ; cd '+RemotePath+' ; ';
       { Using -rpath . at compile time does not seem
@@ -1134,7 +1263,7 @@ begin
       execcmd:=execcmd+' ; echo "TestExitCode: $?"';
       if (deAfter in DelExecutable) and
          not Config.NeededAfter then
-        execcmd:=execcmd+' ; rm -f '+TestRemoteExe;
+        execcmd:=execcmd+' ; rm -f '+SplitFileName(TestRemoteExe);
       execcmd:=execcmd+rquote;
       execres:=ExecuteRemote(rshprog,execcmd,StartTicks,EndTicks);
       { Check for TestExitCode error in output, sets ExecuteResult }
@@ -1243,7 +1372,7 @@ begin
   if RemoteAddr='' then
     exit;
   ExeLogFile:='__remote.tmp';
-  ExecuteRemote(rshprog,RemotePara+' '+RemoteAddr+
+  ExecuteRemote(rshprog,RemoteRshParas+
                 ' "echo SHELL=${SHELL}"',StartTicks,EndTicks);
   Assign(f,ExeLogFile);
   Reset(f);
@@ -1440,6 +1569,13 @@ begin
       DoGraph:=false;
       DoInteractive:=false;
     end;
+  { If we use PuTTY plink program with -load option,
+    the IP address or name should not be added to
+    the command line }
+  if (rshprog='plink') and (pos('-load',RemotePara)>0) then
+    RemoteRshParas:=RemotePara
+  else
+    RemoteRshParas:=RemotePara+' '+RemoteAddr;
 end;
 
 
