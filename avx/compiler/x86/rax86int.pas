@@ -1577,12 +1577,18 @@ Unit Rax86int;
                            (oper.opr.localsym.owner.symtabletype=parasymtable) and
                            (current_procinfo.procdef.proccalloption<>pocall_register) then
                           Message(asmr_e_cannot_access_field_directly_for_parameters);
-                        inc(oper.opr.localsymofs,toffset)
+                        inc(oper.opr.localsymofs,toffset);
+
+                        oper.opr.localvarsize := tsize;
                       end;
                     OPR_CONSTANT :
                       inc(oper.opr.val,toffset);
                     OPR_REFERENCE :
-                      inc(oper.opr.ref.offset,toffset);
+                      begin
+                        inc(oper.opr.ref.offset,toffset);
+                        oper.opr.varsize := tsize;
+                      end;
+
                     OPR_NONE :
                       begin
                         if (hs <> '') then
@@ -1634,9 +1640,18 @@ Unit Rax86int;
                         BuildOperand(oper,false);
                       end
                     else
-                      inc(oper.opr.ref.offset,BuildRefConstExpression);
+                    begin
+                      l := BuildRefConstExpression;
+                      inc(oper.opr.ref.offset,l);
+                      inc(oper.opr.constoffset,l);
+                    end;
                   OPR_LOCAL :
-                    inc(oper.opr.localsymofs,BuildConstExpression);
+                    begin
+                      l := BuildConstExpression;
+                      inc(oper.opr.localsymofs,l);
+                      inc(oper.opr.localconstoffset,l);
+                    end;
+
                   OPR_NONE,
                   OPR_CONSTANT :
                     BuildConstantOperand(oper);
@@ -1708,9 +1723,18 @@ Unit Rax86int;
                     Begin
                       case oper.opr.typ of
                         OPR_REFERENCE :
-                          inc(oper.opr.ref.offset,BuildRefConstExpression);
+                          begin
+                            l := BuildRefConstExpression;
+                            inc(oper.opr.ref.offset,l);
+                            inc(oper.opr.constoffset,l);
+                          end;
+
                         OPR_LOCAL :
-                          inc(oper.opr.localsymofs,BuildRefConstExpression);
+                          begin
+                            l := BuildRefConstExpression;
+                            inc(oper.opr.localsymofs,l);
+                            inc(oper.opr.localconstoffset,l);
+                          end;
                         OPR_NONE,
                         OPR_CONSTANT :
                           BuildConstantOperand(oper);
