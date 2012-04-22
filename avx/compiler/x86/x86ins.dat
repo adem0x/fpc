@@ -2220,7 +2220,7 @@ mmxreg,xmmreg         \331\2\x0F\x2D\110              KATMAI,SSE,MMX
 [CVTSI2SS,cvtsi2ssM]
 (Ch_Wop2, Ch_Rop1, Ch_None)
 xmmreg,rm32           \333\321\2\x0F\x2A\110      KATMAI,SSE
-xmmreg,rm64           \333\321\2\x0F\x2A\110      KATMAI,SSE,X86_64,SI
+xmmreg,rm64           \333\321\2\x0F\x2A\110      KATMAI,SSE,X86_64
 
 [CVTSS2SI,cvtss2siX]
 (Ch_Wop2, Ch_Rop1, Ch_None)
@@ -2757,7 +2757,7 @@ xmmreg,mem64            \334\2\x0F\x5A\110              WILLAMETTE,SSE2 ;,SQ
 [CVTSI2SD,cvtsi2sdM]
 (Ch_Wop2, Ch_Rop1, Ch_None)
 xmmreg,rm32             \334\2\x0F\x2A\110        	WILLAMETTE,SSE2
-xmmreg,rm64             \326\334\321\2\x0F\x2A\110      WILLAMETTE,SSE2,X86_64,SI
+xmmreg,rm64             \326\334\321\2\x0F\x2A\110      WILLAMETTE,SSE2,X86_64
 
 [CVTSS2SD]
 (Ch_Wop2, Ch_Rop1, Ch_None)
@@ -3603,13 +3603,13 @@ ymmreg,ymmrm                         \362\364\370\1\x5B\110               AVX,SA
 
 [VCVTPD2DQ,vcvtpd2dqM]
 (Ch_All, Ch_None, Ch_None)
-xmmreg,xmmrm                         \334\362\370\1\xE6\110               AVX,SANDYBRIDGE,SI
-xmmreg,ymmrm                         \334\362\364\370\1\xE6\110           AVX,SANDYBRIDGE,SI
+xmmreg,xmmrm                         \334\362\370\1\xE6\110               AVX,SANDYBRIDGE
+xmmreg,ymmrm                         \334\362\364\370\1\xE6\110           AVX,SANDYBRIDGE
 
 [VCVTPD2PS,vcvtpd2psM]
 (Ch_All, Ch_None, Ch_None)
-xmmreg,xmmrm                         \361\362\370\1\x5A\110               AVX,SANDYBRIDGE,SI
-xmmreg,ymmrm                         \361\362\364\370\1\x5A\110           AVX,SANDYBRIDGE,SI
+xmmreg,xmmrm                         \361\362\370\1\x5A\110               AVX,SANDYBRIDGE
+xmmreg,ymmrm                         \361\362\364\370\1\x5A\110           AVX,SANDYBRIDGE
 
 [VCVTPS2DQ]
 (Ch_All, Ch_None, Ch_None)
@@ -3636,13 +3636,13 @@ xmmreg,xmmreg,xmmreg                 \334\362\370\1\x5A\75\120            AVX,SA
 
 [VCVTSI2SD,vcvtsi2sdM]
 (Ch_All, Ch_None, Ch_None)
-xmmreg,xmmreg,rm32                   \334\362\370\1\x2A\75\120            AVX,SANDYBRIDGE,SD,SI
-xmmreg,xmmreg,rm64                   \334\362\363\370\1\x2A\75\120        AVX,SANDYBRIDGE,SI
+xmmreg,xmmreg,rm32                   \334\362\370\1\x2A\75\120            AVX,SANDYBRIDGE,SD
+xmmreg,xmmreg,rm64                   \334\362\363\370\1\x2A\75\120        AVX,SANDYBRIDGE
 
 [VCVTSI2SS,vcvtsi2ssM]
 (Ch_All, Ch_None, Ch_None)
-xmmreg,xmmreg,rm32                   \333\362\370\1\x2A\75\120            AVX,SANDYBRIDGE,SD,SI
-xmmreg,xmmreg,rm64                   \333\362\363\370\1\x2A\75\120        AVX,SANDYBRIDGE,SI
+xmmreg,xmmreg,rm32                   \333\362\370\1\x2A\75\120            AVX,SANDYBRIDGE,SD
+xmmreg,xmmreg,rm64                   \333\362\363\370\1\x2A\75\120        AVX,SANDYBRIDGE
 
 [VCVTSS2SD]
 (Ch_All, Ch_None, Ch_None)
@@ -3658,8 +3658,8 @@ reg64,xmmreg                         \333\362\363\370\1\x2D\110           AVX,SA
 
 [VCVTTPD2DQ,vcvttpd2dqM]
 (Ch_All, Ch_None, Ch_None)
-xmmreg,xmmrm                         \361\362\370\1\xE6\110               AVX,SANDYBRIDGE,SI
-xmmreg,ymmrm                         \361\362\364\370\1\xE6\110           AVX,SANDYBRIDGE,SI
+xmmreg,xmmrm                         \361\362\370\1\xE6\110               AVX,SANDYBRIDGE
+xmmreg,ymmrm                         \361\362\364\370\1\xE6\110           AVX,SANDYBRIDGE
 
 [VCVTTPS2DQ]
 (Ch_All, Ch_None, Ch_None)
