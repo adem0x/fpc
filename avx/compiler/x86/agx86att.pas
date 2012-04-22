@@ -390,10 +390,13 @@ interface
             idtxt  : 'AS';
             asmbin : 'as';
             asmcmd : '--64 -o $OBJ $ASM';
-            supported_targets : [system_x86_64_linux,system_x86_64_freebsd,system_x86_64_win64,system_x86_64_embedded];
+            supported_targets : [system_x86_64_linux,system_x86_64_freebsd,
+                                 system_x86_64_win64,system_x86_64_embedded,
+                                 system_x86_64_openbsd,system_x86_64_netbsd];
             flags : [af_allowdirect,af_needar,af_smartlink_sections,af_supports_dwarf];
             labelprefix : '.L';
             comment : '# ';
+            dollarsign: '$';
           );
 
        as_x86_64_gas_info : tasminfo =
@@ -406,6 +409,7 @@ interface
             flags : [af_allowdirect,af_needar,af_smartlink_sections,af_supports_dwarf];
             labelprefix : '.L';
             comment : '# ';
+            dollarsign: '$';
           );
 
 
@@ -420,6 +424,7 @@ interface
             flags : [af_allowdirect,af_needar,af_smartlink_sections,af_supports_dwarf];
             labelprefix : 'L';
             comment : '# ';
+            dollarsign: '$';
           );
 
 {$else x86_64}
@@ -436,6 +441,7 @@ interface
             flags : [af_allowdirect,af_needar,af_smartlink_sections,af_supports_dwarf];
             labelprefix : '.L';
             comment : '# ';
+            dollarsign: '$';
           );
 
 
@@ -449,6 +455,7 @@ interface
             flags : [af_allowdirect,af_needar,af_stabs_use_function_absolute_addresses];
             labelprefix : 'L';
             comment : '# ';
+            dollarsign: '$';
           );
 
 
@@ -462,6 +469,7 @@ interface
             flags : [af_allowdirect,af_needar,af_smartlink_sections,af_supports_dwarf,af_stabs_use_function_absolute_addresses];
             labelprefix : 'L';
             comment : '# ';
+            dollarsign: '$';
           );
 
        as_i386_gas_info : tasminfo =
@@ -476,6 +484,7 @@ interface
             flags : [af_allowdirect,af_needar,af_smartlink_sections,af_supports_dwarf];
             labelprefix : '.L';
             comment : '# ';
+            dollarsign: '$';
           );
 {$endif x86_64}
 
