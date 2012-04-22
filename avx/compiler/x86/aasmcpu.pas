@@ -94,6 +94,7 @@ interface
       otf_sub3     = $00080000;
       OT_REG_SMASK = otf_sub0 or otf_sub1 or otf_sub2 or otf_sub3;
 
+      OT_REG_TYPMASK = otf_reg_cdt or otf_reg_gpr or otf_reg_sreg or otf_reg_fpu or otf_reg_mmx or otf_reg_xmm or otf_reg_ymm;
       { register class 0: CRx, DRx and TRx }
 {$ifdef x86_64}
       OT_REG_CDT   = OT_REGISTER or otf_reg_cdt or OT_BITS64;
@@ -221,7 +222,8 @@ interface
         Ch : Array[1..MaxInsChanges] of TInsChange;
       end;
 
-      TMemRefSizeInfo = (msiUnkown, msiMultiple, msiMemRegSize,
+      TMemRefSizeInfo = (msiUnkown, msiUnsupported, msiNoSize, msiMultiple,
+                         msiMemRegSize, msiMemRegx64y128, msiMemRegx64y256,
                          msiMem8, msiMem16, msiMem32, msiMem64, msiMem128, msiMem256);
 
       TConstSizeInfo  = (csiUnkown, csiMultiple, csiNoSize, csiMem8, csiMem16, csiMem32, csiMem64);
@@ -366,7 +368,6 @@ implementation
        IF_AR2    = $00000060;  { SB, SW, SD applies to argument 2  }
        IF_ARMASK = $00000060;  { mask for unsized argument spec  }
        IF_ARSHIFT = 5;         { LSB of IF_ARMASK }
-       IF_SI     = $00000080;  { ignore unsized operands }
        IF_PRIV   = $00000100;  { it's a privileged instruction  }
        IF_SMM    = $00000200;  { it's only valid in SMM  }
        IF_PROT   = $00000400;  { it's protected mode only  }
@@ -1272,50 +1273,38 @@ implementation
                     (((insot and OT_SIZE_MASK) or siz[i])<(currot and OT_SIZE_MASK)) then
                   exit;
               end;
-          end
-          else
-          begin
-              if insflags and IF_SI <> 0 then
-              begin
-                // any opcodes needed a unique mem-size for memory-operands
-                // in this time (e.g. CVTSI2SD, CVTSI2SS, VCVTPD2DQ, VCVTPD2PS, VCVTSI2SD, VCVTSI2SS, VCVTTPD2DQ)
-                // (e.g. "VCVTPD2DQ  xmmreg, mem128", "VCVTPD2DQ  xmmreg, mem256")
-                // =>> we need the exact mem-ref-size 
-
-                { Check operand sizes }
-                for i:=0 to p^.ops-1 do
-                begin
-                  insot:=p^.optypes[i];
-                  currot:=oper[i]^.ot;
-
-                  if ((currot and OT_MEMORY) = OT_MEMORY) then
-                  begin
-                    if (currot and OT_SIZE_MASK) = 0 then
-                    begin
-                      // no operand size for memory operand
-                      exit;
-                    end
-                    else
-                    begin
-                      if (insot and OT_XMMRM = OT_XMMRM) then
-                      begin
-                        if (currot and OT_SIZE_MASK) <> OT_BITS128 then
-                          exit;
-                      end
-                      else if (insot and OT_YMMRM = OT_YMMRM) then
-                      begin
-                        if (currot and OT_SIZE_MASK) <> OT_BITS256 then
-                          exit;
-                      end;
-                    end;
-                  end;
-                end;
-
-
-                // ignore operands without operand size
-              end;
           end;
 
+        if (InsTabMemRefSizeInfoCache^[opcode].MemRefSize = msiMultiple) and
+           (InsTabMemRefSizeInfoCache^[opcode].ExistsSSEAVX) then
+        begin
+          for i:=0 to p^.ops-1 do
+           begin
+             insot:=p^.optypes[i];
+             if ((insot and OT_XMMRM) = OT_XMMRM) OR
+                ((insot and OT_YMMRM) = OT_YMMRM) then
+             begin
+               if (insot and OT_SIZE_MASK) = 0 then
+               begin
+                 case insot and (OT_XMMRM or OT_YMMRM) of
+                   OT_XMMRM: insot := insot or OT_BITS128;
+                   OT_YMMRM: insot := insot or OT_BITS256;
+                 end;
+               end;
+             end;
+
+             currot:=oper[i]^.ot;
+             { Check the operand flags }
+             if (insot and (not currot) and OT_NON_SIZE)<>0 then
+               exit;
+             { Check if the passed operand size matches with one of
+               the supported operand sizes }
+             if ((insot and OT_SIZE_MASK)<>0) and
+                ((insot and currot and OT_SIZE_MASK)<>(currot and OT_SIZE_MASK)) then
+               exit;
+           end;
+
+        end;
         result:=true;
       end;
 
@@ -2241,8 +2230,6 @@ implementation
         needed_VEX_Extention: boolean;
         needed_VEX: boolean;
         opmode: integer;
-        i: integer;
-        insot: longint;
         VEXvvvv: byte;
         VEXmmmmm: byte;
       begin
@@ -2966,10 +2953,44 @@ implementation
       MRefInfo: TMemRefSizeInfo;
       SConstInfo: TConstSizeInfo;
       actRegSize: int64;
+      actMemSize: int64;
+      actConstSize: int64;
+      actRegCount: integer;
+      actMemCount: integer;
+      actConstCount: integer;
+      actRegTypes  : int64;
+      actRegMemTypes: int64;
+      NewRegSize: int64;
+      NewMemSize: int64;
+      NewConstSize: int64;
       RegSize: int64;
       MemSize: int64;
+      ConstSize: int64;
+      RegMMXSizeMask: int64;
+      RegXMMSizeMask: int64;
+      RegYMMSizeMask: int64;
+
+      bitcount: integer;
       IsRegSizeMemSize: boolean;
       ExistsRegMem: boolean;
+      s: string;
+
+      function bitcnt(aValue: int64): integer;
+      var
+        i: integer;
+      begin
+        result := 0;
+
+        for i := 0 to 63 do
+        begin
+          if (aValue mod 2) = 1 then
+          begin
+            inc(result);
+          end;
+
+          aValue := aValue shr 1;
+        end;
+      end;
 
     begin
       new(InsTabMemRefSizeInfoCache);
@@ -2981,122 +3002,197 @@ implementation
 
         if i >= 0 then
         begin
-          InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := msiUnkown;
+          InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize   := msiUnkown;
+          InsTabMemRefSizeInfoCache^[AsmOp].ConstSize    := csiUnkown;
+          InsTabMemRefSizeInfoCache^[AsmOp].ExistsSSEAVX := false;
+
           RegSize := 0;
           IsRegSizeMemSize := true;
           ExistsRegMem     := false;
 
           insentry:=@instab[i];
+          RegMMXSizeMask := 0;
+          RegXMMSizeMask := 0;
+          RegYMMSizeMask := 0;
+
           while (insentry^.opcode=AsmOp) do
           begin
             MRefInfo         := msiUnkown;
-            actRegSize       := -1;
+
+            actRegSize       := 0;
+            actRegCount      := 0;
+            actRegTypes      := 0;
+            NewRegSize       := 0;
+
+            actMemSize       := 0;
+            actMemCount      := 0;
+            actRegMemTypes   := 0;
+            NewMemSize       := 0;
+
+            actConstSize     := 0;
+            actConstCount    := 0;
+            NewConstSize     := 0;
+
+
+            if asmop = a_movups then
+            begin
+              RegXMMSizeMask := RegXMMSizeMask;
+            end;
+
+
 
             for j := 0 to insentry^.ops -1 do
             begin
-              if ((insentry^.optypes[j] and OT_MEMORY) <> 0) then
+              if (insentry^.optypes[j] and OT_REGISTER) = OT_REGISTER then
               begin
-                if (insentry^.optypes[j] and OT_REGISTER) = OT_REGISTER then
+                inc(actRegCount);
+
+                NewRegSize := (insentry^.optypes[j] and OT_SIZE_MASK);
+                if NewRegSize = 0 then
                 begin
-                  MRefInfo := msiUnkown;
-
-                  actRegSize := insentry^.optypes[j] and OT_SIZE_MASK;
-                  if actRegSize = 0 then
-                  begin
-                    case insentry^.optypes[j] and (OT_XMMREG OR OT_YMMREG) of
-                      OT_XMMREG: begin
-                                   actRegSize := OT_BITS128;
-                                   InsTabMemRefSizeInfoCache^[AsmOp].ExistsSSEAVX := true;
-                                 end;
-                      OT_YMMREG: begin
-                                   actRegSize := OT_BITS256;
-                                   InsTabMemRefSizeInfoCache^[AsmOp].ExistsSSEAVX := true;
-                                 end;
-                    end;
+                  case insentry^.optypes[j] and (OT_MMXREG OR OT_XMMREG OR OT_YMMREG) of
+                    OT_MMXREG: begin
+                                 NewRegSize := OT_BITS64;
+                               end;
+                    OT_XMMREG: begin
+                                 NewRegSize := OT_BITS128;
+                                 InsTabMemRefSizeInfoCache^[AsmOp].ExistsSSEAVX := true;
+                               end;
+                    OT_YMMREG: begin
+                                 NewRegSize := OT_BITS256;
+                                 InsTabMemRefSizeInfoCache^[AsmOp].ExistsSSEAVX := true;
+                               end;
+                          else NewRegSize := not(0);
                   end;
+                end;
 
-                  if RegSize = 0 then RegSize := actRegSize
-                   else if actRegSize <> RegSize then RegSize := -1;
-                end
-                else
+                actRegSize  := actRegSize or NewRegSize;
+                actRegTypes := actRegTypes or (insentry^.optypes[j] and (OT_MMXREG OR OT_XMMREG OR OT_YMMREG));
+              end
+              else if ((insentry^.optypes[j] and OT_MEMORY) <> 0) then
+              begin
+                inc(actMemCount);
+
+                actMemSize    := actMemSize or (insentry^.optypes[j] and OT_SIZE_MASK);
+                if (insentry^.optypes[j] and OT_REGMEM) = OT_REGMEM then
                 begin
-                  MemSize := insentry^.optypes[j] and OT_SIZE_MASK;
-                  case MemSize of
-                             0: case insentry^.optypes[j] and (OT_MMXRM OR OT_XMMRM OR OT_YMMRM OR OT_REGISTER) of
-                                  OT_MMXRM: begin
-                                              MRefInfo := msiMem64;
-                                              MemSize  := OT_BITS64;
-                                            end;
-                                  OT_XMMRM: begin
-                                              MRefInfo := msiMem128;
-                                              MemSize  := OT_BITS128;
-                                              InsTabMemRefSizeInfoCache^[AsmOp].ExistsSSEAVX := true;
-                                            end;
-                                  OT_YMMRM: begin
-                                              MRefInfo := msiMem256;
-                                              MemSize  := OT_BITS256;
-                                              InsTabMemRefSizeInfoCache^[AsmOp].ExistsSSEAVX := true;
-                                            end;
-                                       else MRefInfo := msiUnkown;
-                                end;
-                      OT_BITS8: MRefInfo := msiMem8;
-                     OT_BITS16: MRefInfo := msiMem16;
-                     OT_BITS32: MRefInfo := msiMem32;
-                     OT_BITS64: MRefInfo := msiMem64;
-                    OT_BITS128: MRefInfo := msiMem128;
-                    OT_BITS256: MRefInfo := msiMem256;
-                           else MRefInfo := msiMultiple;
-                  end;
-
-                  if MRefInfo <> msiUnkown then
-                  begin
-                    if InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize = msiUnkown then
-                    begin
-                      InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := MRefInfo;
-                    end
-                    else if InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize <> MRefInfo then
-                    begin
-                      InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := msiMultiple;
-                    end;
-                  end;
+                  actRegMemTypes  := actRegMemTypes or insentry^.optypes[j];
                 end;
               end
-              else if (insentry^.optypes[j] and OT_IMMEDIATE) = OT_IMMEDIATE then
+              else if ((insentry^.optypes[j] and OT_IMMEDIATE) = OT_IMMEDIATE) then
               begin
-                case insentry^.optypes[j] and OT_SIZE_MASK of
-                          0: SConstInfo := csiNoSize;
-                   OT_BITS8: SConstInfo := csiMem8;
-                  OT_BITS16: SConstInfo := csiMem16;
-                  OT_BITS32: SConstInfo := csiMem32;
-                  OT_BITS64: SConstInfo := csiMem64;
-                        else SConstInfo := csiMultiple;
-                end;
+                inc(actConstCount);
 
-                if InsTabMemRefSizeInfoCache^[AsmOp].ConstSize = csiUnkown then
-                begin
-                  InsTabMemRefSizeInfoCache^[AsmOp].ConstSize := SConstInfo;
-                end
-                else if InsTabMemRefSizeInfoCache^[AsmOp].ConstSize <> SConstInfo then
-                begin
-                  InsTabMemRefSizeInfoCache^[AsmOp].ConstSize := csiMultiple;
-                end;
+                actConstSize    := actConstSize or (insentry^.optypes[j] and OT_SIZE_MASK);
+              end
+            end;
+
+            if actConstCount > 0 then
+            begin
+              case actConstSize of
+                        0: SConstInfo := csiNoSize;
+                 OT_BITS8: SConstInfo := csiMem8;
+                OT_BITS16: SConstInfo := csiMem16;
+                OT_BITS32: SConstInfo := csiMem32;
+                OT_BITS64: SConstInfo := csiMem64;
+                      else SConstInfo := csiMultiple;
+              end;
+
+              if InsTabMemRefSizeInfoCache^[AsmOp].ConstSize = csiUnkown then
+              begin
+                InsTabMemRefSizeInfoCache^[AsmOp].ConstSize := SConstInfo;
+              end
+              else if InsTabMemRefSizeInfoCache^[AsmOp].ConstSize <> SConstInfo then
+              begin
+                InsTabMemRefSizeInfoCache^[AsmOp].ConstSize := csiMultiple;
               end;
             end;
 
-            if actRegSize < 0 then RegSize := -1;
 
-            if RegSize > 0 then
-            begin
-              IsRegSizeMemSize := IsRegSizeMemSize and ((RegSize > 0) and (RegSize = MemSize));
-              ExistsRegMem     := true;
+            case actMemCount of
+                0: ; // nothing todo
+                1: begin
+                     MRefInfo := msiUnkown;
+                     case actRegMemTypes and (OT_MMXRM OR OT_XMMRM OR OT_YMMRM) of
+                       OT_MMXRM: actMemSize := actMemSize or OT_BITS64;
+                       OT_XMMRM: actMemSize := actMemSize or OT_BITS128;
+                       OT_YMMRM: actMemSize := actMemSize or OT_BITS256;
+                     end;
+
+                     case actMemSize of
+                                0: MRefInfo := msiNoSize;
+                         OT_BITS8: MRefInfo := msiMem8;
+                        OT_BITS16: MRefInfo := msiMem16;
+                        OT_BITS32: MRefInfo := msiMem32;
+                        OT_BITS64: MRefInfo := msiMem64;
+                       OT_BITS128: MRefInfo := msiMem128;
+                       OT_BITS256: MRefInfo := msiMem256;
+                       OT_BITS80,
+                          OT_FAR,
+                         OT_NEAR,
+                         OT_SHORT: ; // ignore
+                              else begin
+                                     bitcount := bitcnt(actMemSize);
+
+                                     if bitcount > 1 then MRefInfo := msiMultiple
+                                     else InternalError(777203);
+                                   end;
+                     end;
+
+                     if InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize = msiUnkown then
+                     begin
+                       InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := MRefInfo;
+                     end
+                     else if InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize <> MRefInfo then
+                     begin
+                       InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := msiMultiple;
+                     end;
+
+                     if actRegCount > 0 then
+                     begin
+                       case actRegTypes and (OT_MMXREG or OT_XMMREG or OT_YMMREG) of
+                         OT_MMXREG: RegMMXSizeMask := RegMMXSizeMask or actMemSize;
+                         OT_XMMREG: RegXMMSizeMask := RegXMMSizeMask or actMemSize;
+                         OT_YMMREG: RegYMMSizeMask := RegYMMSizeMask or actMemSize;
+                               else begin
+                                      RegMMXSizeMask := not(0);
+                                      RegXMMSizeMask := not(0);
+                                      RegYMMSizeMask := not(0);
+                                    end;
+                       end;
+                     end;
+                   end;
+              else InternalError(777202);
             end;
 
             inc(insentry);
           end;
 
-          if InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize = msiMultiple then
+          if (InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize = msiMultiple) and
+             (InsTabMemRefSizeInfoCache^[AsmOp].ExistsSSEAVX)then
           begin
-            if IsRegSizeMemSize and ExistsRegMem then InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := msiMemRegSize;
+            case RegXMMSizeMask of
+               OT_BITS64: case RegYMMSizeMask of
+                            OT_BITS128: InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := msiMemRegx64y128;
+                            OT_BITS256: InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := msiMemRegx64y256;
+                          end;
+              OT_BITS128: begin
+                            if RegMMXSizeMask = 0 then
+                            begin
+                              case RegYMMSizeMask of
+                                OT_BITS128: InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := msiMemRegx64y128;
+                                OT_BITS256: InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := msiMemRegSize;
+                              end;
+                            end
+                            else if RegYMMSizeMask = 0 then
+                            begin
+                              case RegMMXSizeMask of
+                                OT_BITS64: InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := msiMemRegSize;
+                              end;
+                            end
+                            else InternalError(777205);
+                          end;
+            end;
           end;
         end;
       end;
@@ -3104,12 +3200,13 @@ implementation
       for AsmOp := low(TAsmOp) to high(TAsmOp) do
       begin
 
+
         // only supported intructiones with SSE- or AVX-operands
         if not(InsTabMemRefSizeInfoCache^[AsmOp].ExistsSSEAVX) then
         begin
-          InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize := msiUnkown;
+          InsTabMemRefSizeInfoCache^[AsmOp].MemRefSize  := msiUnkown;
+          InsTabMemRefSizeInfoCache^[AsmOp].ConstSize   := csiUnkown;
         end;
-
       end;
     end;
 
