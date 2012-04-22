@@ -110,6 +110,7 @@ const
   scan_w_multiple_main_name_overrides=02086;
   scanner_w_illegal_warn_identifier=02087;
   scanner_e_illegal_alignment_directive=02088;
+  scanner_f_illegal_utf8_bom=02089;
   parser_e_syntax_error=03000;
   parser_e_dont_nest_interrupt=03004;
   parser_w_proc_directive_ignored=03005;
@@ -220,8 +221,8 @@ const
   parser_e_proc_dir_not_allowed_in_procvar=03119;
   parser_e_function_already_declared_public_forward=03120;
   parser_e_not_external_and_export=03121;
-  parser_w_not_supported_for_inline=03123;
-  parser_w_inlining_disabled=03124;
+  parser_h_not_supported_for_inline=03123;
+  parser_h_inlining_disabled=03124;
   parser_i_writing_browser_log=03125;
   parser_h_maybe_deref_caret_missing=03126;
   parser_f_assembler_reader_not_supported=03127;
@@ -505,6 +506,9 @@ const
   type_w_explicit_string_cast=04106;
   type_w_explicit_string_cast_loss=04107;
   type_w_unicode_data_loss=04108;
+  type_e_range_check_error_bounds=04109;
+  type_w_range_check_error_bounds=04110;
+  type_e_type_not_allowed_for_default=04111;
   sym_e_id_not_found=05000;
   sym_f_internal_error_in_symtablestack=05001;
   sym_e_duplicate_id=05002;
@@ -719,6 +723,9 @@ const
   asmr_e_bad_seh_directive_register=07113;
   asmr_e_seh_in_pure_asm_only=07114;
   asmr_e_unsupported_directive=07115;
+  asmr_w_check_mem_operand_size=07116;
+  asmr_w_check_mem_operand_size3=07117;
+  asmr_w_check_mem_operand_size_offset=07118;
   asmw_f_too_many_asm_files=08000;
   asmw_f_assembler_output_not_supported=08001;
   asmw_f_comp_not_supported=08002;
@@ -894,6 +901,9 @@ const
   option_ignored_target=11047;
   option_debug_external_unsupported=11048;
   option_dwarf_smartlink_creation=11049;
+  option_invalid_macosx_deployment_target=11050;
+  option_invalid_iphoneos_deployment_target=11051;
+  option_illegal_fpu_eabihf=11052;
   wpo_cant_find_file=12000;
   wpo_begin_processing=12001;
   wpo_end_processing=12002;
@@ -918,9 +928,9 @@ const
   option_info=11024;
   option_help_pages=11025;
 
-  MsgTxtSize = 62138;
+  MsgTxtSize = 63967;
 
   MsgIdxMax : array[1..20] of longint=(
-    26,89,315,109,85,55,116,26,202,63,
-    50,20,1,1,1,1,1,1,1,1
+    26,90,315,112,85,55,119,26,202,63,
+    53,20,1,1,1,1,1,1,1,1
   );
