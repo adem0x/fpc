@@ -4,7 +4,7 @@
 #
 #   English (default) Language File for Free Pascal
 #
-#   See the file COPYING.FPC, included in this distribution,
+#   See the file COPYING.v2, included in this distribution,
 #   for details about the copyright.
 #
 #   This program is distributed in the hope that it will be useful,
@@ -19,6 +19,7 @@
 #   asmr_     assembler parsing
 #   asmw_     assembler writing/binary writers
 #   unit_     unit handling
+#   option_   command line parameter parsing
 #   scan_     scanner
 #   parser_   parser
 #   type_     type checking
@@ -135,7 +136,7 @@ general_f_oserror=01025_F_Operating system error: $1
 #
 # Scanner
 #
-# 02087 is the last used one
+# 02089 is the last used one
 #
 % \section{Scanner messages.}
 % This section lists the messages that the scanner emits. The scanner takes
@@ -374,6 +375,9 @@ scanner_w_illegal_warn_identifier=02087_W_Illegal identifier "$1" for $WARN dire
 scanner_e_illegal_alignment_directive=02088_E_Illegal alignment directive
 % The alignment directive is not valid. Either the alignment type is not known or the alignment
 % value is not a power of two.
+scanner_f_illegal_utf8_bom=02089_F_It is not possible to include a file that starts with an UTF-8 BOM in a module that uses a different code page
+% All source code that is part of a single compilation entity (program, library, unit) must be encoded
+% in the same code page
 % \end{description}
 #
 # Parser
@@ -770,9 +774,9 @@ parser_e_function_already_declared_public_forward=03120_E_Function is already de
 % declaration in the \var{implementation} section.
 parser_e_not_external_and_export=03121_E_Can't use both EXPORT and EXTERNAL
 % These two procedure directives are mutually exclusive.
-parser_w_not_supported_for_inline=03123_W_"$1" not yet supported inside inline procedure/function
+parser_h_not_supported_for_inline=03123_H_"$1" not yet supported inside inline procedure/function
 % Inline procedures don't support this declaration.
-parser_w_inlining_disabled=03124_W_Inlining disabled
+parser_h_inlining_disabled=03124_H_Inlining disabled
 % Inlining of procedures is disabled.
 parser_i_writing_browser_log=03125_I_Writing Browser log $1
 % When information messages are on, the compiler warns you when it
@@ -1409,7 +1413,7 @@ parser_e_invalid_codepage=03314_E_Invalid codepage
 % \end{description}
 # Type Checking
 #
-# 04108 is the last used one
+# 04111 is the last used one
 #
 % \section{Type checking errors}
 % This section lists all errors that can occur when type checking is
@@ -1791,6 +1795,12 @@ type_w_explicit_string_cast_loss=04107_-W_Explicit string typecast with potentia
 type_w_unicode_data_loss=04108_W_Unicode constant cast with potential data loss
 % Conversion from a WideChar to AnsiChar can lose data since now all unicode characters may be represented in the current
 % system codepage
+% You can nest function definitions only 31 levels deep.
+type_e_range_check_error_bounds=04109_E_range check error while evaluating constants ($1 must be between $2 and $3)
+type_w_range_check_error_bounds=04110_W_range check error while evaluating constants ($1 must be between $2 and $3)
+% The constants are outside their allowed range.
+type_e_type_not_allowed_for_default=04111_E_This type is not supported for the Default() intrinsic
+% Some types like for example Text and File Of X are not supported by the Default intrinsic.
 % \end{description}
 #
 # Symtable
@@ -2467,6 +2477,17 @@ asmr_e_seh_in_pure_asm_only=07114_E_SEH directives are allowed only in pure asse
 % blocks of regular procedures.
 asmr_e_unsupported_directive=07115_E_Directive "$1" is not supported for the current target
 
+asmr_w_check_mem_operand_size=07116_W_Check size of memory operand "$1"
+% The size of memory operand is possible invalid. This is
+% probably an error in the assembler statement
+
+asmr_w_check_mem_operand_size3=07117_W_Check size of memory operand "$1: memory-operand-size is $2 bits, but expected [$3 bits]"
+% The size of memory operand is possible invalid. This is
+% probably an error in the assembler statement
+
+asmr_w_check_mem_operand_size_offset=07118_W_Check size of memory operand "$1: memory-operand-size is $2 bits, but expected [$3 bits + $4 byte offset]"
+% The size of memory operand is possible invalid. This is
+% probably an error in the assembler statement
 
 #
 # Assembler/binary writers
@@ -2867,7 +2888,7 @@ unit_u_indirect_crc_changed=10062_U_Indirect interface (objects/classes) CRC cha
 #
 #  Options
 #
-# 11049 is the last used one
+# 11052 is the last used one
 #
 option_usage=11000_O_$1 [options] <inputfile> [options]
 # BeginOfTeX
@@ -2996,6 +3017,17 @@ option_debug_external_unsupported=11048_W_Disabling external debug information b
 option_dwarf_smartlink_creation=11049_N_DWARF debug information cannot be used with smart linking with external assembler, disabling static library creation.
 % Smart linking is currently incompatble with DWARF debug information on most
 % platforms, so smart linking is disabled in such cases.
+option_invalid_macosx_deployment_target=11050_E_Invalid value for MACOSX_DEPLOYMENT_TARGET environment variable: $1
+option_invalid_iphoneos_deployment_target=11051_E_Invalid value for IPHONEOS_DEPLOYMENT_TARGET environment variable: $1
+% On Mac OS X, the MACOSX_DEPLOYMENT_TARGET/IPHONEOS_DEPLOYMENT_TARGET environment variable can be
+% used to set the default target OS version. In case of Mac OS X, it has to be of the format
+% XY.Z or XY.Z.AB with X, Y,Z , A and B all digits from 0-9.
+% In case of iOS, it has to be X.Z.A, where X, Z and A can all be either 1 or 2
+% digits from 0-9.
+option_illegal_fpu_eabihf=11052_E_You must use a FPU type of VFPV2, VFPV3 or VFPV3_D16 when using the EABIHF ABI target
+% The EABIHF (VFP hardfloat) ABI target can only be used with VFP FPUs.
+
+
 %\end{description}
 # EndOfTeX
 
@@ -3081,7 +3113,7 @@ wpo_cant_create_feedback_file=12019_E_Cannot create specified whole program opti
 #
 option_logo=11023_[
 Free Pascal Compiler version $FPCFULLVERSION [$FPCDATE] for $FPCCPU
-Copyright (c) 1993-2011 by Florian Klaempfl and others
+Copyright (c) 1993-2012 by Florian Klaempfl and others
 ]
 
 #
@@ -3116,12 +3148,15 @@ Supported Microcontroller types:
   $CONTROLLERTYPES
 
 This program comes under the GNU General Public Licence
-For more information read COPYING.FPC
+For more information read COPYING.v2
 
-Report bugs, suggestions, etc. to:
+Please report bugs in our bug tracker on:
                  http://bugs.freepascal.org
-or
-                 bugs@freepascal.org
+
+More information may be found on our WWW pages (including directions
+for mailing lists useful for asking questions or discussing potential
+new features, etc.):
+                 http://www.freepascal.org
 ]
 
 #
@@ -3135,6 +3170,7 @@ or
 #    6 = 680x0 targets
 #    A = ARM
 #    e = in extended debug mode only
+#    F = help for the 'fpc' binary (independent of the target compiler)
 #    P = PowerPC targets
 #    S = Sparc targets
 #    V = Virtual machine targets
@@ -3198,6 +3234,7 @@ S*2Aas_Assemble using GNU AS
 **2Ch<n>_<n> bytes heap (between 1023 and 67107840)
 **2Ci_IO-checking
 **2Cn_Omit linking stage
+P*2CN_Generate nil-pointer checks (AIX-only)
 **2Co_Check overflow of integer operations
 **2CO_Check for possible overflow of integer operations
 **2Cp<x>_Select instruction set, see fpc -i for possible values
@@ -3285,6 +3322,10 @@ S*2Aas_Assemble using GNU AS
 **2Ow<x>_Perform whole-program optimization <x>, see fpc -i for possible values
 **2Os_Optimize for size rather than speed
 **1pg_Generate profile code for gprof (defines FPC_PROFILE)
+F*1P<x>_Target CPU / compiler related options:
+F*2PB_Show default compiler binary
+F*2PP_Show default target cpu
+F*2P<x>_Set target CPU (arm,i386,m68k,mips,mipsel,powerpc,powerpc64,sparc,x86_64
 **1R<x>_Assembler reading style:
 **2Rdefault_Use default assembler for target
 3*2Ratt_Read AT&T style assembler
@@ -3370,6 +3411,7 @@ S*2Tlinux_Linux
 **2*_    with full path              v : Write fpcdebug.txt with
 **2*_                                    lots of debugging info
 **2*_m<x>,<y> : Don't show messages numbered <x> and <y>
+F*1V<x>_Append '-<x>' to the used compiler binary name (e.g. for version)
 **1W<x>_Target-specific options (targets)
 3*2WA_Specify native type application (Windows)
 4*2WA_Specify native type application (Windows)
@@ -3410,11 +3452,17 @@ p*2Wi_Use internal resources (Darwin)
 3*2WI_Turn on/off the usage of import sections (Windows)
 4*2WI_Turn on/off the usage of import sections (Windows)
 A*2WI_Turn on/off the usage of import sections (Windows)
+3*2WM<x>_Minimum Mac OS X deployment version: 10.4, 10.5.1, ... (Darwin)
+4*2WM<x>_Minimum Mac OS X deployment version: 10.4, 10.5.1, ... (Darwin)
+p*2WM<x>_Minimum Mac OS X deployment version: 10.4, 10.5.1, ... (Darwin)
+P*2WM<x>_Minimum Mac OS X deployment version: 10.4, 10.5.1, ... (Darwin)
 3*2WN_Do not generate relocation code, needed for debugging (Windows)
 4*2WN_Do not generate relocation code, needed for debugging (Windows)
 A*2WN_Do not generate relocation code, needed for debugging (Windows)
 A*2Wpxxxx_Specify the controller type, see fpc -i for possible values
 V*2Wpxxxx_Specify the controller type, see fpc -i for possible values
+3*2WP<x>_Minimum iOS deployment version: 3.0, 5.0.1, ... (iphonesim)
+A*2WP<x>_Minimum iOS deployment version: 3.0, 5.0.1, ... (Darwin)
 3*2WR_Generate relocation code (Windows)
 4*2WR_Generate relocation code (Windows)
 A*2WR_Generate relocation code (Windows)
@@ -3429,6 +3477,7 @@ P*2WT_Specify MPW tool type application (Classic Mac OS)
 **2Xi_Use internal linker
 **2Xm_Generate link map
 **2XM<x>_Set the name of the 'main' program routine (default is 'main')
+F*2Xp<x>_First search for the compiler binary in the directory <x>
 **2XP<x>_Prepend the binutils names with the prefix <x>
 **2Xr<x>_Set the linker's rlink-path to <x> (needed for cross compile, see the ld manual for more information) (BeOS, Linux)
 **2XR<x>_Prepend <x> to all linker search paths (BeOS, Darwin, FreeBSD, Linux, Mac OS, Solaris)
