@@ -79,8 +79,8 @@ type
       OPR_NONE      : ();
       OPR_CONSTANT  : (val:aint);
       OPR_SYMBOL    : (symbol:tasmsymbol;symofs:aint);
-      OPR_REFERENCE : (ref:treference);
-      OPR_LOCAL     : (localsym:tabstractnormalvarsym;localsymofs:aint;localindexreg:tregister;localscale:byte;localgetoffset,localforceref:boolean);
+      OPR_REFERENCE : (varsize:asizeint; constoffset: asizeint; ref:treference);
+      OPR_LOCAL     : (localvarsize, localconstoffset: asizeint;localsym:tabstractnormalvarsym;localsymofs:aint;localindexreg:tregister;localscale:byte;localgetoffset,localforceref:boolean);
       OPR_REGISTER  : (reg:tregister);
 {$ifdef m68k}
       OPR_REGLIST   : (regset : tcpuregisterset);
@@ -871,16 +871,36 @@ Begin
               { for arrays try to get the element size, take care of
                 multiple indexes }
               harrdef:=tarraydef(tabstractvarsym(sym).vardef);
+
+              { calc array size }
+              if ado_IsDynamicArray in harrdef.arrayoptions then l := -1
+               else l := harrdef.size;
+
+              case opr.typ of
+                OPR_REFERENCE: opr.varsize := l;
+                    OPR_LOCAL: opr.localvarsize := l;
+              end;
+
+
               while assigned(harrdef.elementdef) and
                     (harrdef.elementdef.typ=arraydef) do
                harrdef:=tarraydef(harrdef.elementdef);
               if not is_packed_array(harrdef) then
-                SetSize(harrdef.elesize,false)
+              begin
+                SetSize(harrdef.elesize,false);
+              end
                else
                  begin
                    if (harrdef.elepackedbitsize mod 8) = 0 then
-                     SetSize(harrdef.elepackedbitsize div 8,false)
+                   begin
+                     SetSize(harrdef.elepackedbitsize div 8,false);
+                   end;
                  end;
+            end;
+          recorddef:
+            case opr.typ of
+              OPR_REFERENCE: opr.varsize := tabstractvarsym(sym).getsize;
+                  OPR_LOCAL: opr.localvarsize := tabstractvarsym(sym).getsize;
             end;
         end;
         hasvar:=true;
@@ -951,16 +971,22 @@ Begin
         opr.typ:=OPR_REFERENCE;
         Fillchar(opr.ref,sizeof(treference),0);
         opr.Ref.Offset:=l;
+        opr.varsize:=0;
+        opr.constoffset:=0;
       end;
     OPR_NONE :
       begin
         opr.typ:=OPR_REFERENCE;
+        opr.varsize:=0;
+        opr.constoffset:=0;
         Fillchar(opr.ref,sizeof(treference),0);
       end;
     OPR_REGISTER :
       begin
         reg:=opr.reg;
         opr.typ:=OPR_REFERENCE;
+        opr.varsize:=0;
+        opr.constoffset:=0;
         Fillchar(opr.ref,sizeof(treference),0);
         opr.Ref.base:=reg;
       end;
@@ -969,6 +995,8 @@ Begin
         hsymbol:=opr.symbol;
         hsymofs:=opr.symofs;
         opr.typ:=OPR_REFERENCE;
+        opr.varsize:=0;
+        opr.constoffset:=0;
         Fillchar(opr.ref,sizeof(treference),0);
         opr.ref.symbol:=hsymbol;
         opr.ref.offset:=hsymofs;
@@ -978,6 +1006,8 @@ Begin
         Message(asmr_e_invalid_operand_type);
         { Recover }
         opr.typ:=OPR_REFERENCE;
+        opr.varsize:=0;
+        opr.constoffset:=0;
         Fillchar(opr.ref,sizeof(treference),0);
       end;
   end;
