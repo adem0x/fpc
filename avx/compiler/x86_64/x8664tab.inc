@@ -6116,7 +6116,7 @@
     ops     : 2;
     optypes : (ot_xmmreg,ot_rm_gpr or ot_bits64,ot_none,ot_none);
     code    : #219#209#2#15#42#72;
-    flags   : if_katmai or if_sse or if_x86_64 or if_si
+    flags   : if_katmai or if_sse or if_x86_64
   ),
   (
     opcode  : A_CVTSS2SI;
@@ -7201,7 +7201,7 @@
     ops     : 2;
     optypes : (ot_xmmreg,ot_rm_gpr or ot_bits64,ot_none,ot_none);
     code    : #214#220#209#2#15#42#72;
-    flags   : if_willamette or if_sse2 or if_x86_64 or if_si
+    flags   : if_willamette or if_sse2 or if_x86_64
   ),
   (
     opcode  : A_CVTSS2SD;
@@ -8958,28 +8958,28 @@
     ops     : 2;
     optypes : (ot_xmmreg,ot_xmmrm,ot_none,ot_none);
     code    : #220#242#248#1#230#72;
-    flags   : if_avx or if_sandybridge or if_si
+    flags   : if_avx or if_sandybridge
   ),
   (
     opcode  : A_VCVTPD2DQ;
     ops     : 2;
     optypes : (ot_xmmreg,ot_ymmrm,ot_none,ot_none);
     code    : #220#242#244#248#1#230#72;
-    flags   : if_avx or if_sandybridge or if_si
+    flags   : if_avx or if_sandybridge
   ),
   (
     opcode  : A_VCVTPD2PS;
     ops     : 2;
     optypes : (ot_xmmreg,ot_xmmrm,ot_none,ot_none);
     code    : #241#242#248#1#90#72;
-    flags   : if_avx or if_sandybridge or if_si
+    flags   : if_avx or if_sandybridge
   ),
   (
     opcode  : A_VCVTPD2PS;
     ops     : 2;
     optypes : (ot_xmmreg,ot_ymmrm,ot_none,ot_none);
     code    : #241#242#244#248#1#90#72;
-    flags   : if_avx or if_sandybridge or if_si
+    flags   : if_avx or if_sandybridge
   ),
   (
     opcode  : A_VCVTPS2DQ;
@@ -9063,28 +9063,28 @@
     ops     : 3;
     optypes : (ot_xmmreg,ot_xmmreg,ot_rm_gpr or ot_bits32,ot_none);
     code    : #220#242#248#1#42#61#80;
-    flags   : if_avx or if_sandybridge or if_sd or if_si
+    flags   : if_avx or if_sandybridge or if_sd
   ),
   (
     opcode  : A_VCVTSI2SD;
     ops     : 3;
     optypes : (ot_xmmreg,ot_xmmreg,ot_rm_gpr or ot_bits64,ot_none);
     code    : #220#242#243#248#1#42#61#80;
-    flags   : if_avx or if_sandybridge or if_si
+    flags   : if_avx or if_sandybridge
   ),
   (
     opcode  : A_VCVTSI2SS;
     ops     : 3;
     optypes : (ot_xmmreg,ot_xmmreg,ot_rm_gpr or ot_bits32,ot_none);
     code    : #219#242#248#1#42#61#80;
-    flags   : if_avx or if_sandybridge or if_sd or if_si
+    flags   : if_avx or if_sandybridge or if_sd
   ),
   (
     opcode  : A_VCVTSI2SS;
     ops     : 3;
     optypes : (ot_xmmreg,ot_xmmreg,ot_rm_gpr or ot_bits64,ot_none);
     code    : #219#242#243#248#1#42#61#80;
-    flags   : if_avx or if_sandybridge or if_si
+    flags   : if_avx or if_sandybridge
   ),
   (
     opcode  : A_VCVTSS2SD;
@@ -9133,14 +9133,14 @@
     ops     : 2;
     optypes : (ot_xmmreg,ot_xmmrm,ot_none,ot_none);
     code    : #241#242#248#1#230#72;
-    flags   : if_avx or if_sandybridge or if_si
+    flags   : if_avx or if_sandybridge
   ),
   (
     opcode  : A_VCVTTPD2DQ;
     ops     : 2;
     optypes : (ot_xmmreg,ot_ymmrm,ot_none,ot_none);
     code    : #241#242#244#248#1#230#72;
-    flags   : if_avx or if_sandybridge or if_si
+    flags   : if_avx or if_sandybridge
   ),
   (
     opcode  : A_VCVTTPS2DQ;

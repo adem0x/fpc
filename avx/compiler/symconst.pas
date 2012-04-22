@@ -444,7 +444,10 @@ type
     vo_has_section,
     { variable contains a winlike WideString which should be finalized
       even in $J- state }
-    vo_force_finalize
+    vo_force_finalize,
+    { this is an internal variable that is used for Default() intrinsic in code
+      sections }
+    vo_is_default_var
   );
   tvaroptions=set of tvaroption;
 
@@ -556,10 +559,10 @@ type
   tvariantequaltype = (
     tve_incompatible,
     tve_chari64,
-    tve_ustring,
-    tve_wstring,
-    tve_astring,
     tve_sstring,
+    tve_astring,
+    tve_wstring,
+    tve_ustring,
     tve_boolformal,
     tve_extended,
     tve_dblcurrency,

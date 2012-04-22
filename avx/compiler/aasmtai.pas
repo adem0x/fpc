@@ -271,7 +271,17 @@ interface
 
       TRegAllocType = (ra_alloc,ra_dealloc,ra_sync,ra_resize);
 
-      TStabType = (stab_stabs,stab_stabn,stab_stabd);
+      TStabType = (stab_stabs,stab_stabn,stab_stabd,
+                   { AIX/XCOFF stab types }
+                   stab_stabx,
+                   { begin/end include file }
+                   stabx_bi,stabx_ei,
+                   { begin/end function }
+                   stabx_bf, stabx_ef,
+                   { begin/end static data block }
+                   stabx_bs, stabx_es,
+                   { line spec, function start/end label }
+                   stabx_line, stabx_function);
 
       TAsmDirective=(
         asd_indirect_symbol,
@@ -292,7 +302,13 @@ interface
     const
       regallocstr : array[tregalloctype] of string[10]=('allocated','released','sync','resized');
       tempallocstr : array[boolean] of string[10]=('released','allocated');
-      stabtypestr : array[TStabType] of string[5]=('stabs','stabn','stabd');
+      stabtypestr : array[TStabType] of string[8]=(
+        'stabs','stabn','stabd',
+        'stabx',
+        'bi','ei',
+        'bf','ef',
+        'bs','es',
+        'line','function');
       directivestr : array[TAsmDirective] of string[23]=(
         'indirect_symbol',
         'extern','nasm_import', 'tc', 'reference',
@@ -377,10 +393,9 @@ interface
        end;
 
        tai_directive = class(tailineinfo)
-          name : pshortstring;
+          name : ansistring;
           directive : TAsmDirective;
-          constructor Create(_directive:TAsmDirective;const _name:string);
-          destructor Destroy;override;
+          constructor Create(_directive:TAsmDirective;const _name:ansistring);
           constructor ppuload(t:taitype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
        end;
@@ -1154,25 +1169,19 @@ implementation
                                TAI_SYMBOL_END
  ****************************************************************************}
 
-    constructor tai_directive.Create(_directive:TAsmDirective;const _name:string);
+    constructor tai_directive.Create(_directive:TAsmDirective;const _name:ansistring);
       begin
          inherited Create;
          typ:=ait_directive;
-         name:=stringdup(_name);
+         name:=_name;
          directive:=_directive;
-      end;
-
-
-    destructor tai_directive.Destroy;
-      begin
-        stringdispose(name);
       end;
 
 
     constructor tai_directive.ppuload(t:taitype;ppufile:tcompilerppufile);
       begin
         inherited ppuload(t,ppufile);
-        name:=stringdup(ppufile.getstring);
+        name:=ppufile.getansistring;
         directive:=TAsmDirective(ppufile.getbyte);
       end;
 
@@ -1180,7 +1189,7 @@ implementation
     procedure tai_directive.ppuwrite(ppufile:tcompilerppufile);
       begin
         inherited ppuwrite(ppufile);
-        ppufile.putstring(name^);
+        ppufile.putansistring(name);
         ppufile.putbyte(byte(directive));
       end;
 

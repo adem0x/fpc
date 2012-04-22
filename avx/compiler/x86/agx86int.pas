@@ -840,8 +840,7 @@ implementation
                  else
                    internalerror(200509192);
                end;
-               if assigned(tai_directive(hp).name) then
-                 AsmWrite(tai_directive(hp).name^);
+               AsmWrite(tai_directive(hp).name);
                AsmLn;
              end;
            ait_seh_directive :
@@ -967,6 +966,7 @@ implementation
             flags : [af_allowdirect,af_needar,af_labelprefix_only_inside_procedure];
             labelprefix : '@@';
             comment : '; ';
+            dollarsign: '$';
           );
 
        as_i386_masm_info : tasminfo =
@@ -979,6 +979,7 @@ implementation
             flags : [af_allowdirect,af_needar];
             labelprefix : '@@';
             comment : '; ';
+            dollarsign: '$';
           );
 
        as_i386_wasm_info : tasminfo =
@@ -991,6 +992,7 @@ implementation
             flags : [af_allowdirect,af_needar];
             labelprefix : '@@';
             comment : '; ';
+            dollarsign: '$';
           );
 {$endif i386}
 {$ifdef x86_64}
@@ -1004,6 +1006,7 @@ implementation
             flags : [af_allowdirect,af_needar];
             labelprefix : '@@';
             comment : '; ';
+            dollarsign: '$';
           );
 {$endif x86_64}
 

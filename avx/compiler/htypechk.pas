@@ -174,6 +174,10 @@ interface
 
     procedure check_ranges(const location: tfileposinfo; source: tnode; destdef: tdef);
 
+    { returns whether the def may be used in the Default() intrinsic; static
+      arrays, records and objects are checked recursively }
+    function is_valid_for_default(def:tdef):boolean;
+
 implementation
 
     uses
@@ -988,34 +992,38 @@ implementation
                        begin
                          { Give warning/note for uninitialized locals }
                          if assigned(hsym.owner) and
-                           not(cs_opt_nodedfa in current_settings.optimizerswitches) and
                             not(vo_is_external in hsym.varoptions) and
                             (hsym.owner.symtabletype in [parasymtable,localsymtable,staticsymtable]) and
                             ((hsym.owner=current_procinfo.procdef.localst) or
                              (hsym.owner=current_procinfo.procdef.parast)) then
                            begin
-                             if (vo_is_funcret in hsym.varoptions) then
+                             if vsf_use_hints in varstateflags then
+                               include(tloadnode(p).loadnodeflags,loadnf_only_uninitialized_hint);
+                             if not(cs_opt_nodedfa in current_settings.optimizerswitches) then
                                begin
-                                 if (vsf_use_hints in varstateflags) then
-                                   CGMessagePos(p.fileinfo,sym_h_function_result_uninitialized)
-                                 else
-                                   CGMessagePos(p.fileinfo,sym_w_function_result_uninitialized)
-                               end
-                             else
-                               begin
-                                 if tloadnode(p).symtable.symtabletype=localsymtable then
+                                 if (vo_is_funcret in hsym.varoptions) then
                                    begin
                                      if (vsf_use_hints in varstateflags) then
-                                       CGMessagePos1(p.fileinfo,sym_h_uninitialized_local_variable,hsym.realname)
+                                       CGMessagePos(p.fileinfo,sym_h_function_result_uninitialized)
                                      else
-                                       CGMessagePos1(p.fileinfo,sym_w_uninitialized_local_variable,hsym.realname);
+                                       CGMessagePos(p.fileinfo,sym_w_function_result_uninitialized)
                                    end
                                  else
                                    begin
-                                     if (vsf_use_hints in varstateflags) then
-                                       CGMessagePos1(p.fileinfo,sym_h_uninitialized_variable,hsym.realname)
+                                     if tloadnode(p).symtable.symtabletype=localsymtable then
+                                       begin
+                                         if (vsf_use_hints in varstateflags) then
+                                           CGMessagePos1(p.fileinfo,sym_h_uninitialized_local_variable,hsym.realname)
+                                         else
+                                           CGMessagePos1(p.fileinfo,sym_w_uninitialized_local_variable,hsym.realname);
+                                       end
                                      else
-                                       CGMessagePos1(p.fileinfo,sym_w_uninitialized_variable,hsym.realname);
+                                       begin
+                                         if (vsf_use_hints in varstateflags) then
+                                           CGMessagePos1(p.fileinfo,sym_h_uninitialized_variable,hsym.realname)
+                                         else
+                                           CGMessagePos1(p.fileinfo,sym_w_uninitialized_variable,hsym.realname);
+                                       end;
                                    end;
                                end;
                            end
@@ -2647,18 +2655,19 @@ implementation
 { Delphi precedence rules extracted from test programs. Only valid if passing
   a variant parameter to overloaded procedures expecting exactly one parameter.
 
-  single > (char, currency, int64, shortstring, ansistring, widestring, extended, double)
-  double/currency > (char, int64, shortstring, ansistring, widestring, extended)
-  extended > (char, int64, shortstring, ansistring, widestring)
-  longint/cardinal > (int64, shortstring, ansistring, widestring, extended, double, single, char, currency)
-  smallint > (longint, int64, shortstring, ansistring, widestring, extended, double single, char, currency);
-  word > (longint, cardinal, int64, shortstring, ansistring, widestring, extended, double single, char, currency);
-  shortint > (longint, smallint, int64, shortstring, ansistring, widestring, extended, double, single, char, currency)
-  byte > (longint, cardinal, word, smallint, int64, shortstring, ansistring, widestring, extended, double, single, char, currency);
-  boolean/formal > (char, int64, shortstring, ansistring, widestring)
-  shortstring > (char, int64, ansistring, widestring)
-  ansistring > (char, int64, widestring)
-  widestring > (char, int64)
+  single > (char, currency, int64, shortstring, ansistring, widestring, unicodestring, extended, double)
+  double/currency > (char, int64, shortstring, ansistring, widestring, unicodestring, extended)
+  extended > (char, int64, shortstring, ansistring, widestring, unicodestring)
+  longint/cardinal > (int64, shortstring, ansistring, widestring, unicodestring, extended, double, single, char, currency)
+  smallint > (longint, int64, shortstring, ansistring, widestring, unicodestring, extended, double single, char, currency);
+  word > (longint, cardinal, int64, shortstring, ansistring, widestring, unicodestring, extended, double single, char, currency);
+  shortint > (longint, smallint, int64, shortstring, ansistring, widestring, unicodestring, extended, double, single, char, currency)
+  byte > (longint, cardinal, word, smallint, int64, shortstring, ansistring, widestring, unicodestring, extended, double, single, char, currency);
+  boolean/formal > (char, int64, shortstring, ansistring, widestring, unicodestring)
+  widestring > (char, int64, shortstring, ansistring, unicodestring)
+  unicodestring > (char, int64, shortstring, ansistring)
+  ansistring > (char, int64, shortstring)
+  shortstring > (char, int64)
 
   Relations not mentioned mean that they conflict: no decision possible }
 
@@ -2780,14 +2789,6 @@ implementation
         else if (currvcl=tve_extended) or
                 (bestvcl=tve_extended) then
           result:=1-2*ord(bestvcl=tve_extended)
-        { shortstring is better than everything left }
-        else if (currvcl=tve_sstring) or
-                (bestvcl=tve_sstring) then
-          result:=1-2*ord(bestvcl=tve_sstring)
-        { ansistring is better than everything left }
-        else if (currvcl=tve_astring) or
-                (bestvcl=tve_astring) then
-          result:=1-2*ord(bestvcl=tve_astring)
         { widestring is better than everything left }
         else if (currvcl=tve_wstring) or
                 (bestvcl=tve_wstring) then
@@ -2795,7 +2796,15 @@ implementation
         { unicodestring is better than everything left }
         else if (currvcl=tve_ustring) or
                 (bestvcl=tve_ustring) then
-          result:=1-2*ord(bestvcl=tve_ustring);
+          result:=1-2*ord(bestvcl=tve_ustring)
+        { ansistring is better than everything left }
+        else if (currvcl=tve_astring) or
+                (bestvcl=tve_astring) then
+          result:=1-2*ord(bestvcl=tve_astring)
+        { shortstring is better than everything left }
+        else if (currvcl=tve_sstring) or
+                (bestvcl=tve_sstring) then
+          result:=1-2*ord(bestvcl=tve_sstring);
 
         { all possibilities should have been checked now }
         if (result=-5) then
@@ -2956,6 +2965,53 @@ implementation
                  MessagePos(location,type_h_smaller_possible_range_check);
              end;
          end;
+      end;
+
+    function is_valid_for_default(def:tdef):boolean;
+
+      function is_valid_record_or_object(def:tabstractrecorddef):boolean;
+        var
+          sym : tsym;
+          i : longint;
+        begin
+          for i:=0 to def.symtable.symlist.count-1 do
+            begin
+              sym:=tsym(def.symtable.symlist[i]);
+              if sym.typ<>fieldvarsym then
+                continue;
+              if not is_valid_for_default(tfieldvarsym(sym).vardef) then
+                begin
+                  result:=false;
+                  exit;
+                end;
+            end;
+          result:=true;
+        end;
+
+      begin
+        case def.typ of
+          recorddef:
+            result:=is_valid_record_or_object(tabstractrecorddef(def));
+          objectdef:
+            if is_implicit_pointer_object_type(def) then
+              result:=true
+            else
+              if is_object(def) then
+                result:=is_valid_record_or_object(tabstractrecorddef(def))
+              else
+                result:=false;
+          arraydef:
+            if not (ado_isdynamicarray in tarraydef(def).arrayoptions) then
+              result:=is_valid_for_default(tarraydef(def).elementdef)
+            else
+              result:=true;
+          formaldef,
+          abstractdef,
+          filedef:
+            result:=false;
+          else
+            result:=true;
+        end;
       end;
 
 

@@ -147,7 +147,11 @@ const
   { 67 }  'Linux-MIPSel',
   { 68 }  'NativeNT-i386',
   { 69 }  'iPhoneSim-i386',
-  { 70 }  'Wii-powerpc'
+  { 70 }  'Wii-powerpc',
+  { 71 }  'OpenBSD-x86-64',
+  { 72 }  'NetBSD-x86-64',
+  { 73 }  'AIX-powerpc',
+  { 74 }  'AIX-powerpc64'
   );
 
 const
@@ -1576,7 +1580,8 @@ const
      (mask:vo_is_first_field;str:'IsFirstField'),
      (mask:vo_volatile;str:'Volatile'),
      (mask:vo_has_section;str:'HasSection'),
-     (mask:vo_force_finalize;str:'ForceFinalize')
+     (mask:vo_force_finalize;str:'ForceFinalize'),
+     (mask:vo_is_default_var;str:'DefaultIntrinsicVar')
   );
 var
   i : longint;

@@ -1496,6 +1496,7 @@ implementation
            ) and
            not(vo_is_typed_const in tabstractvarsym(p).varoptions) and
            not(vo_is_external in tabstractvarsym(p).varoptions) and
+           not(vo_is_default_var in tabstractvarsym(p).varoptions) and
            (is_managed_type(tabstractvarsym(p).vardef) or
             ((m_iso in current_settings.modeswitches) and (tabstractvarsym(p).vardef.typ=filedef))
            ) then
@@ -1537,6 +1538,7 @@ implementation
            (tlocalvarsym(p).refs>0) and
            not(vo_is_external in tlocalvarsym(p).varoptions) and
            not(vo_is_funcret in tlocalvarsym(p).varoptions) and
+           not(vo_is_default_var in tlocalvarsym(p).varoptions) and
            is_managed_type(tlocalvarsym(p).vardef) then
           finalize_sym(TAsmList(arg),tsym(p));
       end;
@@ -2371,14 +2373,17 @@ implementation
 
         if (current_procinfo.procdef.proctypeoption=potype_proginit) then
           begin
-           if (target_info.system in (systems_darwin+[system_powerpc_macos])) and
+           if (target_info.system in (systems_darwin+[system_powerpc_macos]+systems_aix)) and
               not(current_module.islibrary) then
              begin
               new_section(list,sec_code,'',4);
               list.concat(tai_symbol.createname_global(
                 target_info.cprefix+mainaliasname,AT_FUNCTION,0));
               { keep argc, argv and envp properly on the stack }
-              cg.a_jmp_name(list,target_info.cprefix+'FPC_SYSTEMMAIN');
+              if not(target_info.system in systems_aix) then
+                cg.a_jmp_name(list,target_info.cprefix+'FPC_SYSTEMMAIN')
+              else
+                cg.a_call_name(list,target_info.cprefix+'FPC_SYSTEMMAIN',false)
              end;
           end;
       end;
@@ -2577,7 +2582,20 @@ implementation
            (assigned(current_procinfo) and
             (po_inline in current_procinfo.procdef.procoptions)) or
            (vo_is_public in sym.varoptions) then
-          list.concat(Tai_datablock.create_global(sym.mangledname,l))
+          begin
+            { on AIX/stabx, we cannot generate debug information that encodes
+              the address of a global symbol, you need a symbol with the same
+              name as the identifier -> create an extra *local* symbol.
+              Moreover, such a local symbol will be removed if it's not
+              referenced anywhere, so also create a reference }
+            if (target_dbg.id=dbg_stabx) and
+               (cs_debuginfo in current_settings.moduleswitches) then
+              begin
+                list.concat(tai_symbol.Create(current_asmdata.DefineAsmSymbol(sym.name,AB_LOCAL,AT_DATA),0));
+                list.concat(tai_directive.Create(asd_reference,sym.name));
+              end;
+            list.concat(Tai_datablock.create_global(sym.mangledname,l));
+          end
         else
           list.concat(Tai_datablock.create(sym.mangledname,l));
         current_filepos:=storefilepos;

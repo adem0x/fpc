@@ -6,7 +6,7 @@
 #   Contributed by Marcelo B Paula, based on errore.msg SVN Rev.19883
 #   Former translator: Ari Ricardo Ody <ary.odi at japinfo.com.br>
 #
-#   See the file COPYING.FPC, included in this distribution,
+#   See the file COPYING.v2, included in this distribution,
 #   for details about the copyright.
 #
 #   This program is distributed in the hope that it will be useful,
@@ -772,9 +772,9 @@ parser_e_function_already_declared_public_forward=03120_E_Funá∆o j† declarada co
 % declaration in the \var{implementation} section.
 parser_e_not_external_and_export=03121_E_Imposs°vel usar ambos EXPORT e EXTERNAL
 % These two procedure directives are mutually exclusive.
-parser_w_not_supported_for_inline=03123_W_"$1" n∆o suportado ainda dentro procedimento/funá∆o em linha
+parser_h_not_supported_for_inline=03123_H_"$1" n∆o suportado ainda dentro procedimento/funá∆o em linha
 % Inline procedures don't support this declaration.
-parser_w_inlining_disabled=03124_W_Procedimentos em linha desabilitados
+parser_h_inlining_disabled=03124_H_Procedimentos em linha desabilitados
 % Inlining of procedures is disabled.
 parser_i_writing_browser_log=03125_I_Gravando hist¢rio Navegador $1
 % When information messages are on, the compiler warns you when it
@@ -3083,7 +3083,7 @@ wpo_cant_create_feedback_file=12019_E_Imposs°vel criar arquivo retorno otimizaá‰
 #
 option_logo=11023_[
 Compilador Free Pascal vers∆o $FPCFULLVERSION [$FPCDATE] para $FPCCPU
-Copyright (c) 1993-2011 by Florian Klaempfl
+Copyright (c) 1993-2012 by Florian Klaempfl
 ]
 
 #
@@ -3118,12 +3118,10 @@ Tipos Microcontroladores suportados:
   $CONTROLLERTYPES
 
 Este programa Ç oferecido sob a Licenáa Geral P£blica GNU
-Para maiores informaá‰es leia COPYING.FPC
+Para maiores informaá‰es leia COPYING.v2
 
 Reportar falhas, sugest‰es, etc. para:
                  http://bugs.freepascal.org
-ou
-                 bugs@freepascal.org
 ]
 
 #

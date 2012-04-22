@@ -120,6 +120,7 @@ interface
          cs_generate_stackframes,cs_do_assertion,cs_generate_rtti,
          cs_full_boolean_eval,cs_typed_const_writable,cs_allow_enum_calc,
          cs_do_inline,cs_fpu_fwait,cs_ieee_errors,
+         cs_check_low_addr_load,
          { mmx }
          cs_mmx,cs_mmx_saturation,
          { parser }
@@ -213,7 +214,7 @@ interface
          cs_opt_level1,cs_opt_level2,cs_opt_level3,
          cs_opt_regvar,cs_opt_uncertain,cs_opt_size,cs_opt_stackframe,
          cs_opt_peephole,cs_opt_asmcse,cs_opt_loopunroll,cs_opt_tailrecursion,cs_opt_nodecse,
-         cs_opt_nodedfa,cs_opt_loopstrength
+         cs_opt_nodedfa,cs_opt_loopstrength,cs_opt_scheduler
        );
        toptimizerswitches = set of toptimizerswitch;
 
@@ -236,7 +237,8 @@ interface
        OptimizerSwitchStr : array[toptimizerswitch] of string[10] = ('',
          'LEVEL1','LEVEL2','LEVEL3',
          'REGVAR','UNCERTAIN','SIZE','STACKFRAME',
-         'PEEPHOLE','ASMCSE','LOOPUNROLL','TAILREC','CSE','DFA','STRENGTH'
+         'PEEPHOLE','ASMCSE','LOOPUNROLL','TAILREC','CSE',
+         'DFA','STRENGTH','SCHEDULE'
        );
        WPOptimizerSwitchStr : array [twpoptimizerswitch] of string[14] = (
          'DEVIRTCALLS','OPTVMTS','SYMBOLLIVENESS'

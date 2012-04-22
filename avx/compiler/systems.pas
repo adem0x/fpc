@@ -89,6 +89,9 @@ interface
           flags        : set of tasmflags;
           labelprefix : string[3];
           comment     : string[3];
+          { set to '$' if that character is allowed in symbol names, otherwise
+            to alternate character by which '$' should be replaced }
+          dollarsign  : char;
        end;
 
        parinfo = ^tarinfo;
@@ -219,10 +222,15 @@ interface
                           system_x86_64_freebsd];
        systems_netbsd  = [system_i386_netbsd,
                           system_m68k_netbsd,
-                          system_powerpc_netbsd];
-       systems_openbsd = [system_i386_openbsd];
+                          system_powerpc_netbsd,
+                          system_x86_64_netbsd];
+       systems_openbsd = [system_i386_openbsd,
+                          system_m68k_openbsd,
+                          system_x86_64_openbsd];
 
        systems_bsd = systems_freebsd + systems_netbsd + systems_openbsd;
+
+       systems_aix = [system_powerpc_aix,system_powerpc64_aix];
 
        { all real windows systems, no cripple ones like wince, wdosx et. al. }
        systems_windows = [system_i386_win32,system_x86_64_win64,system_ia64_win64];
@@ -250,6 +258,9 @@ interface
 
        { all systems that allow section directive }
        systems_allow_section = systems_embedded;
+
+       { systems that uses dotted function names as descriptors }
+       systems_dotted_function_names = [system_powerpc64_linux]+systems_aix;
 
        systems_allow_section_no_semicolon = systems_allow_section
 {$ifndef DISABLE_TLS_DIRECTORY}
@@ -314,7 +325,7 @@ interface
              'mips','arm', 'powerpc64', 'avr', 'mipsel');
 
        abi2str : array[tabi] of string[10] =
-         ('DEFAULT','SYSV','AIX','EABI','ARMEB');
+         ('DEFAULT','SYSV','AIX','EABI','ARMEB','EABIHF');
 
     var
        targetinfos   : array[tsystem] of psysteminfo;
@@ -750,6 +761,14 @@ begin
     default_target(system_x86_64_freebsd);
     {$define default_target_set}
    {$endif}
+   {$ifdef openbsd}
+    default_target(system_x86_64_openbsd);
+    {$define default_target_set}
+   {$endif}
+   {$ifdef netbsd}
+    default_target(system_x86_64_netbsd);
+    {$define default_target_set}
+   {$endif}
    {$ifdef solaris}
     default_target(system_x86_64_solaris);
     {$define default_target_set}
@@ -795,6 +814,10 @@ begin
     {$define default_target_set}
    {$endif}
   {$endif cpupowerpc}
+  {$ifdef aix}
+   default_target(system_powerpc_aix);
+   {$define default_target_set}
+  {$endif}
   {$ifndef default_target_set}
     default_target(system_powerpc_linux);
   {$endif default_target_set}
@@ -811,6 +834,10 @@ begin
     {$endif}
     {$ifdef linux}
      default_target(system_powerpc64_linux);
+     {$define default_target_set}
+    {$endif}
+    {$ifdef aix}
+     default_target(system_powerpc64_aix);
      {$define default_target_set}
     {$endif}
   {$endif cpupowerpc64}

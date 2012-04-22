@@ -827,7 +827,7 @@ interface
     function use_vectorfpu(def : tdef) : boolean;
 
     function getansistringcodepage:tstringencoding; inline;
-    function getansistringdef:tstringdef; inline;
+    function getansistringdef:tstringdef;
     function getparaencoding(def:tdef):tstringencoding; inline;
 
 implementation
@@ -860,7 +860,7 @@ implementation
           result:=0;
       end;
 
-    function getansistringdef:tstringdef; inline;
+    function getansistringdef:tstringdef;
       var
         symtable:tsymtable;
       begin
@@ -1430,7 +1430,8 @@ implementation
               recsize:=size;
               is_intregable:=
                 ispowerof2(recsize,temp) and
-                (recsize <= sizeof(asizeint));
+                (recsize <= sizeof(asizeint))
+                and not needs_inittable;
             end;
         end;
      end;
@@ -2059,6 +2060,7 @@ implementation
            sc80real:
              if target_info.system in [system_i386_darwin,system_i386_iphonesim,system_x86_64_darwin,
                   system_x86_64_linux,system_x86_64_freebsd,
+                  system_x86_64_openbsd,system_x86_64_netbsd,
                   system_x86_64_solaris,system_x86_64_embedded] then
                savesize:=16
              else
@@ -4979,6 +4981,7 @@ implementation
    { true, if self inherits from d (or if they are equal) }
    function tobjectdef.is_related(d : tdef) : boolean;
      var
+        realself,
         hp : tobjectdef;
      begin
         if self=d then
@@ -4992,17 +4995,21 @@ implementation
             is_related:=false;
             exit;
           end;
+        realself:=find_real_objcclass_definition(self,false);
+        d:=find_real_objcclass_definition(tobjectdef(d),false);
 
         { Objective-C protocols can use multiple inheritance }
-        if (objecttype=odt_objcprotocol) then
+        if (realself.objecttype=odt_objcprotocol) then
           begin
-            is_related:=is_related_protocol(self,d);
+            is_related:=is_related_protocol(realself,d);
             exit
           end;
 
         { formally declared Objective-C classes match Objective-C classes with
-          the same name }
-        if (objecttype=odt_objcclass) and
+          the same name (still required even though we looked up the real
+          definitions above, because these may be two different formal
+          declarations) }
+        if (realself.objecttype=odt_objcclass) and
            (tobjectdef(d).objecttype=odt_objcclass) and
            ((oo_is_formal in objectoptions) or
             (oo_is_formal in tobjectdef(d).objectoptions)) and
@@ -5012,7 +5019,7 @@ implementation
             exit;
           end;
 
-        hp:=childof;
+        hp:=realself.childof;
         while assigned(hp) do
           begin
              if hp=d then

@@ -339,7 +339,7 @@ implementation
       ResourceInfo : TAsmList;
 
     begin
-      if (target_res.id in [res_elf,res_macho]) then
+      if (target_res.id in [res_elf,res_macho,res_xcoff]) then
         begin
         ResourceInfo:=TAsmList.Create;
 
@@ -675,10 +675,14 @@ implementation
              AddUnit('heaptrc');
            { Lineinfo unit }
            if (cs_use_lineinfo in current_settings.globalswitches) then begin
-             if (paratargetdbg = dbg_stabs) then
-               AddUnit('lineinfo')
-             else
-               AddUnit('lnfodwrf');
+             case paratargetdbg of
+               dbg_stabs:
+                 AddUnit('lineinfo');
+               dbg_stabx:
+                 AddUnit('lnfogdb');
+               else
+                 AddUnit('lnfodwrf');
+             end;
            end;
            { Valgrind requires c memory manager }
            if (cs_gdb_valgrind in current_settings.globalswitches) then
@@ -761,11 +765,13 @@ implementation
          pu      : tused_unit;
          hp2     : tmodule;
          unitsym : tunitsym;
+         filepos : tfileposinfo;
       begin
          consume(_USES);
          repeat
            s:=pattern;
            sorg:=orgpattern;
+           filepos:=current_tokenpos;
            consume(_ID);
            while token=_POINT do
              begin
@@ -811,6 +817,7 @@ implementation
               { Create unitsym, we need to use the name as specified, we
                 can not use the modulename because that can be different
                 when -Un is used }
+              current_tokenpos:=filepos;
               unitsym:=tunitsym.create(sorg,nil);
               tabstractunitsymtable(current_module.localsymtable).insertunit(unitsym);
               { the current module uses the unit hp2 }
@@ -1015,9 +1022,11 @@ implementation
 
     function try_consume_hintdirective(var moduleopt:tmoduleoptions; var deprecatedmsg:pshortstring):boolean;
       var
+        deprecated_seen,
         last_is_deprecated:boolean;
       begin
         try_consume_hintdirective:=false;
+        deprecated_seen:=false;
         repeat
           last_is_deprecated:=false;
           case idtoken of
@@ -1028,9 +1037,13 @@ implementation
               end;
             _DEPRECATED :
               begin
+                { allow deprecated only once }
+                if deprecated_seen then
+                  break;
                 include(moduleopt,mo_hint_deprecated);
                 try_consume_hintdirective:=true;
                 last_is_deprecated:=true;
+                deprecated_seen:=true;
               end;
             _EXPERIMENTAL :
               begin
@@ -2252,12 +2265,12 @@ implementation
           begin
             main_procinfo:=create_main_proc(make_mangledname('',current_module.localsymtable,mainaliasname),potype_proginit,current_module.localsymtable);
             { Win32 startup code needs a single name }
-            if not(target_info.system in systems_darwin) then
+            if not(target_info.system in (systems_darwin+systems_aix)) then
               main_procinfo.procdef.aliasnames.insert('PASCALMAIN')
             else
               main_procinfo.procdef.aliasnames.insert(target_info.Cprefix+'PASCALMAIN')
           end
-         else if (target_info.system in ([system_i386_netware,system_i386_netwlibc,system_powerpc_macos]+systems_darwin)) then
+         else if (target_info.system in ([system_i386_netware,system_i386_netwlibc,system_powerpc_macos]+systems_darwin+systems_aix)) then
            begin
              main_procinfo:=create_main_proc('PASCALMAIN',potype_proginit,current_module.localsymtable);
            end

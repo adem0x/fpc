@@ -146,7 +146,11 @@
              system_mipsel_linux,       { 67 }
              system_i386_nativent,      { 68 }
              system_i386_iphonesim,     { 69 }
-             system_powerpc_wii         { 70 }
+             system_powerpc_wii,        { 70 }
+             system_x86_64_openbsd,     { 71 }
+             system_x86_64_netbsd,      { 72 }
+             system_powerpc_aix,        { 73 }
+             system_powerpc64_aix       { 74 }
        );
 
      type
@@ -180,6 +184,7 @@
              ,as_i386_nasmhaiku
              ,as_powerpc_vasm
              ,as_i386_nlmcoff
+             ,as_powerpc_xcoff
        );
 
        tar = (ar_none
@@ -192,7 +197,7 @@
        tres = (res_none
             ,res_gnu_windres,res_watcom_wrc_os2
             ,res_m68k_palmos,res_m68k_mpw
-            ,res_powerpc_mpw,res_elf
+            ,res_powerpc_mpw,res_elf,res_xcoff
             ,res_win64_gorc, res_macho, res_ext
        );
 
@@ -200,7 +205,7 @@
             ,res_single_file);
 
        tdbg = (dbg_none
-            ,dbg_stabs,dbg_dwarf2,dbg_dwarf3,dbg_dwarf4
+            ,dbg_stabs,dbg_stabx,dbg_dwarf2,dbg_dwarf3,dbg_dwarf4
        );
 
        tscripttype = (script_none
@@ -210,7 +215,7 @@
 
        tabi = (abi_default
             ,abi_powerpc_sysv,abi_powerpc_aix
-            ,abi_eabi,abi_armeb
+            ,abi_eabi,abi_armeb,abi_eabihf
        );
 
 

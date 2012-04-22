@@ -36,6 +36,7 @@ Type
        cpu_armv4,
        cpu_armv4t,
        cpu_armv5,
+       cpu_armv5t,
        cpu_armv6,
        cpu_armv7,
        cpu_armv7m
@@ -55,7 +56,8 @@ Type
       fpu_fpa10,
       fpu_fpa11,
       fpu_vfpv2,
-      fpu_vfpv3
+      fpu_vfpv3,
+      fpu_vfpv3_d16
      );
 
    tcontrollertype =
@@ -190,19 +192,21 @@ Const
      'ARMV4',
      'ARMV4T',
      'ARMV5',
+     'ARMV5T',
      'ARMV6',
      'ARMV7',
      'ARMV7M'
    );
 
-   fputypestr : array[tfputype] of string[6] = ('',
+   fputypestr : array[tfputype] of string[9] = ('',
      'SOFT',
      'LIBGCC',
      'FPA',
      'FPA10',
      'FPA11',
      'VFPV2',
-     'VFPV3'
+     'VFPV3',
+     'VFPV3_D16'
    );
 
 
@@ -1013,7 +1017,7 @@ Const
         )
     );
 
-   vfp_scalar = [fpu_vfpv2,fpu_vfpv3];
+   vfp_scalar = [fpu_vfpv2,fpu_vfpv3,fpu_vfpv3_d16];
 
    { Supported optimizations, only used for information }
    supported_optimizerswitches = genericlevel1optimizerswitches+
@@ -1026,7 +1030,7 @@ Const
 
    level1optimizerswitches = genericlevel1optimizerswitches;
    level2optimizerswitches = genericlevel2optimizerswitches + level1optimizerswitches +
-     [cs_opt_regvar,cs_opt_stackframe,cs_opt_tailrecursion,cs_opt_nodecse];
+     [cs_opt_regvar,cs_opt_stackframe,cs_opt_tailrecursion,cs_opt_nodecse {,cs_opt_scheduler}];
    level3optimizerswitches = genericlevel3optimizerswitches + level2optimizerswitches + [{,cs_opt_loopunroll}];
 
 Implementation

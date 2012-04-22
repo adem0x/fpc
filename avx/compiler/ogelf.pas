@@ -1267,11 +1267,15 @@ implementation
             idtxt  : 'ELF';
             asmbin : '';
             asmcmd : '';
-            supported_targets : [system_i386_linux,system_i386_beos,system_i386_freebsd,system_i386_haiku,system_i386_Netware,system_i386_netwlibc,
-	                              system_i386_solaris,system_i386_embedded];
+            supported_targets : [system_i386_linux,system_i386_beos,
+                                 system_i386_freebsd,system_i386_haiku,
+                                 system_i386_openbsd,system_i386_netbsd,
+                                 system_i386_Netware,system_i386_netwlibc,
+	                         system_i386_solaris,system_i386_embedded];
             flags : [af_outputbinary,af_smartlink_sections,af_supports_dwarf];
             labelprefix : '.L';
             comment : '';
+            dollarsign: '$';
           );
 {$endif i386}
 {$ifdef x86_64}
@@ -1282,10 +1286,12 @@ implementation
             idtxt  : 'ELF';
             asmbin : '';
             asmcmd : '';
-            supported_targets : [system_x86_64_linux,system_x86_64_freebsd];
+            supported_targets : [system_x86_64_linux,system_x86_64_freebsd,
+                                 system_x86_64_openbsd,system_x86_64_netbsd];
             flags : [af_outputbinary,af_smartlink_sections,af_supports_dwarf];
             labelprefix : '.L';
             comment : '';
+            dollarsign: '$';
           );
 {$endif x86_64}
 {$ifdef sparc}
@@ -1301,6 +1307,7 @@ implementation
             flags : [af_outputbinary,af_supports_dwarf];
             labelprefix : '.L';
             comment : '';
+            dollarsign: '$';
           );
 {$endif sparc}
 

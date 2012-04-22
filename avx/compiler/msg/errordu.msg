@@ -8,7 +8,7 @@
 #   This file is part of the Free Pascal Compiler
 #   Copyright (c) 1998-2010 by the Free Pascal Development team
 #
-#   See the file COPYING.FPC, included in this distribution,
+#   See the file COPYING.v2, included in this distribution,
 #   for details about the copyright.
 #
 #   This program is distributed in the hope that it will be useful,
@@ -778,9 +778,9 @@ parser_e_function_already_declared_public_forward=03120_E_Funktion ist bereits a
 % declaration in the \var{implementation} section.
 parser_e_not_external_and_export=03121_E_Kann nicht EXPORT und EXTERNAL gleichzeitig benutzen
 % These two procedure directives are mutually exclusive.
-parser_w_not_supported_for_inline=03123_W_$1 noch nicht innerhalb von inline Prozeduren/Funktionen unterstützt
+parser_h_not_supported_for_inline=03123_H_$1 noch nicht innerhalb von inline Prozeduren/Funktionen unterstützt
 % Inline procedures don't support this declaration.
-parser_w_inlining_disabled=03124_W_Inlining deaktiviert
+parser_h_inlining_disabled=03124_H_Inlining deaktiviert
 % Inlining of procedures is disabled.
 parser_i_writing_browser_log=03125_I_Schreibe Browser-Log $1
 % When information messages are on, the compiler warns you when it
@@ -3054,7 +3054,7 @@ wpo_cant_create_feedback_file=12019_E_Die angegebene Feedback-Eingabe-Datei "$1"
 #
 option_logo=11023_[
 Free Pascal Compiler Version $FPCFULLVERSION [$FPCDATE] für $FPCTARGET
-Copyright (c) 1993-2011 Florian Klämpfl und andere
+Copyright (c) 1993-2012 Florian Klämpfl und andere
 ]
 
 #
@@ -3089,12 +3089,10 @@ Unterstützte Microcontroller:
   $CONTROLLERTYPES
 
 Dieses Programm unterliegt der GNU General Public Licence
-Weitere Informationen sind in COPYING.FPC zu finden
+Weitere Informationen sind in COPYING.v2 zu finden
 
 Fehlerberichte, Vorschläge usw. bitte senden an:
              http://bugs.freepascal.org
-oder
-             bugs@freepascal.org
 ]
 
 #

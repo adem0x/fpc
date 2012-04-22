@@ -173,7 +173,8 @@ implementation
             if is_constnode(n) then
               IncompatibleTypes(n.resultdef, def)
             else
-              Message(parser_e_illegal_expression);
+             if not(parse_generic) then
+                Message(parser_e_illegal_expression);
           end;
 
         begin
@@ -216,8 +217,8 @@ implementation
                 end;
               uchar :
                 begin
-                   if is_constwidecharnode(n) then 
-                     inserttypeconv(n,cchartype); 
+                   if is_constwidecharnode(n) then
+                     inserttypeconv(n,cchartype);
                    if is_constcharnode(n) or
                      ((m_delphi in current_settings.modeswitches) and
                       is_constwidecharnode(n) and
@@ -260,7 +261,7 @@ implementation
               scurrency:
                 begin
                    if is_constintnode(n) then
-                     intvalue := tordconstnode(n).value
+                     intvalue:=tordconstnode(n).value*10000
                    { allow bootstrapping }
                    else if is_constrealnode(n) then
                      intvalue:=PInt64(@trealconstnode(n).value_currency)^
@@ -501,11 +502,11 @@ implementation
                                    {Prevent overflow.}
                                    v:=get_ordinal_value(tvecnode(hp).right)-base;
                                    if (v<int64(low(offset))) or (v>int64(high(offset))) then
-                                     message(parser_e_range_check_error);
+                                     message3(type_e_range_check_error_bounds,tostr(v),tostr(low(offset)),tostr(high(offset)));
                                    if high(offset)-offset div len>v then
                                      inc(offset,len*v.svalue)
                                    else
-                                     message(parser_e_range_check_error);
+                                     message3(type_e_range_check_error_bounds,tostr(v),'0',tostr(high(offset)-offset div len))
                                  end
                                else
                                  Message(parser_e_illegal_expression);
@@ -799,7 +800,7 @@ implementation
                 exit;
               end;
             if (Tordconstnode(n).value<qword(low(Aword))) or (Tordconstnode(n).value>qword(high(Aword))) then
-              message(parser_e_range_check_error)
+              message3(type_e_range_check_error_bounds,tostr(Tordconstnode(n).value),tostr(low(Aword)),tostr(high(Aword)))
             else
               bitpackval(Tordconstnode(n).value.uvalue,bp);
             if (bp.curbitoffset>=AIntBits) then
@@ -1556,7 +1557,16 @@ implementation
            (assigned(current_procinfo) and
             (po_inline in current_procinfo.procdef.procoptions)) or
            DLLSource then
-          list.concat(Tai_symbol.Createname_global(sym.mangledname,AT_DATA,0))
+          begin
+            { see same code in ncgutil.insertbssdata }
+            if (target_dbg.id=dbg_stabx) and
+               (cs_debuginfo in current_settings.moduleswitches) then
+              begin
+                list.concat(tai_symbol.Create(current_asmdata.DefineAsmSymbol(sym.name+'.',AB_LOCAL,AT_DATA),0));
+                list.concat(tai_directive.Create(asd_reference,sym.name+'.'));
+              end;
+            list.concat(Tai_symbol.Createname_global(sym.mangledname,AT_DATA,0))
+          end
         else
           list.concat(Tai_symbol.Createname(sym.mangledname,AT_DATA,0));
 

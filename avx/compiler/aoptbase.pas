@@ -91,11 +91,12 @@ unit aoptbase;
 
     end;
 
+    function labelCanBeSkipped(p: tai_label): boolean;
 
   implementation
 
     uses
-      globtype,globals, aoptcpub;
+      globtype,globals,aoptcpub;
 
   constructor taoptbase.create;
     begin
@@ -138,9 +139,9 @@ unit aoptbase;
   Begin
     Reg := RegMaxSize(Reg);
     RegInRef := (Ref.Base = Reg)
-  {$ifdef RefsHaveIndexReg}
+  {$ifdef cpurefshaveindexreg}
     Or (Ref.Index = Reg)
-  {$endif RefsHaveIndexReg}
+  {$endif cpurefshaveindexreg}
   End;
 
   Function TAOptBase.RegModifiedByInstruction(Reg: TRegister; p1: tai): Boolean;
@@ -148,10 +149,12 @@ unit aoptbase;
     Result:=true;
   End;
 
+
   function labelCanBeSkipped(p: tai_label): boolean;
   begin
     labelCanBeSkipped := not(p.labsym.is_used) or (p.labsym.labeltype<>alt_jump);
   end;
+
 
   Function TAOptBase.GetNextInstruction(Current: tai; Var Next: tai): Boolean;
   Begin

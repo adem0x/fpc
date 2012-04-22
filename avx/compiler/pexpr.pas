@@ -265,6 +265,7 @@ implementation
         p1,p2,paras  : tnode;
         err,
         prev_in_args : boolean;
+        def : tdef;
       begin
         prev_in_args:=in_args;
         case l of
@@ -406,7 +407,7 @@ implementation
                 begin
                   statement_syssym:=geninlinenode(in_sizeof_x,false,p1);
                   { no packed bit support for these things }
-                  if (l = in_bitsizeof_x) then
+                  if l=in_bitsizeof_x then
                     statement_syssym:=caddnode.create(muln,statement_syssym,cordconstnode.create(8,sinttype,true));
                 end
               else
@@ -833,6 +834,26 @@ implementation
               statement_syssym:=geninlinenode(l,false,nil);
             end;
 *)
+          in_default_x:
+            begin
+              consume(_LKLAMMER);
+              in_args:=true;
+              def:=nil;
+              single_type(def,[stoAllowSpecialization]);
+              statement_syssym:=cerrornode.create;
+              if def=generrordef then
+                Message(type_e_type_id_expected)
+              else
+                if def.typ=forwarddef then
+                  Message1(type_e_type_is_not_completly_defined,tforwarddef(def).tosymname^)
+                else
+                  begin
+                    statement_syssym.free;
+                    statement_syssym:=geninlinenode(in_default_x,false,ctypenode.create(def));
+                  end;
+              { consume the right bracket here for a nicer error position }
+              consume(_RKLAMMER);
+            end;
           else
             internalerror(15);
 

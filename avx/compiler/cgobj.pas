@@ -45,6 +45,8 @@ unit cgobj;
     type
        talignment = (AM_NATURAL,AM_NONE,AM_2BYTE,AM_4BYTE,AM_8BYTE);
        tsubsetloadopt = (SL_REG,SL_REGNOSRCMASK,SL_SETZERO,SL_SETMAX);
+       tindsymflag = (is_data,is_weak);
+       tindsymflags = set of tindsymflag;
 
        {# @abstract(Abstract code generator)
           This class implements an abstract instruction generator. Some of
@@ -513,7 +515,7 @@ unit cgobj;
           procedure g_intf_wrapper(list: TAsmList; procdef: tprocdef; const labelname: string; ioffset: longint);virtual;abstract;
           procedure g_adjust_self_value(list:TAsmList;procdef: tprocdef;ioffset: tcgint);virtual;
 
-          function g_indirect_sym_load(list:TAsmList;const symname: string; weak: boolean): tregister;virtual;
+          function g_indirect_sym_load(list:TAsmList;const symname: string; const flags: tindsymflags): tregister;virtual;
           { generate a stub which only purpose is to pass control the given external method,
           setting up any additional environment before doing so (if required).
 
@@ -625,6 +627,8 @@ unit cgobj;
        {# Code generator class for all operations working with 64-Bit operands }
        cg64 : tcg64;
 {$endif cpu64bitalu}
+
+    function asmsym2indsymflags(sym: TAsmSymbol): tindsymflags;
 
     procedure destroy_codegen;
 
@@ -895,6 +899,8 @@ implementation
       begin
          cgpara.check_simple_location;
          paramanager.alloccgpara(list,cgpara);
+         if cgpara.location^.shiftval<0 then
+           a_op_const_reg(list,OP_SHL,cgpara.location^.size,-cgpara.location^.shiftval,r);
          case cgpara.location^.loc of
             LOC_REGISTER,LOC_CREGISTER:
               a_load_reg_reg(list,size,cgpara.location^.size,r,cgpara.location^.register);
@@ -970,6 +976,8 @@ implementation
                      begin
                        cgpara.check_simple_location;
                        a_load_ref_reg(list,size,location^.size,tmpref,location^.register);
+                       if location^.shiftval<0 then
+                         a_op_const_reg(list,OP_SHL,location^.size,-location^.shiftval,location^.register);
                      end
                    { there's a lot more data left, and the current paraloc's
                      register is entirely filled with part of that data }
@@ -983,6 +991,8 @@ implementation
                    else if (sizeleft in [1,2{$ifndef cpu16bitalu},4{$endif}{$ifdef cpu64bitalu},8{$endif}]) then
                      begin
                        a_load_ref_reg(list,int_cgsize(sizeleft),location^.size,tmpref,location^.register);
+                       if location^.shiftval<0 then
+                         a_op_const_reg(list,OP_SHL,location^.size,-location^.shiftval,location^.register);
                      end
                    { we're at the end of the data, and we need multiple loads
                      to get it in the register because it's an irregular size }
@@ -1043,6 +1053,8 @@ implementation
                              a_load_reg_reg(list,location^.size,location^.size,tmpreg,location^.register);
                            inc(tmpref.offset);
                          end;
+                       if location^.shiftval<0 then
+                         a_op_const_reg(list,OP_SHL,location^.size,-location^.shiftval,location^.register);
                        { the loop will already adjust the offset and sizeleft }
                        dec(tmpref.offset,orgsizeleft);
                        sizeleft:=orgsizeleft;
@@ -1124,15 +1136,28 @@ implementation
     procedure tcg.a_load_cgparaloc_ref(list : TAsmList;const paraloc : TCGParaLocation;const ref : treference;sizeleft : tcgint;align : longint);
       var
         href : treference;
+        hreg : tregister;
+        cgsize: tcgsize;
       begin
          case paraloc.loc of
            LOC_REGISTER :
              begin
-{$IFDEF POWERPC64}
-               if (paraloc.shiftval <> 0) then
-                 a_op_const_reg_reg(list, OP_SHL, OS_INT, paraloc.shiftval, paraloc.register, paraloc.register);
-{$ENDIF POWERPC64}
-               a_load_reg_ref(list,paraloc.size,paraloc.size,paraloc.register,ref);
+               hreg:=paraloc.register;
+               cgsize:=paraloc.size;
+               if paraloc.shiftval>0 then
+                 a_op_const_reg_reg(list,OP_SHL,OS_INT,paraloc.shiftval,paraloc.register,paraloc.register)
+               else if (paraloc.shiftval<0) and
+                       (sizeleft in [1,2,4]) then
+                 begin
+                   a_op_const_reg_reg(list,OP_SHR,OS_INT,-paraloc.shiftval,paraloc.register,paraloc.register);
+                   { convert to a register of 1/2/4 bytes in size, since the
+                     original register had to be made larger to be able to hold
+                     the shifted value }
+                   cgsize:=int_cgsize(tcgsize2size[OS_INT]-(-paraloc.shiftval div 8));
+                   hreg:=getintregister(list,cgsize);
+                   a_load_reg_reg(list,OS_INT,cgsize,paraloc.register,hreg);
+                 end;
+               a_load_reg_ref(list,paraloc.size,cgsize,hreg,ref);
              end;
            LOC_MMREGISTER :
              begin
@@ -1171,6 +1196,8 @@ implementation
          case paraloc.loc of
            LOC_REGISTER :
              begin
+               if paraloc.shiftval<0 then
+                 a_op_const_reg_reg(list,OP_SHR,OS_INT,-paraloc.shiftval,paraloc.register,paraloc.register);
                case getregtype(reg) of
                  R_INTREGISTER:
                    a_load_reg_reg(list,paraloc.size,regsize,paraloc.register,reg);
@@ -3193,6 +3220,8 @@ implementation
 
 
     procedure tcg.a_loadmm_loc_reg(list: TAsmList; size: tcgsize; const loc: tlocation; const reg: tregister;shuffle : pmmshuffle);
+      var
+        tmpreg: tregister;
       begin
         case loc.loc of
           LOC_MMREGISTER,LOC_CMMREGISTER:
@@ -3201,6 +3230,13 @@ implementation
             a_loadmm_ref_reg(list,loc.size,size,loc.reference,reg,shuffle);
           LOC_REGISTER,LOC_CREGISTER:
             a_loadmm_intreg_reg(list,loc.size,size,loc.register,reg,shuffle);
+          LOC_SUBSETREF,LOC_CSUBSETREF,
+          LOC_SUBSETREG,LOC_CSUBSETREG:
+            begin
+              tmpreg:=getintregister(list,loc.size);
+              a_load_loc_reg(list,loc.size,loc,tmpreg);
+              a_loadmm_intreg_reg(list,loc.size,size,tmpreg,reg,shuffle);
+            end
           else
             internalerror(200310121);
         end;
@@ -4165,7 +4201,7 @@ implementation
       end;
 
 
-   function tcg.g_indirect_sym_load(list:TAsmList;const symname: string; weak: boolean): tregister;
+   function tcg.g_indirect_sym_load(list:TAsmList;const symname: string; const flags: tindsymflags): tregister;
       var
         l: tasmsymbol;
         ref: treference;
@@ -4186,7 +4222,7 @@ implementation
                   new_section(current_asmdata.asmlists[al_picdata],sec_data_nonlazy,'',sizeof(pint));
                   l:=current_asmdata.DefineAsmSymbol(nlsymname,AB_LOCAL,AT_DATA);
                   current_asmdata.asmlists[al_picdata].concat(tai_symbol.create(l,0));
-                  if not(weak) then
+                  if not(is_weak in flags) then
                     current_asmdata.asmlists[al_picdata].concat(tai_directive.Create(asd_indirect_symbol,current_asmdata.RefAsmSymbol(symname).Name))
                   else
                     current_asmdata.asmlists[al_picdata].concat(tai_directive.Create(asd_indirect_symbol,current_asmdata.WeakRefAsmSymbol(symname).Name));
@@ -4201,8 +4237,8 @@ implementation
               { a_load_ref_reg will turn this into a pic-load if needed }
               a_load_ref_reg(list,OS_ADDR,OS_ADDR,ref,result);
             end;
-          end;
         end;
+      end;
 
 
     procedure tcg.g_maybe_got_init(list: TAsmList);
@@ -4381,6 +4417,14 @@ implementation
       end;
 {$endif cpu64bitalu}
 
+    function asmsym2indsymflags(sym: TAsmSymbol): tindsymflags;
+      begin
+        result:=[];
+        if sym.typ<>AT_FUNCTION then
+          include(result,is_data);
+        if sym.bind=AB_WEAK_EXTERNAL then
+          include(result,is_weak);
+      end;
 
     procedure destroy_codegen;
       begin

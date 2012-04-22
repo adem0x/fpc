@@ -181,14 +181,24 @@ const
          { MacOS: The linker on MacOS (PPCLink) inserts a call to glue code,
            if it is a cross-TOC call. If so, it also replaces the NOP
            with some restore code.}
-         if (target_info.system <> system_powerpc_darwin) then
+         if (target_info.system<>system_powerpc_darwin) then
            begin
-             if not(weak) then
-               list.concat(taicpu.op_sym(A_BL,current_asmdata.RefAsmSymbol(s)))
+             if target_info.system<>system_powerpc_aix then
+               begin
+                 if not(weak) then
+                   list.concat(taicpu.op_sym(A_BL,current_asmdata.RefAsmSymbol(s)))
+                 else
+                   list.concat(taicpu.op_sym(A_BL,current_asmdata.WeakRefAsmSymbol(s)));
+               end
              else
-               list.concat(taicpu.op_sym(A_BL,current_asmdata.WeakRefAsmSymbol(s)));
+               begin
+                 if not(weak) then
+                   list.concat(taicpu.op_sym(A_BL,current_asmdata.RefAsmSymbol('.'+s)))
+                 else
+                   list.concat(taicpu.op_sym(A_BL,current_asmdata.WeakRefAsmSymbol('.'+s)));
+               end;
 
-             if target_info.system=system_powerpc_macos then
+             if target_info.system in [system_powerpc_macos,system_powerpc_aix] then
                list.concat(taicpu.op_none(A_NOP));
            end
          else
@@ -199,7 +209,9 @@ const
          if not(pi_do_call in current_procinfo.flags) then
            internalerror(2003060703);
 }
-       include(current_procinfo.flags,pi_do_call);
+       { not assigned while generating external wrappers }
+       if assigned(current_procinfo) then
+         include(current_procinfo.flags,pi_do_call);
       end;
 
     { calling a procedure by address }
@@ -272,6 +284,8 @@ const
          ref2: treference;
 
        begin
+          if target_info.system=system_powerpc_aix then
+            g_load_check_simple(list,ref,65536);
           { TODO: optimize/take into consideration fromsize/tosize. Will }
           { probably only matter for OS_S8 loads though                  }
           if not(fromsize in [OS_8,OS_S8,OS_16,OS_S16,OS_32,OS_S32]) then

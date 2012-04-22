@@ -34,12 +34,14 @@ Type
     FirstPass,
     ParaLogo,
     NoPressEnter,
+    FPCHelpLines,
     LogoWritten,
     FPUSetExplicitly,
     CPUSetExplicitly,
     OptCPUSetExplicitly: boolean;
     FileLevel : longint;
     QuickInfo : string;
+    FPCBinaryPath: string;
     ParaIncludePath,
     ParaUnitPath,
     ParaObjectPath,
@@ -64,6 +66,10 @@ Type
     procedure TargetOptions(def:boolean);
     procedure CheckOptionsCompatibility;
     procedure ForceStaticLinking;
+   protected
+    MacVersionSet: boolean;
+    function ParseMacVersionMin(out minstr, emptystr: string; const compvarname, value: string; ios: boolean): boolean;
+    procedure MaybeSetDefaultMacVersionMacro;
   end;
 
   TOptionClass=class of toption;
@@ -326,7 +332,10 @@ var
 begin
   WriteLogo;
   Lines:=4;
-  Message1(option_usage,FixFileName(system.paramstr(0)));
+  if FPCHelpLines then
+   Message1(option_usage,FixFileName(FPCBinaryPath))
+  else
+   Message1(option_usage,FixFileName(system.paramstr(0)));
   lastident:=0;
   p:=MessagePChar(option_help_pages);
   while assigned(p) do
@@ -337,6 +346,8 @@ begin
      show:=false;
    { parse options }
      case s[1] of
+      'F': if FPCHelpLines then
+            Show := true;
 {$ifdef UNITALIASES}
       'a',
 {$endif}
@@ -476,6 +487,160 @@ begin
 end;
 
 
+function toption.ParseMacVersionMin(out minstr, emptystr: string; const compvarname, value: string; ios: boolean): boolean;
+
+  function subval(start,maxlen: longint; out stop: longint): string;
+    var
+      i: longint;
+    begin
+      result:='';
+      i:=start;
+      while (i<=length(value)) and
+            (value[i] in ['0'..'9']) do
+        inc(i);
+      { sufficient amount of digits? }
+      if (i=start) or
+         (i-start>maxlen) then
+        exit;
+      result:=copy(value,start,i-start);
+      stop:=i;
+    end;
+
+  var
+    temp,
+    compvarvalue: string[15];
+    i: longint;
+  begin
+    minstr:=value;
+    emptystr:='';
+    MacVersionSet:=false;
+    { check whether the value is a valid version number }
+    if value='' then
+      begin
+        undef_system_macro(compvarname);
+        exit(true);
+      end;
+    { major version number }
+    compvarvalue:=subval(1,2,i);
+    { not enough digits -> invalid }
+    if compvarvalue='' then
+      exit(false);
+    { already end of string -> invalid }
+    if (i>=length(value)) or
+       (value[i]<>'.') then
+      exit(false);
+    { minor version number }
+    temp:=subval(i+1,2,i);
+    if temp='' then
+      exit(false);
+    { on Mac OS X, the minor version number is limited to 1 digit }
+    if not ios then
+      begin
+        if length(temp)<>1 then
+          exit(false);
+      end
+    { the minor version number always takes up two digits on iOS }
+    else if length(temp)=1 then
+      temp:='0'+temp;
+    compvarvalue:=compvarvalue+temp;
+    { optional patch level }
+    if i<=length(value) then
+      begin
+        if value[i]<>'.' then
+          exit(false);
+        temp:=subval(i+1,2,i);
+        if temp='' then
+          exit(false);
+        { there's only room for a single digit patch level in the version macro
+          for Mac OS X. gcc sets it to zero if there are more digits, but that
+          seems worse than clamping to 9 (don't declare as invalid like with
+          minor version number, because there is a precedent like 10.4.11)
+        }
+        if not ios then
+          begin
+            if length(temp)<>1 then
+              temp:='9';
+          end
+        else
+          begin
+            { on iOS, the patch level is always two digits }
+            if length(temp)=1 then
+              temp:='0'+temp;
+          end;
+        compvarvalue:=compvarvalue+temp;
+        { must be the end }
+        if i<=length(value) then
+          exit(false);
+      end
+    else if not ios then
+      compvarvalue:=compvarvalue+'0'
+    else
+      compvarvalue:=compvarvalue+'00';
+    set_system_compvar(compvarname,compvarvalue);
+    MacVersionSet:=true;
+    result:=true;
+  end;
+
+
+procedure TOption.MaybeSetDefaultMacVersionMacro;
+var
+  envstr: ansistring;
+begin
+  if not(target_info.system in systems_darwin) then
+    exit;
+  if MacVersionSet then
+    exit;
+  { check for deployment target set via environment variable }
+  if not(target_info.system in [system_i386_iphonesim,system_arm_darwin]) then
+    begin
+      envstr:=GetEnvironmentVariable('MACOSX_DEPLOYMENT_TARGET');
+      if envstr<>'' then
+        if not ParseMacVersionMin(MacOSXVersionMin,iPhoneOSVersionMin,'MAC_OS_X_VERSION_MIN_REQUIRED',envstr,false) then
+          Message1(option_invalid_macosx_deployment_target,envstr)
+        else
+          exit;
+    end
+  else
+    begin
+      envstr:=GetEnvironmentVariable('IPHONEOS_DEPLOYMENT_TARGET');
+      if envstr<>'' then
+        if not ParseMacVersionMin(iPhoneOSVersionMin,MacOSXVersionMin,'IPHONE_OS_VERSION_MIN_REQUIRED',envstr,true) then
+          Message1(option_invalid_iphoneos_deployment_target,envstr)
+        else
+          exit;
+    end;
+  { nothing specified -> defaults }
+  case target_info.system of
+    system_powerpc_darwin:
+      begin
+        set_system_compvar('MAC_OS_X_VERSION_MIN_REQUIRED','1030');
+        MacOSXVersionMin:='10.3';
+      end;
+    system_powerpc64_darwin,
+    system_i386_darwin:
+      begin
+        set_system_compvar('MAC_OS_X_VERSION_MIN_REQUIRED','1040');
+        MacOSXVersionMin:='10.4';
+      end;
+    system_x86_64_darwin:
+      begin
+        { actually already works on 10.4, but it's unlikely any 10.4 system
+          with an x86-64 is still in use, so don't default to it }
+        set_system_compvar('MAC_OS_X_VERSION_MIN_REQUIRED','1050');
+        MacOSXVersionMin:='10.5';
+      end;
+    system_arm_darwin,
+    system_i386_iphonesim:
+      begin
+        set_system_compvar('IPHONE_OS_VERSION_MIN_REQUIRED','30000');
+        iPhoneOSVersionMin:='3.0';
+      end;
+    else
+      internalerror(2012031001);
+  end;
+end;
+
+
 function Toption.Unsetbool(var Opts:TCmdStr; Pos: Longint):boolean;
 { checks if the character after pos in Opts is a + or a - and returns resp.
   false or true. If it is another character (or none), it also returns false }
@@ -527,7 +692,15 @@ begin
            Message1(option_interpreting_option,opt);
          case opt[2] of
            '?' :
-             WriteHelpPages;
+             begin
+               if (More <> '') and (More [1] = 'F') then
+                 begin
+                   FPCHelpLines := true;
+                   Delete (More, 1, 1);
+                   FPCBinaryPath := More;
+                 end;
+               WriteHelpPages;
+             end;
 
            'a' :
              begin
@@ -680,6 +853,11 @@ begin
                         exclude(init_settings.globalswitches,cs_link_nolink)
                       Else
                         include(init_settings.globalswitches,cs_link_nolink);
+                    'N' :
+                      If UnsetBool(More, j) then
+                        exclude(init_settings.localswitches,cs_check_low_addr_load)
+                      Else
+                        include(init_settings.localswitches,cs_check_low_addr_load);
                     'o' :
                       If UnsetBool(More, j) then
                         exclude(init_settings.localswitches,cs_check_overflow)
@@ -1075,6 +1253,12 @@ begin
            'h' :
              begin
                NoPressEnter:=true;
+               if (More <> '') and (More [1] = 'F') then
+                 begin
+                   FPCHelpLines := true;
+                   Delete (More, 1, 1);
+                   FPCBinaryPath := More;
+                 end;
                WriteHelpPages;
              end;
 
@@ -1298,7 +1482,7 @@ begin
                            include(init_settings.localswitches,cs_do_assertion);
                        'c' :
                          If UnsetBool(More, j) then
-                           include(init_settings.moduleswitches,cs_support_c_operators)
+                           exclude(init_settings.moduleswitches,cs_support_c_operators)
                          else
                            include(init_settings.moduleswitches,cs_support_c_operators);
                        'd' : //an alternative to -Mdelphi
@@ -1598,6 +1782,16 @@ begin
                         else
                           IllegalPara(opt);
                       end;
+                    'M':
+                      begin
+                        if (target_info.system in (systems_darwin-[system_i386_iphonesim])) and
+                           ParseMacVersionMin(MacOSXVersionMin,iPhoneOSVersionMin,'MAC_OS_X_VERSION_MIN_REQUIRED',copy(More,2,255),false) then
+                          begin
+                            break;
+                          end
+                        else
+                          IllegalPara(opt);
+                      end;
                     'N':
                       begin
                         if target_info.system in systems_all_windows then
@@ -1620,6 +1814,16 @@ begin
                           end
                         else
 {$endif defined(arm) or defined(avr)}
+                          IllegalPara(opt);
+                      end;
+                    'P':
+                      begin
+                        if (target_info.system in [system_i386_iphonesim,system_arm_darwin]) and
+                           ParseMacVersionMin(iPhoneOSVersionMin,MacOSXVersionMin,'IPHONE_OS_VERSION_MIN_REQUIRED',copy(More,2,255),true) then
+                          begin
+                            break;
+                          end
+                        else
                           IllegalPara(opt);
                       end;
                     'R':
@@ -2359,6 +2563,7 @@ begin
   ParaLibraryPath:=TSearchPathList.Create;
   ParaFrameworkPath:=TSearchPathList.Create;
   FillChar(ParaAlignment,sizeof(ParaAlignment),0);
+  MacVersionSet:=false;
 end;
 
 
@@ -2562,6 +2767,7 @@ begin
 {$ifdef i386}
   def_system_macro('CPUI386');
   def_system_macro('CPU32');
+  def_system_macro('CPUX86');
   def_system_macro('FPC_HAS_TYPE_EXTENDED');
   def_system_macro('FPC_HAS_TYPE_DOUBLE');
   def_system_macro('FPC_HAS_TYPE_SINGLE');
@@ -2600,6 +2806,7 @@ begin
   def_system_macro('CPUX86_64');
   def_system_macro('CPUAMD64');
   def_system_macro('CPU64');
+  def_system_macro('CPUX64');
   { not supported for now, afaik (FK)
    def_system_macro('FPC_HAS_TYPE_FLOAT128'); }
   { win64 doesn't support the legacy fpu }
@@ -2703,6 +2910,11 @@ begin
   for abi:=low(tabi) to high(tabi) do
     undef_system_macro('FPC_ABI_'+abi2str[abi]);
   def_system_macro('FPC_ABI_'+abi2str[target_info.abi]);
+
+  { Define FPC_ABI_EABI in addition to FPC_ABI_EABIHF on EABI VFP hardfloat
+    systems since most code needs to behave the same on both}
+  if target_info.abi = abi_eabihf then
+    def_system_macro('FPC_ABI_EABI');
 
   { Write logo }
   if option.ParaLogo then
@@ -2847,6 +3059,9 @@ begin
      not(cs_link_separate_dbg_file in init_settings.globalswitches) then
     exclude(init_settings.globalswitches,cs_link_strip);
 
+  { set Mac OS X version default macros if not specified explicitly }
+  option.MaybeSetDefaultMacVersionMacro;
+
   { force fpu emulation on arm/wince, arm/gba, arm/embedded, arm/nds and
     arm/darwin if fpu type not explicitly set }
   if not(option.FPUSetExplicitly) and
@@ -2869,6 +3084,24 @@ begin
     end;
 
 {$ifdef arm}
+  if target_info.abi = abi_eabihf then
+    begin
+      if not(option.FPUSetExplicitly) then
+        begin
+          init_settings.fputype:=fpu_vfpv3_d16
+        end
+      else
+        begin
+          if not (init_settings.fputype in [fpu_vfpv2,fpu_vfpv3,fpu_vfpv3_d16]) then
+            begin
+              Message(option_illegal_fpu_eabihf);
+              StopOptions(1);
+            end;
+        end;
+    end;
+{$endif arm}
+
+{$ifdef arm}
 { set default cpu type to ARMv6 for Darwin unless specified otherwise }
 if (target_info.system=system_arm_darwin) then
   begin
@@ -2877,6 +3110,16 @@ if (target_info.system=system_arm_darwin) then
     if not option.OptCPUSetExplicitly then
       init_settings.optimizecputype:=cpu_armv6;
   end;
+
+{ set default cpu type to ARMv7 for ARMHF unless specified otherwise }
+if (target_info.abi = abi_eabihf) then
+  begin
+    if not option.CPUSetExplicitly then
+      init_settings.cputype:=cpu_armv7;
+    if not option.OptCPUSetExplicitly then
+      init_settings.optimizecputype:=cpu_armv7;
+  end;
+
 {$endif arm}
 
   { now we can define cpu and fpu type }

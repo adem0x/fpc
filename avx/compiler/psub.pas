@@ -123,6 +123,34 @@ implementation
                       PROCEDURE/FUNCTION BODY PARSING
 ****************************************************************************}
 
+    procedure initializedefaultvars(p:TObject;arg:pointer);
+      var
+        b : tblocknode;
+      begin
+        if tsym(p).typ<>localvarsym then
+         exit;
+        with tabstractnormalvarsym(p) do
+         begin
+           if vo_is_default_var in varoptions then
+             begin
+               b:=tblocknode(arg);
+               b.left:=cstatementnode.create(
+                         ccallnode.createintern('fpc_zeromem',
+                           ccallparanode.create(
+                             cordconstnode.create(vardef.size,ptruinttype,false),
+                             ccallparanode.create(
+                               caddrnode.create_internal(
+                                 cloadnode.create(tsym(p),tsym(p).owner)),
+                                 nil
+                               )
+                             )
+                           ),
+                         b.left);
+             end;
+         end;
+      end;
+
+
     procedure initializevars(p:TObject;arg:pointer);
       var
         b : tblocknode;
@@ -139,7 +167,9 @@ implementation
                             cloadnode.create(tsym(p),tsym(p).owner),
                             cloadnode.create(defaultconstsym,defaultconstsym.owner)),
                         b.left);
-            end;
+            end
+           else
+             initializedefaultvars(p,arg);
          end;
       end;
 
@@ -232,7 +262,17 @@ implementation
                    current_filepos:=current_procinfo.entrypos;
                    current_procinfo.procdef.localst.SymList.ForEachCall(@initializevars,block);
                    current_filepos:=oldfilepos;
-                 end;
+                 end
+               else
+                 if current_procinfo.procdef.localst.symtabletype=staticsymtable then
+                   begin
+                     { for program and unit initialization code we also need to
+                       initialize the local variables used of Default() }
+                     oldfilepos:=current_filepos;
+                     current_filepos:=current_procinfo.entrypos;
+                     current_procinfo.procdef.localst.SymList.ForEachCall(@initializedefaultvars,block);
+                     current_filepos:=oldfilepos;
+                   end;
             end;
       end;
 
@@ -1138,6 +1178,16 @@ implementation
             cg.set_regalloc_live_range_direction(rad_forward);
             }
 
+
+{$ifndef NoOpt}
+{$ifndef i386}
+            if (cs_opt_scheduler in current_settings.optimizerswitches) and
+              { do not optimize pure assembler procedures }
+              not(pi_is_assembler in flags) then
+              preregallocschedule(aktproccode);
+{$endif i386}
+{$endif NoOpt}
+
             { The procedure body is finished, we can now
               allocate the registers }
             cg.do_register_allocation(aktproccode,headertai);
@@ -1206,6 +1256,14 @@ implementation
                    { do not optimize pure assembler procedures }
                    not(pi_is_assembler in flags)  then
                   optimize(aktproccode);
+{$ifndef i386}
+                { schedule after assembler optimization, it could have brought up
+                  new schedule possibilities }
+                if (cs_opt_scheduler in current_settings.optimizerswitches) and
+                  { do not optimize pure assembler procedures }
+                  not(pi_is_assembler in flags)  then
+                  preregallocschedule(aktproccode);
+{$endif i386}
               end;
 {$endif NoOpt}
 
@@ -1334,8 +1392,8 @@ implementation
         result := false;
         if (pi_has_assembler_block in current_procinfo.flags) then
           begin
-            Message1(parser_w_not_supported_for_inline,'assembler');
-            Message(parser_w_inlining_disabled);
+            Message1(parser_h_not_supported_for_inline,'assembler');
+            Message(parser_h_inlining_disabled);
             exit;
           end;
         for i:=0 to procdef.paras.count-1 do
@@ -1346,8 +1404,8 @@ implementation
                 begin
                   if (currpara.varspez in [vs_out,vs_var,vs_const,vs_constref]) then
                     begin
-                      Message1(parser_w_not_supported_for_inline,'formal parameter');
-                      Message(parser_w_inlining_disabled);
+                      Message1(parser_h_not_supported_for_inline,'formal parameter');
+                      Message(parser_h_inlining_disabled);
                       exit;
                     end;
                 end;
@@ -1356,8 +1414,8 @@ implementation
                   if is_array_of_const(currpara.vardef) or
                      is_variant_array(currpara.vardef) then
                     begin
-                      Message1(parser_w_not_supported_for_inline,'array of const');
-                      Message(parser_w_inlining_disabled);
+                      Message1(parser_h_not_supported_for_inline,'array of const');
+                      Message(parser_h_inlining_disabled);
                       exit;
                     end;
                   { open arrays might need re-basing of the index, i.e. if you pass
@@ -1365,8 +1423,8 @@ implementation
                     if you directly inline it }
                   if is_open_array(currpara.vardef) then
                     begin
-                      Message1(parser_w_not_supported_for_inline,'open array');
-                      Message(parser_w_inlining_disabled);
+                      Message1(parser_h_not_supported_for_inline,'open array');
+                      Message(parser_h_inlining_disabled);
                       exit;
                     end;
                 end;
@@ -1592,8 +1650,8 @@ implementation
             else
              if (po_inline in current_procinfo.procdef.procoptions) then
               begin
-                Message1(parser_w_not_supported_for_inline,'nested procedures');
-                Message(parser_w_inlining_disabled);
+                Message1(parser_h_not_supported_for_inline,'nested procedures');
+                Message(parser_h_inlining_disabled);
                 exclude(current_procinfo.procdef.procoptions,po_inline);
               end;
           end;

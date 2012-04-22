@@ -37,6 +37,9 @@ Type
     procedure PeepHoleOptPass2;override;
   End;
 
+  TCpuPreRegallocScheduler = class(TAsmOptimizer)
+    function PeepHoleOptPass1Cpu(var p: tai): boolean;override;
+  end;
 
   TCpuThumb2AsmOptimizer = class(TCpuAsmOptimizer)
     { uses the same constructor as TAopObj }
@@ -46,9 +49,10 @@ Type
 Implementation
 
   uses
+    cutils,
     verbose,
-    cgutils,
-    aasmbase,aasmcpu;
+    cgbase,cgutils,
+    aasmbase,aasmdata,aasmcpu;
 
   function CanBeCond(p : tai) : boolean;
     begin
@@ -121,7 +125,6 @@ Implementation
            else
            *)
               case taicpu(p).opcode of
-                (*
                 A_STR:
                   begin
                     { change
@@ -188,7 +191,6 @@ Implementation
                         result := true;
                       end;
                   end;
-                *)
                 A_MOV:
                   begin
                     { fold
@@ -452,6 +454,117 @@ Implementation
         end;
     end;
 
+  const
+    { set of opcode which might or do write to memory }
+    { TODO : extend armins.dat to contain r/w info }
+    opcode_could_mem_write = [A_B,A_BL,A_BLX,A_BKPT,A_BX,A_STR,A_STRB,A_STRBT,
+                              A_STRH,A_STRT,A_STF,A_SFM,A_STM,A_FSTS,A_FSTD];
+
+  function TCpuPreRegallocScheduler.PeepHoleOptPass1Cpu(var p: tai): boolean;
+  { TODO : schedule also forward }
+  { TODO : schedule distance > 1 }
+    var
+      hp1,hp2,hp3,hp4,hp5 : tai;
+      list : TAsmList;
+    begin
+      result:=true;
+      list:=TAsmList.Create;
+      p := BlockStart;
+      { UsedRegs := []; }
+      while (p <> BlockEnd) Do
+        begin
+          if (p.typ=ait_instruction) and
+            GetNextInstruction(p,hp1) and
+            (hp1.typ=ait_instruction) and
+            { for now we don't reschedule if the previous instruction changes potentially a memory location }
+            ( (not(taicpu(p).opcode in opcode_could_mem_write) and
+               not(RegModifiedByInstruction(NR_PC,p)) and
+               (taicpu(hp1).opcode in [A_LDR,A_LDRB,A_LDRH,A_LDRSB,A_LDRSH])
+              ) or
+              ((taicpu(p).opcode in [A_STM,A_STRB,A_STRH,A_STR]) and
+               (taicpu(hp1).opcode in [A_LDR,A_LDRB,A_LDRH,A_LDRSB,A_LDRSH]) and
+               ((taicpu(hp1).oper[1]^.ref^.base=NR_PC) or
+                (assigned(taicpu(hp1).oper[1]^.ref^.symboldata) and
+                (taicpu(hp1).oper[1]^.ref^.offset=0)
+                )
+               ) or
+               { try to prove that the memory accesses don't overlapp }
+               ((taicpu(p).opcode in [A_STRB,A_STRH,A_STR]) and
+                (taicpu(hp1).opcode in [A_LDR,A_LDRB,A_LDRH,A_LDRSB,A_LDRSH]) and
+                (taicpu(p).oper[1]^.ref^.base=taicpu(hp1).oper[1]^.ref^.base) and
+                (taicpu(p).oppostfix=PF_None) and
+                (taicpu(hp1).oppostfix=PF_None) and
+                (taicpu(p).oper[1]^.ref^.index=NR_NO) and
+                (taicpu(hp1).oper[1]^.ref^.index=NR_NO) and
+                { get operand sizes and check if the offset distance is large enough to ensure no overlapp }
+                (abs(taicpu(p).oper[1]^.ref^.offset-taicpu(hp1).oper[1]^.ref^.offset)>=max(tcgsize2size[reg_cgsize(taicpu(p).oper[0]^.reg)],tcgsize2size[reg_cgsize(taicpu(hp1).oper[0]^.reg)]))
+              )
+            )
+            ) and
+            GetNextInstruction(hp1,hp2) and
+            (hp2.typ=ait_instruction) and
+            { loaded register used by next instruction? }
+            (RegInInstruction(taicpu(hp1).oper[0]^.reg,hp2)) and
+            { loaded register not used by previous instruction? }
+            not(RegInInstruction(taicpu(hp1).oper[0]^.reg,p)) and
+            { same condition? }
+            (taicpu(p).condition=taicpu(hp1).condition) and
+            { first instruction might not change the register used as base }
+            ((taicpu(hp1).oper[1]^.ref^.base=NR_NO) or
+             not(RegModifiedByInstruction(taicpu(hp1).oper[1]^.ref^.base,p))
+            ) and
+            { first instruction might not change the register used as index }
+            ((taicpu(hp1).oper[1]^.ref^.index=NR_NO) or
+             not(RegModifiedByInstruction(taicpu(hp1).oper[1]^.ref^.index,p))
+            ) then
+            begin
+              hp3:=tai(p.Previous);
+              hp5:=tai(p.next);
+              asml.Remove(p);
+              { if there is a reg. dealloc instruction associated with p, move it together with p }
+
+              { before the instruction? }
+              while assigned(hp3) and (hp3.typ<>ait_instruction) do
+                begin
+                  if (hp3.typ=ait_regalloc) and (tai_regalloc(hp3).ratype in [ra_dealloc]) and
+                    RegInInstruction(tai_regalloc(hp3).reg,p) then
+                    begin
+                      hp4:=hp3;
+                      hp3:=tai(hp3.Previous);
+                      asml.Remove(hp4);
+                      list.Concat(hp4);
+                    end
+                  else
+                  hp3:=tai(hp3.Previous);
+                end;
+              list.Concat(p);
+              { after the instruction? }
+              while assigned(hp5) and (hp5.typ<>ait_instruction) do
+                begin
+                  if (hp5.typ=ait_regalloc) and (tai_regalloc(hp5).ratype in [ra_dealloc]) and
+                    RegInInstruction(tai_regalloc(hp5).reg,p) then
+                    begin
+                      hp4:=hp5;
+                      hp5:=tai(hp5.next);
+                      asml.Remove(hp4);
+                      list.Concat(hp4);
+                    end
+                  else
+                  hp5:=tai(hp5.Next);
+                end;
+
+              asml.Remove(hp1);
+{$ifdef DEBUG_PREREGSCHEDULER}
+              asml.InsertBefore(tai_comment.Create(strpnew('Rescheduled')),hp2);
+{$endif DEBUG_PREREGSCHEDULER}
+              asml.InsertBefore(hp1,hp2);
+              asml.InsertListBefore(hp2,list);
+            end;
+          p := tai(p.next)
+        end;
+      list.Free;
+    end;
+
 
   procedure TCpuThumb2AsmOptimizer.PeepHoleOptPass2;
     begin
@@ -460,4 +573,5 @@ Implementation
 
 begin
   casmoptimizer:=TCpuAsmOptimizer;
+  cpreregallocscheduler:=TCpuPreRegallocScheduler;
 End.
