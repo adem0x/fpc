@@ -288,28 +288,194 @@ begin
     OpOrder:=op_intel;
 end;
 
+const
+  topsize2memsize: array[topsize] of integer =
+    (0, 8,16,32,64,8,8,16,8,16,32,
+     16,32,64,
+     16,32,64,0,0,
+     64,
+     0,0,0,
+     80,
+     128,
+     256
+    );
+
 
 procedure Tx86Instruction.AddReferenceSizes;
 { this will add the sizes for references like [esi] which do not
   have the size set yet, it will take only the size if the other
   operand is a register }
 var
-  operand2,i : longint;
+  operand2,i,j : longint;
   s : tasmsymbol;
   so : aint;
   ExistsMemRefNoSize: boolean;
-begin
-  ExistsMemRefNoSize := false;
-  for i := 1 to ops do
+  ExistsMemRef: boolean;
+  ExistsConstNoSize: boolean;
+  ExistsLocalSymSize: boolean;
+  memrefsize: integer;
+  memopsize: integer;
+  memoffset: asizeint;
+  s1: string;
+
+  function IntToStr(aValue: Integer): String;
+  var
+    r,v: integer;
   begin
-    if (tx86operand(operands[i]).opsize = S_NO) and
-       (operands[i].Opr.Typ in [OPR_REFERENCE]) then
+    result := '';
+
+    r := aValue;
+    while true do
     begin
-      ExistsMemRefNoSize := true;
+      v := r mod 10;
+      r := r div 10;
+
+      result := Chr(Ord('0') + v) + result;
+
+      if r = 0 then break;
     end;
   end;
 
-  if ExistsMemRefNoSize then
+begin
+  ExistsMemRefNoSize := false;
+  ExistsMemRef       := false;
+  ExistsConstNoSize  := false;
+  ExistsLocalSymSize := false;
+
+  for i := 1 to ops do
+  begin
+    if operands[i].Opr.Typ in [OPR_REFERENCE, OPR_LOCAL] then
+    begin
+      ExistsMemRef := true;
+
+      if (tx86operand(operands[i]).opsize = S_NO) then
+      begin
+        ExistsMemRefNoSize := true;
+
+        if operands[i].opr.Typ = OPR_LOCAL then
+        begin
+          if tx86operand(operands[i]).opr.localsym.getsize > 0 then
+          begin
+            ExistsLocalSymSize := true;
+          end;
+        end
+        else if operands[i].opr.Typ = OPR_REFERENCE then
+        begin
+          ExistsLocalSymSize := true;
+        end;
+      end;
+    end
+    else if operands[i].Opr.Typ in [OPR_CONSTANT] then
+    begin
+      if (tx86operand(operands[i]).opsize = S_NO) then
+      begin
+        ExistsConstNoSize := true;
+      end;
+    end;
+  end;
+
+  if (ExistsMemRef) and
+     (MemRefInfo(opcode).ExistsSSEAVX) then
+  begin
+    if (not(ExistsMemRefNoSize)) or
+       (ExistsLocalSymSize) then
+    begin
+      // - validate memory-reference-size
+      for i := 1 to ops do
+      begin
+        //if (operands[i].Opr.Typ in [OPR_REFERENCE, OPR_LOCAL]) and
+        //   (tx86operand(operands[i]).opsize <> S_NO) then
+        if (operands[i].Opr.Typ in [OPR_REFERENCE, OPR_LOCAL]) then
+        begin
+          memrefsize := -1;
+
+          case MemRefInfo(opcode).MemRefSize of
+              msiMem8: memrefsize := 8;
+             msiMem16: memrefsize := 16;
+             msiMem32: memrefsize := 32;
+             msiMem64: memrefsize := 64;
+            msiMem128: memrefsize := 128;
+            msiMem256: memrefsize := 256;
+            msiMemRegSize
+                     : for j := 1 to ops do
+                       begin
+                         if operands[j].Opr.Typ = OPR_REGISTER then
+                         begin
+                           if (tx86operand(operands[j]).opsize <> S_NO) and
+                              (tx86operand(operands[j]).size <> OS_NO) then
+                           begin
+                             case tx86operand(operands[j]).opsize of
+                               S_B   : memrefsize := 8;
+                               S_W   : memrefsize := 16;
+                               S_L   : memrefsize := 32;
+                               S_Q   : memrefsize := 64;
+                               S_XMM : memrefsize := 128;
+                               S_YMM : memrefsize := 256;
+                                  else begin
+                                         Internalerror(777200);
+                                       end;
+                             end;
+                             break;
+                           end;
+                         end;
+                       end;
+          end;
+
+          if memrefsize > -1 then
+          begin
+            memopsize := 0;
+            case operands[i].opr.typ of
+                  OPR_LOCAL: memopsize := operands[i].opr.localvarsize * 8;
+              OPR_REFERENCE: memopsize := operands[i].opr.varsize * 8;
+            end;
+
+            if memopsize = 0 then memopsize := topsize2memsize[tx86operand(operands[i]).opsize];
+
+            if (memopsize > 0) and
+               (memrefsize > 0) then
+            begin
+              memoffset := 0;
+
+              case operands[i].opr.typ of
+                OPR_LOCAL:
+                   memoffset := operands[i].opr.localconstoffset;
+                OPR_REFERENCE:
+                   memoffset := operands[i].opr.constoffset;
+              end;
+
+              if memoffset < 0 then InternalError(777201);
+
+              if (memopsize < (memrefsize + memoffset * 8)) then
+              begin
+                if memoffset = 0 then
+                begin
+                  Message3(asmr_w_check_mem_operand_size3,
+                           std_op2str[opcode],
+                           IntToStr(memopsize),
+                           IntToStr(memrefsize)
+                           );
+                end
+                else
+                begin
+                  Message4(asmr_w_check_mem_operand_size_offset,
+                           std_op2str[opcode],
+                           IntToStr(memopsize),
+                           IntToStr(memrefsize),
+                           IntToStr(memoffset)
+                           );
+                end;
+              end;
+            end;
+          end;
+
+
+        end;
+      end;
+    end;
+  end;
+
+  if (ExistsMemRefNoSize or ExistsConstNoSize) and
+     (MemRefInfo(opcode).ExistsSSEAVX) then
   begin
     for i := 1 to ops do
     begin
@@ -341,6 +507,77 @@ begin
                   msiMem256: begin
                                tx86operand(operands[i]).opsize := S_YMM;
                                tx86operand(operands[i]).size   := OS_M256;
+                               opsize := S_YMM;
+                             end;
+                  msiMemRegSize:
+                             begin
+                               // mem-ref-size = register size
+                               for j := 1 to ops do
+                               begin
+                                 if operands[j].Opr.Typ = OPR_REGISTER then
+                                 begin
+                                   if (tx86operand(operands[j]).opsize <> S_NO) and
+                                      (tx86operand(operands[j]).size <> OS_NO) then
+                                   begin
+                                     tx86operand(operands[i]).opsize := tx86operand(operands[j]).opsize;
+                                     tx86operand(operands[i]).size   := tx86operand(operands[j]).size;
+                                     break;
+                                   end
+                                   else
+                                   begin
+                                     Message(asmr_e_unable_to_determine_reference_size);
+                                   end;
+                                 end;
+                               end;
+                             end;
+                   msiMemRegx64y128:
+                             begin
+                               for j := 1 to ops do
+                               begin
+                                 if operands[j].Opr.Typ = OPR_REGISTER then
+                                 begin
+                                   case getsubreg(operands[j].opr.reg) of
+                                     R_SUBMMX: begin
+                                                 tx86operand(operands[i]).opsize := S_Q;
+                                                 tx86operand(operands[i]).size   := OS_M64;
+                                                 break;
+                                               end;
+                                     R_SUBMMY: begin
+                                                 tx86operand(operands[i]).opsize := S_XMM;
+                                                 tx86operand(operands[i]).size   := OS_M128;
+                                                 break;
+                                               end;
+                                          else Message(asmr_e_unable_to_determine_reference_size);
+                                   end;
+                                 end;
+                               end;
+                             end;
+                   msiMemRegx64y256:
+                             begin
+                               for j := 1 to ops do
+                               begin
+                                 if operands[j].Opr.Typ = OPR_REGISTER then
+                                 begin
+                                   case getsubreg(operands[j].opr.reg) of
+                                     R_SUBMMX: begin
+                                                 tx86operand(operands[i]).opsize := S_Q;
+                                                 tx86operand(operands[i]).size   := OS_M64;
+                                                 break;
+                                               end;
+                                     R_SUBMMY: begin
+                                                 tx86operand(operands[i]).opsize := S_YMM;
+                                                 tx86operand(operands[i]).size   := OS_M256;
+                                                 break;
+                                               end;
+                                          else Message(asmr_e_unable_to_determine_reference_size);
+                                   end;
+                                 end;
+                               end;
+                             end;
+                   msiNoSize: ; //  all memory-sizes are ok
+                   msiMultiple:
+                             begin
+                               Message(asmr_e_unable_to_determine_reference_size); // TODO individual message
                              end;
                 end;
           OPR_CONSTANT:
@@ -515,23 +752,7 @@ begin
           A_OUT :
             opsize:=tx86operand(operands[1]).opsize;
           else
-          begin
-            // opsize:=tx86operand(operands[2]).opsize;
-
-            // torsten - 31.01.2012
-            // old: xmm/ymm-register operands have a opsize = "S_NO"
-            // new: xmm/ymm-register operands have a opsize = "S_XMM/S_YMM"
-
-            // any SSE- and AVX-opcodes have mixed operand sizes (e.g. cvtsd2ss xmmreg, xmmreg/m32)
-            // in this case is we need the old handling ("S_NO")
-            // =>> ignore
-            if (tx86operand(operands[2]).opsize <> S_XMM) and
-               (tx86operand(operands[2]).opsize <> S_YMM) then
-            begin
-              opsize:=tx86operand(operands[2]).opsize;
-            end;
-
-          end;
+            opsize:=tx86operand(operands[2]).opsize;
         end;
       end;
     3,4 :
