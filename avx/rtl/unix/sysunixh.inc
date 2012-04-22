@@ -33,7 +33,7 @@ const
  PathSeparator = ':';
  AllowDirectorySeparators : set of char = ['\','/'];
  AllowDriveSeparators : set of char = [];
-{ FileNameCaseSensitive is defined below! }
+{ FileNameCaseSensitive and FileNameCasePreserving are defined below! }
  maxExitCode = 255;
  {$ifdef LINUX}
  MaxPathLen = 4096; // linux has always got to be BIGGER
@@ -49,17 +49,16 @@ const
   StdErrorHandle  = 2;
 
   FileNameCaseSensitive : boolean = true;
+  FileNameCasePreserving: boolean = true;
   CtrlZMarksEOF: boolean = false; (* #26 not considered as end of file *)
 
   sLineBreak = LineEnding;
   DefaultTextLineBreakStyle : TTextLineBreakStyle = tlbsLF;
 
-{$ifndef Solaris}
-{$ifndef Darwin}
+{$if not defined(solaris) and not defined(darwin) and not defined(aix)}
 var argc:longint;external name 'operatingsystem_parameter_argc';
     argv:PPchar;external name 'operatingsystem_parameter_argv';
     envp:PPchar;external name 'operatingsystem_parameter_envp';
-{$endif}
 {$endif}
 
 {$ifdef unix}

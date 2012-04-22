@@ -280,6 +280,10 @@ begin
   CompareChar:=CompareByte(buf1,buf2,len);
 end;
 
+procedure fpc_zeromem(p:pointer;len:ptruint);
+begin
+  FillChar(p^,len,0);
+end;
 
 { Include generic pascal only routines which are not defined in the processor
   specific include file }
@@ -676,6 +680,12 @@ end;
 procedure fpc_threaderror; [public,alias:'FPC_THREADERROR'];
 begin
   HandleErrorFrame(6,get_frame);
+end;
+
+
+procedure fpc_invalidpointer; [public,alias:'FPC_INVALIDPOINTER'];
+begin
+  HandleErrorFrame(216,get_frame);
 end;
 
 

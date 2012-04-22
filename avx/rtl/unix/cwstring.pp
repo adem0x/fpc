@@ -15,6 +15,7 @@
 
 {$mode objfpc}
 {$inline on}
+{$implicitexceptions off}
 
 unit cwstring;
 
@@ -47,14 +48,18 @@ Uses
 Const
 {$ifndef useiconv}
     libiconvname='c';  // is in libc under Linux.
+    libprefix='lib';
 {$else}
   {$ifdef haiku}
     libiconvname='textencoding';  // is in libtextencoding under Haiku
+    libprefix='lib';
   {$else}
-    {$ifdef darwin}
+    {$if defined(darwin) or defined(aix)}
       libiconvname='libiconv';
+      libprefix='';
     {$else}
       libiconvname='iconv';
+      libprefix='lib';
     {$endif}
   {$endif}
 {$endif}
@@ -78,29 +83,26 @@ function mblen(const s: pchar; n: size_t): size_t; cdecl; external clib name 'mb
 
 
 const
-{$ifdef linux}
+{$if defined(linux)}
   __LC_CTYPE = 0;
   LC_ALL = 6;
   _NL_CTYPE_CLASS = (__LC_CTYPE shl 16);
   _NL_CTYPE_CODESET_NAME = (_NL_CTYPE_CLASS)+14;
   CODESET = _NL_CTYPE_CODESET_NAME;
-{$else linux}
-{$ifdef darwin}
+{$elseif defined(darwin)}
   CODESET = 0;
   LC_ALL = 0;
-{$else darwin}
-{$ifdef FreeBSD} // actually FreeBSD5. internationalisation is afaik not default on 4.
+{$elseif defined(FreeBSD)} // actually FreeBSD5. internationalisation is afaik not default on 4.
   __LC_CTYPE = 0;
   LC_ALL = 0;
   _NL_CTYPE_CLASS = (__LC_CTYPE shl 16);
   _NL_CTYPE_CODESET_NAME = (_NL_CTYPE_CLASS)+14;
   CODESET = 0; // _NL_CTYPE_CODESET_NAME;
-{$else freebsd}
-{$ifdef solaris}
+{$elseif defined(solaris)}
+  {$define ACCEPT_646}
   CODESET=49;
   LC_ALL = 6;
-{$else solaris}
-{$ifdef beos}
+{$elseif defined(beos)}
   {$warning check correct value for BeOS}
   CODESET=49;
   {$ifdef haiku}
@@ -109,32 +111,33 @@ const
   LC_ALL = 6; // Checked for BeOS
   {$endif}
   ESysEILSEQ = EILSEQ;
-{$else}
-{$ifdef OpenBSD}
+{$elseif defined(OpenBSD)}
+  {$define ACCEPT_646}
   CODESET = 51;
   LC_ALL = 0;
-{$else not OpenBSD}
-{$ifdef NetBSD}
+{$elseif defined(NetBSD)}
+  {$define ACCEPT_646}
   CODESET = 51;
   LC_ALL = 0;
-{$else not NetBSD}
+{$elseif defined(aix)}
+  CODESET = 49;
+  LC_ALL = -1;
+{$else not aix}
 {$error lookup the value of CODESET in /usr/include/langinfo.h, and the value of LC_ALL in /usr/include/locale.h for your OS }
 // and while doing it, check if iconv is in libc, and if the symbols are prefixed with iconv_ or libiconv_
-{$endif NetBSD}
-{$endif OpenBSD}
-{$endif beos}
-{$endif solaris}
-{$endif FreeBSD}
-{$endif darwin}
-{$endif linux}
+{$endif}
 
 { unicode encoding name }
 {$ifdef FPC_LITTLE_ENDIAN}
   unicode_encoding2 = 'UTF-16LE';
   unicode_encoding4 = 'UCS-4LE';
 {$else  FPC_LITTLE_ENDIAN}
+{$ifdef AIX}
+  unicode_encoding2 = 'UTF-16';
+{$else AIX}
   unicode_encoding2 = 'UTF-16BE';
   unicode_encoding4 = 'UCS-4BE';
+{$endif AIX}
 {$endif  FPC_LITTLE_ENDIAN}
 
 { en_US.UTF-8 needs maximally 6 chars, UCS-4/UTF-32 needs 4   }
@@ -197,23 +200,28 @@ threadvar
   current_DefaultSystemCodePage: TSystemCodePage;
 
 
-  function win2iconv(cp: word): rawbytestring; forward;
-
+{$i winiconv.inc}
 
 procedure InitThread;
 var
   transliterate: cint;
-{$if not(defined(darwin) and defined(cpuarm))}
+  iconvindex: longint;
+{$if not(defined(darwin) and defined(cpuarm)) and not defined(iphonesim)}
   iconvname: rawbytestring;
 {$endif}
 begin
   current_DefaultSystemCodePage:=DefaultSystemCodePage;
-{$if not(defined(darwin) and defined(cpuarm))}
-  iconvname:=win2iconv(DefaultSystemCodePage);
+{$if not(defined(darwin) and defined(cpuarm)) and not defined(iphonesim)}
+  iconvindex:=win2iconv(DefaultSystemCodePage);
+  if iconvindex<>-1 then
+    iconvname:=win2iconv_arr[iconvindex].name
+  else
+    { default to UTF-8 on Unix platforms }
+    iconvname:='UTF-8';
   iconv_wide2ansi:=iconv_open(pchar(iconvname),unicode_encoding2);
   iconv_ansi2wide:=iconv_open(unicode_encoding2,pchar(iconvname));
 {$else}
-  { Unix locale settings are ignored on iPhoneOS }
+  { Unix locale settings are ignored on iPhoneOS/iPhoneSimulator }
   iconv_wide2ansi:=iconv_open('UTF-8',unicode_encoding2);
   iconv_ansi2wide:=iconv_open(unicode_encoding2,'UTF-8');
 {$endif}
@@ -235,9 +243,6 @@ begin
 end;
 
 
-{$i winiconv.inc}
-
-
 {$if defined(beos) and not defined(haiku)}
 function nl_langinfo(__item:nl_item):pchar;
 begin
@@ -254,6 +259,37 @@ begin
 end;
 {$endif}
 
+
+function open_iconv_for_cps(cp: TSystemCodePage; const otherencoding: pchar; cp_is_from: boolean): iconv_t;
+  var
+    iconvindex: longint;
+  begin
+    { TODO: add caching (then we also don't need separate code for
+      the default system page and other ones)
+
+      -- typecasting an ansistring function result to pchar is
+        unsafe normally, but these are constant strings -> no
+        problem }
+    open_iconv_for_cps:=iconv_t(-1);
+    iconvindex:=win2iconv(cp);
+    if iconvindex=-1 then
+      exit;
+    repeat
+      if cp_is_from then
+        open_iconv_for_cps:=iconv_open(otherencoding,pchar(win2iconv_arr[iconvindex].name))
+      else
+        open_iconv_for_cps:=iconv_open(pchar(win2iconv_arr[iconvindex].name),otherencoding);
+      inc(iconvindex);
+    until (open_iconv_for_cps<>iconv_t(-1)) or
+          (iconvindex>high(win2iconv_arr)) or
+          (win2iconv_arr[iconvindex].cp<>cp);
+  end;
+
+
+{$ifdef aix}
+{$i cwstraix.inc}
+{$endif aix}
+
 procedure Wide2AnsiMove(source:pwidechar; var dest:RawByteString; cp:TSystemCodePage; len:SizeInt);
   var
     outlength,
@@ -265,10 +301,23 @@ procedure Wide2AnsiMove(source:pwidechar; var dest:RawByteString; cp:TSystemCode
     destpos: pchar;
     mynil : pchar;
     my0 : size_t;
-    err,
+    err : longint;
     transliterate: cint;
     free_iconv: boolean;
+{$ifdef aix}
+    intermediate: rawbytestring;
+{$endif aix}
   begin
+{$ifdef aix}
+    { AIX libiconv does not support converting cp866 to anything else except
+      for iso-8859-5 -> always first convert to iso-8859-5, then to UTF-16 }
+    if cp=866 then
+      begin
+        Wide2AnsiMove(source,intermediate,28595,len);
+        if handle_aix_intermediate(pchar(intermediate),28595,cp,dest,len) then
+          exit;
+      end;
+{$endif aix}
     if (cp=DefaultSystemCodePage) then
       begin
         { update iconv converter in case the DefaultSystemCodePage has been
@@ -283,14 +332,9 @@ procedure Wide2AnsiMove(source:pwidechar; var dest:RawByteString; cp:TSystemCode
       end
     else
       begin
-        { TODO: add caching (then we also don't need separate code for
-          the default system page and other ones)
-
-          -- typecasting an ansistring function result to pchar is
-            unsafe normally, but these are constant strings -> no
-            problem }
-        use_iconv:=iconv_open(pchar(win2iconv(cp)),unicode_encoding2);
-        if assigned(iconvctl) then
+        use_iconv:=open_iconv_for_cps(cp,unicode_encoding2,false);
+        if (use_iconv<>iconv_t(-1)) and
+           assigned(iconvctl) then
         begin
           transliterate:=1;
           iconvctl(use_iconv,ICONV_SET_TRANSLITERATE,@transliterate);
@@ -365,8 +409,21 @@ procedure Ansi2WideMove(source:pchar; cp:TSystemCodePage; var dest:widestring; l
     mynil : pchar;
     my0 : size_t;
     err: cint;
+    iconvindex: longint;
     free_iconv: boolean;
+{$ifdef aix}
+    intermediate: rawbytestring;
+{$endif aix}
   begin
+{$ifdef aix}
+    { AIX libiconv does not support converting cp866 to anything else except
+      for iso-8859-5 -> always first convert to iso-8859-5, then to UTF-16 }
+    if cp=866 then
+      begin
+        if handle_aix_intermediate(source,cp,cp,intermediate,len) then
+          source:=pchar(intermediate);
+      end;
+{$endif aix}
     if (cp=DefaultSystemCodePage) then
       begin
         { update iconv converter in case the DefaultSystemCodePage has been
@@ -387,7 +444,7 @@ procedure Ansi2WideMove(source:pchar; cp:TSystemCodePage; var dest:widestring; l
           -- typecasting an ansistring function result to pchar is
             unsafe normally, but these are constant strings -> no
             problem }
-        use_iconv:=iconv_open(unicode_encoding2,pchar(win2iconv(cp)));
+        use_iconv:=open_iconv_for_cps(cp,unicode_encoding2,true);
         free_iconv:=true;
       end;
     { unsupported encoding -> default move }
@@ -686,6 +743,7 @@ function WideStringToUCS4StringNoNulls(const s : WideString) : UCS4String;
 
 
 function CompareWideString(const s1, s2 : WideString) : PtrInt;
+{$if not(defined (aix) and defined(cpupowerpc32))}
   var
     hs1,hs2 : UCS4String;
   begin
@@ -694,6 +752,32 @@ function CompareWideString(const s1, s2 : WideString) : PtrInt;
     hs2:=WideStringToUCS4StringNoNulls(s2);
     result:=wcscoll(pwchar_t(hs1),pwchar_t(hs2));
   end;
+{$else}
+  { AIX/PPC32 has a 16 bit wchar_t }
+  var
+    i, len: longint;
+    hs1, hs2: array of widechar;
+  begin
+    len:=length(s1);
+    setlength(hs1,len+1);
+    for i:=1 to len do
+      if s1[i]<>#0 then
+        hs1[i-1]:=s1[i]
+      else
+        hs1[i-1]:=#32;
+    hs1[len]:=#0;
+
+    len:=length(s2);
+    setlength(hs2,len+1);
+    for i:=1 to len do
+      if s2[i]<>#0 then
+        hs2[i-1]:=s2[i]
+      else
+        hs2[i-1]:=#32;
+    hs2[len]:=#0;
+    result:=wcscoll(pwchar_t(hs1),pwchar_t(hs2));
+  end;
+{$endif}
 
 
 function CompareTextWideString(const s1, s2 : WideString): PtrInt;
@@ -731,9 +815,8 @@ function CharLengthPChar(const Str: PChar): PtrInt;
 
 
 function CodePointLength(const Str: PChar; maxlookahead: ptrint): PtrInt;
-  var
-    nextlen: ptrint;
 {$ifndef beos}
+  var
     mbstate: mbstate_t;
 {$endif not beos}
   begin
@@ -978,7 +1061,7 @@ initialization
   setlocale(LC_ALL,'');
 
   { load iconvctl function }
-  iconvlib:=LoadLibrary(libiconvname+'.'+SharedSuffix);
+  iconvlib:=LoadLibrary(libprefix+libiconvname+'.'+SharedSuffix);
   if iconvlib<>0 then
     pointer(iconvctl):=GetProcAddress(iconvlib,iconvctlname);
 

@@ -487,6 +487,7 @@ type
     function GetPropName: string;
     procedure InsertItem(Item: TCollectionItem);
     procedure RemoveItem(Item: TCollectionItem);
+    procedure DoClear;
   protected
     { Design-time editor support }
     function GetAttrCount: Integer; dynamic;
@@ -606,7 +607,8 @@ type
     function Add(const S: string): Integer; virtual;
     function AddObject(const S: string; AObject: TObject): Integer; virtual;
     procedure Append(const S: string);
-    procedure AddStrings(TheStrings: TStrings); virtual;
+    procedure AddStrings(TheStrings: TStrings); overload; virtual;
+    procedure AddStrings(const TheStrings: array of string); overload; virtual;
     procedure Assign(Source: TPersistent); override;
     procedure BeginUpdate;
     procedure Clear; virtual; abstract;
@@ -679,6 +681,7 @@ type
     FOwnsObjects : Boolean;
     procedure ExchangeItems(Index1, Index2: Integer);
     procedure Grow;
+    procedure InternalClear;
     procedure QuickSort(L, R: Integer; CompareFn: TStringListSortCompare);
     procedure SetSorted(Value: Boolean);
     procedure SetCaseSensitive(b : boolean);
