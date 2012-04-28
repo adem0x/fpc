@@ -196,7 +196,7 @@ type
     function ParseSpecializeType(Parent: TPasElement; Const TypeName: String): TPasClassType;
     Function ParseClassDecl(Parent: TPasElement; const AClassName: String;   AObjKind: TPasObjKind; PackMode : TPackMode= pmNone): TPasType;
     Function ParseProperty(Parent : TPasElement; Const AName : String; AVisibility : TPasMemberVisibility; IsClass : Boolean) : TPasProperty;
-    function ParseRangeType(AParent: TPasElement; Const TypeName: String): TPasRangeType;
+    function ParseRangeType(AParent: TPasElement; Const TypeName: String; Full : Boolean = True): TPasRangeType;
     // Constant declarations
     function ParseConstDecl(Parent: TPasElement): TPasConst;
     function ParseResourcestringDecl(Parent: TPasElement): TPasResString;
@@ -783,7 +783,7 @@ begin
     stkRange:
       begin
       UnGetToken;
-      Result:=ParseRangeType(Parent,TypeName);
+      Result:=ParseRangeType(Parent,TypeName,False);
       end;
     stkAlias:
       begin
@@ -920,7 +920,7 @@ begin
       tkRecord: Result := ParseRecordDecl(Parent,TypeName,PM);
     else
       UngetToken;
-      Result:=ParseRangeType(Parent,TypeName);
+      Result:=ParseRangeType(Parent,TypeName,Full);
     end;
     if CH then
       CheckHint(Result,True);
@@ -1120,21 +1120,29 @@ begin
       NextToken;
       if (length(CurTokenText)>0) and (CurTokenText[1] in ['A'..'_']) then begin
         b:=TBinaryExpr.Create(AParent,x, DoParseExpression(AParent), eopNone);
-        if not Assigned(b.right) then Exit; // error
+        if not Assigned(b.right) then
+          begin
+          B.Free;
+          Exit; // error
+          end;
         x:=b;
         UngetToken;
       end
        else UngetToken;
     end;
     tkself: begin
-      x:=TPrimitiveExpr.Create(AParent,pekString, CurTokenText); //function(self);
+      //x:=TPrimitiveExpr.Create(AParent,pekString, CurTokenText); //function(self);
       x:=TSelfExpr.Create(AParent);
       NextToken;
       if CurToken = tkDot then begin // self.Write(EscapeText(AText));
         optk:=CurToken;
         NextToken;
         b:=TBinaryExpr.Create(AParent,x, ParseExpIdent(AParent), TokenToExprOp(optk));
-        if not Assigned(b.right) then Exit; // error
+        if not Assigned(b.right) then
+          begin
+          B.Free;
+          Exit; // error
+          end;
         x:=b;
       end
        else UngetToken;
@@ -1190,7 +1198,11 @@ begin
         optk:=CurToken;
         NextToken;
         b:=TBinaryExpr.Create(AParent,x, ParseExpIdent(AParent), TokenToExprOp(optk));
-        if not Assigned(b.right) then Exit; // error
+        if not Assigned(b.right) then
+          begin
+          b.free;
+          Exit; // error
+          end;
         x:=b;
       end;
     end;
@@ -1198,7 +1210,11 @@ begin
     if CurToken = tkDotDot then begin
       NextToken;
       b:=TBinaryExpr.CreateRange(AParent,x, DoParseExpression(AParent));
-      if not Assigned(b.right) then Exit; // error
+      if not Assigned(b.right) then
+        begin
+        b.free;
+        Exit; // error
+        end;
       x:=b;
     end;
 
@@ -1236,7 +1252,7 @@ var
   
 const
   PrefixSym = [tkPlus, tkMinus, tknot, tkAt]; // + - not @
-  BinaryOP  = [tkMul, tkDivision, tkdiv, tkmod,
+  BinaryOP  = [tkMul, tkDivision, tkdiv, tkmod, tkDotDot,
                tkand, tkShl,tkShr, tkas, tkPower,
                tkPlus, tkMinus, tkor, tkxor, tkSymmetricalDifference,
                tkEqual, tkNotEqual, tkLessThan, tkLessEqualThan,
@@ -1288,7 +1304,6 @@ begin
     repeat
       NotBinary:=True;
       pcount:=0;
-
       if not Assigned(InitExpr) then
       begin
         // the first part of the expression has been parsed externally.
@@ -1313,7 +1328,11 @@ begin
         if CurToken = tkBraceOpen then begin
           NextToken;
           x:=DoParseExpression(AParent);
-          if CurToken<>tkBraceClose then Exit;
+          if CurToken<>tkBraceClose then
+            begin
+            x.free;
+            Exit;
+            end;
           NextToken;
 
           // for the expression like  (TObject(m)).Free;
@@ -1328,9 +1347,17 @@ begin
 
         if not Assigned(x) then Exit;
         expstack.Add(x);
+
         for i:=1 to pcount do begin
           tempop:=PopOper;
-          expstack.Add( TUnaryExpr.Create(AParent, PopExp, TokenToExprOp(tempop) ));
+          x:=popexp;
+          if (tempop=tkMinus) and (X.Kind=pekRange) then
+            begin
+            TBinaryExpr(x).Left:=TUnaryExpr.Create(x, TBinaryExpr(X).left, eopSubtract);
+            expstack.Add(x);
+            end
+           else
+            expstack.Add( TUnaryExpr.Create(AParent, PopExp, TokenToExprOp(tempop) ));
         end;
 
       end else
@@ -1338,7 +1365,6 @@ begin
         expstack.Add(InitExpr);
         InitExpr:=nil;
       end;
-
       if (CurToken in BinaryOP) then begin
         // Adjusting order of the operations
         NotBinary:=False;
@@ -2058,7 +2084,7 @@ begin
 end;
 
 // Starts after the type name
-Function TPasParser.ParseRangeType(AParent : TPasElement; Const TypeName : String) : TPasRangeType;
+Function TPasParser.ParseRangeType(AParent : TPasElement; Const TypeName : String; Full : Boolean = True) : TPasRangeType;
 
 Var
   PE : TPasExpr;
@@ -2066,8 +2092,11 @@ Var
 begin
   Result := TPasRangeType(CreateElement(TPasRangeType, TypeName, AParent));
   try
-    If not (CurToken=tkEqual) then
-      ParseExc(Format(SParserExpectTokenError,[TokenInfos[tkEqual]]));
+    if Full then
+      begin
+      If not (CurToken=tkEqual) then
+        ParseExc(Format(SParserExpectTokenError,[TokenInfos[tkEqual]]));
+      end;
     NextToken;
     PE:=DoParseExpression(Result,Nil);
     if not ((PE is TBinaryExpr) and (TBinaryExpr(PE).Kind=pekRange)) then

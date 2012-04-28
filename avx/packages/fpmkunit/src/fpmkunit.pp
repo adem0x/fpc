@@ -74,7 +74,7 @@ Type
   // Please keep this order, see OSCPUSupported below
   TCpu=(cpuNone,
     i386,m68k,powerpc,sparc,x86_64,arm,powerpc64,avr,armeb,
-    mips,mipsel
+    mips,mipsel,jvm
   );
   TCPUS = Set of TCPU;
 
@@ -83,7 +83,8 @@ Type
     linux,go32v2,win32,os2,freebsd,beos,netbsd,
     amiga,atari, solaris, qnx, netware, openbsd,wdosx,
     palmos,macos,darwin,emx,watcom,morphos,netwlibc,
-    win64,wince,gba,nds,embedded,symbian,haiku,iphonesim
+    win64,wince,gba,nds,embedded,symbian,haiku,iphonesim,
+    aix,java,android
   );
   TOSes = Set of TOS;
 
@@ -134,7 +135,7 @@ Const
 
   AllOSes = [Low(TOS)..High(TOS)];
   AllCPUs = [Low(TCPU)..High(TCPU)];
-  AllUnixOSes  = [Linux,FreeBSD,NetBSD,OpenBSD,Darwin,QNX,BeOS,Solaris,Haiku,iphonesim];
+  AllUnixOSes  = [Linux,FreeBSD,NetBSD,OpenBSD,Darwin,QNX,BeOS,Solaris,Haiku,iphonesim,aix];
   AllBSDOSes      = [FreeBSD,NetBSD,OpenBSD,Darwin,iphonesim];
   AllWindowsOSes  = [Win32,Win64,WinCE];
   AllLimit83fsOses= [go32v2,os2,emx,watcom];
@@ -144,37 +145,40 @@ Const
 
   { This table is kept OS,Cpu because it is easier to maintain (PFV) }
   OSCPUSupported : array[TOS,TCpu] of boolean = (
-    { os          none   i386    m68k  ppc    sparc  x86_64 arm    ppc64  avr    armeb}
-    { none }    ( false, false, false, false, false, false, false, false, false, false, false, false),
-    { linux }   ( false, true,  true,  true,  true,  true,  true,  true,  false, true , true , true ),
-    { go32v2 }  ( false, true,  false, false, false, false, false, false, false, false, false, false),
-    { win32 }   ( false, true,  false, false, false, false, false, false, false, false, false, false),
-    { os2 }     ( false, true,  false, false, false, false, false, false, false, false, false, false),
-    { freebsd } ( false, true,  true,  false, false, true,  false, false, false, false, false, false),
-    { beos }    ( false, true,  false, false, false, false, false, false, false, false, false, false),
-    { netbsd }  ( false, true,  true,  true,  true,  false, false, false, false, false, false, false),
-    { amiga }   ( false, false, true,  true,  false, false, false, false, false, false, false, false),
-    { atari }   ( false, false, true,  false, false, false, false, false, false, false, false, false),
-    { solaris } ( false, true,  false, false, true,  false, false, false, false, false, false, false),
-    { qnx }     ( false, true,  false, false, false, false, false, false, false, false, false, false),
-    { netware } ( false, true,  false, false, false, false, false, false, false, false, false, false),
-    { openbsd } ( false, true,  true,  false, false, false, false, false, false, false, false, false),
-    { wdosx }   ( false, true,  false, false, false, false, false, false, false, false, false, false),
-    { palmos }  ( false, false, true,  false, false, false, true,  false, false, false, false, false),
-    { macos }   ( false, false, false, true,  false, false, false, false, false, false, false, false),
-    { darwin }  ( false, true,  false, true,  false, true,  true,  true,  false, false, false, false),
-    { emx }     ( false, true,  false, false, false, false, false, false, false, false, false, false),
-    { watcom }  ( false, true,  false, false, false ,false, false, false, false, false, false, false),
-    { morphos } ( false, false, false, true,  false ,false, false, false, false, false, false, false),
-    { netwlibc }( false, true,  false, false, false, false, false, false, false, false, false, false),
-    { win64   } ( false, false, false, false, false, true,  false, false, false, false, false, false),
-    { wince    }( false, true,  false, false, false, false, true,  false, false, false, false, false),
-    { gba    }  ( false, false, false, false, false, false, true,  false, false, false, false, false),
-    { nds    }  ( false, false, false, false, false, false, true,  false, false, false, false, false),
-    { embedded }( false, true,  true,  true,  true,  true,  true,  true,  true,  true , false, false),
-    { symbian } ( false, true,  false, false, false, false, true,  false, false, false, false, false),
-    { haiku }   ( false, true,  false, false, false, false, false, false, false, false, false, false),
-    { iphonesim}( false, true,  false, false, false, false, false, false, false, false, false, false)
+    { os          none   i386    m68k  ppc    sparc  x86_64 arm    ppc64  avr    armeb  mips   mipsel jvm}
+    { none }    ( false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { linux }   ( false, true,  true,  true,  true,  true,  true,  true,  false, true , true , true , false),
+    { go32v2 }  ( false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { win32 }   ( false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { os2 }     ( false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { freebsd } ( false, true,  true,  false, false, true,  false, false, false, false, false, false, false),
+    { beos }    ( false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { netbsd }  ( false, true,  true,  true,  true,  false, false, false, false, false, false, false, false),
+    { amiga }   ( false, false, true,  true,  false, false, false, false, false, false, false, false, false),
+    { atari }   ( false, false, true,  false, false, false, false, false, false, false, false, false, false),
+    { solaris } ( false, true,  false, false, true,  false, false, false, false, false, false, false, false),
+    { qnx }     ( false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { netware } ( false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { openbsd } ( false, true,  true,  false, false, false, false, false, false, false, false, false, false),
+    { wdosx }   ( false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { palmos }  ( false, false, true,  false, false, false, true,  false, false, false, false, false, false),
+    { macos }   ( false, false, false, true,  false, false, false, false, false, false, false, false, false),
+    { darwin }  ( false, true,  false, true,  false, true,  true,  true,  false, false, false, false, false),
+    { emx }     ( false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { watcom }  ( false, true,  false, false, false ,false, false, false, false, false, false, false, false),
+    { morphos } ( false, false, false, true,  false ,false, false, false, false, false, false, false, false),
+    { netwlibc }( false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { win64   } ( false, false, false, false, false, true,  false, false, false, false, false, false, false),
+    { wince    }( false, true,  false, false, false, false, true,  false, false, false, false, false, false),
+    { gba    }  ( false, false, false, false, false, false, true,  false, false, false, false, false, false),
+    { nds    }  ( false, false, false, false, false, false, true,  false, false, false, false, false, false),
+    { embedded }( false, true,  true,  true,  true,  true,  true,  true,  true,  true , false, false, false),
+    { symbian } ( false, true,  false, false, false, false, true,  false, false, false, false, false, false),
+    { haiku }   ( false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { iphonesim}( false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { aix    }  ( false, false, false, true,  false, false, false, true,  false, false, false, false, false),
+    { java }    ( false, false, false, false, false, false, false, false, false, false, false, false, true ),
+    { android } ( false, false, false, false, false, false, false, false, false, false, false, false, true )
   );
 
   // Useful
@@ -341,6 +345,34 @@ Type
 {$endif cpu_only_overloads}
     Function Add(Const Value : String;const CPUs:TCPUs;const OSes:TOSes) : TConditionalString;
     Property ConditionalStrings[Index : Integer] : TConditionalString Read GetConditionalString Write SetConditionalString; default;
+  end;
+
+  { TConditionalDestString }
+
+  TConditionalDestString = Class(TConditionalString)
+  private
+    FDestPath: string;
+  public
+    property DestPath: string read FDestPath write FDestPath;
+  end;
+
+  TConditionalDestStringClass = class of TConditionalDestString;
+
+  { TConditionalDestStrings }
+
+  TConditionalDestStrings = Class(TConditionalStrings)
+  private
+    function GetConditionalString(Index : Integer): TConditionalDestString;
+    procedure SetConditionalString(Index : Integer; AValue: TConditionalDestString);
+  public
+    Constructor Create(AClass:TConditionalDestStringClass);
+    Function Add(Const Value : String; ADestPath: String) : TConditionalDestString;inline;
+    Function Add(Const Value : String;const OSes:TOSes; ADestPath: String) : TConditionalDestString;inline;
+{$ifdef cpu_only_overloads}
+    Function Add(Const Value : String;const CPUs:TCPUs; ADestPath: String) : TConditionalDestString;inline;
+{$endif cpu_only_overloads}
+    Function Add(Const Value : String;const CPUs:TCPUs;const OSes:TOSes; ADestPath: String) : TConditionalDestString;
+    Property ConditionalStrings[Index : Integer] : TConditionalDestString Read GetConditionalString Write SetConditionalString; default;
   end;
 
   { TDictionary }
@@ -605,8 +637,8 @@ Type
     FSourcePath,
     FExamplePath,
     FTestPath,
-    FCleanFiles,
-    FInstallFiles : TConditionalStrings;
+    FCleanFiles   : TConditionalStrings;
+    FInstallFiles : TConditionalDestStrings;
     FDependencies : TDependencies;
     FCPUs: TCPUs;
     FOSes: TOSes;
@@ -636,6 +668,8 @@ Type
     FProcessing : boolean;
     // Dictionary
     FDictionary : TDictionary;
+    // Is set when all sourcefiles are found
+    FAllFilesResolved: boolean;
     Function GetDescription : string;
     function GetDictionary: TDictionary;
     Function GetFileName : string;
@@ -688,7 +722,7 @@ Type
     Property TestPath : TConditionalStrings Read FTestPath;
     Property FPDocFormat: TFPDocFormats read FFPDocFormat write FFPDocFormat;
     // Targets and dependencies
-    Property InstallFiles : TConditionalStrings Read FInstallFiles;
+    Property InstallFiles : TConditionalDestStrings Read FInstallFiles;
     Property CleanFiles : TConditionalStrings Read FCleanFiles;
     Property Dependencies : TDependencies Read FDependencies;
     Property Commands : TCommands Read FCommands;
@@ -903,7 +937,7 @@ Type
     procedure LogUnIndent;
     Procedure EnterDir(ADir : String);
     Function GetCompiler : String;
-    Function InstallPackageFiles(APAckage : TPackage; tt : TTargetType; Const Dest : String):Boolean;
+    Function InstallPackageFiles(APAckage : TPackage; tt : TTargetTypes; Const Dest : String):Boolean;
     Procedure InstallUnitConfigFile(APAckage : TPackage; Const Dest : String);
     Function InstallPackageSourceFiles(APAckage : TPackage; stt : TSourceTypes; ttt : TTargetTypes; Const Dest : String):Boolean;
     Function FileNewer(const Src,Dest : String) : Boolean;
@@ -921,7 +955,7 @@ Type
     function AddPathPrefix(APackage: TPackage; APath: string): string;
 
     property Verbose : boolean read FVerbose write FVerbose;
-    Procedure ResolveFileNames(APackage : TPackage; ACPU:TCPU;AOS:TOS;DoChangeDir:boolean=true);
+    Procedure ResolveFileNames(APackage : TPackage; ACPU:TCPU;AOS:TOS;DoChangeDir:boolean=true; WarnIfNotFound:boolean=true);
 
     // Public Copy/delete/Move/Archive/Mkdir Commands.
     Procedure ExecuteCommand(const Cmd,Args : String; const Env: TStrings = nil; IgnoreError : Boolean = False); virtual;
@@ -1120,7 +1154,7 @@ Function OSesToString(OSes: TOSes) : String;
 Function CPUToString(CPU: TCPU) : String;
 Function CPUSToString(CPUS: TCPUS) : String;
 Function StringToOS(const S : String) : TOS;
-Function OSesToString(const S : String) : TOSes;
+//Function StringToOSes(const S : String) : TOSes;
 Function StringToCPU(const S : String) : TCPU;
 Function StringToCPUS(const S : String) : TCPUS;
 Function ModeToString(Mode: TCompilerMode) : String;
@@ -1173,6 +1207,7 @@ ResourceString
   SErrInstaller         = 'The installer encountered the following error:';
   SErrDepUnknownTarget  = 'Unknown target for unit "%s" in dependencies for %s in package %s';
   SErrExternalCommandFailed = 'External command "%s" failed with exit code %d. Console output:'+LineEnding+'%s';
+  SErrExtCommandNotFound= 'External command "%s" not found';
   SErrCreatingDirectory = 'Failed to create directory "%s"';
   SErrDeletingFile      = 'Failed to delete file "%s"';
   SErrRemovingDirectory = 'Failed to remove directory "%s"';
@@ -1211,6 +1246,7 @@ ResourceString
   SWarnCanNotGetAccessRights = 'Warning: Failed to copy access-rights from file %s';
   SWarnCanNotSetAccessRights = 'Warning: Failed to copy access-rights to file %s';
   SWarnCanNotGetFileAge = 'Warning: Failed to get FileAge for %s';
+  SWarnExtCommandNotFound = 'Warning: External command "%s" not found but "%s" is older then "%s"';
 
   SInfoPackageAlreadyProcessed = 'Package %s is already processed';
   SInfoCompilingTarget    = 'Compiling target %s';
@@ -1223,12 +1259,14 @@ ResourceString
   SInfoCopyingFile        = 'Copying file "%s" to "%s"';
   SInfoDeletingFile       = 'Deleting file "%s"';
   SInfoSourceNewerDest    = 'Source file "%s" (%s) is newer than destination "%s" (%s).';
+  SInfoDestDoesNotExist   = 'Destination file "%s" does not exist.';
   SInfoFallbackBuildmode  = 'Buildmode not supported by package, falling back to one by one unit compilation';
 
   SDbgComparingFileTimes    = 'Comparing file "%s" time "%s" to "%s" time "%s".';
   SDbgCompilingDependenciesOfTarget = 'Compiling dependencies of target %s';
   SDbgResolvingSourcesOfTarget = 'Resolving filenames of target %s for %s';
   SDbgResolvedSourceFile    = 'Resolved source file %s to "%s"';
+  SDbgSourceAlreadyResolved = 'Source file of %s has been resolved earlier';
   SDbgResolvedIncludeFile   = 'Resolved include file %s to "%s"';
   SDbgOutputNotYetAvailable = 'Output file %s not available';
   SDbgDependencyOnUnit      = 'Dependency of %s on unit %s';
@@ -1688,8 +1726,24 @@ end;
 
 Function OSesToString(OSes: TOSes) : String;
 
+var
+  i: TOS;
+  Tmp: String;
+  First: boolean;
+
 begin
-  Result:=LowerCase(SetToString(PtypeInfo(TypeInfo(TOSes)),Integer(OSes),False));
+  { can't use SetToString, there are more than 32 OSes }
+  First:=true;
+  for i in OSes do
+    begin
+      if not First then
+        Result:=Result+','
+      else
+        First:=false;
+      Str(i,Tmp);
+      Result:=Result+Tmp;
+    end;
+  Result:=LowerCase(Tmp);
 end;
 
 Function CPUToString(CPU: TCPU) : String;
@@ -1716,12 +1770,13 @@ begin
   Result:=TOS(I);
 end;
 
-
-Function OSesToString(const S : String) : TOSes;
+(*
+Function StringToOSes(const S : String) : TOSes;
 
 begin
   Result:=TOSes(StringToSet(PTypeInfo(TypeInfo(TOSes)),S));
 end;
+*)
 
 Function StringToCPU(const S : String) : TCPU;
 
@@ -1824,7 +1879,17 @@ begin
               S:=APrefix+C.Value
             else
               S:=C.Value;
-            Dest.Add(D.ReplaceStrings(S));
+            S := D.ReplaceStrings(s);
+            if C is TConditionalDestString then
+              begin
+                // If a destination path is given, omit the path of the sourcefile
+                if TConditionalDestString(c).DestPath='' then
+                  Dest.values[S] :=  D.ReplaceStrings(IncludeTrailingPathDelimiter(TConditionalDestString(c).DestPath))+S
+                else
+                  Dest.values[S] :=  D.ReplaceStrings(IncludeTrailingPathDelimiter(TConditionalDestString(c).DestPath)+APrefix+ExtractFileName(C.Value));
+              end
+            else
+              Dest.Add(S);
             Inc(Result);
           end;
       end;
@@ -2052,7 +2117,51 @@ begin
   SetLength(Result,Count);
   Move(Buf,Result[1],Count);
 end;
+
 {$endif HAS_UNIT_PROCESS}
+
+{ TConditionalDestStrings }
+
+function TConditionalDestStrings.GetConditionalString(Index : Integer): TConditionalDestString;
+begin
+  Result:=TConditionalDestString(Items[Index]);
+end;
+
+procedure TConditionalDestStrings.SetConditionalString(Index : Integer; AValue: TConditionalDestString);
+begin
+  Items[Index]:=AValue;
+end;
+
+constructor TConditionalDestStrings.Create(AClass: TConditionalDestStringClass);
+begin
+  inherited Create(AClass);
+end;
+
+function TConditionalDestStrings.Add(const Value: String; ADestPath: String): TConditionalDestString;
+begin
+  Add(Value, AllCPUs, AllOSes, ADestPath);
+end;
+
+function TConditionalDestStrings.Add(const Value: String; const OSes: TOSes; ADestPath: String): TConditionalDestString;
+begin
+  Add(Value, AllCPUs, OSes, ADestPath);
+end;
+
+{$ifdef cpu_only_overloads}
+Function TConditionalDestStrings.Add(Const Value : String;const CPUs:TCPUs; ADestPath: String) : TConditionalDestString;inline;
+begin
+  Add(Value, CPUs, AllOSes, ADestPath);
+end;
+{$endif cpu_only_overloads}
+
+
+function TConditionalDestStrings.Add(const Value: String; const CPUs: TCPUs; const OSes: TOSes; ADestPath: String): TConditionalDestString;
+var
+  ACondString: TConditionalDestString;
+begin
+  ACondString := inherited Add(Value,CPUs,OSes) as TConditionalDestString;
+  ACondString.DestPath:=ADestPath;
+end;
 
 { TPackageDictionary }
 
@@ -2516,7 +2625,7 @@ begin
   FTargets:=TTargets.Create(TTarget);
   FSources:=TSources.Create(TSource);
   FDependencies:=TDependencies.Create(TDependency);
-  FInstallFiles:=TConditionalStrings.Create(TConditionalString);
+  FInstallFiles:=TConditionalDestStrings.Create(TConditionalDestString);
   FCleanFiles:=TConditionalStrings.Create(TConditionalString);
   FUnitPath:=TConditionalStrings.Create(TConditionalString);
   FObjectPath:=TConditionalStrings.Create(TConditionalString);
@@ -2599,14 +2708,18 @@ Var
   I : Integer;
   T : TTarget;
 begin
-  OB:=IncludeTrailingPathDelimiter(GetBinOutputDir(Defaults.CPU,Defaults.OS));
-  OU:=IncludeTrailingPathDelimiter(GetUnitsOutputDir(Defaults.CPU,Defaults.OS));
-  AddConditionalStrings(List,InstallFiles,ACPU,AOS);
-  For I:=0 to FTargets.Count-1 do
+  if Types=[] then
+    AddConditionalStrings(List,InstallFiles,ACPU,AOS)
+  else
     begin
-      T:=FTargets.TargetItems[I];
-      if (T.TargetType in Types) and (T.Install) then
-        T.GetInstallFiles(List, OU, OB, ACPU, AOS);
+      OB:=IncludeTrailingPathDelimiter(GetBinOutputDir(Defaults.CPU,Defaults.OS));
+      OU:=IncludeTrailingPathDelimiter(GetUnitsOutputDir(Defaults.CPU,Defaults.OS));
+      For I:=0 to FTargets.Count-1 do
+        begin
+          T:=FTargets.TargetItems[I];
+          if (T.TargetType in Types) and (T.Install) then
+            T.GetInstallFiles(List, OU, OB, ACPU, AOS);
+        end;
     end;
 end;
 
@@ -3086,6 +3199,7 @@ begin
   else
     FBaseInstallDir:='';
   GlobalDictionary.AddVariable('baseinstalldir',BaseInstallDir);
+  GlobalDictionary.AddVariable('bininstalldir',BinInstallDir);
   BinInstallDir:='';
   ExamplesInstallDir:='';
 end;
@@ -3107,6 +3221,8 @@ begin
     FPrefix:=IncludeTrailingPathDelimiter(ExpandFileName(AValue))
   else
     FPrefix:='';
+  GlobalDictionary.AddVariable('prefix',Prefix);
+  GlobalDictionary.AddVariable('bininstalldir',BinInstallDir);
   BaseInstallDir:='';
 end;
 
@@ -3371,6 +3487,8 @@ begin
 
       GlobalDictionary.AddVariable('target',Target);
       GlobalDictionary.AddVariable('baseinstalldir',BaseInstallDir);
+      GlobalDictionary.AddVariable('prefix',Prefix);
+      GlobalDictionary.AddVariable('bininstalldir',BinInstallDir);
       end;
   Finally
     L.Free;
@@ -3428,7 +3546,9 @@ begin
   GlobalDictionary:=DictionaryClass.Create(Nil);
   AnalyzeOptions;
   GlobalDictionary.AddVariable('BaseInstallDir',Defaults.BaseInstallDir);
+  GlobalDictionary.AddVariable('bininstalldir',Defaults.BinInstallDir);
   GlobalDictionary.AddVariable('Target',Defaults.Target);
+  GlobalDictionary.AddVariable('Prefix',Defaults.Prefix);
   CreatePackages;
 end;
 
@@ -4298,16 +4418,34 @@ begin
           if IsRelativePath(DestFile) then
             DestFile := AddPathPrefix(APackage,DestFile);
 
+          Cmd:=C.Command;
+          If (ExtractFilePath(Cmd)='') then
+            Cmd:=ExeSearch(Cmd,GetEnvironmentvariable('PATH'));
+
           If (SourceFile<>'') and (DestFile<>'')  then
-            E:=FileNewer(SourceFile, DestFile);
+            begin
+              if not FileExists(DestFile) then
+                Log(vlInfo,SInfoDestDoesNotExist,[DestFile])
+              else
+                begin
+                E:=FileNewer(SourceFile, DestFile);
+                if E and (cmd = '') then
+                  begin
+                  log(vlWarning,SWarnExtCommandNotFound,[C.Command,DestFile,SourceFile]);
+                  E := False;
+                  end;
+                end;
+            end;
           If E then
             begin
+            if Cmd = '' then
+              error(SErrExtCommandNotFound,[C.Command]);
+
             If Assigned(C.BeforeCommand) then
               C.BeforeCommand(C);
             O:=ADictionary.Substitute(C.CmdLineOptions,['SOURCE',SourceFile,'DEST',DestFile]);
-            Cmd:=C.Command;
-            If (ExtractFilePath(Cmd)='') then
-              Cmd:=ExeSearch(Cmd,GetEnvironmentvariable('PATH'));
+
+            Log(vlCommand,SInfoExecutingCommand,[Cmd,O]);
             ExecuteCommand(Cmd,O,nil,C.IgnoreResult);
             If Assigned(C.AfterCommand) then
               C.AfterCommand(C);
@@ -4372,7 +4510,7 @@ begin
 end;
 
 
-Procedure TBuildEngine.ResolveFileNames(APackage : TPackage; ACPU:TCPU;AOS:TOS;DoChangeDir:boolean=true);
+Procedure TBuildEngine.ResolveFileNames(APackage : TPackage; ACPU:TCPU;AOS:TOS;DoChangeDir:boolean=true; WarnIfNotFound:boolean=true);
 
   procedure FindMainSource(T:TTarget);
   var
@@ -4390,7 +4528,9 @@ Procedure TBuildEngine.ResolveFileNames(APackage : TPackage; ACPU:TCPU;AOS:TOS;D
       Log(vlDebug,SDbgResolvedSourceFile,[T.SourceFileName,T.TargetSourceFileName])
     else
       begin
-        Log(vlWarning,SWarnSourceFileNotFound,[T.SourceFileName,APackage.Name,MakeTargetString(ACPU,AOS)]);
+        if WarnIfNotFound then
+          Log(vlWarning,SWarnSourceFileNotFound,[T.SourceFileName,APackage.Name,MakeTargetString(ACPU,AOS)]);
+        APackage.FAllFilesResolved:=false;
         T.FTargetSourceFileName:='';
       end;
   end;
@@ -4408,7 +4548,11 @@ Procedure TBuildEngine.ResolveFileNames(APackage : TPackage; ACPU:TCPU;AOS:TOS;D
         D:=T.Dependencies[j];
         if (D.DependencyType=depInclude) then
           begin
-            D.TargetFileName:='';
+            if D.TargetFileName<>'' then
+              begin
+              Exit;
+              Log(vlDebug,SDbgSourceAlreadyResolved,[T.Name]);
+              end;
             if (ACPU in D.CPUs) and (AOS in D.OSes) then
               begin
                 if ExtractFilePath(D.Value)='' then
@@ -4428,7 +4572,9 @@ Procedure TBuildEngine.ResolveFileNames(APackage : TPackage; ACPU:TCPU;AOS:TOS;D
                   Log(vlDebug,SDbgResolvedIncludeFile,[D.Value,D.TargetFileName])
                 else
                   begin
-                    Log(vlWarning,SWarnIncludeFileNotFound,[D.Value, APackage.Name, MakeTargetString(ACPU,AOS)]);
+                    if WarnIfNotFound then
+                      Log(vlWarning,SWarnIncludeFileNotFound,[D.Value, APackage.Name, MakeTargetString(ACPU,AOS)]);
+                    APackage.FAllFilesResolved:=false;
                     D.TargetFileName:='';
                   end;
               end;
@@ -4452,8 +4598,10 @@ Procedure TBuildEngine.ResolveFileNames(APackage : TPackage; ACPU:TCPU;AOS:TOS;D
       Log(vlDebug,SDbgResolvedSourceFile,[T.SourceFileName,T.TargetSourceFileName])
     else
       begin
-        Log(vlWarning,SWarnSourceFileNotFound,[T.SourceFileName, APackage.Name, MakeTargetString(ACPU,AOS)]);
+        if WarnIfNotFound then
+          Log(vlWarning,SWarnSourceFileNotFound,[T.SourceFileName, APackage.Name, MakeTargetString(ACPU,AOS)]);
         T.FTargetSourceFileName:='';
+        APackage.FAllFilesResolved:=false;
       end;
   end;
 
@@ -4463,6 +4611,9 @@ var
 begin
   if not((ACPU in APackage.CPUs) and (AOS in APackage.OSes)) then
     exit;
+  if APackage.FAllFilesResolved then
+    Exit;
+  APackage.FAllFilesResolved:=true;
   try
     if DoChangeDir and (APackage.Directory<>'') then
       GPathPrefix := APackage.Directory;
@@ -4482,14 +4633,20 @@ begin
               ttUnit,
               ttImplicitUnit :
                 begin
-                  FindMainSource(T);
+                  if T.FTargetSourceFileName<>'' then
+                    Log(vlDebug,SDbgSourceAlreadyResolved,[T.Name])
+                  else
+                    FindMainSource(T);
                   if T.Dependencies.Count>0 then
                     FindIncludeSources(T);
                 end;
               ttExampleUnit,
               ttExampleProgram :
                 begin
-                  FindExampleSource(T);
+                  if T.FTargetSourceFileName<>'' then
+                    Log(vlDebug,SDbgSourceAlreadyResolved,[T.Name])
+                  else
+                    FindExampleSource(T);
                 end;
             end;
 
@@ -4796,6 +4953,8 @@ begin
     APackage.BeforeCompile(APackage);
   If Assigned(APackage.BeforeCompileProc) then
     APackage.BeforeCompileProc(APackage);
+  // It could be that files that weren't found before are available now.
+  ResolveFileNames(APackage,Defaults.CPU,Defaults.OS,false,true);
 end;
 
 
@@ -5430,7 +5589,7 @@ begin
       result := False;
       Exit;
     end;
-  ResolveFileNames(APackage,Defaults.CPU,Defaults.OS);
+  ResolveFileNames(APackage,Defaults.CPU,Defaults.OS,True,False);
   If NeedsCompile(APackage) then
     result := True
   else
@@ -5442,14 +5601,14 @@ begin
 end;
 
 
-Function TBuildEngine.InstallPackageFiles(APAckage : TPackage; tt : TTargetType; Const Dest : String):Boolean;
+Function TBuildEngine.InstallPackageFiles(APAckage : TPackage; tt : TTargetTypes; Const Dest : String):Boolean;
 Var
   List : TStringList;
 begin
   Result:=False;
   List:=TStringList.Create;
   Try
-    APackage.GetInstallFiles(List,[tt],Defaults.CPU, Defaults.OS);
+    APackage.GetInstallFiles(List,tt,Defaults.CPU, Defaults.OS);
     if (List.Count>0) then
       begin
         Result:=True;
@@ -5520,17 +5679,22 @@ begin
   If (Apackage.State<>tsCompiled) then
     MaybeCompile(APackage);
   try
-    Log(vlInfo,SInfoInstallingPackage,[APackage.Name]);
+    Log(vlCommand,SInfoInstallingPackage,[APackage.Name]);
     If (APackage.Directory<>'') then
       EnterDir(APackage.Directory);
     DoBeforeInstall(APackage);
     // units
     B:=false;
     GlobalDictionary.AddVariable('PackageName',APackage.Name);
-    D:=IncludeTrailingPathDelimiter(Defaults.UnitInstallDir);
-    if InstallPackageFiles(APAckage,ttUnit,D) then
+    GlobalDictionary.AddVariable('unitinstalldir',Defaults.UnitInstallDir);
+
+    D:=IncludeTrailingPathDelimiter(Defaults.BaseInstallDir);
+    // This is to install the TPackage.Installfiles, which are not related to any
+    // target
+    if InstallPackageFiles(APackage,[],D) then
       B:=true;
-    if InstallPackageFiles(APAckage,ttImplicitUnit,D) then
+    D:=IncludeTrailingPathDelimiter(Defaults.UnitInstallDir);
+    if InstallPackageFiles(APackage,[ttUnit, ttImplicitUnit],D) then
       B:=true;
     // By default do not install the examples. Maybe add an option for this later
     //if InstallPackageFiles(APAckage,ttExampleUnit,D) then
@@ -5540,7 +5704,7 @@ begin
       InstallUnitConfigFile(APackage,D);
     // Programs
     D:=IncludeTrailingPathDelimiter(Defaults.BinInstallDir);
-    InstallPackageFiles(APAckage,ttProgram,D);
+    InstallPackageFiles(APAckage,[ttProgram],D);
     //InstallPackageFiles(APAckage,ttExampleProgram,D);
     // Documentation
     D:=IncludeTrailingPathDelimiter(Defaults.DocInstallDir)+'fpc-'+APackage.FileName+PathDelim;
@@ -6246,7 +6410,6 @@ begin
     List.Add(APrefixB + GetProgramFileName(AOS));
   If ResourceStrings then
     List.Add(APrefixU + RSTFileName);
-  // Maybe add later ?  AddConditionalStrings(List,InstallFiles);
 end;
 
 
