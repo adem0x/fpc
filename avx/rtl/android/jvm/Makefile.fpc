@@ -1,5 +1,5 @@
 #
-#   Makefile.fpc for Free Pascal Embedded RTL
+#   Makefile.fpc for Free Pascal Android/JVM (Dalvik) RTL
 #
 
 [package]
@@ -7,15 +7,7 @@ main=rtl
 
 [target]
 loaders=
-units=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings \
-#      dos \
-#       sysutils \
-#       classes math typinfo varutils fmtbcd \
-#       charset ucomplex getopts matrix \
-#       variants types rtlconsts sysconst dateutil
-#implicitunits=exeinfo
-
-#rsts=math rtlconsts varutils typinfo variants classes sysconst dateutil
+units=$(SYSTEMUNIT) uuchar objpas androidr14
 
 [require]
 nortl=y
@@ -24,15 +16,17 @@ nortl=y
 fpcpackage=y
 
 [default]
-fpcdir=../..
-target=embedded
+fpcdir=../../..
+target=android
 
 [compiler]
 includedir=$(INC) $(PROCINC)
+includedir_jvm=../../java
 sourcedir=$(INC) $(PROCINC) $(COMMON) $(ARCH)
+sourcedir_jvm=../../java
 
 [prerules]
-RTL=..
+RTL=../..
 INC=$(RTL)/inc
 COMMON=$(RTL)/common
 PROCINC=$(RTL)/$(CPU_TARGET)
@@ -46,30 +40,6 @@ endif
 
 CPU_UNITS=
 SYSINIT_UNITS=
-
-ifeq ($(ARCH),arm)
-ifeq ($(SUBARCH),armv7m)
-CPU_UNITS=lm3fury lm3tempest stm32f103 lpc1768 # thumb2_bare
-endif
-ifeq ($(SUBARCH),armv4t)
-CPU_UNITS=lpc21x4 at91sam7x256 sc32442b
-endif
-ifeq ($(SUBARCH),armv4)
-CPU_UNITS=lpc21x4 at91sam7x256 sc32442b
-endif
-endif
-
-ifeq ($(ARCH),avr)
-CPU_UNITS=atmega128
-endif
-
-ifeq ($(ARCH),i386)
-CPU_UNITS=multiboot
-endif
-
-# Paths
-OBJPASDIR=$(RTL)/objpas
-GRAPHDIR=$(INC)/graph
 
 [rules]
 .NOTPARALLEL:
@@ -93,17 +63,19 @@ SYSDEPS=$(SYSINCDEPS) $(SYSCPUDEPS)
 # Base Units (System, strings, os-dependent-base-unit)
 #
 
-$(SYSTEMUNIT)$(PPUEXT) : $(SYSTEMUNIT).pp $(SYSDEPS)
-        $(COMPILER) -Us -Sg $(SYSTEMUNIT).pp $(REDIR)
+$(SYSTEMUNIT)$(PPUEXT) : $(RTL)/java/$(SYSTEMUNIT).pp $(SYSDEPS)
+        $(COMPILER) -Us -Sg $(RTL)/java/$(SYSTEMUNIT).pp $(REDIR)
 
 uuchar$(PPUEXT): $(SYSTEMUNIT)$(PPUEXT) $(INC)/uuchar.pp
 
-objpas$(PPUEXT): $(OBJPASDIR)/objpas.pp $(INC)/except.inc $(SYSTEMUNIT)$(PPUEXT)
-        $(COMPILER) -I$(OBJPASDIR) $(OBJPASDIR)/objpas.pp $(REDIR)
+objpas$(PPUEXT): $(RTL)/java/objpas.pp
+        $(COMPILER) $(RTL)/java/objpas.pp $(REDIR)
 
 strings$(PPUEXT) : $(INC)/strings.pp $(INC)/stringsi.inc \
                    $(PROCINC)/strings.inc $(PROCINC)/stringss.inc \
                    $(SYSTEMUNIT)$(PPUEXT)
+
+androidr14$(PPUEXT): $(SYSTEMUNIT)$(PPUEXT) objpas$(PPUEXT) androidr14.pas androidr14.inc
 
 #
 # System Dependent Units

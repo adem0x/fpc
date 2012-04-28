@@ -100,8 +100,8 @@ endif
 endif
 export ECHO
 endif
-override OS_TARGET_DEFAULT=embedded
-override DEFAULT_FPCDIR=../..
+override OS_TARGET_DEFAULT=android
+override DEFAULT_FPCDIR=../../..
 ifndef FPC
 ifdef PP
 FPC=$(PP)
@@ -297,7 +297,7 @@ endif
 endif
 override PACKAGE_NAME=rtl
 PACKAGEDIR_MAIN:=$(firstword $(subst /Makefile.fpc,,$(strip $(wildcard $(addsuffix /rtl/Makefile.fpc,$(PACKAGESDIR))))))
-RTL=..
+RTL=../..
 INC=$(RTL)/inc
 COMMON=$(RTL)/common
 PROCINC=$(RTL)/$(CPU_TARGET)
@@ -309,234 +309,215 @@ override FPCOPT+=-Ur
 endif
 CPU_UNITS=
 SYSINIT_UNITS=
-ifeq ($(ARCH),arm)
-ifeq ($(SUBARCH),armv7m)
-CPU_UNITS=lm3fury lm3tempest stm32f103 lpc1768 # thumb2_bare
-endif
-ifeq ($(SUBARCH),armv4t)
-CPU_UNITS=lpc21x4 at91sam7x256 sc32442b
-endif
-ifeq ($(SUBARCH),armv4)
-CPU_UNITS=lpc21x4 at91sam7x256 sc32442b
-endif
-endif
-ifeq ($(ARCH),avr)
-CPU_UNITS=atmega128
-endif
-ifeq ($(ARCH),i386)
-CPU_UNITS=multiboot
-endif
-OBJPASDIR=$(RTL)/objpas
-GRAPHDIR=$(INC)/graph
 ifeq ($(FULL_TARGET),i386-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-go32v2)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-win32)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-os2)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-freebsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-beos)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-haiku)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-netbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-solaris)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-qnx)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-netware)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-openbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-wdosx)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-darwin)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-emx)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-watcom)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-netwlibc)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-wince)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-embedded)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-symbian)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-nativent)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),i386-iphonesim)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),m68k-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),m68k-freebsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),m68k-netbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),m68k-amiga)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),m68k-atari)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),m68k-openbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),m68k-palmos)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),m68k-embedded)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc-netbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc-amiga)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc-macos)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc-darwin)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc-morphos)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc-embedded)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc-wii)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc-aix)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),sparc-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),sparc-netbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),sparc-solaris)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),sparc-embedded)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),x86_64-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),x86_64-freebsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),x86_64-netbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),x86_64-solaris)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),x86_64-openbsd)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),x86_64-darwin)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),x86_64-win64)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),x86_64-embedded)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),arm-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),arm-palmos)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),arm-darwin)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),arm-wince)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),arm-gba)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),arm-nds)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),arm-embedded)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),arm-symbian)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc64-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc64-darwin)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc64-embedded)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),powerpc64-aix)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),avr-embedded)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),armeb-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),armeb-embedded)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),mips-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),mipsel-linux)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),jvm-java)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 ifeq ($(FULL_TARGET),jvm-android)
-override TARGET_UNITS+=$(SYSTEMUNIT) $(CPU_UNITS) uuchar objpas heapmgr consoleio # macpas iso7185 strings
+override TARGET_UNITS+=$(SYSTEMUNIT) uuchar objpas androidr14
 endif
 override INSTALL_FPCPACKAGE=y
 ifeq ($(FULL_TARGET),i386-linux)
@@ -744,10 +725,10 @@ ifeq ($(FULL_TARGET),mipsel-linux)
 override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC)
 endif
 ifeq ($(FULL_TARGET),jvm-java)
-override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC)
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) ../../java
 endif
 ifeq ($(FULL_TARGET),jvm-android)
-override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC)
+override COMPILER_INCLUDEDIR+=$(INC) $(PROCINC) ../../java
 endif
 ifeq ($(FULL_TARGET),i386-linux)
 override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(COMMON) $(ARCH)
@@ -954,10 +935,10 @@ ifeq ($(FULL_TARGET),mipsel-linux)
 override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(COMMON) $(ARCH)
 endif
 ifeq ($(FULL_TARGET),jvm-java)
-override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(COMMON) $(ARCH)
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(COMMON) $(ARCH) ../../java
 endif
 ifeq ($(FULL_TARGET),jvm-android)
-override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(COMMON) $(ARCH)
+override COMPILER_SOURCEDIR+=$(INC) $(PROCINC) $(COMMON) $(ARCH) ../../java
 endif
 ifdef REQUIRE_UNITSDIR
 override UNITSDIR+=$(REQUIRE_UNITSDIR)
@@ -2096,14 +2077,15 @@ SYSINCDEPS=$(addprefix $(INC)/,$(SYSINCNAMES))
 include $(PROCINC)/makefile.cpu
 SYSCPUDEPS=$(addprefix $(PROCINC)/,$(CPUINCNAMES))
 SYSDEPS=$(SYSINCDEPS) $(SYSCPUDEPS)
-$(SYSTEMUNIT)$(PPUEXT) : $(SYSTEMUNIT).pp $(SYSDEPS)
-	$(COMPILER) -Us -Sg $(SYSTEMUNIT).pp $(REDIR)
+$(SYSTEMUNIT)$(PPUEXT) : $(RTL)/java/$(SYSTEMUNIT).pp $(SYSDEPS)
+	$(COMPILER) -Us -Sg $(RTL)/java/$(SYSTEMUNIT).pp $(REDIR)
 uuchar$(PPUEXT): $(SYSTEMUNIT)$(PPUEXT) $(INC)/uuchar.pp
-objpas$(PPUEXT): $(OBJPASDIR)/objpas.pp $(INC)/except.inc $(SYSTEMUNIT)$(PPUEXT)
-	$(COMPILER) -I$(OBJPASDIR) $(OBJPASDIR)/objpas.pp $(REDIR)
+objpas$(PPUEXT): $(RTL)/java/objpas.pp
+	$(COMPILER) $(RTL)/java/objpas.pp $(REDIR)
 strings$(PPUEXT) : $(INC)/strings.pp $(INC)/stringsi.inc \
 		   $(PROCINC)/strings.inc $(PROCINC)/stringss.inc \
 		   $(SYSTEMUNIT)$(PPUEXT)
+androidr14$(PPUEXT): $(SYSTEMUNIT)$(PPUEXT) objpas$(PPUEXT) androidr14.pas androidr14.inc
 dos$(PPUEXT) : dos.pp $(INC)/filerec.inc $(INC)/textrec.inc strings$(PPUEXT) \
 	       $(SYSTEMUNIT)$(PPUEXT)
 objects$(PPUEXT) : $(INC)/objects.pp dos$(PPUEXT) $(SYSTEMUNIT)$(PPUEXT)
