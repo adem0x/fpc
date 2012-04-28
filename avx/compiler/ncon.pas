@@ -124,7 +124,7 @@ interface
           cst_type : tconststringtype;
           constructor createstr(const s : string);virtual;
           constructor createpchar(s : pchar;l : longint);virtual;
-          constructor createwstr(w : pcompilerwidestring);virtual;
+          constructor createunistr(w : pcompilerwidestring);virtual;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderefimpl;override;
@@ -144,7 +144,7 @@ interface
           typedef : tdef;
           typedefderef : tderef;
           value_set : pconstset;
-          lab_set : tasmlabel;
+          lab_set : tasmsymbol;
           constructor create(s : pconstset;def:tdef);virtual;
           destructor destroy;override;
           constructor ppuload(t:tnodetype;ppufile:tcompilerppufile);override;
@@ -254,7 +254,7 @@ implementation
           begin
             initwidestring(pWideStringVal);
             concatwidestringchar(pWideStringVal, tcompilerwidechar(tordconstnode(p).value.uvalue));
-            result:=cstringconstnode.createwstr(pWideStringVal);
+            result:=cstringconstnode.createunistr(pWideStringVal);
           end
         else if is_conststringnode(p) then
           result:=tstringconstnode(p.getcopy)
@@ -300,7 +300,7 @@ implementation
           conststring :
             begin
               len:=p.value.len;
-              if not(cs_ansistrings in current_settings.localswitches) and (len>255) then
+              if not(cs_refcountedstrings in current_settings.localswitches) and (len>255) then
                 begin
                   message(parser_e_string_const_too_long);
                   len:=255;
@@ -311,7 +311,7 @@ implementation
               p1:=cstringconstnode.createpchar(pc,len);
             end;
           constwstring :
-            p1:=cstringconstnode.createwstr(pcompilerwidestring(p.value.valueptr));
+            p1:=cstringconstnode.createunistr(pcompilerwidestring(p.value.valueptr));
           constreal :
             p1:=crealconstnode.create(pbestreal(p.value.valueptr)^,p.constdef);
           constset :
@@ -794,14 +794,14 @@ implementation
       end;
 
 
-    constructor tstringconstnode.createwstr(w : pcompilerwidestring);
+    constructor tstringconstnode.createunistr(w : pcompilerwidestring);
       begin
          inherited create(stringconstn);
          len:=getlengthwidestring(w);
          initwidestring(pcompilerwidestring(value_str));
          copywidestring(w,pcompilerwidestring(value_str));
          lab_str:=nil;
-         cst_type:=cst_widestring;
+         cst_type:=cst_unicodestring;
       end;
 
 
@@ -920,7 +920,7 @@ implementation
               else
                 l:=0;
               resultdef:=tarraydef.create(0,l,s32inttype);
-              tarraydef(resultdef).elementdef:=cchartype;
+              tarraydef(resultdef).elementdef:=cansichartype;
               include(tarraydef(resultdef).arrayoptions,ado_IsConstString);
             end;
           cst_shortstring :

@@ -113,6 +113,7 @@ interface
        tsettings = packed record
          alignment       : talignmentinfo;
          globalswitches  : tglobalswitches;
+         targetswitches  : ttargetswitches;
          moduleswitches  : tmoduleswitches;
          localswitches   : tlocalswitches;
          modeswitches    : tmodeswitches;
@@ -360,6 +361,7 @@ interface
           maxCrecordalign : 0;
         );
         globalswitches : [cs_check_unit_name,cs_link_static];
+        targetswitches : [];
         moduleswitches : [cs_extsyntax,cs_implicit_exceptions];
         localswitches : [cs_check_io,cs_typed_const_writable,cs_pointermath];
         modeswitches : fpcmodeswitches;
@@ -432,9 +434,18 @@ interface
         optimizecputype : cpu_mips32;
         fputype : fpu_mips2;
   {$endif mips}
+  {$ifdef jvm}
+        cputype : cpu_none;
+        optimizecputype : cpu_none;
+        fputype : fpu_standard;
+  {$endif jvm}
 {$endif not GENERIC_CPU}
         asmmode : asmmode_standard;
+{$ifndef jvm}
         interfacetype : it_interfacecom;
+{$else jvm}
+        interfacetype : it_interfacejava;
+{$endif jvm}
         defproccall : pocall_default;
         sourcecodepage : 28591;
         minfpconstprec : s32real;
@@ -456,7 +467,6 @@ interface
 
     procedure DefaultReplacements(var s:ansistring);
 
-    function Shell(const command:ansistring): longint;
     function  GetEnvPChar(const envname:string):pchar;
     procedure FreeEnvPChar(p:pchar);
 
@@ -481,6 +491,7 @@ interface
     function UpdateOptimizerStr(s:string;var a:toptimizerswitches):boolean;
     function UpdateWpoStr(s: string; var a: twpoptimizerswitches): boolean;
     function UpdateDebugStr(s:string;var a:tdebugswitches):boolean;
+    function UpdateTargetSwitchStr(s: string; var a: ttargetswitches): boolean;
     function IncludeFeature(const s : string) : boolean;
     function SetMinFPConstPrec(const s: string; var a: tfloattype) : boolean;
 
@@ -496,6 +507,11 @@ interface
     function is_double_hilo_swapped: boolean;{$ifdef USEINLINE}inline;{$endif}
 {$endif ARM}
     function floating_point_range_check_error : boolean;
+
+  { hide Sysutils.ExecuteProcess in units using this one after SysUtils}
+  const
+    ExecuteProcess = 'Do not use' deprecated 'Use cfileutil.RequotedExecuteProcess instead, ExecuteProcess cannot deal with single quotes as used by Unix command lines';
+
 
 implementation
 
@@ -819,7 +835,7 @@ implementation
  ****************************************************************************}
 
     function GetEnvPChar(const envname:string):pchar;
-      {$ifdef win32}
+      {$ifdef mswindows}
       var
         s     : string;
         i,len : longint;
@@ -830,7 +846,7 @@ implementation
         GetEnvPchar:=BaseUnix.fpGetEnv(envname);
         {$define GETENVOK}
       {$endif}
-      {$ifdef win32}
+      {$ifdef mswindows}
         GetEnvPchar:=nil;
         p:=GetEnvironmentStrings;
         hp:=p;
@@ -876,28 +892,6 @@ implementation
 {$if defined(MORPHOS) or defined(AMIGA)}
   {$define AMIGASHELL}
 {$endif}
-
-    function Shell(const command:ansistring): longint;
-      { This is already defined in the linux.ppu for linux, need for the *
-        expansion under linux }
-{$ifdef hasunix}
-      begin
-        result := Unix.fpsystem(command);
-      end;
-{$else hasunix}
-  {$ifdef amigashell}
-      begin
-        result := ExecuteProcess('',command);
-      end;
-  {$else amigashell}
-      var
-        comspec : string;
-      begin
-        comspec:=GetEnvironmentVariable('COMSPEC');
-        result := ExecuteProcess(comspec,' /C '+command);
-      end;
-   {$endif amigashell}
-{$endif hasunix}
 
 {$UNDEF AMIGASHELL}
       function is_number_float(d : double) : boolean;
@@ -1310,6 +1304,48 @@ implementation
           for opt:=low(tdebugswitch) to high(tdebugswitch) do
             begin
               if DebugSwitchStr[opt]=tok then
+                begin
+                  found:=true;
+                  break;
+                end;
+            end;
+          if found then
+            begin
+              if doset then
+                include(a,opt)
+              else
+                exclude(a,opt);
+            end
+          else
+            result:=false;
+        until false;
+      end;
+
+
+    function UpdateTargetSwitchStr(s: string; var a: ttargetswitches): boolean;
+      var
+        tok   : string;
+        doset,
+        found : boolean;
+        opt   : ttargetswitch;
+      begin
+        result:=true;
+        uppervar(s);
+        repeat
+          tok:=GetToken(s,',');
+          if tok='' then
+           break;
+          if Copy(tok,1,2)='NO' then
+            begin
+              delete(tok,1,2);
+              doset:=false;
+            end
+          else
+            doset:=true;
+          found:=false;
+          for opt:=low(ttargetswitch) to high(ttargetswitch) do
+            begin
+              if TargetSwitchStr[opt]=tok then
                 begin
                   found:=true;
                   break;

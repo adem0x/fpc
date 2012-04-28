@@ -573,14 +573,14 @@ implementation
               slen:=def.len;
               if slen=0 then
                 slen:=255;
-              charst:=def_stab_number(cchartype);
+              charst:=def_stab_number(cansichartype);
               bytest:=def_stab_number(u8inttype);
               ss:=def_stabstr_evaluate(def,'s$1length:$2,0,8;st:ar$2;1;$3;$4,8,$5;;',
                           [tostr(slen+1),bytest,tostr(slen),charst,tostr(slen*8)]);
             end;
           st_longstring:
             begin
-              charst:=def_stab_number(cchartype);
+              charst:=def_stab_number(cansichartype);
               bytest:=def_stab_number(u8inttype);
               longst:=def_stab_number(u32inttype);
               ss:=def_stabstr_evaluate(def,'s$1length:$2,0,32;dummy:$6,32,8;st:ar$2;1;$3;$4,40,$5;;',
@@ -589,7 +589,7 @@ implementation
          st_ansistring:
            begin
              { looks like a pchar }
-             ss:='*'+def_stab_number(cchartype);
+             ss:='*'+def_stab_number(cansichartype);
            end;
          st_unicodestring,
          st_widestring:
@@ -738,13 +738,13 @@ implementation
                                  'NAME:ar$1;0;255;$4,512,2048;;',[def_stab_number(s32inttype),
                                  def_stab_number(s64inttype),
                                  def_stab_number(u8inttype),
-                                 def_stab_number(cchartype)]);
+                                 def_stab_number(cansichartype)]);
 {$else cpu64bitaddr}
         ss:=def_stabstr_evaluate(def,'s${savesize}HANDLE:$1,0,32;MODE:$1,32,32;RECSIZE:$1,64,32;'+
                                  '_PRIVATE:ar$1;1;32;$3,96,256;USERDATA:ar$1;1;16;$2,352,128;'+
                                  'NAME:ar$1;0;255;$3,480,2048;;',[def_stab_number(s32inttype),
                                  def_stab_number(u8inttype),
-                                 def_stab_number(cchartype)]);
+                                 def_stab_number(cansichartype)]);
 {$endif cpu64bitaddr}
         write_def_stabstr(list,def,ss);
       end;
@@ -957,7 +957,7 @@ implementation
                 appenddef(list,cwidechartype)
               else
                 begin
-                  appenddef(list,cchartype);
+                  appenddef(list,cansichartype);
                   appenddef(list,u8inttype);
                 end;
             end;
@@ -970,7 +970,7 @@ implementation
               appenddef(list,s64inttype);
 {$endif cpu64bitaddr}
               appenddef(list,u8inttype);
-              appenddef(list,cchartype);
+              appenddef(list,cansichartype);
             end;
           classrefdef :
             appenddef(list,pvmttype);
@@ -1619,11 +1619,11 @@ implementation
         current_module.flags:=current_module.flags or uf_has_stabs_debuginfo;
         if not(target_info.system in systems_darwin) then
           begin
-            new_section(current_asmdata.asmlists[al_stabs],sec_data,GetSymTableName(current_module.localsymtable),0);
+            new_section(current_asmdata.asmlists[al_stabs],sec_data,GetSymTableName(current_module.localsymtable),sizeof(pint));
             current_asmdata.asmlists[al_stabs].concat(tai_symbol.Createname_global(make_mangledname('DEBUGINFO',current_module.localsymtable,''),AT_DATA,0));
           end
         else
-          new_section(current_asmdata.asmlists[al_stabs],sec_code,GetSymTableName(current_module.localsymtable),0);
+          new_section(current_asmdata.asmlists[al_stabs],sec_code,GetSymTableName(current_module.localsymtable),sizeof(pint));
 
         { write all global/local variables. This will flag all required tdefs  }
         if assigned(current_module.globalsymtable) then
@@ -1756,7 +1756,7 @@ implementation
         { emit main source n_sourcefile for start of module }
         current_asmdata.getlabel(hlabel,alt_dbgfile);
         infile:=current_module.sourcefiles.get_file(1);
-        new_section(current_asmdata.asmlists[al_start],sec_code,make_mangledname('DEBUGSTART',current_module.localsymtable,''),0,secorder_begin);
+        new_section(current_asmdata.asmlists[al_start],sec_code,make_mangledname('DEBUGSTART',current_module.localsymtable,''),sizeof(pint),secorder_begin);
         if not(target_info.system in systems_darwin) then
           current_asmdata.asmlists[al_start].concat(tai_symbol.Createname_global(make_mangledname('DEBUGSTART',current_module.localsymtable,''),AT_DATA,0));
         current_asmdata.asmlists[al_start].concat(Tai_stab.Create_str(stabsdir,'"'+BsToSlash(FixPath(getcurrentdir,false))+'",'+
@@ -1771,7 +1771,7 @@ implementation
           current_asmdata.asmlists[al_end].concat(Tai_stab.Create_str(stabsdir,'"",'+base_stabs_str(STABS_N_OSO,'0','0','0')));
         { emit empty n_sourcefile for end of module }
         current_asmdata.getlabel(hlabel,alt_dbgfile);
-        new_section(current_asmdata.asmlists[al_end],sec_code,make_mangledname('DEBUGEND',current_module.localsymtable,''),0,secorder_end);
+        new_section(current_asmdata.asmlists[al_end],sec_code,make_mangledname('DEBUGEND',current_module.localsymtable,''),sizeof(pint),secorder_end);
         if not(target_info.system in systems_darwin) then
           current_asmdata.asmlists[al_end].concat(tai_symbol.Createname_global(make_mangledname('DEBUGEND',current_module.localsymtable,''),AT_DATA,0));
         current_asmdata.asmlists[al_end].concat(Tai_stab.Create_str(stabsdir,'"",'+base_stabs_str(stabs_n_sourcefile,'0','0',hlabel.name)));

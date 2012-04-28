@@ -45,8 +45,6 @@ unit cgobj;
     type
        talignment = (AM_NATURAL,AM_NONE,AM_2BYTE,AM_4BYTE,AM_8BYTE);
        tsubsetloadopt = (SL_REG,SL_REGNOSRCMASK,SL_SETZERO,SL_SETMAX);
-       tindsymflag = (is_data,is_weak);
-       tindsymflags = set of tindsymflag;
 
        {# @abstract(Abstract code generator)
           This class implements an abstract instruction generator. Some of
@@ -460,6 +458,8 @@ unit cgobj;
              @param(p Node which contains the value to check)
              @param(todef Type definition of node to range check)
           }
+          { only left here because used by cg64f32; normally, the code in
+            hlcgobj is used }
           procedure g_rangecheck(list: TAsmList; const l:tlocation; fromdef,todef: tdef); virtual;
 
           {# Generates overflow checking code for a node }
@@ -762,9 +762,11 @@ implementation
       begin
         alloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
 {$if not(defined(i386)) and not(defined(avr))}
-        alloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
+        if uses_registers(R_FPUREGISTER) then
+          alloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
 {$ifdef cpumm}
-        alloccpuregisters(list,R_MMREGISTER,paramanager.get_volatile_registers_mm(pocall_default));
+        if uses_registers(R_MMREGISTER) then
+          alloccpuregisters(list,R_MMREGISTER,paramanager.get_volatile_registers_mm(pocall_default));
 {$endif cpumm}
 {$endif not(defined(i386)) and not(defined(avr))}
       end;
@@ -783,9 +785,11 @@ implementation
       begin
         dealloccpuregisters(list,R_INTREGISTER,paramanager.get_volatile_registers_int(pocall_default));
 {$if not(defined(i386)) and not(defined(avr))}
-        dealloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
+        if uses_registers(R_FPUREGISTER) then
+          dealloccpuregisters(list,R_FPUREGISTER,paramanager.get_volatile_registers_fpu(pocall_default));
 {$ifdef cpumm}
-        dealloccpuregisters(list,R_MMREGISTER,paramanager.get_volatile_registers_mm(pocall_default));
+        if uses_registers(R_MMREGISTER) then
+          dealloccpuregisters(list,R_MMREGISTER,paramanager.get_volatile_registers_mm(pocall_default));
 {$endif cpumm}
 {$endif not(defined(i386)) and not(defined(avr))}
       end;
@@ -896,11 +900,16 @@ implementation
     procedure tcg.a_load_reg_cgpara(list : TAsmList;size : tcgsize;r : tregister;const cgpara : TCGPara);
       var
          ref : treference;
+         tmpreg : tregister;
       begin
          cgpara.check_simple_location;
          paramanager.alloccgpara(list,cgpara);
          if cgpara.location^.shiftval<0 then
-           a_op_const_reg(list,OP_SHL,cgpara.location^.size,-cgpara.location^.shiftval,r);
+           begin
+             tmpreg:=getintregister(list,cgpara.location^.size);
+             a_op_const_reg_reg(list,OP_SHL,cgpara.location^.size,-cgpara.location^.shiftval,r,tmpreg);
+             r:=tmpreg;
+           end;
          case cgpara.location^.loc of
             LOC_REGISTER,LOC_CREGISTER:
               a_load_reg_reg(list,size,cgpara.location^.size,r,cgpara.location^.register);
@@ -930,6 +939,8 @@ implementation
       begin
          cgpara.check_simple_location;
          paramanager.alloccgpara(list,cgpara);
+         if cgpara.location^.shiftval<0 then
+           a:=a shl -cgpara.location^.shiftval;
          case cgpara.location^.loc of
             LOC_REGISTER,LOC_CREGISTER:
               a_load_const_reg(list,cgpara.location^.size,a,cgpara.location^.register);

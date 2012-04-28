@@ -47,11 +47,12 @@
       <Unit3>
         <Filename Value="aopt.pas"/>
         <IsPartOfProject Value="True"/>
+        <UnitName Value="aopt"/>
       </Unit3>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
-    <Version Value="10"/>
+    <Version Value="11"/>
     <PathDelim Value="\"/>
     <Target>
       <Filename Value="arm\pp"/>
@@ -71,7 +72,7 @@
     </Parsing>
     <Linking>
       <Debugging>
-        <GenerateDebugInfo Value="True"/>
+        <DebugInfoType Value="dsStabs"/>
       </Debugging>
     </Linking>
     <Other>

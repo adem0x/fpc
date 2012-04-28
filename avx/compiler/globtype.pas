@@ -34,6 +34,13 @@ interface
        TCmdStr = AnsiString;
        TPathStr = AnsiString;
 
+{$ifdef symansistr}
+       TSymStr = AnsiString;
+{$else symansistr}
+       TSymStr = ShortString;
+{$endif symansistr}
+       PSymStr = ^TSymStr;
+
        { Integer type corresponding to pointer size }
 {$ifdef cpu64bitaddr}
        PUint = qword;
@@ -124,10 +131,12 @@ interface
          { mmx }
          cs_mmx,cs_mmx_saturation,
          { parser }
-         cs_typed_addresses,cs_strict_var_strings,cs_ansistrings,cs_bitpacking,
-         cs_varpropsetter,cs_scopedenums,cs_pointermath,
+         cs_typed_addresses,cs_strict_var_strings,cs_refcountedstrings,
+         cs_bitpacking,cs_varpropsetter,cs_scopedenums,cs_pointermath,
          { macpas specific}
-         cs_external_var, cs_externally_visible
+         cs_external_var, cs_externally_visible,
+         { jvm specific }
+         cs_check_var_copyout
        );
        tlocalswitches = set of tlocalswitch;
 
@@ -196,6 +205,17 @@ interface
        );
        tdebugswitches = set of tdebugswitch;
 
+       { global target-specific switches }
+       ttargetswitch = (ts_none,
+         { generate code that results in smaller TOCs than normal (AIX) }
+         ts_small_toc,
+         { for the JVM target: generate integer array initializations via string
+           constants in order to reduce the generated code size (Java routines
+           are limited to 64kb of bytecode) }
+         ts_compact_int_array_init
+       );
+       ttargetswitches = set of ttargetswitch;
+
 
        { adding a new entry here requires also adding the appropriate define in
          systemh.inc (FK)
@@ -247,6 +267,10 @@ interface
        DebugSwitchStr : array[tdebugswitch] of string[22] = ('',
          'DWARFSETS','STABSABSINCLUDES','DWARFMETHODCLASSPREFIX');
 
+       TargetSwitchStr : array[ttargetswitch] of string[19] = ('',
+         'SMALLTOC',
+         'COMPACTINTARRAYINIT');
+
        { switches being applied to all CPUs at the given level }
        genericlevel1optimizerswitches = [cs_opt_level1];
        genericlevel2optimizerswitches = [cs_opt_level2];
@@ -255,7 +279,7 @@ interface
        { whole program optimizations whose information generation requires
          information from all loaded units
        }
-       WPOptimizationsNeedingAllUnitInfo = [cs_wpo_devirtualize_calls];
+       WPOptimizationsNeedingAllUnitInfo = [cs_wpo_devirtualize_calls,cs_wpo_optimize_vmts];
 
        featurestr : array[tfeature] of string[12] = (
          'HEAP','INITFINAL','RTTI','CLASSES','EXCEPTIONS','EXITCODE',
@@ -298,7 +322,12 @@ interface
          m_non_local_goto,      { support non local gotos (like iso pascal) }
          m_advanced_records,    { advanced record syntax with visibility sections, methods and properties }
          m_isolike_unary_minus, { unary minus like in iso pascal: same precedence level as binary minus/plus }
-         m_systemcodepage       { use system codepage as compiler codepage by default, emit ansistrings with system codepage }
+         m_systemcodepage,      { use system codepage as compiler codepage by default, emit ansistrings with system codepage }
+         m_final_fields,        { allows declaring fields as "final", which means they must be initialised
+                                  in the (class) constructor and are constant from then on (same as final
+                                  fields in Java) }
+         m_default_unicodestring { makes the default string type in $h+ mode unicodestring rather than
+                                   ansistring; similarly, char becomes unicodechar rather than ansichar }
        );
        tmodeswitches = set of tmodeswitch;
 
@@ -306,7 +335,7 @@ interface
        tapptype = (
          app_none,
          app_native,
-         app_gui,               { graphic user-interface application}
+         app_gui,       { graphic user-interface application}
          app_cui,       { console application}
          app_fs,        { full-screen type application (OS/2 and EMX only) }
          app_tool,      { tool application, (MPW tool for MacOS, MacOS only)}
@@ -318,7 +347,8 @@ interface
        { interface types }
        tinterfacetypes = (
          it_interfacecom,
-         it_interfacecorba
+         it_interfacecorba,
+         it_interfacejava
        );
 
        { currently parsed block type }
@@ -336,8 +366,27 @@ interface
 
        { Temp types }
        ttemptype = (tt_none,
-                    tt_free,tt_normal,tt_persistent,
-                    tt_noreuse,tt_freenoreuse);
+                    { free temp location, can be reused for something else }
+                    tt_free,
+                    { temp location that will be freed when ttgobj.UnGetTemp/
+                      ttgobj.UnGetIfTemp is called on it }
+                    tt_normal,
+                    { temp location that will not be freed; if it has to be
+                      freed, first ttgobj.changetemptype() it to tt_normal,
+                      or call ttgobj.UnGetLocal() instead (for local variables,
+                      since they are also persistent temps) }
+                    tt_persistent,
+                    { temp location that can never be reused anymore, even
+                      after it has been freed }
+                    tt_noreuse,
+                    { freed version of the above }
+                    tt_freenoreuse,
+                    { temp location that has been allocated by the register
+                      allocator and that can be reallocated only by the
+                      register allocator }
+                    tt_regallocator,
+                    { freed version of the above }
+                    tt_freeregallocator);
        ttemptypeset = set of ttemptype;
 
        { calling convention for tprocdef and tprocvardef }
@@ -431,7 +480,9 @@ interface
          'NONLOCALGOTO',
          'ADVANCEDRECORDS',
          'ISOUNARYMINUS',
-         'SYSTEMCODEPAGE');
+         'SYSTEMCODEPAGE',
+         'FINALFIELDS',
+         'UNICODESTRINGS');
 
 
      type
@@ -559,6 +610,9 @@ interface
       end;
 
 
+  { hide Sysutils.ExecuteProcess in units using this one after SysUtils}
+  const
+    ExecuteProcess = 'Do not use' deprecated 'Use cfileutil.RequotedExecuteProcess instead, ExecuteProcess cannot deal with single quotes as used by Unix command lines';
 
 implementation
 
