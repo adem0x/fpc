@@ -38,6 +38,8 @@
 #ifdef darwin
 # use pipes instead of temporary files for assembling
 -ap
+# path to Xcode 4.3+ utilities (no problem if it doesn't exist)
+-FD/Applications/Xcode.app/Contents/Developer/usr/bin
 #endif
 
 # ----------------
@@ -168,6 +170,12 @@
 -FD%basepath%/bin/$FPCTARGET
 
 %NEEDCROSSBINUTILSIFDEF%
+
+# never need cross-prefix when targeting the JVM
+# (no native compiler, always cross-compiling)
+#ifdef cpujvm
+#undef NEEDCROSSBINUTILS
+#endif
 
 # binutils prefix for cross compiling
 #IFDEF FPC_CROSSCOMPILING
