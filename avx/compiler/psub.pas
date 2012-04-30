@@ -871,8 +871,11 @@ implementation
                 tg.direction:=1;
               end;
           end;
-
 {$endif}
+{$ifdef MIPS}
+        framepointer:=NR_STACK_POINTER_REG;
+        tg.direction:=1;
+{$endif MIPS}
         { set the start offset to the start of the temp area in the stack }
         set_first_temp_offset;
       end;
@@ -910,9 +913,27 @@ implementation
         resetprocdef;
       end;
 
+    { For SEH, the code from 'finally' blocks must be put into a separate procedures,
+      which can be called by OS during stack unwind. This resembles nested procedures,
+      but finalizer procedures do not have their own local variables and work directly
+      with the stack frame of parent. In particular, the tempgen must be shared, so
+      1) finalizer procedure is able to finalize temps of the parent,
+      2) if the finalizer procedure is complex enough to need its own temps, they are
+         allocated in stack frame of parent, so second-level finalizer procedures are
+         not needed.
+
+      Due to requirement of shared tempgen we cannot process finalizer as a regular nested
+      procedure (after the parent) and have to do it inline.
+      This is called by platform-specific tryfinallynodes during pass2.
+      Here we put away the codegen (which carries the register allocator state), process
+      the 'nested' procedure, then restore previous cg and continue processing the parent
+      procedure. generate_code() will create another cg, but not another tempgen because
+      setup_tempgen() is not called for potype_exceptfilter procedures. }
+
     procedure tcgprocinfo.generate_exceptfilter(nestedpi: tcgprocinfo);
       var
         saved_cg: tcg;
+        saved_hlcg: thlcgobj;
       begin
         if nestedpi.procdef.proctypeoption<>potype_exceptfilter then
           InternalError(201201141);
@@ -920,11 +941,14 @@ implementation
         aktproccode.concatlist(current_asmdata.CurrAsmList);
         { save the codegen }
         saved_cg:=cg;
+        saved_hlcg:=hlcg;
         cg:=nil;
+        hlcg:=nil;
         nestedpi.generate_code;
         { prevents generating code the second time when processing nested procedures }
         nestedpi.resetprocdef;
         cg:=saved_cg;
+        hlcg:=saved_hlcg;
         add_reg_instruction_hook:=@cg.add_reg_instruction;
       end;
 

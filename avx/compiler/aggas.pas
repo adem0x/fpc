@@ -644,7 +644,7 @@ implementation
       constdef : taiconst_type;
       s,t      : string;
       i,pos,l  : longint;
-      InlineLevel : longint;
+      InlineLevel : cardinal;
       last_align : longint;
       co       : comp;
       sin      : single;
@@ -1177,6 +1177,14 @@ implementation
                   else
                     AsmWriteln(tai_symbol(hp).sym.name);
                 end;
+               if target_info.system in [system_mipsel_linux,system_mips_linux] then
+                begin
+                  AsmWrite(#9'.ent'#9);
+                  if replaceforbidden then
+                    AsmWriteln(ReplaceForbiddenAsmSymbolChars(tai_symbol(hp).sym.name))
+                  else
+                    AsmWriteln(tai_symbol(hp).sym.name);
+                end;
                if (target_info.system = system_powerpc64_linux) and
                  (tai_symbol(hp).sym.typ = AT_FUNCTION) then
                  begin
@@ -1247,7 +1255,12 @@ implementation
                AsmWriteLn(#9'.thumb_func');
              end;
 {$endif arm}
-
+{$if defined(alpha)}
+           ait_ent:
+             begin
+               AsmWriteLn(#9'.ent'#9+tai_ent(hp).Name);
+             end;
+{$endif alpha}
            ait_symbol_end :
              begin
                if tf_needs_symbol_size in target_info.flags then
@@ -1517,11 +1530,11 @@ implementation
     begin
 {$ifdef EXTDEBUG}
       if assigned(current_module.mainsource) then
-       Comment(V_Debug,'Start writing gas-styled assembler output for '+current_module.mainsource^);
+       Comment(V_Debug,'Start writing gas-styled assembler output for '+current_module.mainsource);
 {$endif}
 
-      if assigned(current_module.mainsource) then
-        n:=ExtractFileName(current_module.mainsource^)
+      if current_module.mainsource<>'' then
+        n:=ExtractFileName(current_module.mainsource)
       else
         n:=InputFileName;
 
@@ -1561,7 +1574,7 @@ implementation
       AsmLn;
 {$ifdef EXTDEBUG}
       if assigned(current_module.mainsource) then
-       Comment(V_Debug,'Done writing gas-styled assembler output for '+current_module.mainsource^);
+       Comment(V_Debug,'Done writing gas-styled assembler output for '+current_module.mainsource);
 {$endif EXTDEBUG}
     end;
 
