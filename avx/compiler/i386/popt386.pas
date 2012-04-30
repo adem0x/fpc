@@ -637,20 +637,12 @@ begin
         because it can never be executed}
                 if (taicpu(p).opcode = A_JMP) then
                   begin
-                    hp2:=p;
-                    while GetNextInstruction(hp2, hp1) and
+                    while GetNextInstruction(p, hp1) and
                           (hp1.typ <> ait_label) do
                       if not(hp1.typ in ([ait_label,ait_align]+skipinstr)) then
                         begin
-                          { don't kill start/end of assembler block,
-                            no-line-info-start/end etc }
-                          if hp1.typ<>ait_marker then
-                            begin
-                              asml.remove(hp1);
-                              hp1.free;
-                            end
-                          else
-                            hp2:=hp1;
+                          asml.remove(hp1);
+                          hp1.free;
                         end
                       else break;
                     end;

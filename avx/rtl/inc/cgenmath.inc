@@ -80,67 +80,6 @@
 
 {$ifndef SOLARIS}
 
-
-{$ifdef aix}
-    { aix math library routines don't raise exceptions, you have to manually
-      check for them }
-    function feclearexcept(flags: longint): longint; cdecl; external 'c';
-    function fetestexcept(flags: longint): longint; cdecl; external 'c';
-
-    const
-      FE_DIVBYZERO  = $04000000;
-      FE_INEXACT    = $02000000;
-      FE_INVALID    = $20000000;
-      FE_OVERFLOW   = $10000000;
-      FE_UNDERFLOW  = $08000000;
-      FE_ALL_EXCEPT = $3E000000;
-
-    procedure resetexcepts;
-      begin
-        seterrno(0);
-        feclearexcept(FE_ALL_EXCEPT);
-      end;
-
-    procedure checkexcepts;
-      var
-        feres: longint;
-        sfexcepts: shortint;
-      begin
-        feres:=fetestexcept(FE_ALL_EXCEPT);
-        sfexcepts:=0;
-        if feres<>0 then
-          begin
-            if (feres and FE_DIVBYZERO) <> 0 then
-              sfexcepts:=sfexcepts or float_flag_divbyzero;
-            if (feres and FE_INEXACT) <> 0 then
-              sfexcepts:=sfexcepts or float_flag_inexact;
-            if (feres and FE_INVALID) <> 0 then
-              sfexcepts:=sfexcepts or float_flag_invalid;
-            if (feres and FE_OVERFLOW) <> 0 then
-              sfexcepts:=sfexcepts or float_flag_overflow;
-            if (feres and FE_UNDERFLOW) <> 0 then
-              sfexcepts:=sfexcepts or float_flag_underflow;
-          end
-        { unknown error }
-        else if (geterrno<>0) then
-          sfexcepts:=sfexcepts or float_flag_invalid;
-        if sfexcepts<>0 then
-          float_raise(sfexcepts);
-      end;
-
-{$else aix}
-    procedure resetexcepts; inline;
-      begin
-      end;
-
-
-    procedure checkexcepts; inline;
-      begin
-      end;
-
-{$endif aix}
-
-
 {$ifndef FPC_SYSTEM_HAS_INT}
 {$define FPC_SYSTEM_HAS_INT}
 
