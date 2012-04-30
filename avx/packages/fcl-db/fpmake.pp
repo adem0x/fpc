@@ -9,10 +9,11 @@ procedure add_fcl_db;
 
 const
   ParadoxOSes         = [beos,haiku,linux,freebsd,netbsd,openbsd,win32];
-  DatadictOSes        = [beos,linux,freebsd,win32,win64,wince,darwin];
-  SqldbConnectionOSes = [beos,linux,freebsd,win32,win64,wince,darwin,iphonesim,netbsd,openbsd];
-  SqliteOSes          = [beos,haiku,linux,freebsd,darwin,iphonesim,solaris,netbsd,openbsd,win32,wince];
-  DBaseOSes           = [beos,haiku,linux,freebsd,darwin,iphonesim,solaris,netbsd,openbsd,win32,win64,wince];
+  DatadictOSes        = [beos,haiku,linux,freebsd,win32,win64,wince,darwin,aix];
+  SqldbConnectionOSes = [beos,haiku,linux,freebsd,win32,win64,wince,darwin,iphonesim,netbsd,openbsd,aix];
+  SqliteOSes          = [beos,haiku,linux,freebsd,darwin,iphonesim,solaris,netbsd,openbsd,win32,wince,aix];
+  DBaseOSes           = [beos,haiku,linux,freebsd,darwin,iphonesim,solaris,netbsd,openbsd,win32,win64,wince,aix];
+  MSSQLOSes           = [beos,haiku,linux,freebsd,netbsd,openbsd,win32,win64];
   SqldbWithoutPostgresOSes = [win64];
 
 Var
@@ -46,6 +47,7 @@ begin
     P.SourcePath.Add('src/sqldb/odbc', SqldbConnectionOSes);
     P.SourcePath.Add('src/sqldb/examples', SqldbConnectionOSes);
     P.SourcePath.Add('src/sqldb/oracle', SqldbConnectionOSes-SqldbWithoutPostgresOSes);
+    P.SourcePath.Add('src/sqldb/mssql', MSSQLOSes);
     P.SourcePath.Add('src/sdf');
     P.SourcePath.Add('src/json');
     P.SourcePath.Add('src/datadict', DatadictOSes);
@@ -72,6 +74,7 @@ begin
     P.Dependencies.Add('oracle', SqldbConnectionOSes-SqldbWithoutPostgresOSes);
     P.Dependencies.Add('postgres', SqldbConnectionOSes-SqldbWithoutPostgresOSes);
     P.Dependencies.Add('sqlite', SqldbConnectionOSes+SqliteOSes);
+    P.Dependencies.Add('dblib', MSSQLOSes);
     P.Dependencies.Add('pxlib',ParadoxOSes);
     P.Dependencies.Add('fcl-json');
 
@@ -596,6 +599,17 @@ begin
           AddUnit('dbconst');
         end;
 
+    T:=P.Targets.AddUnit('mysql55conn.pas', SqldbConnectionOSes);
+    T.ResourceStrings:=true;
+      with T.Dependencies do
+        begin
+          AddInclude('mysqlconn.inc');
+          AddUnit('bufdataset');
+          AddUnit('sqldb');
+          AddUnit('db');
+          AddUnit('dbconst');
+        end;
+
     T:=P.Targets.AddUnit('odbcconn.pas', SqldbConnectionOSes);
       with T.Dependencies do
         begin
@@ -628,6 +642,14 @@ begin
           AddUnit('dbconst');
           AddUnit('bufdataset');
         end;
+    T:=P.Targets.AddUnit('mssqlconn.pp', MSSQLOSes);
+    with T.Dependencies do
+      begin
+        AddUnit('sqldb');
+        AddUnit('db');
+        AddUnit('dbconst');
+        AddUnit('bufdataset');
+      end;
     T:=P.Targets.AddUnit('sdfdata.pp');
       with T.Dependencies do
         begin

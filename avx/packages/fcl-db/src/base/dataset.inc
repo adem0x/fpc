@@ -1311,8 +1311,7 @@ begin
   FFiltered := value;
 end;
 
-Procedure TDataset.SetFound(const Value: Boolean);
-
+procedure TDataSet.SetFound(const Value: Boolean);
 begin
   FFound := Value;
 end;
@@ -1325,7 +1324,7 @@ end;
 
 Procedure TDataset.SetName(const Value: TComponentName);
 
-function CheckName(FieldName: string): string;
+function CheckName(const FieldName: string): string;
 var i,j: integer;
 begin
   Result := FieldName;
@@ -1791,7 +1790,9 @@ Procedure TDataset.FreeBookmark(ABookmark: TBookmark);
 
 
 begin
-  FreeMem(ABookMark,FBookMarkSize);
+  {$ifdef noautomatedbookmark}
+   FreeMem(ABookMark,FBookMarkSize);
+  {$endif}
 end;
 
 Function TDataset.GetBookmark: TBookmark;
@@ -1800,8 +1801,12 @@ Function TDataset.GetBookmark: TBookmark;
 begin
   if BookmarkAvailable then
     begin
-    GetMem (Result,FBookMarkSize);
-    GetBookMarkdata(ActiveBuffer,Result);
+    {$ifdef noautomatedbookmark}
+      GetMem (Result,FBookMarkSize);
+    {$else}
+      setlength(Result,FBookMarkSize);
+    {$endif}
+    GetBookMarkdata(ActiveBuffer,pointer(Result));
     end
   else
     Result:=Nil;
@@ -1860,7 +1865,7 @@ begin
     begin
     CheckBrowseMode;
     DoBeforeScroll;
-    InternalGotoBookMark(ABookMark);
+    InternalGotoBookMark(pointer(ABookMark));
     Resync([rmExact,rmCenter]);
     DoAfterScroll;
     end;
@@ -2029,6 +2034,14 @@ end;
 
 Procedure TDataset.Next;
 
+begin
+  if BlockReadSize>0 then
+    BlockReadNext
+  else
+    MoveBy(1);
+end;
+
+Procedure TDataset.BlockReadNext;
 begin
   MoveBy(1);
 end;
@@ -2235,6 +2248,11 @@ Procedure TDataset.RemoveField (Field : TField);
 
 begin
   //!! To be implemented
+end;
+
+procedure TDataSet.SetConstraints(Value: TCheckConstraints);
+begin
+  FConstraints.Assign(Value);
 end;
 
 Function TDataset.Getfieldcount : Longint;

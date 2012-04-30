@@ -1243,9 +1243,13 @@ type
   end;
 
 { TDataSet }
-
+  
+  {$ifdef noautomatedbookmark}
   TBookmark = Pointer;
-  TBookmarkStr = string;
+  {$else}
+  TBookMark = TBytes;
+  {$endif}
+  TBookmarkStr = ansistring;
 
   PBookmarkFlag = ^TBookmarkFlag;
   TBookmarkFlag = (bfCurrent, bfBOF, bfEOF, bfInserted);
@@ -1399,6 +1403,7 @@ type
     Function  GetField (Index : Longint) : TField;
     Procedure RegisterDataSource(ADatasource : TDataSource);
     Procedure RemoveField (Field : TField);
+    procedure SetConstraints(Value: TCheckConstraints);
     Procedure SetField (Index : Longint;Value : TField);
     Procedure ShiftBuffersForward;
     Procedure ShiftBuffersBackward;
@@ -1406,13 +1411,14 @@ type
     Function GetActive : boolean;
     Procedure UnRegisterDataSource(ADatasource : TDatasource);
     Procedure UpdateFieldDefs;
-    procedure SetBlockReadSize(AValue: Integer);
+    procedure SetBlockReadSize(AValue: Integer); virtual;
     Procedure SetFieldDefs(AFieldDefs: TFieldDefs);
     procedure DoInsertAppendRecord(const Values: array of const; DoAppend : boolean);
   protected
     procedure RecalcBufListSize;
     procedure ActivateBuffers; virtual;
     procedure BindFields(Binding: Boolean);
+    procedure BlockReadNext; virtual;
     function  BookmarkAvailable: Boolean;
     procedure CalculateFields(Buffer: TRecordBuffer); virtual;
     procedure CheckActive; virtual;
@@ -1484,8 +1490,8 @@ type
     procedure SetFiltered(Value: Boolean); virtual;
     procedure SetFilterOptions(Value: TFilterOptions); virtual;
     procedure SetFilterText(const Value: string); virtual;
-    procedure SetFound(const Value: Boolean);
     procedure SetFieldValues(const fieldname: string; Value: Variant); virtual;
+    procedure SetFound(const Value: Boolean); virtual;
     procedure SetModified(Value: Boolean);
     procedure SetName(const Value: TComponentName); override;
     procedure SetOnFilterRecord(const Value: TFilterRecordEvent); virtual;
@@ -1503,7 +1509,7 @@ type
     property CalcBuffer: TRecordBuffer read FCalcBuffer;
     property CalcFieldsSize: Longint read FCalcFieldsSize;
     property InternalCalcFields: Boolean read FInternalCalcFields;
-    property Constraints: TCheckConstraints read FConstraints write FConstraints;
+    property Constraints: TCheckConstraints read FConstraints write SetConstraints;
     function AllocRecordBuffer: TRecordBuffer; virtual;
     procedure FreeRecordBuffer(var Buffer: TRecordBuffer); virtual;
     procedure GetBookmarkData(Buffer: TRecordBuffer; Data: Pointer); virtual;
@@ -1622,7 +1628,7 @@ type
     property FieldDefs: TFieldDefs read FFieldDefs write SetFieldDefs;
 //    property Fields[Index: Longint]: TField read GetField write SetField;
     property Found: Boolean read FFound;
-    property Modified: Boolean read FModified write SetModified;
+    property Modified: Boolean read FModified;
     property IsUniDirectional: Boolean read FIsUniDirectional default False;
     property RecordCount: Longint read GetRecordCount;
     property RecNo: Longint read GetRecNo write SetRecNo;
@@ -2139,20 +2145,17 @@ begin
     DatabaseErrorFmt(Fmt, Args);
 end;
 
-Function ExtractFieldName(Const Fields: String; var Pos: Integer): String;
-
+function ExtractFieldName(const Fields: string; var Pos: Integer): string;
 var
-  i: integer;
+  i: Integer;
+  FieldsLength: Integer;
 begin
-  for i := Pos to Length(Fields) do begin
-    if Fields[i] = ';' then begin
-      Result := Copy(Fields, Pos, i - Pos);
-      Pos := i + 1;
-      Exit;
-    end;
-  end;
-  Result := Copy(Fields, Pos, Length(Fields));
-  Pos := Length(Fields) + 1;
+  i:=Pos;
+  FieldsLength:=Length(Fields);
+  while (i<=FieldsLength) and (Fields[i]<>';') do Inc(i);
+  Result:=Trim(Copy(Fields,Pos,i-Pos));
+  if (i<=FieldsLength) and (Fields[i]=';') then Inc(i);
+  Pos:=i;
 end;
 
 { EUpdateError }
@@ -2419,6 +2422,7 @@ Function TCheckConstraints.GetItem(Index : Longint) : TCheckConstraint;
 
 begin
   //!! To be implemented
+  Result := nil;
 end;
 
 
@@ -2433,6 +2437,7 @@ function TCheckConstraints.GetOwner: TPersistent;
 
 begin
   //!! To be implemented
+  Result := nil;
 end;
 
 
@@ -2440,6 +2445,7 @@ constructor TCheckConstraints.Create(AOwner: TPersistent);
 
 begin
   //!! To be implemented
+  inherited Create(TCheckConstraint);
 end;
 
 
@@ -2447,6 +2453,7 @@ function TCheckConstraints.Add: TCheckConstraint;
 
 begin
   //!! To be implemented
+  Result := nil;
 end;
 
 { TLookupList }

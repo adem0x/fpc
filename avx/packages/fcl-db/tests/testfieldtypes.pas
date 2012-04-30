@@ -61,6 +61,7 @@ type
     procedure TestScript;
     procedure TestInsertReturningQuery;
     procedure TestOpenStoredProc;
+    procedure TestOpenSpecialStatements;
 
     procedure TestTemporaryTable;
     procedure TestRefresh;
@@ -111,6 +112,7 @@ type
     procedure TestSQLClob;
     procedure TestSQLLargeint;
     procedure TestSQLInterval;
+    procedure TestSQLIdentity;
   end;
 
 implementation
@@ -139,16 +141,16 @@ const
     '1991-03-01',
     '2040-10-16',
     '1977-09-29',
-    '1800-03-30',
-    '1650-05-10',
-    '1754-06-04',
-    '0904-04-12',
-    '0199-07-09',
-    '0001-01-01',
     '1899-12-29',
     '1899-12-30',
     '1899-12-31',
-    '1900-01-01'
+    '1900-01-01',
+    '1800-03-30',
+    '1754-06-04',
+    '1650-05-10',
+    '0904-04-12',
+    '0199-07-09',
+    '0001-01-01'
   );
 
   testBytesValuesCount = 5;
@@ -157,6 +159,8 @@ const
     #1#0#1#0#1, #0#0#1#0#1, #0''''#13#0#1, '\'#0'"\'#13, #13#13#0#10#10,
     '', #0, #0#1#2#3#4#5#6#7#8#9
   );
+
+  STestNotApplicable = 'This test does not apply to this sqldb-connection type';
 
 
 procedure TTestFieldTypes.TestpfInUpdateFlag;
@@ -391,10 +395,7 @@ begin
     Open;
     for i := 0 to testValuesCount-1 do
       begin
-      if (SQLDbType in [mysql40,mysql41]) then
-        AssertEquals(TrimRight(testValues[i]),fields[0].AsString) // MySQL < 5.0.3 automatically trims strings
-      else
-        AssertEquals(testValues[i],fields[0].AsString);
+      AssertEquals(testValues[i], Fields[0].AsString);
       Next;
       end;
     close;
@@ -609,39 +610,36 @@ const
     '2000-01-01 23:59:59',
     '1994-03-06 11:54:30',
     '2040-10-16',                   // MySQL 4.0 doesn't support datetimes before 1970 or after 2038
-    '1400-02-03 12:21:53',
-    '0354-11-20 21:25:15',
-    '1333-02-03 21:44:21',
-    '1800-03-30',
-    '1650-05-10',
-    '1754-06-04',
-    '0904-04-12',
-    '0199-07-09',
-    '0001-01-01',
-    '1899-12-29',
-    '1899-12-30',
-    '1899-12-31',
+    '2100-01-01 01:01:01',
+    '1903-04-02 01:04:02',
     '1900-01-01',
+    '1899-12-31',
+    '1899-12-30',
+    '1899-12-29',
     '1899-12-30 18:00:51',
     '1899-12-30 04:00:51',
     '1899-12-29 04:00:51',
     '1899-12-29 18:00:51',
-    '1903-04-02 01:04:02',
     '1815-09-24 03:47:22',
-    '2100-01-01 01:01:01'
+    '1800-03-30',
+    '1754-06-04',
+    '1650-05-10',                   // MS SQL 2005 doesn't support datetimes before 1753
+    '1400-02-03 12:21:53',
+    '1333-02-03 21:44:21',
+    '0904-04-12',
+    '0354-11-20 21:25:15',
+    '0199-07-09',
+    '0001-01-01'
   );
 
 var
-  i, corrTestValueCount : byte;
+  i : byte;
 
 begin
   CreateTableWithFieldType(ftDateTime,FieldtypeDefinitions[ftDateTime]);
   TestFieldDeclaration(ftDateTime,8);
 
-  if SQLDbType=mysql40 then corrTestValueCount := testValuesCount-21
-    else corrTestValueCount := testValuesCount;
-
-  for i := 0 to corrTestValueCount-1 do
+  for i := 0 to testValuesCount-1 do
     if SQLDbType=oracle then
       TSQLDBConnector(DBConnector).Connection.ExecuteDirect('insert into FPDEV2 (FT) values (to_date (''' + testValues[i] + ''',''YYYY-MM-DD HH24:MI:SS''))')
     else
@@ -650,7 +648,7 @@ begin
   with TSQLDBConnector(DBConnector).Query do
     begin
     Open;
-    for i := 0 to corrTestValueCount-1 do
+    for i := 0 to testValuesCount-1 do
       begin
       if length(testValues[i]) < 12 then
         AssertEquals(testValues[i],FormatDateTime('yyyy/mm/dd', fields[0].AsDateTime, DBConnector.FormatSettings))
@@ -781,12 +779,9 @@ begin
 
     end;
   TSQLDBConnector(DBConnector).Transaction.CommitRetaining;
-
-
 end;
 
 procedure TTestFieldTypes.TestIntParamQuery;
-
 begin
   TestXXParamQuery(ftInteger,'INT',testIntValuesCount);
 end;
@@ -796,9 +791,14 @@ begin
   TestXXParamQuery(ftFMTBcd,FieldtypeDefinitionsConst[ftFMTBcd],testValuesCount);
 end;
 
+procedure TTestFieldTypes.TestDateParamQuery;
+begin
+  TestXXParamQuery(ftDate,FieldtypeDefinitions[ftDate],testDateValuesCount);
+end;
+
 procedure TTestFieldTypes.TestTimeParamQuery;
 begin
-  TestXXParamQuery(ftTime,FieldtypeDefinitionsConst[ftTime],testValuesCount);
+  TestXXParamQuery(ftTime,FieldtypeDefinitions[ftTime],testValuesCount);
 end;
 
 procedure TTestFieldTypes.TestDateTimeParamQuery;
@@ -824,7 +824,7 @@ end;
 
 procedure TTestFieldTypes.TestVarBytesParamQuery;
 begin
-  TestXXParamQuery(ftVarBytes, FieldtypeDefinitions[ftVarBytes], testVarBytesValuesCount);
+  TestXXParamQuery(ftVarBytes, FieldtypeDefinitions[ftVarBytes], testVarBytesValuesCount, SQLDbType<>mssql);
 end;
 
 procedure TTestFieldTypes.TestStringParamQuery;
@@ -836,12 +836,6 @@ end;
 procedure TTestFieldTypes.TestFixedStringParamQuery;
 begin
   TestXXParamQuery(ftFixedChar,'CHAR(10)',testValuesCount);
-end;
-
-procedure TTestFieldTypes.TestDateParamQuery;
-
-begin
-  TestXXParamQuery(ftDate,'DATE',testDateValuesCount);
 end;
 
 
@@ -860,7 +854,6 @@ begin
 
   with TSQLDBConnector(DBConnector).Query do
     begin
-    PacketRecords := -1;
     sql.clear;
     sql.append('insert into FPDEV2 (ID,FIELD1) values (:id,:field1)');
 
@@ -888,7 +881,10 @@ begin
                      Params.ParamByName('field1').Value := StringToByteArray(testBytesValues[i])
                    else
                      Params.ParamByName('field1').AsBlob := testBytesValues[i];
-        ftVarBytes:Params.ParamByName('field1').AsString := testBytesValues[i];
+        ftVarBytes:if cross then
+                     Params.ParamByName('field1').AsString := testBytesValues[i]
+                   else
+                     Params.ParamByName('field1').AsBlob := testBytesValues[i];
       else
         AssertTrue('no test for paramtype available',False);
       end;
@@ -1216,7 +1212,7 @@ end;
 
 procedure TTestFieldTypes.TestInsertReturningQuery;
 begin
-  if not(SQLDbType in [postgresql,interbase,oracle]) then Ignore('This test does not apply to this db-engine');
+  if not(SQLDbType in [postgresql,interbase,oracle]) then Ignore(STestNotApplicable);
   with TSQLDBConnector(DBConnector) do
     begin
     // This only works with databases that supports 'insert into .. returning'
@@ -1244,6 +1240,11 @@ begin
       Connection.ExecuteDirect('create procedure FPDEV_PROC returns (r integer) as begin r=1; end');
       Query.SQL.Text:='execute procedure FPDEV_PROC';
     end
+    else if SQLDbType = mssql then
+    begin
+      Connection.ExecuteDirect('create procedure FPDEV_PROC as select 1 union select 2;');
+      Query.SQL.Text:='execute FPDEV_PROC';
+    end
     else
     begin
       Ignore('This test does not apply to this sqldb-connection type, since it does not support selectable stored procedures.');
@@ -1266,6 +1267,47 @@ begin
     finally
       Connection.ExecuteDirect('drop procedure FPDEV_PROC');
       Transaction.CommitRetaining;
+    end;
+  end;
+end;
+
+procedure TTestFieldTypes.TestOpenSpecialStatements;
+const CTE_SELECT = 'WITH a AS (SELECT * FROM FPDEV) SELECT * FROM a';
+type TTestStatements = array of string;
+var statements: TTestStatements;
+    s: string;
+begin
+  // tests non-select statements (other than "SELECT ..."), which return result-set
+  // at least one row must be returned
+  with TSQLDBConnector(DBConnector) do
+  begin
+    case SQLDbType of
+      sqlite3:
+        statements := TTestStatements.Create('pragma table_info(FPDEV)');
+      interbase:
+        statements := TTestStatements.Create(CTE_SELECT (*FB 2.1*));
+      postgresql:
+        statements := TTestStatements.Create(CTE_SELECT);
+      mssql:
+        statements := TTestStatements.Create(CTE_SELECT  (*MS SQL 2005*));
+      else
+        if SQLdbType in MySQLdbTypes then
+          statements := TTestStatements.Create(
+            'check table FPDEV',  // bug 14519
+            'show tables from '+Connection.DatabaseName  // bug 16842
+          )
+        else
+          Ignore(STestNotApplicable);
+    end;
+
+    for s in statements do
+    begin
+      Query.SQL.Text := s;
+      Query.Open;
+      AssertTrue(Query.FieldCount>0);
+      AssertFalse('Eof after open', Query.Eof);
+      Query.Next;
+      Query.Close;
     end;
   end;
 end;
@@ -1529,10 +1571,11 @@ begin
     begin
     with query do
       begin
-      if (sqlDBtype=interbase) then
-        SQL.Text:='select first 1 NAME from FPDEV where NAME=''TestName21'''
-      else
-        SQL.Text:='select NAME from FPDEV where NAME=''TestName21'' limit 1';
+      case sqlDBtype of
+        interbase : SQL.Text:='select first 1 NAME from FPDEV where NAME=''TestName21''';
+        mssql     : SQL.Text:='select top 1 NAME from FPDEV where NAME=''TestName21''';
+        else        SQL.Text:='select NAME from FPDEV where NAME=''TestName21'' limit 1';
+      end;
       Open;
       close;
       ServerFilter:='ID=21';
@@ -1653,7 +1696,7 @@ end;
 procedure TTestFieldTypes.TestBug9744;
 var i : integer;
 begin
-  if SQLDbType in [interbase,postgresql] then Ignore('This test does not apply to this db-engine, since it has no double field-type');
+  if SQLDbType in [interbase,postgresql,mssql] then Ignore('This test does not apply to this db-engine, since it has no double field-type');
 
   with TSQLDBConnector(DBConnector) do
     begin
@@ -1823,6 +1866,8 @@ begin
   else
   begin
     datatype:=FieldtypeDefinitions[ftTime];
+    if datatype = '' then
+      Ignore(STestNotApplicable);
     if sqlDBType = sqlite3 then
       testIntervalValuesCount := 5
     else if sqlDBType in MySQLdbTypes then
@@ -1831,6 +1876,51 @@ begin
       testIntervalValuesCount := 3;
   end;
   TestSQLFieldType(ftTime, datatype, sizeof(TDateTime), @TestSQLInterval_GetSQLText, @CheckFieldValue);
+end;
+
+procedure TTestFieldTypes.TestSQLIdentity;
+var datatype, values: string;
+    fieldtype: TFieldType;
+    i: integer;
+begin
+  if sqlDBType in MySQLdbTypes then
+  begin
+    datatype:='INT AUTO_INCREMENT PRIMARY KEY';
+    values:='VALUES(DEFAULT)';
+    fieldtype:=ftAutoInc;
+  end
+  else if sqlDBType = sqlite3 then
+  begin
+    datatype:='INTEGER PRIMARY KEY';
+    values:='DEFAULT VALUES';
+    fieldtype:=ftInteger;
+  end
+  else if sqlDBType = mssql then
+  begin
+    datatype:='INTEGER IDENTITY';
+    values:='DEFAULT VALUES';
+    fieldtype:=ftAutoInc;
+  end
+  else
+    Ignore(STestNotApplicable);
+
+  CreateTableWithFieldType(fieldtype, datatype);
+  TestFieldDeclaration(fieldtype, sizeof(longint));
+
+  for i := 1 to 3 do
+    TSQLDBConnector(DBConnector).Connection.ExecuteDirect('insert into FPDEV2 '+values);
+
+  with TSQLDBConnector(DBConnector).Query do
+  begin
+    Open;
+    AssertTrue(Locate('FT',1,[])); // bug 17624
+    for i := 1 to 3 do
+    begin
+      AssertEquals(Fields[0].AsInteger, i);
+      Next;
+    end;
+    Close;
+  end;
 end;
 
 procedure TTestFieldTypes.TestUpdateIndexDefs;
@@ -1883,14 +1973,14 @@ end;
 
 procedure TTestFieldTypes.TestTemporaryTable;
 begin
-  if SQLDbType=interbase then Ignore('This test does not apply to Interbase/Firebird, since it doesn''t support temporary tables');
+  if SQLDbType in [interbase,mssql] then Ignore('This test does not apply to this sqldb-connection type, since it doesn''t support temporary tables');
 
   with TSQLDBConnector(DBConnector).Query do
     begin
     SQL.Clear;
     SQL.Add('CREATE TEMPORARY TABLE TEMP1 (id int)');
     ExecSQL;
-    SQL.Text :=  'INSERT INTO TEMP1(id) values (5)';
+    SQL.Text := 'INSERT INTO TEMP1(id) values (5)';
     ExecSQL;
     SQL.Text := 'SELECT * FROM TEMP1';
     Open;
@@ -2014,4 +2104,3 @@ end;
 initialization
   if uppercase(dbconnectorname)='SQL' then RegisterTest(TTestFieldTypes);
 end.
-

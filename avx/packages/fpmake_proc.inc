@@ -52,6 +52,8 @@ begin
 {$include cocoaint/fpmake.pp}
 end;
 
+{$include dblib/fpmake.pp}
+
 procedure add_dbus;
 begin
   with Installer do
@@ -173,6 +175,8 @@ begin
   with Installer do
 {$include fpgtk/fpmake.pp}
 end;
+
+{$include fpindexer/fpmake.pp}
 
 procedure add_fpmkunit;
 begin
@@ -434,6 +438,12 @@ procedure add_opengl;
 begin
   with Installer do
 {$include opengl/fpmake.pp}
+end;
+
+procedure add_opengles;
+begin
+  with Installer do
+{$include opengles/fpmake.pp}
 end;
 
 procedure add_openssl;
