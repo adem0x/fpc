@@ -2276,7 +2276,7 @@ cg_e_mod_only_defined_for_pos_quotient=06054_E_In ISO mode, the mod operator is 
 #
 # Assembler reader
 #
-# 07110 is the last used one
+# 07118 is the last used one
 #
 asmr_d_start_reading=07000_DL_Starting $1 styled assembler parsing
 % This informs you that an assembler block is being parsed
@@ -2544,8 +2544,15 @@ asmr_e_seh_in_pure_asm_only=07114_E_SEH directives are allowed only in pure asse
 % Win64 SEH directives are allowed only in pure assembler procedures, not in assembler
 % blocks of regular procedures.
 asmr_e_unsupported_directive=07115_E_Directive "$1" is not supported for the current target
-
-
+asmr_w_check_mem_operand_size=07116_W_Check size of memory operand "$1"
+% The size of memory operand is possible invalid. This is
+% probably an error in the assembler statement
+asmr_w_check_mem_operand_size3=07117_W_Check size of memory operand "$1: memory-operand-size is $2 bits, but expected [$3 bits]"
+% The size of memory operand is possible invalid. This is
+% probably an error in the assembler statement
+asmr_w_check_mem_operand_size_offset=07118_W_Check size of memory operand "$1: memory-operand-size is $2 bits, but expected [$3 bits + $4 byte offset]"
+% The size of memory operand is possible invalid. This is
+% probably an error in the assembler statement
 #
 # Assembler/binary writers
 #
