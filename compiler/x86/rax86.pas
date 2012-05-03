@@ -186,6 +186,12 @@ begin
   inherited SetSize(_size,force);
   { OS_64 will be set to S_L and be fixed later
     in SetCorrectSize }
+
+  // multimedia register
+  case _size of
+    16: size := OS_M128;
+    32: size := OS_M256;
+  end;
   opsize:=TCGSize2Opsize[size];
 end;
 
@@ -207,6 +213,16 @@ begin
         OS_64 : opsize:=S_IQ;
       end;
     end
+  else if gas_needsuffix[opcode]=AttSufMM then
+  begin
+    if (opr.typ=OPR_Reference) then
+    begin
+      case size of
+        OS_32 : size := OS_M32;
+        OS_64 : size := OS_M64;
+      end;
+    end;
+  end
   else
     begin
       if size=OS_64 then
@@ -281,7 +297,73 @@ var
   operand2,i : longint;
   s : tasmsymbol;
   so : aint;
+  ExistsMemRefNoSize: boolean;
 begin
+  ExistsMemRefNoSize := false;
+  for i := 1 to ops do
+  begin
+    if (tx86operand(operands[i]).opsize = S_NO) and
+       (operands[i].Opr.Typ in [OPR_REFERENCE]) then
+    begin
+      ExistsMemRefNoSize := true;
+    end;
+  end;
+
+  if ExistsMemRefNoSize then
+  begin
+    for i := 1 to ops do
+    begin
+      if (tx86operand(operands[i]).opsize = S_NO) then
+      begin
+        case operands[i].Opr.Typ of
+          OPR_REFERENCE:
+                case MemRefInfo(opcode).MemRefSize of
+                    msiMem8: begin
+                                tx86operand(operands[i]).opsize := S_B;
+                                tx86operand(operands[i]).size   := OS_8;
+                              end;
+                   msiMem16: begin
+                               tx86operand(operands[i]).opsize := S_W;
+                               tx86operand(operands[i]).size   := OS_16;
+                             end;
+                   msiMem32: begin
+                               tx86operand(operands[i]).opsize := S_L;
+                               tx86operand(operands[i]).size   := OS_32;
+                             end;
+                   msiMem64: begin
+                               tx86operand(operands[i]).opsize := S_Q;
+                               tx86operand(operands[i]).size   := OS_M64;
+                             end;
+                  msiMem128: begin
+                               tx86operand(operands[i]).opsize := S_XMM;
+                               tx86operand(operands[i]).size   := OS_M128;
+                             end;
+                  msiMem256: begin
+                               tx86operand(operands[i]).opsize := S_YMM;
+                               tx86operand(operands[i]).size   := OS_M256;
+                             end;
+                end;
+          OPR_CONSTANT:
+                case MemRefInfo(opcode).ConstSize of
+                   csiMem8: begin
+                              tx86operand(operands[i]).opsize := S_B;
+                              tx86operand(operands[i]).size   := OS_8;
+                            end;
+                  csiMem16: begin
+                              tx86operand(operands[i]).opsize := S_W;
+                              tx86operand(operands[i]).size   := OS_16;
+                            end;
+                  csiMem32: begin
+                              tx86operand(operands[i]).opsize := S_L;
+                              tx86operand(operands[i]).size   := OS_32;
+                            end;
+                end;
+        end;
+      end;
+    end;
+  end;
+
+
   for i:=1 to ops do
     begin
       operands[i].SetCorrectSize(opcode);
@@ -311,8 +393,24 @@ begin
                        begin
                          if ((opcode<>A_MOVD) and
                              (opcode<>A_CVTSI2SS)) then
-                           tx86operand(operands[i]).opsize:=tx86operand(operands[operand2]).opsize;
-                       end
+                      begin
+                        //tx86operand(operands[i]).opsize:=tx86operand(operands[operand2]).opsize;
+
+                        // torsten - 31.01.2012
+                        // old: xmm/ymm-register operands have a opsize = "S_NO"
+                        // new: xmm/ymm-register operands have a opsize = "S_XMM/S_YMM"
+
+                        // any SSE- and AVX-opcodes have mixed operand sizes (e.g. cvtsd2ss xmmreg, xmmreg/m32)
+                        // in this case is we need the old handling ("S_NO")
+                        // =>> ignore
+                        if (tx86operand(operands[operand2]).opsize <> S_XMM) and
+                           (tx86operand(operands[operand2]).opsize <> S_YMM) then
+                        begin
+                          tx86operand(operands[i]).opsize:=tx86operand(operands[operand2]).opsize;
+                        end
+                        else tx86operand(operands[operand2]).opsize := S_NO;
+                      end;
+                    end
                      else
                       begin
                         { if no register then take the opsize (which is available with ATT),
@@ -417,11 +515,30 @@ begin
           A_OUT :
             opsize:=tx86operand(operands[1]).opsize;
           else
-            opsize:=tx86operand(operands[2]).opsize;
+          begin
+            // opsize:=tx86operand(operands[2]).opsize;
+
+            // torsten - 31.01.2012
+            // old: xmm/ymm-register operands have a opsize = "S_NO"
+            // new: xmm/ymm-register operands have a opsize = "S_XMM/S_YMM"
+
+            // any SSE- and AVX-opcodes have mixed operand sizes (e.g. cvtsd2ss xmmreg, xmmreg/m32)
+            // in this case is we need the old handling ("S_NO")
+            // =>> ignore
+            if (tx86operand(operands[2]).opsize <> S_XMM) and
+               (tx86operand(operands[2]).opsize <> S_YMM) then
+            begin
+              opsize:=tx86operand(operands[2]).opsize;
+            end;
+
+          end;
         end;
       end;
-    3 :
-      opsize:=tx86operand(operands[3]).opsize;
+    3,4 :
+      begin
+          opsize:=tx86operand(operands[ops]).opsize;
+      end;
+
   end;
 end;
 
@@ -736,7 +853,7 @@ begin
                      asize:=OT_BITS8;
                    OS_16,OS_S16 :
                      asize:=OT_BITS16;
-                   OS_32,OS_S32,OS_F32 :
+                   OS_32,OS_S32,OS_F32,OS_M32 :
                      asize:=OT_BITS32;
                    OS_64,OS_S64:
                      begin
@@ -752,10 +869,14 @@ begin
 {$endif i386}
                          ;
                      end;
-                   OS_F64,OS_C64 :
+                   OS_F64,OS_C64, OS_M64 :
                      asize:=OT_BITS64;
                    OS_F80 :
                      asize:=OT_BITS80;
+                   OS_128,OS_M128,OS_MS128:
+                     asize := OT_BITS128;
+                   OS_M256,OS_MS256:
+                     asize := OT_BITS256;
                  end;
                if asize<>0 then
                  ai.oper[i-1]^.ot:=(ai.oper[i-1]^.ot and not OT_SIZE_MASK) or asize;

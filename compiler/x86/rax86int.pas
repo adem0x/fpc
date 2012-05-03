@@ -42,7 +42,7 @@ Unit Rax86int;
        {------------------ Assembler directives --------------------}
       AS_ALIGN,AS_DB,AS_DW,AS_DD,AS_DQ,AS_END,
        {------------------ Assembler Operators  --------------------}
-      AS_BYTE,AS_WORD,AS_DWORD,AS_QWORD,AS_TBYTE,AS_DQWORD,AS_NEAR,AS_FAR,
+      AS_BYTE,AS_WORD,AS_DWORD,AS_QWORD,AS_TBYTE,AS_DQWORD,AS_OWORD,AS_XMMWORD,AS_YWORD,AS_YMMWORD,AS_NEAR,AS_FAR,
       AS_HIGH,AS_LOW,AS_OFFSET,AS_SIZEOF,AS_VMTOFFSET,AS_SEG,AS_TYPE,AS_PTR,AS_MOD,AS_SHL,AS_SHR,AS_NOT,
       AS_AND,AS_OR,AS_XOR);
 
@@ -114,13 +114,13 @@ Unit Rax86int;
        { problems with shl,shr,not,and,or and xor, they are }
        { context sensitive.                                 }
        _asmoperators : array[0.._count_asmoperators] of tasmkeyword = (
-        'BYTE','WORD','DWORD','QWORD','TBYTE','DQWORD','NEAR','FAR','HIGH',
+        'BYTE','WORD','DWORD','QWORD','TBYTE','DQWORD','OWORD','XMMWORD','YWORD','YMMWORD','NEAR','FAR','HIGH',
         'LOW','OFFSET','SIZEOF','VMTOFFSET','SEG','TYPE','PTR','MOD','SHL','SHR','NOT','AND',
         'OR','XOR');
 
       token2str : array[tasmtoken] of string[10] = (
         '','Label','LLabel','String','Integer',
-        ',','[',']','(',
+        ',',',',',',',',',','[',']','(',
         ')',':','.','+','-','*',
         ';','identifier','register','opcode','/',
         '','','','','','END',
@@ -729,7 +729,7 @@ Unit Rax86int;
         while (actasmtoken=AS_DOT) do
          begin
            Consume(AS_DOT);
-           if actasmtoken in [AS_BYTE,AS_ID,AS_WORD,AS_DWORD,AS_QWORD,AS_REGISTER] then
+           if actasmtoken in [AS_BYTE,AS_ID,AS_WORD,AS_DWORD,AS_QWORD,AS_OWORD,AS_XMMWORD,AS_YWORD,AS_YMMWORD,AS_REGISTER] then
              begin
                s:=s+'.'+actasmpattern;
                consume(actasmtoken);
@@ -1819,7 +1819,11 @@ Unit Rax86int;
             AS_WORD,
             AS_TBYTE,
             AS_DQWORD,
-            AS_QWORD :
+            AS_QWORD,
+            AS_OWORD,
+            AS_XMMWORD,
+            AS_YWORD,
+            AS_YMMWORD:
               begin
                 { Type specifier }
                 oper.hastype:=true;
@@ -1831,6 +1835,10 @@ Unit Rax86int;
                   AS_QWORD : oper.typesize:=8;
                   AS_DQWORD : oper.typesize:=16;
                   AS_TBYTE : oper.typesize:=10;
+                  AS_OWORD,                     
+                  AS_XMMWORD: oper.typesize:=16; 
+                  AS_YWORD,                     
+                  AS_YMMWORD: oper.typesize:=32;
                   else
                     internalerror(2010061101);
                 end;
