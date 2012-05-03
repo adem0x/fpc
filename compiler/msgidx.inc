@@ -739,6 +739,9 @@ const
   asmr_e_bad_seh_directive_register=07113;
   asmr_e_seh_in_pure_asm_only=07114;
   asmr_e_unsupported_directive=07115;
+  asmr_w_check_mem_operand_size=07116;
+  asmr_w_check_mem_operand_size3=07117;
+  asmr_w_check_mem_operand_size_offset=07118;
   asmw_f_too_many_asm_files=08000;
   asmw_f_assembler_output_not_supported=08001;
   asmw_f_comp_not_supported=08002;
@@ -941,9 +944,9 @@ const
   option_info=11024;
   option_help_pages=11025;
 
-  MsgTxtSize = 65627;
+  MsgTxtSize = 65882;
 
   MsgIdxMax : array[1..20] of longint=(
-    26,91,322,118,87,55,116,26,202,63,
+    26,91,322,118,87,55,119,26,202,63,
     53,20,1,1,1,1,1,1,1,1
   );
