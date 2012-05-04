@@ -88,7 +88,7 @@ uses
   globtype,globals,systems,verbose,
   procinfo,
   cpuinfo,cgbase,cgutils,
-  itcpugas,cgx86;
+  itcpugas,cgx86, symsym, cutils;
 
 
 {*****************************************************************************
@@ -192,6 +192,7 @@ begin
     16: size := OS_M128;
     32: size := OS_M256;
   end;
+
   opsize:=TCGSize2Opsize[size];
 end;
 
@@ -329,25 +330,6 @@ var
   memopsize: integer;
   memoffset: asizeint;
   s1: string;
-
-  function IntToStr(aValue: Integer): String;
-  var
-    r,v: integer;
-  begin
-    result := '';
-
-    r := aValue;
-    while true do
-    begin
-      v := r mod 10;
-      r := r div 10;
-
-      result := Chr(Ord('0') + v) + result;
-
-      if r = 0 then break;
-    end;
-  end;
-
 begin
   ExistsMemRefNoSize := false;
   ExistsMemRef       := false;
@@ -463,17 +445,17 @@ begin
                 begin
                   Message3(asmr_w_check_mem_operand_size3,
                            std_op2str[opcode],
-                           IntToStr(memopsize),
-                           IntToStr(memrefsize)
+                           ToStr(memopsize),
+                           ToStr(memrefsize)
                            );
                 end
                 else
                 begin
                   Message4(asmr_w_check_mem_operand_size_offset,
                            std_op2str[opcode],
-                           IntToStr(memopsize),
-                           IntToStr(memrefsize),
-                           IntToStr(memoffset)
+                           ToStr(memopsize),
+                           ToStr(memrefsize),
+                           ToStr(memoffset)
                            );
                 end;
               end;
@@ -1059,6 +1041,9 @@ begin
       (target_info.system in [system_i386_linux,system_i386_FreeBSD]) then
      Message(asmr_w_enter_not_supported_by_linux);
 
+
+
+
   ai:=taicpu.op_none(opcode,siz);
   ai.SetOperandOrder(OpOrder);
   ai.Ops:=Ops;
@@ -1094,6 +1079,7 @@ begin
                          integer operations it is seen as 32bit
 
                          this applies only to i386, see tw16622}
+
                        if gas_needsuffix[opcode] in [attsufFPU,attsufFPUint] then
                          asize:=OT_BITS64
 {$ifdef i386}
