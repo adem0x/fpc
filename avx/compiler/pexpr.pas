@@ -2132,13 +2132,11 @@ implementation
                  searchsym_type(pattern,srsym,srsymtable)
                else
                  searchsym(pattern,srsym,srsymtable);
-
                { handle unit specification like System.Writeln }
                unit_found:=try_consume_unitsym(srsym,srsymtable,t,true);
                storedpattern:=pattern;
                orgstoredpattern:=orgpattern;
                consume(t);
-
                { named parameter support }
                found_arg_name:=false;
 
@@ -2254,7 +2252,9 @@ implementation
                         if (srsymtable.symtabletype in [ObjectSymtable,recordsymtable]) then
                           { if we are accessing a owner procsym from the nested }
                           { class we need to call it as a class member          }
-                          if assigned(current_structdef) and (current_structdef<>hdef) and is_owned_by(current_structdef,hdef) then
+                          if assigned(current_structdef) and
+                              (((current_structdef<>hdef) and is_owned_by(current_structdef,hdef)) or
+                               (sp_static in srsym.symoptions)) then
                             p1:=cloadvmtaddrnode.create(ctypenode.create(hdef))
                           else
                           if assigned(current_procinfo) and current_procinfo.procdef.no_self_node then
@@ -2648,6 +2648,7 @@ implementation
                            end;
                        end;
                        callflags:=[cnf_inherited];
+                       include(current_procinfo.flags,pi_has_inherited);
                        if anon_inherited then
                          include(callflags,cnf_anon_inherited);
                        do_member_read(hclassdef,getaddr,srsym,p1,again,callflags);

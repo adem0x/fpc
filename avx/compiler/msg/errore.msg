@@ -136,7 +136,7 @@ general_f_oserror=01025_F_Operating system error: $1
 #
 # Scanner
 #
-# 02090 is the last used one
+# 02091 is the last used one
 #
 % \section{Scanner messages.}
 % This section lists the messages that the scanner emits. The scanner takes
@@ -381,6 +381,11 @@ scanner_f_illegal_utf8_bom=02089_F_It is not possible to include a file that sta
 scanner_w_directive_ignored_on_target=02090_W_Directive "$1" is ignored for the the current target platform
 % Some directives are ignored for certain targets, such as changing the
 % packrecords and packenum settings on managed platforms.
+scan_w_unavailable_system_codepage=02091_W_Current system codepage "$1" is not available for the compiler. Switching default codepage back to "$2".
+% The current system codepage is not known by the compiler.
+% The compiler is compiled with support for several codepages built-in.
+% The codepage of the operation system is not in that list. You will need to recompile
+% the compiler with support for this codepage.
 % \end{description}
 #
 # Parser
@@ -1849,13 +1854,16 @@ type_e_no_managed_assign_generic_typecast=04115_E_The assignment side of an expr
 % to statically determine that no type-unsafe assignments or operations occur. By assigning a parent class type to a
 % variable of a child type by typecasting the assignment side to the parent class type, the type safety would no
 % longer be guaranteed and the generated code would fail verification at run time time.
-type_w_interface_lower_visibility=04116_W_The interface method "$1" raises the visibility of "$2" to public when accessed via an interface instance
+type_w_interface_lower_visibility=04116_-W_The interface method "$1" raises the visibility of "$2" to public when accessed via an interface instance
 type_e_interface_lower_visibility=04117_E_The interface method "$1" has a higher visibility (public) than "$2"
 % All methods in an interface have always public visibility. That means that if
 % an interface method is implemented using a (strict) protected or private method,
 % this method is actually publicly accessible via the interface. On the JVM
 % target this situation results in an error because the JVM rejects such
-% attempts to circumvent the visibility rules.
+% attempts to circumvent the visibility rules. On other targets this is a
+% warning that is disabled by default because such situations are common
+% practice, but it can be enabled in case you are concerned with keeping your
+% code compilable for the JVM target.
 % \end{description}
 #
 # Symtable
@@ -2270,9 +2278,10 @@ cg_e_goto_across_procedures_with_exceptions_not_allowed=06053_E_Leaving procedur
 % which use automated types like ansistrings or class constructurs are affected by this too.
 cg_e_mod_only_defined_for_pos_quotient=06054_E_In ISO mode, the mod operator is defined only for positive quotient
 % In ISO pascal, only positive values are allowed for the quotient: \var{n mod m} is only valid if \var{m>0}.
+cg_d_autoinlining=06055_DL_Auto inlining: $1
+% Due to auto inlining turned on, the compiler auto inlines this subroutine.
 % \end{description}
 # EndOfTeX
-
 #
 # Assembler reader
 #
@@ -3052,7 +3061,7 @@ option_read_config_file=11034_D_Reading config file "$1"
 option_found_file=11035_D_found source file name "$1"
 % Additional information about options.
 % Displayed when you have the debug option turned on.
-option_code_page_not_available=11039_E_Unknown codepage
+option_code_page_not_available=11039_E_Unknown codepage "$1"
 % An unknown codepage for the source files was requested.
 % The compiler is compiled with support for several codepages built-in.
 % The requested codepage is not in that list. You will need to recompile
@@ -3546,7 +3555,7 @@ P*2WT_Specify MPW tool type application (Classic Mac OS)
 **2WX_Enable executable stack (Linux)
 **1X_Executable options:
 **2Xc_Pass --shared/-dynamic to the linker (BeOS, Darwin, FreeBSD, Linux)
-**2Xd_Do not use standard library search path (needed for cross compile)
+**2Xd_Do not search default library path (sometimes required for cross-compiling when not using -XR)
 **2Xe_Use external linker
 **2Xg_Create debuginfo in a separate file and add a debuglink section to executable
 **2XD_Try to link units dynamically      (defines FPC_LINK_DYNAMIC)

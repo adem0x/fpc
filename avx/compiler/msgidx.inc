@@ -112,6 +112,7 @@ const
   scanner_e_illegal_alignment_directive=02088;
   scanner_f_illegal_utf8_bom=02089;
   scanner_w_directive_ignored_on_target=02090;
+  scan_w_unavailable_system_codepage=02091;
   parser_e_syntax_error=03000;
   parser_e_dont_nest_interrupt=03004;
   parser_w_proc_directive_ignored=03005;
@@ -628,6 +629,7 @@ const
   cg_e_labels_cannot_defined_outside_declaration_scope=06052;
   cg_e_goto_across_procedures_with_exceptions_not_allowed=06053;
   cg_e_mod_only_defined_for_pos_quotient=06054;
+  cg_d_autoinlining=06055;
   asmr_d_start_reading=07000;
   asmr_d_finish_reading=07001;
   asmr_e_none_label_contain_at=07002;
@@ -739,9 +741,6 @@ const
   asmr_e_bad_seh_directive_register=07113;
   asmr_e_seh_in_pure_asm_only=07114;
   asmr_e_unsupported_directive=07115;
-  asmr_w_check_mem_operand_size=07116;
-  asmr_w_check_mem_operand_size3=07117;
-  asmr_w_check_mem_operand_size_offset=07118;
   asmw_f_too_many_asm_files=08000;
   asmw_f_assembler_output_not_supported=08001;
   asmw_f_comp_not_supported=08002;
@@ -944,9 +943,9 @@ const
   option_info=11024;
   option_help_pages=11025;
 
-  MsgTxtSize = 65882;
+  MsgTxtSize = 65801;
 
   MsgIdxMax : array[1..20] of longint=(
-    26,91,322,118,87,55,119,26,202,63,
+    26,92,322,118,87,56,116,26,202,63,
     53,20,1,1,1,1,1,1,1,1
   );

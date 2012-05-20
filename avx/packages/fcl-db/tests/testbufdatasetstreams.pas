@@ -48,6 +48,7 @@ type
     procedure SeveralEditsCancelUpd;
     procedure DeleteAllCancelUpd;
     procedure DeleteAllInsertCancelUpd;
+    procedure AppendDeleteCancelUpd;
 
     procedure TestSimpleEditApplUpd;
     procedure TestSimpleDeleteApplUpd;
@@ -72,6 +73,7 @@ type
     procedure TestAppendDeleteBIN;
 
     procedure TestFileNameProperty;
+    procedure TestXmlFileRecognition;
     procedure TestCloseDatasetNoConnection; // bug 17623
   end;
 
@@ -338,6 +340,7 @@ end;
 
 procedure TTestBufDatasetStreams.AppendDeleteChange(ADataset: TCustomBufDataset);
 begin
+  // Tests bugs #19593, #21994
   with ADataset do
   begin
     AppendRecord([16,'TestName16']);
@@ -346,6 +349,7 @@ begin
     Prior;
     Delete;  // 15 update-buffer of deleted record is linked to 16
     Delete;  // 16 inserted-deleted and linked by 15
+    AppendRecord([18,'TestName18']); // again append after delete
   end;
 end;
 
@@ -387,6 +391,11 @@ end;
 procedure TTestBufDatasetStreams.DeleteAllInsertCancelUpd;
 begin
   TestChangesCancelUpdates(@DeleteAllInsertChange);
+end;
+
+procedure TTestBufDatasetStreams.AppendDeleteCancelUpd;
+begin
+  TestChangesCancelUpdates(@AppendDeleteChange);
 end;
 
 procedure TTestBufDatasetStreams.TestBasicsXML;
@@ -460,6 +469,27 @@ begin
 
   LoadDs := DBConnector.GetNDataset(True,2);
   TCustomBufDataset(LoadDs).FileName:='test.dat';
+  LoadDs.Open;
+
+  ds := DBConnector.GetNDataset(true,4);
+  ds.Open;
+  CompareDatasets(ds,LoadDs);
+  ds.close;
+  LoadDs.close;
+end;
+
+procedure TTestBufDatasetStreams.TestXmlFileRecognition;
+var ds    : TDataset;
+    LoadDs: TDataset;
+begin
+  ds := DBConnector.GetNDataset(true,5);
+
+  ds.open;
+  TCustomBufDataset(ds).SaveToFile('test.xml',dfXML);
+  ds.close;
+
+  LoadDs := DBConnector.GetNDataset(True,2);
+  TCustomBufDataset(LoadDs).FileName:='test.xml';
   LoadDs.Open;
 
   ds := DBConnector.GetNDataset(true,4);
