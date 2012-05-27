@@ -346,25 +346,16 @@ begin
       begin
         ExistsMemRefNoSize := true;
 
-        if operands[i].opr.Typ = OPR_LOCAL then
-        begin
-          if tx86operand(operands[i]).opr.localsym.getsize > 0 then
-          begin
-            ExistsLocalSymSize := true;
-          end;
-        end
-        else if operands[i].opr.Typ = OPR_REFERENCE then
-        begin
-          ExistsLocalSymSize := true;
+        case operands[i].opr.Typ of
+              OPR_LOCAL: ExistsLocalSymSize := tx86operand(operands[i]).opr.localsym.getsize > 0;
+          OPR_REFERENCE: ExistsLocalSymSize := true;
         end;
+
       end;
     end
     else if operands[i].Opr.Typ in [OPR_CONSTANT] then
     begin
-      if (tx86operand(operands[i]).opsize = S_NO) then
-      begin
-        ExistsConstNoSize := true;
-      end;
+      ExistsConstNoSize := tx86operand(operands[i]).opsize = S_NO;
     end;
   end;
 
@@ -405,9 +396,7 @@ begin
                                S_Q   : memrefsize := 64;
                                S_XMM : memrefsize := 128;
                                S_YMM : memrefsize := 256;
-                                  else begin
-                                         Internalerror(777200);
-                                       end;
+                                  else Internalerror(777200);
                              end;
                              break;
                            end;
@@ -517,10 +506,7 @@ begin
                                      tx86operand(operands[i]).size   := tx86operand(operands[j]).size;
                                      break;
                                    end
-                                   else
-                                   begin
-                                     Message(asmr_e_unable_to_determine_reference_size);
-                                   end;
+                                   else Message(asmr_e_unable_to_determine_reference_size);
                                  end;
                                end;
                              end;
@@ -569,10 +555,7 @@ begin
                                end;
                              end;
                    msiNoSize: ; //  all memory-sizes are ok
-                   msiMultiple:
-                             begin
-                               Message(asmr_e_unable_to_determine_reference_size); // TODO individual message
-                             end;
+                   msiMultiple: Message(asmr_e_unable_to_determine_reference_size); // TODO individual message
                 end;
           OPR_CONSTANT:
                 case MemRefInfo(opcode).ConstSize of
@@ -636,9 +619,7 @@ begin
                         // =>> ignore
                         if (tx86operand(operands[operand2]).opsize <> S_XMM) and
                            (tx86operand(operands[operand2]).opsize <> S_YMM) then
-                        begin
-                          tx86operand(operands[i]).opsize:=tx86operand(operands[operand2]).opsize;
-                        end
+                          tx86operand(operands[i]).opsize:=tx86operand(operands[operand2]).opsize
                         else tx86operand(operands[operand2]).opsize := S_NO;
                       end;
                     end
@@ -750,9 +731,7 @@ begin
         end;
       end;
     3,4 :
-      begin
           opsize:=tx86operand(operands[ops]).opsize;
-      end;
 
   end;
 end;

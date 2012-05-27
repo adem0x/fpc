@@ -266,9 +266,7 @@ interface
             sreg := gas_regname(taicpu(hp).oper[0]^.reg);
             if (copy(sreg, 1, 2) = '%y') or
                (copy(sreg, 1, 2) = '%Y') then
-            begin
               taicpu(hp).oper[0]^.reg := gas_regnum_search('%x' + copy(sreg, 3, length(sreg) - 2));
-            end;
           end;
         end;
 {$ifdef x86_64}
