@@ -130,7 +130,6 @@ interface
 {$endif arm}
        public
          constructor createcoff(const n:string;awin32:boolean;acObjSection:TObjSectionClass);
-         destructor  destroy;override;
          procedure CreateDebugSections;override;
          function  sectionname(atype:TAsmSectiontype;const aname:string;aorder:TAsmSectionOrder):string;override;
          procedure writereloc(data:aint;len:aword;p:TObjSymbol;reloctype:TObjRelocationType);override;
@@ -456,6 +455,14 @@ implementation
        IMAGE_REL_BASED_HIGHLOW     = 3;  { Applies the delta to the 32-bit field at Offset. }
        IMAGE_REL_BASED_DIR64       = 10; { Applies the delta to the 64-bit field at Offset. }
 
+       { values for coffsectionrec.select }
+       IMAGE_COMDAT_SELECT_NODUPLICATES = 1;
+       IMAGE_COMDAT_SELECT_ANY          = 2;
+       IMAGE_COMDAT_SELECT_SAME_SIZE    = 3;
+       IMAGE_COMDAT_SELECT_EXACT_MATCH  = 4;
+       IMAGE_COMDAT_SELECT_ASSOCIATIVE  = 5;
+       IMAGE_COMDAT_SELECT_LARGEST      = 6;
+
     type
        coffdjoptheader=packed record
          magic  : word;
@@ -470,7 +477,11 @@ implementation
        coffsectionrec=packed record
          len     : longword;
          nrelocs : word;
-         empty   : array[0..11] of char;
+         nlines  : word;
+         checksum: longword;
+         assoc   : word;
+         select  : byte;
+         empty   : array[0..2] of char;
        end;
        coffreloc=packed record
          address  : longword;
@@ -482,7 +493,7 @@ implementation
          strpos  : longword;
          value   : longword;
          section : smallint;
-         empty   : word;
+         empty   : word;                { actually type, $20: function, 0: not a function }
          typ     : byte;
          aux     : byte;
        end;
@@ -1033,12 +1044,6 @@ const pemagic : array[0..3] of byte = (
       end;
 
 
-    destructor TCoffObjData.destroy;
-      begin
-        inherited destroy;
-      end;
-
-
     function TCoffObjData.sectionname(atype:TAsmSectiontype;const aname:string;aorder:TAsmSectionOrder):string;
       var
         sep     : string[3];
@@ -1136,13 +1141,12 @@ const pemagic : array[0..3] of byte = (
             else
               begin
                 if (p.objsection<>nil) and
-                   (p.bind<>AB_COMMON) and
-                   (reloctype<>RELOC_RELATIVE) then
+                   (p.bind<>AB_COMMON) then
                   CurrObjSec.addsectionreloc(curraddr,p.objsection,reloctype)
                 else
                   CurrObjSec.addsymreloc(curraddr,p,reloctype);
                 if (not win32) or
-                   ((reloctype<>RELOC_RELATIVE) and (p.objsection<>nil)) then
+                   (p.objsection<>nil) then
                   inc(data,symaddr);
                 if reloctype=RELOC_RELATIVE then
                   begin
@@ -1211,10 +1215,8 @@ const pemagic : array[0..3] of byte = (
 
     destructor TCoffObjOutput.destroy;
       begin
-        if assigned(FCoffSyms) then
-          FCoffSyms.free;
-        if assigned(FCoffStrs) then
-          FCoffStrs.free;
+        FCoffSyms.free;
+        FCoffStrs.free;
         inherited destroy;
       end;
 
@@ -1248,9 +1250,15 @@ const pemagic : array[0..3] of byte = (
       begin
         with TCoffObjSection(p) do
           begin
-            secidx:=symidx div 2;
+            Inc(plongword(arg)^);
+            secidx:=plongword(arg)^;
+
             secsymidx:=symidx;
-            write_symbol(name,mempos,secidx,COFF_SYM_SECTION,1);
+            { Both GNU and Microsoft toolchains write section symbols using
+              storage class 3 (STATIC).
+              No reason to use COFF_SYM_SECTION, it is silently converted to 3 by
+              PE binutils and causes warnings with DJGPP binutils. }
+            write_symbol(name,mempos,secidx,COFF_SYM_LOCAL,1);
             { AUX }
             fillchar(secrec,sizeof(secrec),0);
             secrec.len:=Size;
@@ -1354,6 +1362,7 @@ const pemagic : array[0..3] of byte = (
         i          : longint;
         value      : aword;
         objsym     : TObjSymbol;
+        secidx     : longword;
       begin
         with TCoffObjData(data) do
          begin
@@ -1365,29 +1374,30 @@ const pemagic : array[0..3] of byte = (
            inc(symidx);
            FCoffSyms.write(filename[1],sizeof(filename)-1);
            { Sections }
-           ObjSectionList.ForEachCall(@section_write_symbol,nil);
+           secidx:=0;
+           ObjSectionList.ForEachCall(@section_write_symbol,@secidx);
            { ObjSymbols }
            for i:=0 to ObjSymbolList.Count-1 do
              begin
                objsym:=TObjSymbol(ObjSymbolList[i]);
-               if (objsym.typ=AT_LABEL) and (objsym.bind=AB_LOCAL) then
+               if (objsym.bind=AB_LOCAL) then
                  continue;
                case objsym.bind of
                  AB_GLOBAL :
                    begin
-                     globalval:=2;
+                     globalval:=COFF_SYM_GLOBAL;
                      sectionval:=TCoffObjSection(objsym.objsection).secidx;
                      value:=objsym.address;
                    end;
                  AB_LOCAL :
                    begin
-                     globalval:=3;
+                     globalval:=COFF_SYM_LOCAL;
                      sectionval:=TCoffObjSection(objsym.objsection).secidx;
                      value:=objsym.address;
                    end;
                  else
                    begin
-                     globalval:=2;
+                     globalval:=COFF_SYM_GLOBAL;
                      sectionval:=0;
                      value:=objsym.size;
                    end;
@@ -1763,12 +1773,11 @@ const pemagic : array[0..3] of byte = (
                     { do not add constants (section=-1) }
                     if sym.section<>-1 then
                      begin
-                       bind:=AB_LOCAL;
                        objsec:=GetSection(sym.section);
                        if sym.value>=objsec.mempos then
                          address:=sym.value-objsec.mempos;
                        objsym:=CreateSymbol(strname);
-                       objsym.bind:=bind;
+                       objsym.bind:=AB_LOCAL;
                        objsym.typ:=AT_FUNCTION;
                        objsym.objsection:=objsec;
                        objsym.offset:=address;
@@ -1932,7 +1941,7 @@ const pemagic : array[0..3] of byte = (
                  pedecodesechdrflags(secname,sechdr.flags,secoptions,secalign)
                else
                  begin
-                   djdecodesechdrflags(secname,sechdr.flags);
+                   secoptions:=djdecodesechdrflags(secname,sechdr.flags);
                    secalign:=sizeof(pint);
                  end;
                if (Length(secname)>3) and (secname[2] in ['e','f','i','p','r']) then
@@ -2114,22 +2123,21 @@ const pemagic : array[0..3] of byte = (
             move(s[1],sechdr.name,length(s));
             sechdr.rvaofs:=mempos;
             if win32 then
-              sechdr.vsize:=Size
-            else
-              sechdr.vsize:=mempos;
-
-            { sechdr.dataSize is size of initilized data. Must be zero for sections that
-              do not contain one. In Windows it must be rounded up to FileAlignment
-              (so it can be greater than VirtualSize) }
-            if (oso_data in SecOptions) then
               begin
-                if win32 then
-                  sechdr.dataSize:=Align(Size,SectionDataAlign)
-                else
-                  sechdr.dataSize:=Size;
-                if (Size>0) then
-                  sechdr.datapos:=datapos;
+                sechdr.vsize:=Size;
+                { sechdr.dataSize is size of initialized data, rounded up to FileAlignment
+                  (so it can be greater than VirtualSize). Must be zero for sections that
+                  do not contain initialized data. }
+                if (oso_data in SecOptions) then
+                  sechdr.datasize:=Align(Size,SectionDataAlign);
+              end
+            else
+              begin
+                sechdr.vsize:=mempos;
+                sechdr.datasize:=Size;
               end;
+            if (Size>0) then
+              sechdr.datapos:=datapos;
             sechdr.nrelocs:=0;
             sechdr.relocpos:=0;
             if win32 then
@@ -2487,7 +2495,7 @@ const pemagic : array[0..3] of byte = (
               djoptheader.bsize:=BSSExeSec.Size;
             djoptheader.text_start:=TextExeSec.mempos;
             djoptheader.data_start:=DataExeSec.mempos;
-            djoptheader.entry:=EntrySym.offset;
+            djoptheader.entry:=EntrySym.Address;
             FWriter.write(djoptheader,sizeof(djoptheader));
           end;
 
@@ -2549,7 +2557,7 @@ const pemagic : array[0..3] of byte = (
       begin
         inherited createcoff(false);
         CExeSection:=TDJCoffExeSection;
-        CObjData:=TPECoffObjData;
+        CObjData:=TDJCoffObjData;
       end;
 
 

@@ -437,7 +437,6 @@ unit hlcgobj;
           procedure g_intf_wrapper(list: TAsmList; procdef: tprocdef; const labelname: string; ioffset: longint);virtual; abstract;
           procedure g_adjust_self_value(list:TAsmList;procdef: tprocdef;ioffset: aint);virtual; abstract;
 
-          function g_indirect_sym_load(list:TAsmList;const symname: string; const flags: tindsymflags): tregister;virtual; abstract;
           { generate a stub which only purpose is to pass control the given external method,
           setting up any additional environment before doing so (if required).
 
@@ -993,6 +992,9 @@ implementation
           internalerror(2010120405);
       end;
     end;
+
+{$push}
+{$r-,q-}
 
   procedure thlcgobj.a_load_subsetreg_reg(list: TAsmList; subsetsize, tosize: tdef; const sreg: tsubsetregister; destreg: tregister);
     var
@@ -2080,6 +2082,8 @@ implementation
           a_op_reg_reg(list,OP_OR,subsetregdef,tmpreg,sreg.subsetreg);
        end;
     end;
+
+  {$pop}
 
   function thlcgobj.get_bit_const_ref_sref(bitnumber: tcgint; refdef: tdef; const ref: treference): tsubsetreference;
     begin
@@ -3629,19 +3633,12 @@ implementation
       eldef : tdef;
       list : TAsmList;
       highloc : tlocation;
-      needs_inittable (*,
-      do_trashing     *)  : boolean;
+      needs_inittable  : boolean;
     begin
       list:=TAsmList(arg);
       if (tsym(p).typ=paravarsym) then
        begin
          needs_inittable:=is_managed_type(tparavarsym(p).vardef);
-(*
-         do_trashing:=
-           (localvartrashing <> -1) and
-           (not assigned(tparavarsym(p).defaultconstsym)) and
-           not needs_inittable;
-*)
          case tparavarsym(p).varspez of
            vs_value :
              if needs_inittable then
@@ -3674,25 +3671,12 @@ implementation
                end;
            vs_out :
              begin
-               if needs_inittable (*or
-                  do_trashing*) then
+               if needs_inittable then
                  begin
                    { we have no idea about the alignment at the callee side,
                      and the user also cannot specify "unaligned" here, so
                      assume worst case }
                    location_get_data_ref(list,tparavarsym(p).vardef,tparavarsym(p).initialloc,href,true,1);
-(*
-                   if do_trashing and
-                      { needs separate implementation to trash open arrays }
-                      { since their size is only known at run time         }
-                      not is_special_array(tparavarsym(p).vardef) then
-                      { may be an open string, even if is_open_string() returns }
-                      { false (for some helpers in the system unit)             }
-                     if not is_shortstring(tparavarsym(p).vardef) then
-                       trash_reference(list,href,tparavarsym(p).vardef.size)
-                     else
-                       trash_reference(list,href,2);
-*)
                    if needs_inittable then
                      begin
                        if is_open_array(tparavarsym(p).vardef) then
@@ -3714,26 +3698,6 @@ implementation
                      end;
                  end;
              end;
-(*
-           else if do_trashing and
-                   ([vo_is_funcret,vo_is_hidden_para] * tparavarsym(p).varoptions = [vo_is_funcret,vo_is_hidden_para]) then
-                 begin
-                   { should always have standard alignment. If a function is assigned
-                     to a non-aligned variable, the optimisation to pass this variable
-                     directly as hidden function result must/cannot be performed
-                     (see tcallnode.funcret_can_be_reused)
-                   }
-                   location_get_data_ref(list,tparavarsym(p).vardef,tparavarsym(p).initialloc,href,true,
-                     used_align(tparavarsym(p).vardef.alignment,current_settings.alignment.localalignmin,current_settings.alignment.localalignmax));
-                   { may be an open string, even if is_open_string() returns }
-                   { false (for some helpers in the system unit)             }
-                   if not is_shortstring(tparavarsym(p).vardef) then
-                     trash_reference(list,href,tparavarsym(p).vardef.size)
-                   else
-                     { an open string has at least size 2 }
-                     trash_reference(list,href,2);
-                 end
-*)
          end;
        end;
     end;
@@ -3763,13 +3727,6 @@ implementation
 
       if not(po_assembler in current_procinfo.procdef.procoptions) then
         begin
-          { has to be done here rather than in gen_initialize_code, because
-            the initialisation code is generated a) later and b) with
-            rad_backwards, so the register allocator would generate
-            information as if this code comes before loading the parameters
-            from their original registers to their local location }
-//          if (localvartrashing <> -1) then
-//            current_procinfo.procdef.localst.SymList.ForEachCall(@trash_variable,list);
           { initialize refcounted paras, and trash others. Needed here
             instead of in gen_initialize_code, because when a reference is
             intialised or trashed while the pointer to that reference is kept
