@@ -426,9 +426,13 @@ begin
                    memoffset := operands[i].opr.constoffset;
               end;
 
-              if memoffset < 0 then InternalError(777201);
-
-              if (memopsize < (memrefsize + memoffset * 8)) then
+              if memoffset < 0 then
+              begin
+                Message2(asmr_w_check_mem_operand_negative_offset,
+                         std_op2str[opcode],
+                         ToStr(memoffset));
+              end
+              else if (memopsize < (memrefsize + memoffset * 8)) then
               begin
                 if memoffset = 0 then
                 begin
