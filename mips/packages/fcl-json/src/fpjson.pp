@@ -396,13 +396,13 @@ Type
     Function IndexOfName(const AName: TJSONStringType; CaseInsensitive : Boolean = False): Integer;
     Function Find(Const AName : String) : TJSONData; overload;
     Function Find(Const AName : String; AType : TJSONType) : TJSONData; overload;
-    Function GetFloat(Const AName : String; ADefault : TJSONFloat) : TJSONFloat;
-    Function GetInteger(Const AName : String; ADefault : Integer) : Integer;
-    Function GetInt64(Const AName : String; ADefault : Int64) : Int64;
-    Function GetBoolean(Const AName : String; ADefault : Boolean) : Boolean;
-    Function GetString(Const AName : String; ADefault : TJSONStringType) : TJSONStringTYpe;
-    Function GetArray(Const AName : String; ADefault : TJSONArray) : TJSONArray;
-    Function GetObject(Const AName : String; ADefault : TJSONObject) : TJSONObject;
+    Function Get(Const AName : String; ADefault : TJSONFloat) : TJSONFloat;
+    Function Get(Const AName : String; ADefault : Integer) : Integer;
+    Function Get(Const AName : String; ADefault : Int64) : Int64;
+    Function Get(Const AName : String; ADefault : Boolean) : Boolean;
+    Function Get(Const AName : String; ADefault : TJSONStringType) : TJSONStringTYpe;
+    Function Get(Const AName : String; ADefault : TJSONArray) : TJSONArray;
+    Function Get(Const AName : String; ADefault : TJSONObject) : TJSONObject;
     // Manipulate
     Procedure Clear;  override;
     function Add(const AName: TJSONStringType; AValue: TJSONData): Integer; overload;
@@ -2059,7 +2059,7 @@ begin
     Result:=Nil
 end;
 
-function TJSONObject.GetFloat(const AName: String; ADefault: TJSONFloat
+function TJSONObject.Get(const AName: String; ADefault: TJSONFloat
   ): TJSONFloat;
 
 Var
@@ -2073,7 +2073,7 @@ begin
     Result:=ADefault;
 end;
 
-function TJSONObject.GetInteger(const AName: String; ADefault: Integer
+function TJSONObject.Get(const AName: String; ADefault: Integer
   ): Integer;
 
 Var
@@ -2087,7 +2087,7 @@ begin
     Result:=ADefault;
 end;
 
-function TJSONObject.GetInt64(const AName: String; ADefault: Int64): Int64;
+function TJSONObject.Get(const AName: String; ADefault: Int64): Int64;
 Var
   D : TJSONData;
 
@@ -2099,7 +2099,7 @@ begin
     Result:=ADefault;
 end;
 
-function TJSONObject.GetBoolean(const AName: String; ADefault: Boolean
+function TJSONObject.Get(const AName: String; ADefault: Boolean
   ): Boolean;
 Var
   D : TJSONData;
@@ -2112,20 +2112,20 @@ begin
     Result:=ADefault;
 end;
 
-function TJSONObject.GetString(const AName: String; ADefault: TJSONStringType
+function TJSONObject.Get(const AName: String; ADefault: TJSONStringType
   ): TJSONStringType;
 Var
   D : TJSONData;
 
 begin
-  D:=Find(AName,jtBoolean);
+  D:=Find(AName,jtString);
   If (D<>Nil) then
     Result:=D.AsString
   else
     Result:=ADefault;
 end;
 
-function TJSONObject.GetArray(const AName: String; ADefault: TJSONArray
+function TJSONObject.Get(const AName: String; ADefault: TJSONArray
   ): TJSONArray;
 Var
   D : TJSONData;
@@ -2133,12 +2133,12 @@ Var
 begin
   D:=Find(AName,jtArray);
   If (D<>Nil) then
-    Result:=D As TJSONArray
+    Result:=TJSONArray(D)
   else
     Result:=ADefault;
 end;
 
-function TJSONObject.GetObject(const AName: String; ADefault: TJSONObject
+function TJSONObject.Get(const AName: String; ADefault: TJSONObject
   ): TJSONObject;
 Var
   D : TJSONData;
@@ -2146,7 +2146,7 @@ Var
 begin
   D:=Find(AName,jtObject);
   If (D<>Nil) then
-    Result:=D as TJSONObject
+    Result:=TJSONObject(D)
   else
     Result:=ADefault;
 end;

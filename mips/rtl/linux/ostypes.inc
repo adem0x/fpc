@@ -271,7 +271,7 @@ CONST
 {$if defined(cpui386) or defined(cpux86_64) or defined(cpuia64)}
     O_LARGEFILE =    $8000;
 {$endif}
-{$if defined(cpumips)}
+{$if defined(cpumips) or defined(cpumipsel)}
     O_LARGEFILE =    $2000;
 {$endif}
     { mode_t possible values                                 }
@@ -307,7 +307,7 @@ CONST
   MAP_PRIVATE   =2;
  {$ENDIF}
 
- {$if defined(cpumips)}
+ {$if defined(cpumips) or  defined(cpumipsel)}
   MAP_ANONYMOUS  = $800;
   MAP_GROWSDOWN  = $1000;       { stack-like segment }
   MAP_DENYWRITE  = $2000;       { ETXTBSY }

@@ -783,7 +783,10 @@ unit cgcpu;
                 so.shiftimm:=l1;
                 list.concat(taicpu.op_reg_reg_reg_shifterop(A_RSB,dst,src,src,so));
               end
-
+            { BIC clears the specified bits, while AND keeps them, using BIC allows to use a
+              broader range of shifterconstants.}
+            else if (op = OP_AND) and is_shifter_const(not(dword(a)),shift) then
+              list.concat(taicpu.op_reg_reg_const(A_BIC,dst,src,not(dword(a))))
             else
               begin
                 tmpreg:=getintregister(list,size);
@@ -1788,7 +1791,7 @@ unit cgcpu;
 
                 if regs=[] then
                   begin
-                    if (current_settings.cputype<cpu_armv6) then
+                    if (current_settings.cputype<cpu_armv5) then
                       list.concat(taicpu.op_reg_reg(A_MOV,NR_PC,NR_R14))
                     else
                       list.concat(taicpu.op_reg(A_BX,NR_R14))
@@ -1809,7 +1812,7 @@ unit cgcpu;
                 list.concat(setoppostfix(taicpu.op_ref_regset(A_LDM,ref,R_INTREGISTER,R_SUBWHOLE,regs),PF_EA));
               end;
           end
-        else if (current_settings.cputype<cpu_armv6) then
+        else if (current_settings.cputype<cpu_armv5) then
           list.concat(taicpu.op_reg_reg(A_MOV,NR_PC,NR_R14))
         else
           list.concat(taicpu.op_reg(A_BX,NR_R14))

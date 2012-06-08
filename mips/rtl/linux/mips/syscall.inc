@@ -268,9 +268,9 @@ asm
   move  $a1,$a2
   move  $a2,$a3
   move  $a3, $8
-  
+
   sw    $9, 16($sp)
-   
+
   syscall
   nop
   beq $7,$0,.LDone
@@ -308,14 +308,16 @@ function FpSysCall(sysnr,param1,param2,param3,param4,param5,param6:TSysParam):TS
 var
   temp: longint;
 asm
-  move  $v0,$a0
-  move  $a0,$a1
-  move  $a1,$a2
-  move  $a2,$a3
-  move  $a3, $8
-  
-  sw    $9, 16($sp)
-  lw    $at,0($fp)
+{ All params are already stored on stack at that point }
+  lw  $v0,sysnr
+  lw  $a0,param1
+  lw  $a1,param2
+  lw  $a2,param3
+  lw  $a3,param4
+
+  lw   $at,param5
+  sw   $at,16($sp)
+  lw    $at,param6
   sw    $at,20($sp)
   syscall
   nop
