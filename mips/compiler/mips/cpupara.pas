@@ -30,25 +30,8 @@ interface
       cpubase,cpuinfo,
       symconst,symbase,symsym,symtype,symdef,paramgr,parabase,cgbase;
 
-    const
-      MIPS_MAX_OFFSET = 20;
-      MIPS_MAX_REGISTERS_USED_IN_CALL = 6;
-      MIPS_FIRST_REGISTER_USED_IN_CALL = RS_R4;
-    type
-      tparasupregs = array[0..MIPS_MAX_REGISTERS_USED_IN_CALL-1] of tsuperregister;
-      tparasupregsused = array[0..MIPS_MAX_REGISTERS_USED_IN_CALL-1] of boolean;
-      tparasupregsoffset = array[0..MIPS_MAX_REGISTERS_USED_IN_CALL-1] of longint;
-      pparasupregs = ^tparasupregs;
-    const
-      paraoutsupregs : tparasupregs = (RS_R4, RS_R5, RS_R6, RS_R7, RS_R8, RS_R9);
-      parainsupregs  : tparasupregs = (RS_R4, RS_R5, RS_R6, RS_R7, RS_R8, RS_R9);
-
     type
       TMIPSParaManager=class(TParaManager)
-      var
-        param_offset:array[0..MIPS_MAX_OFFSET] of ^Aint;
-        intparareg,
-        parasize : longint;
         function  push_addr_param(varspez:tvarspez;def : tdef;calloption : tproccalloption) : boolean;override;
         function  get_volatile_registers_int(calloption : tproccalloption):TCpuRegisterSet;override;
         function  get_volatile_registers_fpu(calloption : tproccalloption):TCpuRegisterSet;override;
@@ -61,16 +44,24 @@ interface
         function  get_funcretloc(p : tabstractprocdef; side: tcallercallee; def: tdef): tcgpara;override;
       private
         procedure create_funcretloc_info(p : tabstractprocdef; side: tcallercallee);
-        procedure create_paraloc_info_intern(p : tabstractprocdef; side: tcallercallee; paras: tparalist);
+        procedure create_paraloc_info_intern(p : tabstractprocdef; side: tcallercallee; paras: tparalist;
+                                             var intparareg,parasize:longint);
       end;
 
 implementation
 
     uses
       cutils,verbose,systems,
-      defutil, cpupi, procinfo,
-      cgutils,cgobj;
+      defutil,
+      cgutils,cgobj,
+      procinfo,cpupi;
 
+    type
+      tparasupregs = array[0..3] of tsuperregister;
+      pparasupregs = ^tparasupregs;
+    const
+      paraoutsupregs : tparasupregs = (RS_R4, RS_R5, RS_R6, RS_R7);
+      parainsupregs  : tparasupregs = (RS_R4, RS_R5, RS_R6, RS_R7);
 
 
     function TMIPSParaManager.get_volatile_registers_int(calloption : tproccalloption):TCpuRegisterSet;
@@ -81,7 +72,7 @@ implementation
 
     function TMIPSParaManager.get_volatile_registers_fpu(calloption : tproccalloption):TCpuRegisterSet;
       begin
-        result:=[RS_F0..RS_F19,RS_F31];
+        result:=[RS_F0..RS_F19];
       end;
 
 
@@ -98,28 +89,24 @@ implementation
         paraloc:=cgpara.add_location;
         with paraloc^ do
           begin
-            { The six first parameters are passed into registers } {MIPS first four}
+            { The first four parameters are passed into registers } 
             dec(nr);
-            if nr<MIPS_MAX_REGISTERS_USED_IN_CALL then //MIPSEL nr<6
+            if nr<4 then 
               begin
                 loc:=LOC_REGISTER;
-                register:=newreg(R_INTREGISTER,paraoutsupregs[nr],R_SUBWHOLE);
-                if assigned(current_procinfo) then
-                  begin
-                    TMIPSProcInfo(current_procinfo).register_used[nr]:=true;
-                    TMIPSProcInfo(current_procinfo).register_offset[nr]:=nr*4;
-                  end;
+                register:=newreg(R_INTREGISTER,(RS_R4+nr),R_SUBWHOLE);
               end
             else
               begin
                 { The other parameters are passed on the stack }
                 loc:=LOC_REFERENCE;
                 reference.index:=NR_STACK_POINTER_REG;
-                reference.offset:={92+(nr-6)*4;} nr*4;
+                reference.offset:=16 + (nr-4)*4;
               end;
             size:=OS_INT;
           end;
       end;
+
 
     { true if a parameter is too large to copy and only the address is pushed }
     function TMIPSParaManager.push_addr_param(varspez:tvarspez;def : tdef;calloption : tproccalloption) : boolean;
@@ -132,11 +119,16 @@ implementation
             exit;
           end;
         case def.typ of
-          recorddef,
-          arraydef,
+          recorddef:
+	    result:=false;
+          arraydef:
+            result:=true; {(tarraydef(def).highrange>=tarraydef(def).lowrange) or
+                             is_open_array(def) or
+                             is_array_of_const(def) or
+                             is_array_constructor(def);}
           variantdef,
           formaldef :
-            push_addr_param:=true;
+            result:=true;
           objectdef :
             result:=is_object(def);
           stringdef :
@@ -184,28 +176,16 @@ implementation
             result.intsize:=def.size;
           end;
         result.size:=retcgsize;
-        { Return is passed as var parameter,
-          in this case we use the first register R4 for it }
+        { Return is passed as var parameter }
+{
         if ret_in_param(def,p.proccalloption) then
           begin
-            { Reserve first register for ret_in_param }
-            if intparareg=0 then
-              inc(intparareg);
-            if side=calleeside then
-              begin
-                paraloc:=result.add_location;
-                paraloc^.loc:=LOC_REFERENCE;
-                paraloc^.reference.index:=NR_STACK_POINTER_REG;
-                { return is at offset zero }
-                paraloc^.reference.offset:=0;
-                paraloc^.size:=retcgsize;
-              end
-            else
-              begin
-                getIntParaLoc(p.proccalloption,1,result);
-              end;
+            paraloc:=result.add_location;
+            paraloc^.loc:=LOC_REFERENCE;
+            paraloc^.size:=retcgsize;
             exit;
           end;
+}
 
         paraloc:=result.add_location;
         { Return in FPU register? }
@@ -220,7 +200,7 @@ implementation
         else
          { Return in register }
           begin
-{$ifndef cpu64bitaddr}
+{$ifndef cpu64bitalu}
             if retcgsize in [OS_64,OS_S64] then
              begin
                { low }
@@ -240,7 +220,7 @@ implementation
                paraloc^.size:=OS_32;
              end
             else
-{$endif cpu64bitaddr}
+{$endif cpu64bitalu}
              begin
                paraloc^.loc:=LOC_REGISTER;
                paraloc^.size:=retcgsize;
@@ -252,170 +232,203 @@ implementation
           end
       end;
 
-
-    procedure TMIPSParaManager.create_paraloc_info_intern(p : tabstractprocdef; side: tcallercallee;paras:tparalist);
+    procedure TMIPSParaManager.create_paraloc_info_intern(p : tabstractprocdef; side: tcallercallee;paras:tparalist;
+                                                           var intparareg,parasize:longint);
       var
         paraloc      : pcgparalocation;
         i            : integer;
         hp           : tparavarsym;
+	paradef      : tdef;
         paracgsize   : tcgsize;
         hparasupregs : pparasupregs;
         paralen      : longint;
+	fpparareg    : integer;
+	can_use_float : boolean;
+	reg           : tsuperregister;
+	alignment     : longint;
+	tmp	      : longint;
       begin
+        fpparareg := 0;
+	can_use_float := true;
         if side=callerside then
           hparasupregs:=@paraoutsupregs
         else
           hparasupregs:=@parainsupregs;
+
         for i:=0 to paras.count-1 do
           begin
-            if i<=MIPS_MAX_OFFSET then
-              param_offset[i] := Nil;
             hp:=tparavarsym(paras[i]);
-            { currently only support C-style array of const,
-              there should be no location assigned to the vararg array itself }
+            paradef := hp.vardef;
+
+            { currently only support C-style array of const }
             if (p.proccalloption in [pocall_cdecl,pocall_cppdecl]) and
-               is_array_of_const(hp.vardef) then
+               is_array_of_const(paradef) then
               begin
                 paraloc:=hp.paraloc[side].add_location;
                 { hack: the paraloc must be valid, but is not actually used }
-                paraloc^.loc:=LOC_REGISTER;
-                paraloc^.register:=NR_R0;
-                paraloc^.size:=OS_ADDR;
+                paraloc^.loc := LOC_REGISTER;
+                paraloc^.register := NR_R0;
+                paraloc^.size := OS_ADDR;
                 break;
               end;
 
-            if push_addr_param(hp.varspez,hp.vardef,p.proccalloption) then
-              paracgsize:=OS_ADDR
+            if (push_addr_param(hp.varspez,paradef,p.proccalloption)) then
+             begin
+                paracgsize := OS_ADDR;
+	    	paralen := tcgsize2size[paracgsize];
+             end
             else
               begin
-                paracgsize:=def_cgSize(hp.vardef);
-                if paracgsize=OS_NO then
-                  paracgsize:=OS_ADDR;
-              end;
+                paracgsize := def_cgsize(paradef);
+                { for things like formaldef }
+                if (paracgsize=OS_NO) then
+                  begin
+                    paracgsize:=OS_ADDR;
+                  end;
+
+                if not is_special_array(paradef) then
+                  paralen := paradef.size
+                else
+                  paralen := tcgsize2size[paracgsize];
+
+               end;
+
+            if (paracgsize in [OS_64, OS_S64, OS_F64]) or (hp.vardef.alignment = 8) then 
+	      alignment := 8
+            else
+	      alignment := 4;
             hp.paraloc[side].reset;
-            hp.paraloc[side].size:=paracgsize;
-            hp.paraloc[side].Alignment:=std_param_align;
-            paralen:=tcgsize2size[paracgsize];
+            hp.paraloc[side].Alignment:=alignment;
             hp.paraloc[side].intsize:=paralen;
+            hp.paraloc[side].size:=paracgsize;
+	    { check the alignment, mips O32ABI require a nature alignment  }
+	    tmp := align(parasize, alignment) - parasize;
+	    while tmp > 0 do
+              begin
+                inc(intparareg);
+	        inc(parasize,4);
+                dec(tmp,4);
+              end;
+
+	    { any non-float args will disable the use the floating regs }
+	    { up to two fp args }
+	    if (not(paracgsize in [OS_F32, OS_F64])) or (fpparareg = 2) then
+              can_use_float := false;
+
             while paralen>0 do
               begin
                 paraloc:=hp.paraloc[side].add_location;
-                { Floats are passed in int registers,
-                  We can allocate at maximum 32 bits per register }
-                if paracgsize in [OS_64,OS_S64,OS_F32,OS_F64] then
+                { We can allocate at maximum 32 bits per register }
+                if (paracgsize in [OS_64,OS_S64]) or ((paracgsize in [OS_F32,OS_F64]) and not(can_use_float)) then
                   paraloc^.size:=OS_32
                 else
                   paraloc^.size:=paracgsize;
                 { ret in param? }
-                if vo_is_funcret in hp.varoptions then
+                {if vo_is_funcret in hp.varoptions then
                   begin
-                    { This should be the first parameter }
-                    if assigned(current_procinfo) then
-                      begin
-                        TMIPSProcInfo(current_procinfo).register_used[0]:=true;
-                        TMIPSProcInfo(current_procinfo).register_offset[0]:=0;
-                      end;
-                    //if (intparareg<>1) then
-                    //  Comment(V_Warning,'intparareg should be one for funcret in TMipsParaManager.create_paraloc_info_intern');
+                    paraloc^.loc:=LOC_REFERENCE;
                     if side=callerside then
                     begin
-                      paraloc^.loc:=LOC_REGISTER;
-                      paraloc^.register:=newreg(R_INTREGISTER,hparasupregs^[0],R_SUBWHOLE);
+                      paraloc^.reference.index := NR_STACK_POINTER_REG;
+                      paraloc^.reference.offset:=parasize;
                     end
                     else
                     begin
-                      paraloc^.loc:=LOC_REFERENCE;
                       paraloc^.reference.index := NR_FRAME_POINTER_REG;
-                      paraloc^.reference.offset:=0;
-                      if i<=MIPS_MAX_OFFSET then
-                        param_offset[i] := @paraloc^.reference.offset;
+                      paraloc^.reference.offset:=target_info.first_parm_offset+parasize;
+                      TMIPSProcinfo(current_procinfo).needs_frame_pointer := true;
                     end;
                     inc(parasize,align(tcgsize2size[paraloc^.size],sizeof(aint)));
+		    inc(intparareg);
+		    //writeln(hs,'funcret',i,' ', parasize);
                   end
-                { In case of po_delphi_nested_cc, the parent frame pointer
-                  is always passed on the stack. }
-                else if (intparareg<=high(tparasupregs)) and
+                // In case of po_delphi_nested_cc, the parent frame pointer is always passed on the stack. 
+                else} if (intparareg<=high(tparasupregs)) and
                    (not(vo_is_parentfp in hp.varoptions) or
                     not(po_delphi_nested_cc in p.procoptions)) then
                   begin
-                    if assigned(current_procinfo) then
+		    if (can_use_float) then
                       begin
-                        TMIPSProcInfo(current_procinfo).register_used[intparareg]:=true;
-                        TMIPSProcInfo(current_procinfo).register_offset[intparareg]:=intparareg*4;
-                      end;
-                    if side=callerside then
-                      begin
-                        paraloc^.loc:=LOC_REGISTER;
-                        paraloc^.register:=newreg(R_INTREGISTER,hparasupregs^[intparareg],R_SUBWHOLE);
+                        paraloc^.loc:=LOC_FPUREGISTER;
+                        if (fpparareg = 0) then
+                          reg := RS_F12
+                        else
+                          reg := RS_F14;
+                        if (paraloc^.size = OS_F64) then
+                          begin
+                            paraloc^.register:=newreg(R_FPUREGISTER, reg, R_SUBFD);
+			    inc(fpparareg);
+			    inc(intparareg);
+			    inc(intparareg);
+			    inc(parasize,8);
+                          end
+                        else
+                          begin
+                            paraloc^.register:=newreg(R_FPUREGISTER, reg, R_SUBFS);
+			    inc(fpparareg);
+			    inc(intparareg);
+			    inc(parasize,sizeof(aint));
+                          end;
                       end
                     else
                       begin
-                        paraloc^.loc:=LOC_REFERENCE;
-                        //if assigned(current_procinfo) then
-                        //  paraloc^.reference.index := current_procinfo.framepointer
-                        //else
-                          paraloc^.reference.index := NR_FRAME_POINTER_REG;
-                        paraloc^.reference.offset:=intparareg*sizeof(aint);
+                        paraloc^.loc:=LOC_REGISTER;
+                        paraloc^.register:=newreg(R_INTREGISTER,hparasupregs^[intparareg],R_SUBWHOLE);
+			inc(intparareg);
+			inc(parasize,sizeof(aint));
                       end;
-                    inc(intparareg);
-                    inc(parasize,align(tcgsize2size[paraloc^.size],sizeof(aint)));
                   end
                 else
                   begin
                     paraloc^.loc:=LOC_REFERENCE;
+                      
                     if side=callerside then
                       begin
-                        paraloc^.reference.index := {NR_R17;//}NR_STACK_POINTER_REG;
+                        paraloc^.reference.index := NR_STACK_POINTER_REG;
                         paraloc^.reference.offset:=parasize;
                       end
                     else
                       begin
-                        //if assigned(current_procinfo) then
-                        //  paraloc^.reference.index := current_procinfo.framepointer
-                        //else
-                          paraloc^.reference.index := {NR_R18;//}NR_FRAME_POINTER_REG;
-                        paraloc^.reference.offset:=parasize;
-                        if i<=MIPS_MAX_OFFSET then
-                          param_offset[i] := @paraloc^.reference.offset;
+                        paraloc^.reference.index := NR_FRAME_POINTER_REG;
+                        paraloc^.reference.offset:=target_info.first_parm_offset+parasize;
+                        TMIPSProcinfo(current_procinfo).needs_frame_pointer := true;
                       end;
-                    { Parameters are aligned at 4 bytes }
                     inc(parasize,align(tcgsize2size[paraloc^.size],sizeof(aint)));
                   end;
                 dec(paralen,tcgsize2size[paraloc^.size]);
-              end;
-          end;
-        {
-        for i:=0 to paras.count-1 do
-        begin
-          if (side = calleeside) and (param_offset[i] <> nil) then
-            param_offset[i]^ := param_offset[i]^ + parasize - 8;
-        end;
-        }
+              end; { while }
+          end; {for}
+          if (parasize < 16) then
+            parasize := 16;
       end;
 
 
     function TMIPSParaManager.create_varargs_paraloc_info(p : tabstractprocdef; varargspara:tvarargsparalist):longint;
+      var
+        intparareg,
+        parasize : longint;
       begin
         intparareg:=0;
         parasize:=0;
-        { Create Function result paraloc }
-        create_funcretloc_info(p,callerside);
         { calculate the registers for the normal parameters }
-        create_paraloc_info_intern(p,callerside,p.paras);
+        create_paraloc_info_intern(p,callerside,p.paras,intparareg,parasize);
         { append the varargs }
-        create_paraloc_info_intern(p,callerside,varargspara);
+        create_paraloc_info_intern(p,callerside,varargspara,intparareg,parasize);
         result:=parasize;
       end;
 
 
 
     function TMIPSParaManager.create_paraloc_info(p : tabstractprocdef; side: tcallercallee):longint;
+      var
+        intparareg,
+        parasize : longint;
       begin
         intparareg:=0;
         parasize:=0;
+        create_paraloc_info_intern(p,side,p.paras,intparareg,parasize);
         { Create Function result paraloc }
         create_funcretloc_info(p,side);
-        create_paraloc_info_intern(p,side,p.paras);
         { We need to return the size allocated on the stack }
         result:=parasize;
       end;

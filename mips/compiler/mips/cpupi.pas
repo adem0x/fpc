@@ -28,7 +28,7 @@ interface
   uses
     cutils,
     globtype,
-    procinfo,cpuinfo,cpupara,
+    procinfo,cpuinfo,
     psub;
 
   type
@@ -40,11 +40,11 @@ interface
       floatregstart : aint;
       intregssave,
       floatregssave : byte;
-      register_used : tparasupregsused;
-      register_offset : tparasupregsoffset;
       constructor create(aparent:tprocinfo);override;
       function calc_stackframe_size:longint;override;
       procedure set_first_temp_offset;override;
+     public
+       needs_frame_pointer: boolean;
     end;
 
 implementation
@@ -55,19 +55,11 @@ implementation
       tgobj,paramgr,symconst;
 
     constructor TMIPSProcInfo.create(aparent: tprocinfo);
-      var
-        i : longint;
       begin
         inherited create(aparent);
-        for i:=low(tparasupregs)  to high(tparasupregs) do
-          begin
-            register_used[i]:=false;
-            register_offset[i]:=-1;
-          end;
-
         floatregssave:=12; { f20-f31 }
         intregssave:=12;   { r16-r23,r28-r31 }
-
+        needs_frame_pointer := false;
       end;
 
 
@@ -92,7 +84,7 @@ implementation
         floatregstart:=result;
         inc(result,floatregssave*4);
         intregstart:=result;
-        inc(result,intregssave*4);
+        //inc(result,intregssave*4);
         result:=Align(tg.lasttemp,max(current_settings.alignment.localalignmin,8));
       end;
 
