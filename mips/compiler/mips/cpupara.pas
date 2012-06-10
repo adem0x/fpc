@@ -66,7 +66,7 @@ implementation
 
     function TMIPSParaManager.get_volatile_registers_int(calloption : tproccalloption):TCpuRegisterSet;
       begin
-        result:=[RS_R1..RS_R15,RS_R24..RS_R25,RS_R31];
+        result:=[RS_R0..RS_R15,RS_R24..RS_R25];
       end;
 
 
