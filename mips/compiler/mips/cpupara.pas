@@ -122,10 +122,10 @@ implementation
           recorddef:
 	    result:=false;
           arraydef:
-            result:=true; {(tarraydef(def).highrange>=tarraydef(def).lowrange) or
+            result:=(tarraydef(def).highrange>=tarraydef(def).lowrange) or
                              is_open_array(def) or
                              is_array_of_const(def) or
-                             is_array_constructor(def);}
+                             is_array_constructor(def);
           variantdef,
           formaldef :
             result:=true;
