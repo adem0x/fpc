@@ -98,9 +98,6 @@ unit cpubase;
       regdwarf_table : array[tregisterindex] of shortint = (
         {$i rmipsdwf.inc}
       );
-      { registers which may be destroyed by calls }
-      VOLATILE_INTREGISTERS = [RS_R0..RS_R3,RS_R12..RS_R15];
-      VOLATILE_FPUREGISTERS = [RS_F0..RS_F3];
 
     type
       totherregisterset = set of tregisterindex;
@@ -133,34 +130,16 @@ unit cpubase;
 
     const
       max_operands = 4;
-
       maxintregs = 31;
-      maxfpuregs = 8;
-      maxaddrregs = 0;
+      maxfpuregs = 31;
 
 {*****************************************************************************
                                 Operand Sizes
 *****************************************************************************}
 
-    type
-      topsize = (S_NO,
-        S_B,S_W,S_L,S_BW,S_BL,S_WL,
-        S_IS,S_IL,S_IQ,
-        S_FS,S_FL,S_FX,S_D,S_Q,S_FV,S_FXX
-      );
-
 {*****************************************************************************
                                  Constants
 *****************************************************************************}
-
-    const
-      maxvarregs = 7;
-      varregs : Array [1..maxvarregs] of tsuperregister =
-                (RS_R4,RS_R5,RS_R6,RS_R7,RS_R8,RS_R9,RS_R10);
-
-      maxfpuvarregs = 4;
-      fpuvarregs : Array [1..maxfpuvarregs] of tsuperregister =
-                (RS_F4,RS_F5,RS_F6,RS_F7);
 
 {*****************************************************************************
                           Default generic sizes
