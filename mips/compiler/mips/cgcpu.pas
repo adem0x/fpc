@@ -1356,17 +1356,24 @@ begin
   fmask:=0;
   nextoffset:=TMIPSProcInfo(current_procinfo).floatregstart;
   lastfpuoffset:=LocalSize;
-  for reg := RS_F0 to RS_F30 do { to check: what if F30 is double? }
+  { not sure about how used_in_proc is set, to play safe, we check the even register and save pair if used }
+  reg := RS_F0;
+  while reg < RS_F31 do
     begin
       if reg in (rg[R_FPUREGISTER].used_in_proc-paramanager.get_volatile_registers_fpu(pocall_stdcall)) then
         begin
           usesfpr:=true;
-          fmask:=fmask or (1 shl ord(reg));
+          fmask:=fmask or (3 shl ord(reg));
           href.offset:=nextoffset;
           lastfpuoffset:=nextoffset;
           helplist.concat(taicpu.op_reg_ref(A_SWC1,newreg(R_FPUREGISTER,reg,R_SUBFS),href));
           inc(nextoffset,4);
+          href.offset:=nextoffset;
+          lastfpuoffset:=nextoffset;
+          helplist.concat(taicpu.op_reg_ref(A_SWC1,newreg(R_FPUREGISTER,reg+1,R_SUBFS),href));
+          inc(nextoffset,4);
         end;
+      reg := reg + 2;
     end;
 
   usesgpr:=false;
@@ -1439,15 +1446,20 @@ begin
        href.base:=NR_STACK_POINTER_REG;
 
        nextoffset:=TMIPSProcInfo(current_procinfo).floatregstart;
-       for reg := RS_F0 to RS_F30 do
-         begin
-           if reg in (rg[R_FPUREGISTER].used_in_proc-paramanager.get_volatile_registers_fpu(pocall_stdcall)) then
-             begin
-               href.offset:=nextoffset;
-               list.concat(taicpu.op_reg_ref(A_LWC1,newreg(R_FPUREGISTER,reg,R_SUBFS),href));
-               inc(nextoffset,4);
-             end;
-         end;
+       reg := RS_F0;
+       while reg < RS_F31 do
+       begin
+         if reg in (rg[R_FPUREGISTER].used_in_proc-paramanager.get_volatile_registers_fpu(pocall_stdcall)) then
+           begin
+             href.offset:=nextoffset;
+             list.concat(taicpu.op_reg_ref(A_LWC1,newreg(R_FPUREGISTER,reg,R_SUBFS),href));
+             inc(nextoffset,4);
+             href.offset:=nextoffset;
+             list.concat(taicpu.op_reg_ref(A_LWC1,newreg(R_FPUREGISTER,reg+1,R_SUBFS),href));
+             inc(nextoffset,4);
+           end;
+         reg := reg + 2;
+       end;
 
        nextoffset:=TMIPSProcInfo(current_procinfo).intregstart;
        saveregs:=rg[R_INTREGISTER].used_in_proc-paramanager.get_volatile_registers_int(pocall_stdcall);
