@@ -60,6 +60,7 @@ implementation
         floatregssave:=12; { f20-f31 }
         intregssave:=12;   { r16-r23,r28-r31 }
         needs_frame_pointer := false;
+        maxpushedparasize := 16;
       end;
 
 
@@ -81,10 +82,11 @@ implementation
          regs: tcpuregisterset;
       begin
         result:=maxpushedparasize;
-        floatregstart:=result;
+	{ ABI requirement: start of the register save area must align at 8 byte }
+        { can we ensure maxpushedparasize is properly aligned? if so unnecessary}
+        floatregstart:=Align(result,8);
         inc(result,floatregssave*4);
         intregstart:=result;
-        //inc(result,intregssave*4);
         result:=Align(tg.lasttemp,max(current_settings.alignment.localalignmin,8));
       end;
 
