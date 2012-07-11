@@ -116,7 +116,7 @@ implementation
        opttail,
        optcse,optloop,
        optutils
-{$if defined(arm) or defined(powerpc) or defined(powerpc64) or defined(avr)}
+{$if defined(arm) or defined(avr) or defined(fpc_compiler_has_fixup_jmps)}
        ,aasmcpu
 {$endif arm}
        {$ifndef NOOPT}
@@ -404,6 +404,7 @@ implementation
         para         : tcallparanode;
         call         : tcallnode;
         newstatement : tstatementnode;
+        def          : tabstractrecorddef;
       begin
         result:=internalstatements(newstatement);
 
@@ -412,9 +413,17 @@ implementation
             { a constructor needs a help procedure }
             if (current_procinfo.procdef.proctypeoption=potype_constructor) then
               begin
-                if is_class(current_structdef) then
+                if is_class(current_structdef) or
+                    (
+                      is_objectpascal_helper(current_structdef) and
+                      is_class(tobjectdef(current_structdef).extendeddef)
+                    ) then
                   begin
-                    srsym:=search_struct_member(current_structdef,'NEWINSTANCE');
+                    if is_objectpascal_helper(current_structdef) then
+                      def:=tabstractrecorddef(tobjectdef(current_structdef).extendeddef)
+                    else
+                      def:=current_structdef;
+                    srsym:=search_struct_member(def,'NEWINSTANCE');
                     if assigned(srsym) and
                        (srsym.typ=procsym) then
                       begin
@@ -882,6 +891,13 @@ implementation
            end;
       end;
 
+
+    const
+      exception_flags: array[boolean] of tprocinfoflags = (
+        [],
+        [pi_uses_exceptions,pi_needs_implicit_finally,pi_has_implicit_finally]
+      );
+
     procedure tcgprocinfo.setup_tempgen;
       begin
         tg:=tgobjclass.create;
@@ -906,6 +922,9 @@ implementation
             * incoming parameters on the stack
             * open arrays
           - no local variables
+
+          - stack frame cannot be optimized if using Win64 SEH
+            (at least with the current state of our codegenerator).
         }
         if ((po_assembler in procdef.procoptions) and
            (m_delphi in current_settings.modeswitches) and
@@ -915,12 +934,13 @@ implementation
            ((cs_opt_stackframe in current_settings.optimizerswitches) and
             not(cs_generate_stackframes in current_settings.localswitches) and
             not(po_assembler in procdef.procoptions) and
-            ((flags*[pi_has_assembler_block,pi_is_assembler,
-{$ifdef i386}
-                    pi_uses_exceptions,pi_needs_implicit_finally,pi_has_implicit_finally,
-{$endif i386}
-                    pi_has_stackparameter,
-                    pi_needs_stackframe])=[])
+            ((flags*([pi_has_assembler_block,pi_is_assembler,
+                    pi_has_stackparameter,pi_needs_stackframe]+
+                    exception_flags[(target_info.cpu=cpu_i386)
+{$ifdef TEST_WIN64_SEH}
+                    or (target_info.system=system_x86_64_win64)
+{$endif TEST_WIN64_SEH}
+                    ]))=[])
            )
         then
           begin
@@ -1473,7 +1493,7 @@ implementation
             current_filepos:=exitpos;
             hlcg.gen_proc_symbol_end(templist);
             aktproccode.concatlist(templist);
-{$if defined(POWERPC) or defined(POWERPC64)}
+{$ifdef fpc_compiler_has_fixup_jmps}
             fixup_jmps(aktproccode);
 {$endif}
             { insert line debuginfo }

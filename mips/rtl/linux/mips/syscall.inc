@@ -47,7 +47,7 @@ asm
   addiu   $4,$4,%lo(errno)
   jalr   $8
   nop
-  lw  $8,-4($fp)
+  lw  $8,temp
   sw  $8,0($2)
 .LFailed:
   li    $2,-1
@@ -225,7 +225,7 @@ asm
   move  $a0,$a1
   move  $a1,$a2
   move  $a2,$a3
-  lw    $a3,16($fp)
+  lw    $a3,param4
   syscall
   nop
   beq $7,$0,.LDone
@@ -266,10 +266,10 @@ asm
   move  $a0,$a1
   move  $a1,$a2
   move  $a2,$a3
-  lw	$a3,16($fp)
-  lw    $t0,20($fp)
+  lw	$a3,param4
+  lw    $t0,param5
   sw    $t0,16($sp)
-   
+
   syscall
   nop
   beq $7,$0,.LDone
@@ -311,10 +311,10 @@ asm
   move  $a0,$a1
   move  $a1,$a2
   move  $a2,$a3
-  lw	$a3,16($fp)
-  lw    $t0,20($fp)
+  lw	$a3,param4
+  lw    $t0,param5
   sw    $t0,16($sp)
-  lw    $t0,24($fp)
+  lw    $t0,param6
   sw    $t0,20($sp)
   syscall
   nop

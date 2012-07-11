@@ -2746,7 +2746,7 @@ begin
   def_system_macro('FPC_STATICRIPFIXED');
   def_system_macro('FPC_VARIANTCOPY_FIXED');
   def_system_macro('FPC_DYNARRAYCOPY_FIXED');
-{$if defined(x86) or defined(powerpc) or defined(powerpc64)}
+{$if defined(x86) or defined(powerpc) or defined(powerpc64) or defined(cpuarm)}
   def_system_macro('FPC_HAS_INTERNAL_ABS_LONG');
 {$endif}
   def_system_macro('FPC_HAS_UNICODESTRING');
@@ -2887,8 +2887,12 @@ begin
   def_system_macro('CPUMIPSEL');
   def_system_macro('CPUMIPSEL32');
   def_system_macro('CPU32');
+  def_system_macro('FPC_HAS_TYPE_DOUBLE');
+  def_system_macro('FPC_HAS_TYPE_SINGLE');
+  def_system_macro('FPC_INCLUDE_SOFTWARE_INT64_TO_DOUBLE');
   def_system_macro('FPC_CURRENCY_IS_INT64');
   def_system_macro('FPC_COMP_IS_INT64');
+  def_system_macro('FPC_REQUIRES_PROPER_ALIGNMENT');
 {$endif mipsel}
 
 {$ifdef mipseb}
@@ -2897,8 +2901,12 @@ begin
   def_system_macro('CPUMIPSEB');
   def_system_macro('CPUMIPSEB32');
   def_system_macro('CPU32');
+  def_system_macro('FPC_HAS_TYPE_DOUBLE');
+  def_system_macro('FPC_HAS_TYPE_SINGLE');
+  def_system_macro('FPC_INCLUDE_SOFTWARE_INT64_TO_DOUBLE');
   def_system_macro('FPC_CURRENCY_IS_INT64');
   def_system_macro('FPC_COMP_IS_INT64');
+  def_system_macro('FPC_REQUIRES_PROPER_ALIGNMENT');
 {$endif}
 
   { read configuration file }

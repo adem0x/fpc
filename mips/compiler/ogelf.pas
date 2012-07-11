@@ -39,7 +39,6 @@ interface
     type
        TElfObjSection = class(TObjSection)
        public
-          secshidx  : longint; { index for the section in symtab }
           shstridx,
           shtype,
           shflags,
@@ -47,7 +46,19 @@ interface
           shinfo,
           shentsize : longint;
           constructor create(AList:TFPHashObjectList;const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);override;
-          constructor create_ext(AList:TFPHashObjectList;const Aname:string;Ashtype,Ashflags,Ashlink,Ashinfo:longint;Aalign:shortint;Aentsize:longint);
+          constructor create_ext(aobjdata:TObjData;const Aname:string;Ashtype,Ashflags,Ashlink,Ashinfo:longint;Aalign:shortint;Aentsize:longint);
+       end;
+
+       TElfSymtabKind = (esk_obj,esk_exe,esk_dyn);
+
+       TElfSymtab = class(TElfObjSection)
+       public
+         kind: TElfSymtabKind;
+         fstrsec: TObjSection;
+         symidx: longint;
+         constructor create(aObjData:TObjData;aKind:TElfSymtabKind);reintroduce;
+         procedure writeSymbol(objsym:TObjSymbol);
+         procedure writeInternalSymbol(astridx:longint;ainfo:byte;ashndx:word);
        end;
 
        TElfObjData = class(TObjData)
@@ -60,21 +71,12 @@ interface
 
        TElfObjectOutput = class(tObjOutput)
        private
-         symtabsect,
-         strtabsect,
+         symtabsect: TElfSymtab;
          shstrtabsect: TElfObjSection;
-         {gotpcsect,
-         gotoffsect,
-         goTSect,
-         plTSect,
-         symsect   : TElfObjSection;}
-         symidx,
-         localsyms : longint;
          procedure createrelocsection(s:TElfObjSection;data:TObjData);
          procedure createshstrtab(data:TObjData);
          procedure createsymtab(data: TObjData);
          procedure writesectionheader(s:TElfObjSection);
-         procedure write_internal_symbol(astridx:longint;ainfo:byte;ashndx:word);
          procedure section_write_symbol(p:TObject;arg:pointer);
          procedure section_write_sh_string(p:TObject;arg:pointer);
          procedure section_count_sections(p:TObject;arg:pointer);
@@ -123,56 +125,48 @@ implementation
 {$endif sparc}
 {$ifdef x86_64}
       R_X86_64_NONE = 0;
-      { Direct 64 bit   }
-      R_X86_64_64 = 1;
-      { PC relative 32 bit signed  }
-      R_X86_64_PC32 = 2;
-      { 32 bit GOT entry  }
-      R_X86_64_GOT32 = 3;
-      { 32 bit PLT address  }
-      R_X86_64_PLT32 = 4;
-      { Copy symbol at runtime  }
-      R_X86_64_COPY = 5;
-      { Create GOT entry  }
-      R_X86_64_GLOB_DAT = 6;
-      { Create PLT entry  }
-      R_X86_64_JUMP_SLOT = 7;
-      { Adjust by program base  }
-      R_X86_64_RELATIVE = 8;
-      { 32 bit signed PC relative offset to GOT  }
-      R_X86_64_GOTPCREL = 9;
-      { Direct 32 bit zero extended  }
-      R_X86_64_32 = 10;
-      { Direct 32 bit sign extended  }
-      R_X86_64_32S = 11;
-      { Direct 16 bit zero extended  }
-      R_X86_64_16 = 12;
-      { 16 bit sign extended PC relative  }
-      R_X86_64_PC16 = 13;
-      { Direct 8 bit sign extended   }
-      R_X86_64_8 = 14;
-      { 8 bit sign extended PC relative  }
-      R_X86_64_PC8 = 15;
-      { ID of module containing symbol  }
-      R_X86_64_DTPMOD64 = 16;
-      { Offset in module's TLS block  }
-      R_X86_64_DTPOFF64 = 17;
-      { Offset in initial TLS block  }
-      R_X86_64_TPOFF64 = 18;
+      R_X86_64_64 = 1;                 { Direct 64 bit   }
+      R_X86_64_PC32 = 2;               { PC relative 32 bit signed  }
+      R_X86_64_GOT32 = 3;              { 32 bit GOT entry  }
+      R_X86_64_PLT32 = 4;              { 32 bit PLT address  }
+      R_X86_64_COPY = 5;               { Copy symbol at runtime  }
+      R_X86_64_GLOB_DAT = 6;           { Create GOT entry  }
+      R_X86_64_JUMP_SLOT = 7;          { Create PLT entry  }
+      R_X86_64_RELATIVE = 8;           { Adjust by program base  }
+      R_X86_64_GOTPCREL = 9;           { 32 bit signed PC relative offset to GOT  }
+      R_X86_64_32 = 10;                { Direct 32 bit zero extended  }
+      R_X86_64_32S = 11;               { Direct 32 bit sign extended  }
+      R_X86_64_16 = 12;                { Direct 16 bit zero extended  }
+      R_X86_64_PC16 = 13;              { 16 bit sign extended PC relative  }
+      R_X86_64_8 = 14;                 { Direct 8 bit sign extended   }
+      R_X86_64_PC8 = 15;               { 8 bit sign extended PC relative  }
+      R_X86_64_DTPMOD64 = 16;          { ID of module containing symbol  }
+      R_X86_64_DTPOFF64 = 17;          { Offset in module's TLS block  }
+      R_X86_64_TPOFF64 = 18;           { Offset in initial TLS block  }
       { 32 bit signed PC relative offset to two GOT entries for GD symbol  }
       R_X86_64_TLSGD = 19;
       { 32 bit signed PC relative offset to two GOT entries for LD symbol  }
       R_X86_64_TLSLD = 20;
-      { Offset in TLS block  }
-      R_X86_64_DTPOFF32 = 21;
+      R_X86_64_DTPOFF32 = 21;          { Offset in TLS block  }
       { 32 bit signed PC relative offset to GOT entry for IE symbol  }
       R_X86_64_GOTTPOFF = 22;
-      { Offset in initial TLS block  }
-      R_X86_64_TPOFF32 = 23;
-      { GNU extension to record C++ vtable hierarchy }
-      R_X86_64_GNU_VTINHERIT = 24;
-      { GNU extension to record C++ vtable member usage }
-      R_X86_64_GNU_VTENTRY = 25;
+      R_X86_64_TPOFF32 = 23;           { Offset in initial TLS block  }
+      R_X86_64_PC64 = 24;              { PC relative 64-bit signed }
+      R_X86_64_GOTOFF64 = 25;          { 64-bit offset from GOT base }
+      R_X86_64_GOTPC32 = 26;           { PC-relative offset GOT }
+      R_X86_64_GOT64  = 27;            { 64-bit GOT entry offset }
+      R_X86_64_GOTPCREL64 = 28;        { 64-bit PC relative offset to GOT entry }
+      R_X86_64_GOTPC64 = 29;           { 64-bit PC relative offset to GOT }
+      R_X86_64_GOTPLT64 = 30;          { Like GOT64, indicates that PLT entry needed }
+      R_X86_64_PLTOFF64 = 31;          { 64-bit GOT relative offset to PLT entry }
+      R_X86_64_SIZE32 = 32;
+      R_X86_64_SIZE64 = 33;
+      R_X86_64_GOTPC32_TLSDESC = 34;
+      R_X86_64_TLSDESC_CALL = 35;
+      R_X86_64_TLSDESC = 36;
+      R_X86_64_IRELATIVE = 37;
+      R_X86_64_GNU_VTINHERIT = 250;    { GNU extension to record C++ vtable hierarchy }
+      R_X86_64_GNU_VTENTRY = 251;      { GNU extension to record C++ vtable member usage }
 {$endif x86_64}
 
       { ELFHeader.file_class }
@@ -245,6 +239,64 @@ implementation
       STT_SECTION = 3;
       STT_FILE    = 4;
 
+      { program header types }
+      PT_NULL     = 0;
+      PT_LOAD     = 1;
+      PT_DYNAMIC  = 2;
+      PT_INTERP   = 3;
+      PT_NOTE     = 4;
+      PT_SHLIB    = 5;
+      PT_PHDR     = 6;
+      PT_LOPROC   = $70000000;
+      PT_HIPROC   = $7FFFFFFF;
+
+      { program header flags }
+      PF_X = 1;
+      PF_W = 2;
+      PF_R = 4;
+      PF_MASKPROC = $F0000000;
+
+      { .dynamic tags  }
+      DT_NULL     = 0;
+      DT_NEEDED   = 1;
+      DT_PLTRELSZ = 2;
+      DT_PLTGOT   = 3;
+      DT_HASH     = 4;
+      DT_STRTAB   = 5;
+      DT_SYMTAB	  = 6;
+      DT_RELA     = 7;
+      DT_RELASZ   = 8;
+      DT_RELAENT  = 9;
+      DT_STRSZ    = 10;
+      DT_SYMENT   = 11;
+      DT_INIT     = 12;
+      DT_FINI     = 13;
+      DT_SONAME   = 14;
+      DT_RPATH    = 15;
+      DT_SYMBOLIC = 16;
+      DT_REL      = 17;
+      DT_RELSZ    = 18;
+      DT_RELENT   = 19;
+      DT_PLTREL   = 20;
+      DT_DEBUG    = 21;
+      DT_TEXTREL  = 22;
+      DT_JMPREL   = 23;
+      DT_BIND_NOW = 24;
+      DT_INIT_ARRAY = 25;
+      DT_FINI_ARRAY = 26;
+      DT_INIT_ARRAYSZ = 27;
+      DT_FINI_ARRAYSZ = 28;
+      DT_RUNPATH  = 29;
+      DT_FLAGS    = 30;
+      DT_ENCODING = 32;
+      DT_PREINIT_ARRAY   = 32;
+      DT_PREINIT_ARRAYSZ = 33;
+      DT_NUM      = 34;
+      DT_LOOS     = $6000000D;
+      DT_HIOS     = $6ffff000;
+      DT_LOPROC   = $70000000;
+      DT_HIPROC   = $7fffffff;
+
       type
       { Structures which are written directly to the output file }
         TElf32header=packed record
@@ -255,11 +307,11 @@ implementation
           padding           : array[$07..$0f] of byte;
           e_type            : word;
           e_machine         : word;
-          e_version         : longint;
-          e_entry           : longint;          { entrypoint }
-          e_phoff           : longint;          { program header offset }
-          e_shoff           : longint;          { sections header offset }
-          e_flags           : longint;
+          e_version         : longword;
+          e_entry           : longword;         { entrypoint }
+          e_phoff           : longword;         { program header offset }
+          e_shoff           : longword;         { sections header offset }
+          e_flags           : longword;
           e_ehsize          : word;             { elf header size in bytes }
           e_phentsize       : word;             { size of an entry in the program header array }
           e_phnum           : word;             { 0..e_phnum-1 of entrys }
@@ -268,16 +320,16 @@ implementation
           e_shstrndx        : word;             { index of string section header }
         end;
         TElf32sechdr=packed record
-          sh_name           : longint;
-          sh_type           : longint;
-          sh_flags          : longint;
-          sh_addr           : longint;
-          sh_offset         : longint;
-          sh_size           : longint;
-          sh_link           : longint;
-          sh_info           : longint;
-          sh_addralign      : longint;
-          sh_entsize        : longint;
+          sh_name           : longword;
+          sh_type           : longword;
+          sh_flags          : longword;
+          sh_addr           : longword;
+          sh_offset         : longword;
+          sh_size           : longword;
+          sh_link           : longword;
+          sh_info           : longword;
+          sh_addralign      : longword;
+          sh_entsize        : longword;
         end;
         TElf32proghdr=packed record
           p_type            : longword;
@@ -290,13 +342,14 @@ implementation
           p_align           : longword;
         end;
         TElf32reloc=packed record
-          address : longint;
-          info    : longint; { bit 0-7: type, 8-31: symbol }
+          address : longword;
+          info    : longword; { bit 0-7: type, 8-31: symbol }
+          addend  : longint;
         end;
         TElf32symbol=packed record
-          st_name  : longint;
-          st_value : longint;
-          st_size  : longint;
+          st_name  : longword;
+          st_value : longword;
+          st_size  : longword;
           st_info  : byte; { bit 0-3: type, 4-7: bind }
           st_other : byte;
           st_shndx : word;
@@ -317,11 +370,11 @@ implementation
           padding           : array[$07..$0f] of byte;
           e_type            : word;
           e_machine         : word;
-          e_version         : longint;
+          e_version         : longword;
           e_entry           : qword;            { entrypoint }
           e_phoff           : qword;            { program header offset }
           e_shoff           : qword;            { sections header offset }
-          e_flags           : longint;
+          e_flags           : longword;
           e_ehsize          : word;             { elf header size in bytes }
           e_phentsize       : word;             { size of an entry in the program header array }
           e_phnum           : word;             { 0..e_phnum-1 of entrys }
@@ -330,14 +383,14 @@ implementation
           e_shstrndx        : word;             { index of string section header }
         end;
         telf64sechdr=packed record
-          sh_name           : longint;
-          sh_type           : longint;
+          sh_name           : longword;
+          sh_type           : longword;
           sh_flags          : qword;
           sh_addr           : qword;
           sh_offset         : qword;
           sh_size           : qword;
-          sh_link           : longint;
-          sh_info           : longint;
+          sh_link           : longword;
+          sh_info           : longword;
           sh_addralign      : qword;
           sh_entsize        : qword;
         end;
@@ -357,7 +410,7 @@ implementation
           addend  : int64; { signed! }
         end;
         telf64symbol=packed record
-          st_name  : longint;
+          st_name  : longword;
           st_info  : byte; { bit 0-3: type, 4-7: bind }
           st_other : byte;
           st_shndx : word;
@@ -394,6 +447,13 @@ implementation
         telfdyn = telf32dyn;
 {$endif cpu64bitaddr}
 
+{$ifdef x86_64}
+      const
+        relocs_use_addend:Boolean=True;
+{$else x86_64}
+      const
+        relocs_use_addend:Boolean=False;
+{$endif x86_64}
 
       procedure MayBeSwapHeader(var h : telf32header);
         begin
@@ -544,6 +604,7 @@ implementation
               begin
                 address:=swapendian(address);
                 info:=swapendian(info);
+                addend:=swapendian(addend);
               end;
         end;
 
@@ -615,13 +676,9 @@ implementation
           include(aoptions,oso_strings);
         { Section Flags }
         if Ashflags and SHF_ALLOC<>0 then
-          include(aoptions,oso_load)
-        else
-          include(aoptions,oso_noload);
+          include(aoptions,oso_load);
         if Ashflags and SHF_WRITE<>0 then
-          include(aoptions,oso_write)
-        else
-          include(aoptions,oso_readonly);
+          include(aoptions,oso_write);
         if Ashflags and SHF_EXECINSTR<>0 then
           include(aoptions,oso_executable);
       end;
@@ -634,7 +691,7 @@ implementation
     constructor TElfObjSection.create(AList:TFPHashObjectList;const Aname:string;Aalign:shortint;Aoptions:TObjSectionOptions);
       begin
         inherited create(AList,Aname,Aalign,aoptions);
-        secshidx:=0;
+        index:=0;
         shstridx:=0;
         encodesechdrflags(aoptions,shtype,shflags);
         shlink:=0;
@@ -644,13 +701,14 @@ implementation
       end;
 
 
-    constructor TElfObjSection.create_ext(AList:TFPHashObjectList;const Aname:string;Ashtype,Ashflags,Ashlink,Ashinfo:longint;Aalign:shortint;Aentsize:longint);
+    constructor TElfObjSection.create_ext(aobjdata:TObjData;const Aname:string;Ashtype,Ashflags,Ashlink,Ashinfo:longint;Aalign:shortint;Aentsize:longint);
       var
         aoptions : TObjSectionOptions;
       begin
         decodesechdrflags(Ashtype,Ashflags,aoptions);
-        inherited create(AList,Aname,Aalign,aoptions);
-        secshidx:=0;
+        inherited create(aobjdata.ObjSectionList,Aname,Aalign,aoptions);
+        objdata:=aobjdata;
+        index:=0;
         shstridx:=0;
         shtype:=AshType;
         shflags:=AshFlags;
@@ -671,7 +729,7 @@ implementation
         { we need at least the following sections }
         createsection(sec_code);
         { always a non-PIC data section (will remain empty if doing PIC) }
-        createsection('.data',sizeof(pint),sectiontype2options(sec_data));
+        createsection('.data',sectiontype2align(sec_data),sectiontype2options(sec_data));
         createsection(sec_bss);
         if (cs_create_pic in current_settings.moduleswitches) and
            not(target_info.system in systems_darwin) then
@@ -848,24 +906,18 @@ implementation
     procedure TElfObjData.writereloc(data:aint;len:aword;p:TObjSymbol;reltype:TObjRelocationType);
       var
         symaddr : aint;
+        objreloc: TObjRelocation;
       begin
         if CurrObjSec=nil then
           internalerror(200403292);
-{$ifdef userodata}
-        if CurrObjSec.sectype in [sec_rodata,sec_bss,sec_threadvar] then
-          internalerror(200408252);
-{$endif userodata}
-        { Using RELOC_RVA to map 32-bit RELOC_ABSOLUTE to R_X86_64_32
-          (RELOC_ABSOLUTE maps to R_X86_64_32S) }
-        if (reltype=RELOC_ABSOLUTE) and (len<>sizeof(pint)) then
-          reltype:=RELOC_RVA;
+        objreloc:=nil;
         if assigned(p) then
          begin
            { real address of the symbol }
            symaddr:=p.address;
            { Local ObjSymbols can be resolved already or need a section reloc }
            if (p.bind=AB_LOCAL) and
-              (reltype in [RELOC_RELATIVE,RELOC_ABSOLUTE{$ifdef x86_64},RELOC_ABSOLUTE32,RELOC_RVA{$endif x86_64}]) then
+              (reltype in [RELOC_RELATIVE,RELOC_ABSOLUTE{$ifdef x86_64},RELOC_ABSOLUTE32{$endif x86_64}]) then
              begin
                { For a reltype relocation in the same section the
                  value can be calculated }
@@ -874,22 +926,138 @@ implementation
                  inc(data,symaddr-len-CurrObjSec.Size)
                else
                  begin
-                   CurrObjSec.addsectionreloc(CurrObjSec.Size,p.objsection,reltype);
+                   objreloc:=TObjRelocation.CreateSection(CurrObjSec.Size,p.objsection,reltype);
+                   CurrObjSec.ObjRelocations.Add(objreloc);
                    inc(data,symaddr);
                  end;
              end
            else
              begin
-               CurrObjSec.addsymreloc(CurrObjSec.Size,p,reltype);
-{$ifndef x86_64}
-               if (reltype=RELOC_RELATIVE) or (reltype=RELOC_PLT32) then
-                 dec(data,len);
-{$endif x86_64}
+               objreloc:=TObjRelocation.CreateSymbol(CurrObjSec.Size,p,reltype);
+               CurrObjSec.ObjRelocations.Add(objreloc);
+               { If target is a local label and it isn't handled above,
+                 patch its type in order to get it written to symtable.
+                 This may happen e.g. when taking address of Pascal label in PIC mode. }
+               if (p.bind=AB_LOCAL) and (p.typ=AT_LABEL) then
+                 p.typ:=AT_ADDR;
             end;
          end;
+        if assigned(objreloc) then
+          begin
+            objreloc.size:=len;
+            if reltype in [RELOC_RELATIVE,RELOC_PLT32{$ifdef x86_64},RELOC_GOTPCREL{$endif}] then
+              dec(data,len);
+            if relocs_use_addend then
+              begin
+                objreloc.orgsize:=data;
+                data:=0;
+              end;
+          end;
         CurrObjSec.write(data,len);
       end;
 
+
+{****************************************************************************
+                            TElfSymtab
+****************************************************************************}
+
+    const
+      symsecnames: array[boolean] of string[8] = ('.symtab','.dynsym');
+      strsecnames: array[boolean] of string[8] = ('.strtab','.dynstr');
+      symsectypes: array[boolean] of longint   = (SHT_SYMTAB,SHT_DYNSYM);
+      symsecattrs: array[boolean] of longint   = (0,SHF_ALLOC);
+
+
+    constructor TElfSymtab.create(aObjData:TObjData;aKind:TElfSymtabKind);
+      var
+        dyn:boolean;
+      begin
+        dyn:=(aKind=esk_dyn);
+        create_ext(aObjData,symsecnames[dyn],symsectypes[dyn],symsecattrs[dyn],0,0,sizeof(pint),sizeof(TElfSymbol));
+        fstrsec:=TElfObjSection.create_ext(aObjData,strsecnames[dyn],SHT_STRTAB,symsecattrs[dyn],0,0,1,0);
+        fstrsec.writestr(#0);
+        writezeros(sizeof(TElfSymbol));
+        symidx:=1;
+        shinfo:=1;
+        kind:=aKind;
+      end;
+
+    procedure TElfSymtab.writeInternalSymbol(astridx:longint;ainfo:byte;ashndx:word);
+      var
+        elfsym:TElfSymbol;
+      begin
+        fillchar(elfsym,sizeof(elfsym),0);
+        elfsym.st_name:=astridx;
+        elfsym.st_info:=ainfo;
+        elfsym.st_shndx:=ashndx;
+        inc(symidx);
+        inc(shinfo);
+        MaybeSwapElfSymbol(elfsym);
+        write(elfsym,sizeof(elfsym));
+      end;
+
+    procedure TElfSymtab.writeSymbol(objsym:TObjSymbol);
+      var
+        elfsym:TElfSymbol;
+      begin
+        fillchar(elfsym,sizeof(elfsym),0);
+        { symbolname, write the #0 separate to overcome 255+1 char not possible }
+        elfsym.st_name:=fstrsec.writestr(objsym.name);
+        fstrsec.writestr(#0);
+        elfsym.st_size:=objsym.size;
+        case objsym.bind of
+          AB_LOCAL :
+            begin
+              elfsym.st_value:=objsym.address;
+              elfsym.st_info:=STB_LOCAL shl 4;
+              inc(shinfo);
+            end;
+          AB_COMMON :
+            begin
+              elfsym.st_value:=$10;            { ?? should not be hardcoded }
+              elfsym.st_info:=STB_GLOBAL shl 4;
+              elfsym.st_shndx:=SHN_COMMON;
+            end;
+          AB_EXTERNAL :
+            elfsym.st_info:=STB_GLOBAL shl 4;
+          AB_WEAK_EXTERNAL :
+            elfsym.st_info:=STB_WEAK shl 4;
+          AB_GLOBAL :
+            begin
+              elfsym.st_value:=objsym.address;
+              elfsym.st_info:=STB_GLOBAL shl 4;
+            end;
+        end;
+        if (objsym.bind<>AB_EXTERNAL) {and
+           not(assigned(objsym.objsection) and
+           not(oso_data in objsym.objsection.secoptions))} then
+          begin
+            case objsym.typ of
+              AT_FUNCTION :
+                elfsym.st_info:=elfsym.st_info or STT_FUNC;
+              AT_DATA :
+                elfsym.st_info:=elfsym.st_info or STT_OBJECT;
+            end;
+          end;
+        if objsym.bind<>AB_COMMON then
+          begin
+            if kind<>esk_obj then
+              begin
+                { TODO }
+              end
+            else
+              begin
+                if assigned(objsym.objsection) then
+                  elfsym.st_shndx:=objsym.objsection.index
+                else
+                  elfsym.st_shndx:=SHN_UNDEF;
+                objsym.symidx:=symidx;
+              end;
+          end;
+        inc(symidx);
+        MaybeSwapElfSymbol(elfsym);
+        write(elfsym,sizeof(TElfSymbol));
+      end;
 
 {****************************************************************************
                             TElfObjectOutput
@@ -909,35 +1077,22 @@ implementation
         objreloc : TObjRelocation;
         relsym,
         reltyp   : longint;
-        relocsect : TObjSection;
-{$ifdef x86_64}	
-        tmp: aint;
-        asize: longint;
-{$endif x86_64}	
+        relocsect : TElfObjSection;
       begin
         with data do
          begin
-{$ifdef userodata}
-           { rodata can't have relocations }
-           if s.sectype=sec_rodata then
-             begin
-               if assigned(s.relocations.first) then
-                 internalerror(200408251);
-               exit;
-             end;
-{$endif userodata}
            { create the reloc section }
-{$ifdef i386}
-           relocsect:=TElfObjSection.create_ext(ObjSectionList,'.rel'+s.name,SHT_REL,0,symtabsect.secshidx,s.secshidx,4,sizeof(TElfReloc));
-{$else i386}
-           relocsect:=TElfObjSection.create_ext(ObjSectionList,'.rela'+s.name,SHT_RELA,0,symtabsect.secshidx,s.secshidx,4,sizeof(TElfReloc));
-{$endif i386}
+           if relocs_use_addend then
+             relocsect:=TElfObjSection.create_ext(data,'.rela'+s.name,SHT_RELA,0,symtabsect.index,s.index,4,3*sizeof(pint))
+           else
+             relocsect:=TElfObjSection.create_ext(data,'.rel'+s.name,SHT_REL,0,symtabsect.index,s.index,4,2*sizeof(pint));
            { add the relocations }
            for i:=0 to s.Objrelocations.count-1 do
              begin
                objreloc:=TObjRelocation(s.Objrelocations[i]);
                fillchar(rel,sizeof(rel),0);
                rel.address:=objreloc.dataoffset;
+               rel.addend:=objreloc.orgsize;
 
                { when things settle down, we can create processor specific
                  derived classes }
@@ -952,66 +1107,39 @@ implementation
                  RELOC_GOTPC :
                    reltyp:=R_386_GOTPC;
                  RELOC_PLT32 :
-                   begin
-                     reltyp:=R_386_PLT32;
-                   end;
+                   reltyp:=R_386_PLT32;
 {$endif i386}
 {$ifdef sparc}
                  RELOC_ABSOLUTE :
                    reltyp:=R_SPARC_32;
 {$endif sparc}
 {$ifdef x86_64}
+    { Note: 8 and 16-bit relocations are known to be non-conformant with
+      AMD64 ABI, so they aren't handled. }
                  RELOC_RELATIVE :
-                   begin
-                     reltyp:=R_X86_64_PC32;
-                     { length of the relocated location is handled here }
-                     rel.addend:=-4;
-                   end;
+                   if objreloc.size=8 then
+                     reltyp:=R_X86_64_PC64
+                   else if objreloc.size=4 then
+                     reltyp:=R_X86_64_PC32
+                   else
+                     InternalError(2012061900);
                  RELOC_ABSOLUTE :
-                   reltyp:=R_X86_64_64;
+                   if objreloc.size=8 then
+                     reltyp:=R_X86_64_64
+                   else if objreloc.size=4 then
+                     reltyp:=R_X86_64_32
+                   else
+                     InternalError(2012061901);
                  RELOC_ABSOLUTE32 :
                    reltyp:=R_X86_64_32S;
-                 RELOC_RVA :
-                   reltyp:=R_X86_64_32;
                  RELOC_GOTPCREL :
-                   begin
-                     reltyp:=R_X86_64_GOTPCREL;
-                     { length of the relocated location is handled here }
-                     rel.addend:=-4;
-                   end;
+                   reltyp:=R_X86_64_GOTPCREL;
                  RELOC_PLT32 :
-                   begin
-                     reltyp:=R_X86_64_PLT32;
-                     { length of the relocated location is handled here }
-                     rel.addend:=-4;
-                   end;
+                   reltyp:=R_X86_64_PLT32;
 {$endif x86_64}
                  else
                    internalerror(200602261);
                end;
-
-{ This handles ELF 'rela'-styled relocations, which are currently used only for x86_64,
-  but can be used other targets, too. }
-{$ifdef x86_64}
-               s.Data.Seek(objreloc.dataoffset);
-               if objreloc.typ=RELOC_ABSOLUTE then
-                 begin
-                   asize:=8;
-                   s.Data.Read(tmp,8);
-                   rel.addend:=rel.addend+tmp;
-                 end
-               else
-                 begin
-                   asize:=4;
-                   s.Data.Read(tmp,4);
-                   rel.addend:=rel.addend+longint(tmp);
-                 end;
-
-               { and zero the data member out }
-               tmp:=0;
-               s.Data.Seek(objreloc.dataoffset);
-               s.Data.Write(tmp,asize);
-{$endif}
 
                { Symbol }
                if assigned(objreloc.symbol) then
@@ -1036,107 +1164,34 @@ implementation
                rel.info:=(relsym shl 8) or reltyp;
 {$endif cpu64bitaddr}
                { write reloc }
+               { ElfXX_Rel is essentially ElfXX_Rela without the addend field. }
                MaybeSwapElfReloc(rel);
-               relocsect.write(rel,sizeof(rel));
+               relocsect.write(rel,relocsect.shentsize);
              end;
          end;
       end;
 
 
-    procedure TElfObjectOutput.write_internal_symbol(astridx:longint;ainfo:byte;ashndx:word);
-      var
-        elfsym : telfsymbol;
-      begin
-        fillchar(elfsym,sizeof(elfsym),0);
-        elfsym.st_name:=astridx;
-        elfsym.st_info:=ainfo;
-        elfsym.st_shndx:=ashndx;
-        inc(symidx);
-        inc(localsyms);
-        MaybeSwapElfSymbol(elfsym);
-        symtabsect.write(elfsym,sizeof(elfsym));
-      end;
-
-
     procedure TElfObjectOutput.section_write_symbol(p:TObject;arg:pointer);
       begin
-        TObjSection(p).secsymidx:=symidx;
-        write_internal_symbol(0,STT_SECTION,TElfObjSection(p).secshidx);
+        { Must not write symbols for internal sections like .symtab }
+        { TODO: maybe use inclusive list of section types instead }
+        if (TElfObjSection(p).shtype in [SHT_SYMTAB,SHT_STRTAB,SHT_REL,SHT_RELA]) then
+          exit;
+        TObjSection(p).secsymidx:=symtabsect.symidx;
+        symtabsect.writeInternalSymbol(0,STT_SECTION,TObjSection(p).index);
       end;
 
 
     procedure TElfObjectOutput.createsymtab(data: TObjData);
-
-        procedure WriteSym(objsym:TObjSymbol);
-        var
-          elfsym : telfsymbol;
-        begin
-          fillchar(elfsym,sizeof(elfsym),0);
-          { symbolname, write the #0 separate to overcome 255+1 char not possible }
-          elfsym.st_name:=strtabsect.Size;
-          strtabsect.writestr(objsym.name);
-          strtabsect.writestr(#0);
-          elfsym.st_size:=objsym.size;
-          case objsym.bind of
-            AB_LOCAL :
-              begin
-                elfsym.st_value:=objsym.address;
-                elfsym.st_info:=STB_LOCAL shl 4;
-                inc(localsyms);
-              end;
-            AB_COMMON :
-              begin
-                elfsym.st_value:=$10;
-                elfsym.st_info:=STB_GLOBAL shl 4;
-              end;
-            AB_EXTERNAL :
-              elfsym.st_info:=STB_GLOBAL shl 4;
-            AB_WEAK_EXTERNAL :
-              elfsym.st_info:=STB_WEAK shl 4;
-            AB_GLOBAL :
-              begin
-                elfsym.st_value:=objsym.address;
-                elfsym.st_info:=STB_GLOBAL shl 4;
-              end;
-          end;
-          if (objsym.bind<>AB_EXTERNAL) {and
-              not(assigned(objsym.objsection) and
-              not(oso_data in objsym.objsection.secoptions))} then
-            begin
-              case objsym.typ of
-                AT_FUNCTION :
-                  elfsym.st_info:=elfsym.st_info or STT_FUNC;
-                AT_DATA :
-                  elfsym.st_info:=elfsym.st_info or STT_OBJECT;
-              end;
-            end;
-          if objsym.bind=AB_COMMON then
-            elfsym.st_shndx:=SHN_COMMON
-          else
-            begin
-              if assigned(objsym.objsection) then
-                elfsym.st_shndx:=TElfObjSection(objsym.objsection).secshidx
-              else
-                elfsym.st_shndx:=SHN_UNDEF;
-            end;
-          objsym.symidx:=symidx;
-          inc(symidx);
-          MaybeSwapElfSymbol(elfsym);
-          symtabsect.write(elfsym,sizeof(elfsym));
-        end;
-
       var
         i      : longint;
         objsym : TObjSymbol;
       begin
         with data do
          begin
-           symidx:=0;
-           localsyms:=0;
-           { empty entry }
-           write_internal_symbol(0,0,0);
            { filename entry }
-           write_internal_symbol(1,STT_FILE,SHN_ABS);
+           symtabsect.writeInternalSymbol(1,STT_FILE,SHN_ABS);
            { section }
            ObjSectionList.ForEachCall(@section_write_symbol,nil);
            { First the Local Symbols, this is required by ELF. The localsyms
@@ -1146,18 +1201,17 @@ implementation
              begin
                objsym:=TObjSymbol(ObjSymbolList[i]);
                if (objsym.bind=AB_LOCAL) and (objsym.typ<>AT_LABEL) then
-                 WriteSym(objsym);
+                 symtabsect.WriteSymbol(objsym);
              end;
            { Global Symbols }
            for i:=0 to ObjSymbolList.Count-1 do
              begin
                objsym:=TObjSymbol(ObjSymbolList[i]);
                if (objsym.bind<>AB_LOCAL) then
-                 WriteSym(objsym);
+                 symtabsect.WriteSymbol(objsym);
              end;
            { update the .symtab section header }
-           symtabsect.shlink:=strtabsect.secshidx;
-           symtabsect.shinfo:=localsyms;
+           symtabsect.shlink:=symtabsect.fstrsec.index;
          end;
       end;
 
@@ -1199,7 +1253,7 @@ implementation
 
     procedure TElfObjectOutput.section_count_sections(p:TObject;arg:pointer);
       begin
-        TElfObjSection(p).secshidx:=pword(arg)^;
+        TElfObjSection(p).index:=pword(arg)^;
         inc(pword(arg)^);
       end;
 
@@ -1228,16 +1282,15 @@ implementation
         with data do
          begin
            { default sections }
-           symtabsect:=TElfObjSection.create_ext(ObjSectionList,'.symtab',SHT_SYMTAB,0,0,0,4,sizeof(telfsymbol));
-           strtabsect:=TElfObjSection.create_ext(ObjSectionList,'.strtab',SHT_STRTAB,0,0,0,1,0);
-           shstrtabsect:=TElfObjSection.create_ext(ObjSectionList,'.shstrtab',SHT_STRTAB,0,0,0,1,0);
+           symtabsect:=TElfSymtab.create(data,esk_obj);
+           shstrtabsect:=TElfObjSection.create_ext(data,'.shstrtab',SHT_STRTAB,0,0,0,1,0);
            { "no executable stack" marker for Linux }
            if (target_info.system in systems_linux) and
               not(cs_executable_stack in current_settings.moduleswitches) then
-             TElfObjSection.create_ext(ObjSectionList,'.note.GNU-stack',SHT_PROGBITS,0,0,0,1,0);
-           { insert the empty and filename as first in strtab }
-           strtabsect.writestr(#0);
-           strtabsect.writestr(ExtractFileName(current_module.mainsource)+#0);
+             TElfObjSection.create_ext(data,'.note.GNU-stack',SHT_PROGBITS,0,0,0,1,0);
+           { insert filename as first in strtab }
+           symtabsect.fstrsec.writestr(ExtractFileName(current_module.mainsource));
+           symtabsect.fstrsec.writestr(#0);
            { calc amount of sections we have }
            nsections:=1;
            { also create the index in the section header table }
@@ -1276,12 +1329,12 @@ implementation
            header.e_type:=ET_REL;
            header.e_machine:=ELFMACHINE;
 {$ifdef arm}
-           if (current_settings.fputype=cpu_soft) then
+           if (current_settings.fputype=fpu_soft) then
              header.e_flags:=$600;
 {$endif arm}
            header.e_version:=1;
            header.e_shoff:=shoffset;
-           header.e_shstrndx:=shstrtabsect.secshidx;
+           header.e_shstrndx:=shstrtabsect.index;
 
            header.e_shnum:=nsections;
            header.e_ehsize:=sizeof(telfheader);

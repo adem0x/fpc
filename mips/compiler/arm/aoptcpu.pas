@@ -66,6 +66,7 @@ Implementation
       result:=
         (p.typ=ait_instruction) and
         (taicpu(p).condition=C_None) and
+        (taicpu(p).opcode<>A_PLD) and
         ((taicpu(p).opcode<>A_BLX) or
          (taicpu(p).oper[0]^.typ=top_reg));
     end;
@@ -96,12 +97,20 @@ Implementation
 
   function MatchOperand(const oper1: TOper; const oper2: TOper): boolean; inline;
     begin
-      result := (oper1.typ = oper2.typ) and
-                (
-                  ((oper1.typ = top_const) and (oper1.val = oper2.val)) or
-                  ((oper1.typ = top_reg) and (oper1.reg = oper2.reg)) or
-                  ((oper1.typ = top_conditioncode) and (oper1.cc = oper2.cc))
-                );
+      result := oper1.typ = oper2.typ;
+
+      if result then
+        case oper1.typ of
+          top_const:
+            Result:=oper1.val = oper2.val;
+          top_reg:
+            Result:=oper1.reg = oper2.reg;
+          top_conditioncode:
+            Result:=oper1.cc = oper2.cc;
+          top_ref:
+            Result:=RefsEqual(oper1.ref^, oper2.ref^);
+          else Result:=false;
+        end
     end;
 
   function MatchOperand(const oper: TOper; const reg: TRegister): boolean; inline;
@@ -130,24 +139,47 @@ Implementation
     if not ((assigned(hp)) and (hp.typ = ait_instruction)) then
       exit;
 
-    {These are not writing to their first oper}
-    if p.opcode in [A_STR, A_STRB, A_STRH, A_CMP, A_CMN, A_TST, A_TEQ,
-                        A_B, A_BL, A_BX, A_BLX] then
-      exit;
-
-    { These four are writing into the first 2 register, UMLAL and SMLAL will also read from them }
-    if (p.opcode in [A_UMLAL, A_UMULL, A_SMLAL, A_SMULL]) and
-       (p.oper[1]^.typ = top_reg) and
-       (p.oper[1]^.reg = reg) then
-    begin
-      regLoadedWithNewValue := true;
-      exit
+    case p.opcode of
+      { These operands do not write into a register at all }
+      A_CMP, A_CMN, A_TST, A_TEQ, A_B, A_BL, A_BX, A_BLX, A_SWI, A_MSR, A_PLD:
+        exit;
+      {Take care of post/preincremented store and loads, they will change their base register}
+      A_STR, A_LDR:
+        regLoadedWithNewValue :=
+          (taicpu(p).oper[1]^.typ=top_ref) and
+          (taicpu(p).oper[1]^.ref^.addressmode in [AM_PREINDEXED,AM_POSTINDEXED]) and
+          (taicpu(p).oper[1]^.ref^.base = reg);
+      { These four are writing into the first 2 register, UMLAL and SMLAL will also read from them }
+      A_UMLAL, A_UMULL, A_SMLAL, A_SMULL:
+        regLoadedWithNewValue :=
+          (p.oper[1]^.typ = top_reg) and
+          (p.oper[1]^.reg = reg);
+      {Loads to oper2 from coprocessor}
+      {
+      MCR/MRC is currently not supported in FPC
+      A_MRC:
+        regLoadedWithNewValue :=
+          (p.oper[2]^.typ = top_reg) and
+          (p.oper[2]^.reg = reg);
+      }
+      {Loads to all register in the registerset}
+      A_LDM:
+        regLoadedWithNewValue := (getsupreg(reg) in p.oper[1]^.regset^);
     end;
 
-    {All other instructions use oper[0] as destination}
-    regLoadedWithNewValue :=
-      (p.oper[0]^.typ = top_reg) and
-      (p.oper[0]^.reg = reg);
+    if regLoadedWithNewValue then
+      exit;
+
+    case p.oper[0]^.typ of
+      {This is the case}
+      top_reg:
+        regLoadedWithNewValue := (p.oper[0]^.reg = reg);
+      {LDM/STM might write a new value to their index register}
+      top_ref:
+        regLoadedWithNewValue :=
+          (taicpu(p).oper[0]^.ref^.addressmode in [AM_PREINDEXED,AM_POSTINDEXED]) and
+          (taicpu(p).oper[0]^.ref^.base = reg);
+    end;
   end;
 
   function instructionLoadsFromReg(const reg: TRegister; const hp: tai): boolean;
@@ -162,7 +194,8 @@ Implementation
 
     i:=1;
     {For these instructions we have to start on oper[0]}
-    if (p.opcode in [A_STR, A_STRB, A_STRH, A_CMP, A_CMN, A_TST, A_TEQ,
+    if (p.opcode in [A_STR, A_LDM, A_STM, A_PLD,
+                        A_CMP, A_CMN, A_TST, A_TEQ,
                         A_B, A_BL, A_BX, A_BLX,
                         A_SMLAL, A_UMLAL]) then i:=0;
 
@@ -231,6 +264,12 @@ Implementation
       i: longint;
       TmpUsedRegs: TAllUsedRegs;
       tempop: tasmop;
+
+    function IsPowerOf2(const value: DWord): boolean; inline;
+      begin
+        Result:=(value and (value - 1)) = 0;
+      end;
+
     begin
       result := false;
       case p.typ of
@@ -432,6 +471,40 @@ Implementation
                             result := true;
                           end;
                       end;
+                    { Change the common
+                      mov r0, r0, lsr #24
+                      and r0, r0, #255
+
+                      and remove the superfluous and
+
+                      This could be extended to handle more cases.
+                    }
+                    if (taicpu(p).ops=3) and
+                       (taicpu(p).oper[2]^.typ = top_shifterop) and
+                       (taicpu(p).oper[2]^.shifterop^.rs = NR_NO) and
+                       (taicpu(p).oper[2]^.shifterop^.shiftmode = SM_LSR) and
+                       (taicpu(p).oper[2]^.shifterop^.shiftimm >= 24 ) and
+                       getnextinstruction(p,hp1) and
+                       MatchInstruction(hp1, A_AND, [taicpu(p).condition], [taicpu(p).oppostfix]) and
+                       (taicpu(hp1).ops=3) and
+                       MatchOperand(taicpu(p).oper[0]^, taicpu(hp1).oper[0]^) and
+                       MatchOperand(taicpu(p).oper[0]^, taicpu(hp1).oper[1]^) and
+                       (taicpu(hp1).oper[2]^.typ = top_const) and
+                       { Check if the AND actually would only mask out bits beeing already zero because of the shift
+                         For LSR #25 and an AndConst of 255 that whould go like this:
+                         255 and ((2 shl (32-25))-1)
+                         which results in 127, which is one less a power-of-2, meaning all lower bits are set.
+
+                         LSR #25 and AndConst of 254:
+                         254 and ((2 shl (32-25))-1) = 126 -> lowest bit is clear, so we can't remove it.
+                       }
+                       ispowerof2((taicpu(hp1).oper[2]^.val and ((2 shl (32-taicpu(p).oper[2]^.shifterop^.shiftimm))-1))+1) then
+                      begin
+                        asml.insertbefore(tai_comment.Create(strpnew('Peephole LsrAnd2Lsr done')), hp1);
+                        asml.remove(hp1);
+                        hp1.free;
+                      end;
+
                     { 
                       This changes the very common 
                       mov r0, #0

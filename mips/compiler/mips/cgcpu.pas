@@ -27,7 +27,7 @@ interface
 
 uses
   globtype, parabase,
-  cgbase, cgutils, cgobj, cg64f32,
+  cgbase, cgutils, cgobj, cg64f32, cpupara,
   aasmbase, aasmtai, aasmcpu, aasmdata,
   cpubase, cpuinfo,
   node, symconst, SymType, symdef,
@@ -36,6 +36,7 @@ uses
 type
   TCGMIPS = class(tcg)
   public
+
     procedure init_register_allocators; override;
     procedure done_register_allocators; override;
     function getfpuregister(list: tasmlist; size: Tcgsize): Tregister; override;
@@ -51,7 +52,6 @@ type
     procedure a_load_const_cgpara(list: tasmlist; size: tcgsize; a: tcgint; const paraloc: TCGPara); override;
     procedure a_load_ref_cgpara(list: tasmlist; sz: tcgsize; const r: TReference; const paraloc: TCGPara); override;
     procedure a_loadaddr_ref_cgpara(list: tasmlist; const r: TReference; const paraloc: TCGPara); override;
-
     procedure a_loadfpu_reg_cgpara(list: tasmlist; size: tcgsize; const r: tregister; const paraloc: TCGPara); override;
     procedure a_loadfpu_ref_cgpara(list: tasmlist; size: tcgsize; const ref: treference; const paraloc: TCGPara); override;
     procedure a_call_name(list: tasmlist; const s: string; weak : boolean); override;
@@ -508,21 +508,22 @@ procedure TCGMIPS.init_register_allocators;
 begin
   inherited init_register_allocators;
 
-  if (cs_create_pic in current_settings.moduleswitches) and
+  { Keep RS_R25, i.e. $t9 for PIC call }
+  if (cs_create_pic in current_settings.moduleswitches) and assigned(current_procinfo) and
     (pi_needs_got in current_procinfo.flags) then
     begin
       current_procinfo.got := NR_GP;
       rg[R_INTREGISTER]    := Trgcpu.Create(R_INTREGISTER, R_SUBD,
         [RS_R2,RS_R3,RS_R4,RS_R5,RS_R6,RS_R7,RS_R8,RS_R9,
        RS_R10,RS_R11,RS_R12,RS_R13,RS_R14,RS_R15,RS_R16,RS_R17,RS_R18,RS_R19,
-       RS_R20,RS_R21,RS_R22,RS_R23,RS_R24,RS_R25],
+       RS_R20,RS_R21,RS_R22,RS_R23,RS_R24{,RS_R25}],
         first_int_imreg, []);
     end
   else
     rg[R_INTREGISTER] := trgcpu.Create(R_INTREGISTER, R_SUBD,
       [RS_R2,RS_R3,RS_R4,RS_R5,RS_R6,RS_R7,RS_R8,RS_R9,
        RS_R10,RS_R11,RS_R12,RS_R13,RS_R14,RS_R15,RS_R16,RS_R17,RS_R18,RS_R19,
-       RS_R20,RS_R21,RS_R22,RS_R23,RS_R24,RS_R25],
+       RS_R20,RS_R21,RS_R22,RS_R23,RS_R24{,RS_R25}],
       first_int_imreg, []);
 
 {
@@ -596,21 +597,21 @@ begin
   href := r;
   hloc := paraloc.location;
   while assigned(hloc) do
-  begin
-    paramanager.allocparaloc(list,hloc);
-    case hloc^.loc of
-      LOC_REGISTER:
-        a_load_ref_reg(list, hloc^.size, hloc^.size, href, hloc^.Register);
-      LOC_FPUREGISTER,LOC_CFPUREGISTER :
-        a_loadfpu_ref_reg(list,hloc^.size,hloc^.size,href,hloc^.register);
-      LOC_REFERENCE:
-        begin
-          reference_reset_base(href2, hloc^.reference.index, hloc^.reference.offset, sizeof(aint));
-          a_load_ref_ref(list, hloc^.size, hloc^.size, href, href2);
-        end;
+   begin
+     paramanager.allocparaloc(list,hloc);
+     case hloc^.loc of
+       LOC_REGISTER,LOC_CREGISTER:
+         a_load_ref_reg(list, hloc^.size, hloc^.size, href, hloc^.Register);
+       LOC_FPUREGISTER,LOC_CFPUREGISTER :
+         a_loadfpu_ref_reg(list,hloc^.size,hloc^.size,href,hloc^.register);
+       LOC_REFERENCE:
+         begin
+           reference_reset_base(href2, hloc^.reference.index, hloc^.reference.offset, sizeof(aint));
+           a_load_ref_ref(list, hloc^.size, hloc^.size, href, href2);
+         end
       else
         internalerror(200408241);
-    end;
+     end;
     Inc(href.offset, tcgsize2size[hloc^.size]);
     hloc := hloc^.Next;
   end;
@@ -686,8 +687,18 @@ end;
 
 
 procedure TCGMIPS.a_call_name(list: tasmlist; const s: string; weak: boolean);
+var
+  href: treference;
 begin
-  list.concat(taicpu.op_sym(A_JAL,current_asmdata.RefAsmSymbol(s)));
+  if (cs_create_pic in current_settings.moduleswitches) then
+	begin
+	  reference_reset(href,sizeof(aint));
+	  href.symbol:=current_asmdata.RefAsmSymbol(s);
+	  a_loadaddr_ref_reg(list,href,NR_PIC_FUNC);
+	  list.concat(taicpu.op_reg(A_JALR,NR_PIC_FUNC));
+	end
+  else  
+    list.concat(taicpu.op_sym(A_JAL,current_asmdata.RefAsmSymbol(s)));
   { Delay slot }
   list.concat(taicpu.op_none(A_NOP));
 end;
@@ -695,6 +706,9 @@ end;
 
 procedure TCGMIPS.a_call_reg(list: tasmlist; Reg: TRegister);
 begin
+  if (cs_create_pic in current_settings.moduleswitches) and 
+     (Reg <> NR_PIC_FUNC) then
+    list.concat(taicpu.op_reg_reg(A_MOVE, reg, NR_PIC_FUNC));
   list.concat(taicpu.op_reg(A_JALR, reg));
   { Delay slot }
   list.concat(taicpu.op_none(A_NOP));
@@ -792,7 +806,7 @@ var
 begin
   if (tcgsize2size[tosize] < tcgsize2size[fromsize]) or
     (
-    (tcgsize2size[tosize] = tcgsize2size[fromsize]) and (tosize <> fromsize) 
+    (tcgsize2size[tosize] = tcgsize2size[fromsize]) and (tosize <> fromsize)
     ) or  ((fromsize = OS_S8) and
              (tosize = OS_16)) then
   begin
@@ -851,7 +865,8 @@ begin
   if (href.base = NR_NO) and (href.index <> NR_NO) then
     internalerror(200306171);
 
-  if (cs_create_pic in current_settings.moduleswitches) and
+  if ((cs_create_pic in current_settings.moduleswitches) or
+      (ref.refaddr=addr_pic)) and
     assigned(href.symbol) then
   begin
     tmpreg := r; //GetIntRegister(list, OS_ADDR);
@@ -861,6 +876,11 @@ begin
     tmpref.refaddr := addr_pic;
     if not (pi_needs_got in current_procinfo.flags) then
       internalerror(200501161);
+	if current_procinfo.got=NR_NO then
+      current_procinfo.got:=NR_GP;
+    { for addr_pic NR_GP can be implicit or explicit }
+	if (href.refaddr=addr_pic) and (href.base=current_procinfo.got) then
+      href.base:=NR_NO;
     tmpref.base := current_procinfo.got;
     list.concat(taicpu.op_reg_ref(A_LW, tmpreg, tmpref));
     href.symbol := nil;
@@ -876,6 +896,8 @@ begin
       else
         href.base  := tmpreg;
     end;
+	if (href.base=NR_NO) and (href.offset=0) then
+      exit;
   end;
 
 
@@ -941,18 +963,19 @@ end;
 
 procedure TCGMIPS.a_loadfpu_reg_reg(list: tasmlist; fromsize, tosize: tcgsize; reg1, reg2: tregister);
 const
-  FpuMovInstr: array[OS_F32..OS_F64] of TAsmOp =
-    (A_MOV_S, A_MOV_D);
+  FpuMovInstr: array[OS_F32..OS_F64,OS_F32..OS_F64] of TAsmOp =
+    ((A_MOV_S, A_CVT_D_S),(A_CVT_S_D,A_MOV_D));
 var
   instr: taicpu;
 begin
-  if reg1 <> reg2 then
+  if (reg1 <> reg2) or (fromsize<>tosize) then
   begin
-    instr := taicpu.op_reg_reg(fpumovinstr[tosize], reg2, reg1);
+    instr := taicpu.op_reg_reg(fpumovinstr[fromsize,tosize], reg2, reg1);
     list.Concat(instr);
     { Notify the register allocator that we have written a move instruction so
       it can try to eliminate it. }
-    add_move_instruction(instr);
+    if (fromsize=tosize) then
+      add_move_instruction(instr);
   end;
 end;
 
@@ -962,7 +985,7 @@ var
   tmpref: treference;
   tmpreg: tregister;
 begin
-  case tosize of
+  case fromsize of
     OS_F32:
       handle_load_store_fpu(list, False, A_LWC1, reg, ref);
     OS_F64:
@@ -970,6 +993,8 @@ begin
     else
       InternalError(2007042701);
   end;
+  if tosize<>fromsize then
+    a_loadfpu_reg_reg(list,fromsize,tosize,reg,reg);
 end;
 
 procedure TCGMIPS.a_loadfpu_reg_ref(list: tasmlist; fromsize, tosize: tcgsize; reg: tregister; const ref: TReference);
@@ -977,6 +1002,8 @@ var
   tmpref: treference;
   tmpreg: tregister;
 begin
+  if tosize<>fromsize then
+    a_loadfpu_reg_reg(list,fromsize,tosize,reg,reg);
   case tosize of
     OS_F32:
       handle_load_store_fpu(list, True, A_SWC1, reg, ref);
@@ -1057,7 +1084,8 @@ var
 begin
   case Op of
     OP_NEG:
-      list.concat(taicpu.op_reg_reg(A_NEG, dst, src));
+      { discard overflow checking }
+      list.concat(taicpu.op_reg_reg(A_NEGU{A_NEG}, dst, src));
     OP_NOT:
     begin
       list.concat(taicpu.op_reg_reg(A_NOT, dst, src));
@@ -1275,6 +1303,7 @@ end;
   ai := taicpu.op_reg_reg_sym(A_BC, reg, tmpreg, l);
   ai.SetCondition(TOpCmp2AsmCond[cmp_op]);
   list.concat(ai);
+  { Delay slot }
   list.Concat(TAiCpu.Op_none(A_NOP));
 end;
 
@@ -1286,6 +1315,7 @@ begin
   ai := taicpu.op_reg_reg_sym(A_BC, reg2, reg1, l);
   ai.SetCondition(TOpCmp2AsmCond[cmp_op]);
   list.concat(ai);
+  { Delay slot }
   list.Concat(TAiCpu.Op_none(A_NOP));
 end;
 
@@ -1296,6 +1326,7 @@ var
 begin
   ai := taicpu.op_sym(A_BA, l);
   list.concat(ai);
+  { Delay slot }
   list.Concat(TAiCpu.Op_none(A_NOP));
 end;
 
@@ -1332,17 +1363,21 @@ procedure TCGMIPS.g_proc_entry(list: tasmlist; localsize: longint; nostackframe:
 var
   lastintoffset,lastfpuoffset,
   nextoffset : aint;
+  i : longint;
+  ra_save,framesave,gp_save : taicpu;
   fmask,mask : dword;
   saveregs : tcpuregisterset;
+  StoreOp : TAsmOp;
   href:  treference;
   usesfpr, usesgpr, gotgot : boolean;
   reg : Tsuperregister;
   helplist : TAsmList;
 begin
+  a_reg_alloc(list,NR_STACK_POINTER_REG);
+
   if nostackframe then
     exit;
 
-  a_reg_alloc(list,NR_STACK_POINTER_REG);
   if (TMIPSProcinfo(current_procinfo).needs_frame_pointer) then
     a_reg_alloc(list,NR_FRAME_POINTER_REG);
 
@@ -1356,24 +1391,19 @@ begin
   fmask:=0;
   nextoffset:=TMIPSProcInfo(current_procinfo).floatregstart;
   lastfpuoffset:=LocalSize;
-  { not sure about how used_in_proc is set, to play safe, we check the even register and save pair if used }
-  reg := RS_F0;
-  while reg < RS_F31 do
+  for reg := RS_F0 to RS_F30 do { to check: what if F30 is double? }
     begin
       if reg in (rg[R_FPUREGISTER].used_in_proc-paramanager.get_volatile_registers_fpu(pocall_stdcall)) then
         begin
           usesfpr:=true;
-          fmask:=fmask or (3 shl ord(reg));
+          fmask:=fmask or (1 shl ord(reg));
           href.offset:=nextoffset;
           lastfpuoffset:=nextoffset;
+          if cs_asm_source in current_settings.globalswitches then
+            helplist.concat(tai_comment.Create(strpnew(std_regname(newreg(R_FPUREGISTER,reg,R_SUBFS))+' register saved.')));
           helplist.concat(taicpu.op_reg_ref(A_SWC1,newreg(R_FPUREGISTER,reg,R_SUBFS),href));
           inc(nextoffset,4);
-          href.offset:=nextoffset;
-          lastfpuoffset:=nextoffset;
-          helplist.concat(taicpu.op_reg_ref(A_SWC1,newreg(R_FPUREGISTER,reg+1,R_SUBFS),href));
-          inc(nextoffset,4);
         end;
-      reg := reg + 2;
     end;
 
   usesgpr:=false;
@@ -1381,7 +1411,15 @@ begin
   nextoffset:=TMIPSProcInfo(current_procinfo).intregstart;
   saveregs:=rg[R_INTREGISTER].used_in_proc-paramanager.get_volatile_registers_int(pocall_stdcall);
   include(saveregs,RS_R31);
+  if (TMIPSProcinfo(current_procinfo).needs_frame_pointer) then
+    include(saveregs,RS_FRAME_POINTER_REG);
+  if (cs_create_pic in current_settings.moduleswitches) and
+     (pi_needs_got in current_procinfo.flags) then
+	include(saveregs,RS_GP);
   lastintoffset:=LocalSize;
+  framesave:=nil;
+  gp_save:=nil;
+
   for reg:=RS_R1 to RS_R31 do
     begin
       if reg in saveregs then
@@ -1390,35 +1428,161 @@ begin
           mask:=mask or (1 shl ord(reg));
           href.offset:=nextoffset;
           lastintoffset:=nextoffset;
-          helplist.concat(taicpu.op_reg_ref(A_SW,newreg(R_INTREGISTER,reg,R_SUBWHOLE),href));
+          if (reg=RS_FRAME_POINTER_REG) then
+            framesave:=taicpu.op_reg_ref(A_SW,newreg(R_INTREGISTER,reg,R_SUBWHOLE),href)
+          else if (reg=RS_R31) then
+            ra_save:=taicpu.op_reg_ref(A_SW,newreg(R_INTREGISTER,reg,R_SUBWHOLE),href)
+		  else if (reg=RS_GP) and
+                  (cs_create_pic in current_settings.moduleswitches) and
+                  (pi_needs_got in current_procinfo.flags) then
+			gp_save:=taicpu.op_const(A_P_CPRESTORE,nextoffset)
+          else
+            begin
+              if cs_asm_source in current_settings.globalswitches then
+                helplist.concat(tai_comment.Create(strpnew(
+				  std_regname(newreg(R_INTREGISTER,reg,R_SUBWHOLE))+' register saved.')));
+              helplist.concat(taicpu.op_reg_ref(A_SW,newreg(R_INTREGISTER,reg,R_SUBWHOLE),href));
+            end;
           inc(nextoffset,4);
         end;
     end;
 
+  //list.concat(Taicpu.Op_reg_reg_const(A_ADDIU,NR_FRAME_POINTER_REG,NR_STACK_POINTER_REG,current_procinfo.para_stack_size));
   list.concat(Taicpu.op_none(A_P_SET_NOMIPS16));
   list.concat(Taicpu.op_reg_const_reg(A_P_FRAME,current_procinfo.framepointer,LocalSize,NR_R31));
   list.concat(Taicpu.op_const_const(A_P_MASK,mask,-(LocalSize-lastintoffset)));
   list.concat(Taicpu.op_const_const(A_P_FMASK,Fmask,-(LocalSize-lastfpuoffset)));
+  if (cs_create_pic in current_settings.moduleswitches) and
+     (pi_needs_got in current_procinfo.flags) then
+	begin
+      list.concat(Taicpu.op_reg(A_P_CPLOAD,NR_PIC_FUNC));
+	end;
   list.concat(Taicpu.op_none(A_P_SET_NOREORDER));
-  list.concat(Taicpu.op_none(A_P_SET_NOMACRO));
-  if (TMIPSProcinfo(current_procinfo).needs_frame_pointer) then
-    list.concat(Taicpu.Op_reg_reg(A_MOVE,NR_FRAME_POINTER_REG,NR_STACK_POINTER_REG));
-
 
   if (-LocalSize >= simm16lo) and (-LocalSize <= simm16hi) then
-    list.concat(Taicpu.Op_reg_reg_const(A_ADDIU,NR_STACK_POINTER_REG,NR_STACK_POINTER_REG,-LocalSize))
+    begin
+      list.concat(Taicpu.op_none(A_P_SET_NOMACRO));
+      if cs_asm_source in current_settings.globalswitches then
+		begin
+          list.concat(tai_comment.Create(strpnew('Stack register updated substract '+tostr(LocalSize)+' for local size')));
+          list.concat(tai_comment.Create(strpnew(' 0-'+
+				   tostr(TMIPSProcInfo(current_procinfo).maxpushedparasize)+' for called function parameters')));
+          list.concat(tai_comment.Create(strpnew('Register save area at '+
+				   tostr(TMIPSProcInfo(current_procinfo).intregstart))));
+          list.concat(tai_comment.Create(strpnew('FPU register save area at '+
+				   tostr(TMIPSProcInfo(current_procinfo).floatregstart))));
+		end;
+      list.concat(Taicpu.Op_reg_reg_const(A_ADDIU,NR_STACK_POINTER_REG,NR_STACK_POINTER_REG,-LocalSize));
+      if cs_asm_source in current_settings.globalswitches then
+        list.concat(tai_comment.Create(strpnew('RA register saved.')));
+      list.concat(ra_save);
+      if assigned(framesave) then
+        begin
+          if cs_asm_source in current_settings.globalswitches then
+            list.concat(tai_comment.Create(strpnew('Frame S8/FP register saved.')));
+          list.concat(framesave);
+          if cs_asm_source in current_settings.globalswitches then
+            list.concat(tai_comment.Create(strpnew('New frame FP register set to $sp+'+ToStr(LocalSize))));
+          list.concat(Taicpu.op_reg_reg_const(A_ADDIU,NR_FRAME_POINTER_REG,
+            NR_STACK_POINTER_REG,LocalSize));
+        end;
+    end
   else
     begin
-      list.concat(Taicpu.Op_reg_const(A_LI,NR_R1,-LocalSize));
-      list.concat(Taicpu.Op_reg_reg_reg(A_ADD,NR_STACK_POINTER_REG,NR_STACK_POINTER_REG,NR_R1));
+      if cs_asm_source in current_settings.globalswitches then
+        list.concat(tai_comment.Create(strpnew('Stack register updated substract '+tostr(LocalSize)+' for local size using R9/t1 register')));
+      list.concat(Taicpu.Op_reg_const(A_LI,NR_R9,-LocalSize));
+      list.concat(Taicpu.Op_reg_reg_reg(A_ADD,NR_STACK_POINTER_REG,NR_STACK_POINTER_REG,NR_R9));
+      if cs_asm_source in current_settings.globalswitches then
+        list.concat(tai_comment.Create(strpnew('RA register saved.')));
+      list.concat(ra_save);
+      if assigned(framesave) then
+        begin
+          if cs_asm_source in current_settings.globalswitches then
+            list.concat(tai_comment.Create(strpnew('Frame register saved.')));
+          list.concat(framesave);
+          if cs_asm_source in current_settings.globalswitches then
+            list.concat(tai_comment.Create(strpnew('Frame register updated to $SP+R9 value')));
+          list.concat(Taicpu.op_reg_reg_reg(A_SUBU,NR_FRAME_POINTER_REG,
+            NR_STACK_POINTER_REG,NR_R9));
+        end;
+	  { The instructions before are macros that can extend to multiple instructions,
+		the settings of R9 to -LocalSize surely does,
+		but the saving of RA and FP also might, and might
+		even use AT register, which is why we use R9 instead of AT here for -LocalSize }
+      list.concat(Taicpu.op_none(A_P_SET_NOMACRO));
     end;
+  if assigned(gp_save) then
+	begin
+      if cs_asm_source in current_settings.globalswitches then
+        list.concat(tai_comment.Create(strpnew('GOT register saved.')));
+      list.concat(Taicpu.op_none(A_P_SET_MACRO));
+      list.concat(gp_save);
+      list.concat(Taicpu.op_none(A_P_SET_NOMACRO));
+	end;
 
+  with TMIPSProcInfo(current_procinfo) do
+    begin
+      href.offset:=0;
+      //if current_procinfo.framepointer<>NR_STACK_POINTER_REG then
+        href.base:=NR_FRAME_POINTER_REG;
+
+      for i:=0 to MIPS_MAX_REGISTERS_USED_IN_CALL-1 do
+        if (register_used[i]) then
+          begin
+            reg:=parasupregs[i];
+            if register_offset[i]=-1 then
+              comment(V_warning,'Register parameter has offset -1 in TCGMIPS.g_proc_entry');
+
+            //if current_procinfo.framepointer=NR_STACK_POINTER_REG then
+            //  href.offset:=register_offset[i]+Localsize
+            //else
+            href.offset:=register_offset[i];
+{$ifdef MIPSEL}
+            if cs_asm_source in current_settings.globalswitches then
+              list.concat(tai_comment.Create(strpnew('Var '+
+              register_name[i]+' Register '+std_regname(newreg(R_INTREGISTER,reg,R_SUBWHOLE))
+                +' saved to offset '+tostr(href.offset))));
+            list.concat(taicpu.op_reg_ref(A_SW, newreg(R_INTREGISTER,reg,R_SUBWHOLE), href));
+{$else not MIPSEL, for big endian, size matters}
+            case register_size[i] of
+               OS_8,
+               OS_S8:
+                 StoreOp := A_SB;
+               OS_16,
+               OS_S16:
+                 StoreOp := A_SH;
+               OS_32,
+               OS_NO,
+               OS_F32,
+               OS_S32:
+                 StoreOp := A_SW;
+               OS_F64,
+               OS_64,
+               OS_S64:
+                 begin
+{$ifdef cpu64bitalu}
+                   StoreOp:=A_SD;
+{$else not cpu64bitalu}
+                   StoreOp:= A_SW;
+{$endif not cpu64bitalu}
+                 end
+               else
+                 internalerror(2012061801);
+            end;
+          if cs_asm_source in current_settings.globalswitches then
+            list.concat(tai_comment.Create(strpnew('Var '+
+              register_name[i]+' Register '+std_regname(newreg(R_INTREGISTER,reg,R_SUBWHOLE))
+              +' saved to offset '+tostr(href.offset))));
+          list.concat(taicpu.op_reg_ref(StoreOp, newreg(R_INTREGISTER,reg,R_SUBWHOLE), href));
+{$endif}
+        end;
+    end;
   if (cs_create_pic in current_settings.moduleswitches) and
-    (pi_needs_got in current_procinfo.flags) then
+     (pi_needs_got in current_procinfo.flags) then
     begin
       current_procinfo.got := NR_GP;
     end;
-
   list.concatList(helplist);
   helplist.Free;
 end;
@@ -1446,24 +1610,21 @@ begin
        href.base:=NR_STACK_POINTER_REG;
 
        nextoffset:=TMIPSProcInfo(current_procinfo).floatregstart;
-       reg := RS_F0;
-       while reg < RS_F31 do
-       begin
-         if reg in (rg[R_FPUREGISTER].used_in_proc-paramanager.get_volatile_registers_fpu(pocall_stdcall)) then
-           begin
-             href.offset:=nextoffset;
-             list.concat(taicpu.op_reg_ref(A_LWC1,newreg(R_FPUREGISTER,reg,R_SUBFS),href));
-             inc(nextoffset,4);
-             href.offset:=nextoffset;
-             list.concat(taicpu.op_reg_ref(A_LWC1,newreg(R_FPUREGISTER,reg+1,R_SUBFS),href));
-             inc(nextoffset,4);
-           end;
-         reg := reg + 2;
-       end;
+       for reg := RS_F0 to RS_F30 do
+         begin
+           if reg in (rg[R_FPUREGISTER].used_in_proc-paramanager.get_volatile_registers_fpu(pocall_stdcall)) then
+             begin
+               href.offset:=nextoffset;
+               list.concat(taicpu.op_reg_ref(A_LWC1,newreg(R_FPUREGISTER,reg,R_SUBFS),href));
+               inc(nextoffset,4);
+             end;
+         end;
 
        nextoffset:=TMIPSProcInfo(current_procinfo).intregstart;
        saveregs:=rg[R_INTREGISTER].used_in_proc-paramanager.get_volatile_registers_int(pocall_stdcall);
        include(saveregs,RS_R31);
+       if (TMIPSProcinfo(current_procinfo).needs_frame_pointer) then
+         include(saveregs,RS_FRAME_POINTER_REG);
        for reg:=RS_R1 to RS_R31 do
          begin
            if reg in saveregs then
@@ -1503,10 +1664,10 @@ begin
   paraloc1.init;
   paraloc2.init;
   paraloc3.init;
-  paramanager.getintparaloc(pocall_default, 1, paraloc1);
-  paramanager.getintparaloc(pocall_default, 2, paraloc2);
-  paramanager.getintparaloc(pocall_default, 3, paraloc3);
-  a_load_const_cgpara(list, OS_INT, len, paraloc3);
+  paramanager.getintparaloc(pocall_default, 1, voidpointertype, paraloc1);
+  paramanager.getintparaloc(pocall_default, 2, voidpointertype, paraloc2);
+  paramanager.getintparaloc(pocall_default, 3, ptrsinttype, paraloc3);
+  a_load_const_cgpara(list, OS_SINT, len, paraloc3);
   a_loadaddr_ref_cgpara(list, dest, paraloc2);
   a_loadaddr_ref_cgpara(list, Source, paraloc1);
   paramanager.freecgpara(list, paraloc3);
@@ -1677,25 +1838,30 @@ end;
 
 procedure TCGMIPS.g_intf_wrapper(list: tasmlist; procdef: tprocdef; const labelname: string; ioffset: longint);
 
-  procedure loadvmttor25;
+  procedure loadvmttorvmt;
     var
       href: treference;
     begin
       reference_reset_base(href, NR_R2, 0, sizeof(aint));  { return value }
-      cg.a_load_ref_reg(list, OS_ADDR, OS_ADDR, href, NR_R25);
+      cg.a_load_ref_reg(list, OS_ADDR, OS_ADDR, href, NR_VMT);
     end;
 
 
-   procedure op_onr25methodaddr;
+   procedure op_onrvmtmethodaddr;
      var
        href : treference;
+	   reg : tregister;
      begin
        if (procdef.extnumber=$ffff) then
          Internalerror(200006139);
        { call/jmp  vmtoffs(%eax) ; method offs }
-       reference_reset_base(href, NR_R25, tobjectdef(procdef.struct).vmtmethodoffset(procdef.extnumber), sizeof(aint));
-       cg.a_load_ref_reg(list, OS_ADDR, OS_ADDR, href, NR_R25);
-       list.concat(taicpu.op_reg(A_JR, NR_R25));
+       reference_reset_base(href, NR_VMT, tobjectdef(procdef.struct).vmtmethodoffset(procdef.extnumber), sizeof(aint));
+       if (cs_create_pic in current_settings.moduleswitches) then
+	     reg:=NR_PIC_FUNC
+	   else
+	     reg:=NR_VMT;
+       cg.a_load_ref_reg(list, OS_ADDR, OS_ADDR, href, reg);
+       list.concat(taicpu.op_reg(A_JR, reg));
      end;
 var
   make_global: boolean;
@@ -1726,8 +1892,8 @@ begin
   if (po_virtualmethod in procdef.procoptions) and
       not is_objectpascal_helper(procdef.struct) then
   begin
-    loadvmttor25;
-    op_onr25methodaddr;
+    loadvmttorvmt;
+    op_onrvmtmethodaddr;
   end
   else
    list.concat(taicpu.op_sym(A_J,current_asmdata.RefAsmSymbol(procdef.mangledname)));
@@ -1755,8 +1921,15 @@ procedure TCGMIPS.a_bit_scan_reg_reg(list: TAsmList; reverse: boolean; size: TCG
 procedure TCg64MPSel.a_load64_reg_ref(list: tasmlist; reg: tregister64; const ref: treference);
 var
   tmpref: treference;
+  tmpreg: tregister;
 begin
   { Override this function to prevent loading the reference twice }
+  if target_info.endian = endian_big then
+    begin
+      tmpreg := reg.reglo;
+      reg.reglo := reg.reghi;
+      reg.reghi := tmpreg;
+    end;
   tmpref := ref;
   cg.a_load_reg_ref(list, OS_S32, OS_S32, reg.reglo, tmpref);
   Inc(tmpref.offset, 4);
@@ -1767,8 +1940,15 @@ end;
 procedure TCg64MPSel.a_load64_ref_reg(list: tasmlist; const ref: treference; reg: tregister64);
 var
   tmpref: treference;
+  tmpreg: tregister;
 begin
   { Override this function to prevent loading the reference twice }
+  if target_info.endian = endian_big then
+    begin
+      tmpreg := reg.reglo;
+      reg.reglo := reg.reghi;
+      reg.reghi := tmpreg;
+    end;
   tmpref := ref;
   cg.a_load_ref_reg(list, OS_S32, OS_S32, tmpref, reg.reglo);
   Inc(tmpref.offset, 4);
