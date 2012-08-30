@@ -32,6 +32,7 @@ interface
       systems,
       fmodule,
       globtype,
+      ldscript,
       ogbase;
 
     Type
@@ -93,8 +94,9 @@ interface
          FCExeOutput : TExeOutputClass;
          FCObjInput  : TObjInputClass;
          { Libraries }
-         FStaticLibraryList : TFPHashObjectList;
+         FStaticLibraryList : TFPObjectList;
          FImportLibraryList : TFPHashObjectList;
+         FGroupStack : TFPObjectList;
          procedure Load_ReadObject(const para:TCmdStr);
          procedure Load_ReadStaticLibrary(const para:TCmdStr);
          procedure ParseScript_Handle;
@@ -106,15 +108,18 @@ interface
          procedure ParseScript_DataPos;
          procedure PrintLinkerScript;
          function  RunLinkScript(const outputname:TCmdStr):boolean;
+         procedure ParseLdScript(src:TScriptLexer);
       protected
          linkscript : TCmdStrList;
          ScriptCount : longint;
          IsHandled : PBooleanArray;
          property CObjInput:TObjInputClass read FCObjInput write FCObjInput;
          property CExeOutput:TExeOutputClass read FCExeOutput write FCExeOutput;
-         property StaticLibraryList:TFPHashObjectList read FStaticLibraryList;
+         property StaticLibraryList:TFPObjectList read FStaticLibraryList;
          property ImportLibraryList:TFPHashObjectList read FImportLibraryList;
          procedure DefaultLinkScript;virtual;abstract;
+         procedure ScriptAddGenericSections(secnames:string);
+         procedure ScriptAddSourceStatements(AddSharedAsStatic:boolean);virtual;
       public
          IsSharedLibrary : boolean;
          UseStabs : boolean;
@@ -530,14 +535,10 @@ Implementation
       end;
 
 
-    procedure AddImportSymbol(const libname,symname,symmangledname:TCmdStr;OrdNr: longint;isvar:boolean);
-      begin
-      end;
-
-
     procedure TLinker.InitSysInitUnitName;
       begin
       end;
+
 
     function TLinker.MakeExecutable:boolean;
       begin
@@ -850,8 +851,9 @@ Implementation
       begin
         inherited Create;
         linkscript:=TCmdStrList.Create;
-        FStaticLibraryList:=TFPHashObjectList.Create(true);
+        FStaticLibraryList:=TFPObjectList.Create(true);
         FImportLibraryList:=TFPHashObjectList.Create(true);
+        FGroupStack:=TFPObjectList.Create(false);
         exemap:=nil;
         exeoutput:=nil;
         UseStabs:=false;
@@ -863,6 +865,7 @@ Implementation
 
     Destructor TInternalLinker.Destroy;
       begin
+        FGroupStack.Free;
         linkscript.free;
         StaticLibraryList.Free;
         ImportLibraryList.Free;
@@ -900,6 +903,95 @@ Implementation
       end;
 
 
+    procedure TInternalLinker.ScriptAddSourceStatements(AddSharedAsStatic:boolean);
+      var
+        s,s2: TCmdStr;
+      begin
+        while not ObjectFiles.Empty do
+          begin
+            s:=ObjectFiles.GetFirst;
+            if s<>'' then
+              LinkScript.Concat('READOBJECT '+MaybeQuoted(s));
+          end;
+        while not StaticLibFiles.Empty do
+          begin
+            s:=StaticLibFiles.GetFirst;
+            if s<>'' then
+              LinkScript.Concat('READSTATICLIBRARY '+MaybeQuoted(s));
+          end;
+        if not AddSharedAsStatic then
+          exit;
+        while not SharedLibFiles.Empty do
+          begin
+            S:=SharedLibFiles.GetFirst;
+            if FindLibraryFile(s,target_info.staticClibprefix,target_info.staticClibext,s2) then
+              LinkScript.Concat('READSTATICLIBRARY '+MaybeQuoted(s2))
+            else
+              Comment(V_Error,'Import library not found for '+S);
+          end;
+      end;
+
+
+    procedure TInternalLinker.ParseLdScript(src:TScriptLexer);
+      var
+        asneeded: boolean;
+        group: TStaticLibrary;
+
+      procedure ParseInputList;
+        var
+          saved_asneeded: boolean;
+        begin
+          src.Expect('(');
+          repeat
+            if src.CheckForIdent('AS_NEEDED') then
+              begin
+                saved_asneeded:=asneeded;
+                asneeded:=true;
+                ParseInputList;
+                asneeded:=saved_asneeded;
+              end
+            else if src.token in [tkIDENT,tkLITERAL] then
+              begin
+                Load_ReadStaticLibrary(src.tokenstr);
+                src.nextToken;
+              end
+            else if src.CheckFor('-') then
+              begin
+                { TODO: no whitespace between '-' and name;
+                  name must begin with 'l' }
+                src.nextToken;
+              end
+            else      { syntax error, no input_list_element term }
+              Break;
+            if src.CheckFor(',') then
+              Continue;
+          until src.CheckFor(')');
+        end;
+
+      begin
+        asneeded:=false;
+        src.nextToken;
+        repeat
+          if src.CheckForIdent('OUTPUT_FORMAT') then
+            begin
+              src.Expect('(');
+              //writeln('output_format(',src.tokenstr,')');
+              src.nextToken;
+              src.Expect(')');
+            end
+          else if src.CheckForIdent('GROUP') then
+            begin
+              group:=TStaticLibrary.create_group;
+              TFPObjectList(FGroupStack.Last).Add(group);
+              FGroupStack.Add(group.GroupMembers);
+              ParseInputList;
+              FGroupStack.Delete(FGroupStack.Count-1);
+            end
+          else if src.CheckFor(';') then
+            {skip semicolon};
+        until src.token in [tkEOF,tkINVALID];
+      end;
+
     procedure TInternalLinker.Load_ReadObject(const para:TCmdStr);
       var
         objdata   : TObjData;
@@ -925,15 +1017,41 @@ Implementation
 
     procedure TInternalLinker.Load_ReadStaticLibrary(const para:TCmdStr);
       var
-        objreader : TObjectReader;
+        objreader : TArObjectReader;
+        objinput: TObjInput;
+        objdata: TObjData;
+        ScriptLexer: TScriptLexer;
       begin
 { TODO: Cleanup ignoring of   FPC generated libimp*.a files}
         { Don't load import libraries }
         if copy(ExtractFileName(para),1,6)='libimp' then
           exit;
         Comment(V_Tried,'Opening library '+para);
-        objreader:=TArObjectreader.create(para);
-        TStaticLibrary.Create(StaticLibraryList,para,objreader,CObjInput);
+        objreader:=TArObjectreader.create(para,true);
+        if objreader.isarchive then
+          TFPObjectList(FGroupStack.Last).Add(TStaticLibrary.Create(para,objreader,CObjInput))
+        else
+          if CObjInput.CanReadObjData(objreader) then
+            begin
+              { may be a regular object as well as a dynamic one }
+              objinput:=CObjInput.Create;
+              objdata:=objinput.newObjData(para);
+              if objinput.ReadObjData(objreader,objdata) then
+                begin
+                  TFPObjectList(FGroupStack.Last).Add(TStaticLibrary.create_object(objdata));
+                  //exeoutput.addobjdata(objdata);
+                end;
+              objinput.Free;
+              objreader.Free;
+            end
+          else       { try parsing as script }
+            begin
+              Comment(V_Tried,'Interpreting '+para+' as ld script');
+              ScriptLexer:=TScriptLexer.Create(objreader);
+              ParseLdScript(ScriptLexer);
+              ScriptLexer.Free;
+              objreader.Free;
+            end;
       end;
 
 
@@ -950,7 +1068,10 @@ Implementation
             inc(i);
             s:=hp.str;
             if (s='') or (s[1]='#') then
-              continue;
+              begin
+                hp:=TCmdStrListItem(hp.next);
+                continue;
+              end;
             keyword:=Upper(GetToken(s,' '));
             para:=GetToken(s,' ');
             if Trim(s)<>'' then
@@ -1036,6 +1157,7 @@ Implementation
             if (s='') or (s[1]='#') then
               begin
                 IsHandled^[i]:=true;
+                hp:=TCmdStrListItem(hp.next);
                 continue;
               end;
             handled:=true;
@@ -1083,7 +1205,10 @@ Implementation
             inc(i);
             s:=hp.str;
             if (s='') or (s[1]='#') then
-              continue;
+              begin
+                hp:=TCmdStrListItem(hp.next);
+                continue;
+              end;
             handled:=true;
             keyword:=Upper(GetToken(s,' '));
             para:=ParsePara(GetToken(s,' '));
@@ -1135,7 +1260,10 @@ Implementation
             inc(i);
             s:=hp.str;
             if (s='') or (s[1]='#') then
-              continue;
+              begin
+                hp:=TCmdStrListItem(hp.next);
+                continue;
+              end;
             handled:=true;
             keyword:=Upper(GetToken(s,' '));
             para:=ParsePara(GetToken(s,' '));
@@ -1171,7 +1299,10 @@ Implementation
             inc(i);
             s:=hp.str;
             if (s='') or (s[1]='#') then
-              continue;
+              begin
+                hp:=TCmdStrListItem(hp.next);
+                continue;
+              end;
             handled:=true;
             keyword:=Upper(GetToken(s,' '));
             para:=ParsePara(GetToken(s,' '));
@@ -1235,7 +1366,10 @@ Implementation
         { Check that syntax is OK }
         ParseScript_Handle;
         { Load .o files and resolve symbols }
+        FGroupStack.Add(FStaticLibraryList);
         ParseScript_Load;
+        if ErrorCount>0 then
+          goto myexit;
         exeoutput.ResolveSymbols(StaticLibraryList);
         { Generate symbols and code to do the importing }
         exeoutput.GenerateLibraryImports(ImportLibraryList);
@@ -1253,13 +1387,14 @@ Implementation
         { if UseStabs then, this would remove
           STABS for empty linker scripts }
           exeoutput.MergeStabs;
-        exeoutput.RemoveEmptySections;
+        exeoutput.MarkEmptySections;
         if ErrorCount>0 then
           goto myexit;
 
         { Calc positions in mem }
         ParseScript_MemPos;
         exeoutput.FixupRelocations;
+        exeoutput.RemoveUnusedExeSymbols;
         exeoutput.PrintMemoryMap;
         if ErrorCount>0 then
           goto myexit;
@@ -1333,6 +1468,20 @@ Implementation
         result:=RunLinkScript(current_module.sharedlibfilename);
       end;
 
+
+    procedure TInternalLinker.ScriptAddGenericSections(secnames:string);
+      var
+        secname:string;
+      begin
+        repeat
+          secname:=gettoken(secnames,',');
+          if secname='' then
+            break;
+          linkscript.Concat('EXESECTION '+secname);
+          linkscript.Concat('  OBJSECTION '+secname+'*');
+          linkscript.Concat('ENDEXESECTION');
+        until false;
+      end;
 
 {*****************************************************************************
                                  Init/Done

@@ -25,7 +25,7 @@ Procedure SysInitFPU;{$ifdef SYSTEMINLINE}inline;{$endif}
   begin
     softfloat_exception_mask:=float_flag_underflow or float_flag_inexact or float_flag_denormal;
   end;
-  
+
 {$define FPC_SYSTEM_HAS_SYSRESETFPU}
 Procedure SysResetFPU;{$ifdef SYSTEMINLINE}inline;{$endif}
   begin
@@ -41,22 +41,15 @@ procedure fpc_cpuinit;
   end;
 
 
-{$define FPC_SYSTEM_HAS_GET_FRAME}
-function get_frame:pointer;
-  begin
-    result:=nil;
-  end;
-
-
 {$define FPC_SYSTEM_HAS_GET_CALLER_ADDR}
-function get_caller_addr(framebp:pointer):pointer;
+function get_caller_addr(framebp:pointer;addr:pointer=nil):pointer;
   begin
     result:=nil;
   end;
 
 
 {$define FPC_SYSTEM_HAS_GET_CALLER_FRAME}
-function get_caller_frame(framebp:pointer):pointer;
+function get_caller_frame(framebp:pointer;addr:pointer=nil):pointer;
   begin
     result:=nil;
   end;

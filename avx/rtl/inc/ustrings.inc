@@ -67,6 +67,9 @@ var
   p : PAnsiChar;
 begin
   setlength(dest,len);
+  if not assigned(pointer(dest)) then
+    exit;
+  PAnsiRec(dest)^.CodePage:=cp;
   p:=pointer(dest);         {SetLength guarantees that dest is unique}
   for i:=1 to len do
     begin
@@ -167,7 +170,7 @@ end;
 
 procedure UnicodeStringError;
   begin
-    HandleErrorFrame(204,get_frame);
+    HandleErrorAddrFrameInd(204,get_pc_addr,get_frame);
   end;
 
 
@@ -924,13 +927,13 @@ end;
 Procedure fpc_UnicodeStr_CheckZero(p : pointer);[Public,Alias : 'FPC_UNICODESTR_CHECKZERO']; compilerproc;
 begin
   if p=nil then
-    HandleErrorFrame(201,get_frame);
+    HandleErrorAddrFrameInd(201,get_pc_addr,get_frame);
 end;
 
 Procedure fpc_UnicodeStr_CheckRange(len,index : SizeInt);[Public,Alias : 'FPC_UNICODESTR_RANGECHECK']; compilerproc;
 begin
   if (index>len) or (Index<1) then
-    HandleErrorFrame(201,get_frame);
+    HandleErrorAddrFrameInd(201,get_pc_addr,get_frame);
 end;
 
 {$else VER2_4}
@@ -939,7 +942,7 @@ end;
 Procedure fpc_UnicodeStr_CheckRange(p: Pointer; index: SizeInt);[Public,Alias : 'FPC_UNICODESTR_RANGECHECK']; compilerproc;
 begin
   if (p=nil) or (index>PUnicodeRec(p-UnicodeFirstOff)^.len) or (Index<1) then
-    HandleErrorFrame(201,get_frame);
+    HandleErrorAddrFrameInd(201,get_pc_addr,get_frame);
 end;
 {$endif FPC_HAS_UNICODESTR_RANGECHECK}
 {$endif VER2_4}
@@ -1030,16 +1033,15 @@ function WideCharToString(S : PWideChar) : UnicodeString;
 {$define FPC_HAS_STRING_LEN_TO_WIDECHAR}
 function StringToWideChar(const Src : RawByteString;Dest : PWideChar;DestSize : SizeInt) : PWideChar;
   var
-    temp:widestring;
+    temp: widestring;
+    Len: SizeInt;
   begin
      widestringmanager.Ansi2WideMoveProc(PChar(Src),StringCodePage(Src),temp,Length(Src));
-     if Length(temp)<DestSize then
-       move(temp[1],Dest^,Length(temp)*SizeOf(WideChar))
-     else
-       move(temp[1],Dest^,(DestSize-1)*SizeOf(WideChar));
-
-     Dest[DestSize-1]:=#0;
-
+     Len:=Length(temp);
+     if DestSize<=Len then
+       Len:=Destsize-1;
+     move(temp[1],Dest^,Len*SizeOf(WideChar));
+     Dest[Len]:=#0;
      result:=Dest;
   end;
 {$endif FPC_HAS_STRING_LEN_TO_WIDECHAR}
@@ -2155,7 +2157,7 @@ procedure unimplementedunicodestring;
       Writeln(StdErr,SRecompileWithUnicodestrings);
       end;
 {$endif FPC_HAS_FEATURE_CONSOLEIO}
-    HandleErrorFrame(233,get_frame);
+    HandleErrorAddrFrameInd(233,get_pc_addr,get_frame);
   end;
 
 

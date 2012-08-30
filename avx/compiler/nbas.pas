@@ -140,7 +140,11 @@ interface
          { this temp only allows reading (makes it possible to safely use as
            reference under more circumstances)
          }
-         ti_readonly);
+         ti_readonly,
+         { if this is a managed temp, it doesn't have to be finalised before use
+         }
+         ti_nofini
+         );
        ttempinfoflags = set of ttempinfoflag;
 
      const
@@ -1201,7 +1205,7 @@ implementation
       begin
         inherited printnodedata(t);
         writeln(t,printnodeindention,'release_to_normal: ',release_to_normal,', temptypedef = ',tempinfo^.typedef.typesymbolprettyname,' = "',
-          tempinfo^.typedef.GetTypeName,'", tempinfo = $',hexstr(ptrint(tempinfo),sizeof(ptrint)*2));
+          tempinfo^.typedef.GetTypeName,'", temptype = ',tempinfo^.temptype,', tempinfo = $',hexstr(ptrint(tempinfo),sizeof(ptrint)*2));
       end;
 
 end.

@@ -1,5 +1,5 @@
 {
-    Copyright (c) 1998-2002 by Florian Klaempfl
+    Copyright (c) 1998-2012 by the Free Pascal team
 
     This unit implements the base class for the register allocator
 
@@ -128,7 +128,7 @@ unit rgobj;
       by cpu-specific implementations.
 
       --------------------------------------------------------------------}
-      trgobj=class
+       trgobj=class
         preserved_by_proc : tcpuregisterset;
         used_in_proc : tcpuregisterset;
 
@@ -139,20 +139,20 @@ unit rgobj;
                            Apreserved_by_proc:Tcpuregisterset);
         destructor destroy;override;
 
-        {# Allocate a register. An internalerror will be generated if there is
+        { Allocate a register. An internalerror will be generated if there is
          no more free registers which can be allocated.}
         function getregister(list:TAsmList;subreg:Tsubregister):Tregister;virtual;
-        {# Get the register specified.}
+        { Get the register specified.}
         procedure getcpuregister(list:TAsmList;r:Tregister);virtual;
         procedure ungetcpuregister(list:TAsmList;r:Tregister);virtual;
-        {# Get multiple registers specified.}
+        { Get multiple registers specified.}
         procedure alloccpuregisters(list:TAsmList;const r:Tcpuregisterset);virtual;
-        {# Free multiple registers specified.}
+        { Free multiple registers specified.}
         procedure dealloccpuregisters(list:TAsmList;const r:Tcpuregisterset);virtual;
         function uses_registers:boolean;virtual;
         procedure add_reg_instruction(instr:Tai;r:tregister;aweight:longint);
         procedure add_move_instruction(instr:Taicpu);
-        {# Do the register allocation.}
+        { Do the register allocation.}
         procedure do_register_allocation(list:TAsmList;headertai:tai);virtual;
         { Adds an interference edge.
           don't move this to the protected section, the arm cg requires to access this (FK) }
@@ -186,12 +186,13 @@ unit rgobj;
         procedure insert_regalloc_info_all(list:TAsmList);
       private
         int_live_range_direction: TRADirection;
-        {# First imaginary register.}
+        { First imaginary register.}
         first_imaginary   : Tsuperregister;
-        {# Highest register allocated until now.}
+        { Highest register allocated until now.}
         reginfo           : PReginfo;
         usable_registers_cnt : word;
-        usable_registers  : array[0..maxcpuregister-1] of tsuperregister;
+        usable_registers  : array[0..maxcpuregister] of tsuperregister;
+        usable_register_set : tcpuregisterset;
         ibitmap           : Tinterferencebitmap;
         spillednodes,
         simplifyworklist,
@@ -210,13 +211,13 @@ unit rgobj;
 {$ifdef EXTDEBUG}
         procedure writegraph(loopidx:longint);
 {$endif EXTDEBUG}
-        {# Disposes of the reginfo array.}
+        { Disposes of the reginfo array.}
         procedure dispose_reginfo;
-        {# Prepare the register colouring.}
+        { Prepare the register colouring.}
         procedure prepare_colouring;
-        {# Clean up after register colouring.}
+        { Clean up after register colouring.}
         procedure epilogue_colouring;
-        {# Colour the registers; that is do the register allocation.}
+        { Colour the registers; that is do the register allocation.}
         procedure colour_registers;
         procedure insert_regalloc_info(list:TAsmList;u:tsuperregister);
         procedure generate_interference_graph(list:TAsmList;headertai:tai);
@@ -243,8 +244,14 @@ unit rgobj;
         procedure assign_colours;
         procedure clear_interferences(u:Tsuperregister);
         procedure set_live_range_direction(dir: TRADirection);
+        procedure set_live_start(reg : tsuperregister;t : tai);
+        function get_live_start(reg : tsuperregister) : tai;
+        procedure set_live_end(reg : tsuperregister;t : tai);
+        function get_live_end(reg : tsuperregister) : tai;
        public
         property live_range_direction: TRADirection read int_live_range_direction write set_live_range_direction;
+        property live_start[reg : tsuperregister]: tai read get_live_start write set_live_start;
+        property live_end[reg : tsuperregister]: tai read get_live_end write set_live_end;
       end;
 
     const
@@ -304,8 +311,7 @@ unit rgobj;
       begin
         inherited create;
         maxx1:=1;
-        getmem(fbitmap,sizeof(tinterferencebitmap1)*2);
-        fillchar(fbitmap^,sizeof(tinterferencebitmap1)*2,0);
+        fbitmap:=AllocMem(sizeof(tinterferencebitmap1)*2);
       end;
 
 
@@ -399,7 +405,10 @@ unit rgobj;
          // default value set by constructor
          // fillchar(usable_registers,sizeof(usable_registers),0);
          for i:=low(Ausable) to high(Ausable) do
-           usable_registers[i]:=Ausable[i];
+           begin
+             usable_registers[i]:=Ausable[i];
+             include(usable_register_set,Ausable[i]);
+           end;
          usable_registers_cnt:=high(Ausable)+1;
          { Initialize Worklists }
          spillednodes.init;
@@ -712,6 +721,30 @@ unit rgobj;
       end;
 
 
+    procedure trgobj.set_live_start(reg: tsuperregister; t: tai);
+      begin
+        reginfo[reg].live_start:=t;
+      end;
+
+
+    function trgobj.get_live_start(reg: tsuperregister): tai;
+      begin
+        result:=reginfo[reg].live_start;
+      end;
+
+
+    procedure trgobj.set_live_end(reg: tsuperregister; t: tai);
+      begin
+        reginfo[reg].live_end:=t;
+      end;
+
+
+    function trgobj.get_live_end(reg: tsuperregister): tai;
+      begin
+        result:=reginfo[reg].live_end;
+      end;
+
+
     procedure trgobj.add_reg_instruction(instr:Tai;r:tregister;aweight:longint);
       var
         supreg : tsuperregister;
@@ -996,6 +1029,8 @@ unit rgobj;
 
       begin
         ok:=(t<first_imaginary) or
+            // disabled for now, see issue #22405
+            // ((r<first_imaginary) and (r in usable_register_set)) or
             (reginfo[t].degree<usable_registers_cnt) or
             ibitmap[r,t];
       end;
@@ -1371,7 +1406,7 @@ unit rgobj;
           n:=coalescednodes.buf^[i-1];
           k:=get_alias(n);
           reginfo[n].colour:=reginfo[k].colour;
-          if reginfo[k].colour<maxcpuregister then
+          if reginfo[k].colour<first_imaginary then
             include(used_in_proc,reginfo[k].colour);
         end;
     end;
@@ -1567,6 +1602,7 @@ unit rgobj;
         p:=headertai;
         while assigned(p) do
           begin
+            prefetch(pointer(p.next)^);
             if p.typ=ait_regalloc then
               with Tai_regalloc(p) do
                 begin
@@ -1624,7 +1660,6 @@ unit rgobj;
         so:pshifterop;
 {$endif arm}
 
-
       begin
         { Leave when no imaginary registers are used }
         if maxreg<=first_imaginary then
@@ -1632,6 +1667,7 @@ unit rgobj;
         p:=Tai(list.first);
         while assigned(p) do
           begin
+            prefetch(pointer(p.next)^);
             case p.typ of
               ait_regalloc:
                 with Tai_regalloc(p) do
@@ -1838,6 +1874,7 @@ unit rgobj;
               ait_instruction:
                 with Taicpu(p) do
                   begin
+//                    writeln(gas_op2str[taicpu(p).opcode]);
                     current_filepos:=fileinfo;
                     if instr_spill_register(list,taicpu(p),regs_to_spill_set,spill_temps^) then
                       spill_registers:=true;
@@ -1867,6 +1904,9 @@ unit rgobj;
         ins:=spilling_create_load(spilltemp,tempreg);
         add_cpu_interferences(ins);
         list.insertafter(ins,pos);
+        {$ifdef DEBUG_SPILLING}
+        list.Insertbefore(tai_comment.Create(strpnew('Spilling: Spill Read')),ins);
+        {$endif}
       end;
 
 
@@ -1877,6 +1917,9 @@ unit rgobj;
         ins:=spilling_create_store(tempreg,spilltemp);
         add_cpu_interferences(ins);
         list.insertafter(ins,pos);
+        {$ifdef DEBUG_SPILLING}
+        list.Insertbefore(tai_comment.Create(strpnew('Spilling: Spill Write')),ins);
+        {$endif}
       end;
 
 

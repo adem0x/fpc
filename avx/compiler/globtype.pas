@@ -212,7 +212,16 @@ interface
          { for the JVM target: generate integer array initializations via string
            constants in order to reduce the generated code size (Java routines
            are limited to 64kb of bytecode) }
-         ts_compact_int_array_init
+         ts_compact_int_array_init,
+         { for the JVM target: intialize enum fields in constructors with the
+           enum class instance corresponding to ordinal value 0 (not done by
+           default because this initialization can only be performed after the
+           inherited constructors have run, and if they call a virtual method
+           of the current class, then this virtual method may already have
+           initialized that field with another value and the constructor
+           initialization will result in data loss }
+         ts_jvm_enum_field_init
+
        );
        ttargetswitches = set of ttargetswitch;
 
@@ -234,7 +243,16 @@ interface
          cs_opt_level1,cs_opt_level2,cs_opt_level3,
          cs_opt_regvar,cs_opt_uncertain,cs_opt_size,cs_opt_stackframe,
          cs_opt_peephole,cs_opt_asmcse,cs_opt_loopunroll,cs_opt_tailrecursion,cs_opt_nodecse,
-         cs_opt_nodedfa,cs_opt_loopstrength,cs_opt_scheduler,cs_opt_autoinline
+         cs_opt_nodedfa,cs_opt_loopstrength,cs_opt_scheduler,cs_opt_autoinline,cs_useebp,
+         cs_opt_reorder_fields,cs_opt_fastmath,
+         { Allow removing expressions whose result is not used, even when this
+           can change program behaviour (range check errors disappear,
+           access violations due to invalid pointer derefences disappear, ...).
+           Note: it does not (and must not) remove expressions that have
+             explicit side-effects, only implicit side-effects (like the ones
+             mentioned before) can disappear.
+         }
+         cs_opt_dead_values
        );
        toptimizerswitches = set of toptimizerswitch;
 
@@ -254,11 +272,12 @@ interface
        end;
 
     const
-       OptimizerSwitchStr : array[toptimizerswitch] of string[10] = ('',
+       OptimizerSwitchStr : array[toptimizerswitch] of string[11] = ('',
          'LEVEL1','LEVEL2','LEVEL3',
          'REGVAR','UNCERTAIN','SIZE','STACKFRAME',
          'PEEPHOLE','ASMCSE','LOOPUNROLL','TAILREC','CSE',
-         'DFA','STRENGTH','SCHEDULE','AUTOINLINE'
+         'DFA','STRENGTH','SCHEDULE','AUTOINLINE','USEEBP',
+         'ORDERFIELDS','FASTMATH','DEADVALUES'
        );
        WPOptimizerSwitchStr : array [twpoptimizerswitch] of string[14] = (
          'DEVIRTCALLS','OPTVMTS','SYMBOLLIVENESS'
@@ -269,12 +288,14 @@ interface
 
        TargetSwitchStr : array[ttargetswitch] of string[19] = ('',
          'SMALLTOC',
-         'COMPACTINTARRAYINIT');
+         'COMPACTINTARRAYINIT',
+         'ENUMFIELDINIT');
 
        { switches being applied to all CPUs at the given level }
        genericlevel1optimizerswitches = [cs_opt_level1];
        genericlevel2optimizerswitches = [cs_opt_level2];
        genericlevel3optimizerswitches = [cs_opt_level3];
+       genericlevel4optimizerswitches = [cs_opt_reorder_fields,cs_opt_dead_values];
 
        { whole program optimizations whose information generation requires
          information from all loaded units
@@ -323,10 +344,10 @@ interface
          m_advanced_records,    { advanced record syntax with visibility sections, methods and properties }
          m_isolike_unary_minus, { unary minus like in iso pascal: same precedence level as binary minus/plus }
          m_systemcodepage,      { use system codepage as compiler codepage by default, emit ansistrings with system codepage }
-         m_final_fields,        { allows declaring fields as "final", which means they must be initialised
+         m_final_fields,        { allows declaring fields as "final", which means they must be initialised
                                   in the (class) constructor and are constant from then on (same as final
                                   fields in Java) }
-         m_default_unicodestring { makes the default string type in $h+ mode unicodestring rather than
+         m_default_unicodestring { makes the default string type in $h+ mode unicodestring rather than
                                    ansistring; similarly, char becomes unicodechar rather than ansichar }
        );
        tmodeswitches = set of tmodeswitch;
@@ -449,6 +470,8 @@ interface
 {$else}
        pocall_default = pocall_stdcall;
 {$endif}
+
+       cstylearrayofconst = [pocall_cdecl,pocall_cppdecl,pocall_mwpascal];
 
        modeswitchstr : array[tmodeswitch] of string[18] = ('','',
          '','','','','','',

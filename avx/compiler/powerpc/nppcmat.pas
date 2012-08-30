@@ -403,7 +403,13 @@ end;
                      cg.a_load_const_reg(current_asmdata.CurrAsmList,OS_32,0,location.register64.reglo);
                      cg.a_load_const_reg(current_asmdata.CurrAsmList,OS_32,0,location.register64.reglo);
                    end
-                 else } if shiftval > 31 then
+                 else }
+                 if shiftval = 0 then
+                   begin
+                     cg.a_load_reg_reg(current_asmdata.CurrAsmList,OS_32,OS_32,left.location.register64.reghi,location.register64.reghi);
+                     cg.a_load_reg_reg(current_asmdata.CurrAsmList,OS_32,OS_32,left.location.register64.reglo,location.register64.reglo);
+                   end
+                 else if shiftval > 31 then
                    begin
                      if nodetype = shln then
                        begin
@@ -647,6 +653,10 @@ end;
                 current_procinfo.CurrTrueLabel:=current_procinfo.CurrFalseLabel;
                 current_procinfo.CurrFalseLabel:=hl;
                 secondpass(left);
+
+                if left.location.loc<>LOC_JUMP then
+                  internalerror(2012081303);
+
                 maketojumpbool(current_asmdata.CurrAsmList,left,lr_load_regvars);
                 hl:=current_procinfo.CurrTrueLabel;
                 current_procinfo.CurrTrueLabel:=current_procinfo.CurrFalseLabel;

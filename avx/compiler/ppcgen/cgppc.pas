@@ -657,7 +657,7 @@ unit cgppc;
       if (target_info.system in [system_powerpc_darwin]) then
         begin
           paraloc1.init;
-          paramanager.getintparaloc(pocall_cdecl,1,paraloc1);
+          paramanager.getintparaloc(pocall_cdecl,1,voidpointertype,paraloc1);
           a_load_reg_cgpara(list,OS_ADDR,NR_R0,paraloc1);
           paramanager.freecgpara(list,paraloc1);
           paraloc1.done;
@@ -1028,7 +1028,8 @@ unit cgppc;
             else
               begin
                 include(current_procinfo.flags,pi_needs_got);
-                tmpreg := current_procinfo.got;
+                tmpreg := getaddressregister(list);
+                a_load_reg_reg(list,OS_ADDR,OS_ADDR,current_procinfo.got,tmpreg);
                 if assigned(ref.relsymbol) then
                   internalerror(2007093501);
                 ref.relsymbol := current_procinfo.CurrGOTLabel;

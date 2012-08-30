@@ -488,8 +488,8 @@ begin
       begin
        write(s);
        for l:=0 to lics.Expressions.Count-2 do
-          write(DelQuot(lics.Expressions[l]),',');
-       write(DelQuot(lics.Expressions[lics.Expressions.Count-1]),': '); // !!bug too much ' in expression
+          write(DelQuot(TPasExpr(lics.Expressions[l]).GetDeclaration(True)),',');
+       write(DelQuot(TPasExpr(lics.Expressions[lics.Expressions.Count-1]).GetDeclaration(True)),': '); // !!bug too much ' in expression
        //if not assigned(lics.Body) then writeln('TPasImplCaseStatement missing BODY');
        //if assigned(lics.Body) and (TPasImplBlock(lics.Body).Elements.Count >0) then
        //  GetTPasImplBlock(TPasImplBlock(lics.Body),lindent+1,0,false,true)
@@ -509,8 +509,8 @@ begin
      if liwd.Expressions.Count>0 then
       begin
        for l:=0 to liwd.Expressions.Count-2 do
-         write(liwd.Expressions[l],',');
-       write(liwd.Expressions[liwd.Expressions.Count-1]);
+         write(TPasExpr(liwd.Expressions[l]).GetDeclaration(true),',');
+       write(TPasExpr(liwd.Expressions[liwd.Expressions.Count-1]).GetDeclaration(true));
       end;
      writeln(' do');
      //if TPasImplBlock(liwd.Body).Elements.Count >0  then
@@ -1157,7 +1157,7 @@ procedure GetTypes(pe:TPasElement; lindent:integer);
           begin
            pv:=TPasVariant(prct.Variants[i]);
            write(s1,pv.Name);
-           for k:=0 to pv.Values.Count-1 do write(pv.Values[k]);
+           for k:=0 to pv.Values.Count-1 do write(TPasElement(pv.Values[k]).GetDeclaration(true));
            write(': (');
            if GetVariantRecord(TPasElement(pv.Members),j+1) then
              writeln(s1,');')
@@ -1245,7 +1245,7 @@ procedure GetTypes(pe:TPasElement; lindent:integer);
           begin
            pv:=TPasVariant(prct.Variants[i]);
            write(s2,pv.Name);
-           for k:=0 to pv.Values.Count-1 do write(pv.Values[k]);
+           for k:=0 to pv.Values.Count-1 do write(TPasElement(pv.Values[k]).GetDeclaration(true));
            write(': (');
            if GetVariantRecord(TPasElement(pv.Members),j+2) then
              writeln(s2,');')
@@ -1304,7 +1304,6 @@ procedure GetTypes(pe:TPasElement; lindent:integer);
    if pmAssembler in Mfs then WriteFmt(true,'assembler;',false);
    if pmVarargs in Mfs then WriteFmt(true,'varargs;',false);
    if pmCompilerProc in Mfs then WriteFmt(true,'compilerproc;',false);
-   if pmExtdecl in Mfs then WriteFmt(true,'extdecl;',false);
   end; 
 
   procedure GetTPasProcedure(lpp:TPasProcedure; indent:integer);
@@ -1655,7 +1654,7 @@ begin
           writeln(s,'ResourceString');
           x:=ResStrings;
          end;
-        writeln(s,pe.Name,'=',DelQuot(TPasResString(pe).Value),';'); //too much '''
+        writeln(s,pe.Name,'=',DelQuot(TPasResString(pe).Expr.GetDeclaration(false)),';'); //too much '''
        end
      else if pe is TPasConst then
        begin
@@ -1911,7 +1910,7 @@ begin
   E := TSimpleEngine.Create;
   try
     try
-      M := ParseSource(E, cmdl ,TargetOS ,TargetCPU);
+      M := ParseSource(E, cmdl ,TargetOS ,TargetCPU,False);
     except
       on excep:EParserError do
         begin
@@ -1966,6 +1965,8 @@ begin
         Writeln('Initialization');
         if not Unformated then writeln;
         GetTPasImplBlock(M.InitializationSection as TPasImplBlock,1,0,false,false);
+       end;
+      
         if assigned(M.FinalizationSection) then
          begin
           isim:=true;
@@ -1974,7 +1975,6 @@ begin
           if not Unformated then writeln;
           GetTPasImplBlock(M.FinalizationSection as TPasImplBlock,1,0,false,false);
          end;
-       end;
     end;
     if not Unformated then writeln('end.')
      else

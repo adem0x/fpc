@@ -38,7 +38,7 @@ type
     procedure TestInsertLargeStrFields; // bug 9600
     procedure TestNumericNames; // Bug9661
     procedure TestApplyUpdFieldnames; // Bug 12275;
-    procedure TestLimitQuery; // bug 15456
+    procedure TestServerFilter; // bug 15456
     procedure Test11Params;
     procedure TestRowsAffected; // bug 9758
     procedure TestLocateNull;
@@ -96,6 +96,7 @@ type
     procedure TestBCDParamQuery;
     procedure TestBytesParamQuery;
     procedure TestVarBytesParamQuery;
+    procedure TestBooleanParamQuery;
     procedure TestAggregates;
 
     procedure TestStringLargerThen8192;
@@ -827,6 +828,11 @@ begin
   TestXXParamQuery(ftVarBytes, FieldtypeDefinitions[ftVarBytes], testVarBytesValuesCount, SQLDbType<>mssql);
 end;
 
+procedure TTestFieldTypes.TestBooleanParamQuery;
+begin
+  TestXXParamQuery(ftBoolean, FieldtypeDefinitions[ftBoolean], testValuesCount);
+end;
+
 procedure TTestFieldTypes.TestStringParamQuery;
 
 begin
@@ -839,7 +845,7 @@ begin
 end;
 
 
-procedure TTestFieldTypes.TestXXParamQuery(ADatatype : TFieldType; ASQLTypeDecl : string; testValuescount : integer; Cross : boolean = false);
+procedure TTestFieldTypes.TestXXParamQuery(ADatatype : TFieldType; ASQLTypeDecl : string; testValuesCount : integer; Cross : boolean = false);
 
 var i : integer;
 
@@ -865,7 +871,8 @@ begin
       begin
       Params.ParamByName('id').AsInteger := i;
       case ADataType of
-        ftInteger: Params.ParamByName('field1').asinteger := testIntValues[i];
+        ftInteger: Params.ParamByName('field1').asInteger := testIntValues[i];
+        ftBoolean: Params.ParamByName('field1').AsBoolean := testBooleanValues[i];
         ftFloat  : Params.ParamByName('field1').AsFloat   := testFloatValues[i];
         ftBCD    : Params.ParamByName('field1').AsCurrency:= testBCDValues[i];
         ftFixedChar,
@@ -901,6 +908,7 @@ begin
       AssertEquals(i,FieldByName('ID').AsInteger);
       case ADataType of
         ftInteger: AssertEquals(testIntValues[i],FieldByName('FIELD1').AsInteger);
+        ftBoolean: AssertEquals(testBooleanValues[i],FieldByName('FIELD1').AsBoolean);
         ftFloat  : AssertEquals(testFloatValues[i],FieldByName('FIELD1').AsFloat);
         ftBCD    : AssertEquals(testBCDValues[i],FieldByName('FIELD1').AsCurrency);
         ftFixedChar : AssertEquals(PadRight(testStringValues[i],10),FieldByName('FIELD1').AsString);
@@ -1438,7 +1446,13 @@ begin
       begin
       SQL.Text:='select TT.NAME from FPDEV left join FPDEV TT on TT.ID=FPDEV.ID';
       Open;
-      close;
+      AssertFalse(CanModify);
+      Close;
+
+      SQL.Text:='select T1.NAME from FPDEV T1,FPDEV T2 where T1.ID=T2.ID';
+      Open;
+      AssertFalse(CanModify);
+      Close;
       end;
     end;
 end;
@@ -1565,25 +1579,57 @@ begin
     end;
 end;
 
-procedure TTestFieldTypes.TestLimitQuery;
+procedure TTestFieldTypes.TestServerFilter;
 begin
-  with TSQLDBConnector(DBConnector) do
-    begin
-    with query do
-      begin
-      case sqlDBtype of
-        interbase : SQL.Text:='select first 1 NAME from FPDEV where NAME=''TestName21''';
-        mssql     : SQL.Text:='select top 1 NAME from FPDEV where NAME=''TestName21''';
-        else        SQL.Text:='select NAME from FPDEV where NAME=''TestName21'' limit 1';
-      end;
-      Open;
-      close;
-      ServerFilter:='ID=21';
-      ServerFiltered:=true;
-      open;
-      close;
-      end;
+  // Tests SQLParser and ServerFilter
+  with TSQLDBConnector(DBConnector).Query do
+  begin
+    ServerFilter:='ID=21';
+    ServerFiltered:=true;
+
+    // tests parsing SELECT without WHERE
+    SQL.Text:='select * from FPDEV';
+    Open;
+    CheckTrue(CanModify, SQL.Text);
+    CheckEquals(1, RecordCount);
+    Close;
+
+    SQL.Text:='select *'#13'from FPDEV'#13'order by 1';
+    Open;
+    CheckTrue(CanModify, SQL.Text);
+    CheckEquals(1, RecordCount);
+    Close;
+
+    // tests parsing SELECT with simple WHERE
+    SQL.Text:='select *'#9'from FPDEV'#9'where NAME<>''''';
+    Open;
+    CheckTrue(CanModify, SQL.Text);
+    CheckEquals(1, RecordCount);
+    Close;
+
+    // tests parsing SELECT with simple WHERE followed by ORDER BY
+    SQL.Text:='select *'#10'from FPDEV'#10'where NAME>'''' order by 1';
+    Open;
+    CheckTrue(CanModify, SQL.Text);
+    CheckEquals(1, RecordCount);
+    Close;
+
+    // tests parsing of WHERE ... LIMIT
+    case sqlDBtype of
+      interbase : SQL.Text:='select first 1 NAME from FPDEV where NAME=''TestName21''';
+      mssql     : SQL.Text:='select top 1 NAME from FPDEV where NAME=''TestName21''';
+      else        SQL.Text:='select NAME from FPDEV where NAME=''TestName21'' limit 1';
     end;
+    Open;
+    CheckTrue(CanModify, SQL.Text);
+    Close;
+
+    // tests parsing SELECT with table alias and embedded comments (MySQL requires space after -- )
+    SQL.Text:='/**/select * from/**/FPDEV as fp-- comment'#13'where(NAME>''TestName20'')/**/order by 1';
+    Open;
+    CheckTrue(CanModify, SQL.Text);
+    Close;
+  end;
 end;
 
 procedure TTestFieldTypes.TestRowsAffected;

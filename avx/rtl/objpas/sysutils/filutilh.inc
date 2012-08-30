@@ -39,6 +39,9 @@ Type
 {$ifdef MacOS}
     FindData : TMacOSFindData;
 {$endif}
+{$ifdef nativent}
+    FindData : TNativeNTFindData;
+{$endif}
   end;
 
 Const
@@ -108,4 +111,4 @@ Function FileIsReadOnly(const FileName: String): Boolean;
 
 Function GetFileHandle(var f : File):THandle;
 Function GetFileHandle(var f : Text):THandle;
-
+function FileAge(const FileName: string; out FileDateTime: TDateTime; FollowLink: Boolean = True): Boolean;

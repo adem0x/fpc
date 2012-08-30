@@ -81,7 +81,7 @@ unit paramgr;
           function get_volatile_registers_flags(calloption : tproccalloption):tcpuregisterset;virtual;
           function get_volatile_registers_mm(calloption : tproccalloption):tcpuregisterset;virtual;
 
-          procedure getintparaloc(calloption : tproccalloption; nr : longint;var cgpara:TCGPara);virtual;abstract;
+          procedure getintparaloc(calloption : tproccalloption; nr : longint; def: tdef; var cgpara : tcgpara);virtual;abstract;
 
           {# allocate an individual pcgparalocation that's part of a tcgpara
 
@@ -114,7 +114,8 @@ unit paramgr;
             function result instead of its actual result. Used if the compiler
             forces the function result to something different than the real
             result.  }
-          function  get_funcretloc(p : tabstractprocdef; side: tcallercallee; def: tdef): tcgpara;virtual;abstract;
+          function  get_funcretloc(p : tabstractprocdef; side: tcallercallee; forcetempdef: tdef): tcgpara;virtual;abstract;
+          procedure create_funcretloc_info(p : tabstractprocdef; side: tcallercallee);
 
           { This is used to populate the location information on all parameters
             for the routine when it is being inlined. It returns
@@ -140,6 +141,10 @@ unit paramgr;
           function use_fixed_stack: boolean;
           { whether stack pointer can be changed in the middle of procedure }
           function use_stackalloc: boolean;
+         strict protected
+          { common part of get_funcretloc; returns true if retloc is completely
+            initialized afterwards }
+          function set_common_funcretloc_info(p : tabstractprocdef; forcetempdef: tdef; out retcgsize: tcgsize; out retloc: tcgpara): boolean;
        end;
 
 
@@ -449,6 +454,12 @@ implementation
       end;
 
 
+    procedure tparamanager.create_funcretloc_info(p : tabstractprocdef; side: tcallercallee);
+      begin
+        p.funcretloc[side]:=get_funcretloc(p,side,nil);
+      end;
+
+
     function tparamanager.create_inline_paraloc_info(p : tabstractprocdef):longint;
       begin
         { We need to return the size allocated }
@@ -490,6 +501,60 @@ implementation
     function tparamanager.use_stackalloc: boolean;
       begin
         result:=not use_fixed_stack;
+      end;
+
+
+    function tparamanager.set_common_funcretloc_info(p : tabstractprocdef; forcetempdef: tdef; out retcgsize: tcgsize; out retloc: tcgpara): boolean;
+      var
+        paraloc : pcgparalocation;
+      begin
+        result:=true;
+        retloc.init;
+        if not assigned(forcetempdef) then
+          retloc.def:=p.returndef
+        else
+          begin
+            retloc.def:=forcetempdef;
+            retloc.temporary:=true;
+          end;
+        retloc.alignment:=get_para_align(p.proccalloption);
+        { void has no location }
+        if is_void(retloc.def) then
+          begin
+            paraloc:=retloc.add_location;
+            retloc.size:=OS_NO;
+            retcgsize:=OS_NO;
+            retloc.intsize:=0;
+            paraloc^.size:=OS_NO;
+            paraloc^.loc:=LOC_VOID;
+            exit;
+          end;
+        { Constructors return self instead of a boolean }
+        if p.proctypeoption=potype_constructor then
+          begin
+            if is_implicit_pointer_object_type(tdef(p.owner.defowner)) then
+              retloc.def:=tdef(p.owner.defowner)
+            else
+              retloc.def:=getpointerdef(tdef(p.owner.defowner));
+            retcgsize:=OS_ADDR;
+            retloc.intsize:=sizeof(pint);
+          end
+        else
+          begin
+            retcgsize:=def_cgsize(retloc.def);
+            retloc.intsize:=retloc.def.size;
+          end;
+        retloc.size:=retcgsize;
+        { Return is passed as var parameter }
+        if ret_in_param(retloc.def,p.proccalloption) then
+          begin
+            retloc.def:=getpointerdef(retloc.def);
+            paraloc:=retloc.add_location;
+            paraloc^.loc:=LOC_REFERENCE;
+            paraloc^.size:=retcgsize;
+            exit;
+          end;
+        result:=false;
       end;
 
 initialization

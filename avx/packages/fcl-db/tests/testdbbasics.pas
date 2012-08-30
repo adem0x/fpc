@@ -42,6 +42,8 @@ type
     procedure TestSupportBCDFields;
     procedure TestSupportfmtBCDFields;
     procedure TestSupportFixedStringFields;
+    procedure TestSupportBlobFields;
+    procedure TestSupportMemoFields;
 
     procedure TestDoubleClose;
     procedure TestCalculatedField;
@@ -58,6 +60,7 @@ type
     procedure TestdeFieldListChange;
     procedure TestExceptionLocateClosed;    // bug 13938
     procedure TestCanModifySpecialFields;
+    procedure TestDetectionNonMatchingDataset;
   end;
 
   { TTestBufDatasetDBBasics }
@@ -158,6 +161,7 @@ type
     procedure TestRequired;
     procedure TestOldValue;
     procedure TestOldValue1;
+    procedure TestModified;
   end;
 
 
@@ -647,6 +651,32 @@ begin
   end;
 end;
 
+procedure TTestCursorDBBasics.TestModified;
+begin
+  // Tests TDataSet.Modified property
+  with DBConnector.GetNDataset(true,1) as TDataset do
+  begin
+    Open;
+    CheckFalse(Modified);
+
+    Edit;
+    CheckFalse(Modified, 'After Edit');
+    Fields[1].AsString := Fields[1].AsString;
+    CheckTrue(Modified, 'After change');
+    Post;
+    CheckFalse(Modified, 'After Post');
+
+    Append;
+    CheckFalse(Modified, 'After Append');
+    Fields[0].AsInteger := 100;
+    CheckTrue(Modified, 'After change');
+    Cancel;
+    CheckFalse(Modified, 'After Cancel');
+
+    Close;
+  end;
+end;
+
 procedure TTestDBBasics.TestCanModifySpecialFields;
 var ds    : TDataset;
     lds   : TDataset;
@@ -677,12 +707,39 @@ begin
     CheckFalse(FieldByName('LookupFld').ReadOnly);
 
     CheckEquals(1,FieldByName('ID').AsInteger);
-    CheckEquals('name1',FieldByName('LookupFld').AsString);
-    close;
+    CheckEquals('TestName1',FieldByName('LookupFld').AsString);
+    Next;
+    Next;
+    CheckEquals(3,FieldByName('ID').AsInteger);
+    CheckEquals('TestName3',FieldByName('LookupFld').AsString);
+
+    Close;
     lds.Close;
     end;
 end;
 
+procedure TTestDBBasics.TestDetectionNonMatchingDataset;
+var
+  F: TField;
+  ds: tdataset;
+begin
+  // TDataset.Bindfields should detect problems when the underlying data does
+  // not reflect the fields of the dataset. This test is to check if this is
+  // really done.
+  ds := DBConnector.GetNDataset(true,6);
+  with ds do
+    begin
+    open;
+    close;
+
+    F := TStringField.Create(ds);
+    F.FieldName:='DOES_NOT_EXIST';
+    F.DataSet:=ds;
+    F.Size:=50;
+
+    CheckException(open,EDatabaseError);
+    end;
+end;
 
 procedure TTestCursorDBBasics.TestAppendInsertRecord;
 begin
@@ -2354,6 +2411,37 @@ begin
 {$else fpc}
       CheckEquals(testStringValues[i],Fld.AsString);
 {$endif fpc}
+    ds.Next;
+    end;
+  ds.close;
+end;
+
+procedure TTestDBBasics.TestSupportBlobFields;
+
+var i          : byte;
+    ds         : TDataset;
+    Fld        : TField;
+begin
+  TestfieldDefinition(ftBlob,0,ds,Fld);
+
+  for i := 0 to testValuesCount-1 do
+    begin
+    CheckEquals(testValues[ftBlob,i],Fld.AsString);
+    ds.Next;
+    end;
+  ds.close;
+end;
+
+procedure TTestDBBasics.TestSupportMemoFields;
+var i          : byte;
+    ds         : TDataset;
+    Fld        : TField;
+begin
+  TestfieldDefinition(ftMemo,0,ds,Fld);
+
+  for i := 0 to testValuesCount-1 do
+    begin
+    CheckEquals(testValues[ftMemo,i],Fld.AsString);
     ds.Next;
     end;
   ds.close;

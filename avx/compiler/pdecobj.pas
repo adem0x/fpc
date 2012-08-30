@@ -133,16 +133,20 @@ implementation
         consume(_SEMICOLON);
         include(current_structdef.objectoptions,oo_has_constructor);
         { Set return type, class and record constructors return the
-          created instance, object constructors return boolean }
+          created instance, helper types return the extended type,
+          object constructors return boolean }
         if is_class(pd.struct) or
            is_record(pd.struct) or
            is_javaclass(pd.struct) then
           pd.returndef:=pd.struct
         else
+          if is_objectpascal_helper(pd.struct) then
+            pd.returndef:=tobjectdef(pd.struct).extendeddef
+          else
 {$ifdef CPU64bitaddr}
-          pd.returndef:=bool64type;
+            pd.returndef:=bool64type;
 {$else CPU64bitaddr}
-          pd.returndef:=bool32type;
+            pd.returndef:=bool32type;
 {$endif CPU64bitaddr}
         constr_destr_finish_head(pd,pd.struct);
         result:=pd;
@@ -962,6 +966,7 @@ implementation
         object_member_blocktype : tblock_type;
         fields_allowed, is_classdef, class_fields, is_final, final_fields: boolean;
         vdoptions: tvar_dec_options;
+        fieldlist: tfpobjectlist;
 
 
       procedure parse_const;
@@ -1055,6 +1060,7 @@ implementation
         is_final:=false;
         final_fields:=false;
         object_member_blocktype:=bt_general;
+        fieldlist:=tfpobjectlist.create(false);
         repeat
           case token of
             _TYPE :
@@ -1169,9 +1175,11 @@ implementation
                             vdoptions:=[vd_object];
                             if class_fields then
                               include(vdoptions,vd_class);
+                            if is_class(current_structdef) then
+                              include(vdoptions,vd_canreorder);
                             if final_fields then
                               include(vdoptions,vd_final);
-                            read_record_fields(vdoptions);
+                            read_record_fields(vdoptions,fieldlist);
                           end
                         else if object_member_blocktype=bt_type then
                           types_dec(true)
@@ -1222,6 +1230,10 @@ implementation
               consume(_ID); { Give a ident expected message, like tp7 }
           end;
         until false;
+
+        if is_class(current_structdef) then
+          tabstractrecordsymtable(current_structdef.symtable).addfieldlist(fieldlist,true);
+        fieldlist.free;
       end;
 
 
@@ -1404,6 +1416,10 @@ implementation
             if old_parse_generic then
               include(current_structdef.defoptions, df_generic);
             parse_generic:=(df_generic in current_structdef.defoptions);
+
+            { in non-Delphi modes we need a strict private symbol without type
+              count and type parameters in the name to simply resolving }
+            maybe_insert_generic_rename_symbol(n,genericlist);
 
             { parse list of parent classes }
             { for record helpers in mode Delphi this is not allowed }

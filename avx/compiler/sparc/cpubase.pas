@@ -237,6 +237,8 @@ uses
 
       PARENT_FRAMEPOINTER_OFFSET = 68; { o0 }
 
+      NR_DEFAULTFLAGS = NR_PSR;
+      RS_DEFAULTFLAGS = RS_PSR;
 
 {*****************************************************************************
                        GCC /ABI linking information
@@ -249,10 +251,10 @@ uses
          This value can be deduced from CALLED_USED_REGISTERS array in the
          GCC source.
       }
-      saved_standard_registers : array[0..0] of tsuperregister = (RS_NO);
+      saved_standard_registers : array[0..0] of tsuperregister = (RS_INVALID);
 
       { this is only for the generic code which is not used for this architecture }
-      saved_mm_registers : array[0..0] of tsuperregister = (RS_NO);
+      saved_mm_registers : array[0..0] of tsuperregister = (RS_INVALID);
 
       {# Required parameter alignment when calling a routine declared as
          stdcall and cdecl. The alignment value should be the one defined

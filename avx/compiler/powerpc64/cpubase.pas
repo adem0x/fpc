@@ -332,6 +332,9 @@ const
   NR_FPU_RESULT_REG = NR_F1;
   NR_MM_RESULT_REG = NR_M0;
 
+  NR_DEFAULTFLAGS = NR_CR;
+  RS_DEFAULTFLAGS = RS_CR;
+
   {*****************************************************************************
                          GCC /ABI linking information
   *****************************************************************************}
@@ -350,7 +353,7 @@ const
     );
 
   { this is only for the generic code which is not used for this architecture }
-  saved_mm_registers : array[0..0] of tsuperregister = (RS_NO);  
+  saved_mm_registers : array[0..0] of tsuperregister = (RS_INVALID);
   
   {# Required parameter alignment when calling a routine declared as
      stdcall and cdecl. The alignment value should be the one defined

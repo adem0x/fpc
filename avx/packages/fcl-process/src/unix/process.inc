@@ -46,9 +46,13 @@ begin
   until (res<>-1) or (fpgeterrno<>ESysEINTR);
   result:=res=Handle;
   If Result then
-    FExitCode:=wexitstatus(FExitCode)
-  else
-    FexitCode:=0;
+   begin
+      if wifexited(FExitCode) then
+        FExitCode:=wexitstatus(FExitCode);
+      // else pass errorvalue unmodified like shell does, bug #22055
+     end
+   else
+    FexitCode:=cardinal(-1); // was 0, better testable for abnormal exit.
 end;
 
 Type
@@ -95,6 +99,8 @@ Function DetectXterm : String;
 
   begin
     Result:=FileSearch(s,GetEnvironmentVariable('PATH'),False)<>'';
+    If Result then
+      XTermProgram:=S;
   end;
 
   Function TestTerminals(Terminals : Array of String) : Boolean;
@@ -107,9 +113,7 @@ Function DetectXterm : String;
     While (Not Result) and (I<=High(Terminals)) do
       begin
       Result:=TestTerminal(Terminals[i]);
-      If Result then
-        XTermProgram:=Terminals[i];
-       inc(i);
+      inc(i);
       end;
   end;
 

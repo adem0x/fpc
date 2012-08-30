@@ -689,6 +689,7 @@ begin
     if (not is_void(returndef)) then
       begin
         if (m_tp7 in current_settings.modeswitches) and
+          not (df_generic in defoptions) and
           (not paramanager.ret_in_param(returndef,proccalloption)) then
           begin
             message(asmr_e_cannot_use_RESULT_here);
@@ -888,8 +889,10 @@ Begin
               if not is_packed_array(harrdef) then
                 SetSize(harrdef.elesize,false)
                else
+                 begin
                    if (harrdef.elepackedbitsize mod 8) = 0 then
-                     SetSize(harrdef.elepackedbitsize div 8,false);
+                     SetSize(harrdef.elepackedbitsize div 8,false)
+                 end;
             end;
           recorddef:
             case opr.typ of

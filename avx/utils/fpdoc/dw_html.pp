@@ -88,6 +88,7 @@ type
     FOnTest: TNotifyEvent;
     FPackage: TPasPackage;
     FCharSet : String;
+    procedure AppendTypeDecl(AType: TPasType; TableEl, CodeEl: TDomElement);
     function GetPageCount: Integer;
     procedure SetOnTest(const AValue: TNotifyEvent);
   protected
@@ -113,8 +114,10 @@ type
     FIndexColCount : Integer;
     FSearchPage : String;
     FBaseImageURL : String;
+    FUseMenuBrackets: Boolean;
 
     Procedure CreateAllocator; virtual;
+    procedure CreateCSSFile; virtual;
     function ResolveLinkID(const Name: String): DOMString;
     function ResolveLinkIDInUnit(const Name,AUnitName: String): DOMString;
     function ResolveLinkWithinPackage(AElement: TPasElement;
@@ -213,7 +216,7 @@ type
     procedure AppendProcDecl(CodeEl, TableEl: TDOMElement;
       Element: TPasProcedureBase);
     procedure AppendProcArgsSection(Parent: TDOMNode;
-      Element: TPasProcedureType);
+      Element: TPasProcedureType; SkipResult : Boolean = False);
     function AppendRecordType(CodeEl, TableEl: TDOMElement;
       Element: TPasRecordType; NestingLevel: Integer): TDOMElement;
 
@@ -258,6 +261,7 @@ type
     Procedure WriteDoc; override;
     Class Function FileNameExtension : String; override;
     class procedure Usage(List: TStrings); override;
+    Class procedure SplitImport(var AFilename, ALinkPrefix: String); override;
     Property SearchPage: String Read FSearchPage Write FSearchPage;
     property Allocator: TFileAllocator read FAllocator;
     property Package: TPasPackage read FPackage;
@@ -268,6 +272,7 @@ type
     Property CharSet : String Read FCharSet Write FCharSet;
     Property IndexColCount : Integer Read FIndexColCount write FIndexColCount;
     Property BaseImageURL : String Read FBaseImageURL Write FBaseImageURL;
+    Property UseMenuBrackets : Boolean Read FUseMenuBrackets write FUseMenuBrackets;
   end;
 
   THTMWriter = class(THTMLWriter)
@@ -283,6 +288,7 @@ implementation
 
 uses SysUtils, XHTML, XMLRead, XMLWrite, HTMWrite, sh_pas,chmsitemap;
 
+{$i css.inc}
 
 Function FixHTMLpath(S : String) : STring;
 
@@ -379,11 +385,11 @@ begin
       while AElement.Name[i] <> ')' do
       begin
         if AElement.Name[i] = ',' then
-	begin
-	  s := s + '-';
-	  Inc(i);
-	end else
-	  s := s + AElement.Name[i];
+        begin
+          s := s + '-';
+          Inc(i);
+        end else
+          s := s + AElement.Name[i];
         Inc(i);
       end;
       Result := Result + LowerCase(s) + '-' + LowerCase(Copy(AElement.Name,
@@ -618,6 +624,10 @@ var
 
 begin
   inherited ;
+
+  // should default to true since this is the old behavior
+  UseMenuBrackets:=True;
+
   IndexColCount:=3;
   Charset:='iso-8859-1';
   CreateAllocator;
@@ -724,12 +734,12 @@ begin
   end;
 end;
 
+
 procedure THTMLWriter.WriteHTMLPages;
 var
   i: Integer;
   PageDoc: TXMLDocument;
   Filename: String;
-  TempStream: TMemoryStream;
 
 begin
   if Engine.Output <> '' then
@@ -744,25 +754,41 @@ begin
           CreatePath(Filename);
           WriteHTMLFile(PageDoc, Filename);
         except
-	  on E: Exception do
+          on E: Exception do
             DoLog(SErrCouldNotCreateFile, [FileName, e.Message]);
         end;
       finally
         PageDoc.Free;
       end;
     end;
+  CreateCSSFile;
+end;
 
-  if FCSSFile <> '' then
-  begin
-    if not FileExists(FCSSFile) Then
+procedure THTMLWriter.CreateCSSFile;
+
+Var
+  TempStream: TMemoryStream;
+
+begin
+  TempStream := TMemoryStream.Create;
+  try
+    if (FCSSFile<>'') then
       begin
+      if not FileExists(FCSSFile) then
+        begin
         DoLog('Can''t find CSS file "%s"',[FCSSFILE]);
         halt(1);
+        end;
+      TempStream.LoadFromFile(FCSSFile);
+      end
+    else
+      begin
+      DoLog('Using built-in CSS file',[]);
+      TempStream.WriteBuffer(DefaultCSS,SizeOf(DefaultCSS));
       end;
-    TempStream := TMemoryStream.Create;
-    TempStream.LoadFromFile(FCSSFile);
-    TempStream.Position := 0;
-    TempStream.SaveToFile(Engine.output+ExtractFileName(FCSSFile));
+   TempStream.Position := 0;
+   TempStream.SaveToFile(Engine.output+'fpdoc.css');
+  finally
     TempStream.Free;
   end;
 end;
@@ -1744,9 +1770,9 @@ end;
 procedure THTMLWriter.AppendProcDecl(CodeEl, TableEl: TDOMElement;
   Element: TPasProcedureBase);
 
-  procedure WriteVariant(AProc: TPasProcedure);
+  procedure WriteVariant(AProc: TPasProcedure; SkipResult : Boolean);
   begin
-    AppendProcArgsSection(TableEl.ParentNode, AProc.ProcType);
+    AppendProcArgsSection(TableEl.ParentNode, AProc.ProcType, SkipResult);
 
     AppendKw(CodeEl, AProc.TypeName);
     if Element.Parent.ClassType = TPasClassType then
@@ -1763,24 +1789,29 @@ procedure THTMLWriter.AppendProcDecl(CodeEl, TableEl: TDOMElement;
   end;
 
 var
-  i: Integer;
+  i,fc: Integer;
+  P : TPasProcedure;
 begin
+  fc:=0;
   if Element.ClassType = TPasOverloadedProc then
     for i := 0 to TPasOverloadedProc(Element).Overloads.Count - 1 do
     begin
+      P:=TPasProcedure(TPasOverloadedProc(Element).Overloads[i]);
+      if (P.ProcType is TPasFunctionType) then
+        Inc(fc);
       if i > 0 then
       begin
         CreateEl(CodeEl, 'br');
         CreateEl(CodeEl, 'br');
       end;
-      WriteVariant(TPasProcedure(TPasOverloadedProc(Element).Overloads[i]));
+      WriteVariant(P,fc>1);
     end
   else
-    WriteVariant(TPasProcedure(Element));
+    WriteVariant(TPasProcedure(Element),False);
 end;
 
 procedure THTMLWriter.AppendProcArgsSection(Parent: TDOMNode;
-  Element: TPasProcedureType);
+  Element: TPasProcedureType; SkipResult : Boolean = False);
 var
   HasFullDescr, IsFirst: Boolean;
   ResultEl: TPasResultElement;
@@ -1806,7 +1837,7 @@ begin
     AppendShortDescrCell(TREl, Arg);
   end;
 
-  if Element.ClassType = TPasFunctionType then
+  if (Element.ClassType = TPasFunctionType) and not SkipResult then
   begin
     ResultEl := TPasFunctionType(Element).ResultEl;
     DocNode := Engine.FindDocNode(ResultEl);
@@ -1874,9 +1905,9 @@ begin
       AppendNbSp(CodeEl, NestingLevel * 2 + 4);
       for j := 0 to CurVariant.Values.Count - 1 do
       begin
-	if j > 0 then
-	  AppendSym(CodeEl, ', ');
-	AppendPasSHFragment(CodeEl, CurVariant.Values[j], 0);
+        if j > 0 then
+          AppendSym(CodeEl, ', ');
+        AppendPasSHFragment(CodeEl, TPasElement(CurVariant.Values[j]).GetDeclaration(true), 0);
       end;
       AppendSym(CodeEl, ': (');
       AppendType(CodeEl, TableEl, CurVariant.Members, True, NestingLevel + 3);
@@ -1909,9 +1940,11 @@ var
 
   procedure AddLink(El : TPasElement; const AName: String);
   begin
-    AppendText(ParaEl, '[');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, '[');
     AppendText(CreateLink(ParaEl, ResolveLinkWithinPackage(El,0)),AName);
-    AppendText(ParaEl, ']');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, ']');
   end;
 
 begin
@@ -1931,9 +1964,11 @@ begin
     AddLink(Topic.Next,SDocNext);
   if Length(SearchPage) > 0 then
     begin
-    AppendText(ParaEl, '[');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, '[');
     AppendText(CreateLink(ParaEl, SearchPage), SDocSearch);
-    AppendText(ParaEl, ']');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, ']');
     end;
   ParaEl := CreateTD(TREl);
   ParaEl['align'] := 'right';
@@ -1956,14 +1991,16 @@ var
 
   procedure AddLink(ALinkSubpageIndex: Integer; const AName: String);
   begin
-    AppendText(ParaEl, '[');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, '[');
     if ALinkSubpageIndex = ASubpageIndex then
       AppendText(ParaEl, AName)
     else
       AppendText(
         CreateLink(ParaEl, ResolveLinkWithinPackage(Module, ALinkSubpageIndex)),
         AName);
-    AppendText(ParaEl, ']');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, ']');
   end;
 
 begin
@@ -1996,21 +2033,25 @@ begin
   else
     begin
     // Manually add link for package page
-    AppendText(ParaEl, '[');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, '[');
     if (IndexSubIndex = ASubpageIndex) then
       AppendText(ParaEl, SDocIdentifierIndex)
     else
       AppendText(
         CreateLink(ParaEl, ResolveLinkWithinPackage(Package, IndexSubIndex)),
         SDocIdentifierIndex);
-    AppendText(ParaEl, ']');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, ']');
     end;
 
   if Length(SearchPage) > 0 then
   begin
-    AppendText(ParaEl, '[');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, '[');
     AppendText(CreateLink(ParaEl, SearchPage), SDocSearch);
-    AppendText(ParaEl, ']');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, ']');
   end;
   ParaEl := CreateTD(TREl);
   ParaEl['align'] := 'right';
@@ -2275,8 +2316,7 @@ begin
   end;
 end;
 
-	procedure THTMLWriter.CreateIndexPage(L : TStringList);
-
+procedure THTMLWriter.CreateIndexPage(L : TStringList);
 Var
   Lists  : Array['A'..'Z'] of TStringList;
   LOther : TStringList;
@@ -2675,6 +2715,114 @@ begin
   FinishElementPage(AConst);
 end;
 
+procedure THTMLWriter.AppendTypeDecl(AType: TPasType; TableEl,CodeEl : TDomElement);
+
+Var
+  TREl : TDomElement;
+  i: Integer;
+  s: String;
+  EnumType: TPasEnumType;
+  EnumValue: TPasEnumValue;
+  Variable: TPasVariable;
+
+begin
+  // Alias
+  if AType.ClassType = TPasAliasType then
+    begin
+    if Assigned(TPasAliasType(AType).DestType) then
+      AppendHyperlink(CodeEl, TPasAliasType(AType).DestType)
+    else
+      AppendText(CreateWarning(CodeEl), '<Destination type is NIL>');
+    AppendSym(CodeEl, ';');
+  end else
+  // Class of
+  if AType.ClassType = TPasClassOfType then
+  begin
+    AppendKw(CodeEl, 'class of ');
+    AppendHyperlink(CodeEl, TPasClassOfType(AType).DestType);
+    AppendSym(CodeEl, ';');
+  end else
+  // Enumeration
+  if AType.ClassType = TPasEnumType then
+  begin
+    AppendSym(CodeEl, '(');
+    for i := 0 to TPasEnumType(AType).Values.Count - 1 do
+    begin
+      EnumValue := TPasEnumValue(TPasEnumType(AType).Values[i]);
+      TREl := CreateTR(TableEl);
+      CodeEl := CreateCode(CreatePara(CreateTD_vtop(TREl)));
+      AppendShortDescrCell(TREl, EnumValue);
+      AppendNbSp(CodeEl, 2);
+      s := EnumValue.Name;
+      if EnumValue.AssignedValue<>'' then
+        s := s + ' = ' + EnumValue.AssignedValue;
+      if i < TPasEnumType(AType).Values.Count - 1 then
+        s := s + ',';
+      AppendPasSHFragment(CodeEl, s, 0);
+    end;
+    AppendSym(CreateCode(CreatePara(CreateTD(CreateTR(TableEl)))), ');');
+  end else
+  // Pointer type
+  if AType.ClassType = TPasPointerType then
+  begin
+    AppendSym(CodeEl, '^');
+    if Assigned(TPasPointerType(AType).DestType) then
+      AppendHyperlink(CodeEl, TPasPointerType(AType).DestType)
+    else
+      AppendText(CreateWarning(CodeEl), '<Destination type is NIL>');
+    AppendSym(CodeEl, ';');
+  end else
+  if AType.InheritsFrom(TPasProcedureType) then
+  begin
+    AppendSym(AppendType(CodeEl, TableEl, TPasType(AType), True), ';');
+    AppendProcArgsSection(BodyElement, TPasProcedureType(AType));
+  end else
+  // Record
+  if AType.ClassType = TPasRecordType then
+  begin
+    CodeEl := AppendRecordType(CodeEl, TableEl, TPasRecordType(AType), 0);
+    AppendSym(CodeEl, ';');
+  end else
+  // Set
+  if AType.ClassType = TPasSetType then
+  begin
+    AppendKw(CodeEl, 'set of ');
+    if TPasSetType(AType).EnumType.ClassType = TPasEnumType then
+    begin
+      AppendSym(CodeEl, '(');
+      EnumType := TPasEnumType(TPasSetType(AType).EnumType);
+      for i := 0 to EnumType.Values.Count - 1 do
+      begin
+        EnumValue := TPasEnumValue(EnumType.Values[i]);
+        TREl := CreateTR(TableEl);
+        CodeEl := CreateCode(CreatePara(CreateTD_vtop(TREl)));
+        AppendShortDescrCell(TREl, EnumValue);
+        AppendNbSp(CodeEl, 2);
+        s := EnumValue.Name;
+        if (EnumValue.AssignedValue<>'') then
+          s := s + ' = ' + EnumValue.AssignedValue;
+        if i < EnumType.Values.Count - 1 then
+          s := s + ',';
+        AppendPasSHFragment(CodeEl, s, 0);
+      end;
+      AppendSym(CreateCode(CreatePara(CreateTD(CreateTR(TableEl)))), ');');
+    end else
+    begin
+      AppendHyperlink(CodeEl, TPasSetType(AType).EnumType);
+      AppendSym(CodeEl, ';');
+    end;
+  end else
+  // Type alias
+  if AType.ClassType = TPasTypeAliasType then
+  begin
+    AppendKw(CodeEl, 'type ');
+    AppendHyperlink(CodeEl, TPasTypeAliasType(AType).DestType);
+    AppendSym(CodeEl, ';');
+  end else
+  // Probably one of the simple types, which allowed in other places as wel...
+    AppendSym(AppendType(CodeEl, TableEl, TPasType(AType), True), ';');
+end;
+
 procedure THTMLWriter.CreateTypePageBody(AType: TPasType);
 var
   TableEl, TREl, TDEl, CodeEl: TDOMElement;
@@ -2707,101 +2855,7 @@ begin
     AppendText(CodeEl,SDocOpaque)
   else
     begin
-    // Alias
-    if AType.ClassType = TPasAliasType then
-      begin
-      if Assigned(TPasAliasType(AType).DestType) then
-        AppendHyperlink(CodeEl, TPasAliasType(AType).DestType)
-      else
-        AppendText(CreateWarning(CodeEl), '<Destination type is NIL>');
-      AppendSym(CodeEl, ';');
-    end else
-    // Class of
-    if AType.ClassType = TPasClassOfType then
-    begin
-      AppendKw(CodeEl, 'class of ');
-      AppendHyperlink(CodeEl, TPasClassOfType(AType).DestType);
-      AppendSym(CodeEl, ';');
-    end else
-    // Enumeration
-    if AType.ClassType = TPasEnumType then
-    begin
-      AppendSym(CodeEl, '(');
-      for i := 0 to TPasEnumType(AType).Values.Count - 1 do
-      begin
-        EnumValue := TPasEnumValue(TPasEnumType(AType).Values[i]);
-        TREl := CreateTR(TableEl);
-        CodeEl := CreateCode(CreatePara(CreateTD_vtop(TREl)));
-        AppendShortDescrCell(TREl, EnumValue);
-        AppendNbSp(CodeEl, 2);
-        s := EnumValue.Name;
-        if EnumValue.AssignedValue<>'' then
-          s := s + ' = ' + EnumValue.AssignedValue;
-        if i < TPasEnumType(AType).Values.Count - 1 then
-          s := s + ',';
-        AppendPasSHFragment(CodeEl, s, 0);
-      end;
-      AppendSym(CreateCode(CreatePara(CreateTD(CreateTR(TableEl)))), ');');
-    end else
-    // Pointer type
-    if AType.ClassType = TPasPointerType then
-    begin
-      AppendSym(CodeEl, '^');
-      if Assigned(TPasPointerType(AType).DestType) then
-        AppendHyperlink(CodeEl, TPasPointerType(AType).DestType)
-      else
-        AppendText(CreateWarning(CodeEl), '<Destination type is NIL>');
-      AppendSym(CodeEl, ';');
-    end else
-    if AType.InheritsFrom(TPasProcedureType) then
-    begin
-      AppendSym(AppendType(CodeEl, TableEl, TPasType(AType), True), ';');
-      AppendProcArgsSection(BodyElement, TPasProcedureType(AType));
-    end else
-    // Record
-    if AType.ClassType = TPasRecordType then
-    begin
-      CodeEl := AppendRecordType(CodeEl, TableEl, TPasRecordType(AType), 0);
-      AppendSym(CodeEl, ';');
-    end else
-    // Set
-    if AType.ClassType = TPasSetType then
-    begin
-      AppendKw(CodeEl, 'set of ');
-      if TPasSetType(AType).EnumType.ClassType = TPasEnumType then
-      begin
-        AppendSym(CodeEl, '(');
-        EnumType := TPasEnumType(TPasSetType(AType).EnumType);
-        for i := 0 to EnumType.Values.Count - 1 do
-        begin
-          EnumValue := TPasEnumValue(EnumType.Values[i]);
-          TREl := CreateTR(TableEl);
-          CodeEl := CreateCode(CreatePara(CreateTD_vtop(TREl)));
-          AppendShortDescrCell(TREl, EnumValue);
-          AppendNbSp(CodeEl, 2);
-          s := EnumValue.Name;
-          if (EnumValue.AssignedValue<>'') then
-            s := s + ' = ' + EnumValue.AssignedValue;
-          if i < EnumType.Values.Count - 1 then
-            s := s + ',';
-          AppendPasSHFragment(CodeEl, s, 0);
-        end;
-        AppendSym(CreateCode(CreatePara(CreateTD(CreateTR(TableEl)))), ');');
-      end else
-      begin
-        AppendHyperlink(CodeEl, TPasSetType(AType).EnumType);
-        AppendSym(CodeEl, ';');
-      end;
-    end else
-    // Type alias
-    if AType.ClassType = TPasTypeAliasType then
-    begin
-      AppendKw(CodeEl, 'type ');
-      AppendHyperlink(CodeEl, TPasTypeAliasType(AType).DestType);
-      AppendSym(CodeEl, ';');
-    end else
-    // Probably one of the simple types, which allowed in other places as wel...
-      AppendSym(AppendType(CodeEl, TableEl, TPasType(AType), True), ';');
+    AppendTypeDecl(AType,TableEl,CodeEl);
     end;
   FinishElementPage(AType);
 end;
@@ -2836,7 +2890,8 @@ var
   var
     LinkEl: TDOMElement;
   begin
-    AppendText(ParaEl, '[');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, '[');
     LinkEl := CreateEl(ParaEl, 'a');
     LinkEl['href'] :=
       FixHtmlPath(ResolveLinkWithinPackage(AClass, AListSubpageIndex));
@@ -2851,7 +2906,10 @@ var
      '''dependent=yes,resizable=yes,scrollbars=yes,height=400,width=300''); return false;';
     AppendText(LinkEl, SDocByName);
     AppendText(ParaEl, ')');
-    AppendText(ParaEl, '] ');
+    if FUseMenuBrackets then
+      AppendText(ParaEl, '] ')
+    else
+      AppendText(ParaEl, ' ');
   end;
 
   procedure AppendGenericTypes(CodeEl : TDomElement; AList : TFPList; isSpecialize : Boolean);
@@ -2875,9 +2933,11 @@ var
     TableEl, TREl, TDEl, CodeEl: TDOMElement;
     DocNode: TDocNode;
     Member: TPasElement;
+    MVisibility,
     CurVisibility: TPasMemberVisibility;
     i: Integer;
     s: String;
+    ah,ol,wt,ct,wc,cc  : boolean;
     ThisInterface,
     ThisClass: TPasClassType;
     HaveSeenTObject: Boolean;
@@ -2934,58 +2994,82 @@ var
         AppendSym(CodeEl, ')');
         end;
     end;
-
     if AClass.Members.Count > 0 then
-    begin
+      begin
+      wt:=False;
+      wc:=False;
       CurVisibility := visDefault;
       for i := 0 to AClass.Members.Count - 1 do
-      begin
-        Member := TPasElement(AClass.Members[i]);
-        if CurVisibility <> Member.Visibility then
         begin
-          CurVisibility := Member.Visibility;
-          if ((CurVisibility = visPrivate) and Engine.HidePrivate) or
-            ((CurVisibility = visProtected) and Engine.HideProtected) then
-            continue;
-          case CurVisibility of
-            visPrivate: s := 'private';
-            visProtected: s := 'protected';
-            visPublic: s := 'public';
-            visPublished: s := 'published';
-            visAutomated: s := 'automated';
-          end;
+        Member := TPasElement(AClass.Members[i]);
+        MVisibility:=Member.Visibility;
+        ol:=(Member is TPasOverloadedProc);
+        ah:=ol or ((Member is TPasProcedure) and (TPasProcedure(Member).ProcType.Args.Count > 0));
+        if ol then
+          Member:=TPasElement((Member as TPasOverloadedProc).Overloads[0]);
+        if ((MVisibility = visPrivate) and Engine.HidePrivate) or
+          ( (MVisibility = visProtected) and Engine.HideProtected) then
+          continue;
+        if (CurVisibility <> MVisibility) then
+          begin
+          CurVisibility := MVisibility;
+          s:=VisibilityNames[MVisibility];
           AppendKw(CreateCode(CreatePara(CreateTD(CreateTR(TableEl)))), s);
-        end else
-          if ((CurVisibility = visPrivate) and Engine.HidePrivate) or
-            ((CurVisibility = visProtected) and Engine.HideProtected) then
-            continue;
-
+          end;
+        ct:=(Member is TPasType);
+        if ct and (not wt) then
+          begin
+          AppendKw(CreateCode(CreatePara(CreateTD(CreateTR(TableEl)))), 'Type');
+          end;
+        wt:=ct;
+        cc:=(Member is TPasConst);
+        if cc and (not wc) then
+          begin
+          AppendKw(CreateCode(CreatePara(CreateTD(CreateTR(TableEl)))), 'Const');
+          end;
+        wc:=cc;
         TREl := CreateTR(TableEl);
         CodeEl := CreateCode(CreatePara(CreateTD_vtop(TREl)));
         AppendNbSp(CodeEl, 2);
         AppendShortDescrCell(TREl, Member);
 
-        if Member.InheritsFrom(TPasProcedureBase) then
-        begin
+        if (Member is TPasProcedureBase) then
+          begin
           AppendKw(CodeEl, TPasProcedureBase(Member).TypeName + ' ');
           AppendHyperlink(CodeEl, Member);
-          if (Member.ClassType = TPasOverloadedProc) or
-            (TPasProcedure(Member).ProcType.Args.Count > 0) then
+          if ah then
             AppendSym(CodeEl, '();')
           else
             AppendSym(CodeEl, ';');
-          if Member.ClassType <> TPasOverloadedProc then
+          if Not OL then
             AppendProcExt(CodeEl, TPasProcedure(Member));
-        end else
-        if Member.ClassType = TPasVariable then
-        begin
+          end
+        else if (Member is TPasConst) then
+          begin
+          AppendHyperlink(CodeEl, Member);
+          If Assigned(TPasConst(Member).VarType) then
+            begin
+            AppendSym(CodeEl, ' = ');
+            AppendTypeDecl(TPasType(Member),TableEl,CodeEl);
+            end;
+          AppendSym(CodeEl, ' = ');
+          AppendText(CodeEl,TPasConst(Member).Expr.GetDeclaration(True));
+          end
+        else if (Member is TPasVariable) then
+          begin
           AppendHyperlink(CodeEl, Member);
           AppendSym(CodeEl, ': ');
           AppendHyperlink(CodeEl, TPasVariable(Member).VarType);
           AppendSym(CodeEl, ';');
-        end else
-        if Member.ClassType = TPasProperty then
-        begin
+          end
+        else if (Member is TPasType) then
+          begin
+          AppendHyperlink(CodeEl, Member);
+          AppendSym(CodeEl, ' = ');
+          AppendTypeDecl(TPasType(Member),TableEl,CodeEl);
+          end
+        else if (Member is TPasProperty) then
+          begin
           AppendKw(CodeEl, 'property ');
           AppendHyperlink(CodeEl, Member);
           if Assigned(TPasProperty(Member).VarType) then
@@ -3014,7 +3098,8 @@ var
             s := s + 's';
           if Length(s) > 0 then
             AppendText(CodeEl, '  [' + s + ']');
-        end else
+          end
+        else
           AppendText(CreateWarning(CodeEl), '<' + Member.ClassName + '>');
       end;
 
@@ -3255,9 +3340,33 @@ var
     AppendText(CodeEl, Element.Name);
     if Assigned(Element.VarType) then
     begin
-      AppendSym(CodeEl, ': ');
+      AppendSym(CodeEl, ' : ');
       AppendSym(AppendType(CodeEl, TableEl, Element.VarType, False), ';');
     end;
+  end;
+
+  procedure CreateTypePage(Element: TPasType);
+  begin
+    AppendKw(CodeEl, 'type ');
+    AppendHyperlink(CodeEl, Element.Parent);
+    AppendSym(CodeEl, '.');
+    AppendText(CodeEl, Element.Name);
+    AppendSym(CodeEl, ' = ');
+    AppendTypeDecl(Element,TableEl,CodeEl)
+  end;
+
+  procedure CreateConstPage(Element: TPasConst);
+  begin
+    AppendKw(CodeEl, 'const ');
+    AppendHyperlink(CodeEl, Element.Parent);
+    AppendSym(CodeEl, '.');
+    AppendText(CodeEl, Element.Name);
+    if Assigned(Element.VarType) then
+      begin
+      AppendSym(CodeEl, ': ');
+      AppendType(CodeEl, TableEl, Element.VarType, False);
+      end;
+    AppendPasSHFragment(CodeEl, ' = ' + Element.Expr.GetDeclaration(True) + ';', 0);
   end;
 
   procedure CreatePropertyPage(Element: TPasProperty);
@@ -3270,7 +3379,7 @@ var
     AppendText(CodeEl, Element.Name);
     if Assigned(Element.VarType) then
     begin
-      AppendSym(CodeEl, ': ');
+      AppendSym(CodeEl, ' : ');
       AppendType(CodeEl, TableEl, Element.VarType, False);
     end;
 
@@ -3348,24 +3457,23 @@ begin
   CodeEl := CreateCode(CreatePara(CreateTD(TREl)));
   AppendText(CodeEl, ' ');      // !!!: Workaround for current HTML writer
 
-  case AElement.Visibility of
-    visPrivate: s := 'private';
-    visProtected: s := 'protected';
-    visPublic: s := 'public';
-    visPublished: s := 'published';
-    visAutomated: s := 'automated';
-    else s := '';
-  end;
-  if Length(s) > 0 then
+  if (AElement.Visibility<>visDefault) then
+    begin
+    s:=VisibilityNames[AElement.Visibility];
     AppendKw(CodeEl, s);
+    end;
   AppendText(CodeEl, ' ');
 
-  if AElement.ClassType = TPasVariable then
-    CreateVarPage(TPasVariable(AElement))
-  else if AElement.InheritsFrom(TPasProcedureBase) then
-    AppendProcDecl(CodeEl, TableEl, TPasProcedureBase(AElement))
-  else if AElement.ClassType = TPasProperty then
+  if AElement is TPasProperty then
     CreatePropertyPage(TPasProperty(AElement))
+  else if AElement is TPasConst then
+    CreateConstPage(TPasConst(AElement))
+  else if (AElement is TPasVariable) then
+    CreateVarPage(TPasVariable(AElement))
+  else if AElement is TPasProcedureBase then
+    AppendProcDecl(CodeEl, TableEl, TPasProcedureBase(AElement))
+  else if AElement is TPasType then
+    CreateTypePage(TPasType(AElement))
   else
     AppendText(CreateWarning(BodyElement), '<' + AElement.ClassName + '>');
 
@@ -3428,6 +3536,7 @@ Function THTMLWriter.InterPretOption(Const Cmd,Arg : String) : boolean;
 
 begin
   Result:=True;
+
   if Cmd = '--html-search' then
     SearchPage := Arg
   else if Cmd = '--footer' then
@@ -3445,6 +3554,8 @@ begin
     FIDF:=True;
     FDateFormat:=Arg;
     end
+  else if Cmd = '--disable-menu-brackets' then
+    FUseMenuBrackets:=False
   else
     Result:=False;
 end;
@@ -3469,6 +3580,25 @@ begin
   List.Add(SHTMLIndexColcount);
   List.Add('--image-url=url');
   List.Add(SHTMLImageUrl);
+  List.Add('--disable-menu-brackets');
+  List.Add(SHTMLDisableMenuBrackets);
+end;
+
+class procedure THTMLWriter.SplitImport(var AFilename, ALinkPrefix: String);
+var
+  i: integer;
+begin
+  i := Pos(',', AFilename);
+  if i > 0 then
+    begin  //split into filename and prefix
+    ALinkPrefix := Copy(AFilename,i+1,Length(AFilename));
+    SetLength(AFilename, i-1);
+    end
+  else if ALinkPrefix = '' then
+    begin  //synthesize outdir\pgk.xct, ..\pkg
+    ALinkPrefix := '../' + ChangeFileExt(ExtractFileName(AFilename), '');
+    AFilename := ChangeFileExt(AFilename, '.xct');
+    end;
 end;
 
 Class Function THTMLWriter.FileNameExtension : String; 

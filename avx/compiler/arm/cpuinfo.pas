@@ -37,9 +37,17 @@ Type
        cpu_armv4t,
        cpu_armv5,
        cpu_armv5t,
+       cpu_armv5te,
+       cpu_armv5tej,
        cpu_armv6,
+       cpu_armv6k,
+       cpu_armv6t2,
+       cpu_armv6z,
        cpu_armv7,
-       cpu_armv7m
+       cpu_armv7a,
+       cpu_armv7r,
+       cpu_armv7m,
+       cpu_armv7em
       );
 
 Const
@@ -67,6 +75,11 @@ Type
       ct_lpc2114,
       ct_lpc2124,
       ct_lpc2194,
+      ct_lpc1754,
+      ct_lpc1756,
+      ct_lpc1758,
+      ct_lpc1764,
+      ct_lpc1766,
       ct_lpc1768,
 
       { ATMEL }
@@ -193,9 +206,17 @@ Const
      'ARMV4T',
      'ARMV5',
      'ARMV5T',
+     'ARMV5TE',
+     'ARMV5TEJ',
      'ARMV6',
+     'ARMV6K',
+     'ARMV6T2',
+     'ARMV6Z',
      'ARMV7',
-     'ARMV7M'
+     'ARMV7A',
+     'ARMV7R',
+     'ARMV7M',
+     'ARMV7EM'
    );
 
    fputypestr : array[tfputype] of string[9] = ('',
@@ -256,11 +277,61 @@ Const
     	),
 
         (
+    	controllertypestr:'LPC1754';
+        controllerunitstr:'LPC1754';
+        interruptvectors:12;
+    	flashbase:$00000000;
+        flashsize:$00020000;
+        srambase:$10000000;
+        sramsize:$00004000
+    	),
+
+        (
+    	controllertypestr:'LPC1756';
+        controllerunitstr:'LPC1756';
+        interruptvectors:12;
+    	flashbase:$00000000;
+        flashsize:$00040000;
+        srambase:$10000000;
+        sramsize:$00004000
+    	),
+
+        (
+    	controllertypestr:'LPC1758';
+        controllerunitstr:'LPC1758';
+        interruptvectors:12;
+    	flashbase:$00000000;
+        flashsize:$00080000;
+        srambase:$10000000;
+        sramsize:$00008000
+    	),
+
+        (
+    	controllertypestr:'LPC1764';
+        controllerunitstr:'LPC1764';
+        interruptvectors:12;
+    	flashbase:$00000000;
+        flashsize:$00020000;
+        srambase:$10000000;
+        sramsize:$00004000
+    	),
+
+        (
+    	controllertypestr:'LPC1766';
+        controllerunitstr:'LPC1766';
+        interruptvectors:12;
+    	flashbase:$00000000;
+        flashsize:$00040000;
+        srambase:$10000000;
+        sramsize:$00008000
+    	),
+
+        (
     	controllertypestr:'LPC1768';
         controllerunitstr:'LPC1768';
         interruptvectors:12;
     	flashbase:$00000000;
-        flashsize:$00040000;
+        flashsize:$00080000;
         srambase:$10000000;
         sramsize:$00008000
     	),
@@ -1026,13 +1097,47 @@ Const
                                  { no need to write info about those }
                                  [cs_opt_level1,cs_opt_level2,cs_opt_level3]+
                                  [cs_opt_regvar,cs_opt_loopunroll,cs_opt_tailrecursion,
-								  cs_opt_stackframe,cs_opt_nodecse];
+				  cs_opt_stackframe,cs_opt_nodecse,cs_opt_reorder_fields,cs_opt_fastmath];
 
    level1optimizerswitches = genericlevel1optimizerswitches;
    level2optimizerswitches = genericlevel2optimizerswitches + level1optimizerswitches +
-     [cs_opt_regvar,cs_opt_stackframe,cs_opt_tailrecursion,cs_opt_nodecse {,cs_opt_scheduler}];
-   level3optimizerswitches = genericlevel3optimizerswitches + level2optimizerswitches + [{,cs_opt_loopunroll}];
+     [cs_opt_regvar,cs_opt_stackframe,cs_opt_tailrecursion,cs_opt_nodecse];
+   level3optimizerswitches = genericlevel3optimizerswitches + level2optimizerswitches + [cs_opt_scheduler{,cs_opt_loopunroll}];
+   level4optimizerswitches = genericlevel4optimizerswitches + level3optimizerswitches + [];
+
+ type
+   tcpuflags =
+      (CPUARM_HAS_BX,    { CPU supports the BX instruction                           }
+       CPUARM_HAS_BLX,   { CPU supports the BLX instruction                          }
+       CPUARM_HAS_EDSP,  { CPU supports the PLD,STRD,LDRD,MCRR and MRRC instructions }
+       CPUARM_HAS_REV,   { CPU supports the REV instruction                          }
+       CPUARM_HAS_LDREX,
+       CPUARM_HAS_IDIV
+      );
+
+ const
+   cpu_capabilities : array[tcputype] of set of tcpuflags =
+     ( { cpu_none     } [],
+       { cpu_armv3    } [],
+       { cpu_armv4    } [],
+       { cpu_armv4t   } [CPUARM_HAS_BX],
+       { cpu_armv5    } [CPUARM_HAS_BX,CPUARM_HAS_BLX],
+       { cpu_armv5t   } [CPUARM_HAS_BX,CPUARM_HAS_BLX],
+       { cpu_armv5te  } [CPUARM_HAS_BX,CPUARM_HAS_BLX,CPUARM_HAS_EDSP],
+       { cpu_armv5tej } [CPUARM_HAS_BX,CPUARM_HAS_BLX,CPUARM_HAS_EDSP],
+       { cpu_armv6    } [CPUARM_HAS_BX,CPUARM_HAS_BLX,CPUARM_HAS_EDSP,CPUARM_HAS_REV,CPUARM_HAS_LDREX],
+       { cpu_armv6k   } [CPUARM_HAS_BX,CPUARM_HAS_BLX,CPUARM_HAS_EDSP,CPUARM_HAS_REV,CPUARM_HAS_LDREX],
+       { cpu_armv6t2  } [CPUARM_HAS_BX,CPUARM_HAS_BLX,CPUARM_HAS_EDSP,CPUARM_HAS_REV,CPUARM_HAS_LDREX],
+       { cpu_armv6z   } [CPUARM_HAS_BX,CPUARM_HAS_BLX,CPUARM_HAS_EDSP,CPUARM_HAS_REV,CPUARM_HAS_LDREX],
+       { the identifier armv7 is should not be used, it is considered being equal to armv7a }
+       { cpu_armv7    } [CPUARM_HAS_BX,CPUARM_HAS_BLX,CPUARM_HAS_EDSP,CPUARM_HAS_REV,CPUARM_HAS_LDREX],
+       { cpu_armv7a   } [CPUARM_HAS_BX,CPUARM_HAS_BLX,CPUARM_HAS_EDSP,CPUARM_HAS_REV,CPUARM_HAS_LDREX],
+       { cpu_armv7r   } [CPUARM_HAS_BX,CPUARM_HAS_BLX,CPUARM_HAS_EDSP,CPUARM_HAS_REV,CPUARM_HAS_LDREX],
+       { cpu_armv7m   } [CPUARM_HAS_BX,CPUARM_HAS_BLX,CPUARM_HAS_EDSP,CPUARM_HAS_REV,CPUARM_HAS_LDREX,CPUARM_HAS_IDIV],
+       { cpu_armv7em  } [CPUARM_HAS_BX,CPUARM_HAS_BLX,CPUARM_HAS_EDSP,CPUARM_HAS_REV,CPUARM_HAS_LDREX,CPUARM_HAS_IDIV]
+     );
 
 Implementation
 
 end.
+

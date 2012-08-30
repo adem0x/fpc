@@ -4,7 +4,6 @@
 
     Textrec record definition
 
-
     See the file COPYING.FPC, included in this distribution,
     for details about the copyright.
 
@@ -21,12 +20,19 @@
 }
 
 const
+{$ifdef CPUAVR}
+  TextRecNameLength = 16;
+  TextRecBufSize    = 16;
+{$else CPUAVR}
   TextRecNameLength = 256;
   TextRecBufSize    = 256;
+{$endif CPUAVR}
 type
   TLineEndStr = string [3];
   TextBuf = array[0..TextRecBufSize-1] of char;
-  TextRec = Packed Record
+  { using packed makes the compiler to generate ugly code on some CPUs, further
+    using packed causes the compiler to handle arrays of text wrongly, see  see tw0754 e.g. on arm  }
+  TextRec = {$ifdef VER2_6} packed {$endif} Record
     Handle    : THandle;
     Mode      : longint;
     bufsize   : SizeInt;

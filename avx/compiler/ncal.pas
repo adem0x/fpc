@@ -2392,6 +2392,11 @@ implementation
                   (cnf_do_inline in callnodeflags) and
                   not(tabstractvarsym(tprocdef(procdefinition).funcretsym).varregable in [vr_none,vr_addr]));
                 include(temp.flags,nf_is_funcret);
+                { if a managed type is returned by reference, assigning something
+                  to the result on the caller side will take care of decreasing
+                  the reference count }
+                if paramanager.ret_in_param(resultdef,procdefinition.proccalloption) then
+                  include(ttempcreatenode(temp).tempinfo^.flags,ti_nofini);
                 add_init_statement(temp);
                 { When the function result is not used in an inlined function
                   we need to delete the temp. This can currently only be done by
@@ -2964,12 +2969,16 @@ implementation
            end;
 
           { check for hints (deprecated etc) }
-          if (procdefinition.typ = procdef) then
+          if procdefinition.typ = procdef then
             check_hints(tprocdef(procdefinition).procsym,tprocdef(procdefinition).symoptions,tprocdef(procdefinition).deprecatedmsg);
 
+          { add reference to corresponding procsym; may not be the one
+            originally found/passed to the constructor because of overloads }
+          if procdefinition.typ = procdef then
+            addsymref(tprocdef(procdefinition).procsym);
+
           { add needed default parameters }
-          if assigned(procdefinition) and
-             (paralength<procdefinition.maxparacount) then
+          if (paralength<procdefinition.maxparacount) then
            begin
              paraidx:=0;
              i:=0;
@@ -3614,8 +3623,11 @@ implementation
                     paras := tcallparanode(paras.right);
                   if assigned(paras) then
                     begin
+                      temp:=paras.left.getcopy;
+                      { inherit modification information, this is needed by the dfa/cse }
+                      temp.flags:=temp.flags+(n.flags*[nf_modify,nf_write]);
                       n.free;
-                      n := paras.left.getcopy;
+                      n:=temp;
                       typecheckpass(n);
                       result := fen_true;
                     end;
@@ -3630,8 +3642,10 @@ implementation
                      not assigned(inlinelocals[indexnr]) then
                     internalerror(20040720);
                   temp := tnode(inlinelocals[indexnr]).getcopy;
+                  { inherit modification information, this is needed by the dfa/cse }
+                  temp.flags:=temp.flags+(n.flags*[nf_modify,nf_write]);
                   n.free;
-                  n := temp;
+                  n:=temp;
                   typecheckpass(n);
                   result := fen_true;
                 end;
@@ -3703,7 +3717,10 @@ implementation
         para := tcallparanode(left);
         while assigned(para) do
           begin
-            if (para.parasym.typ = paravarsym) then
+            if (para.parasym.typ = paravarsym) and
+               ((para.parasym.refs>0) or
+                not(cs_opt_dead_values in current_settings.optimizerswitches) or
+                might_have_sideeffects(para.left)) then
               begin
                 { must take copy of para.left, because if it contains a       }
                 { temprefn pointing to a copied temp (e.g. methodpointer),    }
@@ -3738,6 +3755,7 @@ implementation
                     { parameter expression, so in that case assign to a temp   }
                     not(para.left.expectloc in [LOC_REFERENCE,LOC_CREFERENCE,LOC_CONSTANT]) or
                     ((paracomplexity > 1) and
+                      not(nf_is_funcret in para.left.flags) and
                      (not valid_for_addr(para.left,false) or
                       (para.left.nodetype = calln) or
                       is_constnode(para.left))) or
@@ -3751,8 +3769,7 @@ implementation
                       { variable would be passed by value normally, or if   }
                       { there is such a variable somewhere in an expression }
                        ((para.parasym.varspez = vs_const) and
-                        (not pushconstaddr or
-                         (paracomplexity > 1)))) and
+                        (not pushconstaddr))) and
                      { however, if we pass a global variable, an object field or}
                      { an expression containing a pointer dereference as        }
                      { parameter, this value could be modified in other ways as }
@@ -3832,9 +3849,11 @@ implementation
                 { occurrences of the parameter with dereferencings of this    }
                 { temp                                    }
                 else
-                  { don't create a temp. for the often seen case that p^ is passed to a var parameter }
-                  if (paracomplexity>2) or
-                    ((paracomplexity>1) and not((para.left.nodetype=derefn) and (para.parasym.varspez = vs_var))) then
+                  { don't create a temp. for function results }
+                  if not(nf_is_funcret in para.left.flags) and
+                     ((paracomplexity>2) or
+                     { don't create a temp. for the often seen case that p^ is passed to a var parameter }
+                    ((paracomplexity>1) and not((para.left.nodetype=derefn) and (para.parasym.varspez = vs_var)))) then
                   begin
                     wrapcomplexinlinepara(para);
                   end;
@@ -3857,7 +3876,7 @@ implementation
         paraaddr: taddrnode;
       begin
         ptrtype:=getpointerdef(para.left.resultdef);
-        tempnode := ctempcreatenode.create(ptrtype,ptrtype.size,tt_persistent,tparavarsym(para.parasym).is_regvar(true));
+        tempnode:=ctempcreatenode.create(ptrtype,ptrtype.size,tt_persistent,true);
         addstatement(inlineinitstatement,tempnode);
         addstatement(inlinecleanupstatement,ctempdeletenode.create(tempnode));
         { inherit addr_taken flag }
@@ -3953,6 +3972,10 @@ implementation
 
         { Create new code block for inlining }
         inlineblock:=internalstatements(inlineinitstatement);
+        { make sure that valid_for_assign() returns false for this block
+          (otherwise assigning values to the block will result in assigning
+           values to the inlined function's result) }
+        include(inlineblock.flags,nf_no_lvalue);
         inlinecleanupblock:=internalstatements(inlinecleanupstatement);
 
         if assigned(callinitblock) then

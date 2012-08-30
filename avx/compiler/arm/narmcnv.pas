@@ -168,8 +168,10 @@ implementation
                         current_asmdata.getjumplabel(l2);
                         reference_reset_symbol(href,l1,0,const_align(8));
 
+                        cg.a_reg_alloc(current_asmdata.CurrAsmList,NR_DEFAULTFLAGS);
                         current_asmdata.CurrAsmList.concat(Taicpu.op_reg_const(A_CMP,left.location.register,0));
                         cg.a_jmp_flags(current_asmdata.CurrAsmList,F_GE,l2);
+                        cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_DEFAULTFLAGS);
 
                         hregister:=cg.getfpuregister(current_asmdata.CurrAsmList,OS_F64);
                         new_section(current_asmdata.asmlists[al_typedconsts],sec_rodata_norel,l1.name,const_align(8));
@@ -187,6 +189,7 @@ implementation
                           begin
                             hregister:=location.register;
                             location.register:=cg.getfpuregister(current_asmdata.CurrAsmList,location.size);
+                            cg.a_reg_alloc(current_asmdata.CurrAsmList,NR_DEFAULTFLAGS);
                             current_asmdata.CurrAsmList.concat(setoppostfix(taicpu.op_reg_reg(A_MVF,location.register,hregister),PF_S));
                           end;
                       end;
@@ -316,6 +319,7 @@ implementation
          location_reset(location,LOC_REGISTER,def_cgsize(resultdef));
          hreg1:=cg.getintregister(current_asmdata.CurrAsmList,location.size);
          cg.g_flags2reg(current_asmdata.CurrAsmList,location.size,resflags,hreg1);
+         cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_DEFAULTFLAGS);
          if (is_cbool(resultdef)) then
            cg.a_op_reg_reg(current_asmdata.CurrAsmList,OP_NEG,location.size,hreg1,hreg1);
 

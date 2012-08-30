@@ -106,7 +106,7 @@ implementation
        objcutil,
        { parser }
        scanner,
-       pbase,pexpr,ptype,pdecl,pparautl
+       pbase,pexpr,ptype,pdecl,pparautl,pgenutil
 {$ifdef jvm}
        ,pjvm
 {$endif}
@@ -233,6 +233,50 @@ implementation
         explicit_paraloc,
         need_array,
         is_univ: boolean;
+
+        procedure handle_default_para_value;
+          var
+            convpd : tprocdef;
+            doconv : tconverttype;
+            nodetype : tnodetype;
+            bt : tblock_type;
+          begin
+            { only allowed for types that can be represented by a
+              constant expression }
+            if try_to_consume(_EQ) then
+             begin
+               if (hdef.typ in [recorddef,variantdef,filedef,formaldef]) or
+                  is_object(hdef) or
+                  ((hdef.typ=arraydef) and
+                   not is_dynamic_array(hdef)) then
+                 Message1(type_e_invalid_default_value,FullTypeName(hdef,nil));
+               vs:=tparavarsym(sc[0]);
+               if sc.count>1 then
+                 Message(parser_e_default_value_only_one_para);
+               bt:=block_type;
+               block_type:=bt_const;
+               { prefix 'def' to the parameter name }
+               defaultvalue:=ReadConstant('$def'+vs.name,vs.fileinfo,nodetype);
+               block_type:=bt;
+               if assigned(defaultvalue) then
+                 begin
+                   include(defaultvalue.symoptions,sp_internal);
+                   pd.parast.insert(defaultvalue);
+                   { check whether the default value is of the correct
+                     type }
+                   if compare_defs_ext(defaultvalue.constdef,hdef,nodetype,doconv,convpd,[])<=te_convert_operator then
+                     MessagePos2(defaultvalue.fileinfo,type_e_incompatible_types,FullTypeName(defaultvalue.constdef,hdef),FullTypeName(hdef,defaultvalue.constdef));
+                 end;
+               defaultrequired:=true;
+             end
+            else
+             begin
+               if defaultrequired then
+                 Message1(parser_e_default_value_expected_for_para,vs.name);
+             end;
+          end;
+
+
       begin
         old_block_type:=block_type;
         explicit_paraloc:=false;
@@ -387,7 +431,7 @@ implementation
                 if is_shortstring(hdef) then
                   begin
                     case varspez of
-                      vs_var,vs_out,vs_constref:
+                      vs_var,vs_out:
                         begin
                           { not 100% Delphi-compatible: type xstr=string[255] cannot
                             become an openstring there, while here it can }
@@ -427,27 +471,7 @@ implementation
 
                 { default parameter }
                 if (m_default_para in current_settings.modeswitches) then
-                 begin
-                   if try_to_consume(_EQ) then
-                    begin
-                      vs:=tparavarsym(sc[0]);
-                      if sc.count>1 then
-                        Message(parser_e_default_value_only_one_para);
-                      { prefix 'def' to the parameter name }
-                      defaultvalue:=ReadConstant('$def'+vs.name,vs.fileinfo);
-                      if assigned(defaultvalue) then
-                        begin
-                          include(defaultvalue.symoptions,sp_internal);
-                          pd.parast.insert(defaultvalue);
-                        end;
-                      defaultrequired:=true;
-                    end
-                   else
-                    begin
-                      if defaultrequired then
-                        Message1(parser_e_default_value_expected_for_para,vs.name);
-                    end;
-                 end;
+                  handle_default_para_value;
               end;
            end
           else
@@ -680,8 +704,44 @@ implementation
                     Message1(type_e_generic_declaration_does_not_match,genname);
                     srsym:=nil;
                     exit;
+                  end
+              end;
+          end;
+
+        procedure consume_generic_interface;
+          var
+            genparalist : tfpobjectlist;
+            prettyname,
+            specializename : ansistring;
+            genname,
+            ugenname : tidstring;
+            gencount : string;
+          begin
+            consume(_LSHARPBRACKET);
+            genparalist:=tfpobjectlist.create(false);
+
+            if not parse_generic_specialization_types(genparalist,prettyname,specializename,nil) then
+              srsym:=generrorsym
+            else
+              begin
+                str(genparalist.count,gencount);
+                genname:=sp+'$'+gencount;
+                if not parse_generic then
+                  genname:=generate_generic_name(genname,specializename);
+                ugenname:=upper(genname);
+
+                srsym:=search_object_name(ugenname,false);
+
+                if not assigned(srsym) then
+                  begin
+                    Message1(type_e_generic_declaration_does_not_match,sp+'<'+prettyname+'>');
+                    srsym:=nil;
+                    exit;
                   end;
               end;
+
+            genparalist.free;
+            consume(_RSHARPBRACKET);
           end;
 
       begin
@@ -700,16 +760,35 @@ implementation
            (astruct.typ=objectdef) and
            assigned(tobjectdef(astruct).ImplementedInterfaces) and
            (tobjectdef(astruct).ImplementedInterfaces.count>0) and
-           try_to_consume(_POINT) then
+           (
+             (token = _POINT) or
+             (token = _LSHARPBRACKET)
+           ) then
          begin
-           srsym:=search_object_name(sp,true);
+           if token = _POINT then
+             begin
+               consume(_POINT);
+               srsym:=search_object_name(sp,true);
+             end
+           else
+             begin
+               consume_generic_interface;
+               consume(_POINT);
+               { srsym is now either an interface def or generrordef }
+             end;
            { qualifier is interface? }
            ImplIntf:=nil;
            if (srsym.typ=typesym) and
               (ttypesym(srsym).typedef.typ=objectdef) then
              ImplIntf:=tobjectdef(astruct).find_implemented_interface(tobjectdef(ttypesym(srsym).typedef));
            if ImplIntf=nil then
-             Message(parser_e_interface_id_expected);
+             Message(parser_e_interface_id_expected)
+           else
+             { in case of a generic or specialized interface we need to use the
+               name of the def instead of the symbol, so that always the correct
+               name is used }
+             if [df_generic,df_specialization]*ttypesym(srsym).typedef.defoptions<>[] then
+               sp:=tobjectdef(ttypesym(srsym).typedef).objname^;
            { must be a directly implemented interface }
            if Assigned(ImplIntf.ImplementsGetter) then
              Message2(parser_e_implements_no_mapping,ImplIntf.IntfDef.typename,astruct.objrealname^);
@@ -1107,10 +1186,13 @@ implementation
                      is_javaclass(pd.struct) then
                     pd.returndef:=pd.struct
                   else
+                    if is_objectpascal_helper(pd.struct) then
+                      pd.returndef:=tobjectdef(pd.struct).extendeddef
+                    else
 {$ifdef CPU64bitaddr}
-                    pd.returndef:=bool64type;
+                      pd.returndef:=bool64type;
 {$else CPU64bitaddr}
-                    pd.returndef:=bool32type;
+                      pd.returndef:=bool32type;
 {$endif CPU64bitaddr}
                 end
               else
@@ -2117,7 +2199,7 @@ const
       handler  : @pd_interrupt;
       pocall   : pocall_oldfpccall;
       pooption : [po_interrupt];
-      mutexclpocall : [pocall_internproc,pocall_cdecl,pocall_cppdecl,pocall_stdcall,
+      mutexclpocall : [pocall_internproc,pocall_cdecl,pocall_cppdecl,pocall_stdcall,pocall_mwpascal,
                        pocall_pascal,pocall_far16,pocall_oldfpccall];
       mutexclpotype : [potype_constructor,potype_destructor,potype_operator,potype_class_constructor,potype_class_destructor];
       mutexclpo     : [po_external,po_inline]
@@ -2939,9 +3021,13 @@ const
                not(po_overload in fwpd.procoptions)
               ) or
               { check arguments, we need to check only the user visible parameters. The hidden parameters
-                can be in a different location because of the calling convention, eg. L-R vs. R-L order (PFV) }
+                can be in a different location because of the calling convention, eg. L-R vs. R-L order (PFV)
+
+                don't check default values here, because routines that are the same except for their default
+                values should be reported as mismatches (since you can't overload based on different default
+                parameter values) }
               (
-               (compare_paras(currpd.paras,fwpd.paras,cp_none,[cpo_comparedefaultvalue,cpo_ignorehidden,cpo_openequalisexact,cpo_ignoreuniv])=te_exact) and
+               (compare_paras(fwpd.paras,currpd.paras,cp_none,[cpo_ignorehidden,cpo_openequalisexact,cpo_ignoreuniv])=te_exact) and
                (compare_defs(fwpd.returndef,currpd.returndef,nothingn)=te_exact)
               ) then
              begin
@@ -3009,10 +3095,13 @@ const
                     end;
 
                    { Check if the procedure type and return type are correct,
-                     also the parameters must match also with the type }
+                     also the parameters must match also with the type and that
+                     if the implementation has default parameters, the interface
+                     also has them and that if they both have them, that they
+                     have the same value }
                    if ((m_repeat_forward in current_settings.modeswitches) or
                        not is_bareprocdef(currpd)) and
-                      ((compare_paras(currpd.paras,fwpd.paras,cp_all,paracompopt)<>te_exact) or
+                      ((compare_paras(fwpd.paras,currpd.paras,cp_all,paracompopt)<>te_exact) or
                        (compare_defs(fwpd.returndef,currpd.returndef,nothingn)<>te_exact)) then
                      begin
                        MessagePos1(currpd.fileinfo,parser_e_header_dont_match_forward,

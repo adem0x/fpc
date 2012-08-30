@@ -133,6 +133,10 @@ interface
       are allowed (in this case, the search order will first
       search for a routine with default parameters, before
       searching for the same definition with no parameters)
+
+      para1 is expected to be parameter list of the first encountered
+      declaration (interface, forward), and para2 that of the second one
+      (important in case of cpo_comparedefaultvalue)
     }
     function compare_paras(para1,para2 : TFPObjectList; acp : tcompare_paras_type; cpoptions: tcompare_paras_options):tequaltype;
 
@@ -1216,9 +1220,11 @@ implementation
                      else
                       { the types can be forward type, handle before normal type check !! }
                       if assigned(def_to.typesym) and
-                         (tpointerdef(def_to).pointeddef.typ=forwarddef) then
+                         ((tpointerdef(def_to).pointeddef.typ=forwarddef) or
+                          (tpointerdef(def_from).pointeddef.typ=forwarddef)) then
                        begin
-                         if (def_from.typesym=def_to.typesym) then
+                         if (def_from.typesym=def_to.typesym) or
+                            (fromtreetype=niln) then
                           eq:=te_equal
                        end
                      else
@@ -1529,13 +1535,18 @@ implementation
                        doconv:=tc_variant_2_interface;
                        eq:=te_convert_l2;
                      end
-                   { ugly, but delphi allows it }
+                   { ugly, but delphi allows it (enables typecasting ordinals/
+                     enums of any size to pointer-based object defs) }
                    { in Java enums /are/ class instances, and hence such
-                     typecasts must not be treated as integer-like conversions
+                     typecasts must not be treated as integer-like conversions;
+                     arbitrary constants cannot be converted into classes/
+                     pointer-based values either on the JVM -> always return
+                     false and let it be handled by the regular explicit type
+                     casting code
                    }
-                   else if ((not(target_info.system in systems_jvm) and
-                        (def_from.typ=enumdef)) or
-                       (def_from.typ=orddef)) and
+                   else if (not(target_info.system in systems_jvm) and
+                       ((def_from.typ=enumdef) or
+                        (def_from.typ=orddef))) and
                       (m_delphi in current_settings.modeswitches) and
                       (cdo_explicit in cdoptions) then
                      begin
@@ -1549,9 +1560,12 @@ implementation
              begin
                { similar to pointerdef wrt forwards }
                if assigned(def_to.typesym) and
-                  (tclassrefdef(def_to).pointeddef.typ=forwarddef) then
+                  (tclassrefdef(def_to).pointeddef.typ=forwarddef) or
+                  ((def_from.typ=classrefdef) and
+                   (tclassrefdef(def_from).pointeddef.typ=forwarddef)) then
                  begin
-                   if (def_from.typesym=def_to.typesym) then
+                   if (def_from.typesym=def_to.typesym) or
+                      (fromtreetype=niln) then
                     eq:=te_equal;
                  end
                else
@@ -1964,13 +1978,19 @@ implementation
               if eq<lowesteq then
                 lowesteq:=eq;
               { also check default value if both have it declared }
-              if (cpo_comparedefaultvalue in cpoptions) and
-                 assigned(currpara1.defaultconstsym) and
-                 assigned(currpara2.defaultconstsym) then
-               begin
-                 if not equal_constsym(tconstsym(currpara1.defaultconstsym),tconstsym(currpara2.defaultconstsym)) then
-                   exit;
-               end;
+              if (cpo_comparedefaultvalue in cpoptions) then
+                begin
+                  if assigned(currpara1.defaultconstsym) and
+                     assigned(currpara2.defaultconstsym) then
+                    begin
+                      if not equal_constsym(tconstsym(currpara1.defaultconstsym),tconstsym(currpara2.defaultconstsym)) then
+                        exit;
+                    end
+                  { cannot have that the second (= implementation) has a default value declared and the
+                    other (interface) doesn't }
+                  else if not assigned(currpara1.defaultconstsym) and assigned(currpara2.defaultconstsym) then
+                    exit;
+                end;
               if not(cpo_compilerproc in cpoptions) and
                  not(cpo_rtlproc in cpoptions) and
                  is_ansistring(currpara1.vardef) and

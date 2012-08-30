@@ -67,7 +67,7 @@ const
     {  6 } 'vis',
     {  7 } 'ia64',
     {  8 } 'x86_64',
-    {  9 } 'mips',
+    {  9 } 'mipseb',
     { 10 } 'arm',
     { 11 } 'powerpc64',
     { 12 } 'avr',
@@ -2130,6 +2130,7 @@ begin
              writeln(space,'       ParaNr : ',getword);
              writeln(space,'        Univ  : ',boolean(getbyte));
              writeln(space,'     VarState : ',getbyte);
+             writeln(space,'         Refs : ',getbyte);
              if (vo_has_explicit_paraloc in varoptions) then
                begin
                  i:=getbyte;

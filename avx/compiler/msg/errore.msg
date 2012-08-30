@@ -390,7 +390,7 @@ scan_w_unavailable_system_codepage=02091_W_Current system codepage "$1" is not a
 #
 # Parser
 #
-# 03321 is the last used one
+# 03322 is the last used one
 #
 % \section{Parser messages}
 % This section lists all parser messages. The parser takes care of the
@@ -1199,8 +1199,8 @@ parser_e_forward_mismatch=03249_E_Forward type definition does not match
 % when being implemented. A forward interface cannot be changed into a class.
 parser_n_ignore_lower_visibility=03250_N_Virtual method "$1" has a lower visibility ($2) than parent class $3 ($4)
 % The virtual method overrides an method that is declared with a higher visibility. This might give
-% unexpected results. In case the new visibility is private than it might be that a call to inherited in a
-% new child class will call the higher visible method in a parent class and ignores the private method.
+% unexpected results. E.g., in case the new visibility is private then a call to ``inherited'' in a
+% new child class will call the higher-visible method in a parent class and ignores the private method.
 parser_e_field_not_allowed_here=03251_E_Fields cannot appear after a method or property definition, start a new visibility section first
 % Once a method or property has been defined in a class or object, you cannot define any fields afterwards
 % without starting a new visibility section (such as \var{public}, \var{private}, etc.). The reason is
@@ -1444,10 +1444,12 @@ parser_e_jvm_invalid_virtual_constructor_call=03321_E_Calling a virtual construc
 % The JVM does not natively support virtual constructor. Unforunately, we are not aware of a way to
 % emulate them in a way that makes it possible to support calling virtual constructors
 % for the current instance inside another constructor.
+parser_e_method_lower_visibility=03322_E_Overring method "$1" cannot have a lower visibility ($2) than in parent class $3 ($4)
+% The JVM does not allow lowering the visibility of an overriding method.
 % \end{description}
 # Type Checking
 #
-# 04117 is the last used one
+# 04119 is the last used one
 #
 % \section{Type checking errors}
 % This section lists all errors that can occur when type checking is
@@ -1864,6 +1866,11 @@ type_e_interface_lower_visibility=04117_E_The interface method "$1" has a higher
 % warning that is disabled by default because such situations are common
 % practice, but it can be enabled in case you are concerned with keeping your
 % code compilable for the JVM target.
+type_e_typeof_requires_vmt=04118_E_TYPEOF can only be used on object types with VMT
+% Typeof() intrinsic returns pointer to VMT of its argument. It cannot be used on object types that do not have VMT.
+type_e_invalid_default_value=04119_E_It is not possible to define a default value for a parameter of type "$1"
+% Parameters declared as structured types, such as files, variants, non-dynamic
+% arrays and TP-style objects, cannot have a default value.
 % \end{description}
 #
 # Symtable
@@ -2285,7 +2292,7 @@ cg_d_autoinlining=06055_DL_Auto inlining: $1
 #
 # Assembler reader
 #
-# 07110 is the last used one
+# 07120 is the last used one
 #
 asmr_d_start_reading=07000_DL_Starting $1 styled assembler parsing
 % This informs you that an assembler block is being parsed
@@ -2553,18 +2560,34 @@ asmr_e_seh_in_pure_asm_only=07114_E_SEH directives are allowed only in pure asse
 % Win64 SEH directives are allowed only in pure assembler procedures, not in assembler
 % blocks of regular procedures.
 asmr_e_unsupported_directive=07115_E_Directive "$1" is not supported for the current target
+asmr_e_complex_function_result_location=07116_E_This function's result location cannot be encoded directly in a single operand when "nostackframe" is used
+% Functions declared with the \var{nostackframe} modifier do not have a stack frame, and hence
+% do not have a local variable to hold the temporary function result.  Accesses to the function
+% result in such routines directly go to the registers or memory location that will be used
+% to return their result to the caller.  In some cases this result may be spread over multiple
+% registers, in which case it is not possible to access the location via its symbolic name.
+% You have to directly use the appropriate register names in this case.
+asmr_e_wrong_gotpcrel_intel_syntax=07117_E_GOTPCREL references in Intel assembler syntax cannot contain a base or index register, and their offset must 0.
+% The syntax for a gotpcrel PIC memory expression in Intel assembler syntax is
+% \verb*[global_symbol wrt ..gotpcrel]*
+asmr_e_no_gotpcrel_support=07118_E_The current target does not support GOTPCREL relocations
+% Not all targets support position-independent code using a global offset table.
+% Use a different way to access symbols in a position-indepent way in these cases.
+asmr_w_global_access_without_got=07119_W_Exported/global symbols should accessed via the GOT
+% Global symbols (symbols from the unit interface, or defined in a program
+% or library) should be accessed via the GOT when generating position-indepent code.
 
-asmr_w_check_mem_operand_size=07116_W_Check size of memory operand "$1"
+asmr_w_check_mem_operand_size3=07120_W_Check size of memory operand "$1: memory-operand-size is $2 bits, but expected [$3 bits]"
 % The size of memory operand is possible invalid. This is
 % probably an error in the assembler statement
-asmr_w_check_mem_operand_size3=07117_W_Check size of memory operand "$1: memory-operand-size is $2 bits, but expected [$3 bits]"
+asmr_w_check_mem_operand_size_offset=07121_W_Check size of memory operand "$1: memory-operand-size is $2 bits, but expected [$3 bits + $4 byte offset]"
 % The size of memory operand is possible invalid. This is
 % probably an error in the assembler statement
-asmr_w_check_mem_operand_size_offset=07118_W_Check size of memory operand "$1: memory-operand-size is $2 bits, but expected [$3 bits + $4 byte offset]"
-% The size of memory operand is possible invalid. This is
-% probably an error in the assembler statement
-asmr_w_check_mem_operand_negative_offset=07119_W_Check "$1: offset of memory operand is negative "$2 byte"
+asmr_w_check_mem_operand_negative_offset=07122_W_Check "$1: offset of memory operand is negative "$2 byte"
 % The offset of memory operand is possible invalid. This is
+% probably an error in the assembler statement
+asmr_w_check_mem_operand_size=07123_W_Check size of memory operand "$1"
+% The size of memory operand is possible invalid. This is
 % probably an error in the assembler statement
 
 #
@@ -3322,13 +3345,14 @@ P*2CN_Generate nil-pointer checks (AIX-only)
 **2Cr_Range checking
 **2CR_Verify object method call validity
 **2Cs<n>_Set stack checking size to <n>
-**2Ct_Stack checking (for testing only, see manual)<<<<<<< HEAD
+**2Ct_Stack checking (for testing only, see manual)
 p*2CT<x>_Target-specific code generation options
 P*2CT<x>_Target-specific code generation options
 J*2CT<x>_Target-specific code generation options
 p*3CTsmalltoc_ Generate smaller TOCs at the expense of execution speed (AIX)
 P*3CTsmalltoc_ Generate smaller TOCs at the expense of execution speed (AIX)
 J*3CTcompactintarrayinit_ Generate smaller (but potentially slower) code for initializing integer array constants
+K*3CTenumfieldinit_ Initialize enumeration fields in constructors to enumtype(0), after calling inherited constructors
 J*2Cv_Var/out parameter copy-out checking
 **2CX_Create also smartlinked library
 **1d<x>_Defines the symbol <x>
@@ -3393,14 +3417,13 @@ J*2Cv_Var/out parameter copy-out checking
 **2Mtp_TP/BP 7.0 compatibility mode
 **2Mmacpas_Macintosh Pascal dialects compatibility mode
 **1n_Do not read the default config files
-**1N<x>_Node tree optimizations
-**2Nu_Unroll loops
 **1o<x>_Change the name of the executable produced to <x>
 **1O<x>_Optimizations:
 **2O-_Disable optimizations
 **2O1_Level 1 optimizations (quick and debugger friendly)
 **2O2_Level 2 optimizations (-O1 + quick optimizations)
 **2O3_Level 3 optimizations (-O2 + slow optimizations)
+**2O4_Level 4 optimizations (-O3 + optimizations which might have unexpected side effects)
 **2Oa<x>=<y>_Set alignment
 **2Oo[NO]<x>_Enable or disable optimizations, see fpc -i for possible values
 **2Op<x>_Set target cpu for optimizing, see fpc -i for possible values

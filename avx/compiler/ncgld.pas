@@ -362,7 +362,7 @@ implementation
                         current_asmdata.getjumplabel(endrelocatelab);
                         { make sure hregister can't allocate the register necessary for the parameter }
                         paraloc1.init;
-                        paramanager.getintparaloc(pocall_default,1,paraloc1);
+                        paramanager.getintparaloc(pocall_default,1,voidpointertype,paraloc1);
                         hregister:=cg.getaddressregister(current_asmdata.CurrAsmList);
                         reference_reset_symbol(href,current_asmdata.RefAsmSymbol('FPC_THREADVAR_RELOCATE'),0,sizeof(pint));
                         cg.a_load_ref_reg(current_asmdata.CurrAsmList,OS_ADDR,OS_ADDR,href,hregister);
@@ -946,11 +946,15 @@ implementation
                           if left.location.size in [OS_S64,OS_64] then
                             begin
                               cg.g_flags2reg(current_asmdata.CurrAsmList,OS_32,right.location.resflags,left.location.register64.reglo);
+                              cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_DEFAULTFLAGS);
                               cg.a_load_const_reg(current_asmdata.CurrAsmList,OS_32,0,left.location.register64.reghi);
                             end
                           else
 {$endif cpu32bitalu}
-                            cg.g_flags2reg(current_asmdata.CurrAsmList,left.location.size,right.location.resflags,left.location.register);
+                            begin
+                              cg.g_flags2reg(current_asmdata.CurrAsmList,left.location.size,right.location.resflags,left.location.register);
+                              cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_DEFAULTFLAGS);
+                            end;
                         LOC_REFERENCE:
                         { i386 has a hack in its code generator so that it can
                           deal with 64 bit locations in this parcticular case }
@@ -960,16 +964,21 @@ implementation
                               r64.reglo:=cg.getintregister(current_asmdata.CurrAsmList,OS_32);
                               r64.reghi:=cg.getintregister(current_asmdata.CurrAsmList,OS_32);
                               cg.g_flags2reg(current_asmdata.CurrAsmList,OS_32,right.location.resflags,r64.reglo);
+                              cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_DEFAULTFLAGS);
                               cg.a_load_const_reg(current_asmdata.CurrAsmList,OS_32,0,r64.reghi);
                               cg64.a_load64_reg_ref(current_asmdata.CurrAsmList,r64,left.location.reference);
                             end
                           else
 {$endif cpu32bitalu}
-                            cg.g_flags2ref(current_asmdata.CurrAsmList,left.location.size,right.location.resflags,left.location.reference);
+                            begin
+                              cg.g_flags2ref(current_asmdata.CurrAsmList,left.location.size,right.location.resflags,left.location.reference);
+                              cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_DEFAULTFLAGS);
+                            end;
                         LOC_SUBSETREG,LOC_SUBSETREF:
                           begin
                             r:=cg.getintregister(current_asmdata.CurrAsmList,left.location.size);
                             cg.g_flags2reg(current_asmdata.CurrAsmList,left.location.size,right.location.resflags,r);
+                            cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_DEFAULTFLAGS);
                             hlcg.a_load_reg_loc(current_asmdata.CurrAsmList,left.resultdef,left.resultdef,r,left.location);
                           end;
                         else
@@ -984,6 +993,7 @@ implementation
                           r64.reglo:=cg.getintregister(current_asmdata.CurrAsmList,OS_32);
                           r64.reghi:=cg.getintregister(current_asmdata.CurrAsmList,OS_32);
                           cg.g_flags2reg(current_asmdata.CurrAsmList,OS_32,right.location.resflags,r64.reglo);
+                          cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_DEFAULTFLAGS);
                           cg.a_load_const_reg(current_asmdata.CurrAsmList,OS_32,0,r64.reghi);
                           cg64.a_op64_reg_reg(current_asmdata.CurrAsmList,OP_NEG,OS_S64,
                             r64,r64);
@@ -994,6 +1004,7 @@ implementation
                         begin
                           r:=cg.getintregister(current_asmdata.CurrAsmList,left.location.size);
                           cg.g_flags2reg(current_asmdata.CurrAsmList,left.location.size,right.location.resflags,r);
+                          cg.a_reg_dealloc(current_asmdata.CurrAsmList,NR_DEFAULTFLAGS);
                           cg.a_op_reg_reg(current_asmdata.CurrAsmList,OP_NEG,left.location.size,r,r);
                           hlcg.a_load_reg_loc(current_asmdata.CurrAsmList,left.resultdef,left.resultdef,r,left.location);
                         end

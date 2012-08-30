@@ -219,6 +219,20 @@ interface
                         op.reg:=sym.localloc.register;
                       end;
                   end;
+                LOC_INVALID :
+                  begin
+                    { in "assembler; nostackframe;" routines, the
+                      funcret loc is set to LOC_INVALID in case the
+                      result is returned via a complex location
+                      (more than one register, ...) }
+                    if (vo_is_funcret in tabstractvarsym(sym).varoptions) then
+                      Message(asmr_e_complex_function_result_location)
+                    else
+                      internalerror(2012082101);
+                    { recover }
+                    op.typ:=top_reg;
+                    op.reg:=NR_FUNCTION_RETURN_REG;
+                  end;
                 else
                   internalerror(201001031);
               end;
@@ -405,8 +419,10 @@ interface
                 location_reset_ref(tempinfo^.location,LOC_REFERENCE,def_cgsize(tempinfo^.typedef),0);
                 tg.gethltemptyped(current_asmdata.CurrAsmList,tempinfo^.typedef,tempinfo^.temptype,tempinfo^.location.reference);
                 { the temp could have been used previously either because the memory location was reused or
-                  because we're in a loop }
-                hlcg.g_finalize(current_asmdata.CurrAsmList,tempinfo^.typedef,tempinfo^.location.reference);
+                  because we're in a loop. In case it's used as a function result, that doesn't matter
+                  because it will be finalized when assigned to. }
+                if not(ti_nofini in tempinfo^.flags) then
+                  hlcg.g_finalize(current_asmdata.CurrAsmList,tempinfo^.typedef,tempinfo^.location.reference);
               end
             else if (ti_may_be_in_reg in tempinfo^.flags) then
               begin

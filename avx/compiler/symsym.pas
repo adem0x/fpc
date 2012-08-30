@@ -191,6 +191,7 @@ interface
           inparentfpstruct : boolean;   { migrated to a parentfpstruct because of nested access (not written to ppu, because not important and would change interface crc) }
           constructor create(st:tsymtyp;const n : string;vsp:tvarspez;def:tdef;vopts:tvaroptions);
           constructor ppuload(st:tsymtyp;ppufile:tcompilerppufile);
+          function globalasmsym: boolean;
           procedure ppuwrite(ppufile:tcompilerppufile);override;
           procedure buildderef;override;
           procedure deref;override;
@@ -1551,6 +1552,18 @@ implementation
          ppufile.getderef(defaultconstsymderef);
       end;
 
+    function tabstractnormalvarsym.globalasmsym: boolean;
+      begin
+        result:=
+          (owner.symtabletype=globalsymtable) or
+          (create_smartlink and
+           not(tf_smartlink_sections in target_info.flags)) or
+          DLLSource or
+          (assigned(current_procinfo) and
+           (po_inline in current_procinfo.procdef.procoptions)) or
+          (vo_is_public in varoptions);
+      end;
+
 
     procedure tabstractnormalvarsym.buildderef;
       begin
@@ -1833,6 +1846,9 @@ implementation
          }
          varstate:=tvarstate(ppufile.getbyte);
 
+         { read usage info }
+         refs:=ppufile.getbyte;
+
          paraloc[calleeside].init;
          paraloc[callerside].init;
          if vo_has_explicit_paraloc in varoptions then
@@ -1863,6 +1879,9 @@ implementation
          oldintfcrc:=ppufile.do_crc;
          ppufile.do_crc:=false;
          ppufile.putbyte(ord(varstate));
+         { write also info about the usage of parameters,
+           the absolute usage does not matter }
+         ppufile.putbyte(min(1,refs));
          ppufile.do_crc:=oldintfcrc;
 
          if vo_has_explicit_paraloc in varoptions then
@@ -2029,7 +2048,7 @@ implementation
          fillchar(value, sizeof(value), #0);
          consttyp:=t;
          value.valueptr:=str;
-         constdef:=nil;
+         constdef:=getarraydef(cansichartype,l);
          value.len:=l;
       end;
 
@@ -2040,7 +2059,7 @@ implementation
          fillchar(value, sizeof(value), #0);
          consttyp:=t;
          pcompilerwidestring(value.valueptr):=pw;
-         constdef:=nil;
+         constdef:=getarraydef(cwidechartype,getlengthwidestring(pw));
          value.len:=getlengthwidestring(pw);
       end;
 

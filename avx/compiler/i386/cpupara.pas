@@ -45,13 +45,12 @@ unit cpupara;
             and if the calling conventions for the helper routines of the
             rtl are used.
           }
-          procedure getintparaloc(calloption : tproccalloption; nr : longint;var cgpara:TCGPara);override;
+          procedure getintparaloc(calloption : tproccalloption; nr : longint; def : tdef; var cgpara : tcgpara);override;
           function create_paraloc_info(p : tabstractprocdef; side: tcallercallee):longint;override;
           function create_varargs_paraloc_info(p : tabstractprocdef; varargspara:tvarargsparalist):longint;override;
           procedure createtempparaloc(list: TAsmList;calloption : tproccalloption;parasym : tparavarsym;can_use_final_stack_loc : boolean;var cgpara:TCGPara);override;
-          function get_funcretloc(p : tabstractprocdef; side: tcallercallee; def: tdef): TCGPara;override;
+          function get_funcretloc(p : tabstractprocdef; side: tcallercallee; forcetempdef: tdef): TCGPara;override;
        private
-          procedure create_funcretloc_info(p : tabstractprocdef; side: tcallercallee);
           procedure create_stdcall_paraloc_info(p : tabstractprocdef; side: tcallercallee;paras:tparalist;var parasize:longint);
           procedure create_register_paraloc_info(p : tabstractprocdef; side: tcallercallee;paras:tparalist;var parareg,parasize:longint);
        end;
@@ -109,11 +108,15 @@ unit cpupara;
               case def.typ of
                 recorddef :
                   begin
-                    { Win32 GCC returns small records in the FUNCTION_RETURN_REG.
-                      For stdcall we follow delphi instead of GCC }
-                    if (calloption in [pocall_cdecl,pocall_cppdecl]) and
-                       (def.size>0) and
-                       (def.size<=8) then
+                    { Win32 GCC returns small records in the FUNCTION_RETURN_REG up to 8 bytes in registers.
+
+                      For stdcall and register we follow delphi instead of GCC which returns
+                      only records of a size of 1,2 or 4 bytes in FUNCTION_RETURN_REG }
+                    if ((calloption in [pocall_stdcall,pocall_register]) and
+                        (def.size in [1,2,4])) or
+                       ((calloption in [pocall_cdecl,pocall_cppdecl]) and
+                        (def.size>0) and
+                        (def.size<=8)) then
                      begin
                        result:=false;
                        exit;
@@ -270,14 +273,15 @@ unit cpupara;
       end;
 
 
-    procedure ti386paramanager.getintparaloc(calloption : tproccalloption; nr : longint;var cgpara:TCGPara);
+    procedure ti386paramanager.getintparaloc(calloption : tproccalloption; nr : longint; def : tdef; var cgpara : tcgpara);
       var
         paraloc : pcgparalocation;
       begin
         cgpara.reset;
-        cgpara.size:=OS_ADDR;
-        cgpara.intsize:=sizeof(pint);
+        cgpara.size:=def_cgsize(def);
+        cgpara.intsize:=tcgsize2size[cgpara.size];
         cgpara.alignment:=get_para_align(calloption);
+        cgpara.def:=def;
         paraloc:=cgpara.add_location;
         with paraloc^ do
          begin
@@ -309,72 +313,52 @@ unit cpupara;
       end;
 
 
-    procedure ti386paramanager.create_funcretloc_info(p : tabstractprocdef; side: tcallercallee);
-      begin
-        p.funcretloc[side]:=get_funcretloc(p,side,p.returndef);
-      end;
-
-
-    function  ti386paramanager.get_funcretloc(p : tabstractprocdef; side: tcallercallee; def: tdef): TCGPara;
+    function  ti386paramanager.get_funcretloc(p : tabstractprocdef; side: tcallercallee; forcetempdef: tdef): TCGPara;
       var
         retcgsize  : tcgsize;
         paraloc : pcgparalocation;
         sym: tfieldvarsym;
+        usedef: tdef;
+        handled: boolean;
       begin
-        result.init;
-        result.alignment:=get_para_align(p.proccalloption);
-        { void has no location }
-        if is_void(def) then
-          begin
-            paraloc:=result.add_location;
-            result.size:=OS_NO;
-            result.intsize:=0;
-            paraloc^.size:=OS_NO;
-            paraloc^.loc:=LOC_VOID;
-            exit;
-          end;
+        if not assigned(forcetempdef) then
+          usedef:=p.returndef
+        else
+          usedef:=forcetempdef;
         { on darwin/i386, if a record has only one field and that field is a
           single or double, it has to be returned like a single/double }
         if (target_info.system in [system_i386_darwin,system_i386_iphonesim]) and
-           ((def.typ=recorddef) or
-            is_object(def)) and
-           tabstractrecordsymtable(tabstractrecorddef(def).symtable).has_single_field(sym) and
+           ((usedef.typ=recorddef) or
+            is_object(usedef)) and
+           tabstractrecordsymtable(tabstractrecorddef(usedef).symtable).has_single_field(sym) and
            (sym.vardef.typ=floatdef) and
            (tfloatdef(sym.vardef).floattype in [s32real,s64real]) then
-          def:=sym.vardef;
-        { Constructors return self instead of a boolean }
-        if (p.proctypeoption=potype_constructor) then
+          usedef:=sym.vardef;
+
+        handled:=set_common_funcretloc_info(p,usedef,retcgsize,result);
+        { normally forcetempdef is passed straight through to
+          set_common_funcretloc_info and that one will correctly determine whether
+          the location is a temporary one, but that doesn't work here because we
+          sometimes have to change the type }
+        result.temporary:=assigned(forcetempdef);
+        if handled then
+          exit;
+
+        { darwin/x86 requires that results < sizeof(aint) are sign/zero
+          extended to sizeof(aint) }
+        if (target_info.system in [system_i386_darwin,system_i386_iphonesim]) and
+           (side=calleeside) and
+           (result.intsize>0) and
+           (result.intsize<sizeof(aint)) then
           begin
-            retcgsize:=OS_ADDR;
-            result.intsize:=sizeof(pint);
-          end
-        else
-          begin
-            retcgsize:=def_cgsize(def);
-            { darwin/x86 requires that results < sizeof(aint) are sign/ }
-            { zero extended to sizeof(aint)                             }
-            if (target_info.system in [system_i386_darwin,system_i386_iphonesim]) and
-               (side=calleeside) and
-               (result.intsize>0) and
-               (result.intsize<sizeof(aint)) then
-              begin
-                result.intsize:=sizeof(aint);
-                retcgsize:=OS_SINT;
-              end
-            else
-              result.intsize:=def.size;
+            result.def:=sinttype;
+            result.intsize:=sizeof(aint);
+            retcgsize:=OS_SINT;
+            result.size:=retcgsize;
           end;
-        result.size:=retcgsize;
-        { Return is passed as var parameter }
-        if ret_in_param(def,p.proccalloption) then
-          begin
-            paraloc:=result.add_location;
-            paraloc^.loc:=LOC_REFERENCE;
-            paraloc^.size:=retcgsize;
-            exit;
-          end;
+
         { Return in FPU register? }
-        if def.typ=floatdef then
+        if result.def.typ=floatdef then
           begin
             paraloc:=result.add_location;
             paraloc^.loc:=LOC_FPUREGISTER;
@@ -420,6 +404,7 @@ unit cpupara;
       var
         i  : integer;
         hp : tparavarsym;
+        paradef : tdef;
         paraloc : pcgparalocation;
         l,
         paralen,
@@ -451,15 +436,17 @@ unit cpupara;
               (not(p.proccalloption in pushleftright_pocalls) and (i<=paras.count-1)) do
           begin
             hp:=tparavarsym(paras[i]);
-            pushaddr:=push_addr_param(hp.varspez,hp.vardef,p.proccalloption);
+            paradef:=hp.vardef;
+            pushaddr:=push_addr_param(hp.varspez,paradef,p.proccalloption);
             if pushaddr then
               begin
                 paralen:=sizeof(aint);
                 paracgsize:=OS_ADDR;
+                paradef:=getpointerdef(paradef);
               end
             else
               begin
-                paralen:=push_size(hp.varspez,hp.vardef,p.proccalloption);
+                paralen:=push_size(hp.varspez,paradef,p.proccalloption);
                 { darwin/x86 requires that parameters < sizeof(aint) are sign/ }
                 { zero extended to sizeof(aint)                                }
                 if (target_info.system in [system_i386_darwin,system_i386_iphonesim]) and
@@ -467,15 +454,17 @@ unit cpupara;
                    (paralen > 0) and
                    (paralen < sizeof(aint)) then
                   begin
-                    paralen := sizeof(aint);
+                    paralen:=sizeof(aint);
                     paracgsize:=OS_SINT;
+                    paradef:=sinttype;
                   end
                 else
-                  paracgsize:=def_cgsize(hp.vardef);
+                  paracgsize:=def_cgsize(paradef);
               end;
             hp.paraloc[side].reset;
             hp.paraloc[side].size:=paracgsize;
             hp.paraloc[side].intsize:=paralen;
+            hp.paraloc[side].def:=paradef;
             hp.paraloc[side].Alignment:=paraalign;
             { Copy to stack? }
             if (paracgsize=OS_NO) or
@@ -553,6 +542,7 @@ unit cpupara;
                                                             var parareg,parasize:longint);
       var
         hp : tparavarsym;
+        paradef : tdef;
         paraloc : pcgparalocation;
         paracgsize : tcgsize;
         i : integer;
@@ -585,14 +575,15 @@ unit cpupara;
             while true do
               begin
                 hp:=tparavarsym(paras[i]);
+                paradef:=hp.vardef;
                 if not(assigned(hp.paraloc[side].location)) then
                   begin
-
                     pushaddr:=push_addr_param(hp.varspez,hp.vardef,p.proccalloption);
                     if pushaddr then
                       begin
                         paralen:=sizeof(aint);
                         paracgsize:=OS_ADDR;
+                        paradef:=getpointerdef(paradef);
                       end
                     else
                       begin
@@ -602,6 +593,7 @@ unit cpupara;
                     hp.paraloc[side].size:=paracgsize;
                     hp.paraloc[side].intsize:=paralen;
                     hp.paraloc[side].Alignment:=paraalign;
+                    hp.paraloc[side].def:=paradef;
                     {
                       EAX
                       EDX

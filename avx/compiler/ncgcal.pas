@@ -133,7 +133,7 @@ implementation
       begin
         if not(left.location.loc in [LOC_CREFERENCE,LOC_REFERENCE]) then
           internalerror(200304235);
-        hlcg.a_loadaddr_ref_cgpara(current_asmdata.CurrAsmList,left.resultdef,tempcgpara.def,left.location.reference,tempcgpara);
+        hlcg.a_loadaddr_ref_cgpara(current_asmdata.CurrAsmList,left.resultdef,left.location.reference,tempcgpara);
       end;
 
 
@@ -203,8 +203,8 @@ implementation
                          if third=nil then
                            InternalError(201103063);
                          secondpass(third);
-                         cg.g_array_rtti_helper(current_asmdata.CurrAsmList,tarraydef(resultdef).elementdef,
-                           href,third.location,'FPC_FINALIZE_ARRAY');
+                         hlcg.g_array_rtti_helper(current_asmdata.CurrAsmList,tarraydef(resultdef).elementdef,
+                           href,third.location,'fpc_finalize_array');
                        end;
                    end
                  else
@@ -529,7 +529,9 @@ implementation
                            passing a shortstring }
                          if (hp2.nodetype=typeconvn) and
                             (tunarynode(hp2).left.nodetype=addrn) then
-                           hp2:=tunarynode(tunarynode(hp2).left).left;
+                           hp2:=tunarynode(tunarynode(hp2).left).left
+                         else if hp2.nodetype=addrn then
+                           hp2:=tunarynode(hp2).left;
                          location_freetemp(current_asmdata.CurrAsmList,hp2.location);
                          hp:=tarrayconstructornode(hp).right;
                        end;
@@ -833,9 +835,9 @@ implementation
                  { call method }
                  extra_call_code;
 {$ifdef x86}
-                 cg.a_call_ref(current_asmdata.CurrAsmList,href);
+                 hlcg.a_call_ref(current_asmdata.CurrAsmList,tabstractprocdef(procdefinition),href);
 {$else x86}
-                 cg.a_call_reg(current_asmdata.CurrAsmList,pvreg);
+                 hlcg.a_call_reg(current_asmdata.CurrAsmList,tabstractprocdef(procdefinition),pvreg);
 {$endif x86}
                  extra_post_call_code;
                end
@@ -870,9 +872,9 @@ implementation
                         if cnf_inherited in callnodeflags then
                           hlcg.a_call_name_inherited(current_asmdata.CurrAsmList,tprocdef(procdefinition),tprocdef(procdefinition).mangledname)
                         else
-                          hlcg.a_call_name(current_asmdata.CurrAsmList,tprocdef(procdefinition),tprocdef(procdefinition).mangledname,po_weakexternal in procdefinition.procoptions)
+                          hlcg.a_call_name(current_asmdata.CurrAsmList,tprocdef(procdefinition),tprocdef(procdefinition).mangledname,typedef,po_weakexternal in procdefinition.procoptions).resetiftemp
                       else
-                        hlcg.a_call_name(current_asmdata.CurrAsmList,tprocdef(procdefinition),name_to_call,po_weakexternal in procdefinition.procoptions);
+                        hlcg.a_call_name(current_asmdata.CurrAsmList,tprocdef(procdefinition),name_to_call,typedef,po_weakexternal in procdefinition.procoptions).resetiftemp;
                       extra_post_call_code;
                     end;
                end;
@@ -911,7 +913,7 @@ implementation
               if (po_interrupt in procdefinition.procoptions) then
                 extra_interrupt_code;
               extra_call_code;
-              cg.a_call_reg(current_asmdata.CurrAsmList,pvreg);
+              hlcg.a_call_reg(current_asmdata.CurrAsmList,tabstractprocdef(procdefinition),pvreg);
               extra_post_call_code;
            end;
 
@@ -971,7 +973,7 @@ implementation
             (tf_safecall_exceptions in target_info.flags) then
            begin
              cgpara.init;
-             paramanager.getintparaloc(pocall_default,1,cgpara);
+             paramanager.getintparaloc(pocall_default,1,s32inttype,cgpara);
              cg.a_load_reg_cgpara(current_asmdata.CurrAsmList,OS_INT,NR_FUNCTION_RESULT_REG,cgpara);
              paramanager.freecgpara(current_asmdata.CurrAsmList,cgpara);
              cgpara.done;
@@ -1017,8 +1019,7 @@ implementation
 
     destructor tcgcallnode.destroy;
       begin
-        if assigned(typedef) then
-          retloc.done;
+        retloc.resetiftemp;
         inherited destroy;
       end;
 

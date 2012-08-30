@@ -65,9 +65,6 @@ uses
 *****************************************************************************}
 
    const
-      { Invalid register number }
-      RS_INVALID    = $ff;
-
       { Integer Super registers }
       RS_RAX        = $00;      {EAX}
       RS_RCX        = $01;      {ECX}
@@ -129,6 +126,8 @@ uses
       RS_XMM14       = $0e;
       RS_XMM15       = $0f;
 
+      RS_FLAGS       = $07;
+
       { Number of first imaginary register }
 {$ifdef x86_64}
       first_mm_imreg     = $10;
@@ -189,6 +188,9 @@ uses
         {$i r386dwrf.inc}
 {$endif x86_64}
       );
+
+      RS_DEFAULTFLAGS = RS_FLAGS;
+      NR_DEFAULTFLAGS = NR_FLAGS;
 
    type
       totherregisterset = set of tregisterindex;

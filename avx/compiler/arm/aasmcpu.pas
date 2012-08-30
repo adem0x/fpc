@@ -567,10 +567,12 @@ implementation
     function taicpu.is_same_reg_move(regtype: Tregistertype):boolean;
       begin
         { allow the register allocator to remove unnecessary moves }
-        result:=(((opcode=A_MOV) and (regtype = R_INTREGISTER)) or
-                 ((opcode=A_MVF) and (regtype = R_FPUREGISTER) and (oppostfix in [PF_None,PF_D])) or
-                 (((opcode=A_FCPYS) or (opcode=A_FCPYD)) and (regtype = R_MMREGISTER))
+        result:=(
+                  ((opcode=A_MOV) and (regtype = R_INTREGISTER)) or
+                  ((opcode=A_MVF) and (regtype = R_FPUREGISTER)) or
+                  ((opcode in [A_FCPYS, A_FCPYD]) and (regtype = R_MMREGISTER))
                 ) and
+                (oppostfix in [PF_None,PF_D]) and
                 (condition=C_None) and
                 (ops=2) and
                 (oper[0]^.typ=top_reg) and
@@ -642,7 +644,7 @@ implementation
     function taicpu.spilling_get_operation_type(opnr: longint): topertype;
       begin
         case opcode of
-          A_ADC,A_ADD,A_AND,
+          A_ADC,A_ADD,A_AND,A_BIC,
           A_EOR,A_CLZ,
           A_LDR,A_LDRB,A_LDRBT,A_LDRH,A_LDRSB,
           A_LDRSH,A_LDRT,
@@ -666,12 +668,14 @@ implementation
           A_FMDHR,A_FMRDH,A_FMDLR,A_FMRDL,
           A_FNEGS,A_FNEGD,
           A_FSITOS,A_FSITOD,A_FTOSIS,A_FTOSID,
-          A_FTOUIS,A_FTOUID,A_FUITOS,A_FUITOD:
+          A_FTOUIS,A_FTOUID,A_FUITOS,A_FUITOD,
+          A_SXTB16,A_UXTB16,
+          A_UXTB,A_UXTH,A_SXTB,A_SXTH:
             if opnr=0 then
               result:=operand_write
             else
               result:=operand_read;
-          A_BIC,A_BKPT,A_B,A_BL,A_BLX,A_BX,
+          A_BKPT,A_B,A_BL,A_BLX,A_BX,
           A_CMN,A_CMP,A_TEQ,A_TST,
           A_CMF,A_CMFE,A_WFS,A_CNF,
           A_FCMPS,A_FCMPD,A_FCMPES,A_FCMPED,A_FCMPEZS,A_FCMPEZD,

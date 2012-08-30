@@ -42,15 +42,14 @@ interface
         {Returns a structure giving the information on the storage of the parameter
         (which must be an integer parameter)
         @param(nr Parameter number of routine, starting from 1)}
-        procedure getintparaloc(calloption : tproccalloption; nr : longint;var cgpara : TCGPara);override;
+        procedure getintparaloc(calloption : tproccalloption; nr : longint; def : tdef; var cgpara : tcgpara);override;
         function  create_paraloc_info(p : TAbstractProcDef; side: tcallercallee):longint;override;
         function  create_varargs_paraloc_info(p : tabstractprocdef; varargspara:tvarargsparalist):longint;override;
-        function  get_funcretloc(p : tabstractprocdef; side: tcallercallee; def: tdef): tcgpara;override;
+        function  get_funcretloc(p : tabstractprocdef; side: tcallercallee; forcetempdef: tdef): tcgpara;override;
         function param_use_paraloc(const cgpara: tcgpara): boolean; override;
         function ret_in_param(def: tdef; calloption: tproccalloption): boolean; override;
         function is_stack_paraloc(paraloc: pcgparalocation): boolean;override;
       private
-        procedure create_funcretloc_info(p : tabstractprocdef; side: tcallercallee);
         procedure create_paraloc_info_intern(p : tabstractprocdef; side: tcallercallee; paras: tparalist;
                                              var parasize:longint);
       end;
@@ -64,9 +63,9 @@ implementation
       hlcgobj;
 
 
-    procedure TJVMParaManager.GetIntParaLoc(calloption : tproccalloption; nr : longint;var cgpara : tcgpara);
+    procedure TJVMParaManager.GetIntParaLoc(calloption : tproccalloption; nr : longint; def : tdef; var cgpara : tcgpara);
       begin
-        { don't know whether it's an actual integer or a pointer (necessary for cgpara.def) }
+        { not yet implemented/used }
         internalerror(2010121001);
       end;
 
@@ -111,23 +110,23 @@ implementation
       end;
 
 
-    procedure TJVMParaManager.create_funcretloc_info(p : tabstractprocdef; side: tcallercallee);
-      begin
-        p.funcretloc[side]:=get_funcretloc(p,side,p.returndef);
-      end;
-
-
-    function TJVMParaManager.get_funcretloc(p : tabstractprocdef; side: tcallercallee; def: tdef): tcgpara;
+    function TJVMParaManager.get_funcretloc(p : tabstractprocdef; side: tcallercallee; forcetempdef: tdef): tcgpara;
       var
         paraloc : pcgparalocation;
         retcgsize  : tcgsize;
       begin
-        def:=get_para_push_size(def);
         result.init;
         result.alignment:=get_para_align(p.proccalloption);
-        result.def:=def;
+        if not assigned(forcetempdef) then
+          result.def:=p.returndef
+        else
+          begin
+            result.def:=forcetempdef;
+            result.temporary:=true;
+          end;
+        result.def:=get_para_push_size(result.def);
         { void has no location }
-        if is_void(def) then
+        if is_void(result.def) then
           begin
             paraloc:=result.add_location;
             result.size:=OS_NO;
@@ -144,8 +143,8 @@ implementation
           end
         else
           begin
-            retcgsize:=def_cgsize(def);
-            result.intsize:=def.size;
+            retcgsize:=def_cgsize(result.def);
+            result.intsize:=result.def.size;
           end;
         result.size:=retcgsize;
 

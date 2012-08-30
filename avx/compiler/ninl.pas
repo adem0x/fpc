@@ -66,6 +66,7 @@ interface
           function first_int_real: tnode; virtual;
           function first_abs_long: tnode; virtual;
           function first_IncludeExclude: tnode; virtual;
+          function first_get_frame: tnode; virtual;
           function first_setlength: tnode; virtual;
           function first_copy: tnode; virtual;
           { This one by default generates an internal error, because such
@@ -102,7 +103,7 @@ implementation
 
     uses
       verbose,globals,systems,constexp,
-      globtype, cutils,
+      globtype,cutils,fmodule,
       symconst,symdef,symsym,symtable,paramgr,defutil,symbase,
       pass_1,
       ncal,ncon,ncnv,nadd,nld,nbas,nflw,nmem,nmat,nutils,
@@ -1359,9 +1360,9 @@ implementation
         { code is not a 32bit parameter (we already checked whether the }
         { the code para, if specified, was an orddef)                   }
         if not assigned(codepara) or
-           (codepara.resultdef.size<>sinttype.size) then
+           (codepara.resultdef.size<>ptrsinttype.size) then
           begin
-            tempcode := ctempcreatenode.create(sinttype,sinttype.size,tt_persistent,false);
+            tempcode := ctempcreatenode.create(ptrsinttype,ptrsinttype.size,tt_persistent,false);
             addstatement(newstatement,tempcode);
             { set the resultdef of the temp (needed to be able to get }
             { the resultdef of the tempref used in the new code para) }
@@ -1378,13 +1379,13 @@ implementation
             { we need its resultdef later on }
             codepara.get_paratype;
           end
-        else if (torddef(codepara.resultdef).ordtype = torddef(sinttype).ordtype) then
+        else if (torddef(codepara.resultdef).ordtype = torddef(ptrsinttype).ordtype) then
           { because code is a var parameter, it must match types exactly    }
           { however, since it will return values in [0..255], both longints }
           { and cardinals are fine. Since the formal code para type is      }
           { longint, insert a typecoversion to longint for cardinal para's  }
           begin
-            codepara.left := ctypeconvnode.create_internal(codepara.left,sinttype);
+            codepara.left := ctypeconvnode.create_internal(codepara.left,ptrsinttype);
             { make it explicit, oterwise you may get a nonsense range }
             { check error if the cardinal already contained a value   }
             { > $7fffffff                                             }
@@ -2474,7 +2475,8 @@ implementation
                 begin
                   { the constant evaluation of in_sizeof_x happens in pexpr where possible }
                   set_varstate(left,vs_read,[]);
-                  if paramanager.push_high_param(vs_value,left.resultdef,current_procinfo.procdef.proccalloption) then
+                  if (left.resultdef.typ<>undefineddef) and
+                      paramanager.push_high_param(vs_value,left.resultdef,current_procinfo.procdef.proccalloption) then
                    begin
                      hightree:=load_high_value_node(tparavarsym(tloadnode(left).symtableentry));
                      if assigned(hightree) then
@@ -2518,7 +2520,11 @@ implementation
                 begin
                   if target_info.system in systems_managed_vm then
                     message(parser_e_feature_unsupported_for_vm);
+                  typecheckpass(left);
                   set_varstate(left,vs_read,[]);
+                  if (left.resultdef.typ=objectdef) and
+                    not(oo_has_vmt in tobjectdef(left.resultdef).objectoptions) then
+                      message(type_e_typeof_requires_vmt);
                   resultdef:=voidpointertype;
                 end;
 
@@ -3435,8 +3441,7 @@ implementation
             end;
          in_get_frame:
             begin
-              include(current_procinfo.flags,pi_needs_stackframe);
-              expectloc:=LOC_CREGISTER;
+              result:=first_get_frame;
             end;
          in_get_caller_frame:
             begin
@@ -3609,6 +3614,14 @@ implementation
        begin
          result:=nil;
          expectloc:=LOC_VOID;
+       end;
+
+
+     function tinlinenode.first_get_frame: tnode;
+       begin
+         include(current_procinfo.flags,pi_needs_stackframe);
+         expectloc:=LOC_CREGISTER;
+         result:=nil;
        end;
 
 
@@ -3787,15 +3800,21 @@ implementation
 
 
      function tinlinenode.first_assert: tnode;
+       var
+         paras: tcallparanode;
        begin
-         result:=nil;
-         expectloc:=LOC_VOID;
-{$ifdef i386}
-         { hack: on i386, the fourth parameter is passed via memory ->
-           we have to allocate enough stack space for it on targets that
-           use a fixed stack }
-         current_procinfo.allocate_push_parasize(4);
+         paras:=tcallparanode(tcallparanode(left).right);
+         paras:=ccallparanode.create(cstringconstnode.createstr(current_module.sourcefiles.get_file_name(current_filepos.fileindex)),paras);
+         paras:=ccallparanode.create(genintconstnode(fileinfo.line),paras);
+{$if defined(x86) or defined(arm) or defined(jvm)}
+         paras:=ccallparanode.create(geninlinenode(in_get_frame,false,nil),paras);
+{$else}
+         paras:=ccallparanode.create(ccallnode.createinternfromunit('SYSTEM','GET_FRAME',nil),paras);
 {$endif}
+         result:=cifnode.create(cnotnode.create(tcallparanode(left).left),
+            ccallnode.createintern('fpc_assert',paras),nil);
+         tcallparanode(left).left:=nil;
+         tcallparanode(left).right:=nil;
        end;
 
 

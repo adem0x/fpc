@@ -1061,24 +1061,53 @@ end;
 {$ENDIF not INTERNAL_BACKTRACE}
 
 
+{$define FPC_SYSTEM_HAS_GET_PC_ADDR}
+Function Get_pc_addr : Pointer;assembler;nostackframe;
+asm
+        movl    (%esp),%eax
+end;
+
+
 {$define FPC_SYSTEM_HAS_GET_CALLER_ADDR}
-function get_caller_addr(framebp:pointer):pointer;nostackframe;assembler;
+function get_caller_addr(framebp:pointer;addr:pointer=nil):pointer;
+{$if defined(win32)}
+{ Windows has StackTop always properly set }
+begin
+  if assigned(framebp) and (framebp<=StackTop) and (framebp>=Sptr) then
+    Result:=PPointer(framebp+4)^
+  else
+    Result:=nil;
+end;
+{$else defined(win32)}
+nostackframe;assembler;
 asm
         orl     %eax,%eax
         jz      .Lg_a_null
         movl    4(%eax),%eax
 .Lg_a_null:
 end;
+{$endif defined(win32)}
 
 
 {$define FPC_SYSTEM_HAS_GET_CALLER_FRAME}
-function get_caller_frame(framebp:pointer):pointer;nostackframe;assembler;
+function get_caller_frame(framebp:pointer;addr:pointer=nil):pointer;
+{$if defined(win32)}
+{ Windows has StackTop always properly set }
+begin
+  if assigned(framebp) and (framebp<=StackTop) and (framebp>=Sptr) then
+    Result:=PPointer(framebp)^
+  else
+    Result:=nil;
+end;
+{$else defined(win32)}
+nostackframe;assembler;
 asm
         orl     %eax,%eax
         jz      .Lgnf_null
         movl    (%eax),%eax
 .Lgnf_null:
 end;
+{$endif defined(win32)}
 
 
 {$define FPC_SYSTEM_HAS_SPTR}

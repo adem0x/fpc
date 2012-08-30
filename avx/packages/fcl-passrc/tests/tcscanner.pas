@@ -5,7 +5,7 @@ unit tcscanner;
 interface
 
 uses
-  Classes, SysUtils, typinfo, fpcunit, testutils, testregistry, pscanner, pparser;
+  Classes, SysUtils, typinfo, fpcunit, testregistry, pscanner;
 
 type
 
@@ -99,6 +99,10 @@ type
     procedure TestBackslash;
     procedure TestDotDot;
     procedure TestAssign;
+    procedure TestAssignPlus;
+    procedure TestAssignMinus;
+    procedure TestAssignMul;
+    procedure TestAssignDivision;
     procedure TestNotEqual;
     procedure TestLessEqualThan;
     procedure TestGreaterEqualThan;
@@ -131,6 +135,7 @@ type
     procedure TestFunction;
     procedure TestGeneric;
     procedure TestGoto;
+    Procedure TestHelper;
     procedure TestIf;
     procedure TestImplementation;
     procedure TestIn;
@@ -181,6 +186,7 @@ type
     Procedure TestTokenSeriesNoWhiteSpace;
     Procedure TestTokenSeriesComments;
     Procedure TestTokenSeriesNoComments;
+    Procedure TestDefine0;
     Procedure TestDefine1;
     Procedure TestDefine2;
     Procedure TestDefine3;
@@ -195,6 +201,7 @@ type
     Procedure TestDefine12;
     Procedure TestInclude;
     Procedure TestInclude2;
+    Procedure TestUnDefine1;
     Procedure TestMacro1;
     procedure TestMacro2;
     procedure TestMacro3;
@@ -634,6 +641,34 @@ begin
   TestToken(tkAssign,':=');
 end;
 
+procedure TTestScanner.TestAssignPlus;
+begin
+  TestTokens([tkPlus,tkEqual],'+=');
+  FScanner.Options:=[po_cassignments];
+  TestToken(tkAssignPlus,'+=');
+end;
+
+procedure TTestScanner.TestAssignMinus;
+begin
+  TestTokens([tkMinus,tkEqual],'-=');
+  FScanner.Options:=[po_cassignments];
+  TestToken(tkAssignMinus,'-=');
+end;
+
+procedure TTestScanner.TestAssignMul;
+begin
+  TestTokens([tkMul,tkEqual],'*=');
+  FScanner.Options:=[po_cassignments];
+  TestToken(tkAssignMul,'*=');
+end;
+
+procedure TTestScanner.TestAssignDivision;
+begin
+  TestTokens([tkDivision,tkEqual],'/=');
+  FScanner.Options:=[po_cassignments];
+  TestToken(tkAssignDivision,'/=');
+end;
+
 
 procedure TTestScanner.TestNotEqual;
 
@@ -856,6 +891,11 @@ procedure TTestScanner.TestGoto;
 
 begin
   TestToken(tkgoto,'goto');
+end;
+
+procedure TTestScanner.TestHelper;
+begin
+  TestToken(tkHelper,'helper');
 end;
 
 
@@ -1202,6 +1242,13 @@ begin
   TestTokens([tkin,tkWhitespace,tkOf,tkWhiteSpace,tkWhiteSpace,tkIdentifier],'in of {then} aninteger')
 end;
 
+procedure TTestScanner.TestDefine0;
+begin
+  TestTokens([tkComment],'{$DEFINE NEVER}');
+  If FSCanner.Defines.IndexOf('NEVER')=-1 then
+    Fail('Define not defined');
+end;
+
 procedure TTestScanner.TestDefine1;
 begin
   TestTokens([tkComment],'{$IFDEF NEVER} of {$ENDIF}');
@@ -1295,6 +1342,13 @@ begin
   FScanner.SkipWhiteSpace:=True;
   FScanner.SkipComments:=True;
   TestTokens([tkIf,tkTrue,tkThen,tkElse],'{$I myinclude.inc} else',True,False);
+end;
+
+procedure TTestScanner.TestUnDefine1;
+begin
+  FSCanner.Defines.Add('ALWAYS');
+  TestTokens([tkComment],'{$UNDEF ALWAYS}');
+  AssertEquals('No more define',-1,FScanner.Defines.INdexOf('ALWAYS'));
 end;
 
 procedure TTestScanner.TestMacro1;

@@ -416,6 +416,7 @@ const
   parser_d_internal_parser_string=03319;
   parser_e_feature_unsupported_for_vm=03320;
   parser_e_jvm_invalid_virtual_constructor_call=03321;
+  parser_e_method_lower_visibility=03322;
   type_e_mismatch=04000;
   type_e_incompatible_types=04001;
   type_e_not_equal_types=04002;
@@ -524,6 +525,8 @@ const
   type_e_no_managed_assign_generic_typecast=04115;
   type_w_interface_lower_visibility=04116;
   type_e_interface_lower_visibility=04117;
+  type_e_typeof_requires_vmt=04118;
+  type_e_invalid_default_value=04119;
   sym_e_id_not_found=05000;
   sym_f_internal_error_in_symtablestack=05001;
   sym_e_duplicate_id=05002;
@@ -741,10 +744,14 @@ const
   asmr_e_bad_seh_directive_register=07113;
   asmr_e_seh_in_pure_asm_only=07114;
   asmr_e_unsupported_directive=07115;
-  asmr_w_check_mem_operand_size=07116;
-  asmr_w_check_mem_operand_size3=07117;
-  asmr_w_check_mem_operand_size_offset=07118;
-  asmr_w_check_mem_operand_negative_offset=07119;
+  asmr_e_complex_function_result_location=07116;
+  asmr_e_wrong_gotpcrel_intel_syntax=07117;
+  asmr_e_no_gotpcrel_support=07118;
+  asmr_w_global_access_without_got=07119;
+  asmr_w_check_mem_operand_size3=07120;
+  asmr_w_check_mem_operand_size_offset=07121;
+  asmr_w_check_mem_operand_negative_offset=07122;
+  asmr_w_check_mem_operand_size=07123;
   asmw_f_too_many_asm_files=08000;
   asmw_f_assembler_output_not_supported=08001;
   asmw_f_comp_not_supported=08002;
@@ -947,9 +954,9 @@ const
   option_info=11024;
   option_help_pages=11025;
 
-  MsgTxtSize = 66122;
+  MsgTxtSize = 66862;
 
   MsgIdxMax : array[1..20] of longint=(
-    26,92,322,118,87,56,120,26,202,63,
+    26,92,323,120,87,56,124,26,202,63,
     53,20,1,1,1,1,1,1,1,1
   );

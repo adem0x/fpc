@@ -30,8 +30,10 @@ type
 
 { used by Default() in code blocks }
 //procedure fpc_zeromem(p:pointer;len:ptruint);compilerproc;
+//procedure fpc_fillmem(out data;len:ptruint;b : byte);compilerproc;
 
 procedure fpc_Shortstr_SetLength(var s:shortstring;len:SizeInt); compilerproc;
+//procedure fpc_shortstr_assign(len:longint;sstr,dstr:pointer); compilerproc;
 procedure fpc_shortstr_to_shortstr(out res:shortstring; const sstr: shortstring); compilerproc;
 { JVM-specific }
 procedure fpc_Char_To_ShortStr(out res : shortstring;const c : AnsiChar) compilerproc;
@@ -376,7 +378,7 @@ procedure fpc_variant_init(var v: tvardata);compilerproc;
 procedure fpc_variant_clear(var v: tvardata);compilerproc;
 {$ifdef FPC_VARIANTCOPY_FIXED}
 procedure fpc_variant_copy(var d: tvardata; const s : tvardata);compilerproc;
-procedure fpc_variant_copy_overwrite(const source: tvardata; var dest : tvardata);compilerproc;
+procedure fpc_variant_copy_overwrite(constref source: tvardata; var dest : tvardata);compilerproc;
 {$else FPC_VARIANTCOPY_FIXED}
 procedure fpc_variant_copy(d,s : pointer);compilerproc;
 procedure fpc_variant_copy_overwrite(source, dest : pointer);compilerproc;
@@ -635,12 +637,12 @@ procedure fpc_InitializeUnits; compilerproc;
 Procedure fpc_do_exit; compilerproc;
 Procedure fpc_lib_exit; compilerproc;
 Procedure fpc_HandleErrorAddrFrame (Errno : longint;addr,frame : pointer); compilerproc;
-Procedure fpc_HandleError (Errno : longint); compilerproc;
 }
+Procedure fpc_HandleError (Errno : longint); compilerproc;
 
 procedure fpc_AbstractErrorIntern;compilerproc;
 *)
-procedure fpc_assert(Const Msg,FName:unicodestring;LineNo:Longint{;ErrorAddr:Pointer}); compilerproc;
+procedure fpc_assert(Const Msg,FName:unicodestring;LineNo:Longint;ErrorAddr:Pointer); compilerproc;
 
 {$ifdef FPC_HAS_FEATURE_FILEIO}
 Procedure fpc_reset_typed(var f : TypedFile;Size : Longint); compilerproc;

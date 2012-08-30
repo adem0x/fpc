@@ -35,7 +35,7 @@ interface
       { pass_1 }
       node;
 
-    function  readconstant(const orgname:string;const filepos:tfileposinfo):tconstsym;
+    function  readconstant(const orgname:string;const filepos:tfileposinfo; out nodetype: tnodetype):tconstsym;
 
     procedure const_dec;
     procedure consts_dec(in_structure, allow_typed_const: boolean);
@@ -76,7 +76,7 @@ implementation
        ;
 
 
-    function readconstant(const orgname:string;const filepos:tfileposinfo):tconstsym;
+    function readconstant(const orgname:string;const filepos:tfileposinfo; out nodetype: tnodetype):tconstsym;
       var
         hp : tconstsym;
         p : tnode;
@@ -92,6 +92,7 @@ implementation
          internalerror(9584582);
         hp:=nil;
         p:=comp_expr(true,false);
+        nodetype:=p.nodetype;
         storetokenpos:=current_tokenpos;
         current_tokenpos:=filepos;
         case p.nodetype of
@@ -153,9 +154,27 @@ implementation
                else
                 Message(parser_e_illegal_expression);
              end;
+           inlinen:
+             begin
+               { this situation only happens if a intrinsic is parsed that has a
+                 generic type as its argument. As we don't know certain
+                 information about the final type yet, we need to use safe
+                 values (mostly 0) }
+               if not parse_generic then
+                 Message(parser_e_illegal_expression);
+               case tinlinenode(p).inlinenumber of
+                 in_sizeof_x,
+                 in_bitsizeof_x:
+                   begin
+                     hp:=tconstsym.create_ord(orgname,constord,0,p.resultdef);
+                   end;
+                 { add other cases here if necessary }
+                 else
+                   Message(parser_e_illegal_expression);
+               end;
+             end;
            else
-             if not(parse_generic) then
-               Message(parser_e_illegal_expression);
+             Message(parser_e_illegal_expression);
         end;
         current_tokenpos:=storetokenpos;
         p.free;
@@ -176,6 +195,7 @@ implementation
          dummysymoptions : tsymoptions;
          deprecatedmsg : pshortstring;
          storetokenpos,filepos : tfileposinfo;
+         nodetype : tnodetype;
          old_block_type : tblock_type;
          skipequal : boolean;
          tclist : tasmlist;
@@ -192,7 +212,7 @@ implementation
              _EQ:
                 begin
                    consume(_EQ);
-                   sym:=readconstant(orgname,filepos);
+                   sym:=readconstant(orgname,filepos,nodetype);
                    { Support hint directives }
                    dummysymoptions:=[];
                    deprecatedmsg:=nil;

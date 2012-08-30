@@ -223,7 +223,6 @@ interface
       end;
 
       { Set type definition for registers }
-      tcpuregisterset = set of byte;
       tsuperregisterset = array[byte] of set of byte;
 
       pmmshuffle = ^tmmshuffle;
@@ -266,10 +265,6 @@ interface
 
        { Invalid register number }
        RS_INVALID    = high(tsuperregister);
-
-       { Maximum number of cpu registers per register type,
-         this must fit in tcpuregisterset }
-       maxcpuregister = 32;
 
        tcgsize2size : Array[tcgsize] of integer =
          { integer values }

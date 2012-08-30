@@ -32,15 +32,17 @@ Type
     FSessionDir: String;
     FTerminated :Boolean;
     SID : String;
-  private
-    procedure FreeIniFile;
+    procedure UpdateIniFile;
   Protected
+    Function CreateIniFile(Const AFN : String) : TMemIniFile; virtual;
+    Procedure FreeIniFile;
     Procedure CheckSession;
     Function GetSessionID : String; override;
     Function GetSessionVariable(VarName : String) : String; override;
     procedure SetSessionVariable(VarName : String; const AValue: String); override;
     Property Cached : Boolean Read FCached Write FCached;
     Property SessionDir : String Read FSessionDir Write FSessionDir;
+    Property IniFile : TMemIniFile Read FIniFile Write FIniFile;
   Public
     Destructor Destroy; override;
     Procedure Terminate; override;
@@ -48,6 +50,7 @@ Type
     Procedure InitSession(ARequest : TRequest; OnNewSession, OnExpired: TNotifyEvent); override;
     Procedure InitResponse(AResponse : TResponse); override;
     Procedure RemoveVariable(VariableName : String); override;
+    Function GetSessionDir : String;
   end;
   TIniWebSessionClass = Class of TIniWebSession;
 
@@ -68,6 +71,7 @@ Type
     // Sweep session direcory and delete expired files.
     procedure DoCleanupSessions; override;
     Procedure DoDoneSession(Var ASession : TCustomSession); override;
+    Function SessionFilePrefix : String; virtual; 
   Public
     // Directory where sessions are kept.
     Property SessionDir : String Read FSessionDir Write SetSessionDir;
@@ -79,6 +83,9 @@ Type
 
 Var
   IniWebSessionClass : TIniWebSessionClass = Nil;
+
+Const
+  MaxIniCreate = 5;
 
 implementation
 
@@ -212,7 +219,19 @@ begin
   FreeAndNil(ASession);
 end;
 
+Function TIniSessionFactory.SessionFilePrefix : String; 
+
+begin
+  Result:='';
+end;
+
 { TIniWebSession }
+
+Function TIniWebSession.GetSessionDir : String;
+
+begin
+  Result:=SessionDir;
+end;
 
 function TIniWebSession.GetSessionID: String;
 begin
@@ -221,10 +240,75 @@ begin
   Result:=SID;
 end;
 
+Procedure TIniWebSession.UpdateIniFile;
+
+
+Var
+  ACount : Integer;
+  OK : Boolean;
+
+begin
+  ACount:=0;
+  OK:=False;
+  repeat
+    Inc(ACount);
+    try
+      TMemIniFile(FIniFile).UpdateFile;
+      OK:=True;
+    except
+      On E : EFCreateError do
+        begin
+        If ACount>MaxIniCreate then
+          Raise;
+        Sleep(20);
+        end;
+      On E : EFOpenError do
+        begin
+        If ACount>MaxIniCreate then
+          Raise;
+        Sleep(20);
+        end;
+      On E : Exception do
+        Raise;
+    end;
+  Until OK;
+end;
+
+function TIniWebSession.CreateIniFile(Const AFN: String): TMemIniFile;
+
+Var
+  ACount : Integer;
+
+begin
+  ACount:=0;
+  Result:=Nil;
+  repeat
+    Inc(ACount);
+    try
+      Result:=TMemIniFile.Create(AFN,False);
+    except
+      On E : EFCreateError do
+        begin
+        If ACount>MaxIniCreate then
+          Raise;
+        Sleep(20);
+        end;
+      On E : EFOpenError do
+        begin
+        If ACount>MaxIniCreate then
+          Raise;
+        Sleep(20);
+        end;
+      On E : Exception do
+        Raise;
+    end;
+  until (Result<>Nil);
+end;
+
 procedure TIniWebSession.FreeIniFile;
 begin
   If Cached and Assigned(FIniFile) then
-    TMemIniFile(FIniFile).UpdateFile;
+    UpdateIniFile;
   FreeAndNil(FIniFile);
 end;
 
@@ -251,7 +335,7 @@ begin
   CheckSession;
   FIniFile.WriteString(SData,VarName,AValue);
   If Not Cached then
-    TMemIniFile(FIniFile).UpdateFile;
+    UpdateIniFile;
 end;
 
 destructor TIniWebSession.Destroy;
@@ -281,9 +365,11 @@ end;
 procedure TIniWebSession.InitSession(ARequest: TRequest; OnNewSession,OnExpired: TNotifyEvent);
 
 Var
-  S : String;
-
+  S,FN : String;
+  SF : TIniSessionFactory;
+  
 begin
+  SF:=SessionFactory as TIniSessionFactory;
 {$ifdef cgidebug}SendMethodEnter('TIniWebSession.InitSession');{$endif}
   // First initialize all session-dependent properties to their default, because
   // in Apache-modules or fcgi programs the session-instance is re-used
@@ -298,14 +384,15 @@ begin
   // have session cookie ?
   If (S<>'') then
     begin
-{$ifdef cgidebug}SendDebug('Reading ini file:'+S);{$endif}
-    FIniFile:=TMemIniFile.Create(IncludeTrailingPathDelimiter(SessionDir)+S);
-    if (SessionFactory as TIniSessionFactory).SessionExpired(FIniFile) then
+    FN:=IncludeTrailingPathDelimiter(SessionDir)+SF.SessionFilePrefix+S;
+{$ifdef cgidebug}SendDebug('Reading ini file:'+FN);{$endif}
+    FIniFile:=CreateIniFile(FN);
+    if SF.SessionExpired(FIniFile) then
       begin
       // Expire session.
       If Assigned(OnExpired) then
         OnExpired(Self);
-      (SessionFactory as TIniSessionFactory).DeleteSessionFile(FIniFIle.FileName);
+      SF.DeleteSessionFile(FIniFIle.FileName);
       FreeAndNil(FInifile);
       S:='';
       end
@@ -317,16 +404,16 @@ begin
     If Assigned(OnNewSession) then
       OnNewSession(Self);
     GetSessionID;
-    S:=IncludeTrailingPathDelimiter(SessionDir)+SessionID;
+    S:=IncludeTrailingPathDelimiter(SessionDir)+SF.SessionFilePrefix+SessionID;
 {$ifdef cgidebug}SendDebug('Creating new Ini file : '+S);{$endif}
-    FIniFile:=TMemIniFile.Create(S);
+    FIniFile:=CreateIniFile(S);
     FIniFile.WriteDateTime(SSession,KeyStart,Now);
     FIniFile.WriteInteger(SSession,KeyTimeOut,Self.TimeOutMinutes);
     FSessionStarted:=True;
     end;
   FIniFile.WriteDateTime(SSession,KeyLast,Now);
   If not FCached then
-    FIniFile.UpdateFile;
+    UpdateIniFile;
 {$ifdef cgidebug}SendMethodExit('TIniWebSession.InitSession');{$endif}
 end;
 
@@ -365,7 +452,7 @@ begin
   CheckSession;
   FIniFile.DeleteKey(SData,VariableName);
   If Not Cached then
-    TMemIniFile(FIniFile).UpdateFile;
+    UpdateIniFile;
 {$ifdef cgidebug}SendMethodExit('TIniWebSession.RemoveVariable');{$endif}
 end;
 

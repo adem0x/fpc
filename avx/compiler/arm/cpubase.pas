@@ -25,6 +25,8 @@
 }
 unit cpubase;
 
+{$define USEINLINE}
+
 {$i fpcdefs.inc}
 
   interface
@@ -44,6 +46,9 @@ unit cpubase;
 
     type
       TAsmOp= {$i armop.inc}
+      {This is a bit of a hack, because there are more than 256 ARM Assembly Ops
+       But FPC currently can't handle more than 256 elements in a set.}
+      TCommonAsmOps = Set of A_None .. A_UQSADA8;
 
       { This should define the array of instructions as string }
       op2strtable=array[tasmop] of string[11];
@@ -291,6 +296,9 @@ unit cpubase;
       { Offset where the parent framepointer is pushed }
       PARENT_FRAMEPOINTER_OFFSET = 0;
 
+      NR_DEFAULTFLAGS = NR_CPSR_C;
+      RS_DEFAULTFLAGS = RS_CPSR_C;
+
       { Low part of 64bit return value }
       function NR_FUNCTION_RESULT64_LOW_REG: tregister;{$ifdef USEINLINE}inline;{$endif USEINLINE}
       function RS_FUNCTION_RESULT64_LOW_REG: shortint;{$ifdef USEINLINE}inline;{$endif USEINLINE}
@@ -314,7 +322,7 @@ unit cpubase;
         (RS_R4,RS_R5,RS_R6,RS_R7,RS_R8,RS_R9,RS_R10);
 
       { this is only for the generic code which is not used for this architecture }
-      saved_mm_registers : array[0..0] of tsuperregister = (RS_NO);
+      saved_mm_registers : array[0..0] of tsuperregister = (RS_INVALID);
 
       { Required parameter alignment when calling a routine declared as
         stdcall and cdecl. The alignment value should be the one defined
@@ -347,6 +355,7 @@ unit cpubase;
     function is_pc(const r : tregister) : boolean; {$ifdef USEINLINE}inline;{$endif USEINLINE}
 
     function is_shifter_const(d : aint;var imm_shift : byte) : boolean;
+    function split_into_shifter_const(value : aint;var imm1: dword; var imm2: dword):boolean;
     function dwarf_reg(r:tregister):shortint;
 
   implementation
@@ -497,12 +506,6 @@ unit cpubase;
       end;
 
 
-    function rotl(d : dword;b : byte) : dword; {$ifdef USEINLINE}inline;{$endif USEINLINE}
-      begin
-         result:=(d shr (32-b)) or (d shl b);
-      end;
-
-
     function is_shifter_const(d : aint;var imm_shift : byte) : boolean;
       var
          i : longint;
@@ -523,7 +526,7 @@ unit cpubase;
           begin
             for i:=0 to 15 do
               begin
-                 if (dword(d) and not(rotl($ff,i*2)))=0 then
+                 if (dword(d) and not(roldword($ff,i*2)))=0 then
                    begin
                       imm_shift:=i*2;
                       result:=true;
@@ -534,6 +537,30 @@ unit cpubase;
         result:=false;
       end;
 
+    function split_into_shifter_const(value : aint;var imm1: dword; var imm2: dword) : boolean;
+      var
+        d, i, i2: Dword;
+      begin
+        Result:=false;
+        {Thumb2 is not supported (YET?)}
+        if current_settings.cputype in cpu_thumb2 then exit;
+        d:=DWord(value);
+        for i:=0 to 15 do
+          begin
+            imm1:=d and rordword($FF, I*2);
+            imm2:=d and not (imm1); {remove already found bits}
+            {is the remainder a shifterconst? YAY! we've done it!}
+            {Could we start from i instead of 0?}
+            for i2:=0 to 15 do
+              begin
+                 if (imm2 and not(rordword($FF,i2*2)))=0 then
+                   begin
+                      result:=true;
+                      exit;
+                   end;
+              end;
+          end;
+      end;
 
     function dwarf_reg(r:tregister):shortint;
       begin

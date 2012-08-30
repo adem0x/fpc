@@ -40,13 +40,11 @@ type
     function push_addr_param(varspez: tvarspez; def: tdef; calloption:
       tproccalloption): boolean; override;
 
-    procedure getintparaloc(calloption: tproccalloption; nr: longint; var
-      cgpara: TCGPara); override;
+    procedure getintparaloc(calloption: tproccalloption; nr: longint; def: tdef; var cgpara: tcgpara); override;
     function create_paraloc_info(p: tabstractprocdef; side: tcallercallee): longint; override;
     function create_varargs_paraloc_info(p: tabstractprocdef; varargspara:
       tvarargsparalist): longint; override;
-    function get_funcretloc(p : tabstractprocdef; side: tcallercallee; def: tdef): tcgpara;override;
-    procedure create_funcretloc_info(p: tabstractprocdef; side: tcallercallee);
+    function get_funcretloc(p : tabstractprocdef; side: tcallercallee; forcetempdef: tdef): tcgpara;override;
 
   private
     procedure init_values(var curintreg, curfloatreg, curmmreg: tsuperregister;
@@ -79,15 +77,15 @@ begin
   result := [RS_F0..RS_F13];
 end;
 
-procedure tppcparamanager.getintparaloc(calloption: tproccalloption; nr:
-  longint; var cgpara: TCGPara);
+procedure tppcparamanager.getintparaloc(calloption: tproccalloption; nr: longint; def : tdef; var cgpara: tcgpara);
 var
   paraloc: pcgparalocation;
 begin
   cgpara.reset;
-  cgpara.size := OS_ADDR;
-  cgpara.intsize := sizeof(pint);
+  cgpara.size := def_cgsize(def);
+  cgpara.intsize := tcgsize2size[cgpara.size];
   cgpara.alignment := get_para_align(calloption);
+  cgpara.def:=def;
   paraloc := cgpara.add_location;
   with paraloc^ do begin
     size := OS_INT;
@@ -203,54 +201,18 @@ begin
   curmmreg := RS_M2;
 end;
 
-procedure tppcparamanager.create_funcretloc_info(p: tabstractprocdef; side:
-  tcallercallee);
-begin
-  p.funcretloc[side]:=get_funcretloc(p,side,p.returndef);
-end;
-
 function tppcparamanager.get_funcretloc(p : tabstractprocdef; side:
-  tcallercallee; def: tdef): tcgpara;
+  tcallercallee; forcetempdef: tdef): tcgpara;
 var
   paraloc : pcgparalocation;
   retcgsize  : tcgsize;
 begin
-  result.init;
-  result.alignment:=get_para_align(p.proccalloption);
-  { void has no location }
-  if is_void(def) then
-    begin
-      paraloc:=result.add_location;
-      result.size:=OS_NO;
-      result.intsize:=0;
-      paraloc^.size:=OS_NO;
-      paraloc^.loc:=LOC_VOID;
-      exit;
-    end;
-  { Constructors return self instead of a boolean }
-  if (p.proctypeoption=potype_constructor) then
-    begin
-      retcgsize:=OS_ADDR;
-      result.intsize:=sizeof(pint);
-    end
-  else
-    begin
-      retcgsize:=def_cgsize(def);
-      result.intsize:=def.size;
-    end;
-  result.size:=retcgsize;
-  { Return is passed as var parameter }
-  if ret_in_param(def,p.proccalloption) then
-    begin
-      paraloc:=result.add_location;
-      paraloc^.loc:=LOC_REFERENCE;
-      paraloc^.size:=retcgsize;
-      exit;
-    end;
+  if set_common_funcretloc_info(p,forcetempdef,retcgsize,result) then
+    exit;
 
   paraloc:=result.add_location;
   { Return in FPU register? }
-  if def.typ=floatdef then
+  if result.def.typ=floatdef then
     begin
       paraloc^.loc:=LOC_FPUREGISTER;
       paraloc^.register:=NR_FPU_RESULT_REG;
@@ -334,11 +296,8 @@ begin
       break;
     end;
 
-    if (hp.varspez in [vs_var, vs_out]) or
-      push_addr_param(hp.varspez, paradef, p.proccalloption) or
-      is_open_array(paradef) or
-      is_array_of_const(paradef) then begin
-      paradef := voidpointertype;
+    if push_addr_param(hp.varspez, paradef, p.proccalloption) then begin
+      paradef := getpointerdef(paradef);
       loc := LOC_REGISTER;
       paracgsize := OS_ADDR;
       paralen := tcgsize2size[OS_ADDR];
@@ -390,6 +349,7 @@ begin
     hp.paraloc[side].alignment := std_param_align;
     hp.paraloc[side].size := paracgsize;
     hp.paraloc[side].intsize := paralen;
+    hp.paraloc[side].def := paradef;
     if (paralen = 0) then
       if (paradef.typ = recorddef) then begin
         paraloc := hp.paraloc[side].add_location;

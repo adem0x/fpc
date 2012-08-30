@@ -19,9 +19,21 @@ uses Dynlibs,ctypes;
 {$IFDEF Unix}
   {$DEFINE extdecl:=cdecl}
   const
-    gdslib = 'libgds.'+sharedsuffix;
-    fbclib = 'libfbclient.'+sharedsuffix;
-    fbembedlib = 'libfbembed.'+sharedsuffix;
+    gdslib = 'libgds.'+sharedsuffix; // Needs completion ?
+    libfc  = 'libfbclient.'+sharedsuffix;
+    libem  = 'libfbembed.'+sharedsuffix;
+    v2  = {$ifndef darwin}'.2'{$else}''{$endif};
+    v21 = {$ifndef darwin}'.2.1'{$else}''{$endif};
+    v25 = {$ifndef darwin}'.2.5'{$else}''{$endif};
+    fbclib2      = libfc+v2;
+    fbembedlib2  = libem+v2;
+    fbclib21     = libfc+v21;
+    fbembedlib21 = libem+v21;
+    fbclib25     = libfc+v25;
+    fbembedlib25 = libem+v25;
+    // Set default here
+    fbclib       = fbclib25;
+    fbembedlib   = fbembedlib25;
 {$ENDIF}
 {$IFDEF Windows}
   {$DEFINE extdecl:=stdcall}
@@ -29,6 +41,8 @@ uses Dynlibs,ctypes;
     gdslib = 'gds32.dll';
     fbclib = 'fbclient.dll';
     fbembedlib = 'fbembed.dll';
+    libfc  = fbclib;
+    libem  = fbembedlib;
 {$ENDIF}
 
 type
@@ -2459,7 +2473,7 @@ implementation
 
 ResourceString
   SErrEmbeddedFailed = 'Can not load embedded Firebird client "%s". Check your installation.';
-  SErrDefaultsFailed = 'Can not load default Firebird clients ("%s" or "%s"). Check your installation.';
+  SErrDefaultsFailed = 'Can not load default Firebird clients ("%s" or "%s" or "%s"). Check your installation.';
   SErrLoadFailed     = 'Can not load Firebird client library "%s". Check your installation.';
   SErrAlreadyLoaded  = 'Firebird interface already initialized from library %s.';
   
@@ -2655,17 +2669,21 @@ function InitialiseIBase60 : integer;
 
 begin
   Result := 0;
-  If UseEmbeddedFirebird then
+  if (RefCount<>0) then
+    // pretend to load whatever is already loaded, so we do not get a library name conflict.
+    Inc(RefCount)
+  else If UseEmbeddedFirebird then
     begin
-    If (TryInitialiseIBase60(fbembedlib)=0) then
+    If (TryInitialiseIBase60(fbembedlib)=0) and (TryInitialiseIBase60(libem)=0) then
       Raise EInOutError.CreateFmt(SErrEmbeddedFailed,[fbembedlib]);
     end
   else
     begin
     If (TryInitialiseIBase60(fbclib)=0) and
        (TryInitialiseIBase60(gdslib)=0) and
+       (TryInitialiseIBase60(libfc)=0) and
        (TryInitialiseIBase60(fbembedlib)=0) then
-        Raise EInOutError.CreateFmt(SErrDefaultsFailed,[fbembedlib,gdslib,fbclib]);
+        Raise EInOutError.CreateFmt(SErrDefaultsFailed,[fbclib,gdslib,fbembedlib]);
     end;    
   Result := RefCount;
 end;

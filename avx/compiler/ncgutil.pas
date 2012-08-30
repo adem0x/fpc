@@ -137,7 +137,7 @@ interface
     procedure new_exception(list:TAsmList;const t:texceptiontemps;exceptlabel:tasmlabel);
     procedure free_exception(list:TAsmList;const t:texceptiontemps;a:aint;endexceptlabel:tasmlabel;onlyfree:boolean);
 
-    procedure gen_alloc_symtable(list:TAsmList;st:TSymtable);
+    procedure gen_alloc_symtable(list:TAsmList;pd:tprocdef;st:TSymtable);
     procedure gen_free_symtable(list:TAsmList;st:TSymtable);
 
     procedure location_free(list: TAsmList; const location : TLocation);
@@ -337,6 +337,7 @@ implementation
                      LOC_FLAGS :
                        begin
                          cg.a_jmp_flags(list,p.location.resflags,current_procinfo.CurrTrueLabel);
+                         cg.a_reg_dealloc(list,NR_DEFAULTFLAGS);
                          cg.a_jmp_always(list,current_procinfo.CurrFalseLabel);
                        end;
 {$endif cpuflags}
@@ -417,9 +418,9 @@ implementation
         paraloc1.init;
         paraloc2.init;
         paraloc3.init;
-        paramanager.getintparaloc(pocall_default,1,paraloc1);
-        paramanager.getintparaloc(pocall_default,2,paraloc2);
-        paramanager.getintparaloc(pocall_default,3,paraloc3);
+        paramanager.getintparaloc(pocall_default,1,s32inttype,paraloc1);
+        paramanager.getintparaloc(pocall_default,2,voidpointertype,paraloc2);
+        paramanager.getintparaloc(pocall_default,3,voidpointertype,paraloc3);
         cg.a_loadaddr_ref_cgpara(list,t.envbuf,paraloc3);
         cg.a_loadaddr_ref_cgpara(list,t.jmpbuf,paraloc2);
         { push type of exceptionframe }
@@ -431,7 +432,7 @@ implementation
         cg.a_call_name(list,'FPC_PUSHEXCEPTADDR',false);
         cg.deallocallcpuregisters(list);
 
-        paramanager.getintparaloc(pocall_default,1,paraloc1);
+        paramanager.getintparaloc(pocall_default,1,search_system_type('PJMP_BUF').typedef,paraloc1);
         cg.a_load_reg_cgpara(list,OS_ADDR,NR_FUNCTION_RESULT_REG,paraloc1);
         paramanager.freecgpara(list,paraloc1);
         cg.allocallcpuregisters(list);
@@ -659,7 +660,7 @@ implementation
                       internalerror(200306061);
                     hreg:=cg.getaddressregister(list);
                     if not is_packed_array(tparavarsym(p).vardef) then
-                      cg.g_copyvaluepara_openarray(list,href,hsym.initialloc,tarraydef(tparavarsym(p).vardef).elesize,hreg)
+                      hlcg.g_copyvaluepara_openarray(list,href,hsym.initialloc,tarraydef(tparavarsym(p).vardef),hreg)
                     else
                       internalerror(2006080401);
 //                      cg.g_copyvaluepara_packedopenarray(list,href,hsym.intialloc,tarraydef(tparavarsym(p).vardef).elepackedbitsize,hreg);
@@ -681,7 +682,7 @@ implementation
                       so we're allowed to include pi_do_call here; after pass1 is run, this isn't allowed anymore
                     }
                     include(current_procinfo.flags,pi_do_call);
-                    cg.g_copyshortstring(list,href,localcopyloc.reference,tstringdef(tparavarsym(p).vardef).len)
+                    hlcg.g_copyshortstring(list,href,localcopyloc.reference,tstringdef(tparavarsym(p).vardef));
                   end
                 else if tparavarsym(p).vardef.typ = variantdef then
                   begin
@@ -689,7 +690,7 @@ implementation
                       so we're allowed to include pi_do_call here; after pass1 is run, this isn't allowed anymore
                     }
                     include(current_procinfo.flags,pi_do_call);
-                    cg.g_copyvariant(list,href,localcopyloc.reference)
+                    hlcg.g_copyvariant(list,href,localcopyloc.reference,tvariantdef(tparavarsym(p).vardef))
                   end
                 else
                   begin
@@ -739,10 +740,10 @@ implementation
                          eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
                          if not assigned(hsym) then
                            internalerror(201003031);
-                         cg.g_array_rtti_helper(list,eldef,href,hsym.initialloc,'FPC_ADDREF_ARRAY');
+                         hlcg.g_array_rtti_helper(list,eldef,href,hsym.initialloc,'fpc_addref_array');
                        end
                      else
-                      cg.g_incrrefcount(list,tparavarsym(p).vardef,href);
+                      hlcg.g_incrrefcount(list,tparavarsym(p).vardef,href);
                    end;
                end;
              vs_out :
@@ -757,10 +758,10 @@ implementation
                      eldef:=tarraydef(tparavarsym(p).vardef).elementdef;
                      if not assigned(hsym) then
                        internalerror(201103033);
-                     cg.g_array_rtti_helper(list,eldef,href,hsym.initialloc,'FPC_INITIALIZE_ARRAY');
+                     hlcg.g_array_rtti_helper(list,eldef,href,hsym.initialloc,'fpc_initialize_array');
                    end
                  else
-                   cg.g_initialize(list,tparavarsym(p).vardef,href);
+                   hlcg.g_initialize(list,tparavarsym(p).vardef,href);
                end;
            end;
          end;
@@ -843,9 +844,12 @@ implementation
         paraloc  : pcgparalocation;
         href     : treference;
         sizeleft : aint;
-{$if defined(sparc) or defined(arm)}
+{$if defined(sparc) or defined(arm) or defined(mips)}
         tempref  : treference;
-{$endif sparc}
+{$endif defined(sparc) or defined(arm) or defined(mips)}
+{$ifdef mips}
+        tmpreg   : tregister;
+{$endif mips}
 {$ifndef cpu64bitalu}
         tempreg  : tregister;
         reg64    : tregister64;
@@ -951,6 +955,48 @@ implementation
           LOC_FPUREGISTER,
           LOC_CFPUREGISTER :
             begin
+{$ifdef mips}
+              if (destloc.size = paraloc^.Size) and
+                 (paraloc^.Loc in [LOC_FPUREGISTER,LOC_CFPUREGISTER]) then
+                begin
+                  gen_alloc_regloc(list,destloc);
+                  cg.a_loadfpu_reg_reg(list,paraloc^.Size, destloc.size, paraloc^.register, destloc.register);
+                end
+              else if (destloc.size = OS_F32) and
+                 (paraloc^.Loc in [LOC_REGISTER,LOC_CREGISTER]) then
+                begin
+                  gen_alloc_regloc(list,destloc);
+                  list.Concat(taicpu.op_reg_reg(A_MTC1,paraloc^.register,destloc.register));
+                end
+              else if (destloc.size = OS_F64) and
+                      (paraloc^.Loc in [LOC_REGISTER,LOC_CREGISTER]) and
+                      (paraloc^.next^.Loc in [LOC_REGISTER,LOC_CREGISTER]) then
+                begin
+                  gen_alloc_regloc(list,destloc);
+
+                  tmpreg:=destloc.register;
+                  list.Concat(taicpu.op_reg_reg(A_MTC1,paraloc^.register,tmpreg));
+                  setsupreg(tmpreg,getsupreg(tmpreg)+1);
+                  list.Concat(taicpu.op_reg_reg(A_MTC1,paraloc^.Next^.register,tmpreg));
+                end
+              else
+                begin
+                  sizeleft := TCGSize2Size[destloc.size];
+                  tg.GetTemp(list,sizeleft,sizeleft,tt_normal,tempref);
+                  href:=tempref;
+                  while assigned(paraloc) do
+                    begin
+                      unget_para(paraloc^);
+                      cg.a_load_cgparaloc_ref(list,paraloc^,href,sizeleft,destloc.reference.alignment);
+                      inc(href.offset,TCGSize2Size[paraloc^.size]);
+                      dec(sizeleft,TCGSize2Size[paraloc^.size]);
+                      paraloc:=paraloc^.next;
+                    end;
+                  gen_alloc_regloc(list,destloc);
+                  cg.a_loadfpu_ref_reg(list,destloc.size,destloc.size,tempref,destloc.register);
+                  tg.UnGetTemp(list,tempref);
+                end;
+{$else mips}
 {$if defined(sparc) or defined(arm)}
               { Arm and Sparc passes floats in int registers, when loading to fpu register
                 we need a temp }
@@ -968,14 +1014,15 @@ implementation
               gen_alloc_regloc(list,destloc);
               cg.a_loadfpu_ref_reg(list,destloc.size,destloc.size,tempref,destloc.register);
               tg.UnGetTemp(list,tempref);
-{$else sparc}
+{$else defined(sparc) or defined(arm)}
               unget_para(paraloc^);
               gen_alloc_regloc(list,destloc);
               { from register to register -> alignment is irrelevant }
               cg.a_load_cgparaloc_anyreg(list,destloc.size,paraloc^,destloc.register,0);
               if assigned(paraloc^.next) then
                 internalerror(200410109);
-{$endif sparc}
+{$endif defined(sparc) or defined(arm)}
+{$endif mips}
             end;
           LOC_MMREGISTER,
           LOC_CMMREGISTER :
@@ -1264,7 +1311,7 @@ implementation
         paraloc1   : tcgpara;
       begin
         paraloc1.init;
-        paramanager.getintparaloc(pocall_default,1,paraloc1);
+        paramanager.getintparaloc(pocall_default,1,ptruinttype,paraloc1);
         cg.a_load_const_cgpara(list,OS_INT,current_procinfo.calc_stackframe_size,paraloc1);
         paramanager.freecgpara(list,paraloc1);
         paraloc1.done;
@@ -1277,7 +1324,7 @@ implementation
       begin
         paraloc1.init;
         { Also alloc the register needed for the parameter }
-        paramanager.getintparaloc(pocall_default,1,paraloc1);
+        paramanager.getintparaloc(pocall_default,1,ptruinttype,paraloc1);
         paramanager.freecgpara(list,paraloc1);
         { Call the helper }
         cg.allocallcpuregisters(list);
@@ -1335,7 +1382,7 @@ implementation
                                Const Data
 ****************************************************************************}
 
-    procedure gen_alloc_symtable(list:TAsmList;st:TSymtable);
+    procedure gen_alloc_symtable(list:TAsmList;pd:tprocdef;st:TSymtable);
 
         procedure setlocalloc(vs:tabstractnormalvarsym);
         begin
@@ -1427,7 +1474,20 @@ implementation
                 begin
                   vs:=tabstractnormalvarsym(sym);
                   vs.initialloc.size:=def_cgsize(vs.vardef);
-                  if (m_delphi in current_settings.modeswitches) and
+                  if ([po_assembler,po_nostackframe] * current_procinfo.procdef.procoptions = [po_assembler,po_nostackframe]) and
+                     (vo_is_funcret in vs.varoptions) then
+                    begin
+                      paramanager.create_funcretloc_info(pd,calleeside);
+                      if assigned(pd.funcretloc[calleeside].location^.next) then
+                        begin
+                          { can't replace references to "result" with a complex
+                            location expression inside assembler code }
+                          location_reset(vs.initialloc,LOC_INVALID,OS_NO);
+                        end
+                      else
+                        pd.funcretloc[calleeside].get_location(vs.initialloc);
+                    end
+                  else if (m_delphi in current_settings.modeswitches) and
                      (po_assembler in current_procinfo.procdef.procoptions) and
                      (vo_is_funcret in vs.varoptions) and
                      (vs.refs=0) then
@@ -1849,6 +1909,7 @@ implementation
     procedure gen_load_vmt_register(list:TAsmList;objdef:tobjectdef;selfloc:tlocation;var vmtreg:tregister);
       var
         href : treference;
+        selfdef: tdef;
       begin
         if is_object(objdef) then
           begin
@@ -1858,6 +1919,7 @@ implementation
                 begin
                   reference_reset_base(href,cg.getaddressregister(list),objdef.vmt_offset,sizeof(pint));
                   cg.a_loadaddr_ref_reg(list,selfloc.reference,href.base);
+                  selfdef:=getpointerdef(objdef);
                 end;
               else
                 internalerror(200305056);
@@ -1868,6 +1930,7 @@ implementation
             and the first "field" of an Objective-C class instance is a pointer
             to its "meta-class".  }
           begin
+            selfdef:=objdef;
             case selfloc.loc of
               LOC_REGISTER:
                 begin
@@ -1895,7 +1958,7 @@ implementation
             end;
           end;
         vmtreg:=cg.getaddressregister(list);
-        cg.g_maybe_testself(list,href.base);
+        hlcg.g_maybe_testself(list,selfdef,href.base);
         cg.a_load_ref_reg(list,OS_ADDR,OS_ADDR,href,vmtreg);
 
         { test validity of VMT }

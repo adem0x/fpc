@@ -31,7 +31,6 @@ interface
     type
        tcginlinenode = class(tinlinenode)
           procedure pass_generate_code;override;
-          procedure second_assert;virtual;
           procedure second_sizeoftypeof;virtual;
           procedure second_length;virtual;
           procedure second_predsucc;virtual;
@@ -54,8 +53,7 @@ interface
           procedure second_round_real; virtual;
           procedure second_trunc_real; virtual;
           procedure second_abs_long; virtual;
-          procedure second_rox; virtual;
-          procedure second_sar; virtual;
+          procedure second_rox_sar; virtual;
           procedure second_bsfbsr; virtual;
           procedure second_new; virtual;
           procedure second_setlength; virtual; abstract;
@@ -66,7 +64,7 @@ implementation
 
     uses
       globtype,systems,constexp,
-      cutils,verbose,globals,fmodule,
+      cutils,verbose,globals,
       symconst,symdef,defutil,symsym,
       aasmbase,aasmtai,aasmdata,aasmcpu,parabase,
       cgbase,pass_1,pass_2,
@@ -90,8 +88,6 @@ implementation
          location_reset(location,LOC_VOID,OS_NO);
 
          case inlinenumber of
-            in_assert_x_y:
-              second_Assert;
             in_sizeof_x,
             in_typeof_x :
               second_SizeofTypeOf;
@@ -168,11 +164,10 @@ implementation
             in_rol_x,
             in_rol_x_y,
             in_ror_x,
-            in_ror_x_y:
-              second_rox;
+            in_ror_x_y,
             in_sar_x,
             in_sar_x_y:
-              second_sar;
+              second_rox_sar;
             in_bsf_x,
             in_bsr_x:
                second_BsfBsr;
@@ -186,75 +181,6 @@ implementation
          end;
       end;
 
-
-{*****************************************************************************
-                          ASSERT GENERIC HANDLING
-*****************************************************************************}
-    procedure tcginlinenode.second_Assert;
-     var
-       hp2,hp3 : tnode;
-       otlabel,oflabel : tasmlabel;
-       paraloc1,paraloc2,
-       paraloc3,paraloc4 : tcgpara;
-     begin
-       { the node should be removed in the firstpass }
-       if not (cs_do_assertion in current_settings.localswitches) then
-          internalerror(7123458);
-       paraloc1.init;
-       paraloc2.init;
-       paraloc3.init;
-       paraloc4.init;
-       paramanager.getintparaloc(pocall_default,1,paraloc1);
-       paramanager.getintparaloc(pocall_default,2,paraloc2);
-       paramanager.getintparaloc(pocall_default,3,paraloc3);
-       paramanager.getintparaloc(pocall_default,4,paraloc4);
-       otlabel:=current_procinfo.CurrTrueLabel;
-       oflabel:=current_procinfo.CurrFalseLabel;
-       current_asmdata.getjumplabel(current_procinfo.CurrTrueLabel);
-       current_asmdata.getjumplabel(current_procinfo.CurrFalseLabel);
-       secondpass(tcallparanode(left).left);
-       maketojumpbool(current_asmdata.CurrAsmList,tcallparanode(left).left,lr_load_regvars);
-       cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrFalseLabel);
-       { First call secondpass() before we can push the parameters, otherwise
-         parameters allocated in the registers can be destroyed }
-       { generate filename string parameter }
-       hp2:=ctypeconvnode.create(cstringconstnode.createstr(current_module.sourcefiles.get_file_name(current_filepos.fileindex)),cshortstringtype);
-       firstpass(hp2);
-       secondpass(hp2);
-       if codegenerror then
-          exit;
-       { message parameter }
-       hp3:=tcallparanode(tcallparanode(left).right).left;
-       secondpass(hp3);
-       if codegenerror then
-          exit;
-       { push erroraddr }
-       cg.a_load_reg_cgpara(current_asmdata.CurrAsmList,OS_ADDR,NR_FRAME_POINTER_REG,paraloc4);
-       { push lineno }
-       cg.a_load_const_cgpara(current_asmdata.CurrAsmList,OS_INT,current_filepos.line,paraloc3);
-       { push filename }
-       cg.a_loadaddr_ref_cgpara(current_asmdata.CurrAsmList,hp2.location.reference,paraloc2);
-       { push msg }
-       cg.a_loadaddr_ref_cgpara(current_asmdata.CurrAsmList,hp3.location.reference,paraloc1);
-       { call }
-       paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc1);
-       paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc2);
-       paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc3);
-       paramanager.freecgpara(current_asmdata.CurrAsmList,paraloc4);
-       cg.allocallcpuregisters(current_asmdata.CurrAsmList);
-       cg.a_call_name(current_asmdata.CurrAsmList,'FPC_ASSERT',false);
-       cg.deallocallcpuregisters(current_asmdata.CurrAsmList);
-       location_freetemp(current_asmdata.CurrAsmList,hp3.location);
-       location_freetemp(current_asmdata.CurrAsmList,hp2.location);
-       cg.a_label(current_asmdata.CurrAsmList,current_procinfo.CurrTrueLabel);
-       current_procinfo.CurrTrueLabel:=otlabel;
-       current_procinfo.CurrFalseLabel:=oflabel;
-       paraloc1.done;
-       paraloc2.done;
-       paraloc3.done;
-       paraloc4.done;
-       hp2.free;
-     end;
 
 
 {*****************************************************************************
@@ -306,7 +232,7 @@ implementation
                    begin
                      { deref class }
                      cg.a_load_ref_reg(current_asmdata.CurrAsmList,OS_ADDR,OS_ADDR,left.location.reference,hregister);
-                     cg.g_maybe_testself(current_asmdata.CurrAsmList,hregister);
+                     hlcg.g_maybe_testself(current_asmdata.CurrAsmList,left.resultdef,hregister);
                      { load VMT pointer }
                      reference_reset_base(hrefvmt,hregister,tobjectdef(left.resultdef).vmt_offset,sizeof(pint));
                      cg.a_load_ref_reg(current_asmdata.CurrAsmList,OS_ADDR,OS_ADDR,hrefvmt,hregister);
@@ -721,10 +647,9 @@ implementation
       end;
 
 
-    procedure tcginlinenode.second_rox;
+    procedure tcginlinenode.second_rox_sar;
       var
         op : topcg;
-        {hcountreg : tregister;}
         op1,op2 : tnode;
       begin
         { one or two parameters? }
@@ -733,13 +658,15 @@ implementation
           begin
             op1:=tcallparanode(tcallparanode(left).right).left;
             op2:=tcallparanode(left).left;
+            secondpass(op2);
           end
         else
-          op1:=left;
+          begin
+            op1:=left;
+            op2:=nil;
+          end;
 
         secondpass(op1);
-        { load left operator in a register }
-        location_copy(location,op1.location);
         case inlinenumber of
           in_ror_x,
           in_ror_x_y:
@@ -747,66 +674,35 @@ implementation
           in_rol_x,
           in_rol_x_y:
             op:=OP_ROL;
+          in_sar_x,
+          in_sar_x_y:
+            op:=OP_SAR;
         end;
-        hlcg.location_force_reg(current_asmdata.CurrAsmList,location,op1.resultdef,resultdef,false);
 
-        if (left.nodetype=callparan) and
-           assigned(tcallparanode(left).right) then
+        hlcg.location_force_reg(current_asmdata.CurrAsmList,op1.location,op1.resultdef,resultdef,true);
+
+        location_reset(location,LOC_REGISTER,def_cgsize(resultdef));
+        location.register:=hlcg.getintregister(current_asmdata.CurrAsmList,resultdef);
+
+        if assigned(op2) then
           begin
-             secondpass(op2);
              { rotating by a constant directly coded: }
              if op2.nodetype=ordconstn then
-               cg.a_op_const_reg(current_asmdata.CurrAsmList,op,location.size,
-                 tordconstnode(op2).value.uvalue and (resultdef.size*8-1),location.register)
+               hlcg.a_op_const_reg_reg(current_asmdata.CurrAsmList,op,resultdef,
+                 tordconstnode(op2).value.uvalue and (resultdef.size*8-1),
+                 op1.location.register, location.register)
              else
                begin
-                 hlcg.location_force_reg(current_asmdata.CurrAsmList,op2.location,op2.resultdef,resultdef,false);
-                 { do modulo 2 operation }
-                 cg.a_op_reg_reg(current_asmdata.CurrAsmList,op,location.size,op2.location.register,location.register);
+                 hlcg.location_force_reg(current_asmdata.CurrAsmList,op2.location,
+                                         op2.resultdef,resultdef,true);
+                 hlcg.a_op_reg_reg_reg(current_asmdata.CurrAsmList,op,resultdef,
+                                       op2.location.register,op1.location.register,
+                                       location.register);
                end;
           end
         else
-          cg.a_op_const_reg(current_asmdata.CurrAsmList,op,location.size,1,location.register);
-      end;
-
-
-    procedure tcginlinenode.second_sar;
-      var
-        {hcountreg : tregister;}
-        op1,op2 : tnode;
-      begin
-        if (left.nodetype=callparan) and
-           assigned(tcallparanode(left).right) then
-          begin
-            op1:=tcallparanode(tcallparanode(left).right).left;
-            op2:=tcallparanode(left).left;
-          end
-        else
-          begin
-            op1:=left;
-            op2:=nil;
-          end;
-        secondpass(op1);
-        { load left operator in a register }
-        location_copy(location,op1.location);
-
-        hlcg.location_force_reg(current_asmdata.CurrAsmList,location,op1.resultdef,resultdef,false);
-
-        if not(assigned(op2)) then
-          hlcg.a_op_const_reg(current_asmdata.CurrAsmList,OP_SAR,resultdef,1,location.register)
-        else
-          begin
-            secondpass(op2);
-            { shifting by a constant directly coded: }
-            if op2.nodetype=ordconstn then
-              hlcg.a_op_const_reg(current_asmdata.CurrAsmList,OP_SAR,resultdef,
-                                  tordconstnode(op2).value.uvalue and (resultdef.size*8-1),location.register)
-            else
-              begin
-                hlcg.location_force_reg(current_asmdata.CurrAsmList,op2.location,op2.resultdef,resultdef,false);
-                hlcg.a_op_reg_reg(current_asmdata.CurrAsmList,OP_SAR,resultdef,op2.location.register,location.register);
-             end;
-          end;
+          hlcg.a_op_const_reg_reg(current_asmdata.CurrAsmList,op,resultdef,1,
+                                  op1.location.register,location.register);
       end;
 
 
