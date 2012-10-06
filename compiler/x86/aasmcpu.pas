@@ -2041,10 +2041,7 @@ implementation
 
   {$ifdef x86_64}
           if not(exists_vex_extention) then
-          begin
-            // REX.WXB <> 0 =>> needed VEX-Extention
-            if rex and $0B <> 0 then inc(len);
-          end;
+            if rex and $0B <> 0 then inc(len);  // REX.WXB <> 0 =>> needed VEX-Extention
   {$endif x86_64}
 
         end;
@@ -2376,10 +2373,8 @@ implementation
             1,2,3 :
               begin
 {$ifdef x86_64}
-                if not(needed_VEX) then
-                begin
+                if not(needed_VEX) then  // TG
                   maybewriterex;
-                end;
 {$endif x86_64}
                 objdata.writebytes(codes^,c);
                 inc(codes,c);
@@ -2420,10 +2415,8 @@ implementation
             8,9,10 :
               begin
 {$ifdef x86_64}
-                if not(needed_VEX) then
-                begin
+                if not(needed_VEX) then  // TG
                   maybewriterex;
-                end;
 {$endif x86_64}
                 bytes[0]:=ord(codes^)+regval(oper[c-8]^.reg);
                 inc(codes);
@@ -2676,11 +2669,9 @@ implementation
               begin
                 { rex should be written at this point }
 {$ifdef x86_64}
-                if not(needed_VEX) then
-                begin
+                if not(needed_VEX) then  // TG
                   if (rex<>0) and not(rexwritten) then
                     internalerror(200603191);
-                end;
 {$endif x86_64}
                 if (c>=64) and (c<=151) then  // 0100..0227
                  begin

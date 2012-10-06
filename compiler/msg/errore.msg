@@ -2553,6 +2553,10 @@ asmr_w_check_mem_operand_size3=07117_W_Check size of memory operand "$1: memory-
 asmr_w_check_mem_operand_size_offset=07118_W_Check size of memory operand "$1: memory-operand-size is $2 bits, but expected [$3 bits + $4 byte offset]"
 % The size of memory operand is possible invalid. This is
 % probably an error in the assembler statement
+asmr_w_check_mem_operand_negative_offset=07119_W_Check "$1: offset of memory operand is negative "$2 byte"
+% The offset of memory operand is possible invalid. This is
+% probably an error in the assembler statement
+
 #
 # Assembler/binary writers
 #

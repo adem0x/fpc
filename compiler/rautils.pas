@@ -886,16 +886,10 @@ Begin
                     (harrdef.elementdef.typ=arraydef) do
                harrdef:=tarraydef(harrdef.elementdef);
               if not is_packed_array(harrdef) then
-              begin
-                SetSize(harrdef.elesize,false);
-              end
+                SetSize(harrdef.elesize,false)
                else
-                 begin
                    if (harrdef.elepackedbitsize mod 8) = 0 then
-                   begin
                      SetSize(harrdef.elepackedbitsize div 8,false);
-                   end;
-                 end;
             end;
           recorddef:
             case opr.typ of

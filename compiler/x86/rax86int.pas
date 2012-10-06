@@ -1459,7 +1459,10 @@ Unit Rax86int;
                            scale:=l;
                        end
                       else
-                       Inc(oper.opr.ref.offset,l);
+                      begin
+                        Inc(oper.opr.ref.offset,l);
+                        Inc(oper.opr.constoffset,l);
+                      end;
                     end;
                   OPR_LOCAL :
                     begin

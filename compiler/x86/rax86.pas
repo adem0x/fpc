@@ -88,7 +88,7 @@ uses
   globtype,globals,systems,verbose,
   procinfo,
   cpuinfo,cgbase,cgutils,
-  itcpugas,cgx86;
+  itcpugas,cgx86, symsym, cutils;
 
 
 {*****************************************************************************
@@ -192,6 +192,7 @@ begin
     16: size := OS_M128;
     32: size := OS_M256;
   end;
+
   opsize:=TCGSize2Opsize[size];
 end;
 
@@ -329,25 +330,6 @@ var
   memopsize: integer;
   memoffset: asizeint;
   s1: string;
-
-  function IntToStr(aValue: Integer): String;
-  var
-    r,v: integer;
-  begin
-    result := '';
-
-    r := aValue;
-    while true do
-    begin
-      v := r mod 10;
-      r := r div 10;
-
-      result := Chr(Ord('0') + v) + result;
-
-      if r = 0 then break;
-    end;
-  end;
-
 begin
   ExistsMemRefNoSize := false;
   ExistsMemRef       := false;
@@ -364,25 +346,16 @@ begin
       begin
         ExistsMemRefNoSize := true;
 
-        if operands[i].opr.Typ = OPR_LOCAL then
-        begin
-          if tx86operand(operands[i]).opr.localsym.getsize > 0 then
-          begin
-            ExistsLocalSymSize := true;
-          end;
-        end
-        else if operands[i].opr.Typ = OPR_REFERENCE then
-        begin
-          ExistsLocalSymSize := true;
+        case operands[i].opr.Typ of
+              OPR_LOCAL: ExistsLocalSymSize := tx86operand(operands[i]).opr.localsym.getsize > 0;
+          OPR_REFERENCE: ExistsLocalSymSize := true;
         end;
+
       end;
     end
     else if operands[i].Opr.Typ in [OPR_CONSTANT] then
     begin
-      if (tx86operand(operands[i]).opsize = S_NO) then
-      begin
-        ExistsConstNoSize := true;
-      end;
+      ExistsConstNoSize := tx86operand(operands[i]).opsize = S_NO;
     end;
   end;
 
@@ -423,9 +396,7 @@ begin
                                S_Q   : memrefsize := 64;
                                S_XMM : memrefsize := 128;
                                S_YMM : memrefsize := 256;
-                                  else begin
-                                         Internalerror(777200);
-                                       end;
+                                  else Internalerror(777200);
                              end;
                              break;
                            end;
@@ -455,25 +426,29 @@ begin
                    memoffset := operands[i].opr.constoffset;
               end;
 
-              if memoffset < 0 then InternalError(777201);
-
-              if (memopsize < (memrefsize + memoffset * 8)) then
+              if memoffset < 0 then
+              begin
+                Message2(asmr_w_check_mem_operand_negative_offset,
+                         std_op2str[opcode],
+                         ToStr(memoffset));
+              end
+              else if (memopsize < (memrefsize + memoffset * 8)) then
               begin
                 if memoffset = 0 then
                 begin
                   Message3(asmr_w_check_mem_operand_size3,
                            std_op2str[opcode],
-                           IntToStr(memopsize),
-                           IntToStr(memrefsize)
+                           ToStr(memopsize),
+                           ToStr(memrefsize)
                            );
                 end
                 else
                 begin
                   Message4(asmr_w_check_mem_operand_size_offset,
                            std_op2str[opcode],
-                           IntToStr(memopsize),
-                           IntToStr(memrefsize),
-                           IntToStr(memoffset)
+                           ToStr(memopsize),
+                           ToStr(memrefsize),
+                           ToStr(memoffset)
                            );
                 end;
               end;
@@ -535,10 +510,7 @@ begin
                                      tx86operand(operands[i]).size   := tx86operand(operands[j]).size;
                                      break;
                                    end
-                                   else
-                                   begin
-                                     Message(asmr_e_unable_to_determine_reference_size);
-                                   end;
+                                   else Message(asmr_e_unable_to_determine_reference_size);
                                  end;
                                end;
                              end;
@@ -587,10 +559,7 @@ begin
                                end;
                              end;
                    msiNoSize: ; //  all memory-sizes are ok
-                   msiMultiple:
-                             begin
-                               Message(asmr_e_unable_to_determine_reference_size); // TODO individual message
-                             end;
+                   msiMultiple: Message(asmr_e_unable_to_determine_reference_size); // TODO individual message
                 end;
           OPR_CONSTANT:
                 case MemRefInfo(opcode).ConstSize of
@@ -654,9 +623,7 @@ begin
                         // =>> ignore
                         if (tx86operand(operands[operand2]).opsize <> S_XMM) and
                            (tx86operand(operands[operand2]).opsize <> S_YMM) then
-                        begin
-                          tx86operand(operands[i]).opsize:=tx86operand(operands[operand2]).opsize;
-                        end
+                          tx86operand(operands[i]).opsize:=tx86operand(operands[operand2]).opsize
                         else tx86operand(operands[operand2]).opsize := S_NO;
                       end;
                     end
@@ -768,9 +735,7 @@ begin
         end;
       end;
     3,4 :
-      begin
           opsize:=tx86operand(operands[ops]).opsize;
-      end;
 
   end;
 end;
@@ -1059,6 +1024,9 @@ begin
       (target_info.system in [system_i386_linux,system_i386_FreeBSD]) then
      Message(asmr_w_enter_not_supported_by_linux);
 
+
+
+
   ai:=taicpu.op_none(opcode,siz);
   ai.SetOperandOrder(OpOrder);
   ai.Ops:=Ops;
@@ -1094,6 +1062,7 @@ begin
                          integer operations it is seen as 32bit
 
                          this applies only to i386, see tw16622}
+
                        if gas_needsuffix[opcode] in [attsufFPU,attsufFPUint] then
                          asize:=OT_BITS64
 {$ifdef i386}
