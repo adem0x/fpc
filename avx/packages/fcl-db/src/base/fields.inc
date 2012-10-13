@@ -2179,7 +2179,7 @@ begin
   else
     begin
     R:=StrToTime(AVAlue);
-    SetData(@R);
+    SetData(@R,False);
     end;
 end;
 
@@ -3135,15 +3135,16 @@ Constructor TFields.Create(ADataset : TDataset);
 
 begin
   FDataSet:=ADataset;
-  FFieldList:=TList.Create;
+  FFieldList:=TFpList.Create;
   FValidFieldKinds:=[fkData..fkInternalcalc];
 end;
 
 Destructor TFields.Destroy;
 
 begin
-  if FFieldList <> nil then Clear;
-  FFieldList.Free;
+  if Assigned(FFieldList) then
+    Clear;
+  FreeAndNil(FFieldList);
   inherited Destroy;
 end;
 
@@ -3235,13 +3236,15 @@ begin
 end;
 
 Procedure TFields.Clear;
-
+var
+  AField: TField;
 begin
-  with FFieldList do
-    while Count > 0 do begin
-      TField(Last).FDataSet := Nil;
-      TField(Last).Free;
-      FFieldList.Delete(Count - 1);
+  while FFieldList.Count > 0 do 
+    begin
+    AField := TField(FFieldList.Last);
+    AField.FDataSet := Nil;
+    AField.Free;
+    FFieldList.Delete(FFieldList.Count - 1);
     end;
   Changed;
 end;

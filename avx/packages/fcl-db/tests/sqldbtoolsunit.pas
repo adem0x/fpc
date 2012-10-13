@@ -9,10 +9,7 @@ uses
   ,db, sqldb
   ,mysql40conn, mysql41conn, mysql50conn, mysql51conn, mysql55conn
   ,ibconnection
-  {$IFNDEF WIN64}
-  {See packages\fcl-db\src\sqldb\postgres\fpmake.pp: postgres connector won't be present on Win64}
   ,pqconnection
-  {$ENDIF WIN64}
   ,odbcconn
   {$IFNDEF WIN64}
   {See packages\fcl-db\fpmake.pp: Oracle connector is not built if PostgreSQL connectoris not built}
@@ -153,7 +150,6 @@ begin
     FieldtypeDefinitions[ftVarBytes] := 'VARBINARY(10)';
     FieldtypeDefinitions[ftMemo] := 'CLOB'; //or TEXT SQLite supports both, but CLOB is sql standard (TEXT not)
     end;
-  {$IFNDEF Win64}    
   if SQLDbType = POSTGRESQL then
     begin
     Fconnection := tPQConnection.Create(nil);
@@ -162,7 +158,6 @@ begin
     FieldtypeDefinitions[ftMemo] := 'TEXT';
     FieldtypeDefinitions[ftGraphic] := '';
     end;
-  {$ENDIF Win64}
   if SQLDbType = INTERBASE then
     begin
     Fconnection := tIBConnection.Create(nil);
@@ -234,6 +229,14 @@ begin
     UserName := dbuser;
     Password := dbpassword;
     HostName := dbhostname;
+    if (dbhostname='') and (SQLDbType=interbase) then
+    begin
+      // Firebird embedded: create database file if it doesn't yet exist
+      // Note: pagesize parameter has influence on behavior. We're using
+      // Firebird default here.
+      if not(fileexists(dbname)) then
+        FConnection.CreateDB; //Create testdb
+    end;
     if length(dbQuoteChars)>1 then
       begin
         FieldNameQuoteChars:=dbquotechars;

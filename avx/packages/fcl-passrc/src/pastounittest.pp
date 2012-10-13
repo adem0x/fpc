@@ -36,7 +36,8 @@ Type
                          tNotify,     // Generate Property change notification test (tiOPF)
                          tMaxLen);    // Generate property MaxLen (tiOPF)
   TTestpropertyOptions = set of TTestpropertyOption;
-  TTestCodeOption = (coImplementation,  // generate (empty) implementation of tests
+  TTestCodeOption = (coCreateDeclaration, // Generate declaration of test cases. 
+                     coImplementation,  // generate (empty) implementation of tests
                      coDefaultFail,     // Insert Fail() statement in tests
                      coSingleClass,     // Use a single test class for all tests
                      coCreateUnit,      // Generate complete unit source
@@ -85,7 +86,7 @@ Type
     // Create implementation of test code. After 'Implementation' keyword was added
     procedure CreateImplementationCode(C: TStrings); virtual;
     // Add a test method body to the implementation. AddFail=True adds a Fail statement.
-    procedure AddMethodImpl(C: TStrings; Const AClassName, AMethodName: String; AddFail: Boolean);virtual;
+    procedure AddMethodImpl(C: TStrings; Const AClassName, AMethodName: String; AddFail: Boolean; AddInherited : Boolean = false);virtual;
     // Called when all the methods of a class have been emitted. Empty.
     procedure EndTestClassImpl(C: TStrings; Const AClassName: String);virtual;
     // Create interface test code. After uses clause of interface section.
@@ -158,7 +159,7 @@ Type
 Const
   DefaultVisibilities    = [visDefault,visPublished,visPublic];
   DefaultPropertyOptions = [tDefault];
-  DefaultCodeOptions     = [coImplementation,coDefaultFail,coCreateUnit,
+  DefaultCodeOptions     = [coCreateDeclaration,coImplementation,coDefaultFail,coCreateUnit,
                             coSetup,coTearDown, coFunctions, coClasses,
                             coRegisterTests];
   DefaultMembers         = [tmtMethods,tmtFields,tmtProperties];
@@ -509,7 +510,7 @@ begin
     EndTestClassDecl(C,CN);
 end;
 
-procedure TFPTestCodeCreator.AddMethodImpl(C : TStrings; Const AClassName,AMethodName : String; AddFail : Boolean);
+procedure TFPTestCodeCreator.AddMethodImpl(C : TStrings; Const AClassName,AMethodName : String; AddFail : Boolean; AddInherited : Boolean = false);
 
 begin
   C.Add('');
@@ -518,6 +519,8 @@ begin
   C.Add('begin');
   if AddFail then
     C.Add(Format('  Fail(''%s'');',[FM]));
+  if AddInherited then
+    C.Add('  Inherited;');  
   C.Add('end;');
   C.Add('');
 end;
@@ -529,9 +532,9 @@ begin
   C.Add('  { '+AClassName+' }');
   C.Add('');
   if coSetup in CodeOptions then
-    AddMethodImpl(C,AClassName,'Setup',False);
+    AddMethodImpl(C,AClassName,'Setup',False,True);
   if coTearDown in CodeOptions then
-    AddMethodImpl(C,AClassName,'TearDown',False);
+    AddMethodImpl(C,AClassName,'TearDown',False,True);
 end;
 
 procedure TFPTestCodeCreator.EndTestClassImpl(C : TStrings; Const AClassName : String);
@@ -607,7 +610,7 @@ begin
       C.Add('');
       C.Add('Type');
       end;
-    If (coCreateUnit in CodeOptions) then
+    If (coCreateDeclaration in CodeOptions) then
       CreateInterfaceCode(C);
     if (coImplementation in CodeOptions) then
       begin
