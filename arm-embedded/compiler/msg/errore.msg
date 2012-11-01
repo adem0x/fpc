@@ -390,7 +390,7 @@ scan_w_unavailable_system_codepage=02091_W_Current system codepage "$1" is not a
 #
 # Parser
 #
-# 03322 is the last used one
+# 03324 is the last used one
 #
 % \section{Parser messages}
 % This section lists all parser messages. The parser takes care of the
@@ -1447,6 +1447,12 @@ parser_e_jvm_invalid_virtual_constructor_call=03321_E_Calling a virtual construc
 parser_e_method_lower_visibility=03322_E_Overriding method "$1" cannot have a lower visibility ($2) than in parent class $3 ($4)
 % The JVM does not allow lowering the visibility of an overriding method.
 % \end{description}
+parser_w_nostackframe_without_assembler=03323_W_Procedure/Function declared with call option NOSTACKFRAME but without ASSEMBLER
+% nostackframe call modifier is supposed to be used in conjunction with assembler.
+parser_e_nostackframe_with_locals=03324_E_Procedure/Function declared with call option NOSTACKFRAME but local stack size is $1
+% nostackframe call modifier used without assembler modifier
+% might still generate local stack needs.
+%
 # Type Checking
 #
 # 04119 is the last used one
@@ -2292,7 +2298,7 @@ cg_d_autoinlining=06055_DL_Auto inlining: $1
 #
 # Assembler reader
 #
-# 07123 is the last used one
+# 07124 is the last used one
 #
 asmr_d_start_reading=07000_DL_Starting $1 styled assembler parsing
 % This informs you that an assembler block is being parsed
@@ -2588,6 +2594,8 @@ asmr_w_check_mem_operand_size_offset=07122_W_Check size of memory operand "$1: m
 asmr_w_check_mem_operand_negative_offset=07123_W_Check "$1: offset of memory operand is negative "$2 byte"
 % The offset of memory operand is possible invalid. This is
 % probably an error in the assembler statement
+asmr_w_check_mem_operand_automap_multiple_size=07124_W_Check "$1: size of memory operand is empty, but es exists different definitions of the memory size =>> map to $2 (smallest option)"
+% The size of memory operand is empty and we have different definitions of possible memory sizes. Check it!
 
 #
 # Assembler/binary writers
@@ -3472,6 +3480,7 @@ F*2P<x>_Set target CPU (arm,i386,m68k,mips,mipsel,powerpc,powerpc64,sparc,x86_64
 3*2Tgo32v2_Version 2 of DJ Delorie DOS extender
 3*2Tiphonesim_ iPhoneSimulator from iOS SDK 3.2+ (older versions: -Tdarwin)
 3*2Tlinux_Linux
+3*2Tnativent_Native NT API (experimental)
 3*2Tnetbsd_NetBSD
 3*2Tnetware_Novell Netware Module (clib)
 3*2Tnetwlibc_Novell Netware Module (libc)

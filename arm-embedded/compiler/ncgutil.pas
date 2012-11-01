@@ -637,6 +637,12 @@ implementation
               end
             else
 {$endif cpu64bitalu}
+            { Note: for withs of records (and maybe objects, classes, etc.) an
+                    address register could be set here, but that is later
+                    changed to an intregister neverthless when in the
+                    tcgassignmentnode maybechangeloadnodereg is called for the
+                    temporary node; so the workaround for now is to fix the
+                    symptoms... }
               l.register:=cg.getintregister(list,l.size);
           end;
       end;
@@ -1321,7 +1327,7 @@ implementation
     procedure gen_proc_entry_code(list:TAsmList);
       var
         hitemp,
-        lotemp : longint;
+        lotemp, stack_frame_size : longint;
       begin
         { generate call frame marker for dwarf call frame info }
         current_asmdata.asmcfi.start_frame(list);
@@ -1344,7 +1350,12 @@ implementation
           end;
 
          { generate target specific proc entry code }
-         hlcg.g_proc_entry(list,current_procinfo.calc_stackframe_size,(po_nostackframe in current_procinfo.procdef.procoptions));
+         stack_frame_size := current_procinfo.calc_stackframe_size;
+         if (stack_frame_size <> 0) and
+            (po_nostackframe in current_procinfo.procdef.procoptions) then
+           message1(parser_e_nostackframe_with_locals,tostr(stack_frame_size));
+
+         hlcg.g_proc_entry(list,stack_frame_size,(po_nostackframe in current_procinfo.procdef.procoptions));
       end;
 
 

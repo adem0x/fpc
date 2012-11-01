@@ -217,8 +217,11 @@ implementation
 
     procedure t68kaddnode.second_cmpsmallset;
      var
-      tmpreg : tregister;
+       leftreg,
+       rightreg : tregister;
      begin
+       pass_left_right;
+
        location_reset(location,LOC_FLAGS,OS_NO);
 
        case nodetype of
@@ -229,35 +232,60 @@ implementation
             end;
           lten,gten:
             begin
-              If (not(nf_swapped in flags) and
+              if (not(nf_swapped in flags) and
                   (nodetype = lten)) or
                  ((nf_swapped in flags) and
                   (nodetype = gten)) then
                 swapleftright;
               // now we have to check whether left >= right
-              tmpreg := cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
-              if left.location.loc = LOC_CONSTANT then
-                begin
-                  cg.a_op_const_reg_reg(current_asmdata.CurrAsmList,OP_AND,OS_INT,
-                    not(left.location.value),right.location.register,tmpreg);
-                  current_asmdata.CurrAsmList.concat(taicpu.op_reg(A_TST,S_L,tmpreg));
-                  // the two instructions above should be folded together by
-                  // the peepholeoptimizer
-                end
-              else
-                begin
-                  if right.location.loc = LOC_CONSTANT then
-                    begin
-                      cg.a_load_const_reg(current_asmdata.CurrAsmList,OS_INT,
-                        aword(right.location.value),tmpreg);
-                      current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_AND,S_L,
-                        tmpreg,left.location.register));
-                    end
-                  else
+
+              // first load right into a register
+              case right.location.loc of
+                LOC_CONSTANT:
+                  begin
+                    rightreg:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
+                    cg.a_load_const_reg(current_asmdata.CurrAsmList,OS_INT,
+                      aword(right.location.value),rightreg);
+                  end;
+                LOC_REFERENCE:
+                  begin
+                    rightreg:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
+                    cg.a_load_ref_reg(current_asmdata.CurrAsmList,OS_INT,OS_INT,right.location.reference,rightreg);
+                  end;
+                LOC_REGISTER:
+                  begin
+                    rightreg:=right.location.register;
+                  end;
+                else
+                  internalerror(2012102001);
+              end;
+
+              // now process left
+              case left.location.loc of
+                LOC_CONSTANT:
+                  begin
+                    leftreg:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
+                    cg.a_op_const_reg_reg(current_asmdata.CurrAsmList,OP_AND,OS_INT,
+                      not(left.location.value),rightreg,leftreg);
+                    current_asmdata.CurrAsmList.concat(taicpu.op_reg(A_TST,S_L,leftreg));
+                    // the two instructions above should be folded together by
+                    // the peepholeoptimizer
+                  end;
+                LOC_REFERENCE:
+                  begin
+                    leftreg:=cg.getintregister(current_asmdata.CurrAsmList,OS_INT);
+                    cg.a_load_ref_reg(current_asmdata.CurrAsmList,OS_INT,OS_INT,left.location.reference,leftreg);
                     current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_AND,S_L,
-                      right.location.register,left.location.register));
-                end;
-//              cg.ungetcpuregister(current_asmdata.CurrAsmList,tmpreg);
+                      rightreg,leftreg));
+                  end;
+                LOC_REGISTER:
+                  begin
+                    current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_AND,S_L,
+                      rightreg,left.location.register));
+                  end;
+                else
+                  internalerror(2012102002);
+              end;
               location.resflags := getresflags(true);
             end;
           else
@@ -279,7 +307,6 @@ implementation
       tmpreg : tregister;
       op : tasmop;
      begin
-//       writeln('second_cmpordinal');
        pass_left_right;
        { set result location }
        location_reset(location,LOC_JUMP,OS_NO);
@@ -331,19 +358,20 @@ implementation
         location.loc := LOC_FLAGS;
         location.resflags := getresflags(unsigned);
         op := A_CMP;
+        { Attention: The RIGHT(!) operand is substracted from and must be a
+                     register! }
         if (right.location.loc = LOC_CONSTANT) then
           if useconst then
-            current_asmdata.CurrAsmList.concat(taicpu.op_reg_const(op,S_L,
-              left.location.register,longint(right.location.value)))
+            current_asmdata.CurrAsmList.concat(taicpu.op_const_reg(op,S_L,
+              longint(right.location.value),left.location.register))
           else
             begin
               current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(op,S_L,
-                left.location.register,tmpreg));
-//              cg.ungetcpuregister(current_asmdata.CurrAsmList,tmpreg);
+                tmpreg,left.location.register));
             end
         else
           current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(op,S_L,
-            left.location.register,right.location.register));
+            right.location.register,left.location.register));
      end;
 
 {*****************************************************************************
@@ -358,6 +386,7 @@ implementation
         otl,ofl : tasmlabel;
       begin
 //        writeln('second_cmpboolean');
+        { ToDo : add support for pasbool64 and bool64bit }
         if (torddef(left.resultdef).ordtype in [pasbool8,bool8bit]) or
            (torddef(right.resultdef).ordtype in [pasbool8,bool8bit]) then
          cgsize:=OS_8
@@ -374,7 +403,7 @@ implementation
             if left.nodetype in [ordconstn,realconstn] then
              swapleftright;
 
-            isjump:=(left.location.loc=LOC_JUMP);
+            isjump:=(left.expectloc=LOC_JUMP);
             if isjump then
               begin
                  otl:=current_procinfo.CurrTrueLabel;
@@ -394,7 +423,7 @@ implementation
                current_procinfo.CurrFalseLabel:=ofl;
              end;
 
-            isjump:=(right.location.loc=LOC_JUMP);
+            isjump:=(right.expectloc=LOC_JUMP);
             if isjump then
               begin
                  otl:=current_procinfo.CurrTrueLabel;

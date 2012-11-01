@@ -238,19 +238,23 @@ implementation
         secondpass(left);
         { load left operator in a register }
         location_copy(location,left.location);
+{$ifdef cpunodefaultint}
+        opsize:=left.resultdef;
+{$else cpunodefaultint}
         { in case of a 32 bit system that can natively execute 64 bit operations }
         if (left.resultdef.size<=sinttype.size) then
           opsize:=sinttype
         else
           opsize:=s64inttype;
+{$endif cpunodefaultint}
         hlcg.location_force_reg(current_asmdata.CurrAsmList,location,left.resultdef,opsize,false);
         hlcg.a_op_reg_reg(current_asmdata.CurrAsmList,OP_NEG,opsize,location.register,location.register);
 
         if (cs_check_overflow in current_settings.localswitches) then
           begin
             current_asmdata.getjumplabel(hl);
-            hlcg.a_cmp_const_reg_label(current_asmdata.CurrAsmList,opsize,OC_NE,low(aint),location.register,hl);
-            cg.a_call_name(current_asmdata.CurrAsmList,'FPC_OVERFLOW',false);
+            hlcg.a_cmp_const_reg_label(current_asmdata.CurrAsmList,opsize,OC_NE,torddef(opsize).low.svalue,location.register,hl);
+            hlcg.g_call_system_proc(current_asmdata.CurrAsmList,'fpc_overflow',nil);
             hlcg.a_label(current_asmdata.CurrAsmList,hl);
           end;
       end;

@@ -948,6 +948,9 @@ interface
 {$ifdef JVM}
        pbestrealtype : ^tdef = @s64floattype;
 {$endif JVM}
+{$ifdef AARCH64}
+       pbestrealtype : ^tdef = @s64floattype;
+{$endif AARCH64}
 
     function make_mangledname(const typeprefix:TSymStr;st:TSymtable;const suffix:TSymStr):TSymStr;
     function make_dllmangledname(const dllname,importname:TSymStr;
@@ -3905,7 +3908,6 @@ implementation
       var
         j, nestinglevel: longint;
         pvs, npvs: tparavarsym;
-        csym, ncsym: tconstsym;
       begin
         nestinglevel:=parast.symtablelevel;
         if newtyp=procdef then
@@ -4447,9 +4449,7 @@ implementation
 
     function tprocdef.getcopyas(newtyp: tdeftyp; copytyp: tproccopytyp): tstoreddef;
       var
-        i : tcallercallee;
         j : longint;
-        pvs : tparavarsym;
       begin
         result:=inherited getcopyas(newtyp,copytyp);
         if newtyp=procvardef then
@@ -6808,19 +6808,24 @@ implementation
     procedure maybeloadcocoatypes;
       var
         tsym: ttypesym;
+        cocoaunit: string[15];
       begin
         if assigned(objc_fastenumeration) then
           exit;
-        tsym:=search_named_unit_globaltype('COCOAALL','NSFASTENUMERATIONPROTOCOL',false);
+        if not(target_info.system in [system_arm_darwin,system_i386_iphonesim]) then
+          cocoaunit:='COCOAALL'
+        else
+          cocoaunit:='IPHONEALL';
+        tsym:=search_named_unit_globaltype(cocoaunit,'NSFASTENUMERATIONPROTOCOL',false);
         if assigned(tsym) then
           objc_fastenumeration:=tobjectdef(tsym.typedef)
         else
           objc_fastenumeration:=nil;
-        tsym:=search_named_unit_globaltype('COCOAALL','NSFASTENUMERATIONSTATE',false);
+        tsym:=search_named_unit_globaltype(cocoaunit,'NSFASTENUMERATIONSTATE',false);
         if assigned(tsym) then
           objc_fastenumerationstate:=trecorddef(tsym.typedef)
         else
-        objc_fastenumerationstate:=nil;
+          objc_fastenumerationstate:=nil;
       end;
 
 

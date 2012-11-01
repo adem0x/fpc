@@ -580,10 +580,15 @@ Implementation
       begin
         result:=target_asm.asmcmd;
 {$ifdef m68k}
-        if current_settings.cputype = cpu_MC68020 then
-          result:='-m68020 '+result
-        else
-          result:='-m68000 '+result;
+        { TODO: use a better approach for this }
+        case current_settings.cputype of
+          cpu_MC68000:
+            result:='-march=68000 '+result;
+          cpu_MC68020:
+            result:='-march=68020 '+result;
+          cpu_Coldfire:
+            result:='-march=cfv4e '+result;
+        end;
 {$endif}
 {$ifdef arm}
         if (target_info.system=system_arm_darwin) then
@@ -605,7 +610,7 @@ Implementation
            Replace(result,'$OBJ',maybequoted(ObjFileName));
          end;
          if (cs_create_pic in current_settings.moduleswitches) then
-           Replace(result,'$PIC','-K PIC')
+           Replace(result,'$PIC','-KPIC')
          else
            Replace(result,'$PIC','');
          if (cs_asm_source in current_settings.globalswitches) then

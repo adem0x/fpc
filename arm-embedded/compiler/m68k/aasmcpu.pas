@@ -512,10 +512,17 @@ type
     function taicpu.spilling_get_operation_type(opnr: longint): topertype;
       begin
         case opcode of
-          A_MOVE, A_MOVEQ, A_ADD, A_ADDQ, A_ADDX, A_SUB, A_SUBQ,
-          A_AND, A_LSR, A_LSL, A_ASR, A_ASL, A_EOR, A_EORI, A_OR:
+          A_MOVE, A_MOVEQ, A_ADD, A_ADDQ, A_ADDX, A_SUB, A_SUBQ, A_SUBX,
+          A_AND, A_LSR, A_LSL, A_ASR, A_ASL, A_EOR, A_EORI, A_OR,
+          A_MULS, A_MULU, A_DIVS, A_DIVU, A_DIVSL, A_DIVUL:
             if opnr=1 then begin
               result:=operand_write;
+            end else begin
+              result:=operand_read;
+            end;
+          A_DBRA:
+            if opnr=1 then begin
+              result:=operand_readwrite;
             end else begin
               result:=operand_read;
             end;
@@ -528,7 +535,7 @@ type
           else begin
 { TODO: FIX ME!!! remove ugly debug code ... }
             writeln('M68K: unknown opcode when spilling: ',gas_op2str[opcode]);
-            internalerror(200404091);
+            internalerror(2004040903);
           end;
         end;
       end;
@@ -576,4 +583,7 @@ type
       end;
 
 
+begin
+  cai_align:=tai_align;
+  cai_cpu:=taicpu;
 end.

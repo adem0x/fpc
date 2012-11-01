@@ -83,7 +83,9 @@ interface
            links to some sections }
          RELOC_NONE,
          { Darwin relocation, using PAIR }
-         RELOC_PIC_PAIR
+         RELOC_PIC_PAIR,
+         { Untranslated target-specific value }
+         RELOC_RAW
       );
 
 {$ifndef x86_64}
@@ -114,6 +116,12 @@ interface
       { GNU extensions }
       debuglinkname='.gnu_debuglink';
 
+      { TObjRelocation.flags }
+      { 'ftype' field contains platform-specific value }
+      rf_raw = 1;
+      { relocation must be added to dynamic list }
+      rf_dynamic = 2;
+
     type
       TObjSectionOption = (
        { Has Data available in the file }
@@ -133,7 +141,9 @@ interface
        { Contains only strings }
        oso_strings,
        { Ignore this section }
-       oso_disabled
+       oso_disabled,
+       { Must be cloned when writing separate debug file }
+       oso_debug_copy
      );
 
      TObjSectionOptions = set of TObjSectionOption;
@@ -144,8 +154,10 @@ interface
        typ        : TAsmsymtype;
        { Current assemble pass, used to detect duplicate labels }
        pass       : byte;
-       objsection : TObjSection;
+       { how the symbol is referenced (target-specific bitfield) }
+       refs       : byte;
        symidx     : longint;
+       objsection : TObjSection;
        offset,
        size       : aword;
        { Used for external and common solving during linking }
@@ -170,15 +182,23 @@ interface
      PObjStabEntry=^TObjStabEntry;
 
      TObjRelocation = class
+     private
+        function GetType:TObjRelocationType;
+        procedure SetType(v:TObjRelocationType);
+     public
         DataOffset,
         orgsize    : aword;  { COFF: original size of the symbol to relocate }
                              { ELF: explicit addend }
         symbol     : TObjSymbol;
         objsection : TObjSection; { only used if symbol=nil }
-        typ        : TObjRelocationType;
+        ftype      : byte;
         size       : byte;
+        flags      : byte;
         constructor CreateSymbol(ADataOffset:aword;s:TObjSymbol;Atyp:TObjRelocationType);
         constructor CreateSection(ADataOffset:aword;aobjsec:TObjSection;Atyp:TObjRelocationType);
+        constructor CreateRaw(ADataOffset:aword;s:TObjSymbol;ARawType:byte);
+        function TargetName:TSymStr;
+        property typ: TObjRelocationType read GetType write SetType;
      end;
 
      TObjSection = class(TFPHashObject)
@@ -217,6 +237,7 @@ interface
        procedure alloc(l:aword);
        procedure addsymReloc(ofs:aword;p:TObjSymbol;Reloctype:TObjRelocationType);
        procedure addsectionReloc(ofs:aword;aobjsec:TObjSection;Reloctype:TObjRelocationType);
+       procedure addrawReloc(ofs:aword;p:TObjSymbol;RawReloctype:byte);
        procedure ReleaseData;
        function  FullName:string;
        property  Data:TDynamicArray read FData;
@@ -325,7 +346,8 @@ interface
 
       TVTableEntry=record
         ObjRelocation : TObjRelocation;
-        orgreloctype  : TObjRelocationType;
+        orgreloctype,
+        orgrelocflags : byte;
         Enabled,
         Used  : Boolean;
       end;
@@ -355,6 +377,9 @@ interface
         State      : TSymbolState;
         { Used for vmt references optimization }
         VTable     : TExeVTable;
+        { fields for ELF linking }
+        gotoffset  : aword;
+        dynindex   : aword;
       end;
 
       TExeSection = class(TFPHashObject)
@@ -458,12 +483,15 @@ interface
         EntrySym  : TObjSymbol;
         SectionDataAlign,
         SectionMemAlign : aword;
+        FixedSectionAlign : boolean;
         function  writeData:boolean;virtual;abstract;
         property CExeSection:TExeSectionClass read FCExeSection write FCExeSection;
         property CObjData:TObjDataClass read FCObjData write FCObjData;
         procedure Order_ObjSectionList(ObjSectionList : TFPObjectList; const aPattern:string);virtual;
         procedure WriteExeSectionContent;
         procedure DoRelocationFixup(objsec:TObjSection);virtual;abstract;
+        function MemAlign(exesec: TExeSection): longword;
+        function DataAlign(exesec: TExeSection): longword;
       public
         CurrDataPos  : aword;
         MaxMemPos    : qword;
@@ -513,6 +541,7 @@ interface
         procedure RemoveUnreferencedSections;
         procedure RemoveDisabledSections;
         procedure RemoveDebugInfo;
+        procedure AfterUnusedSectionRemoval;virtual;
         procedure GenerateLibraryImports(ImportLibraryList:TFPHashObjectList);virtual;
         procedure GenerateDebugLink(const dbgname:string;dbgcrc:cardinal);
         function WriteExeFile(const fn:string):boolean;
@@ -537,6 +566,8 @@ interface
     var
       exeoutput : TExeOutput;
 
+    function align_aword(v:aword;a:longword):aword;
+    function align_qword(v:qword;a:longword):qword;
 
 implementation
 
@@ -552,6 +583,27 @@ implementation
       memobjsymbols,
       memobjsections : TMemDebug;
 {$endif MEMDEBUG}
+
+{*****************************************************************************
+                                 Helpers
+*****************************************************************************}
+
+    function align_aword(v:aword;a:longword):aword;
+      begin
+        if a<=1 then
+          result:=v
+        else
+          result:=((v+a-1) div a) * a;
+      end;
+
+
+    function align_qword(v:qword;a:longword):qword;
+      begin
+        if a<=1 then
+          result:=v
+        else
+          result:=((v+a-1) div a) * a;
+      end;
 
 {*****************************************************************************
                                  TObjSymbol
@@ -625,7 +677,7 @@ implementation
         Symbol:=s;
         OrgSize:=0;
         ObjSection:=nil;
-        Typ:=Atyp;
+        ftype:=ord(Atyp);
       end;
 
 
@@ -637,9 +689,49 @@ implementation
         Symbol:=nil;
         OrgSize:=0;
         ObjSection:=aobjsec;
-        Typ:=Atyp;
+        ftype:=ord(Atyp);
       end;
 
+
+    constructor TObjRelocation.CreateRaw(ADataOffset:aword;s:TObjSymbol;ARawType:byte);
+      begin
+        if not assigned(s) then
+          internalerror(2012091701);
+        DataOffset:=ADataOffset;
+        Symbol:=s;
+        ObjSection:=nil;
+        orgsize:=0;
+        ftype:=ARawType;
+        flags:=rf_raw;
+      end;
+
+
+    function TObjRelocation.GetType:TObjRelocationType;
+      begin
+        if (flags and rf_raw)=0 then
+          result:=TObjRelocationType(ftype)
+        else
+          result:=RELOC_RAW;
+      end;
+
+
+    procedure TObjRelocation.SetType(v:TObjRelocationType);
+      begin
+        ftype:=ord(v);
+        flags:=flags and (not rf_raw);
+      end;
+
+
+    function TObjRelocation.TargetName:TSymStr;
+      begin
+        if assigned(symbol) then
+          if symbol.typ=AT_SECTION then
+            result:=symbol.objsection.name
+          else
+            result:=symbol.Name
+        else
+          result:=objsection.Name;
+      end;
 
 {****************************************************************************
                               TObjSection
@@ -743,7 +835,7 @@ implementation
         if oso_Data in secoptions then
           begin
             { get aligned Datapos }
-            Datapos:=align(dpos,secalign);
+            Datapos:=align_aword(dpos,secalign);
             Dataalignbytes:=Datapos-dpos;
             { return updated Datapos }
             dpos:=Datapos+size;
@@ -755,7 +847,7 @@ implementation
 
     function TObjSection.setmempos(mpos:qword):qword;
       begin
-        mempos:=align(mpos,secalign);
+        mempos:=align_qword(mpos,secalign);
         { return updated mempos }
         result:=mempos+size;
       end;
@@ -776,6 +868,12 @@ implementation
     procedure TObjSection.addsectionReloc(ofs:aword;aobjsec:TObjSection;Reloctype:TObjRelocationType);
       begin
         ObjRelocations.Add(TObjRelocation.CreateSection(ofs,aobjsec,reloctype));
+      end;
+
+
+    procedure TObjSection.addrawReloc(ofs:aword;p:TObjSymbol;RawReloctype:byte);
+      begin
+        ObjRelocations.Add(TObjRelocation.CreateRaw(ofs,p,RawReloctype));
       end;
 
 
@@ -1178,14 +1276,14 @@ implementation
       begin
         if not assigned(CurrObjSec) then
           internalerror(200402253);
-        CurrObjSec.alloc(align(CurrObjSec.size,len)-CurrObjSec.size);
+        CurrObjSec.alloc(align_aword(CurrObjSec.size,len)-CurrObjSec.size);
       end;
 
 
     procedure TObjData.section_afteralloc(p:TObject;arg:pointer);
       begin
         with TObjSection(p) do
-          alloc(align(size,secalign)-size);
+          alloc(align_aword(size,secalign)-size);
       end;
 
 
@@ -1194,7 +1292,7 @@ implementation
         with TObjSection(p) do
           begin
             if assigned(Data) then
-              writezeros(align(size,secalign)-size);
+              writezeros(align_aword(size,secalign)-size);
           end;
       end;
 
@@ -1417,7 +1515,8 @@ implementation
             if objreloc.dataoffset=vtblentryoffset then
               begin
                 EntryArray[VTableIdx].ObjRelocation:=objreloc;
-                EntryArray[VTableIdx].OrgRelocType:=objreloc.typ;
+                EntryArray[VTableIdx].OrgRelocType:=objreloc.ftype;
+                EntryArray[VTableIdx].OrgRelocFlags:=objreloc.flags;
                 objreloc.typ:=RELOC_ZERO;
                 break;
               end;
@@ -1445,7 +1544,8 @@ implementation
         { Restore relocation if available }
         if assigned(EntryArray[VTableIdx].ObjRelocation) then
           begin
-            EntryArray[VTableIdx].ObjRelocation.typ:=EntryArray[VTableIdx].OrgRelocType;
+            EntryArray[VTableIdx].ObjRelocation.ftype:=EntryArray[VTableIdx].OrgRelocType;
+            EntryArray[VTableIdx].ObjRelocation.flags:=EntryArray[VTableIdx].OrgRelocFlags;
             result:=EntryArray[VTableIdx].ObjRelocation;
           end;
         EntryArray[VTableIdx].Used:=true;
@@ -1626,6 +1726,7 @@ implementation
         SectionMemAlign:=$1000;
         SectionDataAlign:=$200;
 {$endif cpu16bitaddr}
+        FixedSectionAlign:=True;
         FCExeSection:=TExeSection;
         FCObjData:=TObjData;
       end;
@@ -1644,6 +1745,24 @@ implementation
         ObjDatalist.free;
         FWriter.free;
         inherited destroy;
+      end;
+
+
+    function TExeOutput.MemAlign(exesec:TExeSection):longword;
+      begin
+        if FixedSectionAlign then
+          result:=SectionMemAlign
+        else
+          result:=exesec.SecAlign;
+      end;
+
+
+    function TExeOutput.DataAlign(exesec:TExeSection):longword;
+      begin
+        if FixedSectionAlign then
+          result:=SectionDataAlign
+        else
+          result:=exesec.SecAlign;
       end;
 
 
@@ -1821,29 +1940,29 @@ implementation
 
     procedure TExeOutput.Order_Symbol(const aname:string);
       var
-        ObjSection : TObjSection;
+        objsym: TObjSymbol;
       begin
-        ObjSection:=internalObjData.findsection('*'+aname);
-        if not assigned(ObjSection) then
+        objsym:=TObjSymbol(internalObjData.ObjSymbolList.Find(aname));
+        if (objsym=nil) or (objsym.ObjSection.ObjData<>internalObjData) then
           internalerror(200603041);
-        CurrExeSec.AddObjSection(ObjSection,True);
+        CurrExeSec.AddObjSection(objsym.ObjSection,True);
       end;
 
     procedure TExeOutput.Order_ProvideSymbol(const aname:string);
       var
-        ObjSection : TObjSection;
+        objsym : TObjSymbol;
         exesym : TExeSymbol;
       begin
-        ObjSection:=internalObjData.findsection('*'+aname);
-        if not assigned(ObjSection) then
+        objsym:=TObjSymbol(internalObjData.ObjSymbolList.Find(aname));
+        if (objsym=nil) or (objsym.ObjSection.ObjData<>internalObjData) then
           internalerror(200603041);
         exesym:=TExeSymbol(ExeSymbolList.Find(aname));
         if not assigned(exesym) then
           internalerror(201206301);
         { Only include this section if it actually resolves
           the symbol }
-        if exesym.objsymbol.objsection=objsection then
-          CurrExeSec.AddObjSection(ObjSection,True);
+        if exesym.objsymbol=objsym then
+          CurrExeSec.AddObjSection(objsym.ObjSection,True);
       end;
 
 
@@ -1992,7 +2111,7 @@ implementation
         objsec : TObjSection;
       begin
         { Alignment of ExeSection }
-        CurrMemPos:=align(CurrMemPos,SectionMemAlign);
+        CurrMemPos:=align_qword(CurrMemPos,MemAlign(exesec));
         exesec.MemPos:=CurrMemPos;
 
         { set position of object ObjSections }
@@ -2043,12 +2162,12 @@ implementation
       begin
         { don't write normal section if writing only debug info }
         if (ExeWriteMode=ewm_dbgonly) and
-           not(oso_debug in exesec.SecOptions) then
+           (exesec.SecOptions*[oso_debug,oso_debug_copy]=[]) then
           exit;
 
         if (oso_Data in exesec.SecOptions) then
           begin
-            CurrDataPos:=align(CurrDataPos,SectionDataAlign);
+            CurrDataPos:=align_aword(CurrDataPos,DataAlign(exesec));
             exesec.DataPos:=CurrDataPos;
           end;
 
@@ -2484,6 +2603,11 @@ implementation
 
 
     procedure TExeOutput.GenerateLibraryImports(ImportLibraryList:TFPHashObjectList);
+      begin
+      end;
+
+
+    procedure TExeOutput.AfterUnusedSectionRemoval;
       begin
       end;
 
@@ -3115,12 +3239,14 @@ implementation
             exesec:=TExeSection(ExeSectionList[j]);
             { don't write normal section if writing only debug info }
             if (ExeWriteMode=ewm_dbgonly) and
-               not(oso_debug in exesec.SecOptions) then
+               (exesec.SecOptions*[oso_debug,oso_debug_copy]=[]) then
               continue;
 
             if oso_data in exesec.SecOptions then
               begin
-                FWriter.Writezeros(Align(FWriter.Size,SectionDataAlign)-FWriter.Size);
+                if exesec.DataPos<FWriter.Size then
+                  InternalError(2012103001);
+                FWriter.Writezeros(exesec.DataPos-FWriter.Size);
                 for i:=0 to exesec.ObjSectionList.Count-1 do
                   begin
                     objsec:=TObjSection(exesec.ObjSectionList[i]);

@@ -151,9 +151,9 @@ interface
                if (index<>NR_NO) and (base=NR_NO) and (direction=dir_none) then
                 begin
                   if (scalefactor = 1) or (scalefactor = 0) then
-                    s:=s+'(,'+indexstr+'.l)'
+                    s:=s+'('+indexstr+'.l)'
                   else
-                    s:=s+'(,'+indexstr+'.l*'+tostr(scalefactor)+')'
+                    s:=s+'('+indexstr+'.l*'+tostr(scalefactor)+')'
                 end
                 else if (index=NR_NO) and (base<>NR_NO) and (direction=dir_inc) then
                 begin
@@ -375,7 +375,7 @@ interface
             asmbin : 'as';
             asmcmd : '-o $OBJ $ASM';
             supported_targets : [system_m68k_Amiga,system_m68k_Atari,system_m68k_Mac,system_m68k_linux,system_m68k_PalmOS,system_m68k_netbsd,system_m68k_openbsd,system_m68k_embedded];
-            flags : [af_allowdirect,af_needar,af_smartlink_sections];
+            flags : [af_needar,af_smartlink_sections];
             labelprefix : '.L';
             comment : '# ';
             dollarsign: '$';

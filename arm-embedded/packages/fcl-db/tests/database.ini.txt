@@ -59,6 +59,24 @@ user=root
 password=
 hostname=127.0.0.1
 
+; MySQL 5.1 database:
+[mysql51]
+connector=sql
+connectorparams=mysql51
+name=testdb
+user=root
+password=
+hostname=127.0.0.1
+
+; MySQL 5.5 database:
+[mysql55]
+connector=sql
+connectorparams=mysql55
+name=testdb
+user=root
+password=
+hostname=127.0.0.1
+
 ; Oracle database:
 [oracle]
 connector=sql
@@ -78,6 +96,23 @@ name=/opt/firebird/data/testdb.fdb
 user=sysdba
 password=masterkey
 hostname=localhost
+
+; Firebird embedded
+; Same as Firebird, except we leave the host name blank
+; and specify a db without path.
+; Make sure your Firebird embedded library files (.dll/.so/.dylib)
+; are installed; e.g. on Windows, you can put them in this
+; directory.
+; Test code will create db if it doesn't exist; you can
+; delete an existing db file before the test to start
+; fresh.
+[firebirdembedded]
+connector=sql
+connectorparams=interbase
+name=fbembedtest.fdb
+user=sysdba
+password=masterkey
+hostname=
 
 ; ODBC database:
 [odbc]
@@ -99,7 +134,18 @@ name=test.db
 connector=sql
 connectorparams=mssql
 name=pubs
+; If you want to use trusted authentication/SSPI, leave
+; user and password blank
 user=sa
+password=
+hostname=127.0.0.1
+
+; Sybase ASE database
+[sybase]
+connector=sql
+connectorparams=sybase
+name=testdb
+usser=sa
 password=
 hostname=127.0.0.1
 

@@ -9,10 +9,7 @@ uses
   ,db, sqldb
   ,mysql40conn, mysql41conn, mysql50conn, mysql51conn, mysql55conn
   ,ibconnection
-  {$IFNDEF WIN64}
-  {See packages\fcl-db\src\sqldb\postgres\fpmake.pp: postgres connector won't be present on Win64}
   ,pqconnection
-  {$ENDIF WIN64}
   ,odbcconn
   {$IFNDEF WIN64}
   {See packages\fcl-db\fpmake.pp: Oracle connector is not built if PostgreSQL connectoris not built}
@@ -22,11 +19,11 @@ uses
   ,mssqlconn
   ;
 
-type TSQLDBTypes = (mysql40,mysql41,mysql50,mysql51,mysql55,postgresql,interbase,odbc,oracle,sqlite3,mssql);
+type TSQLDBTypes = (mysql40,mysql41,mysql50,mysql51,mysql55,postgresql,interbase,odbc,oracle,sqlite3,mssql,sybase);
 
 const MySQLdbTypes = [mysql40,mysql41,mysql50,mysql51,mysql55];
       DBTypesNames : Array [TSQLDBTypes] of String[19] =
-        ('MYSQL40','MYSQL41','MYSQL50','MYSQL51','MYSQL55','POSTGRESQL','INTERBASE','ODBC','ORACLE','SQLITE3','MSSQL');
+        ('MYSQL40','MYSQL41','MYSQL50','MYSQL51','MYSQL55','POSTGRESQL','INTERBASE','ODBC','ORACLE','SQLITE3','MSSQL','SYBASE');
              
       FieldtypeDefinitionsConst : Array [TFieldType] of String[20] =
         (
@@ -153,7 +150,6 @@ begin
     FieldtypeDefinitions[ftVarBytes] := 'VARBINARY(10)';
     FieldtypeDefinitions[ftMemo] := 'CLOB'; //or TEXT SQLite supports both, but CLOB is sql standard (TEXT not)
     end;
-  {$IFNDEF Win64}    
   if SQLDbType = POSTGRESQL then
     begin
     Fconnection := tPQConnection.Create(nil);
@@ -162,7 +158,6 @@ begin
     FieldtypeDefinitions[ftMemo] := 'TEXT';
     FieldtypeDefinitions[ftGraphic] := '';
     end;
-  {$ENDIF Win64}
   if SQLDbType = INTERBASE then
     begin
     Fconnection := tIBConnection.Create(nil);
@@ -173,7 +168,8 @@ begin
   {$IFNDEF Win64}
   if SQLDbType = ORACLE then Fconnection := TOracleConnection.Create(nil);
   {$ENDIF Win64}
-  if SQLDbType = MSSQL then
+  if SQLDbType in [MSSQL,Sybase] then
+    // todo: Sybase: copied over MSSQL; verify correctness
     begin
     Fconnection := TMSSQLConnection.Create(nil);
     FieldtypeDefinitions[ftBoolean] := 'BIT';
@@ -199,7 +195,7 @@ begin
         testValues[ftDateTime,t] := copy(testValues[ftDateTime,t],1,19)+'.000';
       end;
     end;
-  if SQLDbType in [postgresql,interbase,mssql] then
+  if SQLDbType in [postgresql,interbase,mssql,sybase] then
     begin
     // Some db's do not support times > 24:00:00
     testTimeValues[3]:='13:25:15.000';
@@ -221,6 +217,7 @@ begin
   // SQLite does not support fixed length CHAR datatype
   // MySQL by default trimms trailing spaces on retrieval; so set sql-mode="PAD_CHAR_TO_FULL_LENGTH" - supported from MySQL 5.1.20
   // MSSQL set SET ANSI_PADDING ON
+  // todo: verify Sybase behaviour
   if SQLDbType in [sqlite3] then
     for t := 0 to testValuesCount-1 do
       testValues[ftFixedChar,t] := PadRight(testValues[ftFixedChar,t], 10);
@@ -234,6 +231,15 @@ begin
     UserName := dbuser;
     Password := dbpassword;
     HostName := dbhostname;
+    if (dbhostname='') and (SQLDbType=interbase) then
+    begin
+      // Firebird embedded: create database file if it doesn't yet exist
+      // Note: pagesize parameter has influence on behavior. We're using
+      // Firebird default here.
+      if not(fileexists(dbname)) then
+        FConnection.CreateDB; //Create testdb
+    end;
+
     if length(dbQuoteChars)>1 then
       begin
         FieldNameQuoteChars:=dbquotechars;
@@ -402,16 +408,39 @@ end;
 
 procedure TSQLDBConnector.TryDropIfExist(ATableName: String);
 begin
-  // This makes live soo much easier, since it avoids the exception if the table already
+  // This makes life soo much easier, since it avoids the exception if the table already
   // exists. And while this exeption is in a try..except statement, the debugger
-  // always shows the exception. Which is pretty annoying
-  // It only works with Firebird 2, though.
+  // always shows the exception, which is pretty annoying.
   try
     if SQLDbType = INTERBASE then
       begin
+      // This only works with Firebird 2+
       FConnection.ExecuteDirect('execute block as begin if (exists (select 1 from rdb$relations where rdb$relation_name=''' + ATableName + ''')) '+
-             'then execute statement ''drop table ' + ATAbleName + ';'';end');
+        'then execute statement ''drop table ' + ATAbleName + ';'';end');
       FTransaction.CommitRetaining;
+      end;
+    if SQLDBType = mssql then
+      begin
+      // Checking is needed here to avoid getting "auto rollback" of a subsequent CREATE TABLE statement
+      // which leads to the rollback not referring to the right transaction=>SQL error
+      // Use SQL92 ISO standard INFORMATION_SCHEMA:
+      FConnection.ExecuteDirect(
+        'if exists (select * from INFORMATION_SCHEMA.TABLES where TABLE_TYPE=''BASE TABLE'' AND TABLE_NAME=''' + ATableName + ''') '+
+        'begin '+
+        'drop table ' + ATAbleName + ' '+
+        'end');
+      FTransaction.CommitRetaining;
+      end;
+    if SQLDbType = sybase then
+      begin
+      // Checking is needed here to avoid getting "auto rollback" of a subsequent CREATE TABLE statement
+      // which leads to the rollback not referring to the right transaction=>SQL error
+      // Can't use SQL standard information_schema; instead query sysobjects for User tables
+      FConnection.ExecuteDirect(
+        'if exists (select * from sysobjects where type = ''U'' and name=''' + ATableName + ''') '+
+        'begin '+
+        'drop table ' + ATAbleName + ' '+
+        'end');
       end;
   except
     FTransaction.RollbackRetaining;
