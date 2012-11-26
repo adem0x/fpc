@@ -1051,6 +1051,7 @@ implementation
             else
               curtai:=tai(curtai.next);
           end;
+		  list.concat(tai_align.create(4));
         list.concatlist(curdata);
         curdata.free;
       end;
