@@ -5,7 +5,7 @@
  
      Version:    Quickdraw-285~150
  
-     Copyright:  ï¿½ 2003-2008 by Apple Inc. all rights reserved.
+     Copyright:  © 2003-2008 by Apple Inc. all rights reserved.
  
      Bugs?:      For bug reports, consult the following page on
                  the World Wide Web:
@@ -1128,7 +1128,7 @@ function ATSUCreateAndCopyTextLayout( iTextLayout: ATSUTextLayout; var oTextLayo
  *  Parameters:
  *    
  *    iText:
- *      A text buffer containing UTF-16ï¿½encoded text. ATSUI associates
+ *      A text buffer containing UTF-16Ðencoded text. ATSUI associates
  *      this buffer with the new text layout object and analyzes the
  *      complete text of the buffer when obtaining the layout context
  *      for the current text range. Thus, for paragraph-format text, if

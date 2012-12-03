@@ -34,7 +34,7 @@ procedure fpc_cpuinit;
   end;
 
 {$define FPC_SYSTEM_HAS_GET_FRAME}
-function get_frame : pointer; assembler;
+function get_frame : pointer; assembler;nostackframe;
   asm
     move.l a6,d0
   end;
@@ -69,10 +69,17 @@ function get_caller_frame(framebp : pointer;addr:pointer=nil) : pointer;
 
 
 {$define FPC_SYSTEM_HAS_SPTR}
-function Sptr : pointer; assembler;
+function Sptr : pointer; assembler;nostackframe;
 asm
   move.l sp,d0
-end ['d0'];
+end;
+
+{$define FPC_SYSTEM_HAS_GET_PC_ADDR}
+function get_pc_addr : pointer;assembler;nostackframe;
+asm
+  move.l (sp),d0
+end;
+
 
 
 {$define FPC_SYSTEM_HAS_FILLCHAR}
@@ -255,8 +262,10 @@ begin
     move.l   12(a6),a1   {  destination          }
     move.l   8(a6),a0      {  source               }
 
+{$ifndef CPUCOLDFIRE}
     cmpi.l #65535, d0     { check, if this is a word move }
     ble    @LMEMSET00     { use fast dbra mode 68010+     }
+{$endif CPUCOLDFIRE}
 
     cmp.l      a0,a1         {  check copy direction }
     bls      @LMOVE4
@@ -278,6 +287,7 @@ begin
     bne       @LMOVE3
     bra       @LMOVE5
 
+{$ifndef CPUCOLDFIRE}
   @LMEMSET00:            { use fast loop mode 68010+ }
     cmp.l      a0,a1         {  check copy direction }
     bls      @LMOVE04
@@ -287,22 +297,13 @@ begin
   @LMOVE01:
     move.b   -(a0),-(a1)   {  (s < d) copy loop }
   @LMOVE02:
-{$ifdef CPUCOLDFIRE}
-    sub.l     #1,d0
-    bmi       @LMOVE01
-{$else}
     dbra      d0,@LMOVE01
-{$endif}
     bra       @LMOVE5
   @LMOVE03:
     move.b  (a0)+,(a1)+  { (s >= d) copy loop }
   @LMOVE04:
-{$ifdef CPUCOLDFIRE}
-    sub.l     #1,d0
-    bmi       @LMOVE03
-{$else}
     dbra      d0,@LMOVE03
-{$endif}
+{$endif CPUCOLDFIRE}
   { end fast loop mode }
   @LMOVE5:
   end ['d0','a0','a1'];
@@ -344,28 +345,39 @@ function abs(l : longint) : longint;
 function InterLockedDecrement (var Target: longint) : longint;
   begin
   {$warning FIX ME}
+    Result := Target;
+    Dec(Target);
   end;
 
 
 function InterLockedIncrement (var Target: longint) : longint;
   begin
   {$warning FIX ME}
+    Result := Target;
+    Inc(Target);
   end;
 
 
 function InterLockedExchange (var Target: longint;Source : longint) : longint;
   begin
   {$warning FIX ME}
+    Result := Target;
+    Target := Source;
   end;
 
 
 function InterLockedExchangeAdd (var Target: longint;Source : longint) : longint;
   begin
   {$warning FIX ME}
+    Result := Target;
+    Target := Target + Source;
   end;
 
 
 function InterlockedCompareExchange(var Target: longint; NewValue: longint; Comperand: longint): longint;
   begin
   {$warning FIX ME}
+    Result := Target;
+    if Target = Comperand then
+      Target := NewValue;
   end;

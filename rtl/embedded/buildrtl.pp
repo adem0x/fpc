@@ -20,6 +20,11 @@ unit buildrtl;
 {$ifdef CPUAVR}
       atmega128
 {$endif CPUAVR}
+{$ifdef CPUAVR32}
+      at32uc3b0256es,at32uc3b1256,at32uc3c1512c,at32uc3l032,at32uc3l132,at32uc3l232,at32uc3l332,
+      at32uc3b0256,at32uc3c0512c,at32uc3c1512crevc,at32uc3l064,at32uc3l164,at32uc3l264,at32uc3l364,
+      at32uc3b1256es,at32uc3c0512crevc,at32uc3l016,at32uc3l116,at32uc3l216,at32uc3l316
+{$endif CPUAVR32}
       ;
 
   implementation

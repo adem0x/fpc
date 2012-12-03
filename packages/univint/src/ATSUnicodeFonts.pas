@@ -5,7 +5,7 @@
  
      Version:    Quickdraw-285~150
  
-     Copyright:  ï¿½ 2003-2008 by Apple Inc. all rights reserved.
+     Copyright:  © 2003-2008 by Apple Inc. all rights reserved.
  
      Bugs?:      For bug reports, consult the following page on
                  the World Wide Web:
@@ -1770,7 +1770,7 @@ function ATSUCountFontInstances( iFontID: ATSUFontID; var oInstances: ItemCount 
  *    1.0. Additionally, the variation axis 'wdth' is also defined for
  *    the font, with a similar value range. The type designer can then
  *    choose to declare a font instance for a set of specific values
- *    within these axes, such as ï¿½Demiboldï¿½ for a value of 0.8 for the
+ *    within these axes, such as ÒDemiboldÓ for a value of 0.8 for the
  *    'wght' axis and 0.5 for the 'wdth' axis. By calling the function
  *    ATSUGetFontInstance , you can obtain the variation axis values
  *    for a given index into an array of font instances. Typically you

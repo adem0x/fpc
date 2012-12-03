@@ -5,7 +5,7 @@
  
      Version:    Quickdraw-285~150
  
-     Copyright:  ï¿½ 2003-2008 by Apple Inc. all rights reserved.
+     Copyright:  © 2003-2008 by Apple Inc. all rights reserved.
  
      Bugs?:      For bug reports, consult the following page on
                  the World Wide Web:
@@ -389,7 +389,7 @@ function ATSUGetUnjustifiedBounds( iTextLayout: ATSUTextLayout; iLineStart: UniC
  *    This function obtains the image bounds of a laid-out line of
  *    text. These bounds are described by the smallest rectangle that
  *    completely encloses the filled or framed parts of a block of
- *    textï¿½that is, the text's "inked" glyphs. In measuring the line,
+ *    textÑthat is, the text's "inked" glyphs. In measuring the line,
  *    the ATSUMeasureTextImage function takes into account line
  *    rotation, alignment, and justification, as well as other
  *    characteristics that affect layout, such as hanging punctuation.

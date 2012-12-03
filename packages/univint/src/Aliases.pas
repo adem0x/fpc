@@ -5,7 +5,7 @@
                  The contents of this header file are deprecated.
                  Use Foundation or CoreFoundation URL Bookmarks instead.
  
-     Copyright:  ï¿½ 1989-2011 by Apple Inc. All rights reserved.
+     Copyright:  © 1989-2011 by Apple Inc. All rights reserved.
 }
 {	  Pascal Translation Updated:  Jonas Maebe, <jonas@freepascal.org>, October 2009 }
 {	  Pascal Translation Updated:  Jonas Maebe, <jonas@freepascal.org>, September 2012 }

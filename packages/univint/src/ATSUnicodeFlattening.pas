@@ -5,7 +5,7 @@
  
      Version:    Quickdraw-285~150
  
-     Copyright:  ï¿½ 2002-2008 by Apple Inc. all rights reserved.
+     Copyright:  © 2002-2008 by Apple Inc. all rights reserved.
  
      Bugs?:      For bug reports, consult the following page on
                  the World Wide Web:
@@ -603,7 +603,7 @@ type
                                               { font in the name table matching the other parameters.}
 		fontNamePlatform: FontPlatformCode;
 
-                                              { the script code of the fontï¿½s name based on the platform that was passed}
+                                              { the script code of the fontÕs name based on the platform that was passed}
                                               { in above. If set to kFontNoScript, then the name will be matched based}
                                               { on the first font in the name table matching the other font name}
                                               { parameters.}
@@ -763,7 +763,7 @@ function ATSUFlattenStyleRunsToStream( iStreamFormat: ATSUFlattenedDataStreamFor
  *  Discussion:
  *    This function extracts the ATSUI style run information from
  *    previously-flattened data. The style objects and style run
- *    information structures are returned in two separate arraysï¿½the
+ *    information structures are returned in two separate arraysÑthe
  *    array oStyleArray and the array oRunInfoArray. These arrays are
  *    not parallel. Each ATSUStyle object in the oStyleArray is a
  *    unique ATSUStyle object. To figure out which ATSUStyle object

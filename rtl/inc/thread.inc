@@ -314,13 +314,6 @@ begin
   currenttm.rtleventWaitForTimeout(state,timeout);
 end;
 
-procedure RTLeventsync(m:trtlmethod;p:tprocedure);
-
-begin
-  currenttm.rtleventsync(m,p);
-end;
-
-
 { ---------------------------------------------------------------------
     ThreadManager which gives run-time error. Use if no thread support.
   ---------------------------------------------------------------------}
@@ -484,14 +477,6 @@ begin
 end;
 
 
-procedure NoRTLEventSync(m:trtlmethod;p:tprocedure);
-begin
-  if IsMultiThread then
-    NoThreadError
-  else
-    ThreadingAlreadyUsed:=true;
-end;
-
 function NoSemaphoreInit: Pointer;
 begin
   if IsMultiThread then
@@ -520,7 +505,7 @@ const
          DoneManager            : Nil;
 {$ifdef EMBEDDED}
          { while this is pretty hacky, it reduces the size of typical embedded programs
-           and works fine on arm and avr }
+           and works fine on arm, avr and avr32 }
          BeginThread            : @NoBeginThread;
          EndThread              : TEndThreadHandler(@NoThreadError);
          SuspendThread          : TThreadHandler(@NoThreadError);
@@ -551,7 +536,6 @@ const
          rtleventSetEvent       : TRTLEventHandler(@NoThreadError);
          rtleventResetEvent     : TRTLEventHandler(@NoThreadError);
          rtleventWaitFor        : TRTLEventHandler(@NoThreadError);
-         rtleventsync           : TRTLEventSyncHandler(@NoThreadError);
          rtleventwaitfortimeout : TRTLEventHandlerTimeout(@NoThreadError);
          SemaphoreInit          : TSempahoreInitHandler(@NoThreadError);
          SemaphoreDestroy       : TSemaphoreDestroyHandler(@NoThreadError);
@@ -588,7 +572,6 @@ const
          rtleventSetEvent       : @NoRTLevent;
          rtleventResetEvent     : @NoRTLEvent;
          rtleventWaitFor        : @NoRTLEvent;
-         rtleventsync           : @NoRTLEventSync;
          rtleventwaitfortimeout : @NoRTLEventWaitForTimeout;
          SemaphoreInit          : @NoSemaphoreInit;
          SemaphoreDestroy       : @NoSemaphore;

@@ -382,7 +382,7 @@ function CGEventGetDoubleValueField( event: CGEventRef; field: CGEventField ): F
    event creation function such as `CGEventCreateMouseEvent', or by calling
    `CGEventSetType'.
 
-   In cases where the fieldï¿½s value is represented within the event by a
+   In cases where the field’s value is represented within the event by a
    fixed point number or integer, the value parameter is scaled as needed
    and converted to the appropriate type. }
 

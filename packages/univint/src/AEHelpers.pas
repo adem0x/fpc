@@ -5,7 +5,7 @@
  
     
  
-     Copyright:  ï¿½ 1999-2008 by Apple Computer, Inc., all rights reserved.
+     Copyright:  © 1999-2008 by Apple Computer, Inc., all rights reserved.
  
      Bugs?:      For bug reports, consult the following page on
                  the World Wide Web:
@@ -219,11 +219,11 @@ const
 	aeBuildSyntaxMissingQuote = 5;    { Missing close "'" }
 	aeBuildSyntaxBadHex = 6;    { Non-digit in hex string }
 	aeBuildSyntaxOddHex = 7;    { Odd # of hex digits }
-	aeBuildSyntaxNoCloseHex = 8;    { Missing hex quote close "ï¿½" }
+	aeBuildSyntaxNoCloseHex = 8;    { Missing hex quote close "È" }
 	aeBuildSyntaxUncoercedHex = 9;    { Hex string must be coerced to a type }
 	aeBuildSyntaxNoCloseString = 10;   { Missing close quote }
 	aeBuildSyntaxBadDesc = 11;   { Illegal descriptor }
-	aeBuildSyntaxBadData = 12;   { Bad data value inside (ï¿½ ï¿½) }
+	aeBuildSyntaxBadData = 12;   { Bad data value inside (Ç È) }
 	aeBuildSyntaxNoCloseParen = 13;   { Missing ")" after data value }
 	aeBuildSyntaxNoCloseBracket = 14;   { Expected "," or "]" }
 	aeBuildSyntaxNoCloseBrace = 15;   { Expected "," or ")" }

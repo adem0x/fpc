@@ -374,7 +374,7 @@ const
 type
 	CGDisplayChangeSummaryFlags = UInt32;
 
-{ A client-supplied callback function thatï¿½s invoked whenever the
+{ A client-supplied callback function that’s invoked whenever the
    configuration of a local display is changed. }
 
 type
@@ -535,7 +535,7 @@ function CGDisplayScreenSize( display: CGDirectDisplayID ): CGSize; external nam
 
 { Return the rotation angle of a display in degrees clockwise.
 
-   A display rotation of 90ï¿½ implies the display is rotated clockwise 90ï¿½,
+   A display rotation of 90° implies the display is rotated clockwise 90°,
    such that what was the physical bottom of the display is now the left
    side, and what was the physical top is now the right side.
 

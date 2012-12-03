@@ -234,6 +234,14 @@ function do_isdevice(handle:thandle):boolean;forward;
   {$define SYSPROCDEFINED}
 {$endif cpuavr}
 
+{$ifdef cpuavr32}
+  {$ifdef SYSPROCDEFINED}
+    {$Error Can't determine processor type !}
+  {$endif}
+  {$i avr32.inc}  { Case dependent, don't change }
+  {$define SYSPROCDEFINED}
+{$endif cpuavr32}   
+
 {$ifdef cpumipsel}
   {$ifdef SYSPROCDEFINED}
     {$Error Can't determine processor type !}

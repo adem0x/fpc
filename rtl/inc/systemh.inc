@@ -45,6 +45,10 @@
 {$endif CPUAVR}
 
 
+{$ifdef CPUAVR32}
+  {$goto+}
+{$endif CPUAVR32}
+
 { needed for insert,delete,readln }
 {$P+}
 { stack checking always disabled
@@ -264,6 +268,29 @@ Type
 
   FarPointer = Pointer;
 {$endif CPUAVR}
+
+{$ifdef CPUAVR32}
+  {$define DEFAULT_SINGLE}
+
+  {$define FPC_INCLUDE_SOFTWARE_MOD_DIV}
+  {$define FPC_INCLUDE_SOFTWARE_MUL}
+  {$define FPC_INCLUDE_SOFTWARE_SHIFT_INT64}
+
+  {$ifndef FPUNONE}
+    {$define SUPPORT_SINGLE}
+    {$define SUPPORT_DOUBLE}
+
+    {$define FPC_INCLUDE_SOFTWARE_INT64_TO_DOUBLE}
+
+    ValReal = Real;
+  {$endif}
+
+  { map comp to int64, but this doesn't mean we compile the comp support in! }
+  Comp = Int64;
+  PComp = ^Comp;
+
+  FarPointer = Pointer;
+{$endif CPUAVR32}
 
 {$ifdef CPU64}
   SizeInt = Int64;

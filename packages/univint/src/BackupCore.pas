@@ -3,7 +3,7 @@
  
      Contains:   Backup low level Interfaces.
  
-     Copyright:  ï¿½ 2006-2011 by Apple Inc. All rights reserved.
+     Copyright:  © 2006-2011 by Apple Inc. All rights reserved.
  
      Bugs?:      For bug reports, consult the following page on
                  the World Wide Web:

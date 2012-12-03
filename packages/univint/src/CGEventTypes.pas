@@ -182,7 +182,7 @@ uses MacTypes,MacOSXPosix,CGRemoteOperation,CGBase;
    A typical event in Mac OS X originates when the user manipulates an input
    device such as a mouse or a keyboard. The device driver associated with
    that device, through the I/O Kit, creates a low-level event, puts it in
-   the window serverï¿½s event queue, and notifies the window server. The
+   the window server’s event queue, and notifies the window server. The
    window server creates a Quartz event, annotates the event, and dispatches
    the event to the appropriate run-loop port of the target process. There
    the event is picked up by the Carbon Event Manager and forwarded to the
@@ -579,13 +579,13 @@ Generate an event mask for a single type of event.
 const
 	kCGEventMaskForAllEvents = UInt64($FFFFFFFFFFFFFFFF);
 
-{ An opaque type that represents state within the client application thatï¿½s
+{ An opaque type that represents state within the client application that’s
    associated with an event tap. }
 type
 	CGEventTapProxy = ^__CGEventTapProxy; { an opaque type }
 	__CGEventTapProxy = record end;
 
-{ A client-supplied callback function thatï¿½s invoked whenever an associated
+{ A client-supplied callback function that’s invoked whenever an associated
    event tap receives a Quartz event.
 
    The callback is passed a proxy for the tap, the event type, the incoming
