@@ -1,0 +1,504 @@
+<?xml version="1.0"?>
+<CONFIG>
+  <ProjectSession>
+    <Version Value="9"/>
+    <Units Count="32">
+      <Unit0>
+        <Filename Value="ppcavr32.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="ppcavr32"/>
+        <EditorIndex Value="0"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="197"/>
+        <CursorPos X="1" Y="241"/>
+        <UsageCount Value="40"/>
+        <Loaded Value="True"/>
+      </Unit0>
+      <Unit1>
+        <Filename Value="avr/aasmcpu.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="aasmcpu"/>
+        <UsageCount Value="40"/>
+      </Unit1>
+      <Unit2>
+        <Filename Value="compiler.pas"/>
+        <UnitName Value="compiler"/>
+        <EditorIndex Value="1"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="217"/>
+        <CursorPos X="1" Y="255"/>
+        <UsageCount Value="17"/>
+        <Loaded Value="True"/>
+      </Unit2>
+      <Unit3>
+        <Filename Value="globals.pas"/>
+        <UnitName Value="globals"/>
+        <EditorIndex Value="29"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="818"/>
+        <CursorPos X="1" Y="841"/>
+        <UsageCount Value="17"/>
+        <Loaded Value="True"/>
+      </Unit3>
+      <Unit4>
+        <Filename Value="systems.pas"/>
+        <UnitName Value="systems"/>
+        <EditorIndex Value="27"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="879"/>
+        <CursorPos X="1" Y="917"/>
+        <UsageCount Value="17"/>
+        <Loaded Value="True"/>
+      </Unit4>
+      <Unit5>
+        <Filename Value="cutils.pas"/>
+        <UnitName Value="cutils"/>
+        <EditorIndex Value="28"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="801"/>
+        <CursorPos X="1" Y="828"/>
+        <UsageCount Value="17"/>
+        <Loaded Value="True"/>
+      </Unit5>
+      <Unit6>
+        <Filename Value="cfileutl.pas"/>
+        <UnitName Value="cfileutl"/>
+        <EditorIndex Value="20"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="543"/>
+        <CursorPos X="1" Y="566"/>
+        <UsageCount Value="17"/>
+        <Loaded Value="True"/>
+      </Unit6>
+      <Unit7>
+        <Filename Value="cclasses.pas"/>
+        <UnitName Value="cclasses"/>
+        <EditorIndex Value="21"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1737"/>
+        <CursorPos X="1" Y="1761"/>
+        <UsageCount Value="17"/>
+        <Loaded Value="True"/>
+      </Unit7>
+      <Unit8>
+        <Filename Value="fmodule.pas"/>
+        <UnitName Value="fmodule"/>
+        <EditorIndex Value="19"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="309"/>
+        <CursorPos X="1" Y="347"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit8>
+      <Unit9>
+        <Filename Value="options.pas"/>
+        <UnitName Value="options"/>
+        <EditorIndex Value="14"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="2293"/>
+        <CursorPos X="17" Y="2305"/>
+        <FoldState Value=" T0inQ3{VO"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit9>
+      <Unit10>
+        <Filename Value="symtable.pas"/>
+        <UnitName Value="symtable"/>
+        <EditorIndex Value="15"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1829"/>
+        <CursorPos X="1" Y="1859"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit10>
+      <Unit11>
+        <Filename Value="symbase.pas"/>
+        <UnitName Value="symbase"/>
+        <EditorIndex Value="18"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="382"/>
+        <CursorPos X="1" Y="409"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit11>
+      <Unit12>
+        <Filename Value="symsym.pas"/>
+        <UnitName Value="symsym"/>
+        <EditorIndex Value="16"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="2333"/>
+        <CursorPos X="1" Y="2362"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit12>
+      <Unit13>
+        <Filename Value="symtype.pas"/>
+        <UnitName Value="symtype"/>
+        <EditorIndex Value="17"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="334"/>
+        <CursorPos X="1" Y="367"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit13>
+      <Unit14>
+        <Filename Value="verbose.pas"/>
+        <UnitName Value="verbose"/>
+        <EditorIndex Value="22"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="440"/>
+        <CursorPos X="1" Y="478"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit14>
+      <Unit15>
+        <Filename Value="cmsgs.pas"/>
+        <UnitName Value="cmsgs"/>
+        <EditorIndex Value="26"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="430"/>
+        <CursorPos X="1" Y="454"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit15>
+      <Unit16>
+        <Filename Value="comphook.pas"/>
+        <UnitName Value="comphook"/>
+        <EditorIndex Value="23"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="211"/>
+        <CursorPos X="1" Y="249"/>
+        <UsageCount Value="14"/>
+        <Loaded Value="True"/>
+      </Unit16>
+      <Unit17>
+        <Filename Value="version.pas"/>
+        <UnitName Value="version"/>
+        <EditorIndex Value="30"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="57"/>
+        <CursorPos X="1" Y="100"/>
+        <UsageCount Value="12"/>
+        <Loaded Value="True"/>
+      </Unit17>
+      <Unit18>
+        <Filename Value="parser.pas"/>
+        <UnitName Value="parser"/>
+        <EditorIndex Value="9"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="329"/>
+        <CursorPos X="1" Y="347"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit18>
+      <Unit19>
+        <Filename Value="gendef.pas"/>
+        <UnitName Value="gendef"/>
+        <EditorIndex Value="13"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="77"/>
+        <CursorPos X="29" Y="57"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit19>
+      <Unit20>
+        <Filename Value="import.pas"/>
+        <UnitName Value="import"/>
+        <EditorIndex Value="8"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="85"/>
+        <CursorPos X="1" Y="121"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit20>
+      <Unit21>
+        <Filename Value="export.pas"/>
+        <UnitName Value="export"/>
+        <EditorIndex Value="7"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="224"/>
+        <CursorPos X="1" Y="259"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit21>
+      <Unit22>
+        <Filename Value="link.pas"/>
+        <UnitName Value="link"/>
+        <EditorIndex Value="5"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="1486"/>
+        <CursorPos X="1" Y="1509"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit22>
+      <Unit23>
+        <Filename Value="systems/t_embed.pas"/>
+        <UnitName Value="t_embed"/>
+        <EditorIndex Value="6"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="33"/>
+        <CursorPos X="1" Y="60"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit23>
+      <Unit24>
+        <Filename Value="avr32/aasmcpu.pas"/>
+        <UnitName Value="aasmcpu"/>
+        <EditorIndex Value="4"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="718"/>
+        <CursorPos X="1" Y="743"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit24>
+      <Unit25>
+        <Filename Value="wpo.pas"/>
+        <UnitName Value="wpo"/>
+        <EditorIndex Value="2"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="28"/>
+        <CursorPos X="1" Y="66"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit25>
+      <Unit26>
+        <Filename Value="wpobase.pas"/>
+        <UnitName Value="wpobase"/>
+        <EditorIndex Value="3"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="727"/>
+        <CursorPos X="1" Y="753"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit26>
+      <Unit27>
+        <Filename Value="scanner.pas"/>
+        <UnitName Value="scanner"/>
+        <EditorIndex Value="11"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="4588"/>
+        <CursorPos X="1" Y="4612"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit27>
+      <Unit28>
+        <Filename Value="finput.pas"/>
+        <UnitName Value="finput"/>
+        <EditorIndex Value="24"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="562"/>
+        <CursorPos X="1" Y="600"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit28>
+      <Unit29>
+        <Filename Value="cstreams.pas"/>
+        <UnitName Value="cstreams"/>
+        <EditorIndex Value="25"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="438"/>
+        <CursorPos X="1" Y="462"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit29>
+      <Unit30>
+        <Filename Value="switches.pas"/>
+        <UnitName Value="switches"/>
+        <EditorIndex Value="12"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="324"/>
+        <CursorPos X="1" Y="366"/>
+        <UsageCount Value="11"/>
+        <Loaded Value="True"/>
+      </Unit30>
+      <Unit31>
+        <Filename Value="pmodules.pas"/>
+        <UnitName Value="pmodules"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="10"/>
+        <WindowIndex Value="0"/>
+        <TopLine Value="723"/>
+        <CursorPos X="50" Y="735"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit31>
+    </Units>
+    <General>
+      <ActiveWindowIndexAtStart Value="0"/>
+    </General>
+    <JumpHistory Count="30" HistoryIndex="29">
+      <Position1>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3946" Column="1" TopLine="3919"/>
+      </Position1>
+      <Position2>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3949" Column="1" TopLine="3919"/>
+      </Position2>
+      <Position3>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3951" Column="1" TopLine="3919"/>
+      </Position3>
+      <Position4>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3952" Column="1" TopLine="3919"/>
+      </Position4>
+      <Position5>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3953" Column="1" TopLine="3919"/>
+      </Position5>
+      <Position6>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3955" Column="1" TopLine="3919"/>
+      </Position6>
+      <Position7>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3956" Column="1" TopLine="3919"/>
+      </Position7>
+      <Position8>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3957" Column="1" TopLine="3919"/>
+      </Position8>
+      <Position9>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3953" Column="1" TopLine="3919"/>
+      </Position9>
+      <Position10>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3961" Column="1" TopLine="3923"/>
+      </Position10>
+      <Position11>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3962" Column="1" TopLine="3924"/>
+      </Position11>
+      <Position12>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3964" Column="1" TopLine="3926"/>
+      </Position12>
+      <Position13>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3965" Column="1" TopLine="3927"/>
+      </Position13>
+      <Position14>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3966" Column="1" TopLine="3928"/>
+      </Position14>
+      <Position15>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3969" Column="1" TopLine="3931"/>
+      </Position15>
+      <Position16>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="3973" Column="1" TopLine="3935"/>
+      </Position16>
+      <Position17>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="4611" Column="1" TopLine="4588"/>
+      </Position17>
+      <Position18>
+        <Filename Value="scanner.pas"/>
+        <Caret Line="4612" Column="1" TopLine="4588"/>
+      </Position18>
+      <Position19>
+        <Filename Value="parser.pas"/>
+        <Caret Line="338" Column="1" TopLine="300"/>
+      </Position19>
+      <Position20>
+        <Filename Value="parser.pas"/>
+        <Caret Line="342" Column="1" TopLine="304"/>
+      </Position20>
+      <Position21>
+        <Filename Value="parser.pas"/>
+        <Caret Line="343" Column="1" TopLine="305"/>
+      </Position21>
+      <Position22>
+        <Filename Value="parser.pas"/>
+        <Caret Line="344" Column="1" TopLine="306"/>
+      </Position22>
+      <Position23>
+        <Filename Value="parser.pas"/>
+        <Caret Line="346" Column="1" TopLine="308"/>
+      </Position23>
+      <Position24>
+        <Filename Value="parser.pas"/>
+        <Caret Line="336" Column="27" TopLine="329"/>
+      </Position24>
+      <Position25>
+        <Filename Value="compiler.pas"/>
+        <Caret Line="255" Column="1" TopLine="217"/>
+      </Position25>
+      <Position26>
+        <Filename Value="parser.pas"/>
+        <Caret Line="374" Column="27" TopLine="329"/>
+      </Position26>
+      <Position27>
+        <Filename Value="parser.pas"/>
+        <Caret Line="343" Column="1" TopLine="329"/>
+      </Position27>
+      <Position28>
+        <Filename Value="parser.pas"/>
+        <Caret Line="344" Column="1" TopLine="329"/>
+      </Position28>
+      <Position29>
+        <Filename Value="parser.pas"/>
+        <Caret Line="346" Column="1" TopLine="329"/>
+      </Position29>
+      <Position30>
+        <Filename Value="parser.pas"/>
+        <Caret Line="347" Column="1" TopLine="329"/>
+      </Position30>
+    </JumpHistory>
+  </ProjectSession>
+  <Debugging>
+    <BreakPoints Count="1">
+      <Item1>
+        <Kind Value="bpkSource"/>
+        <WatchScope Value="wpsLocal"/>
+        <WatchKind Value="wpkWrite"/>
+        <Source Value="parser.pas"/>
+        <Line Value="342"/>
+      </Item1>
+    </BreakPoints>
+    <Watches Count="13">
+      <Item1>
+        <Expression Value="filename"/>
+      </Item1>
+      <Item2>
+        <Expression Value="opts"/>
+      </Item2>
+      <Item3>
+        <Expression Value="hs"/>
+      </Item3>
+      <Item4>
+        <Expression Value="DriveSeparator"/>
+      </Item4>
+      <Item5>
+        <Expression Value="s"/>
+      </Item5>
+      <Item6>
+        <Expression Value="i"/>
+      </Item6>
+      <Item7>
+        <Expression Value="option_config_is_dir"/>
+      </Item7>
+      <Item8>
+        <Expression Value="f"/>
+      </Item8>
+      <Item9>
+        <Expression Value="param_file"/>
+      </Item9>
+      <Item10>
+        <Expression Value="fpcdir"/>
+      </Item10>
+      <Item11>
+        <Expression Value="inputfilepath"/>
+      </Item11>
+      <Item12>
+        <Expression Value="inputfilename"/>
+      </Item12>
+      <Item13>
+        <Expression Value="line_no"/>
+      </Item13>
+    </Watches>
+  </Debugging>
+</CONFIG>

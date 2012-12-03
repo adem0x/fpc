@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+<CONFIG>
+  <ProjectOptions>
+    <Version Value="9"/>
+    <General>
+      <Flags>
+        <MainUnitHasUsesSectionForAllUnits Value="False"/>
+        <MainUnitHasCreateFormStatements Value="False"/>
+        <MainUnitHasTitleStatement Value="False"/>
+        <LRSInOutputDirectory Value="False"/>
+      </Flags>
+      <SessionStorage Value="InProjectDir"/>
+      <MainUnit Value="0"/>
+      <Title Value="avr32-fpc"/>
+    </General>
+    <BuildModes Count="1">
+      <Item1 Name="default" Default="True"/>
+    </BuildModes>
+    <PublishOptions>
+      <Version Value="2"/>
+      <IncludeFileFilter Value="*.(pas|pp|inc|lfm|lpr|lrs|lpi|lpk|sh|xml)"/>
+      <ExcludeFileFilter Value="*.(bak|ppu|ppw|o|so);*~;backup"/>
+    </PublishOptions>
+    <RunParams>
+      <local>
+        <FormatVersion Value="1"/>
+        <HostApplicationFilename Value="/home/michel/packages/BUILD/avr32-fpc-2.7.1/compiler/avr32/avr32-fpc"/>
+        <CommandLineParams Value="@rtl.cfg -Ur -Tembedded -Pavr32 -XPavr32- -Xr -Ur -O2 -n -Fi../inc -Fi../avr32 -FE. -FU/home/michel/packages/BUILD/avr32-fpc-2.7.1/rtl/units/avr32-embedded -O- -Xs- -davr32 -dRELEASE -O- -Us -Sg -Fr /home/michel/packages/BUILD/avr32-fpc-2.7.1/rtl/embedded/system.pp"/>
+        <LaunchingApplication PathPlusParams="/usr/X11R6/bin/xterm -T 'Lazarus Run Output' -e $(LazarusDir)/tools/runwait.sh $(TargetCmdLine)"/>
+      </local>
+    </RunParams>
+    <Units Count="2">
+      <Unit0>
+        <Filename Value="ppcavr32.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="ppcavr32"/>
+      </Unit0>
+      <Unit1>
+        <Filename Value="avr/aasmcpu.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="aasmcpu"/>
+      </Unit1>
+    </Units>
+  </ProjectOptions>
+  <CompilerOptions>
+    <Version Value="11"/>
+    <PathDelim Value="\"/>
+    <Target>
+      <Filename Value="avr32\avr32-fpc"/>
+    </Target>
+    <SearchPaths>
+      <IncludeFiles Value="avr32"/>
+      <OtherUnitFiles Value="avr32;systems"/>
+      <UnitOutputDirectory Value="avr32\lazbuild"/>
+    </SearchPaths>
+    <Parsing>
+      <SyntaxOptions>
+        <CStyleOperator Value="False"/>
+        <AllowLabel Value="False"/>
+        <CPPInline Value="False"/>
+        <UseAnsiStrings Value="False"/>
+      </SyntaxOptions>
+    </Parsing>
+    <Linking>
+      <Debugging>
+        <DebugInfoType Value="dsDwarf2Set"/>
+      </Debugging>
+    </Linking>
+    <Other>
+      <Verbosity>
+        <ShowWarn Value="False"/>
+        <ShowNotes Value="False"/>
+        <ShowHints Value="False"/>
+      </Verbosity>
+      <ConfigFile>
+        <StopAfterErrCount Value="50"/>
+      </ConfigFile>
+      <CompilerMessages>
+        <UseMsgFile Value="True"/>
+      </CompilerMessages>
+      <CustomOptions Value="-davr32"/>
+      <CompilerPath Value="$(CompPath)"/>
+    </Other>
+  </CompilerOptions>
+</CONFIG>
