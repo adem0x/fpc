@@ -3218,7 +3218,6 @@ implementation
         srsymtable : tsymtable;
       begin
         { in case this is a formal class, first find the real definition }
-        { in case this is a formal class, first find the real definition }
         if (oo_is_formal in pd.objectoptions) then
           pd:=find_real_class_definition(tobjectdef(pd),true);
 
@@ -3250,6 +3249,7 @@ implementation
                 exit;
               end;
             if pd.typ=objectdef then
+              pd:=tobjectdef(pd).childof
             else
               pd:=nil;
           end;
