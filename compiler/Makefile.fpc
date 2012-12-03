@@ -32,12 +32,12 @@ fpcdir=..
 unexport FPC_VERSION FPC_COMPILERINFO
 
 # Which platforms are ready for inclusion in the cycle
-CYCLETARGETS=i386 powerpc sparc arm x86_64 powerpc64 m68k armeb mipsel mips avr jvm
+CYCLETARGETS=i386 powerpc sparc arm x86_64 powerpc64 m68k armeb mipsel mips avr jvm avr32
 
 # All supported targets used for clean
 ALLTARGETS=$(CYCLETARGETS)
 
-# Allow ALPHA, POWERPC, POWERPC64, M68K, I386, jvm defines for target cpu
+# Allow ALPHA, POWERPC, POWERPC64, M68K, I386, jvm and avr32 defines for target cpu
 ifdef ALPHA
 PPC_TARGET=alpha
 endif
@@ -76,6 +76,9 @@ PPC_TARGET=avr
 endif
 ifdef JVM
 PPC_TARGET=jvm
+endif
+ifdef AVR32
+PPC_TARGET=avr32
 endif
 
 # Default is to generate a compiler for the same
@@ -192,6 +195,9 @@ CPUSUF=avr
 endif
 ifeq ($(CPC_TARGET),jvm)
 CPUSUF=jvm
+endif
+ifeq ($(CPC_TARGET),avr32)
+CPUSUF=avr32
 endif
 
 # Do not define the default -d$(CPU_TARGET) because that
@@ -355,10 +361,14 @@ EXENAME=ppc$(CPUSUF)$(EXEEXT)
 endif
 PPEXENAME=pp$(EXEEXT)
 TEMPNAME=ppc$(SRCEXEEXT)
+ifeq ($(CPUSUF),avr32)
+PPCROSSNAME=avr32-fpc$(SRCEXEEXT)
+else
 ifneq ($(CPUSUF),jvm)
 PPCROSSNAME=ppcross$(CPUSUF)$(SRCEXEEXT)
 else
 PPCROSSNAME=ppc$(CPUSUF)$(SRCEXEEXT)
+endif
 endif
 TEMPNAME1=ppc1$(EXEEXT)
 TEMPNAME2=ppc2$(EXEEXT)
@@ -476,7 +486,15 @@ insdatarm : arm/armins.dat
 	    $(COMPILER) -FE$(COMPILERUTILSDIR) $(COMPILERUTILSDIR)/mkarmins.pp
         cd arm && ..$(PATHSEP)utils$(PATHSEP)mkarmins$(SRCEXEEXT)
 
-insdat: insdatx86 insdatarm
+insdataarch64 : aarch64/a64ins.dat
+	    $(COMPILER) -FE$(COMPILERUTILSDIR) $(COMPILERUTILSDIR)/mka64ins.pp
+        cd aarch64 && ..$(PATHSEP)utils$(PATHSEP)mka64ins$(SRCEXEEXT)
+
+insdatavr32 : avr32/avr32ins.dat
+            $(COMPILER) -FE$(COMPILERUTILSDIR) $(COMPILERUTILSDIR)/mkavr32ins.pp
+        cd avr32 && ../utils/mkavr32ins$(SRCEXEEXT)
+
+insdat: insdatx86 insdatarm insdataarch64 insdatavr32
 
 regdatarm : arm/armreg.dat
 	    $(COMPILER) -FE$(COMPILERUTILSDIR) $(COMPILERUTILSDIR)/mkarmreg.pp
@@ -494,7 +512,9 @@ regdatavr : avr/avrreg.dat
             $(COMPILER) -FE$(COMPILERUTILSDIR) $(COMPILERUTILSDIR)/mkavrreg.pp
         cd avr && ..$(PATHSEP)utils$(PATHSEP)mkavrreg$(SRCEXEEXT)
 
-
+regdataarch64 : aarch64/a64reg.dat
+	    $(COMPILER) -FE$(COMPILERUTILSDIR) $(COMPILERUTILSDIR)/mka64reg.pp
+        cd aarch64 && ..$(PATHSEP)utils$(PATHSEP)mka64reg$(SRCEXEEXT)
 
 # revision.inc rule
 revision.inc :
@@ -681,7 +701,7 @@ cycle:
         $(MAKE) OS_TARGET=$(OS_SOURCE) CPU_TARGET=$(CPU_SOURCE) CROSSBINDIR= BINUTILSPREFIX= CROSSCYCLEBOOTSTRAP=1 rtlclean rtl CYCLELEVEL=1
         $(MAKE) OS_TARGET=$(OS_SOURCE) CPU_TARGET=$(CPU_SOURCE) EXENAME=$(TEMPNAME) CROSSBINDIR= BINUTILSPREFIX= CROSSCYCLEBOOTSTRAP=1 cycleclean compiler CYCLELEVEL=1
 # ppcross<ARCH> (source native)
-        $(MAKE) 'FPC=$(BASEDIR)/$(TEMPNAME)' OS_TARGET=$(OS_SOURCE) CPU_TARGET=$(CPU_SOURCE) CROSSBINDIR= BINUTILSPREFIX= CROSSCYCLEBOOTSTRAP=1 rtlclean rtl CYCLELEVEL=‚
+        $(MAKE) 'FPC=$(BASEDIR)/$(TEMPNAME)' OS_TARGET=$(OS_SOURCE) CPU_TARGET=$(CPU_SOURCE) CROSSBINDIR= BINUTILSPREFIX= CROSSCYCLEBOOTSTRAP=1 rtlclean rtl CYCLELEVEL=ï¿½
         $(MAKE) 'FPC=$(BASEDIR)/$(TEMPNAME)' OS_TARGET=$(OS_SOURCE) CPU_TARGET=$(CPU_SOURCE) PPC_TARGET=$(CPU_TARGET) EXENAME=$(PPCROSSNAME) CROSSBINDIR= BINUTILSPREFIX= CROSSCYCLEBOOTSTRAP=1 cycleclean compiler CYCLELEVEL=2
 # ppc<ARCH> (target native)
 ifndef CROSSINSTALL

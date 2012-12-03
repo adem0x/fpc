@@ -882,6 +882,12 @@ Implementation
                 begin
                   actopcode:=tasmop(PtrUInt(iasmops.Find(copy(s,1,len))));
 
+                  { movsd needs special handling because it has two namings in at&t syntax (movsl for string handling and
+                    movsd for the sse instruction) while only one in intel syntax (movsd, both string and sse)
+                    this cannot be expressed by the instruction table format so we have to hack around this here }
+                  if (actopcode = A_NONE) and (upper(s) = 'MOVSD') then
+                    actopcode := A_MOVSD;
+
                   { two-letter suffix is allowed by just a few instructions (movsx,movzx),
                     and it is always required whenever allowed }
                   if (gas_needsuffix[actopcode]=attsufINTdual) xor (suflen=2) then

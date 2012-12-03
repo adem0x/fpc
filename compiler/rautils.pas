@@ -98,6 +98,12 @@ type
       OPR_MODEFLAGS : (flags : tcpumodeflags);
       OPR_SPECIALREG: (specialreg : tregister; specialregflags : tspecialregflags);
 {$endif arm}
+{$ifdef avr32}
+      OPR_REGSET    : (regset : tcpuregisterset; regtype: tregistertype; subreg: tsubregister);
+      OPR_SHIFTEROP : (shifterop : tshifterop);
+      OPR_COH       : ();
+      OPR_REGISTERSELECTOR : (topreg : tregister; selector : tregisterselector);
+{$endif avr32}
   end;
 
   TOperand = class
@@ -1128,6 +1134,16 @@ end;
               OPR_SPECIALREG:
                 ai.loadspecialreg(i-1,specialreg,specialregflags);
 {$endif ARM}
+{$ifdef avr32}
+              OPR_REGSET:
+                ai.loadregset(i-1,regtype,subreg,regset);
+              OPR_SHIFTEROP:
+                ai.loadshifterop(i-1,shifterop);
+              OPR_COH:
+                ai.loadCOH(i-1);
+              OPR_REGISTERSELECTOR:
+                ai.loadregisterselector(i-1,topreg,selector);
+{$endif avr32}
               { ignore wrong operand }
               OPR_NONE:
                 ;

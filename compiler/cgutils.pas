@@ -81,6 +81,11 @@ unit cgutils;
          indexoffset: aint;
          checkcast: boolean;
 {$endif jvm}
+{$ifdef avr32}
+         symboldata  : tlinkedlistitem;
+         addressmode : taddressmode;
+         indexselector : tregisterselector;
+{$endif avr32}
          alignment : byte;
       end;
 

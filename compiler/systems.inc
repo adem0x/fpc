@@ -48,7 +48,8 @@
              cpu_powerpc64,                { 11 }
              cpu_avr,                      { 12 }
              cpu_mipsel,                   { 13 }
-             cpu_jvm                       { 14 }
+             cpu_jvm,                      { 14 }
+             cpu_avr32                     { 15 }
        );
 
        tasmmode= (asmmode_none
@@ -65,6 +66,7 @@
             ,asmmode_x86_64_intel
             ,asmmode_x86_64_att
             ,asmmode_avr_gas
+            ,asmmode_avr32_gas
        );
 
      (* IMPORTANT NOTE:
@@ -153,7 +155,8 @@
              system_powerpc_aix,        { 73 }
              system_powerpc64_aix,      { 74 }
              system_jvm_java32,         { 75 }
-             system_jvm_android32       { 76 }
+             system_jvm_android32,      { 76 }
+             system_avr32_embedded      { 77 }
        );
 
      type
@@ -189,6 +192,7 @@
              ,as_i386_nlmcoff
              ,as_powerpc_xcoff
              ,as_jvm_jasmin
+             ,as_avr32
        );
 
        tar = (ar_none

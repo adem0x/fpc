@@ -531,33 +531,6 @@ interface
        end;
        pinlininginfo = ^tinlininginfo;
 
-       { kinds of synthetic procdefs that can be generated }
-       tsynthetickind = (
-         tsk_none,
-         tsk_anon_inherited,        // anonymous inherited call
-         tsk_jvm_clone,             // Java-style clone method
-         tsk_record_deepcopy,       // deepcopy for records field by field
-         tsk_record_initialize,     // initialize for records field by field (explicit rather than via rtti)
-         tsk_empty,                 // an empty routine
-         tsk_tcinit,                // initialisation of typed constants
-         tsk_callthrough,           // call through to another routine with the same parameters/return type (its def is stored in the skpara field)
-         tsk_callthrough_nonabstract,// call through to another routine if the current class not abstract (otherwise do the same as tsk_empty)
-         tsk_jvm_enum_values,       // Java "values" class method of JLEnum descendants
-         tsk_jvm_enum_valueof,      // Java "valueOf" class method of JLEnum descendants
-         tsk_jvm_enum_classconstr,  // Java class constructor for JLEnum descendants
-         tsk_jvm_enum_jumps_constr, // Java constructor for JLEnum descendants for enums with jumps
-         tsk_jvm_enum_fpcordinal,   // Java FPCOrdinal function that returns the enum's ordinal value from an FPC POV
-         tsk_jvm_enum_fpcvalueof,   // Java FPCValueOf function that returns the enum instance corresponding to an ordinal from an FPC POV
-         tsk_jvm_enum_long2set,     // Java fpcLongToEnumSet function that returns an enumset corresponding to a bit pattern in a jlong
-         tsk_jvm_enum_bitset2set,   // Java fpcBitSetToEnumSet function that returns an enumset corresponding to a BitSet
-         tsk_jvm_enum_set2Set,      // Java fpcEnumSetToEnumSet function that returns an enumset corresponding to another enumset (different enum kind)
-         tsk_jvm_procvar_invoke,    // Java invoke method that calls a wrapped procvar
-         tsk_jvm_procvar_intconstr, // Java procvar class constructor that accepts an interface instance for easy Java interoperation
-         tsk_jvm_virtual_clmethod,  // Java wrapper for virtual class method
-         tsk_field_getter,          // getter for a field (callthrough property is passed in skpara)
-         tsk_field_setter           // Setter for a field (callthrough property is passed in skpara)
-       );
-
 {$ifdef oldregvars}
        { register variables }
        pregvarinfo = ^tregvarinfo;
@@ -945,9 +918,15 @@ interface
 {$ifdef AVR}
        pbestrealtype : ^tdef = @s64floattype;
 {$endif AVR}
+{$ifdef avr32}
+       pbestrealtype : ^tdef = @s64floattype;
+{$endif avr32}
 {$ifdef JVM}
        pbestrealtype : ^tdef = @s64floattype;
 {$endif JVM}
+{$ifdef AARCH64}
+       pbestrealtype : ^tdef = @s64floattype;
+{$endif AARCH64}
 
     function make_mangledname(const typeprefix:TSymStr;st:TSymtable;const suffix:TSymStr):TSymStr;
     function make_dllmangledname(const dllname,importname:TSymStr;
@@ -3905,7 +3884,6 @@ implementation
       var
         j, nestinglevel: longint;
         pvs, npvs: tparavarsym;
-        csym, ncsym: tconstsym;
       begin
         nestinglevel:=parast.symtablelevel;
         if newtyp=procdef then
@@ -4108,6 +4086,7 @@ implementation
            deprecatedmsg:=stringdup(ppufile.getstring)
          else
            deprecatedmsg:=nil;
+         synthetickind:=tsynthetickind(ppufile.getbyte);
 {$ifdef powerpc}
          { library symbol for AmigaOS/MorphOS }
          ppufile.getderef(libsymderef);
@@ -4258,6 +4237,7 @@ implementation
          ppufile.putsmallset(symoptions);
          if sp_has_deprecated_msg in symoptions then
            ppufile.putstring(deprecatedmsg^);
+         ppufile.putbyte(byte(synthetickind));
 {$ifdef powerpc}
          { library symbol for AmigaOS/MorphOS }
          ppufile.putderef(libsymderef);
@@ -4447,9 +4427,7 @@ implementation
 
     function tprocdef.getcopyas(newtyp: tdeftyp; copytyp: tproccopytyp): tstoreddef;
       var
-        i : tcallercallee;
         j : longint;
-        pvs : tparavarsym;
       begin
         result:=inherited getcopyas(newtyp,copytyp);
         if newtyp=procvardef then

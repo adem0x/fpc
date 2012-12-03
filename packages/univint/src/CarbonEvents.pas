@@ -3,9 +3,9 @@
  
      Contains:   Carbon Event Manager
  
-     Version:    HIToolbox-437~1
+     Version:    HIToolbox-624~3
  
-     Copyright:  © 1999-2008 by Apple Inc., all rights reserved.
+     Copyright:  ï¿½ 1999-2008 by Apple Inc., all rights reserved.
  
      Bugs?:      For bug reports, consult the following page on
                  the World Wide Web:
@@ -15,6 +15,7 @@
 }
 {       Pascal Translation Updated:  Peter N Lewis, <peter@stairways.com.au>, August 2005 }
 {       Pascal Translation Updated:  Jonas Maebe, <jonas@freepascal.org>, October 2009 }
+{       Pascal Translation Updated:  Jonas Maebe, <jonas@freepascal.org>, October 2012 }
 {
     Modified for use with Free Pascal
     Version 308
@@ -90,6 +91,7 @@ interface
 	{$setc TARGET_OS_MAC := TRUE}
 	{$setc TARGET_OS_IPHONE := FALSE}
 	{$setc TARGET_IPHONE_SIMULATOR := FALSE}
+	{$setc TARGET_OS_EMBEDDED := FALSE}
 {$elifc defined __ppc64__ and __ppc64__}
 	{$setc TARGET_CPU_PPC := FALSE}
 	{$setc TARGET_CPU_PPC64 := TRUE}
@@ -99,6 +101,7 @@ interface
 	{$setc TARGET_OS_MAC := TRUE}
 	{$setc TARGET_OS_IPHONE := FALSE}
 	{$setc TARGET_IPHONE_SIMULATOR := FALSE}
+	{$setc TARGET_OS_EMBEDDED := FALSE}
 {$elifc defined __i386__ and __i386__}
 	{$setc TARGET_CPU_PPC := FALSE}
 	{$setc TARGET_CPU_PPC64 := FALSE}
@@ -114,6 +117,7 @@ interface
 	{$setc TARGET_OS_IPHONE := FALSE}
 	{$setc TARGET_IPHONE_SIMULATOR := FALSE}
 {$endc}
+	{$setc TARGET_OS_EMBEDDED := FALSE}
 {$elifc defined __x86_64__ and __x86_64__}
 	{$setc TARGET_CPU_PPC := FALSE}
 	{$setc TARGET_CPU_PPC64 := FALSE}
@@ -123,6 +127,7 @@ interface
 	{$setc TARGET_OS_MAC := TRUE}
 	{$setc TARGET_OS_IPHONE := FALSE}
 	{$setc TARGET_IPHONE_SIMULATOR := FALSE}
+	{$setc TARGET_OS_EMBEDDED := FALSE}
 {$elifc defined __arm__ and __arm__}
 	{$setc TARGET_CPU_PPC := FALSE}
 	{$setc TARGET_CPU_PPC64 := FALSE}
@@ -133,6 +138,7 @@ interface
 	{$setc TARGET_OS_MAC := FALSE}
 	{$setc TARGET_OS_IPHONE := TRUE}
 	{$setc TARGET_IPHONE_SIMULATOR := FALSE}
+	{$setc TARGET_OS_EMBEDDED := TRUE}
 {$elsec}
 	{$error __ppc__ nor __ppc64__ nor __i386__ nor __x86_64__ nor __arm__ is defined.}
 {$endc}
@@ -752,7 +758,7 @@ const
 
 
 {--------------------------------------------------------------------------------------}
-{  ¥ Helpful utilities                                                                 }
+{  ï¿½ Helpful utilities                                                                 }
 {--------------------------------------------------------------------------------------}
 
 {
@@ -876,8 +882,8 @@ const
 
   {
    * Indicates that kEventMouseWheelMoved and kEventMouseScroll events
-   * should cause `                       the tracking API to stop
-   * tracking and return kMouseTrackingScrollWheel.
+   * should cause the tracking API to stop tracking and return
+   * kMouseTrackingScrollWheel.
    }
 	kTrackMouseLocationOptionIncludeScrollWheel = 1 shl 3;
 
@@ -1136,7 +1142,7 @@ function TrackMouseRegion( inPort: GrafPtr { can be NULL }; inRegion: RgnHandle;
  }
 const
 {
-   * Requests the time and distance for determining ÒstickyÓ mouse
+   * Requests the time and distance for determining ï¿½stickyï¿½ mouse
    * tracking. When the mouse is clicked on a menu title, the toolbox
    * will enter a sticky mouse-tracking mode depending on the time and
    * distance between the mouse-down event and the mouse-up event. In
@@ -1322,7 +1328,7 @@ function GetLastUserEventTime: EventTime; external name '_GetLastUserEventTime';
 
 
 {--------------------------------------------------------------------------------------}
-{  ¥ Mouse Coalescing                                                                  }
+{  ï¿½ Mouse Coalescing                                                                  }
 {--------------------------------------------------------------------------------------}
 {
  *  IsMouseCoalescingEnabled()
@@ -1977,8 +1983,15 @@ const
  *          (equivalent to a click in the down arrow of a scrollbar).
  *          Applications should not scale the delta value provided in
  *          the event; the Mac OS X input device system provides
- *          pre-scaling according to the userÕs desired mouse wheel
+ *          pre-scaling according to the userï¿½s desired mouse wheel
  *          speed.
+ *    
+ *    --> kEventParamDirectionInverted (in, typeBoolean)
+ *          Indicates that the scroll direction is inverted from the
+ *          usage on Mac OS X 10.6 and earlier. In other words, if this
+ *          parameter is true, the scroll direction indicates the
+ *          direction that the content should move, rather than the
+ *          scrollbar thumb. Available on Mac OS X 10.7 and later.
  *  
  *  Availability:
  *    Mac OS X:         in version 10.0 and later in Carbon.framework
@@ -2061,6 +2074,13 @@ const
  *          kEventMouseWheelMoved events instead. You may extract this
  *          event and examine its contents if your code requires a
  *          kEventMouseWheelMoved event.
+ *    
+ *    --> kEventParamDirectionInverted (in, typeBoolean)
+ *          Indicates that the scroll direction is inverted from the
+ *          usage on Mac OS X 10.6 and earlier. In other words, if this
+ *          parameter is true, the scroll direction indicates the
+ *          direction that the content should move, rather than the
+ *          scrollbar thumb. Available on Mac OS X 10.7 and later.
  *  
  *  Availability:
  *    Mac OS X:         in version 10.4 and later in Carbon.framework
@@ -2964,16 +2984,16 @@ const
  *  
  *  Discussion:
  *    Input methods have a need to locate the on-screen position of a
- *    character range in a document.Ê The goal may be toÊcall attention
+ *    character range in a document.ï¿½ The goal may be toï¿½call attention
  *    to the user about a range of text by using its bounding rectangle
- *    or byÊoverlaying some text with different font/attributes.
- *     The handler of this event should return aÊrectangle for the
+ *    or byï¿½overlaying some text with different font/attributes.
+ *     The handler of this event should return aï¿½rectangle for the
  *    largest character subrange of text, starting from the range
- *    beginning, that is drawn on a single line usingÊsimilar font,
+ *    beginning, that is drawn on a single line usingï¿½similar font,
  *    size, and style.
  *    If text overlay is desired, the CTFontRef(s) used over the
  *    character range can be obtained via
- *    theÊkEventTSMDocumentAccessGetFont event.Ê The baseline to be
+ *    theï¿½kEventTSMDocumentAccessGetFont event.ï¿½ The baseline to be
  *    used for drawing is determined by applying the returned
  *    BaselineDelta parameter to the bounding rectangle's origin.
  *     When the bounding rectangle returned corresponds to only a
@@ -3007,9 +3027,9 @@ const
  *          This parameter contains an HIRect of the visible line area
  *          for the text subrange returned in the EffectiveRange
  *          parameter.
- *          ThisÊHIRect can be accessed using the default typeHIRect to
+ *          Thisï¿½HIRect can be accessed using the default typeHIRect to
  *          obtain values in global coordinates, or 72dpi virtual
- *          coordinate space, or can be accessedÊwith other parameter
+ *          coordinate space, or can be accessedï¿½with other parameter
  *          types that specify the coordinate space of interest, such
  *          as typeHIRectScreenPixel.
  *    
@@ -3552,9 +3572,9 @@ const
  *          This parameter is the original raw keyboard event that
  *          produced the text. It enables access to
  *          kEventParamKeyModifiers and kEventParamKeyCode parameters.
- *          Note that when contents of TSMÕs bottom-line input window
+ *          Note that when contents of TSMï¿½s bottom-line input window
  *          are confirmed (i.e., during typing of Chinese, Korean, or
- *          Japanese), the raw keyboard eventÕs keyCode and modifiers
+ *          Japanese), the raw keyboard eventï¿½s keyCode and modifiers
  *          are set to default values. 
  *          
  *          You can also extract from the RawKeyDown event either
@@ -3565,7 +3585,7 @@ const
  *           (DEPRECATED for 64bit on Mac OS X 10.6 and later.)
  *           
  *          The kEventParamKeyUnicodes parameter of the raw keyboard
- *          event is identical to the TextInput eventÕs
+ *          event is identical to the TextInput eventï¿½s
  *          kEventParamTextInputSendText parameter.
  *    
  *    --> kEventParamTextInputSendGlyphInfoArray (in, typeGlyphInfoArray)
@@ -4129,7 +4149,7 @@ const
  *  Summary:
  *    Get the selected text (or the character before or after the
  *    insertion point, based on the leadingEdge parameter) from the
- *    applicationÕs text engine.
+ *    applicationï¿½s text engine.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -4540,7 +4560,7 @@ const
     @param          kEventParamKeyMacCharCodes
                         This event parameter is DEPRECATED for 64bit on Mac OS X 10.6 and later.<BR>
                         <BR>
-                        The character generated by the key that was pressed. The characterÕs encoding
+                        The character generated by the key that was pressed. The characterï¿½s encoding
                         is determined by the current keyboard script.
                         
     @param          kEventParamKeyCode
@@ -4594,7 +4614,7 @@ const
  *          10.6 and later.
  *          
  *          The character generated by the key that was pressed. The
- *          characterÕs encoding is determined by the current keyboard
+ *          characterï¿½s encoding is determined by the current keyboard
  *          script.
  *    
  *    --> kEventParamKeyCode (in, typeUInt32)
@@ -4636,7 +4656,7 @@ const
  *          10.6 and later.
  *          
  *          The character generated by the key that was released. The
- *          characterÕs encoding is determined by the current keyboard
+ *          characterï¿½s encoding is determined by the current keyboard
  *          script.
  *    
  *    --> kEventParamKeyCode (in, typeUInt32)
@@ -5055,13 +5075,13 @@ const
 
 const
 {
-   * Indicates that a deviceÕs available window positioning bounds have
+   * Indicates that a deviceï¿½s available window positioning bounds have
    * changed because of a change in Dock position or size.
    }
 	kAvailBoundsChangedForDock = 1 shl 0;
 
   {
-   * Indicates that a deviceÕs available window positioning bounds have
+   * Indicates that a deviceï¿½s available window positioning bounds have
    * changed because of a change in display configuration.
    }
 	kAvailBoundsChangedForDisplay = 1 shl 1;
@@ -5122,7 +5142,7 @@ const
  *          the the transaction IDs.
  *    
  *    --> kEventParamPreviousDockRect (in, typeHIRect)
- *          The DockÕs previous bounds, in global coordinates. This
+ *          The Dockï¿½s previous bounds, in global coordinates. This
  *          parameter is optional and may not be present in all
  *          instances of this event. It is present in events with a
  *          kEventParamReason parameter containing
@@ -5139,7 +5159,7 @@ const
  *          also available as a CGDirectDisplayID using typeCGDisplayID.
  *    
  *    --> kEventParamCurrentDockRect (in, typeHIRect)
- *          The DockÕs current bounds, in global coordinates. This
+ *          The Dockï¿½s current bounds, in global coordinates. This
  *          parameter is optional and may not be present in all
  *          instances of this event. It is present in events with a
  *          kEventParamReason parameter containing
@@ -5221,7 +5241,7 @@ const
  *  kEventClassApplication / kEventAppGetDockTileMenu
  *  
  *  Summary:
- *    A request for a menu to be displayed by the applicationÕs dock
+ *    A request for a menu to be displayed by the applicationï¿½s dock
  *    tile.
  *  
  *  Discussion:
@@ -5334,7 +5354,7 @@ const
  *    This event is handled automatically by the default application
  *    event handler. A handler for this event should cycle to the next
  *    (or previous, if the shift key is down) document window, or if
- *    there are no more windows to activate in the applicationÕs window
+ *    there are no more windows to activate in the applicationï¿½s window
  *    list, to the next or previous document window in the next or
  *    previous process. User focus (see SetUserFocusWindow) should be
  *    applied to the new front document window. If something other than
@@ -5646,6 +5666,8 @@ const
     (kEventWindowHandleDeactivate       = 92)
     kEventWindowGetIdealStandardState   = 93,
     kEventWindowUpdateDockTile          = 94,
+    kEventWindowColorSpaceChanged       = 95,
+    kEventWindowRestoredAfterRelaunch   = 96,
     kEventWindowProxyBeginDrag          = 128,
     kEventWindowProxyEndDrag            = 129,
     kEventWindowToolbarSwitchMode       = 150,
@@ -5674,6 +5696,14 @@ const
     kEventWindowDrawerClosing           = 222,
     kEventWindowDrawerClosed            = 223,
     
+    -- full screen events --
+    
+    kEventWindowGetFullScreenContentSize    = 240,
+    kEventWindowFullScreenEnterStarted      = 241,
+    kEventWindowFullScreenEnterCompleted    = 242,
+    kEventWindowFullScreenExitStarted       = 243,
+    kEventWindowFullScreenExitCompleted     = 244,
+    
     -- window definition events --
     
     kEventWindowDrawFrame               = 1000,
@@ -5695,7 +5725,7 @@ const
     
     On window handlers:
     
-    All windows have a handler installed called the Òbasic window handler.Ó This handler provides certain
+    All windows have a handler installed called the ï¿½basic window handler.ï¿½ This handler provides certain
     basic services for all windows; for example, it handles clicks in the collapse and toolbar buttons,
     since these buttons were handled automatically for WaitNextEvent-based applications in the classic
     Mac OS toolbox, and so are still be handled automatically in Carbon by the basic window handler. The
@@ -5704,7 +5734,7 @@ const
     generated by those commands (kEventWindowCollapse/Expand/Zoom).
     
     When the window is created with, or has added, the kWindowStandardHandlerAttribute, the window also has
-    installed the Òstandard window handler.Ó The standard handler provides much more advanced behavior than
+    installed the ï¿½standard window handler.ï¿½ The standard handler provides much more advanced behavior than
     the basic window handler; a window using the standard handler generally requires no other extra handlers
     to move, resize, redraw, or track user clicks in controls. Applications will generally add extra handlers
     to respond to command events generated by controls in the window.
@@ -5754,7 +5784,7 @@ const
  *  kEventClassWindow / kEventWindowDrawContent
  *  
  *  Summary:
- *    A request to update a windowÕs content.
+ *    A request to update a windowï¿½s content.
  *  
  *  Discussion:
  *    This event is sent by the standard window handler when it
@@ -5769,7 +5799,7 @@ const
  *    
  *    Regardless of whether the window uses the standard window event
  *    handler, you will also receive this event right before a window
- *    is made visible, to allow you to draw the windowÕs initial
+ *    is made visible, to allow you to draw the windowï¿½s initial
  *    contents; you can implement this event to avoid flicker when the
  *    window is first shown. 
  *    
@@ -5807,7 +5837,7 @@ const
  *    the standard window event handler responds to this event by
  *    sending a kEventWindowHandleActivate event to the window; on
  *    CarbonLib and earlier releases of Mac OS X, the standard window
- *    handler calls ActivateControl on the windowÕs root
+ *    handler calls ActivateControl on the windowï¿½s root
  *    control.
  *    
  *    If all handlers for this event return eventNotHandledErr, then
@@ -5845,7 +5875,7 @@ const
  *    later, the standard window event handler responds to this event
  *    by sending a kEventWindowHandleDeactivate event to the window; on
  *    CarbonLib and earlier releases of Mac OS X, the standard window
- *    handler calls DeactivateControl on the windowÕs root
+ *    handler calls DeactivateControl on the windowï¿½s root
  *    control.
  *    
  *    If all handlers for this event return eventNotHandledErr, then
@@ -6438,7 +6468,7 @@ const
  *  kEventClassWindow / kEventWindowBoundsChanging
  *  
  *  Summary:
- *    Notification that a windowÕs bounds are about to be changed.
+ *    Notification that a windowï¿½s bounds are about to be changed.
  *  
  *  Discussion:
  *    Sent during DragWindow or ResizeWindow, before the window is
@@ -6446,12 +6476,12 @@ const
  *    bounds-changing APIs such as SetWindowBounds and ZoomWindow. An
  *    event handler may alter the kEventParamCurrentBounds parameter in
  *    the event to change the eventual location of the window. You may
- *    change the size, origin, or both of the windowÕs bounds. Do not,
+ *    change the size, origin, or both of the windowï¿½s bounds. Do not,
  *    however, call SizeWindow or SetWindowBounds yourself from inside
  *    a handler for this event. 
  *    
  *    In Mac OS X 10.1 and later, kEventWindowBoundsChanging is sent
- *    before all changes to a windowÕs bounds, regardless of whether
+ *    before all changes to a windowï¿½s bounds, regardless of whether
  *    the change is initiated by the user or by a direct call to a
  *    Window Manager API. Applications may intercept the event and
  *    modify the bounds. When the event is sent because of a direct
@@ -6471,21 +6501,21 @@ const
  *          window is being resized, moved, or both.
  *    
  *    --> kEventParamOriginalBounds (in, typeQDRectangle)
- *          The windowÕs original content bounds before the window
+ *          The windowï¿½s original content bounds before the window
  *          resize or drag began.
  *    
  *    --> kEventParamPreviousBounds (in, typeQDRectangle)
- *          The windowÕs content bounds before the current bounds
+ *          The windowï¿½s content bounds before the current bounds
  *          change.
  *    
  *    <-> kEventParamCurrentBounds (in/out, typeQDRectangle)
- *          On entry, the windowÕs proposed new content bounds; on
+ *          On entry, the windowï¿½s proposed new content bounds; on
  *          exit, the content bounds that are desired by the event
  *          handler.
  *  
  *  Result:
  *    Return noErr to indicate that the Window Manager should use the
- *    kEventParamCurrentBounds parameter as the windowÕs new content
+ *    kEventParamCurrentBounds parameter as the windowï¿½s new content
  *    bounds.
  *  
  *  Availability:
@@ -6499,7 +6529,7 @@ const
  *  kEventClassWindow / kEventWindowBoundsChanged
  *  
  *  Summary:
- *    Notification that a windowÕs bounds have been changed.
+ *    Notification that a windowï¿½s bounds have been changed.
  *  
  *  Discussion:
  *    This event is sent to all handlers registered for it. Do not call
@@ -6520,15 +6550,15 @@ const
  *          window was resized, moved, or both.
  *    
  *    --> kEventParamOriginalBounds (in, typeQDRectangle)
- *          The windowÕs original content bounds before the window
+ *          The windowï¿½s original content bounds before the window
  *          resize or drag began.
  *    
  *    --> kEventParamPreviousBounds (in, typeQDRectangle)
- *          The windowÕs content bounds before the current bounds
+ *          The windowï¿½s content bounds before the current bounds
  *          change.
  *    
  *    --> kEventParamCurrentBounds (in, typeQDRectangle)
- *          The windowÕs new content bounds.
+ *          The windowï¿½s new content bounds.
  *  
  *  Availability:
  *    Mac OS X:         in version 10.0 and later in Carbon.framework
@@ -6759,7 +6789,7 @@ const
  *    Note that this event is not sent for composited windows; the
  *    window frame view handles the mouse-down event directly. To
  *    intercept a drag region click in a composited window, install a
- *    kEventControlClick handler on the windowÕs root view.
+ *    kEventControlClick handler on the windowï¿½s root view.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -6841,7 +6871,7 @@ const
  *    ResizeWindow. Note that this event is not sent for composited
  *    windows; the window resize view handles the mouse-down event
  *    directly. To intercept a resize region click in a composited
- *    window, install a kEventControlClick handler on the windowÕs
+ *    window, install a kEventControlClick handler on the windowï¿½s
  *    resize view.
  *  
  *  Mac OS X threading:
@@ -6925,12 +6955,12 @@ const
  *    released while still in the button, the basic window handler
  *    generates one of the kEventWindowCollapse,
  *    kEventWindowCollapseAll, kEventWindowExpand, or
- *    kEventWindowExpandAll events, depending on the windowÕs original
+ *    kEventWindowExpandAll events, depending on the windowï¿½s original
  *    collapse state and whether the option key was pressed. Note that
  *    this event is not sent for composited windows; the window
  *    collapse button view handles the mouse-down event directly. To
  *    intercept a collapse region click in a composited window, install
- *    a kEventControlClick handler on the windowÕs collapse button view.
+ *    a kEventControlClick handler on the windowï¿½s collapse button view.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -7016,7 +7046,7 @@ const
  *    not sent for composited windows; the window close button view
  *    handles the mouse-down event directly. To intercept a close
  *    region click in a composited window, install a kEventControlClick
- *    handler on the windowÕs close button view.
+ *    handler on the windowï¿½s close button view.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -7102,7 +7132,7 @@ const
  *    sent for composited windows; the window zoom button view handles
  *    the mouse-down event directly. To intercept a zoom region click
  *    in a composited window, install a kEventControlClick handler on
- *    the windowÕs zoom region view.
+ *    the windowï¿½s zoom region view.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -7200,9 +7230,9 @@ const
  *    
  *    Note that this event is not sent for composited windows; all
  *    mouse-downs in a composited window are handled by a view, and
- *    there is no Ócontent regionÓ in a composited window. To intercept
+ *    there is no ï¿½content regionï¿½ in a composited window. To intercept
  *    a content region click in a composited window, install a
- *    kEventControlClick handler on the windowÕs content view, or
+ *    kEventControlClick handler on the windowï¿½s content view, or
  *    provide your own HIView subclass.
  *  
  *  Mac OS X threading:
@@ -7289,7 +7319,7 @@ const
  *    event is not sent for composited windows; the window title view
  *    handles the mouse-down event directly. To intercept a proxy icon
  *    region click in a composited window, install a kEventControlClick
- *    handler on the windowÕs title view.
+ *    handler on the windowï¿½s title view.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -7374,7 +7404,7 @@ const
  *    is not sent for composited windows; the window toolbar button
  *    view handles the mouse-down event directly. To intercept a
  *    toolbar button region click in a composited window, install a
- *    kEventControlClick handler on the windowÕs toolbar button view.
+ *    kEventControlClick handler on the windowï¿½s toolbar button view.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -7579,7 +7609,7 @@ const
  *    by calling CollapseWindow, passing true for the collapse
  *    parameter, which sends kEventWindowCollapsing and
  *    kEventWindowCollapsed events. This event is generated by the
- *    standard window handler in response to a click in a windowÕs
+ *    standard window handler in response to a click in a windowï¿½s
  *    collapse button. It is also generated by the basic window handler
  *    when Minimize or Collapse is selected from the standard window
  *    menu.
@@ -7611,7 +7641,7 @@ const
  *    parameter. CollapseAllWindows simply calls CollapseWindow on each
  *    window; it does not send a kEventWindowCollapse to each window.
  *    This event is generated by the standard window handler in
- *    response to an option-click in a windowÕs collapse button. It is
+ *    response to an option-click in a windowï¿½s collapse button. It is
  *    also generated by the basic window handler when Minimize All or
  *    Collapse All is selected from the standard window menu.
  *  
@@ -7642,13 +7672,13 @@ const
  *    parameter, which sends kEventWindowExpanding and
  *    kEventWindowExpanded events. This event is generated by the
  *    standard window handler in responds to a click in a collapsed
- *    windowÕs collapse button. It is also generated by the basic
+ *    windowï¿½s collapse button. It is also generated by the basic
  *    window handler when Uncollapse is selected from from the standard
  *    window menu provided by CarbonLib. 
  *    
  *    Note that you will not receive this event on Mac OS X before a
  *    window is expanded from the Dock, since minimized windows in the
- *    dock donÕt uses collapse buttons to unminimize. However, you will
+ *    dock donï¿½t uses collapse buttons to unminimize. However, you will
  *    still receive kEventWindowExpanding and kEventWindowExpanded in
  *    that case. You will receive this event on Mac OS 8 and 9 using
  *    CarbonLib since collapsed windows do have a collapse button there.
@@ -7681,7 +7711,7 @@ const
  *    kEventWindowExpand event to each window; on earlier version of
  *    Mac OS X, and in CarbonLib, it simply calls CollapseWindow on
  *    each window. This event is generated by the standard window
- *    handler in response to an option-click in a windowÕs collapse
+ *    handler in response to an option-click in a windowï¿½s collapse
  *    button. It is also generated by the basic window handler when
  *    Uncollapse All is selected from the standard window menu provided
  *    by CarbonLib.
@@ -7710,18 +7740,18 @@ const
  *  Discussion:
  *    The standard window handler responds to this event by calling
  *    DisposeWindow. This event is generated by the standard window
- *    handler in response to a click in a windowÕs close button. On Mac
+ *    handler in response to a click in a windowï¿½s close button. On Mac
  *    OS X 10.3 and later, it is also generated when the Close menu
  *    item is selected from the Dock menu of a minimized window.
  *    
  *    
  *    Your application would typically intercept this event to check if
- *    the windowÕs document is dirty, and display a Save Changes alert
+ *    the windowï¿½s document is dirty, and display a Save Changes alert
  *    if so. 
  *    
  *    In order to support closing minimized windows from the Dock, your
  *    application must provide an event hander for this event,
- *    installed on the windowÕs event target, even if your application
+ *    installed on the windowï¿½s event target, even if your application
  *    does not use the standard window handler or otherwise use Carbon
  *    events.
  *  
@@ -7751,7 +7781,21 @@ const
  *    kEventWindowClose event to all visible windows of the same window
  *    class as the target window. This event is generated by the
  *    standard window handler in response to an option-click in a
- *    windowÕs close button.
+ *    windowï¿½s close button. 
+ *    
+ *    In Mac OS X 10.7, it is particularly important to handle this
+ *    event (rather than relying on the default window event handler)
+ *    if your application adopts the automatic termination capability.
+ *    In that case, the OS will automatically add a Close All menu item
+ *    to your application's File menu that will generate this event. We
+ *    recommend that you handle this event yourself so that you can
+ *    implement appropriate UI for closing documents that have unsaved
+ *    changes. Since the default handler simply generates a
+ *    kEventWindowClose event for each window, if there are multiple
+ *    documents with unsaved changes, the result will be multiple
+ *    sheets opening at once. This is not the recommended UI for this
+ *    case. Instead, your application should allow the user to review
+ *    unsaved changes in each document singly.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -7776,10 +7820,10 @@ const
  *  
  *  Discussion:
  *    For all windows, the basic window handler responds to this event
- *    by sending a kEventWindowGetIdealSize event to get the windowÕs
+ *    by sending a kEventWindowGetIdealSize event to get the windowï¿½s
  *    ideal size, and then calling ZoomWindowIdeal. This event is
  *    generated by the standard window handler in response to a click
- *    in the windowÕs zoom button. It is also generated by the basic
+ *    in the windowï¿½s zoom button. It is also generated by the basic
  *    window handler when Zoom is selected from the standard window
  *    menu.
  *  
@@ -7824,7 +7868,7 @@ const
  *    a kEventWindowZoom event to the window; on earlier versions of
  *    Mac OS X, and in CarbonLib, it simply calls ZoomWindowIdeal on
  *    each window. This event is generated by the standard window
- *    handler in response to an option-click on a windowÕs zoom button.
+ *    handler in response to an option-click on a windowï¿½s zoom button.
  *    
  *    
  *    After zooming all of the windows, if the windows are being zoomed
@@ -7940,11 +7984,11 @@ const
  *  
  *  Summary:
  *    Allows customization of the path-selection popup menu displayed
- *    over a windowÕs title.
+ *    over a windowï¿½s title.
  *  
  *  Discussion:
  *    This event is generated by the standard window handler in
- *    response to a click in a windowÕs drag region. In response to
+ *    response to a click in a windowï¿½s drag region. In response to
  *    such an event, the standard window handler first calls
  *    IsWindowPathSelectEvent to determine if the click should cause a
  *    path-selection popup menu to be displayed. If so, and if the
@@ -7989,13 +8033,13 @@ const
  *  kEventClassWindow / kEventWindowGetIdealSize
  *  
  *  Summary:
- *    A request for the ideal size of a windowÕs content region, for
+ *    A request for the ideal size of a windowï¿½s content region, for
  *    use during window zooming.
  *  
  *  Discussion:
  *    This event is generated by the basic window handler in response
  *    to kEventWindowZoom. The basic window handler sends this event to
- *    the window to get the windowÕs ideal size, and passes the
+ *    the window to get the windowï¿½s ideal size, and passes the
  *    resulting size to ZoomWindowIdeal. 
  *    
  *    This event is not handled by either the basic or standard window
@@ -8019,7 +8063,7 @@ const
  *          The window being zoomed.
  *    
  *    <-- kEventParamDimensions (out, typeQDPoint)
- *          On exit, contains the windowÕs ideal size.
+ *          On exit, contains the windowï¿½s ideal size.
  *  
  *  Availability:
  *    Mac OS X:         in version 10.0 and later in Carbon.framework
@@ -8082,7 +8126,7 @@ const
  *  kEventClassWindow / kEventWindowGetMinimumSize
  *  
  *  Summary:
- *    A request for the minimum size of a windowÕs content region, for
+ *    A request for the minimum size of a windowï¿½s content region, for
  *    use during window resizing.
  *  
  *  Discussion:
@@ -8106,7 +8150,7 @@ const
  *          The window being resized.
  *    
  *    <-- kEventParamDimensions (out, typeQDPoint)
- *          On exit, contains the windowÕs minimum size.
+ *          On exit, contains the windowï¿½s minimum size.
  *  
  *  Availability:
  *    Mac OS X:         in version 10.0 and later in Carbon.framework
@@ -8119,7 +8163,7 @@ const
  *  kEventClassWindow / kEventWindowGetMaximumSize
  *  
  *  Summary:
- *    A request for the maximum size of a windowÕs content region, for
+ *    A request for the maximum size of a windowï¿½s content region, for
  *    use during window resizing.
  *  
  *  Discussion:
@@ -8143,7 +8187,7 @@ const
  *          The window being resized.
  *    
  *    <-- kEventParamDimensions (out, typeQDPoint)
- *          On exit, contains the windowÕs minimum size.
+ *          On exit, contains the windowï¿½s minimum size.
  *  
  *  Availability:
  *    Mac OS X:         in version 10.0 and later in Carbon.framework
@@ -8156,7 +8200,7 @@ const
  *  kEventClassWindow / kEventWindowConstrain
  *  
  *  Summary:
- *    Requests that a windowÕs position be constrained to the available
+ *    Requests that a windowï¿½s position be constrained to the available
  *    window positioning bounds.
  *  
  *  Discussion:
@@ -8177,7 +8221,7 @@ const
  *    
  *    Applications may also use the
  *    kEventAppAvailableWindowBoundsChanged event to be notified of
- *    changes to a deviceÕs available bounds.
+ *    changes to a deviceï¿½s available bounds.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -8217,7 +8261,7 @@ const
  *          OS X 10.1 and later; on earlier versions of Mac OS X, the
  *          basic window handler always constrains the window to the
  *          rect returned by GetAvailableWindowPositioningBounds for
- *          the windowÕs device.
+ *          the windowï¿½s device.
  *    
  *    --> kEventParamAttributes (in, typeUInt32)
  *          Window constraint options that should be passed to
@@ -8312,6 +8356,11 @@ const
  *    eventNotHandledErr to allow the basic handler to restore the
  *    window from the Dock. 
  *    
+ *    In Mac OS X 10.7 and later, this event cannot be used to prevent
+ *    a window from being restored from the Dock. Window restoration is
+ *    done asynchronously in Mac OS X 10.7 and later, and this event is
+ *    sent as a notification, not a request. 
+ *    
  *    This event is sent only to the window, and is not propagated past
  *    it.
  *  
@@ -8405,9 +8454,9 @@ const
  *    
  *    Note that this event is not sent for composited windows; all
  *    mouse-downs in a composited window are handled by a view, and
- *    there is no Ócontent regionÓ in a composited window. To intercept
+ *    there is no ï¿½content regionï¿½ in a composited window. To intercept
  *    a content region click in a composited window, install a
- *    kEventControlClick handler on the windowÕs content view, or
+ *    kEventControlClick handler on the windowï¿½s content view, or
  *    provide your own HIView subclass.
  *  
  *  Mac OS X threading:
@@ -8485,7 +8534,7 @@ const
  *  kEventClassWindow / kEventWindowGetDockTileMenu
  *  
  *  Summary:
- *    A request for a menu to be displayed by a windowÕs dock tile.
+ *    A request for a menu to be displayed by a windowï¿½s dock tile.
  *  
  *  Discussion:
  *    The basic window handler responds to this event by returning the
@@ -8504,7 +8553,7 @@ const
  *    
  *    <-- kEventParamMenuRef (out, typeMenuRef)
  *          On exit, contains the menu that should be displayed for the
- *          windowÕs Dock tile. The sender of this event will release
+ *          windowï¿½s Dock tile. The sender of this event will release
  *          the menu after the Dock has displayed it, so if you return
  *          a permanently allocated MenuRef, you should call RetainMenu
  *          on it before returning from your event handler.
@@ -8579,18 +8628,55 @@ const
 	kEventWindowColorSpaceChanged = 95;
 
 {
+ *  kEventClassWindow / kEventWindowRestoredAfterRelaunch
+ *  
+ *  Summary:
+ *    Notification that a window has been restored after application
+ *    relaunch.
+ *  
+ *  Discussion:
+ *    This event is sent by the Window Manager when the system caused
+ *    your application to be quit and relaunched. Your application will
+ *    receive a kAEOpenDocuments Apple Event containing documents that
+ *    were open when your application was quit, if it had any. 
+ *    
+ *    For each reopened document, this event will be sent to the
+ *    document's window, after it has been restored to its previous
+ *    size and position. If your application uses the
+ *    ChangeWindowPropertyAttributes API to set the
+ *    kWindowPropertyPersistent attribute for a window property, the
+ *    property will have been restored to its previous value when your
+ *    application receives this event. This event is sent to all
+ *    handlers registered for it.
+ *  
+ *  Mac OS X threading:
+ *    Not thread safe
+ *  
+ *  Parameters:
+ *    
+ *    --> kEventParamDirectObject (in, typeWindowRef)
+ *          The window that was restored.
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.7 and later in Carbon.framework
+ *    CarbonLib:        not available
+ }
+const
+	kEventWindowRestoredAfterRelaunch = 96;
+
+{
  *  kEventClassWindow / kEventWindowToolbarSwitchMode
  *  
  *  Summary:
- *    A request that the windowÕs toolbar change its display mode.
+ *    A request that the windowï¿½s toolbar change its display mode.
  *  
  *  Discussion:
  *    For all windows, the basic window handler responds to this event
- *    by changing the display mode of the windowÕs HIToolbar, if any.
+ *    by changing the display mode of the windowï¿½s HIToolbar, if any.
  *    If the application uses its own custom toolbar implementation, it
  *    should handle this event itself and respond appropriately. This
  *    event is generated by the basic window handler in response to a
- *    click in the windowÕs toolbar button.
+ *    click in the windowï¿½s toolbar button.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -8823,7 +8909,7 @@ const
  *    should set the focus to the main part/control/view of the window.
  *    If the content area of your window is already focused, do
  *    nothing. The standard window handler responds to this event by
- *    calling HIViewAdvanceFocus on the windowÕs root control, if the
+ *    calling HIViewAdvanceFocus on the windowï¿½s root control, if the
  *    focus is not already contained within the content root.
  *  
  *  Mac OS X threading:
@@ -8848,8 +8934,8 @@ const
  *    A request to set the focus to the toolbar of a window.
  *  
  *  Discussion:
- *    If your windowÕs toolbar is not already focused, you should set
- *    the focus to the first item in the toolbar. If your windowÕs
+ *    If your windowï¿½s toolbar is not already focused, you should set
+ *    the focus to the first item in the toolbar. If your windowï¿½s
  *    toolbar is already focused, do nothing. The basic window handler
  *    responds to this event by calling HIViewAdvanceFocus on the
  *    toolbar control, if the focus is not already contained within the
@@ -8877,8 +8963,8 @@ const
  *    A request to set the focus to the drawer of a window.
  *  
  *  Discussion:
- *    If your windowÕs drawer is not already focused, you should set
- *    the focus to the first item in the drawer. If your windowÕs
+ *    If your windowï¿½s drawer is not already focused, you should set
+ *    the focus to the first item in the drawer. If your windowï¿½s
  *    drawer is already focused, you should move the focus to the next
  *    or previous drawer, if any, depending on whether the modifiers
  *    parameter contains the shift key modifier. The basic window
@@ -9137,7 +9223,7 @@ const
  *  kEventClassWindow / kEventWindowDrawFrame
  *  
  *  Summary:
- *    Sent by the Window Manager when itÕs time to draw a windowÕs
+ *    Sent by the Window Manager when itï¿½s time to draw a windowï¿½s
  *    structure.
  *  
  *  Discussion:
@@ -9164,8 +9250,8 @@ const
  *  kEventClassWindow / kEventWindowDrawPart
  *  
  *  Summary:
- *    Sent by the Window Manager when itÕs time to draw a specific part
- *    of a windowÕs structure, such as the close button.
+ *    Sent by the Window Manager when itï¿½s time to draw a specific part
+ *    of a windowï¿½s structure, such as the close button.
  *  
  *  Discussion:
  *    This is typically sent during window widget tracking.
@@ -9481,7 +9567,7 @@ const
  *  
  *  Summary:
  *    Sent when the Window Manager needs to know how much space the
- *    windowÕs title area takes up.
+ *    windowï¿½s title area takes up.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -9554,7 +9640,7 @@ const
  *          The window whose grow image to return.
  *    
  *    --> kEventParamWindowGrowRect (in, typeQDRectangle)
- *          The windowÕs global port bounds.
+ *          The windowï¿½s global port bounds.
  *    
  *    --> kEventParamRgnHandle (in, typeQDRgnHandle)
  *          The region to modify.
@@ -9600,7 +9686,7 @@ const
  *  kEventClassWindow / kEventWindowAttributesChanged
  *  
  *  Summary:
- *    Sent by the Window Manager when a windowÕs attributes have
+ *    Sent by the Window Manager when a windowï¿½s attributes have
  *    changed.
  *  
  *  Discussion:
@@ -9631,14 +9717,14 @@ const
  *  kEventClassWindow / kEventWindowTitleChanged
  *  
  *  Summary:
- *    Sent by the Window Manager when a windowÕs title changes.
+ *    Sent by the Window Manager when a windowï¿½s title changes.
  *  
  *  Discussion:
  *    In Mac OS X 10.2 through 10.4, this event is only sent to windows
  *    that use an HIView to draw their window frames. Windows that use
  *    a WDEF to draw their frames do not receive this event on those
  *    versions of Mac OS X. In Mac OS X 10.5 and later, this event is
- *    always sent when a windowÕs title changes, regardless of whether
+ *    always sent when a windowï¿½s title changes, regardless of whether
  *    the window uses an HIView or WDEF to draw its frame. This event
  *    is sent to all handlers registered for it on the window event
  *    target. It does not propagate past the window.
@@ -9658,6 +9744,138 @@ const
 const
 	kEventWindowTitleChanged = 1020;
 
+
+{
+ *  kEventClassWindow / kEventWindowGetFullScreenContentSize
+ *  
+ *  Summary:
+ *    Allows a window to customize its fullscreen size.
+ *  
+ *  Discussion:
+ *    Sent to a window prior to that window entering fullscreen. A
+ *    default fullscreen content size will already be present in the
+ *    kEventParamDimensions parameter. A handler may override this
+ *    value with a custom content size. The window's actual fullscreen
+ *    size is subject to various constraints HIToolbox might impose due
+ *    to screen limitations or other reasons, so the window must be
+ *    prepared for the window to be resized to a size different than
+ *    the one specified via this event.
+ *  
+ *  Mac OS X threading:
+ *    Not thread safe
+ *  
+ *  Parameters:
+ *    
+ *    --> kEventParamDirectObject (in, typeWindowRef)
+ *          The window whose fullscreen content size is being fetched.
+ *    
+ *    --> kEventParamDimensions (in, typeHISize)
+ *          On entry, the window's proposed fullscreen content size; on
+ *          exit, the fullscreen content size that is desired by the
+ *          event handler.
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.7 and later in Carbon.framework
+ *    CarbonLib:        not available
+ }
+const
+	kEventWindowGetFullScreenContentSize = 240;
+
+{
+ *  kEventClassWindow / kEventWindowFullScreenEnterStarted
+ *  
+ *  Summary:
+ *    Notification sent to a window prior to starting its enter
+ *    fullscreen animation.
+ *  
+ *  Mac OS X threading:
+ *    Not thread safe
+ *  
+ *  Parameters:
+ *    
+ *    --> kEventParamDirectObject (in, typeWindowRef)
+ *          The window about to enter fullscreen.
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.7 and later in Carbon.framework
+ *    CarbonLib:        not available
+ }
+const
+	kEventWindowFullScreenEnterStarted = 241;
+
+{
+ *  kEventClassWindow / kEventWindowFullScreenEnterCompleted
+ *  
+ *  Summary:
+ *    Notification sent to a window after finishing its enter
+ *    fullscreen animation.
+ *  
+ *  Mac OS X threading:
+ *    Not thread safe
+ *  
+ *  Parameters:
+ *    
+ *    --> kEventParamDirectObject (in, typeWindowRef)
+ *          The window that just entered fullscreen.
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.7 and later in Carbon.framework
+ *    CarbonLib:        not available
+ }
+const
+	kEventWindowFullScreenEnterCompleted = 242;
+
+{
+ *  kEventClassWindow / kEventWindowFullScreenExitStarted
+ *  
+ *  Summary:
+ *    Notification sent to a window prior to starting its exit
+ *    fullscreen animation.
+ *  
+ *  Mac OS X threading:
+ *    Not thread safe
+ *  
+ *  Parameters:
+ *    
+ *    --> kEventParamDirectObject (in, typeWindowRef)
+ *          The window about to exit fullscreen.
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.7 and later in Carbon.framework
+ *    CarbonLib:        not available
+ }
+const
+	kEventWindowFullScreenExitStarted = 243;
+
+{
+ *  kEventClassWindow / kEventWindowFullScreenExitCompleted
+ *  
+ *  Summary:
+ *    Notification sent to a window after finishing its exit fullscreen
+ *    animation OR after failing to enter fullscreen.
+ *  
+ *  Discussion:
+ *    In addition to the normal case of a fullscreen window that
+ *    animates out of fullscreen, this event is also sent if there's a
+ *    failure when attempting to enter full screen. That is, it's
+ *    possible for a window to receive this event very soon after
+ *    kEventWindowFullScreenEnterStarted, and a handler should be
+ *    prepared to deal with this possibility.
+ *  
+ *  Mac OS X threading:
+ *    Not thread safe
+ *  
+ *  Parameters:
+ *    
+ *    --> kEventParamDirectObject (in, typeWindowRef)
+ *          The window that just exited fullscreen.
+ *  
+ *  Availability:
+ *    Mac OS X:         in version 10.7 and later in Carbon.framework
+ *    CarbonLib:        not available
+ }
+const
+	kEventWindowFullScreenExitCompleted = 244;
 
 {--------------------------------------------------------------------------------------}
 {  Menu Events                                                                         }
@@ -10133,7 +10351,7 @@ const
  *  
  *  Discussion:
  *    A handler for this event may perform its own command key matching
- *    and override the Menu ManagerÕs default matching algorithms.
+ *    and override the Menu Managerï¿½s default matching algorithms.
  *    Returning noErr from your handler indicates that you have found a
  *    match. The handler for this event should not examine submenus of
  *    this menu for a match; a separate event will be sent for each
@@ -10512,29 +10730,29 @@ const
  *    <-- kEventParamMenuMarkBounds (out, typeQDRectangle)
  *          On exit, contains the bounds of the menu item mark
  *          character. Not present if the item has no mark. Added to
- *          the event by the standard menu definitionÕs handler, if the
+ *          the event by the standard menu definitionï¿½s handler, if the
  *          event is allowed to pass through.
  *    
  *    <-- kEventParamMenuIconBounds (out, typeQDRectangle)
  *          On exit, contains the bounds of the menu item icon. Not
  *          present if the item has no icon. Added to the event by the
- *          standard menu definitionÕs handler, if the event is allowed
+ *          standard menu definitionï¿½s handler, if the event is allowed
  *          to pass through.
  *    
  *    <-- kEventParamMenuTextBounds (out, typeQDRectangle)
- *          On exit, contains the bounds of the menu itemÕs text. Added
- *          to the event by the standard menu definitionÕs handler, if
+ *          On exit, contains the bounds of the menu itemï¿½s text. Added
+ *          to the event by the standard menu definitionï¿½s handler, if
  *          the event is allowed to pass through.
  *    
  *    <-- kEventParamMenuTextBaseline (out, typeSInt16)
- *          On exit, contains the baseline of the menu itemÕs text.
- *          Added to the event by the standard menu definitionÕs
+ *          On exit, contains the baseline of the menu itemï¿½s text.
+ *          Added to the event by the standard menu definitionï¿½s
  *          handler, if the event is allowed to pass through.
  *    
  *    <-- kEventParamMenuCommandKeyBounds (out, typeQDRectangle)
  *          On exit, contains the bounds of the menu item command key.
  *          Not present if the item has no command key. Added to the
- *          event by the standard menu definitionÕs handler, if the
+ *          event by the standard menu definitionï¿½s handler, if the
  *          event is allowed to pass through.
  *  
  *  Availability:
@@ -10549,7 +10767,7 @@ const
  *  kEventClassMenu / kEventMenuDrawItemContent
  *  
  *  Summary:
- *    Requests drawing of a menu itemÕs content: its text, command key,
+ *    Requests drawing of a menu itemï¿½s content: its text, command key,
  *    icon, etc.
  *  
  *  Discussion:
@@ -10617,29 +10835,29 @@ const
  *    <-- kEventParamMenuMarkBounds (out, typeQDRectangle)
  *          On exit, contains the bounds of the menu item mark
  *          character. Not present if the item has no mark. Added to
- *          the event by the standard menu definitionÕs handler, if the
+ *          the event by the standard menu definitionï¿½s handler, if the
  *          event is allowed to pass through.
  *    
  *    <-- kEventParamMenuIconBounds (out, typeQDRectangle)
  *          On exit, contains the bounds of the menu item icon. Not
  *          present if the item has no icon. Added to the event by the
- *          standard menu definitionÕs handler, if the event is allowed
+ *          standard menu definitionï¿½s handler, if the event is allowed
  *          to pass through.
  *    
  *    <-- kEventParamMenuTextBounds (out, typeQDRectangle)
- *          On exit, contains the bounds of the menu itemÕs text. Added
- *          to the event by the standard menu definitionÕs handler, if
+ *          On exit, contains the bounds of the menu itemï¿½s text. Added
+ *          to the event by the standard menu definitionï¿½s handler, if
  *          the event is allowed to pass through.
  *    
  *    <-- kEventParamMenuTextBaseline (out, typeSInt16)
- *          On exit, contains the baseline of the menu itemÕs text.
- *          Added to the event by the standard menu definitionÕs
+ *          On exit, contains the baseline of the menu itemï¿½s text.
+ *          Added to the event by the standard menu definitionï¿½s
  *          handler, if the event is allowed to pass through.
  *    
  *    <-- kEventParamMenuCommandKeyBounds (out, typeQDRectangle)
  *          On exit, contains the bounds of the menu item command key.
  *          Not present if the item has no command key. Added to the
- *          event by the standard menu definitionÕs handler, if the
+ *          event by the standard menu definitionï¿½s handler, if the
  *          event is allowed to pass through.
  *  
  *  Availability:
@@ -11125,9 +11343,35 @@ const
 	kHICommandCancel = FourCharCode('not!');
 
   {
-   * The application should quit.
+   * The application should quit. The default application handler
+   * responds to this command by generating a kAEQuit AppleEvent.
    }
 	kHICommandQuit = FourCharCode('quit');
+
+  {
+   * The application should quit, and any file-based document windows
+   * currently open should be closed when the application is next
+   * launched. This command is assigned to the "Quit and Discard
+   * Windows" menu item in Mac OS X 10.7 in all applications. The
+   * default application handler responds to this command by generating
+   * a kAEQuit AppleEvent, and discarding the list of currently open
+   * document windows. When the application is next launched, no
+   * documents will be reopened. Available on Mac OS X 10.7 and later.
+   }
+	kHICommandQuitAndDiscardWindows = FourCharCode('qudw');
+
+  {
+   * The application should quit, and any file-based document windows
+   * currently open should be reopened when the application is next
+   * launched. This command is assigned to the "Quit and Keep Windows"
+   * menu item in Mac OS X 10.7 in all applications. The default
+   * application handler responds to this command by generating a
+   * kAEQuit AppleEvent, and by making a note of the currently open
+   * document windows. When the application is next launched, any
+   * documents that were open at quit will be automatically reopened.
+   * Available on Mac OS X 10.7 and later.
+   }
+	kHICommandQuitAndKeepWindows = FourCharCode('qukw');
 
   {
    * The last editing operation should be undone.
@@ -11324,6 +11568,18 @@ const
 	kHICommandRotateFloatingWindowsBackward = FourCharCode('rtfb');
 
   {
+   * The window should enter full screen mode if not currently in full
+   * screen mode, or vice-versa. The default application handler will
+   * respond to this event automatically; your application does not
+   * need to handle it. The default handler will also set the text of a
+   * menu item with this command ID automatically to either "Enter Full
+   * Screen" or "Exit Full Screen", and disable or enable the menu item
+   * appropriately, depending on the fullscreen support and state of
+   * the focused window. Available on Mac OS X 10.7 and later.
+   }
+	kHICommandToggleFullScreen = FourCharCode('fsm ');
+
+  {
    * The About menu item has been selected. In Mac OS X 10.3 and later,
    * RunApplicationEventLoop installs a handler for this command ID on
    * the application target, and will handle this event automatically
@@ -11350,6 +11606,20 @@ const
    * window event handler responded to this event.
    }
 	kHICommandClose = FourCharCode('clos');
+
+  {
+   * All active windows should be closed. The default application
+   * handler responds to this command by sending a kEventWindowCloseAll
+   * event to the frontmost document window. A "Close All" menu item
+   * with this command ID is automatically added to the File menu of
+   * applications that adopt the automatic termination capability in
+   * Mac OS X 10.7. An application that wants to provide its own Close
+   * All menu item should use this command ID; in that case, the OS
+   * will recognize that the application has already provided the Close
+   * All item, and will not add another one. Available on Mac OS X 10.7
+   * and later.
+   }
+	kHICommandCloseAll = FourCharCode('cloa');
 
   {
    * The file relating to the active window should be closed. This
@@ -11387,7 +11657,7 @@ const
 	kHICommandPageSetup = FourCharCode('page');
 
   {
-   * The applicationÕs help book should be displayed. Used by the Help
+   * The applicationï¿½s help book should be displayed. Used by the Help
    * Manager when it adds the "<AppName> Help" menu item to the Help
    * menu. The Help Manager installs a handler for this command ID on
    * the Help menu returned by HMGetHelpMenu, and will respond to this
@@ -11443,6 +11713,19 @@ const
    * command is handled automatically.
    }
 	kHICommandLearnWord = FourCharCode('lrwd');
+
+  {
+   * Starts listening to spoken dictation. A menu item with this
+   * command ID is inserted automatically into the Edit menu. An
+   * application may choose to insert its own menu item with this
+   * command ID at a custom location in the Edit menu, if appropriate.
+   * By default, the menu item is always enabled. An application that
+   * has its own text editing engine should look for this command ID in
+   * its kEventCommandUpdateStatus event handler and enable or disable
+   * the menu item appropriately according to keyboard focus. Available
+   * in Mac OS X 10.8 and later.
+   }
+	kHICommandStartDictation = FourCharCode('sdct');
 
 
 {
@@ -11663,7 +11946,7 @@ type
  *    usually NOT the event you really want to handle.
  *    kEventControlClick is a request to "please click this control,"
  *    not "allow a control definition to track the mouse." If you are
- *    implementing or overriding a control definitionÕs or HIViewÕs
+ *    implementing or overriding a control definitionï¿½s or HIViewï¿½s
  *    support for tracking the mouse, you should handle
  *    kEventControlTrack instead.
  *  
@@ -11855,13 +12138,13 @@ const
  *          The control whose optimal bounds to return.
  *    
  *    <-- kEventParamControlOptimalBounds (out, typeHIRect)
- *          On exit, contains the controlÕs optimal bounds.
+ *          On exit, contains the controlï¿½s optimal bounds.
  *    
  *    <-- kEventParamControlOptimalBaselineOffset (out, typeSInt16)
- *          On exit, contains the controlÕs optimal baseline offset:
- *          the distance from the top of the controlÕs optimal bounds
+ *          On exit, contains the controlï¿½s optimal baseline offset:
+ *          the distance from the top of the controlï¿½s optimal bounds
  *          to the baseline of the control text, if any. This parameter
- *          is optional and does not need to be provided if it doesnÕt
+ *          is optional and does not need to be provided if it doesnï¿½t
  *          apply for your control.
  *  
  *  Availability:
@@ -12105,7 +12388,7 @@ const
  *  Summary:
  *    Sent when your control should apply a color or pattern to the
  *    specified port and context so a subcontrol can draw text which
- *    looks appropriate for your controlÕs background.
+ *    looks appropriate for your controlï¿½s background.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -12162,7 +12445,7 @@ const
  *    kEventParamStartControl parameter and a focusing direction in the
  *    kEventParamControlPart parameter. You must only pass back
  *    subcontrols of yourself (or NULL) when receiving this event; if
- *    you do otherwise, the Control ManagerÕs behavior is undefined.
+ *    you do otherwise, the Control Managerï¿½s behavior is undefined.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -12204,8 +12487,8 @@ const
  *  Discussion:
  *    The Control Manager provides default behavior for this event. If
  *    the event is not handled by a control, the default handler
- *    automatically provides this mapping: if the controlÕs value is 1,
- *    the toggled value is 0. If the controlÕs value is any other
+ *    automatically provides this mapping: if the controlï¿½s value is 1,
+ *    the toggled value is 0. If the controlï¿½s value is any other
  *    value, the toggled value is 1.
  *  
  *  Mac OS X threading:
@@ -12308,7 +12591,7 @@ const
  *    
  *    --> kEventParamMouseLocation (in, typeHIPoint)
  *          The mouse location, in view-local coordinates if the
- *          controlÕs owning window is composited, or port-local
+ *          controlï¿½s owning window is composited, or port-local
  *          coordinates if not.
  *    
  *    --> kEventParamWindowRef (in, typeWindowRef)
@@ -12527,7 +12810,7 @@ const
  *    
  *    --> kEventParamControlFocusEverything (in, typeBoolean)
  *          Indicates whether to allowing focusing on a part that
- *          doesnÕt accept general keyboard input, such as a push
+ *          doesnï¿½t accept general keyboard input, such as a push
  *          button, or if only traditionally focusable parts such as
  *          edit fields and list boxes should be allowed to gain focus.
  *          This parameter is optional and may not be present in all
@@ -12655,7 +12938,7 @@ const
  *    
  *    --> kEventParamMouseLocation (in, typeQDPoint)
  *          The mouse location, in view-local coordinates if the
- *          controlÕs owning window is composited, or port-local
+ *          controlï¿½s owning window is composited, or port-local
  *          coordinates if not.
  *    
  *    --> kEventParamKeyModifiers (in, typeUInt32)
@@ -12685,7 +12968,7 @@ const
  *    
  *    --> kEventParamMouseLocation (in, typeQDPoint)
  *          The mouse location, in view-local coordinates if the
- *          controlÕs owning window is composited, or port-local
+ *          controlï¿½s owning window is composited, or port-local
  *          coordinates if not. In Mac OS X 10.2 and earlier, however,
  *          this parameter was incorrectly in global coordinates.
  *    
@@ -12763,7 +13046,7 @@ const
  *    
  *    This event is sent from within HIViewClick and
  *    HandleControlClick. The default handling of this event is the
- *    Control ManagerÕs normal tracking logic; this is good enough for
+ *    Control Managerï¿½s normal tracking logic; this is good enough for
  *    simple controls (such as push buttons) and controls with simple
  *    indicators (such as scroll bars and sliders). You should only
  *    need to handle or override this event if you are trying to do
@@ -12785,7 +13068,7 @@ const
  *    
  *    --> kEventParamMouseLocation (in, typeQDPoint)
  *          The mouse location, in view-local coordinates if the
- *          controlÕs owning window is composited, or port-local
+ *          controlï¿½s owning window is composited, or port-local
  *          coordinates if not.
  *    
  *    <-> kEventParamKeyModifiers (in/out, typeUInt32)
@@ -12899,7 +13182,7 @@ const
  *    
  *    <-> kEventParamMouseLocation (in/out, typeQDPoint)
  *          On entry, a point in view-local coordinates if the
- *          controlÕs owning window is composited, or port-local
+ *          controlï¿½s owning window is composited, or port-local
  *          coordinates if not, which provides the location at which
  *          the user clicked to request Scroll To Here behavior. On
  *          exit, this parameter should contain the mouse location in
@@ -12934,7 +13217,7 @@ const
  *    
  *    --> kEventParamMouseLocation (in, typeQDPoint)
  *          The mouse location, in view-local coordinates if the
- *          controlÕs owning window is composited, or port-local
+ *          controlï¿½s owning window is composited, or port-local
  *          coordinates if not.
  *    
  *    --> kEventParamKeyModifiers (in, typeUInt32)
@@ -13108,7 +13391,7 @@ const
  *          the event by modifying the region in the
  *          kEventParamControlRegion parameter; you may not add a
  *          kEventParamShape parameter. If the parameter is true, you
- *          may Ñ but are not required to Ñ respond to the event by
+ *          may ï¿½ but are not required to ï¿½ respond to the event by
  *          adding the kEventParamShape parameter; if you choose not
  *          to, you must respond to the event by modifying the region
  *          in the kEventParamControlRegion parameter. This parameter
@@ -13268,7 +13551,7 @@ const
  *  
  *  Discussion:
  *    This is different from the optimal size event above. The optimal
- *    size might be larger than a viewÕs minimum size. A parent view
+ *    size might be larger than a viewï¿½s minimum size. A parent view
  *    can use this information to help it lay out subviews. The toolbar
  *    control uses this information to help lay out toolbar items, for
  *    example.
@@ -13282,10 +13565,10 @@ const
  *          The control for which to get size constraints.
  *    
  *    <-- kEventParamMinimumSize (out, typeHISize)
- *          On exit, contains the controlÕs minimum size.
+ *          On exit, contains the controlï¿½s minimum size.
  *    
  *    <-- kEventParamMaximumSize (out, typeHISize)
- *          On exit, contains the controlÕs maximum size.
+ *          On exit, contains the controlï¿½s maximum size.
  *  
  *  Availability:
  *    Mac OS X:         in version 10.2 and later in Carbon.framework
@@ -13299,7 +13582,7 @@ const
  *  
  *  Summary:
  *    Sent when a control client needs to determine the width of the
- *    controlÕs structure region.
+ *    controlï¿½s structure region.
  *  
  *  Discussion:
  *    This event is not sent automatically by the Control Manager at
@@ -13318,7 +13601,7 @@ const
  *          The control for which to get frame metrics.
  *    
  *    <-- kEventParamControlFrameMetrics (out, typeControlFrameMetrics)
- *          On exit, contains the controlÕs frame metrics.
+ *          On exit, contains the controlï¿½s frame metrics.
  *  
  *  Availability:
  *    Mac OS X:         in version 10.3 and later in Carbon.framework
@@ -13331,9 +13614,9 @@ const
  *  kEventClassControl / kEventControlValueFieldChanged
  *  
  *  Summary:
- *    Sent when your controlÕs value, min, max, or view size has
+ *    Sent when your controlï¿½s value, min, max, or view size has
  *    changed. Useful so other entities can watch for changes to your
- *    controlÕs value.
+ *    controlï¿½s value.
  *  
  *  Mac OS X threading:
  *    Not thread safe
@@ -13403,7 +13686,7 @@ const
  *  kEventClassControl / kEventControlBoundsChanged
  *  
  *  Summary:
- *    Sent when your controlÕs bounding rectangle has changed.
+ *    Sent when your controlï¿½s bounding rectangle has changed.
  *  
  *  Discussion:
  *    If you want to generate an efficient invalid region in response
@@ -13424,21 +13707,21 @@ const
  *          kControlBoundsChangePositionChanged.
  *    
  *    --> kEventParamOriginalBounds (in, typeQDRectangle)
- *          The controlÕs bounds before the change. This is the
- *          controlÕs frame bounds; for a compositing view, this
- *          bounding rect is in the parent viewÕs coordinate system,
+ *          The controlï¿½s bounds before the change. This is the
+ *          controlï¿½s frame bounds; for a compositing view, this
+ *          bounding rect is in the parent viewï¿½s coordinate system,
  *          and for a non-compositing view, it is in local GrafPort
  *          coordinates.
  *    
  *    --> kEventParamPreviousBounds (in, typeQDRectangle)
- *          The controlÕs bounds before the change. This parameter
+ *          The controlï¿½s bounds before the change. This parameter
  *          always has the same value as the kEventParamOriginalBounds
  *          parameter.
  *    
  *    --> kEventParamCurrentBounds (in, typeQDRectangle)
- *          The controlÕs new bounds. This is the controlÕs frame
+ *          The controlï¿½s new bounds. This is the controlï¿½s frame
  *          bounds; for a compositing view, this bounding rect is in
- *          the parent viewÕs coordinate system, and for a
+ *          the parent viewï¿½s coordinate system, and for a
  *          non-compositing view, it is in local GrafPort coordinates.
  *  
  *  Availability:
@@ -13470,10 +13753,10 @@ const
  *          The control whose size has changed.
  *    
  *    --> kEventParamOriginalBounds (in, typeQDRectangle)
- *          The controlÕs bounds before the change.
+ *          The controlï¿½s bounds before the change.
  *    
  *    --> kEventParamCurrentBounds (in, typeQDRectangle)
- *          The controlÕs new bounds.
+ *          The controlï¿½s new bounds.
  *  
  *  Availability:
  *    Mac OS X:         in version 10.3 and later in Carbon.framework
@@ -13509,7 +13792,7 @@ const
  *  kEventClassControl / kEventControlOwningWindowChanged
  *  
  *  Summary:
- *    Sent when your controlÕs owning window has changed. Useful to
+ *    Sent when your controlï¿½s owning window has changed. Useful to
  *    udpate any dependencies that your control has on its owning 
  *    window.
  *  
@@ -13525,10 +13808,10 @@ const
  *          Currently unused.
  *    
  *    --> kEventParamControlOriginalOwningWindow (in, typeWindowRef)
- *          The controlÕs original owning window.
+ *          The controlï¿½s original owning window.
  *    
  *    --> kEventParamControlCurrentOwningWindow (in, typeWindowRef)
- *          The controlÕs new owning window.
+ *          The controlï¿½s new owning window.
  *  
  *  Availability:
  *    Mac OS X:         in version 10.0 and later in Carbon.framework
@@ -14562,7 +14845,7 @@ function GetEventDispatcherTarget: EventTargetRef; external name '_GetEventDispa
  *    then requests that the WindowServer make copies of any of these
  *    events that are sent to any process, and deliver them to the
  *    current process also. These events are queued into the main
- *    threadÕs event queue, and during normal event dispatching are
+ *    threadï¿½s event queue, and during normal event dispatching are
  *    sent directly to the event handlers installed on the event
  *    monitor target. Monitored events are not sent through the normal
  *    event dispatching path for the current process; they will pass
@@ -14668,7 +14951,7 @@ EventHandlerUPP Get ## x ## UPP()             \
 *)
 
 {======================================================================================}
-{  ¥ Command Routines                                                                  }
+{  ï¿½ Command Routines                                                                  }
 {======================================================================================}
 {
  *  ProcessHICommand()
@@ -14704,7 +14987,7 @@ function ProcessHICommand( const (*var*) inCommand: HICommand ): OSStatus; exter
 
 
 {--------------------------------------------------------------------------------------}
-{  ¥ Event Loop Routines                                                               }
+{  ï¿½ Event Loop Routines                                                               }
 {--------------------------------------------------------------------------------------}
 
 {$ifc not TARGET_CPU_64}
@@ -14755,7 +15038,7 @@ procedure QuitApplicationEventLoop; external name '_QuitApplicationEventLoop';
 
 
 {--------------------------------------------------------------------------------------}
-{  ¥ Event Modality routines                                                           }
+{  ï¿½ Event Modality routines                                                           }
 {--------------------------------------------------------------------------------------}
 
 {
@@ -14893,7 +15176,7 @@ function EndAppModalStateForWindow( inWindow: WindowRef ): OSStatus; external na
 
 
 {--------------------------------------------------------------------------------------}
-{  ¥ Global HotKey API                                                                 }
+{  ï¿½ Global HotKey API                                                                 }
 {--------------------------------------------------------------------------------------}
 {$endc} {not TARGET_CPU_64}
 
@@ -14904,7 +15187,8 @@ type
 		id: UInt32;
 	end;
 type
-	EventHotKeyRef = ^SInt32; { an opaque type }
+	EventHotKeyRef = ^OpaqueEventHotKeyRef; { an opaque type }
+	OpaqueEventHotKeyRef = record end;
 
 {
  *  HotKeyOptions
@@ -15358,14 +15642,14 @@ const
 
 
 {--------------------------------------------------------------------------------------}
-{  ¥ DEPRECATED                                                                        }
+{  ï¿½ DEPRECATED                                                                        }
 {  All functions below this point are either deprecated (they continue to function     }
 {  but are not the most modern nor most efficient solution to a problem), or they are  }
 {  completely unavailable on Mac OS X.                                                 }
 {--------------------------------------------------------------------------------------}
 {$ifc not TARGET_CPU_64}
 {--------------------------------------------------------------------------------------}
-{  ¥ MouseTrackingRegions                                                              }
+{  ï¿½ MouseTrackingRegions                                                              }
 {--------------------------------------------------------------------------------------}
 
 {
@@ -15410,7 +15694,8 @@ const
  *    bound to is disposed.
  }
 type
-	MouseTrackingRef = ^SInt32; { an opaque type }
+	MouseTrackingRef = ^OpaqueMouseTrackingRef; { an opaque type }
+	OpaqueMouseTrackingRef = record end;
 
 
 {
@@ -15424,25 +15709,25 @@ type
  *    HIView.h, instead of MouseTrackingRegions and their associated
  *    settings.
  *    
- *    These values define how the userÕs region is handled by the Mouse
+ *    These values define how the userï¿½s region is handled by the Mouse
  *    Tracking Region API. They define the behavior throughout the life
  *    of the Mouse Tracking Region. For example, if a region is created
  *    with the option of kMouseTrackingOptionsGlobalClip then all
  *    operations on this region will be interpreted in global
- *    coordinates and will be clipped to the owning windowÕs structure.
+ *    coordinates and will be clipped to the owning windowï¿½s structure.
  }
 type
 	MouseTrackingOptions = UInt32;
 const
 {
    * The region is expected in local coordinates and mouse movement
-   * tracking is clipped to the owning windowÕs content region.
+   * tracking is clipped to the owning windowï¿½s content region.
    }
 	kMouseTrackingOptionsLocalClip = 0;
 
   {
    * The region is expected in global coordinates and mouse movement
-   * tracking is clipped to the owning windowÕs structure region.
+   * tracking is clipped to the owning windowï¿½s structure region.
    }
 	kMouseTrackingOptionsGlobalClip = 1;
 
@@ -15510,7 +15795,7 @@ type
  *    
  *    inTargetToNotify:
  *      The event target that should receive kEventMouseEntered/Exited
- *      events for this tracking region. If NULL, the windowÕs event
+ *      events for this tracking region. If NULL, the windowï¿½s event
  *      target receives these events.
  *    
  *    outTrackingRef:
@@ -15998,7 +16283,8 @@ function ReleaseWindowMouseTrackingRegions( inWindow: WindowRef; inSignature: OS
 {======================================================================================}
 {$endc} {not TARGET_CPU_64}
 type
-	ToolboxObjectClassRef = ^SInt32; { an opaque type }
+	ToolboxObjectClassRef = ^OpaqueToolboxObjectClassRef; { an opaque type }
+	OpaqueToolboxObjectClassRef = record end;
 {$ifc not TARGET_CPU_64}
 {
  *  RegisterToolboxObjectClass()   *** DEPRECATED ***

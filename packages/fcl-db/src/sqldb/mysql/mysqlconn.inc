@@ -121,6 +121,8 @@ Type
     constructor Create(AOwner : TComponent); override;
     procedure GetFieldNames(const TableName : string; List :  TStrings); override;
     procedure GetTableNames(List : TStrings; SystemTables : Boolean = false); override;
+    function GetConnectionInfo(InfoType:TConnInfoType): string; override;
+    Function GetInsertID: int64;
     procedure CreateDB; override;
     procedure DropDB; override;
     Property ServerInfo : String Read FServerInfo;
@@ -146,6 +148,7 @@ Type
     Class Function DefaultLibraryName : String; override;
     Class Function LoadFunction : TLibraryLoadFunction; override;
     Class Function UnLoadFunction : TLibraryUnLoadFunction; override;
+    Class Function LoadedLibraryName : string; override;
   end;
 
 
@@ -292,6 +295,12 @@ function TConnectionName.GetServerStatus: String;
 begin
   CheckConnected;
   Result := mysql_stat(FMYSQL);
+end;
+
+function TConnectionName.GetInsertID: Int64;
+begin
+  CheckConnected;
+  Result:=mysql_insert_id(GetHandle);
 end;
 
 procedure TConnectionName.ConnectMySQL(var HMySQL : PMySQL;H,U,P : pchar);
@@ -1104,6 +1113,32 @@ begin
   GetDBInfo(stTables,'','tables_in_'+DatabaseName,List)
 end;
 
+function TConnectionName.GetConnectionInfo(InfoType: TConnInfoType): string;
+begin
+  Result:='';
+  try
+    InitialiseMysql;
+    case InfoType of
+      citServerType:
+        Result:='MySQL';
+      citServerVersion:
+        if Connected then
+          Result:=format('%6.6d', [mysql_get_server_version(FMySQL)]);
+      citServerVersionString:
+        if Connected then
+          Result:=mysql_get_server_info(FMySQL);
+      citClientVersion:
+        Result:=format('%6.6d', [mysql_get_client_version()]);
+      citClientName:
+        Result:=TMySQLConnectionDef.LoadedLibraryName;
+      else
+        Result:=inherited GetConnectionInfo(InfoType);
+    end;
+  finally
+    ReleaseMysql;
+  end;
+end;
+
 function TConnectionName.GetTransactionHandle(trans: TSQLHandle): pointer;
 begin
   Result:=Nil;
@@ -1214,12 +1249,17 @@ end;
 
 class function TMySQLConnectionDef.LoadFunction: TLibraryLoadFunction;
 begin
-  Result:=@initialisemysql;
+  Result:=@InitialiseMySQL;
 end;
 
 class function TMySQLConnectionDef.UnLoadFunction: TLibraryUnLoadFunction;
 begin
   Result:=@ReleaseMySQL;
+end;
+
+class function TMySQLConnectionDef.LoadedLibraryName: string;
+begin
+  Result:=MysqlLoadedLibrary;
 end;
 
 {$IfDef mysql55}

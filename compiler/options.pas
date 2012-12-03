@@ -186,9 +186,9 @@ var
   opt : toptimizerswitch;
   wpopt: twpoptimizerswitch;
   abi : tabi;
-{$if defined(arm) or defined(avr)}
+{$if defined(arm) or defined(avr) or defined(avr32)}
   controllertype : tcontrollertype;
-{$endif defined(arm) or defined(avr)}
+{$endif defined(arm) or defined(avr) or defined(avr32)}
 begin
   p:=MessagePchar(option_info);
   while assigned(p) do
@@ -283,7 +283,7 @@ begin
       end
      else if pos('$CONTROLLERTYPES',s)>0 then
       begin
-        {$if defined(arm) or defined(avr)}
+{$if defined(arm) or defined(avr) or defined(avr32)}
         for controllertype:=low(tcontrollertype) to high(tcontrollertype) do
           begin
 {           currently all whole program optimizations are platform-independent
@@ -299,8 +299,8 @@ begin
                   end;
               end;
           end
-        {$else defined(arm) or defined(avr)}
-        {$endif defined(arm) or defined(avr)}
+        {$else defined(arm) or defined(avr) or defined(avr32)}
+{$endif defined(arm) or defined(avr) or defined(avr32)}
       end
      else
       Comment(V_Normal,s);
@@ -382,6 +382,9 @@ begin
 {$endif}
 {$ifdef jvm}
       'J',
+{$endif}
+{$ifdef avr32}
+      'v',
 {$endif}
       '*' : show:=true;
      end;
@@ -1826,7 +1829,7 @@ begin
                       end;
                     'p':
                       begin
-{$if defined(arm) or defined(avr)}
+{$if defined(arm) or defined(avr) or defined(avr32)}
                         if (target_info.system in systems_embedded) then
                           begin
                             s:=upper(copy(more,j+1,length(more)-j));
@@ -1835,7 +1838,7 @@ begin
                             break;
                           end
                         else
-{$endif defined(arm) or defined(avr)}
+{$endif defined(arm) or defined(avr) or defined(avr32)}
                           IllegalPara(opt);
                       end;
                     'P':
@@ -2845,12 +2848,14 @@ begin
   def_system_macro('CPUX64');
   { not supported for now, afaik (FK)
    def_system_macro('FPC_HAS_TYPE_FLOAT128'); }
-  { win64 doesn't support the legacy fpu }
+{$ifndef FPC_SUPPORT_X87_TYPES_ON_WIN64}
+  { normally, win64 doesn't support the legacy fpu }
   if target_info.system=system_x86_64_win64 then
     begin
       def_system_macro('FPC_CURRENCY_IS_INT64');
       def_system_macro('FPC_COMP_IS_INT64');
     end;
+{$endif FPC_SUPPORT_X87_TYPES_ON_WIN64}
 {$endif}
 {$ifdef sparc}
   def_system_macro('CPUSPARC');
@@ -2875,6 +2880,12 @@ begin
   def_system_macro('FPC_CURRENCY_IS_INT64');
   def_system_macro('FPC_COMP_IS_INT64');
 {$endif avr}
+{$ifdef avr32}
+  def_system_macro('CPUAVR32');
+  def_system_macro('CPU32');
+  def_system_macro('FPC_CURRENCY_IS_INT64');
+  def_system_macro('FPC_COMP_IS_INT64');
+{$endif avr32}
 {$ifdef jvm}
   def_system_macro('CPUJVM');
   def_system_macro('CPU32');
@@ -3128,14 +3139,14 @@ begin
     if fpu type not explicitly set }
   if not(option.FPUSetExplicitly) and
      ((target_info.system in [system_arm_wince,system_arm_gba,system_m68k_amiga,
-         system_m68k_linux,system_arm_nds,system_arm_embedded])
+         system_m68k_linux,system_arm_nds,system_arm_embedded, system_avr32_embedded])
 {$ifdef arm}
       or (target_info.abi=abi_eabi)
 {$endif arm}
      )
-{$ifdef arm}
+{$if defined(arm) or defined(avr32)}
      or (init_settings.fputype=fpu_soft)
-{$endif arm}
+{$endif defined(arm) or defined(avr32)}
   then
     begin
 {$ifdef cpufpemu}
@@ -3233,10 +3244,12 @@ if (target_info.abi = abi_eabihf) then
       def_system_macro('FPC_INCLUDE_SOFTWARE_INT64_TO_DOUBLE');
 {$endif}
 {$ifdef x86_64}
-      { win64 doesn't support the legacy fpu }
+{$ifndef FPC_SUPPORT_X87_TYPES_ON_WIN64}
+      { normally, win64 doesn't support the legacy fpu }
       if target_info.system=system_x86_64_win64 then
         undef_system_macro('FPC_HAS_TYPE_EXTENDED')
       else
+{$endif FPC_SUPPORT_X87_TYPES_ON_WIN64}
         def_system_macro('FPC_HAS_TYPE_EXTENDED');
 {$endif}
     end;

@@ -238,7 +238,6 @@ end;
 function ModulesLinkToLibc:boolean;
 var
   hp: tmodule;
-  i: tlinkcontaineritem;
 begin
   { This is called very early, ImportLibraryList is not yet merged into linkothersharedlibs.
     The former contains library names qualified with prefix and suffix (coming from
@@ -1217,6 +1216,8 @@ begin
       AddSharedLibrary('c');
     end;
 
+  TElfExeOutput(exeoutput).interpreter:=stringdup(dynlinker);
+
   { add objectfiles, start with prt0 always }
   if not (target_info.system in systems_internal_sysinit) and (prtobj<>'') then
     LinkScript.Concat('READOBJECT '+ maybequoted(FindObjectFile(prtobj,'',false)));
@@ -1270,6 +1271,7 @@ begin
   if (cs_link_staticflag in current_settings.globalswitches) or
     (linklibc and not reorder) then
     begin
+      LinkScript.Concat('GROUP');
       if (cs_link_staticflag in current_settings.globalswitches) then
         begin
           AddLibraryStatement('gcc');
@@ -1277,6 +1279,7 @@ begin
         end;
       if linklibc and not reorder then
         AddLibraryStatement('c');
+      LinkScript.Concat('ENDGROUP');
     end;
 
   { objects which must be at the end }

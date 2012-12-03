@@ -257,7 +257,7 @@ interface
                            system_iA64_embedded,system_x86_64_embedded,
                            system_mips_embedded,system_arm_embedded,
                            system_powerpc64_embedded,system_avr_embedded,
-                           system_jvm_java32];
+                           system_jvm_java32,system_avr32_embedded];
 
        { all systems that allow section directive }
        systems_allow_section = systems_embedded;
@@ -339,7 +339,7 @@ interface
 
        cpu2str : array[TSystemCpu] of string[10] =
             ('','i386','m68k','alpha','powerpc','sparc','vm','ia64','x86_64',
-             'mipseb','arm', 'powerpc64', 'avr', 'mipsel','jvm');
+             'mipseb','arm', 'powerpc64', 'avr', 'mipsel','jvm','avr32');
 
        abi2str : array[tabi] of string[10] =
          ('DEFAULT','SYSV','AIX','EABI','ARMEB','EABIHF');
@@ -910,8 +910,11 @@ begin
 {$ifdef jvm}
   default_target(system_jvm_java32);
 {$endif jvm}
-end;
 
+{$ifdef avr32}
+  default_target(system_avr32_embedded);
+{$endif avr32}
+end;
 
 initialization
    source_info.name:='';

@@ -72,7 +72,10 @@ endif
 ifeq ($(CPU_TARGET),mipsel)
 PPSUF=mipsel
 endif
-
+ifeq ($(CPU_TARGET),avr32)
+PPSUF=avr32 
+PPNEW=$(BASEDIR)/compiler/avr32-fpc$(SRCEXEEXT)
+endif
 # cross compilers uses full cpu_target, not just ppc-suffix
 # (except if the target cannot run a native compiler)
 ifdef CROSSCOMPILE

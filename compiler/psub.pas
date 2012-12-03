@@ -114,7 +114,7 @@ implementation
        optbase,
        opttail,
        optcse,optloop
-{$if defined(arm) or defined(avr) or defined(fpc_compiler_has_fixup_jmps)}
+{$if defined(arm) or defined(avr)  or defined(avr32) or defined(fpc_compiler_has_fixup_jmps)}
        ,aasmcpu
 {$endif arm}
        {$ifndef NOOPT}
@@ -1519,6 +1519,11 @@ implementation
               somtimes by normal jmps and an inverse branch }
             finalizeavrcode(aktproccode);
 {$endif AVR}
+
+{$ifdef avr32}
+            { because of the limited constant size of the arm, all data access is done pc relative }
+            finalizeavr32code(aktproccode,aktlocaldata);
+{$endif avr32}
 
             { Add end symbol and debug info }
             { this must be done after the pcrelativedata is appended else the distance calculation of

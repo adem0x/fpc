@@ -112,6 +112,7 @@ type
     function CreateConnectionString:string;
   public
     constructor Create(AOwner : TComponent); override;
+    function GetConnectionInfo(InfoType:TConnInfoType): string; override;
     property Environment:TODBCEnvironment read FEnvironment;
   published
     property Driver:string read FDriver write FDriver;    // will be passed as DRIVER connection parameter
@@ -149,7 +150,7 @@ type
 implementation
 
 uses
-  Math, DBConst, ctypes;
+  DBConst, ctypes;
 
 const
   DefaultEnvironment:TODBCEnvironment = nil;
@@ -959,8 +960,10 @@ begin
   ODBCCursor:=cursor as TODBCCursor;
   // Try to discover BLOB data length
   //   NB MS ODBC requires that TargetValuePtr is not nil, so we supply it with a valid pointer, even though BufferLength is 0
+  StrLenOrInd:=0;
   Res:=SQLGetData(ODBCCursor.FSTMTHandle, FieldDef.Index+1, SQL_C_BINARY, @BlobBuffer, 0, @StrLenOrInd);
-  ODBCCheckResult(Res, SQL_HANDLE_STMT, ODBCCursor.FSTMTHandle, 'Could not get field data for field "%s" (index %d).',[FieldDef.Name, FieldDef.Index+1]);
+  if Res<>SQL_NO_DATA then
+    ODBCCheckResult(Res, SQL_HANDLE_STMT, ODBCCursor.FSTMTHandle, 'Could not get field data for field "%s" (index %d).',[FieldDef.Name, FieldDef.Index+1]);
   // Read the data if not NULL
   if StrLenOrInd<>SQL_NULL_DATA then
   begin
@@ -1075,7 +1078,7 @@ var
   ColName,TypeName:string;
   FieldType:TFieldType;
   FieldSize:word;
-  AutoIncAttr: SQLINTEGER;
+  AutoIncAttr, Updatable: SQLINTEGER;
 begin
   ODBCCursor:=cursor as TODBCCursor;
 
@@ -1181,6 +1184,7 @@ begin
     // only one column per table can have identity attr.
     if (FieldType in [ftInteger,ftLargeInt]) and (AutoIncAttr=SQL_FALSE) then
     begin
+      AutoIncAttr:=0;
       ODBCCheckResult(
         SQLColAttribute(ODBCCursor.FSTMTHandle,     // statement handle
                         i,                          // column number
@@ -1194,6 +1198,18 @@ begin
       if (AutoIncAttr=SQL_TRUE) and (FieldType=ftInteger) then
         FieldType:=ftAutoInc;
     end;
+
+    Updatable:=0;
+    ODBCCheckResult(
+      SQLColAttribute(ODBCCursor.FSTMTHandle,
+                      i,
+                      SQL_DESC_UPDATABLE,
+                      nil,
+                      0,
+                      nil,
+                      @Updatable),
+      SQL_HANDLE_STMT, ODBCCursor.FSTMTHandle, 'Could not get updatable attribute for column %d.',[i]
+    );
 
     if FieldType=ftUnknown then // if unknown field type encountered, try finding more specific information about the ODBC SQL DataType
     begin
@@ -1232,7 +1248,10 @@ begin
     end;
 
     // add FieldDef
-    TFieldDef.Create(FieldDefs, FieldDefs.MakeNameUnique(ColName), FieldType, FieldSize, (Nullable=SQL_NO_NULLS) and (AutoIncAttr=SQL_FALSE), i);
+    with TFieldDef.Create(FieldDefs, FieldDefs.MakeNameUnique(ColName), FieldType, FieldSize, (Nullable=SQL_NO_NULLS) and (AutoIncAttr=SQL_FALSE), i) do
+    begin
+      if Updatable = 0{SQL_ATTR_READONLY} then Attributes := Attributes + [faReadonly];
+    end;
   end;
 end;
 
@@ -1411,6 +1430,32 @@ begin
   if not (SchemaType in [stNoSchema, stTables, stSysTables, stColumns, stProcedures]) then
     DatabaseError(SMetadataUnavailable);
 end;
+
+function TODBCConnection.GetConnectionInfo(InfoType: TConnInfoType): string;
+var i,l: SQLSMALLINT;
+    b: array[0..41] of AnsiChar;
+begin
+  case InfoType of
+    citServerType:
+      i:=17{SQL_DBMS_NAME};
+    citServerVersion,
+    citServerVersionString:
+      i:=18{SQL_DBMS_VER};
+    citClientName:
+      i:=6{SQL_DRIVER_NAME};
+    citClientVersion:
+      i:=7{SQL_DRIVER_VER};
+  else
+    Result:=inherited GetConnectionInfo(InfoType);
+    Exit;
+  end;
+
+  if Connected and (SQLGetInfo(FDBCHandle, i, @b, sizeof(b), @l) = SQL_SUCCESS) then
+    SetString(Result, @b, l)
+  else
+    Result:='';
+end;
+
 
 { TODBCEnvironment }
 

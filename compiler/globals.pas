@@ -155,9 +155,9 @@ interface
          disabledircache : boolean;
 
         { CPU targets with microcontroller support can add a controller specific unit }
-{$if defined(ARM) or defined(AVR)}
+{$if defined(ARM) or defined(AVR) or defined(avr32)}
         controllertype   : tcontrollertype;
-{$endif defined(ARM) or defined(AVR)}
+{$endif defined(ARM) or defined(AVR) or defined(avr32)}
          { WARNING: this pointer cannot be written as such in record token }
          pmessage : pmessagestaterecord;
        end;
@@ -319,6 +319,13 @@ interface
 
        features : tfeatures;
 
+       { prefix added to automatically generated setters/getters. If empty,
+         no getters/setters will be automatically generated except if required
+         for visibility reasons (but in that case the names will be mangled so
+         they are unique) }
+       prop_auto_getter_prefix,
+       prop_auto_setter_prefix : string;
+
     const
        DLLsource : boolean = false;
 
@@ -445,6 +452,16 @@ interface
         optimizecputype : cpu_none;
         fputype : fpu_standard;
   {$endif jvm}
+  {$ifdef aarch64}
+        cputype : cpu_armv8;
+        optimizecputype : cpu_armv8;
+        fputype : fpu_vfp;
+  {$endif aarch64}
+  {$ifdef avr32}
+        cputype : cpuinfo.cpu_all_insn;
+        optimizecputype : cpuinfo.cpu_all_insn;
+        fputype : fpu_none;
+  {$endif avr32}
 {$endif not GENERIC_CPU}
         asmmode : asmmode_standard;
 {$ifndef jvm}
@@ -457,9 +474,9 @@ interface
         minfpconstprec : s32real;
 
         disabledircache : false;
-{$if defined(ARM) or defined(AVR)}
+{$if defined(ARM) or defined(AVR) or defined(avr32)}
         controllertype : ct_none;
-{$endif defined(ARM) or defined(AVR)}
+{$endif defined(ARM) or defined(AVR) or defined(avr32)}
         pmessage : nil;
       );
 
@@ -490,9 +507,9 @@ interface
     function Setabitype(const s:string;var a:tabi):boolean;
     function Setcputype(const s:string;var a:tcputype):boolean;
     function SetFpuType(const s:string;var a:tfputype):boolean;
-{$if defined(arm) or defined(avr)}
+{$if defined(arm) or defined(avr) or defined(avr32)}
     function SetControllerType(const s:string;var a:tcontrollertype):boolean;
-{$endif defined(arm) or defined(avr)}
+{$endif defined(arm) or defined(avr) or defined(avr32)}
     function UpdateAlignmentStr(s:string;var a:talignmentinfo):boolean;
     function UpdateOptimizerStr(s:string;var a:toptimizerswitches):boolean;
     function UpdateWpoStr(s: string; var a: twpoptimizerswitches): boolean;
@@ -1110,7 +1127,7 @@ implementation
       end;
 
 
-{$if defined(arm) or defined(avr)}
+{$if defined(arm) or defined(avr) or defined(avr32)}
     function SetControllerType(const s:string;var a:tcontrollertype):boolean;
       var
         t  : tcontrollertype;
@@ -1126,7 +1143,7 @@ implementation
               break;
             end;
       end;
-{$endif defined(arm) or defined(avr)}
+{$endif defined(arm) or defined(avr) or defined(avr32)}
 
 
     function UpdateAlignmentStr(s:string;var a:talignmentinfo):boolean;
@@ -1330,28 +1347,42 @@ implementation
 
     function UpdateTargetSwitchStr(s: string; var a: ttargetswitches): boolean;
       var
-        tok   : string;
+        tok,
+        value : string;
+        setstr: string[2];
+        equalspos: longint;
         doset,
+        gotvalue,
         found : boolean;
         opt   : ttargetswitch;
       begin
         result:=true;
-        uppervar(s);
         repeat
           tok:=GetToken(s,',');
           if tok='' then
            break;
-          if Copy(tok,1,2)='NO' then
+          setstr:=upper(copy(tok,1,2));
+          if setstr='NO' then
             begin
               delete(tok,1,2);
               doset:=false;
             end
           else
             doset:=true;
+          { value specified? }
+          gotvalue:=false;
+          equalspos:=pos('=',tok);
+          if equalspos<>0 then
+            begin
+              value:=copy(tok,equalspos+1,length(tok));
+              delete(tok,equalspos,length(tok));
+              gotvalue:=true;
+            end;
           found:=false;
+          uppervar(tok);
           for opt:=low(ttargetswitch) to high(ttargetswitch) do
             begin
-              if TargetSwitchStr[opt]=tok then
+              if TargetSwitchStr[opt].name=tok then
                 begin
                   found:=true;
                   break;
@@ -1359,10 +1390,35 @@ implementation
             end;
           if found then
             begin
-              if doset then
-                include(a,opt)
+              if not TargetSwitchStr[opt].hasvalue then
+                begin
+                  if gotvalue then
+                    result:=false;
+                  if doset then
+                    include(a,opt)
+                  else
+                    exclude(a,opt)
+                end
               else
-                exclude(a,opt);
+                begin
+                  if not gotvalue or
+                     not doset then
+                    result:=false
+                  else
+                    begin
+                      case opt of
+                        ts_auto_getter_prefix:
+                          prop_auto_getter_prefix:=value;
+                        ts_auto_setter_predix:
+                          prop_auto_setter_prefix:=value;
+                        else
+                          begin
+                            writeln('Internalerror 2012053001');
+                            halt(1);
+                          end;
+                      end;
+                    end;
+                end;
             end
           else
             result:=false;

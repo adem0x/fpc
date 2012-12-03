@@ -205,6 +205,25 @@
   {$define symansistr}
 {$endif}
 
+{$ifdef aarch64}
+  {$define cpu64bit}
+  {$define cpu64bitaddr}
+  {$define cpu64bitalu}
+  {$define cpuflags}
+  {$define cpurox}
+  {$define cputargethasfixedstack}
+  {$define cpurefshaveindexreg}
+
+{$endif aarch64}
+{$ifdef avr32}
+  {$define cpu32bit}
+  {$define cpu32bitaddr}
+  {$define cpu32bitalu}
+  {$define cpuflags}
+  {$define cpufpemu}   
+  {$define cputargethasfixedstack}
+{$endif avr32}
+
 {$IFDEF MACOS}
 {$DEFINE USE_FAKE_SYSUTILS}
 {$ENDIF MACOS}

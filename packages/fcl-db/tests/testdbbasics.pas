@@ -76,7 +76,7 @@ type
     procedure TestClosedIndexFieldNames; // bug 16695
     procedure TestFileNameProperty;
     procedure TestClientDatasetAsMemDataset;
-    procedure TestSafeAsXML;
+    procedure TestSaveAsXML;
     procedure TestIsEmpty;
     procedure TestBufDatasetCancelUpd; //bug 6938
     procedure TestBufDatasetCancelUpd1;
@@ -159,8 +159,8 @@ type
     procedure TestBug7007;
     procedure TestBug6893;
     procedure TestRequired;
+    procedure TestOldValueObsolete;
     procedure TestOldValue;
-    procedure TestOldValue1;
     procedure TestModified;
   end;
 
@@ -618,17 +618,26 @@ begin
   DBConnector.StopTest;
 end;
 
-procedure TTestCursorDBBasics.TestOldValue;
+procedure TTestCursorDBBasics.TestOldValueObsolete;
 var v : variant;
     bufds: TDataset;
 begin
+  // this test was created as reaction to AV bug found in TCustomBufDataset.GetFieldData
+  // when retrieving OldValue (State=dsOldValue) of newly inserted or appended record.
+  // In this case was CurrBuff set to nil (and not checked),
+  // because OldValuesBuffer for just inserted record is nil. See rev.17704
+  // (So purpose of this test isn't test InsertRecord on empty dataset or so)
+  // Later was this test replaced by more complex TestOldValue (superset of old test),
+  // but next to it was restored back also original test.
+  // So now we have two tests which test same thing, where this 'old' one is subset of 'new' one
+  // Ideal solution would be remove this 'old' test as it does not test anything what is not tested elsewhere ...
   bufds := DBConnector.GetNDataset(0) as TDataset;
   bufds.Open;
   bufds.InsertRecord([0,'name']);
   v := VarToStr(bufds.fields[1].OldValue);
 end;
 
-procedure TTestCursorDBBasics.TestOldValue1;
+procedure TTestCursorDBBasics.TestOldValue;
 begin
   with DBConnector.GetNDataset(1) as TDataset do
   begin;
@@ -1301,7 +1310,7 @@ begin
   bufds.CompareBookmarks(nil,nil);
 end;
 
-procedure TTestBufDatasetDBBasics.TestSafeAsXML;
+procedure TTestBufDatasetDBBasics.TestSaveAsXML;
 var ds    : TDataset;
     LoadDs: TCustomBufDataset;
 begin
@@ -1523,7 +1532,7 @@ begin
   CheckEquals(2,ADataset.Fields.Count);
   CheckTrue(SameText('ID',ADataset.Fields[0].FieldName));
   CheckTrue(SameText('NAME',ADataset.Fields[1].FieldName));
-  CheckTrue(ADataset.fields[1].DataType=ftString,'Incorrect fieldtype');
+  CheckEquals(ord(ftString), ord(ADataset.Fields[1].DataType), 'Incorrect FieldType');
   i := 1;
   while not ADataset.EOF do
     begin
@@ -2203,8 +2212,8 @@ begin
   if not assigned (AFld) then
     Ignore('Fields of the type ' + FieldTypeNames[AfieldType] + ' are not supported by this type of dataset');
 {$endif fpc}
-  CheckTrue(Afld.DataType = AFieldType);
-  CheckEquals(ADatasize,Afld.DataSize );
+  CheckEquals(ord(AFieldType), ord(AFld.DataType), 'DataType');
+  CheckEquals(ADatasize, AFld.DataSize, 'DataSize');
 end;
 
 procedure TTestDBBasics.TestSupportIntegerFields;
@@ -2472,7 +2481,7 @@ begin
     open;
     AField := fieldbyname('name');
     AParam.AssignField(AField);
-    CheckTrue(ftString=AParam.DataType);
+    CheckEquals(ord(ftString), ord(AParam.DataType), 'DataType');
     close;
     end;
   AParam.Free;
@@ -2489,7 +2498,7 @@ begin
     AField := fieldbyname('name');
     (AField as tstringfield).FixedChar := true;
     AParam.AssignField(AField);
-    CheckTrue(ftFixedChar=AParam.DataType);
+    CheckEquals(ord(ftFixedChar), ord(AParam.DataType), 'DataType');
     close;
     end;
   AParam.Free;

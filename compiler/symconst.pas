@@ -334,9 +334,40 @@ type
       inherited, so we explicitly have to add the constructors of the parent
       class to the child class; this influences the overload resolution logic
       though, so ignore them there) }
-    po_ignore_for_overload_resolution
+    po_ignore_for_overload_resolution,
+    { the visibility of of this procdef was raised automatically by the
+      compiler, e.g. because it was designated as a getter/setter for a property
+      with a higher visibility on the JVM target }
+    po_auto_raised_visibility
   );
   tprocoptions=set of tprocoption;
+
+  { kinds of synthetic procdefs that can be generated }
+  tsynthetickind = (
+    tsk_none,
+    tsk_anon_inherited,        // anonymous inherited call
+    tsk_jvm_clone,             // Java-style clone method
+    tsk_record_deepcopy,       // deepcopy for records field by field
+    tsk_record_initialize,     // initialize for records field by field (explicit rather than via rtti)
+    tsk_empty,                 // an empty routine
+    tsk_tcinit,                // initialisation of typed constants
+    tsk_callthrough,           // call through to another routine with the same parameters/return type (its def is stored in the skpara field)
+    tsk_callthrough_nonabstract,// call through to another routine if the current class not abstract (otherwise do the same as tsk_empty)
+    tsk_jvm_enum_values,       // Java "values" class method of JLEnum descendants
+    tsk_jvm_enum_valueof,      // Java "valueOf" class method of JLEnum descendants
+    tsk_jvm_enum_classconstr,  // Java class constructor for JLEnum descendants
+    tsk_jvm_enum_jumps_constr, // Java constructor for JLEnum descendants for enums with jumps
+    tsk_jvm_enum_fpcordinal,   // Java FPCOrdinal function that returns the enum's ordinal value from an FPC POV
+    tsk_jvm_enum_fpcvalueof,   // Java FPCValueOf function that returns the enum instance corresponding to an ordinal from an FPC POV
+    tsk_jvm_enum_long2set,     // Java fpcLongToEnumSet function that returns an enumset corresponding to a bit pattern in a jlong
+    tsk_jvm_enum_bitset2set,   // Java fpcBitSetToEnumSet function that returns an enumset corresponding to a BitSet
+    tsk_jvm_enum_set2Set,      // Java fpcEnumSetToEnumSet function that returns an enumset corresponding to another enumset (different enum kind)
+    tsk_jvm_procvar_invoke,    // Java invoke method that calls a wrapped procvar
+    tsk_jvm_procvar_intconstr, // Java procvar class constructor that accepts an interface instance for easy Java interoperation
+    tsk_jvm_virtual_clmethod,  // Java wrapper for virtual class method
+    tsk_field_getter,          // getter for a field (callthrough property is passed in skpara)
+    tsk_field_setter           // Setter for a field (callthrough property is passed in skpara)
+  );
 
   { options for objects and classes }
   tobjecttyp = (odt_none,

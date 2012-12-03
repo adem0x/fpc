@@ -879,9 +879,9 @@ implementation
         paraloc  : pcgparalocation;
         href     : treference;
         sizeleft : aint;
-{$if defined(sparc) or defined(arm) or defined(mips)}
+{$if defined(sparc) or defined(arm) or defined(mips) or defined(avr32)}
         tempref  : treference;
-{$endif defined(sparc) or defined(arm) or defined(mips)}
+{$endif defined(sparc) or defined(arm) or defined(mips) or defined(avr32)}
 {$ifdef mips}
         tmpreg   : tregister;
 {$endif mips}
@@ -1079,8 +1079,8 @@ implementation
                   tg.UnGetTemp(list,tempref);
                 end;
 {$else mips}
-{$if defined(sparc) or defined(arm)}
-              { Arm and Sparc passes floats in int registers, when loading to fpu register
+{$if defined(sparc) or defined(arm) or defined(avr32)}
+              { arm, avr32 and Sparc passes floats in int registers, when loading to fpu register
                 we need a temp }
               sizeleft := TCGSize2Size[destloc.size];
               tg.GetTemp(list,sizeleft,sizeleft,tt_normal,tempref);
@@ -1096,7 +1096,7 @@ implementation
               gen_alloc_regloc(list,destloc);
               cg.a_loadfpu_ref_reg(list,destloc.size,destloc.size,tempref,destloc.register);
               tg.UnGetTemp(list,tempref);
-{$else defined(sparc) or defined(arm)}
+{$else defined(sparc) or defined(arm) or defined(avr32)}
               unget_para(paraloc^);
               gen_alloc_regloc(list,destloc);
               { from register to register -> alignment is irrelevant }

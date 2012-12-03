@@ -390,7 +390,7 @@ scan_w_unavailable_system_codepage=02091_W_Current system codepage "$1" is not a
 #
 # Parser
 #
-# 03324 is the last used one
+# 03327 is the last used one
 #
 % \section{Parser messages}
 % This section lists all parser messages. The parser takes care of the
@@ -640,7 +640,7 @@ parser_e_expr_have_to_be_destructor_call=03077_E_Expression must be destructor c
 parser_e_invalid_record_const=03078_E_Illegal order of record elements
 % When declaring a constant record, you specified the fields in the wrong
 % order.
-parser_e_false_with_expr=03079_E_Expression type must be class or record type
+parser_e_false_with_expr=03079_E_Expression type must be class or record type, got $1
 % A \var{with} statement needs an argument that is of the type \var{record}
 % or \var{class}. You are using \var{with} on an expression that is not of
 % this type.
@@ -1446,12 +1446,31 @@ parser_e_jvm_invalid_virtual_constructor_call=03321_E_Calling a virtual construc
 % for the current instance inside another constructor.
 parser_e_method_lower_visibility=03322_E_Overriding method "$1" cannot have a lower visibility ($2) than in parent class $3 ($4)
 % The JVM does not allow lowering the visibility of an overriding method.
-% \end{description}
 parser_w_nostackframe_without_assembler=03323_W_Procedure/Function declared with call option NOSTACKFRAME but without ASSEMBLER
 % nostackframe call modifier is supposed to be used in conjunction with assembler.
 parser_e_nostackframe_with_locals=03324_E_Procedure/Function declared with call option NOSTACKFRAME but local stack size is $1
 % nostackframe call modifier used without assembler modifier
 % might still generate local stack needs.
+parser_e_cannot_generate_property_getter_setter=03325_E_Cannot generate property getter/setter $1 because its name clashes with existing identifier $2
+% Automatically generated getters/setters cannot have the same name as existing
+% identifiers, because this may change the behaviour of existing code.
+parser_w_overriding_property_getter_setter=03326_W_Automatically generated property getter/setter $1 overrides the same-named getter/setter in class $2
+% Automatically generated property getters/setters on the JVM platform are virtual methods, because
+% the JVM does not support non-virtual methods that can be changed in child classes. This means
+% that if a child class changes an inherited property definition, the behaviour of that property
+% can change compared to native targets since even if a variable is declared as the parent type,
+% by calling the virtual method the getter from the child will be used. This is different from
+% the behaviour on native targets or when not activating automatically generated setters/getters,
+% because in that case only the declared type of a variable influences the property behaviour.
+parser_w_case_difference_auto_property_getter_setter_prefix=03327_W_Case mismatch between declared property getter/setter $1 and automatically constructed name $2, not changing declared name
+% If a property's specified getter/setter already corresponded to the naming convention specified
+% by the automatic getter/setter generation setting except in terms of upper/lowercase, the
+% compiler will print a warning because it cannot necessarily change that other declaration itself
+% not can it add one using the correct case (it could conflict with the original declaration).
+% Manually correct the case of the getter/setter to conform to the desired coding rules.
+% \var{TChild} overrides
+%
+% \end{description}
 %
 # Type Checking
 #
@@ -3127,7 +3146,7 @@ option_dwarf_smartlink_creation=11049_N_DWARF debug information cannot be used w
 % platforms, so smart linking is disabled in such cases.
 option_invalid_macosx_deployment_target=11050_E_Invalid value for MACOSX_DEPLOYMENT_TARGET environment variable: $1
 option_invalid_iphoneos_deployment_target=11051_E_Invalid value for IPHONEOS_DEPLOYMENT_TARGET environment variable: $1
-% On Mac OS X, the MACOSX_DEPLOYMENT_TARGET/IPHONEOS_DEPLOYMENT_TARGET environment variable can be
+% On Mac OS X, the MACOSX\_DEPLOYMENT\_TARGET/IPHONEOS\_DEPLOYMENT\_TARGET environment variable can be
 % used to set the default target OS version. In case of Mac OS X, it has to be of the format
 % XY.Z or XY.Z.AB with X, Y,Z , A and B all digits from 0-9.
 % In case of iOS, it has to be X.Z.A, where X, Z and A can all be either 1 or 2
@@ -3333,7 +3352,7 @@ S*2Aas_Assemble using GNU AS
 **1C<x>_Code generation options:
 **2C3<x>_Turn on ieee error checking for constants
 **2Ca<x>_Select ABI, see fpc -i for possible values
-**2Cb_Generate big-endian code
+**2Cb_Generate code for a big-endian variant of the target architecture
 **2Cc<x>_Set default calling convention to <x>
 **2CD_Create also dynamic library (not supported)
 **2Ce_Compilation with emulated floating point opcodes
@@ -3359,8 +3378,10 @@ J*2CT<x>_Target-specific code generation options
 p*3CTsmalltoc_ Generate smaller TOCs at the expense of execution speed (AIX)
 P*3CTsmalltoc_ Generate smaller TOCs at the expense of execution speed (AIX)
 J*3CTcompactintarrayinit_ Generate smaller (but potentially slower) code for initializing integer array constants
-K*3CTenumfieldinit_ Initialize enumeration fields in constructors to enumtype(0), after calling inherited constructors
+J*3CTenumfieldinit_ Initialize enumeration fields in constructors to enumtype(0), after calling inherited constructors
 J*2Cv_Var/out parameter copy-out checking
+J*3CTautogetterprefix=X_ Automatically create getters for properties with prefix X (empty string disables)
+J*3CTautosetterprefix=X_ Automatically create setters for properties with prefix X (empty string disables)
 **2CX_Create also smartlinked library
 **1d<x>_Defines the symbol <x>
 **1D_Generate a DEF file
@@ -3480,6 +3501,7 @@ F*2P<x>_Set target CPU (arm,i386,m68k,mips,mipsel,powerpc,powerpc64,sparc,x86_64
 3*2Tgo32v2_Version 2 of DJ Delorie DOS extender
 3*2Tiphonesim_ iPhoneSimulator from iOS SDK 3.2+ (older versions: -Tdarwin)
 3*2Tlinux_Linux
+3*2Tnativent_Native NT API (experimental)
 3*2Tnetbsd_NetBSD
 3*2Tnetware_Novell Netware Module (clib)
 3*2Tnetwlibc_Novell Netware Module (libc)

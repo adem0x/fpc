@@ -823,7 +823,9 @@ Implementation
                        (taicpu(p).oper[2]^.shifterop^.rs = NR_NO) and
                        (taicpu(p).oper[2]^.shifterop^.shiftmode = SM_LSR) and
                        (taicpu(p).oper[2]^.shifterop^.shiftimm >= 24 ) and
-                       getnextinstruction(p,hp1) and
+                       GetNextInstructionUsingReg(p,hp1, taicpu(p).oper[0]^.reg) and
+                       (assigned(FindRegDealloc(taicpu(p).oper[0]^.reg,tai(hp1.Next))) or
+                         regLoadedWithNewValue(taicpu(p).oper[0]^.reg, hp1)) and
                        MatchInstruction(hp1, A_AND, [taicpu(p).condition], [taicpu(p).oppostfix]) and
                        (taicpu(hp1).ops=3) and
                        MatchOperand(taicpu(p).oper[0]^, taicpu(hp1).oper[0]^) and
@@ -918,10 +920,13 @@ Implementation
                                               A_AND, A_BIC, A_EOR, A_ORR, A_MOV, A_MVN],
                                         [taicpu(p).condition], []) and
                        {MOV and MVN might only have 2 ops}
-                       (taicpu(hp1).ops = 3) and
+                       (taicpu(hp1).ops >= 2) and
                        MatchOperand(taicpu(p).oper[0]^, taicpu(hp1).oper[0]^.reg) and
                        (taicpu(hp1).oper[1]^.typ = top_reg) and
-                       (taicpu(hp1).oper[2]^.typ in [top_reg, top_const, top_shifterop]) then
+                       (
+                         (taicpu(hp1).ops = 2) or
+                         (taicpu(hp1).oper[2]^.typ in [top_reg, top_const, top_shifterop])
+                       ) then
                       begin
                       { When we get here we still don't know if the registers match}
                         for I:=1 to 2 do
@@ -930,7 +935,8 @@ Implementation
                             The checks will still be ok, because all required information
                             will also be in hp1 then.
                           }
-                          if MatchOperand(taicpu(p).oper[0]^, taicpu(hp1).oper[I]^.reg) then
+                          if (taicpu(hp1).ops > I) and
+                             MatchOperand(taicpu(p).oper[0]^, taicpu(hp1).oper[I]^.reg) then
                             begin
                               DebugMsg('Peephole RedundantMovProcess done', hp1);
                               taicpu(hp1).oper[I]^.reg := taicpu(p).oper[1]^.reg;
@@ -956,72 +962,89 @@ Implementation
                        (taicpu(p).oper[1]^.typ = top_reg) and
                        (taicpu(p).oper[2]^.typ = top_shifterop) and
                        (taicpu(p).oppostfix = PF_NONE) and
-                       GetNextInstruction(p, hp1) and
+                       GetNextInstructionUsingReg(p, hp1, taicpu(p).oper[0]^.reg) and
                        MatchInstruction(hp1, [A_ADD, A_ADC, A_RSB, A_RSC, A_SUB, A_SBC,
                                               A_AND, A_BIC, A_EOR, A_ORR, A_TEQ, A_TST,
                                               A_CMP, A_CMN],
                                         [taicpu(p).condition], [PF_None]) and
-                       (taicpu(hp1).ops >= 2) and {Currently we can't fold into another shifterop}
+                       (assigned(FindRegDealloc(taicpu(p).oper[0]^.reg,tai(hp1.Next))) or
+                         regLoadedWithNewValue(taicpu(p).oper[0]^.reg, hp1)) and
+                       (taicpu(hp1).ops >= 2) and
+                       {Currently we can't fold into another shifterop}
                        (taicpu(hp1).oper[taicpu(hp1).ops-1]^.typ = top_reg) and
+                       {Folding rrx is problematic because of the C-Flag, as we currently can't check
+                        NR_DEFAULTFLAGS for modification}
+                       (
+                         {Everything is fine if we don't use RRX}
+                         (taicpu(p).oper[2]^.shifterop^.shiftmode <> SM_RRX) or
+                         (
+                           {If it is RRX, then check if we're just accessing the next instruction}
+                           GetNextInstruction(p, hp2) and
+                           (hp1 = hp2)
+                         )
+                       ) and
+                       { reg1 might not be modified inbetween }
+                       not(RegModifiedBetween(taicpu(p).oper[1]^.reg,p,hp1)) and
+                       { The shifterop can contain a register, might not be modified}
+                       (
+                         (taicpu(p).oper[2]^.shifterop^.rs = NR_NO) or
+                         not(RegModifiedBetween(taicpu(p).oper[2]^.shifterop^.rs, p, hp1))
+                       ) and
                        (
                          {Only ONE of the two src operands is allowed to match}
                          MatchOperand(taicpu(p).oper[0]^, taicpu(hp1).oper[taicpu(hp1).ops-2]^) xor
                          MatchOperand(taicpu(p).oper[0]^, taicpu(hp1).oper[taicpu(hp1).ops-1]^)
                        ) then
                       begin
-                        CopyUsedRegs(TmpUsedRegs);
-                        UpdateUsedRegs(TmpUsedRegs, tai(p.next));
                         if taicpu(hp1).opcode in [A_TST, A_TEQ, A_CMN] then
                           I2:=0
                         else
                           I2:=1;
-                        if not(RegUsedAfterInstruction(taicpu(p).oper[0]^.reg,hp1,TmpUsedRegs)) then
-                          for I:=I2 to taicpu(hp1).ops-1 do
-                            if MatchOperand(taicpu(p).oper[0]^, taicpu(hp1).oper[I]^.reg) then
-                              begin
-                                { If the parameter matched on the second op from the RIGHT
-                                  we have to switch the parameters, this will not happen for CMP
-                                  were we're only evaluating the most right parameter
-                                }
-                                if I <> taicpu(hp1).ops-1 then
-                                  begin
-                                    {The SUB operators need to be changed when we swap parameters}
-                                    case taicpu(hp1).opcode of
-                                      A_SUB: tempop:=A_RSB;
-                                      A_SBC: tempop:=A_RSC;
-                                      A_RSB: tempop:=A_SUB;
-                                      A_RSC: tempop:=A_SBC;
-                                      else tempop:=taicpu(hp1).opcode;
-                                    end;
-                                    if taicpu(hp1).ops = 3 then
-                                      hp2:=taicpu.op_reg_reg_reg_shifterop(tempop,
-                                           taicpu(hp1).oper[0]^.reg, taicpu(hp1).oper[2]^.reg,
-                                           taicpu(p).oper[1]^.reg, taicpu(p).oper[2]^.shifterop^)
-                                    else
-                                      hp2:=taicpu.op_reg_reg_shifterop(tempop,
-                                           taicpu(hp1).oper[0]^.reg, taicpu(p).oper[1]^.reg,
-                                           taicpu(p).oper[2]^.shifterop^);
-                                  end
-                                else
+                        for I:=I2 to taicpu(hp1).ops-1 do
+                          if MatchOperand(taicpu(p).oper[0]^, taicpu(hp1).oper[I]^.reg) then
+                            begin
+                              { If the parameter matched on the second op from the RIGHT
+                                we have to switch the parameters, this will not happen for CMP
+                                were we're only evaluating the most right parameter
+                              }
+                              if I <> taicpu(hp1).ops-1 then
+                                begin
+                                  {The SUB operators need to be changed when we swap parameters}
+                                  case taicpu(hp1).opcode of
+                                    A_SUB: tempop:=A_RSB;
+                                    A_SBC: tempop:=A_RSC;
+                                    A_RSB: tempop:=A_SUB;
+                                    A_RSC: tempop:=A_SBC;
+                                    else tempop:=taicpu(hp1).opcode;
+                                  end;
                                   if taicpu(hp1).ops = 3 then
-                                    hp2:=taicpu.op_reg_reg_reg_shifterop(taicpu(hp1).opcode,
-                                         taicpu(hp1).oper[0]^.reg, taicpu(hp1).oper[1]^.reg,
+                                    hp2:=taicpu.op_reg_reg_reg_shifterop(tempop,
+                                         taicpu(hp1).oper[0]^.reg, taicpu(hp1).oper[2]^.reg,
                                          taicpu(p).oper[1]^.reg, taicpu(p).oper[2]^.shifterop^)
                                   else
-                                    hp2:=taicpu.op_reg_reg_shifterop(taicpu(hp1).opcode,
+                                    hp2:=taicpu.op_reg_reg_shifterop(tempop,
                                          taicpu(hp1).oper[0]^.reg, taicpu(p).oper[1]^.reg,
                                          taicpu(p).oper[2]^.shifterop^);
-                                asml.insertbefore(hp2, p);
-                                asml.remove(p);
-                                asml.remove(hp1);
-                                p.free;
-                                hp1.free;
-                                p:=hp2;
-                                GetNextInstruction(p,hp1);
-                                DebugMsg('Peephole FoldShiftProcess done', p);
-                                break;
-                              end;
-                        ReleaseUsedRegs(TmpUsedRegs);
+                                end
+                              else
+                                if taicpu(hp1).ops = 3 then
+                                  hp2:=taicpu.op_reg_reg_reg_shifterop(taicpu(hp1).opcode,
+                                       taicpu(hp1).oper[0]^.reg, taicpu(hp1).oper[1]^.reg,
+                                       taicpu(p).oper[1]^.reg, taicpu(p).oper[2]^.shifterop^)
+                                else
+                                  hp2:=taicpu.op_reg_reg_shifterop(taicpu(hp1).opcode,
+                                       taicpu(hp1).oper[0]^.reg, taicpu(p).oper[1]^.reg,
+                                       taicpu(p).oper[2]^.shifterop^);
+                              asml.insertbefore(hp2, hp1);
+                              asml.remove(p);
+                              asml.remove(hp1);
+                              p.free;
+                              hp1.free;
+                              p:=hp2;
+                              GetNextInstruction(p,hp1);
+                              DebugMsg('Peephole FoldShiftProcess done', p);
+                              break;
+                            end;
                       end;
 
                     {

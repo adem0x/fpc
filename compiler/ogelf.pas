@@ -58,6 +58,7 @@ interface
          kind: TElfSymtabKind;
          fstrsec: TObjSection;
          symidx: longint;
+         tlsbase: aword;
          constructor create(aObjData:TObjData;aKind:TElfSymtabKind);reintroduce;
          procedure writeSymbol(objsym:TObjSymbol;nameidx:longword=0);
          procedure writeInternalSymbol(avalue:aword;astridx:longword;ainfo:byte;ashndx:word);
@@ -118,6 +119,7 @@ interface
          shentsize: longword;
          shoffset: aword;
          shstrndx: longword;
+         symtabndx: longword;
          shstrtab: PChar;
          strtab: PChar;
          shstrtablen: longword;
@@ -176,13 +178,14 @@ interface
          phdrseg: TElfSegment;
          shstrtabsect: TElfObjSection;
          symtab: TElfSymtab;
-         shoffset: longint;
+         shoffset: aword;
          gotwritten: boolean;
          { dynamic linking }
          dynamiclink: boolean;
          dynsymnames: Plongword;
          dynsymtable: TElfSymtab;
          interpobjsec: TObjSection;
+         FInterpreter: pshortstring;
          dynamicsec,
          hashobjsec: TElfObjSection;
          neededlist: TFPHashList;
@@ -216,7 +219,9 @@ interface
          pltrelocsec,
          ipltrelocsec,
          dynrelocsec: TElfObjSection;
+         dynreloclist: TFPObjectList;
          tlsseg: TElfSegment;
+         relative_reloc_count: longint;
          procedure WriteDynRelocEntry(dataofs:aword;typ:byte;symidx:aword;addend:aword);
          procedure WriteFirstPLTEntry;virtual;abstract;
          procedure WritePLTEntry(exesym:TExeSymbol);virtual;
@@ -236,6 +241,7 @@ interface
          procedure DataPos_ExeSection(const aname:string);override;
          function writeData:boolean;override;
          procedure GenerateLibraryImports(ImportLibraryList:TFPHashObjectList);override;
+         property interpreter:pshortstring read FInterpreter write FInterpreter;
        end;
 
      var
@@ -268,10 +274,26 @@ implementation
       symbolresize = 200*18;
 
     const
-      { ELFHeader.file_class }
-      ELFCLASSNONE  = 0;
-      ELFCLASS32    = 1;
-      ELFCLASS64    = 2;
+      EI_MAG0    = 0;
+        ELFMAG0  = $7F;
+      EI_MAG1    = 1;
+        ELFMAG1  = ord('E');
+      EI_MAG2    = 2;
+        ELFMAG2  = ord('L');
+      EI_MAG3    = 3;
+        ELFMAG3  = ord('F');
+      EI_CLASS   = 4;
+        ELFCLASSNONE  = 0;
+        ELFCLASS32    = 1;
+        ELFCLASS64    = 2;
+      EI_DATA    = 5;
+        ELFDATANONE   = 0;
+        ELFDATA2LSB   = 1;
+        ELFDATA2MSB   = 2;
+      EI_VERSION = 6;
+      EI_OSABI   = 7;
+      EI_ABIVERSION = 8;
+      EI_PAD     = 9;
 
       { ELFHeader.e_type }
       ET_NONE       = 0;
@@ -315,6 +337,7 @@ implementation
 {$endif x86_64}
 
       SHN_UNDEF     = 0;
+      SHN_LORESERVE = $FF00;
       SHN_ABS       = $fff1;
       SHN_COMMON    = $fff2;
 
@@ -436,14 +459,12 @@ implementation
       DT_VERNEED   = $6ffffffe;
       DT_VERNEEDNUM = $6fffffff;
 
+      GRP_COMDAT = 1;
+
       type
       { Structures which are written directly to the output file }
         TElf32header=packed record
-          magic             : array[0..3] of byte;
-          file_class        : byte;
-          data_encoding     : byte;
-          file_version      : byte;
-          padding           : array[$07..$0f] of byte;
+          e_ident           : array[0..15] of byte;
           e_type            : word;
           e_machine         : word;
           e_version         : longword;
@@ -502,11 +523,7 @@ implementation
 
 
         telf64header=packed record
-          magic             : array[0..3] of byte;
-          file_class        : byte;
-          data_encoding     : byte;
-          file_version      : byte;
-          padding           : array[$07..$0f] of byte;
+          e_ident           : array[0..15] of byte;
           e_type            : word;
           e_machine         : word;
           e_version         : longword;
@@ -947,11 +964,8 @@ implementation
     function TElfObjData.sectionname(atype:TAsmSectiontype;const aname:string;aorder:TAsmSectionOrder):string;
       const
         secnames : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('','',
-{$ifdef userodata}
+          { TODO: sec_rodata is still writable }
           '.text','.data','.data','.rodata','.bss','.threadvar',
-{$else userodata}
-          '.text','.data','.data','.data','.bss','.threadvar',
-{$endif userodata}
           '.pdata',
           '.text', { darwin stubs }
           '__DATA,__nl_symbol_ptr',
@@ -959,63 +973,6 @@ implementation
           '__DATA,__mod_init_func',
           '__DATA,__mod_term_func',
           '.stab','.stabstr',
-          '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
-          '.eh_frame',
-          '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
-          '.fpc',
-          '.toc',
-          '.init',
-          '.fini',
-          '.objc_class',
-          '.objc_meta_class',
-          '.objc_cat_cls_meth',
-          '.objc_cat_inst_meth',
-          '.objc_protocol',
-          '.objc_string_object',
-          '.objc_cls_meth',
-          '.objc_inst_meth',
-          '.objc_cls_refs',
-          '.objc_message_refs',
-          '.objc_symbols',
-          '.objc_category',
-          '.objc_class_vars',
-          '.objc_instance_vars',
-          '.objc_module_info',
-          '.objc_class_names',
-          '.objc_meth_var_types',
-          '.objc_meth_var_names',
-          '.objc_selector_strs',
-          '.objc_protocol_ext',
-          '.objc_class_ext',
-          '.objc_property',
-          '.objc_image_info',
-          '.objc_cstring_object',
-          '.objc_sel_fixup',
-          '__DATA,__objc_data',
-          '__DATA,__objc_const',
-          '.objc_superrefs',
-          '__DATA, __datacoal_nt,coalesced',
-          '.objc_classlist',
-          '.objc_nlclasslist',
-          '.objc_catlist',
-          '.obcj_nlcatlist',
-          '.objc_protolist'
-        );
-        secnames_pic : array[TAsmSectiontype] of string[length('__DATA, __datacoal_nt,coalesced')] = ('','',
-          '.text',
-          '.data.rel',
-          '.data.rel',
-          '.data.rel',
-          '.bss',
-          '.threadvar',
-          '.pdata',
-          '', { stubs }
-          '__DATA,__nl_symbol_ptr',
-          '__DATA,__la_symbol_ptr',
-          '__DATA,__mod_init_func',
-          '__DATA,__mod_term_func',
-          '.stab',
-          '.stabstr',
           '.idata$2','.idata$4','.idata$5','.idata$6','.idata$7','.edata',
           '.eh_frame',
           '.debug_frame','.debug_info','.debug_line','.debug_abbrev',
@@ -1067,11 +1024,7 @@ implementation
           result:=aname
         else
           begin
-            if (cs_create_pic in current_settings.moduleswitches) and
-               not(target_info.system in systems_darwin) then
-              secname:=secnames_pic[atype]
-            else
-              secname:=secnames[atype];
+            secname:=secnames[atype];
             if (atype=sec_fpc) and (Copy(aname,1,3)='res') then
               begin
                 result:=secname+'.'+aname;
@@ -1209,10 +1162,10 @@ implementation
         else
           elfsym.st_name:=nameidx;
         elfsym.st_size:=objsym.size;
+        elfsym.st_value:=objsym.address;
         case objsym.bind of
           AB_LOCAL :
             begin
-              elfsym.st_value:=objsym.address;
               elfsym.st_info:=STB_LOCAL shl 4;
               inc(shinfo);
             end;
@@ -1225,19 +1178,13 @@ implementation
           AB_EXTERNAL :
             elfsym.st_info:=STB_GLOBAL shl 4;
           AB_WEAK_EXTERNAL :
-            begin
-              elfsym.st_info:=STB_WEAK shl 4;
-              elfsym.st_value:=objsym.address;
-            end;
+            elfsym.st_info:=STB_WEAK shl 4;
           AB_GLOBAL :
-            begin
-              elfsym.st_value:=objsym.address;
-              elfsym.st_info:=STB_GLOBAL shl 4;
-            end;
+            elfsym.st_info:=STB_GLOBAL shl 4;
+        else
+          InternalError(2012111801);
         end;
-        if (objsym.bind<>AB_EXTERNAL) {and
-           not(assigned(objsym.objsection) and
-           not(oso_data in objsym.objsection.secoptions))} then
+        if (objsym.bind<>AB_EXTERNAL) then
           begin
             case objsym.typ of
               AT_FUNCTION :
@@ -1248,6 +1195,7 @@ implementation
                 elfsym.st_info:=elfsym.st_info or STT_TLS;
               AT_GNU_IFUNC:
                 elfsym.st_info:=elfsym.st_info or STT_GNU_IFUNC;
+            { other types are implicitly mapped to STT_NOTYPE }
             end;
           end;
         if objsym.bind<>AB_COMMON then
@@ -1256,7 +1204,9 @@ implementation
               begin
                 if assigned(objsym.objsection) and assigned(objsym.objsection.ExeSection) then
                   begin
-                    if (oso_plt in objsym.objsection.SecOptions) then
+                    if (objsym.typ=AT_TLS) then
+                      elfsym.st_value:=elfsym.st_value-tlsbase
+                    else if (oso_plt in objsym.objsection.SecOptions) then
                       elfsym.st_value:=0
                     else
                       elfsym.st_shndx:=TElfExeSection(objsym.objsection.ExeSection).secshidx;
@@ -1352,9 +1302,7 @@ implementation
       begin
         with data do
          begin
-           { filename entry }
-           symtabsect.writeInternalSymbol(0,1,STT_FILE,SHN_ABS);
-           { section }
+           { section symbols }
            ObjSectionList.ForEachCall(@section_write_symbol,nil);
            { First the Local Symbols, this is required by ELF. The localsyms
              count stored in shinfo is used to skip the local symbols
@@ -1464,8 +1412,9 @@ implementation
            if (target_info.system in systems_linux) and
               not(cs_executable_stack in current_settings.moduleswitches) then
              TElfObjSection.create_ext(data,'.note.GNU-stack',SHT_PROGBITS,0,1,0);
-           { insert filename as first in strtab }
+           { symbol for filename }
            symtabsect.fstrsec.writestr(ExtractFileName(current_module.mainsource));
+           symtabsect.writeInternalSymbol(0,1,STT_FILE,SHN_ABS);
            { calc amount of sections we have }
            nsections:=1;
            { also create the index in the section header table }
@@ -1490,23 +1439,19 @@ implementation
 
            { Write ELF Header }
            fillchar(header,sizeof(header),0);
-           header.magic[0]:=$7f; { = #127'ELF' }
-           header.magic[1]:=$45;
-           header.magic[2]:=$4c;
-           header.magic[3]:=$46;
-           header.file_class:=ELFCLASS;
+           header.e_ident[EI_MAG0]:=ELFMAG0; { = #127'ELF' }
+           header.e_ident[EI_MAG1]:=ELFMAG1;
+           header.e_ident[EI_MAG2]:=ELFMAG2;
+           header.e_ident[EI_MAG3]:=ELFMAG3;
+           header.e_ident[EI_CLASS]:=ELFCLASS;
            if target_info.endian=endian_big then
-             header.data_encoding:=2
+             header.e_ident[EI_DATA]:=ELFDATA2MSB
            else
-             header.data_encoding:=1;
+             header.e_ident[EI_DATA]:=ELFDATA2LSB;
 
-           header.file_version:=1;
+           header.e_ident[EI_VERSION]:=1;
            header.e_type:=ET_REL;
            header.e_machine:=ELFMACHINE;
-{$ifdef arm}
-           if (current_settings.fputype=fpu_soft) then
-             header.e_flags:=$600;
-{$endif arm}
            header.e_version:=1;
            header.e_shoff:=shoffset;
            header.e_shstrndx:=shstrtabsect.index;
@@ -1629,16 +1574,8 @@ implementation
               Continue
             else if sym.st_shndx=SHN_COMMON then
               bind:=AB_COMMON
-            else if (sym.st_shndx>=nsects) or
-              (
-                (sym.st_shndx>0) and
-                (FSecTbl[sym.st_shndx].sec=nil) and
-                (not dynobj)
-              ) then
-              begin
-                writeln(objdata.name,' ',i);
-                InternalError(2012060206)
-              end
+            else if (sym.st_shndx>=nsects) then
+              InternalError(2012060206)
             else
               case (sym.st_info shr 4) of
                 STB_LOCAL:
@@ -1653,6 +1590,19 @@ implementation
               else
                 InternalError(2012060207);
               end;
+
+            { Ignore section symbol if we didn't create the corresponding objsection
+              (examples are SHT_GROUP or .note.GNU-stack sections). }
+            if (sym.st_shndx>0) and (sym.st_shndx<SHN_LORESERVE) and
+              (FSecTbl[sym.st_shndx].sec=nil) and
+              (not dynobj) then
+              if ((sym.st_info and $0F)=STT_SECTION) then
+                Continue
+              else
+                begin
+                  writeln(objdata.name,' ',i);
+                  InternalError(2012110701)
+                end;
 
             case (sym.st_info and $0F) of
               STT_NOTYPE:
@@ -1705,6 +1655,7 @@ implementation
       var
         shdr: TElfsechdr absolute hdr;
         sec: TElfObjSection;
+        sym: TElfSymbol;
         secname: string;
       begin
         case shdr.sh_type of
@@ -1770,13 +1721,39 @@ implementation
               (shdr.sh_entsize=sizeof(longword)) and
               ((shdr.sh_size mod shdr.sh_entsize)=0) then
               begin
-                { we need a dummy section to load the corresponding symbol later on }
-                secname:=string(PChar(@shstrtab[shdr.sh_name]));
-                sec:=TElfObjSection.create_ext(objdata,secname,
-                  shdr.sh_type,shdr.sh_flags,shdr.sh_addralign,shdr.sh_entsize);
-                sec.index:=index;
-                FSecTbl[index].sec:=sec;
-              end;
+                { Groups are identified by name of symbol pointed to by
+                  sh_link and sh_info, not by sh_name. This symbol
+                  may as well be STT_SECTION symbol of this section,
+                  in which case we end up using sh_name. }
+                if dynobj then
+                  InternalError(2012110801);
+                if (shdr.sh_link<>symtabndx) then
+                  InternalError(2012110703);
+                if (shdr.sh_info>=syms) then
+                  InternalError(2012110704);
+
+                FReader.Seek(symtaboffset+shdr.sh_info*sizeof(TElfSymbol));
+                FReader.Read(sym,sizeof(TElfSymbol));
+                MaybeSwapElfSymbol(sym);
+                if sym.st_name>=strtablen then
+                  InternalError(2012110705);
+                if (sym.st_shndx=index) and (sym.st_info=((STB_LOCAL shl 4) or STT_SECTION)) then
+                  secname:=string(PChar(@shstrtab[shdr.sh_name]))
+                else
+                  secname:=string(PChar(@strtab[sym.st_name]));
+
+                { Postpone further processing until all sections are loaded,
+                  we'll need to access correct section header.
+                  Since ABI requires SHT_GROUP sections to come first in the file,
+                  we assume that group number x has header index x+1.
+                  If we ever encounter files where this is not true, we'll have
+                  to maintain a separate index. }
+                objdata.CreateSectionGroup(secname);
+                if (index<>objdata.GroupsList.Count) then
+                  InternalError(2012110802);
+              end
+            else
+              InternalError(2012110706);
         else
           InternalError(2012072603);
         end;
@@ -1794,23 +1771,23 @@ implementation
             InputError('Can''t read ELF header');
             exit;
           end;
-        if (header.magic[0]<>$7f) or (header.magic[1]<>$45) or
-           (header.magic[2]<>$4c) or (header.magic[3]<>$46) then
+        if (header.e_ident[EI_MAG0]<>ELFMAG0) or (header.e_ident[EI_MAG1]<>ELFMAG1) or
+           (header.e_ident[EI_MAG2]<>ELFMAG2) or (header.e_ident[EI_MAG3]<>ELFMAG3) then
           begin
             InputError('Illegal ELF magic');
             exit;
           end;
-        if (header.file_version<>1) then
+        if (header.e_ident[EI_VERSION]<>1) then
           begin
             InputError('Unknown ELF file version');
             exit;
           end;
-        if (header.file_class<>ELFCLASS) then
+        if (header.e_ident[EI_CLASS]<>ELFCLASS) then
           begin
             InputError('Wrong ELF file class (32/64 bit mismatch)');
             exit;
           end;
-        if (header.data_encoding<>1+ord(target_info.endian=endian_big)) then
+        if (header.e_ident[EI_DATA]<>1+ord(target_info.endian=endian_big)) then
           begin
             InputError('ELF endianness does not match target');
             exit;
@@ -1863,10 +1840,13 @@ implementation
 
     function TElfObjInput.ReadObjData(AReader:TObjectreader;objdata:TObjData):boolean;
       var
-        i,j,symtabndx,strndx,dynndx,
+        i,j,strndx,dynndx,
         versymndx,verdefndx,verneedndx: longint;
-        objsec: TElfObjSection;
+        objsec: TObjSection;
         shdrs: array of TElfsechdr;
+        grp: TObjSectionGroup;
+        tmp: longword;
+        count: longint;
       begin
         FReader:=AReader;
         InputFileName:=AReader.FileName;
@@ -1915,7 +1895,7 @@ implementation
           Note that is is legal to have no symtable.
           For DSO, locate .dynsym instead, this one is near the beginning, but
           overall number of sections won't be big. }
-        symtabndx:=-1;
+        symtabndx:=0;
         for i:=nsects-1 downto 1 do
           begin
             if (shdrs[i].sh_type<>symsectypes[dynobj]) then
@@ -1940,6 +1920,9 @@ implementation
             symtabndx:=i;
             break;
           end;
+
+        if symtabndx=0 then
+          InternalError(2012110706);
 
         if dynobj then
           begin
@@ -2035,7 +2018,7 @@ implementation
         { finish relocations }
         for i:=0 to objdata.ObjSectionList.Count-1 do
           begin
-            objsec:=TElfObjSection(objdata.ObjsectionList[i]);
+            objsec:=TObjSection(objdata.ObjsectionList[i]);
             { skip debug sections }
             if (oso_debug in objsec.SecOptions) and
                (cs_link_strip in current_settings.globalswitches) and
@@ -2044,6 +2027,40 @@ implementation
 
             if FSecTbl[objsec.index].relocpos>0 then
               LoadRelocations(FSecTbl[objsec.index]);
+          end;
+
+        { finish processing section groups, if any }
+        if Assigned(objdata.GroupsList) then
+          begin
+            for i:=0 to objdata.GroupsList.Count-1 do
+              begin
+                grp:=TObjSectionGroup(objData.GroupsList[i]);
+                FReader.Seek(shdrs[i+1].sh_offset);
+                { first dword is flags }
+                FReader.Read(tmp,sizeof(longword));
+                if source_info.endian<>target_info.endian then
+                  tmp:=SwapEndian(tmp);
+                if (tmp and GRP_COMDAT)<>0 then
+                  grp.IsComdat:=true;
+
+                count:=(shdrs[i+1].sh_size div sizeof(longword))-1;
+                SetLength(grp.members,count);
+                for j:=0 to count-1 do
+                  begin
+                    FReader.Read(tmp,sizeof(longword));
+                    if source_info.endian<>target_info.endian then
+                      tmp:=SwapEndian(tmp);
+                    if (tmp>=nsects) then
+                      InternalError(2012110805);
+                    objsec:=FSecTbl[tmp].sec;
+                    if (objsec=nil) then
+                      InternalError(2012110806);
+                    if (TElfObjSection(objsec).shflags and SHF_GROUP)=0 then
+                      InternalError(2012110807);
+                    grp.members[j]:=objsec;
+                    objsec.Group:=grp;
+                  end;
+              end;
           end;
 
         result:=True;
@@ -2057,8 +2074,8 @@ implementation
         result:=false;
         if AReader.Read(header,sizeof(header)) then
           begin;
-            if (header.magic[0]=$7f) and (header.magic[1]=$45) and
-               (header.magic[2]=$4c) and (header.magic[3]=$46) then
+            if (header.e_ident[EI_MAG0]=ELFMAG0) and (header.e_ident[EI_MAG1]=ELFMAG1) and
+               (header.e_ident[EI_MAG2]=ELFMAG2) and (header.e_ident[EI_MAG3]=ELFMAG3) then
             { TODO: check additional fields }
               result:=true;
           end;
@@ -2092,8 +2109,10 @@ implementation
         neededlist.Free;
         segmentlist.Free;
         dynsymlist.Free;
+        dynreloclist.Free;
         if assigned(dynsymnames) then
           FreeMem(dynsymnames);
+        stringdispose(FInterpreter);
         inherited Destroy;
       end;
 
@@ -2120,26 +2139,22 @@ implementation
         header: TElfHeader;
       begin
         FillChar(header,sizeof(header),0);
-        header.magic[0]:=$7f; { = #127'ELF' }
-        header.magic[1]:=$45;
-        header.magic[2]:=$4c;
-        header.magic[3]:=$46;
-        header.file_class:=ELFCLASS;
+        header.e_ident[EI_MAG0]:=ELFMAG0; { = #127'ELF' }
+        header.e_ident[EI_MAG1]:=ELFMAG1;
+        header.e_ident[EI_MAG2]:=ELFMAG2;
+        header.e_ident[EI_MAG3]:=ELFMAG3;
+        header.e_ident[EI_CLASS]:=ELFCLASS;
         if target_info.endian=endian_big then
-          header.data_encoding:=2
+          header.e_ident[EI_DATA]:=ELFDATA2MSB
         else
-          header.data_encoding:=1;
+          header.e_ident[EI_DATA]:=ELFDATA2LSB;
 
-        header.file_version:=1;
+        header.e_ident[EI_VERSION]:=1;
         if IsSharedLibrary then
           header.e_type:=ET_DYN
         else
           header.e_type:=ET_EXEC;
         header.e_machine:=ELFMACHINE;
-{$ifdef arm}
-        if (current_settings.fputype=fpu_soft) then
-          header.e_flags:=$600;
-{$endif arm}
         header.e_version:=1;
         header.e_phoff:=sizeof(TElfHeader);
         header.e_shoff:=shoffset;
@@ -2209,6 +2224,8 @@ implementation
         sec: TElfExeSection;
         exesym: TExeSymbol;
       begin
+        if assigned(tlsseg) then
+          symtab.tlsbase:=tlsseg.MemPos;
         for i:=0 to ExeSectionList.Count-1 do
           begin
             sec:=TElfExeSection(ExeSectionList[i]);
@@ -2453,7 +2470,11 @@ implementation
           TExeSymbol(dynsymlist[i]).dynindex:=i+1;
 
         { Drop unresolved symbols that aren't referenced, assign dynamic
-          indices to remaining ones. }
+          indices to remaining ones, but not if linking with -Xt.
+          TODO: behavior of .so with -Xt ? }
+        if (cs_link_staticflag in current_settings.globalswitches) then
+          UnresolvedExeSymbols.Clear
+        else
         for i:=0 to UnresolvedExeSymbols.Count-1 do
           begin
             exesym:=TExeSymbol(UnresolvedExeSymbols[i]);
@@ -2511,6 +2532,40 @@ implementation
 
         if dynamiclink then
           WriteDynamicSymbolsHash;
+
+        { Create .shstrtab section, which is needed in both exe and .dbg files }
+        shstrtabsect:=TElfObjSection.Create_ext(internalObjData,'.shstrtab',SHT_STRTAB,0,1,0);
+        shstrtabsect.SecOptions:=[oso_debug_copy];
+        AttachSection(shstrtabsect);
+
+        { Create the static symtable (.symtab and .strtab) }
+        if (cs_link_separate_dbg_file in current_settings.globalswitches) or
+          not(cs_link_strip in current_settings.globalswitches) then
+          begin
+            symtab:=TElfSymtab.Create(internalObjData,esk_exe);
+            symtab.SecOptions:=[oso_debug];
+            symtab.fstrsec.SecOptions:=[oso_debug];
+            AttachSection(symtab);
+            AttachSection(symtab.fstrsec);
+          end;
+
+        { Re-enable sections which end up to contain some data
+          (.got, .rel[a].dyn, .rel[a].plt (includes .rel[a].iplt) and .hash }
+        if gotobjsec.size<>0 then
+          Exclude(gotobjsec.ExeSection.SecOptions,oso_disabled);
+        if assigned(dynrelocsec) and (dynrelocsec.size<>0) then
+          Exclude(dynrelocsec.ExeSection.SecOptions,oso_disabled);
+        if assigned(pltrelocsec) and (pltrelocsec.size>0) then
+          Exclude(pltrelocsec.ExeSection.SecOptions,oso_disabled);
+        if assigned(ipltrelocsec) and (ipltrelocsec.size>0) then
+          Exclude(ipltrelocsec.ExeSection.SecOptions,oso_disabled);
+        if assigned(hashobjsec) then
+          Exclude(hashobjsec.ExeSection.SecOptions,oso_disabled);
+
+        RemoveDisabledSections;
+        MapSectionsToSegments;
+        if dynamiclink then
+          FinishDynamicTags;
       end;
 
 
@@ -2522,60 +2577,17 @@ implementation
         objsec: TObjSection;
         tempmempos: qword;
       begin
-        { If using -Xg, .shstrtab needs oso_debug flag, otherwise it won't be written
-          to .dbg file. RemoveDebugInfo will then destroy ExeSection named .shstrtab,
-          objsection remains intact but its contents must be rewritten. }
-        if Assigned(shstrtabsect) then
+        { Remove any existing .shstrtab contents }
+        if (shstrtabsect.size>0) then
           begin
             shstrtabsect.ReleaseData;
             shstrtabsect.Size:=0;
             shstrtabsect.SecOptions:=[oso_data];
-          end
-        else
-          shstrtabsect:=TElfObjSection.create_ext(internalObjData,'.shstrtab',SHT_STRTAB,0,1,0);
-        if (cs_link_separate_dbg_file in current_settings.globalswitches) then
-          shstrtabsect.SecOptions:=[oso_debug];
-        AttachSection(shstrtabsect);
-        shstrtabsect.writezeros(1);
-
-        if (not gotwritten) then
-          begin
-            { Create the static symtable (.symtab and .strtab) }
-            if (cs_link_separate_dbg_file in current_settings.globalswitches) or
-              not(cs_link_strip in current_settings.globalswitches) then
-              begin
-                symtab:=TElfSymtab.Create(internalObjData,esk_exe);
-                symtab.SecOptions:=[oso_debug];
-                symtab.fstrsec.SecOptions:=[oso_debug];
-                AttachSection(symtab);
-                AttachSection(symtab.fstrsec);
-              end;
-
-            { Re-enable sections which end up to contain some data
-              (.got, .rel[a].dyn, .rel[a].plt (includes .rel[a].iplt) and .hash }
-            if gotobjsec.size<>0 then
-              Exclude(gotobjsec.ExeSection.SecOptions,oso_disabled);
-            if assigned(dynrelocsec) and (dynrelocsec.size<>0) then
-              Exclude(dynrelocsec.ExeSection.SecOptions,oso_disabled);
-            if assigned(pltrelocsec) and (pltrelocsec.size>0) then
-              Exclude(pltrelocsec.ExeSection.SecOptions,oso_disabled);
-            if assigned(ipltrelocsec) and (ipltrelocsec.size>0) then
-              Exclude(ipltrelocsec.ExeSection.SecOptions,oso_disabled);
-            if assigned(hashobjsec) then
-              Exclude(hashobjsec.ExeSection.SecOptions,oso_disabled);
           end;
-
-        RemoveDisabledSections;
-
-        SegmentList.Clear;
-        textseg:=nil;
-        dataseg:=nil;
-        phdrseg:=nil;
-        noteseg:=nil;
-        MapSectionsToSegments;
 
         { Assign section indices and fill .shstrtab
           List of sections cannot be modified after this point. }
+        shstrtabsect.writezeros(1);
         for i:=0 to ExeSectionList.Count-1 do
           begin
             exesec:=TElfExeSection(ExeSectionList[i]);
@@ -2585,9 +2597,6 @@ implementation
 
         if dynamiclink then
           begin
-            if (not gotwritten) then
-              FinishDynamicTags;
-
             { fixup sh_link/sh_info members of various dynamic sections }
             TElfExeSection(hashobjsec.ExeSection).shlink:=TElfExeSection(dynsymtable.ExeSection).secshidx;
             i:=TElfExeSection(dynsymtable.fstrsec.ExeSection).secshidx;
@@ -2665,6 +2674,8 @@ implementation
               begin
                 dynrelocsec.size:=0;
                 { write actual .dynsym content (needs valid symbol addresses) }
+                if assigned(tlsseg) then
+                  dynsymtable.tlsbase:=tlsseg.MemPos;
                 dynsymtable.size:=sizeof(TElfsymbol);
                 for i:=0 to dynsymlist.count-1 do
                   dynsymtable.writeSymbol(TExeSymbol(dynsymlist[i]).objsymbol,dynsymnames[i]);
@@ -2702,8 +2713,25 @@ implementation
         i,j: longint;
         exesec: TExeSection;
         seg: TElfSegment;
+        objreloc: TObjRelocation;
       begin
         gotwritten:=true;
+        { If target does not support sorted relocations, it is expected to write the
+          entire .rel[a].dyn section during FixupRelocations. Otherwise, only RELATIVE ones
+          should be written, space for non-relative relocations should remain. }
+        if assigned(dynrelocsec) and (relative_reloc_count>0) then
+          begin
+            if (dynrelocsec.size+(dynreloclist.count*dynrelocsec.shentsize)<>dynrelsize) then
+              InternalError(2012110601);
+            { Write out non-RELATIVE dynamic relocations
+              TODO: additional sorting? }
+            for i:=0 to dynreloclist.count-1 do
+              begin
+                objreloc:=TObjRelocation(dynreloclist[i]);
+                WriteDynRelocEntry(objreloc.dataoffset,objreloc.ftype,objreloc.symbol.exesymbol.dynindex,0);
+              end;
+          end;
+
         { sanity checks }
         if assigned(gotobjsec) and (gotsize<>gotobjsec.size) then
           InternalError(2012092501);
@@ -2796,12 +2824,7 @@ implementation
         if not IsSharedLibrary then
           begin
             interpobjsec:=internalObjData.createsection('.interp',1,[oso_data,oso_load,oso_keep]);
-            { TODO: supply target-specific default }
-{$ifdef x86_64}
-            interpobjsec.writestr('/lib64/ld-linux-x86-64.so.2');
-{$else}
-            interpobjsec.writestr('/lib/ld-linux.so.2');
-{$endif x86_64}
+            interpobjsec.writestr(interpreter^);
           end;
 
         hashobjsec:=TElfObjSection.create_ext(internalObjData,'.hash',
@@ -2816,6 +2839,8 @@ implementation
 
         dynrelocsec:=TElfObjSection.create_reloc(internalObjData,'.dyn',true);
         dynrelocsec.SecOptions:=[oso_keep];
+
+        dynreloclist:=TFPObjectList.Create(true);
       end;
 
 
@@ -2975,6 +3000,7 @@ implementation
       pltreltags: array[boolean] of longword=(DT_REL,DT_RELA);
       relsztags:  array[boolean] of longword=(DT_RELSZ,DT_RELASZ);
       relenttags: array[boolean] of longword=(DT_RELENT,DT_RELAENT);
+      relcnttags: array[boolean] of longword=(DT_RELCOUNT,DT_RELACOUNT);
 
     procedure TElfExeOutput.FinishDynamicTags;
       begin
@@ -2997,6 +3023,8 @@ implementation
             writeDynTag(relsztags[relocs_use_addend],dynrelocsec.Size);
             writeDynTag(relenttags[relocs_use_addend],dynrelocsec.shentsize);
           end;
+        if (relative_reloc_count>0) then
+          writeDynTag(relcnttags[relocs_use_addend],relative_reloc_count);
         writeDynTag(DT_NULL,0);
       end;
 

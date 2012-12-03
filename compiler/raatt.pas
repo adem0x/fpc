@@ -56,7 +56,7 @@ unit raatt;
         AS_SET,AS_WEAK,AS_SECTION,AS_END,
         {------------------ Assembler Operators  --------------------}
         AS_TYPE,AS_SIZEOF,AS_VMTOFFSET,AS_MOD,AS_SHL,AS_SHR,AS_NOT,AS_AND,AS_OR,AS_XOR,AS_NOR,AS_AT,
-        AS_LO,AS_HI,
+        AS_LO,AS_HI,AS_MINUSMINUS,AS_PLUSPLUS,
         {------------------ Target-specific directive ---------------}
         AS_TARGET_DIRECTIVE
         );
@@ -80,7 +80,7 @@ unit raatt;
         '.asciz','.lcomm','.comm','.single','.double','.tfloat','.tcfloat',
         '.data','.text','.init','.fini','.rva',
         '.set','.weak','.section','END',
-        'TYPE','SIZEOF','VMTOFFSET','%','<<','>>','!','&','|','^','~','@','lo','hi',
+        'TYPE','SIZEOF','VMTOFFSET','%','<<','>>','!','&','|','^','~','@','lo','hi','--','++',
         'directive');
 
     type
@@ -306,6 +306,31 @@ unit raatt;
                end
            end;
 {$endif ARM}
+{$ifdef avr32}
+           { AVR32 instructions can have a .** postfix to indicate operand size
+           }
+           case c of
+             '.':
+               begin
+                 actasmpattern:=actasmpattern+c;
+                 c:=current_scanner.asmgetchar;
+
+                 if upcase(c) in ['U','S','B','W','H','D'] then
+                   begin
+                     if upcase(c) in ['U','S'] then
+                       begin
+                         actasmpattern:=actasmpattern+c;
+                         c:=current_scanner.asmgetchar;
+                       end;
+                     actasmpattern:=actasmpattern+c;
+                     c:=current_scanner.asmgetchar;
+
+                   end
+                 else
+                   internalerror(2011012103);
+               end
+           end;
+{$endif avr32}
            { Opcode ? }
            If is_asmopcode(upper(actasmpattern)) then
             Begin
@@ -718,6 +743,11 @@ unit raatt;
                begin
                  actasmtoken:=AS_PLUS;
                  c:=current_scanner.asmgetchar;
+                 if c='+' then
+                    begin
+                      actasmtoken:=AS_PLUSPLUS;   
+                      c:=current_scanner.asmgetchar;
+                    end;
                  exit;
                end;
 
@@ -725,6 +755,11 @@ unit raatt;
                begin
                  actasmtoken:=AS_MINUS;
                  c:=current_scanner.asmgetchar;
+                 if c='-' then
+                    begin
+                      actasmtoken:=AS_MINUSMINUS;
+                      c:=current_scanner.asmgetchar;
+                    end;
                  exit;
                end;
 

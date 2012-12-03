@@ -118,7 +118,7 @@ Type
   TLogEvent = Procedure (Level : TVerboseLevel; Const Msg : String) of Object;
   TNotifyProcEvent = procedure(Sender: TObject);
 
-  TRunMode = (rmCompile,rmBuild,rmInstall,rmArchive,rmClean,rmDistClean,rmManifest);
+  TRunMode = (rmCompile,rmBuild,rmInstall,rmArchive,rmClean,rmDistClean,rmManifest,rmZipInstall);
 
   TBuildMode = (bmOneByOne, bmBuildUnit{, bmSkipImplicitUnits});
   TBuildModes = set of TBuildMode;
@@ -194,6 +194,7 @@ Const
   SharedLibExt = '.so';
   DLLExt  = '.dll';
   ExeExt  = '.exe';
+  DbgExt  = '.dbg';
   ZipExt  = '.zip';
 
   FPMakePPFile = 'fpmake.pp';
@@ -534,6 +535,7 @@ Type
     Function GetRSTFileName : String; Virtual;
     function GetImportLibFileName(AOS : TOS) : String; Virtual;
     Function GetProgramFileName(AOS : TOS) : String; Virtual;
+    Function GetProgramDebugFileName(AOS : TOS) : String; Virtual;
   Public
     Constructor Create(ACollection : TCollection); override;
     Destructor Destroy; override;
@@ -855,6 +857,7 @@ Type
     FBinInstallDir,
     FDocInstallDir,
     FExamplesInstallDir : String;
+    FSkipCrossPrograms: boolean;
     FThreadsAmount: integer;
     FRemoveTree: String;
     FRemoveDir: String;
@@ -863,6 +866,9 @@ Type
     FUnixPaths: Boolean;
     FNoFPCCfg: Boolean;
     FUseEnvironment: Boolean;
+    function GetBuildCPU: TCpu;
+    function GetBuildOS: TOS;
+    function GetBuildString: String;
     function GetFPDocOutputDir: String;
     function GetLocalUnitDir: String;
     function GetGlobalUnitDir: String;
@@ -875,6 +881,7 @@ Type
     function GetUnitInstallDir: String;
     procedure SetLocalUnitDir(const AValue: String);
     procedure SetGlobalUnitDir(const AValue: String);
+    procedure IntSetBaseInstallDir(const AValue: String);
     procedure SetBaseInstallDir(const AValue: String);
     procedure SetCPU(const AValue: TCPU);
     procedure SetOptions(const AValue: TStrings);
@@ -889,6 +896,7 @@ Type
     Constructor Create;
     Procedure InitDefaults;
     Function HaveOptions: Boolean;
+    function IsBuildDifferentFromTarget: boolean;
     procedure CompilerDefaults; virtual;
     Procedure LocalInit(Const AFileName : String);
     Procedure LoadFromFile(Const AFileName : String);
@@ -899,6 +907,9 @@ Type
     Property Target : String Read FTarget Write SetTarget;
     Property OS : TOS Read FOS Write SetOS;
     Property CPU : TCPU Read FCPU Write SetCPU;
+    Property BuildString : String read GetBuildString;
+    Property BuildOS : TOS read GetBuildOS;
+    Property BuildCPU : TCpu read GetBuildCPU;
     Property Mode : TCompilerMode Read FMode Write FMode;
     Property UnixPaths : Boolean Read FUnixPaths Write FUnixPaths;
     Property Options : TStrings Read GetOptions Write SetOptions;    // Default compiler options.
@@ -942,6 +953,7 @@ Type
     Property BuildMode: TBuildMode read FBuildMode write FBuildMode;
     // Installation optioms
     Property InstallExamples: Boolean read FInstallExamples write FInstallExamples;
+    Property SkipCrossPrograms: boolean read FSkipCrossPrograms write FSkipCrossPrograms;
   end;
 
   { TBasicDefaults }
@@ -984,6 +996,7 @@ Type
     FBeforeCompile: TNotifyEvent;
     FBeforeInstall: TNotifyEvent;
     FBeforeManifest: TNotifyEvent;
+    FZipper: TZipper;
   Protected
     Procedure Error(const Msg : String);
     Procedure Error(const Fmt : String; const Args : Array of const);
@@ -1035,7 +1048,8 @@ Type
     Function  DependencyOK(ADependency : TDependency) : Boolean;
     // Target commands
     Function  GetCompilerCommand(APackage : TPackage; ATarget : TTarget; Env: TStrings) : String;
-    Function  TargetOK(ATarget : TTarget) : Boolean;
+    Function  TargetOK(ATarget : TTarget; ACPU: TCPU; AOS: TOS) : Boolean;
+    Function  TargetInstallOK(ATarget : TTarget;ACPU:TCPU; AOS : TOS) : Boolean;
     Function  NeedsCompile(APackage:TPackage; ATarget : TTarget) : Boolean;
     Procedure Compile(APackage:TPackage; ATarget : TTarget);  virtual;
     Procedure MaybeCompile(APackage:TPackage; ATarget: TTarget);
@@ -1069,6 +1083,7 @@ Type
     // Packages commands
     Procedure Compile(Packages : TPackages);
     Procedure Install(Packages : TPackages);
+    Procedure ZipInstall(Packages : TPackages);
     Procedure Archive(Packages : TPackages);
     procedure Manifest(Packages: TPackages);
     Procedure Clean(Packages : TPackages; AllTargets: boolean);
@@ -1120,6 +1135,7 @@ Type
     Procedure Compile(Force : Boolean); virtual;
     Procedure Clean(AllTargets: boolean); virtual;
     Procedure Install; virtual;
+    Procedure ZipInstall; virtual;
     Procedure Archive; virtual;
     Procedure Manifest; virtual;
   Public
@@ -1221,6 +1237,7 @@ Function OSesToString(OSes: TOSes) : String;
 Function CPUToString(CPU: TCPU) : String;
 Function CPUSToString(CPUS: TCPUS) : String;
 Function StringToOS(const S : String) : TOS;
+function IsDifferentFromBuild(ACpu: TCPU; AOs: TOs): boolean;
 //Function StringToOSes(const S : String) : TOSes;
 Function StringToCPU(const S : String) : TCPU;
 Function StringToCPUS(const S : String) : TCPUS;
@@ -1400,6 +1417,7 @@ ResourceString
   SHelpOptions        = 'Pass extra options to the compiler.';
   SHelpVerbose        = 'Be verbose when working.';
   SHelpInstExamples   = 'Install the example-sources.';
+  SHelpSkipCrossProgs = 'Skip programs when cross-compiling/installing';
   SHelpIgnoreInvOpt   = 'Ignore further invalid options.';
   sHelpFpdocOutputDir = 'Use indicated directory as fpdoc output folder.';
   sHelpThreads        = 'Enable the indicated amount of worker threads.';
@@ -1433,6 +1451,7 @@ Const
   KeyDocInstallDir      = 'DocInstallDir';
   KeyExamplesInstallDir = 'ExamplesInstallDir';
   KeyInstallExamples    = 'InstallExamples';
+  KeySkipCrossProdrams  = 'SkipCrossPrograms';
   // Keys for unit config
   KeyName     = 'Name';
   KeyVersion  = 'Version';
@@ -1856,6 +1875,11 @@ begin
   Result:=TOSes(StringToSet(PTypeInfo(TypeInfo(TOSes)),S));
 end;
 *)
+
+function IsDifferentFromBuild(ACpu: TCPU; AOs: TOs): boolean;
+begin
+  result := (AOs<>Defaults.BuildOS) or (ACpu<>Defaults.BuildCPU);
+end;
 
 Function StringToCPU(const S : String) : TCPU;
 
@@ -2924,7 +2948,7 @@ begin
       For I:=0 to FTargets.Count-1 do
         begin
           T:=FTargets.TargetItems[I];
-          if (T.TargetType in Types) and (T.Install) then
+          if (T.TargetType in Types) and Installer.BuildEngine.TargetInstallOK(T, ACPU, AOS) then
             T.GetInstallFiles(List, OU, OB, ACPU, AOS);
         end;
     end;
@@ -3476,6 +3500,20 @@ begin
     Result:=IncludeTrailingPathDelimiter(FixPath('.'+PathDelim+'docs'));
 end;
 
+function TCustomDefaults.GetBuildCPU: TCpu;
+begin
+  result := StringToCPU({$I %FPCTARGETCPU%});
+end;
+
+function TCustomDefaults.GetBuildOS: TOS;
+begin
+  result := StringToOS({$I %FPCTARGETOS%});
+end;
+
+function TCustomDefaults.GetBuildString: String;
+begin
+  result := MakeTargetString(BuildCPU, BuildOS);
+end;
 
 function TCustomDefaults.GetGlobalUnitDir: String;
 begin
@@ -3505,18 +3543,28 @@ begin
     FGlobalUnitDir:='';
 end;
 
-
-procedure TCustomDefaults.SetBaseInstallDir(const AValue: String);
+procedure TCustomDefaults.IntSetBaseInstallDir(const AValue: String);
 begin
-  // Use ExpandFileName to support ~/ expansion
   if AValue<>'' then
-    FBaseInstallDir:=IncludeTrailingPathDelimiter(ExpandFileName(AValue))
+    FBaseInstallDir:=IncludeTrailingPathDelimiter(AValue)
   else
     FBaseInstallDir:='';
   GlobalDictionary.AddVariable('baseinstalldir',BaseInstallDir);
   GlobalDictionary.AddVariable('bininstalldir',BinInstallDir);
   BinInstallDir:='';
   ExamplesInstallDir:='';
+end;
+
+
+procedure TCustomDefaults.SetBaseInstallDir(const AValue: String);
+begin
+  // There must be a possibility to skip ExpandFileName. So that the files
+  // can be written into an archive with a relative path.
+  if AValue<>'' then
+    // Use ExpandFileName to support ~/ expansion
+    IntSetBaseInstallDir(ExpandFileName(AValue))
+  else
+    IntSetBaseInstallDir(AValue);
 end;
 
 
@@ -3609,6 +3657,11 @@ end;
 function TCustomDefaults.HaveOptions: Boolean;
 begin
   Result:=Assigned(FOptions);
+end;
+
+function TCustomDefaults.IsBuildDifferentFromTarget: boolean;
+begin
+  result := IsDifferentFromBuild(CPU,OS);
 end;
 
 
@@ -3739,6 +3792,8 @@ begin
         Values[KeyUseEnv]:='Y';
       if FInstallExamples then
           Values[KeyInstallExamples]:='Y';
+      if FSkipCrossPrograms then
+        Values[KeySkipCrossProdrams]:='Y';
       end;
     L.SaveToStream(S);
   Finally
@@ -3797,6 +3852,7 @@ begin
       FDocInstallDir:=Values[KeyDocInstallDir];
       FExamplesInstallDir:=Values[KeyExamplesInstallDir];
       FInstallExamples:=(Upcase(Values[KeyInstallExamples])='Y');
+      FSkipCrossPrograms:=(Upcase(Values[KeySkipCrossProdrams])='Y');
       FNoFPCCfg:=(Upcase(Values[KeyNoFPCCfg])='Y');
       FUseEnvironment:=(Upcase(Values[KeyUseEnv])='Y');
 
@@ -3865,6 +3921,7 @@ begin
   GlobalDictionary.AddVariable('BaseInstallDir',Defaults.BaseInstallDir);
   GlobalDictionary.AddVariable('bininstalldir',Defaults.BinInstallDir);
   GlobalDictionary.AddVariable('Target',Defaults.Target);
+  GlobalDictionary.AddVariable('BuildString',Defaults.BuildString);
   GlobalDictionary.AddVariable('Prefix',Defaults.Prefix);
   CreatePackages;
 end;
@@ -4074,6 +4131,8 @@ begin
       FRunMode:=rmBuild
     else if CheckCommand(I,'i','install') then
       FRunMode:=rmInstall
+    else if CheckCommand(I,'zi','zipinstall') then
+      FRunMode:=rmZipInstall
     else if CheckCommand(I,'c','clean') then
       FRunMode:=rmClean
     else if CheckCommand(I,'dc','distclean') then
@@ -4124,6 +4183,8 @@ begin
       DefaultsFileName:=OptionArg(I)
     else if CheckOption(I,'ie','installexamples') then
       Defaults.InstallExamples:=true
+    else if CheckOption(I,'sp','skipcrossprograms') then
+      Defaults.SkipCrossPrograms:=true
     else if CheckOption(I,'bu','buildunit') then
       Defaults.BuildMode:=bmBuildUnit
     else if CheckOption(I,'io','ignoreinvalidoption') then
@@ -4192,6 +4253,7 @@ begin
 {$endif}
   LogOption('ie','installexamples',SHelpInstExamples);
   LogOption('bu','buildunit',SHelpUseBuildUnit);
+  LogOption('sp','skipcrossprograms',SHelpSkipCrossProgs);
   LogArgOption('C','cpu',SHelpCPU);
   LogArgOption('O','os',SHelpOS);
   LogArgOption('t','target',SHelpTarget);
@@ -4236,6 +4298,11 @@ begin
   BuildEngine.Install(Packages);
 end;
 
+procedure TCustomInstaller.ZipInstall;
+begin
+  BuildEngine.ZipInstall(Packages);
+end;
+
 
 procedure TCustomInstaller.Archive;
 begin
@@ -4269,6 +4336,7 @@ begin
       rmCompile : Compile(False);
       rmBuild   : Compile(True);
       rmInstall : Install;
+      rmZipInstall : ZipInstall;
       rmArchive : Archive;
       rmClean    : Clean(False);
       rmDistClean: Clean(True);
@@ -4590,8 +4658,25 @@ Var
   Args : String;
   I : Integer;
   DestFileName : String;
-
 begin
+  // When the files should be written to an archive, add them
+  if assigned(FZipper) then
+    begin
+      For I:=0 to List.Count-1 do
+        if List.Names[i]<>'' then
+          begin
+            if IsRelativePath(list.ValueFromIndex[i]) then
+              DestFileName:=DestDir+list.ValueFromIndex[i]
+            else
+              DestFileName:=list.ValueFromIndex[i];
+            FZipper.Entries.AddFileEntry(List.names[i], DestFileName);
+          end
+        else
+          FZipper.Entries.AddFileEntry(List[i], DestDir+ExtractFileName(List[i]));
+      Exit;
+    end;
+
+  // Copy the files to their new location on disk
   CmdCreateDir(DestDir);
   If (Defaults.Copy<>'') then
     begin
@@ -5291,10 +5376,19 @@ begin
   Result:=(Defaults.CPU in ADependency.CPUs) and (Defaults.OS in ADependency.OSes);
 end;
 
-
-Function TBuildEngine.TargetOK(ATarget : TTarget) : Boolean;
+function TBuildEngine.TargetOK(ATarget: TTarget; ACPU: TCPU; AOS: TOS): Boolean;
 begin
-  Result:=(Defaults.CPU in ATarget.CPUs) and (Defaults.OS in ATarget.OSes);
+  if Defaults.SkipCrossPrograms and
+     (ATarget.TargetType in ProgramTargets) and
+     IsDifferentFromBuild(ACPU, AOS) then
+    result := False
+  else
+    Result:=(ACPU in ATarget.CPUs) and (AOS in ATarget.OSes);
+end;
+
+function TBuildEngine.TargetInstallOK(ATarget: TTarget; ACPU: TCPU; AOS: TOS): Boolean;
+begin
+  result := TargetOK(ATarget, ACPU, AOS) and ATarget.Install;
 end;
 
 
@@ -5348,7 +5442,7 @@ begin
     Exit;
 
   // Files which should not be compiled on this target can not trigger a compile.
-  if not TargetOK(ATarget) then
+  if not TargetOK(ATarget, Defaults.CPU, Defaults.OS) then
     Exit;
 
   // Check output file
@@ -5489,7 +5583,7 @@ begin
           T:=TTarget(D.Target);
           if Assigned(T) and (T<>ATarget) then
             begin
-              if TargetOK(T) then
+              if TargetOK(T, Defaults.CPU, Defaults.OS) then
                 begin
                   // We don't need to compile implicit units, they are only
                   // used for dependency checking
@@ -5781,7 +5875,7 @@ Var
     For I:=0 to APackage.Targets.Count-1 do
       begin
         T:=APackage.Targets.TargetItems[i];
-        if (T.TargetType = ttUnit) and (TargetOK(T)) then
+        if (T.TargetType = ttUnit) and (TargetOK(T, Defaults.CPU, Defaults.OS)) then
           begin
             If Assigned(T.AfterCompile) then
               T.AfterCompile(T);
@@ -5792,7 +5886,7 @@ Var
 
   procedure ProcessCompileTarget;
   begin
-    if TargetOK(T) then
+    if TargetOK(T, Defaults.CPU, Defaults.OS) then
       begin
         if T.State=tsNeutral then
           MaybeCompile(APackage,T);
@@ -6227,8 +6321,8 @@ end;
 
 procedure TBuildEngine.Clean(APackage: TPackage; AllTargets: boolean);
 var
-//  ACPU: TCpu;
-//  AOS: TOS;
+  ACPU: TCpu;
+  AOS: TOS;
   DirectoryList : TStringList;
 begin
   Log(vlInfo,SInfoCleaningPackage,[APackage.Name]);
@@ -6242,8 +6336,12 @@ begin
         // being renamed and such. See also bug 19655
         DirectoryList := TStringList.Create;
         try
-          DirectoryList.Add(ExtractFileDir(APackage.GetUnitsOutputDir(Defaults.CPU,Defaults.OS)));
-          DirectoryList.Add(ExtractFileDir(APackage.GetBinOutputDir(Defaults.CPU,Defaults.OS)));
+          for ACPU:=low(TCpu) to high(TCpu) do
+            for AOS:=low(TOS) to high(TOS) do
+              begin
+                DirectoryList.Add(ExtractFileDir(APackage.GetUnitsOutputDir(ACPU,AOS)));
+                DirectoryList.Add(ExtractFileDir(APackage.GetBinOutputDir(ACPU,AOS)));
+              end;
           CmdRemoveTrees(DirectoryList);
         finally
           DirectoryList.Free;
@@ -6494,6 +6592,39 @@ begin
       else
         log(vlWarning,SWarnSkipPackageTarget,[P.Name, Defaults.Target]);
     end;
+  If Assigned(AfterInstall) then
+    AfterInstall(Self);
+end;
+
+procedure TBuildEngine.ZipInstall(Packages: TPackages);
+var
+  I : Integer;
+  P : TPackage;
+begin
+  If Assigned(BeforeInstall) then
+    BeforeInstall(Self);
+
+  FZipper := TZipper.Create;
+  try
+    Defaults.IntSetBaseInstallDir('lib/fpc/' + Defaults.FCompilerVersion+ '/');
+    For I:=0 to Packages.Count-1 do
+      begin
+        P:=Packages.PackageItems[i];
+        If PackageOK(P) then
+          begin
+            FZipper.FileName := P.Name + '.' + MakeTargetString(Defaults.CPU,Defaults.OS) +'.zip';
+            Install(P);
+            FZipper.ZipAllFiles;
+            FZipper.Clear;
+            log(vlWarning, SWarnInstallationPackagecomplete, [P.Name, Defaults.Target]);
+          end
+        else
+          log(vlWarning,SWarnSkipPackageTarget,[P.Name, Defaults.Target]);
+      end;
+  finally
+    FZipper.Free;
+  end;
+
   If Assigned(AfterInstall) then
     AfterInstall(Self);
 end;
@@ -6774,6 +6905,12 @@ begin
 end;
 
 
+function TTarget.GetProgramDebugFileName(AOS: TOS): String;
+begin
+  result := Name + DbgExt;
+end;
+
+
 function TTarget.GetOutputFileName(AOs: TOS): String;
 begin
   if TargetType in UnitTargets then
@@ -6820,7 +6957,11 @@ begin
         List.Add(APrefixU + GetImportLibFilename(AOS));
     end
   else If (TargetType in [ttProgram,ttExampleProgram]) then
+    begin
     List.Add(APrefixB + GetProgramFileName(AOS));
+    if FileExists(APrefixB + GetProgramDebugFileName(AOS)) then
+      List.Add(APrefixB + GetProgramDebugFileName(AOS));
+    end;
   If ResourceStrings then
     List.Add(APrefixU + RSTFileName);
   // Maybe add later ?  AddConditionalStrings(List,CleanFiles);
@@ -6829,9 +6970,8 @@ end;
 
 procedure TTarget.GetInstallFiles(List: TStrings; const APrefixU, APrefixB: String; ACPU: TCPU; AOS : TOS);
 begin
-  If not(ACPU in CPUs) or not(AOS in OSes) then
-    exit;
-  If Not (TargetType in [ttProgram,ttExampleProgram]) then
+  If Not (TargetType in [ttProgram,ttExampleProgram]) and FileExists(APrefixU + ObjectFileName) then
+    // The compiler does not create an objectfile for all programs.
     List.Add(APrefixU + ObjectFileName);
   If (TargetType in [ttUnit,ttImplicitUnit,ttExampleUnit]) then
     begin

@@ -32,6 +32,8 @@ program pp;
   POWERPC             generate a compiler for the PowerPC
   POWERPC64           generate a compiler for the PowerPC64 architecture
   VIS                 generate a compile for the VIS
+  AVR                 generate a compiler for the AVR
+  AVR32               generate a compiler for the AVR32
   DEBUG               version with debug code is generated
   EXTDEBUG            some extra debug code is executed
   SUPPORT_MMX         only i386: releases the compiler switch
@@ -140,6 +142,18 @@ program pp;
   {$endif CPUDEFINED}
   {$define CPUDEFINED}
 {$endif}
+{$ifdef AVR32}
+   {$ifdef CPUDEFINED}
+     {$fatal ONLY one of the switches for the CPU type must be defined}
+   {$endif CPUDEFINED}
+   {$define CPUDEFINED}
+{$endif}
+{$ifdef AARCH64}
+  {$ifdef CPUDEFINED}
+    {$fatal ONLY one of the switches for the CPU type must be defined}
+  {$endif CPUDEFINED}
+  {$define CPUDEFINED}
+{$endif AARCH64}
 {$ifndef CPUDEFINED}
   {$fatal A CPU type switch must be defined}
 {$endif CPUDEFINED}

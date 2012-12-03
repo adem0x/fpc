@@ -356,6 +356,24 @@ begin
     result:=Unknown('visibility',w);
 end;
 
+Function Synthetic2Str(w: byte): string;
+const
+   syntheticName : array[tsynthetickind] of string[length('jvm procvar intf constructor')] = (
+      '<none>','anon inherited','jvm clone','record deep copy',
+      'record initilializer', 'empty routine', 'typed const initializer',
+      'callthough', 'callthrough if not abstract', 'jvm enum values',
+      'jvm enum valueof', 'jvm enum class constructor',
+      'jvm enum jumps constructor', 'jvm enum fpcordinal',
+      'jvm enum fpcvalueof', 'jvm enum long2set',
+      'jvm enum bitset2set', 'jvm enum set2set',
+      'jvm procvar invoke', 'jvm procvar intf constructor',
+      'jvm virtual class method', 'jvm field getter', 'jvm field setter');
+begin
+  if w<=ord(high(syntheticName)) then
+    result:=syntheticName[tsynthetickind(w)]
+  else
+    result:=Unknown('synthetickind',w);
+end;
 
 function PPUFlags2Str(flags:longint):string;
 type
@@ -1505,7 +1523,8 @@ const
      (mask:po_delphi_nested_cc;str: 'Delphi-style nested frameptr'),
      (mask:po_java_nonvirtual; str: 'Java non-virtual method'),
      (mask:po_ignore_for_overload_resolution;str: 'Ignored for overload resolution'),
-     (mask:po_rtlproc;         str: 'RTL procedure')
+     (mask:po_rtlproc;         str: 'RTL procedure'),
+     (mask:po_auto_raised_visibility; str: 'Visibility raised by compiler')
   );
 var
   proctypeoption  : tproctypeoption;
@@ -1590,10 +1609,10 @@ const
      (mask:vo_is_msgsel;str:'MsgSel'),
      (mask:vo_is_weak_external;str:'WeakExternal'),
      (mask:vo_is_first_field;str:'IsFirstField'),
-     (mask:vo_volatile;str:'Volatile'),
-     (mask:vo_has_section;str:'HasSection'),
-     (mask:vo_force_finalize;str:'ForceFinalize'),
-     (mask:vo_is_default_var;str:'DefaultIntrinsicVar')
+     (mask:vo_volatile;        str:'Volatile'),
+     (mask:vo_has_section;     str:'HasSection'),
+     (mask:vo_force_finalize;  str:'ForceFinalize'),
+     (mask:vo_is_default_var;  str:'DefaultIntrinsicVar')
   );
 var
   i : longint;
@@ -2333,6 +2352,7 @@ begin
              writeln(space,'       Visibility : ',Visibility2Str(ppufile.getbyte));
              write  (space,'       SymOptions : ');
              readsymoptions(space+'       ');
+             write  (space,'   Synthetic kind : ',Synthetic2Str(ppufile.getbyte));
              if tsystemcpu(ppufile.header.cpu)=cpu_powerpc then
                begin
                  { library symbol for AmigaOS/MorphOS }
