@@ -71,8 +71,8 @@ Function SearchLabel(const s: string; var hl: tasmlabel;emit:boolean): boolean;
 ---------------------------------------------------------------------}
 
 type
-  TOprType=(OPR_NONE,OPR_CONSTANT,OPR_SYMBOL,OPR_LOCAL,
-            OPR_REFERENCE,OPR_REGISTER,OPR_REGLIST,OPR_COND,OPR_REGSET,OPR_SHIFTEROP,OPR_MODEFLAGS,OPR_SPECIALREG);
+  TOprType=(OPR_NONE,OPR_CONSTANT,OPR_SYMBOL,OPR_LOCAL,OPR_REFERENCE,OPR_REGISTER,OPR_REGLIST,
+            OPR_COND,OPR_REGSET,OPR_SHIFTEROP,OPR_MODEFLAGS,OPR_SPECIALREG,OPR_COH,OPR_REGISTERSELECTOR);
 
   TOprRec = record
     case typ:TOprType of
