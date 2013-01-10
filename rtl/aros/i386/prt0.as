@@ -24,9 +24,10 @@ start:
   /* Save the command line pointer to CommandLine */
   #movl     4(%esp),%eax
   #movl     %eax,CommandLine
+  #movl     (%esp),%eax
   #movl     %eax,__ARGS
-  test     %eax,%eax
-  jz       .Ldont_nullit
+  #test     %eax,%eax
+  #jz       .Ldont_nullit
 
 
   /* Remove $0a character from end of string */
@@ -45,12 +46,13 @@ start:
 _haltproc:
 haltproc:
     movl   STKPTR,%esp
+    movl   _returncode,%eax
     ret
 
   /*----------------------------------------------------*/
 
     .data
-
+    .global _returncode         # return code to set on exit
     .global __ARGS              # pointer to the arguments
     .global __ARGC              # number of arguments
     .global CommandLineLen      # byte length of command line
@@ -60,11 +62,12 @@ haltproc:
 
     .align 4
 
+ _returncode:   .long   0
  __ARGS:        .long   0
  __ARGC:        .word   0
 CommandLine:    .long   0
 CommandLineLen: .long   0
 STKPTR:         .long   0
-_ExecBase:        .long   0
+_ExecBase:      .long   0
 
 

@@ -113,6 +113,16 @@ begin
   GetMsg := Call(port, LocalExecBase);
 end;
 
+procedure ReplyMsg(message : pMessage);
+type
+  TLocalCall = procedure(message : pMessage; LibBase: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(AOS_ExecBase, 63));
+  Call(message, AOS_ExecBase);
+end;
+
 function WaitPort(port: PMsgPort): PMessage;
 type
   TWaitPort = function(port: PMsgPort; Base: Pointer): PMessage; stdcall;

@@ -55,6 +55,7 @@ const
   BreakOn : Boolean = True;
 
 
+
 var
   AOS_ExecBase   : Pointer; external name '_ExecBase';
   AOS_DOSBase    : Pointer;
@@ -71,17 +72,48 @@ var
   envp: PPChar;
   killed : Boolean = False;
 
+  ExtReturnCode: LongInt; external name '_returncode';
+
 function GetLibAdress(Base: Pointer; Offset: LongInt): Pointer;
 
 implementation
 
 {$I system.inc}
+type
+    PWBArg = ^TWBArg;
+    TWBArg = record
+        wa_Lock         : LongInt;      { a lock descriptor }
+        wa_Name         : PChar;       { a string relative to that lock }
+    end;
+
+    WBArgList = array[1..100] of TWBArg; { Only 1..smNumArgs are valid }
+    PWBArgList = ^WBArgList;
+
+
+    PWBStartup = ^TWBStartup;
+    TWBStartup = record
+        sm_Message      : TMessage;      { a standard message structure }
+        sm_Process      : Pointer;   { the process descriptor for you }
+        sm_Segment      : Pointer;     { a descriptor for your code }
+        sm_NumArgs      : Longint;      { the number of elements in ArgList }
+        sm_ToolWindow   : Pointer;       { description of window }
+        sm_ArgList      : PWBArgList; { the arguments themselves }
+    end;
 
 {*****************************************************************************
                        Misc. System Dependent Functions
 *****************************************************************************}
 
-procedure haltproc(e:longint);stdcall;external name '_haltproc';
+procedure ExternalHalt; stdcall;external name '_haltproc';
+
+
+procedure haltproc(e:longint);
+begin
+  ExtReturnCode := e;
+  ExternalHalt;
+end;
+
+
 
 procedure System_exit;
 var
@@ -92,6 +124,9 @@ begin
   Killed := True;
   { Closing opened files }
   CloseList(AOS_fileList);
+  //
+  if AOS_wbMsg <> nil then
+    ReplyMsg(AOS_wbMsg);
   { Changing back to original directory if changed }
   if AOS_OrigDir <> 0 then begin
     CurrentDir(AOS_origDir);
@@ -149,12 +184,13 @@ begin
   Move(Temp[1], Argv[0]^, Length(Temp));
   Argv[0][Length(Temp)] := #0;
 
-  { check if we're started from Ambient }
+  { check if we're started from Workbench }
   if AOS_wbMsg <> nil then
   begin
     ArgC := 0;
     Exit;
   end;
+
   InQuotes := False;
   { Handle the other args }
   Count := 0;
@@ -246,11 +282,55 @@ end;
                              ParamStr/Randomize
 *****************************************************************************}
 
+function GetWBArgsNum: Integer;
+var
+  startup: PWBStartup;
+begin
+  GetWBArgsNum := 0;
+  Startup := nil;
+  Startup := PWBStartup(AOS_wbMsg);
+  if Startup <> nil then
+  begin
+    Result := Startup^.sm_NumArgs - 1;
+  end;
+end;
+
+function GetWBArg(Idx: Integer): string;
+var
+  startup: PWBStartup;
+  wbarg: PWBArgList;
+  Path: array[0..254] of Char;
+  strPath: string;
+  Len: Integer;
+begin
+  GetWBArg := '';
+  FillChar(Path[0],255,#0);
+  Startup := PWBStartup(AOS_wbMsg);
+  if Startup <> nil then
+  begin
+    //if (Idx >= 0) and (Idx < Startup^.sm_NumArgs) then
+    begin
+      wbarg := Startup^.sm_ArgList;
+      if NameFromLock(wbarg^[Idx + 1].wa_Lock,@Path[0],255) then
+      begin
+        Len := 0;
+        while (Path[Len] <> #0) and (Len < 254) do
+          Inc(Len);
+        if Len > 0 then
+          if (Path[Len - 1] <> ':') or (Path[Len - 1] <> '/') then
+          Path[Len] := '/';
+        strPath := Path;
+      end;
+      Result := strPath + wbarg^[Idx + 1].wa_Name;
+    end;
+  end;
+end;
+
 { number of args }
 function paramcount : longint;
 begin
   if AOS_wbMsg<>nil then
-    paramcount:=0
+    paramcount:=GetWBArgsNum
   else
     paramcount:=argc-1;
 end;
@@ -261,15 +341,19 @@ var
   s1: String;
 begin
   paramstr:='';
-  if AOS_wbMsg<>nil then exit;
-
-  if l=0 then begin
-    s1:=GetProgDir;
-    if s1[length(s1)]=':' then paramstr:=s1+GetProgramName
-                          else paramstr:=s1+'/'+GetProgramName;
-  end else begin
-    if (l>0) and (l+1<=argc) then paramstr:=strpas(argv[l]);
-  end;
+  if AOS_wbMsg<>nil then
+  begin
+    paramstr := GetWBArg(l);
+  end else
+  begin
+    if l=0 then begin
+      s1:=GetProgDir;
+      if s1[length(s1)]=':' then paramstr:=s1+GetProgramName
+                            else paramstr:=s1+'/'+GetProgramName;
+    end else begin
+      if (l>0) and (l+1<=argc) then paramstr:=strpas(argv[l]);
+    end;
+ end;
 end;
 
 { set randseed to a new pseudo random value }

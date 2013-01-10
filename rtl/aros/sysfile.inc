@@ -290,7 +290,7 @@ begin
     do_filesize:=do_seekend(handle);
     do_filesize:=do_seekend(handle);
     do_seek(handle,currfilepos);
-
+    Result := do_fileSize;
   end;
 end;
 
