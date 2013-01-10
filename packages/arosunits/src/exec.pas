@@ -127,11 +127,20 @@ TYPE
   tNode =  Record
     ln_Succ,                { * Pointer to next (successor) * }
     ln_Pred  : pNode;       { * Pointer to previous (predecessor) * }
+    ln_Name  : STRPTR;      { * ID string, null terminated * }
+    ln_Type  : Byte;
+    ln_Pri   : Shortint;        { * Priority, for sorting * }
+  End;  { * Note: smallint aligned * }
+
+(*  BinCompat Mode?  
+  tNode =  Record
+    ln_Succ,                { * Pointer to next (successor) * }
+    ln_Pred  : pNode;       { * Pointer to previous (predecessor) * }
     ln_Type  : Byte;
     ln_Pri   : Shortint;        { * Priority, for sorting * }
     ln_Name  : STRPTR;      { * ID string, null terminated * }
   End;  { * Note: smallint aligned * }
-
+*)
 
 { * minimal node -- no type checking possible * }
 

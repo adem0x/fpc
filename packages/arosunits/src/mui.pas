@@ -539,7 +539,9 @@ uses exec, intuition,utility,agraphics{,iffparse};
     { one or more IDCMP flags this handler should react on.  }
 
     type
-       tMUI_EventHandlerNode = record
+
+{       BinCompat Mode?
+         tMUI_EventHandlerNode = record
             ehn_Node : tMinNode;
             ehn_Reserved : BYTE;
             ehn_Priority : BYTE;
@@ -547,6 +549,14 @@ uses exec, intuition,utility,agraphics{,iffparse};
             ehn_Object : pObject_;
             ehn_Class : PIClass;
             ehn_Events : ULONG;
+         end;}
+       tMUI_EventHandlerNode = record
+            ehn_Node : tMinNode;
+            ehn_Flags : WORD;
+            ehn_Object : pObject_;
+            ehn_Class : PIClass;
+            ehn_Events : ULONG;
+            ehn_Priority : BYTE;            
          end;
        pMUI_EventHandlerNode = ^tMUI_EventHandlerNode;
     { flags for ehn_Flags  }

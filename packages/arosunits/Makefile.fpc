@@ -8,7 +8,7 @@ version=2.7.1
 
 [target]
 units= amigados exec intuition gadtools workbench asl agraphics inputevent layers longarray \
-       mui pastoc tagsarray timer utility amigalib timerutils
+       mui pastoc tagsarray timer utility amigalib timerutils diskfont keymap
 
 [compiler]
 includedir=src

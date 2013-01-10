@@ -758,14 +758,17 @@ Type
     tDosLibrary = record
         dl_lib          : tLibrary;
         dl_Root         : Pointer;      { Pointer to RootNode, described below }
+        (* BINCOMPAT?
         dl_GV           : Pointer;      { Pointer to BCPL global vector       }
         dl_A2           : Longint;      { Private register dump of DOS        }
         dl_A5           : Longint;
         dl_A6           : Longint;
+        *)
         dl_Errors       : pErrorString; { pointer to array of error msgs }
         dl_TimeReq      : pTimeRequest; { private pointer to timer request }
         dl_UtilityBase  : pLibrary;     { private ptr to utility library }
         dl_IntuitionBase : pLibrary;
+        // there are much more fields but all flagged with "do not use" or private
     end;
 
     pRootNode = ^tRootNode;
@@ -1572,7 +1575,7 @@ CONST
 {    no tags are defined yet for NewLoadSeg }
 
 
-//ROCEDURE AbortPkt(port : pMsgPort; pkt : pDosPacket);
+//PROCEDURE AbortPkt(port : pMsgPort; pkt : pDosPacket);
 //FUNCTION AddBuffers(const name : pCHAR; number : LONGINT) : BOOLEAN;
 //FUNCTION AddDosEntry(dlist : pDosList) : BOOLEAN;
 //FUNCTION AddPart(dirname : pCHAR;const filename : pCHAR; size : ULONG) : BOOLEAN;
@@ -1607,7 +1610,7 @@ FUNCTION Cli : pCommandLineInterface;
 //FUNCTION DoPkt3(port : pMsgPort; action : LONGINT; arg1 : LONGINT; arg2 : LONGINT; arg3 : LONGINT) : LONGINT;
 //FUNCTION DoPkt4(port : pMsgPort; action : LONGINT; arg1 : LONGINT; arg2 : LONGINT; arg3 : LONGINT; arg4 : LONGINT) : LONGINT;
 //PROCEDURE DOSClose(file_ : LONGINT);
-//PROCEDURE DOSDelay(timeout : LONGINT);
+PROCEDURE DOSDelay(timeout : LONGINT);
 //PROCEDURE DOSExit(returnCode : LONGINT);
 //FUNCTION DOSFlush(fh : LONGINT) : BOOLEAN;
 //FUNCTION DOSInput : LONGINT;
@@ -4539,6 +4542,16 @@ var
 begin
   Call := TLocalCall(GetLibAdress(AOS_DOSBase, 67));
   NameFromLock := Call(lock, buffer, len, AOS_DOSBase);
+end;
+
+PROCEDURE DOSDelay(timeout : LONGINT);
+type
+  TLocalCall = procedure(timeout : LONGINT; LibBase: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 33));
+  Call(timeout, AOS_DOSBase);
 end;
 
 

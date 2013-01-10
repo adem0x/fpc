@@ -58,6 +58,8 @@
 
 unit agraphics;
 
+{$mode objfpc}
+
 INTERFACE
 
 uses exec, {hardware,} utility;
@@ -70,6 +72,15 @@ const
 
 type
 
+    PBltNode = ^TBltNode;
+    TBltNode = record
+      m: PBltNode;
+      _function: Pointer;
+      stat: Byte;
+      BlitSize: SmallInt;
+      BeamSync: SmallInt;
+      Cleanup: Pointer;
+    end;
 
     pRectangle = ^tRectangle;
     tRectangle = record
@@ -120,10 +131,24 @@ const
      BMA_FLAGS       = 12;
 
 
+TYPE
+
+ pRegionRectangle = ^tRegionRectangle;
+ tRegionRectangle = record
+    Next, Prev  : pRegionRectangle;
+    bounds      : tRectangle;
+ END;
+
+ pRegion = ^tRegion;
+ tRegion = record
+    bounds      : tRectangle;
+    RegionRectangle  : pRegionRectangle;
+ END;
+
 { structures used by and constructed by windowlib.a }
 { understood by rom software }
 type
-    pClipRect = ^tClipRect;
+    pClipRect = ^tClipRect; //checked 20.12.2012 ALB
     tClipRect = record
         Next    : pClipRect;    { roms used to find next ClipRect }
         prev    : pClipRect;    { ignored by roms, used by windowlib }
@@ -136,7 +161,7 @@ type
         Flags   : Longint;      { only exists in layer allocation }
     end;
 
-    pLayer = ^tLayer;
+    pLayer = ^tLayer; //checked 20.12.2012 ALB
     tLayer = record
         front,
         back            : pLayer;       { ignored by roms }
@@ -170,6 +195,32 @@ type
         { this must stay here }
         DamageList      : Pointer;      { list of rectangles to refresh
                                                 through }
+    end;
+
+    tChangeLayerShapeMsg = record //checked 20.12.2012 ALB
+      NewShape: pRegion;
+      ClipRect: pClipRect;
+      shape: pRegion;  
+    end;
+
+    tCollectPixelsLayerMsg = record //checked 20.12.2012 ALB
+      xSrc: LongInt;
+      ySrc: LongInt;
+      width: LongInt;
+      height: LongInt;
+      xDest: LongInt;
+      yDest: LongInt;
+      bm: pBitmap;
+      layer: pLayer;
+      minterm: ULONG;
+    end;
+
+    tShapeHookMsg = record //checked 20.12.2012 ALB
+      Action: LongInt;
+      Layer: pLayer;
+      ActualShape: pRegion;
+      NewBounds: TRectangle;
+      OldBounds: TRectangle;
     end;
 
 const
@@ -2058,19 +2109,7 @@ const
 
 
 
-TYPE
 
- pRegionRectangle = ^tRegionRectangle;
- tRegionRectangle = record
-    Next, Prev  : pRegionRectangle;
-    bounds      : tRectangle;
- END;
-
- pRegion = ^tRegion;
- tRegion = record
-    bounds      : tRectangle;
-    RegionRectangle  : pRegionRectangle;
- END;
 
 type
 
@@ -2234,212 +2273,211 @@ const
 
 var
     GfxBase : pLibrary;
-(*
-PROCEDURE AddAnimOb(anOb : pAnimOb; anKey : ppAnimOb; rp : pRastPort);
-PROCEDURE AddBob(bob : pBob; rp : pRastPort);
-PROCEDURE AddFont(textFont : pTextFont);
-PROCEDURE AddVSprite(vSprite : pVSprite; rp : pRastPort);
-FUNCTION AllocBitMap(sizex : ULONG; sizey : ULONG; depth : ULONG; flags : ULONG;const friend_bitmap : pBitMap) : pBitMap;
-FUNCTION AllocDBufInfo(vp : pViewPort) : pDBufInfo;
-FUNCTION AllocRaster(width : ULONG; height : ULONG) : pCHAR;
-FUNCTION AllocSpriteDataA(const bm : pBitMap;const tags : pTagItem) : pExtSprite;
-PROCEDURE AndRectRegion(region : pRegion;const rectangle : pRectangle);
-FUNCTION AndRegionRegion(const srcRegion : pRegion; destRegion : pRegion) : BOOLEAN;
-PROCEDURE Animate(anKey : ppAnimOb; rp : pRastPort);
-FUNCTION AreaDraw(rp : pRastPort; x : LONGINT; y : LONGINT) : LONGINT;
-FUNCTION AreaEllipse(rp : pRastPort; xCenter : LONGINT; yCenter : LONGINT; a : LONGINT; b : LONGINT) : LONGINT;
-FUNCTION AreaEnd(rp : pRastPort) : LONGINT;
-FUNCTION AreaMove(rp : pRastPort; x : LONGINT; y : LONGINT) : LONGINT;
-PROCEDURE AskFont(rp : pRastPort; textAttr : pTextAttr);
-FUNCTION AskSoftStyle(rp : pRastPort) : ULONG;
-FUNCTION AttachPalExtra(cm : pColorMap; vp : pViewPort) : LONGINT;
-FUNCTION AttemptLockLayerRom(layer : pLayer) : BOOLEAN;
-FUNCTION BestModeIDA(const tags : pTagItem) : ULONG;
-PROCEDURE BitMapScale(bitScaleArgs : pBitScaleArgs);
-FUNCTION BltBitMap(const srcBitMap : pBitMap; xSrc : LONGINT; ySrc : LONGINT; destBitMap : pBitMap; xDest : LONGINT; yDest : LONGINT; xSize : LONGINT; ySize : LONGINT; minterm : ULONG; mask : ULONG; tempA : pCHAR) : LONGINT;
-PROCEDURE BltBitMapRastPort(const srcBitMap : pBitMap; xSrc : LONGINT; ySrc : LONGINT; destRP : pRastPort; xDest : LONGINT; yDest : LONGINT; xSize : LONGINT; ySize : LONGINT; minterm : ULONG);
-PROCEDURE BltClear(memBlock : pCHAR; byteCount : ULONG; flags : ULONG);
-PROCEDURE BltMaskBitMapRastPort(const srcBitMap : pBitMap; xSrc : LONGINT; ySrc : LONGINT; destRP : pRastPort; xDest : LONGINT; yDest : LONGINT; xSize : LONGINT; ySize : LONGINT; minterm : ULONG;const bltMask : pCHAR);
-PROCEDURE BltPattern(rp : pRastPort;const mask : pCHAR; xMin : LONGINT; yMin : LONGINT; xMax : LONGINT; yMax : LONGINT; maskBPR : ULONG);
-PROCEDURE BltTemplate(const source : pCHAR; xSrc : LONGINT; srcMod : LONGINT; destRP : pRastPort; xDest : LONGINT; yDest : LONGINT; xSize : LONGINT; ySize : LONGINT);
-FUNCTION CalcIVG(v : pView; vp : pViewPort) : WORD;
-PROCEDURE CBump(copList : pUCopList);
-FUNCTION ChangeExtSpriteA(vp : pViewPort; oldsprite : pExtSprite; newsprite : pExtSprite;const tags : pTagItem) : LONGINT;
-PROCEDURE ChangeSprite(vp : pViewPort; sprite : pSimpleSprite; newData : pWORD);
-PROCEDURE ChangeVPBitMap(vp : pViewPort; bm : pBitMap; db : pDBufInfo);
-PROCEDURE ClearEOL(rp : pRastPort);
-FUNCTION ClearRectRegion(region : pRegion;const rectangle : pRectangle) : BOOLEAN;
-PROCEDURE ClearRegion(region : pRegion);
-PROCEDURE ClearScreen(rp : pRastPort);
-PROCEDURE ClipBlit(srcRP : pRastPort; xSrc : LONGINT; ySrc : LONGINT; destRP : pRastPort; xDest : LONGINT; yDest : LONGINT; xSize : LONGINT; ySize : LONGINT; minterm : ULONG);
-PROCEDURE CloseFont(textFont : pTextFont);
-FUNCTION CloseMonitor(monitorSpec : pMonitorSpec) : BOOLEAN;
-PROCEDURE CMove(copList : pUCopList; destination : POINTER; data : LONGINT);
-FUNCTION CoerceMode(vp : pViewPort; monitorid : ULONG; flags : ULONG) : ULONG;
-PROCEDURE CopySBitMap(layer : pLayer);
-function CreateRastPort(rp: pRastPort): pRastPort;
-PROCEDURE CWait(copList : pUCopList; v : LONGINT; h : LONGINT);
-PROCEDURE DisownBlitter;
-PROCEDURE DisposeRegion(region : pRegion);
-PROCEDURE DoCollision(rp : pRastPort);
-*)
-PROCEDURE Draw(rp : pRastPort; x : LONGINT; y : LONGINT);
-(*
-PROCEDURE DrawEllipse(rp : pRastPort; xCenter : LONGINT; yCenter : LONGINT; a : LONGINT; b : LONGINT);
-PROCEDURE DrawGList(rp : pRastPort; vp : pViewPort);
-PROCEDURE EraseRect(rp : pRastPort; xMin : LONGINT; yMin : LONGINT; xMax : LONGINT; yMax : LONGINT);
-FUNCTION ExtendFont(font : pTextFont;const fontTags : pTagItem) : ULONG;
-FUNCTION FindColor(cm : pColorMap; r : ULONG; g : ULONG; b : ULONG; maxcolor : LONGINT) : LONGINT;
-FUNCTION FindDisplayInfo(displayID : ULONG) : POINTER;
-FUNCTION Flood(rp : pRastPort; mode : ULONG; x : LONGINT; y : LONGINT) : BOOLEAN;
-PROCEDURE FontExtent(const font : pTextFont; fontExtent : pTextExtent);
-PROCEDURE FreeBitMap(bm : pBitMap);
-PROCEDURE FreeColorMap(colorMap : pColorMap);
-PROCEDURE FreeCopList(copList : pCopList);
-PROCEDURE FreeCprList(cprList : pcprlist);
-PROCEDURE FreeDBufInfo(dbi : pDBufInfo);
-PROCEDURE FreeGBuffers(anOb : pAnimOb; rp : pRastPort; flag : LONGINT);
-PROCEDURE FreeRaster(p : pCHAR; width : ULONG; height : ULONG);
-PROCEDURE FreeSprite(num : LONGINT);
-PROCEDURE FreeSpriteData(sp : pExtSprite);
-PROCEDURE FreeVPortCopLists(vp : pViewPort);
-FUNCTION GetAPen(rp : pRastPort) : ULONG;
-FUNCTION GetBitMapAttr(const bm : pBitMap; attrnum : ULONG) : ULONG;
-FUNCTION GetBPen(rp : pRastPort) : ULONG;
-FUNCTION GetColorMap(entries : LONGINT) : pColorMap;
-FUNCTION GetDisplayInfoData(const handle : POINTER; buf : pCHAR; size : ULONG; tagID : ULONG; displayID : ULONG) : ULONG;
-FUNCTION GetDrMd(rp : pRastPort) : ULONG;
-FUNCTION GetExtSpriteA(ss : pExtSprite;const tags : pTagItem) : LONGINT;
-FUNCTION GetGBuffers(anOb : pAnimOb; rp : pRastPort; flag : LONGINT) : BOOLEAN;
-FUNCTION GetOutlinePen(rp : pRastPort) : ULONG;
-PROCEDURE GetRGB32(const cm : pColorMap; firstcolor : ULONG; ncolors : ULONG; table : pulong);
-FUNCTION GetRGB4(colorMap : pColorMap; entry : LONGINT) : ULONG;
-PROCEDURE GetRPAttrsA(const rp : pRastPort;const tags : pTagItem);
-FUNCTION GetSprite(sprite : pSimpleSprite; num : LONGINT) : smallint;
-FUNCTION GetVPModeID(const vp : pViewPort) : LONGINT;
-PROCEDURE GfxAssociate(const associateNode : POINTER; gfxNodePtr : POINTER);
-PROCEDURE GfxFree(gfxNodePtr : POINTER);
-FUNCTION GfxLookUp(const associateNode : POINTER) : POINTER;
-FUNCTION GfxNew(gfxNodeType : ULONG) : POINTER;
-PROCEDURE InitArea(areaInfo : pAreaInfo; vectorBuffer : POINTER; maxVectors : LONGINT);
-PROCEDURE InitBitMap(bitMap : pBitMap; depth : LONGINT; width : LONGINT; height : LONGINT);
-PROCEDURE InitGels(head : pVSprite; tail : pVSprite; gelsInfo : pGelsInfo);
-PROCEDURE InitGMasks(anOb : pAnimOb);
-PROCEDURE InitMasks(vSprite : pVSprite);
-PROCEDURE InitRastPort(rp : pRastPort);
-FUNCTION InitTmpRas(tmpRas : pTmpRas; buffer : PLANEPTR; size : LONGINT) : pTmpRas;
-PROCEDURE InitView(view : pView);
-PROCEDURE InitVPort(vp : pViewPort);
-PROCEDURE LoadRGB32(vp : pViewPort;const table : pULONG);
-PROCEDURE LoadRGB4(vp : pViewPort;const colors : pWord; count : LONGINT);
-PROCEDURE LoadView(view : pView);
-PROCEDURE LockLayerRom(layer : pLayer);
-FUNCTION MakeVPort(view : pView; vp : pViewPort) : ULONG;
-FUNCTION ModeNotAvailable(modeID : ULONG) : LONGINT;
-*)
-PROCEDURE Move(rp : pRastPort; x : LONGINT; y : LONGINT);
-(*
-PROCEDURE MoveSprite(vp : pViewPort; sprite : pSimpleSprite; x : LONGINT; y : LONGINT);
-FUNCTION MrgCop(view : pView) : ULONG;
-FUNCTION NewRegion : pRegion;
-FUNCTION NextDisplayInfo(displayID : ULONG) : ULONG;
-FUNCTION ObtainBestPenA(cm : pColorMap; r : ULONG; g : ULONG; b : ULONG;const tags : pTagItem) : LONGINT;
-FUNCTION ObtainPen(cm : pColorMap; n : ULONG; r : ULONG; g : ULONG; b : ULONG; f : LONGINT) : ULONG;
-FUNCTION OpenFont(textAttr : pTextAttr) : pTextFont;
-FUNCTION OpenMonitor(const monitorName : pCHAR; displayID : ULONG) : pMonitorSpec;
-FUNCTION OrRectRegion(region : pRegion;const rectangle : pRectangle) : BOOLEAN;
-FUNCTION OrRegionRegion(const srcRegion : pRegion; destRegion : pRegion) : BOOLEAN;
-PROCEDURE OwnBlitter;
-PROCEDURE PolyDraw(rp : pRastPort; count : LONGINT;const polyTable : pLongint);
-PROCEDURE QBlit(blit : pbltnode);
-PROCEDURE QBSBlit(blit : pbltnode);
-FUNCTION ReadPixel(rp : pRastPort; x : LONGINT; y : LONGINT) : ULONG;
-FUNCTION ReadPixelArray8(rp : pRastPort; xstart : ULONG; ystart : ULONG; xstop : ULONG; ystop : ULONG; array_ : pointer; temprp : pRastPort) : LONGINT;
-FUNCTION ReadPixelLine8(rp : pRastPort; xstart : ULONG; ystart : ULONG; width : ULONG; array_ : pointer; tempRP : pRastPort) : LONGINT;
-PROCEDURE RectFill(rp : pRastPort; xMin : LONGINT; yMin : LONGINT; xMax : LONGINT; yMax : LONGINT);
-PROCEDURE ReleasePen(cm : pColorMap; n : ULONG);
-PROCEDURE RemFont(textFont : pTextFont);
-PROCEDURE RemIBob(bob : pBob; rp : pRastPort; vp : pViewPort);
-PROCEDURE RemVSprite(vSprite : pVSprite);
-FUNCTION ScalerDiv(factor : ULONG; numerator : ULONG; denominator : ULONG) : WORD;
-PROCEDURE ScrollRaster(rp : pRastPort; dx : LONGINT; dy : LONGINT; xMin : LONGINT; yMin : LONGINT; xMax : LONGINT; yMax : LONGINT);
-PROCEDURE ScrollRasterBF(rp : pRastPort; dx : LONGINT; dy : LONGINT; xMin : LONGINT; yMin : LONGINT; xMax : LONGINT; yMax : LONGINT);
-PROCEDURE ScrollVPort(vp : pViewPort);
-PROCEDURE SetABPenDrMd(rp : pRastPort; apen : ULONG; bpen : ULONG; drawmode : ULONG);
-PROCEDURE SetAPen(rp : pRastPort; pen : ULONG);
-PROCEDURE SetBPen(rp : pRastPort; pen : ULONG);
-FUNCTION SetChipRev(want : ULONG) : ULONG;
-PROCEDURE SetCollision(num : ULONG; routine : tPROCEDURE; gelsInfo : pGelsInfo);
-PROCEDURE SetDrMd(rp : pRastPort; drawMode : ULONG);
-FUNCTION SetFont(rp : pRastPort;const textFont : pTextFont) : LONGINT;
-PROCEDURE SetMaxPen(rp : pRastPort; maxpen : ULONG);
-FUNCTION SetOutlinePen(rp : pRastPort; pen : ULONG) : ULONG;
-PROCEDURE SetRast(rp : pRastPort; pen : ULONG);
-PROCEDURE SetRGB32(vp : pViewPort; n : ULONG; r : ULONG; g : ULONG; b : ULONG);
-PROCEDURE SetRGB32CM(cm : pColorMap; n : ULONG; r : ULONG; g : ULONG; b : ULONG);
-PROCEDURE SetRGB4(vp : pViewPort; index : LONGINT; red : ULONG; green : ULONG; blue : ULONG);
-PROCEDURE SetRGB4CM(colorMap : pColorMap; index : LONGINT; red : ULONG; green : ULONG; blue : ULONG);
-PROCEDURE SetRPAttrsA(rp : pRastPort;const tags : pTagItem);
-FUNCTION SetSoftStyle(rp : pRastPort; style : ULONG; enable : ULONG) : ULONG;
-FUNCTION SetWriteMask(rp : pRastPort; msk : ULONG) : ULONG;
-PROCEDURE SortGList(rp : pRastPort);
-PROCEDURE StripFont(font : pTextFont);
-PROCEDURE SyncSBitMap(layer : pLayer);
-FUNCTION GText(rp : pRastPort;const string_ : pCHAR; count : ULONG) : LONGINT;
-FUNCTION TextExtent(rp : pRastPort;const string_ : pCHAR; count : LONGINT; _textExtent : pTextExtent) : smallint;
-FUNCTION TextFit(rp : pRastPort;const string_ : pCHAR; strLen : ULONG; textExtent : pTextExtent; constrainingExtent : pTextExtent; strDirection : LONGINT; constrainingBitWidth : ULONG; constrainingBitHeight : ULONG) : ULONG;
-FUNCTION TextLength(rp : pRastPort;const string_ : pCHAR; count : ULONG) : smallint;
-FUNCTION UCopperListInit(uCopList : pUCopList; n : LONGINT) : pCopList;
-PROCEDURE UnlockLayerRom(layer : pLayer);
-FUNCTION VBeamPos : LONGINT;
-FUNCTION VideoControl(colorMap : pColorMap; tagarray : pTagItem) : BOOLEAN;
-PROCEDURE WaitBlit;
-PROCEDURE WaitBOVP(vp : pViewPort);
-PROCEDURE WaitTOF;
-FUNCTION WeighTAMatch(reqTextAttr : pTextAttr; targetTextAttr : pTextAttr; targetTags : pTagItem) : smallint;
-PROCEDURE WriteChunkyPixels(rp : pRastPort; xstart : ULONG; ystart : ULONG; xstop : ULONG; ystop : ULONG; array_ : pointer; bytesperrow : LONGINT);
-FUNCTION WritePixel(rp : pRastPort; x : LONGINT; y : LONGINT) : LONGINT;
-FUNCTION WritePixelArray8(rp : pRastPort; xstart : ULONG; ystart : ULONG; xstop : ULONG; ystop : ULONG; array_ : pointer; temprp : pRastPort) : LONGINT;
-FUNCTION WritePixelLine8(rp : pRastPort; xstart : ULONG; ystart : ULONG; width : ULONG; array_ : pointer; tempRP : pRastPort) : LONGINT;
-FUNCTION XorRectRegion(region : pRegion;const rectangle : pRectangle) : BOOLEAN;
-FUNCTION XorRegionRegion(const srcRegion : pRegion; destRegion : pRegion) : BOOLEAN;
+
+procedure AddAnimOb(AnOb : PAnimOb; AnKey : PPAnimOb; Rp : PRastPort);
+procedure AddBob(bob : PBob; Rp : PRastPort);
+function AddDisplayDriverA(P: Pointer; tags: PTagItem): LongInt;
+procedure AddFont(TextFont : PTextFont);
+procedure AddVSprite(VSprite : PVSprite; Rp : PRastPort);
+function AllocBitMap(sizex : LongWord; Sizey : LongWord; Depth : LongWord; Flags : LongWord;const Friend_bitmap : PBitMap) : PBitMap;
+function AllocDBufInfo(Vp : PViewPort) : PDBufInfo;
+function AllocRaster(Width : LongWord; Height : LongWord) : PChar;
+function AllocSpriteDataA(const Bm : PBitMap;const tags : PTagItem) : PExtSprite;
+procedure AndRectRegion(region : PRegion;const rectangle : pRectangle);
+function AndRegionRegion(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
+procedure Animate(AnKey : PPAnimOb; Rp : PRastPort);
+function AreaDraw(Rp : PRastPort; x : LongInt; y : LongInt) : LongInt;
+function AreaEllipse(Rp : PRastPort; xCenter : word; yCenter : word; a : word; b : word) : LongInt;
+function AreaEnd(Rp : PRastPort) : LongInt;
+function AreaMove(Rp : PRastPort; x : LongInt; y : LongInt) : LongInt;
+procedure AskFont(Rp : PRastPort; textAttr : pTextAttr);
+function AskSoftStyle(Rp : PRastPort) : LongWord;
+function AttachPalExtra(cm : pColorMap; Vp : PViewPort) : LongInt;
+function AttemptLockLayerRom(layer : pLayer) : BOOLEAN;
+function BestModeIDA(const tags : PTagItem) : LongWord;
+procedure BitMapScale(bitScaleArgs : pBitScaleArgs);
+function BltBitMap(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destBitMap : PBitMap; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; mask : LongWord; tempA : PChar) : LongInt;
+procedure BltBitMapRastPort(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord);
+procedure BltClear(memBlock : PChar; byteCount : LongWord; Flags : LongWord);
+procedure BltMaskBitMapRastPort(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord;const bltMask : PChar);
+procedure BltPattern(Rp : PRastPort;const mask : PChar; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; maskBPR : LongWord);
+procedure BltTemplate(const source : PChar; xSrc : LongInt; srcMod : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt);
+function CalcIVG(v : pView; Vp : PViewPort) : WORD;
+procedure CBump(copList : pUCopList);
+function ChangeExtSpriteA(Vp : PViewPort; oldsprite : PExtSprite; newsprite : PExtSprite;const tags : PTagItem) : LongInt;
+procedure ChangeSprite(Vp : PViewPort; sprite : pSimpleSprite; newData : pWORD);
+procedure ChangeVPBitMap(Vp : PViewPort; Bm : PBitMap; db : PDBufInfo);
+procedure ClearEOL(Rp : PRastPort);
+function ClearRectRegion(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
+procedure ClearRegion(region : PRegion);
+procedure ClearScreen(Rp : PRastPort);
+procedure ClipBlit(srcRP : PRastPort; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord);
+procedure CloseFont(TextFont : PTextFont);
+function CloseMonitor(monitorSpec : pMonitorSpec) : BOOLEAN;
+procedure CMove(copList : pUCopList; destination : Pointer; data : LongInt);
+function CoerceMode(Vp : PViewPort; monitorid : LongWord; Flags : LongWord) : LongWord;
+procedure CopySBitMap(layer : pLayer);
+function CreateRastPort(): PRastPort;
+function CloneRastPort(Rp: PRastPort): PRastPort;
+procedure DeinitRastPort(Rp: PRastPort);
+procedure FreeRastPort(Rp: PRastPort);
+procedure CWait(copList : pUCopList; v : LongInt; h : LongInt);
+procedure DisownBlitter;
+procedure DisposeRegion(region : PRegion);
+procedure DoCollision(Rp : PRastPort);
+procedure Draw(Rp : PRastPort; x : LongInt; y : LongInt);
+procedure DrawEllipse(Rp : PRastPort; xCenter : LongInt; yCenter : LongInt; a : LongInt; b : LongInt);
+procedure DrawGList(Rp : PRastPort; Vp : PViewPort);
+procedure EraseRect(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
+function ExtendFont(font : PTextFont;const fontTags : PTagItem) : LongWord;
+function FindColor(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord; maxcolor : LongInt) : LongInt;
+function FindDisplayInfo(displayID : LongWord) : Pointer;
+function Flood(Rp : PRastPort; mode : LongWord; x : LongInt; y : LongInt) : BOOLEAN;
+procedure FontExtent(const font : PTextFont; fontExtent : pTextExtent);
+procedure FreeBitMap(Bm : PBitMap);
+procedure FreeColorMap(colorMap : pColorMap);
+procedure FreeCopList(copList : pCopList);
+procedure FreeCprList(cprList : pcprlist);
+procedure FreeDBufInfo(dbi : PDBufInfo);
+procedure FreeGBuffers(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt);
+procedure FreeRaster(p : PChar; Width : LongWord; Height : LongWord);
+procedure FreeSprite(num : LongInt);
+procedure FreeSpriteData(sp : PExtSprite);
+procedure FreeVPortCopLists(Vp : PViewPort);
+function GetAPen(Rp : PRastPort) : LongWord;
+function GetBitMapAttr(const Bm : PBitMap; attrnum : LongWord) : LongWord;
+function GetBPen(Rp : PRastPort) : LongWord;
+function GetColorMap(entries : LongInt) : pColorMap;
+function GetDisplayInfoData(const handle : Pointer; buf : PChar; size : LongWord; tagID : LongWord; displayID : LongWord) : LongWord;
+function GetDrMd(Rp : PRastPort) : LongWord;
+function GetExtSpriteA(ss : PExtSprite;const tags : PTagItem) : LongInt;
+function GetGBuffers(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt) : BOOLEAN;
+function GetOutlinePen(Rp : PRastPort) : LongWord;
+procedure GetRGB32(const cm : pColorMap; firstcolor : LongWord; ncolors : LongWord; table : pulong);
+function GetRGB4(colorMap : pColorMap; entry : LongInt) : LongWord;
+procedure GetRPAttrsA(const Rp : PRastPort;const tags : PTagItem);
+function GetSprite(sprite : pSimpleSprite; num : LongInt) : smallint;
+function GetVPModeID(const Vp : PViewPort) : LongInt;
+procedure GfxAssociate(const associateNode : Pointer; gfxNodePtr : Pointer);
+procedure GfxFree(gfxNodePtr : Pointer);
+function GfxLookUp(const associateNode : Pointer) : Pointer;
+function GfxNew(gfxNodeType : LongWord) : Pointer;
+procedure InitArea(areaInfo : pAreaInfo; vectorBuffer : Pointer; maxVectors : LongInt);
+procedure InitBitMap(bitMap : PBitMap; Depth : LongInt; Width : LongInt; Height : LongInt);
+procedure InitGels(head : PVSprite; tail : PVSprite; gelsInfo : pGelsInfo);
+procedure InitGMasks(AnOb : PAnimOb);
+procedure InitMasks(VSprite : PVSprite);
+procedure InitRastPort(Rp : PRastPort);
+function InitTmpRas(tmpRas : pTmpRas; buffer : PLANEPTR; size : LongInt) : pTmpRas;
+procedure InitView(view : pView);
+procedure InitVPort(Vp : PViewPort);
+procedure LoadRGB32(Vp : PViewPort;const table : pULONG);
+procedure LoadRGB4(Vp : PViewPort;const colors : pWord; count : LongInt);
+procedure LoadView(view : pView);
+procedure LockLayerRom(layer : pLayer);
+function MakeVPort(view : pView; Vp : PViewPort) : LongWord;
+function ModeNotAvailable(modeID : LongWord) : LongInt;
+procedure Move(Rp : PRastPort; x : LongInt; y : LongInt);
+procedure MoveSprite(Vp : PViewPort; sprite : pSimpleSprite; x : LongInt; y : LongInt);
+function MrgCop(view : pView) : LongWord;
+function NewRegion : PRegion;
+function NextDisplayInfo(displayID : LongWord) : LongWord;
+function ObtainBestPenA(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord;const tags : PTagItem) : LongInt;
+function ObtainPen(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord; f : LongInt) : LongWord;
+function OpenFont(textAttr : pTextAttr) : PTextFont;
+function OpenMonitor(const monitorName : PChar; displayID : LongWord) : pMonitorSpec;
+function OrRectRegion(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
+function OrRegionRegion(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
+procedure OwnBlitter;
+procedure PolyDraw(Rp : PRastPort; count : LongInt;const polyTable : pLongint);
+procedure QBlit(blit : pbltnode);
+procedure QBSBlit(blit : pbltnode);
+function ReadPixel(Rp : PRastPort; x : LongInt; y : LongInt) : LongWord;
+function ReadPixelArray8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort) : LongInt;
+function ReadPixelLine8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort) : LongInt;
+procedure RectFill(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
+procedure ReleasePen(cm : pColorMap; n : LongWord);
+procedure RemFont(TextFont : PTextFont);
+procedure RemIBob(bob : PBob; Rp : PRastPort; Vp : PViewPort);
+procedure RemVSprite(VSprite : PVSprite);
+function ScalerDiv(factor : LongWord; numerator : LongWord; denominator : LongWord) : WORD;
+procedure ScrollRaster(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
+procedure ScrollRasterBF(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
+procedure ScrollVPort(Vp : PViewPort);
+procedure SetABPenDrMd(Rp : PRastPort; apen : LongWord; bpen : LongWord; drawmode : LongWord);
+procedure SetAPen(Rp : PRastPort; pen : LongWord);
+procedure SetBPen(Rp : PRastPort; pen : LongWord);
+function SetChipRev(want : LongWord) : LongWord;
+procedure SetCollision(num : LongWord; routine : tPROCEDURE; gelsInfo : pGelsInfo);
+procedure SetDrMd(Rp : PRastPort; drawMode : LongWord);
+function SetFont(Rp : PRastPort;const TextFont : PTextFont) : LongInt;
+procedure SetMaxPen(Rp : PRastPort; maxpen : LongWord);
+function SetOutlinePen(Rp : PRastPort; pen : LongWord) : LongWord;
+procedure SetRast(Rp : PRastPort; pen : LongWord);
+procedure SetRGB32(Vp : PViewPort; n : LongWord; r : LongWord; g : LongWord; b : LongWord);
+procedure SetRGB32CM(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord);
+procedure SetRGB4(Vp : PViewPort; index : LongInt; red : LongWord; green : LongWord; blue : LongWord);
+procedure SetRGB4CM(colorMap : pColorMap; index : LongInt; red : LongWord; green : LongWord; blue : LongWord);
+procedure SetRPAttrsA(Rp : PRastPort;const tags : PTagItem);
+function SetSoftStyle(Rp : PRastPort; style : LongWord; enable : LongWord) : LongWord;
+function SetWriteMask(Rp : PRastPort; msk : LongWord) : LongWord;
+procedure SortGList(Rp : PRastPort);
+procedure StripFont(font : PTextFont);
+procedure SyncSBitMap(layer : pLayer);
+function GText(Rp : PRastPort;const string_ : PChar; count : LongWord) : LongInt;
+function TextExtent(Rp : PRastPort;const string_ : PChar; count : LongInt; _textExtent : pTextExtent) : smallint;
+function TextFit(Rp : PRastPort;const string_ : PChar; strLen : LongWord; textExtent : pTextExtent; constrainingExtent : pTextExtent; strDirection : LongInt; constrainingBitWidth : LongWord; constrainingBitHeight : LongWord) : LongWord;
+function TextLength(Rp : PRastPort;const string_ : PChar; count : LongWord) : smallint;
+function UCopperListInit(uCopList : pUCopList; n : LongInt) : pCopList;
+procedure UnlockLayerRom(layer : pLayer);
+function VBeamPos : LongInt;
+function VideoControl(colorMap : pColorMap; tagarray : PTagItem) : BOOLEAN;
+procedure WaitBlit;
+procedure WaitBOVP(Vp : PViewPort);
+procedure WaitTOF;
+function WeighTAMatch(reqTextAttr : pTextAttr; targetTextAttr : pTextAttr; targetTags : PTagItem) : smallint;
+procedure WriteChunkyPixels(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; bytesperrow : LongInt);
+function WritePixel(Rp : PRastPort; x : LongInt; y : LongInt) : LongInt;
+function WritePixelArray8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort) : LongInt;
+function WritePixelLine8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort) : LongInt;
+function XorRectRegion(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
+function XorRegionRegion(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
 
 { gfxmacros }
+(*
+procedure BNDRYOFF (w: PRastPort);
+procedure InitAnimate (animkey: PPAnimOb);
+procedure SetAfPt(w: PRastPort;p: Pointer; n: Byte);
+procedure SetDrPt(w: PRastPort;p: Word);
+procedure SetOPen(w: PRastPort;c: Byte);
+procedure SetWrMsk(w: PRastPort; m: Byte);
 
-PROCEDURE BNDRYOFF (w: pRastPort);
-PROCEDURE InitAnimate (animkey: ppAnimOb);
-PROCEDURE SetAfPt(w: pRastPort;p: Pointer; n: Byte);
-PROCEDURE SetDrPt(w: pRastPort;p: Word);
-PROCEDURE SetOPen(w: pRastPort;c: Byte);
-PROCEDURE SetWrMsk(w: pRastPort; m: Byte);
+procedure SafeSetOutlinePen(w : PRastPort; c : byte);
+procedure SafeSetWriteMask( w : PRastPort ; m : smallint ) ;
 
-PROCEDURE SafeSetOutlinePen(w : pRastPort; c : byte);
-PROCEDURE SafeSetWriteMask( w : pRastPort ; m : smallint ) ;
-
-PROCEDURE OFF_DISPLAY (cust: pCustom);
-PROCEDURE ON_DISPLAY (cust: pCustom);
-PROCEDURE OFF_SPRITE (cust: pCustom);
-PROCEDURE ON_SPRITE (cust: pCustom);
-PROCEDURE OFF_VBLANK (cust: pCustom);
-PROCEDURE ON_VBLANK (cust: pCustom);
+procedure OFF_DISPLAY (cust: pCustom);
+procedure ON_DISPLAY (cust: pCustom);
+procedure OFF_SPRITE (cust: pCustom);
+procedure ON_SPRITE (cust: pCustom);
+procedure OFF_VBLANK (cust: pCustom);
+procedure ON_VBLANK (cust: pCustom);
 *)
 
 IMPLEMENTATION
-
 (*
-PROCEDURE BNDRYOFF (w: pRastPort);
+procedure BNDRYOFF (w: PRastPort);
 BEGIN
     WITH w^ DO BEGIN
         Flags := Flags AND (NOT AREAOUTLINE);
     END;
 END;
 
-PROCEDURE InitAnimate (animkey: ppAnimOb);
+procedure InitAnimate (animkey: PPAnimOb);
 BEGIN
     animkey^ := NIL;
 END;
 
-PROCEDURE SetAfPt(w: pRastPort;p: Pointer; n: Byte);
+procedure SetAfPt(w: PRastPort;p: Pointer; n: Byte);
 BEGIN
     WITH w^ DO
     BEGIN
@@ -2448,7 +2486,7 @@ BEGIN
     END;
 END;
 
-PROCEDURE SetDrPt(w: pRastPort;p: Word);
+procedure SetDrPt(w: PRastPort;p: Word);
 BEGIN
     WITH w^ DO
     BEGIN
@@ -2458,7 +2496,7 @@ BEGIN
     END;
 END;
 
-PROCEDURE SetOPen(w: pRastPort;c: Byte);
+procedure SetOPen(w: PRastPort;c: Byte);
 BEGIN
     WITH w^ DO
     BEGIN
@@ -2467,15 +2505,15 @@ BEGIN
     END;
 END;
 
-{ This FUNCTION is fine, but FOR OS39 the SetWriteMask() gfx FUNCTION
+{ This function is fine, but FOR OS39 the SetWriteMask() gfx function
   should be prefered because it SHOULD operate WITH gfx boards as well.
   At least I hope it does.... }
-PROCEDURE SetWrMsk(w: pRastPort; m: Byte);
+procedure SetWrMsk(w: PRastPort; m: Byte);
 BEGIN
     w^.Mask := m;
 END;
 
-PROCEDURE SafeSetOutlinePen(w : pRastPort; c : byte);
+procedure SafeSetOutlinePen(w : PRastPort; c : byte);
 begin
     IF pGfxBase(GfxBase)^.LibNode.Lib_Version < 39 THEN begin
         w^.AOlPen := c;
@@ -2485,1773 +2523,1806 @@ begin
     END;
 END;
 
-PROCEDURE SafeSetWriteMask( w : pRastPort ; m : smallint ) ;
+procedure SafeSetWriteMask( w : PRastPort ; m : smallint ) ;
   VAR x : smallint ;
 BEGIN
   IF pGfxBase(GfxBase)^.LibNode.Lib_Version < 39 THEN w^.Mask := BYTE(m)
   ELSE x := SetWriteMask( w, m );
 END;
 
-PROCEDURE OFF_DISPLAY (cust: pCustom);
+procedure OFF_DISPLAY (cust: pCustom);
 BEGIN
     cust^.dmacon := BITCLR OR DMAF_RASTER;
 END;
 
-PROCEDURE ON_DISPLAY (cust: pCustom);
+procedure ON_DISPLAY (cust: pCustom);
 BEGIN
     cust^.dmacon := BITSET OR DMAF_RASTER;
 END;
 
-PROCEDURE OFF_SPRITE (cust: pCustom);
+procedure OFF_SPRITE (cust: pCustom);
 BEGIN
     cust^.dmacon := BITCLR OR DMAF_SPRITE;
 END;
 
-PROCEDURE ON_SPRITE (cust: pCustom);
+procedure ON_SPRITE (cust: pCustom);
 BEGIN
     cust^.dmacon := BITSET OR DMAF_SPRITE;
 END;
 
-PROCEDURE OFF_VBLANK (cust: pCustom);
+procedure OFF_VBLANK (cust: pCustom);
 BEGIN
     cust^.intena := BITCLR OR INTF_VERTB;
 END;
 
-PROCEDURE ON_VBLANK (cust: pCustom);
+procedure ON_VBLANK (cust: pCustom);
 BEGIN
     cust^.intena := BITSET OR INTF_VERTB;
 END;
 
-PROCEDURE AddAnimOb(anOb : pAnimOb; anKey : ppAnimOb; rp : pRastPort);
+*)
+
+procedure AddAnimOb(AnOb : PAnimOb; AnKey : PPAnimOb; Rp : PRastPort);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(AnOb : PAnimOb; AnKey : PPAnimOb; Rp : PRastPort; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 26));
-  Result := Call(, GfxBase);
+  Call(AnOb, AnKey, Rp, GfxBase);
 end;
 
-PROCEDURE AddBob(bob : pBob; rp : pRastPort);
+procedure AddBob(bob : PBob; Rp : PRastPort);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(bob : PBob; Rp : PRastPort; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 16));
-  Result := Call(, GfxBase);
+  Call(bob, Rp, GfxBase);
 end;
 
-PROCEDURE AddFont(textFont : pTextFont);
+function AddDisplayDriverA(P: Pointer; tags: PTagItem): LongInt;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(P: Pointer; tags: PTagItem; Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 181));
+  Result := Call(P, tags, GfxBase);
+end;
+
+procedure AddFont(TextFont : PTextFont);
+type
+  TLocalCall = procedure(TextFont : PTextFont; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 80));
-  Result := Call(, GfxBase);
+  Call(TextFont, GfxBase);
 end;
 
-PROCEDURE AddVSprite(vSprite : pVSprite; rp : pRastPort);
+procedure AddVSprite(VSprite : PVSprite; Rp : PRastPort);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(VSprite : PVSprite; Rp : PRastPort; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 17));
-  Result := Call(, GfxBase);
+  Call(VSprite, Rp, GfxBase);
 end;
 
-FUNCTION AllocBitMap(sizex : ULONG; sizey : ULONG; depth : ULONG; flags : ULONG;const friend_bitmap : pBitMap) : pBitMap;
+function AllocBitMap(sizex : LongWord; Sizey : LongWord; Depth : LongWord; Flags : LongWord;const Friend_bitmap : PBitMap): PBitMap;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(sizex : LongWord; Sizey : LongWord; Depth : LongWord; Flags : LongWord;const Friend_bitmap : PBitMap; Base: Pointer): PBitMap; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 153));
-  Result := Call(, GfxBase);
+  Result := Call(sizex, Sizey, Depth, Flags, Friend_bitmap, GfxBase);
 end;
 
-FUNCTION AllocDBufInfo(vp : pViewPort) : pDBufInfo;
+function AllocDBufInfo(Vp : PViewPort): PDBufInfo;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Vp : PViewPort; Base: Pointer): PDBufInfo; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 161));
-  Result := Call(, GfxBase);
+  Result := Call(Vp, GfxBase);
 end;
 
-FUNCTION AllocRaster(width : ULONG; height : ULONG) : pCHAR;
+function AllocRaster(Width : LongWord; Height : LongWord) : PChar;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Width : LongWord; Height : LongWord; Base: Pointer): PChar; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 82));
-  Result := Call(, GfxBase);
+  Result := Call(Width, Height, GfxBase);
 end;
 
-FUNCTION AllocSpriteDataA(const bm : pBitMap;const tags : pTagItem) : pExtSprite;
+function AllocSpriteDataA(const Bm : PBitMap;const tags : PTagItem) : PExtSprite;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(const Bm : PBitMap;const tags : PTagItem; Base: Pointer): PExtSprite; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 170));
-  Result := Call(, GfxBase);
+  Result := Call(Bm, tags, GfxBase);
 end;
 
-PROCEDURE AndRectRegion(region : pRegion;const rectangle : pRectangle);
+procedure AndRectRegion(region : PRegion;const rectangle : pRectangle);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(region : PRegion;const rectangle : pRectangle; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 84));
-  Result := Call(, GfxBase);
+  Call(region, rectangle, GfxBase);
 end;
 
-FUNCTION AndRegionRegion(const srcRegion : pRegion; destRegion : pRegion) : BOOLEAN;
+function AndRegionRegion(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 104));
-  Result := Call(, GfxBase);
+  Result := Call(srcRegion, destRegion, GfxBase);
 end;
 
-PROCEDURE AndRectRegionND(region : pRegion;const rectangle : pRectangle);
+procedure AndRectRegionND(region : PRegion;const rectangle : pRectangle);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(region : PRegion;const rectangle : pRectangle; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 107));
-  Result := Call(, GfxBase);
+  Call(region, rectangle, GfxBase);
 end;
 
-FUNCTION AndRegionRegionND(const srcRegion : pRegion; destRegion : pRegion) : BOOLEAN;
+function AndRegionRegionND(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 108));
-  Result := Call(, GfxBase);
+  Result := Call(srcRegion, destRegion, GfxBase);
 end;
 
-PROCEDURE Animate(anKey : ppAnimOb; rp : pRastPort);
+procedure Animate(AnKey : PPAnimOb; Rp : PRastPort);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(AnKey : PPAnimOb; Rp : PRastPort; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 27));
-  Result := Call(, GfxBase);
+  Call(AnKey, Rp, GfxBase);
 end;
 
-FUNCTION AreaDraw(rp : pRastPort; x : LONGINT; y : LONGINT) : LONGINT;
+function AreaDraw(Rp : PRastPort; x : LongInt; y : LongInt) : LongInt;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongInt; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 43));
-  Result := Call(, GfxBase);
+  Result := Call(Rp, x, y, GfxBase);
 end;
 
-FUNCTION AreaEllipse(rp : pRastPort; xCenter : LONGINT; yCenter : LONGINT; a : LONGINT; b : LONGINT) : LONGINT;
+function AreaEllipse(Rp : PRastPort; xCenter : word; yCenter : word; a : word; b : word) : LongInt;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Rp : PRastPort; xCenter : word; yCenter : word; a : word; b : word; Base: Pointer): LongInt; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 31));
-  Result := Call(, GfxBase);
+  Result := Call(Rp, xCenter, yCenter, a, b, GfxBase);
 end;
 
-FUNCTION AreaEnd(rp : pRastPort) : LONGINT;
+function AreaEnd(Rp : PRastPort) : LongInt;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongInt; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 44));
-  Result := Call(, GfxBase);
+  Result := Call(Rp, GfxBase);
 end;
 
-FUNCTION AreaMove(rp : pRastPort; x : LONGINT; y : LONGINT) : LONGINT;
+function AreaMove(Rp : PRastPort; x : LongInt; y : LongInt) : LongInt;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongInt; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 42));
-  Result := Call(, GfxBase);
+  Result := Call(Rp, x, y, GfxBase);
 end;
 
-PROCEDURE AskFont(rp : pRastPort; textAttr : pTextAttr);
+procedure AskFont(Rp : PRastPort; textAttr : pTextAttr);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Rp : PRastPort; textAttr : pTextAttr; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 79));
-  Result := Call(, GfxBase);
+  Call(Rp, textAttr, GfxBase);
 end;
 
-FUNCTION AskSoftStyle(rp : pRastPort) : ULONG;
+function AskSoftStyle(Rp : PRastPort) : LongWord;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 14));
-  Result := Call(, GfxBase);
+  Result := Call(Rp, GfxBase);
 end;
 
-FUNCTION AttachPalExtra(cm : pColorMap; vp : pViewPort) : LONGINT;
+function AttachPalExtra(cm : pColorMap; Vp : PViewPort) : LongInt;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(cm : pColorMap; Vp : PViewPort; Base: Pointer): LongInt; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 139));
-  Result := Call(, GfxBase);
+  Result := Call(cm, Vp, GfxBase);
 end;
 
-FUNCTION AttemptLockLayerRom(layer : pLayer) : BOOLEAN;
+function AttemptLockLayerRom(layer : pLayer) : BOOLEAN;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(layer : pLayer; Base: Pointer): BOOLEAN; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 109));
-  Result := Call(, GfxBase);
+  Result := Call(layer, GfxBase);
 end;
 
-FUNCTION BestModeIDA(const tags : pTagItem) : ULONG;
+function BestModeIDA(const tags : PTagItem) : LongWord;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(const tags : PTagItem; Base: Pointer): LongWord; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 175));
-  Result := Call(, GfxBase);
+  Result := Call(tags, GfxBase);
 end;
 
-PROCEDURE BitMapScale(bitScaleArgs : pBitScaleArgs);
+procedure BitMapScale(bitScaleArgs : pBitScaleArgs);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(bitScaleArgs : pBitScaleArgs; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 113));
-  Result := Call(, GfxBase);
+  Call(bitScaleArgs, GfxBase);
 end;
 
-FUNCTION BltBitMap(const srcBitMap : pBitMap; xSrc : LONGINT; ySrc : LONGINT; destBitMap : pBitMap; xDest : LONGINT; yDest : LONGINT; xSize : LONGINT; ySize : LONGINT; minterm : ULONG; mask : ULONG; tempA : pCHAR) : LONGINT;
+function BltBitMap(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destBitMap : PBitMap; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; mask : LongWord; tempA : PChar) : LongInt;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destBitMap : PBitMap; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; mask : LongWord; tempA : PChar; Base: Pointer): LongInt ; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 5));
-  Result := Call(, GfxBase);
+  Result := Call(srcBitMap, xSrc, ySrc, destBitMap, xDest, yDest, xSize, ySize, minterm, mask, tempA, GfxBase);
 end;
 
-PROCEDURE BltBitMapRastPort(const srcBitMap : pBitMap; xSrc : LONGINT; ySrc : LONGINT; destRP : pRastPort; xDest : LONGINT; yDest : LONGINT; xSize : LONGINT; ySize : LONGINT; minterm : ULONG);
+procedure BltBitMapRastPort(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 101));
-  Result := Call(, GfxBase);
+  Call(srcBitMap, xSrc, ySrc, destRP, xDest, yDest, xSize, ySize, minterm, GfxBase);
 end;
 
-PROCEDURE BltClear(memBlock : pCHAR; byteCount : ULONG; flags : ULONG);
+procedure BltClear(memBlock : PChar; byteCount : LongWord; Flags : LongWord);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(memBlock : PChar; byteCount : LongWord; Flags : LongWord; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 50));
-  Result := Call(, GfxBase);
+  Call(memBlock, byteCount, Flags, GfxBase);
 end;
 
-PROCEDURE BltMaskBitMapRastPort(const srcBitMap : pBitMap; xSrc : LONGINT; ySrc : LONGINT; destRP : pRastPort; xDest : LONGINT; yDest : LONGINT; xSize : LONGINT; ySize : LONGINT; minterm : ULONG;const bltMask : pCHAR);
+procedure BltMaskBitMapRastPort(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord;const bltMask : PChar);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord;const bltMask : PChar; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 106));
-  Result := Call(, GfxBase);
+  Call(srcBitMap, xSrc, ySrc, destRP, xDest, yDest, xSize, ySize, minterm, bltMask, GfxBase);
 end;
 
-PROCEDURE BltPattern(rp : pRastPort;const mask : pCHAR; xMin : LONGINT; yMin : LONGINT; xMax : LONGINT; yMax : LONGINT; maskBPR : ULONG);
+procedure BltPattern(Rp : PRastPort;const mask : PChar; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; maskBPR : LongWord);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Rp : PRastPort;const mask : PChar; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; maskBPR : LongWord; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 52));
-  Result := Call(, GfxBase);
+  Call(Rp, mask, xMin, yMin, xMax, yMax, maskBPR, GfxBase);
 end;
 
-PROCEDURE BltTemplate(const source : pCHAR; xSrc : LONGINT; srcMod : LONGINT; destRP : pRastPort; xDest : LONGINT; yDest : LONGINT; xSize : LONGINT; ySize : LONGINT);
+procedure BltTemplate(const source : PChar; xSrc : LongInt; srcMod : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(const source : PChar; xSrc : LongInt; srcMod : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 6));
-  Result := Call(, GfxBase);
+  Call(source, xSrc, srcMod, destRP, xDest, yDest, xSize, ySize, GfxBase);
 end;
 
-FUNCTION CalcIVG(v : pView; vp : pViewPort) : WORD;
+function CalcIVG(v : pView; Vp : PViewPort) : WORD;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(v : pView; Vp : PViewPort; Base: Pointer): WORD; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 138));
-  Result := Call(, GfxBase);
+  Result := Call(v, Vp, GfxBase);
 end;
 
-PROCEDURE CBump(copList : pUCopList);
+procedure CBump(copList : pUCopList);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 61));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION ChangeExtSpriteA(vp : pViewPort; oldsprite : pExtSprite; newsprite : pExtSprite;const tags : pTagItem) : LONGINT;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 171));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE ChangeSprite(vp : pViewPort; sprite : pSimpleSprite; newData : pWORD);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 70));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE ChangeVPBitMap(vp : pViewPort; bm : pBitMap; db : pDBufInfo);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 157));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE ClearEOL(rp : pRastPort);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 7));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION ClearRectRegion(region : pRegion;const rectangle : pRectangle) : BOOLEAN;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 87));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION ClearRectRegionND(region : pRegion;const rectangle : pRectangle) : BOOLEAN;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 124));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE ClearRegionRegionND(region1 : pRegion, region2 : pRegion);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 142));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE ClearRegion(region : pRegion);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 88));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE ClearScreen(rp : pRastPort);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 8));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE ClipBlit(srcRP : pRastPort; xSrc : LONGINT; ySrc : LONGINT; destRP : pRastPort; xDest : LONGINT; yDest : LONGINT; xSize : LONGINT; ySize : LONGINT; minterm : ULONG);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 92));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE CloseFont(textFont : pTextFont);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 13));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION CloseMonitor(monitorSpec : pMonitorSpec) : BOOLEAN;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 120));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE CMove(copList : pUCopList; destination : POINTER; data : LONGINT);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(copList : pUCopList; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 62));
-  Result := Call(, GfxBase);
+  Call(copList, GfxBase);
 end;
 
-FUNCTION CoerceMode(vp : pViewPort; monitorid : ULONG; flags : ULONG) : ULONG;
+function ChangeExtSpriteA(Vp : PViewPort; oldsprite : PExtSprite; newsprite : PExtSprite;const tags : PTagItem) : LongInt;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Vp : PViewPort; oldsprite : PExtSprite; newsprite : PExtSprite;const tags : PTagItem; Base: Pointer): LongInt; stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 156));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 171));
+  Result := Call(Vp, oldsprite, newsprite, tags, GfxBase);
 end;
 
-PROCEDURE CopySBitMap(layer : pLayer);
+procedure ChangeSprite(Vp : PViewPort; sprite : pSimpleSprite; newData : pWORD);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Vp : PViewPort; sprite : pSimpleSprite; newData : pWORD; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 75));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 70));
+  Call(Vp, sprite, newData, GfxBase);
 end;
 
-function CreateRastPort(rp: pRastPort): pRastPort;
+procedure ChangeVPBitMap(Vp : PViewPort; Bm : PBitMap; db : PDBufInfo);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Vp : PViewPort; Bm : PBitMap; db : PDBufInfo; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 177));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 157));
+  Call(Vp, Bm, db, GfxBase);
 end;
 
-PROCEDURE CWait(copList : pUCopList; v : LONGINT; h : LONGINT);
+procedure ClearEOL(Rp : PRastPort);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 7));
+  Call(Rp, GfxBase);
+end;
+
+function ClearRectRegion(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
+type
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 87));
+  Result := Call(region, rectangle, GfxBase);
+end;
+
+function ClearRectRegionND(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
+type
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 124));
+  Result := Call(region, rectangle, GfxBase);
+end;
+
+procedure ClearRegionRegionND(region1 : PRegion; region2 : PRegion);
+type
+  TLocalCall = procedure(region1 : PRegion; region2 : PRegion; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 141));
+  Call(region1,region2, GfxBase);
+end;
+
+procedure ClearRegion(region : PRegion);
+type
+  TLocalCall = procedure(region : PRegion; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 88));
+  Call(region, GfxBase);
+end;
+
+procedure ClearScreen(Rp : PRastPort);
+type
+  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 8));
+  Call(Rp, GfxBase);
+end;
+
+procedure ClipBlit(srcRP : PRastPort; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord);
+type
+  TLocalCall = procedure(srcRP : PRastPort; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 92));
+  Call(srcRP, xSrc, ySrc, destRP, xDest, yDest, xSize, ySize, minterm, GfxBase);
+end;
+
+procedure CloseFont(TextFont : PTextFont);
+type
+  TLocalCall = procedure(TextFont : PTextFont; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 13));
+  Call(TextFont, GfxBase);
+end;
+
+function CloseMonitor(monitorSpec : pMonitorSpec) : BOOLEAN;
+type
+  TLocalCall = function(monitorSpec : pMonitorSpec; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 120));
+  Result := Call(monitorSpec, GfxBase);
+end;
+
+procedure CMove(copList : pUCopList; destination : Pointer; data : LongInt);
+type
+  TLocalCall = procedure(copList : pUCopList; destination : Pointer; data : LongInt; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 63));
-  Result := Call(, GfxBase);
+  Call(copList, destination, data, GfxBase);
 end;
 
-PROCEDURE DisownBlitter;
+function CoerceMode(Vp : PViewPort; monitorid : LongWord; Flags : LongWord) : LongWord;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Vp : PViewPort; monitorid : LongWord; Flags : LongWord; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 156));
+  Result := Call(Vp, monitorid, Flags, GfxBase);
+end;
+
+procedure CopySBitMap(layer : pLayer);
+type
+  TLocalCall = procedure(layer : pLayer; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 75));
+  Call(layer, GfxBase);
+end;
+
+function CreateRastPort(): PRastPort;
+type
+  TLocalCall = function(Base: Pointer): PRastPort; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 177));
+  Result := Call(GfxBase);
+end;
+
+function CloneRastPort(Rp: PRastPort): PRastPort;
+type
+  TLocalCall = function(Rp: PRastPort; Base: Pointer): PRastPort; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 178));
+  Result := Call(Rp, GfxBase);
+end;
+
+procedure DeinitRastPort(Rp: PRastPort);
+type
+  TLocalCall = procedure(Rp: PRastPort; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 179));
+  Call(Rp, GfxBase);
+end;
+
+procedure FreeRastPort(Rp: PRastPort);
+type
+  TLocalCall = procedure(Rp: PRastPort; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 180));
+  Call(Rp, GfxBase);
+end;
+
+procedure CWait(copList : pUCopList; v : LongInt; h : LongInt);
+type
+  TLocalCall = procedure(copList : pUCopList; v : LongInt; h : LongInt; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 63));
+  Call(copList, v, h, GfxBase);
+end;
+
+procedure DisownBlitter;
+type
+  TLocalCall = procedure(Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 77));
-  Result := Call(, GfxBase);
+  Call(GfxBase);
 end;
 
-PROCEDURE DisposeRegion(region : pRegion);
+procedure DisposeRegion(region : PRegion);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(region : PRegion; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 89));
-  Result := Call(, GfxBase);
+  Call(region, GfxBase);
 end;
 
-PROCEDURE DoCollision(rp : pRastPort);
+procedure DoCollision(Rp : PRastPort);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 18));
-  Result := Call(, GfxBase);
+  Call(Rp, GfxBase);
 end;
 
-PROCEDURE Draw(rp : pRastPort; x : LONGINT; y : LONGINT);
+procedure Draw(Rp : PRastPort; x : LongInt; y : LongInt);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 41));
-  Result := Call(, GfxBase);
+  Call(Rp, x, y, GfxBase);
 end;
 
-PROCEDURE DrawEllipse(rp : pRastPort; xCenter : LONGINT; yCenter : LONGINT; a : LONGINT; b : LONGINT);
+procedure DrawEllipse(Rp : PRastPort; xCenter : LongInt; yCenter : LongInt; a : LongInt; b : LongInt);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Rp : PRastPort; xCenter : LongInt; yCenter : LongInt; a : LongInt; b : LongInt; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 30));
-  Result := Call(, GfxBase);
+  Call(Rp, xCenter, yCenter, a, b, GfxBase);
 end;
 
-PROCEDURE DrawGList(rp : pRastPort; vp : pViewPort);
+procedure DrawGList(Rp : PRastPort; Vp : PViewPort);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Rp : PRastPort; Vp : PViewPort; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 19));
-  Result := Call(, GfxBase);
+  Call(Rp, Vp, GfxBase);
 end;
 
-PROCEDURE EraseRect(rp : pRastPort; xMin : LONGINT; yMin : LONGINT; xMax : LONGINT; yMax : LONGINT);
+procedure EraseRect(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 135));
-  Result := Call(, GfxBase);
+  Call(Rp, xMin, yMin, xMax, yMax, GfxBase);
 end;
 
-FUNCTION ExtendFont(font : pTextFont;const fontTags : pTagItem) : ULONG;
+function ExtendFont(font : PTextFont;const fontTags : PTagItem) : LongWord;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(font : PTextFont;const fontTags : PTagItem; Base: Pointer): LongWord; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 136));
-  Result := Call(, GfxBase);
+  Result := Call(font, fontTags, GfxBase);
 end;
 
-FUNCTION FindColor(cm : pColorMap; r : ULONG; g : ULONG; b : ULONG; maxcolor : LONGINT) : LONGINT;
+function FindColor(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord; maxcolor : LongInt) : LongInt;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord; maxcolor : LongInt; Base: Pointer): LongInt; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 168));
-  Result := Call(, GfxBase);
+  Result := Call(cm, r, g, b, maxcolor, GfxBase);
 end;
 
-FUNCTION FindDisplayInfo(displayID : ULONG) : POINTER;
+function FindDisplayInfo(displayID : LongWord) : Pointer;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 121));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION Flood(rp : pRastPort; mode : ULONG; x : LONGINT; y : LONGINT) : BOOLEAN;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 55));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE FontExtent(const font : pTextFont; fontExtent : pTextExtent);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 127));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE FreeBitMap(bm : pBitMap);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 154));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE FreeColorMap(colorMap : pColorMap);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 96));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE FreeCopList(copList : pCopList);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 91));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE FreeCprList(cprList : pcprlist);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 94));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE FreeDBufInfo(dbi : pDBufInfo);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 162));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE FreeGBuffers(anOb : pAnimOb; rp : pRastPort; flag : LONGINT);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 100));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE FreeRaster(p : pCHAR; width : ULONG; height : ULONG);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 83));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE FreeSprite(num : LONGINT);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 69));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE FreeSpriteData(sp : pExtSprite);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 172));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE FreeVPortCopLists(vp : pViewPort);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 90));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetAPen(rp : pRastPort) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 143));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetBitMapAttr(const bm : pBitMap; attrnum : ULONG) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 160));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetBPen(rp : pRastPort) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 144));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetColorMap(entries : LONGINT) : pColorMap;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 95));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetDisplayInfoData(const handle : POINTER; buf : pCHAR; size : ULONG; tagID : ULONG; displayID : ULONG) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 126));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetDrMd(rp : pRastPort) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, X));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetExtSpriteA(ss : pExtSprite;const tags : pTagItem) : LONGINT;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 155));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetGBuffers(anOb : pAnimOb; rp : pRastPort; flag : LONGINT) : BOOLEAN;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 28));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetOutlinePen(rp : pRastPort) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, X));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE GetRGB32(const cm : pColorMap; firstcolor : ULONG; ncolors : ULONG; table : pUlong);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 150));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetRGB4(colorMap : pColorMap; entry : LONGINT) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 97));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE GetRPAttrsA(const rp : pRastPort;const tags : pTagItem);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 174));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetSprite(sprite : pSimpleSprite; num : LONGINT) : smallint;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 68));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GetVPModeID(const vp : pViewPort) : LONGINT;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 132));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE GfxAssociate(const associateNode : POINTER; gfxNodePtr : POINTER);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 112));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE GfxFree(gfxNodePtr : POINTER);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 111));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GfxLookUp(const associateNode : POINTER) : POINTER;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 117));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GfxNew(gfxNodeType : ULONG) : POINTER;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 110));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE InitArea(areaInfo : pAreaInfo; vectorBuffer : POINTER; maxVectors : LONGINT);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 47));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE InitBitMap(bitMap : pBitMap; depth : LONGINT; width : LONGINT; height : LONGINT);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 65));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE InitGels(head : pVSprite; tail : pVSprite; gelsInfo : pGelsInfo);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 20));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE InitGMasks(anOb : pAnimOb);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 29));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE InitMasks(vSprite : pVSprite);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 21));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE InitRastPort(rp : pRastPort);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 33));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION InitTmpRas(tmpRas : pTmpRas; buffer : PLANEPTR; size : LONGINT) : pTmpRas;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 78));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE InitView(view : pView);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 60));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE InitVPort(vp : pViewPort);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 34));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE LoadRGB32(vp : pViewPort;const table : pULONG);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 147));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE LoadRGB4(vp : pViewPort;const colors : pWord; count : LONGINT);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 32));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE LoadView(view : pView);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 37));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE LockLayerRom(layer : pLayer);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 73));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION MakeVPort(view : pView; vp : pViewPort) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 36));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION ModeNotAvailable(modeID : ULONG) : LONGINT;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 133));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE Move(rp : pRastPort; x : LONGINT; y : LONGINT);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 40));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE MoveSprite(vp : pViewPort; sprite : pSimpleSprite; x : LONGINT; y : LONGINT);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 71));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION MrgCop(view : pView) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 35));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION NewRegion : pRegion;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 86));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION NextDisplayInfo(displayID : ULONG) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(displayID : LongWord; Base: Pointer): Pointer; stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 122));
-  Result := Call(, GfxBase);
+  Result := Call(displayID, GfxBase);
 end;
 
-FUNCTION ObtainBestPenA(cm : pColorMap; r : ULONG; g : ULONG; b : ULONG;const tags : pTagItem) : LONGINT;
+function Flood(Rp : PRastPort; mode : LongWord; x : LongInt; y : LongInt) : BOOLEAN;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Rp : PRastPort; mode : LongWord; x : LongInt; y : LongInt; Base: Pointer): BOOLEAN; stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 140));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 55));
+  Result := Call(Rp, mode, x, y, GfxBase);
 end;
 
-FUNCTION ObtainPen(cm : pColorMap; n : ULONG; r : ULONG; g : ULONG; b : ULONG; f : LONGINT) : ULONG;
+procedure FontExtent(const font : PTextFont; fontExtent : pTextExtent);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(const font : PTextFont; fontExtent : pTextExtent; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 159));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 127));
+  Call(font, fontExtent, GfxBase);
 end;
 
-FUNCTION OpenFont(textAttr : pTextAttr) : pTextFont;
+procedure FreeBitMap(Bm : PBitMap);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Bm : PBitMap; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 12));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 154));
+  Call(Bm, GfxBase);
 end;
 
-FUNCTION OpenMonitor(const monitorName : pCHAR; displayID : ULONG) : pMonitorSpec;
+procedure FreeColorMap(colorMap : pColorMap);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(colorMap : pColorMap; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 119));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 96));
+  Call(colorMap, GfxBase);
 end;
 
-FUNCTION OrRectRegion(region : pRegion;const rectangle : pRectangle) : BOOLEAN;
+procedure FreeCopList(copList : pCopList);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(copList : pCopList; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 85));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 91));
+  Call(copList, GfxBase);
 end;
 
-FUNCTION OrRectRegionND(region : pRegion;const rectangle : pRectangle) : BOOLEAN;
+procedure FreeCprList(cprList : pcprlist);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(cprList : pcprlist; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 123));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 94));
+  Call(cprList, GfxBase);
 end;
 
-FUNCTION OrRegionRegion(const srcRegion : pRegion; destRegion : pRegion) : BOOLEAN;
+procedure FreeDBufInfo(dbi : PDBufInfo);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(dbi : PDBufInfo; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 102));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 162));
+  Call(dbi, GfxBase);
 end;
 
-FUNCTION OrRegionRegionND(const srcRegion : pRegion; destRegion : pRegion) : BOOLEAN;
+procedure FreeGBuffers(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 125));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 100));
+  Call(AnOb, Rp, flag, GfxBase);
 end;
 
-PROCEDURE OwnBlitter;
+procedure FreeRaster(p : PChar; Width : LongWord; Height : LongWord);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(p : PChar; Width : LongWord; Height : LongWord; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 76));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 83));
+  Call(p, Width, Height, GfxBase);
 end;
 
-PROCEDURE PolyDraw(rp : pRastPort; count : LONGINT;const polyTable : pLongint);
+procedure FreeSprite(num : LongInt);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(num : LongInt; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 56));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 69));
+  Call(num, GfxBase);
 end;
 
-PROCEDURE QBlit(blit : pbltnode);
+procedure FreeSpriteData(sp : PExtSprite);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(sp : PExtSprite; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 46));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 172));
+  Call(sp, GfxBase);
 end;
 
-PROCEDURE QBSBlit(blit : pbltnode);
+procedure FreeVPortCopLists(Vp : PViewPort);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 49));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 91));
+  Call(Vp, GfxBase);
 end;
 
-FUNCTION ReadPixel(rp : pRastPort; x : LONGINT; y : LONGINT) : ULONG;
+function GetAPen(Rp : PRastPort) : LongWord;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 53));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 143));
+  Result := Call(Rp, GfxBase);
 end;
 
-FUNCTION ReadPixelArray8(rp : pRastPort; xstart : ULONG; ystart : ULONG; xstop : ULONG; ystop : ULONG; array_ : pointer; temprp : pRastPort) : LONGINT;
+function GetBitMapAttr(const Bm : PBitMap; attrnum : LongWord) : LongWord;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(const Bm : PBitMap; attrnum : LongWord; Base: Pointer): LongWord; stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 130));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 160));
+  Result := Call(Bm, attrnum, GfxBase);
 end;
 
-FUNCTION ReadPixelLine8(rp : pRastPort; xstart : ULONG; ystart : ULONG; width : ULONG; array_ : pointer; tempRP : pRastPort) : LONGINT;
+function GetBPen(Rp : PRastPort) : LongWord;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 128));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 144));
+  Result := Call(Rp, GfxBase);
 end;
 
-PROCEDURE RectFill(rp : pRastPort; xMin : LONGINT; yMin : LONGINT; xMax : LONGINT; yMax : LONGINT);
+function GetColorMap(entries : LongInt) : pColorMap;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(entries : LongInt; Base: Pointer): pColorMap; stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 51));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 95));
+  Result := Call(entries, GfxBase);
 end;
 
-PROCEDURE ReleasePen(cm : pColorMap; n : ULONG);
+function GetDisplayInfoData(const handle : Pointer; buf : PChar; size : LongWord; tagID : LongWord; displayID : LongWord) : LongWord;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(const handle : Pointer; buf : PChar; size : LongWord; tagID : LongWord; displayID : LongWord; Base: Pointer): LongWord; stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 158));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 126));
+  Result := Call(handle, buf, size, tagID, displayID, GfxBase);
 end;
 
-PROCEDURE RemFont(textFont : pTextFont);
+function GetDrMd(Rp : PRastPort) : LongWord;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 81));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 145));
+  Result := Call(Rp, GfxBase);
 end;
 
-PROCEDURE RemIBob(bob : pBob; rp : pRastPort; vp : pViewPort);
+function GetExtSpriteA(ss : PExtSprite;const tags : PTagItem) : LongInt;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(ss : PExtSprite;const tags : PTagItem; Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 155));
+  Result := Call(ss, tags, GfxBase);
+end;
+
+function GetGBuffers(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt) : BOOLEAN;
+type
+  TLocalCall = function(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 28));
+  Result := Call(AnOb, Rp, flag, GfxBase);
+end;
+
+function GetOutlinePen(Rp : PRastPort) : LongWord;
+type
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 146));
+  Result := Call(Rp, GfxBase);
+end;
+
+procedure GetRGB32(const cm : pColorMap; firstcolor : LongWord; ncolors : LongWord; table : pUlong);
+type
+  TLocalCall = procedure(const cm : pColorMap; firstcolor : LongWord; ncolors : LongWord; table : pUlong; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 150));
+  Call(cm, firstcolor, ncolors, table, GfxBase);
+end;
+
+function GetRGB4(colorMap : pColorMap; entry : LongInt) : LongWord;
+type
+  TLocalCall = function(colorMap : pColorMap; entry : LongInt; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 97));
+  Result := Call(colorMap, entry, GfxBase);
+end;
+
+procedure GetRPAttrsA(const Rp : PRastPort;const tags : PTagItem);
+type
+  TLocalCall = procedure(const Rp : PRastPort;const tags : PTagItem; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 174));
+  Call(Rp, tags, GfxBase);
+end;
+
+function GetSprite(sprite : pSimpleSprite; num : LongInt) : smallint;
+type
+  TLocalCall = function(sprite : pSimpleSprite; num : LongInt; Base: Pointer): smallint; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 68));
+  Result := Call(sprite, num, GfxBase);
+end;
+
+function GetVPModeID(const Vp : PViewPort) : LongInt;
+type
+  TLocalCall = function(const Vp : PViewPort; Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 132));
+  Result := Call(Vp, GfxBase);
+end;
+
+procedure GfxAssociate(const associateNode : Pointer; gfxNodePtr : Pointer);
+type
+  TLocalCall = procedure(const associateNode : Pointer; gfxNodePtr : Pointer; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 112));
+  Call(associateNode, gfxNodePtr, GfxBase);
+end;
+
+procedure GfxFree(gfxNodePtr : Pointer);
+type
+  TLocalCall = procedure(gfxNodePtr : Pointer; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 111));
+  Call(gfxNodePtr, GfxBase);
+end;
+
+function GfxLookUp(const associateNode : Pointer) : Pointer;
+type
+  TLocalCall = function(const associateNode : Pointer; Base: Pointer): Pointer; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 117));
+  Result := Call(associateNode, GfxBase);
+end;
+
+function GfxNew(gfxNodeType : LongWord) : Pointer;
+type
+  TLocalCall = function(gfxNodeType : LongWord; Base: Pointer): Pointer; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 110));
+  Result := Call(gfxNodeType, GfxBase);
+end;
+
+procedure InitArea(areaInfo : pAreaInfo; vectorBuffer : Pointer; maxVectors : LongInt);
+type
+  TLocalCall = procedure(areaInfo : pAreaInfo; vectorBuffer : Pointer; maxVectors : LongInt; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 47));
+  Call(areaInfo, vectorBuffer, maxVectors, GfxBase);
+end;
+
+procedure InitBitMap(bitMap : PBitMap; Depth : LongInt; Width : LongInt; Height : LongInt);
+type
+  TLocalCall = procedure(bitMap : PBitMap; Depth : LongInt; Width : LongInt; Height : LongInt; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 65));
+  Call(bitMap, Depth, Width, Height, GfxBase);
+end;
+
+procedure InitGels(head : PVSprite; tail : PVSprite; gelsInfo : pGelsInfo);
+type
+  TLocalCall = procedure(head : PVSprite; tail : PVSprite; gelsInfo : pGelsInfo; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 20));
+  Call(head, tail, gelsInfo, GfxBase);
+end;
+
+procedure InitGMasks(AnOb : PAnimOb);
+type
+  TLocalCall = procedure(AnOb : PAnimOb; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 29));
+  Call(AnOb, GfxBase);
+end;
+
+procedure InitMasks(VSprite : PVSprite);
+type
+  TLocalCall = procedure(VSprite : PVSprite; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 22));
-  Result := Call(, GfxBase);
+  Call(VSprite, GfxBase);
 end;
 
-PROCEDURE RemVSprite(vSprite : pVSprite);
+procedure InitRastPort(Rp : PRastPort);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 23));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 33));
+  Call(Rp, GfxBase);
 end;
 
-FUNCTION ScalerDiv(factor : ULONG; numerator : ULONG; denominator : ULONG) : WORD;
+function InitTmpRas(tmpRas : pTmpRas; buffer : PLANEPTR; size : LongInt) : pTmpRas;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(tmpRas : pTmpRas; buffer : PLANEPTR; size : LongInt; Base: Pointer): pTmpRas; stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 114));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 78));
+  Result := Call(tmpRas, buffer, size, GfxBase);
 end;
 
-PROCEDURE ScrollRaster(rp : pRastPort; dx : LONGINT; dy : LONGINT; xMin : LONGINT; yMin : LONGINT; xMax : LONGINT; yMax : LONGINT);
+procedure InitView(view : pView);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(view : pView; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 66));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 60));
+  Call(view, GfxBase);
 end;
 
-PROCEDURE ScrollRasterBF(rp : pRastPort; dx : LONGINT; dy : LONGINT; xMin : LONGINT; yMin : LONGINT; xMax : LONGINT; yMax : LONGINT);
+procedure InitVPort(Vp : PViewPort);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 167));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 34));
+  Call(Vp, GfxBase);
 end;
 
-PROCEDURE ScrollVPort(vp : pViewPort);
+procedure LoadRGB32(Vp : PViewPort;const table : pULONG);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Vp : PViewPort;const table : pULONG; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 98));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 147));
+  Call(Vp, table, GfxBase);
 end;
 
-PROCEDURE SetABPenDrMd(rp : pRastPort; apen : ULONG; bpen : ULONG; drawmode : ULONG);
+procedure LoadRGB4(Vp : PViewPort;const colors : pWord; count : LongInt);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(Vp : PViewPort;const colors : pWord; count : LongInt; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 149));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 32));
+  Call(Vp, colors, count, GfxBase);
 end;
 
-PROCEDURE SetAPen(rp : pRastPort; pen : ULONG);
+procedure LoadView(view : pView);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(view : pView; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 57));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 37));
+  Call(view, GfxBase);
 end;
 
-PROCEDURE SetBPen(rp : pRastPort; pen : ULONG);
+procedure LockLayerRom(layer : pLayer);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = procedure(layer : pLayer; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 58));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 72));
+  Call(layer, GfxBase);
 end;
 
-FUNCTION SetChipRev(want : ULONG) : ULONG;
+function MakeVPort(view : pView; Vp : PViewPort) : LongWord;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(view : pView; Vp : PViewPort; Base: Pointer): LongWord; stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 148));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 36));
+  Result := Call(view, Vp, GfxBase);
 end;
 
-PROCEDURE SetCollision(num : ULONG; routine : tPROCEDURE; gelsInfo : pGelsInfo);
+function ModeNotAvailable(modeID : LongWord) : LongInt;
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
+  TLocalCall = function(modeID : LongWord; Base: Pointer): LongInt; stdcall;
 var
   Call: TLocalCall;
 begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 24));
-  Result := Call(, GfxBase);
+  Call := TLocalCall(GetLibAdress(GfxBase, 133));
+  Result := Call(modeID, GfxBase);
 end;
 
-PROCEDURE SetDrMd(rp : pRastPort; drawMode : ULONG);
+procedure Move(Rp : PRastPort; x : LongInt; y : LongInt);
 type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 59));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION SetFont(rp : pRastPort;const textFont : pTextFont) : LONGINT;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 11));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE SetMaxPen(rp : pRastPort; maxpen : ULONG);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 165));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION SetOutlinePen(rp : pRastPort; pen : ULONG) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 163));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE SetRast(rp : pRastPort; pen : ULONG);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 39));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE SetRGB32(vp : pViewPort; n : ULONG; r : ULONG; g : ULONG; b : ULONG);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 142));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE SetRGB32CM(cm : pColorMap; n : ULONG; r : ULONG; g : ULONG; b : ULONG);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 166));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE SetRGB4(vp : pViewPort; index : LONGINT; red : ULONG; green : ULONG; blue : ULONG);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 48));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE SetRGB4CM(colorMap : pColorMap; index : LONGINT; red : ULONG; green : ULONG; blue : ULONG);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 105));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE SetRPAttrsA(rp : pRastPort;const tags : pTagItem);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 173));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION SetSoftStyle(rp : pRastPort; style : ULONG; enable : ULONG) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 15));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION SetWriteMask(rp : pRastPort; msk : ULONG) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 164));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE SortGList(rp : pRastPort);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 25));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE StripFont(font : pTextFont);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 137));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE SyncSBitMap(layer : pLayer);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 74));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION GText(rp : pRastPort;const string_ : pCHAR; count : ULONG) : LONGINT;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 10));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION TextExtent(rp : pRastPort;const string_ : pCHAR; count : LONGINT; _textExtent : pTextExtent) : smallint;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 115));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION TextFit(rp : pRastPort;const string_ : pCHAR; strLen : ULONG; textExtent : pTextExtent; constrainingExtent : pTextExtent; strDirection : LONGINT; constrainingBitWidth : ULONG; constrainingBitHeight : ULONG) : ULONG;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 116));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION TextLength(rp : pRastPort;const string_ : pCHAR; count : ULONG) : smallint;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 9));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION UCopperListInit(uCopList : pUCopList; n : LONGINT) : pCopList;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 99));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE UnlockLayerRom(layer : pLayer);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, X));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION VBeamPos : LONGINT;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 64));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION VideoControl(colorMap : pColorMap; tagarray : pTagItem) : BOOLEAN;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 118));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE WaitBlit;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 38));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE WaitBOVP(vp : pViewPort);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 67));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE WaitTOF;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 45));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION WeighTAMatch(reqTextAttr : pTextAttr; targetTextAttr : pTextAttr; targetTags : pTagItem) : smallint;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 134));
-  Result := Call(, GfxBase);
-end;
-
-PROCEDURE WriteChunkyPixels(rp : pRastPort; xstart : ULONG; ystart : ULONG; xstop : ULONG; ystop : ULONG; array_ : pointer; bytesperrow : LONGINT);
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 176));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION WritePixel(rp : pRastPort; x : LONGINT; y : LONGINT) : LONGINT;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 54));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION WritePixelArray8(rp : pRastPort; xstart : ULONG; ystart : ULONG; xstop : ULONG; ystop : ULONG; array_ : pointer; temprp : pRastPort) : LONGINT;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 131));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION WritePixelLine8(rp : pRastPort; xstart : ULONG; ystart : ULONG; width : ULONG; array_ : pointer; tempRP : pRastPort) : LONGINT;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 129));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION XorRectRegion(region : pRegion;const rectangle : pRectangle) : BOOLEAN;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 93));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION XorRegionRegion(const srcRegion : pRegion; destRegion : pRegion) : BOOLEAN;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 103));
-  Result := Call(, GfxBase);
-end;
-
-FUNCTION XorRegionRegionND(const srcRegion : pRegion; destRegion : pRegion) : BOOLEAN;
-type
-  TLocalCall = function(; Base: Pointer): ; stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 152));
-  Result := Call(, GfxBase);
-end;
-       *)
-
-PROCEDURE Draw(rp : pRastPort; x : LONGINT; y : LONGINT);
-type
-  TLocalCall = procedure(rp : pRastPort; x : LONGINT; y : LONGINT; Base: Pointer); stdcall;
-var
-  Call: TLocalCall;
-begin
-  Call := TLocalCall(GetLibAdress(GfxBase, 41));
-  Call(rp, x, y, GfxBase);
-end;
-
-PROCEDURE Move(rp : pRastPort; x : LONGINT; y : LONGINT);
-type
-  TLocalCall = procedure(rp : pRastPort; x : LONGINT; y : LONGINT; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer); stdcall;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(GfxBase, 40));
-  Call(rp, x, y, GfxBase);
+  Call(Rp, x, y, GfxBase);
 end;
+
+procedure MoveSprite(Vp : PViewPort; sprite : pSimpleSprite; x : LongInt; y : LongInt);
+type
+  TLocalCall = procedure(Vp : PViewPort; sprite : pSimpleSprite; x : LongInt; y : LongInt; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 71));
+  Call(Vp, sprite, x, y, GfxBase);
+end;
+
+function MrgCop(view : pView) : LongWord;
+type
+  TLocalCall = function(view : pView; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 35));
+  Result := Call(view, GfxBase);
+end;
+
+function NewRegion : PRegion;
+type
+  TLocalCall = function(Base: Pointer): PRegion; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 86));
+  Result := Call(GfxBase);
+end;
+
+function NextDisplayInfo(displayID : LongWord) : LongWord;
+type
+  TLocalCall = function(displayID : LongWord; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 122));
+  Result := Call(displayID, GfxBase);
+end;
+
+function ObtainBestPenA(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord;const tags : PTagItem) : LongInt;
+type
+  TLocalCall = function(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord;const tags : PTagItem; Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 140));
+  Result := Call(cm, r, g, b, tags, GfxBase);
+end;
+
+function ObtainPen(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord; f : LongInt) : LongWord;
+type
+  TLocalCall = function(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord; f : LongInt; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 159));
+  Result := Call(cm, n, r, g, b, f, GfxBase);
+end;
+
+function OpenFont(textAttr : pTextAttr) : PTextFont;
+type
+  TLocalCall = function(textAttr : pTextAttr; Base: Pointer): PTextFont; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 12));
+  Result := Call(textAttr, GfxBase);
+end;
+
+function OpenMonitor(const monitorName : PChar; displayID : LongWord) : pMonitorSpec;
+type
+  TLocalCall = function(const monitorName : PChar; displayID : LongWord; Base: Pointer): pMonitorSpec; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 119));
+  Result := Call(monitorName, displayID, GfxBase);
+end;
+
+function OrRectRegion(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
+type
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 85));
+  Result := Call(region, rectangle, GfxBase);
+end;
+
+function OrRectRegionND(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
+type
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 123));
+  Result := Call(region, rectangle, GfxBase);
+end;
+
+function OrRegionRegion(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
+type
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 102));
+  Result := Call(srcRegion, destRegion, GfxBase);
+end;
+
+function OrRegionRegionND(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
+type
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 125));
+  Result := Call(srcRegion, destRegion, GfxBase);
+end;
+
+procedure OwnBlitter;
+type
+  TLocalCall = procedure(Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 76));
+  Call(GfxBase);
+end;
+
+procedure PolyDraw(Rp : PRastPort; count : LongInt;const polyTable : pLongint);
+type
+  TLocalCall = procedure(Rp : PRastPort; count : LongInt;const polyTable : pLongint; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 56));
+  Call(Rp, count, polyTable, GfxBase);
+end;
+
+procedure QBlit(blit : pbltnode);
+type
+  TLocalCall = procedure(blit : pbltnode; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 46));
+  Call(blit, GfxBase);
+end;
+
+procedure QBSBlit(blit : pbltnode);
+type
+  TLocalCall = procedure(blit : pbltnode; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 49));
+  Call(blit, GfxBase);
+end;
+
+function ReadPixel(Rp : PRastPort; x : LongInt; y : LongInt) : LongWord;
+type
+  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 53));
+  Result := Call(Rp, x, y, GfxBase);
+end;
+
+function ReadPixelArray8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort) : LongInt;
+type
+  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort; Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 131));
+  Result := Call(Rp, xstart, ystart, xstop, ystop, array_, temprp, GfxBase);
+end;
+
+function ReadPixelLine8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort) : LongInt;
+type
+  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort; Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 128));
+  Result := Call(Rp, xstart, ystart, Width, array_, tempRP, GfxBase);
+end;
+
+procedure RectFill(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
+type
+  TLocalCall = procedure(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 51));
+  Call(Rp, xMin, yMin, xMax, yMax, GfxBase);
+end;
+
+procedure ReleasePen(cm : pColorMap; n : LongWord);
+type
+  TLocalCall = procedure(cm : pColorMap; n : LongWord; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 158));
+  Call(cm, n, GfxBase);
+end;
+
+procedure RemFont(TextFont : PTextFont);
+type
+  TLocalCall = procedure(TextFont : PTextFont; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 81));
+  Call(TextFont, GfxBase);
+end;
+
+procedure RemIBob(bob : PBob; Rp : PRastPort; Vp : PViewPort);
+type
+  TLocalCall = procedure(bob : PBob; Rp : PRastPort; Vp : PViewPort; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 22));
+  Call(bob, Rp, Vp, GfxBase);
+end;
+
+procedure RemVSprite(VSprite : PVSprite);
+type
+  TLocalCall = procedure(VSprite : PVSprite; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 23));
+  Call(VSprite, GfxBase);
+end;
+
+function ScalerDiv(factor : LongWord; numerator : LongWord; denominator : LongWord) : WORD;
+type
+  TLocalCall = function(factor : LongWord; numerator : LongWord; denominator : LongWord; Base: Pointer): WORD; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 114));
+  Result := Call(factor, numerator, denominator, GfxBase);
+end;
+
+procedure ScrollRaster(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
+type
+  TLocalCall = procedure(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 66));
+  Call(Rp, dx, dy, xMin, yMin, xMax, yMax, GfxBase);
+end;
+
+procedure ScrollRasterBF(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
+type
+  TLocalCall = procedure(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 167));
+  Call(Rp, dx, dy, xMin, yMin, xMax, yMax, GfxBase);
+end;
+
+procedure ScrollVPort(Vp : PViewPort);
+type
+  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 98));
+  Call(Vp, GfxBase);
+end;
+
+procedure SetABPenDrMd(Rp : PRastPort; apen : LongWord; bpen : LongWord; drawmode : LongWord);
+type
+  TLocalCall = procedure(Rp : PRastPort; apen : LongWord; bpen : LongWord; drawmode : LongWord; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 149));
+  Call(Rp, apen, bpen, drawmode, GfxBase);
+end;
+
+procedure SetAPen(Rp : PRastPort; pen : LongWord);
+type
+  TLocalCall = procedure(Rp : PRastPort; pen : LongWord; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 57));
+  Call(Rp, pen, GfxBase);
+end;
+
+procedure SetBPen(Rp : PRastPort; pen : LongWord);
+type
+  TLocalCall = procedure(Rp : PRastPort; pen : LongWord; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 58));
+  Call(Rp, pen, GfxBase);
+end;
+
+function SetChipRev(want : LongWord) : LongWord;
+type
+  TLocalCall = function(want : LongWord; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 148));
+  Result := Call(want, GfxBase);
+end;
+
+procedure SetCollision(num : LongWord; routine : tPROCEDURE; gelsInfo : pGelsInfo);
+type
+  TLocalCall = procedure(num : LongWord; routine : tPROCEDURE; gelsInfo : pGelsInfo; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 24));
+  Call(num, routine, gelsInfo, GfxBase);
+end;
+
+procedure SetDrMd(Rp : PRastPort; drawMode : LongWord);
+type
+  TLocalCall = procedure(Rp : PRastPort; drawMode : LongWord; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 59));
+  Call(Rp, drawMode, GfxBase);
+end;
+
+function SetFont(Rp : PRastPort;const TextFont : PTextFont) : LongInt;
+type
+  TLocalCall = function(Rp : PRastPort;const TextFont : PTextFont; Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 11));
+  Result := Call(Rp, TextFont, GfxBase);
+end;
+
+procedure SetMaxPen(Rp : PRastPort; maxpen : LongWord);
+type
+  TLocalCall = procedure(Rp : PRastPort; maxpen : LongWord; Base: Pointer) ; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 165));
+  Call(Rp, maxpen, GfxBase);
+end;
+
+function SetOutlinePen(Rp : PRastPort; pen : LongWord) : LongWord;
+type
+  TLocalCall = function(Rp : PRastPort; pen : LongWord; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 163));
+  Result := Call(Rp, pen, GfxBase);
+end;
+
+procedure SetRast(Rp : PRastPort; pen : LongWord);
+type
+  TLocalCall = procedure(Rp : PRastPort; pen : LongWord; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 39));
+  Call(Rp, pen, GfxBase);
+end;
+
+procedure SetRGB32(Vp : PViewPort; n : LongWord; r : LongWord; g : LongWord; b : LongWord);
+type
+  TLocalCall = procedure(Vp : PViewPort; n : LongWord; r : LongWord; g : LongWord; b : LongWord; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 142));
+  Call(Vp, n, r, g, b, GfxBase);
+end;
+
+procedure SetRGB32CM(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord);
+type
+  TLocalCall = procedure(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 166));
+  Call(cm, n, r, g, b, GfxBase);
+end;
+
+procedure SetRGB4(Vp : PViewPort; index : LongInt; red : LongWord; green : LongWord; blue : LongWord);
+type
+  TLocalCall = procedure(Vp : PViewPort; index : LongInt; red : LongWord; green : LongWord; blue : LongWord; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 48));
+  Call(Vp, index, red, green, blue, GfxBase);
+end;
+
+procedure SetRGB4CM(colorMap : pColorMap; index : LongInt; red : LongWord; green : LongWord; blue : LongWord);
+type
+  TLocalCall = procedure(colorMap : pColorMap; index : LongInt; red : LongWord; green : LongWord; blue : LongWord; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 106));
+  Call(colorMap, index, red, green, blue, GfxBase);
+end;
+
+procedure SetRPAttrsA(Rp : PRastPort;const tags : PTagItem);
+type
+  TLocalCall = procedure(Rp : PRastPort;const tags : PTagItem; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 173));
+  Call(Rp, tags, GfxBase);
+end;
+
+function SetSoftStyle(Rp : PRastPort; style : LongWord; enable : LongWord) : LongWord;
+type
+  TLocalCall = function(Rp : PRastPort; style : LongWord; enable : LongWord; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 15));
+  Result := Call(Rp, style, enable, GfxBase);
+end;
+
+function SetWriteMask(Rp : PRastPort; msk : LongWord) : LongWord;
+type
+  TLocalCall = function(Rp : PRastPort; msk : LongWord; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 164));
+  Result := Call(Rp, msk, GfxBase);
+end;
+
+procedure SortGList(Rp : PRastPort);
+type
+  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 25));
+  Call(Rp, GfxBase);
+end;
+
+procedure StripFont(font : PTextFont);
+type
+  TLocalCall = procedure(font : PTextFont; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 137));
+  Call(font, GfxBase);
+end;
+
+procedure SyncSBitMap(layer : pLayer);
+type
+  TLocalCall = procedure(layer : pLayer; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 74));
+  Call(layer, GfxBase);
+end;
+
+function GText(Rp : PRastPort;const string_ : PChar; count : LongWord) : LongInt;
+type
+  TLocalCall = function(Rp : PRastPort;const string_ : PChar; count : LongWord; Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 10));
+  Result := Call(Rp, string_, count, GfxBase);
+end;
+
+function TextExtent(Rp : PRastPort;const string_ : PChar; count : LongInt; _textExtent : pTextExtent) : smallint;
+type
+  TLocalCall = function(Rp : PRastPort;const string_ : PChar; count : LongInt; _textExtent : pTextExtent; Base: Pointer): smallint; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 115));
+  Result := Call(Rp, string_, count, _textExtent, GfxBase);
+end;
+
+function TextFit(Rp : PRastPort;const string_ : PChar; strLen : LongWord; textExtent : pTextExtent; constrainingExtent : pTextExtent; strDirection : LongInt; constrainingBitWidth : LongWord; constrainingBitHeight : LongWord) : LongWord;
+type
+  TLocalCall = function(Rp : PRastPort;const string_ : PChar; strLen : LongWord; textExtent : pTextExtent; constrainingExtent : pTextExtent; strDirection : LongInt; constrainingBitWidth : LongWord; constrainingBitHeight : LongWord; Base: Pointer): LongWord; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 116));
+  Result := Call(Rp, string_, strLen, textExtent, constrainingExtent, strDirection, constrainingBitWidth, constrainingBitHeight, GfxBase);
+end;
+
+function TextLength(Rp : PRastPort;const string_ : PChar; count : LongWord) : smallint;
+type
+  TLocalCall = function(Rp : PRastPort;const string_ : PChar; count : LongWord; Base: Pointer): smallint; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 9));
+  Result := Call(Rp, string_, count, GfxBase);
+end;
+
+function UCopperListInit(uCopList : pUCopList; n : LongInt) : pCopList;
+type
+  TLocalCall = function(uCopList : pUCopList; n : LongInt; Base: Pointer): pCopList; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 99));
+  Result := Call(uCopList, n, GfxBase);
+end;
+
+procedure UnlockLayerRom(layer : pLayer);
+type
+  TLocalCall = procedure(layer : pLayer; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 73));
+  Call(layer, GfxBase);
+end;
+
+function VBeamPos : LongInt;
+type
+  TLocalCall = function(Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 64));
+  Result := Call(GfxBase);
+end;
+
+function VideoControl(colorMap : pColorMap; tagarray : PTagItem) : BOOLEAN;
+type
+  TLocalCall = function(colorMap : pColorMap; tagarray : PTagItem; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 118));
+  Result := Call(colorMap, tagarray, GfxBase);
+end;
+
+procedure WaitBlit;
+type
+  TLocalCall = procedure(Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 38));
+  Call(GfxBase);
+end;
+
+procedure WaitBOVP(Vp : PViewPort);
+type
+  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 67));
+  Call(Vp, GfxBase);
+end;
+
+procedure WaitTOF;
+type
+  TLocalCall = procedure(Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 45));
+  Call(GfxBase);
+end;
+
+function WeighTAMatch(reqTextAttr : pTextAttr; targetTextAttr : pTextAttr; targetTags : PTagItem) : smallint;
+type
+  TLocalCall = function(reqTextAttr : pTextAttr; targetTextAttr : pTextAttr; targetTags : PTagItem; Base: Pointer): smallint; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 134));
+  Result := Call(reqTextAttr, targetTextAttr, targetTags, GfxBase);
+end;
+
+procedure WriteChunkyPixels(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; bytesperrow : LongInt);
+type
+  TLocalCall = procedure(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; bytesperrow : LongInt; Base: Pointer); stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 176));
+  Call(Rp, xstart, ystart, xstop, ystop, array_, bytesperrow, GfxBase);
+end;
+
+function WritePixel(Rp : PRastPort; x : LongInt; y : LongInt) : LongInt;
+type
+  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 54));
+  Result := Call(Rp, x, y, GfxBase);
+end;
+
+function WritePixelArray8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort) : LongInt;
+type
+  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort; Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 131));
+  Result := Call(Rp, xstart, ystart, xstop, ystop, array_, temprp, GfxBase);
+end;
+
+function WritePixelLine8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort) : LongInt;
+type
+  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort; Base: Pointer): LongInt; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 130));
+  Result := Call(Rp, xstart, ystart, Width, array_, tempRP, GfxBase);
+end;
+
+function XorRectRegion(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
+type
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 93));
+  Result := Call(region, rectangle, GfxBase);
+end;
+
+function XorRectRegionND(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
+type
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 152));
+  Result := Call(region, rectangle, GfxBase);
+end;
+
+
+function XorRegionRegion(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
+type
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 103));
+  Result := Call(srcRegion, destRegion, GfxBase);
+end;
+
+function XorRegionRegionND(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
+type
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(GfxBase, 151));
+  Result := Call(srcRegion, destRegion, GfxBase);
+end;
+
 
 initialization
   GfxBase := OpenLibrary('graphics.library',36);
