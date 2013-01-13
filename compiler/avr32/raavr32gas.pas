@@ -54,19 +54,13 @@ Unit raavr32gas;
       { helpers }
       cutils,
       { global }
-      globtype,globals,verbose,
-      systems,
-      { aasm }
-      cpuinfo,aasmbase,aasmtai,aasmdata,aasmcpu,
+      globtype,verbose,
+      systems,aasmbase,aasmtai,aasmdata,aasmcpu,
       { symtable }
-      symconst,symbase,symtype,symsym,symtable,
-      { parser }
-      scanner,
+      symconst,symsym,
       procinfo,
-      itcpugas,
       rabase,rautils,
-      cgbase,cgobj
-      ;
+      cgbase,cgutils;
 
 
     function tavr32attreader.is_register(const s:string):boolean;

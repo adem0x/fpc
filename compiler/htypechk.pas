@@ -1761,7 +1761,7 @@ implementation
                begin
                  if ((valid_const in opts) and
                      (tinlinenode(hp).inlinenumber in [in_typeof_x])) or
-                    (tinlinenode(hp).inlinenumber in [in_unaligned_x]) then
+                     (tinlinenode(hp).inlinenumber in [in_unaligned_x,in_aligned_x]) then
                    result:=true
                  else
                    if report_errors then
@@ -1773,6 +1773,17 @@ implementation
                begin
                  { only created internally, so no additional checks necessary }
                  result:=true;
+                 mayberesettypeconvs;
+                 exit;
+               end;
+             nothingn :
+               begin
+                 { generics can generate nothing nodes, just allow everything }
+                 if df_generic in current_procinfo.procdef.defoptions then
+                   result:=true
+                 else if report_errors then
+                   CGMessagePos(hp.fileinfo,type_e_variable_id_expected);
+
                  mayberesettypeconvs;
                  exit;
                end;

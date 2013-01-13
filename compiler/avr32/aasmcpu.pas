@@ -26,10 +26,9 @@ unit aasmcpu;
 interface
 
 uses
-  cclasses,globtype,globals,verbose,
+  globtype,globals,verbose,
   aasmbase,aasmtai,aasmdata,aasmsym,
-  ogbase,
-  symtype,
+  ogbase,symtype,
   cpubase,cpuinfo,cgbase,cgutils;
 
     const
@@ -264,7 +263,7 @@ uses
 implementation
 
   uses
-    cutils,rgobj,itcpugas;
+    itcpugas;
 
     procedure taicpu.loadregisterselector(opidx: longint; _op1: tregister; aselector: tregisterselector);
       begin

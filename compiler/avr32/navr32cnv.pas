@@ -26,7 +26,7 @@ unit navr32cnv;
 interface
 
     uses
-      node,ncnv,ncgcnv,defcmp;
+      node,ncnv,ncgcnv;
 
     type
        tavr32typeconvnode = class(tcgtypeconvnode)
@@ -40,14 +40,12 @@ implementation
 
    uses
       verbose,globtype,globals,systems,
-      symconst,symdef,aasmbase,aasmtai,aasmdata,
+      verbose,globtype,globals,symdef,aasmbase,aasmtai,aasmdata,symtable,
       defutil,
-      cgbase,cgutils,hlcgobj,
-      pass_1,pass_2,procinfo,
-      ncon,ncal,
+      cgbase,cgutils,
+      pass_1,pass_2,procinfo,ncal,
       ncgutil,
-      cpubase,cpuinfo,aasmcpu,
-      rgobj,tgobj,cgobj,cgcpu;
+      cpubase,cpuinfo,aasmcpu,cgobj,hlcgobj,cgcpu;
 
 
 {*****************************************************************************

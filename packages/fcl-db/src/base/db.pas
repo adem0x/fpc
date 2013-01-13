@@ -633,12 +633,14 @@ type
     procedure SetPrecision(const AValue: Longint);
   protected
     function GetAsFloat: Double; override;
+    function GetAsLargeInt: LargeInt; override;
     function GetAsLongint: Longint; override;
     function GetAsVariant: variant; override;
     function GetAsString: string; override;
     function GetDataSize: Integer; override;
     procedure GetText(var theText: string; ADisplayText: Boolean); override;
     procedure SetAsFloat(AValue: Double); override;
+    procedure SetAsLargeInt(AValue: LargeInt); override;
     procedure SetAsLongint(AValue: Longint); override;
     procedure SetAsString(const AValue: string); override;
     procedure SetVarValue(const AValue: Variant); override;
@@ -820,6 +822,7 @@ type
     function GetAsBCD: TBCD; override;
     function GetAsCurrency: Currency; override;
     function GetAsFloat: Double; override;
+    function GetAsLargeInt: LargeInt; override;
     function GetAsLongint: Longint; override;
     function GetAsString: string; override;
     function GetAsVariant: variant; override;
@@ -828,6 +831,7 @@ type
     procedure GetText(var TheText: string; ADisplayText: Boolean); override;
     procedure SetAsBCD(const AValue: TBCD); override;
     procedure SetAsFloat(AValue: Double); override;
+    procedure SetAsLargeInt(AValue: LargeInt); override;
     procedure SetAsLongint(AValue: Longint); override;
     procedure SetAsString(const AValue: string); override;
     procedure SetAsCurrency(AValue: Currency); override;
@@ -1064,7 +1068,7 @@ type
 
 { TFields }
 
-  Tfields = Class(TObject)
+  TFields = Class(TObject)
     Private
       FDataset : TDataset;
       FFieldList : TFpList;
@@ -1584,10 +1588,10 @@ type
     procedure EnableControls;
     function FieldByName(const FieldName: string): TField;
     function FindField(const FieldName: string): TField;
-    function FindFirst: Boolean;
-    function FindLast: Boolean;
-    function FindNext: Boolean;
-    function FindPrior: Boolean;
+    function FindFirst: Boolean; virtual;
+    function FindLast: Boolean; virtual;
+    function FindNext: Boolean; virtual;
+    function FindPrior: Boolean; virtual;
     procedure First;
     procedure FreeBookmark(ABookmark: TBookmark); virtual;
     function GetBookmark: TBookmark; virtual;
@@ -1765,7 +1769,7 @@ type
   TMasterParamsDataLink = Class(TMasterDataLink)
   Private
     FParams : TParams;
-    Procedure SetParams(AVAlue : TParams);
+    Procedure SetParams(AValue : TParams);
   Protected
     Procedure DoMasterDisable; override;
     Procedure DoMasterChange; override;

@@ -1062,7 +1062,9 @@ const
          (mask:pi_has_global_goto;
          str:' subroutine contains interprocedural goto '),
          (mask:pi_has_inherited;
-         str:' subroutine contains inherited call ')
+         str:' subroutine contains inherited call '),
+         (mask:pi_has_nested_exit;
+         str:' subroutine contains a nested subroutine which calls the exit of the current one ')
   );
 var
   procinfooptions : tprocinfoflags;
@@ -1170,7 +1172,8 @@ const
      (mask:df_unique;         str:'Unique Type'),
      (mask:df_generic;        str:'Generic'),
      (mask:df_specialization; str:'Specialization'),
-     (mask:df_copied_def;     str:'Copied Typedef')
+     (mask:df_copied_def;     str:'Copied Typedef'),
+     (mask:df_genconstraint;  str:'Generic Constraint')
   );
   defstate : array[1..ord(high(tdefstate))] of tdefstateinfo=(
      (mask:ds_vmt_written;           str:'VMT Written'),
@@ -2388,6 +2391,7 @@ begin
                    end;
                  writeln;
                end;
+             writeln(space,'            Empty : ',getbyte<>0);
              if not EndOfEntry then
                HasMoreInfos;
              space:='    '+space;

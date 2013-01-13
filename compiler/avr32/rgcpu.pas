@@ -31,6 +31,9 @@ unit rgcpu;
        aasmbase,aasmtai,aasmdata,aasmcpu,
        cgbase,cgutils,
        cpubase,
+       {$ifdef DEBUG_SPILLING}
+       cutils,
+       {$endif}
        rgobj;
 
      type
@@ -45,7 +48,7 @@ unit rgcpu;
   implementation
 
     uses
-      verbose, cutils,globtype,
+      verbose,globtype,globals,cpuinfo,
       cgobj,
       procinfo;
 

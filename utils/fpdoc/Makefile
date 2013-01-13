@@ -3377,9 +3377,13 @@ include fpcmake.loc
 endif
 .NOTPARALLEL:
 fpdoc$(EXEEXT): fpdoc.pp dglobals.pp dwriter.pp dw_xml.pp sh_pas.pp dw_html.pp\
-  dw_latex.pp dwlinear.pp dw_txt.pp dw_linrtf.pp
+  dw_latex.pp dwlinear.pp dw_txt.pp dw_linrtf.pp css.inc plusimage.inc minusimage.inc
 makeskel$(EXEEXT): makeskel.pp dglobals.pp
 css.inc: fpdoc.css ../bin2obj$(EXEEXT)
 	../bin2obj$(EXEEXT) -o css.inc -c DefaultCSS fpdoc.css
+plusimage.inc: images/plus.png ../bin2obj$(EXEEXT)
+	../bin2obj$(EXEEXT) -o plusimage.inc -c PlusImageData images/plus.png
+minusimage.inc: images/minus.png ../bin2obj$(EXEEXT)
+	../bin2obj$(EXEEXT) -o minusimage.inc -c MinusImageData images/minus.png
 ../bin2obj$(EXEEXT):
 	$(MAKE) -C .. bin2obj$(EXEEXT)

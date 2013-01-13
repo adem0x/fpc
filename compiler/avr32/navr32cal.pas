@@ -26,7 +26,7 @@ unit navr32cal;
 interface
 
     uses
-      symdef,node,ncal,ncgcal;
+      symdef,ncal,ncgcal;
 
     type
        tavr32callnode = class(tcgcallnode)
@@ -38,8 +38,7 @@ implementation
   uses
     verbose,globtype,globals,aasmdata,
     symconst,
-    cgbase,
-    cpubase,cpuinfo,
+    cgbase,cpuinfo,
     ncgutil,
     paramgr;
 

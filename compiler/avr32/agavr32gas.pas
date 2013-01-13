@@ -30,7 +30,7 @@ unit agavr32gas;
 
     uses
        globtype,
-       aasmtai,aasmdata,
+       aasmtai,
        aggas,
        cpubase;
 

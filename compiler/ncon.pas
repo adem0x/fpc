@@ -572,6 +572,7 @@ implementation
          n : trealconstnode;
       begin
          n:=trealconstnode(inherited dogetcopy);
+         n.typedef:=typedef;
          n.value_real:=value_real;
          n.value_currency:=value_currency;
          n.lab_real:=lab_real;
@@ -596,10 +597,23 @@ implementation
       begin
         docompare :=
           inherited docompare(p) and
-          (value_real = trealconstnode(p).value_real) and
-          { floating point compares for non-numbers give strange results usually }
-          is_number_float(value_real) and
-          is_number_float(trealconstnode(p).value_real);
+          { this should be always true }
+          (trealconstnode(p).typedef.typ=floatdef) and (typedef.typ=floatdef) and
+          (tfloatdef(typedef).floattype = tfloatdef(trealconstnode(p).typedef).floattype) and
+          (
+           (
+            (tfloatdef(typedef).floattype=s64currency) and
+            (value_currency=trealconstnode(p).value_currency)
+           )
+           or
+           (
+            (tfloatdef(typedef).floattype<>s64currency) and
+            (value_real = trealconstnode(p).value_real) and
+            { floating point compares for non-numbers give strange results usually }
+            is_number_float(value_real) and
+            is_number_float(trealconstnode(p).value_real)
+           )
+          );
       end;
 
 
@@ -1313,6 +1327,9 @@ implementation
       begin
          result:=nil;
          expectloc:=LOC_CREFERENCE;
+        if (cs_create_pic in current_settings.moduleswitches) and
+          (tf_pic_uses_got in target_info.flags) then
+          include(current_procinfo.flags,pi_needs_got);
       end;
 
     function tguidconstnode.docompare(p: tnode): boolean;

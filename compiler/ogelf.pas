@@ -32,11 +32,19 @@ interface
        systems,
        { assembler }
        cpuinfo,cpubase,aasmbase,aasmtai,aasmdata,assemble,
+       { ELF definitions }
+       elfbase,
        { output }
        ogbase,
        owbase;
 
     type
+{$ifdef cpu64bitaddr}
+      TElfsechdr = TElf64sechdr;
+{$else cpu64bitaddr}
+      TElfsechdr = TElf32sechdr;
+{$endif cpu64bitaddr}
+
        TElfObjSection = class(TObjSection)
        public
           shstridx,
@@ -94,14 +102,6 @@ interface
          constructor create(smart:boolean);override;
        end;
 
-       TElfTarget=class(TObject)
-       public
-         class function encodereloc(objrel:TObjRelocation):byte;virtual;abstract;
-         class procedure loadreloc(objrel:TObjRelocation);virtual;abstract;
-       end;
-
-       TElfTargetClass=class of TElfTarget;
-
        PSectionRec=^TSectionRec;
        TSectionRec=record
          sec: TObjSection;
@@ -110,11 +110,14 @@ interface
          relentsize: longint;
        end;
 
+       TElfsecheaderarray=array of TElfsechdr;
+
        TElfObjInput=class(TObjInput)
        private
          FSecTbl: PSectionRec;
          FSymTbl: PPointer;
          FLoaded: PBoolean;
+         shdrs: TElfsecheaderarray;
          nsects: longword;
          shentsize: longword;
          shoffset: aword;
@@ -130,16 +133,43 @@ interface
          symversions: PWord;
          dynobj: boolean;
          function LoadHeader:word;
-         procedure LoadSection(const hdr;index:longint;objdata:TObjData);
+         procedure LoadSection(const shdr:TElfsechdr;index:longint;objdata:TObjData);
          procedure LoadRelocations(const secrec:TSectionRec);
          procedure LoadSymbols(objdata:TObjData;count,locals:longword);
-         procedure LoadDynamic(const hdr;objdata:TObjData);
+         procedure LoadDynamic(const shdr:TElfsechdr;objdata:TObjData);
        public
          constructor Create;override;
          destructor Destroy;override;
-         function  ReadObjData(AReader:TObjectreader;objdata:TObjData):boolean;override;
+         function  ReadObjData(AReader:TObjectreader;out objdata:TObjData):boolean;override;
          class function CanReadObjData(AReader:TObjectreader):boolean;override;
+         function CreateSection(const shdr:TElfsechdr;index:longint;objdata:TObjData;
+           out secname:string):TElfObjSection;
        end;
+
+       TRelocNameProc=function(reltyp:byte):string;
+       TEncodeRelocProc=function(objrel:TObjRelocation):byte;
+       TLoadRelocProc=procedure(objrel:TObjRelocation);
+       TLoadSectionProc=function(objinput:TElfObjInput;objdata:TObjData;const shdr:TElfsechdr;shindex:longint):boolean;
+       TDynamicReloc=(
+         dr_relative,
+         dr_glob_dat,
+         dr_jump_slot,
+         dr_copy,
+         dr_irelative
+       );
+
+       TElfTarget=record
+         max_page_size: longword;
+         exe_image_base: longword;
+         machine_code: word;
+         relocs_use_addend: boolean;
+         dyn_reloc_codes: array[TDynamicReloc] of byte;
+         relocname: TRelocNameProc;
+         encodereloc: TEncodeRelocProc;
+         loadreloc: TLoadRelocProc;
+         loadsection: TLoadSectionProc;
+       end;
+
 
        TElfExeSection=class(TExeSection)
        public
@@ -186,6 +216,11 @@ interface
          dynsymtable: TElfSymtab;
          interpobjsec: TObjSection;
          FInterpreter: pshortstring;
+         verneedcount,
+         verdefcount: longword;
+         symversec,
+         verdefsec,
+         verneedsec,
          dynamicsec,
          hashobjsec: TElfObjSection;
          neededlist: TFPHashList;
@@ -222,16 +257,21 @@ interface
          dynreloclist: TFPObjectList;
          tlsseg: TElfSegment;
          relative_reloc_count: longint;
+         function AllocGOTSlot(objsym: TObjSymbol):boolean;
+         procedure CreateGOTSection;virtual;
+         procedure make_dynamic_if_undefweak(exesym:TExeSymbol);
          procedure WriteDynRelocEntry(dataofs:aword;typ:byte;symidx:aword;addend:aword);
          procedure WriteFirstPLTEntry;virtual;abstract;
          procedure WritePLTEntry(exesym:TExeSymbol);virtual;
          procedure WriteIndirectPLTEntry(exesym:TExeSymbol);virtual;
-         procedure GOTRelocPass1(objsec:TObjSection;ObjReloc:TObjRelocation);virtual;abstract;
+         procedure GOTRelocPass1(objsec:TObjSection;var idx:longint);virtual;abstract;
+         procedure ReportNonDSOReloc(reltyp:byte;objsec:TObjSection;ObjReloc:TObjRelocation);
+         procedure ReportRelocOverflow(reltyp:byte;objsec:TObjSection;ObjReloc:TObjRelocation);
        public
          constructor Create;override;
          destructor Destroy;override;
          procedure Load_Start;override;
-         procedure Load_DynamicObject(ObjData:TObjData);override;
+         procedure Load_DynamicObject(ObjData:TObjData;asneeded:boolean);override;
          procedure Order_Start;override;
          procedure Order_end;override;
          procedure AfterUnusedSectionRemoval;override;
@@ -246,20 +286,13 @@ interface
 
      var
        ElfExeOutputClass: TExeOutputClass;
-       ElfTarget: TElfTargetClass;
+       ElfTarget: TElfTarget;
 
      const
        { Bits of TObjSymbol.refs field }
        symref_plt = 1;
+       symref_from_text = 2;
 
-{TODO: should become property of back-end }
-{$ifdef x86_64}
-     const
-       relocs_use_addend:Boolean=True;
-{$else x86_64}
-     const
-       relocs_use_addend:Boolean=False;
-{$endif x86_64}
 
 
 implementation
@@ -273,344 +306,6 @@ implementation
     const
       symbolresize = 200*18;
 
-    const
-      EI_MAG0    = 0;
-        ELFMAG0  = $7F;
-      EI_MAG1    = 1;
-        ELFMAG1  = ord('E');
-      EI_MAG2    = 2;
-        ELFMAG2  = ord('L');
-      EI_MAG3    = 3;
-        ELFMAG3  = ord('F');
-      EI_CLASS   = 4;
-        ELFCLASSNONE  = 0;
-        ELFCLASS32    = 1;
-        ELFCLASS64    = 2;
-      EI_DATA    = 5;
-        ELFDATANONE   = 0;
-        ELFDATA2LSB   = 1;
-        ELFDATA2MSB   = 2;
-      EI_VERSION = 6;
-      EI_OSABI   = 7;
-      EI_ABIVERSION = 8;
-      EI_PAD     = 9;
-
-      { ELFHeader.e_type }
-      ET_NONE       = 0;
-      ET_REL        = 1;
-      ET_EXEC       = 2;
-      ET_DYN        = 3;
-      ET_CORE       = 4;
-
-      { ELFHeader.e_machine }
-      EM_SPARC      = 2;
-      EM_386        = 3;
-      EM_M68K       = 4;
-      EM_MIPS       = 8;
-      EM_PPC        = 20;
-      EM_ARM        = 40;
-      EM_X86_64     = 62;
-
-{$ifdef sparc}
-      ELFMACHINE = EM_SPARC;
-{$endif sparc}
-{$ifdef i386}
-      ELFMACHINE = EM_386;
-{$endif i386}
-{$ifdef m68k}
-      ELFMACHINE = EM_M68K;
-{$endif m68k}
-{$ifdef powerpc}
-      ELFMACHINE = EM_PPC;
-{$endif powerpc}
-{$ifdef powerpc64}
-      ELFMACHINE = EM_PPC; // TODO
-{$endif}
-{$ifdef mips}
-      ELFMACHINE = EM_MIPS;
-{$endif}
-{$ifdef arm}
-      ELFMACHINE = EM_ARM;
-{$endif arm}
-{$ifdef x86_64}
-      ELFMACHINE = EM_X86_64;
-{$endif x86_64}
-
-      SHN_UNDEF     = 0;
-      SHN_LORESERVE = $FF00;
-      SHN_ABS       = $fff1;
-      SHN_COMMON    = $fff2;
-
-      SHT_NULL     = 0;
-      SHT_PROGBITS = 1;
-      SHT_SYMTAB   = 2;
-      SHT_STRTAB   = 3;
-      SHT_RELA     = 4;
-      SHT_HASH     = 5;
-      SHT_DYNAMIC  = 6;
-      SHT_NOTE     = 7;
-      SHT_NOBITS   = 8;
-      SHT_REL      = 9;
-      SHT_SHLIB    = 10;
-      SHT_DYNSYM   = 11;
-      SHT_INIT_ARRAY = 14;
-      SHT_FINI_ARRAY = 15;
-      SHT_PREINIT_ARRAY = 16;
-      SHT_GROUP    = 17;
-      SHT_SYMTAB_SHNDX = 18;
-      SHT_GNU_verdef = $6ffffffd;
-      SHT_GNU_verneed = $6ffffffe;
-      SHT_GNU_versym = $6fffffff;
-
-      SHF_WRITE     = 1;
-      SHF_ALLOC     = 2;
-      SHF_EXECINSTR = 4;
-      SHF_MERGE     = 16;
-      SHF_STRINGS   = 32;
-      SHF_INFO_LINK = 64;
-      SHF_LINK_ORDER = 128;
-      SHF_OS_NONCONFORMING = 256;
-      SHF_GROUP     = 512;
-      SHF_TLS       = 1024;
-
-      STB_LOCAL   = 0;
-      STB_GLOBAL  = 1;
-      STB_WEAK    = 2;
-
-      STT_NOTYPE  = 0;
-      STT_OBJECT  = 1;
-      STT_FUNC    = 2;
-      STT_SECTION = 3;
-      STT_FILE    = 4;
-      STT_COMMON  = 5;
-      STT_TLS     = 6;
-      STT_GNU_IFUNC = 10;
-
-      { program header types }
-      PT_NULL     = 0;
-      PT_LOAD     = 1;
-      PT_DYNAMIC  = 2;
-      PT_INTERP   = 3;
-      PT_NOTE     = 4;
-      PT_SHLIB    = 5;
-      PT_PHDR     = 6;
-      PT_TLS      = 7;
-      PT_LOOS     = $60000000;
-      PT_HIOS     = $6FFFFFFF;
-      PT_LOPROC   = $70000000;
-      PT_HIPROC   = $7FFFFFFF;
-      PT_GNU_EH_FRAME = PT_LOOS + $474e550;   { Frame unwind information }
-      PT_GNU_STACK = PT_LOOS + $474e551;      { Stack flags }
-      PT_GNU_RELRO = PT_LOOS + $474e552;      { Read-only after relocation }
-
-      { program header flags }
-      PF_X = 1;
-      PF_W = 2;
-      PF_R = 4;
-      PF_MASKOS   = $0FF00000;   { OS-specific reserved bits }
-      PF_MASKPROC = $F0000000;   { Processor-specific reserved bits }
-
-      { .dynamic tags  }
-      DT_NULL     = 0;
-      DT_NEEDED   = 1;
-      DT_PLTRELSZ = 2;
-      DT_PLTGOT   = 3;
-      DT_HASH     = 4;
-      DT_STRTAB   = 5;
-      DT_SYMTAB	  = 6;
-      DT_RELA     = 7;
-      DT_RELASZ   = 8;
-      DT_RELAENT  = 9;
-      DT_STRSZ    = 10;
-      DT_SYMENT   = 11;
-      DT_INIT     = 12;
-      DT_FINI     = 13;
-      DT_SONAME   = 14;
-      DT_RPATH    = 15;
-      DT_SYMBOLIC = 16;
-      DT_REL      = 17;
-      DT_RELSZ    = 18;
-      DT_RELENT   = 19;
-      DT_PLTREL   = 20;
-      DT_DEBUG    = 21;
-      DT_TEXTREL  = 22;
-      DT_JMPREL   = 23;
-      DT_BIND_NOW = 24;
-      DT_INIT_ARRAY = 25;
-      DT_FINI_ARRAY = 26;
-      DT_INIT_ARRAYSZ = 27;
-      DT_FINI_ARRAYSZ = 28;
-      DT_RUNPATH  = 29;
-      DT_FLAGS    = 30;
-      DT_ENCODING = 32;
-      DT_PREINIT_ARRAY   = 32;
-      DT_PREINIT_ARRAYSZ = 33;
-      DT_NUM      = 34;
-      DT_LOOS     = $6000000D;
-      DT_HIOS     = $6ffff000;
-      DT_LOPROC   = $70000000;
-      DT_HIPROC   = $7fffffff;
-
-      DT_RELACOUNT = $6ffffff9;
-      DT_RELCOUNT  = $6ffffffa;
-      DT_FLAGS_1   = $6ffffffb;
-      DT_VERDEF    = $6ffffffc;
-      DT_VERDEFNUM = $6ffffffd;
-      DT_VERNEED   = $6ffffffe;
-      DT_VERNEEDNUM = $6fffffff;
-
-      GRP_COMDAT = 1;
-
-      type
-      { Structures which are written directly to the output file }
-        TElf32header=packed record
-          e_ident           : array[0..15] of byte;
-          e_type            : word;
-          e_machine         : word;
-          e_version         : longword;
-          e_entry           : longword;         { entrypoint }
-          e_phoff           : longword;         { program header offset }
-          e_shoff           : longword;         { sections header offset }
-          e_flags           : longword;
-          e_ehsize          : word;             { elf header size in bytes }
-          e_phentsize       : word;             { size of an entry in the program header array }
-          e_phnum           : word;             { 0..e_phnum-1 of entrys }
-          e_shentsize       : word;             { size of an entry in sections header array }
-          e_shnum           : word;             { 0..e_shnum-1 of entrys }
-          e_shstrndx        : word;             { index of string section header }
-        end;
-        TElf32sechdr=packed record
-          sh_name           : longword;
-          sh_type           : longword;
-          sh_flags          : longword;
-          sh_addr           : longword;
-          sh_offset         : longword;
-          sh_size           : longword;
-          sh_link           : longword;
-          sh_info           : longword;
-          sh_addralign      : longword;
-          sh_entsize        : longword;
-        end;
-        TElf32proghdr=packed record
-          p_type            : longword;
-          p_offset          : longword;
-          p_vaddr           : longword;
-          p_paddr           : longword;
-          p_filesz          : longword;
-          p_memsz           : longword;
-          p_flags           : longword;
-          p_align           : longword;
-        end;
-        TElf32reloc=packed record
-          address : longword;
-          info    : longword; { bit 0-7: type, 8-31: symbol }
-          addend  : longint;
-        end;
-        TElf32symbol=packed record
-          st_name  : longword;
-          st_value : longword;
-          st_size  : longword;
-          st_info  : byte; { bit 0-3: type, 4-7: bind }
-          st_other : byte;
-          st_shndx : word;
-        end;
-        TElf32Dyn=packed record
-          d_tag: longword;
-          case integer of
-            0: (d_val: longword);
-            1: (d_ptr: longword);
-        end;
-
-
-        telf64header=packed record
-          e_ident           : array[0..15] of byte;
-          e_type            : word;
-          e_machine         : word;
-          e_version         : longword;
-          e_entry           : qword;            { entrypoint }
-          e_phoff           : qword;            { program header offset }
-          e_shoff           : qword;            { sections header offset }
-          e_flags           : longword;
-          e_ehsize          : word;             { elf header size in bytes }
-          e_phentsize       : word;             { size of an entry in the program header array }
-          e_phnum           : word;             { 0..e_phnum-1 of entrys }
-          e_shentsize       : word;             { size of an entry in sections header array }
-          e_shnum           : word;             { 0..e_shnum-1 of entrys }
-          e_shstrndx        : word;             { index of string section header }
-        end;
-        telf64sechdr=packed record
-          sh_name           : longword;
-          sh_type           : longword;
-          sh_flags          : qword;
-          sh_addr           : qword;
-          sh_offset         : qword;
-          sh_size           : qword;
-          sh_link           : longword;
-          sh_info           : longword;
-          sh_addralign      : qword;
-          sh_entsize        : qword;
-        end;
-        telf64proghdr=packed record
-          p_type            : longword;
-          p_flags           : longword;
-          p_offset          : qword;
-          p_vaddr           : qword;
-          p_paddr           : qword;
-          p_filesz          : qword;
-          p_memsz           : qword;
-          p_align           : qword;
-        end;
-        telf64reloc=packed record
-          address : qword;
-          info    : qword; { bit 0-31: type, 32-63: symbol }
-          addend  : int64; { signed! }
-        end;
-        telf64symbol=packed record
-          st_name  : longword;
-          st_info  : byte; { bit 0-3: type, 4-7: bind }
-          st_other : byte;
-          st_shndx : word;
-          st_value : qword;
-          st_size  : qword;
-        end;
-        TElf64Dyn=packed record
-          d_tag: qword;
-          case integer of
-            0: (d_val: qword);
-            1: (d_ptr: qword);
-        end;
-
-        TElfVerdef=record        { same for 32 and 64 bits }
-          vd_version: word;      { =1 }
-          vd_flags:   word;
-          vd_ndx:     word;
-          vd_cnt:     word;      { number of verdaux records }
-          vd_hash:    longword;  { ELF hash of version name }
-          vd_aux:     longword;  { offset to verdaux records }
-          vd_next:    longword;  { offset to next verdef record }
-        end;
-
-        TElfVerdaux=record
-          vda_name: longword;
-          vda_next: longword;
-        end;
-
-        TElfVerneed=record
-          vn_version: word;      { =VER_NEED_CURRENT }
-          vn_cnt:     word;
-          vn_file:    longword;
-          vn_aux:     longword;
-          vn_next:    longword;
-        end;
-
-        TElfVernaux=record
-          vna_hash:  longword;
-          vna_flags: word;
-          vna_other: word;
-          vna_name:  longword;
-          vna_next:  longword;
-        end;
-
 {$ifdef cpu64bitaddr}
       const
         ELFCLASS = ELFCLASS64;
@@ -618,7 +313,6 @@ implementation
         telfheader = telf64header;
         telfreloc = telf64reloc;
         telfsymbol = telf64symbol;
-        telfsechdr = telf64sechdr;
         telfproghdr = telf64proghdr;
         telfdyn = telf64dyn;
 
@@ -634,7 +328,6 @@ implementation
         telfheader = telf32header;
         telfreloc = telf32reloc;
         telfsymbol = telf32symbol;
-        telfsechdr = telf32sechdr;
         telfproghdr = telf32proghdr;
         telfdyn = telf32dyn;
 
@@ -643,16 +336,6 @@ implementation
           result:=(sym shl 8) or typ;
         end;
 {$endif cpu64bitaddr}
-
-{$ifdef x86_64}
-      const
-        ELF_MAXPAGESIZE:longint=$200000;
-        TEXT_SEGMENT_START:longint=$400000;
-{$else x86_64}
-      const
-        ELF_MAXPAGESIZE:longint=$1000;
-        TEXT_SEGMENT_START:longint=$8048000;
-{$endif x86_64}
 
       procedure MayBeSwapHeader(var h : telf32header);
         begin
@@ -842,6 +525,61 @@ implementation
         end;
 
 
+      procedure MaybeSwapElfverdef(var h: TElfverdef);
+        begin
+          if source_info.endian<>target_info.endian then
+            with h do
+              begin
+                vd_version:=swapendian(vd_version);
+                vd_flags:=swapendian(vd_flags);
+                vd_ndx:=swapendian(vd_ndx);
+                vd_cnt:=swapendian(vd_cnt);
+                vd_hash:=swapendian(vd_hash);
+                vd_aux:=swapendian(vd_aux);
+                vd_next:=swapendian(vd_next);
+              end;
+        end;
+
+
+      procedure MaybeSwapElfverdaux(var h: TElfverdaux);
+        begin
+          if source_info.endian<>target_info.endian then
+            with h do
+              begin
+                vda_name:=swapendian(vda_name);
+                vda_next:=swapendian(vda_next);
+              end;
+        end;
+
+
+      procedure MaybeSwapElfverneed(var h: TElfverneed);
+        begin
+          if source_info.endian<>target_info.endian then
+            with h do
+              begin
+                vn_version:=swapendian(vn_version);
+                vn_cnt:=swapendian(vn_cnt);
+                vn_file:=swapendian(vn_file);
+                vn_aux:=swapendian(vn_aux);
+                vn_next:=swapendian(vn_next);
+              end;
+        end;
+
+
+      procedure MaybeSwapElfvernaux(var h: TElfvernaux);
+        begin
+          if source_info.endian<>target_info.endian then
+            with h do
+              begin
+                vna_hash:=swapendian(vna_hash);
+                vna_flags:=swapendian(vna_flags);
+                vna_other:=swapendian(vna_other);
+                vna_name:=swapendian(vna_name);
+                vna_next:=swapendian(vna_next);
+              end;
+        end;
+
+
 {****************************************************************************
                                 Helpers
 ****************************************************************************}
@@ -922,11 +660,11 @@ implementation
     constructor TElfObjSection.create_reloc(aobjdata:TObjData;const Aname:string;allocflag:boolean);
       begin
         create_ext(aobjdata,
-          relsec_prefix[relocs_use_addend]+aname,
-          relsec_shtype[relocs_use_addend],
+          relsec_prefix[ElfTarget.relocs_use_addend]+aname,
+          relsec_shtype[ElfTarget.relocs_use_addend],
           SHF_ALLOC*ord(allocflag),
           sizeof(pint),
-          (2+ord(relocs_use_addend))*sizeof(pint));
+          (2+ord(ElfTarget.relocs_use_addend))*sizeof(pint));
       end;
 
 
@@ -938,10 +676,13 @@ implementation
         reloc.size:=len;
         ObjRelocations.Add(reloc);
         if reltype=RELOC_RELATIVE then
+{ ARM does not require this adjustment, other CPUs must be checked, need to check for avr32 }
+{$if defined(i386) or defined(x86_64) or defined(avr32)}
           dec(offset,len)
+{$endif i386 or x86_64 or avr32}
         else if reltype<>RELOC_ABSOLUTE then
           InternalError(2012062401);
-        if relocs_use_addend then
+        if ElfTarget.relocs_use_addend then
           begin
             reloc.orgsize:=offset;
             offset:=0;
@@ -1102,7 +843,7 @@ implementation
             objreloc.size:=len;
             if reltype in [RELOC_RELATIVE{$ifdef x86},RELOC_PLT32{$endif}{$ifdef x86_64},RELOC_GOTPCREL{$endif}] then
               dec(data,len);
-            if relocs_use_addend then
+            if ElfTarget.relocs_use_addend then
               begin
                 objreloc.orgsize:=data;
                 data:=0;
@@ -1184,7 +925,8 @@ implementation
         else
           InternalError(2012111801);
         end;
-        if (objsym.bind<>AB_EXTERNAL) then
+        { External symbols must be NOTYPE in relocatable files }
+        if (objsym.bind<>AB_EXTERNAL) or (kind<>esk_obj) then
           begin
             case objsym.typ of
               AT_FUNCTION :
@@ -1332,13 +1074,13 @@ implementation
         objsec,target:TElfObjSection;
       begin
         shstrtabsect.writezeros(1);
-        prefixlen:=length('.rel')+ord(relocs_use_addend);
+        prefixlen:=length('.rel')+ord(ElfTarget.relocs_use_addend);
         for i:=0 to data.ObjSectionList.Count-1 do
           begin
             objsec:=TElfObjSection(data.ObjSectionList[i]);
             { Alias section names into names of corresponding reloc sections,
               this is allowed by ELF specs and saves good half of .shstrtab space. }
-            if objsec.shtype=relsec_shtype[relocs_use_addend] then
+            if objsec.shtype=relsec_shtype[ElfTarget.relocs_use_addend] then
               begin
                 target:=TElfObjSection(data.ObjSectionList[objsec.shinfo-1]);
                 if (target.ObjRelocations.Count=0) or
@@ -1450,8 +1192,10 @@ implementation
              header.e_ident[EI_DATA]:=ELFDATA2LSB;
 
            header.e_ident[EI_VERSION]:=1;
+           if target_info.system in systems_openbsd then
+             header.e_ident[EI_OSABI]:=ELFOSABI_OPENBSD;
            header.e_type:=ET_REL;
-           header.e_machine:=ELFMACHINE;
+           header.e_machine:=ElfTarget.machine_code;
            header.e_version:=1;
            header.e_shoff:=shoffset;
            header.e_shstrndx:=shstrtabsect.index;
@@ -1535,13 +1279,15 @@ implementation
             if relsym>=syms then
               InternalError(2012060204);
             p:=TObjSymbol(FSymTbl[relsym]);
-            if assigned(p) then
+            { Some relocations (e.g. R_ARM_V4BX) don't use a symbol at all }
+            if assigned(p) or (relsym=0) then
               begin
                 objrel:=TObjRelocation.CreateRaw(rel.address-secrec.sec.mempos,p,reltyp);
-                if relocs_use_addend then
+                if (secrec.relentsize=3*sizeof(pint)) then
                   objrel.orgsize:=rel.addend;
                 { perform target-specific actions }
-                ElfTarget.loadreloc(objrel);
+                if Assigned(ElfTarget.loadreloc) then
+                  ElfTarget.loadreloc(objrel);
                 secrec.sec.ObjRelocations.add(objrel);
               end
             else
@@ -1630,10 +1376,10 @@ implementation
                 if assigned(symversions) then
                   begin
                     ver:=symversions[i];
-                    if (ver=0) or (ver > $7FFF) then
+                    if (ver=VER_NDX_LOCAL) or (ver>VERSYM_VERSION) then
                       continue;
                   end;
-                if (bind= AB_LOCAL) or (sym.st_shndx=SHN_UNDEF) then
+                if (bind=AB_LOCAL) or (sym.st_shndx=SHN_UNDEF) then
                   continue;
               end;
             { validity of name and objsection has been checked above }
@@ -1651,27 +1397,41 @@ implementation
       end;
 
 
-    procedure TElfObjInput.LoadSection(const hdr;index:longint;objdata:tobjdata);
+    function TElfObjInput.CreateSection(const shdr:TElfsechdr;index:longint;objdata:tobjdata;
+        out secname:string):TElfObjSection;
+      begin
+        secname:=string(PChar(@shstrtab[shdr.sh_name]));
+
+        result:=TElfObjSection.create_ext(objdata,secname,
+          shdr.sh_type,shdr.sh_flags,shdr.sh_addralign,shdr.sh_entsize);
+
+        result.index:=index;
+        result.DataPos:=shdr.sh_offset;
+        result.MemPos:=shdr.sh_addr;
+        result.Size:=shdr.sh_size;
+        FSecTbl[index].sec:=result;
+      end;
+
+
+    procedure TElfObjInput.LoadSection(const shdr:TElfsechdr;index:longint;objdata:tobjdata);
       var
-        shdr: TElfsechdr absolute hdr;
         sec: TElfObjSection;
         sym: TElfSymbol;
         secname: string;
       begin
+        if shdr.sh_name>=shstrtablen then
+          InternalError(2012060210);
+
         case shdr.sh_type of
           SHT_NULL:
             {ignore};
 
           { SHT_STRTAB may appear for .stabstr and other debug sections.
             .shstrtab and .strtab are processed separately and don't appear here. }
-          SHT_PROGBITS,SHT_NOBITS,SHT_NOTE,SHT_STRTAB:
+          SHT_PROGBITS,SHT_NOBITS,SHT_NOTE,SHT_STRTAB,
+          SHT_INIT_ARRAY,SHT_FINI_ARRAY,SHT_PREINIT_ARRAY:
             begin
-              if shdr.sh_name>=shstrtablen then
-                InternalError(2012060210);
-              secname:=string(PChar(@shstrtab[shdr.sh_name]));
-
-              sec:=TElfObjSection.create_ext(objdata,secname,
-                shdr.sh_type,shdr.sh_flags,shdr.sh_addralign,shdr.sh_entsize);
+              sec:=CreateSection(shdr,index,objdata,secname);
 
               if (Length(secname)>3) and (secname[2] in ['d','f','n','s']) then
                 begin
@@ -1693,12 +1453,6 @@ implementation
 
               if (shdr.sh_type=SHT_NOTE) and (shdr.sh_size<>0) then
                 sec.SecOptions:=[oso_keep];
-
-              sec.index:=index;
-              sec.DataPos:=shdr.sh_offset;
-              sec.MemPos:=shdr.sh_addr;
-              sec.Size:=shdr.sh_size;
-              FSecTbl[index].sec:=sec;
             end;
 
           SHT_REL,SHT_RELA:
@@ -1755,7 +1509,9 @@ implementation
             else
               InternalError(2012110706);
         else
-          InternalError(2012072603);
+          if not (assigned(ElfTarget.loadsection) and
+            ElfTarget.loadsection(self,objdata,shdr,index)) then
+            InternalError(2012072603);
         end;
         FLoaded[index]:=True;
       end;
@@ -1798,7 +1554,7 @@ implementation
             InputError('Unknown ELF data version');
             exit;
           end;
-        if (header.e_machine<>ELFMACHINE) then
+        if (header.e_machine<>ElfTarget.machine_code) then
           begin
             InputError('ELF file is for different CPU');
             exit;
@@ -1812,9 +1568,8 @@ implementation
       end;
 
 
-    procedure TElfObjInput.LoadDynamic(const hdr;objdata:TObjData);
+    procedure TElfObjInput.LoadDynamic(const shdr:TElfsechdr;objdata:TObjData);
       var
-        shdr: TElfsechdr absolute hdr;
         dt: TElfDyn;
         i: longint;
       begin
@@ -1838,12 +1593,11 @@ implementation
       end;
 
 
-    function TElfObjInput.ReadObjData(AReader:TObjectreader;objdata:TObjData):boolean;
+    function TElfObjInput.ReadObjData(AReader:TObjectreader;out objdata:TObjData):boolean;
       var
         i,j,strndx,dynndx,
         versymndx,verdefndx,verneedndx: longint;
         objsec: TObjSection;
-        shdrs: array of TElfsechdr;
         grp: TObjSectionGroup;
         tmp: longword;
         count: longint;
@@ -1864,6 +1618,8 @@ implementation
 
         if shentsize<>sizeof(TElfsechdr) then
           InternalError(2012062701);
+
+        objdata:=CObjData.Create(InputFilename);
 
         FSecTbl:=AllocMem(nsects*sizeof(TSectionRec));
         FLoaded:=AllocMem(nsects*sizeof(boolean));
@@ -1921,11 +1677,10 @@ implementation
             break;
           end;
 
-        if symtabndx=0 then
-          InternalError(2012110706);
-
         if dynobj then
           begin
+            if symtabndx=0 then
+              InternalError(2012110707);
             { Locate .dynamic and version sections. Expect a single one of a kind. }
             dynndx:=0;
             versymndx:=0;
@@ -2154,7 +1909,7 @@ implementation
           header.e_type:=ET_DYN
         else
           header.e_type:=ET_EXEC;
-        header.e_machine:=ELFMACHINE;
+        header.e_machine:=ElfTarget.machine_code;
         header.e_version:=1;
         header.e_phoff:=sizeof(TElfHeader);
         header.e_shoff:=shoffset;
@@ -2270,8 +2025,8 @@ implementation
             seg.Add(interpobjsec.ExeSection);
           end;
 
-        textseg:=CreateSegment(PT_LOAD,PF_X or PF_R,ELF_MAXPAGESIZE);
-        dataseg:=CreateSegment(PT_LOAD,PF_R or PF_W,ELF_MAXPAGESIZE);
+        textseg:=CreateSegment(PT_LOAD,PF_X or PF_R,ElfTarget.max_page_size);
+        dataseg:=CreateSegment(PT_LOAD,PF_R or PF_W,ElfTarget.max_page_size);
         for i:=0 to ExeSectionList.Count-1 do
           begin
             exesec:=TExeSection(ExeSectionList[i]);
@@ -2316,6 +2071,44 @@ implementation
       end;
 
 
+    procedure TElfExeOutput.make_dynamic_if_undefweak(exesym:TExeSymbol);
+      begin
+        if (exesym.dynindex=0) and (exesym.state=symstate_undefweak) and
+          not (cs_link_staticflag in current_settings.globalswitches) then
+          exesym.dynindex:=dynsymlist.add(exesym)+1;
+      end;
+
+
+    function TElfExeOutput.AllocGOTSlot(objsym:TObjSymbol):boolean;
+      var
+        exesym: TExeSymbol;
+      begin
+        result:=false;
+        exesym:=objsym.exesymbol;
+
+        { Although local symbols should not be accessed through GOT,
+          this isn't strictly forbidden. In this case we need to fake up
+          the exesym to store the GOT offset in it.
+          TODO: name collision; maybe use a different symbol list object? }
+        if exesym=nil then
+          begin
+            exesym:=TExeSymbol.Create(ExeSymbolList,objsym.name+'*local*');
+            exesym.objsymbol:=objsym;
+            objsym.exesymbol:=exesym;
+          end;
+        if exesym.GotOffset>0 then
+          exit;
+        gotobjsec.alloc(sizeof(pint));
+        exesym.GotOffset:=gotobjsec.size;
+        { In shared library, every GOT entry needs a RELATIVE dynamic reloc,
+          imported/exported symbols need GLOB_DAT instead. For executables,
+          only the latter applies. }
+        if IsSharedLibrary or (exesym.dynindex>0) then
+          dynrelocsec.alloc(dynrelocsec.shentsize);
+        result:=true;
+      end;
+
+
     procedure TElfExeOutput.PrepareGOT;
       var
         i,j,k: longint;
@@ -2333,8 +2126,12 @@ implementation
                   continue;
                 if not objsec.Used then
                   internalerror(2012060901);
-                for k:=0 to objsec.ObjRelocations.Count-1 do
-                  GOTRelocPass1(objsec,TObjRelocation(objsec.ObjRelocations[k]));
+                k:=0;
+                while k<objsec.ObjRelocations.Count do
+                  begin
+                    GOTRelocPass1(objsec,k);
+                    inc(k);
+                  end;
               end;
           end;
         { remember sizes for sanity checking }
@@ -2346,11 +2143,8 @@ implementation
       end;
 
 
-    procedure TElfExeOutput.Load_Start;
+    procedure TElfExeOutput.CreateGOTSection;
       begin
-        inherited Load_Start;
-        dynsymlist:=TFPObjectList.Create(False);
-
         gotpltobjsec:=TElfObjSection.create_ext(internalObjData,'.got.plt',
           SHT_PROGBITS,SHF_ALLOC or SHF_WRITE,sizeof(pint),sizeof(pint));
 
@@ -2365,27 +2159,39 @@ implementation
       end;
 
 
-    procedure TElfExeOutput.Load_DynamicObject(objdata:TObjData);
+    procedure TElfExeOutput.Load_Start;
+      begin
+        inherited Load_Start;
+        dynsymlist:=TFPObjectList.Create(False);
+        CreateGOTSection;
+      end;
+
+
+    procedure TElfExeOutput.Load_DynamicObject(objdata:TObjData;asneeded:boolean);
       var
         i: longint;
         exesym: TExeSymbol;
         objsym: TObjSymbol;
+        needed: boolean;
       begin
         Comment(v_debug,'Dynamic object: '+objdata.name);
-        if neededlist.Find(objdata.name)=nil then
-          neededlist.Add(objdata.name,objdata);
+        needed:=false;
         for i:=0 to UnresolvedExeSymbols.Count-1 do
           begin
             exesym:=TExeSymbol(UnresolvedExeSymbols[i]);
-            if exesym.State<>symstate_undefined then
+            if not (exesym.State in [symstate_undefined,symstate_undefweak]) then
               continue;
             objsym:=TObjSymbol(objdata.ObjSymbolList.Find(exesym.name));
             if assigned(objsym) then
               begin
                 exesym.State:=symstate_defined;
                 exesym.dynindex:=dynsymlist.Add(exesym)+1;
+                needed:=true;
               end;
           end;
+        if (needed or (not asneeded)) and
+          (neededlist.Find(objdata.name)=nil) then
+          neededlist.Add(objdata.name,objdata);
       end;
 
 
@@ -2451,14 +2257,14 @@ implementation
         objsym:TObjSymbol;
         objsec: TObjSection;
       begin
-        { Unused section removal changes state of referenced exesymbols
-          to symstate_dynamic. Remaining ones can be removed. }
+        { Unused section removal sets Used property of referenced exesymbols.
+          Remaining ones can be removed. }
         for i:=0 to dynsymlist.count-1 do
           begin
             exesym:=TExeSymbol(dynsymlist[i]);
             if assigned(exesym.ObjSymbol.ObjSection) then  // an exported symbol
               continue;
-            if exesym.state<>symstate_dynamic then
+            if not exesym.used then
               begin
                 dynsymlist[i]:=nil;
                 exesym.dynindex:=0;
@@ -2478,7 +2284,7 @@ implementation
         for i:=0 to UnresolvedExeSymbols.Count-1 do
           begin
             exesym:=TExeSymbol(UnresolvedExeSymbols[i]);
-            if exesym.state=symstate_dynamic then
+            if exesym.used then
               begin
                 if exesym.dynindex<>0 then
                   InternalError(2012062301);
@@ -2561,6 +2367,12 @@ implementation
           Exclude(ipltrelocsec.ExeSection.SecOptions,oso_disabled);
         if assigned(hashobjsec) then
           Exclude(hashobjsec.ExeSection.SecOptions,oso_disabled);
+        if assigned(symversec) and (symversec.size<>0) then
+          Exclude(symversec.ExeSection.SecOptions,oso_disabled);
+        if assigned(verneedsec) and (verneedsec.size<>0) then
+          Exclude(verneedsec.ExeSection.SecOptions,oso_disabled);
+        if assigned(verdefsec) and (verdefsec.size<>0) then
+          Exclude(verneedsec.ExeSection.SecOptions,oso_disabled);
 
         RemoveDisabledSections;
         MapSectionsToSegments;
@@ -2572,6 +2384,7 @@ implementation
     procedure TElfExeOutput.MemPos_Start;
       var
         i,j: longint;
+        dynstrndx,dynsymndx: longword;
         seg: TElfSegment;
         exesec: TElfExeSection;
         objsec: TObjSection;
@@ -2598,19 +2411,27 @@ implementation
         if dynamiclink then
           begin
             { fixup sh_link/sh_info members of various dynamic sections }
-            TElfExeSection(hashobjsec.ExeSection).shlink:=TElfExeSection(dynsymtable.ExeSection).secshidx;
-            i:=TElfExeSection(dynsymtable.fstrsec.ExeSection).secshidx;
-            TElfExeSection(dynamicsec.ExeSection).shlink:=i;
-            TElfExeSection(dynsymtable.ExeSection).shlink:=i;
+            dynstrndx:=TElfExeSection(dynsymtable.fstrsec.ExeSection).secshidx;
+            dynsymndx:=TElfExeSection(dynsymtable.ExeSection).secshidx;
+            TElfExeSection(hashobjsec.ExeSection).shlink:=dynsymndx;
+            TElfExeSection(dynamicsec.ExeSection).shlink:=dynstrndx;
+            TElfExeSection(dynsymtable.ExeSection).shlink:=dynstrndx;
 
             if assigned(pltrelocsec) then
               begin
-                TElfExeSection(pltrelocsec.ExeSection).shlink:=TElfExeSection(dynsymtable.ExeSection).secshidx;
+                TElfExeSection(pltrelocsec.ExeSection).shlink:=dynsymndx;
                 TElfExeSection(pltrelocsec.ExeSection).shinfo:=TElfExeSection(pltobjsec.ExeSection).secshidx;
               end;
 
             if assigned(dynrelocsec) and assigned(dynrelocsec.ExeSection) then
-              TElfExeSection(dynrelocsec.ExeSection).shlink:=TElfExeSection(dynsymtable.ExeSection).secshidx;
+              TElfExeSection(dynrelocsec.ExeSection).shlink:=dynsymndx;
+
+            if symversec.size>0 then
+              TElfExeSection(symversec.ExeSection).shlink:=dynsymndx;
+            if verdefsec.size>0 then
+              TElfExeSection(verdefsec.ExeSection).shlink:=dynstrndx;
+            if verneedsec.size>0 then
+              TElfExeSection(verneedsec.ExeSection).shlink:=dynstrndx;
           end
         else if assigned(ipltrelocsec) then
           TElfExeSection(ipltrelocsec.ExeSection).shinfo:=TElfExeSection(pltobjsec.ExeSection).secshidx;
@@ -2619,7 +2440,7 @@ implementation
         if IsSharedLibrary then
           CurrMemPos:=0
         else
-          CurrMemPos:=TEXT_SEGMENT_START;
+          CurrMemPos:=ElfTarget.exe_image_base;
         textseg.MemPos:=CurrMemPos;
         if assigned(phdrseg) then
           begin
@@ -2629,7 +2450,7 @@ implementation
         CurrMemPos:=CurrMemPos+sizeof(TElfHeader)+segmentlist.count*sizeof(TElfproghdr);
         MemPos_Segment(textseg);
         CurrMemPos:=Align(CurrMemPos,SectionDataAlign); {! Data,not MemAlign}
-        CurrMemPos:=CurrMemPos+ELF_MAXPAGESIZE;
+        CurrMemPos:=CurrMemPos+ElfTarget.max_page_size;
         dataseg.MemPos:=CurrMemPos;
         MemPos_Segment(dataseg);
         { Mempos of unmapped sections is forced to zero, but we have to set positions
@@ -2717,9 +2538,10 @@ implementation
       begin
         gotwritten:=true;
         { If target does not support sorted relocations, it is expected to write the
-          entire .rel[a].dyn section during FixupRelocations. Otherwise, only RELATIVE ones
-          should be written, space for non-relative relocations should remain. }
-        if assigned(dynrelocsec) and (relative_reloc_count>0) then
+          entire .rel[a].dyn section during FixupRelocations, and leave dynreloclist empty.
+          Otherwise, only RELATIVE ones should be written, space for non-relative relocations
+          should remain. }
+        if assigned(dynrelocsec) then
           begin
             if (dynrelocsec.size+(dynreloclist.count*dynrelocsec.shentsize)<>dynrelsize) then
               InternalError(2012110601);
@@ -2841,6 +2663,16 @@ implementation
         dynrelocsec.SecOptions:=[oso_keep];
 
         dynreloclist:=TFPObjectList.Create(true);
+
+        symversec:=TElfObjSection.create_ext(internalObjData,'.gnu.version',
+          SHT_GNU_VERSYM,SHF_ALLOC,sizeof(word),sizeof(word));
+        symversec.SecOptions:=[oso_keep];
+        verdefsec:=TElfObjSection.create_ext(internalObjData,'.gnu.version_d',
+          SHT_GNU_VERDEF,SHF_ALLOC,sizeof(pint),0);
+        verdefsec.SecOptions:=[oso_keep];
+        verneedsec:=TElfObjSection.create_ext(internalObjData,'.gnu.version_r',
+          SHT_GNU_VERNEED,SHF_ALLOC,sizeof(pint),0);
+        verneedsec.SecOptions:=[oso_keep];
       end;
 
 
@@ -3003,6 +2835,8 @@ implementation
       relcnttags: array[boolean] of longword=(DT_RELCOUNT,DT_RELACOUNT);
 
     procedure TElfExeOutput.FinishDynamicTags;
+      var
+        rela: boolean;
       begin
         if assigned(dynsymtable) then
           writeDynTag(DT_STRSZ,dynsymtable.fstrsec.size);
@@ -3013,18 +2847,33 @@ implementation
         if Assigned(pltrelocsec) and (pltrelocsec.size>0) then
           begin
             writeDynTag(DT_PLTRELSZ,pltrelocsec.Size);
-            writeDynTag(DT_PLTREL,pltreltags[relocs_use_addend]);
+            writeDynTag(DT_PLTREL,pltreltags[pltrelocsec.shtype=SHT_RELA]);
             writeDynTag(DT_JMPREL,pltrelocsec);
           end;
 
         if Assigned(dynrelocsec) and (dynrelocsec.size>0) then
           begin
-            writeDynTag(pltreltags[relocs_use_addend],dynrelocsec);
-            writeDynTag(relsztags[relocs_use_addend],dynrelocsec.Size);
-            writeDynTag(relenttags[relocs_use_addend],dynrelocsec.shentsize);
+            rela:=(dynrelocsec.shtype=SHT_RELA);
+            writeDynTag(pltreltags[rela],dynrelocsec);
+            writeDynTag(relsztags[rela],dynrelocsec.Size);
+            writeDynTag(relenttags[rela],dynrelocsec.shentsize);
+            if (relative_reloc_count>0) then
+              writeDynTag(relcnttags[rela],relative_reloc_count);
           end;
-        if (relative_reloc_count>0) then
-          writeDynTag(relcnttags[relocs_use_addend],relative_reloc_count);
+        if (verdefcount>0) or (verneedcount>0) then
+          begin
+            if (verdefcount>0) then
+              begin
+                writeDynTag(DT_VERDEF,verdefsec);
+                writeDynTag(DT_VERDEFNUM,verdefcount);
+              end;
+            if (verneedcount>0) then
+              begin
+                writeDynTag(DT_VERNEED,verneedsec);
+                writeDynTag(DT_VERNEEDNUM,verneedcount);
+              end;
+            writeDynTag(DT_VERSYM,symversec);
+          end;
         writeDynTag(DT_NULL,0);
       end;
 
@@ -3085,10 +2934,10 @@ implementation
 
     procedure TElfExeOutput.GenerateLibraryImports(ImportLibraryList:TFPHashObjectList);
       var
-        i:longint;
         exportlist: TCmdStrList;
         sym: TExeSymbol;
       begin
+        AllowUndefinedSymbols:=IsSharedLibrary;
         { add exported symbols to dynamic list }
         exportlist:=texportlibunix(exportlib).exportedsymnames;
         if not exportlist.empty then
@@ -3103,16 +2952,20 @@ implementation
             else
               InternalError(2012071801);
           until exportlist.empty;
+      end;
 
-        { Mark unresolved weak symbols as defined, they will become dynamic further on.
-          If compiling a .so, make all symbols dynamic, since shared library may reference
-          symbols from executable which does not participate in linking. }
-        for i:=0 to UnresolvedExeSymbols.Count-1 do
-          begin
-            sym:=TExeSymbol(UnresolvedExeSymbols[i]);
-            if (sym.objsymbol.bind=AB_WEAK_EXTERNAL) or IsSharedLibrary then
-              sym.state:=symstate_defined;
-          end;
+
+    procedure TElfExeOutput.ReportNonDSOReloc(reltyp:byte;objsec:TObjSection;ObjReloc:TObjRelocation);
+      begin
+        { TODO: include objsec properties into message }
+        Comment(v_error,'Relocation '+ElfTarget.RelocName(reltyp)+' against '''+objreloc.TargetName+''' cannot be used when linking a shared object; recompile with -Cg');
+      end;
+
+
+    procedure TElfExeOutput.ReportRelocOverflow(reltyp:byte;objsec:TObjSection;ObjReloc:TObjRelocation);
+      begin
+        { TODO: include objsec properties into message }
+        Comment(v_error,'Relocation truncated to fit: '+ElfTarget.RelocName(reltyp)+' against '''+objreloc.TargetName+'''');
       end;
 
 

@@ -206,6 +206,7 @@ implementation
          hpd : tprocdef;
          i : longint;
          diff : boolean;
+         symfrom,symto : tsym;
       begin
          eq:=te_incompatible;
          doconv:=tc_not_possible;
@@ -277,7 +278,11 @@ implementation
                begin
                  if tstoreddef(def_from).genericparas.nameofindex(i)<>tstoreddef(def_to).genericparas.nameofindex(i) then
                    internalerror(2012091302);
-                 if tstoreddef(def_from).genericparas[i]<>tstoreddef(def_to).genericparas[i] then
+                 symfrom:=ttypesym(tstoreddef(def_from).genericparas[i]);
+                 symto:=ttypesym(tstoreddef(def_to).genericparas[i]);
+                 if not (symfrom.typ=typesym) or not (symto.typ=typesym) then
+                   internalerror(2012121401);
+                 if not equal_defs(ttypesym(symfrom).typedef,ttypesym(symto).typedef) then
                    diff:=true;
                  if diff then
                    break;
@@ -1376,10 +1381,12 @@ implementation
                      if assigned(tsetdef(def_from).elementdef) and
                         assigned(tsetdef(def_to).elementdef) then
                       begin
-                        { sets with the same element base type and the same range are equal }
+                        { sets with the same size (packset setting), element
+                          base type and the same range are equal }
                         if equal_defs(tsetdef(def_from).elementdef,tsetdef(def_to).elementdef) and
-                          (tsetdef(def_from).setbase=tsetdef(def_to).setbase) and
-                          (tsetdef(def_from).setmax=tsetdef(def_to).setmax) then
+                           (tsetdef(def_from).setbase=tsetdef(def_to).setbase) and
+                           (tsetdef(def_from).setmax=tsetdef(def_to).setmax) and
+                           (def_from.size=def_to.size) then
                           eq:=te_equal
                         else if is_subequal(tsetdef(def_from).elementdef,tsetdef(def_to).elementdef) then
                           begin

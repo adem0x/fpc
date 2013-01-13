@@ -53,6 +53,7 @@ type
   TSQLCursor = Class(TSQLHandle)
   public
     FPrepared      : Boolean;
+    FSelectable    : Boolean;
     FInitFieldDef  : Boolean;
     FStatementType : TStatementType;
     FSchemaType    : TSchemaType;
@@ -627,8 +628,8 @@ begin
 
     Cursor := AllocateCursorHandle;
     Cursor.FStatementType := stUnknown;
-    PrepareStatement(cursor,ATransaction,SQL,Nil);
-    execute(cursor,ATransaction, Nil);
+    PrepareStatement(Cursor,ATransaction,SQL,Nil);
+    Execute(Cursor,ATransaction, Nil);
     UnPrepareStatement(Cursor);
   finally;
     DeAllocateCursorHandle(Cursor);
@@ -643,7 +644,7 @@ end;
 procedure TSQLConnection.SetPort(const AValue: cardinal);
 begin
   if AValue<>0 then
-    params.Values['Port']:=IntToStr(AValue)
+    Params.Values['Port']:=IntToStr(AValue)
   else with params do if IndexOfName('Port') > -1 then
     Delete(IndexOfName('Port'));
 end;
@@ -1050,7 +1051,7 @@ begin
 
   if ServerFiltered then s := AddFilter(s);
 
-  TSQLConnection(Database).PrepareStatement(Fcursor,(transaction as tsqltransaction),S,FParams);
+  TSQLConnection(Database).PrepareStatement(FCursor,(Transaction as TSQLTransaction),S,FParams);
 
   Execute;
   inherited InternalOpen;
@@ -1122,24 +1123,24 @@ begin
     // and thus calls unprepare.
     // A call to unprepare while the cursor is not prepared at all can lead to
     // unpredictable results.
-    if not assigned(fcursor) then
+    if not assigned(FCursor) then
       FCursor := Db.AllocateCursorHandle;
+    FCursor.FSelectable:=True; // let PrepareStatement and/or Execute alter it
     FCursor.FStatementType:=StmType;
     FCursor.FSchemaType := FSchemaType;
     if ServerFiltered then
       begin
-      If LogEvent(detprepare) then
+      If LogEvent(detPrepare) then
         Log(detPrepare,AddFilter(FSQLBuf));
-      Db.PrepareStatement(Fcursor,sqltr,AddFilter(FSQLBuf),FParams)
+      Db.PrepareStatement(FCursor,sqltr,AddFilter(FSQLBuf),FParams)
       end
     else
       begin
-      If LogEvent(detprepare) then
+      If LogEvent(detPrepare) then
         Log(detPrepare,FSQLBuf);
-      Db.PrepareStatement(Fcursor,sqltr,FSQLBuf,FParams);
+      Db.PrepareStatement(FCursor,sqltr,FSQLBuf,FParams);
       end;
-    if (FCursor.FStatementType in [stSelect,stExecProcedure]) then
-      FCursor.FInitFieldDef := True;
+    FCursor.FInitFieldDef := FCursor.FSelectable;
     end;
 end;
 
@@ -1163,10 +1164,10 @@ end;
 
 function TCustomSQLQuery.Fetch : boolean;
 begin
-  if not (Fcursor.FStatementType in [stSelect,stExecProcedure]) then
+  if not FCursor.FSelectable then
     Exit;
 
-  if not FIsEof then FIsEOF := not TSQLConnection(Database).Fetch(Fcursor);
+  if not FIsEof then FIsEOF := not TSQLConnection(Database).Fetch(FCursor);
   Result := not FIsEOF;
 end;
 
@@ -1176,7 +1177,7 @@ begin
     FMasterLink.CopyParamsFromMaster(False);
   If LogEvent(detExecute) then
     Log(detExecute,FSQLBuf);
-  TSQLConnection(Database).execute(Fcursor,Transaction as tsqltransaction, FParams);
+  TSQLConnection(Database).Execute(FCursor,Transaction as TSQLTransaction, FParams);
 end;
 
 function TCustomSQLQuery.LoadField(FieldDef : TFieldDef;buffer : pointer; out CreateBlob : boolean) : boolean;
@@ -1202,7 +1203,7 @@ procedure TCustomSQLQuery.InternalClose;
 begin
   if not IsReadFromPacket then
     begin
-    if StatementType in [stSelect,stExecProcedure] then FreeFldBuffers;
+    if assigned(FCursor) and FCursor.FSelectable then FreeFldBuffers;
     // Database and FCursor could be nil, for example if the database is not assigned, and .open is called
     if (not IsPrepared) and (assigned(database)) and (assigned(FCursor)) then TSQLConnection(database).UnPrepareStatement(FCursor);
     end;
@@ -1226,7 +1227,7 @@ begin
   try
     FieldDefs.Clear;
     if not Assigned(Database) then DatabaseError(SErrDatabasenAssigned);
-    TSQLConnection(Database).AddFieldDefs(fcursor,FieldDefs);
+    TSQLConnection(Database).AddFieldDefs(FCursor,FieldDefs);
   finally
     FLoadingFieldDefs := False;
     if Assigned(FCursor) then FCursor.FInitFieldDef := false;
@@ -1420,65 +1421,71 @@ begin
   ReadFromFile:=IsReadFromPacket;
   if ReadFromFile then
     begin
-    if not assigned(fcursor) then
+    if not assigned(FCursor) then
       FCursor := TSQLConnection(Database).AllocateCursorHandle;
+    FCursor.FSelectable:=True;
     FCursor.FStatementType:=stSelect;
     FUpdateable:=True;
     end
   else
     Prepare;
-  if FCursor.FStatementType in [stSelect,stExecProcedure] then
-    begin
-    if not ReadFromFile then
-      begin
-      // Call UpdateServerIndexDefs before Execute, to avoid problems with connections
-      // which do not allow processing multiple recordsets at a time. (Microsoft
-      // calls this MARS, see bug 13241)
-      if DefaultFields and FUpdateable and FusePrimaryKeyAsKey and (not IsUniDirectional) then
-        UpdateServerIndexDefs;
-      Execute;
-      // InternalInitFieldDef is only called after a prepare. i.e. not twice if
-      // a dataset is opened - closed - opened.
-      if FCursor.FInitFieldDef then InternalInitFieldDefs;
-      if DefaultFields then
-        begin
-        CreateFields;
 
-        if FUpdateable and (not IsUniDirectional) then
+  if not FCursor.FSelectable then
+    DatabaseError(SErrNoSelectStatement,Self);
+
+  if not ReadFromFile then
+    begin
+    // Call UpdateServerIndexDefs before Execute, to avoid problems with connections
+    // which do not allow processing multiple recordsets at a time. (Microsoft
+    // calls this MARS, see bug 13241)
+    if DefaultFields and FUpdateable and FusePrimaryKeyAsKey and (not IsUniDirectional) then
+      UpdateServerIndexDefs;
+
+    Execute;
+    if not FCursor.FSelectable then
+      DatabaseError(SErrNoSelectStatement,Self);
+
+    // InternalInitFieldDef is only called after a prepare. i.e. not twice if
+    // a dataset is opened - closed - opened.
+    if FCursor.FInitFieldDef then InternalInitFieldDefs;
+    if DefaultFields then
+      begin
+      CreateFields;
+
+      if FUpdateable and (not IsUniDirectional) then
+        begin
+        if FusePrimaryKeyAsKey then
           begin
-          if FusePrimaryKeyAsKey then
+          for tel := 0 to ServerIndexDefs.count-1 do
             begin
-            for tel := 0 to ServerIndexDefs.count-1 do
+            if ixPrimary in ServerIndexDefs[tel].options then
               begin
-              if ixPrimary in ServerIndexDefs[tel].options then
-                begin
-                  IndexFields := TStringList.Create;
-                  ExtractStrings([';'],[' '],pchar(ServerIndexDefs[tel].fields),IndexFields);
-                  for fieldc := 0 to IndexFields.Count-1 do
-                    begin
-                    F := Findfield(IndexFields[fieldc]);
-                    if F <> nil then
-                      F.ProviderFlags := F.ProviderFlags + [pfInKey];
-                    end;
-                  IndexFields.Free;
-                end;
+                IndexFields := TStringList.Create;
+                ExtractStrings([';'],[' '],pchar(ServerIndexDefs[tel].fields),IndexFields);
+                for fieldc := 0 to IndexFields.Count-1 do
+                  begin
+                  F := Findfield(IndexFields[fieldc]);
+                  if F <> nil then
+                    F.ProviderFlags := F.ProviderFlags + [pfInKey];
+                  end;
+                IndexFields.Free;
               end;
             end;
           end;
-        end
-      else
-        BindFields(True);
+        end;
       end
     else
       BindFields(True);
-    if not ReadOnly and not FUpdateable and (FSchemaType=stNoSchema) then
-      begin
-      if (trim(FDeleteSQL.Text) <> '') or (trim(FUpdateSQL.Text) <> '') or
-         (trim(FInsertSQL.Text) <> '') then FUpdateable := True;
-      end
     end
   else
-    DatabaseError(SErrNoSelectStatement,Self);
+    BindFields(True);
+
+  if not ReadOnly and not FUpdateable and (FSchemaType=stNoSchema) then
+    begin
+    if (trim(FDeleteSQL.Text) <> '') or (trim(FUpdateSQL.Text) <> '') or
+       (trim(FInsertSQL.Text) <> '') then FUpdateable := True;
+    end;
+
   inherited InternalOpen;
 end;
 
@@ -1492,7 +1499,7 @@ begin
   finally
     // FCursor has to be assigned, or else the prepare went wrong before PrepareStatment was
     // called, so UnPrepareStatement shoudn't be called either
-    if (not IsPrepared) and (assigned(database)) and (assigned(FCursor)) then TSQLConnection(database).UnPrepareStatement(Fcursor);
+    if (not IsPrepared) and (assigned(database)) and (assigned(FCursor)) then TSQLConnection(database).UnPrepareStatement(FCursor);
   end;
 end;
 
@@ -1758,7 +1765,7 @@ end;
 procedure TCustomSQLQuery.LoadBlobIntoBuffer(FieldDef: TFieldDef;
   ABlobBuf: PBufBlobField);
 begin
-  TSQLConnection(DataBase).LoadBlobIntoBuffer(FieldDef, ABlobBuf, FCursor,(Transaction as tsqltransaction));
+  TSQLConnection(DataBase).LoadBlobIntoBuffer(FieldDef, ABlobBuf, FCursor,(Transaction as TSQLTransaction));
 end;
 
 procedure TCustomSQLQuery.BeforeRefreshOpenCursor;
@@ -1810,7 +1817,7 @@ begin
   FInsertSQL.Assign(AValue);
 end;
 
-Procedure TCustomSQLQuery.SetDataSource(AVAlue : TDatasource);
+Procedure TCustomSQLQuery.SetDataSource(AValue : TDatasource);
 
 Var
   DS : TDatasource;

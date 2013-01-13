@@ -43,7 +43,7 @@ unit cpupi;
        cpubase,
        aasmtai,aasmdata,
        tgobj,
-       symconst,symsym,paramgr,
+       symconst,paramgr,
        cgbase,
        cgobj;
 

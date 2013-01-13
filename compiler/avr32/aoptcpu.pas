@@ -28,7 +28,7 @@ Unit aoptcpu;
 
 Interface
 
-uses cgutils, cpubase, aasmtai, aopt, aoptcpub;
+uses cgbase, cpubase, aasmtai, aasmcpu,aopt, aoptobj;
 
 Type
 

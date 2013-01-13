@@ -386,6 +386,8 @@ scan_w_unavailable_system_codepage=02091_W_Current system codepage "$1" is not a
 % The compiler is compiled with support for several codepages built-in.
 % The codepage of the operation system is not in that list. You will need to recompile
 % the compiler with support for this codepage.
+scan_w_setpeoptflags_not_support=02092_W_SETPEOPTFLAGS is not supported by the target OS
+% The \var{\{\$SETPEOPTFLAGS\}} directive is not supported by the target OS.
 % \end{description}
 #
 # Parser
@@ -1073,8 +1075,8 @@ parser_e_invalid_qualifier=03205_E_Illegal qualifier
 parser_e_upper_lower_than_lower=03206_E_High range limit < low range limit
 % You are declaring a subrange, and the high limit is less than the low limit of
 % the range.
-parser_e_macpas_exit_wrong_param=03207_E_Exit's parameter must be the name of the procedure it is used in
-% Non local exit is not allowed. This error occurs only in mode MacPas.
+parser_e_macpas_exit_wrong_param=03207_E_Exit's parameter must be the name of the procedure it is used in or of a surrounding procedure
+% The parameter of a exit call in macpas mode must be either the name of the current subroutine or of a surrounding one
 parser_e_illegal_assignment_to_count_var=03208_E_Illegal assignment to for-loop variable "$1"
 % The type of a \var{for} loop variable must be an ordinal type.
 % Loop variables cannot be reals or strings. You also cannot assign values to
@@ -2317,7 +2319,7 @@ cg_d_autoinlining=06055_DL_Auto inlining: $1
 #
 # Assembler reader
 #
-# 07124 is the last used one
+# 07125 is the last used one
 #
 asmr_d_start_reading=07000_DL_Starting $1 styled assembler parsing
 % This informs you that an assembler block is being parsed
@@ -2615,6 +2617,10 @@ asmr_w_check_mem_operand_negative_offset=07123_W_Check "$1: offset of memory ope
 % probably an error in the assembler statement
 asmr_w_check_mem_operand_automap_multiple_size=07124_W_Check "$1: size of memory operand is empty, but es exists different definitions of the memory size =>> map to $2 (smallest option)"
 % The size of memory operand is empty and we have different definitions of possible memory sizes. Check it!
+asmr_e_invalid_ref_register=07125_E_Invalid register used in memory reference expression: "$1"
+% FPU, vector and sometimes integer registers cannot be used in memory reference
+% expressions, due to limitations of the cpu architecture or simple because
+% it is not meaningful.
 
 #
 # Assembler/binary writers
@@ -3015,7 +3021,7 @@ unit_u_indirect_crc_changed=10062_U_Indirect interface (objects/classes) CRC cha
 #
 #  Options
 #
-# 11052 is the last used one
+# 11053 is the last used one
 #
 option_usage=11000_O_$1 [options] <inputfile> [options]
 # BeginOfTeX
@@ -3153,6 +3159,8 @@ option_invalid_iphoneos_deployment_target=11051_E_Invalid value for IPHONEOS_DEP
 % digits from 0-9.
 option_illegal_fpu_eabihf=11052_E_You must use a FPU type of VFPV2, VFPV3 or VFPV3_D16 when using the EABIHF ABI target
 % The EABIHF (VFP hardfloat) ABI target can only be used with VFP FPUs.
+option_w_unsupported_debug_format=11053_W_The selected debug format is not supported on the current target, not changing the current setting
+% Not all targets support all debug formats (in particular, Stabs is not supported on 64 bit targets).
 
 
 %\end{description}

@@ -260,6 +260,7 @@ interface
        usewindowapi  : boolean;
        description   : string;
        SetPEFlagsSetExplicity,
+       SetPEOptFlagsSetExplicity,
        ImageBaseSetExplicity,
        MinStackSizeSetExplicity,
        MaxStackSizeSetExplicity,
@@ -269,6 +270,7 @@ interface
        dllminor,
        dllrevision   : word;  { revision only for netware }
        { win pe  }
+       peoptflags,
        peflags : longint;
        minstacksize,
        maxstacksize,
@@ -418,8 +420,8 @@ interface
         fputype : fpu_standard;
   {$endif POWERPC64}
   {$ifdef sparc}
-        cputype : cpu_SPARC_V8;
-        optimizecputype : cpu_SPARC_V8;
+        cputype : cpu_SPARC_V9;
+        optimizecputype : cpu_SPARC_V9;
         fputype : fpu_hard;
   {$endif sparc}
   {$ifdef arm}
@@ -1610,6 +1612,7 @@ implementation
         description:='Compiled by FPC '+version_string+' - '+target_cpu_string;
         DescriptionSetExplicity:=false;
         SetPEFlagsSetExplicity:=false;
+        SetPEOptFlagsSetExplicity:=false;
         ImageBaseSetExplicity:=false;
         MinStackSizeSetExplicity:=false;
         MaxStackSizeSetExplicity:=false;

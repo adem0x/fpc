@@ -30,7 +30,7 @@ interface
 
     uses
       globtype,globals,
-      aasmbase,aasmtai,aasmdata,aasmcpu,
+      aasmbase,aasmtai,aasmdata,
       assemble;
 
     type
@@ -654,7 +654,7 @@ implementation
 {$ifdef m68k}
                   if assigned(lasthp) and
                       (
-                      (lasthp.typ=ait_instruction) and
+                        (lasthp.typ=ait_instruction) and
                         (taicpu(lasthp).opcode<>A_JMP)
                       ) or
                       (

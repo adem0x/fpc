@@ -1320,6 +1320,10 @@ end;
                           Abstract/Assert support.
 *****************************************************************************}
 
+procedure fpc_emptymethod;[public,alias : 'FPC_EMPTYMETHOD'];
+begin
+end;
+
 procedure fpc_AbstractErrorIntern;compilerproc;[public,alias : 'FPC_ABSTRACTERROR'];
 begin
   If pointer(AbstractErrorProc)<>nil then

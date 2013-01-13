@@ -1797,6 +1797,11 @@ begin
     Result:=Null;
 end;
 
+function TFloatField.GetAsLargeInt: LargeInt;
+begin
+  Result:=Round(GetAsFloat);
+end;
+
 function TFloatField.GetAsLongint: Longint;
 
 begin
@@ -1862,6 +1867,11 @@ begin
     SetData(@Avalue)
   else
     RangeError(AValue,FMinValue,FMaxValue);
+end;
+
+procedure TFloatField.SetAsLargeInt(AValue: LargeInt);
+begin
+  SetAsFloat(AValue);
 end;
 
 procedure TFloatField.SetAsLongint(AValue: Longint);
@@ -2578,6 +2588,15 @@ begin
     Result := 0;
 end;
 
+function TFMTBCDField.GetAsLargeInt: LargeInt;
+var bcd: TBCD;
+begin
+  if GetData(@bcd) then
+    Result := BCDToInteger(bcd)
+  else
+    Result := 0;
+end;
+
 function TFMTBCDField.GetAsLongint: Longint;
 begin
   Result := round(GetAsFloat);
@@ -2669,12 +2688,15 @@ begin
   SetAsBCD(DoubleToBCD(AValue));
 end;
 
+procedure TFMTBCDField.SetAsLargeInt(AValue: LargeInt);
+begin
+  SetAsBCD(IntegerToBCD(AValue));
+end;
 
 procedure TFMTBCDField.SetAsLongint(AValue: Longint);
 begin
   SetAsBCD(IntegerToBCD(AValue));
 end;
-
 
 procedure TFMTBCDField.SetAsString(const AValue: string);
 begin

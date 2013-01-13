@@ -214,6 +214,8 @@ interface
           function search_enumerator_current: tsym; virtual;
           { JVM }
           function jvm_full_typename(with_package_name: boolean): string;
+          { check if the symtable contains a float field }
+          function contains_float_field : boolean;
        end;
 
        trecorddef = class(tabstractrecorddef)
@@ -631,6 +633,8 @@ interface
           synthetickind : tsynthetickind;
           { optional parameter for the synthetic routine generation logic }
           skpara: pointer;
+          { true, if the procedure contains no code }
+          isempty,
           { true, if the procedure is only declared
             (forward procedure) }
           forwarddef,
@@ -1610,7 +1614,8 @@ implementation
               recsize:=size;
               is_intregable:=
                 ispowerof2(recsize,temp) and
-                (recsize <= sizeof(asizeint))
+                (recsize <= sizeof(asizeint)*2)
+                and not trecorddef(self).contains_float_field
                 and not needs_inittable;
             end;
         end;
@@ -3393,6 +3398,23 @@ implementation
       end;
 
 
+    function tabstractrecorddef.contains_float_field: boolean;
+      var
+        i : longint;
+      begin
+        result:=true;
+        for i:=0 to symtable.symlist.count-1 do
+          begin
+            if tsym(symtable.symlist[i]).typ<>fieldvarsym then
+              continue;
+            if assigned(tfieldvarsym(symtable.symlist[i]).vardef) and
+              tstoreddef(tfieldvarsym(symtable.symlist[i]).vardef).is_fpuregable then
+              exit;
+          end;
+        result:=false;
+      end;
+
+
 {***************************************************************************
                                   trecorddef
 ***************************************************************************}
@@ -4126,6 +4148,8 @@ implementation
          for i:=1 to aliasnamescount do
            aliasnames.insert(ppufile.getstring);
 
+         isempty:=ppufile.getbyte<>0;
+
          { load para symtable }
          parast:=tparasymtable.create(self,level);
          tparasymtable(parast).ppuload(ppufile);
@@ -4280,6 +4304,8 @@ implementation
             ppufile.putstring(item.str);
             item:=TCmdStrListItem(item.next);
           end;
+
+         ppufile.putbyte(ord(isempty));
 
          ppufile.do_crc:=oldintfcrc;
 

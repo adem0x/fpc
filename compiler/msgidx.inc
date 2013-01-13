@@ -113,6 +113,7 @@ const
   scanner_f_illegal_utf8_bom=02089;
   scanner_w_directive_ignored_on_target=02090;
   scan_w_unavailable_system_codepage=02091;
+  scan_w_setpeoptflags_not_support=02092;
   parser_e_syntax_error=03000;
   parser_e_dont_nest_interrupt=03004;
   parser_w_proc_directive_ignored=03005;
@@ -758,6 +759,7 @@ const
   asmr_w_check_mem_operand_size_offset=07122;
   asmr_w_check_mem_operand_negative_offset=07123;
   asmr_w_check_mem_operand_automap_multiple_size=07124;
+  asmr_e_invalid_ref_register=07125;
   asmw_f_too_many_asm_files=08000;
   asmw_f_assembler_output_not_supported=08001;
   asmw_f_comp_not_supported=08002;
@@ -936,6 +938,7 @@ const
   option_invalid_macosx_deployment_target=11050;
   option_invalid_iphoneos_deployment_target=11051;
   option_illegal_fpu_eabihf=11052;
+  option_w_unsupported_debug_format=11053;
   wpo_cant_find_file=12000;
   wpo_begin_processing=12001;
   wpo_end_processing=12002;
@@ -960,9 +963,9 @@ const
   option_info=11024;
   option_help_pages=11025;
 
-  MsgTxtSize = 67833;
+  MsgTxtSize = 68093;
 
   MsgIdxMax : array[1..20] of longint=(
-    26,92,328,120,87,56,125,26,202,63,
-    53,20,1,1,1,1,1,1,1,1
+    26,93,328,120,87,56,126,26,202,63,
+    54,20,1,1,1,1,1,1,1,1
   );

@@ -146,7 +146,7 @@ Type
 {$ifdef CPUM68K}
   {$define DEFAULT_DOUBLE}
 
-  {$ifdef CPUCOLDFIRE}
+  {$ifdef FPUSOFT}
     {$define FPC_INCLUDE_SOFTWARE_MOD_DIV}
     {$define FPC_INCLUDE_SOFTWARE_MUL}
     {$define FPC_INCLUDE_SOFTWARE_SHIFT_INT64}
@@ -566,8 +566,6 @@ const
 var
 {$endif FPC_HAS_FEATURE_DYNLIBS}
   IsConsole : boolean = false; public name 'operatingsystem_isconsole';
-  { Threading support }
-  fpc_threadvar_relocate_proc : pointer; public name 'FPC_THREADVAR_RELOCATE';
 
   DefaultSystemCodePage,
   DefaultUnicodeCodePage,
@@ -1256,6 +1254,7 @@ Function StringToPPChar(S: PChar;ReserveEntries:integer):ppchar;
 
 
 procedure AbstractError;external name 'FPC_ABSTRACTERROR';
+procedure EmptyMethod;external name 'FPC_EMPTYMETHOD';
 Function  SysBackTraceStr(Addr:Pointer): ShortString;
 Procedure SysAssert(const Msg,FName:ShortString;LineNo:Longint;ErrorAddr:Pointer);
 (* Supposed to return address of previous CtrlBreakHandler *)

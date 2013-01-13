@@ -27,8 +27,7 @@ interface
 
     uses
       globtype,
-      cgbase,cpuinfo,cpubase,
-      node,nmem,ncgmem;
+      cgbase,cpubase,nmem,ncgmem;
 
     type
 
@@ -39,12 +38,7 @@ interface
 implementation
 
     uses
-      systems,
-      cutils,verbose,
-      symdef,paramgr,
-      aasmtai,aasmdata,
-      nld,ncon,nadd,
-      cgutils,cgobj;
+      cutils,verbose,aasmdata,aasmcpu,cgobj;
 
 
 {*****************************************************************************

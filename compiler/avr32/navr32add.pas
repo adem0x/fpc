@@ -45,15 +45,15 @@ interface
   implementation
 
     uses
-      globtype,systems,
-      cutils,verbose,globals,
-      symconst,symdef,paramgr,
-      aasmbase,aasmtai,aasmdata,aasmcpu,defutil,htypechk,
-      cgbase,cgutils,cgcpu,hlcgobj,
-      cpuinfo,pass_1,pass_2,regvars,procinfo,
-      cpupara,
-      ncon,nset,nadd,
-      ncgutil,tgobj,rgobj,rgcpu,cgobj,cg64f32;
+      globtype,verbose,globals,
+      constexp,symdef,symtable,symtype,
+      aasmbase,aasmdata,aasmcpu,defutil,htypechk,
+      cgbase,cgutils,
+      cpuinfo,pass_1,procinfo,
+      ncon,nadd,ncnv,ncal,nmat,
+      ncgutil,cgobj,
+      hlcgobj
+      ;
 
 {*****************************************************************************
                                TSparcAddNode

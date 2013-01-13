@@ -2698,15 +2698,12 @@ implementation
                 begin
                    set_varstate(left,vs_read,[vsf_must_be_valid]);
                    resultdef:=left.resultdef;
-                   if not is_ordinal(resultdef) then
-                     CGMessage(type_e_ordinal_expr_expected)
-                   else
+                   if is_ordinal(resultdef) or is_typeparam(resultdef) then
                      begin
                        if (resultdef.typ=enumdef) and
                           (tenumdef(resultdef).has_jumps) and
                           not(m_delphi in current_settings.modeswitches) then
                          CGMessage(type_e_succ_and_pred_enums_with_assign_not_possible);
-                     end;
                 end;
 
               in_copy_x:
@@ -2771,6 +2768,12 @@ implementation
                                CGMessagePos(tcallparanode(left).right.fileinfo,type_e_ordinal_expr_expected);
                            end;
                         end
+                       { generic type parameter? }
+                       else if is_typeparam(left.resultdef) then
+                         begin
+                           result:=cnothingnode.create;
+                           exit;
+                         end
                        else
                          begin
                            hp:=self;
@@ -2992,6 +2995,7 @@ implementation
                 begin
                 end;
 {$endif SUPPORT_MMX}
+              in_aligned_x,
               in_unaligned_x:
                 begin
                   resultdef:=left.resultdef;
@@ -3466,11 +3470,11 @@ implementation
             begin
               expectloc:=LOC_REGISTER;
             end;
-
          in_prefetch_var:
            begin
              expectloc:=LOC_VOID;
            end;
+         in_aligned_x,
          in_unaligned_x:
            begin
              expectloc:=tcallparanode(left).left.expectloc;

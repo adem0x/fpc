@@ -31,7 +31,7 @@ unit cpupara;
        globtype,globals,
        aasmtai,aasmdata,
        cpuinfo,cpubase,cgbase,cgutils,
-       symconst,symbase,symtype,symdef,parabase,paramgr;
+       symconst,symtype,symdef,parabase,paramgr;
 
     type
        tavr32paramanager = class(tparamanager)
@@ -52,7 +52,6 @@ unit cpupara;
 
     uses
        verbose,systems,cutils,
-       rgobj,
        defutil,symsym;
 
 

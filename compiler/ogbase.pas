@@ -121,6 +121,8 @@ interface
       rf_raw = 1;
       { relocation must be added to dynamic list }
       rf_dynamic = 2;
+      { relocation target is absent/irrelevant (e.g. R_ARM_V4BX) }
+      rf_nosymbol = 4;
 
     type
       TObjSectionOption = (
@@ -348,9 +350,7 @@ interface
         procedure ReadSectionContent(Data:TObjData);
       public
         constructor create;virtual;
-        destructor  destroy;override;
-        function  newObjData(const n:string):TObjData;
-        function  ReadObjData(AReader:TObjectreader;Data:TObjData):boolean;virtual;abstract;
+        function  ReadObjData(AReader:TObjectreader;out Data:TObjData):boolean;virtual;abstract;
         class function CanReadObjData(AReader:TObjectreader):boolean;virtual;
         procedure inputerror(const s : string);
       end;
@@ -382,11 +382,19 @@ interface
         function  VTableRef(VTableIdx:Longint):TObjRelocation;
       end;
 
-      TSymbolState = (symstate_undefined,symstate_defined,symstate_common,symstate_defweak,symstate_dynamic);
+      TSymbolState = (
+        symstate_undefined,
+        symstate_undefweak,  // undefined but has only weak refs - don't complain
+        symstate_defined,
+        symstate_defweak,
+        symstate_common,
+        symstate_dynamic     // a matching symbol has been seen in .so
+      );
 
       TExeSymbol = class(TFPHashObject)
         ObjSymbol  : TObjSymbol;
         State      : TSymbolState;
+        used       : boolean;
         { Used for vmt references optimization }
         VTable     : TExeVTable;
         { fields for ELF linking }
@@ -497,6 +505,7 @@ interface
         SectionMemAlign : aword;
         ComdatGroups : TFPHashList;
         FixedSectionAlign : boolean;
+        AllowUndefinedSymbols : boolean;
         function  writeData:boolean;virtual;abstract;
         property CExeSection:TExeSectionClass read FCExeSection write FCExeSection;
         property CObjData:TObjDataClass read FCObjData write FCObjData;
@@ -520,7 +529,7 @@ interface
         procedure Load_ProvideSymbol(const aname:string);virtual;
         procedure Load_IsSharedLibrary;
         procedure Load_ImageBase(const avalue:string);
-        procedure Load_DynamicObject(ObjData:TObjData);virtual;
+        procedure Load_DynamicObject(ObjData:TObjData;asneeded:boolean);virtual;
         procedure Order_Start;virtual;
         procedure Order_End;virtual;
         procedure Order_ExeSection(const aname:string);virtual;
@@ -618,6 +627,17 @@ implementation
           result:=((v+a-1) div a) * a;
       end;
 
+
+    procedure MaybeSwapStab(var v:TObjStabEntry);
+      begin
+        if source_info.endian<>target_info.endian then
+          begin
+            v.strpos:=SwapEndian(v.strpos);
+            v.nvalue:=SwapEndian(v.nvalue);
+            v.ndesc:=SwapEndian(v.ndesc);
+          end;
+      end;
+
 {*****************************************************************************
                                  TObjSymbol
 *****************************************************************************}
@@ -708,8 +728,7 @@ implementation
 
     constructor TObjRelocation.CreateRaw(ADataOffset:aword;s:TObjSymbol;ARawType:byte);
       begin
-        if not assigned(s) then
-          internalerror(2012091701);
+        { nil symbol is allowed here }
         DataOffset:=ADataOffset;
         Symbol:=s;
         ObjSection:=nil;
@@ -1267,19 +1286,14 @@ implementation
 
 
     procedure TObjData.beforewrite;
-      var
-        s : string[1];
-        hstab : TObjStabEntry;
       begin
         { create stabs sections if debugging }
         if assigned(StabsSec) then
          begin
            { Create dummy HdrSym stab, it will be overwritten in AfterWrite }
-           fillchar(hstab,sizeof(hstab),0);
-           StabsSec.Write(hstab,sizeof(hstab));
+           StabsSec.WriteZeros(sizeof(TObjStabEntry));
            { start of stabstr }
-           s:=#0;
-           StabStrSec.write(s[1],length(s));
+           StabStrSec.writeZeros(1);
          end;
       end;
 
@@ -1292,7 +1306,6 @@ implementation
 
     procedure TObjData.afterwrite;
       var
-        s : string[1];
         hstab : TObjStabEntry;
       begin
         FObjSectionList.ForEachCall(@section_afterwrite,nil);
@@ -1301,14 +1314,14 @@ implementation
         if assigned(StabsSec) then
           begin
             { end of stabstr }
-            s:=#0;
-            StabStrSec.write(s[1],length(s));
+            StabStrSec.writeZeros(1);
             { header stab }
             hstab.strpos:=1;
             hstab.ntype:=0;
             hstab.nother:=0;
             hstab.ndesc:=(StabsSec.Size div sizeof(TObjStabEntry))-1;
             hstab.nvalue:=StabStrSec.Size;
+            MaybeSwapStab(hstab);
             StabsSec.Data.seek(0);
             StabsSec.Data.write(hstab,sizeof(hstab));
           end;
@@ -1465,6 +1478,7 @@ implementation
                 EntryArray[VTableIdx].OrgRelocType:=objreloc.ftype;
                 EntryArray[VTableIdx].OrgRelocFlags:=objreloc.flags;
                 objreloc.typ:=RELOC_ZERO;
+                objreloc.flags:=objreloc.flags or rf_nosymbol;
                 break;
               end;
           end;
@@ -1813,7 +1827,7 @@ implementation
       end;
 
 
-    procedure TExeOutput.Load_DynamicObject(ObjData:TObjData);
+    procedure TExeOutput.Load_DynamicObject(ObjData:TObjData;asneeded:boolean);
       begin
       end;
 
@@ -2105,9 +2119,6 @@ implementation
 
 
     procedure TExeOutput.DataPos_ExeSection(exesec:TExeSection);
-      var
-        i      : longint;
-        objsec : TObjSection;
       begin
         { don't write normal section if writing only debug info }
         if (ExeWriteMode=ewm_dbgonly) and
@@ -2118,20 +2129,7 @@ implementation
           begin
             CurrDataPos:=align_aword(CurrDataPos,DataAlign(exesec));
             exesec.DataPos:=CurrDataPos;
-          end;
-
-        { set position of object ObjSections }
-        for i:=0 to exesec.ObjSectionList.Count-1 do
-          begin
-            objsec:=TObjSection(exesec.ObjSectionList[i]);
-            if (oso_Data in objsec.SecOptions) then
-              begin
-                if not(oso_Data in exesec.SecOptions) then
-                  internalerror(200603043);
-                if not assigned(objsec.Data) then
-                  internalerror(200603044);
-                objsec.setDatapos(CurrDataPos);
-              end;
+            CurrDataPos:=CurrDataPos+exesec.Size;
           end;
       end;
 
@@ -2230,7 +2228,7 @@ implementation
         for i:=0 to UnresolvedExeSymbols.count-1 do
           begin
             exesym:=TExeSymbol(UnresolvedExeSymbols[i]);
-            if exesym.State<>symstate_undefined then
+            if not (exesym.State in [symstate_undefined,symstate_undefweak]) then
               UnresolvedExeSymbols[i]:=nil;
           end;
         UnresolvedExeSymbols.Pack;
@@ -2333,13 +2331,19 @@ implementation
                     { Register unresolved symbols only the first time they
                       are registered }
                     if exesym.ObjSymbol=objsym then
-                      UnresolvedExeSymbols.Add(exesym);
+                      UnresolvedExeSymbols.Add(exesym)
+                    { Normal reference removes any existing "weakness" }
+                    else if exesym.state=symstate_undefweak then
+                      begin
+                        exesym.state:=symstate_undefined;
+                        exesym.ObjSymbol:=objsym;
+                      end;
                   end;
                 AB_COMMON :
                   begin
                     { A COMMON definition overrides weak one.
                       Also select the symbol with largest size. }
-                    if (exesym.State in [symstate_undefined,symstate_defweak]) or
+                    if (exesym.State in [symstate_undefined,symstate_undefweak,symstate_defweak]) or
                        ((exesym.State=symstate_common) and (objsym.size>exesym.ObjSymbol.size)) then
                       begin
                         exesym.ObjSymbol:=objsym;
@@ -2357,11 +2361,14 @@ implementation
                       begin
                         ExternalObjSymbols.add(objsym);
                         if exesym.ObjSymbol=objsym then
-                          UnresolvedExeSymbols.Add(exesym);
+                          begin
+                            UnresolvedExeSymbols.Add(exesym);
+                            exesym.state:=symstate_undefweak;
+                          end;
                       end
                     else                                   { a weak definition }
                       begin
-                        if exesym.State=symstate_undefined then
+                        if exesym.State in [symstate_undefined,symstate_undefweak] then
                           begin
                             exesym.ObjSymbol:=objsym;
                             exesym.state:=symstate_defweak;
@@ -2390,7 +2397,7 @@ implementation
                     begin
                       exesym:=TExeSymbol(UnresolvedExeSymbols[j]);
                       { Check first if the symbol is still undefined }
-                      if (exesym.State=symstate_undefined) and (exesym.ObjSymbol.bind<>AB_WEAK_EXTERNAL) then
+                      if (exesym.State=symstate_undefined) then
                         begin
                           if lib.ArReader.OpenFile(exesym.name) then
                             begin
@@ -2408,7 +2415,6 @@ implementation
                                     '('+exesym.Name+')');
                                 end;
                               objinput:=lib.ObjInputClass.Create;
-                              objdata:=objinput.newObjData(lib.ArReader.FileName);
                               objinput.ReadObjData(lib.ArReader,objdata);
                               objinput.free;
                               AddObjData(objdata);
@@ -2434,7 +2440,7 @@ implementation
               lkObject:
                 { TODO: ownership of objdata }
                 //if lib.objdata.is_dynamic then
-                  Load_DynamicObject(lib.objdata);
+                  Load_DynamicObject(lib.objdata,lib.AsNeeded);
                 {else
                   begin
                     AddObjData(lib.objdata);
@@ -2679,13 +2685,13 @@ implementation
         exesym : TExeSymbol;
       begin
         { Print list of Unresolved External symbols }
-        for i:=0 to UnresolvedExeSymbols.count-1 do
-          begin
-            exesym:=TExeSymbol(UnresolvedExeSymbols[i]);
-            if (exesym.State<>symstate_defined) and
-               (exesym.objsymbol.bind<>AB_WEAK_EXTERNAL) then
-              Comment(V_Error,'Undefined symbol: '+exesym.name);
-          end;
+        if not AllowUndefinedSymbols then
+          for i:=0 to UnresolvedExeSymbols.count-1 do
+            begin
+              exesym:=TExeSymbol(UnresolvedExeSymbols[i]);
+              if (exesym.State=symstate_undefined) then
+                Comment(V_Error,'Undefined symbol: '+exesym.name);
+            end;
 
         {
           Fixing up symbols is done in the following steps:
@@ -2763,8 +2769,7 @@ implementation
         mergedstabstrsec:=internalObjData.CreateSection(sec_stabstr,'');
 
         { write stab for hdrsym }
-        fillchar(hstab,sizeof(TObjStabEntry),0);
-        mergedstabsec.write(hstab,sizeof(TObjStabEntry));
+        mergedstabsec.writeZeros(sizeof(TObjStabEntry));
         mergestabcnt:=1;
 
         { .stabstr starts with a #0 }
@@ -2787,6 +2792,7 @@ implementation
                     hstabreloc:=nil;
                     skipstab:=false;
                     currstabsec.Data.read(hstab,sizeof(TObjStabEntry));
+                    MaybeSwapStab(hstab);
                     { Only include first hdrsym stab }
                     if hstab.ntype=0 then
                       skipstab:=true;
@@ -2867,6 +2873,7 @@ implementation
                             mergedstabsec.ObjRelocations.Add(hstabreloc);
                           end;
                         { Write updated stab }
+                        MaybeSwapStab(hstab);
                         mergedstabsec.write(hstab,sizeof(hstab));
                         inc(mergestabcnt);
                       end;
@@ -2891,6 +2898,7 @@ implementation
             hstab.nother:=0;
             hstab.ndesc:=word(mergestabcnt-1);
             hstab.nvalue:=mergedstabstrsec.Size;
+            MaybeSwapStab(hstab);
             mergedstabsec.Data.seek(0);
             mergedstabsec.Data.write(hstab,sizeof(hstab));
           end;
@@ -2991,23 +2999,20 @@ implementation
           refobjsec : TObjSection;
         begin
           { Disabled Relocation to 0  }
-          if objreloc.typ=RELOC_ZERO then
+          if (objreloc.flags and rf_nosymbol)<>0 then
             exit;
           if assigned(objreloc.symbol) then
             begin
               objsym:=objreloc.symbol;
               if objsym.bind<>AB_LOCAL then
                 begin
-                  if not(assigned(objsym.exesymbol) and
-                         (objsym.exesymbol.State in [symstate_defined,symstate_dynamic,symstate_defweak])) then
+                  if not assigned(objsym.exesymbol) then
                     internalerror(200603063);
+                  objsym.exesymbol.used:=true;
                   objsym:=objsym.exesymbol.objsymbol;
                 end;
               if not assigned(objsym.objsection) then
-                begin
-                  objsym.exesymbol.state:=symstate_dynamic;
-                  exit;
-                end
+                exit
               else
                 refobjsec:=objsym.objsection;
             end
@@ -3207,6 +3212,7 @@ implementation
         exesec : TExeSection;
         objsec : TObjSection;
         i,j    : longint;
+        dpos,pad: aword;
       begin
         for j:=0 to ExeSectionList.Count-1 do
           begin
@@ -3228,9 +3234,13 @@ implementation
                       begin
                         if not assigned(objsec.data) then
                           internalerror(200603042);
-                        FWriter.writezeros(objsec.dataalignbytes);
-                        if objsec.DataPos<>FWriter.Size then
+                        dpos:=objsec.MemPos-exesec.MemPos+exesec.DataPos;
+                        pad:=dpos-FWriter.Size;
+                        { objsection must be within SecAlign bytes from the previous one }
+                        if (dpos<FWriter.Size) or
+                          (pad>=max(objsec.SecAlign,1)) then
                           internalerror(200602251);
+                        FWriter.writeZeros(pad);
                         FWriter.writearray(objsec.data);
                       end;
                   end;
@@ -3245,18 +3255,6 @@ implementation
 
     constructor TObjInput.create;
       begin
-      end;
-
-
-    destructor TObjInput.destroy;
-      begin
-        inherited destroy;
-      end;
-
-
-    function TObjInput.newObjData(const n:string):TObjData;
-      begin
-        result:=CObjData.create(n);
       end;
 
 

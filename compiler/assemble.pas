@@ -66,7 +66,7 @@ interface
       }
       TExternalAssembler=class(TAssembler)
       private
-        procedure CreateSmartLinkPath(const s:string);
+        procedure CreateSmartLinkPath(const s:TPathStr);
       protected
       {outfile}
         AsmSize,
@@ -291,7 +291,7 @@ Implementation
       end;
 
 
-    procedure TExternalAssembler.CreateSmartLinkPath(const s:string);
+    procedure TExternalAssembler.CreateSmartLinkPath(const s:TPathStr);
 
         procedure DeleteFilesWithExt(const AExt:string);
         var
@@ -307,7 +307,7 @@ Implementation
         end;
 
       var
-        hs  : string;
+        hs  : TPathStr;
       begin
         if PathExists(s,false) then
          begin
@@ -581,14 +581,28 @@ Implementation
         result:=target_asm.asmcmd;
 {$ifdef m68k}
         { TODO: use a better approach for this }
-        case current_settings.cputype of
-          cpu_MC68000:
-            result:='-march=68000 '+result;
-          cpu_MC68020:
-            result:='-march=68020 '+result;
-          cpu_Coldfire:
-            result:='-march=cfv4e '+result;
-        end;
+        if (target_info.system=system_m68k_amiga) then
+          begin
+            { m68k-amiga has old binutils, which doesn't support -march=* }
+            case current_settings.cputype of
+              cpu_MC68000:
+                result:='-m68000 '+result;
+              cpu_MC68020:
+                result:='-m68020 '+result;
+              { additionally, AmigaOS doesn't work on Coldfire }
+            end;
+          end
+        else
+          begin
+            case current_settings.cputype of
+              cpu_MC68000:
+                result:='-march=68000 '+result;
+              cpu_MC68020:
+                result:='-march=68020 '+result;
+              cpu_Coldfire:
+                result:='-march=cfv4e '+result;
+            end;
+          end;
 {$endif}
 {$ifdef arm}
         if (target_info.system=system_arm_darwin) then

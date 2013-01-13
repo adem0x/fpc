@@ -132,7 +132,8 @@ const
 
   suppported_targets_x_smallr = systems_linux + systems_solaris
                              + [system_i386_haiku]
-                             + [system_i386_beos];
+                             + [system_i386_beos]
+                             + [system_m68k_amiga];
 
 {****************************************************************************
                                  Defines
@@ -210,28 +211,54 @@ begin
       end
      else if pos('$INSTRUCTIONSETS',s)>0 then
       begin
+        hs1:='';
         for cpu:=low(tcputype) to high(tcputype) do
           begin
-            hs:=s;
-            hs1:=cputypestr[cpu];
-            if hs1<>'' then
+            if length(hs1+cputypestr[cpu])>70 then
               begin
+                hs:=s;
                 Replace(hs,'$INSTRUCTIONSETS',hs1);
                 Comment(V_Normal,hs);
-              end;
+                hs1:=''
+              end
+            else
+              if hs1<>'' then
+                hs1:=hs1+',';
+            if cputypestr[cpu]<>'' then
+              hs1:=hs1+cputypestr[cpu];
+          end;
+        if hs1<>'' then
+          begin
+            hs:=s;
+            Replace(hs,'$INSTRUCTIONSETS',hs1);
+            Comment(V_Normal,hs);
+            hs1:=''
           end;
       end
      else if pos('$FPUINSTRUCTIONSETS',s)>0 then
       begin
+        hs1:='';
         for fpu:=low(tfputype) to high(tfputype) do
           begin
-            hs:=s;
-            hs1:=fputypestr[fpu];
-            if hs1<>'' then
+            if length(hs1+fputypestr[fpu])>70 then
               begin
+                hs:=s;
                 Replace(hs,'$FPUINSTRUCTIONSETS',hs1);
                 Comment(V_Normal,hs);
-              end;
+                hs1:=''
+              end
+            else
+              if hs1<>'' then
+                hs1:=hs1+',';
+            if fputypestr[fpu]<>'' then
+              hs1:=hs1+fputypestr[fpu];
+          end;
+        if hs1<>'' then
+          begin
+            hs:=s;
+            Replace(hs,'$FPUINSTRUCTIONSETS',hs1);
+            Comment(V_Normal,hs);
+            hs1:=''
           end;
       end
      else if pos('$ABITARGETS',s)>0 then
@@ -283,24 +310,32 @@ begin
       end
      else if pos('$CONTROLLERTYPES',s)>0 then
       begin
-{$if defined(arm) or defined(avr) or defined(avr32)}
+	{$if defined(arm) or defined(avr) or defined(avr32)}
+        hs1:='';
         for controllertype:=low(tcontrollertype) to high(tcontrollertype) do
           begin
-{           currently all whole program optimizations are platform-independent
-            if opt in supported_wpoptimizerswitches then
-}
+            if length(hs1+embedded_controllers[controllertype].ControllerTypeStr)>70 then
               begin
                 hs:=s;
-                hs1:=embedded_controllers[controllertype].ControllerTypeStr;
-                if hs1<>'' then
-                  begin
-                    Replace(hs,'$CONTROLLERTYPES',hs1);
-                    Comment(V_Normal,hs);
-                  end;
-              end;
-          end
-        {$else defined(arm) or defined(avr) or defined(avr32)}
-{$endif defined(arm) or defined(avr) or defined(avr32)}
+                Replace(hs,'$CONTROLLERTYPES',hs1);
+                Comment(V_Normal,hs);
+                hs1:=''
+              end
+            else
+              if hs1<>'' then
+                hs1:=hs1+',';
+            if embedded_controllers[controllertype].ControllerTypeStr<>'' then
+              hs1:=hs1+embedded_controllers[controllertype].ControllerTypeStr;
+          end;
+        if hs1<>'' then
+          begin
+            hs:=s;
+            Replace(hs,'$CONTROLLERTYPES',hs1);
+            Comment(V_Normal,hs);
+            hs1:=''
+          end;
+	{$else defined(arm) or defined(avr) or defined(avr32)}
+	{$endif defined(arm) or defined(avr) or defined(avr32)}
       end
      else
       Comment(V_Normal,s);
@@ -2104,6 +2139,7 @@ var
   line,
   level : longint;
   option_read : boolean;
+  oldfilemode : byte;
 begin
 { avoid infinite loop }
   Inc(FileLevel);
@@ -2118,10 +2154,13 @@ begin
     end;
 { open file }
   Message1(option_using_file,filename);
+  oldfilemode:=filemode;
+  filemode:=0;
   assign(f,ExpandFileName(filename));
   {$push}{$I-}
    reset(f);
   {$pop}
+  filemode:=oldfilemode;
   if ioresult<>0 then
    begin
      Message1(option_unable_open_file,filename);
@@ -3107,7 +3146,8 @@ begin
 
   { maybe override debug info format }
   if (paratargetdbg<>dbg_none) then
-    set_target_dbg(paratargetdbg);
+    if not set_target_dbg(paratargetdbg) then
+      Message(option_w_unsupported_debug_format);
 
   { switch assembler if it's binary and we got -a on the cmdline }
   if (cs_asm_leave in init_settings.globalswitches) and
@@ -3144,14 +3184,14 @@ begin
       or (target_info.abi=abi_eabi)
 {$endif arm}
      )
-{$if defined(arm) or defined(avr32)}
+{$if defined(arm) or defined(avr32) or defined (m68k)}
      or (init_settings.fputype=fpu_soft)
-{$endif defined(arm) or defined(avr32)}
+{$endif defined(arm) or defined(avr32) or defined (m68k)}
   then
     begin
 {$ifdef cpufpemu}
       include(init_settings.moduleswitches,cs_fp_emulation);
-      { cs_fp_emulation and fpu_soft are equal on arm }
+      { cs_fp_emulation and fpu_soft are equal on arm and m68k}
       init_settings.fputype:=fpu_soft;
 {$endif cpufpemu}
     end;
@@ -3242,6 +3282,9 @@ if (target_info.abi = abi_eabihf) then
       def_system_macro('FPC_HAS_TYPE_DOUBLE');
 {$if not defined(i386) and not defined(x86_64)}
       def_system_macro('FPC_INCLUDE_SOFTWARE_INT64_TO_DOUBLE');
+{$endif}
+{$if defined(m68k)}
+      def_system_macro('FPC_INCLUDE_SOFTWARE_LONGWORD_TO_DOUBLE');
 {$endif}
 {$ifdef x86_64}
 {$ifndef FPC_SUPPORT_X87_TYPES_ON_WIN64}

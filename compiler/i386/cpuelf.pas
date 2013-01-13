@@ -29,15 +29,10 @@ implementation
 
   uses
     globtype,cclasses,
-    verbose,
-    systems,ogbase,ogelf,assemble;
+    verbose,elfbase,
+    systems,aasmbase,ogbase,ogelf,assemble;
 
   type
-    TElfTarget386=class(TElfTarget)
-      class function encodereloc(objrel:TObjRelocation):byte;override;
-      class procedure loadreloc(objrel:TObjRelocation);override;
-    end;
-
     TElfExeOutput386=class(TElfExeOutput)
     private
       procedure MaybeWriteGOTEntry(reltyp:byte;relocval:aint;objsym:TObjSymbol);
@@ -45,7 +40,7 @@ implementation
       procedure WriteFirstPLTEntry;override;
       procedure WritePLTEntry(exesym:TExeSymbol);override;
       procedure WriteIndirectPLTEntry(exesym:TExeSymbol);override;
-      procedure GOTRelocPass1(objsec:TObjSection;ObjReloc:TObjRelocation);override;
+      procedure GOTRelocPass1(objsec:TObjSection;var idx:longint);override;
       procedure DoRelocationFixup(objsec:TObjSection);override;
     end;
 
@@ -97,10 +92,10 @@ implementation
 
 
 {****************************************************************************
-                               TElfTarget386
+                               ELF Target methods
 ****************************************************************************}
 
-  class function TElfTarget386.encodereloc(objrel:TObjRelocation):byte;
+  function elf_i386_encodereloc(objrel:TObjRelocation):byte;
     begin
       case objrel.typ of
         RELOC_NONE :
@@ -122,10 +117,15 @@ implementation
     end;
 
 
-  class procedure TElfTarget386.loadreloc(objrel:TObjRelocation);
+  procedure elf_i386_loadreloc(objrel:TObjRelocation);
     begin
     end;
 
+
+  function elf_i386_relocname(reltyp:byte):string;
+    begin
+      result:='TODO';
+    end;
 
 {****************************************************************************
                                TElfExeOutput386
@@ -179,7 +179,7 @@ implementation
       pltrelocsec.writeReloc_internal(gotpltobjsec,got_offset,sizeof(pint),RELOC_ABSOLUTE);
       got_offset:=(exesym.dynindex shl 8) or R_386_JUMP_SLOT;
       pltrelocsec.write(got_offset,sizeof(pint));
-      if relocs_use_addend then
+      if ElfTarget.relocs_use_addend then
         pltrelocsec.writezeros(sizeof(pint));
     end;
 
@@ -191,12 +191,13 @@ implementation
     end;
 
 
-  procedure TElfExeOutput386.GOTRelocPass1(objsec:TObjSection;ObjReloc:TObjRelocation);
+  procedure TElfExeOutput386.GOTRelocPass1(objsec:TObjSection;var idx:longint);
     var
       objsym:TObjSymbol;
-      sym:TExeSymbol;
+      objreloc:TObjRelocation;
       reltyp:byte;
     begin
+      objreloc:=TObjRelocation(objsec.ObjRelocations[idx]);
       if (ObjReloc.flags and rf_raw)=0 then
         reltyp:=ElfTarget.encodereloc(ObjReloc)
       else
@@ -209,30 +210,15 @@ implementation
             objsym.refs:=objsym.refs or symref_plt;
           end;
 
-        R_386_TLS_IE,
+        R_386_TLS_IE:
+          begin
+
+            AllocGOTSlot(objreloc.symbol);
+          end;
+
         R_386_GOT32:
           begin
-            sym:=ObjReloc.symbol.exesymbol;
-
-            { Although local symbols should not be accessed through GOT,
-              this isn't strictly forbidden. In this case we need to fake up
-              the exesym to store the GOT offset in it.
-              TODO: name collision; maybe use a different symbol list object? }
-            if sym=nil then
-              begin
-                sym:=TExeSymbol.Create(ExeSymbolList,objreloc.symbol.name+'*local*');
-                sym.objsymbol:=objreloc.symbol;
-                objreloc.symbol.exesymbol:=sym;
-              end;
-            if sym.GotOffset>0 then
-              exit;
-            gotobjsec.alloc(sizeof(pint));
-            sym.GotOffset:=gotobjsec.size;
-            { In shared library, every GOT entry needs a RELATIVE dynamic reloc,
-              imported/exported symbols need GLOB_DAT instead. For executables,
-              only the latter applies. }
-            if IsSharedLibrary or (sym.dynindex>0) then
-              dynrelocsec.alloc(dynrelocsec.shentsize);
+            AllocGOTSlot(objreloc.symbol);
           end;
 
         R_386_32:
@@ -339,7 +325,7 @@ implementation
           else
             reltyp:=objreloc.ftype;
 
-          if relocs_use_addend then
+          if ElfTarget.relocs_use_addend then
             address:=objreloc.orgsize
           else
             begin
@@ -477,6 +463,25 @@ implementation
 *****************************************************************************}
 
   const
+    elf_target_i386 : TElfTarget =
+      (
+        max_page_size:     $1000;
+        exe_image_base:    $8048000;
+        machine_code:      EM_386;
+        relocs_use_addend: false;
+        dyn_reloc_codes: (
+          R_386_RELATIVE,
+          R_386_GLOB_DAT,
+          R_386_JUMP_SLOT,
+          R_386_COPY,
+          R_386_IRELATIVE
+        );
+        relocname:         @elf_i386_relocName;
+        encodereloc:       @elf_i386_encodeReloc;
+        loadreloc:         @elf_i386_loadReloc;
+        loadsection:       nil;
+      );
+
     as_i386_elf32_info : tasminfo =
        (
          id     : as_i386_elf32;
@@ -497,7 +502,7 @@ implementation
 initialization
   RegisterAssembler(as_i386_elf32_info,TElfAssembler);
   ElfExeOutputClass:=TElfExeOutput386;
-  ElfTarget:=TElfTarget386;
+  ElfTarget:=elf_target_i386;
 
 end.
 

@@ -273,8 +273,9 @@ begin
 {$endif}
   if (fstate<=sqliteerrormax) then
     checkerror(sqlite3_reset(fstatement));
+  FSelectable :=sqlite3_column_count(fstatement)>0;
   RowsAffected:=sqlite3_changes(fhandle);
-  if (fstate=sqlite_row) then 
+  if (fstate=sqlite_row) then
     fstate:= sqliteerrormax; //first row
 end;  
 
@@ -476,7 +477,7 @@ begin
                  size1 := 255; //sql: if length is omitted then length is 1
                  size2 := 0;
                  ExtractPrecisionAndScale(FD, size1, size2);
-                 if size1 > dsMaxStringSize then size1 := dsMaxStringSize;
+                 if size1 > MaxSmallint then size1 := MaxSmallint;
                end;
       ftBCD:   begin
                  size2 := MaxBCDPrecision; //sql: if a precision is omitted, then use implementation-defined

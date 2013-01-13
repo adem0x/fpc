@@ -187,7 +187,9 @@ type
     { type is a specialization of a generic type }
     df_specialization,
     { def has been copied from another def so symtable is not owned }
-    df_copied_def
+    df_copied_def,
+    { def was created as a generic constraint and thus is only "shallow" }
+    df_genconstraint
   );
   tdefoptions=set of tdefoption;
 
@@ -546,7 +548,7 @@ type
     staticvarsym,localvarsym,paravarsym,fieldvarsym,
     typesym,procsym,unitsym,constsym,enumsym,
     errorsym,syssym,labelsym,absolutevarsym,propertysym,
-    macrosym,namespacesym
+    macrosym,namespacesym,undefinedsym
   );
 
   { State of the variable:
@@ -660,7 +662,7 @@ inherited_objectoptions : tobjectoptions = [oo_has_virtual,oo_has_private,oo_has
        'abstractsym','globalvar','localvar','paravar','fieldvar',
        'type','proc','unit','const','enum',
        'errorsym','system sym','label','absolutevar','property',
-       'macrosym','namespace'
+       'macrosym','namespace','undefinedsym'
      );
 
      typName : array[tdeftyp] of string[12] = (
