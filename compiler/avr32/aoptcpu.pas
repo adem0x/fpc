@@ -28,7 +28,7 @@ Unit aoptcpu;
 
 Interface
 
-uses cgbase, cpubase, aasmtai, aasmcpu,aopt, aoptobj;
+uses cpubase, aasmtai, aopt, aoptobj,cgcpu,cgutils;
 
 Type
 
@@ -42,9 +42,7 @@ Type
 Implementation
 
   uses
-    verbose,
-    aasmbase,aasmcpu,
-    cgbase;
+    aasmbase,aasmcpu,cgbase;
 
 { TCpuAsmOptimizer }
 

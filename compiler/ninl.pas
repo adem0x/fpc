@@ -2704,6 +2704,9 @@ implementation
                           (tenumdef(resultdef).has_jumps) and
                           not(m_delphi in current_settings.modeswitches) then
                          CGMessage(type_e_succ_and_pred_enums_with_assign_not_possible);
+                     end
+                   else
+                     CGMessage(type_e_ordinal_expr_expected)
                 end;
 
               in_copy_x:

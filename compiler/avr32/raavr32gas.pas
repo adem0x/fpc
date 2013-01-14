@@ -60,7 +60,7 @@ Unit raavr32gas;
       symconst,symsym,
       procinfo,
       rabase,rautils,
-      cgbase,cgutils;
+      cgbase;
 
 
     function tavr32attreader.is_register(const s:string):boolean;

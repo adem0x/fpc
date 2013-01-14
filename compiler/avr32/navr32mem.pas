@@ -27,7 +27,7 @@ interface
 
     uses
       globtype,
-      cgbase,cpubase,nmem,ncgmem;
+      cgbase,cpubase,nmem,ncgmem,cgutils;
 
     type
 
