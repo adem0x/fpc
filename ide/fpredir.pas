@@ -95,10 +95,13 @@ Uses
   baseunix,
   unix,
 {$endif unix}
+{$ifdef aros}
+  SysUtils,
+{$endif}
   dos;
 
 Const
-{$ifdef UNIX}
+{$if defined(UNIX) or defined(aros)}
   DirSep='/';
   listsep = [';',':'];
   exeext = '';
@@ -270,8 +273,12 @@ end;
 function CompleteDir(const Path: string): string;
 begin
   { keep c: untouched PM }
+  {$ifdef aros}
+  if (Path<>'') and (Path[Length(Path)]<>DirSep) then
+  {$else}
   if (Path<>'') and (Path[Length(Path)]<>DirSep) and
      (Path[Length(Path)]<>':') then
+  {$endif}
    CompleteDir:=Path+DirSep
   else
    CompleteDir:=Path;
@@ -627,8 +634,12 @@ end;
 function CompleteDir(const Path: string): string;
 begin
   { keep c: untouched PM }
+  {$ifdef aros}
+  if (Path<>'') and (Path[Length(Path)]<>DirSep) then
+  {$else}
   if (Path<>'') and (Path[Length(Path)]<>DirSep) and
      (Path[Length(Path)]<>':') then
+  {$endif}
    CompleteDir:=Path+DirSep
   else
    CompleteDir:=Path;
@@ -786,6 +797,12 @@ end;
 
 {............................................................................}
 
+{$ifdef aros}
+  procedure DosExecute(ProgName, ComLine : String);
+  begin
+    Dos.Exec(Progname, ComLine);
+  end;
+{$else}
   procedure DosExecute(ProgName, ComLine : String);
 {$ifdef Windows}
     var
@@ -834,6 +851,7 @@ end;
     end;
 {$endif CPU86}
 End;
+{$endif aros}
 
 {*****************************************************************************
                                   Initialize

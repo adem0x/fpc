@@ -386,7 +386,7 @@ uses
 
 function AddNamedObject(nameSpace,obj : pNamedObject) : Boolean;
 type
-  TLocalCall = function(nameSpace,obj : pNamedObject; LibBase: Pointer): Boolean; stdcall;
+  TLocalCall = function(nameSpace,obj : pNamedObject; LibBase: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -396,7 +396,7 @@ end;
 
 function AllocateTagItems(num : ULONG) : pTagItem;
 type
-  TLocalCall = function(num : ULONG; LibBase: Pointer): pTagItem; stdcall;
+  TLocalCall = function(num : ULONG; LibBase: Pointer): pTagItem; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -406,7 +406,7 @@ end;
 
 function AllocNamedObjectA(const name : STRPTR;const TagList : pTagItem) : pNamedObject;
 type
-  TLocalCall = function(const name : STRPTR;const TagList : pTagItem; LibBase: Pointer): pNamedObject; stdcall;
+  TLocalCall = function(const name : STRPTR;const TagList : pTagItem; LibBase: Pointer): pNamedObject; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -416,7 +416,7 @@ end;
 
 procedure Amiga2Date(amigatime : ULONG;resultat : pClockData);
 type
-  TLocalCall = procedure(amigatime : ULONG;resultat : pClockData; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(amigatime : ULONG;resultat : pClockData; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -426,7 +426,7 @@ end;
 
 procedure ApplyTagChanges(TagList : pTagItem;const ChangeList : pTagItem);
 type
-  TLocalCall = procedure(TagList : pTagItem;const ChangeList : pTagItem; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(TagList : pTagItem;const ChangeList : pTagItem; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -436,7 +436,7 @@ end;
 
 function AttemptRemNamedObject(obj : pNamedObject) : LongInt;
 type
-  TLocalCall = function(obj : pNamedObject; LibBase: Pointer): LongInt; stdcall;
+  TLocalCall = function(obj : pNamedObject; LibBase: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -446,7 +446,7 @@ end;
 
 function CallHookPktA(h : pHook;obj, paramPkt : APTR) : ULONG;
 type
-  TLocalCall = function(h : pHook;obj, paramPkt : APTR; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(h : pHook;obj, paramPkt : APTR; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -461,7 +461,7 @@ end;
 
 function CheckDate(const date : pClockData) : ULONG;
 type
-  TLocalCall = function(const date : pClockData; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(const date : pClockData; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -471,7 +471,7 @@ end;
 
 function CloneTagItems(const tagList : pTagItem) : pTagItem;
 type
-  TLocalCall = function(const tagList : pTagItem; LibBase: Pointer): pTagItem; stdcall;
+  TLocalCall = function(const tagList : pTagItem; LibBase: Pointer): pTagItem; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -481,7 +481,7 @@ end;
 
 function Date2Amiga(const date : pClockData) : ULONG;
 type
-  TLocalCall = function(const date : pClockData; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(const date : pClockData; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -491,7 +491,7 @@ end;
 
 procedure FilterTagChanges(changelist, oldvalues : pTagItem;apply : ULONG);
 type
-  TLocalCall = procedure(changelist, oldvalues : pTagItem;apply : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(changelist, oldvalues : pTagItem;apply : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -501,7 +501,7 @@ end;
 
 function FilterTagItems(taglist : pTagItem ;const tagArray : pULONG;logic : ULONG) : ULONG;
 type
-  TLocalCall = function(taglist : pTagItem ;const tagArray : pULONG;logic : ULONG; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(taglist : pTagItem ;const tagArray : pULONG;logic : ULONG; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -511,7 +511,7 @@ end;
 
 function FindNamedObject(nameSpace : pNamedObject;const name : STRPTR;lastobject: pNamedObject) : pNamedObject;
 type
-  TLocalCall = function(nameSpace : pNamedObject;const name : STRPTR;lastobject: pNamedObject; LibBase: Pointer): pNamedObject; stdcall;
+  TLocalCall = function(nameSpace : pNamedObject;const name : STRPTR;lastobject: pNamedObject; LibBase: Pointer): pNamedObject; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -521,7 +521,7 @@ end;
 
 function FindTagItem(TagVal : Tag;const TagList : pTagItem) : pTagItem;
 type
-  TLocalCall = function(TagVal : Tag;const TagList : pTagItem; LibBase: Pointer): pTagItem; stdcall;
+  TLocalCall = function(TagVal : Tag;const TagList : pTagItem; LibBase: Pointer): pTagItem; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -531,7 +531,7 @@ end;
 
 procedure FreeNamedObject(Obj : pNamedObject);
 type
-  TLocalCall = procedure(Obj : pNamedObject; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(Obj : pNamedObject; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -541,7 +541,7 @@ end;
 
 procedure FreeTagItems(TagList : pTagItem);
 type
-  TLocalCall = procedure(TagList : pTagItem; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(TagList : pTagItem; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -551,7 +551,7 @@ end;
 
 function GetTagData(tagval : Tag;default : ULONG;const TagList : pTagItem) : ULONG;
 type
-  TLocalCall = function(tagval : Tag;default : ULONG;const TagList : pTagItem; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(tagval : Tag;default : ULONG;const TagList : pTagItem; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -561,7 +561,7 @@ end;
 
 function GetUniqueID : ULONG;
 type
-  TLocalCall = function(LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -571,7 +571,7 @@ end;
 
 procedure MapTags(TagList : pTagItem;const maplist : pTagItem;IncludeMiss : ULONG);
 type
-  TLocalCall = procedure(TagList : pTagItem;const maplist : pTagItem;IncludeMiss : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(TagList : pTagItem;const maplist : pTagItem;IncludeMiss : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -581,7 +581,7 @@ end;
 
 function NamedObjectName(Obj : pNamedObject) : STRPTR;
 type
-  TLocalCall = function(Obj : pNamedObject; LibBase: Pointer): STRPTR; stdcall;
+  TLocalCall = function(Obj : pNamedObject; LibBase: Pointer): STRPTR; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -591,7 +591,7 @@ end;
 
 function NextTagItem(Item : ppTagItem) : pTagItem;
 type
-  TLocalCall = function(Item : ppTagItem; LibBase: Pointer): pTagItem; stdcall;
+  TLocalCall = function(Item : ppTagItem; LibBase: Pointer): pTagItem; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -601,7 +601,7 @@ end;
 
 function PackBoolTags(InitialFlags : ULONG;const TagList, boolmap : pTagItem) : ULONG;
 type
-  TLocalCall = function(InitialFlags : ULONG;const TagList, boolmap : pTagItem; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(InitialFlags : ULONG;const TagList, boolmap : pTagItem; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -611,7 +611,7 @@ end;
 
 function PackStructureTags(packk: APTR;const packTable : pULONG;const TagList : pTagItem) : ULONG;
 type
-  TLocalCall = function(packk: APTR;const packTable : pULONG;const TagList : pTagItem; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(packk: APTR;const packTable : pULONG;const TagList : pTagItem; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -621,7 +621,7 @@ end;
 
 procedure RefreshTagItemClones(cloneTagItem : pTagItem; const OriginalTagItems : pTagItem);
 type
-  TLocalCall = procedure(cloneTagItem : pTagItem; const OriginalTagItems : pTagItem; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(cloneTagItem : pTagItem; const OriginalTagItems : pTagItem; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -631,7 +631,7 @@ end;
 
 procedure ReleaseNamedObject(Obj : pNamedObject);
 type
-  TLocalCall = procedure(Obj : pNamedObject; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(Obj : pNamedObject; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -641,7 +641,7 @@ end;
 
 procedure RemNamedObject(Obj : pNamedObject;Msg : pointer);
 type
-  TLocalCall = procedure(Obj : pNamedObject;Msg : pointer; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(Obj : pNamedObject;Msg : pointer; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -651,7 +651,7 @@ end;
 
 function SDivMod32(dividend , divisor : LongInt) : LongInt;
 type
-  TLocalCall = function(dividend , divisor : LongInt; LibBase: Pointer): LongInt; stdcall;
+  TLocalCall = function(dividend , divisor : LongInt; LibBase: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -661,7 +661,7 @@ end;
 
 function SMult32(Arg1, Arg2 : LongInt) : LongInt;
 type
-  TLocalCall = function(Arg1, Arg2 : LongInt; LibBase: Pointer): LongInt; stdcall;
+  TLocalCall = function(Arg1, Arg2 : LongInt; LibBase: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -671,7 +671,7 @@ end;
 
 function SMult64(Arg1, Arg2 : LongInt) : LongInt;
 type
-  TLocalCall = function(Arg1, Arg2 : LongInt; LibBase: Pointer): LongInt; stdcall;
+  TLocalCall = function(Arg1, Arg2 : LongInt; LibBase: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -681,7 +681,7 @@ end;
 
 function Stricmp(const Str1: STRPTR;const Str2 : STRPTR) : LongInt;
 type
-  TLocalCall = function(const Str1: STRPTR;const Str2 : STRPTR; LibBase: Pointer): LongInt; stdcall;
+  TLocalCall = function(const Str1: STRPTR;const Str2 : STRPTR; LibBase: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -691,7 +691,7 @@ end;
 
 function Strnicmp(const Str1: STRPTR;const Str2 : STRPTR;len : LongInt) : LongInt;
 type
-  TLocalCall = function(const Str1: STRPTR;const Str2 : STRPTR;len : LongInt; LibBase: Pointer): LongInt; stdcall;
+  TLocalCall = function(const Str1: STRPTR;const Str2 : STRPTR;len : LongInt; LibBase: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -701,7 +701,7 @@ end;
 
 function TagInArray(t : Tag;const TagArray : pULONG) : Boolean;
 type
-  TLocalCall = function(t : Tag;const TagArray : pULONG; LibBase: Pointer): Boolean; stdcall;
+  TLocalCall = function(t : Tag;const TagArray : pULONG; LibBase: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -711,7 +711,7 @@ end;
 
 function ToLower(c : ULONG) : Char;
 type
-  TLocalCall = function(c : ULONG; LibBase: Pointer): Char; stdcall;
+  TLocalCall = function(c : ULONG; LibBase: Pointer): Char; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -721,7 +721,7 @@ end;
 
 function ToUpper(c : ULONG) : Char;
 type
-  TLocalCall = function(c : ULONG; LibBase: Pointer): Char; stdcall;
+  TLocalCall = function(c : ULONG; LibBase: Pointer): Char; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -731,7 +731,7 @@ end;
 
 function UDivMod32(dividend , divisor : ULONG) : ULONG;
 type
-  TLocalCall = function(dividend , divisor : ULONG; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(dividend , divisor : ULONG; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -741,7 +741,7 @@ end;
 
 function UMult32(Arg1, Arg2 : ULONG) : ULONG;
 type
-  TLocalCall = function(Arg1, Arg2 : ULONG; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(Arg1, Arg2 : ULONG; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -751,7 +751,7 @@ end;
 
 function UMult64(Arg1, Arg2 : ULONG) : ULONG;
 type
-  TLocalCall = function(Arg1, Arg2 : ULONG; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(Arg1, Arg2 : ULONG; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -761,7 +761,7 @@ end;
 
 function UnpackStructureTags(const pac: APTR;const packTable: pULONG;TagList : pTagItem) : ULONG;
 type
-  TLocalCall = function(const pac: APTR;const packTable: pULONG;TagList : pTagItem; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(const pac: APTR;const packTable: pULONG;TagList : pTagItem; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin

@@ -572,7 +572,7 @@ IMPLEMENTATION
 
 FUNCTION AllocAslRequestA(reqType : ULONG; tagList : pTagItem) : POINTER;
 type
-  TLocalCall = function(reqType : ULONG; tagList : pTagItem; Base: Pointer): POINTER; stdcall;
+  TLocalCall = function(reqType : ULONG; tagList : pTagItem; Base: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -582,7 +582,7 @@ end;
 
 FUNCTION AllocFileRequest : pFileRequester;
 type
-  TLocalCall = function(Base: Pointer): pFileRequester; stdcall;
+  TLocalCall = function(Base: Pointer): pFileRequester; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -592,7 +592,7 @@ end;
 
 FUNCTION AslRequestA(requester : POINTER; tagList : pTagItem) : BOOLEAN;
 type
-  TLocalCall = function(requester : POINTER; tagList : pTagItem; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(requester : POINTER; tagList : pTagItem; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -602,7 +602,7 @@ end;
 
 PROCEDURE FreeAslRequest(requester : POINTER);
 type
-  TLocalCall = procedure(requester : POINTER; Base: Pointer); stdcall;
+  TLocalCall = procedure(requester : POINTER; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -612,7 +612,7 @@ end;
 
 PROCEDURE FreeFileRequest(fileReq : pFileRequester);
 type
-  TLocalCall = procedure(fileReq : pFileRequester; Base: Pointer); stdcall;
+  TLocalCall = procedure(fileReq : pFileRequester; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -622,7 +622,7 @@ end;
 
 FUNCTION RequestFile(fileReq : pFileRequester) : BOOLEAN;
 type
-  TLocalCall = function(fileReq : pFileRequester; Base: Pointer) : BOOLEAN; stdcall;
+  TLocalCall = function(fileReq : pFileRequester; Base: Pointer) : BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -632,7 +632,7 @@ end;
 
 PROCEDURE AbortAslRequest(requester : POINTER);
 type
-  TLocalCall = procedure(requester : POINTER; Base: Pointer); stdcall;
+  TLocalCall = procedure(requester : POINTER; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -642,7 +642,7 @@ end;
 
 PROCEDURE ActivateAslRequest(requester : POINTER);
 type
-  TLocalCall = procedure(requester : POINTER; Base: Pointer); stdcall;
+  TLocalCall = procedure(requester : POINTER; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin

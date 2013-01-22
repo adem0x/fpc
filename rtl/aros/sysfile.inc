@@ -19,15 +19,17 @@
 {*****************************************************************************
                   AROS File-handling Support Functions
 *****************************************************************************}
+
 type
   { AmigaOS does not automatically close opened files on exit back to  }
   { the operating system, therefore as a precuation we close all files }
   { manually on exit.                                                  }
   PFileList = ^TFileList;
   TFileList = record { no packed, must be correctly aligned }
-    handle   : THandle;      { Handle to file     }
-    next     : PFileList;    { Next file in list  }
-    buffered : boolean;      { used buffered I/O? }
+    Handle   : THandle;      { Handle to file     }
+    FName    : array of Char;
+    Next     : PFileList;    { Next file in list  }
+    Buffered : Boolean;      { used Buffered I/O? }
   end;
 
 var
@@ -36,57 +38,70 @@ var
 { Function to be called at program shutdown, to close all opened files }
 procedure CloseList(l: PFileList);
 var
-  tmpNext   : PFileList;
-  tmpHandle : THandle;
+  TmpNext: PFileList;
+  TmpHandle: THandle;
 begin
-  if l=nil then exit;
+  if l = nil then
+    Exit;
 
   { First, close all tracked files }
-  tmpNext:=l^.next;
-  while tmpNext<>nil do begin
-    tmpHandle:=tmpNext^.handle;
-    if (tmpHandle<>StdInputHandle) and (tmpHandle<>StdOutputHandle)
-       and (tmpHandle<>StdErrorHandle) then begin
-      dosClose(tmpHandle);
+  TmpNext := l^.Next;
+  while TmpNext <> nil do
+  begin
+    TmpHandle := TmpNext^.Handle;
+    if (TmpHandle <> StdInputHandle) and (TmpHandle <> StdOutputHandle)
+       and (TmpHandle <> StdErrorHandle) then
+    begin
+      DosClose(TmpHandle);
     end;
-    tmpNext:=tmpNext^.next;
+    TmpNext := TmpNext^.Next;
   end;
 
   { Next, erase the linked list }
-  while l<>nil do begin
-    tmpNext:=l;
-    l:=l^.next;
-    dispose(tmpNext);
+  while l <> nil do
+  begin
+    TmpNext := l;
+    l := l^.Next;
+    Dispose(TmpNext);
   end;
 end;
 
 { Function to be called to add a file to the opened file list }
-procedure AddToList(var l: PFileList; h: THandle); alias: 'ADDTOLIST'; [public];
+procedure AddToList(var l: PFileList; h: THandle; const AName: PChar); alias: 'ADDTOLIST'; [public];
 var
-  p     : PFileList;
-  inList: Boolean;
+  p: PFileList;
+  InList: Boolean;
+  LocalName: string;
 begin
-  inList:=False;
-  if l<>nil then begin
+  InList := False;
+  if l <> nil then
+  begin
     { if there is a valid filelist, search for the value }
     { in the list to avoid double additions }
-    p:=l;
-    while (p^.next<>nil) and (not inList) do
-      if p^.next^.handle=h then inList:=True
-                           else p:=p^.next;
-    p:=nil;
-  end else begin
+    p := l;
+    while (p^.Next <> nil) and (not InList) do
+      if p^.Next^.Handle = h then
+        inList := True
+      else
+        p := p^.Next;
+    p := nil;
+  end else
+  begin
     { if the list is not yet allocated, allocate it. }
     New(l);
-    l^.next:=nil;
+    l^.Next := nil;
   end;
 
-  if not inList then begin
+  if not inList then
+  begin
     New(p);
-    p^.handle:=h;
-    p^.buffered:=False;
-    p^.next:=l^.next;
-    l^.next:=p;
+    p^.Handle := h;
+    localname := AName + #0;
+    SetLength(p^.FName, Length(LocalName));
+    Move(LocalName[1], p^.FName[0], Length(LocalName));
+    p^.Buffered := False;
+    p^.Next := l^.Next;
+    l^.Next := p;
   end
 {$IFDEF MOSFPC_FILEDEBUG}
   else 
@@ -96,27 +111,31 @@ begin
 end;
 
 { Function to be called to remove a file from the list }
-function RemoveFromList(var l: PFileList; h: THandle): boolean; alias: 'REMOVEFROMLIST'; [public];
+function RemoveFromList(var l: PFileList; h: THandle): Boolean; alias: 'REMOVEFROMLIST'; [public];
 var
-  p      : PFileList;
-  inList : Boolean;
-  tmpList: PFileList;
+  p: PFileList;
+  InList: Boolean;
+  TmpList: PFileList;
 begin
-  inList:=False;
-  if l=nil then begin
-    RemoveFromList:=inList;
-    exit;
+  InList := False;
+  if l = nil then
+  begin
+    RemoveFromList := InList;
+    Exit;
   end;
 
-  p:=l;
-  while (p^.next<>nil) and (not inList) do
-    if p^.next^.handle=h then inList:=True
-                         else p:=p^.next;
+  p := l;
+  while (p^.Next <> nil) and (not InList) do
+    if p^.Next^.Handle = h then
+      InList := True
+    else
+      p := p^.Next;
   
-  if inList then begin
-    tmpList:=p^.next^.next;
-    dispose(p^.next);
-    p^.next:=tmpList;
+  if InList then
+  begin
+    TmpList := p^.Next^.Next;
+    Dispose(p^.Next);
+    p^.Next := TmpList;
   end
 {$IFDEF MOSFPC_FILEDEBUG}
   else 
@@ -124,33 +143,60 @@ begin
 {$ENDIF}
   ;
 
-  RemoveFromList:=inList;
+  RemoveFromList := inList;
 end;
 
 { Function to check if file is in the list }
 function CheckInList(var l: PFileList; h: THandle): pointer; alias: 'CHECKINLIST'; [public];
 var
-  p      : PFileList;
-  inList : Pointer;
-  
+  p: PFileList;
+  InList: Pointer;
 begin
-  inList:=nil;
-  if l=nil then begin
-    CheckInList:=inList;
-    exit;
+  InList := nil;
+  if l = nil then
+  begin
+    CheckInList := InList;
+    Exit;
   end;
 
-  p:=l;
-  while (p^.next<>nil) and (inList=nil) do
-    if p^.next^.handle=h then inList:=p^.next
-                         else p:=p^.next;
+  p := l;
+  while (p^.Next <> nil) and (InList = nil) do
+    if p^.Next^.Handle = h then
+      InList := p^.Next
+    else
+      p := p^.Next;
 
 {$IFDEF MOSFPC_FILEDEBUG}
-  if inList=nil then
+  if InList = nil then
     RawDoFmt('FPC_FILE_DEBUG: Warning! Check for not existing filehandle: $%lx !'+#10,@h,pointer(1),nil);
 {$ENDIF}
 
-  CheckInList:=inList;
+  CheckInList := InList;
+end;
+
+function GetNameFromList(var l: PFileList; h: THandle): PChar; alias: 'GETNAMEFROMLIST'; [public];
+var
+  p: PFileList;
+  InList: PChar;
+begin
+  InList := '';
+  if l = nil then
+  begin
+    GetNameFromList := '';
+    Exit;
+  end;
+
+  p := l;
+  while (p^.Next <> nil) and (InList = '') do
+  begin
+    if p^.Next^.Handle = h then
+    begin
+      InList := PChar(@(p^.Next^.FName[0]));
+      Break;
+    end else
+      p := p^.Next;
+  end;
+  GetNameFromList := inList;
 end;
 
 
@@ -159,231 +205,270 @@ end;
                All these functions can set InOutRes on errors
 ****************************************************************************}
 
-{ close a file from the handle value }
-procedure do_close(handle : THandle);
+{ close a file from the Handle value }
+procedure do_close(Handle: THandle);
 begin
-  if RemoveFromList(AOS_fileList,handle) then begin
+  if RemoveFromList(AOS_fileList,Handle) then
+  begin
     { Do _NOT_ check CTRL_C on Close, because it will conflict
       with System_Exit! }
-    if not dosClose(handle) then
+    if not dosClose(Handle) then
       dosError2InOut(IoErr);
   end;
 end;
 
-procedure do_erase(p : pchar);
+procedure do_erase(p: PChar);
 var
-  tmpStr: array[0..255] of Char;
+  TmpStr: array[0..255] of Char;
 begin
-  tmpStr:=PathConv(strpas(p))+#0;
-  checkCTRLC;
-  if not dosDeleteFile(@tmpStr) then
-    dosError2InOut(IoErr);
+  TmpStr := PathConv(StrPas(p))+#0;
+  CheckCTRLC;
+  if not dosDeleteFile(@TmpStr) then
+    DosError2InOut(IoErr);
 end;
 
-procedure do_rename(p1,p2 : pchar);
+procedure do_rename(p1,p2 : PChar);
 { quite stack-effective code, huh? :) damn path conversions... (KB) }
 var
-  tmpStr1: array[0..255] of Char;
-  tmpStr2: array[0..255] of Char;
+  TmpStr1: array[0..255] of Char;
+  TmpStr2: array[0..255] of Char;
 begin
-  tmpStr1:=PathConv(strpas(p1))+#0;
-  tmpStr2:=PathConv(strpas(p2))+#0;
-  checkCTRLC;
-  if not dosRename(@tmpStr1,@tmpStr2) then
-    dosError2InOut(IoErr);
+  TmpStr1 := PathConv(StrPas(p1)) + #0;
+  TmpStr2 := PathConv(StrPas(p2)) + #0;
+  CheckCTRLC;
+  if not dosRename(@TmpStr1, @TmpStr2) then
+    DosError2InOut(IoErr);
 end;
 
-function do_write(h: THandle; addr: pointer; len: longint) : longint;
-var dosResult: LongInt;
+function do_write(h: THandle; addr: pointer; Len: LongInt) : LongInt;
+var
+  DosResult: LongInt;
 begin
-  checkCTRLC;
-  do_write:=0;
-  if (len<=0) or (h=0) then exit;
+  CheckCTRLC;
+  do_write := 0;
+  if (Len <= 0) or (h = 0) then
+    Exit;
 
-{$IFDEF MOSFPC_FILEDEBUG}
-  if not ((h=StdOutputHandle) or (h=StdInputHandle) or
-     (h=StdErrorHandle)) then CheckInList(AOS_fileList,h);
-{$ENDIF}
-
-  dosResult:=dosWrite(h,addr,len);
-  if dosResult<0 then begin
-    dosError2InOut(IoErr);
-  end else begin
-    do_write:=dosResult;
+  DosResult := DosWrite(h, addr, Len);
+  if DosResult < 0 then
+  begin
+    DosError2InOut(IoErr);
+  end else
+  begin
+    do_write := DosResult;
   end;
+  {$IFDEF MOSFPC_FILEDEBUG}
+  if not ((h = StdOutputHandle) or (h = StdInputHandle) or
+    (h = StdErrorHandle)) then
+  begin
+    writeln('## write ',h,' should: ', len, ' is: ', Dosresult);
+    //CheckInList(AOS_fileList, h);
+  end;
+ {$ENDIF}
 end;
 
-function do_read(h: THandle; addr: pointer; len: longint) : longint;
-var dosResult: LongInt;
+function do_read(h: THandle; addr: pointer; Len: LongInt) : LongInt;
+var
+  DosResult: LongInt;
 begin
-  checkCTRLC;
-  do_read:=0;
-  if (len<=0) or (h=0) then exit;
+  CheckCTRLC;
+  do_read := 0;
+  if (Len <= 0) or (h = 0) then
+    Exit;
 
 {$IFDEF MOSFPC_FILEDEBUG}
-  if not ((h=StdOutputHandle) or (h=StdInputHandle) or
-     (h=StdErrorHandle)) then CheckInList(AOS_fileList,h);
+  if not ((h = StdOutputHandle) or (h = StdInputHandle) or
+    (h = StdErrorHandle)) then
+    CheckInList(AOS_fileList, h);
 {$ENDIF}
 
-  dosResult:=dosRead(h,addr,len);
-  if dosResult<0 then begin
-    dosError2InOut(IoErr);
-  end else begin
-    do_read:=dosResult;
+  DosResult := DosRead(h, addr, Len);
+  if DosResult < 0 then
+  begin
+    DosError2InOut(IoErr);
+  end else
+  begin
+    do_read := DosResult;
   end
 end;
 
-function do_filepos(handle: THandle) : longint;
-var dosResult: LongInt;
+function do_filepos(Handle: THandle) : LongInt;
+var
+  DosResult: LongInt;
 begin
-  checkCTRLC;
-  do_filepos:=-1;
-  if CheckInList(AOS_fileList,handle)<>nil then begin
-
+  CheckCTRLC;
+  do_filepos := -1;
+  if CheckInList(AOS_fileList, Handle) <> nil then
+  begin
     { Seeking zero from OFFSET_CURRENT to find out where we are }    
-    dosResult:=dosSeek(handle,0,OFFSET_CURRENT);
-    if dosResult<0 then begin
-      dosError2InOut(IoErr);
-    end else begin
-      do_filepos:=dosResult;
+    DosResult := DosSeek(Handle, 0, OFFSET_CURRENT);
+    if DosResult < 0 then
+    begin
+      DosError2InOut(IoErr);
+    end else
+    begin
+      do_filepos := DosResult;
     end;
   end;
 end;
 
-procedure do_seek(handle: Thandle; pos: longint);
+procedure do_seek(Handle: Thandle; pos: LongInt);
+var
+  err: Integer;
 begin
-  checkCTRLC;
-  if CheckInList(AOS_fileList,handle)<>nil then begin
-
+  CheckCTRLC;
+  if CheckInList(AOS_fileList, Handle) <> nil then
+  begin
     { Seeking from OFFSET_BEGINNING }  
-    if dosSeek(handle,pos,OFFSET_BEGINNING)<0 then
-      dosError2InOut(IoErr);
-  end;
-end;
-
-function do_seekend(handle: longint):longint;
-var dosResult: LongInt;
-begin
-  checkCTRLC;
-  do_seekend:=-1;
-  if CheckInList(AOS_fileList,handle)<>nil then begin
-
-    { Seeking to OFFSET_END }
-    dosResult:=dosSeek(handle,0,OFFSET_END);
-    if dosResult<0 then begin
-      dosError2InOut(IoErr);
-    end else begin
-      do_seekend:=dosResult;
+    if DosSeek(Handle, pos, OFFSET_BEGINNING) < 0 then
+    begin
+      Err := ioErr;
+      DosError2InOut(Err);
     end;
   end;
 end;
 
-function do_filesize(handle : longint) : longint;
-var currfilepos: longint;
+function do_seekend(Handle: LongInt):LongInt;
+var
+  DosResult: LongInt;
 begin
-  checkCTRLC;
-  do_filesize:=-1;
-  if CheckInList(AOS_fileList,handle)<>nil then begin
+  CheckCTRLC;
+  do_seekend := -1;
+  if CheckInList(AOS_fileList, Handle) <> nil then
+  begin
+    { Seeking to OFFSET_END }
+    DosResult := dosSeek(Handle, 0, OFFSET_END);
+    if DosResult < 0 then
+    begin
+      DosError2InOut(IoErr);
+    end else
+    begin
+      do_seekend := DosSeek(Handle, 0, OFFSET_CURRENT);  // get positon
+    end;
+  end;
+end;
 
-    currfilepos:=do_filepos(handle);
-    { We have to do this twice, because seek returns the OLD position }
-    do_filesize:=do_seekend(handle);
-    do_filesize:=do_seekend(handle);
-    do_seek(handle,currfilepos);
-    Result := do_fileSize;
+function do_filesize(Handle : LongInt) : LongInt;
+var
+  CurrFilePos: LongInt;
+begin
+  CheckCTRLC;
+  do_filesize := -1;
+  if CheckInList(AOS_fileList, Handle) <> nil then
+  begin
+    CurrFilePos := do_filepos(Handle);
+    do_filesize := do_seekend(Handle);
+    do_seek(Handle, CurrFilePos);
   end;
 end;
 
 { truncate at a given position }
-procedure do_truncate(handle, pos: longint);
+procedure do_truncate(Handle, pos: LongInt);
 begin
-  checkCTRLC;
-  if CheckInList(AOS_fileList,handle)<>nil then begin
-
+  CheckCTRLC;
+  if CheckInList(AOS_fileList, Handle) <> nil then
+  begin
     { Seeking from OFFSET_BEGINNING }
-    if SetFileSize(handle,pos,OFFSET_BEGINNING)<0 then
-      dosError2InOut(IoErr);
+    if SetFileSize(Handle, pos, OFFSET_BEGINNING) < 0 then
+      DosError2InOut(IoErr);
   end;
 end;
 
-procedure do_open(var f;p:pchar;flags:longint);
+procedure do_open(var f; p: PChar; flags: LongInt);
 {
-  filerec and textrec have both handle and mode as the first items so
+  filerec and textrec have both Handle and mode as the first items so
   they could use the same routine for opening/creating.
   when (flags and $10)   the file will be append
   when (flags and $100)  the file will be truncate/rewritten
   when (flags and $1000) there is no check for close (needed for textfiles)
 }
 var
-  handle   : THandle;
-  openflags: LongInt;
-  tmpStr   : array[0..255] of Char;
+  Handle   : THandle;
+  OpenFlags: LongInt;
+  TmpStr   : array[0..255] of Char;
 begin
-  tmpStr:=PathConv(strpas(p))+#0;
-
+  TmpStr:=PathConv(StrPas(p))+#0;
+  
   { close first if opened }
-  if ((flags and $10000)=0) then begin
+  if ((flags and $10000) = 0) then
+  begin
     case filerec(f).mode of
-      fminput,fmoutput,fminout : Do_Close(filerec(f).handle);
-      fmclosed : ;
-      else begin
-        inoutres:=102; {not assigned}
-        exit;
+      fminput,
+      fmoutput,
+      fminout: Do_Close(filerec(f).Handle);
+      fmclosed: ;
+      else
+      begin
+        InOutRes := 102; {not assigned}
+        Exit;
       end;
     end;
   end;
 
-  { reset file handle }
-  filerec(f).handle:=UnusedHandle;
+  { reset file Handle }
+  filerec(f).Handle := UnusedHandle;
 
   { convert filemode to filerec modes }
   { READ/WRITE on existing file }
   { RESET/APPEND                }
-  openflags:=MODE_OLDFILE;
+  OpenFlags := MODE_OLDFILE;
   case (flags and 3) of
-    0 : filerec(f).mode:=fminput;
-    1 : filerec(f).mode:=fmoutput;
-    2 : filerec(f).mode:=fminout;
+    0 : filerec(f).mode := fminput;
+    1 : filerec(f).mode := fmoutput;
+    2 : filerec(f).mode := fminout;
   end;
 
   { rewrite (create a new file) }
-  if (flags and $1000)<>0 then openflags:=MODE_NEWFILE;
+  if (flags and $1000) <> 0 then
+    openflags:=MODE_NEWFILE;
 
   { empty name is special }
-  if p[0]=#0 then begin
+  if p[0] = #0 then
+  begin
     case filerec(f).mode of
-      fminput :
-        filerec(f).handle:=StdInputHandle;
+      fminput:
+        filerec(f).Handle := StdInputHandle;
       fmappend,
-      fmoutput : begin
-        filerec(f).handle:=StdOutputHandle;
-        filerec(f).mode:=fmoutput; {fool fmappend}
+      fmoutput: begin
+        filerec(f).Handle := StdOutputHandle;
+        filerec(f).mode := fmOutput; {fool fmappend}
       end;
     end;
-    exit;
+    Exit;
   end;
 
-  handle:=Open(@tmpStr,openflags);
-  if handle=0 then begin
-    dosError2InOut(IoErr);
-  end else begin
-    AddToList(AOS_fileList,handle);
-    filerec(f).handle:=handle;
+  Handle := Open(@TmpStr, OpenFlags);
+  if Handle = 0 then
+  begin
+    DosError2InOut(IoErr);
+  end else
+  begin
+    AddToList(AOS_fileList, Handle, PChar(@TmpStr[0]));
+    filerec(f).Handle := Handle;
   end;
 
   { append mode }
-  if ((Flags and $100)<>0) and
-      (FileRec(F).Handle<>UnusedHandle) then begin
-    do_seekend(filerec(f).handle);
-    filerec(f).mode:=fmoutput; {fool fmappend}
+  if ((Flags and $100) <> 0) and (FileRec(F).Handle <> UnusedHandle) then
+  begin
+    do_seekend(filerec(f).Handle);
+    filerec(f).mode := fmoutput; {fool fmappend}
   end;
+
+  {$IFDEF MOSFPC_FILEDEBUG}
+  if not ((Handle = StdOutputHandle) or (Handle = StdInputHandle) or
+    (Handle = StdErrorHandle)) then
+  begin
+    CheckInList(AOS_fileList, h);
+  end;
+  {$ENDIF}
+
 end;
 
-function do_isdevice(handle: longint): boolean;
+function do_isdevice(Handle: LongInt): Boolean;
 begin
-  if (handle=StdOutputHandle) or (handle=StdInputHandle) or
-     (handle=StdErrorHandle) then
-    do_isdevice:=True
+  if (Handle = StdOutputHandle) or (Handle = StdInputHandle) or
+     (Handle = StdErrorHandle) then
+    do_isdevice := True
   else
-    do_isdevice:=False;
+    do_isdevice := False;
 end;

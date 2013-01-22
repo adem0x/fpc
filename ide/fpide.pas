@@ -380,6 +380,8 @@ resourcestring  menu_local_gotosource = '~G~oto source';
                 menu_key_edit_copy_microsoft   = menu_key_common_copy_microsoft;
                 menu_key_edit_paste_microsoft  = 'Ctrl+V';
                 menu_key_edit_clear    = 'Ctrl+Del';
+                menu_key_edit_all_microsoft    = 'Ctrl+A';
+                menu_key_edit_all_borland      = '';
 
                 menu_key_run_run       = 'Ctrl+F9';
                 menu_key_run_stepover  = 'F8';
@@ -878,7 +880,7 @@ begin
       NewItem(menu_edit_copy,menu_key_edit_copy, copy_key, cmCopy, hcCut,
       NewItem(menu_edit_paste,menu_key_edit_paste, paste_key, cmPaste, hcPaste,
       NewItem(menu_edit_clear,menu_key_edit_clear, kbCtrlDel, cmClear, hcClear,
-      NewItem(menu_edit_selectall,'', kbNoKey, cmSelectAll, hcSelectAll,
+      NewItem(menu_edit_selectall,menu_key_edit_all, all_key, cmSelectAll, hcSelectAll,
       NewItem(menu_edit_unselect,'', kbNoKey, cmUnselect, hcUnselect,
       NewLine(
       NewItem(menu_edit_showclipboard,'', kbNoKey, cmShowClipboard, hcShowClipboard,
@@ -1041,20 +1043,24 @@ begin
          menu_key_edit_cut:=menu_key_edit_cut_microsoft;
          menu_key_edit_copy:=menu_key_edit_copy_microsoft;
          menu_key_edit_paste:=menu_key_edit_paste_microsoft;
+         menu_key_edit_all:=menu_key_edit_all_microsoft;
          menu_key_hlplocal_copy:=menu_key_hlplocal_copy_microsoft;
          cut_key:=kbCtrlX;
          copy_key:=kbCtrlC;
          paste_key:=kbCtrlV;
+         all_key:=kbCtrlA;
        end;
      ekm_borland:
        begin
          menu_key_edit_cut:=menu_key_edit_cut_borland;
          menu_key_edit_copy:=menu_key_edit_copy_borland;
          menu_key_edit_paste:=menu_key_edit_paste_borland;
+         menu_key_edit_all:=menu_key_edit_all_microsoft;
          menu_key_hlplocal_copy:=menu_key_hlplocal_copy_borland;
          cut_key:=kbShiftDel;
          copy_key:=kbCtrlIns;
          paste_key:=kbShiftIns;
+         all_key:=kbNoKey;
        end;
    end;
    loadmenubar;
@@ -1558,6 +1564,12 @@ begin
               ErrFile:='stderr';
             ExecuteRedir(ProgramPath,Params,InFile,OutFile,ErrFile);
           end;
+{$ifdef aros}
+    end else
+    begin
+      DosExecute(ProgramPath, Params);
+    end;
+{$else}          
 {$ifndef Unix}
       end
     else if (InFile='') and (OutFile='') and (ErrFile='') then
@@ -1570,7 +1582,7 @@ begin
           InFile,OutFile,ErrFile);
      end;
 {$endif Unix}
-
+{$endif}
 {$ifdef Unix}
     if (DebuggeeTTY='') and (OutFile='') and (ExecType<>exDosShell) then
       begin

@@ -21,7 +21,7 @@ uses Objects;
 const
   dirsep = System.DirectorySeparator;
   
-{$ifdef Unix}
+{$if defined(Unix) or defined(aros)}
   listsep = [';',':'];
   exeext = '';
   pasext = '.pas';
@@ -113,8 +113,12 @@ begin
   for i:=1 to length(s) do
    if s[i] in ['/','\'] then
     s[i]:=DirSep;
+{$ifdef aros}
   if (length(s)>0) and (s[length(s)]<>DirSep) and
      (s[length(s)]<>':') then
+{$else}
+  if (length(s)>0) and (s[length(s)]<>DirSep) then
+{$endif}
    s:=s+DirSep;
   if (not allowdot) and (s='.'+DirSep) then
    s:='';

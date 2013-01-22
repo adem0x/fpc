@@ -152,7 +152,7 @@ IMPLEMENTATION
 
 function AvailFonts(buffer : pCHAR; bufBytes : LONGINT; flags : LONGINT) : LONGINT;
 type
-  TLocalCall = function(buffer : pCHAR; bufBytes : LONGINT; flags : LONGINT; Base: Pointer): LONGINT; stdcall;
+  TLocalCall = function(buffer : pCHAR; bufBytes : LONGINT; flags : LONGINT; Base: Pointer): LONGINT; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -163,7 +163,7 @@ end;
 
 procedure DisposeFontContents(fontContentsHeader : pFontContentsHeader);
 type
-  TLocalCall = procedure(fontContentsHeader : pFontContentsHeader; Base: Pointer); stdcall;
+  TLocalCall = procedure(fontContentsHeader : pFontContentsHeader; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -173,7 +173,7 @@ end;
 
 function NewFontContents(fontsLock : BPTR; fontName : pCHAR) : pFontContentsHeader;
 type
-  TLocalCall = function(fontsLock : BPTR; fontName : pCHAR; Base: Pointer): pFontContentsHeader; stdcall;
+  TLocalCall = function(fontsLock : BPTR; fontName : pCHAR; Base: Pointer): pFontContentsHeader; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -183,7 +183,7 @@ end;
 
 function NewScaledDiskFont(sourceFont : pTextFont; destTextAttr : pTextAttr) : pDiskFontHeader;
 type
-  TLocalCall = function(sourceFont : pTextFont; destTextAttr : pTextAttr; Base: Pointer): pDiskFontHeader; stdcall;
+  TLocalCall = function(sourceFont : pTextFont; destTextAttr : pTextAttr; Base: Pointer): pDiskFontHeader; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -193,7 +193,7 @@ end;
 
 function OpenDiskFont(textAttr : pTextAttr) : pTextFont;
 type
-  TLocalCall = function(textAttr : pTextAttr; Base: Pointer): pTextFont; stdcall;
+  TLocalCall = function(textAttr : pTextAttr; Base: Pointer): pTextFont; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -203,7 +203,7 @@ end;
 {
 function GetDiskFontCtrl(tagid : LONGINT) : LONGINT;
 type
-  TLocalCall = function(tagid : LONGINT; Base: Pointer): LONGINT; stdcall;
+  TLocalCall = function(tagid : LONGINT; Base: Pointer): LONGINT; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -213,7 +213,7 @@ end;
 
 procedure SetDiskFontCtrlA(taglist : pTagItem);
 type
-  TLocalCall = procedure(taglist : pTagItem; Base: Pointer); stdcall;
+  TLocalCall = procedure(taglist : pTagItem; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin

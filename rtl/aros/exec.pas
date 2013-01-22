@@ -1354,7 +1354,7 @@ end;
 
 function AbortIO(ioRequest: pIORequest): LongInt;
 type
-  TLocalCall = function(ioRequest : pIORequest; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(ioRequest : pIORequest; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1364,7 +1364,7 @@ end;
 
 procedure AddDevice(device: pDevice);
 type
-  TLocalCall = procedure(device: pDevice; Base: Pointer); stdcall;
+  TLocalCall = procedure(device: pDevice; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1374,7 +1374,7 @@ end;
 
 procedure AddHead(list: pList; node: pNode);
 type
-  TLocalCall = procedure(list : pList; node : pNode; Base: Pointer); stdcall;
+  TLocalCall = procedure(list : pList; node : pNode; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1384,7 +1384,7 @@ end;
 
 procedure AddIntServer(intNumber: LONGINT; interrupt_: pInterrupt);
 type
-  TLocalCall = procedure(intNumber : LONGINT; interrupt_ : pInterrupt; Base: Pointer); stdcall;
+  TLocalCall = procedure(intNumber : LONGINT; interrupt_ : pInterrupt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1394,7 +1394,7 @@ end;
 
 procedure AddLibrary(lib: pLibrary);
 type
-  TLocalCall = procedure(lib: pLibrary; Base: Pointer); stdcall;
+  TLocalCall = procedure(lib: pLibrary; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1404,7 +1404,7 @@ end;
 
 procedure AddMemHandler(memhand: pInterrupt);
 type
-  TLocalCall = procedure(memhand: pInterrupt; Base: Pointer); stdcall;
+  TLocalCall = procedure(memhand: pInterrupt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1414,7 +1414,7 @@ end;
 
 procedure AddMemList(size : ULONG; attributes : ULONG; pri : LONGINT; base : POINTER; const name : pCHAR);
 type
-  TLocalCall = procedure(size : ULONG; attributes : ULONG; pri : LONGINT; base : POINTER; const name : pCHAR; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(size : ULONG; attributes : ULONG; pri : LONGINT; base : POINTER; const name : pCHAR; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1424,7 +1424,7 @@ end;
 
 PROCEDURE AddPort(port : pMsgPort);
 type
-  TLocalCall = procedure(port : pMsgPort; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(port : pMsgPort; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1434,7 +1434,7 @@ end;
 
 PROCEDURE AddResource(resource : POINTER);
 type
-  TLocalCall = procedure(resource : POINTER; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(resource : POINTER; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1444,7 +1444,7 @@ end;
 
 PROCEDURE AddSemaphore(sigSem : pSignalSemaphore);
 type
-  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1454,7 +1454,7 @@ end;
 
 PROCEDURE AddTail(list : pList; node : pNode);
 type
-  TLocalCall = procedure(list : pList; node : pNode; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(list : pList; node : pNode; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1464,7 +1464,7 @@ end;
 
 FUNCTION AddTask(task : pTask;const initPC : POINTER;const finalPC : POINTER) : POINTER;
 type
-  TLocalCall = function(task : pTask;const initPC : POINTER;const finalPC : POINTER; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(task : pTask;const initPC : POINTER;const finalPC : POINTER; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1474,7 +1474,7 @@ end;
 
 PROCEDURE Alert(alertNum : ULONG);
 type
-  TLocalCall = procedure(alertNum : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(alertNum : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1484,7 +1484,7 @@ end;
 
 FUNCTION AllocAbs(byteSize : ULONG; location : POINTER) : POINTER;
 type
-  TLocalCall = FUNCTION(byteSize : ULONG; location : POINTER; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = FUNCTION(byteSize : ULONG; location : POINTER; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1494,7 +1494,7 @@ end;
 
 FUNCTION Allocate(freeList : pMemHeader; byteSize : ULONG) : POINTER;
 type
-  TLocalCall = function(freeList : pMemHeader; byteSize : ULONG; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(freeList : pMemHeader; byteSize : ULONG; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1504,7 +1504,7 @@ end;
 
 FUNCTION AllocEntry(entry : pMemList) : pMemList;
 type
-  TLocalCall = function(entry : pMemList; LibBase: Pointer): pMemList; stdcall;
+  TLocalCall = function(entry : pMemList; LibBase: Pointer): pMemList; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1514,7 +1514,7 @@ end;
 
 FUNCTION AllocMem(byteSize : ULONG; requirements : ULONG) : POINTER;
 type
-  TLocalCall = function(byteSize : ULONG; requirements : ULONG; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(byteSize : ULONG; requirements : ULONG; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1524,7 +1524,7 @@ end;
 
 FUNCTION AllocPooled(poolHeader : POINTER; memSize : ULONG) : POINTER;
 type
-  TLocalCall = function(poolHeader : POINTER; memSize : ULONG; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(poolHeader : POINTER; memSize : ULONG; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1534,7 +1534,7 @@ end;
 
 FUNCTION AllocSignal(signalNum : LONGINT) : shortint;
 type
-  TLocalCall = function(signalNum : LONGINT; LibBase: Pointer): shortint; stdcall;
+  TLocalCall = function(signalNum : LONGINT; LibBase: Pointer): shortint; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1544,7 +1544,7 @@ end;
 
 FUNCTION AllocTrap(trapNum : LONGINT) : LONGINT;
 type
-  TLocalCall = function(trapNum : LONGINT; LibBase: Pointer): LONGINT; stdcall;
+  TLocalCall = function(trapNum : LONGINT; LibBase: Pointer): LONGINT; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1554,7 +1554,7 @@ end;
 
 FUNCTION AllocVec(byteSize : ULONG; requirements : ULONG) : POINTER;
 type
-  TLocalCall = function(byteSize : ULONG; requirements : ULONG; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(byteSize : ULONG; requirements : ULONG; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1564,7 +1564,7 @@ end;
 
 FUNCTION AttemptSemaphore(sigSem : pSignalSemaphore) : BOOLEAN;
 type
-  TLocalCall = function(sigSem : pSignalSemaphore; LibBase: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(sigSem : pSignalSemaphore; LibBase: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1574,7 +1574,7 @@ end;
 
 FUNCTION AttemptSemaphoreShared(sigSem : pSignalSemaphore) : ULONG;
 type
-  TLocalCall = function(sigSem : pSignalSemaphore; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(sigSem : pSignalSemaphore; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1584,7 +1584,7 @@ end;
 
 FUNCTION AvailMem(requirements : ULONG) : ULONG;
 type
-  TLocalCall = function(requirements : ULONG; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(requirements : ULONG; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1594,7 +1594,7 @@ end;
 
 PROCEDURE CacheClearE(address : POINTER; length : ULONG; caches : ULONG);
 type
-  TLocalCall = procedure(address : POINTER; length : ULONG; caches : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(address : POINTER; length : ULONG; caches : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1604,7 +1604,7 @@ end;
 
 PROCEDURE CacheClearU;
 type
-  TLocalCall = procedure(LibBase: Pointer); stdcall;
+  TLocalCall = procedure(LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1614,7 +1614,7 @@ end;
 
 FUNCTION CacheControl(cacheBits : ULONG; cacheMask : ULONG) : ULONG;
 type
-  TLocalCall = function(cacheBits : ULONG; cacheMask : ULONG; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(cacheBits : ULONG; cacheMask : ULONG; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1624,7 +1624,7 @@ end;
 
 PROCEDURE CachePostDMA(const address : POINTER; VAR length : ULONG; flags : ULONG);
 type
-  TLocalCall = procedure(const address : POINTER; VAR length : ULONG; flags : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(const address : POINTER; VAR length : ULONG; flags : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1634,7 +1634,7 @@ end;
 
 FUNCTION CachePreDMA(const address : POINTER; VAR length : ULONG; flags : ULONG) : POINTER;
 type
-  TLocalCall = function(const address : POINTER; VAR length : ULONG; flags : ULONG; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(const address : POINTER; VAR length : ULONG; flags : ULONG; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1644,7 +1644,7 @@ end;
 
 PROCEDURE Cause(interrupt_ : pInterrupt);
 type
-  TLocalCall = procedure(interrupt_ : pInterrupt; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(interrupt_ : pInterrupt; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1654,7 +1654,7 @@ end;
 
 FUNCTION CheckIO(ioRequest : pIORequest) : pIORequest;
 type
-  TLocalCall = function(ioRequest : pIORequest; LibBase: Pointer): pIORequest; stdcall;
+  TLocalCall = function(ioRequest : pIORequest; LibBase: Pointer): pIORequest; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1664,7 +1664,7 @@ end;
 
 PROCEDURE ChildFree(tid : POINTER);
 type
-  TLocalCall = procedure(tid : POINTER; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(tid : POINTER; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1674,7 +1674,7 @@ end;
 
 PROCEDURE ChildOrphan(tid : POINTER);
 type
-  TLocalCall = procedure(tid : POINTER; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(tid : POINTER; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1684,7 +1684,7 @@ end;
 
 PROCEDURE ChildStatus(tid : POINTER);
 type
-  TLocalCall = procedure(tid : POINTER; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(tid : POINTER; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1694,7 +1694,7 @@ end;
 
 PROCEDURE ChildWait(tid : POINTER);
 type
-  TLocalCall = procedure(tid : POINTER; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(tid : POINTER; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1704,7 +1704,7 @@ end;
 
 PROCEDURE CloseDevice(ioRequest : pIORequest);
 type
-  TLocalCall = procedure(ioRequest : pIORequest; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(ioRequest : pIORequest; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1714,7 +1714,7 @@ end;
 
 PROCEDURE CloseLibrary(lib : pLibrary);
 type
-  TLocalCall = procedure(lib : pLibrary; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(lib : pLibrary; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1724,7 +1724,7 @@ end;
 
 PROCEDURE ColdReboot;
 type
-  TLocalCall = procedure(LibBase: Pointer); stdcall;
+  TLocalCall = procedure(LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1734,7 +1734,7 @@ end;
 
 PROCEDURE CopyMem(const source : POINTER; dest : POINTER; size : ULONG);
 type
-  TLocalCall = procedure(const source : POINTER; dest : POINTER; size : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(const source : POINTER; dest : POINTER; size : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1744,7 +1744,7 @@ end;
 
 PROCEDURE CopyMemQuick(const source : POINTER; dest : POINTER; size : ULONG);
 type
-  TLocalCall = procedure(const source : POINTER; dest : POINTER; size : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(const source : POINTER; dest : POINTER; size : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1754,7 +1754,7 @@ end;
 
 FUNCTION CreateIORequest(const port : pMsgPort; size : ULONG) : POINTER;
 type
-  TLocalCall = function(const port : pMsgPort; size : ULONG; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(const port : pMsgPort; size : ULONG; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1764,7 +1764,7 @@ end;
 
 FUNCTION CreateMsgPort : pMsgPort;
 type
-  TLocalCall = function(LibBase: Pointer): pMsgPort; stdcall;
+  TLocalCall = function(LibBase: Pointer): pMsgPort; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1775,7 +1775,7 @@ end;
 FUNCTION CreatePool(requirements : ULONG; puddleSize : ULONG; threshSize : ULONG) :
 POINTER;
 type
-  TLocalCall = function(requirements : ULONG; puddleSize : ULONG; threshSize : ULONG; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(requirements : ULONG; puddleSize : ULONG; threshSize : ULONG; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1785,7 +1785,7 @@ end;
 
 PROCEDURE Deallocate(freeList : pMemHeader; memoryBlock : POINTER; byteSize : ULONG);
 type
-  TLocalCall = procedure(freeList : pMemHeader; memoryBlock : POINTER; byteSize : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(freeList : pMemHeader; memoryBlock : POINTER; byteSize : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1795,7 +1795,7 @@ end;
 
 PROCEDURE Debug(flags : ULONG);
 type
-  TLocalCall = procedure(flags : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(flags : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1805,7 +1805,7 @@ end;
 
 PROCEDURE DeleteIORequest(iorequest : POINTER);
 type
-  TLocalCall = procedure(iorequest : POINTER; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(iorequest : POINTER; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1815,7 +1815,7 @@ end;
 
 PROCEDURE DeleteMsgPort(port : pMsgPort);
 type
-  TLocalCall = procedure(port : pMsgPort; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(port : pMsgPort; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1825,7 +1825,7 @@ end;
 
 PROCEDURE DeletePool(poolHeader : POINTER);
 type
-  TLocalCall = procedure(poolHeader : POINTER; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(poolHeader : POINTER; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1835,7 +1835,7 @@ end;
 
 PROCEDURE Disable;
 type
-  TLocalCall = procedure(LibBase: Pointer); stdcall;
+  TLocalCall = procedure(LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1845,7 +1845,7 @@ end;
 
 FUNCTION DoIO(ioRequest : pIORequest) : shortint;
 type
-  TLocalCall = function(ioRequest : pIORequest; LibBase: Pointer): shortint; stdcall;
+  TLocalCall = function(ioRequest : pIORequest; LibBase: Pointer): shortint; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1855,7 +1855,7 @@ end;
 
 PROCEDURE Enable;
 type
-  TLocalCall = procedure(LibBase: Pointer); stdcall;
+  TLocalCall = procedure(LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1865,7 +1865,7 @@ end;
 
 PROCEDURE Enqueue(list : pList; node : pNode);
 type
-  TLocalCall = procedure(list : pList; node : pNode; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(list : pList; node : pNode; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1875,7 +1875,7 @@ end;
 
 PROCEDURE ExecFreeMem(memoryBlock : POINTER; byteSize : ULONG);
 type
-  TLocalCall = procedure(memoryBlock : POINTER; byteSize : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(memoryBlock : POINTER; byteSize : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1885,7 +1885,7 @@ end;
 
 PROCEDURE ExecInsert(list : pList; node : pNode; pred : pNode);
 type
-  TLocalCall = procedure(list : pList; node : pNode; pred : pNode; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(list : pList; node : pNode; pred : pNode; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1895,7 +1895,7 @@ end;
 
 FUNCTION FindName(list : pList; const name : pCHAR) : pNode;
 type
-  TLocalCall = function(list : pList; const name : pCHAR; LibBase: Pointer): pNode; stdcall;
+  TLocalCall = function(list : pList; const name : pCHAR; LibBase: Pointer): pNode; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1905,7 +1905,7 @@ end;
 
 FUNCTION FindPort(const name : pCHAR) : pMsgPort;
 type
-  TLocalCall = function(const name : pCHAR; LibBase: Pointer): pMsgPort; stdcall;
+  TLocalCall = function(const name : pCHAR; LibBase: Pointer): pMsgPort; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1915,7 +1915,7 @@ end;
 
 FUNCTION FindResident(const name : pCHAR) : pResident;
 type
-  TLocalCall = function(const name : pCHAR; LibBase: Pointer): pResident; stdcall;
+  TLocalCall = function(const name : pCHAR; LibBase: Pointer): pResident; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1925,7 +1925,7 @@ end;
 
 FUNCTION FindSemaphore(const sigSem : pCHAR) : pSignalSemaphore;
 type
-  TLocalCall = function(const sigSem : pCHAR; LibBase: Pointer): pSignalSemaphore; stdcall;
+  TLocalCall = function(const sigSem : pCHAR; LibBase: Pointer): pSignalSemaphore; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1935,7 +1935,7 @@ end;
 
 FUNCTION FindTask(const name : pCHAR) : pTask;
 type
-  TLocalCall = function(const name : pCHAR; LibBase: Pointer): pTask; stdcall;
+  TLocalCall = function(const name : pCHAR; LibBase: Pointer): pTask; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1945,7 +1945,7 @@ end;
 
 PROCEDURE Forbid;
 type
-  TLocalCall = procedure(LibBase: Pointer); stdcall;
+  TLocalCall = procedure(LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1955,7 +1955,7 @@ end;
 
 PROCEDURE FreeEntry(entry : pMemList);
 type
-  TLocalCall = procedure(entry : pMemList; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(entry : pMemList; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1965,7 +1965,7 @@ end;
 
 PROCEDURE FreePooled(poolHeader : POINTER; memory : POINTER; memSize : ULONG);
 type
-  TLocalCall = procedure(poolHeader : POINTER; memory : POINTER; memSize : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(poolHeader : POINTER; memory : POINTER; memSize : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1975,7 +1975,7 @@ end;
 
 PROCEDURE FreeSignal(signalNum : LONGINT);
 type
-  TLocalCall = procedure(signalNum : LONGINT; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(signalNum : LONGINT; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1985,7 +1985,7 @@ end;
 
 PROCEDURE FreeTrap(trapNum : LONGINT);
 type
-  TLocalCall = procedure(trapNum : LONGINT; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(trapNum : LONGINT; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -1995,7 +1995,7 @@ end;
 
 PROCEDURE FreeVec(memoryBlock : POINTER);
 type
-  TLocalCall = procedure(memoryBlock : POINTER; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(memoryBlock : POINTER; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2005,7 +2005,7 @@ end;
 
 FUNCTION GetCC : ULONG;
 type
-  TLocalCall = function(LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2015,7 +2015,7 @@ end;
 
 FUNCTION GetMsg(port : pMsgPort) : pMessage;
 type
-  TLocalCall = function(port : pMsgPort; LibBase: Pointer): pMessage; stdcall;
+  TLocalCall = function(port : pMsgPort; LibBase: Pointer): pMessage; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2025,7 +2025,7 @@ end;
 
 PROCEDURE InitCode(startClass : ULONG; version : ULONG);
 type
-  TLocalCall = procedure(startClass : ULONG; version : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(startClass : ULONG; version : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2035,7 +2035,7 @@ end;
 
 FUNCTION InitResident(const resident_ : pResident; segList : ULONG) : POINTER;
 type
-  TLocalCall = function(const resident_ : pResident; segList : ULONG; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(const resident_ : pResident; segList : ULONG; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2045,7 +2045,7 @@ end;
 
 PROCEDURE InitSemaphore(sigSem : pSignalSemaphore);
 type
-  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2055,7 +2055,7 @@ end;
 
 PROCEDURE InitStruct(const initTable : POINTER; memory : POINTER; size : ULONG);
 type
-  TLocalCall = procedure(const initTable : POINTER; memory : POINTER; size : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(const initTable : POINTER; memory : POINTER; size : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2065,7 +2065,7 @@ end;
 
 PROCEDURE MakeFunctions(const target : POINTER;const functionArray : POINTER;const funcDispBase :pointer);
 type
-  TLocalCall = procedure(const target : POINTER;const functionArray : POINTER;const funcDispBase :pointer; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(const target : POINTER;const functionArray : POINTER;const funcDispBase :pointer; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2075,7 +2075,7 @@ end;
 
 FUNCTION MakeLibrary(const funcInit : POINTER;const structInit : POINTER; libInit : tPROCEDURE; dataSize : ULONG; segList : ULONG) : pLibrary;
 type
-  TLocalCall = function(const funcInit : POINTER;const structInit : POINTER; libInit : tPROCEDURE; dataSize : ULONG; segList : ULONG; LibBase: Pointer): pLibrary; stdcall;
+  TLocalCall = function(const funcInit : POINTER;const structInit : POINTER; libInit : tPROCEDURE; dataSize : ULONG; segList : ULONG; LibBase: Pointer): pLibrary; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2085,7 +2085,7 @@ end;
 
 FUNCTION ObtainQuickVector(interruptCode : POINTER) : ULONG;
 type
-  TLocalCall = function(interruptCode : POINTER; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(interruptCode : POINTER; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2095,7 +2095,7 @@ end;
 
 PROCEDURE ObtainSemaphore(sigSem : pSignalSemaphore);
 type
-  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2105,7 +2105,7 @@ end;
 
 PROCEDURE ObtainSemaphoreList(sigSem : pList);
 type
-  TLocalCall = procedure(sigSem : pList; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(sigSem : pList; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2115,7 +2115,7 @@ end;
 
 PROCEDURE ObtainSemaphoreShared(sigSem : pSignalSemaphore);
 type
-  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2125,7 +2125,7 @@ end;
 
 FUNCTION OldOpenLibrary(const libName : pCHAR) : pLibrary;
 type
-  TLocalCall = function(const libName : pCHAR; LibBase: Pointer): pLibrary; stdcall;
+  TLocalCall = function(const libName : pCHAR; LibBase: Pointer): pLibrary; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2136,7 +2136,7 @@ end;
 FUNCTION OpenDevice(const devName : pCHAR; unite : ULONG; ioRequest : pIORequest;
 flags : ULONG) : shortint;
 type
-  TLocalCall = function(const devName : pCHAR; unite : ULONG; ioRequest : pIORequest; flags : ULONG; LibBase: Pointer): shortint; stdcall;
+  TLocalCall = function(const devName : pCHAR; unite : ULONG; ioRequest : pIORequest; flags : ULONG; LibBase: Pointer): shortint; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2146,7 +2146,7 @@ end;
 
 FUNCTION OpenLibrary(const libName : pCHAR; version : ULONG) : pLibrary;
 type
-  TLocalCall = function(const libName : pCHAR; version : ULONG; LibBase: Pointer): pLibrary; stdcall;
+  TLocalCall = function(const libName : pCHAR; version : ULONG; LibBase: Pointer): pLibrary; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2156,7 +2156,7 @@ end;
 
 FUNCTION OpenResource(const resName : pCHAR) : POINTER;
 type
-  TLocalCall = function(const resName : pCHAR; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(const resName : pCHAR; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2166,7 +2166,7 @@ end;
 
 PROCEDURE Permit;
 type
-  TLocalCall = PROCEDURE(LibBase: Pointer); stdcall;
+  TLocalCall = PROCEDURE(LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2176,7 +2176,7 @@ end;
 
 FUNCTION Procure(sigSem : pSignalSemaphore; bidMsg : pSemaphoreMessage) : BOOLEAN;
 type
-  TLocalCall = function(sigSem : pSignalSemaphore; bidMsg : pSemaphoreMessage; LibBase: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(sigSem : pSignalSemaphore; bidMsg : pSemaphoreMessage; LibBase: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2186,7 +2186,7 @@ end;
 
 PROCEDURE PutMsg(port : pMsgPort; message : pMessage);
 type
-  TLocalCall = PROCEDURE(port : pMsgPort; message : pMessage; LibBase: Pointer); stdcall;
+  TLocalCall = PROCEDURE(port : pMsgPort; message : pMessage; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2196,7 +2196,7 @@ end;
 
 function RawDoFmt(const formatString : pCHAR;const dataStream : POINTER; putChProc : tPROCEDURE; putChData : POINTER): pointer;
 type
-  TLocalCall = function(const formatString : pCHAR;const dataStream : POINTER; putChProc : tPROCEDURE; putChData : POINTER; LibBase: Pointer): pointer; stdcall;
+  TLocalCall = function(const formatString : pCHAR;const dataStream : POINTER; putChProc : tPROCEDURE; putChData : POINTER; LibBase: Pointer): pointer; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2206,7 +2206,7 @@ end;
 
 PROCEDURE ReleaseSemaphore(sigSem : pSignalSemaphore);
 type
-  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2216,7 +2216,7 @@ end;
 
 PROCEDURE ReleaseSemaphoreList(sigSem : pList);
 type
-  TLocalCall = procedure(sigSem : pList; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(sigSem : pList; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2226,7 +2226,7 @@ end;
 
 PROCEDURE RemDevice(device : pDevice);
 type
-  TLocalCall = PROCEDURE(device : pDevice; LibBase: Pointer); stdcall;
+  TLocalCall = PROCEDURE(device : pDevice; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2236,7 +2236,7 @@ end;
 
 FUNCTION RemHead(list : pList) : pNode;
 type
-  TLocalCall = function(list : pList; LibBase: Pointer): pNode; stdcall;
+  TLocalCall = function(list : pList; LibBase: Pointer): pNode; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2246,7 +2246,7 @@ end;
 
 PROCEDURE RemIntServer(intNumber : LONGINT; interrupt_ : pInterrupt);
 type
-  TLocalCall = procedure(intNumber : LONGINT; interrupt_ : pInterrupt; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(intNumber : LONGINT; interrupt_ : pInterrupt; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2256,7 +2256,7 @@ end;
 
 PROCEDURE RemLibrary(lib : pLibrary);
 type
-  TLocalCall = procedure(lib : pLibrary; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(lib : pLibrary; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2266,7 +2266,7 @@ end;
 
 PROCEDURE RemMemHandler(memhand : pInterrupt);
 type
-  TLocalCall = procedure(memhand : pInterrupt; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(memhand : pInterrupt; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2276,7 +2276,7 @@ end;
 
 PROCEDURE Remove(node : pNode);
 type
-  TLocalCall = procedure(node : pNode; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(node : pNode; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2286,7 +2286,7 @@ end;
 
 PROCEDURE RemPort(port : pMsgPort);
 type
-  TLocalCall = procedure(port : pMsgPort; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(port : pMsgPort; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2296,7 +2296,7 @@ end;
 
 PROCEDURE RemResource(resource : POINTER);
 type
-  TLocalCall = procedure(resource : POINTER; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(resource : POINTER; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2306,7 +2306,7 @@ end;
 
 PROCEDURE RemSemaphore(sigSem : pSignalSemaphore);
 type
-  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(sigSem : pSignalSemaphore; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2316,7 +2316,7 @@ end;
 
 FUNCTION RemTail(list : pList) : pNode;
 type
-  TLocalCall = function(list : pList; LibBase: Pointer): pNode; stdcall;
+  TLocalCall = function(list : pList; LibBase: Pointer): pNode; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2326,7 +2326,7 @@ end;
 
 PROCEDURE RemTask(task : pTask);
 type
-  TLocalCall = procedure(task : pTask; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(task : pTask; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2336,7 +2336,7 @@ end;
 
 PROCEDURE ReplyMsg(message : pMessage);
 type
-  TLocalCall = procedure(message : pMessage; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(message : pMessage; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2346,7 +2346,7 @@ end;
 
 PROCEDURE SendIO(ioRequest : pIORequest);
 type
-  TLocalCall = procedure(ioRequest : pIORequest; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(ioRequest : pIORequest; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2356,7 +2356,7 @@ end;
 
 FUNCTION SetExcept(newSignals : ULONG; signalSet : ULONG) : ULONG;
 type
-  TLocalCall = function(newSignals : ULONG; signalSet : ULONG; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(newSignals : ULONG; signalSet : ULONG; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2366,7 +2366,7 @@ end;
 
 FUNCTION SetFunction(lib : pLibrary; funcOffset : LONGINT; newFunction : tPROCEDURE) : POINTER;
 type
-  TLocalCall = function(lib : pLibrary; funcOffset : LONGINT; newFunction : tPROCEDURE; LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(lib : pLibrary; funcOffset : LONGINT; newFunction : tPROCEDURE; LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2376,7 +2376,7 @@ end;
 
 FUNCTION SetIntVector(intNumber : LONGINT;const interrupt_ : pInterrupt) : pInterrupt;
 type
-  TLocalCall = function(intNumber : LONGINT;const interrupt_ : pInterrupt; LibBase: Pointer): pInterrupt; stdcall;
+  TLocalCall = function(intNumber : LONGINT;const interrupt_ : pInterrupt; LibBase: Pointer): pInterrupt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2386,7 +2386,7 @@ end;
 
 FUNCTION SetSignal(newSignals : ULONG; signalSet : ULONG) : ULONG;
 type
-  TLocalCall = function(newSignals : ULONG; signalSet : ULONG; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(newSignals : ULONG; signalSet : ULONG; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2396,7 +2396,7 @@ end;
 
 FUNCTION SetSR(newSR : ULONG; mask : ULONG) : ULONG;
 type
-  TLocalCall = function(newSR : ULONG; mask : ULONG; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(newSR : ULONG; mask : ULONG; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2406,7 +2406,7 @@ end;
 
 FUNCTION SetTaskPri(task : pTask; priority : LONGINT) : shortint;
 type
-  TLocalCall = function(task : pTask; priority : LONGINT; LibBase: Pointer): shortint; stdcall;
+  TLocalCall = function(task : pTask; priority : LONGINT; LibBase: Pointer): shortint; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2416,7 +2416,7 @@ end;
 
 PROCEDURE Signal(task : pTask; signalSet : ULONG);
 type
-  TLocalCall = procedure(task : pTask; signalSet : ULONG; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(task : pTask; signalSet : ULONG; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2426,7 +2426,7 @@ end;
 
 PROCEDURE StackSwap(newStack : pStackSwapStruct);
 type
-  TLocalCall = procedure(newStack : pStackSwapStruct; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(newStack : pStackSwapStruct; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2436,7 +2436,7 @@ end;
 
 PROCEDURE SumKickData;
 type
-  TLocalCall = procedure(LibBase: Pointer); stdcall;
+  TLocalCall = procedure(LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2446,7 +2446,7 @@ end;
 
 PROCEDURE SumLibrary(lib : pLibrary);
 type
-  TLocalCall = procedure(lib : pLibrary; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(lib : pLibrary; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2456,7 +2456,7 @@ end;
 
 FUNCTION SuperState : POINTER;
 type
-  TLocalCall = function(LibBase: Pointer): POINTER; stdcall;
+  TLocalCall = function(LibBase: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2466,7 +2466,7 @@ end;
 
 FUNCTION Supervisor(userFunction : tPROCEDURE) : ULONG;
 type
-  TLocalCall = function(userFunction : tPROCEDURE; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(userFunction : tPROCEDURE; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2476,7 +2476,7 @@ end;
 
 FUNCTION TypeOfMem(const address : POINTER) : ULONG;
 type
-  TLocalCall = function(const address : POINTER; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(const address : POINTER; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2486,7 +2486,7 @@ end;
 
 PROCEDURE UserState(sysStack : POINTER);
 type
-  TLocalCall = procedure(sysStack : POINTER; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(sysStack : POINTER; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2496,7 +2496,7 @@ end;
 
 PROCEDURE Vacate(sigSem : pSignalSemaphore; bidMsg : pSemaphoreMessage);
 type
-  TLocalCall = procedure(sigSem : pSignalSemaphore; bidMsg : pSemaphoreMessage; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(sigSem : pSignalSemaphore; bidMsg : pSemaphoreMessage; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2506,7 +2506,7 @@ end;
 
 FUNCTION Wait(signalSet : ULONG) : ULONG;
 type
-  TLocalCall = function(signalSet : ULONG; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(signalSet : ULONG; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2516,7 +2516,7 @@ end;
 
 FUNCTION WaitIO(ioRequest : pIORequest) : shortint;
 type
-  TLocalCall = function(ioRequest : pIORequest; LibBase: Pointer): shortint; stdcall;
+  TLocalCall = function(ioRequest : pIORequest; LibBase: Pointer): shortint; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2526,7 +2526,7 @@ end;
 
 FUNCTION WaitPort(port : pMsgPort) : pMessage;
 type
-  TLocalCall = function(port : pMsgPort; LibBase: Pointer): pMessage; stdcall;
+  TLocalCall = function(port : pMsgPort; LibBase: Pointer): pMessage; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2536,7 +2536,7 @@ end;
 {
 PROCEDURE NewMinList(minlist : pMinList);
 type
-  TLocalCall = procedure(; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2546,7 +2546,7 @@ end;
 
 FUNCTION AVL_AddNode(root : ppAVLNode; node : pAVLNode; func : POINTER) : pAVLNode;
 type
-  TLocalCall = function(; LibBase: Pointer): ; stdcall;
+  TLocalCall = function(; LibBase: Pointer): ; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2556,7 +2556,7 @@ end;
 
 FUNCTION AVL_RemNodeByAddress(root : ppAVLNode; node : pAVLNode) : pAVLNode;
 type
-  TLocalCall = function(; LibBase: Pointer): ; stdcall;
+  TLocalCall = function(; LibBase: Pointer): ; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2566,7 +2566,7 @@ end;
 
 FUNCTION AVL_RemNodeByKey(root : ppAVLNode; key : POINTER; func : POINTER) : pAVLNode;
 type
-  TLocalCall = function(; LibBase: Pointer): ; stdcall;
+  TLocalCall = function(; LibBase: Pointer): ; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2576,7 +2576,7 @@ end;
 
 FUNCTION AVL_FindNode(CONST root : pAVLNode; key : POINTER; func : POINTER) : pAVLNode;
 type
-  TLocalCall = function(; LibBase: Pointer): ; stdcall;
+  TLocalCall = function(; LibBase: Pointer): ; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2586,7 +2586,7 @@ end;
 
 FUNCTION AVL_FindPrevNodeByAddress(CONST node : pAVLNode) : pAVLNode;
 type
-  TLocalCall = function(; LibBase: Pointer): ; stdcall;
+  TLocalCall = function(; LibBase: Pointer): ; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2596,7 +2596,7 @@ end;
 
 FUNCTION AVL_FindPrevNodeByKey(CONST root : pAVLNode; key : POINTER; func : POINTER) : pAVLNode;
 type
-  TLocalCall = function(; LibBase: Pointer): ; stdcall;
+  TLocalCall = function(; LibBase: Pointer): ; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2606,7 +2606,7 @@ end;
 
 FUNCTION AVL_FindNextNodeByAddress(CONST node : pAVLNode) : pAVLNode;
 type
-  TLocalCall = function(; LibBase: Pointer): ; stdcall;
+  TLocalCall = function(; LibBase: Pointer): ; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2616,7 +2616,7 @@ end;
 
 FUNCTION AVL_FindNextNodeByKey(CONST root : pAVLNode; key : POINTER; func : POINTER) : pAVLNode;
 type
-  TLocalCall = function(; LibBase: Pointer): ; stdcall;
+  TLocalCall = function(; LibBase: Pointer): ; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2626,7 +2626,7 @@ end;
 
 FUNCTION AVL_FindFirstNode(CONST root : pAVLNode) : pAVLNode;
 type
-  TLocalCall = function(; LibBase: Pointer): ; stdcall;
+  TLocalCall = function(; LibBase: Pointer): ; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2636,7 +2636,7 @@ end;
 
 FUNCTION AVL_FindLastNode(CONST root : pAVLNode) : pAVLNode;
 type
-  TLocalCall = function(; LibBase: Pointer): ; stdcall;
+  TLocalCall = function(; LibBase: Pointer): ; cdecl;
 var
   Call: TLocalCall;
 begin

@@ -919,24 +919,73 @@ begin
   GetPathString := Temp;
 end;
 
-function EnvCount: Longint;
-{ HOW TO GET THIS VALUE:                                }
-{   Each time this function is called, we look at the   }
-{   local variables in the Process structure (2.0+)     }
-{   And we also read all files in the ENV: directory    }
+var
+  EnvList: array of record
+    Name: string;
+    Value: string;
+  end;
+
+procedure InitEnvironmentStrings;
+Const
+  BUFFER_SIZE       = 254;
+Var
+  ThisProcess: PProcess;
+  LocalVars_List: PMinList;  // Local Var structure in struct process (pr_LocalVarsis is actually a minlist
+  LocalVar_Node: PLocalVar;
+  Buffer: array[0..BUFFER_SIZE] of Char; // Buffer to hold a value for GetVar()
+  TempLen: LongInt;      // hold returnlength of GetVar()
 begin
-  EnvCount := 0;
+  SetLength(EnvList, 0);
+  ThisProcess := PProcess(FindTask(nil));  //Get the pointer to our process
+  LocalVars_List := @(ThisProcess^.pr_LocalVars);  //get the list of pr_LocalVars as pointer
+  LocalVar_Node  := pLocalVar(LocalVars_List^.mlh_head); //get the headnode of the LocalVars list
+
+  // loop through the localvar list
+  while ( Pointer(LocalVar_Node^.lv_node.ln_Succ) <> Pointer(LocalVars_List^.mlh_Tail)) do
+  begin
+    // make sure the active node is valid instead of empty
+    If not(LocalVar_Node <> nil) then
+      break;
+
+    { - process the current node - }
+    If (LocalVar_Node^.lv_node.ln_Type = LV_Var) then
+    begin
+      FillChar(Buffer[0], Length(Buffer), #0); // clear Buffer
+
+      // get active node's name environment variable value ino buffer and make sure it's local
+      TempLen := GetVar(LocalVar_Node^.lv_Node.ln_Name, @Buffer[0], BUFFER_SIZE, GVF_LOCAL_ONLY);
+      If TempLen <> -1 then
+      begin
+        SetLength(EnvList, Length(EnvList) + 1);
+        EnvList[High(EnvList)].Name := LocalVar_Node^.lv_Node.ln_Name;
+        EnvList[High(EnvList)].Value := string(PChar(@Buffer[0]));
+      end;
+    end;
+    LocalVar_Node := pLocalVar(LocalVar_Node^.lv_node.ln_Succ); //we need to get the next node
+  end;
+end;
+
+function EnvCount: LongInt;
+begin
+  InitEnvironmentStrings;
+  EnvCount := Length(EnvList);
 end;
 
 
-function EnvStr(Index: LongInt): String;
+function EnvStr(Index: LongInt): string;
 begin
-  EnvStr:='';
+  Result := '';
+  if Length(EnvList) = 0 then
+    InitEnvironmentStrings;
+  if (Index >= 0) and (Index <= High(EnvList)) then
+  begin
+    Result := EnvList[Index].Name + '=' + EnvList[Index].Value;
+  end;
 end;
 
 
 
-function GetEnv(envvar : String): String;
+function GetEnv(EnvVar : string): string;
 var
   BufArr : array[0..255] of char;
   StrBuffer: array of char;

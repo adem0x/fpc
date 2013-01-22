@@ -10,64 +10,65 @@
 _start:
 start:
 
-  /* Save stack pointer for exit() routine */
-  movl	   %esp,STKPTR
-
   /* Save the exec library base */
   movl     12(%esp), %ecx
   movl     %ecx, _ExecBase
 
   /* Save the command line pointer length to CommandLineLen */
-  #movl     8(%esp),%ecx
-  #movl     %ecx,CommandLineLen
+  movl     8(%esp),%ecx
+  movl     %ecx,CommandLineLen
 
   /* Save the command line pointer to CommandLine */
-  #movl     4(%esp),%eax
-  #movl     %eax,CommandLine
-  #movl     (%esp),%eax
-  #movl     %eax,__ARGS
-  #test     %eax,%eax
-  #jz       .Ldont_nullit
+  movl     4(%esp),%eax
+  movl     %eax,CommandLine
+
+  /* save all register */
+  pushal
+
+  /* Save stack pointer for exit() routine */
+  movl	   %esp,STKPTR
+
+  call   PASCALMAIN
+  /* if returns from here set an empty returncode */
+  xorl   %eax, %eax
+  pushl  %eax
+  pushl  %eax
 
 
-  /* Remove $0a character from end of string */
-  #cmpb   #0x0a,-1(%eax+%ecx:w)
-  #jne    .Lcontt
-
-  /* Decrement count by one to remove the $0a character */
-  #subl   #1,%ecx
- 
-#.Lcontt:
-#  movb   #0,0(%eax+%ecx:w)	   /* null terminate it */
-#  movw   %ecx,__ARGC
-
-.Ldont_nullit:
-    call   PASCALMAIN
+  /* entry for stop the program*/
 _haltproc:
 haltproc:
+
+    /* get retun code from stack */
+    movl   4(%esp),%eax
+
+    /* save for later use */
+    movl   %eax,_returncode
+
+    /* get back my stack */
     movl   STKPTR,%esp
-    movl   _returncode,%eax
+
+    /* get back all registers */
+    popal
+
+    /* reset returncode */
+    movl  _returncode, %eax
+
+    /* bye bye */
     ret
 
   /*----------------------------------------------------*/
 
     .data
-    .global _returncode         # return code to set on exit
-    .global __ARGS              # pointer to the arguments
-    .global __ARGC              # number of arguments
     .global CommandLineLen      # byte length of command line
-    .global CommandLine         #
+    .global CommandLine         # comandline as PChar
     .global STKPTR              # Used to terminate the program, initial SP
     .global _ExecBase           # exec library base
-
     .align 4
 
- _returncode:   .long   0
- __ARGS:        .long   0
- __ARGC:        .word   0
+_returncode:    .long   0
 CommandLine:    .long   0
 CommandLineLen: .long   0
 STKPTR:         .long   0
 _ExecBase:      .long   0
-
 

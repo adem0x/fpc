@@ -580,7 +580,7 @@ function  OSFileName(st : string) : string;
 var i : longint;
 {$endif Unix}
 begin
-{$ifdef Unix}
+{$if defined(Unix) or defined(aros)}
   OSFileName:=st;
 {$else}
 {$ifdef Windows}

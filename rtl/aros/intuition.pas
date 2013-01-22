@@ -4552,7 +4552,7 @@ var
 function AddGadget(Window: PWindow; Gadget: PGadget; Position: LongWord): Word;
 type
   TLocalCall = function(Window: PWindow; Gadget: PGadget; Position: LongWord;
-      Base: Pointer): Word; stdcall;
+      Base: Pointer): Word; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4562,7 +4562,7 @@ end;
 
 function ClearDMRequest(Window: PWindow): Boolean;
 type
-  TLocalCall = function(Window: PWindow; Base: Pointer): Boolean; stdcall;
+  TLocalCall = function(Window: PWindow; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4572,7 +4572,7 @@ end;
 
 procedure ClearMenuStrip(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4582,7 +4582,7 @@ end;
 
 procedure ClearPointer(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4592,7 +4592,7 @@ end;
 
 procedure CloseScreen(Screen: PScreen);
 type
-  TLocalCall = procedure(Screen: PScreen; Base: Pointer); stdcall;
+  TLocalCall = procedure(Screen: PScreen; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4602,7 +4602,7 @@ end;
 
 procedure CloseWindow(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4612,7 +4612,7 @@ end;
 
 function CloseWorkBench: Boolean;
 type
-  TLocalCall = function(Base: Pointer): Boolean; stdcall;
+  TLocalCall = function(Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4623,7 +4623,7 @@ end;
 procedure CurrentTime(var Seconds: LongWord; var Micros: LongWord);
 type
   TLocalCall = procedure(var Seconds: LongWord; var Micros: LongWord;
-      Base: Pointer); stdcall;
+      Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4635,7 +4635,7 @@ function DisplayAlert(AlertNumber: LongWord;
   const String_: PChar; Height: LongWord): Boolean;
 type
   TLocalCall = function(AlertNumber: LongWord;
-      const String_: PChar; Height: LongWord; Base: Pointer): Boolean; stdcall;
+      const String_: PChar; Height: LongWord; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4645,7 +4645,7 @@ end;
 
 procedure DisplayBeep(Screen: PScreen);
 type
-  TLocalCall = procedure(Screen: PScreen; Base: Pointer); stdcall;
+  TLocalCall = procedure(Screen: PScreen; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4657,7 +4657,7 @@ function DoubleClick(SSeconds: LongWord; SMicros: LongWord;
   CSeconds: LongWord; CMicros: LongWord): Boolean;
 type
   TLocalCall = function(SSeconds: LongWord; SMicros: LongWord;
-      CSeconds: LongWord; CMicros: LongWord; Base: Pointer): Boolean; stdcall;
+      CSeconds: LongWord; CMicros: LongWord; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4670,7 +4670,7 @@ procedure DrawBorder(Rp: PRastPort;
 type
   TLocalCall = procedure(Rp: PRastPort;
       const Border: PBorder; LeftOffset: LongInt; TopOffset: LongInt;
-      Base: Pointer); stdcall;
+      Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4682,7 +4682,7 @@ procedure DrawImage(Rp: PRastPort; Image: PImage; LeftOffset: LongInt;
   TopOffset: LongInt);
 type
   TLocalCall = procedure(Rp: PRastPort; Image: PImage; LeftOffset: LongInt;
-      TopOffset: LongInt; Base: Pointer); stdcall;
+      TopOffset: LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4693,7 +4693,7 @@ end;
 procedure EndRequest(Requester: PRequester; Window: PWindow);
 type
   TLocalCall = procedure(Requester: PRequester; Window: PWindow;
-      Base: Pointer); stdcall;
+      Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4704,7 +4704,7 @@ end;
 function GetDefPrefs(Preferences: PPreferences; Size: LongInt): PPreferences;
 type
   TLocalCall = function(Preferences: PPreferences; Size: LongInt;
-      Base: Pointer): PPreferences; stdcall;
+      Base: Pointer): PPreferences; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4715,7 +4715,7 @@ end;
 function GetPrefs(Preferences: PPreferences; Size: LongInt): PPreferences;
 type
   TLocalCall = function(Preferences: PPreferences; Size: LongInt;
-      Base: Pointer): PPreferences; stdcall;
+      Base: Pointer): PPreferences; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4725,7 +4725,7 @@ end;
 
 procedure InitRequester(Requester: PRequester);
 type
-  TLocalCall = procedure(Requester: PRequester; Base: Pointer); stdcall;
+  TLocalCall = procedure(Requester: PRequester; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4736,7 +4736,7 @@ end;
 function ItemAddress(const MenuStrip: PMenu; MenuNumber: LongWord): PMenuItem;
 type
   TLocalCall = function(const MenuStrip: PMenu; MenuNumber: LongWord;
-      Base: Pointer): PMenuItem; stdcall;
+      Base: Pointer): PMenuItem; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4747,7 +4747,7 @@ end;
 function ModifyIDCMP(Window: PWindow; Flags: LongWord): Boolean;
 type
   TLocalCall = function(Window: PWindow; Flags: LongWord; Base: Pointer): Boolean;
-    stdcall;
+    cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4761,7 +4761,7 @@ procedure ModifyProp(Gadget: PGadget; Window: PWindow; Requester: PRequester;
 type
   TLocalCall = procedure(Gadget: PGadget; Window: PWindow;
       Requester: PRequester; Flags: LongWord; HorizPot: LongWord;
-      VertPot: LongWord; HorizBody: LongWord; VertBody: LongWord; Base: Pointer); stdcall;
+      VertPot: LongWord; HorizBody: LongWord; VertBody: LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4773,7 +4773,7 @@ end;
 procedure MoveScreen(Screen: PScreen; Dx: LongInt; Dy: LongInt);
 type
   TLocalCall = procedure(Screen: PScreen; Dx: LongInt; Dy: LongInt;
-      Base: Pointer); stdcall;
+      Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4784,7 +4784,7 @@ end;
 procedure MoveWindow(Window: PWindow; Dx: LongInt; Dy: LongInt);
 type
   TLocalCall = procedure(Window: PWindow; Dx: LongInt; Dy: LongInt;
-      Base: Pointer); stdcall;
+      Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4795,7 +4795,7 @@ end;
 procedure OffGadget(Gadget: PGadget; Window: PWindow; Requester: PRequester);
 type
   TLocalCall = procedure(Gadget: PGadget; Window: PWindow;
-      Requester: PRequester; Base: Pointer); stdcall;
+      Requester: PRequester; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4806,7 +4806,7 @@ end;
 procedure OffMenu(Window: PWindow; MenuNumber: LongWord);
 type
   TLocalCall = procedure(Window: PWindow; MenuNumber: LongWord;
-      Base: Pointer); stdcall;
+      Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4817,7 +4817,7 @@ end;
 procedure OnGadget(Gadget: PGadget; Window: PWindow; Requester: PRequester);
 type
   TLocalCall = procedure(Gadget: PGadget; Window: PWindow;
-      Requester: PRequester; Base: Pointer); stdcall;
+      Requester: PRequester; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4828,7 +4828,7 @@ end;
 procedure OnMenu(Window: PWindow; MenuNumber: LongWord);
 type
   TLocalCall = procedure(Window: PWindow; MenuNumber: LongWord;
-      Base: Pointer); stdcall;
+      Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4838,7 +4838,7 @@ end;
 
 function OpenScreen(const NewScreen: PNewScreen): PScreen;
 type
-  TLocalCall = function(const NewScreen: PNewScreen; Base: Pointer): PScreen; stdcall;
+  TLocalCall = function(const NewScreen: PNewScreen; Base: Pointer): PScreen; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4848,7 +4848,7 @@ end;
 
 function OpenWindow(const NewWindow: PNewWindow): PWindow;
 type
-  TLocalCall = function(const NewWindow: PNewWindow; Base: Pointer): PWindow; stdcall;
+  TLocalCall = function(const NewWindow: PNewWindow; Base: Pointer): PWindow; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4858,7 +4858,7 @@ end;
 
 function OpenWorkBench: LongWord;
 type
-  TLocalCall = function(Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4870,7 +4870,7 @@ procedure PrintIText(Rp: PRastPort;
   const IText: PIntuiText; Left: LongInt; Top: LongInt);
 type
   TLocalCall = procedure(Rp: PRastPort;
-      const IText: PIntuiText; Left: LongInt; Top: LongInt; Base: Pointer); stdcall;
+      const IText: PIntuiText; Left: LongInt; Top: LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4881,7 +4881,7 @@ end;
 procedure RefreshGadgets(gadgets: PGadget; Window: PWindow; Requester: PRequester);
 type
   TLocalCall = procedure(gadgets: PGadget; Window: PWindow;
-      Requester: PRequester; Base: Pointer); stdcall;
+      Requester: PRequester; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4892,7 +4892,7 @@ end;
 function RemoveGadget(Window: PWindow; Gadget: PGadget): Word;
 type
   TLocalCall = function(Window: PWindow; Gadget: PGadget; Base: Pointer): Word;
-    stdcall;
+    cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4902,7 +4902,7 @@ end;
 
 procedure ReportMouse(flag: LongInt; Window: PWindow);
 type
-  TLocalCall = procedure(flag: LongInt; Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(flag: LongInt; Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4913,7 +4913,7 @@ end;
 function Request(Requester: PRequester; Window: PWindow): Boolean;
 type
   TLocalCall = function(Requester: PRequester; Window: PWindow;
-      Base: Pointer): Boolean; stdcall;
+      Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4923,7 +4923,7 @@ end;
 
 procedure ScreenToBack(Screen: PScreen);
 type
-  TLocalCall = procedure(Screen: PScreen; Base: Pointer); stdcall;
+  TLocalCall = procedure(Screen: PScreen; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4933,7 +4933,7 @@ end;
 
 procedure ScreenToFront(Screen: PScreen);
 type
-  TLocalCall = procedure(Screen: PScreen; Base: Pointer); stdcall;
+  TLocalCall = procedure(Screen: PScreen; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4944,7 +4944,7 @@ end;
 function SetDMRequest(Window: PWindow; Requester: PRequester): Boolean;
 type
   TLocalCall = function(Window: PWindow; Requester: PRequester;
-      Base: Pointer): Boolean; stdcall;
+      Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4954,7 +4954,7 @@ end;
 
 function SetMenuStrip(Window: PWindow; Menu: pMenu): Boolean;
 type
-  TLocalCall = function(Window: PWindow; Menu: pMenu; Base: Pointer): Boolean; stdcall;
+  TLocalCall = function(Window: PWindow; Menu: pMenu; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4966,7 +4966,7 @@ procedure SetPointer(Window: PWindow; Pointer_: PWord; Height: LongInt;
   Width: LongInt; XOffset: LongInt; YOffset: LongInt);
 type
   TLocalCall = procedure(Window: PWindow; Pointer_: PWord; Height: LongInt;
-      Width: LongInt; XOffset: LongInt; YOffset: LongInt; Base: Pointer); stdcall;
+      Width: LongInt; XOffset: LongInt; YOffset: LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4978,7 +4978,7 @@ procedure SetWindowTitles(Window: PWindow; const WindowTitle: PChar;
   const ScreenTitle: PChar);
 type
   TLocalCall = procedure(Window: PWindow; const WindowTitle: PChar;
-      const ScreenTitle: PChar; Base: Pointer); stdcall;
+      const ScreenTitle: PChar; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4988,7 +4988,7 @@ end;
 
 procedure ShowTitle(Screen: PScreen; showIt: LongInt);
 type
-  TLocalCall = procedure(Screen: PScreen; showIt: LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Screen: PScreen; showIt: LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4999,7 +4999,7 @@ end;
 procedure SizeWindow(Window: PWindow; Dx: LongInt; Dy: LongInt);
 type
   TLocalCall = procedure(Window: PWindow; Dx: LongInt; Dy: LongInt;
-      Base: Pointer); stdcall;
+      Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5009,7 +5009,7 @@ end;
 
 function ViewAddress: PView;
 type
-  TLocalCall = function(Base: Pointer): PView; stdcall;
+  TLocalCall = function(Base: Pointer): PView; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5019,7 +5019,7 @@ end;
 
 function ViewPortAddress(const Window: PWindow): PViewPort;
 type
-  TLocalCall = function(Window: PWindow; Base: Pointer): PViewPort; stdcall;
+  TLocalCall = function(Window: PWindow; Base: Pointer): PViewPort; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5029,7 +5029,7 @@ end;
 
 procedure WindowToBack(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5039,7 +5039,7 @@ end;
 
 procedure WindowToFront(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5052,7 +5052,7 @@ function WindowLimits(Window: PWindow; WidthMin: LongInt; HeightMin: LongInt;
 type
   TLocalCall = function(Window: PWindow; WidthMin: LongInt;
       HeightMin: LongInt; WidthMax: LongWord; HeightMax: LongWord;
-      Base: Pointer): Boolean; stdcall;
+      Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5064,7 +5064,7 @@ function SetPrefs(const Preferences: PPreferences; Size: LongInt;
   Inform: LongInt): PPreferences;
 type
   TLocalCall = function(const Preferences: PPreferences; Size: LongInt;
-      Inform: LongInt; Base: Pointer): PPreferences; stdcall;
+      Inform: LongInt; Base: Pointer): PPreferences; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5074,7 +5074,7 @@ end;
 
 function IntuiTextLength(const IText: PIntuiText): LongInt;
 type
-  TLocalCall = function(const IText: PIntuiText; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(const IText: PIntuiText; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5084,7 +5084,7 @@ end;
 
 function WBenchToBack: Boolean;
 type
-  TLocalCall = function(Base: Pointer): Boolean; stdcall;
+  TLocalCall = function(Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5094,7 +5094,7 @@ end;
 
 function WBenchToFront: Boolean;
 type
-  TLocalCall = function(Base: Pointer): Boolean; stdcall;
+  TLocalCall = function(Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5108,7 +5108,7 @@ function AutoRequest(Window: PWindow; const Body: PIntuiText;
 type
   TLocalCall = function(Window: PWindow; const Body: PIntuiText;
       const PosText: PIntuiText; const NegText: PIntuiText; PFlag: LongWord;
-      NFlag: LongWord; Width: LongWord; Height: LongWord; Base: Pointer): Boolean; stdcall;
+      NFlag: LongWord; Width: LongWord; Height: LongWord; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5119,7 +5119,7 @@ end;
 
 procedure BeginRefresh(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5133,7 +5133,7 @@ function BuildSysRequest(Window: PWindow; const Body: PIntuiText;
 type
   TLocalCall = function(Window: PWindow; const Body: PIntuiText;
       const PosText: PIntuiText; const NegText: PIntuiText; Flags: LongWord;
-      Width: LongWord; Height: LongWord; Base: Pointer): PWindow; stdcall;
+      Width: LongWord; Height: LongWord; Base: Pointer): PWindow; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5143,7 +5143,7 @@ end;
 
 procedure EndRefresh(Window: PWindow; Complete: Boolean);
 type
-  TLocalCall = procedure(Window: PWindow; Complete: Boolean; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Complete: Boolean; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5153,7 +5153,7 @@ end;
 
 procedure FreeSysRequest(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5163,7 +5163,7 @@ end;
 
 function MakeScreen(Screen: PScreen): LongInt;
 type
-  TLocalCall = function(Screen: PScreen; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Screen: PScreen; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5173,7 +5173,7 @@ end;
 
 function RemakeDisplay: LongInt;
 type
-  TLocalCall = function(Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5183,7 +5183,7 @@ end;
 
 function RethinkDisplay: LongInt;
 type
-  TLocalCall = function(Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5195,7 +5195,7 @@ function AllocRemember(var RememberKey: PRemember; Size: LongWord;
   Flags: LongWord): Pointer;
 type
   TLocalCall = function(var RememberKey: PRemember; Size: LongWord;
-      Flags: LongWord; Base: Pointer): Pointer; stdcall;
+      Flags: LongWord; Base: Pointer): Pointer; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5205,7 +5205,7 @@ end;
 
 procedure AlohaWorkbench(MsgPort: PMsgPort);
 type
-  TLocalCall = procedure(MsgPort: PMsgPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(MsgPort: PMsgPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5216,7 +5216,7 @@ end;
 procedure FreeRemember(var RememberKey: PRemember; ReallyForget: LongInt);
 type
   TLocalCall = procedure(var RememberKey: PRemember; ReallyForget: LongInt;
-      Base: Pointer); stdcall;
+      Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5226,7 +5226,7 @@ end;
 
 function LockIBase(LockNumber: LongWord): LongWord;
 type
-  TLocalCall = function(LockNumber: LongWord; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(LockNumber: LongWord; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5236,7 +5236,7 @@ end;
 
 procedure UnlockIBase(LockNumber: LongWord);
 type
-  TLocalCall = procedure(LockNumber: LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(LockNumber: LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5248,7 +5248,7 @@ function GetScreenData(buffer: Pointer; Size: LongWord; type_: LongWord;
   const Screen: PScreen): Boolean;
 type
   TLocalCall = function(buffer: Pointer; Size: LongWord; type_: LongWord;
-      const Screen: PScreen; Base: Pointer): Boolean; stdcall;
+      const Screen: PScreen; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5260,7 +5260,7 @@ procedure RefreshGList(gadgets: PGadget; Window: PWindow;
   Requester: PRequester; NumGad: LongInt);
 type
   TLocalCall = procedure(gadgets: PGadget; Window: PWindow;
-      Requester: PRequester; NumGad: LongInt; Base: Pointer); stdcall;
+      Requester: PRequester; NumGad: LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5272,7 +5272,7 @@ function AddGList(Window: PWindow; Gadget: PGadget; Position: LongWord;
   NumGad: LongInt; Requester: PRequester): Word;
 type
   TLocalCall = function(Window: PWindow; Gadget: PGadget; Position: LongWord;
-      NumGad: LongInt; Requester: PRequester; Base: Pointer): Word; stdcall;
+      NumGad: LongInt; Requester: PRequester; Base: Pointer): Word; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5283,7 +5283,7 @@ end;
 function RemoveGList(RemPtr: PWindow; Gadget: PGadget; NumGad: LongInt): Word;
 type
   TLocalCall = function(RemPtr: PWindow; Gadget: PGadget; NumGad: LongInt;
-      Base: Pointer): Word; stdcall;
+      Base: Pointer): Word; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5293,7 +5293,7 @@ end;
 
 procedure ActivateWindow(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5303,7 +5303,7 @@ end;
 
 procedure RefreshWindowFrame(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5315,7 +5315,7 @@ function ActivateGadget(gadgets: PGadget; Window: PWindow;
   Requester: PRequester): Boolean;
 type
   TLocalCall = function(gadgets: PGadget; Window: PWindow;
-      Requester: PRequester; Base: Pointer): Boolean; stdcall;
+      Requester: PRequester; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5330,7 +5330,7 @@ type
   TLocalCall = procedure(Gadget: PGadget; Window: PWindow;
       Requester: PRequester; Flags: LongWord; HorizPot: LongWord;
       VertPot: LongWord; HorizBody: LongWord; VertBody: LongWord;
-      NumGad: LongInt; Base: Pointer); stdcall;
+      NumGad: LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5343,7 +5343,7 @@ function QueryOverscan(DisplayID: LongWord; Rect: pRectangle;
   OScanType: LongInt): LongInt;
 type
   TLocalCall = function(DisplayID: LongWord; Rect: pRectangle;
-      OScanType: LongInt; Base: Pointer): LongInt; stdcall;
+      OScanType: LongInt; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5354,7 +5354,7 @@ end;
 procedure MoveWindowInFrontOf(Window: PWindow; BehindWindow: PWindow);
 type
   TLocalCall = procedure(Window: PWindow; BehindWindow: PWindow;
-      Base: Pointer); stdcall;
+      Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5366,7 +5366,7 @@ procedure ChangeWindowBox(Window: PWindow; Left: LongInt; Top: LongInt;
   Width: LongInt; Height: LongInt);
 type
   TLocalCall = procedure(Window: PWindow; Left: LongInt; Top: LongInt;
-      Width: LongInt; Height: LongInt; Base: Pointer); stdcall;
+      Width: LongInt; Height: LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5376,7 +5376,7 @@ end;
 
 function SetEditHook(hook: PHook): PHook;
 type
-  TLocalCall = function(hook: PHook; Base: Pointer): PHook; stdcall;
+  TLocalCall = function(hook: PHook; Base: Pointer): PHook; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5387,7 +5387,7 @@ end;
 function SetMouseQueue(Window: PWindow; queueLength: LongWord): LongInt;
 type
   TLocalCall = function(Window: PWindow; queueLength: LongWord;
-      Base: Pointer): LongInt; stdcall;
+      Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5397,7 +5397,7 @@ end;
 
 procedure ZipWindow(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5407,7 +5407,7 @@ end;
 
 function LockPubScreen(const Name: PChar): PScreen;
 type
-  TLocalCall = function(const Name: PChar; Base: Pointer): PScreen; stdcall;
+  TLocalCall = function(const Name: PChar; Base: Pointer): PScreen; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5417,7 +5417,7 @@ end;
 
 procedure UnlockPubScreen(const Name: PChar; Screen: PScreen);
 type
-  TLocalCall = procedure(const Name: PChar; Screen: PScreen; Base: Pointer); stdcall;
+  TLocalCall = procedure(const Name: PChar; Screen: PScreen; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5427,7 +5427,7 @@ end;
 
 function LockPubScreenList: pList;
 type
-  TLocalCall = function(Base: Pointer): pList; stdcall;
+  TLocalCall = function(Base: Pointer): pList; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5437,7 +5437,7 @@ end;
 
 procedure UnlockPubScreenList;
 type
-  TLocalCall = procedure(Base: Pointer); stdcall;
+  TLocalCall = procedure(Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5448,7 +5448,7 @@ end;
 function NextPubScreen(const Screen: PScreen; Namebuf: PChar): PChar;
 type
   TLocalCall = function(const Screen: PScreen; Namebuf: PChar;
-      Base: Pointer): PChar; stdcall;
+      Base: Pointer): PChar; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5458,7 +5458,7 @@ end;
 
 procedure SetDefaultPubScreen(const Name: PChar);
 type
-  TLocalCall = procedure(const Name: PChar; Base: Pointer); stdcall;
+  TLocalCall = procedure(const Name: PChar; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5468,7 +5468,7 @@ end;
 
 function SetPubScreenModes(modes: LongWord): Word;
 type
-  TLocalCall = function(modes: LongWord; Base: Pointer): Word; stdcall;
+  TLocalCall = function(modes: LongWord; Base: Pointer): Word; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5479,7 +5479,7 @@ end;
 function PubScreenStatus(Screen: PScreen; StatusFlags: LongWord): Word;
 type
   TLocalCall = function(Screen: PScreen; StatusFlags: LongWord;
-      Base: Pointer): Word; stdcall;
+      Base: Pointer): Word; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5489,7 +5489,7 @@ end;
 
 function ObtainGIRPort(GInfo: PGadgetInfo): PRastPort;
 type
-  TLocalCall = function(GInfo: PGadgetInfo; Base: Pointer): PRastPort; stdcall;
+  TLocalCall = function(GInfo: PGadgetInfo; Base: Pointer): PRastPort; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5499,7 +5499,7 @@ end;
 
 procedure ReleaseGIRPort(Rp: PRastPort);
 type
-  TLocalCall = procedure(Rp: PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp: PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5510,7 +5510,7 @@ end;
 procedure GadgetMouse(Gadget: PGadget; GInfo: PGadgetInfo; mousePoint: psmallint);
 type
   TLocalCall = procedure(Gadget: PGadget; GInfo: PGadgetInfo;
-      mousePoint: psmallint; Base: Pointer); stdcall;
+      mousePoint: psmallint; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5520,7 +5520,7 @@ end;
 
 function SetIPrefs(Data: Pointer; Length: LongWord; Typ: LongWord): LongWord;
 type
-  TLocalCall = function(Data: Pointer; Length: LongWord; Typ: LongWord; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Data: Pointer; Length: LongWord; Typ: LongWord; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5530,7 +5530,7 @@ end;
 
 procedure GetDefaultPubScreen(NameBuffer: PChar);
 type
-  TLocalCall = procedure(NameBuffer: PChar; Base: Pointer); stdcall;
+  TLocalCall = procedure(NameBuffer: PChar; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5543,7 +5543,7 @@ function EasyRequestArgs(Window: PWindow;
 type
   TLocalCall = function(Window: PWindow;
       const easyStruct: PEasyStruct; IdcmpPtr: PLongWord;
-      const args: Pointer; Base: Pointer): LongInt; stdcall;
+      const args: Pointer; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5553,7 +5553,7 @@ end;
 
 function BuildEasyRequestArgs(Window: PWindow;const EasyStruct: PEasyStruct; Idcmp: LongWord;const Args: Pointer): PWindow;
 type
-  TLocalCall = function(Window: PWindow;const EasyStruct: PEasyStruct; Idcmp: LongWord;const Args: Pointer; Base: Pointer): PWindow; stdcall;
+  TLocalCall = function(Window: PWindow;const EasyStruct: PEasyStruct; Idcmp: LongWord;const Args: Pointer; Base: Pointer): PWindow; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5563,7 +5563,7 @@ end;
 
 function SysReqHandler(Window: PWindow; IdcmpPtr: PLongWord; WaitInput: LongInt): LongInt;
 type
-  TLocalCall = function(Window: PWindow; IdcmpPtr: PLongWord; WaitInput: LongInt; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Window: PWindow; IdcmpPtr: PLongWord; WaitInput: LongInt; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5575,7 +5575,7 @@ function OpenWindowTagList(const NewWindow: PNewWindow;
   const TagList: PTagItem): PWindow;
 type
   TOpenWindowTagList = function(const NewWindow: PNewWindow;
-      const TagList: PTagItem; Base: Pointer): PWindow; stdcall;
+      const TagList: PTagItem; Base: Pointer): PWindow; cdecl;
 var
   Call: TOpenWindowTagList;
 begin
@@ -5585,7 +5585,7 @@ end;
 
 function OpenScreenTagList(const NewScreen: PNewScreen;const tagList: PTagItem): PScreen;
 type
-  TLocalCall = function(const NewScreen: PNewScreen;const tagList: PTagItem; Base: Pointer): PScreen; stdcall;
+  TLocalCall = function(const NewScreen: PNewScreen;const tagList: PTagItem; Base: Pointer): PScreen; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5595,7 +5595,7 @@ end;
 
 procedure DrawImageState(Rp: PRastPort; Image: PImage; LeftOffset: LongInt; TopOffset: LongInt; State: LongWord;const DrawInfo: PDrawInfo);
 type
-  TLocalCall = procedure(Rp: PRastPort; Image: PImage; LeftOffset: LongInt; TopOffset: LongInt; State: LongWord;const DrawInfo: PDrawInfo; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp: PRastPort; Image: PImage; LeftOffset: LongInt; TopOffset: LongInt; State: LongWord;const DrawInfo: PDrawInfo; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5605,7 +5605,7 @@ end;
 
 function PointInImage(Point: LongWord; Image: PImage): Boolean;
 type
-  TLocalCall = function(Point: LongWord; Image: PImage; Base: Pointer): Boolean; stdcall;
+  TLocalCall = function(Point: LongWord; Image: PImage; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5615,7 +5615,7 @@ end;
 
 procedure EraseImage(Rp: PRastPort; Image: PImage; LeftOffset: LongInt; TopOffset: LongInt);
 type
-  TLocalCall = procedure(Rp: PRastPort; Image: PImage; LeftOffset: LongInt; TopOffset: LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp: PRastPort; Image: PImage; LeftOffset: LongInt; TopOffset: LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5625,7 +5625,7 @@ end;
 
 function NewObjectA(ClassPtr: PIClass;const ClassID: PChar;const TagList: PTagItem): Pointer;
 type
-  TLocalCall = function(ClassPtr: PIClass;const ClassID: PChar; Base: Pointer): Pointer; stdcall;
+  TLocalCall = function(ClassPtr: PIClass;const ClassID: PChar; Base: Pointer): Pointer; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5635,7 +5635,7 @@ end;
 
 procedure DisposeObject(Obj: Pointer);
 type
-  TLocalCall = procedure(Obj: Pointer; Base: Pointer); stdcall;
+  TLocalCall = procedure(Obj: Pointer; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5646,7 +5646,7 @@ end;
 function SetAttrsA(Obj: Pointer; const TagList: PTagItem): LongWord;
 type
   TLocalCall = function(Obj: Pointer;
-      const TagList: PTagItem; Base: Pointer): LongWord; stdcall;
+      const TagList: PTagItem; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5657,7 +5657,7 @@ end;
 function GetAttr(attrID: LongWord; Obj: Pointer; storagePtr: PLongWord): LongWord;
 type
   TLocalCall = function(attrID: LongWord; Obj: Pointer; storagePtr: PLongWord;
-      Base: Pointer): LongWord; stdcall;
+      Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5667,7 +5667,7 @@ end;
 
 function SetGadgetAttrsA(Gadget: PGadget; Window: PWindow; Requester: PRequester;const TagList: PTagItem): LongWord;
 type
-  TLocalCall = function(Gadget: PGadget; Window: PWindow; Requester: PRequester;const TagList: PTagItem; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Gadget: PGadget; Window: PWindow; Requester: PRequester;const TagList: PTagItem; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5677,7 +5677,7 @@ end;
 
 function NextObject(ObjectPtrPtr: Pointer): PIClass;
 type
-  TLocalCall = function(ObjectPtrPtr: Pointer; Base: Pointer): PIClass; stdcall;
+  TLocalCall = function(ObjectPtrPtr: Pointer; Base: Pointer): PIClass; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5687,7 +5687,7 @@ end;
 
 function FindClass(ClassID: PChar): PIClass;
 type
-  TLocalCall = function(ClassID: PChar; Base: Pointer): PIClass; stdcall;
+  TLocalCall = function(ClassID: PChar; Base: Pointer): PIClass; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5697,7 +5697,7 @@ end;
 
 function MakeClass(const ClassID: PChar;const SuperClassID: PChar;const SuperClassPtr: PIClass; InstanceSize: LongWord; Flags: LongWord): PIClass;
 type
-  TLocalCall = function(const ClassID: PChar;const SuperClassID: PChar;const SuperClassPtr: PIClass; InstanceSize: LongWord; Flags: LongWord; Base: Pointer): PIClass; stdcall;
+  TLocalCall = function(const ClassID: PChar;const SuperClassID: PChar;const SuperClassPtr: PIClass; InstanceSize: LongWord; Flags: LongWord; Base: Pointer): PIClass; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5707,7 +5707,7 @@ end;
 
 procedure AddClass(ClassPtr: PIClass);
 type
-  TLocalCall = procedure(ClassPtr: PIClass; Base: Pointer); stdcall;
+  TLocalCall = procedure(ClassPtr: PIClass; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5717,7 +5717,7 @@ end;
 
 function GetScreenDrawInfo(Screen : PScreen) : PDrawInfo;
 type
-  TLocalCall = function(Screen: PScreen; Base: Pointer): PDrawInfo; stdcall;
+  TLocalCall = function(Screen: PScreen; Base: Pointer): PDrawInfo; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5727,7 +5727,7 @@ end;
 
 procedure FreeScreenDrawInfo(Screen : PScreen; DrawInfo : PDrawInfo);
 type
-  TLocalCall = procedure(Screen : PScreen; DrawInfo : PDrawInfo; Base: Pointer); stdcall;
+  TLocalCall = procedure(Screen : PScreen; DrawInfo : PDrawInfo; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5737,7 +5737,7 @@ end;
 
 function ResetMenuStrip(Window: PWindow; Menu: PMenu) : Boolean;
 type
-  TLocalCall = function(Window: PWindow; Menu: PMenu; Base: Pointer): Boolean; stdcall;
+  TLocalCall = function(Window: PWindow; Menu: PMenu; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5747,7 +5747,7 @@ end;
 
 procedure RemoveClass(ClassPtr : PIClass);
 type
-  TLocalCall = procedure(ClassPtr: PIClass; Base: Pointer); stdcall;
+  TLocalCall = procedure(ClassPtr: PIClass; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5757,7 +5757,7 @@ end;
 
 function FreeClass(ClassPtr : PIClass) : Boolean;
 type
-  TLocalCall = function(ClassPtr : PIClass; Base: Pointer): Boolean; stdcall;
+  TLocalCall = function(ClassPtr : PIClass; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5767,7 +5767,7 @@ end;
 
 function AllocScreenBuffer(Sc: PScreen; Bm: PBitMap; Flags: LongWord): PScreenBuffer;
 type
-  TLocalCall = function(Sc: PScreen; Bm: PBitMap; Flags: LongWord; Base: Pointer): PScreenBuffer; stdcall;
+  TLocalCall = function(Sc: PScreen; Bm: PBitMap; Flags: LongWord; Base: Pointer): PScreenBuffer; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5777,7 +5777,7 @@ end;
 
 procedure FreeScreenBuffer(Sc: PScreen; Sb: PScreenBuffer);
 type
-  TLocalCall = procedure(Sc: PScreen; Sb: PScreenBuffer; Base: Pointer); stdcall;
+  TLocalCall = procedure(Sc: PScreen; Sb: PScreenBuffer; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5787,7 +5787,7 @@ end;
 
 function ChangeScreenBuffer(Sc: PScreen; Sb: PScreenBuffer): LongWord;
 type
-  TLocalCall = function(Sc: PScreen; Sb: PScreenBuffer; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Sc: PScreen; Sb: PScreenBuffer; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5797,7 +5797,7 @@ end;
 
 procedure ScreenDepth(Screen: PScreen; Flags: LongWord; Reserved: Pointer);
 type
-  TLocalCall = procedure(Screen: PScreen; Flags: LongWord; Reserved: Pointer; Base: Pointer); stdcall;
+  TLocalCall = procedure(Screen: PScreen; Flags: LongWord; Reserved: Pointer; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5807,7 +5807,7 @@ end;
 
 procedure ScreenPosition(Screen: PScreen; Flags: LongWord; X1: LongInt; Y1: LongInt; X2: LongInt; Y2: LongInt);
 type
-  TLocalCall = procedure(Screen: PScreen; Flags: LongWord; X1: LongInt; Y1: LongInt; X2: LongInt; Y2: LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Screen: PScreen; Flags: LongWord; X1: LongInt; Y1: LongInt; X2: LongInt; Y2: LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5817,7 +5817,7 @@ end;
 
 procedure ScrollWindowRaster(Win: PWindow; Dx: LongInt; Dy: LongInt; XMin: LongInt; YMin: LongInt; XMax: LongInt; YMax: LongInt);
 type
-  TLocalCall = procedure(Win: PWindow; Dx: LongInt; Dy: LongInt; XMin: LongInt; YMin: LongInt; XMax: LongInt; YMax: LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Win: PWindow; Dx: LongInt; Dy: LongInt; XMin: LongInt; YMin: LongInt; XMax: LongInt; YMax: LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5827,7 +5827,7 @@ end;
 
 procedure LendMenus(FromWindow: PWindow; ToWindow: PWindow);
 type
-  TLocalCall = procedure(FromWindow: PWindow; ToWindow: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(FromWindow: PWindow; ToWindow: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5837,7 +5837,7 @@ end;
 
 function DoGadgetMethodA(Gad: PGadget; Win: PWindow; Req: PRequester; Message: TMsg): LongWord;
 type
-  TLocalCall = function(Gad: PGadget; Win: PWindow; Req: PRequester; Message: TMsg; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Gad: PGadget; Win: PWindow; Req: PRequester; Message: TMsg; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5847,7 +5847,7 @@ end;
 
 procedure SetWindowPointerA(Win: PWindow;const Taglist: PTagItem);
 type
-  TLocalCall = procedure(Win: PWindow;const Taglist: PTagItem; Base: Pointer); stdcall;
+  TLocalCall = procedure(Win: PWindow;const Taglist: PTagItem; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5857,7 +5857,7 @@ end;
 
 function TimedDisplayAlert(AlertNumber: LongWord;const String_: PChar; Height: LongWord; Time: LongWord): Boolean;
 type
-  TLocalCall = function(AlertNumber: LongWord;const String_: PChar; Height: LongWord; Time: LongWord; Base: Pointer): Boolean; stdcall;
+  TLocalCall = function(AlertNumber: LongWord;const String_: PChar; Height: LongWord; Time: LongWord; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5867,7 +5867,7 @@ end;
 
 procedure HelpControl(Win: PWindow; Flags: LongWord);
 type
-  TLocalCall = procedure(Win: PWindow; Flags: LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(Win: PWindow; Flags: LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5877,7 +5877,7 @@ end;
 
 function IsWindowVisible(Window: PWindow): LongWord;
 type
-  TLocalCall = function(Window: PWindow; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Window: PWindow; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5887,7 +5887,7 @@ end;
 
 procedure ShowWindow(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5897,7 +5897,7 @@ end;
 
 procedure HideWindow(Window: PWindow);
 type
-  TLocalCall = procedure(Window: PWindow; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5907,7 +5907,7 @@ end;
 
 function ChangeWindowShape(Window: PWindow; NewShape: PRegion; CallBack: PHook): PRegion;
 type
-  TLocalCall = function(Window: PWindow; NewShape: PRegion; CallBack: PHook; Base: Pointer): PRegion; stdcall;
+  TLocalCall = function(Window: PWindow; NewShape: PRegion; CallBack: PHook; Base: Pointer): PRegion; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5917,7 +5917,7 @@ end;
 
 procedure SetDefaultScreenFont(TextFont: PTextFont);
 type
-  TLocalCall = procedure(TextFont: PTextFont; Base: Pointer); stdcall;
+  TLocalCall = procedure(TextFont: PTextFont; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5927,7 +5927,7 @@ end;
 
 function DoNotify(Cl: PClass; O: PObject_; Ic: Pointer; Msg: TopUpdate): Pointer;
 type
-  TLocalCall = function(Cl: PClass; O: PObject_; Ic: Pointer; Msg: TopUpdate; Base: Pointer): Pointer; stdcall;
+  TLocalCall = function(Cl: PClass; O: PObject_; Ic: Pointer; Msg: TopUpdate; Base: Pointer): Pointer; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5937,7 +5937,7 @@ end;
 
 procedure FreeICData(ICData: Pointer);
 type
-  TLocalCall = procedure(ICData: Pointer; Base: Pointer); stdcall;
+  TLocalCall = procedure(ICData: Pointer; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5947,7 +5947,7 @@ end;
 
 function AllocIntuiMessage(Window: PWindow): PIntuiMessage;
 type
-  TLocalCall = function(Window: PWindow; Base: Pointer): PIntuiMessage; stdcall;
+  TLocalCall = function(Window: PWindow; Base: Pointer): PIntuiMessage; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5957,7 +5957,7 @@ end;
 
 procedure FreeIntuiMessage(IMsg: PIntuiMessage);
 type
-  TLocalCall = procedure(IMsg: PIntuiMessage; Base: Pointer); stdcall;
+  TLocalCall = procedure(IMsg: PIntuiMessage; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5967,7 +5967,7 @@ end;
 
 procedure SendIntuiMessage(Window: PWindow; IMsg: PIntuiMessage);
 type
-  TLocalCall = procedure(Window: PWindow; IMsg: PIntuiMessage; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; IMsg: PIntuiMessage; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5977,7 +5977,7 @@ end;
 
 procedure ChangeDecoration(ID: LongWord; Decor: PNewDecorator);
 type
-  TLocalCall = procedure(ID: LongWord; Decor: PNewDecorator; Base: Pointer); stdcall;
+  TLocalCall = procedure(ID: LongWord; Decor: PNewDecorator; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5987,7 +5987,7 @@ end;
 
 procedure WindowAction(Window: PWindow; Action: LongWord; Tags: PTagItem);
 type
-  TLocalCall = procedure(Window: PWindow; Action: LongWord; Tags: PTagItem; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Action: LongWord; Tags: PTagItem; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -5997,7 +5997,7 @@ end;
 
 procedure ScrollWindowRasterNoFill(Window: PWindow; Dx, Dy, XMin, YMin, XMax, YMax: Word);
 type
-  TLocalCall = procedure(Window: PWindow; Dx, Dy, XMin, YMin, XMax, YMax: Word; Base: Pointer); stdcall;
+  TLocalCall = procedure(Window: PWindow; Dx, Dy, XMin, YMin, XMax, YMax: Word; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -6007,7 +6007,7 @@ end;
 
 function SetPointerBounds(Screen: PScreen; Rect: TRectangle; Reserved: LongWord; Tags: PTagItem): LongWord;
 type
-  TLocalCall = function(Screen: PScreen; Rect: TRectangle; Reserved: LongWord; Tags: PTagItem; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Screen: PScreen; Rect: TRectangle; Reserved: LongWord; Tags: PTagItem; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -6017,7 +6017,7 @@ end;
 
 function StartScreenNotifyTagList(Tags: PTagItem): Pointer;
 type
-  TLocalCall = function(Tags: PTagItem; Base: Pointer): Pointer; stdcall;
+  TLocalCall = function(Tags: PTagItem; Base: Pointer): Pointer; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -6027,7 +6027,7 @@ end;
 
 function EndScreenNotify(Notify: Pointer): Boolean;
 type
-  TLocalCall = function(Notify: Pointer; Base: Pointer): Boolean; stdcall;
+  TLocalCall = function(Notify: Pointer; Base: Pointer): Boolean; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -6037,7 +6037,7 @@ end;
 
 function GetMonitorList(Tags: PTagItem): Pointer;
 type
-  TLocalCall = function(Tags: PTagItem; Base: Pointer): Pointer; stdcall;
+  TLocalCall = function(Tags: PTagItem; Base: Pointer): Pointer; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -6047,7 +6047,7 @@ end;
 
 procedure FreeMonitorList(Obj: Pointer);
 type
-  TLocalCall = procedure(Obj: Pointer; Base: Pointer); stdcall;
+  TLocalCall = procedure(Obj: Pointer; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin

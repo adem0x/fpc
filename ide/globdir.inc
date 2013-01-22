@@ -98,6 +98,9 @@
 {$ifdef MorphOS}
   {$define FSCaseInsensitive}
 {$endif}
+{$ifdef aros}
+  {$define FSCaseInsensitive}
+{$endif}
 
 { --- Exclude debugger support --- }
 {.$DEFINE NODEBUG}

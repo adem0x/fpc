@@ -82,6 +82,9 @@ var Event : TEvent;
     ev    : TMouseEvent;
     Clear : Boolean;
 begin
+  {$ifdef aros}
+    Exit;
+  {$endif}
   if UserScreen=nil then
    begin
      ErrorBox(msg_userscreennotavailable,nil);

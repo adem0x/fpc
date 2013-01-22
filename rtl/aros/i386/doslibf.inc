@@ -15,7 +15,7 @@
 
 function Open(name: PChar; accessMode: longint): Cardinal;
 type
-  TOpen = function(name: PChar; accessMode: longint; Base: Pointer): Cardinal; stdcall;
+  TOpen = function(name: PChar; accessMode: longint; Base: Pointer): Cardinal; cdecl;
 var
   Call: TOpen;
 begin
@@ -25,7 +25,7 @@ end;
 
 function dosClose(_file: Cardinal): boolean;
 type
-  TdosClose = function(_file: Cardinal; Base: Pointer): boolean; stdcall;
+  TdosClose = function(_file: Cardinal; Base: Pointer): boolean; cdecl;
 var
   Call: TdosClose;
 begin
@@ -35,7 +35,7 @@ end;
 
 function dosRead(_file: Cardinal; buffer: Pointer; length: longint): longint;
 type
-  TdosRead = function(_file: Cardinal; buffer: Pointer; length: longint; Base: Pointer): longint; stdcall;
+  TdosRead = function(_file: Cardinal; buffer: Pointer; length: longint; Base: Pointer): longint; cdecl;
 var
   Call: TdosRead;
 begin
@@ -45,7 +45,7 @@ end;
 
 function dosWrite(_file: Cardinal; buffer: Pointer; length: longint): longint;
 type
-  TdosWrite = function(_file: Cardinal; buffer: Pointer; length: longint; Base: Pointer): longint; stdcall;
+  TdosWrite = function(_file: Cardinal; buffer: Pointer; length: longint; Base: Pointer): longint; cdecl;
 var
   Call: TdosWrite;
 begin
@@ -55,7 +55,7 @@ end;
 
 function dosInput: Cardinal;
 type
-  TdosInput = function(Base: Pointer): Cardinal; stdcall;
+  TdosInput = function(Base: Pointer): Cardinal; cdecl;
 var
   Call: TdosInput;
 begin
@@ -65,7 +65,7 @@ end;
 
 function dosOutput: Cardinal;
 type
-  TdosOutput = function(Base: Pointer): Cardinal; stdcall;
+  TdosOutput = function(Base: Pointer): Cardinal; cdecl;
 var
   Call: TdosOutput;
 begin
@@ -75,7 +75,7 @@ end;
 
 function dosSeek(_file: longint;position: longint;offset: longint): longint;
 type
-  TdosSeek = function(_file: longint;position: longint;offset: longint; Base: Pointer): longint; stdcall;
+  TdosSeek = function(_file: longint;position: longint;offset: longint; Base: Pointer): longint; cdecl;
 var
   Call: TdosSeek;
 begin
@@ -85,7 +85,7 @@ end;
 
 function dosDeleteFile(name: PChar): boolean;
 type
-  TdosDeleteFile = function(name: PChar; Base: Pointer): boolean; stdcall;
+  TdosDeleteFile = function(name: PChar; Base: Pointer): boolean; cdecl;
 var
   Call: TdosDeleteFile;
 begin
@@ -95,7 +95,7 @@ end;
 
 function dosRename(oldName: PChar;newName: PChar): boolean;
 type
-  TdosRename = function(oldName: PChar;newName: PChar; Base: Pointer): boolean; stdcall;
+  TdosRename = function(oldName: PChar;newName: PChar; Base: Pointer): boolean; cdecl;
 var
   Call: TdosRename;
 begin
@@ -105,7 +105,7 @@ end;
 
 function Lock(name: PChar;_type: longint): longint;
 type
-  TLock = function(name: PChar;_type: longint; Base: Pointer): longint; stdcall;
+  TLock = function(name: PChar;_type: longint; Base: Pointer): longint; cdecl;
 var
   Call: TLock;
 begin
@@ -115,7 +115,7 @@ end;
 
 function UnLock(lock: longint): longint;
 type
-  TUnLock = function(lock: longint; Base: Pointer): longint; stdcall;
+  TUnLock = function(lock: longint; Base: Pointer): longint; cdecl;
 var
   Call: TUnLock;
 begin
@@ -126,7 +126,7 @@ end;
 
 function Examine(lock: longint; fileInfoBlock: PFileInfoBlock): boolean;
 type
-  TExamine = function(lock: longint; fileInfoBlock: PFileInfoBlock; Base: Pointer): boolean; stdcall;
+  TExamine = function(lock: longint; fileInfoBlock: PFileInfoBlock; Base: Pointer): boolean; cdecl;
 var
   Call: TExamine;
 begin
@@ -136,7 +136,7 @@ end;
 
 function Info(lock: longint; parameterBlock: PInfoData): boolean;
 type
-  TInfo = function(lock: longint; parameterBlock: PInfoData; Base: Pointer): boolean; stdcall;
+  TInfo = function(lock: longint; parameterBlock: PInfoData; Base: Pointer): boolean; cdecl;
 var
   Call: TInfo;
 begin
@@ -146,7 +146,7 @@ end;
 
 function dosCreateDir(name: PChar): longint;
 type
-  TdosCreateDir = function(name: PChar; Base: Pointer): longint; stdcall;
+  TdosCreateDir = function(name: PChar; Base: Pointer): longint; cdecl;
 var
   Call: TdosCreateDir;
 begin
@@ -156,7 +156,7 @@ end;
 
 function CurrentDir(lock: longint): longint;
 type
-  TCurrentDir = function(lock: longint; Base: Pointer): longint; stdcall;
+  TCurrentDir = function(lock: longint; Base: Pointer): longint; cdecl;
 var
   Call: TCurrentDir;
 begin
@@ -166,7 +166,7 @@ end;
 
 function IoErr: longint;
 type
-  TIoErr = function(Base: Pointer): longint; stdcall;
+  TIoErr = function(Base: Pointer): longint; cdecl;
 var
   Call: TIoErr;
 begin
@@ -176,7 +176,7 @@ end;
 
 procedure dosExit(ErrCode: longint);
 type
-  TExit = procedure(ErrCode: longint; Base: Pointer); stdcall;
+  TExit = procedure(ErrCode: longint; Base: Pointer); cdecl;
 var
   Call: TExit;
 begin
@@ -186,7 +186,7 @@ end;
 
 function SetProtection(name: PChar; protect: longword): boolean;
 type
-  TSetProtection = function(name: PChar; protect: longword; Base: Pointer): boolean; stdcall;
+  TSetProtection = function(name: PChar; protect: longword; Base: Pointer): boolean; cdecl;
 var
   Call: TSetProtection;
 begin
@@ -196,7 +196,7 @@ end;
 
 function DateStamp(date: PDateStamp): PDateStamp;
 type
-  TDateStamp = function(date: PDateStamp; Base: Pointer): PDateStamp; stdcall;
+  TDateStamp = function(date: PDateStamp; Base: Pointer): PDateStamp; cdecl;
 var
   Call: TDateStamp;
 begin
@@ -206,7 +206,7 @@ end;
 
 procedure Delay(ticks: LongWord);
 type
-  TDelay = procedure(ticks: LongWord; Base: Pointer); stdcall;
+  TDelay = procedure(ticks: LongWord; Base: Pointer); cdecl;
 var
   Call: TDelay;
 begin
@@ -216,7 +216,7 @@ end;
 
 function SetFileDate(name: PChar; date: PDateStamp): boolean;
 type
-  TSetFileDate = function(name: PChar; date: PDateStamp; Base: Pointer): boolean; stdcall;
+  TSetFileDate = function(name: PChar; date: PDateStamp; Base: Pointer): boolean; cdecl;
 var
   Call: TSetFileDate;
 begin
@@ -226,7 +226,7 @@ end;
 
 function NameFromLock(lock: longint; buffer: PChar; len: longint): boolean;
 type
-  TNameFromLock = function(lock: longint; buffer: PChar; len: longint; Base: Pointer): boolean; stdcall;
+  TNameFromLock = function(lock: longint; buffer: PChar; len: longint; Base: Pointer): boolean; cdecl;
 var
   Call: TNameFromLock;
 begin
@@ -236,7 +236,7 @@ end;
 
 function SetFileSize(fh: longint; pos: longint; mode: longint): longint;
 type
-  TSetFileSize = function(fh: longint; pos: longint; mode: longint; Base: Pointer): longint; stdcall;
+  TSetFileSize = function(fh: longint; pos: longint; mode: longint; Base: Pointer): longint; cdecl;
 var
   Call: TSetFileSize;
 begin
@@ -246,7 +246,7 @@ end;
 
 function Cli : pCommandLineInterface;
 type
-  TLocalCall = function(LibBase: Pointer): pCommandLineInterface; stdcall;
+  TLocalCall = function(LibBase: Pointer): pCommandLineInterface; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -256,7 +256,7 @@ end;
 
 function GetArgStr: PChar;
 type
-  TGetArgStr = function(Base: Pointer): PChar; stdcall;
+  TGetArgStr = function(Base: Pointer): PChar; cdecl;
 var
   Call: TGetArgStr;
 begin
@@ -266,7 +266,7 @@ end;
 
 function GetCurrentDirName(buf: PChar; len: longint): boolean;
 type
-  TGetCurrentDirName = function(buf: PChar; len: longint; Base: Pointer): boolean; stdcall;
+  TGetCurrentDirName = function(buf: PChar; len: longint; Base: Pointer): boolean; cdecl;
 var
   Call: TGetCurrentDirName;
 begin
@@ -276,7 +276,7 @@ end;
 
 function GetProgramName(buf: PChar; len: longint): boolean;
 type
-  TGetProgramName = function(buf: PChar; len: longint; Base: Pointer): boolean; stdcall;
+  TGetProgramName = function(buf: PChar; len: longint; Base: Pointer): boolean; cdecl;
 var
   Call: TGetProgramName;
 begin
@@ -286,7 +286,7 @@ end;
 
 function GetProgramDir: longint;
 type
-  TGetProgramDir = function(Base: Pointer): longint; stdcall;
+  TGetProgramDir = function(Base: Pointer): longint; cdecl;
 var
   Call: TGetProgramDir;
 begin
@@ -296,7 +296,7 @@ end;
 
 function SystemTagList(command: PChar; tags: PTagItem): longint;
 type
-  TSystemTagList = function(command: PChar; tags: PTagItem; Base: Pointer): longint; stdcall;
+  TSystemTagList = function(command: PChar; tags: PTagItem; Base: Pointer): longint; cdecl;
 var
   Call: TSystemTagList;
 begin
@@ -306,7 +306,7 @@ end;
 
 function LockDosList(flags: longword): PDosList;
 type
-  TLockDosList = function(flags: longword; Base: Pointer): PDosList; stdcall;
+  TLockDosList = function(flags: longword; Base: Pointer): PDosList; cdecl;
 var
   Call: TLockDosList;
 begin
@@ -316,7 +316,7 @@ end;
 
 procedure UnLockDosList(flags: longword);
 type
-  TUnLockDosList = procedure(flags: longword; Base: Pointer); stdcall;
+  TUnLockDosList = procedure(flags: longword; Base: Pointer); cdecl;
 var
   Call: TUnLockDosList;
 begin
@@ -326,7 +326,7 @@ end;
 
 function NextDosEntry(dlist: PDosList; flags: longword): PDosList;
 type
-  TNextDosEntry = function(dlist: PDosList; flags: longword; Base: Pointer): PDosList; stdcall;
+  TNextDosEntry = function(dlist: PDosList; flags: longword; Base: Pointer): PDosList; cdecl;
 var
   Call: TNextDosEntry;
 begin
@@ -336,7 +336,7 @@ end;
 
 function MatchFirst(pat: PChar; anchor: PAnchorPath): longint;
 type
-  TMatchFirst = function(pat: PChar; anchor: PAnchorPath; Base: Pointer): longint; stdcall;
+  TMatchFirst = function(pat: PChar; anchor: PAnchorPath; Base: Pointer): longint; cdecl;
 var
   Call: TMatchFirst;
 begin
@@ -346,7 +346,7 @@ end;
 
 function MatchNext(anchor: PAnchorPath): longint;
 type
-  TMatchNext = function(anchor: PAnchorPath; Base: Pointer): longint; stdcall;
+  TMatchNext = function(anchor: PAnchorPath; Base: Pointer): longint; cdecl;
 var
   Call: TMatchNext;
 begin
@@ -357,7 +357,7 @@ end;
 
 procedure MatchEnd(anchor: PAnchorPath);
 type
-  TMatchEnd = procedure(anchor: PAnchorPath; Base: Pointer); stdcall;
+  TMatchEnd = procedure(anchor: PAnchorPath; Base: Pointer); cdecl;
 var
   Call: TMatchEnd;
 begin
@@ -368,7 +368,7 @@ end;
 
 function GetVar(name: PChar; buffer: PChar; size: longint; flags: longword): longint;
 type
-  TGetVar = function(name: PChar; buffer: PChar; size: longint; flags: longword; Base: Pointer): longint; stdcall;
+  TGetVar = function(name: PChar; buffer: PChar; size: longint; flags: longword; Base: Pointer): longint; cdecl;
 var
   Call: TGetVar;
 begin

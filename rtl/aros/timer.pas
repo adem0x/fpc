@@ -93,7 +93,7 @@ IMPLEMENTATION
 
 Procedure AddTime(Dest, Source: ptimeval);
 type
-  TLocalCall = procedure(Dest, Source: ptimeval; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(Dest, Source: ptimeval; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -103,7 +103,7 @@ end;
 
 Function CmpTime( Dest, Source : ptimeval) : ULONG;
 type
-  TLocalCall = function(Dest, Source : ptimeval; LibBase: Pointer): ULONG; stdcall;
+  TLocalCall = function(Dest, Source : ptimeval; LibBase: Pointer): ULONG; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -113,7 +113,7 @@ end;
 
 Procedure SubTime( Dest, Source : ptimeval);
 type
-  TLocalCall = procedure(Dest, Source: ptimeval; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(Dest, Source: ptimeval; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -123,7 +123,7 @@ end;
 
 function ReadEClock(Dest : pEClockVal): longint;
 type
-  TLocalCall = function(Dest : pEClockVal; LibBase: Pointer): longint; stdcall;
+  TLocalCall = function(Dest : pEClockVal; LibBase: Pointer): longint; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -133,7 +133,7 @@ end;
 
 procedure GetSysTime(Dest: ptimeval);
 type
-  TLocalCall = procedure(Dest: ptimeval; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(Dest: ptimeval; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin

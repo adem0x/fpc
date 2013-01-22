@@ -777,6 +777,9 @@ begin
       Fail;
     End;
   MyStream:=true;
+  {$ifdef aros}
+  Flush;  // must write the header on open or later seek will not work
+  {$endif}
 end;
 
 constructor TResourceFile.LoadFile(AFileName: string);

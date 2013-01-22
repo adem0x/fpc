@@ -15,7 +15,7 @@
 
 procedure Amiga2Date(date_amiga: longword; cd: PClockData);
 type
-  TAmiga2Date = procedure(date_amiga: longword; cd: PClockData; Base: Pointer); stdcall;
+  TAmiga2Date = procedure(date_amiga: longword; cd: PClockData; Base: Pointer); cdecl;
 var
   Call: TAmiga2Date;
 begin
@@ -25,7 +25,7 @@ end;
 
 function Date2Amiga(date: PClockData): longword;
 type
-  TDate2Amiga = function(date: PClockData; Base: Pointer): longword; stdcall;
+  TDate2Amiga = function(date: PClockData; Base: Pointer): longword; cdecl;
 var
   Call: TDate2Amiga;
 begin

@@ -25,7 +25,7 @@ end;
 
 function execAllocMem(byteSize: Cardinal; requirements: Cardinal): Pointer;
 type
-  TAllocMem = function(byteSize: Cardinal; requirements: Cardinal; Base: Pointer): Pointer; stdcall;
+  TAllocMem = function(byteSize: Cardinal; requirements: Cardinal; Base: Pointer): Pointer; cdecl;
 var
   Call: TAllocMem;
 begin
@@ -35,7 +35,7 @@ end;
 
 procedure execFreeMem(memoryBlock: Pointer; byteSize: Cardinal);
 type
-  TFreeMem = function(memoryBlock: Pointer; byteSize: Cardinal; Base: Pointer): Pointer; stdcall;
+  TFreeMem = function(memoryBlock: Pointer; byteSize: Cardinal; Base: Pointer): Pointer; cdecl;
 var
   Call: TFreeMem;
 begin
@@ -45,7 +45,7 @@ end;
 
 function FindTask(name: PChar): PTask;
 type
-  TFindTask = function(name: PChar; Base: Pointer): PTask; stdcall;
+  TFindTask = function(name: PChar; Base: Pointer): PTask; cdecl;
 var
   Call: TFindTask;
 begin
@@ -55,7 +55,7 @@ end;
 
 function SetSignal(newSignals: Cardinal; signalSet : Cardinal): Cardinal;
 type
-  TSetSignal = function(newSignals: Cardinal; signalSet : Cardinal; Base: Pointer): Cardinal; stdcall;
+  TSetSignal = function(newSignals: Cardinal; signalSet : Cardinal; Base: Pointer): Cardinal; cdecl;
 var
   Call: TSetSignal;
 begin
@@ -65,7 +65,7 @@ end;
 
 function AllocSignal(signalNum: LongInt): ShortInt;
 type
-  TAllocSignal = function(signalNum: LongInt; Base: Pointer): ShortInt; stdcall;
+  TAllocSignal = function(signalNum: LongInt; Base: Pointer): ShortInt; cdecl;
 var
   Call: TAllocSignal;
 begin
@@ -75,7 +75,7 @@ end;
 
 procedure FreeSignal(signalNum: LongInt);
 type
-  TFreeSignal = procedure(signalNum: LongInt; Base: Pointer); stdcall;
+  TFreeSignal = procedure(signalNum: LongInt; Base: Pointer); cdecl;
 var
   Call: TFreeSignal;
 begin
@@ -85,7 +85,7 @@ end;
 
 procedure AddPort(port: PMsgPort);
 type
-  TAddPort = procedure(port: PMsgPort; Base: Pointer); stdcall;
+  TAddPort = procedure(port: PMsgPort; Base: Pointer); cdecl;
 var
   Call: TAddPort;
 begin
@@ -95,7 +95,7 @@ end;
 
 procedure RemPort(port: PMsgPort);
 type
-  TRemPort = procedure(port: PMsgPort; Base: Pointer); stdcall;
+  TRemPort = procedure(port: PMsgPort; Base: Pointer); cdecl;
 var
   Call: TRemPort;
 begin
@@ -105,7 +105,7 @@ end;
 
 function GetMsg(port: PMsgPort): PMessage;
 type
-  TGetMsg = function(port: PMsgPort; Base: Pointer): PMessage; stdcall;
+  TGetMsg = function(port: PMsgPort; Base: Pointer): PMessage; cdecl;
 var
   Call: TGetMsg;
 begin
@@ -115,7 +115,7 @@ end;
 
 procedure ReplyMsg(message : pMessage);
 type
-  TLocalCall = procedure(message : pMessage; LibBase: Pointer); stdcall;
+  TLocalCall = procedure(message : pMessage; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -125,7 +125,7 @@ end;
 
 function WaitPort(port: PMsgPort): PMessage;
 type
-  TWaitPort = function(port: PMsgPort; Base: Pointer): PMessage; stdcall;
+  TWaitPort = function(port: PMsgPort; Base: Pointer): PMessage; cdecl;
 var
   Call: TWaitPort;
 begin
@@ -135,7 +135,7 @@ end;
 
 procedure CloseLibrary(libHandle: PLibrary);
 type
-  TCloseLibrary = procedure(libHandle: PLibrary; Base: Pointer); stdcall;
+  TCloseLibrary = procedure(libHandle: PLibrary; Base: Pointer); cdecl;
 var
   Call: TCloseLibrary;
 begin
@@ -145,7 +145,7 @@ end;
 
 function OpenDevice(devName: PChar; numunit: Cardinal; ioRequest: pIORequest; flags: Cardinal): ShortInt;
 type
-  TOpenDevice = function(devName: PChar; numunit: Cardinal; ioRequest: pIORequest; flags: Cardinal; Base: Pointer): ShortInt; stdcall;
+  TOpenDevice = function(devName: PChar; numunit: Cardinal; ioRequest: pIORequest; flags: Cardinal; Base: Pointer): ShortInt; cdecl;
 var
   Call: TOpenDevice;
 begin
@@ -155,7 +155,7 @@ end;
 
 procedure CloseDevice(ioRequest: PIORequest);
 type
-  TCloseDevice = procedure(ioRequest: PIORequest; Base: Pointer); stdcall;
+  TCloseDevice = procedure(ioRequest: PIORequest; Base: Pointer); cdecl;
 var
   Call: TCloseDevice;
 begin
@@ -165,7 +165,7 @@ end;
 
 function DoIO(ioRequest: PIORequest): ShortInt;
 type
-  TDoIO = function(ioRequest: PIORequest; Base: Pointer): ShortInt; stdcall;
+  TDoIO = function(ioRequest: PIORequest; Base: Pointer): ShortInt; cdecl;
 var
   Call: TDoIO;
 begin
@@ -175,7 +175,7 @@ end;
 
 function OpenLibrary(libname: PChar; libver : Cardinal): Pointer;
 type
-  TOpenLibrary = function(libname: PChar; libver : Cardinal; Base: Pointer): Pointer; stdcall;
+  TOpenLibrary = function(libname: PChar; libver : Cardinal; Base: Pointer): Pointer; cdecl;
 var
   Call: TOpenLibrary;
 begin
@@ -185,7 +185,7 @@ end;
 
 function CreatePool(requirements: Cardinal; puddleSize: Cardinal; threshSize: Cardinal): Pointer;
 type
-  TCreatePool = function(requirements: Cardinal; puddleSize: Cardinal; threshSize: Cardinal; Base: Pointer): Pointer; stdcall;
+  TCreatePool = function(requirements: Cardinal; puddleSize: Cardinal; threshSize: Cardinal; Base: Pointer): Pointer; cdecl;
 var
   Call: TCreatePool;
 begin
@@ -195,7 +195,7 @@ end;
 
 procedure DeletePool(poolHeader: Pointer);
 type
-  TDeletePool = procedure(poolHeader: Pointer; Base: Pointer); stdcall;
+  TDeletePool = procedure(poolHeader: Pointer; Base: Pointer); cdecl;
 var
   Call: TDeletePool;
 begin
@@ -205,7 +205,7 @@ end;
 
 function AllocPooled(poolHeader: Pointer; memSize: Cardinal): Pointer;
 type
-  TAllocPooled = function (poolHeader: Pointer; memSize: Cardinal; Base: Pointer): Pointer; stdcall;
+  TAllocPooled = function (poolHeader: Pointer; memSize: Cardinal; Base: Pointer): Pointer; cdecl;
 var
   Call: TAllocPooled;
 begin
@@ -215,11 +215,22 @@ end;
 
 function FreePooled(poolHeader: Pointer; memory: Pointer; memSize: Cardinal): Pointer;
 type
-  TFreePooled = function (poolHeader: Pointer; memory: Pointer; memSize: Cardinal; Base: Pointer): Pointer; stdcall;
+  TFreePooled = function (poolHeader: Pointer; memory: Pointer; memSize: Cardinal; Base: Pointer): Pointer; cdecl;
 var
   Call: TFreePooled;
 begin
   Call := TFreePooled(GetLibAdress(LocalExecBase, 119));
   FreePooled := Call(poolHeader, memory, memSize, LocalExecBase);
+end;
+
+//function RawDoFmt(const formatString : pCHAR;const dataStream : POINTER; putChProc : tPROCEDURE; putChData : POINTER): pointer;
+function RawDoFmt(const formatString : pCHAR;const dataStream : POINTER; putChProc : POINTER; putChData : POINTER): pointer;
+type
+  TLocalCall = function(const formatString : pCHAR;const dataStream : POINTER; putChProc : Pointer; putChData : POINTER; LibBase: Pointer): pointer; stdcall;
+var
+  Call: TLocalCall;
+begin
+  Call := TLocalCall(GetLibAdress(LocalExecBase, 87));
+  RawDoFmt := Call(formatString, dataStream, putChProc, putChData, AOS_ExecBase);
 end;
 

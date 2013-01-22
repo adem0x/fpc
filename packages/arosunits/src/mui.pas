@@ -3872,7 +3872,7 @@ end;
 
 FUNCTION MUI_NewObjectA(class_ : pCHar; tags : pTagItem) : pObject_;
 type
-  TLocalCall = function(class_ : pCHar; tags : pTagItem; Base: Pointer): pObject_; stdcall;
+  TLocalCall = function(class_ : pCHar; tags : pTagItem; Base: Pointer): pObject_; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3882,7 +3882,7 @@ end;
 
 PROCEDURE MUI_DisposeObject(obj : pObject_);
 type
-  TLocalCall = procedure(obj : pObject_; Base: Pointer); stdcall;
+  TLocalCall = procedure(obj : pObject_; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3892,7 +3892,7 @@ end;
 
 FUNCTION MUI_RequestA(app : POINTER; win : POINTER; flags : LONGBITS; title : pCHar; gadgets : pChar; format : pChar; params : POINTER) : LONGINT;
 type
-  TLocalCall = function(app : POINTER; win : POINTER; flags : LONGBITS; title : pCHar; gadgets : pChar; format : pChar; params : POINTER; Base: Pointer): LONGINT; stdcall;
+  TLocalCall = function(app : POINTER; win : POINTER; flags : LONGBITS; title : pCHar; gadgets : pChar; format : pChar; params : POINTER; Base: Pointer): LONGINT; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3902,7 +3902,7 @@ end;
 
 FUNCTION MUI_AllocAslRequest(typ : ULONG; tags : pTagItem) : POINTER;
 type
-  TLocalCall = function(typ : ULONG; tags : pTagItem; Base: Pointer): POINTER; stdcall;
+  TLocalCall = function(typ : ULONG; tags : pTagItem; Base: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3912,7 +3912,7 @@ end;
 
 FUNCTION MUI_AslRequest(req : POINTER; tags : pTagItem) : BOOLEAN;
 type
-  TLocalCall = function(req : POINTER; tags : pTagItem; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(req : POINTER; tags : pTagItem; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3922,7 +3922,7 @@ end;
 
 PROCEDURE MUI_FreeAslRequest(req : POINTER);
 type
-  TLocalCall = procedure(req : POINTER; Base: Pointer); stdcall;
+  TLocalCall = procedure(req : POINTER; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3932,7 +3932,7 @@ end;
 
 FUNCTION MUI_Error : LONGINT;
 type
-  TLocalCall = function(Base: Pointer): LONGINT; stdcall;
+  TLocalCall = function(Base: Pointer): LONGINT; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3942,7 +3942,7 @@ end;
 
 FUNCTION MUI_SetError(errnum : LONGINT) : LONGINT;
 type
-  TLocalCall = function(errnum : LONGINT; Base: Pointer): LONGINT; stdcall;
+  TLocalCall = function(errnum : LONGINT; Base: Pointer): LONGINT; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3952,7 +3952,7 @@ end;
 
 FUNCTION MUI_GetClass(name : pChar) : pIClass;
 type
-  TLocalCall = function(name : pChar; Base: Pointer): pIClass; stdcall;
+  TLocalCall = function(name : pChar; Base: Pointer): pIClass; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3962,7 +3962,7 @@ end;
 
 PROCEDURE MUI_FreeClass(cl : pIClass);
 type
-  TLocalCall = procedure(cl : pIClass; Base: Pointer); stdcall;
+  TLocalCall = procedure(cl : pIClass; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3972,7 +3972,7 @@ end;
 
 PROCEDURE MUI_RequestIDCMP(obj : pObject_; flags : ULONG);
 type
-  TLocalCall = procedure(obj : pObject_; flags : ULONG; Base: Pointer); stdcall;
+  TLocalCall = procedure(obj : pObject_; flags : ULONG; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3982,7 +3982,7 @@ end;
 
 PROCEDURE MUI_RejectIDCMP(obj : pObject_; flags : ULONG);
 type
-  TLocalCall = procedure(obj : pObject_; flags : ULONG; Base: Pointer); stdcall;
+  TLocalCall = procedure(obj : pObject_; flags : ULONG; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3992,7 +3992,7 @@ end;
 
 PROCEDURE MUI_Redraw(obj : pObject_; flags : ULONG);
 type
-  TLocalCall = procedure(obj : pObject_; flags : ULONG; Base: Pointer); stdcall;
+  TLocalCall = procedure(obj : pObject_; flags : ULONG; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4002,7 +4002,7 @@ end;
 
 FUNCTION MUI_CreateCustomClass(base : pLibrary; supername : pChar; supermcc : pMUI_CustomClass; datasize : LONGINT; dispatcher : POINTER) : pMUI_CustomClass;
 type
-  TLocalCall = function(base : pLibrary; supername : pChar; supermcc : pMUI_CustomClass; datasize : LONGINT; dispatcher : POINTER; LibBase: Pointer): pMUI_CustomClass; stdcall;
+  TLocalCall = function(base : pLibrary; supername : pChar; supermcc : pMUI_CustomClass; datasize : LONGINT; dispatcher : POINTER; LibBase: Pointer): pMUI_CustomClass; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4012,7 +4012,7 @@ end;
 
 FUNCTION MUI_DeleteCustomClass(mcc : pMUI_CustomClass) : BOOLEAN;
 type
-  TLocalCall = function(mcc : pMUI_CustomClass; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(mcc : pMUI_CustomClass; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4022,7 +4022,7 @@ end;
 
 FUNCTION MUI_MakeObjectA(typ : LONGINT; params : pULONG) : pObject_;
 type
-  TLocalCall = function(typ : LONGINT; params : pULONG; Base: Pointer): pObject_; stdcall;
+  TLocalCall = function(typ : LONGINT; params : pULONG; Base: Pointer): pObject_; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4032,7 +4032,7 @@ end;
 
 FUNCTION MUI_Layout(obj : pObject_; l : LONGINT; t : LONGINT; w : LONGINT; h : LONGINT; flags : ULONG) : BOOLEAN;
 type
-  TLocalCall = function(obj : pObject_; l : LONGINT; t : LONGINT; w : LONGINT; h : LONGINT; flags : ULONG; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(obj : pObject_; l : LONGINT; t : LONGINT; w : LONGINT; h : LONGINT; flags : ULONG; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4042,7 +4042,7 @@ end;
 
 FUNCTION MUI_ObtainPen(mri : pMUI_RenderInfo; spec : pMUI_PenSpec; flags : ULONG) : LONGINT;
 type
-  TLocalCall = function(mri : pMUI_RenderInfo; spec : pMUI_PenSpec; flags : ULONG; Base: Pointer): LONGINT; stdcall;
+  TLocalCall = function(mri : pMUI_RenderInfo; spec : pMUI_PenSpec; flags : ULONG; Base: Pointer): LONGINT; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4052,7 +4052,7 @@ end;
 
 PROCEDURE MUI_ReleasePen(mri : pMUI_RenderInfo; pen : LONGINT);
 type
-  TLocalCall = procedure(mri : pMUI_RenderInfo; pen : LONGINT; Base: Pointer); stdcall;
+  TLocalCall = procedure(mri : pMUI_RenderInfo; pen : LONGINT; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4062,7 +4062,7 @@ end;
 
 FUNCTION MUI_AddClipping(mri : pMUI_RenderInfo; l : smallint; t : smallint; w : smallint; h : smallint) : POINTER;
 type
-  TLocalCall = function(mri : pMUI_RenderInfo; l : smallint; t : smallint; w : smallint; h : smallint; Base: Pointer): POINTER; stdcall;
+  TLocalCall = function(mri : pMUI_RenderInfo; l : smallint; t : smallint; w : smallint; h : smallint; Base: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4072,7 +4072,7 @@ end;
 
 PROCEDURE MUI_RemoveClipping(mri : pMUI_RenderInfo; h : POINTER);
 type
-  TLocalCall = procedure(mri : pMUI_RenderInfo; h : POINTER; Base: Pointer); stdcall;
+  TLocalCall = procedure(mri : pMUI_RenderInfo; h : POINTER; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4082,7 +4082,7 @@ end;
 
 FUNCTION MUI_AddClipRegion(mri : pMUI_RenderInfo; region : pRegion) : POINTER;
 type
-  TLocalCall = function(mri : pMUI_RenderInfo; region : pRegion; Base: Pointer): POINTER; stdcall;
+  TLocalCall = function(mri : pMUI_RenderInfo; region : pRegion; Base: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4092,7 +4092,7 @@ end;
 
 PROCEDURE MUI_RemoveClipRegion(mri : pMUI_RenderInfo; region : POINTER);
 type
-  TLocalCall = procedure(mri : pMUI_RenderInfo; region : POINTER; Base: Pointer); stdcall;
+  TLocalCall = procedure(mri : pMUI_RenderInfo; region : POINTER; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4102,7 +4102,7 @@ end;
 
 FUNCTION MUI_BeginRefresh(mri : pMUI_RenderInfo; flags : ULONG) : BOOLEAN;
 type
-  TLocalCall = function(mri : pMUI_RenderInfo; flags : ULONG; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(mri : pMUI_RenderInfo; flags : ULONG; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4112,7 +4112,7 @@ end;
 
 PROCEDURE MUI_EndRefresh(mri : pMUI_RenderInfo; flags : ULONG);
 type
-  TLocalCall = procedure(mri : pMUI_RenderInfo; flags : ULONG; Base: Pointer); stdcall;
+  TLocalCall = procedure(mri : pMUI_RenderInfo; flags : ULONG; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin

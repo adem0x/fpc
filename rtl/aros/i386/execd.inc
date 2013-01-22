@@ -1777,7 +1777,6 @@ const
   SAL_Priority = (SAL_Dummy + 2);
   SAL_Name     = (SAL_Dummy + 3);
 
-
 {$include utild2.inc}
 
 

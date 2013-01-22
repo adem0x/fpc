@@ -12,8 +12,11 @@ units=$(SYSTEMUNIT) objpas macpas iso7185 strings \
       sysutils fgl classes strutils math typinfo varutils fmtbcd \
       charset ucomplex getopts matrix \
       variants types rtlconsts sysconst dateutil objects \
+      pastoc longarray tagsarray exec amigados utility keymap \
+      timer inputevent layers \
+      intuition agraphics video keyboard mouse \
       fpintres exeinfo lineinfo
-# \
+#      
 #      exec timer doslib utility hardware inputevent graphics layers \
 #      intuition aboxlib mui \
 # these can be moved to packages later

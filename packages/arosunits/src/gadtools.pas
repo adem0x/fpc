@@ -755,7 +755,7 @@ END; }
 
 FUNCTION CreateContext(glistptr : pGadget): pGadget;
 type
-  TLocalCall = function(glistptr : pGadget; Base: Pointer): pGadget; stdcall;
+  TLocalCall = function(glistptr : pGadget; Base: Pointer): pGadget; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -765,7 +765,7 @@ end;
 
 FUNCTION CreateGadgetA(kind : ULONG; gad : pGadget;const ng : pNewGadget;const taglist : pTagItem) : pGadget;
 type
-  TLocalCall = function(kind : ULONG; gad : pGadget;const ng : pNewGadget;const taglist : pTagItem; Base: Pointer): pGadget; stdcall;
+  TLocalCall = function(kind : ULONG; gad : pGadget;const ng : pNewGadget;const taglist : pTagItem; Base: Pointer): pGadget; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -776,7 +776,7 @@ end;
 
 PROCEDURE FreeGadgets(gad : pGadget);
 type
-  TLocalCall = procedure(gad : pGadget; Base: Pointer); stdcall;
+  TLocalCall = procedure(gad : pGadget; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -786,7 +786,7 @@ end;
 
 PROCEDURE GT_RefreshWindow(win : pWindow; req : pRequester);
 type
-  TLocalCall = procedure(win : pWindow; req : pRequester; Base: Pointer); stdcall;
+  TLocalCall = procedure(win : pWindow; req : pRequester; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -796,7 +796,7 @@ end;
 
 FUNCTION GetVisualInfoA(screen : pScreen;const taglist : pTagItem) : POINTER;
 type
-  TLocalCall = function(screen : pScreen;const taglist : pTagItem; Base: Pointer): POINTER; stdcall;
+  TLocalCall = function(screen : pScreen;const taglist : pTagItem; Base: Pointer): POINTER; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -806,7 +806,7 @@ end;
 
 PROCEDURE FreeVisualInfo(vi : POINTER);
 type
-  TLocalCall = procedure(vi : POINTER; Base: Pointer); stdcall;
+  TLocalCall = procedure(vi : POINTER; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -816,7 +816,7 @@ end;
 
 FUNCTION GT_GetGadgetAttrsA(gad : pGadget; win : pWindow; req : pRequester;const taglist : pTagItem) : LONGINT;
 type
-  TLocalCall = function(gad : pGadget; win : pWindow; req : pRequester;const taglist : pTagItem; Base: Pointer): LONGINT; stdcall;
+  TLocalCall = function(gad : pGadget; win : pWindow; req : pRequester;const taglist : pTagItem; Base: Pointer): LONGINT; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -826,7 +826,7 @@ end;
 
 PROCEDURE GT_SetGadgetAttrsA(gad : pGadget; win : pWindow; req : pRequester;const taglist : pTagItem);
 type
-  TLocalCall = procedure(gad : pGadget; win : pWindow; req : pRequester;const taglist : pTagItem; Base: Pointer); stdcall;
+  TLocalCall = procedure(gad : pGadget; win : pWindow; req : pRequester;const taglist : pTagItem; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin

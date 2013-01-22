@@ -21,90 +21,99 @@
 //procedure mkdir(const s : string);
 procedure mkdir(a: PChar; l: LongInt); [IOCheck, public, alias : 'FPC_SYS_MKDIR'];
 var
-  tmpStr : array[0..255] of char;
-  tmpLock: LongInt;
-  s: String;
+  TmpStr : array[0..255] of char;
+  TmpLock: LongInt;
+  S: String;
 begin
-  s := string(a);
-  checkCTRLC;
-  if (s='') or (InOutRes<>0) then exit;
-  tmpStr:=PathConv(s)+#0;
-  tmpLock:=dosCreateDir(@tmpStr);
-  if tmpLock=0 then begin
-    dosError2InOut(IoErr);
-    exit;
+  S := string(a);
+  CheckCTRLC;
+  if (S = '') or (InOutRes <> 0) then
+    Exit;
+  TmpStr := PathConv(S) + #0;
+  TmpLock := DosCreateDir(@TmpStr);
+  if TmpLock = 0 then begin
+    DosError2InOut(IoErr);
+    Exit;
   end;
-  UnLock(tmpLock);
+  UnLock(TmpLock);
 end;
 
 
 //procedure rmdir(const s : string);
 procedure rmdir(a: PChar; l: LongInt); [IOCheck, public, alias : 'FPC_SYS_RMDIR'];
 var
-  tmpStr : array[0..255] of Char;
-  s: string;
+  TmpStr : array[0..255] of Char;
+  S: string;
 begin
-  s := string(a);
-  checkCTRLC;
-  if (s='.') then InOutRes:=16;
-  If (s='') or (InOutRes<>0) then exit;
-  tmpStr:=PathConv(s)+#0;
-  if not dosDeleteFile(@tmpStr) then
-    dosError2InOut(IoErr);
+  S := string(a);
+  CheckCTRLC;
+  if (S = '.') then
+    InOutRes := 16;
+  If (S = '') or (InOutRes <> 0) then
+    Exit;
+  TmpStr := PathConv(S) + #0;
+  if not DosDeleteFile(@TmpStr) then
+    DosError2InOut(IoErr);
 end;
 
 //procedure chdir(const s : string);
 procedure chdir(a: PChar; l: LongInt); [IOCheck, public, alias : 'FPC_SYS_CHDIR'];
 var
-  tmpStr : array[0..255] of Char;
-  tmpLock: LongInt;
+  TmpStr : array[0..255] of Char;
+  TmpLock: LongInt;
   FIB    : PFileInfoBlock;
-  s: String;
+  S: String;
 begin
-  s := string(a);
-  checkCTRLC;
-  If (s='') or (InOutRes<>0) then exit;
-  tmpStr:=PathConv(s)+#0;
-  tmpLock:=0;
+  S := string(a);
+  CheckCTRLC;
+  If (S = '') or (InOutRes <> 0) then
+    Exit;
+  TmpStr := PathConv(S) + #0;
+  TmpLock := 0;
 
   { Changing the directory is a pretty complicated affair }
   {   1) Obtain a lock on the directory                   }
   {   2) CurrentDir the lock                              }
-  tmpLock:=Lock(@tmpStr,SHARED_LOCK);
-  if tmpLock=0 then begin
-    dosError2InOut(IoErr);
-    exit;
+  TmpLock := Lock(@TmpStr, SHARED_LOCK);
+  if TmpLock=0 then
+  begin
+    DosError2InOut(IoErr);
+    Exit;
   end;
 
-  FIB:=nil;
-  new(FIB);
+  FIB := nil;
+  New(FIB);
 
-  if (Examine(tmpLock,FIB)=True) and (FIB^.fib_DirEntryType>0) then begin
-    tmpLock:=CurrentDir(tmpLock);
-    if AOS_OrigDir=0 then begin
-      AOS_OrigDir:=tmpLock;
-      tmpLock:=0;
+  if (Examine(TmpLock, FIB) = True) and (FIB^.fib_DirEntryType > 0) then
+  begin
+    TmpLock := CurrentDir(TmpLock);
+    if AOS_OrigDir = 0 then
+    begin
+      AOS_OrigDir := TmpLock;
+      TmpLock := 0;
     end;
   end;
 
-  if tmpLock<>0 then Unlock(tmpLock);
-  if assigned(FIB) then dispose(FIB);
+  if TmpLock <> 0 then
+    Unlock(TmpLock);
+  if Assigned(FIB) then
+    Dispose(FIB);
 end;
 
-procedure GetDir (DriveNr: byte; var Dir: ShortString);
+procedure GetDir(DriveNr: Byte; var Dir: ShortString);
 var
-  tmpbuf: array[0..255] of char;
+  TmpBuf: array[0..255] of Char;
   LockDir: LongInt;
 begin
-  checkCTRLC;
+  CheckCTRLC;
   Dir:='';
   LockDir := CurrentDir(0);
   CurrentDir(LockDir);
-  NameFromLock(LockDir, tmpbuf, 256);
-  Dir := strpas(tmpbuf);
+  NameFromLock(LockDir, TmpBuf, 256);
+  Dir := StrPas(TmpBuf);
   // followinf dos not work when called from WB or by make
   {if not GetCurrentDirName(tmpbuf,256) then
-    dosError2InOut(IoErr)
+    DosError2InOut(IoErr)
   else
     Dir:=strpas(tmpbuf);
     }

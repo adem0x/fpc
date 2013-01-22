@@ -514,7 +514,11 @@ function DirOf(const S: string): string;
 var D: DirStr; E: ExtStr; N: NameStr;
 begin
   FSplit(S,D,N,E);
-  if (D<>'') and (D[Length(D)]<>DirSep) then
+  if (D<>'') and (D[Length(D)]<>DirSep) 
+  {$ifdef aros}
+    and (D[Length(D)]<>':')
+  {$endif}
+  then
    DirOf:=D+DirSep
   else
    DirOf:=D;
@@ -1209,8 +1213,12 @@ end;
 function CompleteDir(const Path: string): string;
 begin
   { keep c: untouched PM }
+{$ifdef aros}
+  if (Path<>'') and (Path[Length(Path)]<>DirSep) then
+{$else}
   if (Path<>'') and (Path[Length(Path)]<>DirSep) and
      (Path[Length(Path)]<>':') then
+{$endif}
    CompleteDir:=Path+DirSep
   else
    CompleteDir:=Path;
@@ -1220,7 +1228,12 @@ function GetCurDir: string;
 var S: string;
 begin
   GetDir(0,S);
-  if copy(S,length(S),1)<>DirSep then S:=S+DirSep;
+  if (copy(S,length(S),1)<>DirSep) 
+{$ifdef aros}
+    and (copy(S,length(S),1) <> ':')
+{$endif}
+  then 
+    S:=S+DirSep;
   GetCurDir:=S;
 end;
 
@@ -1233,7 +1246,7 @@ var Dir: string;
 begin
   Dir:=GetEnv('TEMP');
   if Dir='' then Dir:=GetEnv('TMP');
-{$if defined(morphos) or defined(amiga)}
+{$if defined(aros) or defined(morphos) or defined(amiga)}
   if Dir='' then Dir:='T:';
 {$endif}
   if (Dir<>'') then if not ExistsDir(Dir) then Dir:='';

@@ -511,6 +511,7 @@ const menu_key_common_copy_borland   = 'Ctrl+Ins';
       menu_key_edit_copy_microsoft   = menu_key_common_copy_microsoft;
       menu_key_edit_paste_microsoft  = 'Ctrl+V';
       menu_key_edit_clear            = 'Ctrl+Del';
+      menu_key_edit_all_borland      = '';
 
       menu_key_common_helpindex      = 'Shift+F1';
       menu_key_common_topicsearch    = 'Ctrl+F1';
@@ -530,11 +531,12 @@ const menu_key_common_copy_borland   = 'Ctrl+Ins';
 const menu_key_edit_cut:string[63]=menu_key_edit_cut_borland;
       menu_key_edit_copy:string[63]=menu_key_edit_copy_borland;
       menu_key_edit_paste:string[63]=menu_key_edit_paste_borland;
+      menu_key_edit_all:string[63]=menu_key_edit_all_borland;
       menu_key_hlplocal_copy:string[63]=menu_key_hlplocal_copy_borland;
       cut_key:word=kbShiftDel;
       copy_key:word=kbCtrlIns;
       paste_key:word=kbShiftIns;
-
+      all_key:word=kbNoKEy;
 procedure RegisterFPViews;
 
 implementation
@@ -4384,10 +4386,17 @@ var P: PVideoMode;
 begin
   P:=Item;
   S:=IntToStr(P^.Col)+'x'+IntToStr(P^.Row)+' ';
+  {$ifdef aros} // color flag is used in Aros for mark on a seperate window
+    if P^.Color then
+    S:=S+'window'
+  else
+    S:=S+'screen';
+  {$else}
   if P^.Color then
     S:=S+'color'
   else
     S:=S+'mono';
+  {$endif}
   GetText:=copy(S,1,MaxLen);
 end;
 

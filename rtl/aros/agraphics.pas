@@ -2564,7 +2564,7 @@ END;
 
 procedure AddAnimOb(AnOb : PAnimOb; AnKey : PPAnimOb; Rp : PRastPort);
 type
-  TLocalCall = procedure(AnOb : PAnimOb; AnKey : PPAnimOb; Rp : PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(AnOb : PAnimOb; AnKey : PPAnimOb; Rp : PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2574,7 +2574,7 @@ end;
 
 procedure AddBob(bob : PBob; Rp : PRastPort);
 type
-  TLocalCall = procedure(bob : PBob; Rp : PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(bob : PBob; Rp : PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2584,7 +2584,7 @@ end;
 
 function AddDisplayDriverA(P: Pointer; tags: PTagItem): LongInt;
 type
-  TLocalCall = function(P: Pointer; tags: PTagItem; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(P: Pointer; tags: PTagItem; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2594,7 +2594,7 @@ end;
 
 procedure AddFont(TextFont : PTextFont);
 type
-  TLocalCall = procedure(TextFont : PTextFont; Base: Pointer); stdcall;
+  TLocalCall = procedure(TextFont : PTextFont; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2604,7 +2604,7 @@ end;
 
 procedure AddVSprite(VSprite : PVSprite; Rp : PRastPort);
 type
-  TLocalCall = procedure(VSprite : PVSprite; Rp : PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(VSprite : PVSprite; Rp : PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2614,7 +2614,7 @@ end;
 
 function AllocBitMap(sizex : LongWord; Sizey : LongWord; Depth : LongWord; Flags : LongWord;const Friend_bitmap : PBitMap): PBitMap;
 type
-  TLocalCall = function(sizex : LongWord; Sizey : LongWord; Depth : LongWord; Flags : LongWord;const Friend_bitmap : PBitMap; Base: Pointer): PBitMap; stdcall;
+  TLocalCall = function(sizex : LongWord; Sizey : LongWord; Depth : LongWord; Flags : LongWord;const Friend_bitmap : PBitMap; Base: Pointer): PBitMap; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2624,7 +2624,7 @@ end;
 
 function AllocDBufInfo(Vp : PViewPort): PDBufInfo;
 type
-  TLocalCall = function(Vp : PViewPort; Base: Pointer): PDBufInfo; stdcall;
+  TLocalCall = function(Vp : PViewPort; Base: Pointer): PDBufInfo; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2634,7 +2634,7 @@ end;
 
 function AllocRaster(Width : LongWord; Height : LongWord) : PChar;
 type
-  TLocalCall = function(Width : LongWord; Height : LongWord; Base: Pointer): PChar; stdcall;
+  TLocalCall = function(Width : LongWord; Height : LongWord; Base: Pointer): PChar; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2644,7 +2644,7 @@ end;
 
 function AllocSpriteDataA(const Bm : PBitMap;const tags : PTagItem) : PExtSprite;
 type
-  TLocalCall = function(const Bm : PBitMap;const tags : PTagItem; Base: Pointer): PExtSprite; stdcall;
+  TLocalCall = function(const Bm : PBitMap;const tags : PTagItem; Base: Pointer): PExtSprite; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2654,7 +2654,7 @@ end;
 
 procedure AndRectRegion(region : PRegion;const rectangle : pRectangle);
 type
-  TLocalCall = procedure(region : PRegion;const rectangle : pRectangle; Base: Pointer); stdcall;
+  TLocalCall = procedure(region : PRegion;const rectangle : pRectangle; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2664,7 +2664,7 @@ end;
 
 function AndRegionRegion(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
 type
-  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2674,7 +2674,7 @@ end;
 
 procedure AndRectRegionND(region : PRegion;const rectangle : pRectangle);
 type
-  TLocalCall = procedure(region : PRegion;const rectangle : pRectangle; Base: Pointer); stdcall;
+  TLocalCall = procedure(region : PRegion;const rectangle : pRectangle; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2684,7 +2684,7 @@ end;
 
 function AndRegionRegionND(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
 type
-  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2694,7 +2694,7 @@ end;
 
 procedure Animate(AnKey : PPAnimOb; Rp : PRastPort);
 type
-  TLocalCall = procedure(AnKey : PPAnimOb; Rp : PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(AnKey : PPAnimOb; Rp : PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2704,7 +2704,7 @@ end;
 
 function AreaDraw(Rp : PRastPort; x : LongInt; y : LongInt) : LongInt;
 type
-  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2714,7 +2714,7 @@ end;
 
 function AreaEllipse(Rp : PRastPort; xCenter : word; yCenter : word; a : word; b : word) : LongInt;
 type
-  TLocalCall = function(Rp : PRastPort; xCenter : word; yCenter : word; a : word; b : word; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Rp : PRastPort; xCenter : word; yCenter : word; a : word; b : word; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2724,7 +2724,7 @@ end;
 
 function AreaEnd(Rp : PRastPort) : LongInt;
 type
-  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2734,7 +2734,7 @@ end;
 
 function AreaMove(Rp : PRastPort; x : LongInt; y : LongInt) : LongInt;
 type
-  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2744,7 +2744,7 @@ end;
 
 procedure AskFont(Rp : PRastPort; textAttr : pTextAttr);
 type
-  TLocalCall = procedure(Rp : PRastPort; textAttr : pTextAttr; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; textAttr : pTextAttr; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2754,7 +2754,7 @@ end;
 
 function AskSoftStyle(Rp : PRastPort) : LongWord;
 type
-  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2764,7 +2764,7 @@ end;
 
 function AttachPalExtra(cm : pColorMap; Vp : PViewPort) : LongInt;
 type
-  TLocalCall = function(cm : pColorMap; Vp : PViewPort; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(cm : pColorMap; Vp : PViewPort; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2774,7 +2774,7 @@ end;
 
 function AttemptLockLayerRom(layer : pLayer) : BOOLEAN;
 type
-  TLocalCall = function(layer : pLayer; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(layer : pLayer; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2784,7 +2784,7 @@ end;
 
 function BestModeIDA(const tags : PTagItem) : LongWord;
 type
-  TLocalCall = function(const tags : PTagItem; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(const tags : PTagItem; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2794,7 +2794,7 @@ end;
 
 procedure BitMapScale(bitScaleArgs : pBitScaleArgs);
 type
-  TLocalCall = procedure(bitScaleArgs : pBitScaleArgs; Base: Pointer); stdcall;
+  TLocalCall = procedure(bitScaleArgs : pBitScaleArgs; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2804,7 +2804,7 @@ end;
 
 function BltBitMap(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destBitMap : PBitMap; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; mask : LongWord; tempA : PChar) : LongInt;
 type
-  TLocalCall = function(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destBitMap : PBitMap; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; mask : LongWord; tempA : PChar; Base: Pointer): LongInt ; stdcall;
+  TLocalCall = function(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destBitMap : PBitMap; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; mask : LongWord; tempA : PChar; Base: Pointer): LongInt ; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2814,7 +2814,7 @@ end;
 
 procedure BltBitMapRastPort(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord);
 type
-  TLocalCall = procedure(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2824,7 +2824,7 @@ end;
 
 procedure BltClear(memBlock : PChar; byteCount : LongWord; Flags : LongWord);
 type
-  TLocalCall = procedure(memBlock : PChar; byteCount : LongWord; Flags : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(memBlock : PChar; byteCount : LongWord; Flags : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2834,7 +2834,7 @@ end;
 
 procedure BltMaskBitMapRastPort(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord;const bltMask : PChar);
 type
-  TLocalCall = procedure(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord;const bltMask : PChar; Base: Pointer); stdcall;
+  TLocalCall = procedure(const srcBitMap : PBitMap; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord;const bltMask : PChar; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2844,7 +2844,7 @@ end;
 
 procedure BltPattern(Rp : PRastPort;const mask : PChar; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; maskBPR : LongWord);
 type
-  TLocalCall = procedure(Rp : PRastPort;const mask : PChar; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; maskBPR : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort;const mask : PChar; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; maskBPR : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2854,7 +2854,7 @@ end;
 
 procedure BltTemplate(const source : PChar; xSrc : LongInt; srcMod : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt);
 type
-  TLocalCall = procedure(const source : PChar; xSrc : LongInt; srcMod : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(const source : PChar; xSrc : LongInt; srcMod : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2864,7 +2864,7 @@ end;
 
 function CalcIVG(v : pView; Vp : PViewPort) : WORD;
 type
-  TLocalCall = function(v : pView; Vp : PViewPort; Base: Pointer): WORD; stdcall;
+  TLocalCall = function(v : pView; Vp : PViewPort; Base: Pointer): WORD; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2874,7 +2874,7 @@ end;
 
 procedure CBump(copList : pUCopList);
 type
-  TLocalCall = procedure(copList : pUCopList; Base: Pointer); stdcall;
+  TLocalCall = procedure(copList : pUCopList; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2884,7 +2884,7 @@ end;
 
 function ChangeExtSpriteA(Vp : PViewPort; oldsprite : PExtSprite; newsprite : PExtSprite;const tags : PTagItem) : LongInt;
 type
-  TLocalCall = function(Vp : PViewPort; oldsprite : PExtSprite; newsprite : PExtSprite;const tags : PTagItem; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Vp : PViewPort; oldsprite : PExtSprite; newsprite : PExtSprite;const tags : PTagItem; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2894,7 +2894,7 @@ end;
 
 procedure ChangeSprite(Vp : PViewPort; sprite : pSimpleSprite; newData : pWORD);
 type
-  TLocalCall = procedure(Vp : PViewPort; sprite : pSimpleSprite; newData : pWORD; Base: Pointer); stdcall;
+  TLocalCall = procedure(Vp : PViewPort; sprite : pSimpleSprite; newData : pWORD; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2904,7 +2904,7 @@ end;
 
 procedure ChangeVPBitMap(Vp : PViewPort; Bm : PBitMap; db : PDBufInfo);
 type
-  TLocalCall = procedure(Vp : PViewPort; Bm : PBitMap; db : PDBufInfo; Base: Pointer); stdcall;
+  TLocalCall = procedure(Vp : PViewPort; Bm : PBitMap; db : PDBufInfo; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2914,7 +2914,7 @@ end;
 
 procedure ClearEOL(Rp : PRastPort);
 type
-  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2924,7 +2924,7 @@ end;
 
 function ClearRectRegion(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
 type
-  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2934,7 +2934,7 @@ end;
 
 function ClearRectRegionND(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
 type
-  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2944,7 +2944,7 @@ end;
 
 procedure ClearRegionRegionND(region1 : PRegion; region2 : PRegion);
 type
-  TLocalCall = procedure(region1 : PRegion; region2 : PRegion; Base: Pointer); stdcall;
+  TLocalCall = procedure(region1 : PRegion; region2 : PRegion; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2954,7 +2954,7 @@ end;
 
 procedure ClearRegion(region : PRegion);
 type
-  TLocalCall = procedure(region : PRegion; Base: Pointer); stdcall;
+  TLocalCall = procedure(region : PRegion; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2964,7 +2964,7 @@ end;
 
 procedure ClearScreen(Rp : PRastPort);
 type
-  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2974,7 +2974,7 @@ end;
 
 procedure ClipBlit(srcRP : PRastPort; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord);
 type
-  TLocalCall = procedure(srcRP : PRastPort; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(srcRP : PRastPort; xSrc : LongInt; ySrc : LongInt; destRP : PRastPort; xDest : LongInt; yDest : LongInt; xSize : LongInt; ySize : LongInt; minterm : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2984,7 +2984,7 @@ end;
 
 procedure CloseFont(TextFont : PTextFont);
 type
-  TLocalCall = procedure(TextFont : PTextFont; Base: Pointer); stdcall;
+  TLocalCall = procedure(TextFont : PTextFont; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -2994,7 +2994,7 @@ end;
 
 function CloseMonitor(monitorSpec : pMonitorSpec) : BOOLEAN;
 type
-  TLocalCall = function(monitorSpec : pMonitorSpec; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(monitorSpec : pMonitorSpec; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3004,7 +3004,7 @@ end;
 
 procedure CMove(copList : pUCopList; destination : Pointer; data : LongInt);
 type
-  TLocalCall = procedure(copList : pUCopList; destination : Pointer; data : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(copList : pUCopList; destination : Pointer; data : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3014,7 +3014,7 @@ end;
 
 function CoerceMode(Vp : PViewPort; monitorid : LongWord; Flags : LongWord) : LongWord;
 type
-  TLocalCall = function(Vp : PViewPort; monitorid : LongWord; Flags : LongWord; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Vp : PViewPort; monitorid : LongWord; Flags : LongWord; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3024,7 +3024,7 @@ end;
 
 procedure CopySBitMap(layer : pLayer);
 type
-  TLocalCall = procedure(layer : pLayer; Base: Pointer); stdcall;
+  TLocalCall = procedure(layer : pLayer; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3034,7 +3034,7 @@ end;
 
 function CreateRastPort(): PRastPort;
 type
-  TLocalCall = function(Base: Pointer): PRastPort; stdcall;
+  TLocalCall = function(Base: Pointer): PRastPort; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3044,7 +3044,7 @@ end;
 
 function CloneRastPort(Rp: PRastPort): PRastPort;
 type
-  TLocalCall = function(Rp: PRastPort; Base: Pointer): PRastPort; stdcall;
+  TLocalCall = function(Rp: PRastPort; Base: Pointer): PRastPort; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3054,7 +3054,7 @@ end;
 
 procedure DeinitRastPort(Rp: PRastPort);
 type
-  TLocalCall = procedure(Rp: PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp: PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3064,7 +3064,7 @@ end;
 
 procedure FreeRastPort(Rp: PRastPort);
 type
-  TLocalCall = procedure(Rp: PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp: PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3074,7 +3074,7 @@ end;
 
 procedure CWait(copList : pUCopList; v : LongInt; h : LongInt);
 type
-  TLocalCall = procedure(copList : pUCopList; v : LongInt; h : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(copList : pUCopList; v : LongInt; h : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3084,7 +3084,7 @@ end;
 
 procedure DisownBlitter;
 type
-  TLocalCall = procedure(Base: Pointer); stdcall;
+  TLocalCall = procedure(Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3094,7 +3094,7 @@ end;
 
 procedure DisposeRegion(region : PRegion);
 type
-  TLocalCall = procedure(region : PRegion; Base: Pointer); stdcall;
+  TLocalCall = procedure(region : PRegion; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3104,7 +3104,7 @@ end;
 
 procedure DoCollision(Rp : PRastPort);
 type
-  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3114,7 +3114,7 @@ end;
 
 procedure Draw(Rp : PRastPort; x : LongInt; y : LongInt);
 type
-  TLocalCall = procedure(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3124,7 +3124,7 @@ end;
 
 procedure DrawEllipse(Rp : PRastPort; xCenter : LongInt; yCenter : LongInt; a : LongInt; b : LongInt);
 type
-  TLocalCall = procedure(Rp : PRastPort; xCenter : LongInt; yCenter : LongInt; a : LongInt; b : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; xCenter : LongInt; yCenter : LongInt; a : LongInt; b : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3134,7 +3134,7 @@ end;
 
 procedure DrawGList(Rp : PRastPort; Vp : PViewPort);
 type
-  TLocalCall = procedure(Rp : PRastPort; Vp : PViewPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; Vp : PViewPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3144,7 +3144,7 @@ end;
 
 procedure EraseRect(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
 type
-  TLocalCall = procedure(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3154,7 +3154,7 @@ end;
 
 function ExtendFont(font : PTextFont;const fontTags : PTagItem) : LongWord;
 type
-  TLocalCall = function(font : PTextFont;const fontTags : PTagItem; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(font : PTextFont;const fontTags : PTagItem; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3164,7 +3164,7 @@ end;
 
 function FindColor(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord; maxcolor : LongInt) : LongInt;
 type
-  TLocalCall = function(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord; maxcolor : LongInt; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord; maxcolor : LongInt; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3174,7 +3174,7 @@ end;
 
 function FindDisplayInfo(displayID : LongWord) : Pointer;
 type
-  TLocalCall = function(displayID : LongWord; Base: Pointer): Pointer; stdcall;
+  TLocalCall = function(displayID : LongWord; Base: Pointer): Pointer; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3184,7 +3184,7 @@ end;
 
 function Flood(Rp : PRastPort; mode : LongWord; x : LongInt; y : LongInt) : BOOLEAN;
 type
-  TLocalCall = function(Rp : PRastPort; mode : LongWord; x : LongInt; y : LongInt; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(Rp : PRastPort; mode : LongWord; x : LongInt; y : LongInt; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3194,7 +3194,7 @@ end;
 
 procedure FontExtent(const font : PTextFont; fontExtent : pTextExtent);
 type
-  TLocalCall = procedure(const font : PTextFont; fontExtent : pTextExtent; Base: Pointer); stdcall;
+  TLocalCall = procedure(const font : PTextFont; fontExtent : pTextExtent; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3204,7 +3204,7 @@ end;
 
 procedure FreeBitMap(Bm : PBitMap);
 type
-  TLocalCall = procedure(Bm : PBitMap; Base: Pointer); stdcall;
+  TLocalCall = procedure(Bm : PBitMap; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3214,7 +3214,7 @@ end;
 
 procedure FreeColorMap(colorMap : pColorMap);
 type
-  TLocalCall = procedure(colorMap : pColorMap; Base: Pointer); stdcall;
+  TLocalCall = procedure(colorMap : pColorMap; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3224,7 +3224,7 @@ end;
 
 procedure FreeCopList(copList : pCopList);
 type
-  TLocalCall = procedure(copList : pCopList; Base: Pointer); stdcall;
+  TLocalCall = procedure(copList : pCopList; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3234,7 +3234,7 @@ end;
 
 procedure FreeCprList(cprList : pcprlist);
 type
-  TLocalCall = procedure(cprList : pcprlist; Base: Pointer); stdcall;
+  TLocalCall = procedure(cprList : pcprlist; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3244,7 +3244,7 @@ end;
 
 procedure FreeDBufInfo(dbi : PDBufInfo);
 type
-  TLocalCall = procedure(dbi : PDBufInfo; Base: Pointer); stdcall;
+  TLocalCall = procedure(dbi : PDBufInfo; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3254,7 +3254,7 @@ end;
 
 procedure FreeGBuffers(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt);
 type
-  TLocalCall = procedure(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3264,7 +3264,7 @@ end;
 
 procedure FreeRaster(p : PChar; Width : LongWord; Height : LongWord);
 type
-  TLocalCall = procedure(p : PChar; Width : LongWord; Height : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(p : PChar; Width : LongWord; Height : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3274,7 +3274,7 @@ end;
 
 procedure FreeSprite(num : LongInt);
 type
-  TLocalCall = procedure(num : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(num : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3284,7 +3284,7 @@ end;
 
 procedure FreeSpriteData(sp : PExtSprite);
 type
-  TLocalCall = procedure(sp : PExtSprite; Base: Pointer); stdcall;
+  TLocalCall = procedure(sp : PExtSprite; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3294,7 +3294,7 @@ end;
 
 procedure FreeVPortCopLists(Vp : PViewPort);
 type
-  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3304,7 +3304,7 @@ end;
 
 function GetAPen(Rp : PRastPort) : LongWord;
 type
-  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3314,7 +3314,7 @@ end;
 
 function GetBitMapAttr(const Bm : PBitMap; attrnum : LongWord) : LongWord;
 type
-  TLocalCall = function(const Bm : PBitMap; attrnum : LongWord; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(const Bm : PBitMap; attrnum : LongWord; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3324,7 +3324,7 @@ end;
 
 function GetBPen(Rp : PRastPort) : LongWord;
 type
-  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3334,7 +3334,7 @@ end;
 
 function GetColorMap(entries : LongInt) : pColorMap;
 type
-  TLocalCall = function(entries : LongInt; Base: Pointer): pColorMap; stdcall;
+  TLocalCall = function(entries : LongInt; Base: Pointer): pColorMap; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3344,7 +3344,7 @@ end;
 
 function GetDisplayInfoData(const handle : Pointer; buf : PChar; size : LongWord; tagID : LongWord; displayID : LongWord) : LongWord;
 type
-  TLocalCall = function(const handle : Pointer; buf : PChar; size : LongWord; tagID : LongWord; displayID : LongWord; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(const handle : Pointer; buf : PChar; size : LongWord; tagID : LongWord; displayID : LongWord; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3354,7 +3354,7 @@ end;
 
 function GetDrMd(Rp : PRastPort) : LongWord;
 type
-  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3364,7 +3364,7 @@ end;
 
 function GetExtSpriteA(ss : PExtSprite;const tags : PTagItem) : LongInt;
 type
-  TLocalCall = function(ss : PExtSprite;const tags : PTagItem; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(ss : PExtSprite;const tags : PTagItem; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3374,7 +3374,7 @@ end;
 
 function GetGBuffers(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt) : BOOLEAN;
 type
-  TLocalCall = function(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(AnOb : PAnimOb; Rp : PRastPort; flag : LongInt; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3384,7 +3384,7 @@ end;
 
 function GetOutlinePen(Rp : PRastPort) : LongWord;
 type
-  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Rp : PRastPort; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3394,7 +3394,7 @@ end;
 
 procedure GetRGB32(const cm : pColorMap; firstcolor : LongWord; ncolors : LongWord; table : pUlong);
 type
-  TLocalCall = procedure(const cm : pColorMap; firstcolor : LongWord; ncolors : LongWord; table : pUlong; Base: Pointer); stdcall;
+  TLocalCall = procedure(const cm : pColorMap; firstcolor : LongWord; ncolors : LongWord; table : pUlong; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3404,7 +3404,7 @@ end;
 
 function GetRGB4(colorMap : pColorMap; entry : LongInt) : LongWord;
 type
-  TLocalCall = function(colorMap : pColorMap; entry : LongInt; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(colorMap : pColorMap; entry : LongInt; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3414,7 +3414,7 @@ end;
 
 procedure GetRPAttrsA(const Rp : PRastPort;const tags : PTagItem);
 type
-  TLocalCall = procedure(const Rp : PRastPort;const tags : PTagItem; Base: Pointer); stdcall;
+  TLocalCall = procedure(const Rp : PRastPort;const tags : PTagItem; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3424,7 +3424,7 @@ end;
 
 function GetSprite(sprite : pSimpleSprite; num : LongInt) : smallint;
 type
-  TLocalCall = function(sprite : pSimpleSprite; num : LongInt; Base: Pointer): smallint; stdcall;
+  TLocalCall = function(sprite : pSimpleSprite; num : LongInt; Base: Pointer): smallint; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3434,7 +3434,7 @@ end;
 
 function GetVPModeID(const Vp : PViewPort) : LongInt;
 type
-  TLocalCall = function(const Vp : PViewPort; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(const Vp : PViewPort; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3444,7 +3444,7 @@ end;
 
 procedure GfxAssociate(const associateNode : Pointer; gfxNodePtr : Pointer);
 type
-  TLocalCall = procedure(const associateNode : Pointer; gfxNodePtr : Pointer; Base: Pointer); stdcall;
+  TLocalCall = procedure(const associateNode : Pointer; gfxNodePtr : Pointer; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3454,7 +3454,7 @@ end;
 
 procedure GfxFree(gfxNodePtr : Pointer);
 type
-  TLocalCall = procedure(gfxNodePtr : Pointer; Base: Pointer); stdcall;
+  TLocalCall = procedure(gfxNodePtr : Pointer; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3464,7 +3464,7 @@ end;
 
 function GfxLookUp(const associateNode : Pointer) : Pointer;
 type
-  TLocalCall = function(const associateNode : Pointer; Base: Pointer): Pointer; stdcall;
+  TLocalCall = function(const associateNode : Pointer; Base: Pointer): Pointer; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3474,7 +3474,7 @@ end;
 
 function GfxNew(gfxNodeType : LongWord) : Pointer;
 type
-  TLocalCall = function(gfxNodeType : LongWord; Base: Pointer): Pointer; stdcall;
+  TLocalCall = function(gfxNodeType : LongWord; Base: Pointer): Pointer; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3484,7 +3484,7 @@ end;
 
 procedure InitArea(areaInfo : pAreaInfo; vectorBuffer : Pointer; maxVectors : LongInt);
 type
-  TLocalCall = procedure(areaInfo : pAreaInfo; vectorBuffer : Pointer; maxVectors : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(areaInfo : pAreaInfo; vectorBuffer : Pointer; maxVectors : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3494,7 +3494,7 @@ end;
 
 procedure InitBitMap(bitMap : PBitMap; Depth : LongInt; Width : LongInt; Height : LongInt);
 type
-  TLocalCall = procedure(bitMap : PBitMap; Depth : LongInt; Width : LongInt; Height : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(bitMap : PBitMap; Depth : LongInt; Width : LongInt; Height : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3504,7 +3504,7 @@ end;
 
 procedure InitGels(head : PVSprite; tail : PVSprite; gelsInfo : pGelsInfo);
 type
-  TLocalCall = procedure(head : PVSprite; tail : PVSprite; gelsInfo : pGelsInfo; Base: Pointer); stdcall;
+  TLocalCall = procedure(head : PVSprite; tail : PVSprite; gelsInfo : pGelsInfo; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3514,7 +3514,7 @@ end;
 
 procedure InitGMasks(AnOb : PAnimOb);
 type
-  TLocalCall = procedure(AnOb : PAnimOb; Base: Pointer); stdcall;
+  TLocalCall = procedure(AnOb : PAnimOb; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3524,7 +3524,7 @@ end;
 
 procedure InitMasks(VSprite : PVSprite);
 type
-  TLocalCall = procedure(VSprite : PVSprite; Base: Pointer); stdcall;
+  TLocalCall = procedure(VSprite : PVSprite; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3534,7 +3534,7 @@ end;
 
 procedure InitRastPort(Rp : PRastPort);
 type
-  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3544,7 +3544,7 @@ end;
 
 function InitTmpRas(tmpRas : pTmpRas; buffer : PLANEPTR; size : LongInt) : pTmpRas;
 type
-  TLocalCall = function(tmpRas : pTmpRas; buffer : PLANEPTR; size : LongInt; Base: Pointer): pTmpRas; stdcall;
+  TLocalCall = function(tmpRas : pTmpRas; buffer : PLANEPTR; size : LongInt; Base: Pointer): pTmpRas; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3554,7 +3554,7 @@ end;
 
 procedure InitView(view : pView);
 type
-  TLocalCall = procedure(view : pView; Base: Pointer); stdcall;
+  TLocalCall = procedure(view : pView; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3564,7 +3564,7 @@ end;
 
 procedure InitVPort(Vp : PViewPort);
 type
-  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3574,7 +3574,7 @@ end;
 
 procedure LoadRGB32(Vp : PViewPort;const table : pULONG);
 type
-  TLocalCall = procedure(Vp : PViewPort;const table : pULONG; Base: Pointer); stdcall;
+  TLocalCall = procedure(Vp : PViewPort;const table : pULONG; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3584,7 +3584,7 @@ end;
 
 procedure LoadRGB4(Vp : PViewPort;const colors : pWord; count : LongInt);
 type
-  TLocalCall = procedure(Vp : PViewPort;const colors : pWord; count : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Vp : PViewPort;const colors : pWord; count : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3594,7 +3594,7 @@ end;
 
 procedure LoadView(view : pView);
 type
-  TLocalCall = procedure(view : pView; Base: Pointer); stdcall;
+  TLocalCall = procedure(view : pView; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3604,7 +3604,7 @@ end;
 
 procedure LockLayerRom(layer : pLayer);
 type
-  TLocalCall = procedure(layer : pLayer; Base: Pointer); stdcall;
+  TLocalCall = procedure(layer : pLayer; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3614,7 +3614,7 @@ end;
 
 function MakeVPort(view : pView; Vp : PViewPort) : LongWord;
 type
-  TLocalCall = function(view : pView; Vp : PViewPort; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(view : pView; Vp : PViewPort; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3624,7 +3624,7 @@ end;
 
 function ModeNotAvailable(modeID : LongWord) : LongInt;
 type
-  TLocalCall = function(modeID : LongWord; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(modeID : LongWord; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3634,7 +3634,7 @@ end;
 
 procedure Move(Rp : PRastPort; x : LongInt; y : LongInt);
 type
-  TLocalCall = procedure(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3644,7 +3644,7 @@ end;
 
 procedure MoveSprite(Vp : PViewPort; sprite : pSimpleSprite; x : LongInt; y : LongInt);
 type
-  TLocalCall = procedure(Vp : PViewPort; sprite : pSimpleSprite; x : LongInt; y : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Vp : PViewPort; sprite : pSimpleSprite; x : LongInt; y : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3654,7 +3654,7 @@ end;
 
 function MrgCop(view : pView) : LongWord;
 type
-  TLocalCall = function(view : pView; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(view : pView; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3664,7 +3664,7 @@ end;
 
 function NewRegion : PRegion;
 type
-  TLocalCall = function(Base: Pointer): PRegion; stdcall;
+  TLocalCall = function(Base: Pointer): PRegion; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3674,7 +3674,7 @@ end;
 
 function NextDisplayInfo(displayID : LongWord) : LongWord;
 type
-  TLocalCall = function(displayID : LongWord; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(displayID : LongWord; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3684,7 +3684,7 @@ end;
 
 function ObtainBestPenA(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord;const tags : PTagItem) : LongInt;
 type
-  TLocalCall = function(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord;const tags : PTagItem; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(cm : pColorMap; r : LongWord; g : LongWord; b : LongWord;const tags : PTagItem; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3694,7 +3694,7 @@ end;
 
 function ObtainPen(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord; f : LongInt) : LongWord;
 type
-  TLocalCall = function(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord; f : LongInt; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord; f : LongInt; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3704,7 +3704,7 @@ end;
 
 function OpenFont(textAttr : pTextAttr) : PTextFont;
 type
-  TLocalCall = function(textAttr : pTextAttr; Base: Pointer): PTextFont; stdcall;
+  TLocalCall = function(textAttr : pTextAttr; Base: Pointer): PTextFont; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3714,7 +3714,7 @@ end;
 
 function OpenMonitor(const monitorName : PChar; displayID : LongWord) : pMonitorSpec;
 type
-  TLocalCall = function(const monitorName : PChar; displayID : LongWord; Base: Pointer): pMonitorSpec; stdcall;
+  TLocalCall = function(const monitorName : PChar; displayID : LongWord; Base: Pointer): pMonitorSpec; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3724,7 +3724,7 @@ end;
 
 function OrRectRegion(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
 type
-  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3734,7 +3734,7 @@ end;
 
 function OrRectRegionND(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
 type
-  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3744,7 +3744,7 @@ end;
 
 function OrRegionRegion(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
 type
-  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3754,7 +3754,7 @@ end;
 
 function OrRegionRegionND(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
 type
-  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3764,7 +3764,7 @@ end;
 
 procedure OwnBlitter;
 type
-  TLocalCall = procedure(Base: Pointer); stdcall;
+  TLocalCall = procedure(Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3774,7 +3774,7 @@ end;
 
 procedure PolyDraw(Rp : PRastPort; count : LongInt;const polyTable : pLongint);
 type
-  TLocalCall = procedure(Rp : PRastPort; count : LongInt;const polyTable : pLongint; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; count : LongInt;const polyTable : pLongint; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3784,7 +3784,7 @@ end;
 
 procedure QBlit(blit : pbltnode);
 type
-  TLocalCall = procedure(blit : pbltnode; Base: Pointer); stdcall;
+  TLocalCall = procedure(blit : pbltnode; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3794,7 +3794,7 @@ end;
 
 procedure QBSBlit(blit : pbltnode);
 type
-  TLocalCall = procedure(blit : pbltnode; Base: Pointer); stdcall;
+  TLocalCall = procedure(blit : pbltnode; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3804,7 +3804,7 @@ end;
 
 function ReadPixel(Rp : PRastPort; x : LongInt; y : LongInt) : LongWord;
 type
-  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3814,7 +3814,7 @@ end;
 
 function ReadPixelArray8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort) : LongInt;
 type
-  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3824,7 +3824,7 @@ end;
 
 function ReadPixelLine8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort) : LongInt;
 type
-  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3834,7 +3834,7 @@ end;
 
 procedure RectFill(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
 type
-  TLocalCall = procedure(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3844,7 +3844,7 @@ end;
 
 procedure ReleasePen(cm : pColorMap; n : LongWord);
 type
-  TLocalCall = procedure(cm : pColorMap; n : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(cm : pColorMap; n : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3854,7 +3854,7 @@ end;
 
 procedure RemFont(TextFont : PTextFont);
 type
-  TLocalCall = procedure(TextFont : PTextFont; Base: Pointer); stdcall;
+  TLocalCall = procedure(TextFont : PTextFont; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3864,7 +3864,7 @@ end;
 
 procedure RemIBob(bob : PBob; Rp : PRastPort; Vp : PViewPort);
 type
-  TLocalCall = procedure(bob : PBob; Rp : PRastPort; Vp : PViewPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(bob : PBob; Rp : PRastPort; Vp : PViewPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3874,7 +3874,7 @@ end;
 
 procedure RemVSprite(VSprite : PVSprite);
 type
-  TLocalCall = procedure(VSprite : PVSprite; Base: Pointer); stdcall;
+  TLocalCall = procedure(VSprite : PVSprite; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3884,7 +3884,7 @@ end;
 
 function ScalerDiv(factor : LongWord; numerator : LongWord; denominator : LongWord) : WORD;
 type
-  TLocalCall = function(factor : LongWord; numerator : LongWord; denominator : LongWord; Base: Pointer): WORD; stdcall;
+  TLocalCall = function(factor : LongWord; numerator : LongWord; denominator : LongWord; Base: Pointer): WORD; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3894,7 +3894,7 @@ end;
 
 procedure ScrollRaster(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
 type
-  TLocalCall = procedure(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3904,7 +3904,7 @@ end;
 
 procedure ScrollRasterBF(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt);
 type
-  TLocalCall = procedure(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; dx : LongInt; dy : LongInt; xMin : LongInt; yMin : LongInt; xMax : LongInt; yMax : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3914,7 +3914,7 @@ end;
 
 procedure ScrollVPort(Vp : PViewPort);
 type
-  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3924,7 +3924,7 @@ end;
 
 procedure SetABPenDrMd(Rp : PRastPort; apen : LongWord; bpen : LongWord; drawmode : LongWord);
 type
-  TLocalCall = procedure(Rp : PRastPort; apen : LongWord; bpen : LongWord; drawmode : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; apen : LongWord; bpen : LongWord; drawmode : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3934,7 +3934,7 @@ end;
 
 procedure SetAPen(Rp : PRastPort; pen : LongWord);
 type
-  TLocalCall = procedure(Rp : PRastPort; pen : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; pen : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3944,7 +3944,7 @@ end;
 
 procedure SetBPen(Rp : PRastPort; pen : LongWord);
 type
-  TLocalCall = procedure(Rp : PRastPort; pen : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; pen : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3954,7 +3954,7 @@ end;
 
 function SetChipRev(want : LongWord) : LongWord;
 type
-  TLocalCall = function(want : LongWord; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(want : LongWord; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3964,7 +3964,7 @@ end;
 
 procedure SetCollision(num : LongWord; routine : tPROCEDURE; gelsInfo : pGelsInfo);
 type
-  TLocalCall = procedure(num : LongWord; routine : tPROCEDURE; gelsInfo : pGelsInfo; Base: Pointer); stdcall;
+  TLocalCall = procedure(num : LongWord; routine : tPROCEDURE; gelsInfo : pGelsInfo; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3974,7 +3974,7 @@ end;
 
 procedure SetDrMd(Rp : PRastPort; drawMode : LongWord);
 type
-  TLocalCall = procedure(Rp : PRastPort; drawMode : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; drawMode : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3984,7 +3984,7 @@ end;
 
 function SetFont(Rp : PRastPort;const TextFont : PTextFont) : LongInt;
 type
-  TLocalCall = function(Rp : PRastPort;const TextFont : PTextFont; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Rp : PRastPort;const TextFont : PTextFont; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -3994,7 +3994,7 @@ end;
 
 procedure SetMaxPen(Rp : PRastPort; maxpen : LongWord);
 type
-  TLocalCall = procedure(Rp : PRastPort; maxpen : LongWord; Base: Pointer) ; stdcall;
+  TLocalCall = procedure(Rp : PRastPort; maxpen : LongWord; Base: Pointer) ; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4004,7 +4004,7 @@ end;
 
 function SetOutlinePen(Rp : PRastPort; pen : LongWord) : LongWord;
 type
-  TLocalCall = function(Rp : PRastPort; pen : LongWord; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Rp : PRastPort; pen : LongWord; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4014,7 +4014,7 @@ end;
 
 procedure SetRast(Rp : PRastPort; pen : LongWord);
 type
-  TLocalCall = procedure(Rp : PRastPort; pen : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; pen : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4024,7 +4024,7 @@ end;
 
 procedure SetRGB32(Vp : PViewPort; n : LongWord; r : LongWord; g : LongWord; b : LongWord);
 type
-  TLocalCall = procedure(Vp : PViewPort; n : LongWord; r : LongWord; g : LongWord; b : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(Vp : PViewPort; n : LongWord; r : LongWord; g : LongWord; b : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4034,7 +4034,7 @@ end;
 
 procedure SetRGB32CM(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord);
 type
-  TLocalCall = procedure(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(cm : pColorMap; n : LongWord; r : LongWord; g : LongWord; b : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4044,7 +4044,7 @@ end;
 
 procedure SetRGB4(Vp : PViewPort; index : LongInt; red : LongWord; green : LongWord; blue : LongWord);
 type
-  TLocalCall = procedure(Vp : PViewPort; index : LongInt; red : LongWord; green : LongWord; blue : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(Vp : PViewPort; index : LongInt; red : LongWord; green : LongWord; blue : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4054,7 +4054,7 @@ end;
 
 procedure SetRGB4CM(colorMap : pColorMap; index : LongInt; red : LongWord; green : LongWord; blue : LongWord);
 type
-  TLocalCall = procedure(colorMap : pColorMap; index : LongInt; red : LongWord; green : LongWord; blue : LongWord; Base: Pointer); stdcall;
+  TLocalCall = procedure(colorMap : pColorMap; index : LongInt; red : LongWord; green : LongWord; blue : LongWord; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4064,7 +4064,7 @@ end;
 
 procedure SetRPAttrsA(Rp : PRastPort;const tags : PTagItem);
 type
-  TLocalCall = procedure(Rp : PRastPort;const tags : PTagItem; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort;const tags : PTagItem; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4074,7 +4074,7 @@ end;
 
 function SetSoftStyle(Rp : PRastPort; style : LongWord; enable : LongWord) : LongWord;
 type
-  TLocalCall = function(Rp : PRastPort; style : LongWord; enable : LongWord; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Rp : PRastPort; style : LongWord; enable : LongWord; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4084,7 +4084,7 @@ end;
 
 function SetWriteMask(Rp : PRastPort; msk : LongWord) : LongWord;
 type
-  TLocalCall = function(Rp : PRastPort; msk : LongWord; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Rp : PRastPort; msk : LongWord; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4094,7 +4094,7 @@ end;
 
 procedure SortGList(Rp : PRastPort);
 type
-  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4104,7 +4104,7 @@ end;
 
 procedure StripFont(font : PTextFont);
 type
-  TLocalCall = procedure(font : PTextFont; Base: Pointer); stdcall;
+  TLocalCall = procedure(font : PTextFont; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4114,7 +4114,7 @@ end;
 
 procedure SyncSBitMap(layer : pLayer);
 type
-  TLocalCall = procedure(layer : pLayer; Base: Pointer); stdcall;
+  TLocalCall = procedure(layer : pLayer; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4124,7 +4124,7 @@ end;
 
 function GText(Rp : PRastPort;const string_ : PChar; count : LongWord) : LongInt;
 type
-  TLocalCall = function(Rp : PRastPort;const string_ : PChar; count : LongWord; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Rp : PRastPort;const string_ : PChar; count : LongWord; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4134,7 +4134,7 @@ end;
 
 function TextExtent(Rp : PRastPort;const string_ : PChar; count : LongInt; _textExtent : pTextExtent) : smallint;
 type
-  TLocalCall = function(Rp : PRastPort;const string_ : PChar; count : LongInt; _textExtent : pTextExtent; Base: Pointer): smallint; stdcall;
+  TLocalCall = function(Rp : PRastPort;const string_ : PChar; count : LongInt; _textExtent : pTextExtent; Base: Pointer): smallint; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4144,7 +4144,7 @@ end;
 
 function TextFit(Rp : PRastPort;const string_ : PChar; strLen : LongWord; textExtent : pTextExtent; constrainingExtent : pTextExtent; strDirection : LongInt; constrainingBitWidth : LongWord; constrainingBitHeight : LongWord) : LongWord;
 type
-  TLocalCall = function(Rp : PRastPort;const string_ : PChar; strLen : LongWord; textExtent : pTextExtent; constrainingExtent : pTextExtent; strDirection : LongInt; constrainingBitWidth : LongWord; constrainingBitHeight : LongWord; Base: Pointer): LongWord; stdcall;
+  TLocalCall = function(Rp : PRastPort;const string_ : PChar; strLen : LongWord; textExtent : pTextExtent; constrainingExtent : pTextExtent; strDirection : LongInt; constrainingBitWidth : LongWord; constrainingBitHeight : LongWord; Base: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4154,7 +4154,7 @@ end;
 
 function TextLength(Rp : PRastPort;const string_ : PChar; count : LongWord) : smallint;
 type
-  TLocalCall = function(Rp : PRastPort;const string_ : PChar; count : LongWord; Base: Pointer): smallint; stdcall;
+  TLocalCall = function(Rp : PRastPort;const string_ : PChar; count : LongWord; Base: Pointer): smallint; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4164,7 +4164,7 @@ end;
 
 function UCopperListInit(uCopList : pUCopList; n : LongInt) : pCopList;
 type
-  TLocalCall = function(uCopList : pUCopList; n : LongInt; Base: Pointer): pCopList; stdcall;
+  TLocalCall = function(uCopList : pUCopList; n : LongInt; Base: Pointer): pCopList; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4174,7 +4174,7 @@ end;
 
 procedure UnlockLayerRom(layer : pLayer);
 type
-  TLocalCall = procedure(layer : pLayer; Base: Pointer); stdcall;
+  TLocalCall = procedure(layer : pLayer; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4184,7 +4184,7 @@ end;
 
 function VBeamPos : LongInt;
 type
-  TLocalCall = function(Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4194,7 +4194,7 @@ end;
 
 function VideoControl(colorMap : pColorMap; tagarray : PTagItem) : BOOLEAN;
 type
-  TLocalCall = function(colorMap : pColorMap; tagarray : PTagItem; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(colorMap : pColorMap; tagarray : PTagItem; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4204,7 +4204,7 @@ end;
 
 procedure WaitBlit;
 type
-  TLocalCall = procedure(Base: Pointer); stdcall;
+  TLocalCall = procedure(Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4214,7 +4214,7 @@ end;
 
 procedure WaitBOVP(Vp : PViewPort);
 type
-  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); stdcall;
+  TLocalCall = procedure(Vp : PViewPort; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4224,7 +4224,7 @@ end;
 
 procedure WaitTOF;
 type
-  TLocalCall = procedure(Base: Pointer); stdcall;
+  TLocalCall = procedure(Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4234,7 +4234,7 @@ end;
 
 function WeighTAMatch(reqTextAttr : pTextAttr; targetTextAttr : pTextAttr; targetTags : PTagItem) : smallint;
 type
-  TLocalCall = function(reqTextAttr : pTextAttr; targetTextAttr : pTextAttr; targetTags : PTagItem; Base: Pointer): smallint; stdcall;
+  TLocalCall = function(reqTextAttr : pTextAttr; targetTextAttr : pTextAttr; targetTags : PTagItem; Base: Pointer): smallint; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4244,7 +4244,7 @@ end;
 
 procedure WriteChunkyPixels(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; bytesperrow : LongInt);
 type
-  TLocalCall = procedure(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; bytesperrow : LongInt; Base: Pointer); stdcall;
+  TLocalCall = procedure(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; bytesperrow : LongInt; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4254,7 +4254,7 @@ end;
 
 function WritePixel(Rp : PRastPort; x : LongInt; y : LongInt) : LongInt;
 type
-  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Rp : PRastPort; x : LongInt; y : LongInt; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4264,7 +4264,7 @@ end;
 
 function WritePixelArray8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort) : LongInt;
 type
-  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; xstop : LongWord; ystop : LongWord; array_ : pointer; temprp : PRastPort; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4274,7 +4274,7 @@ end;
 
 function WritePixelLine8(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort) : LongInt;
 type
-  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(Rp : PRastPort; xstart : LongWord; ystart : LongWord; Width : LongWord; array_ : pointer; tempRP : PRastPort; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4284,7 +4284,7 @@ end;
 
 function XorRectRegion(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
 type
-  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4294,7 +4294,7 @@ end;
 
 function XorRectRegionND(region : PRegion;const rectangle : pRectangle) : BOOLEAN;
 type
-  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(region : PRegion;const rectangle : pRectangle; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4305,7 +4305,7 @@ end;
 
 function XorRegionRegion(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
 type
-  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -4315,7 +4315,7 @@ end;
 
 function XorRegionRegionND(const srcRegion : PRegion; destRegion : PRegion) : BOOLEAN;
 type
-  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; stdcall;
+  TLocalCall = function(const srcRegion : PRegion; destRegion : PRegion; Base: Pointer): BOOLEAN; cdecl;
 var
   Call: TLocalCall;
 begin

@@ -57,12 +57,13 @@ uses dos,sysconst;
 
 { * Followings are implemented in the system unit! * }
 function PathConv(path: shortstring): shortstring; external name 'PATHCONV';
-procedure AddToList(var l: Pointer; h: LongInt); external name 'ADDTOLIST';
+procedure AddToList(var l: Pointer; h: LongInt; const AName: PChar); external name 'ADDTOLIST';
 function RemoveFromList(var l: Pointer; h: LongInt): boolean; external name 'REMOVEFROMLIST';
 function CheckInList(var l: Pointer; h: LongInt): pointer; external name 'CHECKINLIST';
+function GetNameFromList(var l: Pointer; h: THandle): PChar; external name 'GETNAMEFROMLIST';
 
 var
-  MOS_fileList: Pointer; external name 'AOS_FILELIST';
+  AOS_fileList: Pointer; external name 'AOS_FILELIST';
 
 
 function dosLock(const name: String;
@@ -96,6 +97,28 @@ begin
   result:=ComposeDateTime(tmpDate,tmpTime);
 end;
 
+function DateTimeToAmigaFileDate(FDate: TDateTime): TDateStamp;
+var
+  clockData: TClockData;
+  msec: Word;
+  tmpSecs: LongWord;
+begin
+  with clockData do
+  begin
+    DecodeDate(FDate, Year, Month, mday);
+    DecodeTime(FDate, hour, min, sec, msec);
+  end;
+  tmpSecs := Date2Amiga(@clockdata);
+  with Result do
+  begin
+    ds_Days := tmpSecs div (24 * 60 * 60);
+    tmpSecs := tmpSecs - (ds_Days * (24 * 60 * 60));
+    ds_Minute := tmpSecs div 60;
+    tmpSecs := tmpSecs - (ds_Minute * 60);
+    ds_Tick := tmpSecs * TICKS_PER_SECOND;
+  end;
+end;
+
 procedure Sleep(milliseconds: Cardinal);
 var
   Ticks: Cardinal;
@@ -119,30 +142,67 @@ end;
 function FileOpen(const FileName: string; Mode: Integer): LongInt;
 var
   dosResult: LongInt;
-  tmpStr   : array[0..255] of char;
+  tmpStr   : string;//array[0..255] of char;
 begin
   {$WARNING FIX ME! To do: FileOpen Access Modes}
-  tmpStr:=PathConv(FileName)+#0;
-  dosResult:=Open(@tmpStr,MODE_OLDFILE);
+  tmpStr:=PathConv(FileName) + #0;
+  dosResult:=Open(PChar(tmpStr),MODE_OLDFILE);
   if dosResult=0 then
     dosResult:=-1
   else
-    AddToList(MOS_fileList,dosResult);
+    AddToList(AOS_fileList, dosResult, PChar(tmpStr));
 
   FileOpen:=dosResult;
 end;
 
 
 function FileGetDate(Handle: LongInt) : LongInt;
+var
+  FileName: string;
+  tmpLock: Longint;
+  tmpFIB : PFileInfoBlock;
+  tmpDateTime: TDateTime;
+  validFile: boolean;
 begin
-  Result := 0;
-  {$WARNING filegetdate call is dummy}
+  FileName := GetNameFromList(AOS_fileList, Handle);
+  if FileName = '' then
+  begin
+    Result := -1;
+    Exit;
+  end;
+  FileName := Filename + #0;
+  tmpLock := dosLock(PChar(Filename), SHARED_LOCK);
+
+  if (tmpLock <> 0) then begin
+    new(tmpFIB);
+    if Examine(tmpLock,tmpFIB) then begin
+      tmpDateTime:=AmigaFileDateToDateTime(tmpFIB^.fib_Date,validFile);
+    end;
+    Unlock(tmpLock);
+    dispose(tmpFIB);
+  end;
+
+  if validFile then
+    result:=DateTimeToFileDate(tmpDateTime)
+  else
+    result:=-1;
 end;
 
 
 function FileSetDate(Handle, Age: LongInt) : LongInt;
+var
+  DateStamp: TDateStamp;
+  FileName: string;
 begin
-  // Impossible under unix from FileHandle !!
+  Result := 0;
+  FileName := GetNameFromList(AOS_fileList, Handle);
+  if FileName = '' then
+  begin
+    Result := -1;
+    Exit;
+  end;
+  DateStamp := DateTimeToAmigaFileDate(FileDateToDateTime(Age));
+  SetFileDate(PChar(FileName), @DateStamp);
   FileSetDate:=-1;
 end;
 
@@ -157,7 +217,7 @@ begin
  if dosResult=0 then
    dosResult:=-1
  else
-   AddToList(MOS_fileList,dosResult);
+   AddToList(AOS_fileList,dosResult, @tmpStr);
 
  FileCreate:=dosResult;
 end;
@@ -228,7 +288,7 @@ begin
   if (Handle=0) or (Handle=-1) then exit;
   //
   dosClose(Handle);
-  RemoveFromList(MOS_fileList,Handle);
+  RemoveFromList(AOS_fileList,Handle);
 end;
 
 

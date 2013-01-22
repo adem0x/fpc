@@ -120,7 +120,7 @@ implementation
 
 function AskKeyMapDefault : PKeyMap;
 type
-  TLocalCall = function(Base: Pointer): PKeyMap; stdcall;
+  TLocalCall = function(Base: Pointer): PKeyMap; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -130,7 +130,7 @@ end;
 
 function MapANSI(TheString: PChar; Count: LongInt; Buffer: PChar; Length: LongInt; KeyMap: PKeyMap): LongInt;
 type
-  TLocalCall = function(TheString: PChar; Count: LongInt; Buffer: PChar; Length: LongInt; KeyMap: PKeyMap; Base: Pointer): LongInt; stdcall;
+  TLocalCall = function(TheString: PChar; Count: LongInt; Buffer: PChar; Length: LongInt; KeyMap: PKeyMap; Base: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -140,7 +140,7 @@ end;
 
 function MapRawKey(Event: PInputEvent; Buffer: PChar; Length: LongInt; KeyMap: PKeyMap) : SmallInt;
 type
-  TLocalCall = function(Event: PInputEvent; Buffer: PChar; Length: LongInt; KeyMap: PKeyMap; Base: Pointer): SmallInt; stdcall;
+  TLocalCall = function(Event: PInputEvent; Buffer: PChar; Length: LongInt; KeyMap: PKeyMap; Base: Pointer): SmallInt; cdecl;
 var
 Call: TLocalCall;
 begin
@@ -150,7 +150,7 @@ end;
 
 procedure SetKeyMapDefault(KeyMap: PKeyMap);
 type
-  TLocalCall = procedure(KeyMap: PKeyMap; Base: Pointer); stdcall;
+  TLocalCall = procedure(KeyMap: PKeyMap; Base: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin

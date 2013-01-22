@@ -316,7 +316,11 @@ begin
   GetDosTicks := -1;
 end;
 {$endif}
-
+{$ifdef aros}
+begin
+  GetDosTicks := -1;
+end;
+{$endif}
 
 procedure DisposeRecord(var R: TRecord);
 begin

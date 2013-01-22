@@ -72,8 +72,6 @@ var
   envp: PPChar;
   killed : Boolean = False;
 
-  ExtReturnCode: LongInt; external name '_returncode';
-
 function GetLibAdress(Base: Pointer; Offset: LongInt): Pointer;
 
 implementation
@@ -104,16 +102,7 @@ type
                        Misc. System Dependent Functions
 *****************************************************************************}
 
-procedure ExternalHalt; stdcall;external name '_haltproc';
-
-
-procedure haltproc(e:longint);
-begin
-  ExtReturnCode := e;
-  ExternalHalt;
-end;
-
-
+procedure haltproc(e:longint); cdecl; nostackframe; external name '_haltproc';
 
 procedure System_exit;
 var
@@ -137,8 +126,6 @@ begin
     DeletePool(AOS_heapPool);
   AOS_UtilityBase := nil;
   AOS_HeapPool := nil;
-  // call Exit
-  DosExit(ExitCode);
   //
   if AOS_DOSBase<>nil then
     CloseLibrary(AOS_DOSBase);
@@ -429,7 +416,6 @@ function CheckInitialStkLen(stklen : SizeUInt) : SizeUInt;
 begin
   result := stklen;
 end;
-
 
 begin
   IsConsole := TRUE;
