@@ -132,6 +132,7 @@ interface
          localsyms: longword;
          symversions: PWord;
          dynobj: boolean;
+         verdefs: TFPHashObjectList;
          function LoadHeader:word;
          procedure LoadSection(const shdr:TElfsechdr;index:longint;objdata:TObjData);
          procedure LoadRelocations(const secrec:TSectionRec);
@@ -144,6 +145,22 @@ interface
          class function CanReadObjData(AReader:TObjectreader):boolean;override;
          function CreateSection(const shdr:TElfsechdr;index:longint;objdata:TObjData;
            out secname:string):TElfObjSection;
+       end;
+
+       TElfVersionDef = class(TFPHashObject)
+       public
+         index: longword;
+       end;
+
+       TElfDynamicObjData = class(TElfObjData)
+       private
+         FVersionDefs: TFPHashObjectList;
+       public
+         soname_strofs: longword;
+         vernaux_count: longword;
+         constructor create(const n:string);override;
+         destructor destroy;override;
+         property versiondefs:TFPHashObjectList read FVersionDefs;
        end;
 
        TRelocNameProc=function(reltyp:byte):string;
@@ -211,7 +228,6 @@ interface
          shoffset: aword;
          gotwritten: boolean;
          { dynamic linking }
-         dynamiclink: boolean;
          dynsymnames: Plongword;
          dynsymtable: TElfSymtab;
          interpobjsec: TObjSection;
@@ -221,15 +237,12 @@ interface
          symversec,
          verdefsec,
          verneedsec,
-         dynamicsec,
          hashobjsec: TElfObjSection;
          neededlist: TFPHashList;
-         gotsize: aword;
-         dynrelsize: aword;
+         dyncopysyms: TFPObjectList;
 
          function AttachSection(objsec:TObjSection):TElfExeSection;
          function CreateSegment(atype,aflags,aalign:longword):TElfSegment;
-         procedure CreatePLT;
          procedure WriteHeader;
          procedure WriteDynamicSymbolsHash;
          procedure WriteDynamicTags;
@@ -240,15 +253,17 @@ interface
          procedure datapos_segment(seg:TElfSegment);
          procedure MapSectionsToSegments;
          procedure WriteStaticSymtable;
+         procedure WriteShstrtab;
+         procedure FixupSectionLinks;
          procedure InitDynlink;
-         procedure PrepareGOT;
-         procedure WriteDynTag(aTag:longword;aValue:longword);
-         procedure WriteDynTag(aTag:longword;aSection:TObjSection;aOffs:aword=0);
        protected
+         dynamiclink: boolean;
          hastextrelocs: boolean;
          gotsymbol: TObjSymbol;
          dynsymlist: TFPObjectList;
+         dynamicsec,
          gotobjsec: TObjSection;
+         dynbssobjsec,
          pltobjsec,
          gotpltobjsec,
          pltrelocsec,
@@ -257,16 +272,24 @@ interface
          dynreloclist: TFPObjectList;
          tlsseg: TElfSegment;
          relative_reloc_count: longint;
-         function AllocGOTSlot(objsym: TObjSymbol):boolean;
+         gotsize: aword;
+         dynrelsize: aword;
+         procedure PrepareGOT;virtual;
+         function AllocGOTSlot(objsym: TObjSymbol):boolean;virtual;
          procedure CreateGOTSection;virtual;
          procedure make_dynamic_if_undefweak(exesym:TExeSymbol);
          procedure WriteDynRelocEntry(dataofs:aword;typ:byte;symidx:aword;addend:aword);
+         procedure CreatePLT;virtual;
          procedure WriteFirstPLTEntry;virtual;abstract;
          procedure WritePLTEntry(exesym:TExeSymbol);virtual;
          procedure WriteIndirectPLTEntry(exesym:TExeSymbol);virtual;
+         procedure WriteTargetDynamicTags;virtual;
          procedure GOTRelocPass1(objsec:TObjSection;var idx:longint);virtual;abstract;
          procedure ReportNonDSOReloc(reltyp:byte;objsec:TObjSection;ObjReloc:TObjRelocation);
          procedure ReportRelocOverflow(reltyp:byte;objsec:TObjSection;ObjReloc:TObjRelocation);
+         procedure WriteDynTag(aTag:longword;aValue:longword);
+         procedure WriteDynTag(aTag:longword;aSection:TObjSection;aOffs:aword=0);
+         procedure Do_Mempos;virtual;
        public
          constructor Create;override;
          destructor Destroy;override;
@@ -854,6 +877,27 @@ implementation
 
 
 {****************************************************************************
+                            TElfDynamicObjData
+****************************************************************************}
+
+    constructor TElfDynamicObjData.create(const n:string);
+      begin
+        inherited Create(n);
+        FVersionDefs:=TFPHashObjectList.create(true);
+        { Default symversions with indices 0 and 1 }
+        TElfVersionDef.create(FVersionDefs,'*local*');
+        TElfVersionDef.create(FVersionDefs,'*global*');
+      end;
+
+
+    destructor TElfDynamicObjData.destroy;
+      begin
+        FVersionDefs.free;
+        inherited Destroy;
+      end;
+
+
+{****************************************************************************
                             TElfSymtab
 ****************************************************************************}
 
@@ -1151,7 +1195,7 @@ implementation
            symtabsect:=TElfSymtab.create(data,esk_obj);
            shstrtabsect:=TElfObjSection.create_ext(data,'.shstrtab',SHT_STRTAB,0,1,0);
            { "no executable stack" marker for Linux }
-           if (target_info.system in systems_linux) and
+           if (target_info.system in (systems_linux + systems_android)) and
               not(cs_executable_stack in current_settings.moduleswitches) then
              TElfObjSection.create_ext(data,'.note.GNU-stack',SHT_PROGBITS,0,1,0);
            { symbol for filename }
@@ -1371,6 +1415,7 @@ implementation
             end;
             { If reading DSO, we're interested only in global symbols defined there.
               Symbols with non-current version should also be ignored. }
+            ver:=0;
             if dynobj then
               begin
                 if assigned(symversions) then
@@ -1381,6 +1426,8 @@ implementation
                   end;
                 if (bind=AB_LOCAL) or (sym.st_shndx=SHN_UNDEF) then
                   continue;
+                if ver>=verdefs.count then
+                  InternalError(2012120505);
               end;
             { validity of name and objsection has been checked above }
             { !! all AT_SECTION symbols have duplicate (null) name,
@@ -1508,6 +1555,9 @@ implementation
               end
             else
               InternalError(2012110706);
+
+          SHT_GNU_ATTRIBUTES:
+            { TODO: must not be ignored };
         else
           if not (assigned(ElfTarget.loadsection) and
             ElfTarget.loadsection(self,objdata,shdr,index)) then
@@ -1601,6 +1651,9 @@ implementation
         grp: TObjSectionGroup;
         tmp: longword;
         count: longint;
+        vd: TElfverdef;
+        vda: TElfverdaux;
+        vdoffset: aword;
       begin
         FReader:=AReader;
         InputFileName:=AReader.FileName;
@@ -1619,7 +1672,13 @@ implementation
         if shentsize<>sizeof(TElfsechdr) then
           InternalError(2012062701);
 
-        objdata:=CObjData.Create(InputFilename);
+        if dynobj then
+          begin
+            objdata:=TElfDynamicObjData.Create(InputFilename);
+            verdefs:=TElfDynamicObjData(objdata).versiondefs;
+          end
+        else
+          objdata:=CObjData.Create(InputFilename);
 
         FSecTbl:=AllocMem(nsects*sizeof(TSectionRec));
         FLoaded:=AllocMem(nsects*sizeof(boolean));
@@ -1715,7 +1774,7 @@ implementation
                       FReader.read(symversions^,shdrs[i].sh_size);
                       if source_info.endian<>target_info.endian then
                         for j:=0 to syms-1 do
-                          SwapEndian(symversions[j]);
+                          symversions[j]:=SwapEndian(symversions[j]);
                     end;
 
                   SHT_GNU_verdef:
@@ -1723,8 +1782,34 @@ implementation
                       if verdefndx<>0 then
                         InternalError(2012102006);
                       verdefndx:=i;
-                      //sh_link->.dynstr
-                      //sh_info->.hash
+                      if shdrs[i].sh_link<>strndx then
+                        InternalError(2012120501);
+                      vdoffset:=shdrs[i].sh_offset;
+                      { TODO: can we rely on sh_info, or must read until vd_next=0? }
+                      for j:=1 to shdrs[i].sh_info do
+                        begin
+                          FReader.seek(vdoffset);
+                          FReader.Read(vd,sizeof(TElfverdef));
+                          MaybeSwapElfverdef(vd);
+                          if vd.vd_version<>VER_DEF_CURRENT then
+                            InternalError(2012120502);
+                          FReader.seek(vdoffset+vd.vd_aux);
+                          vdoffset:=vdoffset+vd.vd_next;
+                          { First verdaux entry holds name of version (unless VER_FLG_BASE flag is set),
+                            subsequent one(s) point to parent(s). For our purposes, version hierarchy
+                            looks irrelevant. }
+                          FReader.Read(vda,sizeof(TElfverdaux));
+                          MaybeSwapElfverdaux(vda);
+                          if vda.vda_name>=strtablen then
+                            InternalError(2012120503);
+                          if (vd.vd_flags and VER_FLG_BASE)<>0 then
+                            continue;
+                          { Assuming verdef indices assigned continuously starting from 2,
+                            at least BFD produces files that way. }
+                          if verdefs.count<>vd.vd_ndx then
+                            InternalError(2012120504);
+                          TElfVersionDef.Create(verdefs,string(PChar(@strtab[vda.vda_name])));
+                        end;
                     end;
 
                   SHT_GNU_verneed:
@@ -1733,19 +1818,13 @@ implementation
                         InternalError(2012102007);
                       verneedndx:=i;
                       //sh_link->.dynstr
-                      //sh_info->hash
+                      //sh_info->number of entries
                     end;
                 end;
              end;
 
             if dynndx=0 then
               InternalError(2012071401);
-
-            { for DSO, we aren't interested in actual sections, but need to a dummy one
-              to maintain integrity. }
-            objsec:=TElfObjSection.create_ext(objdata,'*DSO*',SHT_PROGBITS,0,0,0);
-            for i:=1 to nsects-1 do
-              FSecTbl[i].sec:=objsec;
 
             { load the symtable }
             FReader.Seek(symtaboffset+sizeof(TElfSymbol));
@@ -1861,6 +1940,7 @@ implementation
 
     destructor TElfExeOutput.Destroy;
       begin
+        dyncopysyms.Free;
         neededlist.Free;
         segmentlist.Free;
         dynsymlist.Free;
@@ -2100,6 +2180,7 @@ implementation
           exit;
         gotobjsec.alloc(sizeof(pint));
         exesym.GotOffset:=gotobjsec.size;
+        make_dynamic_if_undefweak(exesym);
         { In shared library, every GOT entry needs a RELATIVE dynamic reloc,
           imported/exported symbols need GLOB_DAT instead. For executables,
           only the latter applies. }
@@ -2186,6 +2267,15 @@ implementation
               begin
                 exesym.State:=symstate_defined;
                 exesym.dynindex:=dynsymlist.Add(exesym)+1;
+                { The original binding, value and section of external symbol
+                  must be preserved, therefore resolving directly to .so symbol
+                  hurts more than it helps. Copy type and size, and store .so
+                  symbol in objsym.indsymbol for later use. }
+                exesym.ObjSymbol.typ:=objsym.typ;
+                if objsym.typ<>AT_FUNCTION then
+                  exesym.ObjSymbol.size:=objsym.size;
+                exesym.ObjSymbol.indsymbol:=objsym;
+                objsym.ExeSymbol:=exesym;
                 needed:=true;
               end;
           end;
@@ -2288,8 +2378,10 @@ implementation
               begin
                 if exesym.dynindex<>0 then
                   InternalError(2012062301);
-                exesym.dynindex:=dynsymlist.add(exesym)+1;
-                exesym.state:=symstate_defined;
+                { Weak-referenced symbols are changed into dynamic ones
+                  only if referenced through GOT or PLT (this is BFD-compatible) }
+                if exesym.state<>symstate_undefweak then
+                  exesym.dynindex:=dynsymlist.add(exesym)+1;
               end
             else
               UnresolvedExeSymbols[i]:=nil;
@@ -2306,21 +2398,43 @@ implementation
             if assigned(exesym.ObjSymbol.objsection) then  // an exported symbol
               continue;
 
-            { if there's no PLT references to symbol, then PLT entry isn't needed }
-            { !! Does not work correctly yet !! }
-//            if (exesym.objsymbol.refs and symref_plt)=0 then
-//              continue;
+            if ((exesym.ObjSymbol.refs and symref_plt)<>0) or
+              ((exesym.ObjSymbol.typ=AT_FUNCTION) and (not IsSharedLibrary)) then
+              begin
+                make_dynamic_if_undefweak(exesym);
 
-            { This symbol has a valid address to which relocations are resolved,
-              but it remains (weak)external when written to dynamic symtable. }
-            objsym:=internalobjdata.CreateSymbol(exesym.name);
-            objsym.typ:=AT_FUNCTION;
-            objsym.bind:=exesym.ObjSymbol.bind;  { AB_EXTERNAL or AB_WEAK_EXTERNAL }
-            objsym.offset:=pltobjsec.size;
-            objsym.objsection:=pltobjsec;
-            exesym.ObjSymbol:=objsym;
-
-            WritePLTEntry(exesym);
+                { This symbol has a valid address to which relocations are resolved,
+                  but it remains (weak)external when written to dynamic symtable. }
+                objsym:=internalobjdata.CreateSymbol(exesym.name);
+                objsym.typ:=AT_FUNCTION;
+                objsym.bind:=exesym.ObjSymbol.bind;  { AB_EXTERNAL or AB_WEAK_EXTERNAL }
+                objsym.indsymbol:=exesym.ObjSymbol.indsymbol;
+                objsym.offset:=pltobjsec.size;
+                objsym.objsection:=pltobjsec;
+                objsym.exesymbol:=exesym;
+                exesym.ObjSymbol:=objsym;
+                WritePLTEntry(exesym);
+              end
+            else if ((exesym.ObjSymbol.refs and symref_from_text)<>0) and
+              (exesym.ObjSymbol.typ<>AT_FUNCTION) and (not IsSharedLibrary) and
+              (exesym.state<>symstate_undefweak) then
+              begin
+                if exesym.ObjSymbol.size=0 then
+                  Comment(v_error,'Dynamic variable '+exesym.name+' has zero size');
+                internalobjdata.setSection(dynbssobjsec);
+                internalobjdata.allocalign(var_align(exesym.ObjSymbol.size));
+                objsym:=internalobjdata.SymbolDefine(exesym.name,AB_GLOBAL,AT_DATA);
+                objsym.size:=exesym.ObjSymbol.size;
+                objsym.indsymbol:=exesym.ObjSymbol.indsymbol;
+                exesym.ObjSymbol:=objsym;
+                objsym.exesymbol:=exesym;
+                dynbssobjsec.alloc(objsym.size);
+                { allocate space for R_xx_COPY relocation for this symbol;
+                  we'll create it later, to be consistent with "-z combreloc" semantics }
+                dyncopysyms.add(objsym);
+                dynrelocsec.alloc(dynrelocsec.shentsize);
+                inc(dynrelsize,dynrelocsec.shentsize);
+              end;
           end;
 
         { Handle indirect symbols }
@@ -2359,7 +2473,8 @@ implementation
           (.got, .rel[a].dyn, .rel[a].plt (includes .rel[a].iplt) and .hash }
         if gotobjsec.size<>0 then
           Exclude(gotobjsec.ExeSection.SecOptions,oso_disabled);
-        if assigned(dynrelocsec) and (dynrelocsec.size<>0) then
+        if assigned(dynrelocsec) and
+          ((dynrelocsec.size<>0) or (dyncopysyms.count<>0)) then
           Exclude(dynrelocsec.ExeSection.SecOptions,oso_disabled);
         if assigned(pltrelocsec) and (pltrelocsec.size>0) then
           Exclude(pltrelocsec.ExeSection.SecOptions,oso_disabled);
@@ -2381,14 +2496,10 @@ implementation
       end;
 
 
-    procedure TElfExeOutput.MemPos_Start;
+    procedure TElfExeOutput.WriteShStrtab;
       var
-        i,j: longint;
-        dynstrndx,dynsymndx: longword;
-        seg: TElfSegment;
+        i: longint;
         exesec: TElfExeSection;
-        objsec: TObjSection;
-        tempmempos: qword;
       begin
         { Remove any existing .shstrtab contents }
         if (shstrtabsect.size>0) then
@@ -2398,8 +2509,6 @@ implementation
             shstrtabsect.SecOptions:=[oso_data];
           end;
 
-        { Assign section indices and fill .shstrtab
-          List of sections cannot be modified after this point. }
         shstrtabsect.writezeros(1);
         for i:=0 to ExeSectionList.Count-1 do
           begin
@@ -2407,10 +2516,15 @@ implementation
             exesec.shstridx:=shstrtabsect.writestr(exesec.Name);
             exesec.secshidx:=i+1;
           end;
+      end;
 
+ 
+    procedure TElfExeOutput.FixupSectionLinks;
+      var
+        dynstrndx,dynsymndx: longword;
+      begin
         if dynamiclink then
           begin
-            { fixup sh_link/sh_info members of various dynamic sections }
             dynstrndx:=TElfExeSection(dynsymtable.fstrsec.ExeSection).secshidx;
             dynsymndx:=TElfExeSection(dynsymtable.ExeSection).secshidx;
             TElfExeSection(hashobjsec.ExeSection).shlink:=dynsymndx;
@@ -2435,8 +2549,17 @@ implementation
           end
         else if assigned(ipltrelocsec) then
           TElfExeSection(ipltrelocsec.ExeSection).shinfo:=TElfExeSection(pltobjsec.ExeSection).secshidx;
+      end;
 
-        { The actual layout }
+
+    procedure TElfExeOutput.Do_Mempos;
+      var
+        i,j: longint;
+        seg: TElfSegment;
+        exesec: TElfExeSection;
+        objsec: TObjSection;
+        tempmempos: qword;
+      begin
         if IsSharedLibrary then
           CurrMemPos:=0
         else
@@ -2485,12 +2608,29 @@ implementation
                 seg.MemSize:=exesec.MemPos+exesec.Size-seg.MemPos;
               end;
           end;
+      end;
+
+
+    procedure TElfExeOutput.MemPos_Start;
+      var
+        i: longint;
+      begin
+        { Assign section indices and fill .shstrtab
+          List of sections cannot be modified after this point. }
+        WriteShStrtab;
+
+        { fixup sh_link/sh_info members of various dynamic sections }
+        FixupSectionLinks;
+
+        { The actual layout }
+        Do_Mempos;
 
         if (not gotwritten) then
           begin
-            { reset size of .got and .rel[a].dyn, they will be refilled while fixing up relocations }
+            { Reset size of .got and .rel[a].dyn, they will be refilled while fixing up relocations.
+              For .got, consider already written reserved entries. }
             if assigned(gotobjsec) then
-              gotobjsec.size:=0;
+              gotobjsec.size:=gotobjsec.data.size;
             if assigned(dynrelocsec) then
               begin
                 dynrelocsec.size:=0;
@@ -2535,6 +2675,7 @@ implementation
         exesec: TExeSection;
         seg: TElfSegment;
         objreloc: TObjRelocation;
+        objsym: TObjSymbol;
       begin
         gotwritten:=true;
         { If target does not support sorted relocations, it is expected to write the
@@ -2543,6 +2684,14 @@ implementation
           should remain. }
         if assigned(dynrelocsec) then
           begin
+            { Append R_xx_COPY relocations }
+            for i:=0 to dyncopysyms.count-1 do
+              begin
+                objsym:=TObjSymbol(dyncopysyms[i]);
+                dynreloclist.Add(TObjRelocation.CreateRaw(objsym.address,objsym,ElfTarget.dyn_reloc_codes[dr_copy]));
+              end;
+            dyncopysyms.Clear;
+
             if (dynrelocsec.size+(dynreloclist.count*dynrelocsec.shentsize)<>dynrelsize) then
               InternalError(2012110601);
             { Write out non-RELATIVE dynamic relocations
@@ -2662,6 +2811,10 @@ implementation
         dynrelocsec:=TElfObjSection.create_reloc(internalObjData,'.dyn',true);
         dynrelocsec.SecOptions:=[oso_keep];
 
+        dynbssobjsec:=TElfObjSection.create_ext(internalObjData,'.dynbss',
+          SHT_NOBITS,SHF_ALLOC or SHF_WRITE,sizeof(pint){16??},0);
+        dynbssobjsec.SecOptions:=[oso_keep];
+
         dynreloclist:=TFPObjectList.Create(true);
 
         symversec:=TElfObjSection.create_ext(internalObjData,'.gnu.version',
@@ -2673,6 +2826,7 @@ implementation
         verneedsec:=TElfObjSection.create_ext(internalObjData,'.gnu.version_r',
           SHT_GNU_VERNEED,SHF_ALLOC,sizeof(pint),0);
         verneedsec.SecOptions:=[oso_keep];
+        dyncopysyms:=TFPObjectList.Create(False);
       end;
 
 
@@ -2776,16 +2930,25 @@ implementation
       end;
 
 
+    procedure TElfExeOutput.WriteTargetDynamicTags;
+      begin
+        { to be overridden by CPU-specific descendants }
+      end;
+
+
     procedure TElfExeOutput.WriteDynamicTags;
       var
         s: aword;
         i: longint;
         sym: TExeSymbol;
         hs:string;
+        dynobj: TElfDynamicObjData;
       begin
         for i:=0 to neededlist.Count-1 do
           begin
-            s:=dynsymtable.fstrsec.writestr(neededlist.NameOfIndex(i));
+            dynobj:=TElfDynamicObjData(neededlist[i]);
+            s:=dynsymtable.fstrsec.writestr(dynobj.name);
+            dynobj.soname_strofs:=s;
             WriteDynTag(DT_NEEDED,s);
           end;
 
@@ -2857,9 +3020,14 @@ implementation
             writeDynTag(pltreltags[rela],dynrelocsec);
             writeDynTag(relsztags[rela],dynrelocsec.Size);
             writeDynTag(relenttags[rela],dynrelocsec.shentsize);
+{$ifndef MIPS}
             if (relative_reloc_count>0) then
               writeDynTag(relcnttags[rela],relative_reloc_count);
+{$endif MIPS}
           end;
+
+        WriteTargetDynamicTags;
+
         if (verdefcount>0) or (verneedcount>0) then
           begin
             if (verdefcount>0) then

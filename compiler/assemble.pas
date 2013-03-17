@@ -704,11 +704,24 @@ Implementation
       end;
 
     procedure TExternalAssembler.WriteSourceLine(hp: tailineinfo);
+      var
+        module : tmodule;
       begin
         { load infile }
-        if lastfileinfo.fileindex<>hp.fileinfo.fileindex then
+        if (lastfileinfo.moduleindex<>hp.fileinfo.moduleindex) or
+            (lastfileinfo.fileindex<>hp.fileinfo.fileindex) then
           begin
-            infile:=current_module.sourcefiles.get_file(hp.fileinfo.fileindex);
+            { in case of a generic the module can be different }
+            if current_module.unit_index=hp.fileinfo.moduleindex then
+              module:=current_module
+            else
+              module:=get_module(hp.fileinfo.moduleindex);
+            { during the compilation of the system unit there are cases when
+              the fileinfo contains just zeros => invalid }
+            if assigned(module) then
+              infile:=module.sourcefiles.get_file(hp.fileinfo.fileindex)
+            else
+              infile:=nil;
             if assigned(infile) then
               begin
                 { open only if needed !! }
@@ -717,6 +730,7 @@ Implementation
               end;
             { avoid unnecessary reopens of the same file !! }
             lastfileinfo.fileindex:=hp.fileinfo.fileindex;
+            lastfileinfo.moduleindex:=hp.fileinfo.moduleindex;
             { be sure to change line !! }
             lastfileinfo.line:=-1;
           end;
@@ -1505,10 +1519,10 @@ Implementation
              ait_cutobject :
                if SmartAsm then
                 break;
-{$ifdef TEST_WIN64_SEH}
+{$ifndef DISABLE_WIN64_SEH}
              ait_seh_directive :
                tai_seh_directive(hp).generate_code(objdata);
-{$endif TEST_WIN64_SEH}
+{$endif DISABLE_WIN64_SEH}
            end;
            hp:=Tai(hp.next);
          end;

@@ -392,7 +392,8 @@ type
   { defines the type of the extended "structure"; only used for parsing }
   thelpertype=(ht_none,
     ht_class,
-    ht_record
+    ht_record,
+    ht_type
   );
 
   { Variations in interfaces implementation }
@@ -531,7 +532,8 @@ type
   { options for symtables }
   tsymtableoption = (
     sto_has_helper,       { contains at least one helper symbol }
-    sto_has_generic       { contains at least one generic symbol }
+    sto_has_generic,      { contains at least one generic symbol }
+    sto_has_operator      { contains at least one operator overload }
   );
   tsymtableoptions = set of tsymtableoption;
 

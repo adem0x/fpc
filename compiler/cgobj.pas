@@ -574,7 +574,7 @@ implementation
 
     uses
        globals,systems,
-       verbose,paramgr,symsym,
+       verbose,paramgr,symtable,symsym,
        tgobj,cutils,procinfo;
 
 {*****************************************************************************
@@ -1702,7 +1702,6 @@ implementation
 
     procedure Tcg.a_op_const_reg_reg(list:TAsmList;op:Topcg;size:Tcgsize;
                                      a:tcgint;src,dst:Tregister);
-
     begin
       a_load_reg_reg(list,size,size,src,dst);
       a_op_const_reg(list,op,size,a,dst);
@@ -1848,8 +1847,6 @@ implementation
 
 
     procedure tcg.a_loadmm_loc_reg(list: TAsmList; size: tcgsize; const loc: tlocation; const reg: tregister;shuffle : pmmshuffle);
-      var
-        tmpreg: tregister;
       begin
         case loc.loc of
           LOC_MMREGISTER,LOC_CMMREGISTER:
@@ -2093,29 +2090,33 @@ implementation
       var
         hrefvmt : treference;
         cgpara1,cgpara2 : TCGPara;
+        pd: tprocdef;
       begin
         cgpara1.init;
         cgpara2.init;
-        paramanager.getintparaloc(pocall_default,1,voidpointertype,cgpara1);
         if (cs_check_object in current_settings.localswitches) then
          begin
-           paramanager.getintparaloc(pocall_default,2,voidpointertype,cgpara2);
+           pd:=search_system_proc('fpc_check_object_ext');
+           paramanager.getintparaloc(pd,1,cgpara1);
+           paramanager.getintparaloc(pd,2,cgpara2);
            reference_reset_symbol(hrefvmt,current_asmdata.RefAsmSymbol(objdef.vmt_mangledname),0,sizeof(pint));
            a_loadaddr_ref_cgpara(list,hrefvmt,cgpara2);
            a_load_reg_cgpara(list,OS_ADDR,reg,cgpara1);
            paramanager.freecgpara(list,cgpara1);
            paramanager.freecgpara(list,cgpara2);
            allocallcpuregisters(list);
-           a_call_name(list,'FPC_CHECK_OBJECT_EXT',false);
+           a_call_name(list,'fpc_check_object_ext',false);
            deallocallcpuregisters(list);
          end
         else
          if (cs_check_range in current_settings.localswitches) then
           begin
+            pd:=search_system_proc('fpc_check_object');
+            paramanager.getintparaloc(pd,1,cgpara1);
             a_load_reg_cgpara(list,OS_ADDR,reg,cgpara1);
             paramanager.freecgpara(list,cgpara1);
             allocallcpuregisters(list);
-            a_call_name(list,'FPC_CHECK_OBJECT',false);
+            a_call_name(list,'fpc_check_object',false);
             deallocallcpuregisters(list);
           end;
         cgpara1.done;

@@ -979,7 +979,7 @@ begin
                          include(init_settings.moduleswitches,cs_create_smart);
                     'T' :
                       begin
-                        if not UpdateTargetSwitchStr(copy(more,j+1,length(more)),init_settings.targetswitches) then
+                        if not UpdateTargetSwitchStr(copy(more,j+1,length(more)),init_settings.targetswitches,true) then
                           IllegalPara(opt);
                         break;
                       end;
@@ -1720,9 +1720,9 @@ begin
                         if target_info.system in systems_all_windows then
                           begin
                             if UnsetBool(More, j, opt, false) then
-                              apptype:=app_cui
+                              SetApptype(app_cui)
                             else
-                              apptype:=app_native;
+                              SetApptype(app_native);
                           end
                         else
                           IllegalPara(opt);
@@ -1732,9 +1732,9 @@ begin
                         if target_info.system in systems_darwin then
                           begin
                             if UnsetBool(More, j, opt, false) then
-                              apptype:=app_cui
+                              SetApptype(app_cui)
                             else
-                              apptype:=app_bundle
+                              SetApptype(app_bundle)
                           end
                         else
                           IllegalPara(opt);
@@ -1769,9 +1769,9 @@ begin
                         if target_info.system in systems_all_windows+systems_os2+systems_macos then
                           begin
                             if UnsetBool(More, j, opt, false) then
-                              apptype:=app_gui
+                              SetApptype(app_gui)
                             else
-                              apptype:=app_cui;
+                              SetApptype(app_cui);
                           end
                         else
                           IllegalPara(opt);
@@ -1802,9 +1802,9 @@ begin
                         if target_info.system in systems_os2 then
                           begin
                             if UnsetBool(More, j, opt, false) then
-                              apptype:=app_cui
+                              SetApptype(app_cui)
                             else
-                              apptype:=app_fs;
+                              SetApptype(app_fs);
                           end
                         else
                           IllegalPara(opt);
@@ -1814,9 +1814,9 @@ begin
                         if target_info.system in systems_all_windows+systems_os2+systems_macos then
                           begin
                             if UnsetBool(More, j, opt, false) then
-                              apptype:=app_cui
+                              SetApptype(app_cui)
                             else
-                              apptype:=app_gui;
+                              SetApptype(app_gui);
                           end
                         else
                           IllegalPara(opt);
@@ -1902,9 +1902,9 @@ begin
                         if target_info.system in systems_macos then
                           begin
                             if UnsetBool(More, j, opt, false) then
-                              apptype:=app_cui
+                              SetApptype(app_cui)
                             else
-                              apptype:=app_tool;
+                              SetApptype(app_tool);
                           end
                         else
                           IllegalPara(opt);
@@ -1920,7 +1920,7 @@ begin
                           end
                         else
                           IllegalPara(opt);
-                      end
+                      end;
                     else
                       IllegalPara(opt);
                   end;
@@ -2582,7 +2582,7 @@ begin
     system_jvm_java32,
     system_jvm_android32:
       target_unsup_features:=[f_heap,f_textio,f_consoleio,f_fileio,
-         f_variants,f_objects,f_threading,f_commandargs,
+         f_variants,f_objects,f_commandargs,
          f_processes,f_stackcheck,f_dynlibs,f_softfpu,f_objectivec1,f_resources];
     else
       target_unsup_features:=[];
@@ -2729,8 +2729,8 @@ var
   abi : tabi;
 {$if defined(arm) or defined(avr)}
   cpuflag : tcpuflags;
-{$endif defined(arm) or defined(avr)}
   hs : string;
+{$endif defined(arm) or defined(avr)}
 begin
   option:=coption.create;
   disable_configfile:=false;
@@ -2769,7 +2769,9 @@ begin
 
 { target is set here, for wince the default app type is gui }
   if target_info.system in systems_wince then
-    apptype:=app_gui;
+    SetApptype(app_gui)
+  else
+    SetApptype(apptype);
 
 { default defines }
   def_system_macro(target_info.shortname);
@@ -2966,6 +2968,16 @@ begin
   { See comment above for mipsel }
   def_system_macro('FPC_LOCALS_ARE_STACK_REG_RELATIVE');
 {$endif}
+
+  { Set up a default prefix for binutils when cross-compiling }
+  if source_info.system<>target_info.system then
+    case target_info.system of
+      { Use standard Android NDK prefixes }
+      system_arm_android:
+        utilsprefix:='arm-linux-androideabi-';
+      system_i386_android:
+        utilsprefix:='i686-linux-android-';
+    end;
 
   { read configuration file }
   if (not disable_configfile) and
@@ -3215,16 +3227,26 @@ begin
 {$endif arm}
 
 {$ifdef arm}
-{ set default cpu type to ARMv6 for Darwin unless specified otherwise, and fpu
-  to VFPv2 }
-if (target_info.system=system_arm_darwin) then
-  begin
-    if not option.CPUSetExplicitly then
-      init_settings.cputype:=cpu_armv6;
-    if not option.OptCPUSetExplicitly then
-      init_settings.optimizecputype:=cpu_armv6;
-    if not option.FPUSetExplicitly then
-      init_settings.fputype:=fpu_vfpv2;
+  case target_info.system of
+    system_arm_darwin:
+      begin
+        { set default cpu type to ARMv6 for Darwin unless specified otherwise, and fpu
+          to VFPv2 }
+        if not option.CPUSetExplicitly then
+          init_settings.cputype:=cpu_armv6;
+        if not option.OptCPUSetExplicitly then
+          init_settings.optimizecputype:=cpu_armv6;
+        if not option.FPUSetExplicitly then
+          init_settings.fputype:=fpu_vfpv2;
+      end;
+    system_arm_android:
+      begin
+        { set default cpu type to ARMv5T for Android unless specified otherwise }
+        if not option.CPUSetExplicitly then
+          init_settings.cputype:=cpu_armv5t;
+        if not option.OptCPUSetExplicitly then
+          init_settings.optimizecputype:=cpu_armv5t;
+      end;
   end;
 
 { set default cpu type to ARMv7a for ARMHF unless specified otherwise }
@@ -3246,6 +3268,16 @@ if (target_info.abi = abi_eabihf) then
       init_settings.optimizecputype:=cpu_armv7a;
 {$endif CPUARMV6}
   end;
+
+  if init_settings.cputype in cpu_thumb then
+    begin
+      def_system_macro('CPUTHUMB');
+      if not option.FPUSetExplicitly then
+        init_settings.fputype:=fpu_soft;
+    end;
+
+  if init_settings.cputype in cpu_thumb2 then
+    def_system_macro('CPUTHUMB2');
 {$endif arm}
 
 {$ifdef jvm}
@@ -3302,10 +3334,10 @@ if (target_info.abi = abi_eabihf) then
       def_system_macro('FPC_USE_TLS_DIRECTORY');
 {$endif not DISABLE_TLS_DIRECTORY}
 
-{$ifdef TEST_WIN64_SEH}
+{$ifndef DISABLE_WIN64_SEH}
     if target_info.system=system_x86_64_win64 then
       def_system_macro('FPC_USE_WIN64_SEH');
-{$endif TEST_WIN64_SEH}
+{$endif DISABLE_WIN64_SEH}
 
 {$ifdef ARM}
   { define FPC_DOUBLE_HILO_SWAPPED if needed to properly handle doubles in RTL }

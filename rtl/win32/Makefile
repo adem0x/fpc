@@ -307,196 +307,196 @@ OBJPASDIR=$(RTL)/objpas
 include $(WININC)/makefile.inc
 WINDOWS_SOURCE_FILES=$(addprefix $(WININC)/,$(addsuffix .inc,$(WINDOWS_FILES)))
 ifeq ($(FULL_TARGET),i386-linux)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-go32v2)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-win32)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-os2)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-freebsd)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-beos)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-haiku)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-netbsd)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-solaris)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-qnx)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-netware)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-openbsd)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-wdosx)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-darwin)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-emx)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-watcom)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-netwlibc)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-wince)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-embedded)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-symbian)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-nativent)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-iphonesim)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),m68k-linux)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),m68k-freebsd)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),m68k-netbsd)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),m68k-amiga)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),m68k-atari)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),m68k-openbsd)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),m68k-palmos)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),m68k-embedded)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),powerpc-linux)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),powerpc-netbsd)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),powerpc-amiga)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),powerpc-macos)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),powerpc-darwin)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),powerpc-morphos)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),powerpc-embedded)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),powerpc-wii)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),sparc-linux)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),sparc-netbsd)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),sparc-solaris)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),sparc-embedded)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),x86_64-linux)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),x86_64-freebsd)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),x86_64-solaris)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),x86_64-darwin)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),x86_64-win64)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),x86_64-embedded)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),arm-linux)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),arm-palmos)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),arm-darwin)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),arm-wince)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),arm-gba)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),arm-nds)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),arm-embedded)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),arm-symbian)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),powerpc64-linux)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),powerpc64-darwin)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),powerpc64-embedded)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),avr-embedded)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),avr32-embedded)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),armeb-linux)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),armeb-embedded)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),mipsel-linux)
-override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl lineinfo lnfodwrf
+override TARGET_UNITS+=system uuchar objpas macpas iso7185 buildrtl buildcollations lineinfo lnfodwrf
 endif
 ifeq ($(FULL_TARGET),i386-linux)
 override TARGET_IMPLICITUNITS+=sysinitpas sysinitcyg sysinitgprof ctypes strings heaptrc matrix windows winsock winsock2 initc cmem dynlibs signals dos crt objects messages rtlconsts sysconst sysutils math types strutils dateutils varutils variants typinfo fgl classes convutils stdconvs cpu mmx charset character ucomplex getopts winevent sockets printer video mouse keyboard fmtbcd winsysut sharemem exeinfo fpintres windirs
@@ -2644,6 +2644,8 @@ lnfodwrf$(PPUEXT) : $(INC)/lnfodwrf.pp $(SYSTEMUNIT)$(PPUEXT)
 	$(COMPILER) $(INC)/lnfodwrf.pp
 buildrtl$(PPUEXT): buildrtl.pp system$(PPUEXT) objpas$(PPUEXT)
 	$(COMPILER) -Fi$(OBJPASDIR)/sysutils -Fi$(OBJPASDIR)/classes -Fu$(PROCINC) -I$(OBJPASDIR) -I$(WININC) -Fu$(WININC) -Fu$(WINDIR) -I$(INC) -Fu$(INC) -Fu$(OBJPASDIR) buildrtl
+buildcollations$(PPUEXT): $(OBJPASDIR)/collations/buildcollations.pas system$(PPUEXT) objpas$(PPUEXT)
+	$(COMPILER) -Fu$(OBJPASDIR) -Fi$(OBJPASDIR)/collations -I$(OBJPASDIR)/collations $(OBJPASDIR)/collations/buildcollations.pas
 softfpu$(PPUEXT) : ../inc/softfpu.pp system$(PPUEXT)
 	$(COMPILER) ../inc/softfpu.pp
 sfpu128$(PPUEXT) : ../inc/sfpu128.pp system$(PPUEXT)

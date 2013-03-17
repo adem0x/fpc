@@ -44,7 +44,6 @@
   {$goto+}
 {$endif CPUAVR}
 
-
 {$ifdef CPUAVR32}
   {$goto+}
 {$endif CPUAVR32}

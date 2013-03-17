@@ -261,6 +261,7 @@ interface
     { To be called when the language mode is finally determined }
     Function SetCompileMode(const s:string; changeInit: boolean):boolean;
     Function SetCompileModeSwitch(s:string; changeInit: boolean):boolean;
+    procedure SetAppType(NewAppType:tapptype);
 
 
 implementation
@@ -345,12 +346,15 @@ implementation
                 include(current_settings.localswitches,cs_refcountedstrings);
                 if changeinit then
                   include(init_settings.localswitches,cs_refcountedstrings);
+                if m_default_unicodestring in current_settings.modeswitches then
+                  def_system_macro('FPC_UNICODESTRINGS');
               end
             else
               begin
                 exclude(current_settings.localswitches,cs_refcountedstrings);
                 if changeinit then
                   exclude(init_settings.localswitches,cs_refcountedstrings);
+                undef_system_macro('FPC_UNICODESTRINGS');
               end;
           end;
 
@@ -621,6 +625,14 @@ implementation
             end;
       end;
 
+    procedure SetAppType(NewAppType:tapptype);
+      begin
+        if apptype=app_cui then
+          undef_system_macro('CONSOLE');
+        apptype:=NewAppType;
+        if apptype=app_cui then
+          def_system_macro('CONSOLE');
+      end;
 {*****************************************************************************
                            Conditional Directives
 *****************************************************************************}
@@ -922,7 +934,7 @@ In case not, the value returned can be arbitrary.
 
         function read_factor(var factorType: TCTETypeSet; eval : Boolean) : string;
         var
-           hs : string;
+           hs,countstr : string;
            mac: tmacro;
            srsym : tsym;
            srsymtable : TSymtable;
@@ -933,6 +945,7 @@ In case not, the value returned can be arbitrary.
            setElemType : TCTETypeSet;
 
         begin
+           read_factor:='';
            if current_scanner.preproc_token=_ID then
              begin
                 if current_scanner.preproc_pattern='DEFINED' then
@@ -1165,13 +1178,52 @@ In case not, the value returned can be arbitrary.
                     if current_scanner.preproc_token =_ID then
                       begin
                         hs := upper(current_scanner.preproc_pattern);
+                        preproc_consume(_ID);
+                        current_scanner.skipspace;
+                        if current_scanner.preproc_token in [_LT,_LSHARPBRACKET] then
+                          begin
+                            l:=1;
+                            preproc_consume(current_scanner.preproc_token);
+                            current_scanner.skipspace;
+                            while current_scanner.preproc_token=_COMMA do
+                              begin
+                                inc(l);
+                                preproc_consume(_COMMA);
+                                current_scanner.skipspace;
+                              end;
+                            if not (current_scanner.preproc_token in [_GT,_RSHARPBRACKET]) then
+                              Message(scan_e_error_in_preproc_expr)
+                            else
+                              preproc_consume(current_scanner.preproc_token);
+                            str(l,countstr);
+                            hs:=hs+'$'+countstr;
+                          end
+                        else
+                          { special case: <> }
+                          if current_scanner.preproc_token=_NE then
+                            begin
+                              hs:=hs+'$1';
+                              preproc_consume(_NE);
+                            end;
+                        current_scanner.skipspace;
                         if searchsym(hs,srsym,srsymtable) then
-                          hs := '1'
+                          begin
+                            { TSomeGeneric<...> also adds a TSomeGeneric symbol }
+                            if (sp_generic_dummy in srsym.symoptions) and
+                                (srsym.typ=typesym) and
+                                (
+                                  { mode delphi}
+                                  (ttypesym(srsym).typedef.typ in [undefineddef,errordef]) or
+                                  { non-delphi modes }
+                                  (df_generic in ttypesym(srsym).typedef.defoptions)
+                                ) then
+                              hs:='0'
+                            else
+                              hs:='1';
+                          end
                         else
                           hs := '0';
                         read_factor := hs;
-                        preproc_consume(_ID);
-                        current_scanner.skipspace;
                       end
                     else
                       Message(scan_e_error_in_preproc_expr);
@@ -4075,14 +4127,23 @@ In case not, the value returned can be arbitrary.
                              nexttoken:=_RECKKLAMMER;
                              goto exit_label;
                            end;
+                         '0'..'9' :
+                           begin
+                             { insert the number after the . }
+                             pattern:=pattern+'.';
+                             while c in ['0'..'9'] do
+                              begin
+                                pattern:=pattern+c;
+                                readchar;
+                              end;
+                           end;
+                         else
+                           begin
+                             token:=_INTCONST;
+                             nexttoken:=_POINT;
+                             goto exit_label;
+                           end;
                        end;
-                       { insert the number after the . }
-                       pattern:=pattern+'.';
-                       while c in ['0'..'9'] do
-                        begin
-                          pattern:=pattern+c;
-                          readchar;
-                        end;
                       end;
                   { E can also follow after a point is scanned }
                     if c in ['e','E'] then

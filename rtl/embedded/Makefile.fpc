@@ -54,13 +54,16 @@ CPU_SPECIFIC_COMMON_UNITS=
 ifeq ($(ARCH),arm)
 CPU_SPECIFIC_COMMON_UNITS=sysutils sysconst
 ifeq ($(SUBARCH),armv7m)
-CPU_UNITS=lm3fury lm3tempest stm32f10x_ld stm32f10x_md stm32f10x_hd stm32f10x_xl stm32f10x_conn lpc1768 # thumb2_bare
+CPU_UNITS=lm3fury lm3tempest stm32f10x_ld stm32f10x_md stm32f10x_hd stm32f10x_xl stm32f10x_conn lpc1343 lpc1768 # thumb2_bare
 endif
 ifeq ($(SUBARCH),armv4t)
 CPU_UNITS=lpc21x4 at91sam7x256 sc32442b
 endif
 ifeq ($(SUBARCH),armv4)
 CPU_UNITS=lpc21x4 at91sam7x256 sc32442b
+endif
+ifeq ($(SUBARCH),armv6m)
+CPU_UNITS=
 endif
 endif
 
@@ -72,7 +75,6 @@ ifeq ($(ARCH),avr32)
 CPU_UNITS=at32uc3b0256es at32uc3b1256 at32uc3c1512c at32uc3l032 at32uc3l132 at32uc3l232 at32uc3l332    \
           at32uc3b0256 at32uc3c0512c at32uc3c1512crevc at32uc3l064 at32uc3l164 at32uc3l264 at32uc3l364 \
           at32uc3b1256es at32uc3c0512crevc at32uc3l016 at32uc3l116 at32uc3l216 at32uc3l316
-
 endif
 
 ifeq ($(ARCH),i386)
@@ -222,4 +224,3 @@ $(foreach unit,$(CPU_UNITS),$(eval $(call CPU_UNITS_RULE,$(unit))))
 
 $(addsuffix $(PPUEXT),$(CPU_UNITS)):
 	$(COMPILER) $<
-

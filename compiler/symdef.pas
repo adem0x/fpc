@@ -95,6 +95,8 @@ interface
             generic declaration or just a normal type declared inside another
             generic }
           function is_generic:boolean;inline;
+          { same as above for specializations }
+          function is_specialization:boolean;inline;
        private
           savesize  : asizeuint;
        end;
@@ -1246,10 +1248,10 @@ implementation
             if not (st.symlist[i] is ttypesym) then
               continue;
             def:=ttypesym(st.SymList[i]).typedef;
-            if is_objectpascal_helper(def) and
-                (tobjectdef(def).extendeddef.typ in [recorddef,objectdef]) then
+            if is_objectpascal_helper(def) then
               begin
-                s:=make_mangledname('',tabstractrecorddef(tobjectdef(def).extendeddef).symtable,'');
+                s:=generate_objectpascal_helper_key(tobjectdef(def).extendeddef);
+                Message1(sym_d_adding_helper_for,s);
                 list:=TFPObjectList(current_module.extendeddefs.Find(s));
                 if not assigned(list) then
                   begin
@@ -1614,8 +1616,10 @@ implementation
               recsize:=size;
               is_intregable:=
                 ispowerof2(recsize,temp) and
-                (recsize <= sizeof(asizeint)*2)
-                and not trecorddef(self).contains_float_field
+                { sizeof(asizeint)*2 records in int registers is currently broken for endian_big targets }
+                (((recsize <= sizeof(asizeint)*2) and (target_info.endian=endian_little)
+                  and not trecorddef(self).contains_float_field) or
+                  (recsize <= sizeof(asizeint)))
                 and not needs_inittable;
             end;
         end;
@@ -1639,9 +1643,16 @@ implementation
        generictokenbuf:=tdynamicarray.create(256);
      end;
 
+
    function tstoreddef.is_generic: boolean;
      begin
-       result:=genericparas.count>0;
+       result:=(genericparas.count>0) and (df_generic in defoptions);
+     end;
+
+
+   function tstoreddef.is_specialization: boolean;
+     begin
+       result:=(genericparas.count>0) and (df_specialization in defoptions);
      end;
 
 

@@ -1761,7 +1761,7 @@ implementation
                begin
                  if ((valid_const in opts) and
                      (tinlinenode(hp).inlinenumber in [in_typeof_x])) or
-                     (tinlinenode(hp).inlinenumber in [in_unaligned_x,in_aligned_x]) then
+                    (tinlinenode(hp).inlinenumber in [in_unaligned_x,in_aligned_x]) then
                    result:=true
                  else
                    if report_errors then
@@ -2280,7 +2280,12 @@ implementation
                (FProcsymtable.symtabletype in [globalsymtable,staticsymtable]) and
                (srsymtable.moduleid<>FProcsymtable.moduleid) then
               break;
-            if srsymtable.symtabletype in [localsymtable,staticsymtable,globalsymtable] then
+            if (srsymtable.symtabletype in [localsymtable,staticsymtable,globalsymtable]) and
+                (
+                  (FOperator=NOTOKEN) or
+                  (sto_has_operator in srsymtable.tableoptions)
+                )
+               then
               begin
                 srsym:=tsym(srsymtable.FindWithHash(hashedid));
                 if assigned(srsym) and
@@ -2343,7 +2348,8 @@ implementation
             pt:=tcallparanode(FParaNode);
             while assigned(pt) do
               begin
-                if (pt.resultdef.typ=recorddef) then
+                if (pt.resultdef.typ=recorddef) and
+                    (sto_has_operator in tabstractrecorddef(pt.resultdef).owner.tableoptions) then
                   collect_overloads_in_struct(tabstractrecorddef(pt.resultdef),ProcdefOverloadList,searchhelpers,anoninherited);
                 pt:=tcallparanode(pt.right);
               end;

@@ -1598,14 +1598,14 @@ type
     function GetCurrentRecord(Buffer: TRecordBuffer): Boolean; virtual;
     procedure GetFieldList(List: TList; const FieldNames: string);
     procedure GetFieldNames(List: TStrings);
-    procedure GotoBookmark(ABookmark: TBookmark);
+    procedure GotoBookmark(const ABookmark: TBookmark);
     procedure Insert;
     procedure InsertRecord(const Values: array of const);
     function IsEmpty: Boolean;
     function IsLinkedTo(ADataSource: TDataSource): Boolean;
     function IsSequenced: Boolean; virtual;
     procedure Last;
-    function Locate(const keyfields: string; const keyvalues: Variant; options: TLocateOptions) : boolean; virtual;
+    function Locate(const KeyFields: string; const KeyValues: Variant; Options: TLocateOptions) : boolean; virtual;
     function Lookup(const KeyFields: string; const KeyValues: Variant; const ResultFields: string): Variant; virtual;
     function MoveBy(Distance: Longint): Longint;
     procedure Next;
@@ -1882,6 +1882,7 @@ type
     FAfterDisconnect: TNotifyEvent;
     FBeforeConnect: TNotifyEvent;
     FBeforeDisconnect: TNotifyEvent;
+    FForcedClose: Boolean;
     FLoginPrompt: Boolean;
     FOnLogin: TLoginEvent;
     FStreamedConnected: Boolean;
@@ -1898,9 +1899,10 @@ type
     procedure InternalHandleException; virtual;
     procedure Loaded; override;
     procedure SetConnected (Value : boolean); virtual;
+    property ForcedClose : Boolean read FForcedClose write FForcedClose;
     property Streamedconnected: Boolean read FStreamedConnected write FStreamedConnected;
   public
-    procedure Close;
+    procedure Close(ForceClose: Boolean=False);
     destructor Destroy; override;
     procedure Open;
     property DataSetCount: Longint read GetDataSetCount;

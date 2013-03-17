@@ -349,19 +349,19 @@ function CheckSynchronize(timeout : longint=0) : boolean;
                   the GUI thread and thus will be executed immediatly instead of
                   queuing them }
           while Assigned(ThreadQueueHead) do begin
-            { step 1: execute the method }
-            exceptobj := Nil;
-            try
-              ExecuteThreadQueueEntry(ThreadQueueHead);
-            except
-              exceptobj := Exception(AcquireExceptionObject);
-            end;
-
-            { step 2: update the list }
+            { step 1: update the list }
             tmpentry := ThreadQueueHead;
             ThreadQueueHead := ThreadQueueHead^.Next;
             if not Assigned(ThreadQueueHead) then
               ThreadQueueTail := Nil;
+
+            { step 2: execute the method }
+            exceptobj := Nil;
+            try
+              ExecuteThreadQueueEntry(tmpentry);
+            except
+              exceptobj := Exception(AcquireExceptionObject);
+            end;
 
             { step 3: error handling and cleanup }
             if Assigned(tmpentry^.SyncEvent) then begin
@@ -387,10 +387,11 @@ class function TThread.GetCurrentThread: TThread;
 begin
   { if this is the first time GetCurrentThread is called for an external thread
     we need to create a corresponding TExternalThread instance }
-  if not Assigned(CurrentThreadVar) then
-    CurrentThreadVar := TExternalThread.Create;
-
   Result := CurrentThreadVar;
+  if not Assigned(Result) then begin
+    Result := TExternalThread.Create;
+    CurrentThreadVar := Result;
+  end;
 end;
 
 

@@ -63,6 +63,7 @@ unit cgcpu;
         procedure a_loadfpu_reg_reg(list: TAsmList; fromsize, tosize: tcgsize; reg1, reg2: tregister); override;
         procedure a_loadfpu_ref_reg(list: TAsmList; fromsize, tosize: tcgsize; const ref: treference; reg: tregister); override;
         procedure a_loadfpu_reg_ref(list: TAsmList; fromsize, tosize: tcgsize; reg: tregister; const ref: treference); override;
+        procedure a_loadfpu_ref_cgpara(list : TAsmList; size : tcgsize;const ref : treference;const cgpara : TCGPara);override;
 
         procedure a_loadmm_reg_reg(list: TAsmList;fromsize,tosize : tcgsize; reg1, reg2: tregister;shuffle : pmmshuffle); override;
         procedure a_loadmm_ref_reg(list: TAsmList;fromsize,tosize : tcgsize; const ref: treference; reg: tregister;shuffle : pmmshuffle); override;
@@ -140,7 +141,7 @@ unit cgcpu;
 
     uses
        globals,verbose,systems,cutils,
-       symsym,defutil,paramgr,procinfo,
+       symsym,symtable,defutil,paramgr,procinfo,
        rgobj,tgobj,rgcpu,fmodule;
 
 
@@ -416,7 +417,6 @@ unit cgcpu;
       end;
 
 
-
     function tcg68k.fixref(list: TAsmList; var ref: treference): boolean;
        var
          hreg,idxreg : tregister;
@@ -610,13 +610,15 @@ unit cgcpu;
     procedure tcg68k.call_rtl_mul_const_reg(list:tasmlist;size:tcgsize;a:tcgint;reg:tregister;const name:string);
       var
         paraloc1,paraloc2,paraloc3 : tcgpara;
+        pd : tprocdef;
       begin
+        pd:=search_system_proc(name);
         paraloc1.init;
         paraloc2.init;
         paraloc3.init;
-        paramanager.getintparaloc(pocall_default,1,u32inttype,paraloc1);
-        paramanager.getintparaloc(pocall_default,2,u32inttype,paraloc2);
-        paramanager.getintparaloc(pocall_default,3,pasbool8type,paraloc3);
+        paramanager.getintparaloc(pd,1,paraloc1);
+        paramanager.getintparaloc(pd,2,paraloc2);
+        paramanager.getintparaloc(pd,3,paraloc3);
         a_load_const_cgpara(list,OS_8,0,paraloc3);
         a_load_const_cgpara(list,size,a,paraloc2);
         a_load_reg_cgpara(list,OS_32,reg,paraloc1);
@@ -637,13 +639,15 @@ unit cgcpu;
     procedure tcg68k.call_rtl_mul_reg_reg(list:tasmlist;reg1,reg2:tregister;const name:string);
       var
         paraloc1,paraloc2,paraloc3 : tcgpara;
+        pd : tprocdef;
       begin
+       pd:=search_system_proc(name);
         paraloc1.init;
         paraloc2.init;
         paraloc3.init;
-        paramanager.getintparaloc(pocall_default,1,u32inttype,paraloc1);
-        paramanager.getintparaloc(pocall_default,2,u32inttype,paraloc2);
-        paramanager.getintparaloc(pocall_default,3,pasbool8type,paraloc3);
+        paramanager.getintparaloc(pd,1,paraloc1);
+        paramanager.getintparaloc(pd,2,paraloc2);
+        paramanager.getintparaloc(pd,3,paraloc3);
         a_load_const_cgpara(list,OS_8,0,paraloc3);
         a_load_reg_cgpara(list,OS_32,reg1,paraloc2);
         a_load_reg_cgpara(list,OS_32,reg2,paraloc1);
@@ -935,6 +939,26 @@ unit cgcpu;
       end;
 
 
+    procedure tcg68k.a_loadfpu_ref_cgpara(list : TAsmList; size : tcgsize;const ref : treference;const cgpara : TCGPara);
+      begin
+        case cgpara.location^.loc of
+          LOC_REFERENCE,LOC_CREFERENCE:
+            begin
+              case size of
+                OS_F64:
+                  cg64.a_load64_ref_cgpara(list,ref,cgpara);
+                OS_F32:
+                  a_load_ref_cgpara(list,size,ref,cgpara);
+                else
+                  internalerror(2013021201);
+              end;
+            end;
+          else
+            inherited a_loadfpu_ref_cgpara(list,size,ref,cgpara);
+        end;
+      end;
+
+
     procedure tcg68k.a_loadmm_reg_reg(list: TAsmList;fromsize,tosize : tcgsize; reg1, reg2: tregister;shuffle : pmmshuffle);
       begin
         internalerror(20020729);
@@ -1019,7 +1043,7 @@ unit cgcpu;
           OP_IMUL :
               begin
                 if current_settings.cputype<>cpu_MC68020 then
-                  call_rtl_mul_const_reg(list,size,a,reg,'FPC_MUL_LONGINT')
+                  call_rtl_mul_const_reg(list,size,a,reg,'fpc_mul_longint')
                   else
                     begin
                       if (isaddressregister(reg)) then
@@ -1040,7 +1064,7 @@ unit cgcpu;
           OP_MUL :
               begin
                  if current_settings.cputype<>cpu_MC68020 then
-                   call_rtl_mul_const_reg(list,size,a,reg,'FPC_MUL_DWORD')
+                   call_rtl_mul_const_reg(list,size,a,reg,'fpc_mul_dword')
                   else
                     begin
                       if (isaddressregister(reg)) then
@@ -1234,7 +1258,7 @@ unit cgcpu;
                  sign_extend(list, size,reg1);
                  sign_extend(list, size,reg2);
                  if current_settings.cputype<>cpu_MC68020 then
-                   call_rtl_mul_reg_reg(list,reg1,reg2,'FPC_MUL_LONGINT')
+                   call_rtl_mul_reg_reg(list,reg1,reg2,'fpc_mul_longint')
                   else
                     begin
 //                     writeln('doing 68020');
@@ -1272,7 +1296,7 @@ unit cgcpu;
                  sign_extend(list, size,reg1);
                  sign_extend(list, size,reg2);
                  if current_settings.cputype <> cpu_MC68020 then
-                   call_rtl_mul_reg_reg(list,reg1,reg2,'FPC_MUL_DWORD')
+                   call_rtl_mul_reg_reg(list,reg1,reg2,'fpc_mul_dword')
                   else
                     begin
                      if (isaddressregister(reg1)) then
@@ -1445,51 +1469,22 @@ unit cgcpu;
        begin
           { move to a Dx register? }
           if (isaddressregister(reg)) then
-            begin
-              hreg := getintregister(list,OS_INT);
-              a_load_const_reg(list,size,0,hreg);
-              ai:=Taicpu.Op_reg(A_Sxx,S_B,hreg);
-              ai.SetCondition(flags_to_cond(f));
-              list.concat(ai);
-
-              if (current_settings.cputype = cpu_ColdFire) then
-                begin
-                 { neg.b does not exist on the Coldfire
-                   so we need to sign extend the value
-                   before doing a neg.l
-                 }
-                 list.concat(taicpu.op_reg(A_EXTB,S_L,hreg));
-                 list.concat(taicpu.op_reg(A_NEG,S_L,hreg));
-                end
-              else
-                begin
-                  list.concat(taicpu.op_reg(A_NEG,S_B,hreg));
-                end;
-             instr:=taicpu.op_reg_reg(A_MOVE,S_L,hreg,reg);
-             add_move_instruction(instr);
-             list.concat(instr);
-            end
+            hreg:=getintregister(list,OS_INT)
           else
-          begin
-            a_load_const_reg(list,size,0,reg);
-            ai:=Taicpu.Op_reg(A_Sxx,S_B,reg);
-            ai.SetCondition(flags_to_cond(f));
-            list.concat(ai);
+            hreg:=reg;
 
-            if (current_settings.cputype = cpu_ColdFire) then
-              begin
-                 { neg.b does not exist on the Coldfire
-                   so we need to sign extend the value
-                   before doing a neg.l
-                 }
-                 list.concat(taicpu.op_reg(A_EXTB,S_L,reg));
-                 list.concat(taicpu.op_reg(A_NEG,S_L,reg));
-              end
-            else
-              begin
-               list.concat(taicpu.op_reg(A_NEG,S_B,reg));
-              end;
-          end;
+          ai:=Taicpu.Op_reg(A_Sxx,S_B,hreg);
+          ai.SetCondition(flags_to_cond(f));
+          list.concat(ai);
+
+          list.concat(taicpu.op_reg(A_EXTB,S_L,hreg));
+
+          if hreg<>reg then
+            begin
+              instr:=taicpu.op_reg_reg(A_MOVE,S_L,hreg,reg);
+              add_move_instruction(instr);
+              list.concat(instr);
+            end;
        end;
 
 
@@ -1631,7 +1626,7 @@ unit cgcpu;
                      begin
                        { Coldfire does not support DBRA }
                        list.concat(taicpu.op_const_reg(A_SUB,S_L,1,hregister));
-                       list.concat(taicpu.op_sym(A_BMI,S_L,hl));
+                       list.concat(taicpu.op_sym(A_BPL,S_L,hl));
                      end
                    else
                      list.concat(taicpu.op_reg_sym(A_DBRA,S_L,hregister,hl));
@@ -1785,7 +1780,7 @@ unit cgcpu;
          if current_procinfo.procdef.proccalloption in clearstack_pocalls then
            begin
              { complex return values are removed from stack in C code PM }
-             if paramanager.ret_in_param(current_procinfo.procdef.returndef,current_procinfo.procdef.proccalloption) then
+             if paramanager.ret_in_param(current_procinfo.procdef.returndef,current_procinfo.procdef) then
                list.concat(taicpu.op_const(A_RTD,S_NO,4))
              else
                list.concat(taicpu.op_none(A_RTS,S_NO));

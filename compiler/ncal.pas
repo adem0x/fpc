@@ -23,6 +23,8 @@ unit ncal;
 
 {$i fpcdefs.inc}
 
+{ $define DEBUGINLINE}
+
 interface
 
     uses
@@ -690,7 +692,9 @@ implementation
         if assigned(parasym) and
            (target_info.system in systems_managed_vm) and
            (parasym.varspez in [vs_var,vs_out,vs_constref]) and
-           (parasym.vardef.typ<>formaldef) then
+           (parasym.vardef.typ<>formaldef) and
+           { for record constructors }
+           (left.nodetype<>nothingn) then
           handlemanagedbyrefpara(left.resultdef);
 
         if assigned(fparainit) then
@@ -1145,8 +1149,8 @@ implementation
         pd:=tprocdef(symtableprocentry.ProcdefList[0]);
         { both the normal and specified resultdef either have to be returned via a }
         { parameter or not, but no mixing (JM)                                      }
-        if paramanager.ret_in_param(typedef,pd.proccalloption) xor
-          paramanager.ret_in_param(pd.returndef,pd.proccalloption) then
+        if paramanager.ret_in_param(typedef,pd) xor
+          paramanager.ret_in_param(pd.returndef,pd) then
           internalerror(2001082911);
       end;
 
@@ -1161,8 +1165,8 @@ implementation
         pd:=tprocdef(symtableprocentry.ProcdefList[0]);
         { both the normal and specified resultdef either have to be returned via a }
         { parameter or not, but no mixing (JM)                                      }
-        if paramanager.ret_in_param(typedef,pd.proccalloption) xor
-          paramanager.ret_in_param(pd.returndef,pd.proccalloption) then
+        if paramanager.ret_in_param(typedef,pd) xor
+          paramanager.ret_in_param(pd.returndef,pd) then
           internalerror(200108291);
       end;
 
@@ -1735,6 +1739,7 @@ implementation
       var
         selftree : tnode;
         selfdef  : tdef;
+        temp     : ttempcreatenode;
       begin
         selftree:=nil;
 
@@ -1775,7 +1780,26 @@ implementation
               else
                 begin
                   if methodpointer.nodetype=typen then
-                    selftree:=load_self_node
+                    if (methodpointer.resultdef.typ<>objectdef) then
+                      begin
+                        if not(target_info.system in systems_jvm) then
+                          begin
+                            { TSomeRecord.Constructor call. We need to allocate }
+                            { self node as a temp node of the result type       }
+                            temp:=ctempcreatenode.create(methodpointer.resultdef,methodpointer.resultdef.size,tt_persistent,false);
+                            add_init_statement(temp);
+                            add_done_statement(ctempdeletenode.create_normal_temp(temp));
+                            selftree:=ctemprefnode.create(temp);
+                          end
+                        else
+                          begin
+                            { special handling for Java constructors, handled in
+                              tjvmcallnode.extra_pre_call_code }
+                            selftree:=cnothingnode.create
+                          end;
+                      end
+                    else
+                      selftree:=load_self_node
                   else
                     selftree:=methodpointer.getcopy;
                 end;
@@ -1990,7 +2014,7 @@ implementation
         { A) set the appropriate objc_msgSend* variant to call }
 
         { record returned via implicit pointer }
-        if paramanager.ret_in_param(resultdef,procdefinition.proccalloption) then
+        if paramanager.ret_in_param(resultdef,procdefinition) then
           begin
             if not(cnf_inherited in callnodeflags) then
               msgsendname:='OBJC_MSGSEND_STRET'
@@ -2287,9 +2311,13 @@ implementation
 
         { when it is not passed in a parameter it will only be used after the
           function call }
-        if not paramanager.ret_in_param(resultdef,procdefinition.proccalloption) then
+        if not paramanager.ret_in_param(resultdef,procdefinition) then
           begin
-            result:=true;
+            { don't replace the function result if we are inlining and if the destination is complex, this
+              could lead to lengthy code in case the function result is used often and it is assigned e.g.
+              to a threadvar }
+            result:=not(cnf_do_inline in callnodeflags) or
+              (node_complexity(aktassignmentnode.left)<=1);
             exit;
           end;
 
@@ -2354,6 +2382,8 @@ implementation
       var
         temp : ttempcreatenode;
       begin
+        if procdefinition.proctypeoption=potype_constructor then
+          exit;
         { For the function result we need to create a temp node for:
             - Inlined functions
             - Types requiring initialization/finalization
@@ -2363,7 +2393,7 @@ implementation
             (
              (cnf_do_inline in callnodeflags) or
              is_managed_type(resultdef) or
-             paramanager.ret_in_param(resultdef,procdefinition.proccalloption)
+             paramanager.ret_in_param(resultdef,procdefinition)
             ) then
           begin
             { Optimize calls like x:=f() where we can use x directly as
@@ -2395,8 +2425,8 @@ implementation
                 { if a managed type is returned by reference, assigning something
                   to the result on the caller side will take care of decreasing
                   the reference count }
-                if paramanager.ret_in_param(resultdef,procdefinition.proccalloption) then
-                  include(ttempcreatenode(temp).tempinfo^.flags,ti_nofini);
+                if paramanager.ret_in_param(resultdef,procdefinition) then
+                  include(temp.tempinfo^.flags,ti_nofini);
                 add_init_statement(temp);
                 { When the function result is not used in an inlined function
                   we need to delete the temp. This can currently only be done by
@@ -3431,7 +3461,7 @@ implementation
            Message(parser_e_no_category_as_types);
 
          { can we get rid of the call? }
-         if (cs_opt_level2 in current_settings.optimizerswitches) and
+         if (cs_opt_remove_emtpy_proc in current_settings.optimizerswitches) and
             not(cnf_return_value_used in callnodeflags) and
            (procdefinition.typ=procdef) and
            tprocdef(procdefinition).isempty and
@@ -3583,7 +3613,7 @@ implementation
          { get a register for the return value }
          if (not is_void(resultdef)) then
            begin
-              if paramanager.ret_in_param(resultdef,procdefinition.proccalloption) then
+              if paramanager.ret_in_param(resultdef,procdefinition) then
                begin
                  expectloc:=LOC_REFERENCE;
                end

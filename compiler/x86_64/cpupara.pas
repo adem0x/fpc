@@ -40,8 +40,8 @@ unit cpupara;
        public
           function param_use_paraloc(const cgpara:tcgpara):boolean;override;
           function push_addr_param(varspez:tvarspez;def : tdef;calloption : tproccalloption) : boolean;override;
-          function ret_in_param(def : tdef;calloption : tproccalloption) : boolean;override;
-          procedure getintparaloc(calloption : tproccalloption; nr : longint; def : tdef; var cgpara : tcgpara);override;
+          function ret_in_param(def:tdef;pd:tabstractprocdef):boolean;override;
+          procedure getintparaloc(pd : tabstractprocdef; nr : longint; var cgpara : tcgpara);override;
           function get_volatile_registers_int(calloption : tproccalloption):tcpuregisterset;override;
           function get_volatile_registers_mm(calloption : tproccalloption):tcpuregisterset;override;
           function get_volatile_registers_fpu(calloption : tproccalloption):tcpuregisterset;override;
@@ -618,17 +618,13 @@ unit cpupara;
       end;
 
 
-    function tx86_64paramanager.ret_in_param(def : tdef;calloption : tproccalloption) : boolean;
+    function tx86_64paramanager.ret_in_param(def:tdef;pd:tabstractprocdef):boolean;
       var
         classes: tx64paraclasses;
         numclasses: longint;
       begin
-        if (tf_safecall_exceptions in target_info.flags) and
-            (calloption=pocall_safecall) then
-          begin
-          result := true;
+        if handle_common_ret_in_param(def,pd,result) then
           exit;
-          end;
         case def.typ of
           { for records it depends on their contents and size }
           recorddef,
@@ -639,7 +635,7 @@ unit cpupara;
               result:=(numclasses=0);
             end;
           else
-            result:=inherited ret_in_param(def,calloption);
+            result:=inherited ret_in_param(def,pd);
         end;
       end;
 
@@ -767,14 +763,16 @@ unit cpupara;
       end;
 
 
-    procedure tx86_64paramanager.getintparaloc(calloption : tproccalloption; nr : longint; def : tdef; var cgpara : tcgpara);
+    procedure tx86_64paramanager.getintparaloc(pd : tabstractprocdef; nr : longint; var cgpara : tcgpara);
       var
         paraloc : pcgparalocation;
+        def : tdef;
       begin
+        def:=tparavarsym(pd.paras[nr-1]).vardef;
         cgpara.reset;
         cgpara.size:=def_cgsize(def);
         cgpara.intsize:=tcgsize2size[cgpara.size];
-        cgpara.alignment:=get_para_align(calloption);
+        cgpara.alignment:=get_para_align(pd.proccalloption);
         cgpara.def:=def;
         paraloc:=cgpara.add_location;
         with paraloc^ do
@@ -927,7 +925,7 @@ unit cpupara;
                           end;
                         else
                           begin
-                            setsubreg(paraloc^.register,R_SUBMMWHOLE);
+                            setsubreg(paraloc^.register,R_SUBQ);
                             paraloc^.size:=OS_M64;
                           end;
                       end;
@@ -1123,7 +1121,7 @@ unit cpupara;
                               end;
                             else
                               begin
-                                subreg:=R_SUBMMWHOLE;
+                                subreg:=R_SUBQ;
                                 paraloc^.size:=OS_M64;
                               end;
                           end;

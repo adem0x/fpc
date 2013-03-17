@@ -34,7 +34,7 @@ unit cpupara;
     type
        ti386paramanager = class(tparamanager)
           function param_use_paraloc(const cgpara:tcgpara):boolean;override;
-          function ret_in_param(def : tdef;calloption : tproccalloption) : boolean;override;
+          function ret_in_param(def:tdef;pd:tabstractprocdef):boolean;override;
           function push_addr_param(varspez:tvarspez;def : tdef;calloption : tproccalloption) : boolean;override;
           function get_para_align(calloption : tproccalloption):byte;override;
           function get_volatile_registers_int(calloption : tproccalloption):tcpuregisterset;override;
@@ -45,7 +45,7 @@ unit cpupara;
             and if the calling conventions for the helper routines of the
             rtl are used.
           }
-          procedure getintparaloc(calloption : tproccalloption; nr : longint; def : tdef; var cgpara : tcgpara);override;
+          procedure getintparaloc(pd : tabstractprocdef; nr : longint; var cgpara : tcgpara);override;
           function create_paraloc_info(p : tabstractprocdef; side: tcallercallee):longint;override;
           function create_varargs_paraloc_info(p : tabstractprocdef; varargspara:tvarargsparalist):longint;override;
           procedure createtempparaloc(list: TAsmList;calloption : tproccalloption;parasym : tparavarsym;can_use_final_stack_loc : boolean;var cgpara:TCGPara);override;
@@ -92,16 +92,12 @@ unit cpupara;
       end;
 
 
-    function ti386paramanager.ret_in_param(def : tdef;calloption : tproccalloption) : boolean;
+    function ti386paramanager.ret_in_param(def:tdef;pd:tabstractprocdef):boolean;
       var
         size: longint;
       begin
-        if (tf_safecall_exceptions in target_info.flags) and
-           (calloption=pocall_safecall) then
-          begin
-            result:=true;
-            exit;
-          end;
+        if handle_common_ret_in_param(def,pd,result) then
+          exit;
         case target_info.system of
           system_i386_win32 :
             begin
@@ -112,9 +108,9 @@ unit cpupara;
 
                       For stdcall and register we follow delphi instead of GCC which returns
                       only records of a size of 1,2 or 4 bytes in FUNCTION_RETURN_REG }
-                    if ((calloption in [pocall_stdcall,pocall_register]) and
+                    if ((pd.proccalloption in [pocall_stdcall,pocall_register]) and
                         (def.size in [1,2,4])) or
-                       ((calloption in [pocall_cdecl,pocall_cppdecl]) and
+                       ((pd.proccalloption in [pocall_cdecl,pocall_cppdecl]) and
                         (def.size>0) and
                         (def.size<=8)) then
                      begin
@@ -129,7 +125,7 @@ unit cpupara;
           system_i386_darwin,
           system_i386_iphonesim :
             begin
-              if calloption in cdecl_pocalls then
+              if pd.proccalloption in cdecl_pocalls then
                 begin
                   case def.typ of
                     recorddef :
@@ -153,7 +149,7 @@ unit cpupara;
               end;
             end;
         end;
-        result:=inherited ret_in_param(def,calloption);
+        result:=inherited ret_in_param(def,pd);
       end;
 
 
@@ -278,20 +274,22 @@ unit cpupara;
       end;
 
 
-    procedure ti386paramanager.getintparaloc(calloption : tproccalloption; nr : longint; def : tdef; var cgpara : tcgpara);
+    procedure ti386paramanager.getintparaloc(pd : tabstractprocdef; nr : longint; var cgpara : tcgpara);
       var
         paraloc : pcgparalocation;
+        def : tdef;
       begin
+        def:=tparavarsym(pd.paras[nr-1]).vardef;
         cgpara.reset;
         cgpara.size:=def_cgsize(def);
         cgpara.intsize:=tcgsize2size[cgpara.size];
-        cgpara.alignment:=get_para_align(calloption);
+        cgpara.alignment:=get_para_align(pd.proccalloption);
         cgpara.def:=def;
         paraloc:=cgpara.add_location;
         with paraloc^ do
          begin
            size:=OS_INT;
-           if calloption=pocall_register then
+           if pd.proccalloption=pocall_register then
              begin
                if (nr<=length(parasupregs)) then
                  begin

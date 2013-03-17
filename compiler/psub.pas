@@ -474,13 +474,18 @@ implementation
                           ccallnode.createintern('fpc_help_constructor',para)));
                     end
                 else
-                  if is_javaclass(current_structdef) then
+                  if is_javaclass(current_structdef) or
+                     ((target_info.system in systems_jvm) and
+                      is_record(current_structdef)) then
                     begin
                       if (current_procinfo.procdef.proctypeoption=potype_constructor) and
                          not current_procinfo.ConstructorCallingConstructor then
                        begin
                          { call inherited constructor }
-                         srsym:=search_struct_member(tobjectdef(current_structdef).childof,'CREATE');
+                         if is_javaclass(current_structdef) then
+                           srsym:=search_struct_member_no_helper(tobjectdef(current_structdef).childof,'CREATE')
+                         else
+                           srsym:=search_struct_member_no_helper(java_fpcbaserecordtype,'CREATE');
                          if assigned(srsym) and
                             (srsym.typ=procsym) then
                            begin
@@ -493,13 +498,17 @@ implementation
                        end;
                     end
                 else
-                  if not is_record(current_structdef) then
-                  internalerror(200305103);
+                  if not is_record(current_structdef) and
+                     not (
+                            is_objectpascal_helper(current_structdef) and
+                            (tobjectdef(current_structdef).extendeddef.typ<>objectdef)
+                         ) then
+                    internalerror(200305103);
                 { if self=nil then exit
                   calling fail instead of exit is useless because
                   there is nothing to dispose (PFV) }
                 if is_class_or_object(current_structdef) then
-                addstatement(newstatement,cifnode.create(
+                  addstatement(newstatement,cifnode.create(
                     caddnode.create(equaln,
                         load_self_pointer_node,
                         cnilnode.create),
@@ -636,7 +645,7 @@ implementation
             { must be the return value finalized before reraising the exception? }
             if (not is_void(current_procinfo.procdef.returndef)) and
                is_managed_type(current_procinfo.procdef.returndef) and
-               (not paramanager.ret_in_param(current_procinfo.procdef.returndef, current_procinfo.procdef.proccalloption)) and
+               (not paramanager.ret_in_param(current_procinfo.procdef.returndef,current_procinfo.procdef)) and
                (not is_class(current_procinfo.procdef.returndef)) then
               addstatement(newstatement,cnodeutils.finalize_data_node(load_result_node));
           end;
@@ -963,9 +972,9 @@ implementation
             ((flags*([pi_has_assembler_block,pi_is_assembler,
                     pi_has_stackparameter,pi_needs_stackframe]+
                     exception_flags[(target_info.cpu=cpu_i386)
-{$ifdef TEST_WIN64_SEH}
+{$ifndef DISABLE_WIN64_SEH}
                     or (target_info.system=system_x86_64_win64)
-{$endif TEST_WIN64_SEH}
+{$endif DISABLE_WIN64_SEH}
                     ]))=[])
            )
         then
@@ -1193,6 +1202,7 @@ implementation
         { firstpass everything }
         flowcontrol:=[];
         do_firstpass(code);
+
 {$ifdef i386}
         procdef.fpu_used:=node_resources_fpu(code);
         if procdef.fpu_used>0 then
@@ -1258,7 +1268,8 @@ implementation
         if cs_opt_nodecse in current_settings.optimizerswitches then
           do_optcse(code);
 
-        if (procdef.proctypeoption in [potype_operator,potype_procedure,potype_function]) and
+        if (cs_opt_remove_emtpy_proc in current_settings.optimizerswitches) and
+          (procdef.proctypeoption in [potype_operator,potype_procedure,potype_function]) and
           (code.nodetype=blockn) and (tblocknode(code).statements=nil) then
           procdef.isempty:=true;
 

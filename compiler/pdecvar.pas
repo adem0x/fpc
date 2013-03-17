@@ -332,9 +332,6 @@ implementation
          hdef : tdef;
          arraytype : tdef;
          def : tdef;
-{$ifdef jvm}
-         orgaccesspd : tprocdef;
-{$endif}
          pt : tnode;
          sc : TFPObjectList;
          paranr : word;
@@ -346,6 +343,10 @@ implementation
          storedprocdef: tprocvardef;
          readprocdef,
          writeprocdef : tprocdef;
+ {$ifdef jvm}
+          orgaccesspd : tprocdef;
+          wrongvisibility : boolean;
+ {$endif}
       begin
          { Generate temp procdefs to search for matching read/write
            procedures. the readprocdef will store all definitions }
@@ -534,18 +535,20 @@ implementation
                             begin
 {$ifdef jvm}
                               orgaccesspd:=tprocdef(p.propaccesslist[palt_read].procdef);
+                              wrongvisibility:=tprocdef(p.propaccesslist[palt_read].procdef).visibility<p.visibility;
+                              if (prop_auto_getter_prefix<>'') and
+                                 (wrongvisibility or
+                                   (p.propaccesslist[palt_read].firstsym^.sym.RealName<>prop_auto_getter_prefix+p.RealName)) then
+                                jvm_create_getter_for_property(p,orgaccesspd)
                               { if the visibility of the getter is lower than
                                 the visibility of the property, wrap it so that
                                 we can call it from all contexts in which the
                                 property is visible }
-                              if (tprocdef(p.propaccesslist[palt_read].procdef).visibility<p.visibility) then
-                                begin
-                                  p.propaccesslist[palt_read].procdef:=jvm_wrap_method_with_vis(tprocdef(p.propaccesslist[palt_read].procdef),p.visibility);
-                                  p.propaccesslist[palt_read].firstsym^.sym:=tprocdef(p.propaccesslist[palt_read].procdef).procsym;
-                                end;
-                              if (prop_auto_getter_prefix<>'') and
-                                 (p.propaccesslist[palt_read].firstsym^.sym.RealName<>prop_auto_getter_prefix+p.RealName) then
-                                jvm_create_getter_for_property(p,orgaccesspd);
+                              else if wrongvisibility then
+                               begin
+                                 p.propaccesslist[palt_read].procdef:=jvm_wrap_method_with_vis(tprocdef(p.propaccesslist[palt_read].procdef),p.visibility);
+                                 p.propaccesslist[palt_read].firstsym^.sym:=tprocdef(p.propaccesslist[palt_read].procdef).procsym;
+                               end;
 {$endif jvm}
                             end;
                         end;
@@ -615,18 +618,20 @@ implementation
                             begin
 {$ifdef jvm}
                               orgaccesspd:=tprocdef(p.propaccesslist[palt_write].procdef);
+                              wrongvisibility:=tprocdef(p.propaccesslist[palt_write].procdef).visibility<p.visibility;
+                              if (prop_auto_setter_prefix<>'') and
+                                 ((sym.RealName<>prop_auto_setter_prefix+p.RealName) or
+                                  wrongvisibility) then
+                                jvm_create_setter_for_property(p,orgaccesspd)
                               { if the visibility of the setter is lower than
                                 the visibility of the property, wrap it so that
                                 we can call it from all contexts in which the
                                 property is visible }
-                              if (tprocdef(p.propaccesslist[palt_write].procdef).visibility<p.visibility) then
+                              else if wrongvisibility then
                                 begin
                                   p.propaccesslist[palt_write].procdef:=jvm_wrap_method_with_vis(tprocdef(p.propaccesslist[palt_write].procdef),p.visibility);
                                   p.propaccesslist[palt_write].firstsym^.sym:=tprocdef(p.propaccesslist[palt_write].procdef).procsym;
                                 end;
-                              if (prop_auto_setter_prefix<>'') and
-                                 (sym.RealName<>prop_auto_setter_prefix+p.RealName) then
-                                jvm_create_setter_for_property(p,orgaccesspd);
 {$endif jvm}
                             end;
                         end;
@@ -1558,7 +1563,7 @@ implementation
          sc : TFPObjectList;
          i  : longint;
          hs,sorg : string;
-         hdef,casetype : tdef;
+         hdef,casetype,tmpdef : tdef;
          { maxsize contains the max. size of a variant }
          { startvarrec contains the start of the variant part of a record }
          maxsize, startvarrecsize : longint;
@@ -1633,13 +1638,32 @@ implementation
              maybe_guarantee_record_typesym(hdef,symtablestack.top);
              block_type:=bt_var;
              { allow only static fields reference to struct where they are declared }
-             if not (vd_class in options) and
-               (is_object(hdef) or is_record(hdef)) and
-               is_owned_by(tabstractrecorddef(recst.defowner),tabstractrecorddef(hdef)) then
+             if not (vd_class in options) then
                begin
-                 Message1(type_e_type_is_not_completly_defined, tabstractrecorddef(hdef).RttiName);
-                 { for error recovery or compiler will crash later }
-                 hdef:=generrordef;
+                 if hdef.typ=arraydef then
+                   begin
+                     tmpdef:=hdef;
+                     while (tmpdef.typ=arraydef) do
+                       begin
+                         { dynamic arrays are allowed }
+                         if ado_IsDynamicArray in tarraydef(tmpdef).arrayoptions then
+                           begin
+                             tmpdef:=nil;
+                             break;
+                           end;
+                         tmpdef:=tarraydef(tmpdef).elementdef;
+                       end;
+                   end
+                 else
+                   tmpdef:=hdef;
+                 if assigned(tmpdef) and
+                     (is_object(tmpdef) or is_record(tmpdef)) and
+                     is_owned_by(tabstractrecorddef(recst.defowner),tabstractrecorddef(tmpdef)) then
+                   begin
+                     Message1(type_e_type_is_not_completly_defined, tabstractrecorddef(tmpdef).RttiName);
+                     { for error recovery or compiler will crash later }
+                     hdef:=generrordef;
+                   end;
                end;
 
              { Process procvar directives }

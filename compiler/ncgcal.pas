@@ -98,7 +98,7 @@ implementation
       systems,
       cutils,verbose,globals,
       cpuinfo,
-      symconst,symtable,defutil,paramgr,
+      symconst,symtable,symtype,defutil,paramgr,
       cgbase,pass_2,
       aasmbase,aasmtai,aasmdata,
       nbas,nmem,nld,ncnv,nutils,
@@ -231,7 +231,19 @@ implementation
                    { pass "this" in C++ classes explicitly as pointer
                      because push_addr_param might not be true for them }
                    (is_cppclass(parasym.vardef) and (vo_is_self in parasym.varoptions)) or
-                    (not(left.resultdef.typ in [pointerdef,classrefdef]) and
+                    (
+                      (
+                        not(left.resultdef.typ in [pointerdef,classrefdef]) or
+                        (
+                          { allow pointerdefs (as self) to be passed as addr
+                            param if the method is part of a type helper which
+                            extends a pointer type }
+                          (vo_is_self in parasym.varoptions) and
+                          (aktcallnode.procdefinition.owner.symtabletype=objectsymtable) and
+                          (is_objectpascal_helper(tdef(aktcallnode.procdefinition.owner.defowner))) and
+                          (tobjectdef(aktcallnode.procdefinition.owner.defowner).extendeddef.typ=pointerdef)
+                        )
+                      ) and
                      paramanager.push_addr_param(parasym.varspez,parasym.vardef,
                          aktcallnode.procdefinition.proccalloption)) then
                    push_addr_para
@@ -288,7 +300,15 @@ implementation
              { update return location in callnode when this is the function
                result }
              if assigned(parasym) and
-                (vo_is_funcret in parasym.varoptions) then
+                (
+                  { for type helper/record constructor check that it is self parameter }
+                  (
+                    (vo_is_self in parasym.varoptions) and
+                    (aktcallnode.procdefinition.proctypeoption=potype_constructor) and
+                    (parasym.vardef.typ<>objectdef)
+                  ) or
+                  (vo_is_funcret in parasym.varoptions)
+                ) then
                location_copy(aktcallnode.location,left.location);
            end;
 
@@ -371,8 +391,7 @@ implementation
       begin
         { Check that the return location is set when the result is passed in
           a parameter }
-        if (procdefinition.proctypeoption<>potype_constructor) and
-           paramanager.ret_in_param(resultdef,procdefinition.proccalloption) then
+        if paramanager.ret_in_param(resultdef,procdefinition) then
           begin
             { self.location is set near the end of secondcallparan so it
               refers to the implicit result parameter }
@@ -485,8 +504,6 @@ implementation
 
     procedure tcgcallnode.copy_back_paras;
       var
-        hp,
-        hp2 : tnode;
         ppn : tcallparanode;
       begin
         ppn:=tcallparanode(left);
@@ -688,6 +705,7 @@ implementation
         vmtreg : tregister;
         oldaktcallnode : tcallnode;
         retlocitem: pcgparalocation;
+        pd : tprocdef;
 {$ifdef vtentry}
         sym : tasmsymbol;
 {$endif vtentry}
@@ -937,7 +955,7 @@ implementation
               c-side, so the funcret has to be pop'ed normally. }
             if not ((procdefinition.proccalloption=pocall_safecall) and
                     (tf_safecall_exceptions in target_info.flags)) and
-               paramanager.ret_in_param(procdefinition.returndef,procdefinition.proccalloption) then
+               paramanager.ret_in_param(procdefinition.returndef,procdefinition) then
               dec(pop_size,sizeof(pint));
             { Remove parameters/alignment from the stack }
             pop_parasize(pop_size);
@@ -981,12 +999,13 @@ implementation
          if (procdefinition.proccalloption=pocall_safecall) and
             (tf_safecall_exceptions in target_info.flags) then
            begin
+             pd:=search_system_proc('fpc_safecallcheck');
              cgpara.init;
-             paramanager.getintparaloc(pocall_default,1,s32inttype,cgpara);
+             paramanager.getintparaloc(pd,1,cgpara);
              cg.a_load_reg_cgpara(current_asmdata.CurrAsmList,OS_INT,NR_FUNCTION_RESULT_REG,cgpara);
              paramanager.freecgpara(current_asmdata.CurrAsmList,cgpara);
-             cgpara.done;
              cg.g_call(current_asmdata.CurrAsmList,'FPC_SAFECALLCHECK');
+             cgpara.done;
            end;
 {$endif}
 

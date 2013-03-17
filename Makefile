@@ -289,6 +289,7 @@ endif
 override PACKAGE_NAME=fpc
 override PACKAGE_VERSION=2.7.1
 REQUIREDVERSION=2.6.0
+REQUIREDVERSION2=2.6.2
 ifndef inOS2
 override FPCDIR:=$(BASEDIR)
 export FPCDIR
@@ -335,7 +336,6 @@ PPSUF=mipsel
 endif
 ifeq ($(CPU_TARGET),avr32)
 PPSUF=avr32 
-PPNEW=$(BASEDIR)/compiler/avr32-fpc$(SRCEXEEXT)
 endif
 ifdef CROSSCOMPILE
 ifneq ($(CPU_TARGET),jvm)
@@ -347,6 +347,13 @@ else
 PPPRE=ppc
 endif
 PPNEW=$(BASEDIR)/compiler/$(PPPRE)$(PPSUF)$(SRCEXEEXT)
+endif
+ifndef FPCFPMAKENEW
+ifdef CROSSCOMPILE
+FPCFPMAKENEW=$(BASEDIR)/compiler/ppc$(SRCEXEEXT)
+else
+FPCFPMAKENEW=$(PPNEW)
+endif
 endif
 ifneq ($(wildcard install),)
 CVSINSTALL=install
@@ -395,17 +402,11 @@ ifndef DIST_DESTDIR
 export DIST_DESTDIR:=$(BASEDIR)
 endif
 BASEPACKDIR=$(BASEDIR)/basepack
-ifndef FPCMAKE
-ifeq ($(FULL_SOURCE),$(FULL_TARGET))
-FPCMAKENEW=$(BASEDIR)/utils/fpcm/fpcmake$(EXEEXT)
-else
-FPCMAKENEW=fpcmake
-endif
-else
-FPCMAKENEW=$(FPCMAKE)
+ifndef FPCMAKENEW
+FPCMAKENEW=$(BASEDIR)/utils/fpcm/fpcmake$(SRCEXEEXT)
 endif
 CLEANOPTS=FPC=$(PPNEW)
-BUILDOPTS=FPC=$(PPNEW) RELEASE=1
+BUILDOPTS=FPC=$(PPNEW) FPCFPMAKE=$(FPCFPMAKENEW) RELEASE=1
 INSTALLOPTS=FPC=$(PPNEW) ZIPDESTDIR=$(BASEDIR) FPCMAKE=$(FPCMAKENEW)
 ifndef CROSSCOMPILE
 ifneq ($(wildcard ide),)
@@ -2551,7 +2552,9 @@ versioncheckstartingcompiler:
 ifndef CROSSCOMPILE
 ifndef OVERRIDEVERSIONCHECK
 ifneq ($(FPC_VERSION),$(REQUIREDVERSION))
+ifneq ($(FPC_VERSION),$(REQUIREDVERSION2))
 	$(error The only supported starting compiler version is $(REQUIREDVERSION). You are trying to build with $(FPC_VERSION). If you are absolutely sure that the current compiler is built from the exact same version/revision, you can try to use OVERRIDEVERSIONCHECK=1 to override )
+endif
 endif
 endif
 endif
@@ -2571,6 +2574,9 @@ distclean: clean
 build: $(BUILDSTAMP)
 $(BUILDSTAMP):
 	$(MAKE) compiler_cycle RELEASE=1
+ifdef CROSSCOMPILE
+	$(MAKE) -C utils/fpcm bootstrap $(BUILDOPTS)
+endif
 	$(MAKE) rtl_clean $(CLEANOPTS)
 	$(MAKE) packages_clean $(CLEANOPTS)
 ifdef UTILS
@@ -2594,9 +2600,11 @@ endif
 buildbase: base.$(BUILDSTAMP)
 base.$(BUILDSTAMP):
 	$(MAKE) compiler_cycle RELEASE=1
+ifndef BUILDAVR32
 	$(MAKE) rtl_clean $(CLEANOPTS)
 	$(MAKE) rtl_$(ALLTARGET) $(BUILDOPTS)
 	$(ECHOREDIR) Build > base.$(BUILDSTAMP)
+endif
 installbase: base.$(BUILDSTAMP)
 	$(MKDIR) $(INSTALL_BASEDIR)
 	$(MKDIR) $(INSTALL_BINDIR)

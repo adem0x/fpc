@@ -68,6 +68,7 @@ unit agarmgas;
         'armv6k',
         'armv6t2',
         'armv6z',
+        'armv6-m',
         'armv7',
         'armv7-a',
         'armv7-r',
@@ -354,7 +355,8 @@ unit agarmgas;
             idtxt  : 'AS';
             asmbin : 'as';
             asmcmd : '-o $OBJ $ASM';
-            supported_targets : [system_arm_linux,system_arm_wince,system_arm_gba,system_arm_palmos,system_arm_nds,system_arm_embedded,system_arm_symbian];
+            supported_targets : [system_arm_linux,system_arm_wince,system_arm_gba,system_arm_palmos,system_arm_nds,
+                                 system_arm_embedded,system_arm_symbian,system_arm_android];
             flags : [af_needar,af_smartlink_sections];
             labelprefix : '.L';
             comment : '# ';

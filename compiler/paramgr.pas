@@ -44,10 +44,8 @@ unit paramgr;
        tparamanager = class
           { true if the location in paraloc can be reused as localloc }
           function param_use_paraloc(const cgpara:tcgpara):boolean;virtual;
-          {# Returns true if the return value is actually a parameter
-             pointer.
-          }
-          function ret_in_param(def : tdef;calloption : tproccalloption) : boolean;virtual;
+          { Returns true if the return value is actually a parameter pointer }
+          function ret_in_param(def:tdef;pd:tabstractprocdef):boolean;virtual;
 
           function push_high_param(varspez:tvarspez;def : tdef;calloption : tproccalloption) : boolean;virtual;
           function keep_para_array_range(varspez:tvarspez;def : tdef;calloption : tproccalloption) : boolean;virtual;
@@ -82,7 +80,7 @@ unit paramgr;
           function get_volatile_registers_flags(calloption : tproccalloption):tcpuregisterset;virtual;
           function get_volatile_registers_mm(calloption : tproccalloption):tcpuregisterset;virtual;
 
-          procedure getintparaloc(calloption : tproccalloption; nr : longint; def: tdef; var cgpara : tcgpara);virtual;abstract;
+          procedure getintparaloc(pd: tabstractprocdef; nr : longint; var cgpara: tcgpara);virtual;abstract;
 
           {# allocate an individual pcgparalocation that's part of a tcgpara
 
@@ -146,6 +144,11 @@ unit paramgr;
           { common part of get_funcretloc; returns true if retloc is completely
             initialized afterwards }
           function set_common_funcretloc_info(p : tabstractprocdef; forcetempdef: tdef; out retcgsize: tcgsize; out retloc: tcgpara): boolean;
+          { common part of ret_in_param; is called by ret_in_param at the
+            beginning and every tparamanager descendant can decide to call it
+            itself as well; parameter retinparam is only valid if function
+            returns true }
+          function handle_common_ret_in_param(def:tdef;pd:tabstractprocdef;out retinparam:boolean):boolean;
        end;
 
 
@@ -168,14 +171,10 @@ implementation
 
 
     { true if uses a parameter as return value }
-    function tparamanager.ret_in_param(def : tdef;calloption : tproccalloption) : boolean;
+    function tparamanager.ret_in_param(def:tdef;pd:tabstractprocdef):boolean;
       begin
-        if (tf_safecall_exceptions in target_info.flags) and
-           (calloption=pocall_safecall) then
-          begin
-            result:=true;
-            exit;
-          end;
+         if handle_common_ret_in_param(def,pd,result) then
+           exit;
          ret_in_param:=((def.typ=arraydef) and not(is_dynamic_array(def))) or
            (def.typ=recorddef) or
            (def.typ=stringdef) or
@@ -384,9 +383,6 @@ implementation
         cgpara.intsize:=parasym.paraloc[callerside].intsize;
         cgpara.alignment:=parasym.paraloc[callerside].alignment;
         cgpara.def:=parasym.paraloc[callerside].def;
-{$ifdef powerpc}
-        cgpara.composite:=parasym.paraloc[callerside].composite;
-{$endif powerpc}
         while assigned(paraloc) do
           begin
             if paraloc^.size=OS_NO then
@@ -454,9 +450,6 @@ implementation
         cgpara.size:=parasym.paraloc[callerside].size;
         cgpara.intsize:=parasym.paraloc[callerside].intsize;
         cgpara.alignment:=parasym.paraloc[callerside].alignment;
-{$ifdef powerpc}
-        cgpara.composite:=parasym.paraloc[callerside].composite;
-{$endif powerpc}
         paraloc:=parasym.paraloc[callerside].location;
         while assigned(paraloc) do
           begin
@@ -545,21 +538,16 @@ implementation
         { Constructors return self instead of a boolean }
         if p.proctypeoption=potype_constructor then
           begin
-            if is_implicit_pointer_object_type(tdef(p.owner.defowner)) then
-              retloc.def:=tdef(p.owner.defowner)
-            else
-              retloc.def:=getpointerdef(tdef(p.owner.defowner));
-            retcgsize:=OS_ADDR;
-            retloc.intsize:=sizeof(pint);
-          end
-        else
-          begin
-            retcgsize:=def_cgsize(retloc.def);
-            retloc.intsize:=retloc.def.size;
+            retloc.def:=tdef(p.owner.defowner);
+            if not (is_implicit_pointer_object_type(retloc.def) or
+               (retloc.def.typ<>objectdef)) then
+              retloc.def:=getpointerdef(retloc.def);
           end;
+        retcgsize:=def_cgsize(retloc.def);
+        retloc.intsize:=retloc.def.size;
         retloc.size:=retcgsize;
         { Return is passed as var parameter }
-        if ret_in_param(retloc.def,p.proccalloption) then
+        if ret_in_param(retloc.def,p) then
           begin
             retloc.def:=getpointerdef(retloc.def);
             paraloc:=retloc.add_location;
@@ -569,6 +557,38 @@ implementation
           end;
         result:=false;
       end;
+
+
+    function tparamanager.handle_common_ret_in_param(def: tdef;
+      pd: tabstractprocdef; out retinparam: boolean): boolean;
+      begin
+        { this must be system independent safecall and record constructor result
+          is always return in param }
+        if (tf_safecall_exceptions in target_info.flags) and
+           (pd.proccalloption=pocall_safecall) or
+           (
+             (pd.proctypeoption=potype_constructor)and
+             (
+               is_record(def) or
+               (
+                 (def.typ<>objectdef) and
+                 (pd.owner.symtabletype=objectsymtable) and
+                 is_objectpascal_helper(tdef(pd.owner.defowner))
+               )
+             )
+           ) then
+          begin
+            retinparam:=true;
+            exit(true);
+          end;
+        if pd.proctypeoption=potype_constructor then
+          begin
+            retinparam:=false;
+            exit(true);
+          end;
+        result:=false;
+      end;
+
 
 initialization
   ;

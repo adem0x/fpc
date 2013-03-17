@@ -58,7 +58,6 @@ unit cpugas;
     function gas_std_regname(r:Tregister):string;
       var
         hr: tregister;
-        p:  longint;
       begin
         { Double uses the same table as single }
         hr := r;
@@ -100,7 +99,7 @@ unit cpugas;
          { ABI selection }
          Replace(result,'$ABI','-mabi='+abitypestr[mips_abi]);
          { ARCH selection }
-         Replace(result,'$ARCH','-march='+cputypestr[mips_cpu]);
+         Replace(result,'$ARCH','-march='+lower(cputypestr[mips_cpu]));
       end;
 
 {****************************************************************************}
@@ -109,82 +108,64 @@ unit cpugas;
 
     function GetReferenceString(var ref: TReference): string;
       var
-        hasgot : boolean;
-        gotprefix : string;
+        reg: TRegister;
+        regstr: string;
       begin
-        GetReferenceString := '';
-        hasgot:=false;
-        with ref do
-        begin
-          if (base = NR_NO) and (index = NR_NO) then
+        result:='';
+        if assigned(ref.symbol) then
+          result:=ref.symbol.name;
+        if (ref.offset<0) then
+          result:=result+tostr(ref.offset)
+        else if (ref.offset>0) then
           begin
-            if assigned(symbol) then
-              begin
-                GetReferenceString := symbol.Name;
-                if symbol.typ=AT_FUNCTION then
-                  gotprefix:='%call16('
-                else
-                  gotprefix:='%got(';
-                hasgot:=true;
-              end;
-            if offset > 0 then
-              GetReferenceString := GetReferenceString + '+' + ToStr(offset)
-            else if offset < 0 then
-              GetReferenceString := GetReferenceString + ToStr(offset);
-            case refaddr of
-              addr_high:
-                GetReferenceString := '%hi(' + GetReferenceString + ')';
-              addr_low:
-                GetReferenceString := '%lo(' + GetReferenceString + ')';
-              addr_pic:
-                begin
-                  if hasgot then
-                    GetReferenceString := gotprefix + GetReferenceString + ')'
-                  else
-                    internalerror(2012070401);
-                end;
-            end;
-          end
-          else
-          begin
-      {$ifdef extdebug}
-            if assigned(symbol) and
-              not(refaddr in [addr_pic,addr_low]) then
-              internalerror(2003052601);
-      {$endif extdebug}
-            if base <> NR_NO then
-              GetReferenceString := GetReferenceString + '(' + asm_regname(base) + ')';
-            if index = NR_NO then
-            begin
-              if offset <> 0 then
-                GetReferenceString := ToStr(offset) + GetReferenceString;
-              if assigned(symbol) then
-              begin
-                if refaddr = addr_low then
-                  GetReferenceString := '%lo(' + symbol.Name + ')' + GetReferenceString
-                else if refaddr = addr_pic then
-                  begin
-                    if symbol.typ=AT_FUNCTION then
-                      gotprefix:='%call16('
-                    else
-                      gotprefix:='%got(';
-                    GetReferenceString := gotprefix + symbol.Name + ')' + GetReferenceString;
-                   end
-                else
-                  GetReferenceString := symbol.Name + {'+' +} GetReferenceString;
-              end;
-            end
-            else
-            begin
-  {$ifdef extdebug}
-              if (Offset<>0) or assigned(symbol) then
-                internalerror(2003052603);
-  {$endif extdebug}
-              GetReferenceString := GetReferenceString + '(' + asm_regname(index) + ')';
-
-            end;
+            if assigned(ref.symbol) then
+              result:=result+'+';
+            result:=result+tostr(ref.offset);
           end;
+
+        { either base or index may be present, but not both }
+        reg:=ref.base;
+        if (reg=NR_NO) then
+          reg:=ref.index
+        else if (ref.index<>NR_NO) then
+          InternalError(2013013001);
+
+        if (reg=NR_NO) then
+          regstr:=''
+        else
+          regstr:='('+asm_regname(reg)+')';
+
+        case ref.refaddr of
+          addr_no,
+          addr_full:
+            if assigned(ref.symbol) and (reg<>NR_NO) then
+              InternalError(2013013002)
+            else
+              begin
+                result:=result+regstr;
+                exit;
+              end;
+          addr_pic:
+            result:='%got('+result;
+          addr_high:
+            result:='%hi('+result;
+          addr_low:
+            result:='%lo('+result;
+          addr_pic_call16:
+            result:='%call16('+result;
+          addr_low_pic:
+            result:='%got_lo('+result;
+          addr_high_pic:
+            result:='%got_hi('+result;
+          addr_low_call:
+            result:='%call_lo('+result;
+          addr_high_call:
+            result:='%call_hi('+result;
+        else
+          InternalError(2013013003);
         end;
+
+        result:=result+')'+regstr;
       end;
 
 
@@ -197,11 +178,7 @@ unit cpugas;
             top_const:
               getopstr := tostr(longint(val));
             top_ref:
-              if (oper.ref^.refaddr in [addr_no, addr_pic]) or ((oper.ref^.refaddr = addr_low) and ((oper.ref^.base <> NR_NO) or
-                (oper.ref^.index <> NR_NO))) then
-                getopstr := getreferencestring(ref^)
-              else
-                getopstr := getreferencestring(ref^);
+              getopstr := getreferencestring(ref^);
             else
               internalerror(10001);
           end;
@@ -248,7 +225,15 @@ unit cpugas;
     function is_macro_instruction(op : TAsmOp) : boolean;
       begin
         is_macro_instruction :=
-          (op=A_SEQ) or (op=A_SNE);
+        { 'seq', 'sge', 'sgeu', 'sgt', 'sgtu', 'sle', 'sleu', 'sne', }
+          (op=A_SEQ) or (op = A_SGE) or (op=A_SGEU) or (op=A_SGT) or
+          (op=A_SGTU) or (op=A_SLE) or (op=A_SLEU) or (op=A_SNE)
+          { JAL is not here! See comments in TCGMIPS.a_call_name. }
+          or (op=A_LA) or (op=A_BC) {or (op=A_JAL)}
+          or (op=A_REM) or (op=A_REMU)
+          or (op=A_DIV) or (op=A_DIVU) 
+          { A_LI is only a macro if the immediate is not in thez 16-bit range }
+          or (op=A_LI) or (op=A_AND) or (op=A_XOR);
       end;
 
     procedure TMIPSInstrWriter.WriteInstruction(hp: Tai);

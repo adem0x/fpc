@@ -392,7 +392,7 @@ scan_w_setpeoptflags_not_support=02092_W_SETPEOPTFLAGS is not supported by the t
 #
 # Parser
 #
-# 03327 is the last used one
+# 03332 is the last used one
 #
 % \section{Parser messages}
 % This section lists all parser messages. The parser takes care of the
@@ -1385,8 +1385,8 @@ parser_e_no_destructor_in_records=03300_E_Destructors aren't allowed in records 
 parser_e_class_methods_only_static_in_records=03301_E_Class methods must be static in records
 % Class methods declarations aren't allowed in records without static modifier.
 % Records have no inheritance and therefore non static class methods have no sence for them.
-parser_e_no_constructor_in_records=03302_E_Constructors aren't allowed in records or record helpers
-% Constructor declarations aren't allowed in records or record helpers.
+parser_e_no_parameterless_constructor_in_records=03302_E_Parameterless constructors aren't allowed in records or record/type helpers
+% Constructor declarations with no arguments aren't allowed in records or record/type helpers.
 parser_e_at_least_one_argument_must_be_of_type=03303_E_Either the result or at least one parameter must be of type "$1"
 % It is required that either the result of the routine or at least one of its parameters be of the specified type.
 % For example class operators either take an instance of the structured type in which they are defined, or they return one.
@@ -1471,12 +1471,29 @@ parser_w_case_difference_auto_property_getter_setter_prefix=03327_W_Case mismatc
 % not can it add one using the correct case (it could conflict with the original declaration).
 % Manually correct the case of the getter/setter to conform to the desired coding rules.
 % \var{TChild} overrides
+parser_e_no_consts_in_local_anonymous_records=03328_E_Constants declarations are not allowed in local or anonymous records
+% Records with constants must be defined globally. Constants cannot be defined inside records which are defined in a
+% procedure or function or in anonymous records.
+parser_e_no_methods_in_local_anonymous_records=03329_E_Method declarations are not allowed in local or anonymous records
+% Records with methods must be defined globally. Methods cannot be defined inside records which are defined in a
+% procedure or function or in anonymous records.
+parser_e_no_properties_in_local_anonymous_records=03330_E_Property declarations are not allowed in local or anonymous records
+% Records with properties must be defined globally. Properties cannot be defined inside records which are defined in a
+% procedure or function or in anonymous records.
+parser_e_no_class_in_local_anonymous_records=03331_E_Class memeber declarations are not allowed in local or anonymous records
+% Records with class members must be defined globally. Class members cannot be defined inside records which are defined in a
+% procedure or function or in anonymous records.
+parser_e_not_allowed_in_record=03332_E_Visibility section "$1" not allowed in records
+% The visibility sections \var(protected) and \var(strict protected) are only
+% useful together with inheritance. Since records do not support that they are
+% forbidden.
+%
 %
 % \end{description}
 %
 # Type Checking
 #
-# 04119 is the last used one
+# 04120 is the last used one
 #
 % \section{Type checking errors}
 % This section lists all errors that can occur when type checking is
@@ -1833,7 +1850,7 @@ type_e_record_type_expected=04100_E_Record type expected
 type_e_class_helper_must_extend_subclass=04101_E_Derived class helper must extend a subclass of "$1" or the class itself
 % If a class helper inherits from another class helper the extended class must
 % extend either the same class as the parent class helper or a subclass of it
-type_e_record_helper_must_extend_same_record=04102_E_Derived record helper must extend "$1"
+type_e_record_helper_must_extend_same_record=04102_E_Derived record or type helper must extend "$1"
 % If a record helper inherits from another record helper it must extend the same
 % record that the parent record helper extended.
 type_e_procedures_return_no_value=04103_E_Invalid assignment, procedures return no value
@@ -1898,11 +1915,13 @@ type_e_typeof_requires_vmt=04118_E_TYPEOF can only be used on object types with 
 type_e_invalid_default_value=04119_E_It is not possible to define a default value for a parameter of type "$1"
 % Parameters declared as structured types, such as files, variants, non-dynamic
 % arrays and TP-style objects, cannot have a default value.
+type_e_type_not_allowed_for_type_helper=04120_E_Type "$1" can not be extended by a type helper
+% Types like procedural variables can not be extended by type helpers
 % \end{description}
 #
 # Symtable
 #
-# 05086 is the last used one
+# 05087 is the last used one
 #
 % \section{Symbol handling}
 % This section lists all the messages that concern the handling of symbols.
@@ -2166,6 +2185,8 @@ sym_e_no_matching_inherited_parameterless_constructor=05086_E_Cannot generate de
 % the parameterless constructor from the parent class inside this added constructor.
 % This is however impossible if the parent class does not declare such a constructor.
 % In this case you must add a valid constructor yourself.
+sym_d_adding_helper_for=05087_D_Adding helper for $1
+% A helper for the mentioned type is added to the current scope
 % \end{description}
 #
 # Codegenerator
@@ -2625,7 +2646,7 @@ asmr_e_invalid_ref_register=07125_E_Invalid register used in memory reference ex
 #
 # Assembler/binary writers
 #
-# 08022 is the last used one
+# 08026 is the last used one
 #
 asmw_f_too_many_asm_files=08000_F_Too many assembler files
 % With smartlinking enabled, there are too many assembler
@@ -2666,6 +2687,9 @@ asmw_e_prologue_too_large=08024_E_Function prologue exceeds 255 bytes
 asmw_e_handlerdata_no_handler=08025_E_.seh_handlerdata directive without preceding .seh_handler
 % x86_64-win64: If .seh_handlerdata directive is used, then a .seh_handler directive must be
 % present earlier in the same function.
+asmw_f_too_many_relocations=08026_F_Relocation count for section $1 exceeds 65535
+% Legacy COFF targets limit number of relocations per section to 65535 because they use a 2-byte field
+% to store the relocation count. Targets using newer PECOFF format do not have this limitation.
 
 #
 # Executing linker/assembler
@@ -3248,7 +3272,7 @@ wpo_cant_create_feedback_file=12019_E_Cannot create specified whole program opti
 #
 option_logo=11023_[
 Free Pascal Compiler version $FPCFULLVERSION [$FPCDATE] for $FPCCPU
-Copyright (c) 1993-2012 by Florian Klaempfl and others
+Copyright (c) 1993-2013 by Florian Klaempfl and others
 ]
 
 #
@@ -3383,13 +3407,15 @@ P*2CN_Generate nil-pointer checks (AIX-only)
 p*2CT<x>_Target-specific code generation options
 P*2CT<x>_Target-specific code generation options
 J*2CT<x>_Target-specific code generation options
+A*2CT<x>_Target-specific code generation options
 p*3CTsmalltoc_ Generate smaller TOCs at the expense of execution speed (AIX)
 P*3CTsmalltoc_ Generate smaller TOCs at the expense of execution speed (AIX)
 J*3CTcompactintarrayinit_ Generate smaller (but potentially slower) code for initializing integer array constants
 J*3CTenumfieldinit_ Initialize enumeration fields in constructors to enumtype(0), after calling inherited constructors
-J*2Cv_Var/out parameter copy-out checking
 J*3CTautogetterprefix=X_ Automatically create getters for properties with prefix X (empty string disables)
 J*3CTautosetterprefix=X_ Automatically create setters for properties with prefix X (empty string disables)
+A*3CTthumbinterworking_ Generate Thumb interworking-safe code if possible
+J*2Cv_Var/out parameter copy-out checking
 **2CX_Create also smartlinked library
 **1d<x>_Defines the symbol <x>
 **1D_Generate a DEF file

@@ -422,13 +422,15 @@ implementation
     procedure new_exception(list:TAsmList;const t:texceptiontemps;exceptlabel:tasmlabel);
       var
         paraloc1,paraloc2,paraloc3 : tcgpara;
+        pd: tprocdef;
       begin
+        pd:=search_system_proc('fpc_pushexceptaddr');
         paraloc1.init;
         paraloc2.init;
         paraloc3.init;
-        paramanager.getintparaloc(pocall_default,1,s32inttype,paraloc1);
-        paramanager.getintparaloc(pocall_default,2,voidpointertype,paraloc2);
-        paramanager.getintparaloc(pocall_default,3,voidpointertype,paraloc3);
+        paramanager.getintparaloc(pd,1,paraloc1);
+        paramanager.getintparaloc(pd,2,paraloc2);
+        paramanager.getintparaloc(pd,3,paraloc3);
         cg.a_loadaddr_ref_cgpara(list,t.envbuf,paraloc3);
         cg.a_loadaddr_ref_cgpara(list,t.jmpbuf,paraloc2);
         { push type of exceptionframe }
@@ -440,7 +442,8 @@ implementation
         cg.a_call_name(list,'FPC_PUSHEXCEPTADDR',false);
         cg.deallocallcpuregisters(list);
 
-        paramanager.getintparaloc(pocall_default,1,search_system_type('PJMP_BUF').typedef,paraloc1);
+        pd:=search_system_proc('fpc_setjmp');
+        paramanager.getintparaloc(pd,1,paraloc1);
         cg.a_load_reg_cgpara(list,OS_ADDR,NR_FUNCTION_RESULT_REG,paraloc1);
         paramanager.freecgpara(list,paraloc1);
         cg.allocallcpuregisters(list);
@@ -1066,8 +1069,11 @@ implementation
                  (paraloc^.Loc in [LOC_REGISTER,LOC_CREGISTER]) then
                 begin
                   gen_alloc_regloc(list,destloc);
+                  unget_para(paraloc^);
                   list.Concat(taicpu.op_reg_reg(A_MTC1,paraloc^.register,destloc.register));
                 end
+{ TODO: Produces invalid code, needs fixing together with regalloc setup. }
+{
               else if (destloc.size = OS_F64) and
                       (paraloc^.Loc in [LOC_REGISTER,LOC_CREGISTER]) and
                       (paraloc^.next^.Loc in [LOC_REGISTER,LOC_CREGISTER]) then
@@ -1075,10 +1081,13 @@ implementation
                   gen_alloc_regloc(list,destloc);
 
                   tmpreg:=destloc.register;
+                  unget_para(paraloc^);
                   list.Concat(taicpu.op_reg_reg(A_MTC1,paraloc^.register,tmpreg));
                   setsupreg(tmpreg,getsupreg(tmpreg)+1);
+                  unget_para(paraloc^.next^);
                   list.Concat(taicpu.op_reg_reg(A_MTC1,paraloc^.Next^.register,tmpreg));
                 end
+}
               else
                 begin
                   sizeleft := TCGSize2Size[destloc.size];
@@ -1386,7 +1395,7 @@ implementation
         if current_procinfo.procdef.proccalloption in clearstack_pocalls then
           begin
             parasize:=0;
-            if paramanager.ret_in_param(current_procinfo.procdef.returndef,current_procinfo.procdef.proccalloption) then
+            if paramanager.ret_in_param(current_procinfo.procdef.returndef,current_procinfo.procdef) then
               inc(parasize,sizeof(pint));
           end
         else
@@ -1413,10 +1422,12 @@ implementation
 
     procedure gen_stack_check_size_para(list:TAsmList);
       var
-        paraloc1   : tcgpara;
+        paraloc1 : tcgpara;
+        pd       : tprocdef;
       begin
+        pd:=search_system_proc('fpc_stackcheck');
         paraloc1.init;
-        paramanager.getintparaloc(pocall_default,1,ptruinttype,paraloc1);
+        paramanager.getintparaloc(pd,1,paraloc1);
         cg.a_load_const_cgpara(list,OS_INT,current_procinfo.calc_stackframe_size,paraloc1);
         paramanager.freecgpara(list,paraloc1);
         paraloc1.done;
@@ -1425,11 +1436,13 @@ implementation
 
     procedure gen_stack_check_call(list:TAsmList);
       var
-        paraloc1   : tcgpara;
+        paraloc1 : tcgpara;
+        pd       : tprocdef;
       begin
+        pd:=search_system_proc('fpc_stackcheck');
         paraloc1.init;
         { Also alloc the register needed for the parameter }
-        paramanager.getintparaloc(pocall_default,1,ptruinttype,paraloc1);
+        paramanager.getintparaloc(pd,1,paraloc1);
         paramanager.freecgpara(list,paraloc1);
         { Call the helper }
         cg.allocallcpuregisters(list);

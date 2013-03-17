@@ -225,7 +225,8 @@ interface
          { when automatically generating getters/setters for properties, use
            these strings as prefixes for the generated getters/setter names }
          ts_auto_getter_prefix,
-         ts_auto_setter_predix
+         ts_auto_setter_predix,
+         ts_thumb_interworking
        );
        ttargetswitches = set of ttargetswitch;
 
@@ -256,7 +257,9 @@ interface
              explicit side-effects, only implicit side-effects (like the ones
              mentioned before) can disappear.
          }
-         cs_opt_dead_values
+         cs_opt_dead_values,
+         { compiler checks for empty procedures/methods and removes calls to them if possible }
+         cs_opt_remove_emtpy_proc
        );
        toptimizerswitches = set of toptimizerswitch;
 
@@ -276,16 +279,19 @@ interface
 
        ttargetswitchinfo = record
           name: string[22];
+          { target switch can have an arbitratry value, not only on/off }
           hasvalue: boolean;
+          { target switch can be used only globally }
+          isglobal: boolean;
        end;
 
     const
-       OptimizerSwitchStr : array[toptimizerswitch] of string[11] = ('',
+       OptimizerSwitchStr : array[toptimizerswitch] of string[16] = ('',
          'LEVEL1','LEVEL2','LEVEL3',
          'REGVAR','UNCERTAIN','SIZE','STACKFRAME',
          'PEEPHOLE','ASMCSE','LOOPUNROLL','TAILREC','CSE',
          'DFA','STRENGTH','SCHEDULE','AUTOINLINE','USEEBP',
-         'ORDERFIELDS','FASTMATH','DEADVALUES'
+         'ORDERFIELDS','FASTMATH','DEADVALUES','REMOVEEMPTYPROCS'
        );
        WPOptimizerSwitchStr : array [twpoptimizerswitch] of string[14] = (
          'DEVIRTCALLS','OPTVMTS','SYMBOLLIVENESS'
@@ -295,17 +301,18 @@ interface
          'DWARFSETS','STABSABSINCLUDES','DWARFMETHODCLASSPREFIX');
 
        TargetSwitchStr : array[ttargetswitch] of ttargetswitchinfo = (
-         (name: '';                    hasvalue: false),
-         (name: 'SMALLTOC';            hasvalue: false),
-         (name: 'COMPACTINTARRAYINIT'; hasvalue: false),
-         (name:  'ENUMFIELDINIT';      hasvalue: false),
-         (name: 'AUTOGETTERPREFIX';    hasvalue: true ),
-         (name: 'AUTOSETTERPREFIX';    hasvalue: true )
+         (name: '';                    hasvalue: false; isglobal: true ),
+         (name: 'SMALLTOC';            hasvalue: false; isglobal: true ),
+         (name: 'COMPACTINTARRAYINIT'; hasvalue: false; isglobal: true ),
+         (name: 'ENUMFIELDINIT';       hasvalue: false; isglobal: true ),
+         (name: 'AUTOGETTERPREFIX';    hasvalue: true ; isglobal: false),
+         (name: 'AUTOSETTERPREFIX';    hasvalue: true ; isglobal: false),
+         (name: 'THUMBINTERWORKING';   hasvalue: false; isglobal: true )
        );
 
        { switches being applied to all CPUs at the given level }
        genericlevel1optimizerswitches = [cs_opt_level1];
-       genericlevel2optimizerswitches = [cs_opt_level2];
+       genericlevel2optimizerswitches = [cs_opt_level2,cs_opt_remove_emtpy_proc];
        genericlevel3optimizerswitches = [cs_opt_level3];
        genericlevel4optimizerswitches = [cs_opt_reorder_fields,cs_opt_dead_values,cs_opt_fastmath];
 
@@ -368,16 +375,16 @@ interface
        alllanguagemodes = [m_fpc,m_objfpc,m_delphi,m_tp7,m_mac,m_iso];
 
     type
-       { Win32, OS/2 & MacOS application types }
+       { Application types (platform specific) }
        tapptype = (
          app_none,
-         app_native,
-         app_gui,       { graphic user-interface application}
-         app_cui,       { console application}
+         app_native,    { native for Windows and NativeNT targets }
+         app_gui,       { graphic user-interface application }
+         app_cui,       { console application }
          app_fs,        { full-screen type application (OS/2 and EMX only) }
-         app_tool,      { tool application, (MPW tool for MacOS, MacOS only)}
-         app_arm7,
-         app_arm9,
+         app_tool,      { tool application, (MPW tool for MacOS, MacOS only) }
+         app_arm7,      { for Nintendo DS target }
+         app_arm9,      { for Nintendo DS target }
          app_bundle     { dynamically loadable bundle, Darwin only }
        );
 

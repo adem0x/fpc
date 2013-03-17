@@ -316,7 +316,8 @@ interface
      { parameter switches }
        debugstop : boolean;
 {$EndIf EXTDEBUG}
-       { windows / OS/2 application type }
+       { Application type (platform specific) 
+         see globtype.pas for description }
        apptype : tapptype;
 
        features : tfeatures;
@@ -516,7 +517,7 @@ interface
     function UpdateOptimizerStr(s:string;var a:toptimizerswitches):boolean;
     function UpdateWpoStr(s: string; var a: twpoptimizerswitches): boolean;
     function UpdateDebugStr(s:string;var a:tdebugswitches):boolean;
-    function UpdateTargetSwitchStr(s: string; var a: ttargetswitches): boolean;
+    function UpdateTargetSwitchStr(s: string; var a: ttargetswitches; global: boolean): boolean;
     function IncludeFeature(const s : string) : boolean;
     function SetMinFPConstPrec(const s: string; var a: tfloattype) : boolean;
 
@@ -1347,7 +1348,7 @@ implementation
       end;
 
 
-    function UpdateTargetSwitchStr(s: string; var a: ttargetswitches): boolean;
+    function UpdateTargetSwitchStr(s: string; var a: ttargetswitches; global: boolean): boolean;
       var
         tok,
         value : string;
@@ -1363,10 +1364,10 @@ implementation
           tok:=GetToken(s,',');
           if tok='' then
            break;
-          setstr:=upper(copy(tok,1,2));
-          if setstr='NO' then
+          setstr:=upper(copy(tok,length(tok),1));
+          if setstr='-' then
             begin
-              delete(tok,1,2);
+              setlength(tok,length(tok)-1);
               doset:=false;
             end
           else
@@ -1392,7 +1393,10 @@ implementation
             end;
           if found then
             begin
-              if not TargetSwitchStr[opt].hasvalue then
+              if not global and
+                 TargetSwitchStr[opt].isglobal then
+                result:=false
+              else if not TargetSwitchStr[opt].hasvalue then
                 begin
                   if gotvalue then
                     result:=false;

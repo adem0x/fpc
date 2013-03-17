@@ -52,7 +52,7 @@ implementation
         if not(pd.proctypeoption in [potype_constructor,potype_destructor]) and
            not is_void(pd.returndef) and
            not (df_generic in pd.defoptions) and
-           paramanager.ret_in_param(pd.returndef,pd.proccalloption) then
+           paramanager.ret_in_param(pd.returndef,pd) then
          begin
            storepos:=current_tokenpos;
            if pd.typ=procdef then
@@ -78,7 +78,7 @@ implementation
            { Generate result variable accessing function result }
            vs:=tparavarsym.create('$result',paranr,vs_var,pd.returndef,[vo_is_funcret,vo_is_hidden_para]);
            pd.parast.insert(vs);
-           { Store the this symbol as funcretsym for procedures }
+           { Store this symbol as funcretsym for procedures }
            if pd.typ=procdef then
             tprocdef(pd).funcretsym:=vs;
 
@@ -193,7 +193,12 @@ implementation
                 if (pd.proctypeoption in [potype_constructor,potype_destructor]) and
                    not(is_cppclass(tprocdef(pd).struct) or
                        is_record(tprocdef(pd).struct) or
-                       is_javaclass(tprocdef(pd).struct)) then
+                       is_javaclass(tprocdef(pd).struct) or
+                       (
+                         { no vmt for record/type helper constructors }
+                         is_objectpascal_helper(tprocdef(pd).struct) and
+                         (tobjectdef(tprocdef(pd).struct).extendeddef.typ<>objectdef)
+                       )) then
                  begin
                    { can't use classrefdef as type because inheriting
                      will then always file because of a type mismatch }
@@ -216,7 +221,7 @@ implementation
                   hdef:=tclassrefdef.create(selfdef)
                 else
                   begin
-                    if is_object(selfdef) or is_record(selfdef) then
+                    if is_object(selfdef) or (selfdef.typ<>objectdef) then
                       vsp:=vs_var;
                     hdef:=selfdef;
                   end;
@@ -250,7 +255,7 @@ implementation
              the creation of a result symbol in insert_funcret_para, but we need
              a valid funcretsym }
            if (df_generic in pd.defoptions) or
-               not paramanager.ret_in_param(pd.returndef,pd.proccalloption) then
+               not paramanager.ret_in_param(pd.returndef,pd) then
             begin
               vs:=tlocalvarsym.create('$result',vs_value,pd.returndef,[vo_is_funcret]);
               pd.localst.insert(vs);

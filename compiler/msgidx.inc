@@ -397,7 +397,7 @@ const
   parser_e_no_record_published=03299;
   parser_e_no_destructor_in_records=03300;
   parser_e_class_methods_only_static_in_records=03301;
-  parser_e_no_constructor_in_records=03302;
+  parser_e_no_parameterless_constructor_in_records=03302;
   parser_e_at_least_one_argument_must_be_of_type=03303;
   parser_e_cant_use_type_parameters_here=03304;
   parser_e_externals_no_section=03305;
@@ -423,6 +423,11 @@ const
   parser_e_cannot_generate_property_getter_setter=03325;
   parser_w_overriding_property_getter_setter=03326;
   parser_w_case_difference_auto_property_getter_setter_prefix=03327;
+  parser_e_no_consts_in_local_anonymous_records=03328;
+  parser_e_no_methods_in_local_anonymous_records=03329;
+  parser_e_no_properties_in_local_anonymous_records=03330;
+  parser_e_no_class_in_local_anonymous_records=03331;
+  parser_e_not_allowed_in_record=03332;
   type_e_mismatch=04000;
   type_e_incompatible_types=04001;
   type_e_not_equal_types=04002;
@@ -533,6 +538,7 @@ const
   type_e_interface_lower_visibility=04117;
   type_e_typeof_requires_vmt=04118;
   type_e_invalid_default_value=04119;
+  type_e_type_not_allowed_for_type_helper=04120;
   sym_e_id_not_found=05000;
   sym_f_internal_error_in_symtablestack=05001;
   sym_e_duplicate_id=05002;
@@ -606,6 +612,7 @@ const
   sym_w_library_overload=05084;
   sym_e_duplicate_id_create_java_constructor=05085;
   sym_e_no_matching_inherited_parameterless_constructor=05086;
+  sym_d_adding_helper_for=05087;
   cg_e_parasize_too_big=06009;
   cg_e_file_must_call_by_reference=06012;
   cg_e_cant_use_far_pointer_there=06013;
@@ -786,6 +793,7 @@ const
   asmw_e_missing_endprologue=08023;
   asmw_e_prologue_too_large=08024;
   asmw_e_handlerdata_no_handler=08025;
+  asmw_f_too_many_relocations=08026;
   exec_w_source_os_redefined=09000;
   exec_i_assembling_pipe=09001;
   exec_d_cant_create_asmfile=09002;
@@ -963,9 +971,9 @@ const
   option_info=11024;
   option_help_pages=11025;
 
-  MsgTxtSize = 68093;
+  MsgTxtSize = 68744;
 
   MsgIdxMax : array[1..20] of longint=(
-    26,93,328,120,87,56,126,26,202,63,
+    26,93,333,121,88,56,126,27,202,63,
     54,20,1,1,1,1,1,1,1,1
   );

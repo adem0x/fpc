@@ -226,7 +226,6 @@ implementation
          hdef  : tdef;
          temp  : ttempcreatenode;
          newstatement : tstatementnode;
-         procinfo : tprocinfo;
        begin
          { Properties are not allowed, because the write can
            be different from the read }
@@ -923,7 +922,10 @@ implementation
                begin
                  { We are calling from the static class method which has no self node }
                  if assigned(current_procinfo) and current_procinfo.procdef.no_self_node then
-                   p1:=cloadvmtaddrnode.create(ctypenode.create(current_procinfo.procdef.struct))
+                   if st.symtabletype=recordsymtable then
+                     p1:=ctypenode.create(current_procinfo.procdef.struct)
+                   else
+                     p1:=cloadvmtaddrnode.create(ctypenode.create(current_procinfo.procdef.struct))
                  else
                    p1:=load_self_node;
                  { We are calling a member }
@@ -1467,6 +1469,37 @@ implementation
 ****************************************************************************}
 
 
+    function real_const_node_from_pattern(s:string):tnode;
+      var
+        d : bestreal;
+        code : integer;
+        cur : currency;
+      begin
+        val(s,d,code);
+        if code<>0 then
+         begin
+           Message(parser_e_error_in_real);
+           d:=1.0;
+         end;
+{$ifdef FPC_REAL2REAL_FIXED}
+        if current_settings.fputype=fpu_none then
+          Message(parser_e_unsupported_real);
+        if (current_settings.minfpconstprec=s32real) and
+           (d = single(d)) then
+          result:=crealconstnode.create(d,s32floattype)
+        else if (current_settings.minfpconstprec=s64real) and
+                (d = double(d)) then
+          result:=crealconstnode.create(d,s64floattype)
+        else
+{$endif FPC_REAL2REAL_FIXED}
+          result:=crealconstnode.create(d,pbestrealtype^);
+{$ifdef FPC_HAS_STR_CURRENCY}
+        val(pattern,cur,code);
+        if code=0 then
+          trealconstnode(result).value_currency:=cur;
+{$endif FPC_HAS_STR_CURRENCY}
+      end;
+
 {---------------------------------------------
                PostFixOperators
 ---------------------------------------------}
@@ -1648,6 +1681,52 @@ implementation
           addstatement(newstatement,ctemprefnode.create(arrnode));
         end;
 
+      function try_type_helper(var node:tnode;def:tdef):boolean;
+        var
+          srsym : tsym;
+          srsymtable : tsymtable;
+          n : tnode;
+          newstatement : tstatementnode;
+          temp : ttempcreatenode;
+          extdef : tdef;
+        begin
+          result:=false;
+          if (token=_ID) and (block_type in [bt_body,bt_general,bt_except]) then
+            begin
+              if not assigned(def) then
+                if node.nodetype=addrn then
+                  { always use the pointer type for addr nodes as otherwise
+                    we'll have an anonymous pointertype with no name }
+                  def:=voidpointertype
+                else
+                  def:=node.resultdef;
+              result:=search_objectpascal_helper(def,nil,pattern,srsym,srsymtable);
+              if result then
+                begin
+                  if not (srsymtable.symtabletype=objectsymtable) or
+                      not is_objectpascal_helper(tdef(srsymtable.defowner)) then
+                    internalerror(2013011401);
+                  { convert const node to temp node of the extended type }
+                  if node.nodetype in (nodetype_const+[niln,addrn]) then
+                    begin
+                      extdef:=tobjectdef(srsymtable.defowner).extendeddef;
+                      newstatement:=nil;
+                      n:=internalstatements(newstatement);
+                      temp:=ctempcreatenode.create(extdef,extdef.size,tt_persistent,false);
+                      addstatement(newstatement,temp);
+                      addstatement(newstatement,cassignmentnode.create(ctemprefnode.create(temp),node));
+                      addstatement(newstatement,ctempdeletenode.create_normal_temp(temp));
+                      addstatement(newstatement,ctemprefnode.create(temp));
+                      node:=n;
+                      do_typecheckpass(node)
+                    end;
+                  check_hints(srsym,srsym.symoptions,srsym.deprecatedmsg);
+                  consume(_ID);
+                  do_member_read(nil,getaddr,srsym,node,again,[]);
+                end;
+            end;
+        end;
+
     var
      protsym  : tpropertysym;
      p2,p3  : tnode;
@@ -1657,10 +1736,17 @@ implementation
      { shouldn't be used that often, so the extra overhead is ok to save
        stack space }
      dispatchstring : ansistring;
+     found,
+     haderror,
      nodechanged    : boolean;
      calltype: tdispcalltype;
+     valstr,expstr : string;
+     intval : qword;
+     code : integer;
+     strdef : tdef;
     label
-     skipreckklammercheck;
+     skipreckklammercheck,
+     skippointdefcheck;
     begin
      result:=false;
      again:=true;
@@ -1844,6 +1930,120 @@ implementation
                  try to call it in case it returns a record/object/... }
                maybe_call_procvar(p1,false);
 
+               if (p1.nodetype=ordconstn) and
+                   not is_boolean(p1.resultdef) and
+                   not is_enum(p1.resultdef) then
+                 begin
+                   { type helpers are checked first }
+                   if (token=_ID) and try_type_helper(p1,nil) then
+                     goto skippointdefcheck;
+                   { only an "e" or "E" can follow an intconst with a ".", the
+                     other case (another intconst) is handled by the scanner }
+                   if (token=_ID) and (pattern[1]='E') then
+                     begin
+                       haderror:=false;
+                       if length(pattern)>1 then
+                         begin
+                           expstr:=copy(pattern,2,length(pattern)-1);
+                           val(expstr,intval,code);
+                           if code<>0 then
+                             haderror:=true;
+                         end
+                       else
+                         expstr:='';
+                       consume(token);
+                       if tordconstnode(p1).value.signed then
+                         str(tordconstnode(p1).value.svalue,valstr)
+                       else
+                         str(tordconstnode(p1).value.uvalue,valstr);
+                       valstr:=valstr+'.0E';
+                       if expstr='' then
+                         case token of
+                           _MINUS:
+                             begin
+                               consume(token);
+                               if token=_INTCONST then
+                                 begin
+                                   valstr:=valstr+'-'+pattern;
+                                   consume(token);
+                                 end
+                               else
+                                 haderror:=true;
+                             end;
+                           _PLUS:
+                             begin
+                               consume(token);
+                               if token=_INTCONST then
+                                 begin
+                                   valstr:=valstr+pattern;
+                                   consume(token);
+                                 end
+                               else
+                                 haderror:=true;
+                             end;
+                           _INTCONST:
+                             begin
+                               valstr:=valstr+pattern;
+                               consume(_INTCONST);
+                             end;
+                           else
+                             haderror:=true;
+                         end
+                       else
+                         valstr:=valstr+expstr;
+                       if haderror then
+                         begin
+                           Message(parser_e_error_in_real);
+                           p2:=cerrornode.create;
+                         end
+                       else
+                         p2:=real_const_node_from_pattern(valstr);
+                       p1.free;
+                       p1:=p2;
+                       again:=false;
+                       goto skippointdefcheck;
+                     end
+                   else
+                     begin
+                       { just convert the ordconst to a realconst }
+                       p2:=crealconstnode.create(tordconstnode(p1).value,pbestrealtype^);
+                       p1.free;
+                       p1:=p2;
+                       again:=false;
+                       goto skippointdefcheck;
+                     end;
+                 end;
+
+               if (p1.nodetype=stringconstn) and (token=_ID) then
+                 begin
+                   { the def of a string const is an array }
+                   case tstringconstnode(p1).cst_type of
+                     cst_conststring:
+                       if cs_refcountedstrings in current_settings.localswitches then
+                         if m_default_unicodestring in current_settings.modeswitches then
+                           strdef:=cunicodestringtype
+                         else
+                           strdef:=cansistringtype
+                       else
+                         strdef:=cshortstringtype;
+                     cst_shortstring:
+                       strdef:=cshortstringtype;
+                     cst_ansistring:
+                       { use getansistringdef? }
+                       strdef:=cansistringtype;
+                     cst_widestring:
+                       strdef:=cwidestringtype;
+                     cst_unicodestring:
+                       strdef:=cunicodestringtype;
+                     cst_longstring:
+                       { let's see when someone stumbles upon this...}
+                       internalerror(201301111);
+                   end;
+                   if try_type_helper(p1,strdef) then
+                     goto skippointdefcheck;
+                 end;
+
+               { this is skipped if label skippointdefcheck is used }
                case p1.resultdef.typ of
                  recorddef:
                    begin
@@ -1874,25 +2074,28 @@ implementation
                      if token=_ID then
                        begin
                          srsym:=tsym(tenumdef(p1.resultdef).symtable.Find(pattern));
-                         p1.destroy;
                          if assigned(srsym) and (srsym.typ=enumsym) then
                            begin
+                             p1.destroy;
                              check_hints(srsym,srsym.symoptions,srsym.deprecatedmsg);
                              p1:=genenumnode(tenumsym(srsym));
+                             consume(_ID);
                            end
                          else
-                           begin
-                             Message1(sym_e_id_no_member,orgpattern);
-                             p1:=cerrornode.create;
-                           end;
+                           if not try_type_helper(p1,nil) then
+                             begin
+                               p1.destroy;
+                               Message1(sym_e_id_no_member,orgpattern);
+                               p1:=cerrornode.create;
+                               consume(_ID);
+                             end;
                        end;
-                     consume(_ID);
                    end;
                  arraydef:
                    begin
                      if is_dynamic_array(p1.resultdef) then
                        begin
-                         if token=_ID then
+                         if (token=_ID) and not try_type_helper(p1,nil) then
                            begin
                              if pattern='CREATE' then
                                begin
@@ -1927,39 +2130,42 @@ implementation
                         v.ident(parameters) := rhs -> also property put }
                       if token=_ID then
                         begin
-                          dispatchstring:=orgpattern;
-                          consume(_ID);
-                          calltype:=dct_method;
-                          if try_to_consume(_LKLAMMER) then
+                          if not try_type_helper(p1,nil) then
                             begin
-                              p2:=parse_paras(false,true,_RKLAMMER);
-                              consume(_RKLAMMER);
-                            end
-                          else if try_to_consume(_LECKKLAMMER) then
-                            begin
-                              p2:=parse_paras(false,true,_RECKKLAMMER);
-                              consume(_RECKKLAMMER);
-                              calltype:=dct_propget;
-                            end
-                          else
-                            p2:=nil;
-                          { property setter? }
-                          if (token=_ASSIGNMENT) and not(afterassignment) then
-                            begin
-                              consume(_ASSIGNMENT);
-                              { read the expression }
-                              p3:=comp_expr(true,false);
-                              { concat value parameter too }
-                              p2:=ccallparanode.create(p3,p2);
-                              p1:=translate_disp_call(p1,p2,dct_propput,dispatchstring,0,voidtype);
-                            end
-                          else
-                          { this is only an approximation
-                            setting useresult if not necessary is only a waste of time, no more, no less (FK) }
-                          if afterassignment or in_args or (token<>_SEMICOLON) then
-                            p1:=translate_disp_call(p1,p2,calltype,dispatchstring,0,cvarianttype)
-                          else
-                            p1:=translate_disp_call(p1,p2,calltype,dispatchstring,0,voidtype);
+                              dispatchstring:=orgpattern;
+                              consume(_ID);
+                              calltype:=dct_method;
+                              if try_to_consume(_LKLAMMER) then
+                                begin
+                                  p2:=parse_paras(false,true,_RKLAMMER);
+                                  consume(_RKLAMMER);
+                                end
+                              else if try_to_consume(_LECKKLAMMER) then
+                                begin
+                                  p2:=parse_paras(false,true,_RECKKLAMMER);
+                                  consume(_RECKKLAMMER);
+                                  calltype:=dct_propget;
+                                end
+                              else
+                                p2:=nil;
+                              { property setter? }
+                              if (token=_ASSIGNMENT) and not(afterassignment) then
+                                begin
+                                  consume(_ASSIGNMENT);
+                                  { read the expression }
+                                  p3:=comp_expr(true,false);
+                                  { concat value parameter too }
+                                  p2:=ccallparanode.create(p3,p2);
+                                  p1:=translate_disp_call(p1,p2,dct_propput,dispatchstring,0,voidtype);
+                                end
+                              else
+                              { this is only an approximation
+                                setting useresult if not necessary is only a waste of time, no more, no less (FK) }
+                              if afterassignment or in_args or (token<>_SEMICOLON) then
+                                p1:=translate_disp_call(p1,p2,calltype,dispatchstring,0,cvarianttype)
+                              else
+                                p1:=translate_disp_call(p1,p2,calltype,dispatchstring,0,voidtype);
+                            end;
                         end
                       else { Error }
                         Consume(_ID);
@@ -2036,21 +2242,30 @@ implementation
                         end
                       else
                         begin
-                          Message(parser_e_invalid_qualifier);
-                          if tpointerdef(p1.resultdef).pointeddef.typ in [recorddef,objectdef,classrefdef] then
-                            Message(parser_h_maybe_deref_caret_missing);
+                          if not try_type_helper(p1,nil) then
+                            begin
+                              Message(parser_e_invalid_qualifier);
+                              if tpointerdef(p1.resultdef).pointeddef.typ in [recorddef,objectdef,classrefdef] then
+                                Message(parser_h_maybe_deref_caret_missing);
+                            end;
                         end
                     end;
                   else
                     begin
-                      if p1.resultdef.typ<>undefineddef then
-                        Message(parser_e_invalid_qualifier);
-                      p1.destroy;
-                      p1:=cerrornode.create;
-                      { Error }
-                      consume(_ID);
+                      found:=try_type_helper(p1,nil);
+                      if not found then
+                        begin
+                          if p1.resultdef.typ<>undefineddef then
+                            Message(parser_e_invalid_qualifier);
+                          p1.destroy;
+                          p1:=cerrornode.create;
+                          { Error }
+                          consume(_ID);
+                        end;
                     end;
                end;
+               { processing an ordconstnode avoids the resultdef check }
+               skippointdefcheck:
              end;
 
           else
@@ -2325,7 +2540,10 @@ implementation
                           if assigned(current_structdef) and
                               (((current_structdef<>hdef) and is_owned_by(current_structdef,hdef)) or
                                (sp_static in srsym.symoptions)) then
-                            p1:=cloadvmtaddrnode.create(ctypenode.create(hdef))
+                            if srsymtable.symtabletype=recordsymtable then
+                              p1:=ctypenode.create(hdef)
+                            else
+                              p1:=cloadvmtaddrnode.create(ctypenode.create(hdef))
                           else
                           if assigned(current_procinfo) and current_procinfo.procdef.no_self_node then
                             p1:=cloadvmtaddrnode.create(ctypenode.create(current_procinfo.procdef.struct))
@@ -2565,7 +2783,6 @@ implementation
          pd         : tprocdef;
          hclassdef  : tobjectdef;
          d          : bestreal;
-         cur        : currency;
          hs,hsorg   : string;
          hdef       : tdef;
          filepos    : tfileposinfo;
@@ -2817,34 +3034,22 @@ implementation
                  else
                    { the necessary range checking has already been done by val }
                    tordconstnode(p1).rangecheck:=false;
+                 if token=_POINT then
+                   begin
+                     again:=true;
+                     postfixoperators(p1,again,getaddr);
+                   end;
                end;
 
              _REALNUMBER :
                begin
-                 val(pattern,d,code);
-                 if code<>0 then
-                  begin
-                    Message(parser_e_error_in_real);
-                    d:=1.0;
-                  end;
+                 p1:=real_const_node_from_pattern(pattern);
                  consume(_REALNUMBER);
-{$ifdef FPC_REAL2REAL_FIXED}
-                 if current_settings.fputype=fpu_none then
-                   Message(parser_e_unsupported_real);
-                 if (current_settings.minfpconstprec=s32real) and
-                    (d = single(d)) then
-                   p1:=crealconstnode.create(d,s32floattype)
-                 else if (current_settings.minfpconstprec=s64real) and
-                         (d = double(d)) then
-                   p1:=crealconstnode.create(d,s64floattype)
-                 else
-{$endif FPC_REAL2REAL_FIXED}
-                   p1:=crealconstnode.create(d,pbestrealtype^);
-{$ifdef FPC_HAS_STR_CURRENCY}
-                 val(pattern,cur,code);
-                 if code=0 then
-                   trealconstnode(p1).value_currency:=cur;
-{$endif FPC_HAS_STR_CURRENCY}
+                 if token=_POINT then
+                   begin
+                     again:=true;
+                     postfixoperators(p1,again,getaddr);
+                   end;
                end;
 
              _STRING :
@@ -2899,6 +3104,11 @@ implementation
                begin
                  p1:=cordconstnode.create(ord(pattern[1]),cansichartype,true);
                  consume(_CCHAR);
+                 if token=_POINT then
+                   begin
+                     again:=true;
+                     postfixoperators(p1,again,getaddr);
+                   end;
                end;
 
              _CWSTRING:
@@ -2916,6 +3126,11 @@ implementation
                begin
                  p1:=cordconstnode.create(ord(getcharwidestring(patternw,0)),cwidechartype,true);
                  consume(_CWCHAR);
+                 if token=_POINT then
+                   begin
+                     again:=true;
+                     postfixoperators(p1,again,getaddr);
+                   end;
                end;
 
              _KLAMMERAFFE :
@@ -3033,12 +3248,22 @@ implementation
                begin
                  consume(_TRUE);
                  p1:=cordconstnode.create(1,pasbool8type,false);
+                 if token=_POINT then
+                   begin
+                     again:=true;
+                     postfixoperators(p1,again,getaddr);
+                   end;
                end;
 
              _FALSE :
                begin
                  consume(_FALSE);
                  p1:=cordconstnode.create(0,pasbool8type,false);
+                 if token=_POINT then
+                   begin
+                     again:=true;
+                     postfixoperators(p1,again,getaddr);
+                   end;
                end;
 
              _NIL :
@@ -3046,7 +3271,7 @@ implementation
                  consume(_NIL);
                  p1:=cnilnode.create;
                  { It's really ugly code nil^, but delphi allows it }
-                 if token in [_CARET] then
+                 if token in [_CARET,_POINT] then
                   begin
                     again:=true;
                     postfixoperators(p1,again,getaddr);

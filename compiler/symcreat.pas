@@ -375,10 +375,10 @@ implementation
       if (struct.typ=recorddef) and
          not assigned(struct.typesym) then
         internalerror(2011032812);
-      { We can easily use the inherited clone in case we have to create a deep
-        copy of certain fields. The reason is that e.g. sets are pointers at
-        the JVM level, but not in Pascal. So the JVM clone routine will copy the
-        pointer to the set from the old record (= class instance) to the new
+      { We cannot easily use the inherited clone in case we have to create a
+        deep copy of certain fields. The reason is that e.g. sets are pointers
+        at the JVM level, but not in Pascal. So the JVM clone routine will copy
+        the pointer to the set from the old record (= class instance) to the new
         one, but we have no way to change this pointer itself from inside Pascal
         code.
 
@@ -386,8 +386,7 @@ implementation
         we simply declare a temporary instance on the stack, which will be
         allocated/initialized by the temp generator. We return its address as
         the result of the clone routine, so it remains live. }
-      str:='type _fpc_ptrt = ^'+struct.typesym.realname+
-        '; var __fpc_newcopy:'+ struct.typesym.realname+'; begin clone:=JLObject(@__fpc_newcopy);';
+      str:='var __fpc_newcopy:'+ struct.typesym.realname+'; begin clone:=JLObject(@__fpc_newcopy);';
       { copy all field contents }
       for i:=0 to struct.symtable.symlist.count-1 do
         begin

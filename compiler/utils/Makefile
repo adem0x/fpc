@@ -2461,6 +2461,7 @@ ppumove$(EXEEXT): ppumove.pp ppu$(PPUEXT)
 	$(COMPILER) ppumove.pp -Fu../generic -dGENERIC_CPU -Fi..
 endif
 msg2inc$(EXEEXT): $(COMPILER_UNITTARGETDIR) msg2inc.pp
+gppc386$(EXEEXT): $(COMPILER_UNITTARGETDIR) gppc386.pp
 fpcsubst$(EXEEXT): fpcsubst.pp usubst.pp
 fpcmkcfg$(EXEEXT): fpcmkcfg.pp usubst.pp fpccfg.inc fpcfg.inc fpini.inc
 ifneq ($(DATA2INC),)

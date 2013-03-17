@@ -1,5 +1,5 @@
 {
-    Copyright (c) 1998-2002 by the FPC Development Team
+    Copyright (c) 1998-2013 by the FPC Development Team
 
     Dumps the contents of a FPC unit file (PPU File)
 
@@ -38,9 +38,9 @@ uses
   tokens;
 
 const
-  Version   = 'Version 2.5.1';
+  Version   = 'Version 2.7.1';
   Title     = 'PPU-Analyser';
-  Copyright = 'Copyright (c) 1998-2010 by the Free Pascal Development Team';
+  Copyright = 'Copyright (c) 1998-2013 by the Free Pascal Development Team';
 
 { verbosity }
   v_none           = $0;
@@ -72,7 +72,8 @@ const
     { 11 } 'powerpc64',
     { 12 } 'avr',
     { 13 } 'mipsel',
-    { 14 } 'jvm'
+    { 14 } 'jvm',
+    { 15 } 'avr32'
     );
 
 { List of all supported system-cpu couples }
@@ -154,7 +155,10 @@ const
   { 73 }  'AIX-powerpc',
   { 74 }  'AIX-powerpc64',
   { 75 }  'Java-JVM',
-  { 76 }  'Android-JVM'
+  { 76 }  'Android-JVM',
+  { 77 }  'Android-arm',
+  { 78 }  'Android-i386',
+  { 79 }  'Embedded-avr32'
   );
 
 const
@@ -279,16 +283,21 @@ begin
   has_more_infos:=true;
 end;
 
+procedure SetHasErrors;
+begin
+  has_errors:=true;
+end;
+
 Procedure WriteError(const S : string);
 Begin
    Writeln(S);
-   has_errors:=true;
+   SetHasErrors;
 End;
 
 function Unknown(const st : string; val :longint) : string;
 Begin
   Unknown:='<!! Unknown'+st+' value '+tostr(val)+'>';
-  has_errors:=true;
+  SetHasErrors;
 end;
 
 function ToStr(w:longint):String;
@@ -355,6 +364,23 @@ begin
   else
     result:=Unknown('visibility',w);
 end;
+
+
+Function IntfEntryType2Str(w:longint):string;
+const
+  { tinterfaceentrytype type is defined in symconst unit }
+
+  Name : array[tinterfaceentrytype] of string = (
+    'standard','virtual method result','static method result','field value','virtual method class',
+    'static method class','field value class'
+  );
+begin
+  if w<=ord(high(Name)) then
+    result:=Name[tinterfaceentrytype(w)]
+  else
+    result:=Unknown('entry type',w);
+end;
+
 
 Function Synthetic2Str(w: byte): string;
 const
@@ -437,7 +463,7 @@ begin
   if ntflags<>0 then
     begin
       s:=s+' unknown '+hexstr(ntflags,8);
-      has_errors:=true;
+      SetHasErrors;
     end;
   PPUFlags2Str:=s;
 end;
@@ -471,7 +497,7 @@ end;
        if t=-1 then
         begin
           Result := 'Not Found';
-          has_errors:=true;
+          SetHasErrors;
           exit;
         end;
        DT := FileDateToDateTime(t);
@@ -491,7 +517,7 @@ var
 begin
   if ppufile.readentry<>ibrecsymtableoptions then
     begin
-      has_errors:=true;
+      SetHasErrors;
       exit;
     end;
   writeln(space,' recordalignment: ',shortint(ppufile.getbyte));
@@ -511,7 +537,8 @@ const
   symtblopts=ord(high(tsymtableoption))  + 1;
   symtblopt : array[1..symtblopts] of tsymtblopt=(
      (mask:sto_has_helper;   str:'Has helper'),
-     (mask:sto_has_generic;  str:'Has generic')
+     (mask:sto_has_generic;  str:'Has generic'),
+     (mask:sto_has_operator; str:'Has operator')
   );
 var
   options : tsymtableoptions;
@@ -520,7 +547,7 @@ var
 begin
   if ppufile.readentry<>ibsymtableoptions then
     begin
-      has_errors:=true;
+      SetHasErrors;
       exit;
     end;
   ppufile.getsmallset(options);
@@ -742,7 +769,7 @@ begin
        else
          begin
            bindstr:='<Error !!>';
-           has_errors:=true;
+           SetHasErrors;
          end;
      end;
      case tasmsymtype(ppufile.getbyte) of
@@ -759,7 +786,7 @@ begin
        else
          begin
            typestr:='<Error !!>';
-           has_errors:=true;
+           SetHasErrors;
          end;
      end;
      Writeln(space,'  ',i,' : ',s,' [',bindstr,',',typestr,']');
@@ -827,7 +854,7 @@ begin
   if (idx>derefdatalen) then
     begin
       writeln('!! Error: Deref idx ',idx,' > ',derefdatalen);
-      has_errors:=true;
+      SetHasErrors;
       exit;
     end;
   write(derefspace,'(',idx,') ');
@@ -872,7 +899,7 @@ begin
        else
          begin
            writeln('!! unsupported dereftyp: ',ord(b));
-           has_errors:=true;
+           SetHasErrors;
            break;
          end;
      end;
@@ -969,9 +996,9 @@ end;
          disabledircache : boolean;
 
         { CPU targets with microcontroller support can add a controller specific unit }
-{$if defined(ARM) or defined(AVR)}
+{$if defined(ARM) or defined(AVR) or defined(AVR32)}
         controllertype   : tcontrollertype;
-{$endif defined(ARM) or defined(AVR)}
+{$endif defined(ARM) or defined(AVR) or defined(AVR32)}
          { WARNING: this pointer cannot be written as such in record token }
          pmessage : pmessagestaterecord;
        end;
@@ -1020,7 +1047,7 @@ procedure readprocinfooptions(space : string);
 type
   tprocinfoopt=record
     mask : tprocinfoflag;
-    str  : string[80];
+    str  : string[81];
   end;
 const
   procinfoopts=ord(high(tprocinfoflag)) - ord(low(tprocinfoflag));
@@ -1833,7 +1860,7 @@ begin
     begin
       writeln('!! ibcreatedobjtypes entry not found');
       ppufile.skipdata(ppufile.entrysize);
-      has_errors:=true;
+      SetHasErrors;
       exit
     end;
   writeln;
@@ -1994,6 +2021,8 @@ begin
                  end;
                constreal :
                  begin
+                   write  (space,'     RealType : ');
+                   readderef('');
                    write(space,'        Value : ');
                    if entryleft=sizeof(ppureal) then
                      begin
@@ -2019,7 +2048,7 @@ begin
                      begin
                        realvalue:=0.0;
                        writeln(realvalue,' Error reading real value');
-                       has_errors:=true;
+                       SetHasErrors;
                      end;
                  end;
                constset :
@@ -2236,7 +2265,7 @@ begin
          else
            begin
              WriteLn('!! Skipping unsupported PPU Entry in Symbols: ',b);
-             has_errors:=true;
+             SetHasErrors;
            end;
        end;
        if not EndOfEntry then
@@ -2540,7 +2569,7 @@ begin
                  writeln(space,'      Visibility: ',Visibility2Str(getbyte));
                end;
 
-             if tobjecttyp(b) in [odt_class,odt_interfacecorba,odt_objcclass,odt_objcprotocol,odt_javaclass,odt_interfacejava] then
+             if tobjecttyp(b) in [odt_class,odt_objcclass,odt_objcprotocol,odt_javaclass,odt_interfacejava] then
               begin
                 l:=getlongint;
                 writeln(space,'  Impl Intf Count : ',l);
@@ -2548,7 +2577,10 @@ begin
                  begin
                    write  (space,'  - Definition : ');
                    readderef('');
+                   write  (space,'  - Getter Def : ');
+                   readderef('');
                    writeln(space,'       IOffset : ',getlongint);
+                   writeln(space,'    Entry type : ',IntfEntryType2Str(getbyte));
                  end;
               end;
 
@@ -2662,7 +2694,7 @@ begin
          else
            begin
              WriteLn('!! Skipping unsupported PPU Entry in definitions: ',b);
-             has_errors:=true;
+             SetHasErrors;
            end;
        end;
        if not EndOfEntry then
@@ -2824,7 +2856,7 @@ begin
          else
            begin
              WriteLn('!! Skipping unsupported PPU Entry in General Part: ',b);
-             has_errors:=true;
+             SetHasErrors;
            end;
        end;
      until false;
@@ -2862,7 +2894,7 @@ begin
          else
            begin
              WriteLn('!! Skipping unsupported PPU Entry in Implementation: ',b);
-             has_errors:=true;
+             SetHasErrors;
            end;
        end;
      until false;
@@ -2887,7 +2919,7 @@ begin
   if not ppufile.CheckPPUID then
    begin
      writeln(Filename,' : Not a valid PPU file, Skipping');
-     has_errors:=true;
+     SetHasErrors;
      exit;
    end;
 { Check PPU Version }
@@ -2897,7 +2929,7 @@ begin
   if PPUVersion<16 then
    begin
      writeln(Filename,' : Old PPU Formats (<v16) are not supported, Skipping');
-     has_errors:=true;
+     SetHasErrors;
      exit;
    end;
 { Write PPU Header Information }

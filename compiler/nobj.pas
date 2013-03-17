@@ -112,7 +112,7 @@ implementation
     uses
        SysUtils,
        globals,verbose,systems,
-       node,procinfo,
+       node,
        symbase,symtable,symconst,symtype,defcmp,
        cgbase,parabase,paramgr,
        dbgbase,
@@ -429,7 +429,11 @@ implementation
                       if po_auto_raised_visibility in vmtpd.procoptions then
                         begin
                           if updatevalues then
-                            pd.visibility:=vmtentryvis;
+                            begin
+                              pd.visibility:=vmtentryvis;
+                              { this one's visibility is now also auto-raised }
+                              include(pd.procoptions,po_auto_raised_visibility);
+                            end
                         end
                       else
 {$ifdef jvm}
@@ -1049,9 +1053,6 @@ implementation
         len : byte;
       begin
          current_asmdata.getdatalabel(p^.nl);
-         if (cs_create_pic in current_settings.moduleswitches) and
-            assigned(current_procinfo) then
-           include(current_procinfo.flags,pi_needs_got);
          if assigned(p^.l) then
            writenames(list,p^.l);
          list.concat(cai_align.create(const_align(sizeof(pint))));
@@ -1072,9 +1073,6 @@ implementation
          if assigned(p^.l) then
            writestrentry(list,p^.l);
 
-         if (cs_create_pic in current_settings.moduleswitches) and
-            assigned(current_procinfo) then
-           include(current_procinfo.flags,pi_needs_got);
          { write name label }
          list.concat(cai_align.create(const_align(sizeof(pint))));
          list.concat(Tai_const.Create_sym(p^.nl));
@@ -1099,9 +1097,6 @@ implementation
          if assigned(root) then
            writenames(list,root);
 
-         if (cs_create_pic in current_settings.moduleswitches) and
-            assigned(current_procinfo) then
-           include(current_procinfo.flags,pi_needs_got);
          { now start writing of the message string table }
          current_asmdata.getlabel(result,alt_data);
          list.concat(cai_align.create(const_align(sizeof(pint))));
@@ -1122,9 +1117,6 @@ implementation
          if assigned(p^.l) then
            writeintentry(list,p^.l);
 
-         if (cs_create_pic in current_settings.moduleswitches) and
-            assigned(current_procinfo) then
-           include(current_procinfo.flags,pi_needs_got);
          { write name label }
          list.concat(cai_align.create(const_align(sizeof(longint))));
          list.concat(Tai_const.Create_32bit(p^.data.messageinf.i));
@@ -1146,9 +1138,6 @@ implementation
          { insert all message handlers into a tree, sorted by name }
          _class.symtable.SymList.ForEachCall(@insertmsgint,@count);
 
-         if (cs_create_pic in current_settings.moduleswitches) and
-            assigned(current_procinfo) then
-           include(current_procinfo.flags,pi_needs_got);
          { now start writing of the message string table }
          current_asmdata.getlabel(r,alt_data);
          list.concat(cai_align.create(const_align(sizeof(pint))));
@@ -1410,9 +1399,6 @@ implementation
     function  TVMTWriter.intf_get_vtbl_name(AImplIntf:TImplementedInterface): string;
       begin
         result:=make_mangledname('VTBL',_class.owner,_class.objname^+'_$_'+AImplIntf.IntfDef.objname^);
-         if (cs_create_pic in current_settings.moduleswitches) and
-            assigned(current_procinfo) then
-           include(current_procinfo.flags,pi_needs_got);
       end;
 
 
@@ -1547,7 +1533,7 @@ implementation
             if (procdef.funcretloc[calleeside].Location^.loc=LOC_FPUREGISTER) then
               exit;
 {$endif x86}
-            procdef.init_paraloc_info(calleeside);
+            procdef.init_paraloc_info(callerside);
             { we can redirect the call if no memory parameter is passed }
             for i:=0 to procdef.paras.count-1 do
               begin
@@ -1587,7 +1573,7 @@ implementation
              internalerror(200611083);
            if (po_abstractmethod in vmtpd.procoptions) then
              procname:='FPC_ABSTRACTERROR'
-           else if (cs_opt_level2 in current_settings.optimizerswitches) and RedirectToEmpty(vmtpd) then
+           else if (cs_opt_remove_emtpy_proc in current_settings.optimizerswitches) and RedirectToEmpty(vmtpd) then
              procname:='FPC_EMPTYMETHOD'
            else if not wpoinfomanager.optimized_name_for_vmt(_class,vmtpd,procname) then
              procname:=vmtpd.mangledname;

@@ -44,7 +44,7 @@ interface
     procedure single_type(var def:tdef;options:TSingleTypeOptions);
 
     { reads any type declaration, where the resulting type will get name as type identifier }
-    procedure read_named_type(var def:tdef;const newsym:tsym;genericdef:tstoreddef;genericlist:TFPObjectList;parseprocvardir:boolean);
+    procedure read_named_type(var def:tdef;const newsym:tsym;genericdef:tstoreddef;genericlist:TFPObjectList;parseprocvardir:boolean;hadtypetoken:boolean);
 
     { reads any type declaration }
     procedure read_anon_type(var def : tdef;parseprocvardir:boolean);
@@ -444,7 +444,7 @@ implementation
           begin
             if not assigned(srsym) or not (srsym.typ=typesym) then
               begin
-                Message(type_e_type_is_not_completly_defined);
+                Message1(type_e_type_is_not_completly_defined,def.typename);
                 def:=generrordef;
                 dospecialize:=false;
               end;
@@ -520,6 +520,13 @@ implementation
 
 
     procedure parse_record_members;
+
+      function IsAnonOrLocal: Boolean;
+        begin
+          result:=(current_structdef.objname^='') or
+                  not(symtablestack.stack^.next^.symtable.symtabletype in [globalsymtable,staticsymtable,objectsymtable,recordsymtable]);
+        end;
+
       var
         pd : tprocdef;
         oldparse_only: boolean;
@@ -544,8 +551,7 @@ implementation
                 member_blocktype:=bt_type;
 
                 { local and anonymous records can not have inner types. skip top record symtable }
-                if (current_structdef.objname^='') or
-                   not(symtablestack.stack^.next^.symtable.symtabletype in [globalsymtable,staticsymtable,objectsymtable,recordsymtable]) then
+                if IsAnonOrLocal then
                   Message(parser_e_no_types_in_local_anonymous_records);
               end;
             _VAR :
@@ -560,6 +566,10 @@ implementation
               begin
                 consume(_CONST);
                 member_blocktype:=bt_const;
+
+                { local and anonymous records can not have constants. skip top record symtable }
+                if IsAnonOrLocal then
+                  Message(parser_e_no_consts_in_local_anonymous_records);
               end;
             _ID, _CASE, _OPERATOR :
               begin
@@ -576,6 +586,7 @@ implementation
                      end;
                    _PROTECTED :
                      begin
+                       Message1(parser_e_not_allowed_in_record,tokeninfo^[_PROTECTED].str);
                        consume(_PROTECTED);
                        current_structdef.symtable.currentvisibility:=vis_protected;
                        include(current_structdef.objectoptions,oo_has_protected);
@@ -617,6 +628,8 @@ implementation
                                 end;
                               _PROTECTED:
                                 begin
+                                  { "strict protected" is not allowed for records }
+                                  Message1(parser_e_not_allowed_in_record,tokeninfo^[_STRICT].str+' '+tokeninfo^[_PROTECTED].str);
                                   consume(_PROTECTED);
                                   current_structdef.symtable.currentvisibility:=vis_strictprotected;
                                   include(current_structdef.objectoptions,oo_has_strictprotected);
@@ -661,6 +674,8 @@ implementation
               end;
             _PROPERTY :
               begin
+                if IsAnonOrLocal then
+                  Message(parser_e_no_properties_in_local_anonymous_records);
                 struct_property_dec(is_classdef);
                 fields_allowed:=false;
                 is_classdef:=false;
@@ -676,19 +691,24 @@ implementation
                    not((token=_ID) and (idtoken=_OPERATOR)) then
                   Message(parser_e_procedure_or_function_expected);
 
+                if IsAnonOrLocal then
+                  Message(parser_e_no_class_in_local_anonymous_records);
+
                 is_classdef:=true;
               end;
             _PROCEDURE,
             _FUNCTION:
               begin
+                if IsAnonOrLocal then
+                  Message(parser_e_no_methods_in_local_anonymous_records);
                 pd:=parse_record_method_dec(current_structdef,is_classdef);
                 fields_allowed:=false;
                 is_classdef:=false;
               end;
             _CONSTRUCTOR :
               begin
-                if not is_classdef then
-                  Message(parser_e_no_constructor_in_records);
+                if IsAnonOrLocal then
+                  Message(parser_e_no_methods_in_local_anonymous_records);
                 if not is_classdef and (current_structdef.symtable.currentvisibility <> vis_public) then
                   Message(parser_w_constructor_should_be_public);
 
@@ -701,7 +721,11 @@ implementation
                 if is_classdef then
                   pd:=class_constructor_head(current_structdef)
                 else
-                  pd:=constructor_head;
+                  begin
+                    pd:=constructor_head;
+                    if pd.minparacount = 0 then
+                      MessagePos(pd.procsym.fileinfo,parser_e_no_parameterless_constructor_in_records);
+                  end;
 
                 parse_only:=oldparse_only;
                 fields_allowed:=false;
@@ -709,6 +733,8 @@ implementation
               end;
             _DESTRUCTOR :
               begin
+                if IsAnonOrLocal then
+                  Message(parser_e_no_methods_in_local_anonymous_records);
                 if not is_classdef then
                   Message(parser_e_no_destructor_in_records);
 
@@ -842,7 +868,7 @@ implementation
 
 
     { reads a type definition and returns a pointer to it }
-    procedure read_named_type(var def:tdef;const newsym:tsym;genericdef:tstoreddef;genericlist:TFPObjectList;parseprocvardir:boolean);
+    procedure read_named_type(var def:tdef;const newsym:tsym;genericdef:tstoreddef;genericlist:TFPObjectList;parseprocvardir:boolean;hadtypetoken:boolean);
       var
         pt : tnode;
         tt2 : tdef;
@@ -1656,7 +1682,16 @@ implementation
                     current_module.checkforwarddefs.add(def);
                 end
               else
-                expr_type;
+                if hadtypetoken and
+                    { don't allow "type helper" in mode delphi and require modeswitch class }
+                    ([m_delphi,m_class]*current_settings.modeswitches=[m_class]) and
+                    (token=_ID) and (idtoken=_HELPER) then
+                  begin
+                    consume(_HELPER);
+                    def:=object_dec(odt_helper,name,newsym,genericdef,genericlist,nil,ht_type);
+                  end
+                else
+                  expr_type;
          end;
 
          if def=nil then
@@ -1666,7 +1701,7 @@ implementation
 
     procedure read_anon_type(var def : tdef;parseprocvardir:boolean);
       begin
-        read_named_type(def,nil,nil,nil,parseprocvardir);
+        read_named_type(def,nil,nil,nil,parseprocvardir,false);
       end;
 
 

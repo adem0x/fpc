@@ -37,8 +37,8 @@ unit cpupara;
        tavr32paramanager = class(tparamanager)
           function get_volatile_registers_int(calloption : tproccalloption):tcpuregisterset;override;
           function push_addr_param(varspez:tvarspez;def : tdef;calloption : tproccalloption) : boolean;override;
-          function ret_in_param(def : tdef;calloption : tproccalloption) : boolean;override;
-          procedure getintparaloc(calloption : tproccalloption; nr : longint; def : tdef; var cgpara : tcgpara);override;
+          function ret_in_param(def:tdef;pd:tabstractprocdef):boolean;override;
+          procedure getintparaloc(pd : tabstractprocdef; nr : longint; var cgpara : tcgpara);override;
           function create_paraloc_info(p : tabstractprocdef; side: tcallercallee):longint;override;
           function create_varargs_paraloc_info(p : tabstractprocdef; varargspara:tvarargsparalist):longint;override;
           function get_funcretloc(p : tabstractprocdef; side: tcallercallee; def: tdef): tcgpara;override;
@@ -61,12 +61,14 @@ unit cpupara;
       end;
 
 
-    procedure tavr32paramanager.getintparaloc(calloption : tproccalloption; nr : longint; def : tdef; var cgpara : tcgpara);
+    procedure tavr32paramanager.getintparaloc(pd : tabstractprocdef; nr : longint; var cgpara : tcgpara);
       var
         paraloc : pcgparalocation;
+        def : tdef;
       begin
         if nr<1 then
           internalerror(2002070801);
+        def:=tparavarsym(pd.paras[nr-1]).vardef;
         cgpara.reset;
         cgpara.size:=OS_ADDR;
         cgpara.intsize:=sizeof(pint);
@@ -172,8 +174,7 @@ unit cpupara;
         end;
       end;
 
-
-    function tavr32paramanager.ret_in_param(def : tdef;calloption : tproccalloption) : boolean;
+   function tavr32paramanager.ret_in_param(def:tdef;pd:tabstractprocdef) : boolean;
       begin
         case def.typ of
           recorddef:
@@ -184,7 +185,7 @@ unit cpupara;
             else
               result:=false
           else
-            result:=inherited ret_in_param(def,calloption);
+            result:=inherited ret_in_param(def,pd);
         end;
       end;
 
@@ -432,7 +433,7 @@ unit cpupara;
           end;
         result.size:=retcgsize;
         { Return is passed as var parameter }
-        if ret_in_param(def,p.proccalloption) then
+        if ret_in_param(def,p) then
           begin
             paraloc:=result.add_location;
             paraloc^.loc:=LOC_REFERENCE;

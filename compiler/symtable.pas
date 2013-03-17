@@ -214,6 +214,8 @@ interface
 {*** Misc ***}
     function  FullTypeName(def,otherdef:tdef):string;
     function generate_nested_name(symtable:tsymtable;delimiter:string):string;
+    { def is the extended type of a helper }
+    function generate_objectpascal_helper_key(def:tdef):string;
     procedure incompatibletypes(def1,def2:tdef);
     procedure hidesym(sym:TSymEntry);
     procedure duplicatesym(var hashedid:THashedIDString;dupsym,origsym:TSymEntry);
@@ -221,7 +223,7 @@ interface
 
 {*** Search ***}
     procedure addsymref(sym:tsym);
-    function  is_owned_by(childdef,ownerdef:tdef):boolean;
+    function  is_owned_by(nesteddef,ownerdef:tdef):boolean;
     function  sym_is_owned_by(childsym:tsym;symtable:tsymtable):boolean;
     function  defs_belong_to_same_generic(def1,def2:tdef):boolean;
     function  get_generic_in_hierarchy_by_name(srsym:tsym;def:tdef):tdef;
@@ -245,16 +247,17 @@ interface
     function  searchsym_in_helper(classh,contextclassh:tobjectdef;const s: TIDString;out srsym:tsym;out srsymtable:TSymtable;aHasInherited:boolean):boolean;
     function  search_system_type(const s: TIDString): ttypesym;
     function  try_search_system_type(const s: TIDString): ttypesym;
+    function  search_system_proc(const s: TIDString): tprocdef;
     function  search_named_unit_globaltype(const unitname, typename: TIDString; throwerror: boolean): ttypesym;
     function  search_struct_member(pd : tabstractrecorddef;const s : string):tsym;
     function  search_struct_member_no_helper(pd : tabstractrecorddef;const s : string):tsym;
     function  search_assignment_operator(from_def,to_def:Tdef;explicit:boolean):Tprocdef;
     function  search_enumerator_operator(from_def,to_def:Tdef):Tprocdef;
     { searches for the helper definition that's currently active for pd }
-    function  search_last_objectpascal_helper(pd,contextclassh : tabstractrecorddef;out odef : tobjectdef):boolean;
+    function  search_last_objectpascal_helper(pd : tdef;contextclassh : tabstractrecorddef;out odef : tobjectdef):boolean;
     { searches whether the symbol s is available in the currently active }
     { helper for pd }
-    function  search_objectpascal_helper(pd,contextclassh : tabstractrecorddef;const s : string; out srsym: tsym; out srsymtable: tsymtable):boolean;
+    function  search_objectpascal_helper(pd : tdef;contextclassh : tabstractrecorddef;const s : string; out srsym: tsym; out srsymtable: tsymtable):boolean;
     function  search_objc_helper(pd : tobjectdef;const s : string; out srsym: tsym; out srsymtable: tsymtable):boolean;
     function  search_objc_method(const s : string; out srsym: tsym; out srsymtable: tsymtable):boolean;
     {Looks for macro s (must be given in upper case) in the macrosymbolstack, }
@@ -263,6 +266,7 @@ interface
     { Additionally to searching for a macro, also checks whether it's still }
     { actually defined (could be disable using "undef")                     }
     function  defined_macro(const s : string):boolean;
+    { Look for a system procedure (no overloads supported) }
 
 {*** Object Helpers ***}
     function search_default_property(pd : tabstractrecorddef) : tpropertysym;
@@ -1021,7 +1025,7 @@ implementation
 
     procedure tabstractrecordsymtable.addfieldlist(list: tfpobjectlist; maybereorder: boolean);
       var
-        fieldvs, insertfieldvs, bestfieldvs: tfieldvarsym;
+        fieldvs, insertfieldvs: tfieldvarsym;
         base, fieldoffset, space, insertfieldsize, insertfieldoffset, bestinsertfieldoffset, bestspaceleft: asizeint;
         i, j, bestfieldindex: longint;
         globalfieldalignment,
@@ -1953,12 +1957,29 @@ implementation
         while assigned(symtable) and (symtable.symtabletype in [ObjectSymtable,recordsymtable]) do
           begin
             if (result='') then
-              result:=symtable.name^
+              if symtable.name<>nil then
+                result:=symtable.name^
+              else
             else
-              result:=symtable.name^+delimiter+result;
+              if symtable.name<>nil then
+                result:=symtable.name^+delimiter+result
+              else
+                result:=delimiter+result;
             symtable:=symtable.defowner.owner;
           end;
       end;
+
+
+    function generate_objectpascal_helper_key(def:tdef):string;
+      begin
+        if not assigned(def) then
+          internalerror(2013020501);
+        if def.typ in [recorddef,objectdef] then
+          result:=make_mangledname('',tabstractrecorddef(def).symtable,'')
+        else
+          result:=make_mangledname('',def.owner,def.typesym.name);
+      end;
+
 
     procedure incompatibletypes(def1,def2:tdef);
       begin
@@ -2049,18 +2070,22 @@ implementation
        end;
 
 
-    function is_owned_by(childdef,ownerdef:tdef):boolean;
+    function is_owned_by(nesteddef,ownerdef:tdef):boolean;
       begin
-        result:=childdef=ownerdef;
-        if not result and assigned(childdef.owner.defowner) then
-          result:=is_owned_by(tdef(childdef.owner.defowner),ownerdef);
+        result:=nesteddef=ownerdef;
+        if not result and
+           { types declared locally in a record method are not defined in the
+             record itself }
+           not(nesteddef.owner.symtabletype in [localsymtable,parasymtable]) and
+           assigned(nesteddef.owner.defowner) then
+          result:=is_owned_by(tdef(nesteddef.owner.defowner),ownerdef);
       end;
 
     function sym_is_owned_by(childsym:tsym;symtable:tsymtable):boolean;
       begin
         result:=assigned(childsym) and (childsym.owner=symtable);
         if not result and assigned(childsym) and
-            (childsym.owner.symtabletype in [objectsymtable,recordsymtable]) then
+           not(childsym.owner.symtabletype in [localsymtable,parasymtable]) then
           result:=sym_is_owned_by(tabstractrecorddef(childsym.owner.defowner).typesym,symtable);
       end;
 
@@ -2981,6 +3006,21 @@ implementation
       end;
 
 
+    function  search_system_proc(const s: TIDString): tprocdef;
+      var
+        srsym: tsym;
+      begin
+        srsym:=tsym(systemunit.find(s));
+        if not assigned(srsym) and
+           (cs_compilesystem in current_settings.moduleswitches) then
+          srsym:=tsym(systemunit.Find(upper(s)));
+        if not assigned(srsym) or
+           (srsym.typ<>procsym) then
+          cgmessage1(cg_f_unknown_compilerproc,s);
+        result:=tprocdef(tprocsym(srsym).procdeflist[0]);
+    end;
+
+
     function search_named_unit_globaltype(const unitname, typename: TIDString; throwerror: boolean): ttypesym;
       var
         srsymtable: tsymtable;
@@ -3000,7 +3040,7 @@ implementation
           end;
       end;
 
-    function search_last_objectpascal_helper(pd,contextclassh : tabstractrecorddef;out odef : tobjectdef):boolean;
+    function search_last_objectpascal_helper(pd : tdef;contextclassh : tabstractrecorddef;out odef : tobjectdef):boolean;
       var
         s: string;
         list: TFPObjectList;
@@ -3014,7 +3054,11 @@ implementation
         if current_module.extendeddefs.count=0 then
           exit;
         { no helpers for anonymous types }
-        if not assigned(pd.objrealname) or (pd.objrealname^='') then
+        if (pd.typ in [recorddef,objectdef]) and
+            (
+              not assigned(tabstractrecorddef(pd).objrealname) or
+              (tabstractrecorddef(pd).objrealname^='')
+            ) then
           exit;
         { if pd is defined inside a procedure we must not use make_mangledname
           (as a helper may not be defined in a procedure this is no problem...)}
@@ -3024,7 +3068,7 @@ implementation
         if st.symtabletype=localsymtable then
           exit;
         { the mangled name is used as the key for tmodule.extendeddefs }
-        s:=make_mangledname('',pd.symtable,'');
+        s:=generate_objectpascal_helper_key(pd);
         list:=TFPObjectList(current_module.extendeddefs.Find(s));
         if assigned(list) and (list.count>0) then
           begin
@@ -3041,7 +3085,7 @@ implementation
           end;
       end;
 
-    function search_objectpascal_helper(pd,contextclassh : tabstractrecorddef;const s: string; out srsym: tsym; out srsymtable: tsymtable):boolean;
+    function search_objectpascal_helper(pd : tdef;contextclassh : tabstractrecorddef;const s: string; out srsym: tsym; out srsymtable: tsymtable):boolean;
 
       var
         hashedid  : THashedIDString;
@@ -3215,7 +3259,6 @@ implementation
     function search_struct_member(pd : tabstractrecorddef;const s : string):tsym;
     { searches n in symtable of pd and all anchestors }
       var
-        srsym      : tsym;
         srsymtable : tsymtable;
       begin
         { in case this is a formal class, first find the real definition }

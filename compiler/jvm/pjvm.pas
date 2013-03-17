@@ -892,7 +892,7 @@ implementation
             (getter and
              (prop_auto_getter_prefix<>'')) or
             (not getter and
-             (prop_auto_getter_prefix<>''));
+             (prop_auto_setter_prefix<>''));
           sym:=nil;
           procoptions:=[];
           if explicitwrapper then
@@ -932,8 +932,11 @@ implementation
                         parentpd:=tprocdef(tprocsym(sym).procdeflist[0]);
                       if parentpd.owner.defowner=p.owner.defowner then
                         begin
-                          parentpd.visibility:=p.visibility;
-                          include(parentpd.procoptions,po_auto_raised_visibility);
+                          if parentpd.visibility<p.visibility then
+                            begin
+                              parentpd.visibility:=p.visibility;
+                              include(parentpd.procoptions,po_auto_raised_visibility);
+                            end;
                           { we are done, no need to create a wrapper }
                           exit
                         end
@@ -990,6 +993,7 @@ implementation
               { getter/setter could have parameters in case of indexed access
                 -> copy original procdef }
               pd:=tprocdef(orgaccesspd.getcopy);
+              exclude(pd.procoptions,po_abstractmethod);
               { can only construct the artificial name now, because it requires
                 pd.defid }
               if not explicitwrapper then

@@ -210,6 +210,20 @@ implementation
             objsym.refs:=objsym.refs or symref_plt;
           end;
 
+        R_386_32:
+          if (oso_executable in objsec.SecOptions) or
+            not (oso_write in objsec.SecOptions) then
+            begin
+              if assigned(objreloc.symbol) and assigned(objreloc.symbol.exesymbol) then
+                begin
+                  objsym:=objreloc.symbol.exesymbol.ObjSymbol;
+                  objsym.refs:=objsym.refs or symref_from_text;
+                end;
+            end;
+      end;
+
+      case reltyp of
+
         R_386_TLS_IE:
           begin
 
@@ -492,7 +506,8 @@ implementation
                               system_i386_freebsd,system_i386_haiku,
                               system_i386_openbsd,system_i386_netbsd,
                               system_i386_Netware,system_i386_netwlibc,
-                              system_i386_solaris,system_i386_embedded];
+                              system_i386_solaris,system_i386_embedded,
+                              system_i386_android];
          flags : [af_outputbinary,af_smartlink_sections,af_supports_dwarf];
          labelprefix : '.L';
          comment : '';

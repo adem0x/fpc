@@ -221,7 +221,11 @@ function do_isdevice(handle:thandle):boolean;forward;
   {$if defined(CPUCORTEXM3) or defined(CPUARMV7M)}
     {$i thumb2.inc}  { Case dependent, don't change }
   {$else}
-    {$i arm.inc}  { Case dependent, don't change }
+    {$if defined(CPUARMV6M)}
+      {$i thumb.inc}  { Case dependent, don't change }
+    {$else}
+      {$i arm.inc}  { Case dependent, don't change }
+    {$endif}
   {$endif}
   {$define SYSPROCDEFINED}
 {$endif cpuarm}
@@ -794,7 +798,7 @@ end;
 
 {$PUSH}
 {$S-}
-procedure fpc_stackcheck(stack_size:SizeUInt);[public,alias:'FPC_STACKCHECK'];
+procedure fpc_stackcheck(stack_size:SizeUInt);[public,alias:'FPC_STACKCHECK']; compilerproc;
 var
   c : Pointer;
 begin
@@ -843,12 +847,21 @@ var
 procedure fpc_InitializeUnits;[public,alias:'FPC_INITIALIZEUNITS']; compilerproc;
 var
   i : longint;
+{$ifdef DEBUG}
+  pt : PInitFinalTable;
+{$endif}
 begin
   { call cpu/fpu initialisation routine }
   fpc_cpuinit;
 {$ifdef FPC_HAS_INDIRECT_MAIN_INFORMATION}
+{$ifdef DEBUG}
+  pt := PInitFinalTable(EntryInformation.InitFinalTable);
+{$endif}
   with PInitFinalTable(EntryInformation.InitFinalTable)^ do
 {$else FPC_HAS_INDIRECT_MAIN_INFORMATION}
+{$ifdef DEBUG}
+  pt := @InitFinalTable;
+{$endif}
   with InitFinalTable do
 {$endif FPC_HAS_INDIRECT_MAIN_INFORMATION}
    begin
@@ -1323,6 +1336,7 @@ end;
 procedure fpc_emptymethod;[public,alias : 'FPC_EMPTYMETHOD'];
 begin
 end;
+
 
 procedure fpc_AbstractErrorIntern;compilerproc;[public,alias : 'FPC_ABSTRACTERROR'];
 begin

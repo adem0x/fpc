@@ -105,9 +105,9 @@ implementation
       SysUtils,
       cutils,cfileutl,systems,
       fmodule,verbose,
-{$ifdef TEST_WIN64_SEH}
+{$ifndef DISABLE_WIN64_SEH}
       itcpugas,
-{$endif TEST_WIN64_SEH}
+{$endif DISABLE_WIN64_SEH}
 {$ifdef m68k}
       cpuinfo,aasmcpu,
 {$endif m68k}
@@ -895,7 +895,7 @@ implementation
                            else
                              asmwriteln(Tai_datablock(hp).sym.name);
                          end;
-                       if (target_info.system <> system_arm_linux) then
+                       if ((target_info.system <> system_arm_linux) and (target_info.system <> system_arm_android)) then
                          sepChar := '@'
                        else
                          sepChar := '%';
@@ -1296,7 +1296,7 @@ implementation
                  end
                else
                  begin
-                   if (target_info.system <> system_arm_linux) then
+                   if ((target_info.system <> system_arm_linux) and (target_info.system <> system_arm_android)) then
                      sepChar := '@'
                    else
                      sepChar := '#';
@@ -1438,7 +1438,7 @@ implementation
 
            ait_seh_directive :
              begin
-{$ifdef TEST_WIN64_SEH}
+{$ifndef DISABLE_WIN64_SEH}
                AsmWrite(sehdirectivestr[tai_seh_directive(hp).kind]);
                case tai_seh_directive(hp).datatype of
                  sd_none:;
@@ -1459,7 +1459,7 @@ implementation
                      tostr(tai_seh_directive(hp).data.offset));
                end;
                AsmLn;
-{$endif TEST_WIN64_SEH}
+{$endif DISABLE_WIN64_SEH}
              end;
            ait_varloc:
              begin
@@ -1693,7 +1693,7 @@ implementation
         AsmWriteLn(#9'.subsections_via_symbols');
 
       { "no executable stack" marker for Linux }
-      if (target_info.system in systems_linux) and
+      if (target_info.system in (systems_linux + systems_android)) and
          not(cs_executable_stack in current_settings.moduleswitches) then
         begin
           AsmWriteLn('.section .note.GNU-stack,"",%progbits');

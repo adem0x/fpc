@@ -156,7 +156,9 @@
              system_powerpc64_aix,      { 74 }
              system_jvm_java32,         { 75 }
              system_jvm_android32,      { 76 }
-             system_avr32_embedded      { 77 }
+             system_arm_android,        { 77 }
+             system_i386_android,       { 78 }
+             system_avr32_embedded      { 79 }
        );
 
      type

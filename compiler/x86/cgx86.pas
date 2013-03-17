@@ -206,7 +206,8 @@ unit cgx86;
             result:=rg[R_MMREGISTER].getregister(list,R_SUBMMD);
           OS_F32:
             result:=rg[R_MMREGISTER].getregister(list,R_SUBMMS);
-          OS_M64,
+          OS_M64:
+            result:=rg[R_MMREGISTER].getregister(list,R_SUBQ);
           OS_M128:
             result:=rg[R_MMREGISTER].getregister(list,R_SUBMMWHOLE);
           else
@@ -370,7 +371,13 @@ unit cgx86;
 
 {$ifdef x86_64}
         { Only 32bit is allowed }
-        if ((ref.offset<low(longint)) or (ref.offset>high(longint))) then
+        { Note that this isn't entirely correct: for RIP-relative targets/memory models,
+          it is actually (offset+@symbol-RIP) that should fit into 32 bits. Since two last
+          members aren't known until link time, ABIs place very pessimistic limits
+          on offset values, e.g. SysV AMD64 allows +/-$1000000 (16 megabytes) }
+        if ((ref.offset<low(longint)) or (ref.offset>high(longint))) or
+           { absolute address is not a common thing in x64, but nevertheless a possible one }
+           ((ref.base=NR_NO) and (ref.index=NR_NO) and (ref.symbol=nil)) then
           begin
             { Load constant value to register }
             hreg:=GetAddressRegister(list);
@@ -382,7 +389,9 @@ unit cgx86;
                 ref.symbol:=nil;
               end;}
             { Add register to reference }
-            if ref.index=NR_NO then
+            if ref.base=NR_NO then
+              ref.base:=hreg
+            else if ref.index=NR_NO then
               ref.index:=hreg
             else
               begin
@@ -995,7 +1004,7 @@ unit cgx86;
                     { Convert thread local address to a process global addres
                       as we cannot handle far pointers.}
                     case target_info.system of
-                      system_i386_linux:
+                      system_i386_linux,system_i386_android:
                         if segment=NR_GS then
                           begin
                             reference_reset_symbol(tmpref,current_asmdata.RefAsmSymbol('___fpc_threadvar_offset'),0,ref.alignment);
@@ -1004,17 +1013,6 @@ unit cgx86;
                           end
                         else
                           cgmessage(cg_e_cant_use_far_pointer_there);
-                      system_i386_win32:
-                        if segment=NR_FS then
-                          begin
-                            allocallcpuregisters(list);
-                            a_call_name(list,'GetTls',false);
-                            deallocallcpuregisters(list);
-                            list.concat(Taicpu.op_reg_reg(A_ADD,tcgsize2opsize[OS_ADDR],NR_EAX,r));
-                          end
-                        else
-                          cgmessage(cg_e_cant_use_far_pointer_there);
-
                       else
                         cgmessage(cg_e_cant_use_far_pointer_there);
                     end;
@@ -2158,7 +2156,7 @@ unit cgx86;
         { interrupt support for i386 }
         if (po_interrupt in current_procinfo.procdef.procoptions) and
            { this messes up stack alignment }
-           not(target_info.system in [system_i386_darwin,system_i386_iphonesim]) then
+           not(target_info.system in [system_i386_darwin,system_i386_iphonesim,system_i386_android]) then
           begin
             { .... also the segment registers }
             list.concat(Taicpu.Op_reg(A_PUSH,S_W,NR_GS));
