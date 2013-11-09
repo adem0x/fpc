@@ -2,7 +2,7 @@
 program tgeneric97;
 
 {$IFDEF FPC}
-  {$MODE delphi}
+  {$MODE DELPHI}
 {$ENDIF}
 
 type
