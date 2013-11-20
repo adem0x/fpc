@@ -27,41 +27,81 @@
 }
 
 unit longarray;
-
-{$mode objfpc}
+{$mode objfpc}{$H+}
 
 interface
+uses
+  Exec;
 
-function readinlongs(const args : array of const): pointer;
+type
+  PArgList = ^TArgList;
+  TArgList = array of IPTR;
+  
+function readinlongs(const Args: array of const): Pointer;
+procedure AddArguments(var ArgList: TArgList; const Args: array of const);
+function GetArgPtr(var ArgList: TArgList): Pointer;
 
 implementation
 
 uses pastoc;
+
 type
-  TMyArgs = array of LongInt;
+  TMyArgs = array of IPTR;
   PMyArgs = ^TMyArgs;
 
 var
-  argarray : PMyArgs;//array [0..20] of longint;
+  ArgArray : PMyArgs;
 
-function readinlongs(const args : array of const): pointer;
+procedure AddArguments(var ArgList: TArgList; const Args: array of const);
 var
-   i : longint;
-
+  i: Integer;
+  Offset: Integer;
 begin
-
-    for i := 0 to High(args) do begin
-        case args[i].vtype of
-            vtinteger : argarray^[i] := longint(args[i].vinteger);
-            vtpchar   : argarray^[i] := longint(args[i].vpchar);
-            vtchar    : argarray^[i] := longint(args[i].vchar);
-            vtpointer : argarray^[i] := longint(args[i].vpointer);
-            vtstring  : argarray^[i] := longint(pas2c(args[i].vstring^));
-            vtboolean : argarray^[i] := longint(byte(args[i].vboolean));
-        end;
+  Offset := Length(ArgList);
+  SetLength(ArgList, Length(ArgList) + Length(Args));
+  for i := 0 to High(Args) do
+  begin
+    case Args[i].vtype of
+      vtinteger: ArgList[Offset + i] := IPTR(Args[i].vinteger);
+      vtpchar: ArgList[Offset + i] := IPTR(Args[i].vpchar);
+      vtchar: ArgList[Offset + i] := IPTR(Args[i].vchar);
+      vtpointer: ArgList[Offset + i] := IPTR(Args[i].vpointer);
+      vtstring: ArgList[Offset + i] := IPTR(PChar(string(Args[i].vstring^)));
+      vtboolean: ArgList[Offset + i] := IPTR(Byte(Args[i].vboolean));
     end;
-    readinlongs := @(argarray^[0]);
+  end;
 end;
+
+function GetArgPtr(var ArgList: TArgList): Pointer;
+var
+  Idx: Integer;
+begin
+  Idx := Length(ArgList);
+  SetLength(ArgList, Idx + 1);
+  ArgList[Idx] := 0;
+  Result := @(ArgList[0]);
+end;
+
+
+function ReadInLongs(const Args: array of const): Pointer;
+var
+  i: Integer;
+begin
+  for i := 0 to High(Args) do begin
+    case args[i].vtype of
+      vtinteger: ArgArray^[i] := IPTR(Args[i].vinteger);
+      vtpchar: ArgArray^[i] := IPTR(Args[i].vpchar);
+      vtchar: ArgArray^[i] := IPTR(Args[i].vchar);
+      vtpointer: ArgArray^[i] := IPTR(Args[i].vpointer);
+      vtstring: ArgArray^[i] := IPTR(PChar(string(Args[i].vstring^)));
+      vtboolean: ArgArray^[i] := IPTR(byte(Args[i].vboolean));
+    end;
+  end;
+  readinlongs := @(argarray^[0]);
+end;
+
+
+
 
 initialization
   New(argarray);

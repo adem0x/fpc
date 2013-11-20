@@ -226,11 +226,38 @@ end;
 //function RawDoFmt(const formatString : pCHAR;const dataStream : POINTER; putChProc : tPROCEDURE; putChData : POINTER): pointer;
 function RawDoFmt(const formatString : pCHAR;const dataStream : POINTER; putChProc : POINTER; putChData : POINTER): pointer;
 type
-  TLocalCall = function(const formatString : pCHAR;const dataStream : POINTER; putChProc : Pointer; putChData : POINTER; LibBase: Pointer): pointer; stdcall;
+  TLocalCall = function(const formatString : pCHAR;const dataStream : POINTER; putChProc : Pointer; putChData : POINTER; LibBase: Pointer): pointer; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(LocalExecBase, 87));
   RawDoFmt := Call(formatString, dataStream, putChProc, putChData, AOS_ExecBase);
+end;
+
+procedure Debug(s: string);
+type
+  TkPrintf = function(Msg: PChar): Integer; cdecl;
+var
+  kPrintf: TkPrintf;
+  d: string;
+  i: Integer;
+begin
+  if Assigned(AOS_ExecBase) then
+  begin
+    if Assigned(PExecBase(AOS_ExecBase)^.DebugArosBase) then
+    begin
+      kPrintf := TKPrintF(PExecBase(AOS_ExecBase)^.DebugArosBase^.kprintfPtr);
+      if Assigned(kPrintf) then
+      begin
+        d := s + #0;
+        i := kPrintf(@d[1]);
+      end;
+    end;
+  end;
+end;
+
+procedure Debugln(s: string);
+begin
+  Debug(s + #10);
 end;
 

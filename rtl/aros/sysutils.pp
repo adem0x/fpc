@@ -175,7 +175,8 @@ begin
 
   if (tmpLock <> 0) then begin
     new(tmpFIB);
-    if Examine(tmpLock,tmpFIB) then begin
+    if Examine(tmpLock,tmpFIB) <> 0 then
+    begin
       tmpDateTime:=AmigaFileDateToDateTime(tmpFIB^.fib_Date,validFile);
     end;
     Unlock(tmpLock);
@@ -236,22 +237,28 @@ end;
 
 
 function FileRead(Handle: LongInt; Out Buffer; Count: LongInt): LongInt;
+var
+  Res: Integer;
 begin
   FileRead:=-1;
   if (Count<=0) or (Handle=0) or (Handle=-1) then
     Exit;
+  Res := dosRead(Handle,@Buffer,Count);
 
-  FileRead:=dosRead(Handle,@Buffer,Count);
+  FileRead := Res;
 end;
 
 
 function FileWrite(Handle: LongInt; const Buffer; Count: LongInt): LongInt;
+var
+  Res: Integer;
 begin
   FileWrite:=-1;
   if (Count<=0) or (Handle=0) or (Handle=-1) then
     Exit;
+  Res := dosWrite(Handle,@Buffer,Count);
 
-  FileWrite:=dosWrite(Handle,@Buffer,Count);
+  FileWrite := Res;
 end;
 
 
@@ -325,7 +332,7 @@ begin
   tmpOldName:=PathConv(OldName)+#0;
   tmpNewName:=PathConv(NewName)+#0;
 
-  RenameFile:=dosRename(tmpOldName, tmpNewName);
+  RenameFile:= dosRename(tmpOldName, tmpNewName) <> 0;
 end;
 
 
@@ -347,7 +354,8 @@ begin
 
   if (tmpLock <> 0) then begin
     new(tmpFIB);
-    if Examine(tmpLock,tmpFIB) then begin
+    if Examine(tmpLock,tmpFIB) <> 0 then
+    begin
       tmpDateTime:=AmigaFileDateToDateTime(tmpFIB^.fib_Date,validFile);
     end;
     Unlock(tmpLock);
@@ -374,7 +382,7 @@ begin
 
   if (tmpLock <> 0) then begin
     new(tmpFIB);
-    if Examine(tmpLock,tmpFIB) and (tmpFIB^.fib_DirEntryType <= 0) then
+    if (Examine(tmpLock,tmpFIB) <> 0) and (tmpFIB^.fib_DirEntryType <= 0) then
       result:=true;
     Unlock(tmpLock);
     dispose(tmpFIB);
@@ -580,7 +588,7 @@ begin
 
   FIB:=nil; new(FIB);
 
-  if (Examine(tmpLock,FIB)=True) and (FIB^.fib_DirEntryType>0) then
+  if (Examine(tmpLock,FIB)<>0) and (FIB^.fib_DirEntryType>0) then
     result:=True;
 
   if tmpLock<>0 then Unlock(tmpLock);

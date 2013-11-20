@@ -1501,7 +1501,16 @@ const  // Checked OK 05.08.2011 ALB
   CMD_FLUSH   = 8;
   CMD_NONSTD  = 9;
 
+type
 
+  PArosSupportBase = ^TArosSupportBase;
+  TArosSupportBase = record
+    StdOut: Pointer;
+    kPrintfPtr: Pointer;
+    rkPrintfPtr: Pointer;
+    vkPrintfPtr: Pointer;
+    DebugConfig: Pointer;
+  end;
 
 { * exec include
   *********************************************************************
@@ -1597,7 +1606,7 @@ type  // Checked OK 05.08.2011 ALB
     ex_MemHandlers       : TMinList;
     ex_MemHandler        : Pointer;
     // Additional field for AROS
-    DebugAROSBase        : PLibrary;
+    DebugAROSBase        : PArosSupportBase;
   end;
 
 
@@ -1778,5 +1787,6 @@ const
   SAL_Name     = (SAL_Dummy + 3);
 
 {$include utild2.inc}
+
 
 

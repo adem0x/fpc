@@ -13,8 +13,8 @@ units=$(SYSTEMUNIT) objpas macpas iso7185 strings \
       charset ucomplex getopts matrix \
       variants types rtlconsts sysconst dateutil objects \
       pastoc longarray tagsarray exec amigados utility keymap \
-      timer inputevent layers \
-      intuition agraphics video keyboard mouse \
+      timer inputevent layers arosthread \
+      intuition hardware agraphics video keyboard mouse \
       fpintres exeinfo lineinfo
 #      
 #      exec timer doslib utility hardware inputevent graphics layers \

@@ -235,8 +235,13 @@ resourcestring  menu_local_gotosource = '~G~oto source';
                 menu_file_exit         = 'E~x~it';
 
                 menu_edit              = '~E~dit';
+                {$ifdef aros}
+                menu_edit_copywin      = 'Cop~y~ to AROS';
+                menu_edit_pastewin     = 'Paste from A~R~OS';
+                {$else}
                 menu_edit_copywin      = 'Cop~y~ to Windows';
                 menu_edit_pastewin     = 'Paste from ~W~indows';
+                {$endif}
                 menu_edit_undo         = '~U~ndo';
                 menu_edit_redo         = '~R~edo';
                 menu_edit_cut          = 'Cu~t~';
@@ -1730,6 +1735,10 @@ procedure TIDEApp.DosShell;
 var
   s : string;
 begin
+{$ifdef aros}
+  writeln('dosschell');
+  s := 'C:NewShell';
+{$else}
 {$ifdef Unix}
   s:=GetEnv('SHELL');
   if s='' then
@@ -1746,6 +1755,7 @@ begin
         if Not LocateExeFile(s) then
           s:='';
       end;
+{$endif}
 {$endif}
   if s='' then
     ErrorBox(msg_errorexecutingshell,nil)

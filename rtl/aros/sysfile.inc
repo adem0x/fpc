@@ -236,7 +236,7 @@ begin
   TmpStr1 := PathConv(StrPas(p1)) + #0;
   TmpStr2 := PathConv(StrPas(p2)) + #0;
   CheckCTRLC;
-  if not dosRename(@TmpStr1, @TmpStr2) then
+  if dosRename(@TmpStr1, @TmpStr2) = 0 then
     DosError2InOut(IoErr);
 end;
 

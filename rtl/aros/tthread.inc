@@ -1,158 +1,149 @@
-{
-    This file is part of the Free Component Library (FCL)
-    Copyright (c) 1999-2002 by the Free Pascal development team
 
-    See the file COPYING.FPC, included in this distribution,
-    for details about the copyright.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
- **********************************************************************}
-
-{****************************************************************************}
-{*                             TThread                                      *}
-{****************************************************************************}
-
-{$WARNING This file is only a stub, and will not work!}
-
-const
- ThreadCount: longint = 0;
-
-(* Implementation of exported functions *)
-
-procedure AddThread (T: TThread);
-begin
- Inc (ThreadCount);
-end;
-
-
-procedure RemoveThread (T: TThread);
-begin
- Dec (ThreadCount);
-end;
-
-
-procedure TThread.CallOnTerminate;
-begin
- FOnTerminate (Self);
-end;
-
-
-function TThread.GetPriority: TThreadPriority;
+function ThreadFunc(Data: Pointer): Pointer; cdecl;
 var
-{ PTIB: PThreadInfoBlock;
- PPIB: PProcessInfoBlock;}
- I: TThreadPriority;
+  LThread: TThread;
+  LFreeOnTerminate: Boolean;
+  ISuspended: Boolean;
 begin
-{
- DosGetInfoBlocks (@PTIB, @PPIB);
- with PTIB^.TIB2^ do
-  if Priority >= $300 then GetPriority := tpTimeCritical else
-      if Priority < $200 then GetPriority := tpIdle else
+  Result := nil;
+  LThread := TThread(Data);
+  ISuspended := LThread.FInitialSuspended;
+  if ISuspended then
   begin
-   I := Succ (Low (TThreadPriority));
-   while (I < High (TThreadPriority)) and
-    (Priority - Priorities [I] <= Priorities [Succ (I)] - Priority) do Inc (I);
-   GetPriority := I;
+    if not LThread.FTerminated then
+    begin
+      LockMutex(LThread.FSem);
+      WaitCondition(LThread.FCond, LThread.FSem);
+      UnlockMutex(LThread.FSem);
+    end;  
   end;
-}
+  if not LThread.FTerminated then
+  begin
+    //try
+      LThread.Execute;
+    {except
+      on E: Exception do
+      begin
+        //DebugLn('Exception in Thread '+ e.Classname + e.MEssage);
+        LThread.FFatalException := TObject(AcquireExceptionObject);
+        if E is EThreadDestroyCalled then
+           LThread.FFreeOnTerminate := true; 
+      end;
+    end;}
+    Sleep(0); // not sure why this is needed, but without the stack seems corrupted
+              // when FreeOnTerminate = False
+  end;    
+  LFreeOnTerminate := LThread.FreeOnTerminate;
+  LThread.DoTerminate;
+  LThread.FFinished := True;
+  if LFreeOnTerminate then
+    LThread.Free;
 end;
 
-
-procedure TThread.SetPriority(Value: TThreadPriority);
-{var
- PTIB: PThreadInfoBlock;
- PPIB: PProcessInfoBlock;}
-begin
-{ DosGetInfoBlocks (@PTIB, @PPIB);}
-(*
- PTIB^.TIB2^.Priority := Priorities [Value];
-*)
-{
- DosSetPriority (2, High (Priorities [Value]),
-                     Low (Priorities [Value]) - PTIB^.TIB2^.Priority, FHandle);}
-end;
-
-
-procedure TThread.SetSuspended(Value: Boolean);
-begin
- if Value <> FSuspended then
- begin
-  if Value then Suspend else Resume;
- end;
-end;
-
-
-procedure TThread.DoTerminate;
-begin
- if Assigned (FOnTerminate) then Synchronize (@CallOnTerminate);
-end;
-
-
-constructor TThread.Create(CreateSuspended: Boolean;
-                           const StackSize: SizeUInt = DefaultStackSize);
-var
-  Flags: cardinal;
+constructor TThread.Create(CreateSuspended: Boolean; const StackSize: SizeUInt = DefaultStackSize);
 begin
   inherited Create;
-  AddThread (Self);
-{
   FSuspended := CreateSuspended;
-  Flags := dtStack_Commited;
-  if FSuspended then Flags := Flags or dtSuspended;
-  if DosCreateThread (cardinal (FThreadID), @ThreadProc, pointer (Self),
-                                                        Flags, 16384) <> 0 then
-  begin
-   FFinished := true;
-   Destroy;
-  end else FHandle := FThreadID;
-  IsMultiThread := true;
+  FInitialSuspended := CreateSuspended;
+  
+  // Mutex for suspend actions
+  FSem := CreateMutex;
+  FCond := CreateCondition;
+  
+  // Create Thread
+  FHandle := CreateThread(@ThreadFunc, Self);
+  //FHandle := BeginThread(@ThreadFunc, Self);
+  FThreadID := FHandle;
+  if FHandle = 0 then
+    raise EThread.CreateFmt(SThreadCreateError, ['Cannot Create Thread']);
+  // exception if Thread cannot be created
   FFatalException := nil;
-}
 end;
 
 
 destructor TThread.Destroy;
 begin
- if not FFinished and not Suspended then
- begin
-  Terminate;
-  WaitFor;
- end;
-{
- if FHandle <> -1 then DosKillThread (cardinal (FHandle));
- FFatalException.Free;
- FFatalException := nil;
- inherited Destroy;
- RemoveThread (Self);
-}
+  if FHandle = 0 then
+  begin
+    if not FFinished then
+    begin
+      Terminate;
+      if FSuspended then
+      begin
+        SignalCondition(FCond);
+        Sleep(0);
+      end;
+      WaitFor;
+    end;
+  end;
+  DestroyCondition(FCond);
+  DestroyMutex(FSem);
+  FFatalException := nil;
+  inherited Destroy;
+end;
+
+procedure TThread.CallOnTerminate;
+begin
+  FOnTerminate(Self);
+end;
+
+procedure TThread.DoTerminate;
+begin
+  if Assigned(FOnTerminate) then
+    Synchronize(@CallOnTerminate);
+end;
+
+function TThread.GetPriority: TThreadPriority;
+begin
+  //
+end;
+
+procedure TThread.SetPriority(Value: TThreadPriority);
+begin
+  //
+end;
+
+procedure TThread.SetSuspended(Value: Boolean);
+begin
+  if Value <> FSuspended then
+    if Value then
+      Suspend
+    else
+      Resume;
+end;
+
+procedure TThread.Suspend;
+begin
+  if FThreadID = GetCurrentThreadID then
+  begin
+    FSuspended := True;
+    LockMutex(FSem);
+    WaitCondition(FCond, FSem);
+    UnlockMutex(FSem);
+  end else
+    Raise EThread.create('Suspending one thread from inside another one is unsupported (because it is unsafe and deadlock prone) by AROS');  
 end;
 
 procedure TThread.Resume;
 begin
-{ FSuspended := not (DosResumeThread (cardinal (FHandle)) = 0);}
+  if FSuspended then
+  begin
+    SignalCondition(FCond);
+  end;
+  FSuspended := False;
+  FInitialSuspended := False;
 end;
-
-
-procedure TThread.Suspend;
-begin
-{ FSuspended := DosSuspendThread (cardinal (FHandle)) = 0;}
-end;
-
 
 procedure TThread.Terminate;
 begin
- FTerminated := true;
+  FTerminated := True;
 end;
-
 
 function TThread.WaitFor: Integer;
-var
- FH: cardinal;
 begin
-{ WaitFor := DosWaitThread (FH, dtWait);}
+  if (not FSuspended) and (FHandle <> 0) then
+  begin
+    Sleep(1);
+    WaitThread(FHandle, @Result);
+  end;  
 end;
-
-

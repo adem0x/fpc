@@ -149,6 +149,9 @@ const
 Procedure InitDirs;
 begin
   StartupDir:=CompleteDir(FExpand('.'));
+{$ifdef aros}
+  IDEDir := 'S:';
+{$else}
 {$ifndef unix}
   IDEDir:=CompleteDir(DirOf(system.Paramstr(0)));
 {$else}
@@ -171,6 +174,7 @@ begin
             IDEDir:=StartupDir;
         end;
     end;
+{$endif}
 {$endif}
 end;
 

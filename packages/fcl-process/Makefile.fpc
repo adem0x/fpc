@@ -23,7 +23,7 @@ units_wince=simpleipc dbugmsg dbugintf
 units_qnx=simpleipc dbugmsg dbugintf pipesipc
 units_os2=simpleipc dbugmsg dbugintf
 units_emx=simpleipc dbugmsg dbugintf
-units_aros=simpleipc
+units_aros=simpleipc dbugmsg dbugintf
 rsts=process simpleipc
 
 [compiler]

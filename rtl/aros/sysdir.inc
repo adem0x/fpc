@@ -84,7 +84,7 @@ begin
   FIB := nil;
   New(FIB);
 
-  if (Examine(TmpLock, FIB) = True) and (FIB^.fib_DirEntryType > 0) then
+  if (Examine(TmpLock, FIB) <> 0) and (FIB^.fib_DirEntryType > 0) then
   begin
     TmpLock := CurrentDir(TmpLock);
     if AOS_OrigDir = 0 then

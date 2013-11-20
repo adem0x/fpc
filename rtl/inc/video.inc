@@ -132,8 +132,8 @@ begin
       new_rowstart:=0;
       while oldrows>0 do
         begin
-          move(VideoBuf^[old_rowstart],NewVideoBuf^[new_rowstart],OldCols*sizeof(TVideoCell));
-          move(OldVideoBuf^[old_rowstart],NewOldVideoBuf^[new_rowstart],OldCols*sizeof(TVideoCell));
+          system.move(VideoBuf^[old_rowstart],NewVideoBuf^[new_rowstart],OldCols*sizeof(TVideoCell));
+          system.move(OldVideoBuf^[old_rowstart],NewOldVideoBuf^[new_rowstart],OldCols*sizeof(TVideoCell));
           inc(old_rowstart,OldCols);
           inc(new_rowstart,ScreenWidth);
           dec(OldRows);

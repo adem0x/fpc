@@ -7,8 +7,8 @@ name=arosunits
 version=2.7.1
 
 [target]
-units= gadtools workbench asl \
-       mui amigalib timerutils diskfont
+units= gadtools workbench asl clipboard iffparse \
+       mui amigalib timerutils diskfont icon
 
 [compiler]
 includedir=src

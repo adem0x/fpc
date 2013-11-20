@@ -13,223 +13,117 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
  **********************************************************************}
-
-{
-    History:
-
-    Added functions and procedures with array of const.
-    For use with fpc 1.0.7. Thay are in systemvartags.
-    11 Nov 2002.
-
-
-    Added the define use_amiga_smartlink.
-    13 Jan 2003.
-
-    Update for AmigaOS 3.9.
-    Added a few overlays.
-    06 Feb 2003.
-
-    nils.sjoholm@mailbox.swipnet.se
-}
-
-
 unit utility;
 
-{$mode objfpc}
+{$mode objfpc}{$H+}
+{$PACKRECORDS C}
 
-INTERFACE
-uses exec;
+interface
 
+uses
+  Exec;
 
-Type
-      pClockData = ^tClockData;
-      tClockData = record
-        sec   : Word;
-        min   : Word;
-        hour  : Word;
-        mday  : Word;
-        month : Word;
-        year  : Word;
-        wday  : Word;
-      END;
-
-      pHook = ^tHook;
-      tHook = record
-        h_MinNode  : tMinNode;
-        h_Entry    : Pointer;   { assembler entry point        }
-        h_SubEntry : Pointer;   { often HLL entry point        }
-        h_Data     : Pointer;   { owner specific               }
-      END;
-
-{
- * Hook calling conventions:
- *      A0 - pointer to hook data structure itself
- *      A1 - pointer to parameter structure ("message") typically
- *           beginning with a longword command code, which makes
- *           sense in the context in which the hook is being used.
- *      A2 - Hook specific address data ("object," e.g, GadgetInfo)
- *
- * Control will be passed to the routine h_Entry.  For many
- * High-Level Languages (HLL), this will be an assembly language
- * stub which pushes registers on the stack, does other setup,
- * and then calls the function at h_SubEntry.
- *
- * The C standard receiving code is:
- * CDispatcher( hook, object, message )
- *     struct Hook      *hook;
- *     APTR             object;
- *     APTR             message;
- *
- * NOTE that register natural order differs from this convention
- * for C parameter order, which is A0,A2,A1.
- *
- * The assembly language stub for "vanilla" C parameter conventions
- * could be:
-
- _hookEntry:
-        move.l  a1,-(sp)                ; push message packet pointer
-        move.l  a2,-(sp)                ; push object pointer
-        move.l  a0,-(sp)                ; push hook pointer
-        move.l  h_SubEntry(a0),a0       ; fetch C entry point ...
-        jsr     (a0)                    ; ... and call it
-        lea     12(sp),sp               ; fix stack
-        rts
-
- * with this function as your interface stub, you can write
- * a Hook setup function as:
-
- SetupHook( hook, c_function, userdata )
- struct Hook    *hook;
- ULONG          (*c_function)();
- VOID           *userdata;
-
-        ULONG   (*hookEntry)();
-
-        hook->h_Entry =         hookEntry;
-        hook->h_SubEntry =      c_function;
-        hook->h_Data =                  userdata;
-
-
- * with Lattice C pragmas, you can put the C function in the
- * h_Entry field directly if you declare the function:
-
-ULONG __saveds __asm
-CDispatcher(    register __a0 struct Hook       *hook,
-                register __a2 VOID              *object,
-                register __a1 ULONG             *message );
- *
- ***}
-
- {      Namespace definitions      }
-
-
-Type
-{ The named object structure }
- pNamedObject = ^tNamedObject;
- tNamedObject = record
-    no_Object  : Pointer;       { Your pointer, for whatever you want }
- END;
+type
+  PClockData = ^TClockData;
+  TClockData = record
+    Sec: Word;
+    Min: Word;
+    Hour: Word;
+    MDay: Word;
+    Month: Word;
+    Year: Word;
+    WDay: Word;
+  end;
+  
+// Use CALLHOOKPKT to call a hook
+  PHook = ^THook;
+  THookFunctionProc = function(Hook: PHook; Object_: APTR; Message: APTR): IPTR; cdecl;
+  
+  THook = record
+    h_MinNode: TMinNode;
+    h_Entry: IPTR;    // Main Entry point THookFunctionProc
+    h_SubEntry: IPTR; // Secondary entry point
+    h_Data: Pointer;     // owner specific
+  end;
+  
+// The named object structure
+  PNamedObject = ^TNamedObject;
+  TNamedObject = record
+    no_Object: APTR;  // Your pointer, for whatever you want
+  END;
 
 const
-{ Tags for AllocNamedObject() }
- ANO_NameSpace  = 4000;    { Tag to define namespace      }
- ANO_UserSpace  = 4001;    { tag to define userspace      }
- ANO_Priority   = 4002;    { tag to define priority       }
- ANO_Flags      = 4003;    { tag to define flags          }
+// Tags for AllocNamedObject()
+  ANO_NameSpace  = 4000; // Tag to define namespace
+  ANO_UserSpace  = 4001; // tag to define userspace
+  ANO_Priority   = 4002; // tag to define priority
+  ANO_Flags      = 4003; // tag to define flags (NSF_*)
 
-{ Flags for tag ANO_Flags }
- NSB_NODUPS     = 0;
- NSB_CASE       = 1;
+// Flags for tag ANO_Flags
+  NSB_NODUPS     = 0;
+  NSF_NODUPS     = 1 shl 0; // Default allow duplicates
+  NSB_CASE       = 1;
+  NSF_CASE       = 1 shl 1; // Default to caseless...
 
- NSF_NODUPS     = 1;      { Default allow duplicates }
- NSF_CASE       = 2;      { Default to caseless... }
-
-
-   {    Control attributes for Pack/UnpackStructureTags() }
-
-
+//   Control attributes for Pack/UnpackStructureTags()
 { PackTable definition:
- *
- * The PackTable is a simple array of LONGWORDS that are evaluated by
- * PackStructureTags() and UnpackStructureTags().
- *
- * The table contains compressed information such as the tag offset from
- * the base tag. The tag offset has a limited range so the base tag is
- * defined in the first longword.
- *
- * After the first longword, the fields look as follows:
- *
- *      +--------- 1 = signed, 0 = unsigned (for bits, 1=inverted boolean)
- *      |
- *      |  +------ 00 = Pack/Unpack, 10 = Pack, 01 = Unpack, 11 = special
- *      | / \
- *      | | |  +-- 00 = Byte, 01 = Integer, 10 = Long, 11 = Bit
- *      | | | / \
- *      | | | | | /----- For bit operations: 1 = TAG_EXISTS is TRUE
- *      | | | | | |
- *      | | | | | | /-------------------- Tag offset from base tag value
- *      | | | | | | |                 \
- *      m n n o o p q q q q q q q q q q r r r s s s s s s s s s s s s s
- *                                      \   | |               |
- *      Bit offset (for bit operations) ----/ |               |
- *                                            \                       |
- *      Offset into data structure -----------------------------------/
- *
- * A -1 longword signifies that the next longword will be a new base tag
- *
- * A 0 longword signifies that it is the end of the pack table.
- *
- * What this implies is that there are only 13-bits of address offset
- * and 10 bits for tag offsets from the base tag.  For most uses this
- * should be enough, but when this is not, either multiple pack tables
- * or a pack table with extra base tags would be able to do the trick.
- * The goal here was to make the tables small and yet flexible enough to
- * handle most cases.
- }
-
+ 
+  The PackTable is a simple array of LONGWORDS that are evaluated by
+  PackStructureTags() and UnpackStructureTags().
+ 
+  The table contains compressed information such as the tag offset from
+  the base tag. The tag offset has a limited range so the base tag is
+  defined in the first longword.
+ 
+  After the first longword, the fields look as follows:
+ 
+       +--------- 1 = signed, 0 = unsigned (for bits, 1=inverted boolean)
+       |
+       |  +------ 00 = Pack/Unpack, 10 = Pack, 01 = Unpack, 11 = special
+       | / \
+       | | |  +-- 00 = Byte, 01 = Integer, 10 = Long, 11 = Bit
+       | | | / \
+       | | | | | /----- For bit operations: 1 = TAG_EXISTS is TRUE
+       | | | | | |
+       | | | | | | /-------------------- Tag offset from base tag value
+       | | | | | | |                 \
+       m n n o o p q q q q q q q q q q r r r s s s s s s s s s s s s s
+                                       \   | |               |
+       Bit offset (for bit operations) ----/ |               |
+                                             \                       |
+       Offset into data structure -----------------------------------/
+ 
+  A -1 longword signifies that the next longword will be a new base tag
+ 
+  A 0 longword signifies that it is the end of the pack table.
+ 
+  What this implies is that there are only 13-bits of address offset
+  and 10 bits for tag offsets from the base tag.  For most uses this
+  should be enough, but when this is not, either multiple pack tables
+  or a pack table with extra base tags would be able to do the trick.
+  The goal here was to make the tables small and yet flexible enough to
+  handle most cases.}
 const
- PSTB_SIGNED =31;
- PSTB_UNPACK =30;    { Note that these are active low... }
- PSTB_PACK   =29;    { Note that these are active low... }
- PSTB_EXISTS =26;    { Tag exists bit true flag hack...  }
+  PSTB_EXISTS = 26;       // Tag exists bit true flag hack...
+  PSTF_EXISTS = 1 shl 26;
+  PSTB_PACK   = 29;       // Note that these are active low...
+  PSTF_PACK   = 1 shl 29;
+  PSTB_UNPACK = 30;       // Note that these are active low...
+  PSTF_UNPACK = 1 shl 30;  
+  PSTB_SIGNED = 31;
+  PSTF_SIGNED = 1 shl 31;
 
- PSTF_SIGNED = $80000000;
- PSTF_UNPACK = $40000000;
- PSTF_PACK   = $20000000;
-
- PSTF_EXISTS = $4000000;
-
-
-{***************************************************************************}
-
-
- PKCTRL_PACKUNPACK = $00000000;
- PKCTRL_PACKONLY   = $40000000;
- PKCTRL_UNPACKONLY = $20000000;
-
- PKCTRL_BYTE       = $80000000;
- PKCTRL_WORD       = $88000000;
- PKCTRL_LONG       = $90000000;
-
- PKCTRL_UBYTE      = $00000000;
- PKCTRL_UWORD      = $08000000;
- PKCTRL_ULONG      = $10000000;
-
- PKCTRL_BIT        = $18000000;
- PKCTRL_FLIPBIT    = $98000000;
-
-
-{***************************************************************************}
-
-
-{ Macros used by the next batch of macros below. Normally, you don't use
- * this batch directly. Then again, some folks are wierd
- }
-
-
-
-{***************************************************************************}
-
+  PKCTRL_UBYTE      = $00000000;
+  PKCTRL_BYTE       = $80000000;
+  PKCTRL_UWORD      = $08000000;
+  PKCTRL_WORD       = $88000000;
+  PKCTRL_LongWord   = $10000000;
+  PKCTRL_LONG       = $90000000;
+  PKCTRL_PACKUNPACK = $00000000;
+  PKCTRL_UNPACKONLY = $20000000;
+  PKCTRL_PACKONLY   = $40000000;
+  PKCTRL_BIT        = $18000000;
+  PKCTRL_FLIPBIT    = $98000000;
 
 { Some handy dandy macros to easily create pack tables
  *
@@ -264,7 +158,7 @@ const
  *
  * EXAMPLE:
  *
- *    ULONG packTable[] =
+ *    LongWord packTable[] =
  *    (
  *         PACK_STARTTABLE(GA_Dummy),
  *         PACK_ENTRY(GA_Dummy,GA_Left,Gadget,LeftEdge,PKCTRL_WORD|PKCTRL_PACKUNPACK),
@@ -276,272 +170,282 @@ const
  *    );
  }
 
-
-{ ======================================================================= }
-{ ==== TagItem ========================================================== }
-{ ======================================================================= }
-{ This data type may propagate through the system for more general use.
- * In the meantime, it is used as a general mechanism of extensible data
- * arrays for parameter specification and property inquiry (coming soon
- * to a display controller near you).
- *
- * In practice, an array (or chain of arrays) of TagItems is used.
- }
-Type
-    Tag = LongWord;
-    pTag = ^Tag;
-
-    pTagItem = ^tTagItem;
-    tTagItem = record
-     ti_Tag  : Tag;
-     ti_Data : LongWord;
-    END;
-
-    ppTagItem = ^pTagItem;
-
-{ ---- system tag values ----------------------------- }
-CONST
- TAG_DONE          = 0; { terminates array of TagItems. ti_Data unused }
- TAG_END           = TAG_DONE;
- TAG_IGNORE        = 1; { ignore this item, not END of array           }
- TAG_MORE          = 2; { ti_Data is pointer to another array of TagItems
-                         * note that this tag terminates the current array
-                         }
- TAG_SKIP          = 3; { skip this AND the next ti_Data items         }
-
-{ differentiates user tags from control tags }
- TAG_USER          = $80000000;    { differentiates user tags from system tags}
-
-{* If the TAG_USER bit is set in a tag number, it tells utility.library that
- * the tag is not a control tag (like TAG_DONE, TAG_IGNORE, TAG_MORE) and is
- * instead an application tag. "USER" means a client of utility.library in
- * general, including system code like Intuition or ASL, it has nothing to do
- * with user code.
- *}
+// TagItem, Tag, TAG_USER moved to Exec needed there already for dome definitions
 
 
-{ Tag filter logic specifiers for use with FilterTagItems() }
- TAGFILTER_AND     = 0;       { exclude everything but filter hits   }
- TAGFILTER_NOT     = 1;       { exclude only filter hits             }
+const
+// system tag values Tag.ti_Tag
+  TAG_DONE   = 0;  // terminates array of TagItems. ti_Data unused
+  TAG_END    = TAG_DONE;
+  TAG_IGNORE = 1;  // ignore this item, not END of array
+  TAG_MORE   = 2;  // ti_Data is pointer to another array of TagItems note that this tag terminates the current array
+  TAG_SKIP   = 3;  // skip this AND the next ti_Data items
+// What separates user tags from system tags
+  // TAG_USER = 1 shl 31; // see exec
+  TAG_OS = 16;  // The first tag used by the OS
+// Tag-Offsets for the OS
+  DOS_TAGBASE       = TAG_OS; // Reserve 16k tags for DOS
+  INTUITION_TAGBASE = TAG_OS or $2000; // Reserve 16k tags for Intuition
 
-{ Mapping types for use with MapTags() }
- MAP_REMOVE_NOT_FOUND = 0;  { remove tags that aren't in mapList }
- MAP_KEEP_NOT_FOUND   = 1;  { keep tags that aren't in mapList   }
+{ If the TAG_USER bit is set in a tag number, it tells utility.library that
+  the tag is not a control tag (like TAG_DONE, TAG_IGNORE, TAG_MORE) and is
+  instead an application tag. "USER" means a client of utility.library in
+  general, including system code like Intuition or ASL, it has nothing to do
+  with user code.}
+// Tag filter logic specifiers for use with FilterTagItems()
+  TAGFILTER_AND = 0; // exclude everything but filter hits
+  TAGFILTER_NOT = 1; // exclude only filter hits
 
+// Mapping types for use with MapTags()
+  MAP_REMOVE_NOT_FOUND = 0; // remove tags that aren't in mapList
+  MAP_KEEP_NOT_FOUND   = 1; // keep tags that aren't in mapList
 
+  UTILITYNAME	= 'utility.library';
 
-Type
- pUtilityBase = ^tUtilityBase;
- tUtilityBase = record
-    ub_LibNode   : tLibrary;
-    ub_Language  : Byte;
-    ub_Reserved  : Byte;
- END;
+type
+  PUtilityBase = ^TUtilityBase;
+  TUtilityBase = record
+    ub_LibNode: TLibrary;
+    ub_Language: Byte;
+    ub_Reserved: Byte;
+  end;
 
-function AddNamedObject(nameSpace,obj : pNamedObject) : Boolean;
-function AllocateTagItems(num : ULONG) : pTagItem;
-function AllocNamedObjectA(const name : STRPTR;const TagList : pTagItem) : pNamedObject;
-procedure Amiga2Date(amigatime : ULONG;resultat : pClockData);
-procedure ApplyTagChanges(TagList : pTagItem; const ChangeList : pTagItem);
-function AttemptRemNamedObject(obj : pNamedObject) : LongInt;
-function CallHookPktA(h : pHook;obj, paramPkt : APTR) : ULONG;
-function CallHookPkt(h : pHook;obj : Pointer; const tags : Array Of Const) : LongWord;
-function CheckDate(const date : pClockData) : ULONG;
-function CloneTagItems(const tagList : pTagItem) : pTagItem;
-function Date2Amiga(const date : pClockData) : ULONG;
-procedure FilterTagChanges(changelist, oldvalues : pTagItem;apply : ULONG);
-function FilterTagItems(taglist : pTagItem ;const tagArray : pULONG;logic : ULONG) : ULONG;
-function FindNamedObject(nameSpace : pNamedObject;const name : STRPTR;lastobject: pNamedObject) : pNamedObject;
-function FindTagItem(TagVal : Tag;const TagList : pTagItem) : pTagItem;
-procedure FreeNamedObject(Obj : pNamedObject);
-procedure FreeTagItems(TagList : pTagItem);
-function GetTagData(tagval : Tag;default : ULONG;const TagList : pTagItem) : ULONG;
-function GetUniqueID : ULONG;
-procedure MapTags(TagList : pTagItem;const maplist : pTagItem;IncludeMiss : ULONG);
-function NamedObjectName(Obj : pNamedObject) : STRPTR;
-function NextTagItem(Item : ppTagItem) : pTagItem;
-function PackBoolTags(InitialFlags : ULONG;const TagList, boolmap : pTagItem) : ULONG;
-function PackStructureTags(packk: APTR;const packTable : pULONG;const TagList : pTagItem) : ULONG;
-procedure RefreshTagItemClones(cloneTagItem : pTagItem; const OriginalTagItems : pTagItem);
-procedure ReleaseNamedObject(Obj : pNamedObject);
-procedure RemNamedObject(Obj : pNamedObject;Msg : pointer);
-function SDivMod32( dividend , divisor : LongInt) : LongInt;
-function SMult32(Arg1, Arg2 : LongInt) : LongInt;
-function SMult64(Arg1, Arg2 : LongInt) : LongInt;
-function Stricmp(const Str1: STRPTR;const Str2 : STRPTR) : LongInt;
-function Strnicmp(const Str1: STRPTR;const Str2 : STRPTR;len : LongInt) : LongInt;
-function TagInArray(t : Tag;const TagArray : pULONG) : Boolean;
-function ToLower(c : ULONG) : Char;
-function ToUpper(c : ULONG) : Char;
-function UDivMod32( dividend , divisor : ULONG) : ULONG;
-function UMult32(Arg1, Arg2 : ULONG) : ULONG;
-function UMult64(Arg1, Arg2 : ULONG) : ULONG;
-function UnpackStructureTags(const pac: APTR;const packTable: pULONG;TagList : pTagItem) : ULONG;
+function AddNamedObject(NameSpace, Object_: PNamedObject): LongBool; // 37
+function AllocateTagItems(Num: LongWord): PTagItem; // 11
+function AllocNamedObjectA(const Name: STRPTR; TagList: PTagItem): PNamedObject; // 38
+procedure Amiga2Date(Seconds: LongWord; Resultat: PClockData); // 20
+procedure ApplyTagChanges(List: PTagItem; ChangeList: PTagItem); // 31
+function AttemptRemNamedObject(Object_: PNamedObject): LongInt; // 39
+function CallHookPkt(Hook: PHook; Object_, ParamPaket: APTR): IPTR; // 17
+function CheckDate(Date: PClockData): LongWord; // 22
+function CloneTagItems(const TagList: PTagItem): PTagItem; // 12
+function Date2Amiga(Date: PClockData): LongWord; // 21
+procedure FilterTagChanges(ChangeList: PTagItem; const Oldvalues: PTagItem; Apply: LongBool); // 9
+function FilterTagItems(TagList: PTagItem; FilterArray: PTag; Logic: LongWord): LongWord; // 16
+function FindNamedObject(NameSpace: PNamedObject; const Name: STRPTR; LastObject: PNamedObject): PNamedObject; // 40
+function FindTagItem(TagValue: Tag; const TagList: PTagItem): PTagItem; // 5
+procedure FreeNamedObject(Object_: PNamedObject); // 41
+procedure FreeTagItems(TagList: PTagItem); // 13
+function GetTagData(TagValue: Tag; Default: IPTR; const TagList: PTagItem): IPTR; // 6
+function GetUniqueID: LongWord; // 45
+procedure MapTags(TagList: PTagItem; const MapList: PTagItem; MapType: LongWord); // 10
+function NamedObjectName(Object_: PNamedObject): STRPTR; // 42
+function NextTagItem(var Item: PTagItem): PTagItem; // 8
+function PackBoolTags(InitialFlags: LongWord; const TagList, BoolMap: PTagItem): IPTR; // 7
+function PackStructureTags(Pack: APTR; PackTable: PLongWord; TagList: PTagItem): LongWord; // 35
+procedure RefreshTagItemClones(Clone: PTagItem; const Original: PTagItem); // 14
+procedure ReleaseNamedObject(Object_: PNamedObject); // 43
+procedure RemNamedObject(Object_: PNamedObject; Message: PMessage); // 44
+function SDivMod32(Dividend, Divisor: LongInt): Int64; // 25
+function SMult32(Arg1, Arg2: LongInt): LongInt; // 23
+function SMult64(Arg1, Arg2: LongInt): Int64; // 33
+function Stricmp(const Str1: STRPTR; const Str2: STRPTR): LongInt; // 27
+function Strnicmp(const Str1: STRPTR; const Str2 : STRPTR; Length_: LongInt): LongInt;
+function TagInArray(TagValue: Tag; TagArray: PTag): LongBool; // 15
+function ToLower(c: LongWord): Char; // 30
+function ToUpper(c: LongWord): Char; // 29
+function UDivMod32(Dividend, Divisor: LongWord): LongWord; // 26
+function UMult32(Arg1, Arg2: LongWord): LongWord; // 24
+function UMult64(Arg1, Arg2: LongWord): QWord; // 34
+function UnpackStructureTags(Pack: APTR; PackTable: PLongWord; TagList: PTagItem): LongWord; // 36
 
+// Macros
+function CALLHOOKPKT_(Hook: PHook; Object_: APTR; Message: APTR): IPTR; inline;
+function TAGLIST(var Args: array of const): PTagItem; // NOT threadsafe! Better use AddTags/GetTagPtr
 
-IMPLEMENTATION
+// VarArgs Versions
+function AllocNamedObject(const Name: STRPTR; const Tags: array of const): PNamedObject;
+function CallHook(Hook: PHook; Object_: APTR; const Params: array of const): IPTR;
+
+implementation
 
 uses
   tagsarray,longarray;
 
-function AddNamedObject(nameSpace,obj : pNamedObject) : Boolean;
+function AllocNamedObject(const Name: STRPTR; const Tags: array of const): PNamedObject;
+var
+  TagList: TTagsList;
+begin
+  AddTags(TagList, Tags);
+  Result := AllocNamedObjectA(Name, GetTagPtr(TagList));
+end;
+  
+function TAGLIST(var Args: array of const): PTagItem;
+begin
+  Result := ReadInTags(Args);
+end;
+
+function CallHook(Hook: PHook; Object_: APTR; const Params: array of const): IPTR;
+begin
+  CallHook := CallHookPkt(Hook, Object_ , ReadInLongs(Params));
+end;
+
+function CALLHOOKPKT_(Hook: PHook; Object_: APTR; Message: APTR): IPTR;
+var
+  FuncPtr: THookFunctionProc; 
+begin
+  Result := 0;
+  if (Hook = nil) or (Object_ = nil) or (Message = nil) then
+    Exit;
+  if (Hook^.h_Entry = 0) then
+    Exit;
+  FuncPtr := THookFunctionProc(Hook^.h_Entry);
+  Result := FuncPtr(Hook, Object_, Message);
+end;
+
+function AddNamedObject(NameSpace, Object_: PNamedObject): LongBool;
 type
-  TLocalCall = function(nameSpace,obj : pNamedObject; LibBase: Pointer): Boolean; cdecl;
+  TLocalCall = function(NameSpace, Object_: PNamedObject; LibBase: Pointer): LongBool; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 37));
-  AddNamedObject := Call(nameSpace,obj, AOS_UtilityBase);
+  AddNamedObject := Call(NameSpace, Object_, AOS_UtilityBase);
 end;
 
-function AllocateTagItems(num : ULONG) : pTagItem;
+function AllocateTagItems(Num: LongWord): PTagItem;
 type
-  TLocalCall = function(num : ULONG; LibBase: Pointer): pTagItem; cdecl;
+  TLocalCall = function(Num: LongWord; LibBase: Pointer): PTagItem; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 11));
-  AllocateTagItems := Call(num, AOS_UtilityBase);
+  AllocateTagItems := Call(Num, AOS_UtilityBase);
 end;
 
-function AllocNamedObjectA(const name : STRPTR;const TagList : pTagItem) : pNamedObject;
+function AllocNamedObjectA(const Name: STRPTR; TagList: PTagItem): PNamedObject;
 type
-  TLocalCall = function(const name : STRPTR;const TagList : pTagItem; LibBase: Pointer): pNamedObject; cdecl;
+  TLocalCall = function(const Name: STRPTR; TagList : PTagItem; LibBase: Pointer): PNamedObject; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 38));
-  AllocNamedObjectA := Call(name, TagList, AOS_UtilityBase);
+  AllocNamedObjectA := Call(Name, TagList, AOS_UtilityBase);
 end;
 
-procedure Amiga2Date(amigatime : ULONG;resultat : pClockData);
+procedure Amiga2Date(Seconds: LongWord; Resultat: PClockData);
 type
-  TLocalCall = procedure(amigatime : ULONG;resultat : pClockData; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(Seconds: LongWord; Resultat: PClockData; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 20));
-  Call(amigatime, resultat, AOS_UtilityBase);
+  Call(Seconds, Resultat, AOS_UtilityBase);
 end;
 
-procedure ApplyTagChanges(TagList : pTagItem;const ChangeList : pTagItem);
+procedure ApplyTagChanges(List: PTagItem; ChangeList: PTagItem);
 type
-  TLocalCall = procedure(TagList : pTagItem;const ChangeList : pTagItem; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(List: PTagItem; ChangeList: PTagItem; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 31));
-  Call(TagList, ChangeList, AOS_UtilityBase);
+  Call(List, ChangeList, AOS_UtilityBase);
 end;
 
-function AttemptRemNamedObject(obj : pNamedObject) : LongInt;
+function AttemptRemNamedObject(Object_: PNamedObject): LongInt;
 type
-  TLocalCall = function(obj : pNamedObject; LibBase: Pointer): LongInt; cdecl;
+  TLocalCall = function(Object_: PNamedObject; LibBase: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 39));
-  AttemptRemNamedObject := Call(obj, AOS_UtilityBase);
+  AttemptRemNamedObject := Call(Object_, AOS_UtilityBase);
 end;
 
-function CallHookPktA(h : pHook;obj, paramPkt : APTR) : ULONG;
+function CallHookPkt(Hook: PHook; Object_, ParamPaket: APTR): IPTR;
 type
-  TLocalCall = function(h : pHook;obj, paramPkt : APTR; LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(Hook: PHook; Object_, ParamPaket: APTR; LibBase: Pointer): IPTR; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 17));
-  CallHookPktA := Call(h, obj, paramPkt, AOS_UtilityBase);
+  CallHookPkt := Call(Hook, Object_, ParamPaket, AOS_UtilityBase);
 end;
 
-function CallHookPkt(h : pHook;obj : Pointer; const tags : Array Of Const) : LongWord;
-begin
-  CallHookPkt := CallHookPktA(h, obj , readinlongs(tags));
-end;
-
-function CheckDate(const date : pClockData) : ULONG;
+function CheckDate(Date: PClockData): LongWord;
 type
-  TLocalCall = function(const date : pClockData; LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(Date: PClockData; LibBase: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 22));
-  CheckDate := Call(date, AOS_UtilityBase);
+  CheckDate := Call(Date, AOS_UtilityBase);
 end;
 
-function CloneTagItems(const tagList : pTagItem) : pTagItem;
+function CloneTagItems(const TagList: PTagItem): PTagItem;
 type
-  TLocalCall = function(const tagList : pTagItem; LibBase: Pointer): pTagItem; cdecl;
+  TLocalCall = function(const TagList: PTagItem; LibBase: Pointer): PTagItem; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 12));
-  CloneTagItems := Call(tagList, AOS_UtilityBase);
+  CloneTagItems := Call(TagList, AOS_UtilityBase);
 end;
 
-function Date2Amiga(const date : pClockData) : ULONG;
+function Date2Amiga(Date: PClockData): LongWord;
 type
-  TLocalCall = function(const date : pClockData; LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(Date: PClockData; LibBase: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 21));
-  Date2Amiga := Call(date, AOS_UtilityBase);
+  Date2Amiga := Call(Date, AOS_UtilityBase);
 end;
 
-procedure FilterTagChanges(changelist, oldvalues : pTagItem;apply : ULONG);
+procedure FilterTagChanges(ChangeList: PTagItem; const Oldvalues: PTagItem; Apply: LongBool);
 type
-  TLocalCall = procedure(changelist, oldvalues : pTagItem;apply : ULONG; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(ChangeList: PTagItem; const Oldvalues: PTagItem; Apply: LongBool; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 9));
-  Call(changelist, oldvalues, apply, AOS_UtilityBase);
+  Call(ChangeList, Oldvalues, Apply, AOS_UtilityBase);
 end;
 
-function FilterTagItems(taglist : pTagItem ;const tagArray : pULONG;logic : ULONG) : ULONG;
+function FilterTagItems(TagList: PTagItem; FilterArray: PTag; Logic: LongWord): LongWord;
 type
-  TLocalCall = function(taglist : pTagItem ;const tagArray : pULONG;logic : ULONG; LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(TagList: PTagItem; FilterArray: PTag; Logic: LongWord; LibBase: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 16));
-  FilterTagItems := Call(taglist, tagArray, logic, AOS_UtilityBase);
+  FilterTagItems := Call(TagList, FilterArray, Logic, AOS_UtilityBase);
 end;
 
-function FindNamedObject(nameSpace : pNamedObject;const name : STRPTR;lastobject: pNamedObject) : pNamedObject;
+function FindNamedObject(NameSpace: PNamedObject; const Name: STRPTR; LastObject: PNamedObject): PNamedObject;
 type
-  TLocalCall = function(nameSpace : pNamedObject;const name : STRPTR;lastobject: pNamedObject; LibBase: Pointer): pNamedObject; cdecl;
+  TLocalCall = function(NameSpace: PNamedObject; const Name: STRPTR; LastObject: PNamedObject; LibBase: Pointer): PNamedObject; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 40));
-  FindNamedObject := Call(nameSpace, name, lastobject, AOS_UtilityBase);
+  FindNamedObject := Call(NameSpace, Name, LastObject, AOS_UtilityBase);
 end;
 
-function FindTagItem(TagVal : Tag;const TagList : pTagItem) : pTagItem;
+function FindTagItem(TagValue: Tag; const TagList: PTagItem): PTagItem;
 type
-  TLocalCall = function(TagVal : Tag;const TagList : pTagItem; LibBase: Pointer): pTagItem; cdecl;
+  TLocalCall = function(TagValue: Tag; const TagList: PTagItem; LibBase: Pointer): PTagItem; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 5));
-  FindTagItem := Call(TagVal, TagList, AOS_UtilityBase);
+  FindTagItem := Call(TagValue, TagList, AOS_UtilityBase);
 end;
 
-procedure FreeNamedObject(Obj : pNamedObject);
+procedure FreeNamedObject(Object_: PNamedObject);
 type
-  TLocalCall = procedure(Obj : pNamedObject; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(Object_: PNamedObject; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 41));
-  Call(Obj, AOS_UtilityBase);
+  Call(Object_, AOS_UtilityBase);
 end;
 
-procedure FreeTagItems(TagList : pTagItem);
+procedure FreeTagItems(TagList: PTagItem);
 type
-  TLocalCall = procedure(TagList : pTagItem; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(TagList: PTagItem; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
@@ -549,19 +453,19 @@ begin
   Call(TagList, AOS_UtilityBase);
 end;
 
-function GetTagData(tagval : Tag;default : ULONG;const TagList : pTagItem) : ULONG;
+function GetTagData(TagValue: Tag; default: LongWord; const TagList: PTagItem): LongWord;
 type
-  TLocalCall = function(tagval : Tag;default : ULONG;const TagList : pTagItem; LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(TagValue: Tag; default : LongWord;const TagList : PTagItem; LibBase: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 6));
-  GetTagData := Call(tagval, default, TagList, AOS_UtilityBase);
+  GetTagData := Call(TagValue, default, TagList, AOS_UtilityBase);
 end;
 
-function GetUniqueID : ULONG;
+function GetUniqueID: LongWord;
 type
-  TLocalCall = function(LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(LibBase: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -569,29 +473,29 @@ begin
   GetUniqueID := Call(AOS_UtilityBase);
 end;
 
-procedure MapTags(TagList : pTagItem;const maplist : pTagItem;IncludeMiss : ULONG);
+procedure MapTags(TagList: PTagItem; const MapList: PTagItem; MapType: LongWord);
 type
-  TLocalCall = procedure(TagList : pTagItem;const maplist : pTagItem;IncludeMiss : ULONG; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(TagList: PTagItem; const MapList: PTagItem; MapType: LongWord; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 10));
-  Call(TagList, maplist, IncludeMiss, AOS_UtilityBase);
+  Call(TagList, MapList, MapType, AOS_UtilityBase);
 end;
 
-function NamedObjectName(Obj : pNamedObject) : STRPTR;
+function NamedObjectName(Object_: PNamedObject): STRPTR;
 type
-  TLocalCall = function(Obj : pNamedObject; LibBase: Pointer): STRPTR; cdecl;
+  TLocalCall = function(Object_: PNamedObject; LibBase: Pointer): STRPTR; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 42));
-  NamedObjectName := Call(Obj, AOS_UtilityBase);
+  NamedObjectName := Call(Object_, AOS_UtilityBase);
 end;
 
-function NextTagItem(Item : ppTagItem) : pTagItem;
+function NextTagItem(var Item: PTagItem): PTagItem;
 type
-  TLocalCall = function(Item : ppTagItem; LibBase: Pointer): pTagItem; cdecl;
+  TLocalCall = function(var Item: PTagItem; LibBase: Pointer): PTagItem; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -599,69 +503,69 @@ begin
   NextTagItem := Call(Item, AOS_UtilityBase);
 end;
 
-function PackBoolTags(InitialFlags : ULONG;const TagList, boolmap : pTagItem) : ULONG;
+function PackBoolTags(InitialFlags: LongWord; const TagList, BoolMap: PTagItem): LongWord;
 type
-  TLocalCall = function(InitialFlags : ULONG;const TagList, boolmap : pTagItem; LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(InitialFlags: LongWord;const TagList, BoolMap: PTagItem; LibBase: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 7));
-  PackBoolTags := Call(InitialFlags, TagList, boolmap, AOS_UtilityBase);
+  PackBoolTags := Call(InitialFlags, TagList, BoolMap, AOS_UtilityBase);
 end;
 
-function PackStructureTags(packk: APTR;const packTable : pULONG;const TagList : pTagItem) : ULONG;
+function PackStructureTags(Pack: APTR; PackTable: PLongWord; TagList: PTagItem): LongWord;
 type
-  TLocalCall = function(packk: APTR;const packTable : pULONG;const TagList : pTagItem; LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(Pack: APTR; PackTable: PLongWord; TagList: PTagItem; LibBase: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 35));
-  PackStructureTags := Call(packk, packTable, TagList, AOS_UtilityBase);
+  PackStructureTags := Call(Pack, PackTable, TagList, AOS_UtilityBase);
 end;
 
-procedure RefreshTagItemClones(cloneTagItem : pTagItem; const OriginalTagItems : pTagItem);
+procedure RefreshTagItemClones(Clone: PTagItem; const Original: PTagItem);
 type
-  TLocalCall = procedure(cloneTagItem : pTagItem; const OriginalTagItems : pTagItem; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(Clone: PTagItem; const Original: PTagItem; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 14));
-  Call(cloneTagItem, OriginalTagItems, AOS_UtilityBase);
+  Call(Clone, Original, AOS_UtilityBase);
 end;
 
-procedure ReleaseNamedObject(Obj : pNamedObject);
+procedure ReleaseNamedObject(Object_: PNamedObject);
 type
-  TLocalCall = procedure(Obj : pNamedObject; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(Object_: PNamedObject; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 43));
-  Call(Obj, AOS_UtilityBase);
+  Call(Object_, AOS_UtilityBase);
 end;
 
-procedure RemNamedObject(Obj : pNamedObject;Msg : pointer);
+procedure RemNamedObject(Object_: PNamedObject; Message: PMessage);
 type
-  TLocalCall = procedure(Obj : pNamedObject;Msg : pointer; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(Object_: PNamedObject; Message: PMessage; LibBase: Pointer); cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 44));
-  Call(Obj, Msg, AOS_UtilityBase);
+  Call(Object_, Message, AOS_UtilityBase);
 end;
 
-function SDivMod32(dividend , divisor : LongInt) : LongInt;
+function SDivMod32(Dividend, Divisor: LongInt): Int64;
 type
-  TLocalCall = function(dividend , divisor : LongInt; LibBase: Pointer): LongInt; cdecl;
+  TLocalCall = function(Dividend, Divisor : LongInt; LibBase: Pointer): Int64; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 25));
-  SDivMod32 := Call(dividend , divisor, AOS_UtilityBase);
+  SDivMod32 := Call(Dividend, Divisor, AOS_UtilityBase);
 end;
 
-function SMult32(Arg1, Arg2 : LongInt) : LongInt;
+function SMult32(Arg1, Arg2: LongInt): LongInt;
 type
-  TLocalCall = function(Arg1, Arg2 : LongInt; LibBase: Pointer): LongInt; cdecl;
+  TLocalCall = function(Arg1, Arg2: LongInt; LibBase: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -669,9 +573,9 @@ begin
   SMult32 := Call(Arg1, Arg2, AOS_UtilityBase);
 end;
 
-function SMult64(Arg1, Arg2 : LongInt) : LongInt;
+function SMult64(Arg1, Arg2: LongInt): Int64;
 type
-  TLocalCall = function(Arg1, Arg2 : LongInt; LibBase: Pointer): LongInt; cdecl;
+  TLocalCall = function(Arg1, Arg2: LongInt; LibBase: Pointer): Int64; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -679,9 +583,9 @@ begin
   SMult64 := Call(Arg1, Arg2, AOS_UtilityBase);
 end;
 
-function Stricmp(const Str1: STRPTR;const Str2 : STRPTR) : LongInt;
+function Stricmp(const Str1: STRPTR; const Str2 : STRPTR) : LongInt;
 type
-  TLocalCall = function(const Str1: STRPTR;const Str2 : STRPTR; LibBase: Pointer): LongInt; cdecl;
+  TLocalCall = function(const Str1: STRPTR; const Str2 : STRPTR; LibBase: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -689,29 +593,29 @@ begin
   Stricmp := Call(Str1, Str2, AOS_UtilityBase);
 end;
 
-function Strnicmp(const Str1: STRPTR;const Str2 : STRPTR;len : LongInt) : LongInt;
+function Strnicmp(const Str1: STRPTR; const Str2: STRPTR; Length_: LongInt): LongInt;
 type
-  TLocalCall = function(const Str1: STRPTR;const Str2 : STRPTR;len : LongInt; LibBase: Pointer): LongInt; cdecl;
+  TLocalCall = function(const Str1: STRPTR; const Str2: STRPTR; Length_: LongInt; LibBase: Pointer): LongInt; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 28));
-  Strnicmp := Call(Str1, Str2, len, AOS_UtilityBase);
+  Strnicmp := Call(Str1, Str2, Length_, AOS_UtilityBase);
 end;
 
-function TagInArray(t : Tag;const TagArray : pULONG) : Boolean;
+function TagInArray(TagValue: Tag; TagArray: PTag): LongBool;
 type
-  TLocalCall = function(t : Tag;const TagArray : pULONG; LibBase: Pointer): Boolean; cdecl;
+  TLocalCall = function(TagValue: Tag; TagArray: PTag; LibBase: Pointer): LongBool; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 15));
-  TagInArray := Call(t, TagArray, AOS_UtilityBase);
+  TagInArray := Call(TagValue, TagArray, AOS_UtilityBase);
 end;
 
-function ToLower(c : ULONG) : Char;
+function ToLower(c: LongWord): Char;
 type
-  TLocalCall = function(c : ULONG; LibBase: Pointer): Char; cdecl;
+  TLocalCall = function(c: LongWord; LibBase: Pointer): Char; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -719,9 +623,9 @@ begin
   ToLower := Call(c, AOS_UtilityBase);
 end;
 
-function ToUpper(c : ULONG) : Char;
+function ToUpper(c: LongWord): Char;
 type
-  TLocalCall = function(c : ULONG; LibBase: Pointer): Char; cdecl;
+  TLocalCall = function(c: LongWord; LibBase: Pointer): Char; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -729,19 +633,19 @@ begin
   ToUpper := Call(c, AOS_UtilityBase);
 end;
 
-function UDivMod32(dividend , divisor : ULONG) : ULONG;
+function UDivMod32(Dividend, Divisor: LongWord): LongWord;
 type
-  TLocalCall = function(dividend , divisor : ULONG; LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(Dividend, Divisor: LongWord; LibBase: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 26));
-  UDivMod32 := Call(dividend , divisor, AOS_UtilityBase);
+  UDivMod32 := Call(Dividend, Divisor, AOS_UtilityBase);
 end;
 
-function UMult32(Arg1, Arg2 : ULONG) : ULONG;
+function UMult32(Arg1, Arg2: LongWord): LongWord;
 type
-  TLocalCall = function(Arg1, Arg2 : ULONG; LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(Arg1, Arg2: LongWord; LibBase: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -749,9 +653,9 @@ begin
   UMult32 := Call(Arg1, Arg2, AOS_UtilityBase);
 end;
 
-function UMult64(Arg1, Arg2 : ULONG) : ULONG;
+function UMult64(Arg1, Arg2: LongWord): QWord;
 type
-  TLocalCall = function(Arg1, Arg2 : ULONG; LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(Arg1, Arg2: LongWord; LibBase: Pointer): QWord; cdecl;
 var
   Call: TLocalCall;
 begin
@@ -759,14 +663,14 @@ begin
   UMult64 := Call(Arg1, Arg2, AOS_UtilityBase);
 end;
 
-function UnpackStructureTags(const pac: APTR;const packTable: pULONG;TagList : pTagItem) : ULONG;
+function UnpackStructureTags(Pack: APTR; PackTable: PLongWord; TagList: PTagItem): LongWord;
 type
-  TLocalCall = function(const pac: APTR;const packTable: pULONG;TagList : pTagItem; LibBase: Pointer): ULONG; cdecl;
+  TLocalCall = function(Pack: APTR; PackTable: PLongWord; TagList: PTagItem; LibBase: Pointer): LongWord; cdecl;
 var
   Call: TLocalCall;
 begin
   Call := TLocalCall(GetLibAdress(AOS_UtilityBase, 36));
-  UnpackStructureTags := Call(pac, packTable, TagList, AOS_UtilityBase);
+  UnpackStructureTags := Call(Pack, PackTable, TagList, AOS_UtilityBase);
 end;
 
 end.

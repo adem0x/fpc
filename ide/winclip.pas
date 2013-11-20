@@ -16,6 +16,10 @@
 {$i globdir.inc}
 unit WinClip;
 
+{$ifdef aros}
+{$mode objfpc}{$H+}
+{$endif}
+
 interface
 
 {$ifdef WinClipSupported}
@@ -45,6 +49,11 @@ implementation
   uses
     strings,windows;
 {$endif Windows}
+{$ifdef aros}
+  uses
+    clipboard;
+{$endif}
+
 
 {$ifdef DOS}
 function WinClipboardSupported : boolean;
@@ -129,6 +138,36 @@ begin
 end;
 {$endif Windows}
 
+{$ifdef Aros}
+function WinClipboardSupported: Boolean;
+begin
+  WinClipboardSupported := True;
+end;
+
+function OpenWinClipboard: boolean;
+begin
+  OpenWinClipboard := True;
+end;
+
+function EmptyWinClipboard: boolean;
+begin
+  EmptyWinClipboard := GetTextFromClip(PRIMARY_CLIP) = '';
+end;
+
+function CloseWinClipboard : boolean;
+begin
+  CloseWinClipboard:= True;
+end;
+
+function InternGetDataSize: LongInt;
+var
+  Text: string;
+begin
+  Text := GetTextFromClip(PRIMARY_CLIP);
+  InternGetDataSize := Length(Text);
+end;
+{$endif Aros}
+
 
 function GetTextWinClipboardSize : longint;
 begin
@@ -147,6 +186,10 @@ var
   h : HGlobal;
   pp : pchar;
 {$endif Windows}
+{$ifdef aros}
+  Text: string;
+  pp: PChar;
+{$endif aros}
 begin
   p:=nil;
   GetTextWinClipBoardData:=False;
@@ -181,6 +224,14 @@ begin
     end;
   GetTextWinClipBoardData:=h<>0;
 {$endif Windows}
+{$ifdef aros}
+  Text := GetTextFromClip(0) + #0;
+  PP := @Text[1];
+  l := Length(Text);
+  GetMem(p,l);
+  Move(pp^,p^,l);
+  GetTextWinClipBoardData := True;
+{$endif aros}
   CloseWinClipBoard;
 {$ifdef DOS}
   M.MoveDataFrom(l,P^);
@@ -199,6 +250,10 @@ var
   pp : pchar;
   res : boolean;
 {$endif Windows}
+{$ifdef aros}
+  pp: PChar;
+  Test: string;
+{$endif aros}
 begin
   SetTextWinClipBoardData:=False;
   if (l=0) or (l>65520) then
@@ -239,6 +294,10 @@ begin
   GlobalUnlock(h);
   SetTextWinClipBoardData:=res;
 {$endif Windows}
+{$ifdef Aros}
+  PutTextToClip(0, string(p));
+{$endif Aros}
+
   CloseWinClipBoard;
 end;
 

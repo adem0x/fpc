@@ -29,6 +29,7 @@ uses
 {$ifdef FPC_TESTGENERICS}
   fgl,
 {$endif}
+  arosthread,
   typinfo;
 
 {$i classesh.inc}

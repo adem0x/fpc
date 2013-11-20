@@ -51,6 +51,7 @@ type
 
 implementation
 
+
 {$DEFINE HAS_GETMSCOUNT}
 {$DEFINE HAS_GETCBREAK}
 {$DEFINE HAS_SETCBREAK}
@@ -185,7 +186,7 @@ begin
   SetLength(Buffer, Length(Name) + 1);
   Move(Name[1], Buffer[0], Length(Name));
   Buffer[Length(Name)] := #0;
-  DosSetProtection := SetProtection(PChar(@Buffer[0]), Mask);
+  DosSetProtection := SetProtection(PChar(@Buffer[0]), Mask) <> 0;
 end;
 
 function DosSetFileDate(Name: string; P : PDateStamp): Boolean;
@@ -565,7 +566,8 @@ Begin
   New(Inf);
   MyLock := dosLock(devicenames[deviceids[Drive]],SHARED_LOCK);
   If MyLock <> 0 then begin
-     if Info(MyLock,Inf) then begin
+     if Info(MyLock,Inf) <> 0 then
+     begin
         Free := (Inf^.id_NumBlocks * Inf^.id_BytesPerBlock) -
                 (Inf^.id_NumBlocksUsed * Inf^.id_BytesPerBlock);
      end;
@@ -596,7 +598,8 @@ Begin
   New(Inf);
   MyLock := dosLock(devicenames[deviceids[Drive]],SHARED_LOCK);
   If MyLock <> 0 then begin
-     if Info(MyLock,Inf) then begin
+     if Info(MyLock,Inf) <> 0 then
+     begin
         Size := (Inf^.id_NumBlocks * Inf^.id_BytesPerBlock);
      end;
      Unlock(MyLock);
@@ -608,11 +611,37 @@ Begin
 end;
 
 
+
+{function AmigaFileDateToDateTime(aDate: TDateStamp; out success: boolean): TDateTime;
+var
+  tmpSecs: DWord;
+  tmpDate: TDateTime;
+  tmpTime: TDateTime; 
+  clockData: TClockData;
+  NTime: TDateTime;
+  Worked: Boolean;
+begin
+  with aDate do
+    tmpSecs:=(ds_Days * (24 * 60 * 60)) + (ds_Minute * 60) + (ds_Tick div TICKS_PER_SECOND);
+
+  Amiga2Date(tmpSecs,@clockData);
+{$WARNING TODO: implement msec values, if possible}
+  with clockData do begin
+     success:=TryEncodeDate(year,month,mday,tmpDate) and
+              TryEncodeTime(hour,min,sec,0,tmpTime);
+  end;
+
+  result:=ComposeDateTime(tmpDate,tmpTime);
+end;}
+
 procedure FindFirst(const Path: PathStr; Attr: Word; Var f: SearchRec);
 var
  tmpStr: array[0..255] of Char;
  Anchor: PAnchorPath;
  Result: LongInt;
+ tmpSecs: DWord;
+ clockData: TClockData;
+ T: dos.DateTime;
 begin
   tmpStr:=PathConv(path)+#0;
   DosError:=0;
@@ -634,9 +663,20 @@ begin
     { for we should go to the next file or directory.                   }
     {-------------------------------------------------------------------}
     with Anchor^.ap_Info do begin
-      f.Time := fib_Date.ds_Days * (24 * 60 * 60) +
-                fib_Date.ds_Minute * 60 +
-                fib_Date.ds_Tick div 50;
+      tmpSecs:=(fib_Date.ds_Days * (24 * 60 * 60)) + (fib_Date.ds_Minute * 60) + (fib_Date.ds_Tick div 50);
+      Amiga2Date(tmpSecs,@clockData);
+      T.year := clockdata.year;
+      T.Month := clockData.Month;
+      T.day := clockData.mday;
+      T.hour := clockdata.hour;
+      T.min := clockdata.min;
+      t.sec := clockdata.sec;
+      PackTime(T, f.Time);
+      
+      //f.Time := fib_Date.ds_Days * (24 * 60 * 60) +
+      //          fib_Date.ds_Minute * 60 +
+      //          fib_Date.ds_Tick div 50;
+                
       f.attr := 0;
       {*------------------------------------*}
       {* Determine if is a file or a folder *}
@@ -661,8 +701,11 @@ end;
 
 procedure FindNext(Var f: SearchRec);
 var
- Result: longint;
- Anchor: PAnchorPath;
+  Result: longint;
+  Anchor: PAnchorPath;
+  tmpSecs: DWord;
+  clockData: TClockData;
+  T: dos.DateTime;
 begin
   DosError:=0;
   Result:=MatchNext(f.AnchorPtr);
@@ -677,9 +720,18 @@ begin
     { the correct attributes                }
     Anchor:=pAnchorPath(f.AnchorPtr);
     with Anchor^.ap_Info do begin
-      f.Time := fib_Date.ds_Days * (24 * 60 * 60) +
-                fib_Date.ds_Minute * 60 +
-                fib_Date.ds_Tick div 50;
+      tmpSecs:=(fib_Date.ds_Days * (24 * 60 * 60)) + (fib_Date.ds_Minute * 60) + (fib_Date.ds_Tick div 50);
+      Amiga2Date(tmpSecs,@clockData);
+      T.year := clockdata.year;
+      T.Month := clockData.Month;
+      T.day := clockData.mday;
+      T.hour := clockdata.hour;
+      T.min := clockdata.min;
+      t.sec := clockdata.sec;
+      PackTime(T, f.Time);
+      //f.Time := fib_Date.ds_Days * (24 * 60 * 60) +
+      //          fib_Date.ds_Minute * 60 +
+      //          fib_Date.ds_Tick div 50;
       f.attr := 0;
       {*------------------------------------*}
       {* Determine if is a file or a folder *}
@@ -763,7 +815,8 @@ begin
     FLock := dosLock(Str, SHARED_LOCK);
     IF FLock <> 0 then begin
         New(FInfo);
-        if Examine(FLock, FInfo) then begin
+        if Examine(FLock, FInfo) <> 0 then
+        begin
              with FInfo^.fib_Date do
              FTime := ds_Days * (24 * 60 * 60) +
              ds_Minute * 60 +
@@ -870,7 +923,7 @@ begin
   tmpLock:=Lock(filerec(f).name,SHARED_LOCK);
   if tmpLock <> 0 then begin
     Unlock(tmpLock);
-    if not SetProtection(filerec(f).name,flags) then DosError:=5;
+    if SetProtection(filerec(f).name,flags) = 0 then DosError:=5;
   end else
     DosError:=3;
 end;

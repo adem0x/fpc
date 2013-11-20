@@ -14,354 +14,363 @@
 
  **********************************************************************}
 {
-    History:
-    Added overlay functions for Pchar->Strings, functions
-    and procedures. Now you can mix PChar and Strings e.g
-    OpenLibrary('whatis.library',37). No need to cast to
-    a PChar.
-    14 Jul 2000.
-
-    Changed ReadArgs, removed the var for the second arg.
-    Changed DOSRename from longint to a boolean.
-    Aug 04 2000.
-
-    Added functions and procedures with array of const.
-    For use with fpc 1.0.7
-
-    You have to use systemvartags. Check out that unit.
-    09 Nov 2002.
-
-    Added the define use_amiga_smartlink.
-    13 Jan 2003.
-
-    Update for AmigaOS 3.9.
-    Added some const.
-    26 Jan 2003.
-
-    Changed integer > smallint.
-    09 Feb 2003.
-
-    nils.sjoholm@mailbox.swipnet.se
+ missing elf.h // Elfheader
+ BSTR Funktions
+ 
+ defines:
+ AROS_FAST_BPTR: BPTR is a pointer or a 2 shifted Pointer ->? whats standard?
 }
 
 unit amigados;
+{$mode objfpc}
+interface
 
-INTERFACE
+uses
+  exec, utility, timer;
 
-uses exec, utility, timer;
+{$PACKRECORDS C}
 
 const
-
 { Predefined Amiga DOS global constants }
-
-    DOSTRUE     = -1;
-    DOSFALSE    =  0;
-
-{ Mode parameter to Open() }
-
-    MODE_OLDFILE        = 1005;         { Open existing file read/write
-                                          positioned at beginning of file. }
-    MODE_NEWFILE        = 1006;         { Open freshly created file (delete
-                                          old file) read/write }
-    MODE_READWRITE      = 1004;         { Open old file w/exclusive lock }
-
-{ Relative position to Seek() }
-
-    OFFSET_BEGINNING    = -1;           { relative to Begining Of File }
-    OFFSET_CURRENT      = 0;            { relative to Current file position }
-    OFFSET_END          = 1;            { relative to End Of File }
-
-    BITSPERBYTE         = 8;
-    BYTESPERLONG        = 4;
-    BITSPERLONG         = 32;
-    MAXINT              = $7FFFFFFF;
-    MININT              = $80000000;
-
-{ Passed as type to Lock() }
-
-    SHARED_LOCK         = -2;           { File is readable by others }
-    ACCESS_READ         = -2;           { Synonym }
-    EXCLUSIVE_LOCK      = -1;           { No other access allowed }
-    ACCESS_WRITE        = -1;           { Synonym }
+  DOSTRUE     = -1;
+  DOSFALSE    =  0;
+  TICKS_PER_SECOND = 50;   { Number of ticks in one second }  
+    
+  // Still to TEST
+  BITSPERBYTE         = 8;
+  BYTESPERLONG        = 4;
+  BITSPERLONG         = 32;
 
 type
-
-    FileHandle  = BPTR;
-    FileLock    = BPTR;
-
-    pDateStamp = ^tDateStamp;
-    tDateStamp = record
-        ds_Days         : Longint;      { Number of days since Jan. 1, 1978 }
-        ds_Minute       : Longint;      { Number of minutes past midnight }
-        ds_Tick         : Longint;      { Number of ticks past minute }
-    end;
-
-const
-
-    TICKS_PER_SECOND    = 50;           { Number of ticks in one second }
-
-{$PACKRECORDS 4}
-type
-
-{ Returned by Examine() and ExInfo(), must be on a 4 byte boundary }
-
-    PFileInfoBlock = ^TFileInfoBlock;
-    TFileInfoBlock = record
-        fib_DiskKey      : LongInt;
-        fib_DirEntryType : LongInt;
-                        { type of Directory. If < 0, then a plain file.
-                          If > 0 a directory }
-        fib_FileName     : Array [0..107] of Char;
-                        { Null terminated. Max 30 chars used for now }
-        fib_Protection   : LongInt;
-                        { bit mask of protection, rwxd are 3-0. }
-        fib_EntryType    : LongInt;
-        fib_Size         : LongInt;      { Number of bytes in file }
-        fib_NumBlocks    : LongInt;      { Number of blocks in file }
-        fib_Date         : TDateStamp;   { Date file last changed }
-        fib_Comment      : Array [0..79] of Char;
-                        { Null terminated comment associated with file }
-        fib_OwnerUID     : Word;
-        fib_OwnerGID     : Word;
-        fib_Reserved     : Array [0..31] of Char;
-    end;
-
-const
-
-{ FIB stands for FileInfoBlock }
-
-{* FIBB are bit definitions, FIBF are field definitions *}
-{* Regular RWED bits are 0 == allowed. *}
-{* NOTE: GRP and OTR RWED permissions are 0 == not allowed! *}
-{* Group and Other permissions are not directly handled by the filesystem *}
-
-    FIBB_OTR_READ       = 15;   {* Other: file is readable *}
-    FIBB_OTR_WRITE      = 14;   {* Other: file is writable *}
-    FIBB_OTR_EXECUTE    = 13;   {* Other: file is executable *}
-    FIBB_OTR_DELETE     = 12;   {* Other: prevent file from being deleted *}
-    FIBB_GRP_READ       = 11;   {* Group: file is readable *}
-    FIBB_GRP_WRITE      = 10;   {* Group: file is writable *}
-    FIBB_GRP_EXECUTE    = 9;    {* Group: file is executable *}
-    FIBB_GRP_DELETE     = 8;    {* Group: prevent file from being deleted *}
-
-    FIBB_SCRIPT         = 6;    { program is a script (execute) file }
-    FIBB_PURE           = 5;    { program is reentrant and rexecutable}
-    FIBB_ARCHIVE        = 4;    { cleared whenever file is changed }
-    FIBB_READ           = 3;    { ignored by old filesystem }
-    FIBB_WRITE          = 2;    { ignored by old filesystem }
-    FIBB_EXECUTE        = 1;    { ignored by system, used by Shell }
-    FIBB_DELETE         = 0;    { prevent file from being deleted }
-
-    FIBF_OTR_READ      = (1 shl FIBB_OTR_READ);
-    FIBF_OTR_WRITE     = (1 shl FIBB_OTR_WRITE);
-    FIBF_OTR_EXECUTE   = (1 shl FIBB_OTR_EXECUTE);
-    FIBF_OTR_DELETE    = (1 shl FIBB_OTR_DELETE);
-    FIBF_GRP_READ      = (1 shl FIBB_GRP_READ);
-    FIBF_GRP_WRITE     = (1 shl FIBB_GRP_WRITE);
-    FIBF_GRP_EXECUTE   = (1 shl FIBB_GRP_EXECUTE);
-    FIBF_GRP_DELETE    = (1 shl FIBB_GRP_DELETE);
-
-    FIBF_SCRIPT         = 64;
-    FIBF_PURE           = 32;
-    FIBF_ARCHIVE        = 16;
-    FIBF_READ           = 8;
-    FIBF_WRITE          = 4;
-    FIBF_EXECUTE        = 2;
-    FIBF_DELETE         = 1;
-
-{* Standard maximum length for an error string from fault.  However, most *}
-{* error strings should be kept under 60 characters if possible.  Don't   *}
-{* forget space for the header you pass in. *}
-
-    FAULT_MAX  = 82;
+  FileHandle  = BPTR;
+  FileLock    = BPTR;
 
 {* All BCPL data must be long Integer aligned.  BCPL pointers are the long Integer
  *  address (i.e byte address divided by 4 (>>2)) *}
 
 {* BCPL strings have a length in the first byte and then the characters.
  * For example:  s[0]=3 s[1]=S s[2]=Y s[3]=S                 *}
-
-
+ 
+ 
+ 
+const    
+// DOS functions will return this when they reach EOF. */
+  ENDSTREAMCH = -1;
+// Buffering types for SetVBuf().  
+  BUF_LINE    = 0; // Flush at the end of lines '\n'.
+  BUF_FULL    = 1; // Flush only when buffer is full.
+  BUF_NONE    = 2; // Do not buffer, read and write immediatly.
+        
 type
+  PDateStamp = ^TDateStamp;
+  TDateStamp = record
+    ds_Days: Longint;        { Number of days since Jan. 1, 1978 }
+    ds_Minute: Longint;      { Number of minutes past midnight }
+    ds_Tick: Longint;        { Number of ticks past minute }
+  end; 
+      
+const
+{ The maximum length of filenames in AmigaOS. You should not depend on
+  this value, as it may change in future versions.}
+  MAXFILENAMELENGTH = 108;
 
+{ The maximum length of comments in AmigaOS. You should not depend on
+  this value, as it may change in future versions.}
+  MAXCOMMENTLENGTH = 80;
+  
+type
+{ Returned by Examine() and ExInfo(), must be on a 4 byte boundary
+  Structure used to describe a directory entry. Note that not all fields
+  are supported by all filesystems. This structure should be allocated
+  with AllocDosObject(). }
+  PFileInfoBlock = ^TFileInfoBlock;
+  TFileInfoBlock = record
+    fib_DiskKey: IPTR;
+    fib_DirEntryType: LongInt;                              // type of Directory. If < 0, then a plain file. If > 0 a directory
+    fib_FileName: array [0..MAXFILENAMELENGTH - 1] of Char; // Null terminated. Max 30 chars used for now
+    fib_Protection: LongInt;                                // bit mask of protection, rwxd are 3-0.
+    fib_EntryType: LongInt;
+    fib_Size: LongInt;                                      // Number of bytes in file
+    fib_NumBlocks: LongInt;                                 // Number of blocks in file
+    fib_Date: TDateStamp;                                   // Date file last changed
+    fib_Comment: array [0..MAXCOMMENTLENGTH - 1] of Char;   // Null terminated comment associated with file
+    fib_OwnerUID: Word;                                     // UserID of fileowner.
+    fib_OwnerGID: Word;                                     // GroupID of fileowner.
+    fib_Reserved: array [0..31] of Char;                    // PRIVATE
+  end;
+    
+const
+{ FIB stands for TFileInfoBlock (fib_Protection)}
+
+{ FIBB are bit definitions, FIBF are field definitions
+  Regular RWED bits are 0 == allowed.
+  NOTE: GRP and OTR RWED permissions are 0 == not allowed!
+  Group and Other permissions are not directly handled by the filesystem}
+  FIBB_DELETE         = 0;  // prevent file from being deleted }
+  FIBB_EXECUTE        = 1;  // ignored by system, used by Shell }
+  FIBB_WRITE          = 2;  // ignored by old filesystem }
+  FIBB_READ           = 3;  // ignored by old filesystem }
+  FIBB_ARCHIVE        = 4;  // cleared whenever file is changed }
+  FIBB_PURE           = 5;  // program is reentrant and rexecutable}
+  FIBB_SCRIPT         = 6;  // program is a script (execute) file }
+// group flags
+  FIBB_GRP_DELETE     = 8;  // Group: prevent file from being deleted *}
+  FIBB_GRP_EXECUTE    = 9;  // Group: file is executable *}
+  FIBB_GRP_WRITE      = 10; // Group: file is writable *}   
+  FIBB_GRP_READ       = 11; // Group: file is readable *}
+// other
+  FIBB_OTR_DELETE     = 12; // Other: prevent file from being deleted *}
+  FIBB_OTR_EXECUTE    = 13; // Other: file is executable *}
+  FIBB_OTR_WRITE      = 14; // Other: file is writable *}
+  FIBB_OTR_READ       = 15; // Other: file is readable *}
+// Values
+  FIBF_DELETE         = (1 shl FIBB_DELETE); 
+  FIBF_EXECUTE        = (1 shl FIBB_EXECUTE);
+  FIBF_WRITE          = (1 shl FIBB_WRITE);
+  FIBF_READ           = (1 shl FIBB_READ); 
+  FIBF_ARCHIVE        = (1 shl FIBB_ARCHIVE); 
+  FIBF_PURE           = (1 shl FIBB_PURE); 
+  FIBF_SCRIPT         = (1 shl FIBB_SCRIPT); 
+// Group Values
+  FIBF_GRP_DELETE    = (1 shl FIBB_GRP_DELETE);
+  FIBF_GRP_EXECUTE   = (1 shl FIBB_GRP_EXECUTE);
+  FIBF_GRP_WRITE     = (1 shl FIBB_GRP_WRITE);
+  FIBF_GRP_READ      = (1 shl FIBB_GRP_READ);
+// Other Values
+  FIBF_OTR_DELETE    = (1 shl FIBB_OTR_DELETE);
+  FIBF_OTR_EXECUTE   = (1 shl FIBB_OTR_EXECUTE);  
+  FIBF_OTR_WRITE     = (1 shl FIBB_OTR_WRITE);  
+  FIBF_OTR_READ      = (1 shl FIBB_OTR_READ);  
+
+// Devices
+type
 { returned by Info(), must be on a 4 byte boundary }
-
-    PInfoData = ^TInfoData;
-    TInfoData = record
-        id_NumSoftErrors        : LongInt;      { number of soft errors on disk }
-        id_UnitNumber           : LongInt;      { Which unit disk is (was) mounted on }
-        id_DiskState            : LongInt;      { See defines below }
-        id_NumBlocks            : LongInt;      { Number of blocks on disk }
-        id_NumBlocksUsed        : LongInt;      { Number of block in use }
-        id_BytesPerBlock        : LongInt;
-        id_DiskType             : LongInt;      { Disk type code }
-        id_VolumeNode           : BPTR;         { BCPL pointer to volume node }
-        id_InUse                : LongInt;      { Flag, zero if not in use }
-    end;
-
-{$PACKRECORDS NORMAL}
-
-const
-
-{ ID stands for InfoData }
-
-        { Disk states }
-
-    ID_WRITE_PROTECTED  = 80;   { Disk is write protected }
-    ID_VALIDATING       = 81;   { Disk is currently being validated }
-    ID_VALIDATED        = 82;   { Disk is consistent and writeable }
+  PInfoData = ^TInfoData;
+  TInfoData = record
+    id_NumSoftErrors: LongInt; // Number of soft errors on disk
+    id_UnitNumber: LongInt;    // Which unit disk is (was) mounted on
+    id_DiskState: LongInt;     // Dtate of Volume See defines below
+    id_NumBlocks: LongInt;     // Number of blocks on device
+    id_NumBlocksUsed: LongInt; // Number of block in use
+    id_BytesPerBlock: LongInt; // Bytes per Block
+    id_DiskType: LongInt;      // Type of Disk
+    id_VolumeNode: BPTR;       // BCPL pointer to volume node
+    id_InUse: IPTR;            // Flag, zero if not in use
+  end;
+  
+  {$PACKRECORDS NORMAL}
 
 const
- ID_NO_DISK_PRESENT     = -1;
- ID_UNREADABLE_DISK     = $42414400;   { 'BAD\0' }
- ID_DOS_DISK            = $444F5300;   { 'DOS\0' }
- ID_FFS_DISK            = $444F5301;   { 'DOS\1' }
- ID_NOT_REALLY_DOS      = $4E444F53;   { 'NDOS'  }
- ID_KICKSTART_DISK      = $4B49434B;   { 'KICK'  }
- ID_MSDOS_DISK          = $4d534400;   { 'MSD\0' }
- ID_SFS_BE_DISK         = $53465300;   { 'SFS\0' }
- ID_SFS_LE_DISK         = $73667300;   { 'sfs\0' }
+  { ID stands for InfoData }
+{ Disk states }
+  ID_WRITE_PROTECTED  = 80;   // Disk is write protected
+  ID_VALIDATING       = 81;   // Disk is currently being validated
+  ID_VALIDATED        = 82;   // Disk is consistent and writeable
+{ Filesystem types as used for id_DiskType. These are multi-character
+  constants of identifier strings. They are self-descriptive.}
+  ID_NO_DISK_PRESENT     = -1;
+  ID_UNREADABLE_DISK     = $42414400; // 'BAD#0'
+  ID_DOS_DISK            = $444F5300; // 'DOS#0'
+  ID_FFS_DISK            = $444F5301; // 'DOS#1'
+  ID_INTER_DOS_DISK      = $444F5302; // 'DOS#2'
+  ID_INTER_FFS_DISK      = $444F5303; // 'DOS#3'
+  ID_FASTDIR_DOS_DISK    = $444F5304; // 'DOS#4'
+  ID_FASTDIR_FFS_DISK    = $444F5305; // 'DOS#5'
+  ID_NOT_REALLY_DOS      = $4E444F53; // 'NDOS' 
+  ID_KICKSTART_DISK      = $4B49434B; // 'KICK' 
+  ID_MSDOS_DISK          = $4d534400; // 'MSD#0'
+  ID_SFS_BE_DISK         = $53465300; // 'SFS#0'
+  ID_SFS_LE_DISK         = $73667300; // 'sfs#0'
+{ These are the return codes used by convention by AmigaDOS commands
+  See FAILAT and IF for relvance to EXECUTE files}
+    // No Problem, success
+  RETURN_OK              =  0;
+  { Program succeeded, but there was something not quite right.
+    This value may also be used to express a boolean state
+    (RETURN_WARN meaning TRUE, RETURN_OK meaning FALSE).}
+  RETURN_WARN            =  5;
+  { Program succeeded partly. This may be returned, if the user aborts a
+    program or some external data were wrong.}
+  RETURN_ERROR           = 10; // Something wrong
+  { Program execution failed. Normally used, if some system resources could
+    not be allocated.}
+  RETURN_FAIL            = 20; // Complete or severe failure
 
-{ Errors from IoErr(), etc. }
- ERROR_NO_FREE_STORE              = 103;
- ERROR_TASK_TABLE_FULL            = 105;
- ERROR_BAD_TEMPLATE               = 114;
- ERROR_BAD_NUMBER                 = 115;
- ERROR_REQUIRED_ARG_MISSING       = 116;
- ERROR_KEY_NEEDS_ARG              = 117;
- ERROR_TOO_MANY_ARGS              = 118;
- ERROR_UNMATCHED_QUOTES           = 119;
- ERROR_LINE_TOO_LONG              = 120;
- ERROR_FILE_NOT_OBJECT            = 121;
- ERROR_INVALID_RESIDENT_LIBRARY   = 122;
- ERROR_NO_DEFAULT_DIR             = 201;
- ERROR_OBJECT_IN_USE              = 202;
- ERROR_OBJECT_EXISTS              = 203;
- ERROR_DIR_NOT_FOUND              = 204;
- ERROR_OBJECT_NOT_FOUND           = 205;
- ERROR_BAD_STREAM_NAME            = 206;
- ERROR_OBJECT_TOO_LARGE           = 207;
- ERROR_ACTION_NOT_KNOWN           = 209;
- ERROR_INVALID_COMPONENT_NAME     = 210;
- ERROR_INVALID_LOCK               = 211;
- ERROR_OBJECT_WRONG_TYPE          = 212;
- ERROR_DISK_NOT_VALIDATED         = 213;
- ERROR_DISK_WRITE_PROTECTED       = 214;
- ERROR_RENAME_ACROSS_DEVICES      = 215;
- ERROR_DIRECTORY_NOT_EMPTY        = 216;
- ERROR_TOO_MANY_LEVELS            = 217;
- ERROR_DEVICE_NOT_MOUNTED         = 218;
- ERROR_SEEK_ERROR                 = 219;
- ERROR_COMMENT_TOO_BIG            = 220;
- ERROR_DISK_FULL                  = 221;
- ERROR_DELETE_PROTECTED           = 222;
- ERROR_WRITE_PROTECTED            = 223;
- ERROR_READ_PROTECTED             = 224;
- ERROR_NOT_A_DOS_DISK             = 225;
- ERROR_NO_DISK                    = 226;
- ERROR_NO_MORE_ENTRIES            = 232;
-{ added for 1.4 }
- ERROR_IS_SOFT_LINK               = 233;
- ERROR_OBJECT_LINKED              = 234;
- ERROR_BAD_HUNK                   = 235;
- ERROR_NOT_IMPLEMENTED            = 236;
- ERROR_RECORD_NOT_LOCKED          = 240;
- ERROR_LOCK_COLLISION             = 241;
- ERROR_LOCK_TIMEOUT               = 242;
- ERROR_UNLOCK_ERROR               = 243;
+{ Secondary errors codes as used for IoErr(), SetIoErr() and in
+  Process^.pr_Result2. The term 'object' refers to files of all kinds
+  (ie plain files, directories, links, etc).}
 
-{ error codes 303-305 are defined in dosasl.h }
+  {This is used, if something went wrong, but it is unknown what exactly
+   went wrong. This is especially useful for emulation devices, when the
+   underlying system returned an error that the emulation side does not
+   know.}
+  ERROR_UNKNOWN			             = 100;
+//General system errors 
+  ERROR_NO_FREE_STORE            = 103; // Out of memory.
+  ERROR_TASK_TABLE_FULL          = 105; // Too many tasks are already running.
+//Errors concerning ReadArgs().  
+  ERROR_BAD_TEMPLATE             = 114; // Supplied template is broken
+  ERROR_BAD_NUMBER               = 115; { A supplied argument that was expected to be numeric, was not numeric.
+                                          This is also returned by some functions to expresss that a supplied
+                                          number is out of range (ie to express application internal errors).}
+  ERROR_REQUIRED_ARG_MISSING     = 116; // An argument that has to be supplied (ie signed with the '/A' flag) was not supplied.
+  ERROR_KEY_NEEDS_ARG            = 117; // Keyword was specified, but not its contents.
+  ERROR_TOO_MANY_ARGS            = 118; // There were more arguments than the template needs.
+  ERROR_UNMATCHED_QUOTES         = 119; // An odd number of quotation marks was supplied.
+  ERROR_LINE_TOO_LONG            = 120; { Either the command-line was longer than hardcoded line length limit or the
+                                          maximum number of multiple arguments (flag '/M') was exceeded. This can
+                                          also indicate that some argument is too long or a supplied buffer is too small.}
+// Errors in files.
+  ERROR_FILE_NOT_OBJECT          = 121; // You tried to execute a file that is not an executable.
+  ERROR_INVALID_RESIDENT_LIBRARY = 122; // A library or device could not be opened or that library or device is broken.
+  ERROR_NO_DEFAULT_DIR           = 201;
+  ERROR_OBJECT_IN_USE            = 202; // The accessed object is already in use (eg locked) by another task.
+  ERROR_OBJECT_EXISTS            = 203; // You tried to overwrite an object.
+  ERROR_DIR_NOT_FOUND            = 204; // The given directory or the path of a given object does not exist.
+  ERROR_OBJECT_NOT_FOUND         = 205; // The given object does not exist.
+// Miscellaneous errors.  
+  ERROR_BAD_STREAM_NAME          = 206; 
+  ERROR_OBJECT_TOO_LARGE         = 207; { The given object is too large for the operation to be made. Object is
+                                          this context are for example components of path-names.}
+  ERROR_ACTION_NOT_KNOWN         = 209; { This is usually used to indicate that a filesystem does not support a
+                                          certain action, but may generally also be used by functions.}
+  ERROR_INVALID_COMPONENT_NAME   = 210; // A path component was invalid (eg there were multiple colons in a path name
+  ERROR_INVALID_LOCK             = 211;
+  ERROR_OBJECT_WRONG_TYPE        = 212; { You tried to perform an action on an object, which this kind of object
+                                          does not support (eg makedir on a file).}
+  ERROR_DISK_NOT_VALIDATED       = 213; // Writing failed, because the volume is not validated.
+  ERROR_DISK_WRITE_PROTECTED     = 214; // Writing failed, because the volume is write-protected.
+  ERROR_RENAME_ACROSS_DEVICES    = 215; { You tried to move/rename a file across different devices. Rename does only
+                                          work on the same device, as only the inode-data has to be changed to
+                                          perform that action.}
+  ERROR_DIRECTORY_NOT_EMPTY      = 216; // You tried to delete a directory that still contains some files. Delete these files first.
+  ERROR_TOO_MANY_LEVELS          = 217; // A recursive directory search could not be performed, because the stack was too small.
+  ERROR_DEVICE_NOT_MOUNTED       = 218; // You tried to access a device that is currently not mounted.
+  ERROR_SEEK_ERROR               = 219; // An error occured, while executing DosSeek().
+  ERROR_COMMENT_TOO_BIG          = 220; // The supplied file comment was longer than the hardcoded length limit for file comments.
+  ERROR_DISK_FULL                = 221; // A write-operation could not be performed, because the volume has no space left.
+  ERROR_DELETE_PROTECTED         = 222; // You tried to delete a delete-protected object.
+  ERROR_WRITE_PROTECTED          = 223; { You tried to write to a write-protected object. This does not mean that
+                                          the volume, you wanted to write to, is write-protected!}
+  ERROR_READ_PROTECTED           = 224; // You tried to read a read-protected object.
+  ERROR_NOT_A_DOS_DISK           = 225; // Accessed disk is unreadable.
+  ERROR_NO_DISK                  = 226; // You tried to perform an action on a device that has no volume mounted (eg. an empty disk drive). 
+  ERROR_NO_MORE_ENTRIES          = 232; { This does not indicate an error, but is returned by several functions to
+                                          indicate that the last entry of a list was reached.}
+  ERROR_IS_SOFT_LINK              = 233; { Given action can not be performed on a given object, because it is a
+                                           soft-link. This is usually only used by filesystem handlers and is catched
+                                           by dos. Applications should not see this.}
+  ERROR_OBJECT_LINKED             = 234; // Given action can not be performed on a given object, because it is a link.
+  ERROR_BAD_HUNK                  = 235; // There was a bad hunk in a file that was to load.
+  ERROR_NOT_IMPLEMENTED           = 236; { Indicates that a function does not implement a certain functionality.
+                                           There are more special error conditions (ERROR_BAD_NUMBER and
+                                           ERROR_ACTION_NOT_KNOWN), which should be preferred, if applicable.}
+  ERROR_RECORD_NOT_LOCKED         = 240; // You tried to access a record that was not locked.
+  ERROR_LOCK_COLLISION            = 241; // Somebody already locked a part of the record, you wanted to lock.
+  ERROR_LOCK_TIMEOUT              = 242; // LockRecord() timed out.
+  ERROR_UNLOCK_ERROR              = 243; // An error occured, while unlocking a record.
 
-{ These are the return codes used by convention by AmigaDOS commands }
-{ See FAILAT and IF for relvance to EXECUTE files                    }
- RETURN_OK                        =   0;  { No problems, success }
- RETURN_WARN                      =   5;  { A warning only }
- RETURN_ERROR                     =  10;  { Something wrong }
- RETURN_FAIL                      =  20;  { Complete or severe failure}
+{ more error codes are defined in dosasl.h and filesystem.h } 
+   
+{ Maximum length of strings got from Fault(). Note that they should be
+   shorter than 60 characters. }
+  FAULT_MAX  = 82;
+  
+{ Signals that are set, if the user presses the corresponding keys on
+   the controlling terminal. They may also be sent by using Signal().
+   For more information see <exec/tasks.h>. }
+  SIGBREAKB_CTRL_C   = 12; // CTRL-c, usually meaning program abortion.
+  SIGBREAKB_CTRL_D   = 13; // CTRL-d
+  SIGBREAKB_CTRL_E   = 14; // CTRL-e, usually meaning that the application should iconify itself.
+  SIGBREAKB_CTRL_F   = 15; // CTRL-f, usually meaning that the application should uniconify itself. 
+{ Bit fields that signal you that a user has issued a break
+  for example:  if (SetSignal(0,0) and SIGBREAKF_CTRL_C) then cleanup_and_exit();} 
+  SIGBREAKF_CTRL_C   = 1 shl SIGBREAKB_CTRL_C;
+  SIGBREAKF_CTRL_D   = 1 shl SIGBREAKB_CTRL_D;
+  SIGBREAKF_CTRL_E   = 1 shl SIGBREAKB_CTRL_E;
+  SIGBREAKF_CTRL_F   = 1 shl SIGBREAKB_CTRL_F;  
 
-{ Bit numbers that signal you that a user has issued a break }
- SIGBREAKB_CTRL_C   = 12;
- SIGBREAKB_CTRL_D   = 13;
- SIGBREAKB_CTRL_E   = 14;
- SIGBREAKB_CTRL_F   = 15;
-
-{ Bit fields that signal you that a user has issued a break }
-{ for example:  if (SetSignal(0,0) & SIGBREAKF_CTRL_C) cleanup_and_exit(); }
- SIGBREAKF_CTRL_C   = 4096;
- SIGBREAKF_CTRL_D   = 8192;
- SIGBREAKF_CTRL_E   = 16384;
- SIGBREAKF_CTRL_F   = 32768;
+{ Mode parameter to Open() }
+  MODE_OLDFILE   = 1005; // Open existing file read/write positioned at beginning of file.
+  MODE_NEWFILE   = 1006; // Open freshly created file (delete old file) read/write
+  MODE_READWRITE = 1004; // An old file is opened. If it does not exist, a new one is created.
+  
+{ Passed as type to Lock() }
+  SHARED_LOCK    = -2;             // Non-exclusive lock, other tasks may lock this file as well.
+  ACCESS_READ    = SHARED_LOCK;    //   This is used for read-only operations.
+  EXCLUSIVE_LOCK = -1;             // Exclusive lock, other tasks may not lock this file.
+  ACCESS_WRITE   = EXCLUSIVE_LOCK; // This is used for write operations.
 
 { Values returned by SameLock() }
- LOCK_SAME             =  0;
- LOCK_SAME_HANDLER     =  1;       { actually same volume }
- LOCK_DIFFERENT        =  -1;
-
-{ types for ChangeMode() }
- CHANGE_LOCK    = 0;
- CHANGE_FH      = 1;
-
+  LOCK_SAME         =  0;
+  LOCK_SAME_HANDLER =  1; // actually same volume
+  LOCK_DIFFERENT    = -1;
+  
 { Values for MakeLink() }
- LINK_HARD      = 0;
- LINK_SOFT      = 1;       { softlinks are not fully supported yet }
+  LINK_HARD =   0;
+  LINK_SOFT =   1;
 
-{ values returned by  }
- ITEM_EQUAL     = -2;              { "=" Symbol }
- ITEM_ERROR     = -1;              { error }
- ITEM_NOTHING   = 0;               { *N, ;, endstreamch }
- ITEM_UNQUOTED  = 1;               { unquoted item }
- ITEM_QUOTED    = 2;               { quoted item }
+{ Relative position to Seek() }
+  OFFSET_BEGINNING = -1; // relative to Begining Of File
+  OFFSET_CURRENT   =  0; // relative to Current file position
+  OFFSET_END       =  1; // relative to End Of File
+  
+{ Limits of the "Integer" type already defined in FPC... but ok}
+  MAXINT = $7FFFFFFF;
+  MININT = $80000000;
+  
+{ types for ChangeMode() }
+  CHANGE_LOCK = 0;
+  CHANGE_FH = 1;
+
+{ values returned by  ReadItem() }
+  ITEM_EQUAL    = -2; // '=' Symbol
+  ITEM_ERROR    = -1; // error
+  ITEM_NOTHING  =  0; // *N, ;, endstreamch
+  ITEM_UNQUOTED =  1; // unquoted item
+  ITEM_QUOTED   =  2; // quoted item
 
 { types for AllocDosObject/FreeDosObject }
- DOS_FILEHANDLE        =  0;       { few people should use this }
- DOS_EXALLCONTROL      =  1;       { Must be used to allocate this! }
- DOS_FIB               =  2;       { useful }
- DOS_STDPKT            =  3;       { for doing packet-level I/O }
- DOS_CLI               =  4;       { for shell-writers, etc }
- DOS_RDARGS            =  5;       { for ReadArgs if you pass it in }
+  DOS_FILEHANDLE   =  0; // PFileHandle
+  DOS_EXALLCONTROL =  1; // PExAllControl
+  DOS_FIB          =  2; // PFileInfoBlock
+  DOS_STDPKT       =  3; // PDosPacket
+  DOS_CLI          =  4; // PCommandLineInterface
+  DOS_RDARGS       =  5; // PRDArgs
 
 
-{
- *      Data structures and equates used by the V1.4 DOS functions
- * StrtoDate() and DatetoStr()
- }
-
+{ Data structures and equates used by the V1.4 DOS functions StrtoDate() and DatetoStr() }
 {--------- String/Date structures etc }
 type
-       PDateTime = ^TDateTime;
-       TDateTime = record
-        dat_Stamp   : TDateStamp;      { DOS DateStamp }
-        dat_Format,                    { controls appearance of dat_StrDate }
-        dat_Flags   : Byte;           { see BITDEF's below }
-        dat_StrDay,                    { day of the week string }
-        dat_StrDate,                   { date string }
-        dat_StrTime : STRPTR;          { time string }
-       END;
+  PDateTime = ^TDateTime;
+  TDateTime = record
+    dat_Stamp: TDateStamp; // DOS DateStamp
+    dat_Format,            // controls appearance of dat_StrDate
+    dat_Flags: Byte;       // see BITDEF's below
+    dat_StrDay,            // day of the week string
+    dat_StrDate,           // date string 
+    dat_StrTime: STRPTR;   // time string
+  end;
 
 { You need this much room for each of the DateTime strings: }
 const
- LEN_DATSTRING =  16;
+  LEN_DATSTRING =  16;
 
-{      flags for dat_Flags }
-
- DTB_SUBST      = 0;               { substitute Today, Tomorrow, etc. }
- DTF_SUBST      = 1;
- DTB_FUTURE     = 1;               { day of the week is in future }
- DTF_FUTURE     = 2;
-
-{
- *      date format values
- }
-
- FORMAT_DOS     = 0;               { dd-mmm-yy }
- FORMAT_INT     = 1;               { yy-mm-dd  }
- FORMAT_USA     = 2;               { mm-dd-yy  }
- FORMAT_CDN     = 3;               { dd-mm-yy  }
+{ date format values }
+ FORMAT_DOS     = 0;          // DOS internal format, dd-mmm-yy
+ FORMAT_INT     = 1;          // International format, yy-mm-dd
+ FORMAT_USA     = 2;          // US-American format, mm-dd-yy  }
+ FORMAT_CDN     = 3;          // Canadian format, dd-mm-yy  }
  FORMAT_MAX     = FORMAT_CDN;
- FORMAT_DEF     = 4;            { use default format, as defined
-                                           by locale; if locale not
-                                           available, use FORMAT_DOS
-                                           instead }
+ FORMAT_DEF     = 4;          { use default format, as defined by locale; if locale not
+                                available, use FORMAT_DOS instead }
+  
+{ flags for dat_Flags }
+
+ DTB_SUBST      = 0; // Substitute Today, Tomorrow, etc. if possible.
+ DTF_SUBST      = 1 shl DTB_SUBST;
+ DTB_FUTURE     = 1; // Day of the week is in future.
+ DTF_FUTURE     = 1 shl DTB_FUTURE;
 
 {**********************************************************************
 ************************ PATTERN MATCHING ******************************
@@ -388,484 +397,437 @@ const
 }
 
 type
-       PAChain = ^TAChain;
-       TAChain = record
-        an_Child,
-        an_Parent   : PAChain;
-        an_Lock     : BPTR;
-        an_Info     : TFileInfoBlock;
-        an_Flags    : Shortint;
-        an_String   : Array[0..0] of Char;   { FIX!! }
-       END;
-
-       PAnchorPath = ^TAnchorPath;
-       TAnchorPath = record
-        case SmallInt of
-        0 : (
-        ap_First      : PAChain;
-        ap_Last       : PAChain;
-        );
-        1 : (
-        ap_Base,                    { pointer to first anchor }
-        ap_Current    : PAChain;    { pointer to last anchor }
-        ap_BreakBits,               { Bits we want to break on }
-        ap_FoundBreak : LongInt;    { Bits we broke on. Also returns ERROR_BREAK }
-        ap_Flags      : Shortint;       { New use for extra Integer. }
-        ap_Reserved   : Shortint;
-        ap_Strlen     : SmallInt;       { This is what ap_Length used to be }
-        ap_Info       : TFileInfoBlock;
-        ap_Buf        : Array[0..0] of Char;     { Buffer for path name, allocated by user !! }
-        { FIX! }
-        );
-       END;
-
+  // PRIVATE structure, which describes an anchor for matching functions.
+  PAChain = ^TAChain;
+  TAChain = record
+    an_Child,           // The next anchor
+    an_Parent: PAChain; // The last anchor
+    an_Lock: BPTR;      // Lock of this anchor   
+    an_Info: TFileInfoBlock; // fib Discribing this anchor
+    an_Flags: ShortInt;      // se below
+    an_String: array[0..0] of Char;
+  end;
+const  
+// an_Flags
+  DDB_PatternBit  = 0;
+  DDB_ExaminedBit = 1;
+  DDB_Completed   = 2;
+  DDB_AllBit      = 3;
+  DDB_Single      = 4;
+  DDF_PatternBit  = 1 shl DDB_PatternBit;
+  DDF_ExaminedBit = 1 shl DDB_ExaminedBit;
+  DDF_Completed   = 1 shl DDB_Completed;
+  DDF_AllBit      = 1 shl DDB_AllBit;
+  DDF_Single      = 1 shl DDB_Single;
+   
+type
+  PAnchorPath = ^TAnchorPath;
+  TAnchorPath = record
+  case SmallInt of
+    0 :(
+      ap_First      : PAChain;
+      ap_Last       : PAChain;
+    );
+    1 :(
+      ap_Base,                             // pointer to first anchor
+      ap_Current    : PAChain;             // pointer to last anchor
+      ap_BreakBits,                        // Signal bits that caused the function to break.
+      ap_FoundBreak : LongInt;             // Bits we broke on. Also returns ERROR_BREAK
+      ap_Flags      : Shortint;            // see below
+      ap_Reserved   : Shortint;            // Private
+      ap_Strlen     : SmallInt;            // Size of ap_Buf (see below). This may be zero.
+      ap_Info       : TFileInfoBlock;      // describes any files found by matching-functions.
+      ap_Buf        : Array[0..0] of Char; // Buffer for path name, allocated by user!!
+    );
+  end;
 
 const
-    APB_DOWILD    =  0;       { User option ALL }
-    APF_DOWILD    =  1;
+  APB_DOWILD       = 0; // Please check for wildcards in supplied string.
+  APB_ITSWILD      = 1; // There is actually a wildcard in the supplied string. READ-ONLY 
+  APB_DODIR        = 2; { Set, if a directory is to be entered.
+                          Applications may clear this bit to prohibit the
+                          matching-functions from entering a directory. }
+  APB_DIDDIR       = 3; // Set, if directory was already searched. READ-ONLY
+  APB_NOMEMERR     = 4; // Set, if function was out of memory. READ-ONLY
+  APB_DODOT        = 5; // '.' may refer to the current directory (unix-style).
+  APB_DirChanged   = 6; // Directory changed since last call.
+  APB_FollowHLinks = 7; // Follow hardlinks, too.
 
-    APB_ITSWILD   =  1;       { Set by MatchFirst, used by MatchNext  }
-    APF_ITSWILD   =  2;       { Application can test APB_ITSWILD, too }
-                                { (means that there's a wildcard        }
-                                { in the pattern after calling          }
-                                { MatchFirst).                          }
-
-    APB_DODIR     =  2;       { Bit is SET IF a DIR node should be }
-    APF_DODIR     =  4;       { entered. Application can RESET this }
-                                { bit after MatchFirst/MatchNext to AVOID }
-                                { entering a dir. }
-
-    APB_DIDDIR    =  3;       { Bit is SET for an "expired" dir node. }
-    APF_DIDDIR    =  8;
-
-    APB_NOMEMERR  =  4;       { Set on memory error }
-    APF_NOMEMERR  =  16;
-
-    APB_DODOT     =  5;       { IF set, allow conversion of '.' to }
-    APF_DODOT     =  32;      { CurrentDir }
-
-    APB_DirChanged  = 6;       { ap_Current->an_Lock changed }
-    APF_DirChanged  = 64;      { since last MatchNext call }
-
-
-    DDB_PatternBit  = 0;
-    DDF_PatternBit  = 1;
-    DDB_ExaminedBit = 1;
-    DDF_ExaminedBit = 2;
-    DDB_Completed   = 2;
-    DDF_Completed   = 4;
-    DDB_AllBit      = 3;
-    DDF_AllBit      = 8;
-    DDB_Single      = 4;
-    DDF_Single      = 16;
-
-{
- * Constants used by wildcard routines, these are the pre-parsed tokens
- * referred to by pattern match.  It is not necessary for you to do
- * anything about these, MatchFirst() MatchNext() handle all these for you.
- }
-
-    P_ANY         =  $80;    { Token for '*' or '#?  }
-    P_SINGLE      =  $81;    { Token for '?' }
-    P_ORSTART     =  $82;    { Token for '(' }
-    P_ORNEXT      =  $83;    { Token for '|' }
-    P_OREND       =  $84;    { Token for ')' }
-    P_NOT         =  $85;    { Token for '~' }
-    P_NOTEND      =  $86;    { Token for }
-    P_NOTCLASS    =  $87;    { Token for '^' }
-    P_CLASS       =  $88;    { Token for '[]' }
-    P_REPBEG      =  $89;    { Token for '[' }
-    P_REPEND      =  $8A;    { Token for ']' }
-    P_STOP        =  $8B;    { token to force end of evaluation }
+  APF_DOWILD       = 1 shl APB_DOWILD;
+  APF_ITSWILD      = 1 shl APB_ITSWILD;
+  APF_DODIR        = 1 shl APB_DODIR; 
+  APF_DIDDIR       = 1 shl APB_DIDDIR;
+  APF_NOMEMERR     = 1 shl APB_NOMEMERR;
+  APF_DODOT        = 1 shl APB_DODOT;
+  APF_DirChanged   = 1 shl APB_DirChanged;
+  APF_FollowHLinks = 1 shl APB_FollowHLinks;
+  
+{ Predefined tokens for wildcards. The characters are replaced by these
+  tokens in the tokenized string returned by the ParsePattern() function
+  family.}
+  P_ANY         =  $80; // Matches everything '#?' and '*'
+  P_SINGLE      =  $81; // Any character '?'
+  P_ORSTART     =  $82; // Opening parenthesis for OR'ing '('
+  P_ORNEXT      =  $83; // Field delimiter for OR'ing '|'
+  P_OREND       =  $84; // Closing parenthesis for OR'ing ')'
+  P_NOT         =  $85; // Inversion '~'
+  P_NOTEND      =  $86; // Inversion end
+  P_NOTCLASS    =  $87; // Inversion class '^'
+  P_CLASS       =  $88; // Class '[]'
+  P_REPBEG      =  $89; // Beginning of repetition '['
+  P_REPEND      =  $8A; // End of repetition ']'
+  P_STOP        =  $8B; // token to force end of evaluation
 
 { Values for an_Status, NOTE: These are the actual bit numbers }
+  COMPLEX_BIT   =  1; // Parsing complex pattern
+  EXAMINE_BIT   =  2; // Searching directory
 
-    COMPLEX_BIT   =  1;       { Parsing complex pattern }
-    EXAMINE_BIT   =  2;       { Searching directory }
+{ Returns from MatchFirst(), MatchNext() more see before}
+  ERROR_BUFFER_OVERFLOW  = 303; // User OR internal buffer overflow
+  ERROR_BREAK            = 304; // A break character was received
+  ERROR_NOT_EXECUTABLE   = 305; // A file has E bit cleared
 
-{
- * Returns from MatchFirst(), MatchNext()
- * You can also get dos error returns, such as ERROR_NO_MORE_ENTRIES,
- * these are in the dos.h file.
- }
+{ hunk types }
+  HUNK_UNIT      = 999 ;
+  HUNK_NAME      = 1000;
+  HUNK_CODE      = 1001;
+  HUNK_DATA      = 1002;
+  HUNK_BSS       = 1003;
+  HUNK_RELOC32   = 1004;
+  HUNK_RELOC16   = 1005;
+  HUNK_RELOC8    = 1006;
+  HUNK_EXT       = 1007;
+  HUNK_SYMBOL    = 1008;
+  HUNK_DEBUG     = 1009;
+  HUNK_END       = 1010;
+  HUNK_HEADER    = 1011;
+  HUNK_OVERLAY   = 1013;
+  HUNK_BREAK     = 1014;
+  HUNK_DREL32    = 1015;
+  HUNK_DREL16    = 1016;
+  HUNK_DREL8     = 1017;
+  HUNK_LIB       = 1018;
+  HUNK_INDEX     = 1019;
+  HUNK_RELOC32SHORT = 1020;
+  HUNK_RELRELOC32 = 1021;
+  HUNK_ABSRELOC16 = 1022;
 
-    ERROR_BUFFER_OVERFLOW  = 303;     { User OR internal buffer overflow }
-    ERROR_BREAK            = 304;     { A break character was received }
-    ERROR_NOT_EXECUTABLE   = 305;     { A file has E bit cleared }
+{ hunk_ext sub-types }
+  EXT_SYMB       = 0;   // symbol table
+  EXT_DEF        = 1;   // relocatable definition
+  EXT_ABS        = 2;   // Absolute hunks
+  EXT_REF32      = 129; // 32bit absolute reference to symbol
+  EXT_ABSREF32   = 129;
+  EXT_COMMON     = 130; // 32bit absolute reference to common block
+  EXT_ABSCOMMON  = 130;
+  EXT_REF16      = 131; // 16bit relative reference to symbol
+  EXT_RELREF16   = 131;
+  EXT_REF8       = 132; // 8bit relative reference to symbol 
+  EXT_RELREF8    = 132;
+  EXT_DEXT32     = 133; // 32 bit data releative reference
+  EXT_DEXT16     = 134; // 16 bit data releative reference
+  EXT_DEXT8      = 135; // 8 bit data releative reference
+  EXT_RELREF32   = 136; // 32bit relative reference to symbol
+  EXT_RELCOMMON  = 137; // 32bit relative reference to common block
+  EXT_ABSREF16   = 138;
+  EXT_ABSREF8    = 139;
 
-{   hunk types }
-     HUNK_UNIT      = 999 ;
-     HUNK_NAME      = 1000;
-     HUNK_CODE      = 1001;
-     HUNK_DATA      = 1002;
-     HUNK_BSS       = 1003;
-     HUNK_RELOC32   = 1004;
-     HUNK_RELOC16   = 1005;
-     HUNK_RELOC8    = 1006;
-     HUNK_EXT       = 1007;
-     HUNK_SYMBOL    = 1008;
-     HUNK_DEBUG     = 1009;
-     HUNK_END       = 1010;
-     HUNK_HEADER    = 1011;
-
-     HUNK_OVERLAY   = 1013;
-     HUNK_BREAK     = 1014;
-
-     HUNK_DREL32    = 1015;
-     HUNK_DREL16    = 1016;
-     HUNK_DREL8     = 1017;
-
-     HUNK_LIB       = 1018;
-     HUNK_INDEX     = 1019;
-
-{   hunk_ext sub-types }
-     EXT_SYMB       = 0  ;     {   symbol table }
-     EXT_DEF        = 1  ;     {   relocatable definition }
-     EXT_ABS        = 2  ;     {   Absolute definition }
-     EXT_RES        = 3  ;     {   no longer supported }
-     EXT_REF32      = 129;     {   32 bit reference to symbol }
-     EXT_COMMON     = 130;     {   32 bit reference to COMMON block }
-     EXT_REF16      = 131;     {   16 bit reference to symbol }
-     EXT_REF8       = 132;     {    8 bit reference to symbol }
-     EXT_DEXT32     = 133;     {   32 bit data releative reference }
-     EXT_DEXT16     = 134;     {   16 bit data releative reference }
-     EXT_DEXT8      = 135;     {    8 bit data releative reference }
-
+{ Hunk flags }
+  HUNKB_ADVISORY = 29; // Hunk is ignored, if unknown to loader.
+  HUNKB_CHIP     = 30;
+  HUNKB_FAST     = 31;
+  HUNKF_ADVISORY = 1 shl HUNKB_ADVISORY;
+  HUNKF_CHIP     = 1 shl HUNKB_CHIP;
+  HUNKF_FAST     = 1 shl HUNKB_FAST;
 
 type
+  PDosInfo = ^TDosInfo;
+  TDosInfo = record
+    di_McName: BPTR;   // Network name of this machine; currently nil
+    di_DevInfo: BPTR;  // Device List
+    di_Devices: BPTR;  // Reserved
+    di_Handlers: BPTR; // Reserved
+    di_NetHand: BPTR;  // Reserved (actually resident segment list)
+    di_DevLock,        // do NOT access directly!
+    di_EntryLock,      // do NOT access directly!
+    di_DeleteLock: TSignalSemaphore; // do NOT access directly!
+  end;
 
 { All DOS processes have this structure }
 { Create and Device Proc returns pointer to the MsgPort in this structure }
 { dev_proc = Address(SmallInt(DeviceProc()) - SizeOf(Task)) }
 
-    pProcess = ^tProcess;
-    tProcess = record
-        pr_Task         : tTask;
-        pr_MsgPort      : tMsgPort;     { This is BPTR address from DOS functions  }
-        pr_Pad          : SmallInt;         { Remaining variables on 4 byte boundaries }
-        pr_SegList      : BPTR;         { Array of seg lists used by this process  }
-        pr_StackSize    : LongInt;      { Size of process stack in bytes            }
-        pr_GlobVec      : Pointer;      { Global vector for this process (BCPL)    }
-        pr_TaskNum      : LongInt;      { CLI task number of zero if not a CLI      }
-        pr_StackBase    : BPTR;         { Ptr to high memory end of process stack  }
-        pr_Result2      : LongInt;      { Value of secondary result from last call }
-        pr_CurrentDir   : BPTR;         { Lock associated with current directory   }
-        pr_CIS          : BPTR;         { Current CLI Input Stream                  }
-        pr_COS          : BPTR;         { Current CLI Output Stream                 }
-        pr_ConsoleTask  : Pointer;      { Console handler process for current window}
-        pr_FileSystemTask : Pointer;    { File handler process for current drive   }
-        pr_CLI          : BPTR;         { pointer to ConsoleLineInterpreter         }
-        pr_ReturnAddr   : Pointer;      { pointer to previous stack frame           }
-        pr_PktWait      : Pointer;      { Function to be called when awaiting msg  }
-        pr_WindowPtr    : Pointer;      { Window for error printing }
-        { following definitions are new with 2.0 }
-        pr_HomeDir      : BPTR;         { Home directory of executing program      }
-        pr_Flags        : LongInt;      { flags telling dos about process          }
-        pr_ExitCode     : Pointer;      { code to call on exit of program OR NULL  }
-        pr_ExitData     : LongInt;      { Passed as an argument to pr_ExitCode.    }
-        pr_Arguments    : STRPTR;       { Arguments passed to the process at start }
-        pr_LocalVars    : tMinList;      { Local environment variables             }
-        pr_ShellPrivate : ULONG;        { for the use of the current shell         }
-        pr_CES          : BPTR;         { Error stream - IF NULL, use pr_COS       }
-    end;
+  TExitProcedure = procedure(Arg: IPTR); cdecl;
 
-{
- * Flags for pr_Flags
- }
+  PProcess = ^TProcess;
+  TProcess = record
+    pr_Task: TTask;
+    pr_MsgPort: TMsgPort;        // This is BPTR address from DOS functions
+    pr_Pad: SmallInt;            // Remaining variables on 4 byte boundaries
+    pr_SegList: BPTR;            // Array of seg lists used by this process
+    pr_StackSize: LongInt;       // Size of process stack in bytes
+    pr_GlobVec: APTR;            // Global vector for this process (BCPL)
+    pr_TaskNum: LongInt;         // CLI task number of zero if not a CLI
+    pr_StackBase: BPTR;          // Ptr to high memory end of process stack
+    pr_Result2: STRPTR;          // Value of secondary result from last call
+    pr_CurrentDir: BPTR;         // Lock associated with current directory
+    pr_CIS: BPTR;                // Current CLI Input Stream
+    pr_COS: BPTR;                // Current CLI Output Stream
+    pr_ConsoleTask: APTR;        // Console handler process for current window
+    pr_FileSystemTask: APTR;     // File handler process for current drive
+    pr_CLI: BPTR;                // pointer to ConsoleLineInterpreter
+    pr_ReturnAddr: APTR;         // pointer to previous stack frame
+    pr_PktWait: APTR;            // Function to be called when awaiting msg
+    pr_WindowPtr: APTR;          // Window for error printing
+    pr_HomeDir: BPTR;            // Home directory of executing program
+    pr_Flags: LongInt;           // flags telling dos about process 
+    pr_ExitCode: TExitProcedure; // code to call on exit of program OR nil
+    pr_ExitData: IPTR;           // Passed as an argument to pr_ExitCode.
+    pr_Arguments: STRPTR;        // Arguments passed to the process at start
+    pr_LocalVars: TMinList;      // Local environment variables
+    pr_ShellPrivate: ULONG;      // for the use of the current shell
+    pr_CES: BPTR;                // Error stream - IF NULL, use pr_COS
+  end;
+
+{ Flags for pr_Flags. (all PRIVATE) They mainly descibe what happens if the process
+  exits, i.e. which resources the process should clean itself. The flags
+  are self-explaining.}
 const
- PRB_FREESEGLIST       =  0 ;
- PRF_FREESEGLIST       =  1 ;
- PRB_FREECURRDIR       =  1 ;
- PRF_FREECURRDIR       =  2 ;
- PRB_FREECLI           =  2 ;
- PRF_FREECLI           =  4 ;
- PRB_CLOSEINPUT        =  3 ;
- PRF_CLOSEINPUT        =  8 ;
- PRB_CLOSEOUTPUT       =  4 ;
- PRF_CLOSEOUTPUT       =  16;
- PRB_FREEARGS          =  5 ;
- PRF_FREEARGS          =  32;
-
+  PRB_FREESEGLIST     = 0;
+  PRB_FREECURRDIR     = 1;
+  PRB_FREECLI         = 2;
+  PRB_CLOSEINPUT      = 3;
+  PRB_CLOSEOUTPUT     = 4;
+  PRB_FREEARGS        = 5;
+  PRB_CLOSEERROR      = 6;
+  PRB_SYNCHRONOUS     = 7;
+  PRB_WAITINGFORCHILD = 8; // This one is subject to change!
+  PRB_NOTIFYONDEATH   = 9;
+ 
+  PRF_FREESEGLIST     = 1 shl PRB_FREESEGLIST;
+  PRF_FREECURRDIR     = 1 shl PRB_FREECURRDIR;
+  PRF_FREECLI         = 1 shl PRB_FREECLI;
+  PRF_CLOSEINPUT      = 1 shl PRB_CLOSEINPUT;
+  PRF_CLOSEOUTPUT     = 1 shl PRB_CLOSEOUTPUT;
+  PRF_FREEARGS        = 1 shl PRB_FREEARGS;
+  PRF_CLOSEERROR      = 1 shl PRB_CLOSEERROR;
+  PRF_SYNCHRONOUS     = 1 shl PRB_SYNCHRONOUS;
+  PRF_WAITINGFORCHILD = 1 shl PRB_WAITINGFORCHILD; // This one is subject to change!
+  PRF_NOTIFYONDEATH   = 1 shl PRB_NOTIFYONDEATH;
 
 { The long SmallInt address (BPTR) of this structure is returned by
- * Open() and other routines that return a file.  You need only worry
- * about this struct to do async io's via PutMsg() instead of
- * standard file system calls }
-
+  Open() and other routines that return a file.  You need only worry
+  about this struct to do async io's via PutMsg() instead of
+  standard file system calls }
 type
+  PFileHandle = ^TFileHandle;
+  TFileHandle = record
+    fh_Flags: ULONG;   { EXEC message        }
+    fh_Port: PMsgPort;   { Reply port for the packet }
+    fh_Type: PMsgPort;   { Port to do PutMsg() to Address is negative if a plain file }
+    
+    fh_Buf: BPTR;
+    fh_Pos: LongInt;
+    fh_End: LongInt;
 
-    PFileHandle = ^TFileHandle;
-    TFileHandle = record
-        fh_Link         : PMessage;   { EXEC message        }
-        fh_Port         : PMsgPort;   { Reply port for the packet }
-        fh_Type         : PMsgPort;   { Port to do PutMsg() to
-                                          Address is negative if a plain file }
-        fh_Buf          : LongInt;
-        fh_Pos          : LongInt;
-        fh_End          : LongInt;
-        fh_Func1        : LongInt;
-        fh_Func2        : LongInt;
-        fh_Func3        : LongInt;
-        fh_Arg1         : LongInt;
-        fh_Arg2         : LongInt;
-    end;
+    fh_Func1: LongInt;
+    fh_Func2: LongInt;
+    fh_Func3: LongInt;
+    fh_Arg1:  LongInt;
+    fh_Arg2: APTR;
+    fh_Size: ULONG; // Size of buffered io buffer
+    fh_Buf2: BPTR;  // Always the same as fh_Buf
+  end;
 
 { This is the extension to EXEC Messages used by DOS }
 
-    PDosPacket = ^TDosPacket;
-    TDosPacket = record
-        dp_Link : PMessage;     { EXEC message        }
-        dp_Port : PMsgPort;     { Reply port for the packet }
-                                { Must be filled in each send. }
-        case SmallInt of
-        0 : (
-        dp_Action : LongInt;
-        dp_Status : LongInt;
-        dp_Status2 : LongInt;
-        dp_BufAddr : LongInt;
-        );
-        1 : (
-        dp_Type : LongInt;      { See ACTION_... below and
-                                * 'R' means Read, 'W' means Write to the
-                                * file system }
-        dp_Res1 : LongInt;      { For file system calls this is the result
-                                * that would have been returned by the
-                                * function, e.g. Write ('W') returns actual
-                                * length written }
-        dp_Res2 : LongInt;      { For file system calls this is what would
-                                * have been returned by IoErr() }
-        dp_Arg1 : LongInt;
-        dp_Arg2 : LongInt;
-        dp_Arg3 : LongInt;
-        dp_Arg4 : LongInt;
-        dp_Arg5 : LongInt;
-        dp_Arg6 : LongInt;
-        dp_Arg7 : LongInt;
-        );
-    end;
+  PDosPacket = ^TDosPacket;
+  TDosPacket = record
+    dp_Link : PMessage;     // Pointer to a standard exec message.
+    dp_Port : PMsgPort;     // Reply-Port of that packet. Must be filled in each send.
+    case SmallInt of
+    0 : (
+      dp_Action : LongInt;
+      dp_Status : LongInt;
+      dp_Status2 : LongInt;
+      dp_BufAddr : LongInt;
+    );
+    1 : (
+      dp_Type : LongInt;      { See ACTION_... below and
+                              * 'R' means Read, 'W' means Write to the
+                              * file system }
+      dp_Res1 : LongInt;      { For file system calls this is the result
+                              * that would have been returned by the
+                              * function, e.g. Write ('W') returns actual
+                              * length written }
+      dp_Res2 : LongInt;      { For file system calls this is what would
+                              * have been returned by IoErr() }
+      dp_Arg1 : LongInt;
+      dp_Arg2 : LongInt;
+      dp_Arg3 : LongInt;
+      dp_Arg4 : LongInt;
+      dp_Arg5 : LongInt;
+      dp_Arg6 : LongInt;
+      dp_Arg7 : LongInt;
+    );
+  end;
 
+const
+{ Packet types dp_Type }
+  ACTION_NIL                  = 0;
+  ACTION_STARTUP              = 0;
+  ACTION_GET_BLOCK            = 2;    // OBSOLETE
+  ACTION_SET_MAP              = 4;
+  ACTION_DIE                  = 5;
+  ACTION_EVENT                = 6;
+  ACTION_CURRENT_VOLUME       = 7;
+  ACTION_LOCATE_OBJECT        = 8;
+  ACTION_RENAME_DISK          = 9;
+  ACTION_FREE_LOCK            = 15;
+  ACTION_DELETE_OBJECT        = 16;
+  ACTION_RENAME_OBJECT        = 17;
+  ACTION_MORE_CACHE           = 18;
+  ACTION_COPY_DIR             = 19;
+  ACTION_WAIT_CHAR            = 20;
+  ACTION_SET_PROTECT          = 21;
+  ACTION_CREATE_DIR           = 22;
+  ACTION_EXAMINE_OBJECT       = 23;
+  ACTION_EXAMINE_NEXT         = 24;
+  ACTION_DISK_INFO            = 25;
+  ACTION_INFO                 = 26;
+  ACTION_FLUSH                = 27;
+  ACTION_SET_COMMENT          = 28;
+  ACTION_PARENT               = 29;
+  ACTION_TIMER                = 30;
+  ACTION_INHIBIT              = 31;
+  ACTION_DISK_TYPE            = 32;
+  ACTION_DISK_CHANGE          = 33;
+  ACTION_SET_DATE             = 34;
+  ACTION_SAME_LOCK            = 40;
 
+  ACTION_WRITE                = $57;  // 'W'
+  ACTION_READ                 = $52;  // 'R'
+
+  ACTION_SCREEN_MODE          = 994;
+  ACTION_CHANGE_SIGNAL        = 995;
+  ACTION_READ_RETURN          = 1001;
+  ACTION_WRITE_RETURN         = 1002;
+  ACTION_FINDUPDATE           = 1004;
+  ACTION_FINDINPUT            = 1005;
+  ACTION_FINDOUTPUT           = 1006;
+  ACTION_END                  = 1007;
+  ACTION_SEEK                 = 1008;
+  ACTION_FORMAT               = 1020;
+  ACTION_MAKE_LINK            = 1021;
+  ACTION_SET_FILE_SIZE        = 1022; 
+  ACTION_WRITE_PROTECT        = 1023; 
+  ACTION_READ_LINK            = 1024;
+  ACTION_FH_FROM_LOCK         = 1026;
+  ACTION_IS_FILESYSTEM        = 1027;
+  ACTION_CHANGE_MODE          = 1028;
+  {}
+  ACTION_COPY_DIR_FH          = 1030;
+  ACTION_PARENT_FH            = 1031;
+  ACTION_EXAMINE_ALL          = 1033;
+  ACTION_EXAMINE_FH           = 1034;
+  ACTION_EXAMINE_ALL_END      = 1035;
+  ACTION_SET_OWNER            = 1036;
+
+  ACTION_LOCK_RECORD          = 2008;
+  ACTION_FREE_RECORD          = 2009;
+
+  ACTION_ADD_NOTIFY           = 4097;
+  ACTION_REMOVE_NOTIFY        = 4098;
+{ Tell a file system to serialize the current volume. This is typically
+  done by changing the creation date of the disk. This packet does not take
+  any arguments.}
+  ACTION_SERIALIZE_DISK       = 4200;
+
+type
 { A Packet does not require the Message to be before it in memory, but
- * for convenience it is useful to associate the two.
- * Also see the function init_std_pkt for initializing this structure }
-
-    PStandardPacket = ^TStandardPacket;
-    TStandardPacket = record
-        sp_Msg          : TMessage;
-        sp_Pkt          : TDosPacket;
-    end;
-
-
+  for convenience it is useful to associate the two.
+  Also see the function init_std_pkt for initializing this structure }
+  PStandardPacket = ^TStandardPacket;
+  TStandardPacket = record
+    sp_Msg: TMessage;
+    sp_Pkt: TDosPacket;
+  end;
+  
 const
-
-{ Packet types }
-    ACTION_NIL                  = 0;
-    ACTION_GET_BLOCK            = 2;    { OBSOLETE }
-    ACTION_SET_MAP              = 4;
-    ACTION_DIE                  = 5;
-    ACTION_EVENT                = 6;
-    ACTION_CURRENT_VOLUME       = 7;
-    ACTION_LOCATE_OBJECT        = 8;
-    ACTION_RENAME_DISK          = 9;
-    ACTION_WRITE                = $57;  { 'W' }
-    ACTION_READ                 = $52;  { 'R' }
-    ACTION_FREE_LOCK            = 15;
-    ACTION_DELETE_OBJECT        = 16;
-    ACTION_RENAME_OBJECT        = 17;
-    ACTION_MORE_CACHE           = 18;
-    ACTION_COPY_DIR             = 19;
-    ACTION_WAIT_CHAR            = 20;
-    ACTION_SET_PROTECT          = 21;
-    ACTION_CREATE_DIR           = 22;
-    ACTION_EXAMINE_OBJECT       = 23;
-    ACTION_EXAMINE_NEXT         = 24;
-    ACTION_DISK_INFO            = 25;
-    ACTION_INFO                 = 26;
-    ACTION_FLUSH                = 27;
-    ACTION_SET_COMMENT          = 28;
-    ACTION_PARENT               = 29;
-    ACTION_TIMER                = 30;
-    ACTION_INHIBIT              = 31;
-    ACTION_DISK_TYPE            = 32;
-    ACTION_DISK_CHANGE          = 33;
-    ACTION_SET_DATE             = 34;
-
-    ACTION_SCREEN_MODE          = 994;
-
-    ACTION_READ_RETURN          = 1001;
-    ACTION_WRITE_RETURN         = 1002;
-    ACTION_SEEK                 = 1008;
-    ACTION_FINDUPDATE           = 1004;
-    ACTION_FINDINPUT            = 1005;
-    ACTION_FINDOUTPUT           = 1006;
-    ACTION_END                  = 1007;
-    ACTION_TRUNCATE             = 1022; { fast file system only }
-    ACTION_WRITE_PROTECT        = 1023; { fast file system only }
-
-{ new 2.0 packets }
-    ACTION_SAME_LOCK       = 40;
-    ACTION_CHANGE_SIGNAL   = 995;
-    ACTION_FORMAT          = 1020;
-    ACTION_MAKE_LINK       = 1021;
-{}
-{}
-    ACTION_READ_LINK       = 1024;
-    ACTION_FH_FROM_LOCK    = 1026;
-    ACTION_IS_FILESYSTEM   = 1027;
-    ACTION_CHANGE_MODE     = 1028;
-{}
-    ACTION_COPY_DIR_FH     = 1030;
-    ACTION_PARENT_FH       = 1031;
-    ACTION_EXAMINE_ALL     = 1033;
-    ACTION_EXAMINE_FH      = 1034;
-
-    ACTION_LOCK_RECORD     = 2008;
-    ACTION_FREE_RECORD     = 2009;
-
-    ACTION_ADD_NOTIFY      = 4097;
-    ACTION_REMOVE_NOTIFY   = 4098;
-
-    {* Added in V39: *}
-    ACTION_EXAMINE_ALL_END  = 1035;
-    ACTION_SET_OWNER        = 1036;
-
-{* Tell a file system to serialize the current volume. This is typically
- * done by changing the creation date of the disk. This packet does not take
- * any arguments.  NOTE: be prepared to handle failure of this packet for
- * V37 ROM filesystems.
- *}
-
-    ACTION_SERIALIZE_DISK  = 4200;
-
-{
- * A structure for holding error messages - stored as array with error == 0
- * for the last entry.
- }
-type
-       PErrorString = ^TErrorString;
-       TErrorString = record
-        estr_Nums     : Pointer;
-        estr_Strings  : Pointer;
-       END;
-
-
-{ DOS library node structure.
- * This is the data at positive offsets from the library node.
- * Negative offsets from the node is the jump table to DOS functions
- * node = (struct DosLibrary *) OpenLibrary( "dos.library" .. )      }
-(*
-type
-
-    TDosLibrary = ^TDosLibrary;
-    TDosLibrary = record
-        dl_lib          : TLibrary;
-        dl_Root         : Pointer;      { Pointer to RootNode, described below }
-        dl_GV           : Pointer;      { Pointer to BCPL global vector       }
-        dl_A2           : LongInt;      { Private register dump of DOS        }
-        dl_A5           : LongInt;
-        dl_A6           : LongInt;
-        dl_Errors       : PErrorString; { pointer to array of error msgs }
-        dl_TimeReq      : pTimeRequest; { private pointer to timer request }
-        dl_UtilityBase  : PLibrary;     { private ptr to utility library }
-        dl_IntuitionBase : PLibrary;
-    end;     *)
-
-    PRootNode = ^TRootNode;
-    TRootNode = record
-        rn_TaskArray    : BPTR;         { [0] is max number of CLI's
-                                          [1] is APTR to process id of CLI 1
-                                          [n] is APTR to process id of CLI n }
-        rn_ConsoleSegment : BPTR;       { SegList for the CLI }
-        rn_Time          : TDateStamp;  { Current time }
-        rn_RestartSeg   : LongInt;      { SegList for the disk validator process }
-        rn_Info         : BPTR;         { Pointer ot the Info structure }
-        rn_FileHandlerSegment : BPTR;   { segment for a file handler }
-        rn_CliList      : tMinList;     { new list of all CLI processes }
-                                        { the first cpl_Array is also rn_TaskArray }
-        rn_BootProc     : PMsgPort;     { private ptr to msgport of boot fs      }
-        rn_ShellSegment : BPTR;         { seglist for Shell (for NewShell)         }
-        rn_Flags        : LongInt;      { dos flags }
-    end;
-
-const
- RNB_WILDSTAR   = 24;
- RNF_WILDSTAR   = 16777216;
- RNB_PRIVATE1   = 1;       { private for dos }
- RNF_PRIVATE1   = 2;
+{ types for initial packets to shells from run/newcli/execute/system.
+  NOTE: AROS doesn't use startup packets. This will ONLY make a difference
+         for shell writers...}
+  RUN_EXECUTE           =  -1;
+  RUN_SYSTEM            =  -2;
+  RUN_SYSTEM_ASYNCH     =  -3;
 
 type
-    PDosInfo = ^TDosInfo;
-    TDosInfo = record
-        case SmallInt of
-        0 : (
-        di_ResList : BPTR;
-        );
-        1 : (
-        di_McName       : BPTR;          { Network name of this machine; currently 0 }
-        di_DevInfo      : BPTR;          { Device List }
-        di_Devices      : BPTR;          { Currently zero }
-        di_Handlers     : BPTR;          { Currently zero }
-        di_NetHand      : Pointer;       { Network handler processid; currently zero }
-        di_DevLock,                      { do NOT access directly! }
-        di_EntryLock,                    { do NOT access directly! }
-        di_DeleteLock   : TSignalSemaphore; { do NOT access directly! }
-        );
-    end;
-
 { ONLY to be allocated by DOS! }
-
-       PCliProcList = ^TCliProcList;
-       TCliProcList = record
-        cpl_Node   : TMinNode;
-        cpl_First  : LongInt;      { number of first entry in array }
-        cpl_Array  : Array[0..0] of PMsgPort;
-                             { [0] is max number of CLI's in this entry (n)
-                              * [1] is CPTR to process id of CLI cpl_First
-                              * [n] is CPTR to process id of CLI cpl_First+n-1
-                              }
-       END;
-
+  PCliProcList = ^TCliProcList;
+  TCliProcList = record
+    cpl_Node: TMinNode;
+    cpl_First: LongInt;      { number of first entry in array }
+    cpl_Array: array[0..0] of PMsgPort;
+                         { [0] is max number of CLI's in this entry (n)
+                           [1] is CPTR to process id of CLI cpl_First
+                           [n] is CPTR to process id of CLI cpl_First+n-1}
+  end;
+  
 { structure for the Dos resident list.  Do NOT allocate these, use       }
 { AddSegment(), and heed the warnings in the autodocs!                   }
-
 type
-       PSegment = ^TSegment;
-       TSegment = record
-        seg_Next  : BPTR;
-        seg_UC    : LongInt;
-        seg_Seg   : BPTR;
-        seg_Name  : Array[0..3] of Char;      { actually the first 4 chars of BSTR name }
-       END;
+  PSegment = ^TSegment;
+  TSegment = record
+    seg_Next: BPTR;    // Pointer to next segment.
+    seg_UC: LongInt;   // Usage count/type 
+    seg_Seg: BPTR;     // Actual Segment
+    seg_Name: array[0..3] of Char;  // actually the first 4 chars of BSTR name }
+  end;
 
 const
- CMD_SYSTEM    =  -1;
- CMD_INTERNAL  =  -2;
- CMD_DISABLED  =  -999;
-
+  CMD_SYSTEM    =  -1;
+  CMD_INTERNAL  =  -2;
+  CMD_DISABLED  =  -999;
 
 { DOS Processes started from the CLI via RUN or NEWCLI have this additional
  * set to data associated with them }
 type
-    PCommandLineInterface = ^TCommandLineInterface;
-    TCommandLineInterface = record
-        cli_Result2        : LongInt;      { Value of IoErr from last command }
-        cli_SetName        : BSTR;         { Name of current directory }
-        cli_CommandDir     : BPTR;         { Lock associated with command directory }
-        cli_ReturnCode     : LongInt;      { Return code from last command }
-        cli_CommandName    : BSTR;         { Name of current command }
-        cli_FailLevel      : LongInt;      { Fail level (set by FAILAT) }
-        cli_Prompt         : BSTR;         { Current prompt (set by PROMPT) }
-        cli_StandardInput  : BPTR;         { Default (terminal) CLI input }
-        cli_CurrentInput   : BPTR;         { Current CLI input }
-        cli_CommandFile    : BSTR;         { Name of EXECUTE command file }
-        cli_Interactive    : LongInt;      { Boolean; True if prompts required }
-        cli_Background     : LongInt;      { Boolean; True if CLI created by RUN }
-        cli_CurrentOutput  : BPTR;         { Current CLI output }
-        cli_DefaultStack   : LongInt;      { Stack size to be obtained in long words }
-        cli_StandardOutput : BPTR;         { Default (terminal) CLI output }
-        cli_Module         : BPTR;         { SegList of currently loaded command }
-    end;
-
+  PCommandLineInterface = ^TCommandLineInterface;
+  TCommandLineInterface = record
+    cli_Result2: LongInt;      // Value of IoErr from last command
+    cli_SetName: BSTR;         // Name of current directory
+    cli_CommandDir: BPTR;      // Lock associated with command directory
+    cli_ReturnCode: LongInt;   // Return code from last command
+    cli_CommandName: BSTR;     // Name of current command
+    cli_FailLevel: LongInt;    // Fail level (set by FAILAT)
+    cli_Prompt: BSTR;          // Current prompt (set by PROMPT)
+    cli_StandardInput: BPTR;   // Default (terminal) CLI input
+    cli_CurrentInput: BPTR;    // Current CLI input
+    cli_CommandFile: BSTR;     // Name of EXECUTE command file
+    cli_Interactive: LongInt;  // Boolean; True if prompts required
+    cli_Background: LongInt;   // Boolean; True if CLI created by RUN
+    cli_CurrentOutput: BPTR;   // Current CLI output
+    cli_DefaultStack: LongInt; // Stack size to be obtained in long words
+    cli_StandardOutput: BPTR;  // Default (terminal) CLI output
+    cli_Module: BPTR;          // SegList of currently loaded command
+{$ifdef aros}    
+    cli_StandardError: BPTR;   // Standard/Default Error file. PFileLock 
+{$endif}    
+  end;
+  
+const
+// CLI_DEFAULTSTACK_UNIT * cli_DefaultStack = stack in bytes
+  CLI_DEFAULTSTACK_UNIT = SizeOf(IPTR);
+  
+type
+{$ifdef aros}
+  PDosListAROSExt = ^TDosListAROSExt;
+  TDosListAROSExt = record
+    dol_DevName: STRPTR;
+    dol_Device: PDevice;
+    dol_Unit: PUnit;
+  end;
+{$endif}
 { This structure can take on different values depending on whether it is
  * a device, an assigned directory, or a volume.  Below is the structure
  * reflecting volumes only.  Following that is the structure representing
@@ -874,415 +836,404 @@ type
 
 { structure representing a volume }
 
-    PDeviceList = ^TDeviceList;
-    TDeviceList = record
-        dl_Next         : BPTR;         { bptr to next device list }
-        dl_Type         : LongInt;      { see DLT below }
-        dl_Task         : PMsgPort;     { ptr to handler task }
-        dl_Lock         : BPTR;         { not for volumes }
-        dl_VolumeDate   : TDateStamp;   { creation date }
-        dl_LockList     : BPTR;         { outstanding locks }
-        dl_DiskType     : LongInt;      { 'DOS', etc }
-        dl_unused       : LongInt;
-        dl_Name         : BSTR;         { bptr to bcpl name }
-    end;
+  PDeviceList = ^TDeviceList;
+  TDeviceList = record
+    dl_Next: BPTR;       // bptr to next device list
+    dl_Type: LongInt;    // see DLT below
+    dl_Task: PMsgPort;   // ptr to handler task
+    dl_Lock: BPTR;       // not for volumes
+    dl_VolumeDate: TDateStamp; // creation date
+    dl_LockList: BPTR;    // outstanding locks
+    dl_DiskType: LongInt; // 'DOS', etc
+    dl_unused: BPTR;
+    dl_Name: BSTR;        // bptr to bcpl name
+{$ifdef aros}
+  {$ifndef AROS_DOS_PACKETS}         
+    dl_Reserved: array[0..5] of IPTR;
+    dl_AROS: TDosListAROSExt;
+  {$endif}           
+{$endif}     
+  end;
 
 { device structure (same as the DeviceNode structure in filehandler.h) }
+  PDevInfo = ^TDevInfo;
+  TDevInfo = record
+    dvi_Next: BPTR;
+    dvi_Type: LongInt;
+    dvi_Task: PMsgPort;
+    dvi_Lock: BPTR;
+    dvi_Handler: BSTR;
+    dvi_StackSize: LongInt;
+    dvi_Priority: LongInt;
+    dvi_Startup: BPTR;
+{$ifdef aros}
+    dvi_NoAROS4: array[0..1] of BPTR;
+{$else}    
+    dvi_SegList: BPTR;
+    dvi_GlobVec: BSTR;
+{$endif}
+    dvi_Name: BSTR;
+{$ifdef aros}
+  {$ifndef AROS_DOS_PACKETS}         
+    dvi_Reserved: array[0..5] of IPTR;
+    dvi_AROS: TDosListAROSExt;
+  {$endif}           
+{$endif}    
+  end;
 
-    PDevInfo = ^TDevInfo;
-    TDevInfo = record
-        dvi_Next        : BPTR;
-        dvi_Type        : LongInt;
-        dvi_Task        : Pointer;
-        dvi_Lock        : BPTR;
-        dvi_Handler     : BSTR;
-        dvi_StackSize   : LongInt;
-        dvi_Priority    : LongInt;
-        dvi_Startup     : LongInt;
-        dvi_SegList     : BPTR;
-        dvi_GlobVec     : BSTR;
-        dvi_Name        : BSTR;
-    end;
+const
+{ Dos list scanning and locking modes as used in LockDosList() 
+  Specify either LDF_READ, if you want a non-exclusive lock, or LDF_WRITE,
+  if you want an exclusive lock (i.e. if you want to modify the list).} 
+  LDB_READ      =  0;
+  LDB_WRITE     =  1;
+// Specify which list(s) to lock.
+  LDB_DEVICES   =  2;
+  LDB_VOLUMES   =  3;
+  LDB_ASSIGNS   =  4;
+  LDB_ENTRY     =  5;
+  LDB_DELETE    =  6;
+  
+  LDF_READ      =  1 shl LDB_READ;
+  LDF_WRITE     =  1 shl LDB_WRITE;
+  LDF_DEVICES   =  1 shl LDB_DEVICES;
+  LDF_VOLUMES   =  1 shl LDB_VOLUMES;
+  LDF_ASSIGNS   =  1 shl LDB_ASSIGNS;
+  LDF_ENTRY     =  1 shl LDB_ENTRY;
+  LDF_DELETE    =  1 shl LDB_DELETE;
+{ actually all but LDF_ENTRY (which is used for internal locking) }
+  LDF_ALL       =  (LDF_DEVICES or LDF_VOLUMES or LDF_ASSIGNS);
+  
+type     
+{ Used for assigns that point to multiple directories. }
 
-{    structure used for multi-directory assigns. AllocVec()ed. }
-
-       PAssignList = ^TAssignList;
-       TAssignList = record
-        al_Next : PAssignList;
-        al_Lock : BPTR;
-       END;
-
+  PAssignList = ^TAssignList;
+  TAssignList = record
+    al_Next: PAssignList; // Pointer to next assign node.
+    al_Lock: BPTR;        // (struct FileLock *) Lock of on of the directories.
+  end;
 
 { combined structure for devices, assigned directories, volumes }
-
-   PDosList = ^TDosList;
-   TDosList = record
-    dol_Next            : BPTR;           {    bptr to next device on list }
-    dol_Type            : LongInt;        {    see DLT below }
-    dol_Task            : PMsgPort;       {    ptr to handler task }
-    dol_Lock            : BPTR;
+  PDosList = ^TDosList;
+  TDosList = record
+    dol_Next: BPTR;           {    bptr to next device on list }
+    dol_Type: LongInt;        {    see DLT below }
+    dol_Task: PMsgPort;       {    ptr to handler task }
+    dol_Lock: BPTR;
     case SmallInt of
-    0 : (
+      0 :(
         dol_Handler : record
-          dol_Handler    : BSTR;      {    file name to load IF seglist is null }
+          dol_Handler: BSTR;      {    file name to load IF seglist is null }
           dol_StackSize,              {    stacksize to use when starting process }
-          dol_Priority,               {    task priority when starting process }
-          dol_Startup    : LongInt;   {    startup msg: FileSysStartupMsg for disks }
+          dol_Priority: LongInt;               {    task priority when starting process }
+          dol_Startup: BPTR;   {    startup msg: FileSysStartupMsg for disks }
+{$ifdef aros}
+          dol_NoAROS3: array[0..1] of BPTR; 
+{$else}          
           dol_SegList,                {    already loaded code for new task }
-          dol_GlobVec    : BPTR;      {    BCPL global vector to use when starting
-                                 * a process. -1 indicates a C/Assembler
-                                 * program. }
+          dol_GlobVec: BPTR;      {    BCPL global vector to use when starting }
+{$endif}  
+          dol_Name: BSTR;           {    bptr to bcpl name }
+{$ifdef aros}
+  {$ifndef AROS_DOS_PACKETS}         
+          dol_Reserved: array[0..5] of IPTR;
+          dol_AROS: TDosListAROSExt;
+  {$endif}           
+{$endif}          
         end;
-    );
-    1 : (
-        dol_Volume       : record
-          dol_VolumeDate : TDateStamp; {    creation date }
-          dol_LockList   : BPTR;       {    outstanding locks }
-          dol_DiskType   : LongInt;    {    'DOS', etc }
-        END;
-    );
-    2 : (
-        dol_assign       :  record
-          dol_AssignName : STRPTR;        {    name for non-OR-late-binding assign }
-          dol_List       : PAssignList;   {    for multi-directory assigns (regular) }
-        END;
-    dol_Name            : BSTR;           {    bptr to bcpl name }
-    );
-   END;
+      );
+      1 :(
+        dol_Volume: record
+          dol_VolumeDate: TDateStamp; {    creation date }
+          dol_LockList: BPTR;       {    outstanding locks }
+          dol_DiskType: LongInt;    {    'DOS', etc }
+          dol_Unused: BPTR
+        end;
+      );
+      2 :(
+        dol_assign:  record
+          dol_AssignName: STRPTR;        {    name for non-OR-late-binding assign }
+          dol_List: PAssignList;   {    for multi-directory assigns (regular) }
+        end;
+      );
+    end;        
+    
 
 const
 
 { definitions for dl_Type }
+  DLT_DEVICE          = 0;
+  DLT_DIRECTORY       = 1;
+  DLT_VOLUME          = 2;
+  DLT_LATE            = 3;  // late-binding assign
+  DLT_NONBINDING      = 4;  // non-binding assign
+  DLT_PRIVATE         = -1; // for internal use only
 
-    DLT_DEVICE          = 0;
-    DLT_DIRECTORY       = 1;
-    DLT_VOLUME          = 2;
-    DLT_LATE            = 3;       {    late-binding assign }
-    DLT_NONBINDING      = 4;       {    non-binding assign }
-    DLT_PRIVATE         = -1;      {    for internal use only }
-
-{    structure return by GetDeviceProc() }
+{ structure return by GetDeviceProc() }
 type
-
-       PDevProc = ^TDevProc;
-       TDevProc = record
-        dvp_Port        : PMsgPort;
-        dvp_Lock        : BPTR;
-        dvp_Flags       : LongInt;
-        dvp_DevNode     : PDosList;    {    DON'T TOUCH OR USE! }
-       END;
+  PDevProc = ^TDevProc;
+  TDevProc = record
+    dvp_Port: PMsgPort;
+    dvp_Lock: BPTR;         // PFileLock
+    dvp_Flags: LongInt;     // see below (DVPF_*)
+    dvp_DevNode: PDosList;  // Private
+  end;
 
 const
-{    definitions for dvp_Flags }
-     DVPB_UNLOCK   =  0;
-     DVPF_UNLOCK   =  1;
-     DVPB_ASSIGN   =  1;
-     DVPF_ASSIGN   =  2;
+{ definitions for dvp_Flags }
+  DVPB_UNLOCK   =  0;
+  DVPB_ASSIGN   =  1;
+  DVPF_UNLOCK   =  1 shl DVPB_UNLOCK;
+  DVPF_ASSIGN   =  1 shl DVPB_ASSIGN;
 
-{    Flags to be passed to LockDosList(), etc }
-     LDB_DEVICES   =  2;
-     LDF_DEVICES   =  4;
-     LDB_VOLUMES   =  3;
-     LDF_VOLUMES   =  8;
-     LDB_ASSIGNS   =  4;
-     LDF_ASSIGNS   =  16;
-     LDB_ENTRY     =  5;
-     LDF_ENTRY     =  32;
-     LDB_DELETE    =  6;
-     LDF_DELETE    =  64;
-
-{    you MUST specify one of LDF_READ or LDF_WRITE }
-     LDB_READ      =  0;
-     LDF_READ      =  1;
-     LDB_WRITE     =  1;
-     LDF_WRITE     =  2;
-
-{    actually all but LDF_ENTRY (which is used for internal locking) }
-     LDF_ALL       =  (LDF_DEVICES+LDF_VOLUMES+LDF_ASSIGNS);
-
-{    error report types for ErrorReport() }
-     REPORT_STREAM          = 0;       {    a stream }
-     REPORT_TASK            = 1;       {    a process - unused }
-     REPORT_LOCK            = 2;       {    a lock }
-     REPORT_VOLUME          = 3;       {    a volume node }
-     REPORT_INSERT          = 4;       {    please insert volume }
-
-{    Special error codes for ErrorReport() }
-     ABORT_DISK_ERROR       = 296;     {    Read/write error }
-     ABORT_BUSY             = 288;     {    You MUST replace... }
-
-{    types for initial packets to shells from run/newcli/execute/system. }
-{    For shell-writers only }
-     RUN_EXECUTE           =  -1;
-     RUN_SYSTEM            =  -2;
-     RUN_SYSTEM_ASYNCH     =  -3;
-
-{    Types for fib_DirEntryType.  NOTE that both USERDIR and ROOT are      }
-{    directories, and that directory/file checks should use <0 and >=0.    }
-{    This is not necessarily exhaustive!  Some handlers may use other      }
-{    values as needed, though <0 and >=0 should remain as supported as     }
-{    possible.                                                             }
-     ST_ROOT       =  1 ;
-     ST_USERDIR    =  2 ;
-     ST_SOFTLINK   =  3 ;      {    looks like dir, but may point to a file! }
-     ST_LINKDIR    =  4 ;      {    hard link to dir }
-     ST_FILE       =  -3;      {    must be negative for FIB! }
-     ST_LINKFILE   =  -4;      {    hard link to file }
-     ST_PIPEFILE   =  -5;      {    for pipes that support ExamineFH   }
+{ Types for fib_DirEntryType.  NOTE that both USERDIR and ROOT are
+  directories, and that directory/file checks should use <0 and >=0.
+  This is not necessarily exhaustive!  Some handlers may use other
+  values as needed, though <0 and >=0 should remain as supported as
+  possible.}
+  ST_ROOT       =  1 ; // Root directory of filesystem 
+  ST_USERDIR    =  2 ; // Normal directory
+  ST_SOFTLINK   =  3 ; // Soft link (may be a file or directory)
+  ST_LINKDIR    =  4 ; // Hard link to a directory
+  ST_FILE       =  -3; // Plain file
+  ST_LINKFILE   =  -4; // Hard link to a file
+  ST_PIPEFILE   =  -5; // File is a pipe
 
 type
-
 { a lock structure, as returned by Lock() or DupLock() }
+  PFileLock = ^TFileLock;
+  TFileLock = record
+    fl_Link: BPTR;      // bcpl pointer to next lock
+    fl_Key: IPTR;       // disk block number
+    fl_Access: LongInt; // exclusive or shared
+    fl_Task: PMsgPort;  // handler task's port
+    fl_Volume: BPTR;    // bptr to a DeviceList
+  end;
 
-    PFileLock = ^TFileLock;
-    TFileLock = record
-        fl_Link         : BPTR;         { bcpl pointer to next lock }
-        fl_Key          : LongInt;      { disk block number }
-        fl_Access       : LongInt;      { exclusive or shared }
-        fl_Task         : PMsgPort;     { handler task's port }
-        fl_Volume       : BPTR;         { bptr to a DeviceList }
-    end;
 
-
-{  NOTE: V37 dos.library, when doing ExAll() emulation, and V37 filesystems  }
-{  will return an error if passed ED_OWNER.  If you get ERROR_BAD_NUMBER,    }
-{  retry with ED_COMMENT to get everything but owner info.  All filesystems  }
-{  supporting ExAll() must support through ED_COMMENT, and must check type   }
-{  and return ERROR_BAD_NUMBER if they don't support the type.               }
-
-{   values that can be passed for what data you want from ExAll() }
-{   each higher value includes those below it (numerically)       }
-{   you MUST chose one of these values }
-const
-     ED_NAME        = 1;
-     ED_TYPE        = 2;
-     ED_SIZE        = 3;
-     ED_PROTECTION  = 4;
-     ED_DATE        = 5;
-     ED_COMMENT     = 6;
-     ED_OWNER       = 7;
-{
- *   Structure in which exall results are returned in.  Note that only the
- *   fields asked for will exist!
- }
+{ Structure (as used in ExAll()), containing information about a file. This
+  structure is only as long as it need to be. If is for example ED_SIZE was
+  specified, when calling ExAll(), this structure only consists of the fields
+  ed_Name through ed_Size. Therefore you can use the ED_ definitions below
+  as longword offsets into this structure.}
 type
-       PExAllData = ^TExAllData;
-       TExAllData = record
-        ed_Next     : PExAllData;
-        ed_Name     : STRPTR;
-        ed_Type,
-        ed_Size,
-        ed_Prot,
-        ed_Days,
-        ed_Mins,
-        ed_Ticks    : ULONG;
-        ed_Comment  : STRPTR;     {   strings will be after last used field }
-        ed_OwnerUID,              { new for V39 }
-        ed_OwnerGID : Word;
-       END;
+  PExAllData = ^TExAllData;
+  TExAllData = record
+    ed_Next: PExAllData;
+    ed_Name: PChar;        // Name of the file
+    ed_Type,               // Type of File
+    ed_Size,               // Size of File
+    ed_Prot,               // Protection Bits
+{ The following three fields are de facto an embedded datestamp
+  structure (see <dos/dos.h>), which describes the last modification date.}
+    ed_Days,
+    ed_Mins,
+    ed_Ticks    : ULONG;
+    
+    ed_Comment: PChar;     // The file comment
+    ed_OwnerUID,           // The owner ID
+    ed_OwnerGID : Word;    // the group-owner ID
+  end;
+  
+{ Type argument for ExAll(). Each number includes the information of all
+  lower numbers, too. If you specify for example ED_SIZE, you will get
+  information about name, type and the size of a file. Note that all
+  filehandlers must handle all types up to ED_OWNER. If they do not support
+  a type, they must return ERROR_WRONG_NUMBER. Currently
+  that means, if a value higher than ED_OWNER is specified, filehandlers
+  must fail with this error.} 
+const
+  ED_NAME        = 1; // Filename.
+  ED_TYPE        = 2; // Type of file.
+  ED_SIZE        = 3; // Size of file.
+  ED_PROTECTION  = 4; // Protection bits.
+  ED_DATE        = 5; // Last modification date.
+  ED_COMMENT     = 6; // Addtional file comment.
+  ED_OWNER       = 7; // Owner information.
 
-{
- *   Control structure passed to ExAll.  Unused fields MUST be initialized to
- *   0, expecially eac_LastKey.
- *
- *   eac_MatchFunc is a hook (see utility.library documentation for usage)
- *   It should return true if the entry is to returned, false if it is to be
- *   ignored.
- *
- *   This structure MUST be allocated by AllocDosObject()!
- }
-
-       PExAllControl = ^TExAllControl;
-       TExAllControl = record
-        eac_Entries,                 {   number of entries returned in buffer      }
-        eac_LastKey     : ULONG;     {   Don't touch inbetween linked ExAll calls! }
-        eac_MatchString : STRPTR;    {   wildcard string for pattern match OR NULL }
-        eac_MatchFunc   : pHook;     {   optional private wildcard FUNCTION     }
-       END;
-
-
+{ Structure as used for controlling ExAll(). Allocate this structure by using
+  AllocDosObject(DOS_EXALLCONTROL,...) only. All fields must be initialized
+  to 0, before using this structure. (AllocDosObject() does that for you.)
+  After calling ExAll() the first time, this structure is READ-ONLY. }
+type  
+  PExAllControl = ^TExAllControl;
+  TExAllControl = record
+    eac_Entries: ULONG;     // number of entries returned in buffer
+    eac_LastKey: IPTR;      // Don't touch inbetween linked ExAll calls!
+    eac_MatchString: PChar; // wildcard string for pattern match OR nil
+    eac_MatchFunc: PHook;   // optional private wildcard FUNCTION
+  end;
 
 { The disk "environment" is a longword array that describes the
  * disk geometry.  It is variable sized, with the length at the beginning.
- * Here are the constants for a standard geometry.
-}
-
+ * Here are the constants for a standard geometry.}
 type
-
-    PDosEnvec = ^TDosEnvec;
-    TDosEnvec = record
-        de_TableSize      : ULONG;      { Size of Environment vector }
-        de_SizeBlock      : ULONG;      { in longwords: standard value is 128 }
-        de_SecOrg         : ULONG;      { not used; must be 0 }
-        de_Surfaces       : ULONG;      { # of heads (surfaces). drive specific }
-        de_SectorPerBlock : ULONG;      { not used; must be 1 }
-        de_BlocksPerTrack : ULONG;      { blocks per track. drive specific }
-        de_Reserved       : ULONG;      { DOS reserved blocks at start of partition. }
-        de_PreAlloc       : ULONG;      { DOS reserved blocks at end of partition }
-        de_Interleave     : ULONG;      { usually 0 }
-        de_LowCyl         : ULONG;      { starting cylinder. typically 0 }
-        de_HighCyl        : ULONG;      { max cylinder. drive specific }
-        de_NumBuffers     : ULONG;      { Initial # DOS of buffers.  }
-        de_BufMemType     : ULONG;      { type of mem to allocate for buffers }
-        de_MaxTransfer    : ULONG;      { Max number of bytes to transfer at a time }
-        de_Mask           : ULONG;      { Address Mask to block out certain memory }
-        de_BootPri        : LongInt;    { Boot priority for autoboot }
-        de_DosType        : ULONG;      { ASCII (HEX) string showing filesystem type;
-                                        * 0X444F5300 is old filesystem,
-                                        * 0X444F5301 is fast file system }
-        de_Baud           : ULONG;      {     Baud rate for serial handler }
-        de_Control        : ULONG;      {     Control SmallInt for handler/filesystem }
-        de_BootBlocks     : ULONG;      {     Number of blocks containing boot code }
-    end;
+  PDosEnvec = ^TDosEnvec;
+  TDosEnvec = record
+    de_TableSize: IPTR;      // Size of this structure. Must be at least 11 (DE_NUMBUFFERS).
+    de_SizeBlock: IPTR;      // Size in longwords of a block on the disk.
+    de_SecOrg: IPTR;         // Unused. Must be 0 for now.
+    de_Surfaces: IPTR;       // Number of heads/surfaces in drive.
+    de_SectorPerBlock: IPTR; // Unused. Must be 1 for now.
+    de_BlocksPerTrack: IPTR; // blocks per track. drive specific
+    de_Reserved: IPTR;       // DOS reserved blocks at start of partition.
+    de_PreAlloc: IPTR;       // DOS reserved blocks at end of partition
+    de_Interleave: IPTR;     // usually 0
+    de_LowCyl: IPTR;         // starting cylinder. typically 0
+    de_HighCyl: IPTR;        // max cylinder. drive specific
+    de_NumBuffers: IPTR;     // Initial # DOS of buffers.
+    de_BufMemType: IPTR;     // type of mem to allocate for buffers
+    de_MaxTransfer: IPTR;    // Max number of bytes to transfer at a time
+    de_Mask: IPTR;           // Address Mask to block out certain memory
+    de_BootPri: LongInt;     // Boot priority for autoboot
+    de_DosType: IPTR;        // ASCII (HEX) string showing filesystem type
+    de_Baud: IPTR;           // Baud rate for serial handler
+    de_Control: IPTR;        // Control SmallInt for handler/filesystem
+    de_BootBlocks: IPTR;     // Number of blocks containing boot code
+  end;
 
 const
-
-{ these are the offsets into the array }
-
-    DE_TABLESIZE        = 0;    { standard value is 11 }
-    DE_SIZEBLOCK        = 1;    { in longwords: standard value is 128 }
-    DE_SECORG           = 2;    { not used; must be 0 }
-    DE_NUMHEADS         = 3;    { # of heads (surfaces). drive specific }
-    DE_SECSPERBLK       = 4;    { not used; must be 1 }
-    DE_BLKSPERTRACK     = 5;    { blocks per track. drive specific }
-    DE_RESERVEDBLKS     = 6;    { unavailable blocks at start.   usually 2 }
-    DE_PREFAC           = 7;    { not used; must be 0 }
-    DE_INTERLEAVE       = 8;    { usually 0 }
-    DE_LOWCYL           = 9;    { starting cylinder. typically 0 }
-    DE_UPPERCYL         = 10;   { max cylinder.  drive specific }
-    DE_NUMBUFFERS       = 11;   { starting # of buffers.  typically 5 }
-    DE_MEMBUFTYPE       = 12;   { type of mem to allocate for buffers. }
-    DE_BUFMEMTYPE       = 12;   { same as above, better name
-                                 * 1 is public, 3 is chip, 5 is fast }
-    DE_MAXTRANSFER      = 13;   { Max number bytes to transfer at a time }
-    DE_MASK             = 14;   { Address Mask to block out certain memory }
-    DE_BOOTPRI          = 15;   { Boot priority for autoboot }
-    DE_DOSTYPE          = 16;   { ASCII (HEX) string showing filesystem type;
-                                 * 0X444F5300 is old filesystem,
-                                 * 0X444F5301 is fast file system }
-    DE_BAUD             = 17;   {     Baud rate for serial handler }
-    DE_CONTROL          = 18;   {     Control SmallInt for handler/filesystem }
-    DE_BOOTBLOCKS       = 19;   {     Number of blocks containing boot code }
+{ The following constants are longword offsets, which point into a filehandler
+  structure (like the one above). For more information about the meaning
+  of these constants see the structure above. }
+  DE_TABLESIZE        = 0;    // standard value is 11 }
+  DE_SIZEBLOCK        = 1;    // in longwords: standard value is 128 }
+  DE_SECORG           = 2;    // not used; must be 0 }
+  DE_NUMHEADS         = 3;    // # of heads (surfaces). drive specific }
+  DE_SECSPERBLK       = 4;    // not used; must be 1 }
+  DE_BLKSPERTRACK     = 5;    // blocks per track. drive specific }
+  DE_RESERVEDBLKS     = 6;    // unavailable blocks at start.   usually 2 }
+  DE_PREFAC           = 7;    // not used; must be 0 }
+  DE_INTERLEAVE       = 8;    // usually 0 }
+  DE_LOWCYL           = 9;    // starting cylinder. typically 0 }
+  DE_UPPERCYL         = 10;   // max cylinder.  drive specific }
+  DE_NUMBUFFERS       = 11;   // starting # of buffers.  typically 5 }
+  DE_MEMBUFTYPE       = 12;   // type of mem to allocate for buffers. }
+  DE_BUFMEMTYPE       = 12;   // same as above, 1 is public, 3 is chip, 5 is fast }
+  DE_MAXTRANSFER      = 13;   // Max number bytes to transfer at a time }
+  DE_MASK             = 14;   // Address Mask to block out certain memory }
+  DE_BOOTPRI          = 15;   // Boot priority for autoboot }
+  DE_DOSTYPE          = 16;   // ASCII (HEX) string showing filesystem type;
+  DE_BAUD             = 17;   // Baud rate for serial handler }
+  DE_CONTROL          = 18;   // Control SmallInt for handler/filesystem }
+  DE_BOOTBLOCKS       = 19;   // Number of blocks containing boot code }
 
 
-{ The file system startup message is linked into a device node's startup
-** field.  It contains a pointer to the above environment, plus the
-** information needed to do an exec OpenDevice().
-}
+{ This is the message that is passed to a file handler during startup
+  in the DeviceNode->dn_Startup field. It is not used in AROS DOS handlers
+  as they are now Device based, and the information is passed in during
+  OpenDevice(), however this needs to be stored for late opening
+  handlers.}
+type
+  PFileSysStartupMsg = ^TFileSysStartupMsg;
+  TFileSysStartupMsg = record
+    fssm_Unit: IPTR;      // exec unit number for this device
+    fssm_Device: BSTR;    // null terminated bstring to the device name
+    fssm_Environ: BPTR;   // ptr to environment table (see above)
+    fssm_Flags: ULONG;    // flags for OpenDevice()
+  end;
+
+
+{ This is an unwound version of the DosList structure.
+  This is the version for a DOS "device" DLT_DEVICE.
+  It is essentially the same structure as DevInfo.
+  For AROS this is notably different, as filehandlers are no longer
+  DOS tasks (ie Processes), some of the fields here have no purpose
+  and are ignored. The only fields retained are the dn_Next, dn_Type,
+  dn_Startup and dn_Handler fields.}
+  PDeviceNode = ^TDeviceNode;
+  TDeviceNode = record
+    dn_Next: BPTR;         { singly linked list }
+    dn_Type: ULONG;        { always 0 for dos "devices" }
+    dn_Task: PMsgPort;     { standard dos "task" field.  If this is
+                                     * null when the node is accesses, a task
+                                     * will be started up }
+    dn_Lock: BPTR;         { not used for devices -- leave null }
+    dn_Handler: BSTR;         { filename to loadseg (if seglist is null) }
+    dn_StackSize: ULONG;        { stacksize to use when starting task }
+    dn_Priority: LongInt;      { task priority when starting task }
+    dn_Startup: BPTR;         { startup msg: FileSysStartupMsg for disks }
+    dn_SegList: BPTR;         { code to run to start new task (if necessary).
+                                     * if null then dn_Handler will be loaded. }
+    dn_GlobalVec: BPTR; { BCPL global vector to use when starting
+                             * a task.  -1 means that dn_SegList is not
+                             * for a bcpl program, so the dos won't
+                             * try and construct one.  0 tell the
+                             * dos that you obey BCPL linkage rules,
+                             * and that it should construct a global
+                             * vector for you.
+                             }
+    dn_Name: BSTR;         { the node name, e.g. '\3','D','F','3' }
+{$ifdef aros}
+  {$ifndef AROS_DOS_PACKETS}         
+    dn_Reserved: array[0..5] of IPTR;  // Private extensions Should not be used in user land code.
+    dn_AROS: TDosListAROSExt;
+  {$endif}           
+{$endif}     
+  end;
 
 type
-
-    PFileSysStartupMsg = ^TFileSysStartupMsg;
-    TFileSysStartupMsg = record
-        fssm_Unit       : ULONG;        { exec unit number for this device }
-        fssm_Device     : BSTR;         { null terminated bstring to the device name }
-        fssm_Environ    : BPTR;         { ptr to environment table (see above) }
-        fssm_Flags      : ULONG;        { flags for OpenDevice() }
+{  General notification structure as passed to StartNotify() and EndNotify().
+   After passing it to StartNotify() the first time, this structure becomes
+   READ-ONLY! }
+   
+  PNotifyRequest = ^TNotifyRequest;
+  TNotifyRequest = record
+    nr_Name: STRPTR;        // Name of the watched file.
+    nr_FullName: STRPTR;    // Fully qualified name of the watched file. This is READ-ONLY!
+    nr_UserData: IPTR;      // Fill in with your own data.
+    nr_Flags: LongWord;     // Flags: (NRB_*)
+                                // The following case specified the way to notify the application, if
+    nr_stuff: record            // the watched file changes. IF NRF_SEND_MESSAGE is set, nr_Msg is used,
+    case SmallInt of            // when NRF_SEND_SIGNAL is set, nr_Signal is used.
+       0: ( nr_Msg: record                  
+            nr_Port: PMsgPort; // Port to send message to.
+         end );
+       1 : ( nr_Signal: record
+            nr_Task: pTask;              // Task to notify.
+            nr_SignalNum: Byte;          // Signal number to set.
+            nr_pad: array[0..2] of Byte; // PRIVATE
+         end );
     end;
-
-
-{ The include file "libraries/dosextens.h" has a DeviceList structure.
- * The "device list" can have one of three different things linked onto
- * it.  Dosextens defines the structure for a volume.  DLT_DIRECTORY
- * is for an assigned directory.  The following structure is for
- * a dos "device" (DLT_DEVICE).
-}
-
-    PDeviceNode = ^TDeviceNode;
-    TDeviceNode = record
-        dn_Next         : BPTR;         { singly linked list }
-        dn_Type         : ULONG;        { always 0 for dos "devices" }
-        dn_Task         : PMsgPort;     { standard dos "task" field.  If this is
-                                         * null when the node is accesses, a task
-                                         * will be started up }
-        dn_Lock         : BPTR;         { not used for devices -- leave null }
-        dn_Handler      : BSTR;         { filename to loadseg (if seglist is null) }
-        dn_StackSize    : ULONG;        { stacksize to use when starting task }
-        dn_Priority     : LongInt;      { task priority when starting task }
-        dn_Startup      : BPTR;         { startup msg: FileSysStartupMsg for disks }
-        dn_SegList      : BPTR;         { code to run to start new task (if necessary).
-                                         * if null then dn_Handler will be loaded. }
-        dn_GlobalVec    : BPTR; { BCPL global vector to use when starting
-                                 * a task.  -1 means that dn_SegList is not
-                                 * for a bcpl program, so the dos won't
-                                 * try and construct one.  0 tell the
-                                 * dos that you obey BCPL linkage rules,
-                                 * and that it should construct a global
-                                 * vector for you.
-                                 }
-        dn_Name         : BSTR;         { the node name, e.g. '\3','D','F','3' }
+    nr_Reserved: array[0..3] of LongWord; // PRIVATE! Set to 0 for now.
+    nr_MsgCount: LongWord;                // Number of unreplied messages.
+    nr_Handler: PMsgPort;                 // Filesystem task/device. Used by EndNotify()
     end;
-
-const
-{     use of Class and code is discouraged for the time being - we might want to
-   change things }
-{     --- NotifyMessage Class ------------------------------------------------ }
-     NOTIFY_CLASS  =  $40000000;
-
-{     --- NotifyMessage Codes ------------------------------------------------ }
-     NOTIFY_CODE   =  $1234;
-
-
-{     Sent to the application if SEND_MESSAGE is specified.                    }
-
-type
-{     Do not modify or reuse the notifyrequest while active.                   }
-{     note: the first LONG of nr_Data has the length transfered                }
-
-
-       PNotifyRequest = ^TNotifyRequest;
-       TNotifyRequest = record
-            nr_Name : PChar;
-            nr_FullName : PChar;
-            nr_UserData : LongWord;
-            nr_Flags : LongWord;
-            nr_stuff : record
-                case SmallInt of
-                   0 : ( nr_Msg : record
-                        nr_Port : PMsgPort;
-                     end );
-                   1 : ( nr_Signal : record
-                        nr_Task : pTask;
-                        nr_SignalNum : Byte;
-                        nr_pad : array[0..2] of Byte;
-                     end );
-                end;
-            nr_Reserved : array[0..3] of LongWord;
-            nr_MsgCount : LongWord;
-            nr_Handler : PMsgPort;
-         end;
 
    PNotifyMessage = ^TNotifyMessage;
    TNotifyMessage = record
-    nm_ExecMessage : TMessage;
-    nm_Class       : LongWord;
-    nm_Code        : Word;
-    nm_NReq        : PNotifyRequest;     {     don't modify the request! }
-    nm_DoNotTouch,                       {     like it says!  For use by handlers }
-    nm_DoNotTouch2 : LongWord;            {     ditto }
-   END;
+    nm_ExecMessage: TMessage;
+    nm_Class: LongWord;          // Class: NOTIFY_CLASS
+    nm_Code: Word;               // Code: NOTIFY_CODE
+    nm_NReq: PNotifyRequest;     // The notify structure that was passed to StartNotify(). Read-Only
+    nm_DoNotTouch,               // like it says!  For use by handlers
+    nm_DoNotTouch2 : LongWord;   // dito 
+   end;
 
 
 const
-{     --- NotifyRequest Flags ------------------------------------------------ }
-     NRF_SEND_MESSAGE      =  1 ;
-     NRF_SEND_SIGNAL       =  2 ;
-     NRF_WAIT_REPLY        =  8 ;
-     NRF_NOTIFY_INITIAL    =  16;
+// The two following flags specify by which means the watching task is to be notified.
+  NRB_SEND_MESSAGE      =  0; // Send a message to the specified message port.
+  NRB_SEND_SIGNAL       =  1; // Set a signal of the specified task.
+  NRB_WAIT_REPLY        =  3; // Wait for a reply by the application before going on with watching?
+  NRB_NOTIFY_INITIAL    =  4; // Notify if the file/directory exists when the notification request is posted
 
-{     do NOT set or remove NRF_MAGIC!  Only for use by handlers! }
-     NRF_MAGIC             = $80000000;
+// Flag Values for TNotifyRequest.nr_Flags
+  NRF_SEND_MESSAGE      =  1 shl NRB_SEND_MESSAGE;
+  NRF_SEND_SIGNAL       =  1 shl NRB_SEND_SIGNAL;
+  NRF_WAIT_REPLY        =  1 shl NRB_WAIT_REPLY;
+  NRF_NOTIFY_INITIAL    =  1 shl NRB_NOTIFY_INITIAL;
 
-{     bit numbers }
-     NRB_SEND_MESSAGE      =  0;
-     NRB_SEND_SIGNAL       =  1;
-     NRB_WAIT_REPLY        =  3;
-     NRB_NOTIFY_INITIAL    =  4;
+// The following flags are for use by handlers only!
+  NR_HANDLER_FLAGS      =  $ffff0000;
+  NRB_MAGIC             =  31;
+  NRF_MAGIC             =  1 shl NRB_MAGIC;
 
-     NRB_MAGIC             =  31;
+// nm_Class. Do not use, yet.
+  NOTIFY_CLASS  =  $40000000;
 
-{     Flags reserved for private use by the handler: }
-     NR_HANDLER_FLAGS      =  $ffff0000;
+//nm_Code. Do not use, yet.
+   NOTIFY_CODE   =  $1234;  
 
 {   *********************************************************************
  *
@@ -1323,12 +1274,14 @@ const
  *********************************************************************}
 
 type
-       PCSource = ^TCSource;
-       TCSource = record
-        CS_Buffer  : STRPTR;
-        CS_Length,
-        CS_CurChr  : LongInt;
-       END;
+// This structure emulates an input stream by using a buffer.
+  PCSource = ^TCSource;
+  TCSource = record
+    CS_Buffer: PChar;   // The buffer, which contains the stream. In most cases this may be nil,
+                        // in which case the current input stream is used.
+    CS_Length,
+    CS_CurChr: LongInt;
+  end;
 
 {   *********************************************************************
  *
@@ -1357,542 +1310,954 @@ type
  * defined below.  Defaults are initialized to ZERO.
  *
  *********************************************************************}
-
-       PRDArgs = ^TRDArgs;
-       TRDArgs = record
-        RDA_Source  : TCSource;     {    Select input source }
-        RDA_DAList  : LongInt;      {    PRIVATE. }
-        RDA_Buffer  : STRPTR;       {    Optional string parsing space. }
-        RDA_BufSiz  : LongInt;      {    Size of RDA_Buffer (0..n) }
-        RDA_ExtHelp : STRPTR;       {    Optional extended help }
-        RDA_Flags   : LongInt;      {    Flags for any required control }
-       END;
-
-const
-       RDAB_STDIN     = 0;       {    Use "STDIN" rather than "COMMAND LINE" }
-       RDAF_STDIN     = 1;
-       RDAB_NOALLOC   = 1;       {    If set, do not allocate extra string space.}
-       RDAF_NOALLOC   = 2;
-       RDAB_NOPROMPT  = 2;       {    Disable reprompting for string input. }
-       RDAF_NOPROMPT  = 4;
-
-{   *********************************************************************
- * Maximum number of template keywords which can be in a template passed
- * to ReadArgs(). IMPLEMENTOR NOTE - must be a multiple of 4.
- *********************************************************************}
-       MAX_TEMPLATE_ITEMS     = 100;
-
-{   *********************************************************************
- * Maximum number of MULTIARG items returned by ReadArgs(), before
- * an ERROR_LINE_TOO_LONG.  These two limitations are due to stack
- * usage.  Applications should allow "a lot" of stack to use ReadArgs().
- *********************************************************************}
-       MAX_MULTIARGS          = 128;
+{ The main structure used for ReadArgs(). It contains everything needed for
+   ReadArgs() handling. Allocate this structure with AllocDosObject().}
+  PRDArgs = ^TRDArgs;
+  TRDArgs = record
+    RDA_Source: TCSource;    // Select input source use this structure as source
+                             // for parsing, otherwise use DosInput() as source.
+    RDA_DAList: IPTR;        // PRIVATE. Must be initialized to 0
+        {The next two fields allow an application to supply a buffer to be parsed
+       to ReadArgs(). If either of these fields is 0, ReadArgs() allocates this
+       buffer itself.}
+    RDA_Buffer: PChar;       // Pointer to buffer. May be nil.
+    RDA_BufSiz: LongInt;     // Size of the supplied RDA_Buffer. May be 0. 
+    RDA_ExtHelp: PChar;      // Additional help, if user requests it, by supplying '?' as argument.
+    RDA_Flags: LongInt;      // Flags for any required control (RDAF_?)
+  end;
 
 const
-{     Modes for LockRecord/LockRecords() }
-       REC_EXCLUSIVE          = 0;
-       REC_EXCLUSIVE_IMMED    = 1;
-       REC_SHARED             = 2;
-       REC_SHARED_IMMED       = 3;
+  RDAB_STDIN     = 0; // Use Input() instead of the supplied command line.
+  RDAB_NOALLOC   = 1; // If set, do not allocate extra string space.
+  RDAB_NOPROMPT  = 2; // Do not prompt for input.
 
-{     struct to be passed to LockRecords()/UnLockRecords() }
+  RDAF_STDIN     = 1 shl RDAB_STDIN;
+  RDAF_NOALLOC   = 1 shl RDAB_NOALLOC;
+  RDAF_NOPROMPT  = 1 shl RDAB_NOPROMPT;
 
+{ Maximum number of template keywords which can be in a template passed
+  to ReadArgs(). IMPLEMENTOR NOTE - must be a multiple of 4.}
+  MAX_TEMPLATE_ITEMS = 100;
+
+{ Maximum number of MULTIARG items (/M) returned by ReadArgs(), before
+  an ERROR_LINE_TOO_LONG.  These two limitations are due to stack
+  usage.  Applications should allow "a lot" of stack to use ReadArgs().
+  This may change in the future}
+  MAX_MULTIARGS          = 128;
+
+const
+{  LockRecord() and LockRecords() locking modes. EXCLUSIVE modes mean that
+   nobody else is allowed to lock a specific record, which is allowed, when
+   locking with SHARED mode. When using IMMED modes, the timeout is ignored. }
+  REC_EXCLUSIVE          = 0;
+  REC_EXCLUSIVE_IMMED    = 1;
+  REC_SHARED             = 2;
+  REC_SHARED_IMMED       = 3;
+
+// Structure as passed to LockRecords() and UnLockRecords().
 type
-       PRecordLock = ^TRecordLock;
-       TRecordLock = record
-        rec_FH    : BPTR;         {     filehandle }
-        rec_Offset,               {     offset in file }
-        rec_Length,               {     length of file to be locked }
-        rec_Mode  : LongWord;        {     type of lock }
-       END;
+  PRecordLock = ^TRecordLock;
+  TRecordLock = record
+    rec_FH    : BPTR;     // PFileHandle The file to get the current record from.
+    rec_Offset,           // The offset, the current record should start.
+    rec_Length,           // The length of the current record.
+    rec_Mode  : LongWord; // The mode od locking (REC_*).
+  end;
 
-
-{      the structure in the pr_LocalVars list }
-{      Do NOT allocate yourself, use SetVar()!!! This structure may grow in }
-{      future releases!  The list should be left in alphabetical order, and }
-{      may have multiple entries with the same name but different types.    }
+{ This structure describes a local variable. The list is normally held in
+  Process^.pr_LocalVars. Note that this structure is READ-ONLY!
+  Allocate it with SetVar(). }
 type
-       PLocalVar = ^TLocalVar;
-       TLocalVar = record
-        lv_Node  : tNode;
-        lv_Flags : Word;
-        lv_Value : STRPTR;
-        lv_Len   : LongWord;
-       END;
+  PLocalVar = ^TLocalVar;
+  TLocalVar = record
+    lv_Node: TNode;     // Standard node structure as defined in Exec
+    lv_Flags: Word;     
+    lv_Value: STRPTR;   // The contents of the variable.
+    lv_Len: LongWord;   // The length of the contents.
+  end;
 
-{
- * The lv_Flags bits are available to the application.  The unused
- * lv_Node.ln_Pri bits are reserved for system use.
- }
-
+{ The lv_Flags bits are available to the application.  The unused
+  lv_Node.ln_Pri bits are reserved for system use.}
 const
-{      bit definitions for lv_Node.ln_Type: }
-       LV_VAR               =   0;       {      an variable }
-       LV_ALIAS             =   1;       {      an alias }
-{      to be or'ed into type: }
-       LVB_IGNORE           =   7;       {      ignore this entry on GetVar, etc }
-       LVF_IGNORE           =   $80;
+// bit definitions for lv_Node.ln_Type:
+  LV_VAR     = 0; // This is a variable.
+  LV_ALIAS   = 1; // This is an alias.
+{ This flag may be or'ed into lv_Node.ln_Type. It means that dos.library
+  should ignore this entry.}
+  LVB_IGNORE = 7;    // ignore this entry on GetVar, etc
+  LVF_IGNORE = 1 shl LVB_IGNORE;
 
-{      definitions of flags passed to GetVar()/SetVar()/DeleteVar() }
-{      bit defs to be OR'ed with the type: }
-{      item will be treated as a single line of text unless BINARY_VAR is used }
-       GVB_GLOBAL_ONLY       =  8   ;
-       GVF_GLOBAL_ONLY       =  $100;
-       GVB_LOCAL_ONLY        =  9   ;
-       GVF_LOCAL_ONLY        =  $200;
-       GVB_BINARY_VAR        =  10  ;            {      treat variable as binary }
-       GVF_BINARY_VAR        =  $400;
-       GVB_DONT_NULL_TERM    =  11;            { only with GVF_BINARY_VAR }
-       GVF_DONT_NULL_TERM    =  $800;
-
-{ this is only supported in >= V39 dos.  V37 dos ignores this. }
-{ this causes SetVar to affect ENVARC: as well as ENV:.        }
-      GVB_SAVE_VAR           = 12 ;     { only with GVF_GLOBAL_VAR }
-      GVF_SAVE_VAR           = $1000 ;
-
+{ definitions of flags passed to GetVar()/SetVar()/DeleteVar()
+  bit defs to be OR'ed with the type: 
+  item will be treated as a single line of text unless BINARY_VAR is used }
+  GVB_GLOBAL_ONLY    =  8;      //The variable is not to be used locally.
+  GVB_LOCAL_ONLY     =  9;      // The variable is not to be used globally.
+  GVB_BINARY_VAR     = 10;     // The variable is a binary variable. lv_Value points to binary data.
+  GVB_DONT_NULL_TERM = 11;     // lv_Value is not null-terminated. This is only allowed, if GVB_BINARY_VAR is also set.
+  GVB_SAVE_VAR       = 12;    // This flag tells dos to save the variable to ENVARC: too.
+  GVF_GLOBAL_ONLY    = 1 shl GVB_GLOBAL_ONLY;
+  GVF_LOCAL_ONLY     = 1 shl GVB_LOCAL_ONLY;
+  GVF_BINARY_VAR     = 1 shl GVB_BINARY_VAR;
+  GVF_DONT_NULL_TERM = 1 shl GVB_DONT_NULL_TERM;
+  GVF_SAVE_VAR       = 1 shl GVB_SAVE_VAR;
 
 const
 {   ***************************************************************************}
 {    definitions for the System() call }
 
-    SYS_Dummy      = (TAG_USER + 32);
-    SYS_Input      = (SYS_Dummy + 1);
-                                {    specifies the input filehandle  }
-    SYS_Output     = (SYS_Dummy + 2);
-                                {    specifies the output filehandle }
-    SYS_Asynch     = (SYS_Dummy + 3);
-                                {    run asynch, close input/output on exit(!) }
-    SYS_UserShell  = (SYS_Dummy + 4);
-                                {    send to user shell instead of boot shell }
-    SYS_CustomShell= (SYS_Dummy + 5);
-                                {    send to a specific shell (data is name) }
-{         SYS_Error, }
+  SYS_Dummy       = (TAG_USER + 32);
+  SYS_Input       = (SYS_Dummy + 1); // specifies the input filehandle 
+  SYS_Output      = (SYS_Dummy + 2); // specifies the output filehandle
+  SYS_Asynch      = (SYS_Dummy + 3); // run asynch, close input/output on exit(!)
+  SYS_UserShell   = (SYS_Dummy + 4); // send to user shell instead of boot shell
+  SYS_CustomShell = (SYS_Dummy + 5); // send to a specific shell (data is name)
+{$ifdef aros}
+  SYS_Error       = (SYS_Dummy + 10); // (BPTR/struct FileHandle *) Output filehandle.
+  SYS_ScriptInput = (SYS_Dummy + 11); // Filehandle to script to execute
+  SYS_Background  = (SYS_Dummy + 12); // (BOOL) The shell is run as a "background shell
+  SYS_CliNumPtr   = (SYS_Dummy + 13); // (LONG *) ti_Data to store the cli number    
+    
+{ This is not a Tag its a TAG Item  Use this together with SYS_Input, SYS_Output and
+  SYS_Error, to tell SystemTagList to *duplicate* the respective caller's streams.}
+  SYS_DupStream   = 1;
+{$endif}
 
 
-{   ***************************************************************************}
-{    definitions for the CreateNewProc() call }
-{    you MUST specify one of NP_Seglist or NP_Entry.  All else is optional. }
+{ Tags for CreateNewProc(). All tags, where no default is stated, the default
+  is inherited from the parent process. Additionally you may use tags for
+  AllocDosObject(DOS_CLI, ...).}
+  NP_Dummy       = (TAG_USER + 1000);
+  NP_Seglist     = (NP_Dummy + 1); // seglist of code to run for the process  
+  NP_FreeSeglist = (NP_Dummy + 2); // free seglist on exit - only valid for for NP_Seglist.  Default is True.
+  NP_Entry       = (NP_Dummy + 3); // entry point to run, mutually exclusive with NP_Seglist!
+  NP_Input       = (NP_Dummy + 4); // filehandle - default is Open("NIL:"...)
+  NP_Output      = (NP_Dummy + 5); // filehandle - default is Open("NIL:"...) 
+  NP_CloseInput  = (NP_Dummy + 6); // close input filehandle on exit default True
+  NP_CloseOutput = (NP_Dummy + 7); // close output filehandle on exit default True
+  NP_Error       = (NP_Dummy + 8); // filehandle - default is Open("NIL:"...)
+  NP_CloseError  = (NP_Dummy + 9); // close error filehandle on exit default True
+  NP_CurrentDir  = (NP_Dummy + 10);// lock - default is parent's current dir
+  NP_StackSize   = (NP_Dummy + 11);// stacksize for process - default 4000
+  NP_Name        = (NP_Dummy + 12);// name for process - default "New Process"
+  NP_Priority    = (NP_Dummy + 13);// priority - default same as parent
+  NP_ConsoleTask = (NP_Dummy + 14);// consoletask - default same as parent
+  NP_WindowPtr   = (NP_Dummy + 15);// window ptr - default is same as parent
+  NP_HomeDir     = (NP_Dummy + 16);// home directory - default curr home dir
+  NP_CopyVars    = (NP_Dummy + 17);// boolean to copy local vars-default True
+  NP_Cli         = (NP_Dummy + 18);// create cli structure - default FALSE
+  NP_Path        = (NP_Dummy + 19);// path - default is copy of parents path only valid if a cli process!
+  NP_CommandName = (NP_Dummy + 20);// commandname - valid only for CLI
+  NP_Arguments   = (NP_Dummy + 21);// If this tag is used, NP_Input must not be NULL.
+//The following two tags do not work, yet.  
+  NP_NotifyOnDeath = (NP_Dummy + 22); // (BOOL) Notify parent, when process exits? (Default: FALSE)
+  NP_Synchronous   = (NP_Dummy + 23); // (BOOL) Wait until called process returns. (Default: FALSE)
+  
+  NP_ExitCode      = (NP_Dummy + 24);// (APTR) Code that is to be called, when process exits. (Default: NULL)
+  NP_ExitData      = (NP_Dummy + 25);// (APTR) Optional data for NP_ExitCode. (Default: NULL)
+{$ifdef aros}
+  NP_UserData      = (NP_Dummy + 26); //(IPTR) User dependant data. Do with it, what you want to. (Default: NULL)
+{$endif}
 
-    NP_Dummy       = (TAG_USER + 1000);
-    NP_Seglist     = (NP_Dummy + 1);
-                                {    seglist of code to run for the process  }
-    NP_FreeSeglist = (NP_Dummy + 2);
-                                {    free seglist on exit - only valid for   }
-                                {    for NP_Seglist.  Default is TRUE.       }
-    NP_Entry       = (NP_Dummy + 3);
-                                {    entry point to run - mutually exclusive }
-                                {    with NP_Seglist! }
-    NP_Input       = (NP_Dummy + 4);
-                                {    filehandle - default is Open("NIL:"...) }
-    NP_Output      = (NP_Dummy + 5);
-                                {    filehandle - default is Open("NIL:"...) }
-    NP_CloseInput  = (NP_Dummy + 6);
-                                {    close input filehandle on exit          }
-                                {    default TRUE                            }
-    NP_CloseOutput = (NP_Dummy + 7);
-                                {    close output filehandle on exit         }
-                                {    default TRUE                            }
-    NP_Error       = (NP_Dummy + 8);
-                                {    filehandle - default is Open("NIL:"...) }
-    NP_CloseError  = (NP_Dummy + 9);
-                                {    close error filehandle on exit          }
-                                {    default TRUE                            }
-    NP_CurrentDir  = (NP_Dummy + 10);
-                                {    lock - default is parent's current dir  }
-    NP_StackSize   = (NP_Dummy + 11);
-                                {    stacksize for process - default 4000    }
-    NP_Name        = (NP_Dummy + 12);
-                                {    name for process - default "New Process"}
-    NP_Priority    = (NP_Dummy + 13);
-                                {    priority - default same as parent       }
-    NP_ConsoleTask = (NP_Dummy + 14);
-                                {    consoletask - default same as parent    }
-    NP_WindowPtr   = (NP_Dummy + 15);
-                                {    window ptr - default is same as parent  }
-    NP_HomeDir     = (NP_Dummy + 16);
-                                {    home directory - default curr home dir  }
-    NP_CopyVars    = (NP_Dummy + 17);
-                                {    boolean to copy local vars-default TRUE }
-    NP_Cli         = (NP_Dummy + 18);
-                                {    create cli structure - default FALSE    }
-    NP_Path        = (NP_Dummy + 19);
-                                {    path - default is copy of parents path  }
-                                {    only valid if a cli process!    }
-    NP_CommandName = (NP_Dummy + 20);
-                                {    commandname - valid only for CLI        }
-    NP_Arguments   = (NP_Dummy + 21);
-                                {    cstring of arguments - passed with str  }
-                                {    in a0, length in d0.  (copied and freed }
-                                {    on exit.  Default is empty string.      }
-                                {    NOTE: not operational until 2.04 - see  }
-                                {    BIX/TechNotes for more info/workarounds }
-                                {    NOTE: in 2.0, it DIDN'T pass "" - the   }
-                                {    registers were random.                  }
-{    FIX! should this be only for cli's? }
-    NP_NotifyOnDeath = (NP_Dummy + 22);
-                                {    notify parent on death - default FALSE  }
-                                {    Not functional yet. }
-    NP_Synchronous   = (NP_Dummy + 23);
-                                {    don't return until process finishes -   }
-                                {    default FALSE.                          }
-                                {    Not functional yet. }
-    NP_ExitCode      = (NP_Dummy + 24);
-                                {    code to be called on process exit       }
-    NP_ExitData      = (NP_Dummy + 25);
-                                {    optional argument for NP_EndCode rtn -  }
-                                {    default NULL                            }
+{ Tags for AllocDosObject }
+  ADO_Dummy        = (TAG_USER + 2000);
+  ADO_FH_Mode      = (ADO_Dummy + 1); // Sets up FH to the specified mode.
+  ADO_DirLen       = (ADO_Dummy + 2); // size in bytes for current dir buffer
+  ADO_CommNameLen  = (ADO_Dummy + 3); // size in bytes for command name buffer
+  ADO_CommFileLen  = (ADO_Dummy + 4); // size in bytes for command file buffer
+  ADO_PromptLen    = (ADO_Dummy + 5); // size in bytes for the prompt buffer
+
+type
+  PRootNode = ^TRootNode;
+  TRootNode = record
+    rn_TaskArray: BPTR;          // Pointer to the SegList for CLIs.
+    rn_ConsoleSegment: BPTR;     // SegList for the CLI
+    rn_Time: TDateStamp;         // Current time
+    rn_RestartSeg: APTR;         // SegList for the disk validator process
+    rn_Info: BPTR;               // Pointer ot the Info structure
+    rn_FileHandlerSegment: BPTR; // segment for a file handler
+    rn_CliList: TMinList;        // List of all CLI processe (CliProcList)
+    rn_BootProc: PMsgPort;       // private ptr to msgport of boot fs
+    rn_ShellSegment: BPTR;       // seglist for Shell (for NewShell)
+    rn_Flags: LongInt;           // dos flags
+    rn_RootLock: TSignalSemaphore; // RootNode arbitrator
+  end;
+  
+{ Structure that is linked into the rootnode's rn_CliList. Completely
+   private, of course! ... and it's not compatible to AmigaOS.}
+  PCLIInfo = ^TCLIInfo;
+  TCLIInfo = record
+    ci_Node: TNode;
+    ci_Process: PProcess;
+  end;
+
+{ A structure for holding error messages - stored as array with error == 0
+  for the last entry.}
+  PErrorString = ^TErrorString;
+  TErrorString = record
+    estr_Nums: PLongInt;
+    estr_Strings: STRPTR;
+  end;
+  
+const  
+{ error report types for ErrorReport() }
+  REPORT_STREAM = 0; // a stream
+  REPORT_TASK   = 1; // a process - unused
+  REPORT_LOCK   = 2; // a lock
+  REPORT_VOLUME = 3; // a volume node
+  REPORT_INSERT = 4; // please insert volume
+
+{ Special error codes for ErrorReport() }
+  ABORT_DISK_ERROR = 296; //    Read/write error
+  ABORT_BUSY       = 288; //    You MUST replace...
 
 
-{   ***************************************************************************}
-{    tags for AllocDosObject }
+type
+// This is how the base of dos.library looks like.
+  PDosLibrary = ^TDosLibrary;
+  TDosLibrary = record
+    dl_lib: TLibrary;
+    dl_Root: PRootNode;      // Pointer to RootNode, described below }
+{$ifdef AROS_FLAVOUR_BINCOMPAT}    
+    dl_GV: APTR;             // Pointer to BCPL global vector       }
+    dl_A2: LongInt;          // Private register dump of DOS        }
+    dl_A5: LongInt;
+    dl_A6: LongInt;
+{$endif}    
+    dl_Errors: PErrorString;    // pointer to array of error msgs
+    dl_TimeReq: PTimeRequest;   // private pointer to timer request
+    dl_UtilityBase  : PLibrary; // private ptr to utility library
+    dl_IntuitionBase : PLibrary;
+{ These were AROS-specific private fields. At the moment they are mostly not used
+  and are present only for binary compatibility with programs that used dl_Flags
+  (Directory Opus for example). Do not try to use them in any way!}
+{$ifdef aros}  
+    dl_TimerBase: PDevice;
+    dl_TimerIO: TTimeRequest;
+    dl_DevInfo: PDosList;
+    dl_SysBase: PExecBase;
+    dl_SegList: BPTR;
+    dl_NulHandler: PDevice;
+    dl_NulLock: PUnit;
+  // LDDemon (library loader) private data
+    dl_LDObjectsListSigSem: TSignalSemaphore;
+    dl_LDObjectsList: TList;
+    dl_LDHandler: TInterrupt;
+    dl_LDDemonPort: PMsgPort;
+    dl_LDDemonTask: PProcess;
+    dl_LDReturn: ULONG;
+    //* AROS-specific and private. Can go away in future.
+    dl_SYSLock: BPTR;
+    // The flags are ORed with RootNode^.rn_Flags. See below for definitions.
+    dl_Flags: ULONG; 
+{$endif}    
+  end; 
 
-    ADO_Dummy        = (TAG_USER + 2000);
-    ADO_FH_Mode      = (ADO_Dummy + 1);
-                                {    for type DOS_FILEHANDLE only            }
-                                {    sets up FH for mode specified.
-                                   This can make a big difference for buffered
-                                   files.                                  }
-        {    The following are for DOS_CLI }
-        {    If you do not specify these, dos will use it's preferred values }
-        {    which may change from release to release.  The BPTRs to these   }
-        {    will be set up correctly for you.  Everything will be zero,     }
-        {    except cli_FailLevel (10) and cli_Background (DOSTRUE).         }
-        {    NOTE: you may also use these 4 tags with CreateNewProc.         }
-
-    ADO_DirLen     = (ADO_Dummy + 2);
-                                {    size in bytes for current dir buffer    }
-    ADO_CommNameLen= (ADO_Dummy + 3);
-                                {    size in bytes for command name buffer   }
-    ADO_CommFileLen= (ADO_Dummy + 4);
-                                {    size in bytes for command file buffer   }
-    ADO_PromptLen  = (ADO_Dummy + 5);
-                                {    size in bytes for the prompt buffer     }
+const
+  RNB_WILDSTAR   = 24;
+  RNF_WILDSTAR   = 1 shl RNB_WILDSTAR;
+  RNB_PRIVATE1   = 1;                  // private for dos
+  RNF_PRIVATE1   = 1 shl RNB_PRIVATE1;
 
 {   ***************************************************************************}
 {    tags for NewLoadSeg }
 {    no tags are defined yet for NewLoadSeg }
 
-procedure AbortPkt(Port : PMsgPort; Pkt : PDosPacket);
-function AddBuffers(const Name : PChar; Number : LongInt) : Boolean;
-function AddDosEntry(DList : PDosList) : Boolean;
-function AddPart(dirname : PChar;const filename : PChar; size : LongWord) : Boolean;
-function AddSegment(const Name : PChar; seg : LongInt; system : LongInt) : Boolean;
-function AllocDosObject(Type_ : LongWord;const Tags : PTagItem) : Pointer;
-//function AllocDosObjectTagList(Type_ : LongWord;const Tags : PTagItem) : Pointer;
-function AssignAdd(const Name : PChar; Lock : LongInt) : Boolean;
-function AssignLate(const Name : PChar;const Path : PChar) : Boolean;
-function AssignLock(const Name : PChar; Lock : LongInt) : Boolean;
-function AssignPath(const Name : PChar;const Path : PChar) : Boolean;
-function AttemptLockDosList(Flags : LongWord) : PDosList;
-function ChangeMode(Type_ : LongInt; fh : LongInt; NewMode : LongInt) : Boolean;
-function CheckSignal(Mask : LongInt) : LongInt;
-function Cli : PCommandLineInterface;
-function CliInitNewcli(dp : PDosPacket) : LongInt;
-function CliInitRun(dp : PDosPacket) : LongInt;
-function CompareDates(const date1 : PDateStamp;const date2 : PDateStamp) : LongInt;
-function CreateDir(const Name : PChar) : LongInt;
-function CreateNewProc(const Tags : PTagItem) : pProcess;
-//function CreateNewProcTagList(const Tags : PTagItem) : pProcess;
-function CreateProc(const Name : PChar; pri : LongInt; segList : LongInt; stackSize : LongInt) : PMsgPort;
-function CurrentDir(Lock : LongInt) : LongInt;
-procedure DateStamp(date : pDateStamp);
-function DateToStr(datetime : PDateTime) : Boolean;
-function DeleteFile(const Name : PChar) : Boolean;
-function DeleteVar(const Name : PChar; Flags : LongWord) : Boolean;
-function DeviceProc(const Name : PChar) : PMsgPort;
-function DoPkt(Port : PMsgPort; action : LongInt; arg1 : LongInt; arg2 : LongInt; arg3 : LongInt; arg4 : LongInt; arg5 : LongInt) : LongInt;
-{
-function DoPkt0(Port : PMsgPort; action : LongInt) : LongInt;
-function DoPkt1(Port : PMsgPort; action : LongInt; arg1 : LongInt) : LongInt;
-function DoPkt2(Port : PMsgPort; action : LongInt; arg1 : LongInt; arg2 : LongInt) : LongInt;
-function DoPkt3(Port : PMsgPort; action : LongInt; arg1 : LongInt; arg2 : LongInt; arg3 : LongInt) : LongInt;
-function DoPkt4(Port : PMsgPort; action : LongInt; arg1 : LongInt; arg2 : LongInt; arg3 : LongInt; arg4 : LongInt) : LongInt;
-}
-procedure DOSClose(file_ : LongInt);
-procedure DOSDelay(timeout : LongInt);
-procedure DOSExit(returnCode : LongInt);
-function DOSFlush(fh : LongInt) : Boolean;
-function DOSInput : LongInt;
-function DOSOpen(const Name : PChar; accessMode : LongInt) : LongInt;
-function DOSOutput : LongInt;
-function DOSRead(file_ : LongInt; buffer : Pointer; length : LongInt) : LongInt;
-function DOSRename(const oldName : PChar;const newName : PChar) : Boolean;
-function DOSSeek(file_ : LongInt; position : LongInt; offset : LongInt) : LongInt;
-function DOSWrite(file_ : LongInt; buffer : Pointer; length : LongInt) : LongInt;
-function DupLock(Lock : LongInt) : LongInt;
-function DupLockFromFH(fh : LongInt) : LongInt;
-procedure EndNotify(notify : PNotifyRequest);
-function ErrorReport(code : LongInt; Type_ : LongInt; arg1 : LongWord; device : PMsgPort) : Boolean;
-function ExAll(Lock : LongInt; buffer : pExAllData; size : LongInt; data : LongInt; control : pExAllControl) : Boolean;
-procedure ExAllEnd(Lock : LongInt; buffer : pExAllData; size : LongInt; data : LongInt; control : pExAllControl);
-function Examine(Lock : LongInt; fileInfoBlock : PFileInfoBlock) : Boolean;
-function ExamineFH(fh : LongInt; fib : PFileInfoBlock) : Boolean;
-function Execute(const string_ : PChar; file_ : LongInt; file2 : LongInt) : Boolean;
-function ExNext(Lock : LongInt; fileInfoBlock : PFileInfoBlock) : Boolean;
-function Fault(code : LongInt; header : PChar; buffer : PChar; len : LongInt) : Boolean;
-function FGetC(fh : LongInt) : LongInt;
-function FGets(fh : LongInt; buf : PChar; buflen : LongWord) : PChar;
-function FilePart(const Path : PChar) : PChar;
-function FindArg(const keyword : PChar;const arg_template : PChar) : LongInt;
-function FindCliProc(num : LongWord) : pProcess;
-function FindDosEntry(const DList : PDosList;const Name : PChar; Flags : LongWord) : PDosList;
-function FindSegment(const Name : PChar;const seg : PSegment; system : LongInt) : PSegment;
-function FindVar(const Name : PChar; Type_ : LongWord) : PLocalVar;
-function dosFormat(const filesystem : PChar;const volumename : PChar; dostype : LongWord) : Boolean;
-function FPutC(fh : LongInt; ch : LongInt) : LongInt;
-function FPuts(fh : LongInt;const str : PChar) : Boolean;
-function FRead(fh : LongInt; block : Pointer; blocklen : LongWord; Number : LongWord) : LongInt;
-procedure FreeArgs(args : PRDArgs);
-procedure FreeDeviceProc(dp : pDevProc);
-procedure FreeDosEntry(DList : PDosList);
-procedure FreeDosObject(Type_ : LongWord; ptr : Pointer);
-function FWrite(fh : LongInt; block : Pointer; blocklen : LongWord; Number : LongWord) : LongInt;
-function GetArgStr : PChar;
-function GetConsoleTask : PMsgPort;
-function GetCurrentDirName(buf : PChar; len : LongInt) : Boolean;
-function GetDeviceProc(const Name : PChar; dp : pDevProc) : pDevProc;
-function GetFileSysTask : PMsgPort;
-function GetProgramDir : LongInt;
-function GetProgramName(buf : PChar; len : LongInt) : Boolean;
-function GetPrompt(buf : PChar; len : LongInt) : Boolean;
-function GetVar(const Name : PChar; buffer : PChar; size : LongInt; Flags : LongInt) : LongInt;
-function Info(Lock : LongInt; parameterBlock : PInfoData) : Boolean;
-function Inhibit(const Name : PChar; onoff : LongInt) : Boolean;
-function InternalLoadSeg(fh : LongInt; table : LongInt;const funcarray : pLONGINT; VAR stack : LongInt) : LongInt;
-function InternalUnLoadSeg(seglist : LongInt; freefunc : tPROCEDURE) : Boolean;
-function IoErr : LongInt;
-function IsFileSystem(const Name : PChar) : Boolean;
-function IsInteractive(file_ : LongInt) : Boolean;
-function LoadSeg(const Name : PChar) : LongInt;
-function Lock(const Name : PChar; Type_ : LongInt) : LongInt;
-function LockDosList(Flags : LongWord) : PDosList;
-function LockRecord(fh : LongInt; offset : LongWord; length : LongWord; mode : LongWord; timeout : LongWord) : Boolean;
-function LockRecords(recArray : PRecordLock; timeout : LongWord) : Boolean;
-function MakeDosEntry(const Name : PChar; Type_ : LongInt) : PDosList;
-function MakeLink(const Name : PChar; dest : LongInt; soft : LongInt) : Boolean;
-procedure MatchEnd(anchor : PAnchorPath);
-function MatchFirst(const pat : PChar; anchor : PAnchorPath) : LongInt;
-function MatchNext(anchor : PAnchorPath) : LongInt;
-function MatchPattern(const pat : PChar; str : PChar) : Boolean;
-function MatchPatternNoCase(const pat : PChar; str : PChar) : Boolean;
-function MaxCli : LongWord;
-function NameFromFH(fh : LongInt; buffer : PChar; len : LongInt) : Boolean;
-function NameFromLock(Lock : LongInt; buffer : PChar; len : LongInt) : Boolean;
-function NewLoadSeg(const file_ : PChar;const Tags : PTagItem) : LongInt;
-//function NewLoadSegTagList(const file_ : PChar;const Tags : PTagItem) : LongInt;
-function NextDosEntry(const DList : PDosList; Flags : LongWord) : PDosList;
-function OpenFromLock(Lock : LongInt) : LongInt;
-function ParentDir(Lock : LongInt) : LongInt;
-function ParentOfFH(fh : LongInt) : LongInt;
-function ParsePattern(const pat : PChar; buf : PChar; buflen : LongInt) : LongInt;
-function ParsePatternNoCase(const pat : PChar; buf : PChar; buflen : LongInt) : LongInt;
-function PathPart(const Path : PChar) : PChar;
-function PrintFault(code : LongInt;const header : PChar) : Boolean;
-function PutStr(const str : PChar) : Boolean;
-function ReadArgs(const arg_template : PChar; arra : pLONGINT; args : PRDArgs) : PRDArgs;
-function ReadItem(const Name : PChar; maxchars : LongInt; cSource : PCSource) : LongInt;
-function ReadLink(Port : PMsgPort; Lock : LongInt;const Path : PChar; buffer : PChar; size : LongWord) : Boolean;
-function Relabel(const drive : PChar;const newname : PChar) : Boolean;
-function RemAssignList(const Name : PChar; Lock : LongInt) : Boolean;
-function RemDosEntry(DList : PDosList) : Boolean;
-function RemSegment(seg : PSegment) : Boolean;
-procedure ReplyPkt(dp : PDosPacket; res1 : LongInt; res2 : LongInt);
-function RunCommand(seg : LongInt; stack : LongInt;const paramptr : PChar; paramlen : LongInt) : LongInt;
-function SameDevice(lock1 : LongInt; lock2 : LongInt) : Boolean;
-function SameLock(lock1 : LongInt; lock2 : LongInt) : LongInt;
-function SelectInput(fh : LongInt) : LongInt;
-function SelectOutput(fh : LongInt) : LongInt;
-procedure SendPkt(dp : PDosPacket; Port : PMsgPort; replyport : PMsgPort);
-function SetArgStr(const string_ : PChar) : Boolean;
-function SetComment(const Name : PChar;const comment : PChar) : Boolean;
-function SetConsoleTask(const task : PMsgPort) : PMsgPort;
-function SetCurrentDirName(const Name : PChar) : Boolean;
-function SetFileDate(const Name : PChar; date : pDateStamp) : Boolean;
-function SetFileSize(fh : LongInt; pos : LongInt; mode : LongInt) : Boolean;
-function SetFileSysTask(const task : PMsgPort) : PMsgPort;
-function SetIoErr(result : LongInt) : LongInt;
-function SetMode(fh : LongInt; mode : LongInt) : Boolean;
-function SetOwner(const Name : PChar; owner_info : LongInt) : Boolean;
-function SetProgramDir(Lock : LongInt) : LongInt;
-function SetProgramName(const Name : PChar) : Boolean;
-function SetPrompt(const Name : PChar) : Boolean;
-function SetProtection(const Name : PChar; protect : LongInt) : Boolean;
-function SetVar(const Name : PChar; buffer : PChar; size : LongInt; Flags : LongInt) : Boolean;
-function SetVBuf(fh : LongInt; buff : PChar; Type_ : LongInt; size : LongInt) : Boolean;
-function SplitName(const Name : PChar; seperator : LongWord; buf : PChar; oldpos : LongInt; size : LongInt) : SmallInt;
-function StartNotify(notify : PNotifyRequest) : Boolean;
-function StrToDate(datetime : PDateTime) : Boolean;
-function StrToLong(const string_ : PChar; VAR value : LongInt) : LongInt;
-function SystemTagList(const command : PChar;const Tags : PTagItem) : LongInt;
-//function DOSSystem(const command : PChar;const Tags : PTagItem) : LongInt; //* Real: SystemTagList ???
-function UnGetC(fh : LongInt; character : LongInt) : LongInt;
-procedure UnLoadSeg(seglist : LongInt);
-procedure UnLock(Lock : LongInt);
-procedure UnLockDosList(Flags : LongWord);
-function UnLockRecord(fh : LongInt; offset : LongWord; length : LongWord) : Boolean;
-function UnLockRecords(recArray : PRecordLock) : Boolean;
-function VFPrintf(fh : LongInt;const format : PChar;const argarray : Pointer) : LongInt;
-procedure VFWritef(fh : LongInt;const format : PChar;const argarray : pLONGINT);
-function VPrintf(const format : PChar; const argarray : Pointer) : LongInt;
-function WaitForChar(file_ : LongInt; timeout : LongInt) : Boolean;
-function WaitPkt : PDosPacket;
-function WriteChars(const buf : PChar; buflen : LongWord) : LongInt;
-{
-function BADDR(bval :BPTR): Pointer;
-function MKBADDR(adr: Pointer): BPTR;
-}
+{$ifdef aros}
 
-{OVERLOADS}
-
-function AddBuffers(Name : string; Number : LongInt) : Boolean;
-function AddPart(dirname : string;const filename : PChar; size : LongWord) : Boolean;
-function AddPart(dirname : PChar;filename : string; size : LongWord) : Boolean;
-function AddPart(dirname : string;filename : string; size : LongWord) : Boolean;
-function AssignAdd(Name : string; Lock : LongInt) : Boolean;
-function AssignLate(Name : string;const Path : PChar) : Boolean;
-function AssignLate(const Name : PChar;Path : string) : Boolean;
-function AssignLate(Name : string;Path : string) : Boolean;
-function AssignLock(Name : string; Lock : LongInt) : Boolean;
-function AssignPath(Name : string; const Path : PChar) : Boolean;
-function AssignPath(const Name : PChar;Path : string) : Boolean;
-function AssignPath(Name : string;Path : string) : Boolean;
-function CreateDir(Name : string) : LongInt;
-function CreateProc(Name : string; pri : LongInt; segList : LongInt; stackSize : LongInt) : PMsgPort;
-function DeleteFile(Name : string) : Boolean;
-function DeleteVar(Name : string; Flags : LongWord) : Boolean;
-function DeviceProc(Name : string) : PMsgPort;
-function DOSOpen(Name : string; accessMode : LongInt) : LongInt;
-function DOSRename(oldName : string;const newName : PChar) : boolean;
-function DOSRename(const oldName : PChar;newName : string) : Boolean;
-function DOSRename(oldName : string;newName : string) : Boolean;
-function Execute(string_ : string; file_ : LongInt; file2 : LongInt) : Boolean;
-function Fault(code : LongInt; header : string; buffer : PChar; len : LongInt) : Boolean;
-function FilePart(Path : string) : PChar;
-function FindArg(keyword : string;const arg_template : PChar) : LongInt;
-function FindArg(const keyword : PChar; arg_template : string) : LongInt;
-function FindArg(keyword : string; arg_template : string) : LongInt;
-function FindDosEntry(const DList : PDosList; Name : string; Flags : LongWord) : PDosList;
-function FindSegment(Name : string;const seg : PSegment; system : LongInt) : PSegment;
-function FindVar(Name : string; Type_ : LongWord) : PLocalVar;
-function dosFormat(filesystem : string;const volumename : PChar; dostype : LongWord) : Boolean;
-function dosFormat(const filesystem : PChar; volumename : string; dostype : LongWord) : Boolean;
-function dosFormat(filesystem : string; volumename : string; dostype : LongWord) : Boolean;
-function FPuts(fh : LongInt; str : string) : Boolean;
-function GetDeviceProc(Name : string; dp : pDevProc) : pDevProc;
-function GetVar(Name : string; buffer : PChar; size : LongInt; Flags : LongInt) : LongInt;
-function Inhibit(Name : string; onoff : LongInt) : Boolean;
-function IsFileSystem(Name : string) : Boolean;
-function LoadSeg(Name : string) : LongInt;
-function Lock(Name : string; Type_ : LongInt) : LongInt;
-function MakeDosEntry(Name : string; Type_ : LongInt) : PDosList;
-function MakeLink(Name : string; dest : LongInt; soft : LongInt) : Boolean;
-function MatchFirst(pat : string; anchor : PAnchorPath) : LongInt;
-function MatchPattern(pat : string; str : PChar) : Boolean;
-function MatchPattern(const pat : PChar; str : string) : Boolean;
-function MatchPattern(pat : string; str : string) : Boolean;
-function MatchPatternNoCase(pat : string; str : PChar) : Boolean;
-function MatchPatternNoCase(const pat : PChar; str : string) : Boolean;
-function MatchPatternNoCase(pat : string; str : string) : Boolean;
-function NewLoadSeg(file_ : string;const Tags : PTagItem) : LongInt;
-//function NewLoadSegTagList(const file_ : string;const Tags : PTagItem) : LongInt;
-function PathPart(Path : string) : PChar;
-function PrintFault(code : LongInt; header : string) : Boolean;
-function PutStr(str : string) : Boolean;
-function ReadArgs(arg_template : string; arra : pLONGINT; args : PRDArgs) : PRDArgs;
-function ReadItem(Name : string; maxchars : LongInt; cSource : PCSource) : LongInt;
-function ReadLink(Port : PMsgPort; Lock : LongInt; Path : string; buffer : PChar; size : LongWord) : Boolean;
-function Relabel(drive : string;const newname : PChar) : Boolean;
-function Relabel(const drive : PChar; newname : string) : Boolean;
-function Relabel(drive : string; newname : string) : Boolean;
-function RemAssignList(Name : string; Lock : LongInt) : Boolean;
-function RunCommand(seg : LongInt; stack : LongInt; paramptr : string; paramlen : LongInt) : LongInt;
-function SetArgStr(string_ : string) : Boolean;
-function SetComment(Name : string;const comment : PChar) : Boolean;
-function SetComment(const Name : PChar; comment : string) : Boolean;
-function SetComment(Name : string; comment : string) : Boolean;
-function SetCurrentDirName(Name : string) : Boolean;
-function SetFileDate(Name : string; date : pDateStamp) : Boolean;
-function SetOwner(Name : string; owner_info : LongInt) : Boolean;
-function SetProgramName(Name : string) : Boolean;
-function SetPrompt(Name : string) : Boolean;
-function SetProtection(Name : string; protect : LongInt) : Boolean;
-function SetVar(Name : string; buffer : PChar; size : LongInt; Flags : LongInt) : Boolean;
-function SplitName(Name : string; seperator : LongWord; buf : PChar; oldpos : LongInt; size : LongInt) : SmallInt;
-function StrToLong(string_ : string; VAR value : LongInt) : LongInt;
-function SystemTagList(command : string;const Tags : PTagItem) : LongInt;
-// function DOSSystem(const command : string;const Tags : PTagItem) : LongInt;
-
-
-IMPLEMENTATION
-
-uses pastoc;
-
-
-procedure AbortPkt(Port : PMsgPort;  Pkt : PDosPacket);
 type
-  TLocalCall = procedure(Port : PMsgPort;  Pkt : PDosPacket; LibBase: Pointer); cdecl;
+// FSA_Open, Returns a new filehandle. The file may be newly created (depending on io_FileMode)
+  PIFS_OPEN = ^TIFS_OPEN;
+  TIFS_OPEN = record
+    io_FileName: STRPTR;   // File to open.
+    io_FileMode: LongWord; // Filemode (FMF_*)
+  end;
+// Reads from a filehandle into a buffer.
+  PIFS_READ_WRITE = ^TIFS_READ_WRITE;
+  TIFS_READ_WRITE = record
+    io_Buffer: PChar;    // The buffer for the data to read/write.
+    io_Length: LongInt;  // The length of the buffer. This is filled by the filesystem handler
+  end;                   // with the number of bytes actually read/written.  
+// This action does exactly the same as the function Seek().
+  PIFS_SEEK = ^TIFS_SEEK;
+  TIFS_SEEK = record
+    io_Offset: QWord;     // Offset from position, specified as mode. This is filled by the
+                          // filehandler with the old position in the file.   
+    io_SeekMode: LongInt; // Seek mode (OFFSET_*)                   
+  end;  
+{ Waits for a character to arrive at the filehandle. This is not used for
+   plain files, but for queues only. Optionally a maximum time to wait may be
+   specified.}
+  PIFS_WAIT_CHAR = ^TIFS_WAIT_CHAR;
+  TIFS_WAIT_CHAR = record
+    io_Timeout: LongInt;  // Maximum time (in microseconds) to wait for a character.
+    io_Success: LongBool; // This is set to False by the filehandler if no character arrived in
+  end;                    // time. Otherwise it is set to True.
+{ Applies a new mode to a file. If you supply io_Mask with a value of 0,
+   no changes are made and you can just read the resulting io_FileMode.}
+  PIFS_FILE_MODE = ^TIFS_FILE_MODE;
+  TIFS_FILE_MODE = record
+    io_FileMode: LongWord; // The new mode to apply to the filehandle. See below for definitions.
+                           //  The filehandler fills this with the old mode bits.
+    io_Mask: LongWord;     // This mask defines which flags are to be changed.
+  end;   
+{ This action can be used to query if a filehandle is interactive, i.e. if it
+   is a terminal or not.}
+  PIFS_IS_INTERACTIVE = ^TIFS_IS_INTERACTIVE;
+  TIFS_IS_INTERACTIVE = record
+    io_IsInteractive: LongBool; // This boolean is filled by the filehandler. It is set to TRUE if the
+                                //  filehandle is interactive, otherwise it is set to FALSE. 
+  end;
+// Compares two locks for equality.
+  PIFS_SAME_LOCK = ^TIFS_SAME_LOCK;
+  TIFS_SAME_LOCK = record
+    io_Lock: array[0..1] of APTR; // The two locks to compare.
+    io_Same: LongInt;             // This is set to one of LOCK_DIFFERENT or LOCK_SAME
+  end;  
+// Examines a filehandle, giving various information about it.
+  PIFS_EXAMINE = ^TIFS_EXAMINE;
+  TIFS_EXAMINE = record
+    io_ead: PExAllData;  // ExAllData structure buffer to be filled by the filehandler.
+    io_Size: LongInt;    // Size of the buffer.
+    io_Mode: LongInt;    // With which kind of information shall the buffer be filled with?
+  end;                   // see ED_* definitions for more information.
+  PIFS_EXAMINE_NEXT = ^TIFS_EXAMINE_NEXT;
+  TIFS_EXAMINE_NEXT = record
+    io_fib: PFileInfoBlock; // FileInfoBlock structure buffer to be used and filled by the filehandler.
+  end;
+{ Works exactly like FSA_EXAMINE with the exeption that multiple files may be
+   examined, i.e. the filehandle must be a directory.}
+  PIFS_EXAMINE_ALL = ^TIFS_EXAMINE_ALL;
+  TIFS_EXAMINE_ALL = record
+    io_ead: PExAllData;
+    io_eac: PExallControl;
+    io_Size: LongInt;
+    io_Mode: LongInt;
+  end;   
+{ Works exactly like FSA_OPEN, but you can additionally specify protection
+   bits to be applied to new files.}
+  PIFS_OPEN_FILE = ^TIFS_OPEN_FILE;
+  TIFS_OPEN_FILE = record
+    io_Filename: STRPTR;     // File to open.
+    io_FileMode: LongWord;   // see below.
+    io_Protection: LongWord; // The protection bits
+  end;
+// Creates a new directory. The filehandle of that new directory is returned.
+  PIFS_CREATE_DIR = ^TIFS_CREATE_DIR;
+  TIFS_CREATE_DIR = record
+    io_FileName: STRPTR;     // Name of directory to create.
+    io_Protection: LongWord; // The protection bits.
+  end;
+// Creates a hard link (i.e. gives one file/directory a second name).
+  PIFS_CREATE_HARDLINK = ^TIFS_CREATE_HARDLINK;
+  TIFS_CREATE_HARDLINK = record
+    io_Filename: STRPTR;  // The filename of the link to create.
+    io_OldFile: APTR;     // Filehandle of the file to link to.
+  end;
+// Creates a soft link (i.e. a file is created that references another by its name). 
+  PIFS_CREATE_SOFTLINK = ^TIFS_CREATE_SOFTLINK;
+  TIFS_CREATE_SOFTLINK = record
+    io_Filename: STRPTR;  // The filename of the link to create.
+    io_Reference: STRPTR; // The name of the file to link to.
+  end;
+// Renames a file. To the old and the new name, the current directory is applied to.
+  PIFS_RENAME = ^TIFS_RENAME;
+  TIFS_RENAME = record
+    io_Filename: STRPTR;  // The old filename.
+    io_NewName: STRPTR;   // The new filename.
+  end;
+// Resolves the full path name of the file a softlink filehandle points to.
+  PIFS_READ_SOFTLINK = ^TIFS_READ_SOFTLINK;
+  TIFS_READ_SOFTLINK = record
+    io_Filename: STRPTR; // file name which returned ERROR_IS_SOFT_LINK
+    io_Buffer: STRPTR;   { The buffer to fill with the pathname. If this buffer is too small, the
+                            filesystem handler is supposed to return ERROR_LINE_TOO_LONG.}
+    io_Size: LongWord;  // The size of the buffer pointed to by io_Buffer. 
+  end;
+// Deletes an object on the volume.
+  PIFS_DELETE_OBJECT = ^TIFS_DELETE_OBJECT;
+  TIFS_DELETE_OBJECT = record
+    io_Filename: STRPTR;  // The name of the file to delete.
+  end;
+// Sets a filecomment for a file.
+  PIFS_SET_COMMENT = ^TIFS_SET_COMMENT;
+  TIFS_SET_COMMENT = record
+    io_Filename: STRPTR;  // The name of the file to be commented.
+    io_Comment: STRPTR;   // The new filecomment. May be nil, in which case the current filecomment is deleted.
+  end;
+// Sets the protection bits of a file.
+  PIFS_SET_PROTECT = ^TIFS_SET_PROTECT;
+  TIFS_SET_PROTECT = record
+    io_Filename: STRPTR;     // The file to change.
+    io_Protection: LongWord; // The new protection bits.
+  end;
+// Sets the ownership of a file.
+  PIFS_SET_OWNER = ^TIFS_SET_OWNER;
+  TIFS_SET_OWNER = record
+    io_Filename: STRPTR; // The file to change.
+    io_UID: Word;        // The new owner.
+    io_GID: Word;        // The new group owner.
+  end;
+{ Sets the last modification date/time of the filename given as first
+   argument. The date/time is given as standard DateStamp structure}
+  PIFS_SET_DATE = ^TIFS_SET_DATE;
+  TIFS_SET_DATE = record
+    io_Filename: STRPTR;  // The file to change
+    io_Date: TDateStamp;  // The new date
+  end; 
+// Check if a filesystem is in fact a FILEsystem, i.e. can contain different files.
+  PIFS_IS_FILESYSTEM = ^TIFS_IS_FILESYSTEM;
+  TIFS_IS_FILESYSTEM = record
+    io_IsFilesystem: LongBool; // This is set to True by the filesystem handler if it is a filesystem
+  end;                         // and set to False if it is not. 
+{ Changes the number of buffers for the filesystem. The current number of
+   buffers is returned. The size of the buffers is filesystem-dependent.}
+  PIFS_MORE_CACHE = ^TIFS_MORE_CACHE;
+  TIFS_MORE_CACHE = record
+    io_NumBuffers: LongInt; // Number of buffers to add. May be negative to reduce number of buffers.
+  end;                      // This is to be set to the current number of buffers on success.
+// Formats a volume, i.e. erases all data on it.
+  PIFS_FORMAT = ^TIFS_FORMAT;
+  TIFS_FORMAT = record
+    io_VolumeName: STRPTR; // New name for the volume.
+    io_DosType: LongWord;  // New type for the volume. Filesystem specific.
+  end;
+{ Resets/reads the mount-mode of the volume passed in as io_Unit. The first
+   and second arguments work exactly like FSA_FILE_MODE, but the third
+   argument can contain a password, if MMF_LOCKED is set.}
+  PIFS_MOUNT_MODE = ^TIFS_MOUNT_MODE;
+  TIFS_MOUNT_MODE = record
+    io_MountMode: LongWord; // The new mode to apply to the volume. See below for definitions.
+                            // The filehandler fills this with the old mode bits.
+    io_Mask: LongWord;      // This mask defines which flags are to be changed.
+    io_Password: STRPTR;    // A password, which is needed if MMF_LOCKED is set.
+  end;
+  PIFS_INHIBIT = ^TIFS_INHIBIT;
+  TIFS_INHIBIT = record
+    io_Inhibit: LongBool;
+  end;
+  PIFS_NOTIFY = ^TIFS_NOTIFY;
+  TIFS_NOTIFY = record
+    io_FileName: STRPTR;		// Needed for synchronous operation
+    io_NotificationRequest: PNotifyRequest;
+  end;
+  PIFS_INFO = ^TIFS_INFO;
+  TIFS_INFO = record
+    io_Info: PInfoData;
+  end;
+  PIFS_CHANGE_SIGNAL = ^TIFS_CHANGE_SIGNAL;
+  TIFS_CHANGE_SIGNAL = record
+    io_Task: PTask;
+  end;
+  PIFS_RECORD = ^TIFS_RECORD;
+  TIFS_RECORD = record
+    io_Offset: QWord;
+    io_Size: LongInt;
+    io_RecordMode: LongWord;
+    io_Timeout: LongWord;
+  end;
+  PIFS_PARENT_DIR = ^TIFS_PARENT_DIR;
+  TIFS_PARENT_DIR = record
+    io_DirName: PChar; // This will contain the return value of the parent directory, or
+  end;                 // nil if we are at the root directory already
+// Allows us to change a console between raw and cooked mode.
+  PIFS_CONSOLE_MODE = ^TIFS_CONSOLE_MODE;
+  TIFS_CONSOLE_MODE = record
+    io_ConsoleMode: LongInt;  // (FCM_*)
+  end;
+  PIFS_RELABEL = ^TIFS_RELABEL;
+  TIFS_RELABEL = record
+    io_NewName: STRPTR;
+    io_Result: LongBool;
+  end;
+{ FSA_PIPE: create a pair of handles connected to each other
+  This opens a "file" (which will usually be a pipe device) and returns two
+  handles such that writing data to the writer will result in that data
+  appearing on the reader. Both handles must be closed for the underlying
+  file to be closed. If a NULL/empty path is supplied, an unnamed pipe will
+  be created, which will be destroyed once both handles are closed.
+  The read handle is returned in io_Unit.}
+  PIFS_PIPE = ^TIFS_PIPE;
+  TIFS_PIPE = record
+    io_FileName: STRPTR;
+    io_Writer: PUnit;
+  end;  
+const
+  FSA_OPEN            =  1; // Returns a new filehandle. The file may be newly created (depending on io_FileMode) TIFS_OPEN
+  FAS_CLOSE           =  2; // Closes an opened filehandle. Takes no extra arguments. 
+  FSA_READ            =  3; // Reads from a filehandle into a buffer. TIFS_READ_WRITE
+  FSA_WRITE           =  4; // Writes the contents of a buffer into a filehandle. Uses TIFS_READ_WRITE.
+  FSA_SEEK            =  5; // This action does exactly the same as the function Seek(). TIFS_SEEK
+  FSA_SET_FILE_SIZE   =  6; // Sets the size of filehandle. Uses TIFS_SEEK (see above) as argument array.
+  FSA_WAIT_CHAR       =  7; // Waits for a character to arrive at the filehandle. (TIFS_WAIT_CHAR)
+  FSA_FILE_MODE       =  8; // Applies a new mode to a file.
+  FSA_IS_INTERACTIVE  =  9; // Query if a filehandle is interactive
+  FSA_SAME_LOCK       = 10; // Compares two locks for equality. 
+  FSA_EXAMINE         = 11; // Examines a filehandle, giving various information about it.
+  FSA_EXAMINE_NEXT    = 12; // Examine next file
+  FSA_EXAMINE_ALL     = 13; // Works exactly like FSA_EXAMINE on directories
+  FSA_EXAMINE_ALL_END = 14; { This has to be called if FSA_EXAMINE_ALL is stopped before all examined
+                              files were returned. It takes no arguments except the filehandle in io_Unit.}
+  FSA_OPEN_FILE       = 15; // Works exactly like FSA_OPEN but with special protection bits
+  FSA_CREATE_DIR      = 16; // Creates a new directory. The filehandle of that new directory is returned.
+  FSA_CREATE_HARDLINK = 17; // Creates a hard link (i.e. gives one file/directory a second name).
+  FSA_CREATE_SOFTLINK = 18; // Creates a soft link (i.e. a file is created that references another by its name).
+  FSA_RENAME          = 19; // Renames a file. To the old and the new name, the current directory is applied to.
+  FSA_READ_SOFTLINK   = 20; // Resolves the full path name of the file a softlink filehandle points to.
+  FSA_DELETE_OBJECT   = 21; // Deletes an object on the volume.
+  FSA_SET_COMMENT     = 22; // Sets a filecomment for a file.
+  FSA_SET_PROTECT     = 23; // Sets the ownership of a file.
+  FSA_SET_OWNER       = 24; // Sets the last modification date/time
+  FSA_SET_DATE        = 25; // Set file date
+  FSA_IS_FILESYSTEM   = 26; // Check if a filesystem is in fact a FILEsystem, i.e. can contain different files.
+  FSA_MORE_CACHE      = 27; // Changes the number of buffers for the filesystem.
+  FSA_FORMAT          = 28; // Formats a volume, i.e. erases all data on it.
+  FSA_MOUNT_MODE      = 29; // Resets/reads the mount-mode
+  //FSA_SERIALIZE_DISK = 30; // currently not supported
+  // FSA_FLUSH         = 31; // currently not supported
+  FSA_INHIBIT	        = 32;
+  //FSA_WRITE_PROTECT   = 33; // currently not supported
+  //FSA_DISK_CHANGE     = 34; // currently not supported
+  FSA_ADD_NOTIFY	    = 35;
+  FSA_REMOVE_NOTIFY   = 36;
+  FSA_DISK_INFO	      = 37;
+  FSA_CHANGE_SIGNAL   = 38;
+  FSA_LOCK_RECORD     = 39;
+  FSA_UNLOCK_RECORD   = 40;
+  FSA_PARENT_DIR      = 41;
+  FSA_PARENT_DIR_POST = 42;
+  FSA_CONSOLE_MODE    = 43; // Allows us to change a console between raw and cooked mode.
+  FSA_RELABEL         = 44;
+  FSA_PIPE            = 45; // create a pair of handles connected to each other 
+// io_ConsoleMode
+  FCM_COOKED = 0;
+  FCM_RAW    = 1 shl 0;
+  FCM_NOECHO = 1 shl 1;
+{ io_FileMode for FSA_OPEN, FSA_OPEN_FILE and FSA_FILE_MODE. These are flags
+   and may be OR'ed. Note that not all filesystems support all flags.}
+  FMF_LOCK     = 1 shl 0; // Lock exclusively.
+  FMF_EXECUTE  = 1 shl 1; // Open for executing.
+// At least one of the following two flags must be specified. Otherwise expect strange things to happen.
+  FMF_WRITE    = 1 shl 2; // Open for writing.
+  FMF_READ     = 1 shl 3; // Open for reading.
+  FMF_CREATE   = 1 shl 4; // Create file if it doesn't exist.
+  FMF_CLEAR    = 1 shl 5; // Truncate file on open.
+  FMF_RAW      = 1 shl 6; // Switch cooked to raw and vice versa.
+  FMF_NONBLOCK = 1 shl 7; // Don't block Open() in case it would and return an error in case Write()/Read()  would block
+  FMF_APPEND   = 1 shl 8; // Every write will happen always at the end of the file
+  FMF_AMIGADOS = (1 shl 9) or (1 shl 31); // Identifies the old AmigaDOS modes:
+					                                // - bit 9 is the first bit set in the MODE_#? modes
+					                                // - bit 31 is the first bit set in ACCESS_#? modes
+  FMF_MODE_OLDFILE   = FMF_AMIGADOS or FMF_WRITE or FMF_READ;
+  FMF_MODE_READWRITE = FMF_MODE_OLDFILE or FMF_CREATE;
+  FMF_MODE_NEWFILE   = FMF_MODE_READWRITE or FMF_LOCK or FMF_CLEAR;
+// io_MountMode for FSA_MOUNT_MODE. These are flags and may be OR'ed.
+  MMF_READ        = 1 shl 0; // Mounted for reading.
+  MMF_WRITE	      = 1 shl 1; // Mounted for writing.
+  MMF_READ_CACHE	= 1 shl 2; // Read cache enabled.
+  MMF_WRITE_CACHE = 1 shl 3; // Write cache enabled.
+  MMF_OFFLINE	    = 1 shl 4; // Filesystem currently does not use the device.
+  MMF_LOCKED	    = 1 shl 5; // Mount mode is password protected.
+{ This structure is an extended TIORequest. It is used for
+   requesting actions from AROS filesystem handlers.
+   Note that this structure may grow in the future. Do not depend on its size!
+   You may use sizeof(TIOFileSys) nevertheless if you are reserving
+   memory for a TIOFileSys as the size of it will never shrink.}
+type   
+  PIOFileSys = ^TIOFileSys;
+  TIOFileSys = record
+    IOFS: TIORequest; // Standard I/O request.
+    io_DosError: LongInt; // Dos error code.
+    io_PacketEmulation: PDosPacket; // Private
+    io_DirPos: IPTR; // Handler-private key to current directory position
+    //* This union contains all the data needed for the various actions. */
+    io_Union: record
+      case Smallint of
+        0: (io_OpenDevice : record
+            io_DeviceName: STRPTR; // Name of the device to open. */
+            io_Unit: IPTR;         // Number of unit to open. */
+            io_Environ: ^IPTR;     // Pointer to environment array.
+            io_DosName: STRPTR;    // The name with which the
+                                   //    filesystem is being mounted
+                                   //    (the mount point, one might
+                                   //    say) 
+            io_DeviceNode: PDeviceNode; // The DOS entry for this
+                                        // filesystem. Packet-based
+                                        // filesystems expect to receive
+                                        // this along with the
+                                        // startup message
+            end;                                     
+        );
+        1: (io_NamedFile: record
+          io_Filename: STRPTR;
+          end;
+         );
+        2: (
+          io_OPEN: TIFS_OPEN;                       // FSA_OPEN
+          io_READ_WRITE: TIFS_READ_WRITE;           // FSA_READ, FSA_WRITE
+          io_SEEK: TIFS_SEEK;                       // FSA_SEEK
+          io_WAIT_CHAR: TIFS_WAIT_CHAR;             // FSA_WAIT_CHAR
+          io_FILE_MODE: TIFS_FILE_MODE;             // FSA_FILE_MODE */
+          io_IS_INTERACTIVE: TIFS_IS_INTERACTIVE;   // FSA_IS_INTERACTIVE */
+          io_SAME_LOCK: TIFS_SAME_LOCK;             // FSA_SAME_LOCK */
+          io_EXAMINE: TIFS_EXAMINE;                 // FSA_EXAMINE */
+          io_EXAMINE_ALL: TIFS_EXAMINE_ALL;         // FSA_EXAMINE_ALL */
+          io_EXAMINE_NEXT: TIFS_EXAMINE_NEXT;       // FSA_EXAMINE_NEXT */
+          io_OPEN_FILE: TIFS_OPEN_FILE;             // FSA_OPEN_FILE */
+          io_CREATE_DIR: TIFS_CREATE_DIR;           // FSA_CREATE_DIR */
+          io_CREATE_HARDLINK: TIFS_CREATE_HARDLINK; // FSA_CREATE_HARDLINK */
+          io_CREATE_SOFTLINK: TIFS_CREATE_SOFTLINK; // FSA_CREATE_SOFTLINK */
+          io_RENAME: TIFS_RENAME;                   // FSA_RENAME */
+          io_READ_SOFTLINK: TIFS_READ_SOFTLINK;     // FSA_READ_SOFTLINK */
+          io_DELETE_OBJECT: TIFS_DELETE_OBJECT;     // FSA_DELETE_OBJECT */
+          io_SET_COMMENT: TIFS_SET_COMMENT;         // FSA_SET_COMMENT */
+          io_SET_PROTECT: TIFS_SET_PROTECT;         // FSA_SET_PROTECT */
+          io_SET_OWNER: TIFS_SET_OWNER;             // FSA_SET_OWNER */
+          io_SET_DATE: TIFS_SET_DATE;               // FSA_SET_DATE */
+          io_IS_FILESYSTEM: TIFS_IS_FILESYSTEM;     // FSA_IS_FILESYSTEM */
+          io_MORE_CACHE: TIFS_MORE_CACHE;           // FSA_MORE_CACHE */
+          io_FORMAT: TIFS_FORMAT;                   // FSA_FORMAT */
+          io_MOUNT_MODE: TIFS_MOUNT_MODE;           // FSA_MOUNT_MODE */
+	        io_INHIBIT: TIFS_INHIBIT;                 // FSA_INHIBIT */
+          io_PARENT_DIR: TIFS_PARENT_DIR;           // FSA_PARENT_DIR */
+	      	io_CONSOLE_MODE: TIFS_CONSOLE_MODE;       // FSA_CONSOLE_MODE */
+	        io_RELABEL: TIFS_RELABEL;                 // FSA_RELABEL */
+	        io_NOTIFY: TIFS_NOTIFY;                   // FSA_ADD_NOTIFY
+ 	        io_INFO: TIFS_INFO;                       // FSA_INFO
+	        io_RECORD: TIFS_RECORD;                   // FSA_LOCK_RECORD
+	        io_CHANGE_SIGNAL: TIFS_CHANGE_SIGNAL;     // FSA_CHANGE_SIGNAL
+          io_PIPE: TIFS_PIPE;                       // FSA_PIPE
+    );
+    end;
+end;  
+
+const
+  ERROR_BROKEN_PIPE = 400;  // An attempt to write on a pipe without any reader has been made
+  ERROR_WOULD_BLOCK = 401;  // A Read() or a Write() on a file opened with the FMF_NONBLOCK flag would block
+  ERROR_INTERRUPTED = 402;  // The I/O file operation has been interrupted for some reason  
+{$endif}
+
+
+
+procedure AbortPkt(Port: PMsgPort; Pkt: PDosPacket); // 44
+function AddBuffers(const DeviceName: STRPTR; NumbBuffers: LongInt): LongBool; // 122
+function AddDosEntry(DList: PDosList): LongInt; // 113
+function AddPart(DirName: STRPTR; const FileName: STRPTR; Size: LongWord): LongBool; // 147
+function AddSegment(const Name: STRPTR; Seg: BPTR; Type_: LongInt): LongBool; // 129
+function AllocDosObject(Type_: LongWord; const Tags: PTagItem): APTR; // 38
+  //function AllocDosObjectTagList(Type_ : LongWord;const Tags : PTagItem) : Pointer;
+function AssignAdd(const Name: STRPTR; Lock: BPTR): LongBool; // 105
+function AssignLate(const Name: STRPTR; const Path: STRPTR): LongBool; // 103
+function AssignLock(const Name: STRPTR; Lock: BPTR): LongInt; // 102
+function AssignPath(const Name: STRPTR; const Path: STRPTR): LongBool; // 104
+function AttemptLockDosList(Flags: LongWord): PDosList; // 111
+function ChangeMode(Type_: LongWord; Object_: BPTR; NewMode: LongWord): LongBool; // 75
+function CheckSignal(Mask: LongInt): LongInt; // 132
+function Cli: PCommandLineInterface; // 82
+function CliInitNewcli(Dp: PDosPacket): IPTR; // 155
+function CliInitRun(Dp: PDosPacket): IPTR; // 156
+function CompareDates(const Date1: PDateStamp; const Date2: PDateStamp): LongInt; // 123
+function CreateDir(const Name: STRPTR): BPTR; // 20
+function CreateNewProc(const Tags: PTagItem): PProcess; // 83
+  //function CreateNewProcTagList(const Tags : PTagItem) : pProcess;
+function CreateProc(const Name: STRPTR; Pri: LongInt; SegList: BPTR; StackSize: LongInt): PMsgPort; // 23
+function CurrentDir(Lock: BPTR): BPTR; // 21
+function DateStamp(Date: PDateStamp): PDateStamp; // 32
+function DateToStr(Datetime: PDateTime): LongBool; // 124
+function DeleteFile(const Name: STRPTR): LongBool;
+function DeleteVar(const Name: STRPTR; Flags: LongWord): LongInt; // 152
+function DeviceProc(const Name: STRPTR): PMsgPort; // 29
+function DisplayError(FormstStr: STRPTR; Flags: LongWord; Args: APTR): LongInt; // 81
+function DoPkt(Port: PMsgPort; Action: LongInt; Arg1, Arg2, Arg3, Arg4, Arg5: LongInt): LongInt; // 40
+function DOSClose(File_: BPTR): LongBool; // 6
+procedure DOSDelay(TimeOut: LongWord); // 33
+procedure DOSExit(ReturnCode: LongInt); // 24
+function DosError(): BPTR; // 142
+function DOSFlush(File_: BPTR): LongInt; // 60
+function DosGetLocalizedString(StringNum: LongInt): STRPTR; // 154
+function DosGetString(StringNum: LongInt): STRPTR; // 163
+function DOSInput: BPTR; // 9
+function DOSOpen(const Name: STRPTR; AccessMode: LongInt): BPTR; // 5
+function DOSOutput : BPTR; // 10
+function DOSRead(File_: BPTR; Buffer: APTR; Length: LongInt): LongInt; // 7
+function DOSRename(const OldName: STRPTR; const NewName: STRPTR): LongInt; // 13
+function DOSSeek(File_: BPTR; Position: LongInt; Mode: LongInt): LongInt; // 11
+function DOSWrite(File_: BPTR; Buffer: APTR; Length: LongInt): LongInt;  // 8
+function DupLock(Lock: BPTR): BPTR; // 16
+function DupLockFromFH(Lock: BPTR): BPTR; // 62
+procedure EndNotify(Notify: PNotifyRequest); // 149 
+function ErrorReport(Code: LongInt; Type_: LongInt; Arg1: IPTR; Device: PMsgPort): LongBool; // 80
+function ExAll(Lock: BPTR; Buffer: PExAllData; Size: LongInt; Data: LongInt; Control: PExAllControl): LongBool; // 72
+procedure ExAllEnd(Lock: BPTR; Buffer: PExAllData; Size: LongInt; Data: LongInt; Control: PExAllControl); // 165
+function Examine(Lock: BPTR; FileInfoBlock: PFileInfoBlock): LongInt; // 17
+function ExamineFH(Fh: BPTR; Fib: PFileInfoBlock): LongBool; // 65
+function Execute(const String_: STRPTR; Input: BPTR; Output: BPTR): LongInt; // 37
+function ExNext(Lock: BPTR; FileInfoBlock: PFileInfoBlock): LongInt; // 18
+function Fault(Code: LongInt; Header: STRPTR; Buffer: STRPTR; Len: LongInt): LongBool; // 78
+function FGetC(File_: BPTR): LongInt; // 51
+function FGets(Fh: BPTR; Buf: STRPTR; BufLen: LongWord): STRPTR; // 56
+function FilePart(const Path: STRPTR): STRPTR; // 145
+function FindArg(const Template: STRPTR; const KeyWord: STRPTR): LongInt; // 134
+function FindCliProc(Num: LongWord): PProcess; // 91
+function FindDosEntry(const DList: PDosList; const Name: STRPTR; Flags: LongWord): PDosList; // 114
+function FindSegment(const Name: STRPTR; const Seg: PSegment; System: LongBool): PSegment; // 130
+function FindVar(const Name: STRPTR; Type_: LongWord): PLocalVar; // 153
+function DosFormat(const DeviceName: STRPTR; const VolumeName: STRPTR; DosType: LongWord): LongBool; // 119
+function FPutC(File_: BPTR; Character: LongInt): LongInt; // 52
+function FPuts(File_: BPTR; const String_: STRPTR): LongInt; // 57
+function FRead(Fh: BPTR; Block: APTR; Blocklen: LongWord; Number: LongWord): LongInt; // 54
+procedure FreeArgs(Args: PRDArgs); // 143
+procedure FreeDeviceProc(Dp: PDevProc); // 108
+procedure FreeDosEntry(DList: PDosList); // 117
+procedure FreeDosObject(Type_: LongWord; Ptr: APTR); // 39
+function FWrite(Fh: BPTR; Block: APTR; Blocklen: LongWord; NumBlocks: LongWord): LongInt; // 55
+function GetArgStr: STRPTR; // 89
+function GetConsoleTask: PMsgPort; // 85
+function GetCurrentDirName(Buf: STRPTR; Len: LongInt): LongBool; // 94
+function GetDeviceProc(const Name: STRPTR; Dp: PDevProc): PDevProc; // 107
+function GetFileSysTask: PMsgPort; // 87
+function GetProgramDir: BPTR; // 100
+function GetProgramName(Buf: STRPTR; Len: LongInt): LongBool; // 96
+function GetPrompt(Buf: STRPTR; Len: LongInt): LongBool; // 98
+function GetVar(const Name: STRPTR; Buffer: STRPTR; Size: LongInt; Flags: LongInt): LongInt; // 151
+function Info(Lock: BPTR; ParameterBlock: PInfoData): LongInt; // 19
+function Inhibit(const Name: STRPTR; OnOff: LongInt): LongInt; // 121
+function InternalLoadSeg(Fh: BPTR; Table: BPTR; const FuncArray: PLongInt; var Stack: LongInt): BPTR; // 126
+function InternalUnLoadSeg(SegList: BPTR; FreeFunc: TProcedure): LongBool; // 127
+function IoErr: LongInt; // 22
+function IsFileSystem(const Name: STRPTR): LongBool; //118
+function IsInteractive(File_: BPTR): LongInt; // 36
+function LoadSeg(const Name: STRPTR): BPTR; // 25
+function Lock(const Name: STRPTR; AccessMode: LongInt): BPTR; // 14
+function LockDosList(Flags: LongWord): PDosList; // 109
+function LockRecord(Fh: BPTR; Offset: LongWord; Length: LongWord; Mode: LongWord; Timeout: LongWord): LongBool; // 45
+function LockRecords(RecArray: PRecordLock; TimeOut: LongWord): LongBool;
+function MakeDosEntry(const Name: STRPTR; Type_: LongInt): PDosList; // 116
+function MakeLink(const Name: STRPTR; Dest: APTR; Soft: LongInt): LongInt; // 74
+procedure MatchEnd(AP: PAnchorPath); // 139
+function MatchFirst(const Pat: STRPTR; AP: PAnchorPath): LongInt; // 137
+function MatchNext(AP: PAnchorPath): LongInt; // 138
+function MatchPattern(const Pat: STRPTR; Str: STRPTR): LongBool; // 141
+function MatchPatternNoCase(const Pat: STRPTR; Str: STRPTR): LongBool; // 162
+function MaxCli: LongWord; // 92
+function NameFromFH(Fh: BPTR; Buffer: STRPTR; Length: LongInt): LongBool; // 68
+function NameFromLock(Lock: BPTR; Buffer: STRPTR; Length: LongInt): LongBool; // 67
+function NewLoadSeg(const File_: STRPTR; const Tags: PTagItem): BPTR; // 128
+  //function NewLoadSegTagList(const file_ : PChar;const Tags : PTagItem) : LongInt;
+function NextDosEntry(const DList: PDosList; Flags: LongWord): PDosList; // 115
+function OpenFromLock(Lock: BPTR): BPTR; // 62
+function ParentDir(Lock: BPTR): BPTR; // 35
+function ParentOfFH(Fh: BPTR): BPTR; // 64
+function ParsePattern(const Source: STRPTR; Dest: STRPTR; DestLength: LongInt): LongInt; // 140
+function ParsePatternNoCase(const Source: STRPTR; Dest: STRPTR; DestLen: LongInt): LongInt; // 161
+function PathPart(const Path: STRPTR): STRPTR;
+function Pipe(const Name: STRPTR; var Reader: BPTR; var Writer: BPTR): LongInt; // 160 
+function PrintFault(Code: LongInt; const Header: STRPTR): LongBool; // 79
+function PutStr(const String_: STRPTR): LongInt; // 158
+function ReadArgs(const Template: STRPTR; var Array_: IPTR; RdArgs: PRDArgs): PRDArgs; // 133
+function ReadItem(const Buffer: STRPTR; MaxChars: LongInt; CSource: PCSource): LongInt; // 135
+function ReadLink(Port: PMsgPort; Lock: LongInt; const Path: STRPTR; Buffer: STRPTR; Size: LongWord): LongInt; // 73
+function Relabel(const Drive: STRPTR; const NewName: STRPTR): LongInt; // 120
+function RemAssignList(const Name: STRPTR; Lock: BPTR): LongInt; // 106
+function RemDosEntry(DList: PDosList): LongInt; // 112
+function RemSegment(Seg: PSegment): LongInt; // 131
+procedure ReplyPkt(Dp: PDosPacket; Res1: LongInt; Res2: LongInt); // 43
+function RunCommand(SegList: BPTR; StackSize: LongWord; const ArgPtr: STRPTR; ArgSize: LongWord): LongInt; // 84
+function RunHandler(DevNode: PDeviceNode; Path: PChar): PMsgPort; // 27
+function SameDevice(Lock1: BPTR; Lock2: BPTR): LongBool; // 164
+function SameLock(Lock1: BPTR; Lock2: BPTR): LongInt; // 70
+function ScanVars(Hook: PHook; Flags: LongWord; UserData: APTR): LongInt;
+function SelectError(Fh: BPTR): BPTR; // 144
+function SelectInput(Fh: BPTR): BPTR; // 49
+function SelectOutput(Fh: BPTR): BPTR; // 50
+procedure SendPkt(Dp: PDosPacket; Port: PMsgPort; ReplyPort: PMsgPort);
+function SetArgStr(const String_: STRPTR): STRPTR; // 90
+function SetComment(const Name: STRPTR; const Comment: STRPTR): LongInt; // 30
+function SetConsoleTask(const Handler: PMsgPort): PMsgPort; // 86
+function SetCurrentDirName(const Name: STRPTR): LongBool; // 93
+function SetFileDate(const Name: STRPTR; Date: PDateStamp): LongBool; // 66
+function SetFileSize(File_: BPTR; Offset: LongInt; Mode: LongInt): LongInt; // 76
+function SetFileSysTask(const Task: PMsgPort): PMsgPort; // 88
+function SetIoErr(Result_: LongInt): LongInt; // 77
+function SetMode(Fh: BPTR; Mode: LongInt): LongBool; // 72
+function SetOwner(const Name: STRPTR; Owner_Info: LongWord): LongBool; // 166
+function SetProgramDir(Lock: BPTR): BPTR; // 99
+function SetProgramName(const Name: STRPTR): LongBool; // 95
+function SetPrompt(const Name: STRPTR): LongBool; // 97
+function SetProtection(const Name: STRPTR; Protect: LongWord): LongInt; // 31
+function SetVar(const Name: STRPTR; Buffer: PChar; Size: LongInt; Flags: LongInt): LongBool;
+function SetVBuf(File_: BPTR; Buff: STRPTR; Type_: LongInt; Size: LongInt): LongInt; // 61
+function SplitName(const Name: STRPTR; Seperator: LongWord; Buf: STRPTR; OldPos: LongInt; Size: LongInt): LongInt; // 69
+function StartNotify(Notify: PNotifyRequest): LongBool; // 148
+function StrToDate(DateTime: PDateTime): LongBool; // 125
+function StrToLong(const String_: STRPTR; var Value: LongInt): LongInt; // 136
+function SystemTagList(const Command: STRPTR; const Tags: PTagItem): LongInt; // 101
+  //function DOSSystem(const command : PChar;const Tags : PTagItem) : LongInt; //* Real: SystemTagList ???
+function UnGetC(File_: BPTR; Character: LongInt): LongInt; // 53
+procedure UnLoadSeg(Seglist: BPTR); // 25
+function UnLock(Lock: BPTR): LongBool; // 26
+procedure UnLockDosList(Flags: LongWord); // 110
+function UnLockRecord(Fh: BPTR; Offset: LongWord; Length: LongWord): LongBool; // 47
+function UnLockRecords(RecArray: PRecordLock): LongBool; // 48
+function VFPrintf(Fh: BPTR; const format: STRPTR; const ArgArray: PLongInt): LongInt; // 59
+function VFWritef(Fh: BPTR; const Fmt: STRPTR; const ArgArray: PLongInt): LongInt; // 58
+function VPrintf(const Format: STRPTR; var ArgArray: IPTR): LongInt; // 159
+function WaitForChar(File_: BPTR; TimeOut: LongInt): LongInt; // 34
+function WaitPkt: PDosPacket;
+function WriteChars(const Buf: STRPTR; BufLen: LongWord): LongInt; // 157
+
+function ReadChar(): LongInt;
+function WriteChar(c: LongInt): LongInt;
+function UnReadChar(c: LongInt): LongInt;
+
+// Special functions for var args
+function AllocDosObjectTags(const Type_: LongWord; const Tags: array of const): APTR;
+function CreateNewProcTags(const Tags: array of const): PProcess;
+function NewLoadSegTags(const File_: STRPTR; const Tags: array of const): BPTR;
+function SystemTags(const Command: STRPTR; const Tags: array of const): LongInt;
+
+const
+  BNULL = nil;
+
+function MKBADDR(a: APTR): BPTR;
+function BADDR(a: BPTR): APTR;
+
+implementation
+
+uses
+  pastoc, tagsarray;
+  
+  
+function AllocDosObjectTags(const Type_: LongWord; const Tags: array of const): APTR;
+var
+  TagList: TTagsList;
+begin
+  AddTags(TagList, Tags);
+  AllocDosObjectTags := AllocDosObject(Type_, GetTagPtr(TagList));
+end;  
+
+function CreateNewProcTags(const Tags: array of const): PProcess;
+var
+  TagList: TTagsList;
+begin
+  AddTags(TagList, Tags);
+  CreateNewProcTags := CreateNewProc(GetTagPtr(TagList));
+end; 
+
+function NewLoadSegTags(const File_: STRPTR; const Tags: array of const): BPTR;
+var
+  TagList: TTagsList;
+begin
+  AddTags(TagList, Tags);
+  NewLoadSegTags := NewLoadSeg(File_, GetTagPtr(TagList));
+end;
+
+function SystemTags(const Command: STRPTR; const Tags: array of const): LongInt;
+var
+  TagList: TTagsList;
+begin
+  AddTags(TagList, Tags);
+  SystemTags := SystemTagList(Command, GetTagPtr(TagList));
+end;
+
+function MKBADDR(a: APTR): BPTR; inline;
+begin
+  {$ifdef AROS_FAST_BPTR}
+  MKBADDR := a;
+  {$else}
+  MKBADDR := APTR((IPTR(a)) shr 2);
+  {$endif}  
+end;
+
+function BADDR(a: BPTR): APTR; inline;
+begin 
+  {$ifdef AROS_FAST_BPTR}
+  BADDR := a;
+  {$else}
+  BADDR := BPTR((IPTR(a)) shl 2);
+  {$endif}
+end;
+
+function ReadChar(): LongInt;
+begin
+  ReadChar := FGetC(DosInput());
+end;
+
+function WriteChar(c: LongInt): LongInt;
+begin
+  WriteChar := FPutC(DosOutput(), c);
+end;
+
+function UnReadChar(c: LongInt): LongInt;
+begin
+  UnReadChar := UnGetC(DosInput(),c);
+end;  
+
+// Library Functions:
+
+procedure AbortPkt(Port: PMsgPort; Pkt: PDosPacket);
+type
+  TLocalCall = procedure(Port: PMsgPort; Pkt: PDosPacket; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,44));
-  Call( Port, Pkt, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 44));
+  Call(Port, Pkt, AOS_DOSBase);
+end;
 
 
-function AddBuffers(const Name : PChar;  Number : LongInt):Boolean;
+function AddBuffers(const DeviceName: STRPTR; NumbBuffers: LongInt): LongBool;
 type
-  TLocalCall = function(const Name : PChar;  Number : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const DeviceName: STRPTR; NumbBuffers: LongInt; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,122));
-  AddBuffers:= Call( Name, Number, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 122));
+  AddBuffers := Call(DeviceName, NumbBuffers, AOS_DOSBase);
+end;
 
 
-function AddDosEntry(DList : PDosList):Boolean;
+function AddDosEntry(DList: PDosList): LongInt;
 type
-  TLocalCall = function(DList : PDosList; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(DList: PDosList; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,113));
-  AddDosEntry:= Call( DList, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 113));
+  AddDosEntry := Call(DList, AOS_DOSBase);
+end;
 
 
-function AddPart(dirname : PChar; const filename : PChar;  size : LongWord):Boolean;
+function AddPart(DirName: STRPTR; const FileName: STRPTR; Size: LongWord): LongBool;
 type
-  TLocalCall = function(dirname : PChar; const filename : PChar;  size : LongWord; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(DirName: STRPTR; const FileName: STRPTR; Size: LongWord; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,147));
-  AddPart:= Call( dirname, filename, size, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 147));
+  AddPart := Call(DirName, FileName, Size, AOS_DOSBase);
+end;
 
 
-function AddSegment(const Name : PChar;  seg : LongInt;  system : LongInt):Boolean;
+function AddSegment(const Name: STRPTR; Seg: BPTR; Type_: LongInt): LongBool;
 type
-  TLocalCall = function(const Name : PChar;  seg : LongInt;  system : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Seg: BPTR; Type_: LongInt; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,129));
-  AddSegment:= Call( Name, seg, system, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 129));
+  AddSegment := Call(Name, Seg, Type_, AOS_DOSBase);
+end;
 
 
-function AllocDosObject(Type_ : LongWord; const Tags : PTagItem):Pointer;
+function AllocDosObject(Type_: LongWord; const Tags: PTagItem): APTR;
 type
-  TLocalCall = function(Type_ : LongWord; const Tags : PTagItem; LibBase: Pointer):Pointer; cdecl;
+  TLocalCall = function(Type_: LongWord; const Tags: PTagItem; LibBase: Pointer): APTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,38));
-  AllocDosObject:= Call( Type_, Tags, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 38));
+  AllocDosObject := Call(Type_, Tags, AOS_DOSBase);
+end;
 
 {
 function AllocDosObjectTagList(Type_ : LongWord; const Tags : PTagItem):Pointer;
@@ -1903,150 +2268,150 @@ Var
 Begin
   Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
   AllocDosObjectTagList:= Call( Type_, Tags, AOS_DOSBase);
-End;
+end;
 }
 
-function AssignAdd(const Name : PChar;  Lock : LongInt):Boolean;
+function AssignAdd(const Name: STRPTR; Lock: BPTR): LongBool;
 type
-  TLocalCall = function(const Name : PChar;  Lock : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Lock: BPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,105));
-  AssignAdd:= Call( Name, Lock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 105));
+  AssignAdd := Call(Name, Lock, AOS_DOSBase);
+end;
 
 
-function AssignLate(const Name : PChar; const Path : PChar):Boolean;
+function AssignLate(const Name: STRPTR; const Path: STRPTR): LongBool;
 type
-  TLocalCall = function(const Name : PChar; const Path : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; const Path: STRPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,103));
-  AssignLate:= Call( Name, Path, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 103));
+  AssignLate := Call(Name, Path, AOS_DOSBase);
+end;
 
 
-function AssignLock(const Name : PChar;  Lock : LongInt):Boolean;
+function AssignLock(const Name: STRPTR; Lock: BPTR): LongInt;
 type
-  TLocalCall = function(const Name : PChar;  Lock : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Lock: BPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,102));
-  AssignLock:= Call( Name, Lock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 102));
+  AssignLock := Call(Name, Lock, AOS_DOSBase);
+end;
 
 
-function AssignPath(const Name : PChar; const Path : PChar):Boolean;
+function AssignPath(const Name: STRPTR; const Path: STRPTR): LongBool;
 type
-  TLocalCall = function(const Name : PChar; const Path : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; const Path: STRPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,104));
-  AssignPath:= Call( Name, Path, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 104));
+  AssignPath := Call(Name, Path, AOS_DOSBase);
+end;
 
 
-function AttemptLockDosList(Flags : LongWord):PDosList;
+function AttemptLockDosList(Flags: LongWord): PDosList;
 type
-  TLocalCall = function(Flags : LongWord; LibBase: Pointer):PDosList; cdecl;
+  TLocalCall = function(Flags: LongWord; LibBase: Pointer): PDosList; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,111));
-  AttemptLockDosList:= Call( Flags, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 111));
+  AttemptLockDosList := Call(Flags, AOS_DOSBase);
+end;
 
 
-function ChangeMode(Type_ : LongInt;  fh : LongInt;  NewMode : LongInt):Boolean;
+function ChangeMode(Type_: LongWord; Object_: BPTR; NewMode: LongWord): LongBool;
 type
-  TLocalCall = function(Type_ : LongInt;  fh : LongInt;  NewMode : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Type_: LongWord; Object_: BPTR; NewMode: LongWord; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,75));
-  ChangeMode:= Call( Type_, fh, NewMode, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 75));
+  ChangeMode := Call(Type_, Object_, NewMode, AOS_DOSBase);
+end;
 
 
-function CheckSignal(Mask : LongInt):LongInt;
+function CheckSignal(Mask: LongInt): LongInt;
 type
-  TLocalCall = function(Mask : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Mask: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,132));
-  CheckSignal:= Call( Mask, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 132));
+  CheckSignal := Call(Mask, AOS_DOSBase);
+end;
 
 
 function Cli():PCommandLineInterface;
 type
-  TLocalCall = function(LibBase: Pointer):PCommandLineInterface; cdecl;
+  TLocalCall = function(LibBase: Pointer): PCommandLineInterface; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,82));
-  Cli:= Call(AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 82));
+  Cli := Call(AOS_DOSBase);
+end;
 
 
-function CliInitNewcli(dp : PDosPacket):LongInt;
+function CliInitNewcli(Dp: PDosPacket): IPTR;
 type
-  TLocalCall = function(dp : PDosPacket; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Dp: PDosPacket; LibBase: Pointer): IPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,155));
-  CliInitNewcli:= Call( dp, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 155));
+  CliInitNewcli := Call(Dp, AOS_DOSBase);
+end;
 
 
-function CliInitRun(dp : PDosPacket):LongInt;
+function CliInitRun(Dp: PDosPacket): IPTR;
 type
-  TLocalCall = function(dp : PDosPacket; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Dp: PDosPacket; LibBase: Pointer): IPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,156));
-  CliInitRun:= Call( dp, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 156));
+  CliInitRun := Call(Dp, AOS_DOSBase);
+end;
 
 
-function CompareDates(const date1 : pDateStamp; const date2 : pDateStamp):LongInt;
+function CompareDates(const Date1: PDateStamp; const Date2: PDateStamp): LongInt;
 type
-  TLocalCall = function(const date1 : pDateStamp; const date2 : pDateStamp; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Date1: PDateStamp; const Date2: PDateStamp; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,123));
-  CompareDates:= Call( date1, date2, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 123));
+  CompareDates := Call(Date1, Date2, AOS_DOSBase);
+end;
 
 
-function CreateDir(const Name : PChar):LongInt;
+function CreateDir(const Name: STRPTR): BPTR;
 type
-  TLocalCall = function(const Name : PChar; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Name: STRPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,20));
-  CreateDir:= Call( Name, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 20));
+  CreateDir := Call(Name, AOS_DOSBase);
+end;
 
 
-function CreateNewProc(const Tags : PTagItem):pProcess;
+function CreateNewProc(const Tags: PTagItem): PProcess;
 type
-  TLocalCall = function(const Tags : PTagItem; LibBase: Pointer):pProcess; cdecl;
+  TLocalCall = function(const Tags: PTagItem; LibBase: Pointer): PProcess; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,83));
-  CreateNewProc:= Call( Tags, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 83));
+  CreateNewProc := Call(Tags, AOS_DOSBase);
+end;
 
 {
 function CreateNewProcTagList(const Tags : PTagItem):pProcess;
@@ -2057,2067 +2422,1556 @@ Var
 Begin
   Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
   CreateNewProcTagList:= Call( Tags, AOS_DOSBase);
-End;
+end;
 }
 
-function CreateProc(const Name : PChar;  pri : LongInt;  segList : LongInt;  stackSize : LongInt):PMsgPort;
+function CreateProc(const Name: STRPTR; Pri: LongInt; SegList: BPTR; StackSize: LongInt): PMsgPort;
 type
-  TLocalCall = function(const Name : PChar;  pri : LongInt;  segList : LongInt;  stackSize : LongInt; LibBase: Pointer):PMsgPort; cdecl;
+  TLocalCall = function(const Name: STRPTR; Pri: LongInt; SegList: BPTR; StackSize: LongInt; LibBase: Pointer): PMsgPort; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,23));
-  CreateProc:= Call( Name, pri, segList, stackSize, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 23));
+  CreateProc := Call(Name, Pri, SegList, StackSize, AOS_DOSBase);
+end;
 
 
-function CurrentDir(Lock : LongInt):LongInt;
+function CurrentDir(Lock: BPTR):BPTR;
 type
-  TLocalCall = function(Lock : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Lock: BPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,21));
-  CurrentDir:= Call( Lock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 21));
+  CurrentDir := Call(Lock, AOS_DOSBase);
+end;
 
 
-procedure DateStamp(date : pDateStamp);
+function DateStamp(Date: PDateStamp): PDateStamp;
 type
-  TLocalCall = procedure(date : pDateStamp; LibBase: Pointer); cdecl;
+  TLocalCall = function(Date: PDateStamp; LibBase: Pointer): PDateStamp; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,32));
-  Call( date, AOS_DOSBase);
-End;
+  Call:=TLocalCall(GetLibAdress(AOS_DOSBase, 32));
+  DateStamp := Call(Date, AOS_DOSBase);
+end;
 
 
-function DateToStr(datetime : PDateTime):Boolean;
+function DateToStr(Datetime: PDateTime): LongBool;
 type
-  TLocalCall = function(datetime : PDateTime; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Datetime: PDateTime; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,124));
-  DateToStr:= Call( datetime, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 124));
+  DateToStr := Call(DateTime, AOS_DOSBase);
+end;
 
 
-function DeleteFile(const Name : PChar):Boolean;
+function DeleteFile(const Name: STRPTR): LongBool;
 type
-  TLocalCall = function(const Name : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,12));
-  DeleteFile:= Call( Name, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 12));
+  DeleteFile := Call(Name, AOS_DOSBase);
+end;
 
 
-function DeleteVar(const Name : PChar;  Flags : LongWord):Boolean;
+function DeleteVar(const Name: STRPTR; Flags: LongWord): LongInt;
 type
-  TLocalCall = function(const Name : PChar;  Flags : LongWord; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Flags: LongWord; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,152));
-  DeleteVar:= Call( Name, Flags, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 152));
+  DeleteVar := Call(Name, Flags, AOS_DOSBase);
+end;
 
-
-function DeviceProc(const Name : PChar):PMsgPort;
+function DeviceProc(const Name: STRPTR): PMsgPort;
 type
-  TLocalCall = function(const Name : PChar; LibBase: Pointer):PMsgPort; cdecl;
+  TLocalCall = function(const Name: STRPTR; LibBase: Pointer): PMsgPort; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,29));
-  DeviceProc:= Call( Name, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 29));
+  DeviceProc := Call(Name, AOS_DOSBase);
+end;
 
-
-function DoPkt(Port : PMsgPort;  action : LongInt;  arg1 : LongInt;  arg2 : LongInt;  arg3 : LongInt;  arg4 : LongInt;  arg5 : LongInt):LongInt;
+function DisplayError(FormstStr: STRPTR; Flags: LongWord; Args: APTR): LongInt;
 type
-  TLocalCall = function(Port : PMsgPort;  action : LongInt;  arg1 : LongInt;  arg2 : LongInt;  arg3 : LongInt;  arg4 : LongInt;  arg5 : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(FormstStr: STRPTR; Flags: LongWord; Args: APTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,40));
-  DoPkt:= Call( Port, action, arg1, arg2, arg3, arg4, arg5, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 81));
+  DisplayError := Call(FormstStr, Flags, Args, AOS_DOSBase);
+end;
 
-{
-function DoPkt0(Port : PMsgPort;  action : LongInt):LongInt;
+function DoPkt(Port: PMsgPort; Action: LongInt; Arg1, Arg2, Arg3, Arg4, Arg5: LongInt): LongInt;
 type
-  TLocalCall = function(Port : PMsgPort;  action : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Port: PMsgPort; Action: LongInt; Arg1, Arg2, Arg3, Arg4, Arg5: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
-  DoPkt0:= Call( Port, action, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 40));
+  DoPkt := Call(Port, Action, Arg1, Arg2, Arg3, Arg4, Arg5, AOS_DOSBase);
+end;
 
-
-function DoPkt1(Port : PMsgPort;  action : LongInt;  arg1 : LongInt):LongInt;
+function DOSClose(File_: BPTR): LongBool;
 type
-  TLocalCall = function(Port : PMsgPort;  action : LongInt;  arg1 : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(File_: BPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
-  DoPkt1:= Call( Port, action, arg1, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 6));
+  DOSClose := Call(File_, AOS_DOSBase);
+end;
 
-
-function DoPkt2(Port : PMsgPort;  action : LongInt;  arg1 : LongInt;  arg2 : LongInt):LongInt;
+procedure DOSDelay(TimeOut: LongWord);
 type
-  TLocalCall = function(Port : PMsgPort;  action : LongInt;  arg1 : LongInt;  arg2 : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = procedure(TimeOut: LongWord; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
-  DoPkt2:= Call( Port, action, arg1, arg2, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 33));
+  Call(TimeOut, AOS_DOSBase);
+end;
 
 
-function DoPkt3(Port : PMsgPort;  action : LongInt;  arg1 : LongInt;  arg2 : LongInt;  arg3 : LongInt):LongInt;
+procedure DOSExit(ReturnCode: LongInt);
 type
-  TLocalCall = function(Port : PMsgPort;  action : LongInt;  arg1 : LongInt;  arg2 : LongInt;  arg3 : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = procedure(ReturnCode: LongInt; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
-  DoPkt3:= Call( Port, action, arg1, arg2, arg3, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 24));
+  Call(ReturnCode, AOS_DOSBase);
+end;
 
-
-function DoPkt4(Port : PMsgPort;  action : LongInt;  arg1 : LongInt;  arg2 : LongInt;  arg3 : LongInt;  arg4 : LongInt):LongInt;
+function DosError(): BPTR;
 type
-  TLocalCall = function(Port : PMsgPort;  action : LongInt;  arg1 : LongInt;  arg2 : LongInt;  arg3 : LongInt;  arg4 : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
-  DoPkt4:= Call( Port, action, arg1, arg2, arg3, arg4, AOS_DOSBase);
-End;
-}
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 142));
+  DosError := Call(AOS_DOSBase);
+end;
 
-procedure DOSClose(file_ : LongInt);
+function DOSFlush(File_: BPTR): LongInt;
 type
-  TLocalCall = procedure(file_ : LongInt; LibBase: Pointer); cdecl;
+  TLocalCall = function(File_: BPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,15));
-  Call( file_, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 60));
+  DOSFlush := Call(File_, AOS_DOSBase);
+end;
 
-
-procedure DOSDelay(timeout : LongInt);
+function DosGetLocalizedString(StringNum: LongInt): STRPTR;
 type
-  TLocalCall = procedure(timeout : LongInt; LibBase: Pointer); cdecl;
+  TLocalCall = function(StringNum: LongInt; LibBase: Pointer): STRPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,33));
-  Call( timeout, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 154));
+  DosGetLocalizedString := Call(StringNum, AOS_DOSBase);
+end;
 
-
-procedure DOSExit(returnCode : LongInt);
+function DosGetString(StringNum: LongInt): STRPTR;
 type
-  TLocalCall = procedure(returnCode : LongInt; LibBase: Pointer); cdecl;
+  TLocalCall = function(StringNum: LongInt; LibBase: Pointer): STRPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,24));
-  Call( returnCode, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 163));
+  DosGetString := Call(StringNum, AOS_DOSBase);
+end;
 
-
-function DOSFlush(fh : LongInt):Boolean;
+function DOSInput(): BPTR;
 type
-  TLocalCall = function(fh : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,60));
-  DOSFlush:= Call( fh, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 9));
+  DOSInput := Call(AOS_DOSBase);
+end;
 
 
-function DOSInput():LongInt;
+function DOSOpen(const Name: STRPTR; AccessMode: LongInt): BPTR;
 type
-  TLocalCall = function(LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Name: STRPTR; AccessMode: LongInt; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,9));
-  DOSInput:= Call(AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 5));
+  DOSOpen := Call(Name, AccessMode, AOS_DOSBase);
+end;
 
 
-function DOSOpen(const Name : PChar;  accessMode : LongInt):LongInt;
+function DOSOutput(): BPTR;
 type
-  TLocalCall = function(const Name : PChar;  accessMode : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,5));
-  DOSOpen:= Call( Name, accessMode, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 10));
+  DOSOutput := Call(AOS_DOSBase);
+end;
 
 
-function DOSOutput():LongInt;
+function DOSRead(File_: BPTR; Buffer: APTR; Length: LongInt): LongInt;
 type
-  TLocalCall = function(LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(File_: BPTR; Buffer: APTR; Length: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,10));
-  DOSOutput:= Call(AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 7));
+  DOSRead := Call(File_, Buffer, Length, AOS_DOSBase);
+end;
 
 
-function DOSRead(file_ : LongInt;  buffer : Pointer;  length : LongInt):LongInt;
+function DOSRename(const OldName: STRPTR; const NewName: STRPTR): LongInt;
 type
-  TLocalCall = function(file_ : LongInt;  buffer : Pointer;  length : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const OldName: STRPTR; const NewName: STRPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,7));
-  DOSRead:= Call( file_, buffer, length, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 13));
+  DOSRename := Call(OldName, NewName, AOS_DOSBase);
+end;
 
 
-function DOSRename(const oldName : PChar; const newName : PChar):Boolean;
+function DOSSeek(File_: BPTR; Position: LongInt; Mode: LongInt): LongInt;
 type
-  TLocalCall = function(const oldName : PChar; const newName : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(File_: BPTR; Position: LongInt; Mode: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,13));
-  DOSRename:= Call( oldName, newName, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 11));
+  DOSSeek := Call(File_, Position, Mode, AOS_DOSBase);
+end;
 
 
-function DOSSeek(file_ : LongInt;  position : LongInt;  offset : LongInt):LongInt;
+function DOSWrite(File_: BPTR; Buffer: APTR; Length: LongInt): LongInt;
 type
-  TLocalCall = function(file_ : LongInt;  position : LongInt;  offset : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(File_: BPTR; Buffer: APTR; Length: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,11));
-  DOSSeek:= Call( file_, position, offset, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 8));
+  DOSWrite := Call(File_, Buffer, Length, AOS_DOSBase);
+end;
 
 
-function DOSWrite(file_ : LongInt;  buffer : Pointer;  length : LongInt):LongInt;
+function DupLock(Lock: BPTR): BPTR;
 type
-  TLocalCall = function(file_ : LongInt;  buffer : Pointer;  length : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Lock: BPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,8));
-  DOSWrite:= Call( file_, buffer, length, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 16));
+  DupLock := Call(Lock, AOS_DOSBase);
+end;
 
 
-function DupLock(Lock : LongInt):LongInt;
+function DupLockFromFH(Lock: BPTR): BPTR;
 type
-  TLocalCall = function(Lock : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Lock: BPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,62));
-  DupLock:= Call( Lock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 62));
+  DupLockFromFH := Call(Lock, AOS_DOSBase);
+end;
 
 
-function DupLockFromFH(fh : LongInt):LongInt;
+procedure EndNotify(Notify: PNotifyRequest);
 type
-  TLocalCall = function(fh : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = procedure(Notify: PNotifyRequest; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,62));
-  DupLockFromFH:= Call( fh, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 149));
+  Call(Notify, AOS_DOSBase);
+end;
 
 
-procedure EndNotify(notify : PNotifyRequest);
+function ErrorReport(Code: LongInt; Type_: LongInt; Arg1: IPTR; Device: PMsgPort): LongBool;
 type
-  TLocalCall = procedure(notify : PNotifyRequest; LibBase: Pointer); cdecl;
+  TLocalCall = function(Code: LongInt; Type_: LongInt; Arg1: IPTR; Device: PMsgPort; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,149));
-  Call( notify, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 80));
+  ErrorReport:= Call(Code, Type_, Arg1, Device, AOS_DOSBase);
+end;
 
 
-function ErrorReport(code : LongInt;  Type_ : LongInt;  arg1 : LongWord;  device : PMsgPort):Boolean;
+function ExAll(Lock: BPTR; Buffer: PExAllData; Size: LongInt; Data: LongInt; Control: PExAllControl): LongBool;
 type
-  TLocalCall = function(code : LongInt;  Type_ : LongInt;  arg1 : LongWord;  device : PMsgPort; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Lock: BPTR; Buffer: PExAllData; Size: LongInt; Data: LongInt; Control: PExAllControl; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,80));
-  ErrorReport:= Call( code, Type_, arg1, device, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 72));
+  ExAll := Call(Lock, Buffer, Size, Data, Control, AOS_DOSBase);
+end;
 
 
-function ExAll(Lock : LongInt;  buffer : pExAllData;  size : LongInt;  data : LongInt;  control : pExAllControl):Boolean;
+procedure ExAllEnd(Lock: BPTR; Buffer: PExAllData; Size: LongInt; Data: LongInt; Control: PExAllControl);
 type
-  TLocalCall = function(Lock : LongInt;  buffer : pExAllData;  size : LongInt;  data : LongInt;  control : pExAllControl; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = procedure(Lock: BPTR; Buffer: PExAllData; Size: LongInt; Data: LongInt; Control: PExAllControl; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,72));
-  ExAll:= Call( Lock, buffer, size, data, control, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 165));
+  Call(Lock, Buffer, Size, Data, Control, AOS_DOSBase);
+end;
 
 
-procedure ExAllEnd(Lock : LongInt;  buffer : pExAllData;  size : LongInt;  data : LongInt;  control : pExAllControl);
+function Examine(Lock: BPTR; FileInfoBlock: PFileInfoBlock): LongInt;
 type
-  TLocalCall = procedure(Lock : LongInt;  buffer : pExAllData;  size : LongInt;  data : LongInt;  control : pExAllControl; LibBase: Pointer); cdecl;
+  TLocalCall = function(Lock: BPTR; FileInfoBlock: PFileInfoBlock; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,165));
-  Call( Lock, buffer, size, data, control, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 17));
+  Examine := Call(Lock, FileInfoBlock, AOS_DOSBase);
+end;
 
 
-function Examine(Lock : LongInt;  fileInfoBlock : PFileInfoBlock):Boolean;
+function ExamineFH(Fh: BPTR; Fib: PFileInfoBlock): LongBool;
 type
-  TLocalCall = function(Lock : LongInt;  fileInfoBlock : PFileInfoBlock; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Fh: BPTR; Fib: PFileInfoBlock; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,65));
-  Examine:= Call( Lock, fileInfoBlock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 65));
+  ExamineFH:= Call(Fh, Fib, AOS_DOSBase);
+end;
 
 
-function ExamineFH(fh : LongInt;  fib : PFileInfoBlock):Boolean;
+function Execute(const String_: STRPTR; Input: BPTR; Output: BPTR): LongInt;
 type
-  TLocalCall = function(fh : LongInt;  fib : PFileInfoBlock; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const String_: STRPTR; Input: BPTR; Output: BPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,65));
-  ExamineFH:= Call( fh, fib, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 37));
+  Execute := Call(String_, Input, Output, AOS_DOSBase);
+end;
 
 
-function Execute(const string_ : PChar;  file_ : LongInt;  file2 : LongInt):Boolean;
+function ExNext(Lock: BPTR; FileInfoBlock: PFileInfoBlock): LongInt;
 type
-  TLocalCall = function(const string_ : PChar;  file_ : LongInt;  file2 : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Lock: BPTR; FileInfoBlock: PFileInfoBlock; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,37));
-  Execute:= Call( string_, file_, file2, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 18));
+  ExNext := Call(Lock, FileInfoBlock, AOS_DOSBase);
+end;
 
 
-function ExNext(Lock : LongInt;  fileInfoBlock : PFileInfoBlock):Boolean;
+function Fault(Code: LongInt; Header: STRPTR; Buffer: STRPTR; Len: LongInt): LongBool;
 type
-  TLocalCall = function(Lock : LongInt;  fileInfoBlock : PFileInfoBlock; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Code: LongInt; Header: STRPTR; Buffer: STRPTR; Len: LongInt; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,18));
-  ExNext:= Call( Lock, fileInfoBlock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 78));
+  Fault := Call(Code, Header, Buffer, Len, AOS_DOSBase);
+end;
 
 
-function Fault(code : LongInt;  header : PChar;  buffer : PChar;  len : LongInt):Boolean;
+function FGetC(File_: BPTR): LongInt;
 type
-  TLocalCall = function(code : LongInt;  header : PChar;  buffer : PChar;  len : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(File_: BPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,78));
-  Fault:= Call( code, header, buffer, len, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 51));
+  FGetC := Call(File_, AOS_DOSBase);
+end;
 
 
-function FGetC(fh : LongInt):LongInt;
+function FGets(Fh: BPTR; Buf: STRPTR; BufLen: LongWord): STRPTR;
 type
-  TLocalCall = function(fh : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Fh: BPTR; Buf: STRPTR; BufLen: LongWord; LibBase: Pointer): STRPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,51));
-  FGetC:= Call( fh, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 56));
+  FGets := Call(Fh, Buf, BufLen, AOS_DOSBase);
+end;
 
 
-function FGets(fh : LongInt;  buf : PChar;  buflen : LongWord):PChar;
+function FilePart(const Path: STRPTR): STRPTR;
 type
-  TLocalCall = function(fh : LongInt;  buf : PChar;  buflen : LongWord; LibBase: Pointer):PChar; cdecl;
+  TLocalCall = function(const Path: STRPTR; LibBase: Pointer): STRPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,56));
-  FGets:= Call( fh, buf, buflen, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 145));
+  FilePart := Call(Path, AOS_DOSBase);
+end;
 
 
-function FilePart(const Path : PChar):PChar;
+function FindArg(const Template: STRPTR; const KeyWord: STRPTR): LongInt;
 type
-  TLocalCall = function(const Path : PChar; LibBase: Pointer):PChar; cdecl;
+  TLocalCall = function(const Template: STRPTR; const KeyWord: STRPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,145));
-  FilePart:= Call( Path, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 134));
+  FindArg := Call(Template, KeyWord, AOS_DOSBase);
+end;
 
 
-function FindArg(const keyword : PChar; const arg_template : PChar):LongInt;
+function FindCliProc(Num: LongWord): PProcess;
 type
-  TLocalCall = function(const keyword : PChar; const arg_template : PChar; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Num: LongWord; LibBase: Pointer): PProcess; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,134));
-  FindArg:= Call( keyword, arg_template, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 91));
+  FindCliProc := Call(Num, AOS_DOSBase);
+end;
 
 
-function FindCliProc(num : LongWord):pProcess;
+function FindDosEntry(const DList: PDosList; const Name: STRPTR; Flags: LongWord): PDosList;
 type
-  TLocalCall = function(num : LongWord; LibBase: Pointer):pProcess; cdecl;
+  TLocalCall = function(const DList: PDosList; const Name: STRPTR; Flags: LongWord; LibBase: Pointer): PDosList; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,91));
-  FindCliProc:= Call( num, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 114));
+  FindDosEntry := Call(DList, Name, Flags, AOS_DOSBase);
+end;
 
 
-function FindDosEntry(const DList : PDosList; const Name : PChar;  Flags : LongWord):PDosList;
+function FindSegment(const Name: STRPTR; const Seg: PSegment; System: LongBool): PSegment;
 type
-  TLocalCall = function(const DList : PDosList; const Name : PChar;  Flags : LongWord; LibBase: Pointer):PDosList; cdecl;
+  TLocalCall = function(const Name: STRPTR; const Seg: PSegment; System: LongBool; LibBase: Pointer): PSegment; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,114));
-  FindDosEntry:= Call( DList, Name, Flags, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 130));
+  FindSegment := Call(Name, Seg, System, AOS_DOSBase);
+end;
 
 
-function FindSegment(const Name : PChar; const seg : PSegment;  system : LongInt):PSegment;
+function FindVar(const Name: STRPTR; Type_: LongWord): PLocalVar;
 type
-  TLocalCall = function(const Name : PChar; const seg : PSegment;  system : LongInt; LibBase: Pointer):PSegment; cdecl;
+  TLocalCall = function(const Name: STRPTR; Type_: LongWord; LibBase: Pointer): PLocalVar; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,130));
-  FindSegment:= Call( Name, seg, system, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 153));
+  FindVar := Call(Name, Type_, AOS_DOSBase);
+end;
 
 
-function FindVar(const Name : PChar;  Type_ : LongWord):PLocalVar;
+function DosFormat(const DeviceName: STRPTR; const VolumeName: STRPTR; DosType: LongWord): LongBool;
 type
-  TLocalCall = function(const Name : PChar;  Type_ : LongWord; LibBase: Pointer):PLocalVar; cdecl;
+  TLocalCall = function(const DeviceName: STRPTR; const VolumeName: STRPTR; DosType: LongWord; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,153));
-  FindVar:= Call( Name, Type_, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 119));
+  DosFormat := Call(DeviceName, VolumeName, Dostype, AOS_DOSBase);
+end;
 
 
-function dosFormat(const filesystem : PChar; const volumename : PChar;  dostype : LongWord):Boolean;
+function FPutC(File_: BPTR; Character: LongInt): LongInt;
 type
-  TLocalCall = function(const filesystem : PChar; const volumename : PChar;  dostype : LongWord; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(File_: BPTR; Character: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,119));
-  dosFormat:= Call( filesystem, volumename, dostype, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 52));
+  FPutC := Call(File_, Character, AOS_DOSBase);
+end;
 
 
-function FPutC(fh : LongInt;  ch : LongInt):LongInt;
+function FPuts(File_: BPTR; const String_: STRPTR): LongInt;
 type
-  TLocalCall = function(fh : LongInt;  ch : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(File_: BPTR; const String_: STRPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,52));
-  FPutC:= Call( fh, ch, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 57));
+  FPuts := Call(File_, String_, AOS_DOSBase);
+end;
 
 
-function FPuts(fh : LongInt; const str : PChar):Boolean;
+function FRead(Fh: BPTR; Block: APTR; Blocklen: LongWord; Number: LongWord): LongInt;
 type
-  TLocalCall = function(fh : LongInt; const str : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Fh: BPTR; Block: APTR; Blocklen: LongWord; Number: LongWord; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,57));
-  FPuts:= Call( fh, str, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 54));
+  FRead := Call(Fh, Block, BlockLen, Number, AOS_DOSBase);
+end;
 
 
-function FRead(fh : LongInt;  block : Pointer;  blocklen : LongWord;  Number : LongWord):LongInt;
+procedure FreeArgs(Args: PRDArgs);
 type
-  TLocalCall = function(fh : LongInt;  block : Pointer;  blocklen : LongWord;  Number : LongWord; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = procedure(Args: PRDArgs; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,54));
-  FRead:= Call( fh, block, blocklen, Number, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 143));
+  Call(Args, AOS_DOSBase);
+end;
 
 
-procedure FreeArgs(args : PRDArgs);
+procedure FreeDeviceProc(Dp: PDevProc);
 type
-  TLocalCall = procedure(args : PRDArgs; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(Dp: PDevProc; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,143));
-  Call( args, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 108));
+  Call(Dp, AOS_DOSBase);
+end;
 
 
-procedure FreeDeviceProc(dp : pDevProc);
+procedure FreeDosEntry(DList: PDosList);
 type
-  TLocalCall = procedure(dp : pDevProc; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(DList: PDosList; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,108));
-  Call( dp, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 117));
+  Call(DList, AOS_DOSBase);
+end;
 
 
-procedure FreeDosEntry(DList : PDosList);
+procedure FreeDosObject(Type_: LongWord; Ptr: APTR);
 type
-  TLocalCall = procedure(DList : PDosList; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(Type_: LongWord;  Ptr: APTR; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,117));
-  Call( DList, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 39));
+  Call(Type_, Ptr, AOS_DOSBase);
+end;
 
 
-procedure FreeDosObject(Type_ : LongWord;  ptr : Pointer);
+function FWrite(Fh: BPTR; Block: APTR; Blocklen: LongWord; NumBlocks: LongWord): LongInt;
 type
-  TLocalCall = procedure(Type_ : LongWord;  ptr : Pointer; LibBase: Pointer); cdecl;
+  TLocalCall = function(Fh: BPTR; Block: APTR; Blocklen: LongWord; NumBlocks: LongWord; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,39));
-  Call( Type_, ptr, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 55));
+  FWrite := Call(Fh, Block, BlockLen, NumBlocks, AOS_DOSBase);
+end;
 
 
-function FWrite(fh : LongInt;  block : Pointer;  blocklen : LongWord;  Number : LongWord):LongInt;
+function GetArgStr: STRPTR;
 type
-  TLocalCall = function(fh : LongInt;  block : Pointer;  blocklen : LongWord;  Number : LongWord; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(LibBase: Pointer): STRPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,55));
-  FWrite:= Call( fh, block, blocklen, Number, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 89));
+  GetArgStr := Call(AOS_DOSBase);
+end;
 
 
-function GetArgStr():PChar;
+function GetConsoleTask: PMsgPort;
 type
-  TLocalCall = function(LibBase: Pointer):PChar; cdecl;
+  TLocalCall = function(LibBase: Pointer): PMsgPort; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,89));
-  GetArgStr:= Call(AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 85));
+  GetConsoleTask := Call(AOS_DOSBase);
+end;
 
 
-function GetConsoleTask():PMsgPort;
+function GetCurrentDirName(Buf: STRPTR; Len: LongInt): LongBool;
 type
-  TLocalCall = function(LibBase: Pointer):PMsgPort; cdecl;
+  TLocalCall = function(Buf: STRPTR; Len: LongInt; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,85));
-  GetConsoleTask:= Call(AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 94));
+  GetCurrentDirName := Call(Buf, Len, AOS_DOSBase);
+end;
 
 
-function GetCurrentDirName(buf : PChar;  len : LongInt):Boolean;
+function GetDeviceProc(const Name: STRPTR; Dp: PDevProc): PDevProc;
 type
-  TLocalCall = function(buf : PChar;  len : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Dp: PDevProc; LibBase: Pointer): PDevProc; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,94));
-  GetCurrentDirName:= Call( buf, len, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 107));
+  GetDeviceProc := Call(Name, Dp, AOS_DOSBase);
+end;
 
 
-function GetDeviceProc(const Name : PChar;  dp : pDevProc):pDevProc;
+function GetFileSysTask: PMsgPort;
 type
-  TLocalCall = function(const Name : PChar;  dp : pDevProc; LibBase: Pointer):pDevProc; cdecl;
+  TLocalCall = function(LibBase: Pointer): PMsgPort; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,107));
-  GetDeviceProc:= Call( Name, dp, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 87));
+  GetFileSysTask := Call(AOS_DOSBase);
+end;
 
 
-function GetFileSysTask():PMsgPort;
+function GetProgramDir: BPTR;
 type
-  TLocalCall = function(LibBase: Pointer):PMsgPort; cdecl;
+  TLocalCall = function(LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,87));
-  GetFileSysTask:= Call(AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 100));
+  GetProgramDir := Call(AOS_DOSBase);
+end;
 
 
-function GetProgramDir():LongInt;
+function GetProgramName(Buf: STRPTR; Len: LongInt): LongBool;
 type
-  TLocalCall = function(LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Buf: STRPTR; Len: LongInt; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,100));
-  GetProgramDir:= Call(AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 96));
+  GetProgramName := Call(Buf, Len, AOS_DOSBase);
+end;
 
 
-function GetProgramName(buf : PChar;  len : LongInt):Boolean;
+function GetPrompt(Buf: STRPTR; Len: LongInt): LongBool;
 type
-  TLocalCall = function(buf : PChar;  len : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Buf: STRPTR; Len: LongInt; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,96));
-  GetProgramName:= Call( buf, len, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 98));
+  GetPrompt := Call(Buf, Len, AOS_DOSBase);
+end;
 
 
-function GetPrompt(buf : PChar;  len : LongInt):Boolean;
+function GetVar(const Name: STRPTR; Buffer: STRPTR; Size: LongInt; Flags: LongInt): LongInt;
 type
-  TLocalCall = function(buf : PChar;  len : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Buffer: STRPTR; Size: LongInt; Flags: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,98));
-  GetPrompt:= Call( buf, len, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 151));
+  GetVar := Call(Name, Buffer, Size, Flags, AOS_DOSBase);
+end;
 
 
-function GetVar(const Name : PChar;  buffer : PChar;  size : LongInt;  Flags : LongInt):LongInt;
+function Info(Lock: BPTR; ParameterBlock: PInfoData): LongInt;
 type
-  TLocalCall = function(const Name : PChar;  buffer : PChar;  size : LongInt;  Flags : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Lock: BPTR; ParameterBlock: PInfoData; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,151));
-  GetVar:= Call( Name, buffer, size, Flags, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 19));
+  Info := Call(Lock, ParameterBlock, AOS_DOSBase);
+end;
 
 
-function Info(Lock : LongInt;  parameterBlock : PInfoData):Boolean;
+function Inhibit(const Name: STRPTR; OnOff: LongInt): LongInt;
 type
-  TLocalCall = function(Lock : LongInt;  parameterBlock : PInfoData; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR;  OnOff: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,19));
-  Info:= Call( Lock, parameterBlock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 121));
+  Inhibit := Call(Name, OnOff, AOS_DOSBase);
+end;
 
 
-function Inhibit(const Name : PChar;  onoff : LongInt):Boolean;
+function InternalLoadSeg(Fh: BPTR; Table: BPTR; const FuncArray: PLongInt; var Stack: LongInt): BPTR;
 type
-  TLocalCall = function(const Name : PChar;  onoff : LongInt; LibBase: Pointer):Boolean; cdecl;
-Var
-  Call: TLocalCall;
-Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,121));
-  Inhibit:= Call( Name, onoff, AOS_DOSBase);
-End;
-
-
-function InternalLoadSeg(fh : LongInt;  table : LongInt; const funcarray : pLONGINT;  VAR stack : LongInt):LongInt;
-type
-  TLocalCall = function(fh : LongInt;  table : LongInt; const funcarray : pLONGINT;  VAR stack : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Fh: BPTR; Table: BPTR; const FuncArray: PLongInt; var Stack: LongInt; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
   Call:=TLocalCall(GetLibAdress(AOS_DOSBase,126));
-  InternalLoadSeg:= Call( fh, table, funcarray, stack, AOS_DOSBase);
-End;
+  InternalLoadSeg:= Call(Fh, Table, FuncArray, Stack, AOS_DOSBase);
+end;
 
 
-function InternalUnLoadSeg(seglist : LongInt;  freefunc : tPROCEDURE):Boolean;
+function InternalUnLoadSeg(SegList: BPTR; FreeFunc: TProcedure): LongBool;
 type
-  TLocalCall = function(seglist : LongInt;  freefunc : tPROCEDURE; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(SegList: BPTR; FreeFunc: TProcedure; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,127));
-  InternalUnLoadSeg:= Call( seglist, freefunc, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 127));
+  InternalUnLoadSeg := Call(SegList, FreeFunc, AOS_DOSBase);
+end;
 
 
-function IoErr():LongInt;
+function IoErr: LongInt;
 type
-  TLocalCall = function(LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,22));
-  IoErr:= Call(AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 22));
+  IoErr := Call(AOS_DOSBase);
+end;
 
 
-function IsFileSystem(const Name : PChar):Boolean;
+function IsFileSystem(const Name: STRPTR): LongBool;
 type
-  TLocalCall = function(const Name : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,118));
-  IsFileSystem:= Call( Name, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 118));
+  IsFileSystem := Call(Name, AOS_DOSBase);
+end;
 
 
-function IsInteractive(file_ : LongInt):Boolean;
+function IsInteractive(File_: BPTR): LongInt;
 type
-  TLocalCall = function(file_ : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(File_: BPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,36));
-  IsInteractive:= Call( file_, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase,36));
+  IsInteractive := Call( file_, AOS_DOSBase);
+end;
 
 
-function LoadSeg(const Name : PChar):LongInt;
+function LoadSeg(const Name: STRPTR): BPTR;
 type
-  TLocalCall = function(const Name : PChar; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Name: STRPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,25));
-  LoadSeg:= Call( Name, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 25));
+  LoadSeg := Call(Name, AOS_DOSBase);
+end;
 
 
-function Lock(const Name : PChar;  Type_ : LongInt):LongInt;
+function Lock(const Name: STRPTR; AccessMode: LongInt): BPTR;
 type
-  TLocalCall = function(const Name : PChar;  Type_ : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Name: STRPTR; AccessMode: LongInt; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,14));
-  Lock:= Call( Name, Type_, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 14));
+  Lock := Call(Name, AccessMode, AOS_DOSBase);
+end;
 
 
-function LockDosList(Flags : LongWord):PDosList;
+function LockDosList(Flags: LongWord): PDosList;
 type
-  TLocalCall = function(Flags : LongWord; LibBase: Pointer):PDosList; cdecl;
+  TLocalCall = function(Flags: LongWord; LibBase: Pointer): PDosList; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,109));
-  LockDosList:= Call( Flags, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 109));
+  LockDosList := Call(Flags, AOS_DOSBase);
+end;
 
 
-function LockRecord(fh : LongInt;  offset : LongWord;  length : LongWord;  mode : LongWord;  timeout : LongWord):Boolean;
+function LockRecord(Fh: BPTR; Offset: LongWord; Length: LongWord; Mode: LongWord; Timeout: LongWord): LongBool;
 type
-  TLocalCall = function(fh : LongInt;  offset : LongWord;  length : LongWord;  mode : LongWord;  timeout : LongWord; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Fh: BPTR; Offset: LongWord; Length: LongWord; Mode: LongWord; Timeout: LongWord; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,45));
-  LockRecord:= Call( fh, offset, length, mode, timeout, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 45));
+  LockRecord := Call(Fh, Offset, Length, Mode, TimeOut, AOS_DOSBase);
+end;
 
 
-function LockRecords(recArray : PRecordLock;  timeout : LongWord):Boolean;
+function LockRecords(RecArray: PRecordLock; TimeOut: LongWord): LongBool;
 type
-  TLocalCall = function(recArray : PRecordLock;  timeout : LongWord; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(RecArray: PRecordLock; TimeOut: LongWord; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,46));
-  LockRecords:= Call( recArray, timeout, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 46));
+  LockRecords := Call(RecArray, TimeOut, AOS_DOSBase);
+end;
 
 
-function MakeDosEntry(const Name : PChar;  Type_ : LongInt):PDosList;
+function MakeDosEntry(const Name: STRPTR; Type_: LongInt): PDosList;
 type
-  TLocalCall = function(const Name : PChar;  Type_ : LongInt; LibBase: Pointer):PDosList; cdecl;
+  TLocalCall = function(const Name: STRPTR; Type_: LongInt; LibBase: Pointer): PDosList; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,116));
-  MakeDosEntry:= Call( Name, Type_, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 116));
+  MakeDosEntry := Call(Name, Type_, AOS_DOSBase);
+end;
 
 
-function MakeLink(const Name : PChar;  dest : LongInt;  soft : LongInt):Boolean;
+function MakeLink(const Name: STRPTR; Dest: APTR; Soft: LongInt): LongInt;
 type
-  TLocalCall = function(const Name : PChar;  dest : LongInt;  soft : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Dest: APTR; Soft: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
   Call:=TLocalCall(GetLibAdress(AOS_DOSBase,74));
-  MakeLink:= Call( Name, dest, soft, AOS_DOSBase);
-End;
+  MakeLink:= Call(Name, Dest, Soft, AOS_DOSBase);
+end;
 
 
-procedure MatchEnd(anchor : PAnchorPath);
+procedure MatchEnd(AP: PAnchorPath);
 type
-  TLocalCall = procedure(anchor : PAnchorPath; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(AP: PAnchorPath; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,139));
-  Call( anchor, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 139));
+  Call(AP, AOS_DOSBase);
+end;
 
 
-function MatchFirst(const pat : PChar;  anchor : PAnchorPath):LongInt;
+function MatchFirst(const Pat: STRPTR; AP: PAnchorPath): LongInt;
 type
-  TLocalCall = function(const pat : PChar;  anchor : PAnchorPath; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Pat: STRPTR; AP: PAnchorPath; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,137));
-  MatchFirst:= Call( pat, anchor, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 137));
+  MatchFirst := Call(Pat, AP, AOS_DOSBase);
+end;
 
 
-function MatchNext(anchor : PAnchorPath):LongInt;
+function MatchNext(AP: PAnchorPath): LongInt;
 type
-  TLocalCall = function(anchor : PAnchorPath; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(AP: PAnchorPath; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,138));
-  MatchNext:= Call( anchor, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 138));
+  MatchNext := Call(AP, AOS_DOSBase);
+end;
 
 
-function MatchPattern(const pat : PChar;  str : PChar):Boolean;
+function MatchPattern(const Pat: STRPTR; Str: STRPTR): LongBool;
 type
-  TLocalCall = function(const pat : PChar;  str : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Pat: STRPTR; Str: STRPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,141));
-  MatchPattern:= Call( pat, str, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 141));
+  MatchPattern := Call(Pat, Str, AOS_DOSBase);
+end;
 
 
-function MatchPatternNoCase(const pat : PChar;  str : PChar):Boolean;
+function MatchPatternNoCase(const Pat: STRPTR; Str: STRPTR): LongBool;
 type
-  TLocalCall = function(const pat : PChar;  str : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Pat: STRPTR; Str: STRPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,162));
-  MatchPatternNoCase:= Call( pat, str, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 162));
+  MatchPatternNoCase := Call(Pat, Str, AOS_DOSBase);
+end;
 
 
-function MaxCli():LongWord;
+function MaxCli(): LongWord;
 type
-  TLocalCall = function(LibBase: Pointer):LongWord; cdecl;
+  TLocalCall = function(LibBase: Pointer): LongWord; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,92));
-  MaxCli:= Call(AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 92));
+  MaxCli := Call(AOS_DOSBase);
+end;
 
 
-function NameFromFH(fh : LongInt;  buffer : PChar;  len : LongInt):Boolean;
+function NameFromFH(Fh: BPTR; Buffer: STRPTR; Length: LongInt): LongBool;
 type
-  TLocalCall = function(fh : LongInt;  buffer : PChar;  len : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Fh: BPTR; Buffer: STRPTR; Length: LongInt; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,68));
-  NameFromFH:= Call( fh, buffer, len, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 68));
+  NameFromFH := Call(Fh, Buffer, Length, AOS_DOSBase);
+end;
 
 
-function NameFromLock(Lock : LongInt;  buffer : PChar;  len : LongInt):Boolean;
+function NameFromLock(Lock: BPTR; Buffer: STRPTR; Length: LongInt): LongBool;
 type
-  TLocalCall = function(Lock : LongInt;  buffer : PChar;  len : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Lock: BPTR; Buffer: STRPTR; Length: LongInt; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,68));
-  NameFromLock:= Call( Lock, buffer, len, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 67));
+  NameFromLock := Call(Lock, Buffer, Length, AOS_DOSBase);
+end;
 
 
-function NewLoadSeg(const file_ : PChar; const Tags : PTagItem):LongInt;
+function NewLoadSeg(const File_: STRPTR; const Tags: PTagItem): BPTR;
 type
-  TLocalCall = function(const file_ : PChar; const Tags : PTagItem; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const File_: STRPTR; const Tags: PTagItem; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,128));
-  NewLoadSeg:= Call( file_, Tags, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 128));
+  NewLoadSeg := Call(File_, Tags, AOS_DOSBase);
+end;
 
-{
-function NewLoadSegTagList(const file_ : PChar; const Tags : PTagItem):LongInt;
+function NextDosEntry(const DList: PDosList; Flags: LongWord): PDosList;
 type
-  TLocalCall = function(const file_ : PChar; const Tags : PTagItem; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const DList: PDosList;  Flags: LongWord; LibBase: Pointer): PDosList; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
-  NewLoadSegTagList:= Call( file_, Tags, AOS_DOSBase);
-End;
-}
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 115));
+  NextDosEntry := Call(DList, Flags, AOS_DOSBase);
+end;
 
-function NextDosEntry(const DList : PDosList;  Flags : LongWord):PDosList;
-type
-  TLocalCall = function(const DList : PDosList;  Flags : LongWord; LibBase: Pointer):PDosList; cdecl;
-Var
-  Call: TLocalCall;
-Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,115));
-  NextDosEntry:= Call( DList, Flags, AOS_DOSBase);
-End;
-
 
-function OpenFromLock(Lock : LongInt):LongInt;
+function OpenFromLock(Lock: BPTR): BPTR;
 type
-  TLocalCall = function(Lock : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Lock: BPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,63));
-  OpenFromLock:= Call( Lock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 63));
+  OpenFromLock := Call(Lock, AOS_DOSBase);
+end;
 
 
-function ParentDir(Lock : LongInt):LongInt;
+function ParentDir(Lock: BPTR): BPTR;
 type
-  TLocalCall = function(Lock : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Lock: BPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,35));
-  ParentDir:= Call( Lock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 35));
+  ParentDir := Call(Lock, AOS_DOSBase);
+end;
 
 
-function ParentOfFH(fh : LongInt):LongInt;
+function ParentOfFH(Fh: BPTR): BPTR;
 type
-  TLocalCall = function(fh : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Fh: BPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,64));
-  ParentOfFH:= Call( fh, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 64));
+  ParentOfFH := Call(Fh, AOS_DOSBase);
+end;
 
 
-function ParsePattern(const pat : PChar;  buf : PChar;  buflen : LongInt):LongInt;
+function ParsePattern(const Source: STRPTR; Dest: STRPTR; DestLength: LongInt): LongInt;
 type
-  TLocalCall = function(const pat : PChar;  buf : PChar;  buflen : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Source: STRPTR; Dest: STRPTR; DestLength: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,140));
-  ParsePattern:= Call( pat, buf, buflen, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 140));
+  ParsePattern := Call(Source, Dest, DestLength, AOS_DOSBase);
+end;
 
 
-function ParsePatternNoCase(const pat : PChar;  buf : PChar;  buflen : LongInt):LongInt;
+function ParsePatternNoCase(const Source: STRPTR; Dest: STRPTR; DestLen: LongInt): LongInt;
 type
-  TLocalCall = function(const pat : PChar;  buf : PChar;  buflen : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Source: STRPTR; Dest: STRPTR; DestLen: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,161));
-  ParsePatternNoCase:= Call( pat, buf, buflen, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 161));
+  ParsePatternNoCase := Call(Source, Dest, DestLen, AOS_DOSBase);
+end;
 
 
-function PathPart(const Path : PChar):PChar;
+function PathPart(const Path: STRPTR): STRPTR;
 type
-  TLocalCall = function(const Path : PChar; LibBase: Pointer):PChar; cdecl;
+  TLocalCall = function(const Path: STRPTR; LibBase: Pointer): STRPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,146));
-  PathPart:= Call( Path, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 146));
+  PathPart := Call(Path, AOS_DOSBase);
+end;
 
-
-function PrintFault(code : LongInt; const header : PChar):Boolean;
+function Pipe(const Name: STRPTR; var Reader: BPTR; var Writer: BPTR): LongInt;
 type
-  TLocalCall = function(code : LongInt; const header : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; var Reader: BPTR; var Writer: BPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,79));
-  PrintFault:= Call( code, header, AOS_DOSBase);
-End;
-
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 160));
+  Pipe := Call(Name, Reader, Writer, AOS_DOSBase);
+end;
 
-function PutStr(const str : PChar):Boolean;
+function PrintFault(Code: LongInt; const Header: STRPTR): LongBool;
 type
-  TLocalCall = function(const str : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Code :LongInt; const Header: STRPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,158));
-  PutStr:= Call( str, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 79));
+  PrintFault := Call( code, header, AOS_DOSBase);
+end;
 
 
-function ReadArgs(const arg_template : PChar;  arra : pLONGINT;  args : PRDArgs):PRDArgs;
+function PutStr(const String_: STRPTR): LongInt;
 type
-  TLocalCall = function(const arg_template : PChar;  arra : pLONGINT;  args : PRDArgs; LibBase: Pointer):PRDArgs; cdecl;
+  TLocalCall = function(const String_: STRPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,133));
-  ReadArgs:= Call( arg_template, arra, args, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 158));
+  PutStr := Call(String_, AOS_DOSBase);
+end;
 
 
-function ReadItem(const Name : PChar;  maxchars : LongInt;  cSource : PCSource):LongInt;
+function ReadArgs(const Template: STRPTR; var Array_: IPTR; RdArgs: PRDArgs): PRDArgs;
 type
-  TLocalCall = function(const Name : PChar;  maxchars : LongInt;  cSource : PCSource; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Template: STRPTR; var Array_: IPTR; RdArgs: PRDArgs; LibBase: Pointer): PRDArgs; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,135));
-  ReadItem:= Call( Name, maxchars, cSource, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 133));
+  ReadArgs := Call(Template, Array_, RdArgs, AOS_DOSBase);
+end;
 
 
-function ReadLink(Port : PMsgPort;  Lock : LongInt; const Path : PChar;  buffer : PChar;  size : LongWord):Boolean;
+function ReadItem(const Buffer: STRPTR; MaxChars: LongInt; CSource: PCSource): LongInt;
 type
-  TLocalCall = function(Port : PMsgPort;  Lock : LongInt; const Path : PChar;  buffer : PChar;  size : LongWord; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Buffer: STRPTR; MaxChars: LongInt; CSource: PCSource; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,73));
-  ReadLink:= Call( Port, Lock, Path, buffer, size, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 135));
+  ReadItem := Call(Buffer, MaxChars, CSource, AOS_DOSBase);
+end;
 
 
-function Relabel(const drive : PChar; const newname : PChar):Boolean;
+function ReadLink(Port: PMsgPort; Lock: LongInt; const Path: STRPTR; Buffer: STRPTR; Size: LongWord): LongInt;
 type
-  TLocalCall = function(const drive : PChar; const newname : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Port: PMsgPort; Lock: LongInt; const Path: STRPTR; Buffer: STRPTR; Size: LongWord; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,120));
-  Relabel:= Call( drive, newname, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 73));
+  ReadLink := Call(Port, Lock, Path, Buffer, Size, AOS_DOSBase);
+end;
 
 
-function RemAssignList(const Name : PChar;  Lock : LongInt):Boolean;
+function Relabel(const Drive: STRPTR; const NewName: STRPTR): LongInt;
 type
-  TLocalCall = function(const Name : PChar;  Lock : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Drive: STRPTR; const NewName: STRPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,106));
-  RemAssignList:= Call( Name, Lock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 120));
+  Relabel := Call(Drive, NewName, AOS_DOSBase);
+end;
 
 
-function RemDosEntry(DList : PDosList):Boolean;
+function RemAssignList(const Name: STRPTR; Lock: BPTR): LongInt;
 type
-  TLocalCall = function(DList : PDosList; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Lock: BPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,112));
-  RemDosEntry:= Call( DList, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 106));
+  RemAssignList := Call(Name, Lock, AOS_DOSBase);
+end;
 
 
-function RemSegment(seg : PSegment):Boolean;
+function RemDosEntry(DList: PDosList): LongInt;
 type
-  TLocalCall = function(seg : PSegment; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(DList: PDosList; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,131));
-  RemSegment:= Call( seg, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 112));
+  RemDosEntry := Call(DList, AOS_DOSBase);
+end;
 
 
-procedure ReplyPkt(dp : PDosPacket;  res1 : LongInt;  res2 : LongInt);
+function RemSegment(Seg: PSegment): LongInt;
 type
-  TLocalCall = procedure(dp : PDosPacket;  res1 : LongInt;  res2 : LongInt; LibBase: Pointer); cdecl;
+  TLocalCall = function(Seg: PSegment; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,43));
-  Call( dp, res1, res2, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 131));
+  RemSegment := Call(Seg, AOS_DOSBase);
+end;
 
 
-function RunCommand(seg : LongInt;  stack : LongInt; const paramptr : PChar;  paramlen : LongInt):LongInt;
+procedure ReplyPkt(Dp: PDosPacket; Res1: LongInt; Res2: LongInt);
 type
-  TLocalCall = function(seg : LongInt;  stack : LongInt; const paramptr : PChar;  paramlen : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = procedure(Dp: PDosPacket; Res1: LongInt; Res2: LongInt; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,84));
-  RunCommand:= Call( seg, stack, paramptr, paramlen, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 43));
+  Call(Dp, Res1, Res2, AOS_DOSBase);
+end;
 
 
-function SameDevice(lock1 : LongInt;  lock2 : LongInt):Boolean;
+function RunCommand(SegList: BPTR; StackSize: LongWord; const ArgPtr: STRPTR; ArgSize: LongWord): LongInt;
 type
-  TLocalCall = function(lock1 : LongInt;  lock2 : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(SegList: BPTR; StackSize: LongWord; const ArgPtr: STRPTR; ArgSize: LongWord; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,164));
-  SameDevice:= Call( lock1, lock2, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 84));
+  RunCommand := Call(SegList, StackSize, ArgPtr, ArgSize, AOS_DOSBase);
+end;
 
-
-function SameLock(lock1 : LongInt;  lock2 : LongInt):LongInt;
+function RunHandler(DevNode: PDeviceNode; Path: PChar): PMsgPort;
 type
-  TLocalCall = function(lock1 : LongInt;  lock2 : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(DevNode: PDeviceNode; Path: PChar; LibBase: Pointer): PMsgPort; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,70));
-  SameLock:= Call( lock1, lock2, AOS_DOSBase);
-End;
-
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 27));
+  RunHandler := Call(DevNode, Path, AOS_DOSBase);
+end;
 
-function SelectInput(fh : LongInt):LongInt;
+function SameDevice(Lock1: BPTR; Lock2: BPTR): LongBool;
 type
-  TLocalCall = function(fh : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Lock1: BPTR; Lock2: BPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,49));
-  SelectInput:= Call( fh, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 164));
+  SameDevice := Call(Lock1, Lock2, AOS_DOSBase);
+end;
 
 
-function SelectOutput(fh : LongInt):LongInt;
+function SameLock(Lock1: BPTR; Lock2: BPTR): LongInt;
 type
-  TLocalCall = function(fh : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Lock1: BPTR; Lock2: BPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,50));
-  SelectOutput:= Call( fh, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 70));
+  SameLock := Call(Lock1, Lock2, AOS_DOSBase);
+end;
 
-
-procedure SendPkt(dp : PDosPacket;  Port : PMsgPort;  replyport : PMsgPort);
+function ScanVars(Hook: PHook; Flags: LongWord; UserData: APTR): LongInt;
 type
-  TLocalCall = procedure(dp : PDosPacket;  Port : PMsgPort;  replyport : PMsgPort; LibBase: Pointer); cdecl;
+  TLocalCall = function(Hook: PHook; Flags: LongWord; UserData: APTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,41));
-  Call( dp, Port, replyport, AOS_DOSBase);
-End;
-
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 167));
+  ScanVars := Call(Hook, Flags, UserData, AOS_DOSBase);
+end;
 
-function SetArgStr(const string_ : PChar):Boolean;
+function SelectError(Fh: BPTR): BPTR;
 type
-  TLocalCall = function(const string_ : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Fh: BPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,90));
-  SetArgStr:= Call( string_, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 144));
+  SelectError := Call(Fh, AOS_DOSBase);
+end;
 
-
-function SetComment(const Name : PChar; const comment : PChar):Boolean;
+function SelectInput(Fh: BPTR): BPTR;
 type
-  TLocalCall = function(const Name : PChar; const comment : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Fh: BPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,30));
-  SetComment:= Call( Name, comment, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 49));
+  SelectInput := Call(Fh, AOS_DOSBase);
+end;
 
 
-function SetConsoleTask(const task : PMsgPort):PMsgPort;
+function SelectOutput(Fh: BPTR): BPTR;
 type
-  TLocalCall = function(const task : PMsgPort; LibBase: Pointer):PMsgPort; cdecl;
+  TLocalCall = function(Fh: BPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,86));
-  SetConsoleTask:= Call( task, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 50));
+  SelectOutput := Call(Fh, AOS_DOSBase);
+end;
 
 
-function SetCurrentDirName(const Name : PChar):Boolean;
+procedure SendPkt(Dp: PDosPacket; Port: PMsgPort; ReplyPort: PMsgPort);
 type
-  TLocalCall = function(const Name : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = procedure(Dp: PDosPacket; Port: PMsgPort; ReplyPort: PMsgPort; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,93));
-  SetCurrentDirName:= Call( Name, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 41));
+  Call(Dp, Port, ReplyPort, AOS_DOSBase);
+end;
 
 
-function SetFileDate(const Name : PChar;  date : pDateStamp):Boolean;
+function SetArgStr(const String_: STRPTR): STRPTR;
 type
-  TLocalCall = function(const Name : PChar;  date : pDateStamp; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const String_: STRPTR; LibBase: Pointer): STRPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,66));
-  SetFileDate:= Call( Name, date, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 90));
+  SetArgStr := Call(String_, AOS_DOSBase);
+end;
 
 
-function SetFileSize(fh : LongInt;  pos : LongInt;  mode : LongInt):Boolean;
+function SetComment(const Name: STRPTR; const Comment: STRPTR): LongInt;
 type
-  TLocalCall = function(fh : LongInt;  pos : LongInt;  mode : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; const Comment: STRPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,76));
-  SetFileSize:= Call( fh, pos, mode, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 30));
+  SetComment := Call(Name, Comment, AOS_DOSBase);
+end;
 
 
-function SetFileSysTask(const task : PMsgPort):PMsgPort;
+function SetConsoleTask(const Handler: PMsgPort): PMsgPort;
 type
-  TLocalCall = function(const task : PMsgPort; LibBase: Pointer):PMsgPort; cdecl;
+  TLocalCall = function(const Handler: PMsgPort; LibBase: Pointer): PMsgPort; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,88));
-  SetFileSysTask:= Call( task, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 86));
+  SetConsoleTask := Call(Handler, AOS_DOSBase);
+end;
 
 
-function SetIoErr(result : LongInt):LongInt;
+function SetCurrentDirName(const Name: STRPTR): LongBool;
 type
-  TLocalCall = function(result : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Name: STRPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,77));
-  SetIoErr:= Call( result, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 93));
+  SetCurrentDirName := Call(Name, AOS_DOSBase);
+end;
 
 
-function SetMode(fh : LongInt;  mode : LongInt):Boolean;
+function SetFileDate(const Name: STRPTR; Date: PDateStamp): LongBool;
 type
-  TLocalCall = function(fh : LongInt;  mode : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Date: PDateStamp; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,71));
-  SetMode:= Call( fh, mode, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 66));
+  SetFileDate := Call(Name, Date, AOS_DOSBase);
+end;
 
 
-function SetOwner(const Name : PChar;  owner_info : LongInt):Boolean;
+function SetFileSize(File_: BPTR; Offset: LongInt; Mode: LongInt): LongInt;
 type
-  TLocalCall = function(const Name : PChar;  owner_info : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(File_: BPTR; Offset: LongInt; Mode: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,166));
-  SetOwner:= Call( Name, owner_info, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 76));
+  SetFileSize := Call(File_, Offset, Mode, AOS_DOSBase);
+end;
 
 
-function SetProgramDir(Lock : LongInt):LongInt;
+function SetFileSysTask(const Task: PMsgPort): PMsgPort;
 type
-  TLocalCall = function(Lock : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Task: PMsgPort; LibBase: Pointer): PMsgPort; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,99));
-  SetProgramDir:= Call( Lock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 88));
+  SetFileSysTask := Call(Task, AOS_DOSBase);
+end;
 
 
-function SetProgramName(const Name : PChar):Boolean;
+function SetIoErr(Result_: LongInt): LongInt;
 type
-  TLocalCall = function(const Name : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Result_: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,95));
-  SetProgramName:= Call( Name, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 77));
+  SetIoErr := Call(Result_, AOS_DOSBase);
+end;
 
 
-function SetPrompt(const Name : PChar):Boolean;
+function SetMode(Fh: BPTR; Mode: LongInt): LongBool;
 type
-  TLocalCall = function(const Name : PChar; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Fh: BPTR; Mode: LongInt; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,97));
-  SetPrompt:= Call( Name, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 71));
+  SetMode := Call(Fh, Mode, AOS_DOSBase);
+end;
 
 
-function SetProtection(const Name : PChar;  protect : LongInt):Boolean;
+function SetOwner(const Name: STRPTR; Owner_Info: LongWord): LongBool;
 type
-  TLocalCall = function(const Name : PChar;  protect : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Owner_Info: LongWord; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,31));
-  SetProtection:= Call( Name, protect, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 166));
+  SetOwner := Call(Name, Owner_Info, AOS_DOSBase);
+end;
 
 
-function SetVar(const Name : PChar;  buffer : PChar;  size : LongInt;  Flags : LongInt):Boolean;
+function SetProgramDir(Lock: BPTR): BPTR;
 type
-  TLocalCall = function(const Name : PChar;  buffer : PChar;  size : LongInt;  Flags : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(Lock : BPTR; LibBase: Pointer): BPTR; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,150));
-  SetVar:= Call( Name, buffer, size, Flags, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 99));
+  SetProgramDir := Call(Lock, AOS_DOSBase);
+end;
 
 
-function SetVBuf(fh : LongInt;  buff : PChar;  Type_ : LongInt;  size : LongInt):Boolean;
+function SetProgramName(const Name: STRPTR): LongBool;
 type
-  TLocalCall = function(fh : LongInt;  buff : PChar;  Type_ : LongInt;  size : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,61));
-  SetVBuf:= Call( fh, buff, Type_, size, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 95));
+  SetProgramName := Call(Name, AOS_DOSBase);
+end;
 
 
-function SplitName(const Name : PChar;  seperator : LongWord;  buf : PChar;  oldpos : LongInt;  size : LongInt):SmallInt;
+function SetPrompt(const Name: STRPTR): LongBool;
 type
-  TLocalCall = function(const Name : PChar;  seperator : LongWord;  buf : PChar;  oldpos : LongInt;  size : LongInt; LibBase: Pointer):SmallInt; cdecl;
+  TLocalCall = function(const Name: STRPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,69));
-  SplitName:= Call( Name, seperator, buf, oldpos, size, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 97));
+  SetPrompt := Call(Name, AOS_DOSBase);
+end;
 
 
-function StartNotify(notify : PNotifyRequest):Boolean;
+function SetProtection(const Name: STRPTR; Protect: LongWord): LongInt;
 type
-  TLocalCall = function(notify : PNotifyRequest; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Protect: LongWord; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,148));
-  StartNotify:= Call( notify, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 31));
+  SetProtection := Call(Name, protect, AOS_DOSBase);
+end;
 
 
-function StrToDate(datetime : PDateTime):Boolean;
+function SetVar(const Name: STRPTR; Buffer: PChar; Size: LongInt; Flags: LongInt): LongBool;
 type
-  TLocalCall = function(datetime : PDateTime; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(const Name: STRPTR; Buffer: PChar; Size: LongInt; Flags: LongInt; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,125));
-  StrToDate:= Call( datetime, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 150));
+  SetVar := Call(Name, Buffer, Size, Flags, AOS_DOSBase);
+end;
 
 
-function StrToLong(const string_ : PChar;  VAR value : LongInt):LongInt;
+function SetVBuf(File_: BPTR; Buff: STRPTR; Type_: LongInt; Size: LongInt): LongInt;
 type
-  TLocalCall = function(const string_ : PChar;  VAR value : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(File_: BPTR; Buff: STRPTR; Type_: LongInt; Size: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,136));
-  StrToLong:= Call( string_, value, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 61));
+  SetVBuf := Call(File_, Buff, Type_, Size, AOS_DOSBase);
+end;
 
 
-function SystemTagList(const command : PChar; const Tags : PTagItem):LongInt;
+function SplitName(const Name: STRPTR; Seperator: LongWord; Buf: STRPTR; OldPos: LongInt; Size: LongInt): LongInt;
 type
-  TLocalCall = function(const command : PChar; const Tags : PTagItem; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Name: STRPTR; Seperator: LongWord; Buf: STRPTR; OldPos: LongInt; Size: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,101));
-  SystemTagList:= Call( command, Tags, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 69));
+  SplitName := Call(Name, Seperator, Buf, OldPos, Size, AOS_DOSBase);
+end;
 
-{
-function DOSSystem(const command : PChar; const Tags : PTagItem):LongInt;
-type
-  TLocalCall = function(const command : PChar; const Tags : PTagItem; LibBase: Pointer):LongInt; cdecl;
-Var
-  Call: TLocalCall;
-Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
-  DOSSystem:= Call( command, Tags, AOS_DOSBase);
-End;
-}
 
-function UnGetC(fh : LongInt;  character : LongInt):LongInt;
+function StartNotify(Notify: PNotifyRequest): LongBool;
 type
-  TLocalCall = function(fh : LongInt;  character : LongInt; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Notify: PNotifyRequest; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,53));
-  UnGetC:= Call( fh, character, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 148));
+  StartNotify := Call(Notify, AOS_DOSBase);
+end;
 
 
-procedure UnLoadSeg(seglist : LongInt);
+function StrToDate(DateTime: PDateTime): LongBool;
 type
-  TLocalCall = procedure(seglist : LongInt; LibBase: Pointer); cdecl;
+  TLocalCall = function(DateTime: PDateTime; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,26));
-  Call( seglist, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 125));
+  StrToDate := Call( datetime, AOS_DOSBase);
+end;
 
 
-procedure UnLock(Lock : LongInt);
+function StrToLong(const String_: STRPTR; var Value: LongInt): LongInt;
 type
-  TLocalCall = procedure(Lock : LongInt; LibBase: Pointer); cdecl;
+  TLocalCall = function(const String_: STRPTR; var Value: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,15));
-  Call( Lock, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 136));
+  StrToLong := Call(String_, Value, AOS_DOSBase);
+end;
 
 
-procedure UnLockDosList(Flags : LongWord);
+function SystemTagList(const Command: STRPTR; const Tags: PTagItem): LongInt;
 type
-  TLocalCall = procedure(Flags : LongWord; LibBase: Pointer); cdecl;
+  TLocalCall = function(const Command: STRPTR; const Tags: PTagItem; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,110));
-  Call( Flags, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 101));
+  SystemTagList := Call( command, Tags, AOS_DOSBase);
+end;
 
-
-function UnLockRecord(fh : LongInt;  offset : LongWord;  length : LongWord):Boolean;
+function UnGetC(File_: BPTR; Character: LongInt): LongInt;
 type
-  TLocalCall = function(fh : LongInt;  offset : LongWord;  length : LongWord; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(File_: BPTR; Character: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,47));
-  UnLockRecord:= Call( fh, offset, length, AOS_DOSBase);
-End;
-
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 53));
+  UnGetC := Call(File_, Character, AOS_DOSBase);
+end;
 
-function UnLockRecords(recArray : PRecordLock):Boolean;
+procedure UnLoadSeg(Seglist: BPTR);
 type
-  TLocalCall = function(recArray : PRecordLock; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = procedure(Seglist: BPTR; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,48));
-  UnLockRecords:= Call( recArray, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 26));
+  Call(Seglist, AOS_DOSBase);
+end;
 
-
-function VFPrintf(fh : LongInt; const format : PChar; const argarray : Pointer):LongInt;
+function UnLock(Lock: BPTR): LongBool;
 type
-  TLocalCall = function(fh : LongInt; const format : PChar; const argarray : Pointer; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Lock : BPTR; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,59));
-  VFPrintf:= Call( fh, format, argarray, AOS_DOSBase);
-End;
-
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase,15));
+  UnLock := Call(Lock, AOS_DOSBase);
+end;
 
-procedure VFWritef(fh : LongInt; const format : PChar; const argarray : pLONGINT);
+procedure UnLockDosList(Flags: LongWord);
 type
-  TLocalCall = procedure(fh : LongInt; const format : PChar; const argarray : pLONGINT; LibBase: Pointer); cdecl;
+  TLocalCall = procedure(Flags: LongWord; LibBase: Pointer); cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,58));
-  Call( fh, format, argarray, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 110));
+  Call(Flags, AOS_DOSBase);
+end;
 
-
-function VPrintf(const format : PChar;  const argarray : Pointer):LongInt;
+function UnLockRecord(Fh: BPTR; Offset: LongWord; Length: LongWord): LongBool;
 type
-  TLocalCall = function(const format : PChar;  const argarray : Pointer; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Fh: BPTR; Offset: LongWord; Length: LongWord; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,159));
-  VPrintf:= Call( format, argarray, AOS_DOSBase);
-End;
-
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 47));
+  UnLockRecord := Call(Fh, Offset, Length, AOS_DOSBase);
+end;
 
-function WaitForChar(file_ : LongInt;  timeout : LongInt):Boolean;
+function UnLockRecords(RecArray: PRecordLock): LongBool;
 type
-  TLocalCall = function(file_ : LongInt;  timeout : LongInt; LibBase: Pointer):Boolean; cdecl;
+  TLocalCall = function(RecArray: PRecordLock; LibBase: Pointer): LongBool; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,34));
-  WaitForChar:= Call( file_, timeout, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 48));
+  UnLockRecords := Call(RecArray, AOS_DOSBase);
+end;
 
-
-function WaitPkt():PDosPacket;
+function VFPrintf(Fh: BPTR; const format: STRPTR; const ArgArray: PLongInt): LongInt;
 type
-  TLocalCall = function(LibBase: Pointer):PDosPacket; cdecl;
+  TLocalCall = function(Fh: BPTR; const format: STRPTR; const ArgArray: PLongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,42));
-  WaitPkt:= Call(AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 59));
+  VFPrintf := Call(Fh, format, ArgArray, AOS_DOSBase);
+end;
 
 
-function WriteChars(const buf : PChar;  buflen : LongWord):LongInt;
+function VFWritef(Fh: BPTR; const Fmt: STRPTR; const ArgArray: PLongInt): LongInt;
 type
-  TLocalCall = function(const buf : PChar;  buflen : LongWord; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(Fh: BPTR; const Fmt: STRPTR; const ArgArray: PLongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,157));
-  WriteChars:= Call( buf, buflen, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 58));
+  VFWritef := Call(Fh, Fmt, ArgArray, AOS_DOSBase);
+end;
+
 
-{
-function BADDR(bval :BPTR):Pointer;
+function VPrintf(const Format: STRPTR; var ArgArray: IPTR): LongInt;
 type
-  TLocalCall = function(bval :BPTR; LibBase: Pointer):Pointer; cdecl;
+  TLocalCall = function(const Format: STRPTR; var ArgArray: IPTR; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
-  BADDR:= Call( bval, AOS_DOSBase);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 159));
+  VPrintf := Call(Format, ArgArray, AOS_DOSBase);
+end;
 
 
-function MKBADDR(adr: Pointer):BPTR;
+function WaitForChar(File_: BPTR; TimeOut: LongInt): LongInt;
 type
-  TLocalCall = function(adr: Pointer; LibBase: Pointer):BPTR; cdecl;
+  TLocalCall = function(File_: BPTR; TimeOut: LongInt; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
-Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
-  MKBADDR:= Call( adr, AOS_DOSBase);
-End;
-}
-
-{OVERLOADS}
-
-function AddBuffers(Name : string;  Number : LongInt):Boolean;
-Begin
-  AddBuffers := AddBuffers( pas2c(Name), Number);
-End;
-
-
-function AddPart(dirname : string; const filename : PChar;  size : LongWord):Boolean;
-Begin
-  AddPart:= AddPart( pas2c(dirname), filename, size);
-End;
-
-
-function AddPart(dirname : PChar; filename : string;  size : LongWord):Boolean;
-Begin
-  AddPart:= AddPart( dirname, pas2c(filename), size);
-End;
-
-
-function AddPart(dirname : string; filename : string;  size : LongWord):Boolean;
-Begin
-  AddPart:= AddPart( pas2c(dirname), pas2c(filename), size);
-End;
-
-
-function AssignAdd(Name : string;  Lock : LongInt):Boolean;
-Begin
-  AssignAdd:= AssignAdd( pas2c(Name), Lock);
-End;
-
-
-function AssignLate(Name : string; const Path : PChar):Boolean;
-Begin
-  AssignLate:= AssignLate( pas2c(Name), Path);
-End;
-
-
-function AssignLate(const Name : PChar; Path : string):Boolean;
-Begin
-  AssignLate:= AssignLate( Name, pas2c(Path));
-End;
-
-
-function AssignLate(Name : string; Path : string):Boolean;
-Begin
-  AssignLate:= AssignLate( pas2c(Name), pas2c(Path));
-End;
-
-
-function AssignLock(Name : string;  Lock : LongInt):Boolean;
-Begin
-  AssignLock:= AssignLock( pas2c(Name), Lock);
-End;
-
-
-function AssignPath(Name : string;  const Path : PChar):Boolean;
-Begin
-  AssignPath:= AssignPath( pas2c(Name), Path);
-End;
-
-
-function AssignPath(const Name : PChar; Path : string):Boolean;
-Begin
-  AssignPath:= AssignPath( Name, pas2c(Path));
-End;
-
-
-function AssignPath(Name : string; Path : string):Boolean;
-Begin
-  AssignPath:= AssignPath( pas2c(Name), pas2c(Path));
-End;
-
-
-function CreateDir(Name : string):LongInt;
-Begin
-  CreateDir:= CreateDir( pas2c(Name));
-End;
-
-
-function CreateProc(Name : string;  pri : LongInt;  segList : LongInt;  stackSize : LongInt):PMsgPort;
-Begin
-  CreateProc:= CreateProc( pas2c(Name), pri, segList, stackSize);
-End;
-
-
-function DeleteFile(Name : string):Boolean;
-Begin
-  DeleteFile:= DeleteFile( pas2c(Name));
-End;
-
-
-function DeleteVar(Name : string;  Flags : LongWord):Boolean;
-Begin
-  DeleteVar:= DeleteVar( pas2c(Name), Flags);
-End;
-
-
-function DeviceProc(Name : string):PMsgPort;
-Begin
-  DeviceProc:= DeviceProc( pas2c(Name));
-End;
-
-
-function DOSOpen(Name : string;  accessMode : LongInt):LongInt;
-Begin
-  DOSOpen:= DOSOpen( pas2c(Name), accessMode);
-End;
-
-
-function DOSRename(oldName : string; const newName : PChar):boolean;
-Begin
-  DOSRename:= DOSRename( pas2c(oldName), newName);
-End;
-
-
-function DOSRename(const oldName : PChar; newName : string):Boolean;
-Begin
-  DOSRename:= DOSRename( oldName, pas2c(newName));
-End;
-
-
-function DOSRename(oldName : string; newName : string):Boolean;
-Begin
-  DOSRename:= DOSRename( pas2c(oldName), pas2c(newName));
-End;
-
-
-function Execute(string_ : string;  file_ : LongInt;  file2 : LongInt):Boolean;
-Begin
-  Execute:= Execute( pas2c(string_), file_, file2);
-End;
-
-
-function Fault(code : LongInt;  header : string;  buffer : PChar;  len : LongInt):Boolean;
-Begin
-  Fault:= Fault( code, pas2c(header), buffer, len);
-End;
-
-
-function FilePart(Path : string):PChar;
-Begin
-  FilePart:= FilePart( pas2c(Path));
-End;
-
-
-function FindArg(keyword : string; const arg_template : PChar):LongInt;
-Begin
-  FindArg:= FindArg( pas2c(keyword), arg_template);
-End;
-
-
-function FindArg(const keyword : PChar; arg_template : string):LongInt;
-Begin
-  FindArg:= FindArg( keyword, pas2c(arg_template));
-End;
-
-
-function FindArg(keyword : string; arg_template : string):LongInt;
-Begin
-  FindArg:= FindArg( pas2c(keyword), pas2c(arg_template));
-End;
-
-
-function FindDosEntry(const DList : PDosList; Name : string;  Flags : LongWord):PDosList;
-Begin
-  FindDosEntry:= FindDosEntry( DList, pas2c(Name), Flags);
-End;
-
-
-function FindSegment(Name : string; const seg : PSegment;  system : LongInt):PSegment;
-Begin
-  FindSegment:= FindSegment( pas2c(Name), seg, system);
-End;
-
-
-function FindVar(Name : string;  Type_ : LongWord):PLocalVar;
-Begin
-  FindVar:= FindVar( pas2c(Name), Type_);
-End;
-
-
-function dosFormat(filesystem : string; const volumename : PChar;  dostype : LongWord):Boolean;
-Begin
-  dosFormat:= dosFormat( pas2c(filesystem), volumename, dostype);
-End;
-
-
-function dosFormat(const filesystem : PChar; volumename : string;  dostype : LongWord):Boolean;
-Begin
-  dosFormat:= dosFormat( filesystem, pas2c(volumename), dostype);
-End;
-
-
-function dosFormat(filesystem : string; volumename : string;  dostype : LongWord):Boolean;
 Begin
-  dosFormat:= dosFormat( pas2c(filesystem), pas2c(volumename), dostype);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 34));
+  WaitForChar := Call(File_, TimeOut, AOS_DOSBase);
+end;
 
 
-function FPuts(fh : LongInt; str : string):Boolean;
-Begin
-  FPuts:= FPuts( fh, pas2c(str));
-End;
-
-
-function GetDeviceProc(Name : string;  dp : pDevProc):pDevProc;
-Begin
-  GetDeviceProc:= GetDeviceProc( pas2c(Name), dp);
-End;
-
-
-function GetVar(Name : string;  buffer : PChar;  size : LongInt;  Flags : LongInt):LongInt;
-Begin
-  GetVar:= GetVar( pas2c(Name), buffer, size, Flags);
-End;
-
-
-function Inhibit(Name : string;  onoff : LongInt):Boolean;
-Begin
-  Inhibit:= Inhibit( pas2c(Name), onoff);
-End;
-
-
-function IsFileSystem(Name : string):Boolean;
-Begin
-  IsFileSystem:= IsFileSystem( pas2c(Name));
-End;
-
-
-function LoadSeg(Name : string):LongInt;
-Begin
-  LoadSeg:= LoadSeg( pas2c(Name));
-End;
-
-
-function Lock(Name : string;  Type_ : LongInt):LongInt;
-Begin
-  Lock:= Lock( pas2c(Name), Type_);
-End;
-
-
-function MakeDosEntry(Name : string;  Type_ : LongInt):PDosList;
-Begin
-  MakeDosEntry:= MakeDosEntry( pas2c(Name), Type_);
-End;
-
-
-function MakeLink(Name : string;  dest : LongInt;  soft : LongInt):Boolean;
-Begin
-  MakeLink:= MakeLink( pas2c(Name), dest, soft);
-End;
-
-
-function MatchFirst(pat : string;  anchor : PAnchorPath):LongInt;
-Begin
-  MatchFirst:= MatchFirst( pas2c(pat), anchor);
-End;
-
-
-function MatchPattern(pat : string;  str : PChar):Boolean;
-Begin
-  MatchPattern:= MatchPattern( pas2c(pat), str);
-End;
-
-
-function MatchPattern(const pat : PChar;  str : string):Boolean;
-Begin
-  MatchPattern:= MatchPattern( pat, pas2c(str));
-End;
-
-
-function MatchPattern(pat : string;  str : string):Boolean;
-Begin
-  MatchPattern:= MatchPattern( pas2c(pat), pas2c(str));
-End;
-
-
-function MatchPatternNoCase(pat : string;  str : PChar):Boolean;
-Begin
-  MatchPatternNoCase:= MatchPatternNoCase( pas2c(pat), str);
-End;
-
-
-function MatchPatternNoCase(const pat : PChar;  str : string):Boolean;
-Begin
-  MatchPatternNoCase:= MatchPatternNoCase( pat, pas2c(str));
-End;
-
-
-function MatchPatternNoCase(pat : string;  str : string):Boolean;
-Begin
-  MatchPatternNoCase:= MatchPatternNoCase( pas2c(pat), pas2c(str));
-End;
-
-
-function NewLoadSeg(file_ : string; const Tags : PTagItem):LongInt;
-Begin
-  NewLoadSeg:= NewLoadSeg( pas2c(file_), Tags);
-End;
-
-{
-function NewLoadSegTagList(const file_ : string; const Tags : PTagItem):LongInt;
+function WaitPkt: PDosPacket;
 type
-  TLocalCall = function(const file_ : string; const Tags : PTagItem; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(LibBase: Pointer): PDosPacket; cdecl;
 Var
   Call: TLocalCall;
-Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
-  NewLoadSegTagList:= Call( file_, Tags, AOS_DOSBase);
-End;
-}
-
-function PathPart(Path : string):PChar;
-Begin
-  PathPart:= PathPart( pas2c(Path));
-End;
-
-
-function PrintFault(code : LongInt; header : string):Boolean;
-Begin
-  PrintFault:= PrintFault( code, pas2c(header));
-End;
-
-
-function PutStr(str : string):Boolean;
-Begin
-  PutStr:= PutStr( pas2c(str));
-End;
-
-
-function ReadArgs(arg_template : string;  arra : pLONGINT;  args : PRDArgs):PRDArgs;
 Begin
-  ReadArgs:= ReadArgs( pas2c(arg_template), arra, args);
-End;
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 42));
+  WaitPkt := Call(AOS_DOSBase);
+end;
 
-
-function ReadItem(Name : string;  maxchars : LongInt;  cSource : PCSource):LongInt;
-Begin
-  ReadItem:= ReadItem( pas2c(Name), maxchars, cSource);
-End;
-
-
-function ReadLink(Port : PMsgPort;  Lock : LongInt; Path : string;  buffer : PChar;  size : LongWord):Boolean;
-Begin
-  ReadLink:= ReadLink( Port, Lock, pas2c(Path), buffer, size);
-End;
-
-
-function Relabel(drive : string; const newname : PChar):Boolean;
-Begin
-  Relabel:= Relabel( pas2c(drive), newname);
-End;
-
-
-function Relabel(const drive : PChar; newname : string):Boolean;
-Begin
-  Relabel:= Relabel( drive, pas2c(newname));
-End;
-
-
-function Relabel(drive : string; newname : string):Boolean;
-Begin
-  Relabel:= Relabel( pas2c(drive), pas2c(newname));
-End;
-
-
-function RemAssignList(Name : string;  Lock : LongInt):Boolean;
-Begin
-  RemAssignList:= RemAssignList( pas2c(Name), Lock);
-End;
-
-
-function RunCommand(seg : LongInt;  stack : LongInt; paramptr : string;  paramlen : LongInt):LongInt;
-Begin
-  RunCommand:= RunCommand( seg, stack, pas2c(paramptr), paramlen);
-End;
-
-
-function SetArgStr(string_ : string):Boolean;
-Begin
-  SetArgStr:= SetArgStr( pas2c(string_));
-End;
-
-
-function SetComment(Name : string; const comment : PChar):Boolean;
-Begin
-  SetComment:= SetComment( pas2c(Name), comment);
-End;
-
-
-function SetComment(const Name : PChar; comment : string):Boolean;
-Begin
-  SetComment:= SetComment( Name, pas2c(comment));
-End;
-
-
-function SetComment(Name : string; comment : string):Boolean;
-Begin
-  SetComment:= SetComment( pas2c(Name), pas2c(comment));
-End;
-
-
-function SetCurrentDirName(Name : string):Boolean;
-Begin
-  SetCurrentDirName:= SetCurrentDirName( pas2c(Name));
-End;
-
-
-function SetFileDate(Name : string;  date : pDateStamp):Boolean;
-Begin
-  SetFileDate:= SetFileDate( pas2c(Name), date);
-End;
-
-
-function SetOwner(Name : string;  owner_info : LongInt):Boolean;
-Begin
-  SetOwner:= SetOwner( pas2c(Name), owner_info);
-End;
-
-
-function SetProgramName(Name : string):Boolean;
-Begin
-  SetProgramName:= SetProgramName( pas2c(Name));
-End;
-
-
-function SetPrompt(Name : string):Boolean;
-Begin
-  SetPrompt:= SetPrompt( pas2c(Name));
-End;
-
-
-function SetProtection(Name : string;  protect : LongInt):Boolean;
-Begin
-  SetProtection:= SetProtection( pas2c(Name), protect);
-End;
-
-
-function SetVar(Name : string;  buffer : PChar;  size : LongInt;  Flags : LongInt):Boolean;
-Begin
-  SetVar:= SetVar( pas2c(Name), buffer, size, Flags);
-End;
-
-
-function SplitName(Name : string;  seperator : LongWord;  buf : PChar;  oldpos : LongInt;  size : LongInt):SmallInt;
-Begin
-  SplitName:= SplitName( pas2c(Name), seperator, buf, oldpos, size);
-End;
-
-
-function StrToLong(string_ : string;  VAR value : LongInt):LongInt;
-Begin
-  StrToLong:= StrToLong( pas2c(string_), value);
-End;
-
-
-function SystemTagList(command : string; const Tags : PTagItem):LongInt;
-Begin
-  SystemTagList:= SystemTagList( pas2c(command), Tags);
-End;
 
-{
-function DOSSystem(const command : string; const Tags : PTagItem):LongInt;
+function WriteChars(const Buf: STRPTR; BufLen: LongWord): LongInt;
 type
-  TLocalCall = function(const command : string; const Tags : PTagItem; LibBase: Pointer):LongInt; cdecl;
+  TLocalCall = function(const Buf: STRPTR;  BufLen: LongWord; LibBase: Pointer): LongInt; cdecl;
 Var
   Call: TLocalCall;
 Begin
-  Call:=TLocalCall(GetLibAdress(AOS_DOSBase,???));
-  DOSSystem:= Call( command, Tags, AOS_DOSBase);
-End;
-}
+  Call := TLocalCall(GetLibAdress(AOS_DOSBase, 157));
+  WriteChars := Call(Buf, BufLen, AOS_DOSBase);
+end;
 
-END. (* UNIT DOS *)
+end. (* UNIT DOS *)
 
 

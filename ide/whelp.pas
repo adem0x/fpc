@@ -23,6 +23,9 @@ uses
      for Windows target whereas its found in objects unit for other targets PM }
      windows,
 {$endif Windows}
+{$ifdef aros}
+    dos,
+{$endif}
      Objects,
      WUtils;
 
@@ -205,6 +208,10 @@ type
 const
   HelpFileTypes : PHelpFileTypeCollection = nil;
 
+{$ifdef aros}
+var
+  StartupTicks: Int64;
+{$endif}
 
 function NewHelpFileType(AOpenProc: THelpFileOpenProc): PHelpFileType;
 var P: PHelpFileType;
@@ -318,7 +325,7 @@ end;
 {$endif}
 {$ifdef aros}
 begin
-  GetDosTicks := -1;
+  GetDosTicks := ((dos.GetMsCount div 55) -StartupTicks) and $7FFFFFFF;
 end;
 {$endif}
 
@@ -511,6 +518,7 @@ begin
      end;
   GetNamedMarkIndex:=Index;
 end;
+
 
 function TTopicCollection.At(Index: sw_Integer): PTopic;
 begin
@@ -996,4 +1004,8 @@ begin
   Dispose(HelpFiles, Done);
 end;
 
+{$ifdef aros}
+initialization
+  StartupTicks := (dos.GetMsCount div 55);
+{$endif}
 END.

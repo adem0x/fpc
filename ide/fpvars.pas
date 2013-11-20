@@ -38,7 +38,7 @@ type
     Tedit_key_modes=(ekm_borland,ekm_microsoft);
 
 
-{$ifdef Unix}
+{$if defined(Unix) or defined(aros)}
       {Microsoft convention is default on Unix, because the Borland "paste" key, Shift+Ins,
        is not passed on to the program in most X terminal emulators.}
 const ekm_default = ekm_microsoft;

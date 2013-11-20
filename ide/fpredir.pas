@@ -811,6 +811,9 @@ end;
 
   Begin
     SwapVectors;
+{$ifdef aros}
+    USeComSpec := False;
+{$endif}
 {$ifdef UNIX}
     IOStatus:=0;
     {We need to use fpsystem to get wildcard expansion and avoid being

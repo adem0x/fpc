@@ -78,7 +78,7 @@ const
 {$ifdef Unix}
   AllFiles = '*';
 {$else}
-  {$ifdef OS_AMIGA}
+  {$if defined(OS_AMIGA) or defined(aros)}
     AllFiles = '*';
   {$else}
     AllFiles = '*.*';
@@ -982,7 +982,7 @@ begin
     SR.Attr := Directory
   else SR.Attr := 0;
   SR.Name := S;
-{$ifndef Unix}
+{$if (not defined(Unix)) and (not defined(aros))}
   UpStr(SR.Name);
 {$endif Unix}
   GetKey := @SR;
@@ -1552,7 +1552,7 @@ begin
   if RelativePath(S) then
     begin
       if (Directory <> nil) then
-   S := FExpand(Directory^ + S);
+        S := FExpand(Directory^ + S);
     end
   else
     S := FExpand(S);
@@ -1671,9 +1671,16 @@ var
     {$ifdef Unix}
     if Path=DirSeparator then Root:=true;
     {$else}
+    {$ifdef aros}
+    if Length(Path) > 0 then
+    begin
+      Root := Path[Length(Path)] = ':';
+    end;
+    {$else}
     if (length(Path)=3) and (Upcase(Path[1]) in['A'..'Z']) and
        (Path[2]=':') and (Path[3]=DirSeparator) then
          Root:=true;
+    {$endif}
     {$endif}
     if (Root=false) and (copy(Path,length(Path),1)=DirSeparator) then
       NormalizeDir:=copy(Path,1,length(Path)-1)
@@ -2474,8 +2481,15 @@ begin
 {$ifdef Unix}
   Is:=(S=DirSeparator); { handle root }
 {$else}
+{$ifdef aros}
+  if Length(S) > 0 then
+  begin
+    Is := S[Length(S)] = ':';
+  end;
+{$else}
   Is:=(length(S)=3) and (Upcase(S[1]) in['A'..'Z']) and (S[2]=':') and (S[3]=DirSeparator);
   { handle root dirs }
+{$endif}
 {$endif}
   if Is=false then
   begin

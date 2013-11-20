@@ -25,6 +25,8 @@ interface
 
 {$define FPC_IS_SYSTEM}
 
+{$define DISABLE_NO_THREAD_MANAGER}
+
 {$I systemh.inc}
 
 const
@@ -46,7 +48,7 @@ const
   StdOutputHandle : THandle = 0;
   StdErrorHandle  : THandle = 0;
 
-  FileNameCaseSensitive : Boolean = False;
+  FileNameCaseSensitive : Boolean = True;
   CtrlZMarksEOF: Boolean = false; (* #26 not considered as end of file *)
 
   sLineBreak = LineEnding;
@@ -60,6 +62,7 @@ var
   AOS_ExecBase   : Pointer; external name '_ExecBase';
   AOS_DOSBase    : Pointer;
   AOS_UtilityBase: Pointer;
+  
 
   AOS_heapPool : Pointer; { pointer for the OS pool for growing the heap }
   AOS_origDir  : LongInt; { original directory on startup }
@@ -67,12 +70,16 @@ var
   AOS_ConName  : PChar ='CON:10/30/620/100/FPC Console Output/AUTO/CLOSE/WAIT';
   AOS_ConHandle: THandle;
 
+  AOS_ThreadBase: Pointer;
+
   argc: LongInt;
   argv: PPChar;
   envp: PPChar;
   killed : Boolean = False;
 
 function GetLibAdress(Base: Pointer; Offset: LongInt): Pointer;
+procedure Debug(s: string);
+procedure Debugln(s: string);
 
 implementation
 
@@ -130,6 +137,9 @@ begin
   if AOS_DOSBase<>nil then
     CloseLibrary(AOS_DOSBase);
   AOS_DOSBase := nil;
+  if AOS_ThreadBase <> nil then
+    CloseLibrary(AOS_ThreadBase);
+  AOS_ThreadBase := nil;
   //
   HaltProc(ExitCode);
 end;
@@ -157,6 +167,7 @@ var
 var
   Count: Word;
   Start: Word;
+  Ende: Word;
   LocalIndex: Word;
   P : PChar;
   Temp : string;
@@ -198,21 +209,29 @@ begin
       while (p[count]<>#0) and (p[count]<>'"') and (p[count]<>LineEnding) do
       begin
         Inc(Count) 
-      end;    
+      end;
     end else
     begin
       while (p[count]<>#0) and (p[count]<>' ') and (p[count]<>#9) and (p[count]<>LineEnding) do
         inc(count);
     end;
-    if (count-start>0) then
+    ende := count;
+    if not inQuotes then
     begin
-      allocarg(localindex,count-start);
-      move(p[start],argv[localindex]^,count-start);
-      argv[localindex][count-start]:=#0;
-      if inQuotes and (argv[localindex][(count-start) - 1] = '"') then
-        argv[localindex][(count-start)-1] := #0;
-      inc(localindex);    
+      while (p[start]=' ') and (Start < Ende) do
+        Inc(Start)
     end;
+    if (ende-start>0) then
+    begin
+      allocarg(localindex,ende-start);
+      move(p[start],argv[localindex]^,ende-start);
+      argv[localindex][ende-start]:=#0;
+      if inQuotes and (argv[localindex][(ende-start) - 1] = '"') then
+        argv[localindex][(ende-start)-1] := #0;
+      inc(localindex);
+    end;
+    if inQuotes and (p[count] = '"') then
+      Inc(Count);
     inQuotes := False; 
   end;
   argc:=localindex;
@@ -304,8 +323,8 @@ begin
         while (Path[Len] <> #0) and (Len < 254) do
           Inc(Len);
         if Len > 0 then
-          if (Path[Len - 1] <> ':') or (Path[Len - 1] <> '/') then
-          Path[Len] := '/';
+          if (Path[Len - 1] <> ':') and (Path[Len - 1] <> '/') then
+            Path[Len] := '/';
         strPath := Path;
       end;
       Result := strPath + wbarg^[Idx + 1].wa_Name;
@@ -373,9 +392,11 @@ begin
   AOS_UtilityBase := OpenLibrary('utility.library', 0);
   if AOS_UtilityBase = nil then
     Halt(1);
-
+  if AOS_ThreadBase = nil then
+    AOS_ThreadBase := OpenLibrary('thread.library', 0);
+    
   { Creating the memory pool for growing heap }
-  AOS_heapPool := CreatePool(MEMF_ANY, growheapsize2, growheapsize1);
+  AOS_heapPool := CreatePool(MEMF_ANY or MEMF_SEM_PROTECTED, growheapsize2, growheapsize1);
   if AOS_heapPool = nil then
     Halt(1);
   

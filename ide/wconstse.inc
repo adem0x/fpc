@@ -92,8 +92,13 @@
     msg_searchstringnotfound = 'Search string not found.';
     msg_replacethisoccourence = 'Replace this occurence?';
     msg_fileexistsoverwrite = 'File %s already exists. Overwrite?';
+    {$ifdef aros}
+    msg_readingwinclipboard = 'Reading AROS clipboard';
+    msg_copyingwinclipboard = 'Copying to AROS clipboard';
+    {$else}
     msg_readingwinclipboard = 'Reading windows clipboard';
     msg_copyingwinclipboard = 'Copying to windows clipboard';
+    {$endif}
     msg_pastingclipboard = 'Pasting clipboard';
     msg_copyingclipboard = 'Copying to clipboard';
     msg_cutting = 'Cutting';

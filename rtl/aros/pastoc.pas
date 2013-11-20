@@ -34,7 +34,7 @@ implementation
 const
    MEMF_ANY      = %000000000000000000000000;   { * Any type of memory will do * }
    MEMF_PUBLIC   = %000000000000000000000001;
-
+   MEMF_SEM_PROTECTED = 1 shl 20;
    MEMF_CLEAR    = %000000010000000000000000;
 
 Type

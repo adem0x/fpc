@@ -25,9 +25,7 @@ type
   TThreadID = THandle;
   
   PRTLCriticalSection = ^TRTLCriticalSection;
-  TRTLCriticalSection = record
-   Locked: boolean
-  end;
+  TRTLCriticalSection = Pointer;
 
 
 

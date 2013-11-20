@@ -100,6 +100,7 @@
 {$endif}
 {$ifdef aros}
   {$define FSCaseInsensitive}
+  {$define WinClipSupported}
 {$endif}
 
 { --- Exclude debugger support --- }

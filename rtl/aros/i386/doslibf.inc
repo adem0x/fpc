@@ -23,9 +23,9 @@ begin
   Open := Call(name, accessMode, AOS_DOSBase);
 end;
 
-function dosClose(_file: Cardinal): boolean;
+function dosClose(_file: Cardinal): LongBool;
 type
-  TdosClose = function(_file: Cardinal; Base: Pointer): boolean; cdecl;
+  TdosClose = function(_file: Cardinal; Base: Pointer): LongBool; cdecl;
 var
   Call: TdosClose;
 begin
@@ -73,6 +73,16 @@ begin
   dosOutput := Call(AOS_DOSBase);
 end;
 
+function DosError1: Cardinal;
+type
+  TDosError = function(Base: Pointer): Cardinal; cdecl;
+var
+  Call: TDosError;
+begin
+  Call := TDosError(GetLibAdress(AOS_DOSBase, 142));
+  DosError1 := Call(AOS_DOSBase);
+end;
+
 function dosSeek(_file: longint;position: longint;offset: longint): longint;
 type
   TdosSeek = function(_file: longint;position: longint;offset: longint; Base: Pointer): longint; cdecl;
@@ -83,9 +93,9 @@ begin
   dosSeek := Call(_file, position, offset, AOS_DOSBase);
 end;
 
-function dosDeleteFile(name: PChar): boolean;
+function dosDeleteFile(const name: PChar): LongBool;
 type
-  TdosDeleteFile = function(name: PChar; Base: Pointer): boolean; cdecl;
+  TdosDeleteFile = function(const name: PChar; Base: Pointer): LongBool; cdecl;
 var
   Call: TdosDeleteFile;
 begin
@@ -93,9 +103,9 @@ begin
   dosDeleteFile := Call(name, AOS_DOSBase);
 end;
 
-function dosRename(oldName: PChar;newName: PChar): boolean;
+function dosRename(const oldName: PChar;newName: PChar): LongInt;
 type
-  TdosRename = function(oldName: PChar;newName: PChar; Base: Pointer): boolean; cdecl;
+  TdosRename = function(const oldName: PChar;newName: PChar; Base: Pointer): LongInt; cdecl;
 var
   Call: TdosRename;
 begin
@@ -103,9 +113,9 @@ begin
   dosRename := Call(oldname, newname, AOS_DOSBase);
 end;
 
-function Lock(name: PChar;_type: longint): longint;
+function Lock(const name: PChar;_type: longint): longint;
 type
-  TLock = function(name: PChar;_type: longint; Base: Pointer): longint; cdecl;
+  TLock = function(const name: PChar;_type: longint; Base: Pointer): longint; cdecl;
 var
   Call: TLock;
 begin
@@ -124,9 +134,9 @@ begin
 end;
 
 
-function Examine(lock: longint; fileInfoBlock: PFileInfoBlock): boolean;
+function Examine(lock: longint; fileInfoBlock: PFileInfoBlock): LongInt;
 type
-  TExamine = function(lock: longint; fileInfoBlock: PFileInfoBlock; Base: Pointer): boolean; cdecl;
+  TExamine = function(lock: longint; fileInfoBlock: PFileInfoBlock; Base: Pointer): LongInt; cdecl;
 var
   Call: TExamine;
 begin
@@ -134,9 +144,9 @@ begin
   Examine := Call(lock, fileInfoBlock, AOS_DOSBase);
 end;
 
-function Info(lock: longint; parameterBlock: PInfoData): boolean;
+function Info(lock: longint; parameterBlock: PInfoData): LongInt;
 type
-  TInfo = function(lock: longint; parameterBlock: PInfoData; Base: Pointer): boolean; cdecl;
+  TInfo = function(lock: longint; parameterBlock: PInfoData; Base: Pointer): LongInt; cdecl;
 var
   Call: TInfo;
 begin
@@ -144,9 +154,9 @@ begin
   Info := Call(lock, parameterBlock, AOS_DOSBase);
 end;
 
-function dosCreateDir(name: PChar): longint;
+function dosCreateDir(const name: PChar): longint;
 type
-  TdosCreateDir = function(name: PChar; Base: Pointer): longint; cdecl;
+  TdosCreateDir = function(const name: PChar; Base: Pointer): longint; cdecl;
 var
   Call: TdosCreateDir;
 begin
@@ -184,9 +194,9 @@ begin
   Call(ErrCode, AOS_DOSBase);
 end;
 
-function SetProtection(name: PChar; protect: longword): boolean;
+function SetProtection(const name: PChar; protect: longword): LongInt;
 type
-  TSetProtection = function(name: PChar; protect: longword; Base: Pointer): boolean; cdecl;
+  TSetProtection = function(const name: PChar; protect: longword; Base: Pointer): LongInt; cdecl;
 var
   Call: TSetProtection;
 begin
@@ -214,9 +224,9 @@ begin
   Call(ticks, AOS_DOSBase);
 end;
 
-function SetFileDate(name: PChar; date: PDateStamp): boolean;
+function SetFileDate(name: PChar; date: PDateStamp): LongBool;
 type
-  TSetFileDate = function(name: PChar; date: PDateStamp; Base: Pointer): boolean; cdecl;
+  TSetFileDate = function(name: PChar; date: PDateStamp; Base: Pointer): LongBool; cdecl;
 var
   Call: TSetFileDate;
 begin
@@ -224,9 +234,9 @@ begin
   SetFileDate := Call(name, date, AOS_DOSBase);
 end;
 
-function NameFromLock(lock: longint; buffer: PChar; len: longint): boolean;
+function NameFromLock(lock: longint; buffer: PChar; len: longint): LongBool;
 type
-  TNameFromLock = function(lock: longint; buffer: PChar; len: longint; Base: Pointer): boolean; cdecl;
+  TNameFromLock = function(lock: longint; buffer: PChar; len: longint; Base: Pointer): LongBool; cdecl;
 var
   Call: TNameFromLock;
 begin
@@ -264,9 +274,9 @@ begin
   GetArgStr := Call(AOS_DOSBase);
 end;
 
-function GetCurrentDirName(buf: PChar; len: longint): boolean;
+function GetCurrentDirName(buf: PChar; len: longint): LongBool;
 type
-  TGetCurrentDirName = function(buf: PChar; len: longint; Base: Pointer): boolean; cdecl;
+  TGetCurrentDirName = function(buf: PChar; len: longint; Base: Pointer): LongBool; cdecl;
 var
   Call: TGetCurrentDirName;
 begin
@@ -274,9 +284,9 @@ begin
   GetCurrentDirName := Call(buf, len, AOS_DOSBase);
 end;
 
-function GetProgramName(buf: PChar; len: longint): boolean;
+function GetProgramName(buf: PChar; len: longint): LongBool;
 type
-  TGetProgramName = function(buf: PChar; len: longint; Base: Pointer): boolean; cdecl;
+  TGetProgramName = function(buf: PChar; len: longint; Base: Pointer): LongBool; cdecl;
 var
   Call: TGetProgramName;
 begin

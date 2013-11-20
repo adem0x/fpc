@@ -38,7 +38,6 @@
                     System Dependent Structures/Consts
 *****************************************************************************}
 
-
 const
   CTRL_C           = 20;      { Error code on CTRL-C press }
 
