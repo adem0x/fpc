@@ -264,6 +264,14 @@ function do_isdevice(handle:thandle):boolean;forward;
 {$endif cpumips}
 {$endif not cpumipsel}
 
+{$ifdef cpuriscv32}
+  {$ifdef SYSPROCDEFINED}
+    {$Error Can't determine processor type !}
+  {$endif}
+  {$i riscv32.inc}  { Case dependent, don't change }
+  {$define SYSPROCDEFINED}
+{$endif cpuriscv32}
+
 
 {$ifndef SYSPROCDEFINED}
   {$Error Can't determine processor type !}
