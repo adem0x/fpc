@@ -193,9 +193,9 @@ var
   wpopt: twpoptimizerswitch;
   abi : tabi;
   asmmode : tasmmode;
-{$if defined(arm) or defined(avr) or defined(mipsel)}
+{$if defined(arm) or defined(avr) or defined(mipsel) or defined(riscv32)}
   controllertype : tcontrollertype;
-{$endif defined(arm) or defined(avr) or defined(mipsel)}
+{$endif defined(arm) or defined(avr) or defined(mipsel) or defined(riscv32)}
 begin
   p:=MessagePchar(option_info);
   while assigned(p) do
@@ -332,7 +332,7 @@ begin
       end
      else if pos('$CONTROLLERTYPES',s)>0 then
       begin
-        {$if defined(arm) or defined(avr) or defined(mipsel)}
+        {$if defined(arm) or defined(avr) or defined(mipsel) or defined(riscv32)}
         hs1:='';
         for controllertype:=low(tcontrollertype) to high(tcontrollertype) do
           begin
@@ -356,8 +356,8 @@ begin
             Comment(V_Normal,hs);
             hs1:=''
           end;
-        {$else defined(arm) or defined(avr) or defined(mipsel)}
-        {$endif defined(arm) or defined(avr) or defined(mipsel)}
+        {$else defined(arm) or defined(avr) or defined(mipsel) or defined(riscv32)}
+        {$endif defined(arm) or defined(avr) or defined(mipsel) or defined(riscv32)}
       end
      else
       Comment(V_Normal,s);
@@ -1963,7 +1963,7 @@ begin
                       end;
                     'p':
                       begin
-{$if defined(arm) or defined(avr) or defined(mipsel)}
+{$if defined(arm) or defined(avr) or defined(mipsel) or defined(riscv32)}
                         if (target_info.system in systems_embedded) then
                           begin
                             s:=upper(copy(more,j+1,length(more)-j));
@@ -1972,7 +1972,7 @@ begin
                             break;
                           end
                         else
-{$endif defined(arm) or defined(avr) or defined(mipsel)}
+{$endif defined(arm) or defined(avr) or defined(mipsel) or defined(riscv32)}
                           IllegalPara(opt);
                       end;
                     'P':
@@ -3137,6 +3137,19 @@ begin
   end;
 {$endif i8086}
 
+{$ifdef riscv}
+  def_system_macro('CPURISCV');
+  {$ifdef riscv32}
+    def_system_macro('CPURISCV32');
+  {$endif}
+  {$ifdef riscv64}
+    def_system_macro('CPURISCV64');
+  {$endif}
+  def_system_macro('CPU32');
+  def_system_macro('FPC_CURRENCY_IS_INT64');
+  def_system_macro('FPC_COMP_IS_INT64');
+{$endif riscv}
+
   if tf_cld in target_info.flags then
     if not UpdateTargetSwitchStr('CLD', init_settings.targetswitches, true) then
       InternalError(2013092801);
@@ -3383,7 +3396,8 @@ begin
   if not(option.FPUSetExplicitly) and
      ((target_info.system in [system_arm_wince,system_arm_gba,
          system_m68k_amiga,system_m68k_atari,system_m68k_linux,
-         system_arm_nds,system_arm_embedded])
+         system_arm_nds,system_arm_embedded,
+         system_riscv32_embedded,system_riscv32_linux])
 {$ifdef arm}
       or (target_info.abi=abi_eabi)
 {$endif arm}

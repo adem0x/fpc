@@ -867,9 +867,9 @@ implementation
         paraloc  : pcgparalocation;
         href     : treference;
         sizeleft : aint;
-{$if defined(sparc) or defined(arm) or defined(mips)}
+{$if defined(sparc) or defined(arm) or defined(mips) or defined(riscv)}
         tempref  : treference;
-{$endif defined(sparc) or defined(arm) or defined(mips)}
+{$endif defined(sparc) or defined(arm) or defined(mips) or defined(riscv)}
 {$ifdef mips}
         tmpreg   : tregister;
 {$endif mips}

@@ -361,12 +361,12 @@ Unit AoptObj;
 
     function JumpTargetOp(ai: taicpu): poper; inline;
       begin
-{$ifdef MIPS}
+{$if defined(MIPS) or defined(RISCV)}
         { MIPS branches can have 1,2 or 3 operands, target label is the last one. }
         result:=ai.oper[ai.ops-1];
-{$else MIPS}
+{$else MIPS or RISCV}
         result:=ai.oper[0];
-{$endif MIPS}
+{$endif MIPS or RISCV}
       end;
 
 

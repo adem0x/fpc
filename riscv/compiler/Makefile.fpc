@@ -32,7 +32,7 @@ fpcdir=..
 unexport FPC_VERSION FPC_COMPILERINFO
 
 # Which platforms are ready for inclusion in the cycle
-CYCLETARGETS=i386 powerpc sparc arm x86_64 powerpc64 m68k armeb mipsel mips avr jvm i8086
+CYCLETARGETS=i386 powerpc sparc arm x86_64 powerpc64 m68k armeb mipsel mips avr jvm i8086 riscv32
 
 # All supported targets used for clean
 ALLTARGETS=$(CYCLETARGETS)
@@ -80,6 +80,9 @@ endif
 ifdef I8086
 PPC_TARGET=i8086
 endif
+ifdef RISCV32
+PPC_TARGET=riscv32
+endif
 
 # Default is to generate a compiler for the same
 # platform as CPU_TARGET (a native compiler)
@@ -89,7 +92,7 @@ endif
 
 ifeq ($(PPC_TARGET),armeb)
 CPC_TARGET=arm
-else
+else 
 CPC_TARGET=$(PPC_TARGET)
 endif
 
@@ -205,6 +208,9 @@ endif
 ifeq ($(CPC_TARGET),i8086)
 CPUSUF=8086
 endif
+ifeq ($(CPC_TARGET),riscv32)
+CPUSUF=r32
+endif
 
 # Do not define the default -d$(CPU_TARGET) because that
 # will conflict with our -d$(CPC_TARGET)
@@ -294,6 +300,11 @@ endif
 # i8086 specific
 ifeq ($(PPC_TARGET),i8086)
 override LOCALOPT+=-Fux86
+endif
+
+# RISCV32 specific
+ifeq ($(PPC_TARGET),riscv32)
+override LOCALOPT+=-driscv
 endif
 
 OPTWPOCOLLECT=-OWdevirtcalls,optvmts -FW$(BASEDIR)/pp1.wpo

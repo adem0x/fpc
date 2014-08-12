@@ -69,7 +69,15 @@ const
     platform_select='-EB';
   {$endif}
 {$else}
-  platform_select='';
+  {$ifdef riscv}
+    {$ifdef riscv32}
+      platform_select='-melf32lriscv';
+    {$else}
+      platform_select='-melf64lriscv';
+    {$endif}
+  {$else}
+    platform_select='';
+  {$endif}
 {$endif}
 begin
   with Info do
@@ -90,13 +98,13 @@ Var
   linklibc : boolean;
   found1,
   found2   : boolean;
-{$if defined(ARM) or defined(MIPSEL)}
+{$if defined(ARM) or defined(MIPSEL) or defined(RISCV32)}
   LinkStr  : string;
 {$endif}
 begin
   WriteResponseFile:=False;
   linklibc:=(SharedLibFiles.Find('c')<>nil);
-{$if defined(ARM) or defined(i386) or defined(AVR) or defined(MIPSEL)}
+{$if defined(ARM) or defined(i386) or defined(AVR) or defined(MIPSEL) or defined(RISCV32)}
   prtobj:='';
 {$else}
   prtobj:='prt0';
@@ -1034,6 +1042,90 @@ begin
     end;
 {$endif MIPSEL}
 
+{$ifdef RISCV}
+  case current_settings.controllertype of
+      ct_none:
+           begin
+           end;
+      ct_standard,
+      ct_angel:
+        begin
+         with embedded_controllers[current_settings.controllertype] do
+          with linkres do
+            begin
+              Add('ENTRY(_START)');
+              Add('MEMORY');
+              Add('{');
+              if flashsize<>0 then
+                begin
+                  LinkStr := '    flash : ORIGIN = 0x' + IntToHex(flashbase,8)
+                    + ', LENGTH = 0x' + IntToHex(flashsize,8);
+                  Add(LinkStr);
+                end;
+
+              LinkStr := '    ram : ORIGIN = 0x' + IntToHex(srambase,8)
+              	+ ', LENGTH = 0x' + IntToHex(sramsize,8);
+              Add(LinkStr);
+
+              Add('}');
+              Add('_stack_top = 0x' + IntToHex(sramsize+srambase,8) + ';');
+            end;
+        end
+    else
+      if not (cs_link_nolink in current_settings.globalswitches) then
+      	 internalerror(200902011);
+  end;
+
+  with linkres do
+    begin
+      Add('SECTIONS');
+      Add('{');
+      Add('     .text :');
+      Add('    {');
+      Add('    _text_start = .;');
+      Add('    KEEP(*(.init, .init.*))');
+      Add('    *(.text, .text.*)');
+      Add('    *(.strings)');
+      Add('    *(.rodata, .rodata.*)');
+      Add('    *(.comment)');
+      Add('    _etext = .;');
+      if embedded_controllers[current_settings.controllertype].flashsize<>0 then
+        begin
+          Add('    } >flash');
+        end
+      else
+        begin
+          Add('    } >ram');
+        end;
+      Add('    .note.gnu.build-id : { *(.note.gnu.build-id) } >flash ');
+
+      Add('    .data :');
+      Add('    {');
+      Add('    _data = .;');
+      Add('    *(.data, .data.*)');
+      Add('    KEEP (*(.fpc .fpc.n_version .fpc.n_links))');
+      Add('    _edata = .;');
+      if embedded_controllers[current_settings.controllertype].flashsize<>0 then
+        begin
+          Add('    } >ram AT >flash');
+        end
+      else
+        begin
+          Add('    } >ram');
+        end;
+      Add('    .bss :');
+      Add('    {');
+      Add('    _bss_start = .;');
+      Add('    *(.bss, .bss.*)');
+      Add('    *(COMMON)');
+      Add('    } >ram');
+      Add('. = ALIGN(4);');
+      Add('_bss_end = . ;');
+      Add('}');
+      Add('_end = .;');
+    end;
+{$endif RISCV}
+
 
   { Write and Close response }
   linkres.writetodisk;
@@ -1294,5 +1386,10 @@ initialization
   RegisterLinker(ld_embedded,TLinkerEmbedded);
   RegisterTarget(system_mipsel_embedded_info);
 {$endif mipsel}
+
+{$ifdef riscv}
+  RegisterLinker(ld_embedded,TLinkerEmbedded);
+  RegisterTarget(system_riscv32_embedded_info);
+{$endif riscv}
 
 end.

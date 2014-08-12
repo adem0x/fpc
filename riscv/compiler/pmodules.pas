@@ -374,11 +374,11 @@ implementation
           end;
 
         { CPU targets with microcontroller support can add a controller specific unit }
-{$if defined(ARM) or defined(AVR) or defined(MIPSEL)}
+{$if defined(ARM) or defined(AVR) or defined(MIPSEL) or defined(riscv32)}
         if (target_info.system in systems_embedded) and (current_settings.controllertype<>ct_none) and
           (embedded_controllers[current_settings.controllertype].controllerunitstr<>'') then
           AddUnit(embedded_controllers[current_settings.controllertype].controllerunitstr);
-{$endif ARM AVR MIPSEL}
+{$endif ARM AVR MIPSEL RISCV32}
       end;
 
 

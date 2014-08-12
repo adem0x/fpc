@@ -155,6 +155,10 @@ program fpc;
      ppcbin:='ppcx64';
      processorname:='x86_64';
 {$endif x86_64}
+{$ifdef riscv32}
+     ppcbin:='ppcr32';
+     processorname:='riscv32';
+{$endif riscv32}
 {$ifdef mipsel}
      ppcbin:='ppcmipsel';
      processorname:='mipsel';
@@ -230,6 +234,8 @@ program fpc;
                              cpusuffix:='8086'
                            else if processorstr='avr' then
                              cpusuffix:='avr'
+                           else if processorstr='riscv32' then
+                             cpusuffix:='r32'
                            else
                              error('Illegal processor type "'+processorstr+'"');
 

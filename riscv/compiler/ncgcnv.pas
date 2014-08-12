@@ -193,7 +193,7 @@ interface
 {$if defined(POWERPC) or defined(POWERPC64)}
         resflags.cr := RS_CR0;
         resflags.flag:=F_NE;
-{$elseif defined(mips)}
+{$elseif defined(mips) or defined(riscv)}
         resflags.reg1:=NR_NO;
         resflags.reg2:=NR_NO;
         resflags.cond:=OC_NONE;

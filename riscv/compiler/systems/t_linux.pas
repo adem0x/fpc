@@ -190,6 +190,10 @@ end;
   const defdynlinker='/lib/ld.so.1';
 {$endif mips}
 
+{$ifdef riscv}
+  const defdynlinker='/lib/ld.so.1';
+{$endif riscv}
+
 procedure SetupDynlinker(out DynamicLinker:string;out libctype:TLibcType);
 begin
   {
@@ -277,6 +281,7 @@ const
 {$ifdef sparc}     platform_select='-b elf32-sparc -m elf32_sparc';{$endif}
 {$ifdef arm}       platform_select='';{$endif} {unknown :( }
 {$ifdef m68k}      platform_select='';{$endif} {unknown :( }
+{$ifdef riscv}     platform_select='-b elf32-riscv -m elf32riscv';{$endif}
 {$ifdef mips}
   {$ifdef mipsel}  
 	           platform_select='-EL';
@@ -1552,5 +1557,10 @@ initialization
   RegisterTarget(system_mipseb_linux_info);
 {$endif MIPSEL}
 {$endif MIPS}
+{$ifdef RISCV}
+  RegisterImport(system_riscv32_linux,timportliblinux);
+  RegisterExport(system_riscv32_linux,texportliblinux);
+  RegisterTarget(system_riscv32_linux_info);
+{$endif RISCV}
   RegisterRes(res_elf_info,TWinLikeResourceFile);
 end.

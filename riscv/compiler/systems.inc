@@ -49,7 +49,8 @@
              cpu_avr,                      { 12 }
              cpu_mipsel,                   { 13 }
              cpu_jvm,                      { 14 }
-             cpu_i8086                     { 15 }
+             cpu_i8086,                    { 15 }
+             cpu_riscv32                   { 16 }
        );
 
        tasmmode= (asmmode_none
@@ -162,7 +163,9 @@
              system_i8086_msdos,        { 79 }
              system_mipsel_android,     { 80 }
              system_mipseb_embedded,    { 81 }
-             system_mipsel_embedded     { 82 }
+             system_mipsel_embedded,    { 82 }
+             system_riscv32_linux,      { 83 }
+             system_riscv32_embedded    { 84 }
        );
 
      type

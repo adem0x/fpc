@@ -2943,9 +2943,9 @@ type
             minfpconstprec:=tfloattype(tokenreadenum(sizeof(tfloattype)));
 
             disabledircache:=boolean(tokenreadbyte);
-{$if defined(ARM) or defined(AVR) or defined(MIPSEL)}
+{$if defined(ARM) or defined(AVR) or defined(MIPSEL) or defined(riscv32)}
             controllertype:=tcontrollertype(tokenreadenum(sizeof(tcontrollertype)));
-{$endif defined(ARM) or defined(AVR) or DEFINED(MIPSEL)}
+{$endif defined(ARM) or defined(AVR) or DEFINED(MIPSEL) or defined(riscv32)}
            endpos:=replaytokenbuf.pos;
            if endpos-startpos<>expected_size then
              Comment(V_Error,'Wrong size of Settings read-in');
@@ -3012,9 +3012,9 @@ type
             tokenwriteenum(minfpconstprec,sizeof(tfloattype));
 
             recordtokenbuf.write(byte(disabledircache),1);
-{$if defined(ARM) or defined(AVR) or defined(MIPSEL)}
+{$if defined(ARM) or defined(AVR) or defined(MIPSEL) or defined(riscv32)}
             tokenwriteenum(controllertype,sizeof(tcontrollertype));
-{$endif defined(ARM) or defined(AVR) or defined(MIPSEL)}
+{$endif defined(ARM) or defined(AVR) or defined(MIPSEL) or defined(riscv32)}
            endpos:=recordtokenbuf.pos;
            size:=endpos-startpos;
            recordtokenbuf.seek(sizepos);

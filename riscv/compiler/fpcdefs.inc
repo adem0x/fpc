@@ -244,6 +244,26 @@
   {$define cpurefshaveindexreg}
 {$endif aarch64}
 
+
+{$ifdef riscv}
+  {$ifndef riscv64}
+    {$define cpu32bit}
+    {$define cpu32bitalu}
+    {$define cpu32bitaddr}
+  {$else}
+    {$error riscv64 not yet supported}
+  {$endif}
+  {$define cpufpemu}
+  {$define cpuflags} { Flags are emulated }
+  {$define cpuneedsdiv32helper}
+  {$define cputargethasfixedstack}
+  {$define cpurequiresproperalignment}
+  {$define cpuneedsmulhelper}
+  { $define cpurefshaveindexreg}
+  {$define SUPPORT_GET_FRAME}
+  {$define SUPPORT_SAFECALL}
+{$endif riscv}
+
 {$IFDEF MACOS}
 {$DEFINE USE_FAKE_SYSUTILS}
 {$ENDIF MACOS}

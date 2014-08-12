@@ -227,6 +227,11 @@ implementation
         if left.location.loc in [LOC_FLAGS,LOC_JUMP,LOC_SUBSETREG,LOC_CSUBSETREG,LOC_SUBSETREF,LOC_CSUBSETREF] then
           hlcg.location_force_reg(current_asmdata.CurrAsmList,left.location,left.resultdef,left.resultdef,false);
 
+        if left.location.loc=LOC_VOID then
+          begin
+            writeln('a');
+          end;
+
         { load the parameter's tlocation into its cgpara }
         hlcg.gen_load_loc_cgpara(current_asmdata.CurrAsmList,left.resultdef,left.location,tempcgpara)
       end;

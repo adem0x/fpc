@@ -216,7 +216,7 @@ interface
        systems_android = [system_arm_android, system_i386_android, system_mipsel_android];
        systems_linux = [system_i386_linux,system_x86_64_linux,system_powerpc_linux,system_powerpc64_linux,
                        system_arm_linux,system_sparc_linux,system_alpha_linux,system_m68k_linux,
-                       system_x86_6432_linux,system_mipseb_linux,system_mipsel_linux];
+                       system_x86_6432_linux,system_mipseb_linux,system_mipsel_linux,system_riscv32_linux];
        systems_freebsd = [system_i386_freebsd,
                           system_x86_64_freebsd];
        systems_netbsd  = [system_i386_netbsd,
@@ -254,7 +254,8 @@ interface
                            system_iA64_embedded,system_x86_64_embedded,
                            system_mips_embedded,system_arm_embedded,
                            system_powerpc64_embedded,system_avr_embedded,
-                           system_jvm_java32,system_mipseb_embedded,system_mipsel_embedded];
+                           system_jvm_java32,system_mipseb_embedded,system_mipsel_embedded,
+                           system_riscv32_embedded];
 
        { all systems that allow section directive }
        systems_allow_section = systems_embedded;
@@ -347,7 +348,7 @@ interface
 
        cpu2str : array[TSystemCpu] of string[10] =
             ('','i386','m68k','alpha','powerpc','sparc','vm','ia64','x86_64',
-             'mips','arm', 'powerpc64', 'avr', 'mipsel','jvm', 'i8086');
+             'mips','arm', 'powerpc64', 'avr', 'mipsel','jvm', 'i8086', 'riscv32');
 
        abiinfo : array[tabi] of tabiinfo = (
          (name: 'DEFAULT'; supported: true),
@@ -918,6 +919,10 @@ begin
 {$ifdef i8086}
   default_target(system_i8086_msdos);
 {$endif i8086}
+
+{$ifdef riscv}
+  default_target(system_riscv32_linux);
+{$endif riscv}
 end;
 
 

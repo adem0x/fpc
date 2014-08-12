@@ -951,7 +951,7 @@ implementation
       begin
         tg:=tgobjclass.create;
 
-{$if defined(i386) or defined(x86_64) or defined(arm)}
+{$if defined(i386) or defined(x86_64) or defined(arm) or defined(riscv)}
 {$if defined(arm)}
         { frame and stack pointer must be always the same on arm thumb so it makes no
           sense to fiddle with a frame pointer }
@@ -996,10 +996,10 @@ implementation
                 not(cs_profile in current_settings.moduleswitches) and
                 not(po_assembler in procdef.procoptions) and
                 not ((pi_has_stackparameter in flags)
-{$ifndef arm}   { Outgoing parameter(s) on stack do not need stackframe on x86 targets
+{$if not(defined(arm)) and not(defined(riscv))}   { Outgoing parameter(s) on stack do not need stackframe on x86 targets
                  with fixed stack. On ARM it fails, see bug #25050 }
                   and (not paramanager.use_fixed_stack)
-{$endif arm}
+{$endif arm nor riscv}
                   ) and
                 ((flags*([pi_has_assembler_block,pi_is_assembler,
                         pi_needs_stackframe]+
@@ -1026,7 +1026,7 @@ implementation
                     framepointer:=NR_STACK_POINTER_REG;
                     tg.direction:=1;
                   end
-{$if defined(arm)}
+{$if defined(arm) or defined(riscv)}
                 { On arm, the stack frame size can be estimated to avoid using an extra frame pointer,
                   in case parameters are passed on the stack.
 
