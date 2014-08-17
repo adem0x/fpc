@@ -133,6 +133,15 @@ begin
   UnLock := Call(lock, AOS_DOSBase);
 end;
 
+function DupLock(Lock: longint): longint;
+type
+  TDupLock = function(Lock: longint; Base: Pointer): longint; cdecl;
+var
+  Call: TDupLock;
+begin
+  Call := TDupLock(GetLibAdress(AOS_DOSBase, 16));
+  DupLock := Call(Lock, AOS_DOSBase);
+end;
 
 function Examine(lock: longint; fileInfoBlock: PFileInfoBlock): LongInt;
 type

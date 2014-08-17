@@ -34,7 +34,7 @@
     nils.sjoholm@mailbox.swipnet.se
 }
 {$mode objfpc}
-
+{$packrecords C}
 unit mui;
 
 interface
@@ -3666,22 +3666,22 @@ end;
 
 function OBJ_Left(obj : APTR) : smallint;           (* valid during MUIM_Draw *)
 begin
-    OBJ_Left := pMUI_AreaData(obj)^.mad_Box.Left;
+    OBJ_Left := MUIAreaData(obj)^.mad_Box.Left;
 end;
 
 function OBJ_Top(obj : APTR) : smallint;            (* valid during MUIM_Draw *)
 begin
-    OBJ_Top := pMUI_AreaData(obj)^.mad_Box.Top;
+    OBJ_Top := MUIAreaData(obj)^.mad_Box.Top;
 end;
 
 function OBJ_Width(obj : APTR) : smallint;          (* valid during MUIM_Draw *)
 begin
-    OBJ_Width := pMUI_AreaData(obj)^.mad_Box.Width;
+    OBJ_Width := MUIAreaData(obj)^.mad_Box.Width;
 end;
 
 function OBJ_Height(obj : APTR) : smallint;         (* valid during MUIM_Draw *)
 begin
-    OBJ_Height := pMUI_AreaData(obj)^.mad_Box.Height;
+    OBJ_Height := MUIAreaData(obj)^.mad_Box.Height;
 end;
 
 function OBJ_Right(obj : APTR) : smallint;          (* valid during MUIM_Draw *)
@@ -3696,22 +3696,22 @@ end;
 
 function OBJ_AddLeft(obj : APTR) : smallint;        (* valid during MUIM_Draw *)
 begin
-    OBJ_AddLeft := pMUI_AreaData(obj)^.mad_AddLeft;
+    OBJ_AddLeft := MUIAreaData(obj)^.mad_AddLeft;
 end;
 
 function OBJ_AddTop(obj : APTR) : smallint;         (* valid during MUIM_Draw *)
 begin
-    OBJ_AddTop := pMUI_AreaData(obj)^.mad_AddTop;
+    OBJ_AddTop := MUIAreaData(obj)^.mad_AddTop;
 end;
 
 function OBJ_SubWidth(obj : APTR) : smallint;       (* valid during MUIM_Draw *)
 begin
-    OBJ_SubWidth := pMUI_AreaData(obj)^.mad_SubWidth;
+    OBJ_SubWidth := MUIAreaData(obj)^.mad_SubWidth;
 end;
 
 function OBJ_SubHeight(obj : APTR) : smallint;      (* valid during MUIM_Draw *)
 begin
-    OBJ_SubHeight := pMUI_AreaData(obj)^.mad_SubHeight;
+    OBJ_SubHeight := MUIAreaData(obj)^.mad_SubHeight;
 end;
 
 function OBJ_MLeft(obj : APTR) : smallint;          (* valid during MUIM_Draw *)
@@ -3746,42 +3746,42 @@ end;
 
 function OBJ_Font(obj : APTR) : pTextFont;         (* valid between MUIM_Setup/Cleanup *)
 begin
-    OBJ_Font := pMUI_AreaData(obj)^.mad_Font;
+    OBJ_Font := MUIAreaData(obj)^.mad_Font;
 end;
 
 function OBJ_MinWidth(obj : APTR) : ULONG;         (* valid between MUIM_Show/Hide *)
 begin
-    OBJ_MinWidth := pMUI_AreaData(obj)^.mad_MinMax.MinWidth;
+    OBJ_MinWidth := MUIAreaData(obj)^.mad_MinMax.MinWidth;
 end;
 
 function OBJ_MinHeight(obj : APTR) : ULONG;        (* valid between MUIM_Show/Hide *)
 begin
-    OBJ_MinHeight := pMUI_AreaData(obj)^.mad_MinMax.MinHeight;
+    OBJ_MinHeight := MUIAreaData(obj)^.mad_MinMax.MinHeight;
 end;
 
 function OBJ_MaxWidth(obj : APTR) : ULONG;         (* valid between MUIM_Show/Hide *)
 begin
-    OBJ_maxWidth := pMUI_AreaData(obj)^.mad_MinMax.MaxWidth;
+    OBJ_maxWidth := MUIAreaData(obj)^.mad_MinMax.MaxWidth;
 end;
 
 function OBJ_MaxHeight(obj : APTR) : ULONG;        (* valid between MUIM_Show/Hide *)
 begin
-    OBJ_maxHeight := pMUI_AreaData(obj)^.mad_MinMax.MaxHeight;
+    OBJ_maxHeight := MUIAreaData(obj)^.mad_MinMax.MaxHeight;
 end;
 
 function OBJ_DefWidth(obj : APTR) : ULONG;         (* valid between MUIM_Show/Hide *)
 begin
-    OBJ_DefWidth := pMUI_AreaData(obj)^.mad_MinMax.DefWidth;
+    OBJ_DefWidth := MUIAreaData(obj)^.mad_MinMax.DefWidth;
 end;
 
 function OBJ_DefHeight(obj : APTR) : ULONG;        (* valid between MUIM_Show/Hide *)
 begin
-    OBJ_DefHeight := pMUI_AreaData(obj)^.mad_MinMax.DefHeight;
+    OBJ_DefHeight := MUIAreaData(obj)^.mad_MinMax.DefHeight;
 end;
 
 function OBJ_Flags(obj : APTR) : ULONG;
 begin
-    OBJ_Flags := pMUI_AreaData(obj)^.mad_Flags;
+    OBJ_Flags := MUIAreaData(obj)^.mad_Flags;
 end;
 
 (*

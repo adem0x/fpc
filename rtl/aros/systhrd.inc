@@ -362,7 +362,10 @@ end;
 
 function SysGetCurrentThreadId: LongInt;
 begin
-  SysGetCurrentThreadId := AROSCurrentThread;
+  if Assigned(AOS_ThreadBase) then
+    SysGetCurrentThreadId := AROSCurrentThread
+  else
+    SysGetCurrentThreadId := 0;
 end;
 
 // Mutex

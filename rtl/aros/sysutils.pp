@@ -2,7 +2,9 @@
     This file is part of the Free Pascal run time library.
     Copyright (c) 2004-2006 by Karoly Balogh
 
-    Sysutils unit for MorphOS
+    Sysutils unit for AROS
+    
+    Based on MorphOS Version.
 
     Based on Amiga version by Carl Eric Codere, and other
     parts of the RTL
@@ -33,7 +35,13 @@ interface
 Procedure AddDisk(const path:string);
 Procedure Sleep(milliseconds: Cardinal);
 
-
+const
+  faExecute = $00000100;
+  faScript  = $00000200;
+  faPure    = $00000400;
+  faDelete  = $00000800;
+  faRead    = $00001000;
+  faWrite   = $00002000;
 implementation
 
 uses dos,sysconst;
@@ -47,7 +55,7 @@ uses dos,sysconst;
 {$i sysutils.inc}
 
 
-{ * Include MorphOS specific includes * }
+{ * Include AROS specific includes * }
 {$include execd.inc}
 {$include execf.inc}
 {$include timerd.inc}
@@ -195,7 +203,6 @@ var
   DateStamp: TDateStamp;
   FileName: string;
 begin
-  Result := 0;
   FileName := GetNameFromList(AOS_fileList, Handle);
   if FileName = '' then
   begin
@@ -203,8 +210,10 @@ begin
     Exit;
   end;
   DateStamp := DateTimeToAmigaFileDate(FileDateToDateTime(Age));
-  SetFileDate(PChar(FileName), @DateStamp);
-  FileSetDate:=-1;
+  if SetFileDate(PChar(FileName), @DateStamp) then
+    Result := 0
+  else
+    Result := -1;
 end;
 
 
@@ -419,11 +428,24 @@ begin
 
     { "128" is Windows "NORMALFILE" attribute. Some buggy code depend on this... :( (KB) }
     Rslt.Attr := 128;
-
-    if fib_DirEntryType > 0 then Rslt.Attr:=Rslt.Attr or faDirectory;
-    if ((fib_Protection and FIBF_READ) <> 0) and
-       ((fib_Protection and FIBF_WRITE) = 0) then Rslt.Attr:=Rslt.Attr or faReadOnly;
-
+    if fib_DirEntryType > 0 then
+      Rslt.Attr := Rslt.Attr or faDirectory;
+    if ((fib_Protection and FIBF_READ) = 0) and ((fib_Protection and FIBF_WRITE) <> 0) then
+      Rslt.Attr := Rslt.Attr or faReadOnly;      
+    if (fib_Protection and FIBF_ARCHIVE) <> 0 then   
+      Rslt.Attr := Rslt.Attr or faArchive;
+    if (fib_Protection and FIBF_PURE) = 0 then   
+      Rslt.Attr := Rslt.Attr or faPure;
+    if (fib_Protection and FIBF_SCRIPT) <> 0 then   
+      Rslt.Attr := Rslt.Attr or faScript;
+    if (fib_Protection and FIBF_EXECUTE) = 0 then   
+      Rslt.Attr := Rslt.Attr or faExecute;
+    if (fib_Protection and FIBF_DELETE) = 0 then   
+      Rslt.Attr := Rslt.Attr or faDelete;        
+    if (fib_Protection and FIBF_READ) = 0 then   
+      Rslt.Attr := Rslt.Attr or faRead;
+    if (fib_Protection and FIBF_WRITE) = 0 then   
+      Rslt.Attr := Rslt.Attr or faWrite;
     result:=0; { Return zero if everything went OK }
   end;
 end;
@@ -448,10 +470,24 @@ begin
 
     { "128" is Windows "NORMALFILE" attribute. Some buggy code depend on this... :( (KB) }
     Rslt.Attr := 128;
-    if fib_DirEntryType > 0 then Rslt.Attr:=Rslt.Attr or faDirectory;
-    if ((fib_Protection and FIBF_READ) <> 0) and
-       ((fib_Protection and FIBF_WRITE) = 0) then Rslt.Attr:=Rslt.Attr or faReadOnly;
-
+    if fib_DirEntryType > 0 then
+      Rslt.Attr := Rslt.Attr or faDirectory;
+    if ((fib_Protection and FIBF_READ) = 0) and ((fib_Protection and FIBF_WRITE) <> 0) then
+      Rslt.Attr := Rslt.Attr or faReadOnly;      
+    if (fib_Protection and FIBF_ARCHIVE) <> 0 then   
+      Rslt.Attr := Rslt.Attr or faArchive;
+    if (fib_Protection and FIBF_PURE) = 0 then   
+      Rslt.Attr := Rslt.Attr or faPure;
+    if (fib_Protection and FIBF_SCRIPT) <> 0 then   
+      Rslt.Attr := Rslt.Attr or faScript;
+    if (fib_Protection and FIBF_EXECUTE) = 0 then   
+      Rslt.Attr := Rslt.Attr or faExecute;
+    if (fib_Protection and FIBF_DELETE) = 0 then   
+      Rslt.Attr := Rslt.Attr or faDelete;        
+    if (fib_Protection and FIBF_READ) = 0 then   
+      Rslt.Attr := Rslt.Attr or faRead;
+    if (fib_Protection and FIBF_WRITE) = 0 then   
+      Rslt.Attr := Rslt.Attr or faWrite;
     result:=0; { Return zero if everything went OK }
   end;
 end;
@@ -682,9 +718,26 @@ function ExecuteProcess (const Path: AnsiString; const ComLine: AnsiString;Flags
 var
   CommandLine: AnsiString;
   E: EOSError;
-
+  TmpPath: AnsiString;
+  TmpLock: longInt;
 begin
-  Dos.Exec (Path, ComLine);
+  TmpPath := PathConv(Path);
+  
+  TmpLock := Lock(PAnsiChar(TmpPath), SHARED_LOCK);
+  if TmpLock <> 0 then
+  begin
+    Unlock(TmpLock);
+    TmpPath := TmpPath + ' ' + ComLine;
+
+    Result := SystemTagList(PAnsiChar(TmpPath), nil);
+    { on return of -1 the shell could not be executed }
+    { probably because there was not enough memory    }
+    if Result = -1 then
+      DosError:=8
+  end else
+    DosError:=3;
+  
+  //Dos.Exec (Path, ComLine);
   if DosError <> 0 then begin
 
     if ComLine = '' then

@@ -65,8 +65,7 @@ dirs_go32v2=fv graph unzip gdbint
 dirs_amiga=amunits
 dirs_morphos=fv opengl sdl
 dirs_wii=libogcfpc
-dirs_aros=arosunits fcl-fpcunit fcl-passrc fcl-stl symbolic unzip
-
+dirs_aros=arosunits fv fcl-net fcl-db fcl-fpcunit fcl-passrc fcl-process fcl-stl symbolic unzip fastcgi
 [install]
 fpcpackage=y
 fpcsubdir=packages
@@ -199,7 +198,7 @@ fcl-net_release: fcl-passrc_release fcl-xml_release fcl-async_release
 fcl-net_shared: fcl-passrc_shared fcl-xml_shared fcl-async_shared
 endif
 
-fcl-web_all: fpmkunit_all fcl-db_all fcl-xml_all fcl-process_all httpd22_all fastcgi_all fcl-net_all fcl-json_all
+fcl-web_all: fpmkunit_all fcl-db_all fcl-xml_all fcl-process_all fastcgi_all fcl-net_all fcl-json_all
 fcl-web_debug: fpmkunit_debug fcl-db_debug fcl-xml_debug fcl-process_debug httpd22_debug fastcgi_debug fcl-net_debug fcl-json_debug
 fcl-web_smart: fpmkunit_smart fcl-db_smart fcl-xml_smart fcl-process_smart httpd22_smart fastcgi_smart fcl-net_smart fcl-json_smart
 fcl-web_release: fpmkunit_release fcl-db_release fcl-xml_release fcl-process_release httpd22_release fastcgi_release fcl-net_release fcl-json_release
@@ -422,8 +421,8 @@ opencl_smart:  opengl_smart
 opencl_release:  opengl_release
 opencl_shared:  opengl_shared
 
-ifeq ($(findstring $(OS_TARGET),go32v2),)
-fppkg_all:  fcl-web_all
+ifeq ($(findstring $(OS_TARGET),go32v2 aros),)
+fppkg_all: fcl-web_all
 fppkg_debug:  fcl-web_debug
 fppkg_smart:  fcl-web_smart
 fppkg_release:  fcl-web_release

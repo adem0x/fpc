@@ -247,6 +247,9 @@ begin
   Result:=Path;
   l:=Length(Result);
   If (L=0) or not(Result[l] in AllowDirectorySeparators) then
+    {$ifdef AROS}
+    if (L>0) and (not(Result[l] = DriveSeparator)) then
+    {$endif}
     Result:=Result+DirectorySeparator;
 end;
 

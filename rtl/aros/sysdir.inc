@@ -108,13 +108,12 @@ begin
   CheckCTRLC;
   Dir:='';
   LockDir := CurrentDir(0);
-  CurrentDir(LockDir);
   NameFromLock(LockDir, TmpBuf, 256);
+  CurrentDir(LockDir);
   Dir := StrPas(TmpBuf);
-  // followinf dos not work when called from WB or by make
-  {if not GetCurrentDirName(tmpbuf,256) then
-    DosError2InOut(IoErr)
-  else
-    Dir:=strpas(tmpbuf);
-    }
+  // following does not work when called from WB or by make
+  //  if not GetCurrentDirName(tmpbuf,256) then
+  //    DosError2InOut(IoErr)
+  //  else
+  //    Dir:=strpas(tmpbuf);
 end;

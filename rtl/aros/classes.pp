@@ -29,6 +29,7 @@ uses
 {$ifdef FPC_TESTGENERICS}
   fgl,
 {$endif}
+  Exec,
   arosthread,
   typinfo;
 
@@ -36,7 +37,6 @@ uses
 
 
 implementation
-
 
 { OS - independent class implementations are in /inc directory. }
 {$i classes.inc}

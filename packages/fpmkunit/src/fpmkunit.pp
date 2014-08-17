@@ -27,6 +27,10 @@ unit fpmkunit;
 
 Interface
 
+{$ifdef aros}
+  {$define NO_UNIT_PROCESS}
+{$endif}
+
 {$IFDEF OS2}
  {$DEFINE NO_UNIT_PROCESS}
 {$ENDIF OS2}
@@ -69,7 +73,7 @@ Type
     linux,go32v2,win32,os2,freebsd,beos,netbsd,
     amiga,atari, solaris, qnx, netware, openbsd,wdosx,
     palmos,macos,darwin,emx,watcom,morphos,netwlibc,
-    win64,wince,gba,nds,embedded,symbian,haiku,iphonesim
+    win64,wince,gba,nds,embedded,symbian,haiku,iphonesim,aros
   );
   TOSes = Set of TOS;
 
@@ -153,7 +157,8 @@ Const
     { embedded }( false, true,  true,  true,  true,  true,  true,  true,  true,  true ),
     { symbian } ( false, true,  false, false, false, false, true,  false, false, false),
     { haiku }   ( false, true,  false, false, false, false, false, false, false, false),
-    { iphonesim}( false, true,  false, false, false, false, false, false, false, false)
+    { iphonesim}( false, true,  false, false, false, false, false, false, false, false),
+    { aros     }( false, true,  false, false, false, true,  false, false, false, false)
   );
 
   // Useful
@@ -3591,6 +3596,11 @@ begin
         E:=ExecuteFPC(Verbose, cmd, args, ConsoleOutput);
         {$else}
         E:=ExecuteProcess(cmd,args);
+        writeln();
+        writeln('-----------');
+        writeln('debug: ' + cmd + ' args: ' + args);
+        writeln('----------- ', Length(args));
+        writeln();
         {$endif}
         If (E<>0) and (not IgnoreError) then
           begin

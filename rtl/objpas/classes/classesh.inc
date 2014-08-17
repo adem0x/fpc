@@ -1515,6 +1515,7 @@ type
     FSem: Pointer;
     FCond: Pointer;
     FInitialSuspended: boolean;
+    ThreadStack: Pointer;
 {$endif}
   public
     constructor Create(CreateSuspended: Boolean;

@@ -16,10 +16,17 @@
 var
   LocalExecBase   : Pointer; external name '_ExecBase';
 
-function GetLibAdress(Base: Pointer; Offset: LongInt): Pointer;
+function RawDoFmt(const formatString : pCHAR;const dataStream : POINTER; putChProc : POINTER; putChData : POINTER): pointer; forward;
+
+
+function GetLibAdress(Base: Pointer; Offset: LongInt): Pointer; inline;
 begin
   if Base = nil then
+  begin
+    RawDoFmt('FPC_FILE_DEBUG: Error! Illegal library access with not opened library: %d !'+#10,@Offset,pointer(1),nil);
+    Debugln('Illegal library access with not opened library');
     Halt(1);
+  end;  
   GetLibAdress := Pointer((Base -(Offset * SizeOf(Pointer)))^);
 end;
 

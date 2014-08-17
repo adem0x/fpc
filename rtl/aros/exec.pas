@@ -1274,7 +1274,7 @@ procedure Enable;
 procedure Enqueue(List: PList; Node: PNode);
 procedure ExecFreeMem(MemoryBlock: APTR; ByteSize: ULONG);
 procedure ExecInsert(List: PList; Node: PNode; Pred: PNode);
-procedure Exception;
+procedure ExecException;
 function FindName(List: PList; const Name: PChar): PNode;
 function FindPort(const Name: STRPTR): PMsgPort;
 function FindResident(const Name: PChar): PResident;
@@ -2199,7 +2199,7 @@ begin
   Call(List, Node, Pred, AOS_ExecBase);
 end;
 
-procedure Exception;
+procedure ExecException;
 type
   TLocalCall = procedure(LibBase: Pointer); cdecl;
 var

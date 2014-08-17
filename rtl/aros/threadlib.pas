@@ -226,9 +226,8 @@ end;
  
  
 initialization
-  ThreadBase := OpenLibrary('thread.library',0);
+  ThreadBase := AOS_ThreadBase;
  
 finalization
-  CloseLibrary(ThreadBase);
  
 end.

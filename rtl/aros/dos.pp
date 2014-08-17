@@ -436,7 +436,7 @@ begin
     Hour   := Cd^.hour;
     Minute := Cd^.min;
     Second := Cd^.sec;
-    Sec100 := ATime.tv_micro div 10000;
+    Sec100 := ATime.tv_micro div 1000;
   finally  
     Dispose(Cd);
   end;
@@ -474,13 +474,14 @@ end;
                                --- Exec ---
 ******************************************************************************}
 
-
 procedure Exec(const Path: PathStr; const ComLine: ComStr);
 var
   TmpPath: array[0..255] of char;
   Result : longInt;
   TmpLock: longInt;
+  tmp1: AnsiString;
 begin
+  tmp1 := ComLine;
   DosError := 0;
   LastDosExitCode :=0;
   TmpPath := PathConv(Path) + #0 + ComLine + #0; // hacky... :)
@@ -496,6 +497,7 @@ begin
     { File exists - therefore unlock it }
     Unlock(TmpLock);
     TmpPath[Length(Path)]:=' '; // hacky... replaces first #0 from above, to get the whole string. :)
+
     Result := SystemTagList(TmpPath, nil);
     { on return of -1 the shell could not be executed }
     { probably because there was not enough memory    }
@@ -506,7 +508,6 @@ begin
   end else
     DosError:=3;
 end;
-
 
 procedure GetCBreak(var BreakValue: Boolean);
 begin

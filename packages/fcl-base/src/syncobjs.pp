@@ -168,7 +168,11 @@ function TEventObject.WaitFor(Timeout : Cardinal) : TWaitResult;
 begin
   Result := TWaitResult(basiceventWaitFor(Timeout, Handle));
   if Result = wrError then
+  {$ifndef aros}
     FLastError := GetLastOSError;
+  {$else}
+    FLastError := -1;
+  {$endif}  
 end;
 
 constructor TSimpleEvent.Create;

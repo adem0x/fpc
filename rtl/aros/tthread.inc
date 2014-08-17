@@ -5,6 +5,7 @@ var
   LFreeOnTerminate: Boolean;
   ISuspended: Boolean;
 begin
+  //Debugln('Enter ThreadFunc');
   Result := nil;
   LThread := TThread(Data);
   ISuspended := LThread.FInitialSuspended;
@@ -17,10 +18,13 @@ begin
       UnlockMutex(LThread.FSem);
     end;  
   end;
+  Sleep(1);
   if not LThread.FTerminated then
   begin
+    //Debugln('Execute Thread');
     //try
       LThread.Execute;
+    //Debugln('Back from Thread');  
     {except
       on E: Exception do
       begin
@@ -30,7 +34,7 @@ begin
            LThread.FFreeOnTerminate := true; 
       end;
     end;}
-    Sleep(0); // not sure why this is needed, but without the stack seems corrupted
+    Sleep(1); // not sure why this is needed, but without the stack seems corrupted
               // when FreeOnTerminate = False
   end;    
   LFreeOnTerminate := LThread.FreeOnTerminate;
@@ -38,9 +42,28 @@ begin
   LThread.FFinished := True;
   if LFreeOnTerminate then
     LThread.Free;
+  //debugln('Finished Thread?, then what to do now?')  
 end;
 
+  
+{procedure StartThreadUp(Thr: Pointer; se: Pointer; FH: Pointer); cdecl;
+var
+  FHandle: Integer;
+  ThrC: TThread;
+  FHandlePtr: PLongInt;
+begin
+  ThrC := TThread(Se);
+  FHandlePtr := FH;
+  //Debugln('here Thread with new stack');
+  //FHandlePtr^ := 1;
+  FHandlePtr^ := CreateThread(TThreadEntryfunction(Thr), ThrC); 
+  //Debugln(' Started my Thread');
+end;
+}
 constructor TThread.Create(CreateSuspended: Boolean; const StackSize: SizeUInt = DefaultStackSize);
+//var
+//  StackSwapArgs: PStackSwapArgs;
+//  sss: TStackSwapStruct;
 begin
   inherited Create;
   FSuspended := CreateSuspended;
@@ -50,7 +73,23 @@ begin
   FSem := CreateMutex;
   FCond := CreateCondition;
   
-  // Create Thread
+  if not Assigned(ThreadBase) then
+    raise EThread.CreateFmt(SThreadCreateError, ['ThreadLib not found']);
+  // prepare  new stack 
+  //ThreadStack := GetMem(StackSize);
+  //sss.stk_Lower := ThreadStack;
+  //sss.stk_Upper := Pointer(IPTR(ThreadStack) + StackSize);
+  //sss.stk_Pointer := sss.stk_Upper;
+  // Prepare Stack Arguments
+  //new(StackSwapArgs);
+  //StackSwapArgs^.Args[0] := IPTR(@ThreadFunc);
+  //StackSwapArgs^.Args[1] := IPTR(self);
+  //StackSwapArgs^.Args[2] := IPTR(@FHandle);
+  //StackSwapArgs^.Args[3] := IPTR(0);
+  // Stackswap = start Thread
+  //NewStackswap(@sss, @StartThreadUp, StackSwapArgs);
+  // Stackswap structure not needed anymore
+  //Dispose(StackSwapArgs);
   FHandle := CreateThread(@ThreadFunc, Self);
   //FHandle := BeginThread(@ThreadFunc, Self);
   FThreadID := FHandle;
@@ -63,7 +102,7 @@ end;
 
 destructor TThread.Destroy;
 begin
-  if FHandle = 0 then
+  if FHandle <> 0 then
   begin
     if not FFinished then
     begin
@@ -79,6 +118,7 @@ begin
   DestroyCondition(FCond);
   DestroyMutex(FSem);
   FFatalException := nil;
+  FreeMem(ThreadStack);
   inherited Destroy;
 end;
 
@@ -129,6 +169,7 @@ begin
   if FSuspended then
   begin
     SignalCondition(FCond);
+    Sleep(100);
   end;
   FSuspended := False;
   FInitialSuspended := False;

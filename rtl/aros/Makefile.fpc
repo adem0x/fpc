@@ -15,7 +15,7 @@ units=$(SYSTEMUNIT) objpas macpas iso7185 strings \
       pastoc longarray tagsarray exec amigados utility keymap \
       timer inputevent layers arosthread \
       intuition hardware agraphics video keyboard mouse \
-      fpintres exeinfo lineinfo
+      fpintres exeinfo lineinfo sockets
 #      
 #      exec timer doslib utility hardware inputevent graphics layers \
 #      intuition aboxlib mui \

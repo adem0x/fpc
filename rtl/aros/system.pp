@@ -40,7 +40,7 @@ const
   AllowDriveSeparators : set of char = [':'];
   maxExitCode = 255;
   MaxPathLen = 256;
-  AllFilesMask = '*';
+  AllFilesMask = '#?';
 
 const
   UnusedHandle    : THandle = 0;
@@ -170,6 +170,7 @@ var
   Ende: Word;
   LocalIndex: Word;
   P : PChar;
+  {$H+}
   Temp : string;
   InQuotes: boolean;
 begin
