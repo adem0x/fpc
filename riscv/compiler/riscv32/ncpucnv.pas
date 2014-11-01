@@ -115,78 +115,8 @@ unit ncpucnv;
 
 
     procedure triscvtypeconvnode.second_int_to_real;
-
-        {procedure loadsigned(restype: tfloattype);
-        begin
-          location.Register := cg.getfpuregister(current_asmdata.CurrAsmList, tfloat2tcgsize[restype]);
-          if (left.location.loc in [LOC_REGISTER,LOC_CREGISTER]) then
-            { 32-bit values can be loaded directly }
-            current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_MTC1, left.location.register, location.register))
-          else
-            begin
-              { Load memory in fpu register }
-              hlcg.location_force_mem(current_asmdata.CurrAsmList, left.location, left.resultdef);
-              cg.a_loadfpu_ref_reg(current_asmdata.CurrAsmList, OS_F32, OS_F32, left.location.reference, location.Register);
-              tg.ungetiftemp(current_asmdata.CurrAsmList, left.location.reference);
-            end;
-
-          { Convert value in fpu register from integer to float }
-          case restype of
-            s32real:
-              current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_CVT_S_W, location.Register, location.Register));
-            s64real:
-              current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_CVT_D_W, location.Register, location.Register));
-            else
-              internalerror(200408011);
-          end;
-        end;}
-
-      var
-        href:      treference;
-        hregister: tregister;
-        l1, l2:    tasmlabel;
       begin
-        {location_reset(location, LOC_FPUREGISTER, def_cgsize(resultdef));
-        if is_signed(left.resultdef) then
-          loadsigned(tfloatdef(resultdef).floattype)
-        else
-          begin
-            current_asmdata.getdatalabel(l1);
-            current_asmdata.getjumplabel(l2);
-            reference_reset_symbol(href, l1, 0, sizeof(aint));
-            hregister := cg.getintregister(current_asmdata.CurrAsmList, OS_32);
-            hlcg.a_load_loc_reg(current_asmdata.CurrAsmList, left.resultdef, u32inttype, left.location, hregister);
-
-            { Always load into 64-bit FPU register }
-            loadsigned(s64real);
-            cg.a_cmp_const_reg_label(current_asmdata.CurrAsmList, OS_INT, OC_GTE, 0, hregister, l2);
-
-            case tfloatdef(resultdef).floattype of
-              { converting dword to s64real first and cut off at the end avoids precision loss }
-              s32real,
-              s64real:
-              begin
-                hregister := cg.getfpuregister(current_asmdata.CurrAsmList, OS_F64);
-                new_section(current_asmdata.asmlists[al_typedconsts],sec_rodata_norel,l1.name,const_align(8));
-                current_asmdata.asmlists[al_typedconsts].concat(Tai_label.Create(l1));
-                current_asmdata.asmlists[al_typedconsts].concat(Tai_real_64bit.Create(4294967296.0));
-
-                cg.a_loadfpu_ref_reg(current_asmdata.CurrAsmList, OS_F64, OS_F64, href, hregister);
-                current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg_reg(A_ADD_D, location.Register, hregister, location.Register));
-                cg.a_label(current_asmdata.CurrAsmList, l2);
-
-                { cut off if we should convert to single }
-                if tfloatdef(resultdef).floattype = s32real then
-                begin
-                  hregister := location.Register;
-                  location.Register := cg.getfpuregister(current_asmdata.CurrAsmList, location.size);
-                  current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(A_CVT_S_D, location.Register, hregister));
-                end;
-              end;
-              else
-                internalerror(200410031);
-            end;
-          end;}
+        internalerror(2014110104);
       end;
 
 

@@ -204,101 +204,13 @@ unit ncpuadd;
 
 
     procedure triscvaddnode.second_addfloat;
-      var
-        op: TAsmOp;
       begin
-        {pass_left_right;
-        if (nf_swapped in flags) then
-          swapleftright;
-
-              { force fpureg as location, left right doesn't matter
-                as both will be in a fpureg }
-        hlcg.location_force_fpureg(current_asmdata.CurrAsmList, left.location, left.resultdef, True);
-        hlcg.location_force_fpureg(current_asmdata.CurrAsmList, right.location, right.resultdef, True);
-
-        location_reset(location, LOC_FPUREGISTER, def_cgsize(resultdef));
-        location.register:=cg.getfpuregister(current_asmdata.CurrAsmList,location.size);
-
-        case nodetype of
-          addn:
-          begin
-            if location.size = OS_F64 then
-              op := A_ADD_D
-            else
-              op := A_ADD_S;
-          end;
-          muln:
-          begin
-            if location.size = OS_F64 then
-              op := A_MUL_D
-            else
-              op := A_MUL_S;
-          end;
-          subn:
-          begin
-            if location.size = OS_F64 then
-              op := A_SUB_D
-            else
-              op := A_SUB_S;
-          end;
-          slashn:
-          begin
-            if location.size = OS_F64 then
-              op := A_DIV_D
-            else
-              op := A_DIV_S;
-          end;
-          else
-            internalerror(200306014);
-        end;
-        current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg_reg(op,
-          location.Register, left.location.Register, right.location.Register));}
+        internalerror(2014110102);
       end;
 
-
-    {const
-      ops_cmpfloat: array[boolean,ltn..unequaln] of TAsmOp = (
-      // ltn       lten      gtn       gten      equaln    unequaln
-        (A_C_LT_S, A_C_LE_S, A_C_LT_S, A_C_LE_S, A_C_EQ_S, A_C_EQ_S),
-        (A_C_LT_D, A_C_LE_D, A_C_LT_D, A_C_LE_D, A_C_EQ_D, A_C_EQ_D)
-      );}
-
     procedure triscvaddnode.second_cmpfloat;
-      var
-        op: tasmop;
-        lreg,rreg: tregister;
-        ai: Taicpu;
       begin
-        {pass_left_right;
-        if nf_swapped in flags then
-          swapleftright;
-
-        hlcg.location_force_fpureg(current_asmdata.CurrAsmList, left.location, left.resultdef, True);
-        hlcg.location_force_fpureg(current_asmdata.CurrAsmList, right.location, right.resultdef, True);
-        location_reset(location, LOC_JUMP, OS_NO);
-
-        op:=ops_cmpfloat[left.location.size=OS_F64,nodetype];
-
-        if (nodetype in [gtn,gten]) then
-          begin
-            lreg:=right.location.register;
-            rreg:=left.location.register;
-          end
-        else
-          begin
-            lreg:=left.location.register;
-            rreg:=right.location.register;
-          end;
-
-        current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg(op,lreg,rreg));
-        ai:=taicpu.op_sym(A_BC,current_procinfo.CurrTrueLabel);
-        if (nodetype=unequaln) then
-          ai.SetCondition(C_COP1FALSE)
-        else
-          ai.SetCondition(C_COP1TRUE);
-        current_asmdata.CurrAsmList.concat(ai);
-        current_asmdata.CurrAsmList.concat(TAiCpu.Op_none(A_NOP));
-        cg.a_jmp_always(current_asmdata.CurrAsmList,current_procinfo.CurrFalseLabel);}
+        internalerror(2014110101);
       end;
 
 

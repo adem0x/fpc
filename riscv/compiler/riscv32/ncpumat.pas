@@ -84,83 +84,8 @@ unit ncpumat;
 
 
     procedure triscvmoddivnode.pass_generate_code;
-      var
-        power: longint;
-        tmpreg, numerator, divider: tregister;
-        hl,hl2: tasmlabel;
       begin
-        {secondpass(left);
-        secondpass(right);
-        location_reset(location,LOC_REGISTER,def_cgsize(resultdef));
-        location.register:=cg.GetIntRegister(current_asmdata.CurrAsmList,OS_INT);
-
-        { put numerator in register }
-        hlcg.location_force_reg(current_asmdata.CurrAsmList, left.location, left.resultdef, left.resultdef, True);
-        numerator := left.location.Register;
-
-        if (nodetype = divn) and
-          (right.nodetype = ordconstn) then
-        begin
-          if ispowerof2(tordconstnode(right).Value.svalue, power) then
-          begin
-            tmpreg := cg.GetIntRegister(current_asmdata.CurrAsmList, OS_INT);
-            cg.a_op_const_reg_reg(current_asmdata.CurrAsmList, OP_SAR, OS_INT, 31, numerator, tmpreg);
-            { if signed, tmpreg=right value-1, otherwise 0 }
-            cg.a_op_const_reg(current_asmdata.CurrAsmList, OP_AND, OS_INT, tordconstnode(right).Value.svalue - 1, tmpreg);
-            { add left value }
-            cg.a_op_reg_reg(current_asmdata.CurrAsmList, OP_ADD, OS_INT, numerator, tmpreg);
-            cg.a_op_const_reg_reg(current_asmdata.CurrAsmList, OP_SAR, OS_INT, aword(power), tmpreg, location.register);
-          end
-          else
-            cg.g_div_const_reg_reg(current_asmdata.CurrAsmList,def_cgsize(resultdef),
-              tordconstnode(right).value.svalue,numerator,location.register);
-        end
-        else
-        begin
-          { load divider in a register if necessary }
-          hlcg.location_force_reg(current_asmdata.CurrAsmList, right.location,
-            right.resultdef, right.resultdef, True);
-          divider := right.location.Register;
-
-          { GAS performs division in delay slot:
-
-                bne   denom,$zero,.L1
-                div   $zero,numerator,denom
-                break 7
-           .L1:
-                mflo  result
-
-            We can't yet do the same without prior fixing the spilling code:
-            if registers require spilling, loads can be inserted before 'div',
-            resulting in invalid code.
-          }
-          current_asmdata.CurrAsmList.Concat(taicpu.op_reg_reg_reg(ops_div[is_signed(resultdef)],NR_R0,numerator,divider));
-          { Check for zero denominator, omit if dividing by constant (constants are checked earlier) }
-          if (right.nodetype<>ordconstn) then
-          begin
-            current_asmdata.getjumplabel(hl);
-            cg.a_cmp_reg_reg_label(current_asmdata.CurrAsmList,OS_INT,OC_NE,divider,NR_R0,hl);
-            current_asmdata.CurrAsmList.Concat(taicpu.op_const(A_BREAK,7));
-            cg.a_label(current_asmdata.CurrAsmList,hl);
-          end;
-
-          { Dividing low(longint) by -1 will overflow }
-          if is_signed(right.resultdef) and (cs_check_overflow in current_settings.localswitches) then
-          begin
-            current_asmdata.getjumplabel(hl2);
-            current_asmdata.CurrAsmList.concat(taicpu.op_reg_reg_const(A_ADDIU,NR_R1,NR_R0,-1));
-            cg.a_cmp_reg_reg_label(current_asmdata.CurrAsmList,OS_INT,OC_NE,divider,NR_R1,hl2);
-            current_asmdata.CurrAsmList.concat(taicpu.op_reg_const(A_LUI,NR_R1,$8000));
-            cg.a_cmp_reg_reg_label(current_asmdata.CurrAsmList,OS_INT,OC_NE,numerator,NR_R1,hl2);
-            current_asmdata.CurrAsmList.concat(taicpu.op_const(A_BREAK,6));
-            cg.a_label(current_asmdata.CurrAsmList,hl2);
-          end;
-
-         if (nodetype=modn) then
-           current_asmdata.CurrAsmList.concat(taicpu.op_reg(A_MFHI,location.register))
-         else
-           current_asmdata.CurrAsmList.concat(taicpu.op_reg(A_MFLO,location.register));
-        end;}
+        internalerror(2014110103);
       end;
 
 
