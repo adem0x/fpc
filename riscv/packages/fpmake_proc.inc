@@ -10,6 +10,12 @@ begin
 {$include amunits/fpmake.pp}
 end;
 
+procedure add_arosunits(const ADirectory: string);
+begin
+  with Installer do
+{$include arosunits/fpmake.pp}
+end;
+
 procedure add_aspell(const ADirectory: string);
 begin
   with Installer do
@@ -414,6 +420,12 @@ procedure add_modplug(const ADirectory: string);
 begin
   with Installer do
 {$include modplug/fpmake.pp}
+end;
+
+procedure add_morphunits(const ADirectory: string);
+begin
+  with Installer do
+{$include morphunits/fpmake.pp}
 end;
 
 procedure add_mysql(const ADirectory: string);

@@ -1011,7 +1011,7 @@ function DosMove(const OldFile,NewFile:string):cardinal;
 
 const   dcExisting=1;           {Overwrite existing files.}
         dcAppend=2;             {Append to existing file.}
-        dcFailAs=4;             {?? Info wanted!}
+        dcFailEAs=4;            {Discard EAs if not supported by target FS}
 
 {Copy a file.
  OldFile    = source file
@@ -3206,16 +3206,6 @@ procedure DosFlatToSel; cdecl;
 
 {typecast result to TFarPtr}
 function FlatToSel (APtr: pointer): cardinal;
-
-{Allocate Count dwords in a memory block unique in each thread. A maximum
- of 8 dwords can be allocated at a time, the total size of the thread local
- memory area is 128 bytes; FPC 1.1+ uses one dword from this for internal
- multi-threading support, leaving 124 bytes to programmers.}
-function DosAllocThreadLocalMemory (Count: cardinal; var P: pointer): cardinal;
-                                                                         cdecl;
-
-{Deallocate a previously allocated space in the thread local memory area.}
-function DosFreeThreadLocalMemory (P: pointer): cardinal; cdecl;
 
 const
 { Values for DosQueryRASInfo Index parameter }
@@ -5742,13 +5732,6 @@ function FlatToSel (APtr: pointer): cardinal; assembler;
   pop esi
   pop ebx
  end;
-
-function DosAllocThreadLocalMemory (Count: cardinal; var P: pointer): cardinal;
-                                                                         cdecl;
-external 'DOSCALLS' index 454;
-
-function DosFreeThreadLocalMemory (P: pointer): cardinal; cdecl;
-external 'DOSCALLS' index 455;
 
 function DosQueryRASInfo (Index: cardinal; var PBuffer: pointer): cardinal;
                                           cdecl; external 'DOSCALLS' index 112;

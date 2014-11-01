@@ -1792,13 +1792,13 @@ end;
 
 
 procedure pd_syscall(pd:tabstractprocdef);
-{$if defined(powerpc) or defined(m68k)}
+{$if defined(powerpc) or defined(m68k) or defined(i386)}
 var
   vs  : tparavarsym;
   sym : tsym;
   symtable : TSymtable;
   v: Tconstexprint;
-{$endif defined(powerpc) or defined(m68k)}
+{$endif defined(powerpc) or defined(m68k) or defined(i386)}
 begin
   if (pd.typ<>procdef) and (target_info.system <> system_powerpc_amiga) then
     internalerror(2003042614);
@@ -1816,6 +1816,7 @@ begin
               is_32bitint(tabstractvarsym(sym).vardef)
              ) then
             begin
+              include(pd.procoptions,po_syscall_has_libsym);
               tcpuprocdef(pd).libsym:=sym;
               if po_syscall_legacy in tprocdef(pd).procoptions then
                 begin
@@ -1827,8 +1828,8 @@ begin
           else
             Message(parser_e_32bitint_or_pointer_variable_expected);
         end;
-      (paramanager as tm68kparamanager).create_funcretloc_info(pd,calleeside);
-      (paramanager as tm68kparamanager).create_funcretloc_info(pd,callerside);
+      paramanager.create_funcretloc_info(pd,calleeside);
+      paramanager.create_funcretloc_info(pd,callerside);
 
       v:=get_intconst;
       if (v<low(Tprocdef(pd).extnumber)) or (v>high(Tprocdef(pd).extnumber)) then
@@ -1850,6 +1851,7 @@ begin
               is_32bitint(tabstractvarsym(sym).vardef)
              ) then
             begin
+              include(pd.procoptions,po_syscall_has_libsym);
               tcpuprocdef(pd).libsym:=sym;
               vs:=cparavarsym.create('$syscalllib',paranr_syscall_basesysv,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para]);
               pd.parast.insert(vs);
@@ -1858,8 +1860,8 @@ begin
             Message(parser_e_32bitint_or_pointer_variable_expected);
         end;
 
-      (paramanager as tppcparamanager).create_funcretloc_info(pd,calleeside);
-      (paramanager as tppcparamanager).create_funcretloc_info(pd,callerside);
+      paramanager.create_funcretloc_info(pd,calleeside);
+      paramanager.create_funcretloc_info(pd,callerside);
 
       v:=get_intconst;
       if (v<low(Tprocdef(pd).extnumber)) or (v>high(Tprocdef(pd).extnumber)) then
@@ -1917,6 +1919,7 @@ begin
               is_32bitint(tabstractvarsym(sym).vardef)
              ) then
             begin
+              include(pd.procoptions,po_syscall_has_libsym);
               tcpuprocdef(pd).libsym:=sym;
               if po_syscall_legacy in tprocdef(pd).procoptions then
                 begin
@@ -1950,8 +1953,8 @@ begin
           else
             Message(parser_e_32bitint_or_pointer_variable_expected);
         end;
-      (paramanager as tppcparamanager).create_funcretloc_info(pd,calleeside);
-      (paramanager as tppcparamanager).create_funcretloc_info(pd,callerside);
+      paramanager.create_funcretloc_info(pd,calleeside);
+      paramanager.create_funcretloc_info(pd,callerside);
 
       v:=get_intconst;
       if (v<low(Tprocdef(pd).extnumber)) or (v>high(Tprocdef(pd).extnumber)) then
@@ -1960,6 +1963,38 @@ begin
         Tprocdef(pd).extnumber:=v.uvalue;
     end;
 {$endif powerpc}
+{$ifdef i386}
+   if target_info.system = system_i386_aros then
+    begin
+      include(pd.procoptions,po_syscall_sysvbase);
+
+      if consume_sym(sym,symtable) then
+        begin
+          if (sym.typ=staticvarsym) and
+             (
+              (tabstractvarsym(sym).vardef.typ=pointerdef) or
+              is_32bitint(tabstractvarsym(sym).vardef)
+             ) then
+            begin
+              include(pd.procoptions,po_syscall_has_libsym);
+              tcpuprocdef(pd).libsym:=sym;
+              vs:=cparavarsym.create('$syscalllib',paranr_syscall_sysvbase,vs_value,tabstractvarsym(sym).vardef,[vo_is_syscall_lib,vo_is_hidden_para]);
+              pd.parast.insert(vs);
+            end
+          else
+            Message(parser_e_32bitint_or_pointer_variable_expected);
+        end;
+
+      paramanager.create_funcretloc_info(pd,calleeside);
+      paramanager.create_funcretloc_info(pd,callerside);
+
+      v:=get_intconst;
+      if (v<low(Tprocdef(pd).extnumber)) or (v>high(Tprocdef(pd).extnumber)) then
+        message(parser_e_range_check_error)
+      else
+        Tprocdef(pd).extnumber:=v.uvalue * 4; { sizeof Pointer for the target }
+    end;
+{$endif}
 end;
 
 

@@ -86,6 +86,11 @@ type
   {$DEFINE AMIGASCREEN}
 {$ENDIF}
 
+{$IFDEF AROS}
+  {$DEFINE AMIGASCREEN}
+{$ENDIF}
+
+
 {$IFDEF AMIGASCREEN}
     PAmigaScreen = ^TAmigaScreen;
     TAmigaScreen = object(TScreen)
@@ -1572,7 +1577,7 @@ begin
           UserScreen:=New(PNWLScreen, Init);
         {$else}
           {$ifdef AMIGASCREEN}
-            UserScreen:=nil; //New(PAmigaScreen, Init);
+            UserScreen:=New(PAmigaScreen, Init);
           {$else}
             UserScreen:=New(PScreen, Init);
           {$endif AMIGASCREEN}

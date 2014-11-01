@@ -203,13 +203,15 @@ skip_mem_realloc:
         and bl, 0FEh
         mov word [__stkbottom], bx
 
-        cmp bx, _end wrt dgroup
+        mov ax, _end wrt dgroup
+        cmp bx, ax
         jb not_enough_mem
 
         ; heap is between [ds:_end wrt dgroup] and [ds:__stkbottom - 1]
-        mov word [__nearheap_start], _end wrt dgroup
-        mov bx, word [__stkbottom]
-        dec bx
+        add ax, 3
+        and al, 0FCh
+        mov word [__nearheap_start], ax
+        and bl, 0FCh
         mov word [__nearheap_end], bx
 
 ; ****************************************************************************
@@ -239,7 +241,8 @@ skip_mem_realloc:
         mov es, cx
         mov bx, word [es:3]
         add bx, cx
-        ; __nearheap_end := end_of_dos_memory_block - 16 bytes
+        inc bx
+        ; __nearheap_end := end_of_dos_memory_block
         mov word [__nearheap_end], 0
         mov word [__nearheap_end + 2], bx
 %endif

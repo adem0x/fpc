@@ -108,6 +108,11 @@
   {$define FSCaseInsensitive}
 {$endif}
 
+{$ifdef AROS}
+  {$define FSCaseInsensitive}
+  {$define WinClipSupported}
+{$endif}
+
 { --- Exclude debugger support --- }
 {.$DEFINE NODEBUG}
 
@@ -177,3 +182,16 @@
 {$ifdef CROSSGDB}
   {$define SUPPORT_REMOTE}
 {$endif CROSSGDB}
+
+{$ifdef FPC_ARMEL}
+  {$define FPC_ARMEL32}
+{$endif FPC_ARMEL}
+{$ifdef FPC_ARMEB}
+  {$define FPC_ARMEB32}
+{$endif FPC_ARMEB}
+{$ifdef FPC_OARM}
+  {$define FPC_ARMEL32}
+{$endif FPC_OARM}
+{$ifdef FPC_ARMHF}
+  {$define FPC_ARMEL32}
+{$endif FPC_ARMHF}

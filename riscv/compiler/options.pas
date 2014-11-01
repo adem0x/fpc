@@ -42,7 +42,7 @@ Type
     FileLevel : longint;
     QuickInfo : string;
     FPCBinaryPath: string;
-	ParaIncludeCfgPath,
+    ParaIncludeCfgPath,
     ParaIncludePath,
     ParaUnitPath,
     ParaObjectPath,
@@ -112,7 +112,7 @@ var
 
 const
   { gprof (requires implementation of g_profilecode in the code generator) }
-  supported_targets_pg = [system_i386_linux,system_x86_64_linux,system_mipseb_linux,system_mipsel_linux]
+  supported_targets_pg = [system_i386_linux,system_x86_64_linux,system_mipseb_linux,system_mipsel_linux,system_arm_linux]
                         + [system_i386_win32]
                         + [system_powerpc_darwin,system_x86_64_darwin]
                         + [system_i386_GO32V2]
@@ -3506,6 +3506,16 @@ if (target_info.abi = abi_eabihf) then
           init_settings.optimizecputype:=cpu_mips32;
         if not option.FPUSetExplicitly then
           init_settings.fputype:=fpu_mips2;
+      end;
+    system_mipsel_embedded:
+      begin
+        { set default cpu type to PIC32MX and softfloat for MIPSEL-EMBEDDED target unless specified otherwise }
+        if not option.CPUSetExplicitly then
+          init_settings.cputype:=cpu_pic32mx;
+        if not option.OptCPUSetExplicitly then
+          init_settings.optimizecputype:=cpu_pic32mx;
+        if not option.FPUSetExplicitly then
+          init_settings.fputype:=fpu_soft;
       end;
   end;
 {$endif mipsel}

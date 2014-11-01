@@ -32,6 +32,16 @@ Interface
  {$DEFINE NO_THREADING}
 {$ENDIF}
 
+{$IFDEF AMIGA}
+ {$DEFINE NO_UNIT_PROCESS}
+ {$DEFINE NO_THREADING}
+{$ENDIF}
+
+{$IFDEF AROS}
+ {$DEFINE NO_UNIT_PROCESS}
+ {$DEFINE NO_THREADING}
+{$ENDIF}
+
 {$IFDEF OS2}
  {$DEFINE NO_UNIT_PROCESS}
 {$ENDIF OS2}
@@ -56,6 +66,12 @@ Interface
 {$ifndef NO_TAR_SUPPORT}
   {$define HAS_TAR_SUPPORT}
 {$endif NO_TAR_SUPPORT}
+
+{$ifdef unix}
+  {$ifdef HAS_TAR_SUPPORT}
+    {$define CREATE_TAR_FILE}
+  {$endif HAS_TAR_SUPPORT}
+{$endif unix}
 
 uses
 {$ifdef UNIX}
@@ -86,7 +102,7 @@ Type
   // Please keep this order, see OSCPUSupported below
   TCpu=(cpuNone,
     i386,m68k,powerpc,sparc,x86_64,arm,powerpc64,avr,armeb,
-    mips,mipsel,jvm,i8086
+    mips,mipsel,jvm,i8086,riscv32
   );
   TCPUS = Set of TCPU;
 
@@ -96,7 +112,7 @@ Type
     amiga,atari, solaris, qnx, netware, openbsd,wdosx,
     palmos,macos,darwin,emx,watcom,morphos,netwlibc,
     win64,wince,gba,nds,embedded,symbian,haiku,iphonesim,
-    aix,java,android,nativent,msdos,wii
+    aix,java,android,nativent,msdos,wii,aros
   );
   TOSes = Set of TOS;
 
@@ -150,50 +166,52 @@ Const
   AllUnixOSes  = [Linux,FreeBSD,NetBSD,OpenBSD,Darwin,QNX,BeOS,Solaris,Haiku,iphonesim,aix,Android];
   AllBSDOSes      = [FreeBSD,NetBSD,OpenBSD,Darwin,iphonesim];
   AllWindowsOSes  = [Win32,Win64,WinCE];
-  AllLimit83fsOses= [go32v2,os2,emx,watcom,msdos];
+  AllAmigaLikeOSes = [Amiga,MorphOS,AROS];
+  AllLimit83fsOses = [go32v2,os2,emx,watcom,msdos];
 
-  AllSmartLinkLibraryOSes = [Linux,msdos,amiga,morphos]; // OSes that use .a library files for smart-linking
+  AllSmartLinkLibraryOSes = [Linux,msdos,amiga,morphos,aros]; // OSes that use .a library files for smart-linking
   AllImportLibraryOSes = AllWindowsOSes + [os2,emx,netwlibc,netware,watcom,go32v2,macos,nativent,msdos];
 
   { This table is kept OS,Cpu because it is easier to maintain (PFV) }
   OSCPUSupported : array[TOS,TCpu] of boolean = (
-    { os          none   i386    m68k  ppc    sparc  x86_64 arm    ppc64  avr    armeb  mips   mipsel jvm    i8086}
-    { none }    ( false, false, false, false, false, false, false, false, false, false, false, false, false, false),
-    { linux }   ( false, true,  true,  true,  true,  true,  true,  true,  false, true , true , true , false, false),
-    { go32v2 }  ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { win32 }   ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { os2 }     ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { freebsd } ( false, true,  true,  false, false, true,  false, false, false, false, false, false, false, false),
-    { beos }    ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { netbsd }  ( false, true,  true,  true,  true,  true,  false, false, false, false, false, false, false, false),
-    { amiga }   ( false, false, true,  true,  false, false, false, false, false, false, false, false, false, false),
-    { atari }   ( false, false, true,  false, false, false, false, false, false, false, false, false, false, false),
-    { solaris } ( false, true,  false, false, true,  false, false, false, false, false, false, false, false, false),
-    { qnx }     ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { netware } ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { openbsd } ( false, true,  true,  false, false, true,  false, false, false, false, false, false, false, false),
-    { wdosx }   ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { palmos }  ( false, false, true,  false, false, false, true,  false, false, false, false, false, false, false),
-    { macos }   ( false, false, false, true,  false, false, false, false, false, false, false, false, false, false),
-    { darwin }  ( false, true,  false, true,  false, true,  true,  true,  false, false, false, false, false, false),
-    { emx }     ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { watcom }  ( false, true,  false, false, false ,false, false, false, false, false, false, false, false, false),
-    { morphos } ( false, false, false, true,  false ,false, false, false, false, false, false, false, false, false),
-    { netwlibc }( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { win64   } ( false, false, false, false, false, true,  false, false, false, false, false, false, false, false),
-    { wince    }( false, true,  false, false, false, false, true,  false, false, false, false, false, false, false),
-    { gba    }  ( false, false, false, false, false, false, true,  false, false, false, false, false, false, false),
-    { nds    }  ( false, false, false, false, false, false, true,  false, false, false, false, false, false, false),
-    { embedded }( false, true,  true,  true,  true,  true,  true,  true,  true,  true , false, false, false, false),
-    { symbian } ( false, true,  false, false, false, false, true,  false, false, false, false, false, false, false),
-    { haiku }   ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { iphonesim}( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { aix    }  ( false, false, false, true,  false, false, false, true,  false, false, false, false, false, false),
-    { java }    ( false, false, false, false, false, false, false, false, false, false, false, false, true , false),
-    { android } ( false, true,  false, false, false, false, true,  false, false, false, false, true,  true , false),
-    { nativent }( false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
-    { msdos }   ( false, false, false, false, false, false, false, false, false, false, false, false, false, true ),
-    { wii }     ( false, false, false, true , false, false, false, false, false, false, false, false, false, false )
+    { os          none   i386    m68k  ppc    sparc  x86_64 arm    ppc64  avr    armeb  mips   mipsel jvm    i8086  riscv32}
+    { none }    ( false, false, false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { linux }   ( false, true,  true,  true,  true,  true,  true,  true,  false, true , true , true , false, false, false),
+    { go32v2 }  ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { win32 }   ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { os2 }     ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { freebsd } ( false, true,  true,  false, false, true,  false, false, false, false, false, false, false, false, false),
+    { beos }    ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { netbsd }  ( false, true,  true,  true,  true,  true,  false, false, false, false, false, false, false, false, false),
+    { amiga }   ( false, false, true,  true,  false, false, false, false, false, false, false, false, false, false, false),
+    { atari }   ( false, false, true,  false, false, false, false, false, false, false, false, false, false, false, false),
+    { solaris } ( false, true,  false, false, true,  false, false, false, false, false, false, false, false, false, false),
+    { qnx }     ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { netware } ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { openbsd } ( false, true,  true,  false, false, true,  false, false, false, false, false, false, false, false, false),
+    { wdosx }   ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { palmos }  ( false, false, true,  false, false, false, true,  false, false, false, false, false, false, false, false),
+    { macos }   ( false, false, false, true,  false, false, false, false, false, false, false, false, false, false, false),
+    { darwin }  ( false, true,  false, true,  false, true,  true,  true,  false, false, false, false, false, false, false),
+    { emx }     ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { watcom }  ( false, true,  false, false, false ,false, false, false, false, false, false, false, false, false, false),
+    { morphos } ( false, false, false, true,  false ,false, false, false, false, false, false, false, false, false, false),
+    { netwlibc }( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { win64   } ( false, false, false, false, false, true,  false, false, false, false, false, false, false, false, false),
+    { wince    }( false, true,  false, false, false, false, true,  false, false, false, false, false, false, false, false),
+    { gba    }  ( false, false, false, false, false, false, true,  false, false, false, false, false, false, false, false),
+    { nds    }  ( false, false, false, false, false, false, true,  false, false, false, false, false, false, false, false),
+    { embedded }( false, true,  true,  true,  true,  true,  true,  true,  true,  true , false, false, false, false, true ),
+    { symbian } ( false, true,  false, false, false, false, true,  false, false, false, false, false, false, false, false),
+    { haiku }   ( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { iphonesim}( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { aix    }  ( false, false, false, true,  false, false, false, true,  false, false, false, false, false, false, false),
+    { java }    ( false, false, false, false, false, false, false, false, false, false, false, false, true , false, false),
+    { android } ( false, true,  false, false, false, false, true,  false, false, false, false, true,  true , false, false),
+    { nativent }( false, true,  false, false, false, false, false, false, false, false, false, false, false, false, false),
+    { msdos }   ( false, false, false, false, false, false, false, false, false, false, false, false, false, true,  false),
+    { wii }     ( false, false, false, true , false, false, false, false, false, false, false, false, false, false, false),
+    { aros }    ( true,  false, false, false, false, false, false, false, false, false, false, false, false, false, false)
   );
 
   // Useful
@@ -698,6 +716,7 @@ Type
     FFlags: TStrings;
     FFPDocFormat: TFPDocFormats;
     FIsFPMakeAddIn: boolean;
+    FSeparateArchive: boolean;
     FSupportBuildModes: TBuildModes;
     FUnitPath,
     FObjectPath,
@@ -790,6 +809,7 @@ Type
     Property SupportBuildModes: TBuildModes read FSupportBuildModes write FSupportBuildModes;
     Property BuildMode: TBuildMode read FBuildMode;
     Property Flags: TStrings read FFlags;
+    Property SeparateArchive: boolean read FSeparateArchive write FSeparateArchive;
     // Compiler options.
     Property OSes : TOSes Read FOSes Write FOSes;
     Property CPUs : TCPUs Read FCPUs Write FCPUs;
@@ -856,6 +876,7 @@ Type
     FCompiler: String;
     FCopy: String;
     FFPDocOutputDir: String;
+    FFPUnitSourcePath: String;
     FIgnoreInvalidOptions: Boolean;
     FInstallExamples: Boolean;
     FMkDir: String;
@@ -887,6 +908,7 @@ Type
     function GetBuildOS: TOS;
     function GetBuildString: String;
     function GetFPDocOutputDir: String;
+    function GetFPUnitSourcePath: String;
     function GetLocalUnitDir: String;
     function GetGlobalUnitDir: String;
     function GetBaseInstallDir: String;
@@ -957,6 +979,7 @@ Type
     Property DocInstallDir : String Read GetDocInstallDir Write FDocInstallDir;
     Property ExamplesInstallDir : String Read GetExamplesInstallDir Write FExamplesInstallDir;
     Property FPDocOutputDir : String Read GetFPDocOutputDir Write FFPDocOutputDir;
+    Property FPUnitSourcePath: String read GetFPUnitSourcePath Write FFPUnitSourcePath;
     // Command tools. If not set, internal commands  will be used.
     Property Compiler : String Read GetCompiler Write FCompiler; // Compiler. Defaults to fpc
     Property Copy : String Read FCopy Write FCopy;             // copy $(FILES) to $(DEST)
@@ -988,6 +1011,7 @@ Type
   end;
 
   { TBuildEngine }
+  TCopyFileProc = procedure(const APackage: TPackage; Const ASourceFileName, ADestFileName : String) of object;
 
   TBuildEngine = Class(TComponent)
   private
@@ -1015,6 +1039,8 @@ Type
     FBeforeCompile: TNotifyEvent;
     FBeforeInstall: TNotifyEvent;
     FBeforeManifest: TNotifyEvent;
+    FOnCopyFile: TCopyFileProc;
+    FOnFinishCopy: TNotifyEvent;
 
     FCachedlibcPath: string;
     FGeneralCriticalSection: TRTLCriticalSection;
@@ -1023,7 +1049,10 @@ Type
 {$endif HAS_UNIT_ZIPPER}
 {$ifdef HAS_TAR_SUPPORT}
     FTarWriter: TTarWriter;
+    FGZFileStream: TGZFileStream;
 {$endif HAS_TAR_SUPPORT}
+    procedure AddFileToArchive(const APackage: TPackage; Const ASourceFileName, ADestFileName : String);
+    procedure FinishArchive(Sender: TObject);
   Protected
     Procedure Error(const Msg : String);
     Procedure Error(const Fmt : String; const Args : Array of const);
@@ -1063,7 +1092,7 @@ Type
 
     // Public Copy/delete/Move/Archive/Mkdir Commands.
     Procedure ExecuteCommand(const Cmd,Args : String; const Env: TStrings = nil; IgnoreError : Boolean = False); virtual;
-    Procedure CmdCopyFiles(List : TStrings; Const DestDir : String);
+    procedure CmdCopyFiles(List: TStrings; const DestDir: String; APackage: TPackage);
     Procedure CmdCreateDir(const DestDir : String);
     Procedure CmdMoveFiles(List : TStrings; Const DestDir : String);
     Procedure CmdDeleteFiles(List : TStrings);
@@ -1099,7 +1128,7 @@ Type
     Procedure Compile(APackage : TPackage);
     Procedure MaybeCompile(APackage:TPackage);
     Function ReadyToCompile(APackage:TPackage) : Boolean;
-    Procedure Install(APackage : TPackage);
+    Procedure Install(APackage : TPackage; AnArchiveFiles: boolean);
     Procedure Archive(APackage : TPackage);
     Procedure Manifest(APackage : TPackage);
     Procedure Clean(APackage : TPackage; AllTargets: boolean);
@@ -1581,6 +1610,7 @@ ResourceString
   SHelpSkipCrossProgs = 'Skip programs when cross-compiling/installing';
   SHelpIgnoreInvOpt   = 'Ignore further invalid options.';
   sHelpFpdocOutputDir = 'Use indicated directory as fpdoc output folder.';
+  sHelpFPUnitSrcPath  = 'Sourcepath to replace in fpunits.cfg on installation.';
   sHelpThreads        = 'Enable the indicated amount of worker threads.';
   sHelpUseEnvironment = 'Use environment to pass options to compiler.';
   SHelpUseBuildUnit   = 'Compile package in Build-unit mode.';
@@ -1896,7 +1926,7 @@ end;
 
 function maybequoted(const s:string):string;
 const
-  {$IF DEFINED(MSWINDOWS) OR DEFINED(AMIGA) OR DEFINED(MORPHOS)}
+  {$IF DEFINED(MSWINDOWS) OR DEFINED(AMIGA) OR DEFINED(MORPHOS) OR DEFINED(AROS)}
     FORBIDDEN_CHARS = ['!', '@', '#', '$', '%', '^', '&', '*', '(', ')',
                        '{', '}', '''', '`', '~'];
   {$ELSE}
@@ -2093,10 +2123,23 @@ end;
 Function MakeTargetString(CPU : TCPU;OS: TOS) : String;
 
 begin
-  if OS in AllLimit83fsOses then
+  if Defaults.BuildOS in AllLimit83fsOses then
     Result := OSToString(OS)
   else
     Result:=CPUToString(CPU)+'-'+OSToString(OS);
+end;
+
+function MakeZipSuffix(CPU : TCPU;OS: TOS) : String;
+
+begin
+  case OS of
+    go32v2: result := 'dos';
+    watcom: result := 'wat';
+    os2:    result := 'os2';
+    emx:    result := 'emx';
+  else
+    result := '.' + MakeTargetString(CPU, OS);
+  end;
 end;
 
 Procedure StringToCPUOS(const S : String; Var CPU : TCPU; Var OS: TOS);
@@ -2214,7 +2257,7 @@ begin
         end;
     end;
   if AIsDir and (Result <> '') then
-    Result := IncludeTrailingPathDelimiter(Result);;
+    Result := IncludeTrailingPathDelimiter(Result);
 end;
 
 function IsRelativePath(const APath: String): boolean;
@@ -3067,6 +3110,7 @@ begin
   FOSes:=AllOSes;
   FInstalledChecksum:=$ffffffff;
   FFlags := TStringList.Create;
+  FSeparateArchive:=true;
   // Implicit dependency on RTL
   FDependencies.Add('rtl');
   FSupportBuildModes:=[bmBuildUnit, bmOneByOne];
@@ -3761,6 +3805,14 @@ begin
     Result:=FixPath('.'+PathDelim+'docs', True);
 end;
 
+function TCustomDefaults.GetFPUnitSourcePath: String;
+begin
+  If (FFPUnitSourcePath='') or (FFPUnitSourcePath='0') then
+    result := FFPUnitSourcePath
+  else
+    Result:=FixPath(FFPUnitSourcePath, True);
+end;
+
 function TCustomDefaults.GetBuildCPU: TCpu;
 begin
   result := StringToCPU({$I %FPCTARGETCPU%});
@@ -3916,7 +3968,7 @@ begin
   FNoFPCCfg:=False;
   FCPU:=cpuNone;
   FOS:=osNone;
-  FUnitInstallDir:='$(BaseInstallDir)units/$(target)/$(packagename)';
+  FUnitInstallDir:='$(baseinstalldir)units/$(target)/$(packagename)';
   FBuildMode:=bmOneByOne;
   FThreadsAmount:=-1;
 end;
@@ -4185,7 +4237,7 @@ begin
   FPackageVariants := TFPList.Create;
   GlobalDictionary:=DictionaryClass.Create(Nil);
   AnalyzeOptions;
-  GlobalDictionary.AddVariable('BaseInstallDir',Defaults.BaseInstallDir);
+  GlobalDictionary.AddVariable('baseinstalldir',Defaults.BaseInstallDir);
   GlobalDictionary.AddVariable('bininstalldir',Defaults.BinInstallDir);
   GlobalDictionary.AddVariable('Target',Defaults.Target);
   GlobalDictionary.AddVariable('BuildString',Defaults.BuildString);
@@ -4274,13 +4326,14 @@ end;
 
 procedure TCustomInstaller.AnalyzeOptions;
 
-  Function CheckOption(Index : Integer;const Short,Long : String; AddToOptionString: boolean = true): Boolean;
+  Function CheckOption(Index : Integer;const Short,Long : String; AddToOptionString: boolean = false): Boolean;
   var
     O : String;
   begin
     O:=Paramstr(Index);
     Result:=(O='-'+short) or (O='--'+long) or (copy(O,1,Length(Long)+3)=('--'+long+'='));
-    if AddToOptionString and Result then FFPMakeOptionsString := FFPMakeOptionsString+' '+O;
+    if AddToOptionString and Result then
+      FFPMakeOptionsString := FFPMakeOptionsString+' '+O;
   end;
 
   Function CheckBuildOptionSetValue(Index: Integer): boolean;
@@ -4333,7 +4386,7 @@ procedure TCustomInstaller.AnalyzeOptions;
     Result:=(O='-'+short) or (O=long);
   end;
 
-  Function OptionArg(Var Index : Integer) : String;
+  Function OptionArg(Var Index : Integer; AddToOptionString: boolean = false) : String;
   Var
     P : Integer;
   begin
@@ -4343,6 +4396,8 @@ procedure TCustomInstaller.AnalyzeOptions;
         begin
         Inc(Index);
         Result:=Paramstr(Index);
+        if AddToOptionString then
+          FFPMakeOptionsString := FFPMakeOptionsString+' '+Result;
         end
       else
         Error(SErrNeedArgument,[Index,ParamStr(Index)]);
@@ -4388,9 +4443,9 @@ begin
   While (I<ParamCount) do
     begin
     Inc(I);
-    if CheckOption(I,'v','verbose',false) then
+    if CheckOption(I,'v','verbose') then
       FLogLevels:=AllMessages
-    else if CheckOption(I,'d','debug',false) then
+    else if CheckOption(I,'d','debug') then
       FLogLevels:=AllMessages+[vlDebug]
     else if CheckCommand(I,'m','compile') then
       FRunMode:=rmCompile
@@ -4440,9 +4495,9 @@ begin
       Defaults.LocalUnitDir:=OptionArg(I)
     else if CheckOption(I,'UG','globalunitdir') then
       Defaults.GlobalUnitDir:=OptionArg(I)
-    else if CheckOption(I,'o','options') then
+    else if CheckOption(I,'o','options', true) then
       begin
-        OptString := OptionArg(I);
+        OptString := OptionArg(I, true);
         while OptString <> '' do
           Defaults.Options.Add(SplitSpaces(OptString));
       end
@@ -4456,15 +4511,17 @@ begin
       Defaults.SkipCrossPrograms:=true
     else if CheckOption(I,'bu','buildunit') then
       Defaults.BuildMode:=bmBuildUnit
-    else if CheckOption(I,'io','ignoreinvalidoption') then
+    else if CheckOption(I,'io','ignoreinvalidoption', true) then
       Defaults.IgnoreInvalidOptions:=true
     else if CheckOption(I,'d','doc-folder') then
       Defaults.FPDocOutputDir:=OptionArg(I)
+    else if CheckOption(I,'fsp','fpunitsrcpath') then
+      Defaults.FPUnitSourcePath:=OptionArg(I)
     else if assigned(CustomFpmakeCommandlineOptions) and CheckCustomOption(I,CustOptName) then
       begin
       if not assigned(CustomFpMakeCommandlineValues) then
         CustomFpMakeCommandlineValues := TStringList.Create;
-      CustomFpMakeCommandlineValues.Values[CustOptName]:=OptionArg(I)
+      CustomFpMakeCommandlineValues.Values[CustOptName]:=OptionArg(I, true)
       end
     else if (not CheckBuildOptionSetValue(I)) and (not Defaults.IgnoreInvalidOptions) then
       begin
@@ -4537,6 +4594,7 @@ begin
   LogArgOption('o','options',SHelpOptions);
   LogArgOption('io','ignoreinvalidoption',SHelpIgnoreInvOpt);
   LogArgOption('d', 'doc-folder', sHelpFpdocOutputDir);
+  LogArgOption('fsp', 'fpunitsrcpath', sHelpFPUnitSrcPath);
   LogArgOption('zp', 'zipprefix', sHelpZipPrefix);
 {$ifndef NO_THREADING}
   LogArgOption('T', 'threads', sHelpThreads);
@@ -4682,6 +4740,90 @@ begin
 {$endif NO_THREADING}
 
   inherited Destroy;
+end;
+
+procedure TBuildEngine.AddFileToArchive(const APackage: TPackage; const ASourceFileName, ADestFileName: String);
+var
+  SourceDir: string;
+{$ifdef UNIX}
+  FileStat: stat;
+{$endif UNIX}
+begin
+{$ifdef CREATE_TAR_FILE}
+  {$ifdef HAS_TAR_SUPPORT}
+  if not assigned(FTarWriter) then
+    begin
+      If (APackage.Directory<>'') then
+        EnterDir('');
+      try
+        FGZFileStream := TGZFileStream.create(Defaults.ZipPrefix + APackage.Name + MakeZipSuffix(Defaults.CPU,Defaults.OS) +'.tar.gz', gzopenwrite);
+        try
+          FTarWriter := TTarWriter.Create(FGZFileStream);
+          FTarWriter.Permissions := [tpReadByOwner, tpWriteByOwner, tpReadByGroup, tpReadByOther];
+          FTarWriter.UserName := 'root';
+          FTarWriter.GroupName := 'root';
+        except
+          FGZFileStream.Free;
+        end;
+      finally
+        If (APackage.Directory<>'') then
+          EnterDir(APackage.Directory);
+      end;
+    end;
+{$ifdef unix}
+  if (FpStat(ASourceFileName, FileStat) = 0) and (FileStat.st_mode and S_IXUSR = S_IXUSR) then
+    begin
+    FTarWriter.Permissions := FTarWriter.Permissions + [tpExecuteByGroup];
+    FTarWriter.Permissions := FTarWriter.Permissions + [tpExecuteByOwner];
+    FTarWriter.Permissions := FTarWriter.Permissions + [tpExecuteByOther];
+    end
+  else
+    begin
+    FTarWriter.Permissions := FTarWriter.Permissions - [tpExecuteByGroup];
+    FTarWriter.Permissions := FTarWriter.Permissions - [tpExecuteByOwner];
+    FTarWriter.Permissions := FTarWriter.Permissions - [tpExecuteByOther];
+    end;
+{$endif unix}
+  FTarWriter.AddFile(ASourceFileName, ADestFileName);
+  {$endif HAS_TAR_SUPPORT}
+{$else CREATE_TAR_FILE}
+  {$ifdef HAS_UNIT_ZIPPER}
+  if not assigned(FZipper) then
+    begin
+      FZipper := TZipper.Create;
+      FZipper.FileName := Defaults.ZipPrefix + APackage.Name + MakeZipSuffix(Defaults.CPU,Defaults.OS) + '.zip';
+    end;
+
+  if assigned(APackage) and (APackage.Directory<>'') then
+    SourceDir:=IncludeTrailingPathDelimiter(APackage.Directory)
+  else
+    SourceDir:='';
+
+  FZipper.Entries.AddFileEntry(SourceDir + ASourceFileName, ADestFileName);
+  {$endif HAS_UNIT_ZIPPER}
+{$ENDIF CREATE_TAR_FILE}
+end;
+
+procedure TBuildEngine.FinishArchive(Sender: TObject);
+begin
+  {$ifdef HAS_TAR_SUPPORT}
+  if assigned(FTarWriter) then
+    begin
+      FreeAndNil(FTarWriter);
+      FGZFileStream.Free;
+    end;
+  {$endif HAS_TAR_SUPPORT}
+  {$ifdef HAS_UNIT_ZIPPER}
+  if assigned(FZipper) then
+    begin
+      try
+        FZipper.ZipAllFiles;
+        FZipper.Clear;
+      finally
+        FreeAndNil(FZipper);
+      end;
+    end;
+  {$endif HAS_UNIT_ZIPPER}
 end;
 
 
@@ -4943,7 +5085,7 @@ begin
 end;
 
 
-procedure TBuildEngine.CmdCopyFiles(List: TStrings; Const DestDir: String);
+procedure TBuildEngine.CmdCopyFiles(List: TStrings; Const DestDir: String; APackage : TPackage);
 
 Var
   Args : String;
@@ -4951,7 +5093,7 @@ Var
   DestFileName : String;
 begin
   // When the files should be written to an archive, add them
-  if assigned(FZipper) then
+  if assigned(FOnCopyFile) then
     begin
       For I:=0 to List.Count-1 do
         if List.Names[i]<>'' then
@@ -4960,29 +5102,12 @@ begin
               DestFileName:=DestDir+list.ValueFromIndex[i]
             else
               DestFileName:=list.ValueFromIndex[i];
-            FZipper.Entries.AddFileEntry(List.names[i], DestFileName);
+            FOnCopyFile(APackage, List.names[i], DestFileName);
           end
         else
-          FZipper.Entries.AddFileEntry(List[i], DestDir+ExtractFileName(List[i]));
+          FOnCopyFile(APackage, List[i], DestDir+ExtractFileName(List[i]));
       Exit;
     end;
-  {$ifdef HAS_TAR_SUPPORT}
-  if assigned(FTarWriter) then
-    begin
-      For I:=0 to List.Count-1 do
-        if List.Names[i]<>'' then
-          begin
-            if IsRelativePath(list.ValueFromIndex[i]) then
-              DestFileName:=DestDir+list.ValueFromIndex[i]
-            else
-              DestFileName:=list.ValueFromIndex[i];
-            FTarWriter.AddFile(List.names[i], DestFileName);
-          end
-        else
-          FTarWriter.AddFile(List[i], DestDir+ExtractFileName(List[i]));
-      Exit;
-    end;
-  {$endif HAS_TAR_SUPPORT}
 
   // Copy the files to their new location on disk
   CmdCreateDir(DestDir);
@@ -6283,7 +6408,7 @@ begin
     if APackage.BuildMode=bmBuildUnit then
       begin
         APackage.FBUTargets := TTargets.Create(TTarget);
-        if Defaults.OS in AllLimit83fsOses then
+        if Defaults.BuildOS in AllLimit83fsOses then
           BUName := 'BUnit.pp'
         else
           BUName := 'BuildUnit_'+StringReplace(APackage.Name,'-','_',[rfReplaceAll])+'.pp';
@@ -6440,7 +6565,7 @@ begin
     if (List.Count>0) then
       begin
         Result:=True;
-        CmdCopyFiles(List,Dest);
+        CmdCopyFiles(List,Dest,APackage);
       end;
   Finally
     List.Free;
@@ -6450,11 +6575,28 @@ end;
 procedure TBuildEngine.InstallUnitConfigFile(APAckage: TPackage; const Dest: String);
 Var
   List : TStringList;
+  ConfigFileName: String;
+  ConfigFileContent: TStrings;
 begin
+  ConfigFileName:=IncludeTrailingPathDelimiter(APackage.GetUnitConfigOutputDir(Defaults.CPU,Defaults.OS))+UnitConfigFile;
   List:=TStringList.Create;
   Try
-    List.add(IncludeTrailingPathDelimiter(APackage.GetUnitConfigOutputDir(Defaults.CPU,Defaults.OS))+UnitConfigFile);
-    CmdCopyFiles(List,Dest);
+    if Defaults.FPUnitSourcePath<>'' then
+      begin
+        ConfigFileContent := TStringList.Create;
+        try
+          ConfigFileContent.LoadFromFile(ConfigFileName);
+          if Defaults.FPUnitSourcePath='0' then
+            ConfigFileContent.Delete(ConfigFileContent.IndexOfName(KeySourcePath))
+          else
+            ConfigFileContent.Values[KeySourcePath] := Defaults.FPUnitSourcePath;
+          ConfigFileContent.SaveToFile(ConfigFileName);
+        finally
+          ConfigFileContent.Free;
+        end;
+      end;
+    List.add(ConfigFileName);
+    CmdCopyFiles(List,Dest,APackage);
   Finally
     List.Free;
   end;
@@ -6471,7 +6613,7 @@ begin
     if (List.Count>0) then
       begin
         Result:=True;
-        CmdCopyFiles(List,Dest);
+        CmdCopyFiles(List,Dest,APackage);
       end;
   Finally
     List.Free;
@@ -6499,7 +6641,7 @@ begin
 end;
 
 
-procedure TBuildEngine.Install(APackage: TPackage);
+procedure TBuildEngine.Install(APackage: TPackage; AnArchiveFiles: boolean);
 Var
   UC,D : String;
   B : Boolean;
@@ -6508,8 +6650,15 @@ begin
     MaybeCompile(APackage);
   try
     Log(vlCommand,SInfoInstallingPackage,[APackage.Name]);
+    if AnArchiveFiles and APackage.SeparateArchive then
+      FinishArchive(APackage);
     If (APackage.Directory<>'') then
       EnterDir(APackage.Directory);
+    if AnArchiveFiles then
+      begin
+        FOnCopyFile:=@AddFileToArchive;
+        FOnFinishCopy:=@FinishArchive;
+      end;
     DoBeforeInstall(APackage);
     // units
     B:=false;
@@ -6517,7 +6666,7 @@ begin
     GlobalDictionary.AddVariable('unitinstalldir',Defaults.UnitInstallDir);
     GlobalDictionary.AddVariable('packageunitinstalldir',APackage.GetPackageUnitInstallDir(Defaults.CPU,Defaults.OS));
 
-    D:=IncludeTrailingPathDelimiter(Defaults.BaseInstallDir);
+    D:=FixPath(Defaults.Prefix);
     // This is to install the TPackage.Installfiles, which are not related to any
     // target
     if InstallPackageFiles(APackage,[],D) then
@@ -6548,6 +6697,11 @@ begin
     // Done.
     APackage.FTargetState:=tsInstalled;
     DoAfterInstall(APackage);
+    if AnArchiveFiles then
+      begin
+      FOnCopyFile:=nil;
+      FOnFinishCopy:=nil;
+      end;
   Finally
     If (APackage.Directory<>'') then
       EnterDir('');
@@ -6929,7 +7083,7 @@ begin
       P:=Packages.PackageItems[i];
       If PackageOK(P) then
         begin
-          Install(P);
+          Install(P, False);
           log(vlWarning, SWarnInstallationPackagecomplete, [P.Name, Defaults.Target]);
         end
       else
@@ -6941,81 +7095,34 @@ end;
 
 procedure TBuildEngine.ZipInstall(Packages: TPackages);
 
-  procedure CreateZipFile;
-  var
-    I : Integer;
-    P : TPackage;
-  begin
-    FZipper := TZipper.Create;
-    try
-      For I:=0 to Packages.Count-1 do
-        begin
-          P:=Packages.PackageItems[i];
-          If PackageOK(P) then
-            begin
-              FZipper.FileName := Defaults.ZipPrefix + P.Name + '.' + MakeTargetString(Defaults.CPU,Defaults.OS) +'.zip';
-              Install(P);
-              FZipper.ZipAllFiles;
-              FZipper.Clear;
-              log(vlWarning, SWarnInstallationPackagecomplete, [P.Name, Defaults.Target]);
-            end
-          else
-            log(vlWarning,SWarnSkipPackageTarget,[P.Name, Defaults.Target]);
-        end;
-    finally
-      FZipper.Free;
-    end;
-  end;
-
-  {$ifdef HAS_TAR_SUPPORT}
-  procedure CreateTarFile;
-  var
-    I : Integer;
-    P : TPackage;
-    S : TGZFileStream;
-  begin;
-    For I:=0 to Packages.Count-1 do
-      begin
-        P:=Packages.PackageItems[i];
-        If PackageOK(P) then
-          begin
-            S := TGZFileStream.create(Defaults.ZipPrefix + P.Name + '.' + MakeTargetString(Defaults.CPU,Defaults.OS) +'.tar.gz', gzopenwrite);
-            try
-              FTarWriter := TTarWriter.Create(S);
-              FTarWriter.Permissions := [tpReadByOwner, tpWriteByOwner, tpReadByGroup, tpReadByOther];
-              FTarWriter.UserName := 'root';
-              FTarWriter.GroupName := 'root';
-              try
-                Install(P);
-                log(vlWarning, SWarnInstallationPackagecomplete, [P.Name, Defaults.Target]);
-              finally
-                FTarWriter.Free;
-              end;
-            finally
-              S.Free;
-            end;
-          end
-        else
-          log(vlWarning,SWarnSkipPackageTarget,[P.Name, Defaults.Target]);
-      end;
-  end;
-  {$endif HAS_TAR_SUPPORT}
+var
+  I : Integer;
+  P : TPackage;
 
 begin
   If Assigned(BeforeInstall) then
     BeforeInstall(Self);
 
-  Defaults.IntSetBaseInstallDir('lib/fpc/' + Defaults.FCompilerVersion+ '/');
+  if Defaults.UnixPaths then
+    Defaults.IntSetBaseInstallDir('lib/fpc/' + Defaults.FCompilerVersion+ '/')
+  else
+    Defaults.IntSetBaseInstallDir('');
 
-  {$ifdef unix}
-  {$ifdef HAS_TAR_SUPPORT}
-  CreateTarFile;
-  {$else HAS_TAR_SUPPORT}
-  CreateZipFile;
-  {$endif HAS_TAR_SUPPORT}
-  {$else unix}
-  CreateZipFile;
-  {$endif unix}
+  try
+    For I:=0 to Packages.Count-1 do
+      begin
+        P:=Packages.PackageItems[i];
+        If PackageOK(P) then
+          begin
+            Install(P, True);
+            log(vlWarning, SWarnInstallationPackagecomplete, [P.Name, Defaults.Target]);
+          end
+        else
+          log(vlWarning,SWarnSkipPackageTarget,[P.Name, Defaults.Target]);
+      end;
+  finally
+    FinishArchive(P);
+  end;
 
   If Assigned(AfterInstall) then
     AfterInstall(Self);
@@ -7954,3 +8061,4 @@ Finalization
   FreeAndNil(GlobalDictionary);
   FreeAndNil(Defaults);
 end.
+

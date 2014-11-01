@@ -14,6 +14,7 @@ interface
   $mode switch is not effective }
 
 {$I systemh.inc}
+{$I tnyheaph.inc}
 
 const
   LineEnding = #13#10;
@@ -318,7 +319,7 @@ type
 {$endif}
 begin
   SetMemoryManager(TinyHeapMemoryManager);
-  RegisterTinyHeapBlock(__nearheap_start, TPointerArithmeticType(__nearheap_end) - TPointerArithmeticType(__nearheap_start));
+  RegisterTinyHeapBlock_Simple_Prealigned(__nearheap_start, TPointerArithmeticType(__nearheap_end) - TPointerArithmeticType(__nearheap_start));
 end;
 
 function CheckLFN:boolean;

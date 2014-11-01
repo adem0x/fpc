@@ -3,6 +3,16 @@
  {$DEFINE NO_THREADING}
 {$ENDIF}
 
+{$IFDEF AROS}
+ {$DEFINE NO_UNIT_PROCESS}
+ {$DEFINE NO_THREADING}
+{$ENDIF}
+
+{$IFDEF AMIGA}
+ {$DEFINE NO_UNIT_PROCESS}
+ {$DEFINE NO_THREADING}
+{$ENDIF}
+
 {$IFDEF OS2}
  {$DEFINE NO_UNIT_PROCESS}
 {$ENDIF OS2}
@@ -211,6 +221,7 @@ begin
     P.Directory:=ADirectory;
 {$endif ALLPACKAGES}
     P.Version:='2.7.1';
+    P.SeparateArchive:=false;
 
     P.Dependencies.Add('fcl-base');
 

@@ -74,7 +74,7 @@ begin
   l:=Length(FileName);
   if (l<2) then
     exit;
-{$IF DEFINED(AMIGA) OR DEFINED(MORPHOS)}
+{$IFDEF HASAMIGA}
   i:=Pos(DriveSeparator,FileName);
   if (i > 0) then Result:=Copy(FileName,1,i); 
 {$ELSE}
@@ -424,6 +424,9 @@ begin
   Result:=Path;
   l:=Length(Result);
   If (L=0) or not CharInSet(Result[l],AllowDirectorySeparators) then
+{$ifdef HASAMIGA}
+    If (L>0) and (Result[l] <> DriveSeparator) then
+{$endif}
 {$ifdef SYSUTILSUNICODE}
     Result:=Result+DirectorySeparator;
 {$else SYSUTILSUNICODE}

@@ -602,7 +602,7 @@ begin
         TrLen := SQLLen;
       end;
     SQL_TYPE_DATE :
-      TrType := ftDate;
+        TrType := ftDate;
     SQL_TYPE_TIME :
         TrType := ftTime;
     SQL_TIMESTAMP :
@@ -615,9 +615,9 @@ begin
     SQL_BLOB :
       begin
         if SQLSubType = isc_blob_text then
-           TrType := ftMemo
+          TrType := ftMemo
         else
-           TrType := ftBlob;
+          TrType := ftBlob;
         TrLen := SQLLen;
       end;
     SQL_SHORT :
@@ -1614,29 +1614,41 @@ end;
 
 class function TIBConnectionDef.DefaultLibraryName: String;
 begin
+{$IFDEF LinkDynamically}
   If UseEmbeddedFirebird then
     Result:=fbembedlib
   else
-    Result:=fbclib
+    Result:=fbclib;
+{$ELSE}
+  Result:='';
+{$ENDIF}
 end;
 
 class function TIBConnectionDef.LoadFunction: TLibraryLoadFunction;
 begin
+{$IFDEF LinkDynamically}
   Result:=@InitialiseIBase60;
+{$ELSE}
+  Result:=nil;
+{$ENDIF}
 end;
 
 class function TIBConnectionDef.UnLoadFunction: TLibraryUnLoadFunction;
 begin
+{$IFDEF LinkDynamically}
   Result:=@ReleaseIBase60
+{$ELSE}
+  Result:=nil;
+{$ENDIF}
 end;
 
 class function TIBConnectionDef.LoadedLibraryName: string;
 begin
-  {$IfDef LinkDynamically}
+{$IFDEF LinkDynamically}
   Result:=IBaseLoadedLibrary;
-  {$else}
+{$ELSE}
   Result:='';
-  {$endif}
+{$ENDIF}
 end;
 
 initialization

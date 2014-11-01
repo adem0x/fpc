@@ -164,8 +164,10 @@
              system_mipsel_android,     { 80 }
              system_mipseb_embedded,    { 81 }
              system_mipsel_embedded,    { 82 }
-             system_riscv32_linux,      { 83 }
-             system_riscv32_embedded    { 84 }
+             system_i386_aros,          { 83 }
+             system_x86_64_aros,        { 84 }
+             system_riscv32_linux,      { 85 }
+             system_riscv32_embedded    { 86 }
        );
 
      type
@@ -216,6 +218,7 @@
        tlink = (ld_none,
              ld_aix,           { external linkers (one per OS, handles all CPUs) }
              ld_amiga,
+             ld_aros,
              ld_atari,
              ld_android,
              ld_beos,
@@ -273,7 +276,8 @@
 
        tscripttype = (script_none
             ,script_dos,script_unix,script_amiga,
-            script_mpw
+            script_mpw,
+            script_fpcres
        );
 
        tabi = (abi_default
